@@ -24,6 +24,7 @@ import traceback
 import getopt
 import os
 
+import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 
@@ -36,8 +37,13 @@ def main():
     debug = 0
     do_drop = False
     extra_files = []
-    Cerebrum = Factory.get('Database')(
-        user=cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner'])
+    db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner']
+    if db_user is None:
+        db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user']
+        if db_user is not None:
+            print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
+            print "Will use regular 'user' (%s) instead." % db_user
+    Cerebrum = Factory.get('Database')(user=db_user)
 
     for opt, val in opts:
         if opt in ('-d', '--debug'):
