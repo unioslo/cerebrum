@@ -105,7 +105,7 @@ def migrate_to_rel_0_9_2():
             processed[int(row['account_id'])] = 1
             status = co.home_status_on_disk
             if ac.is_deleted():
-                status = None
+                status = co.home_status_archived
             ac.set_home(spread, disk_id=row['disk_id'], home=row['home'],
                         status=status)
             ac.write_db()
@@ -126,7 +126,7 @@ def migrate_to_rel_0_9_2():
         ac.find(row['account_id'])
         status = co.home_status_on_disk
         if ac.is_deleted():
-            status = None
+            status = co.home_status_archived
         ac.set_home(spread, disk_id=row['disk_id'], home=row['home'],
                     status=status)
         ac.write_db()
