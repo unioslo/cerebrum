@@ -33,7 +33,7 @@ default username from Account is NOT used.
 When the gecos field is not set, it is automatically extracted from
 the name variant DEFAULT_GECOS_NAME (what about non-person accounts?).
 SourceSystems are evaluated in the order defined by
-POSIX_GECOS_SS_ORDER"""
+POSIX_GECOS_SOURCE_ORDER"""
 
 import random,re,string
 from Cerebrum import Person,Constants,Errors
@@ -137,13 +137,13 @@ class PosixUser(object):
     def get_gecos(self):
         """Returns the gecos string of this object.  If self.gecos is
         not set, gecos is determined by searching for
-        DEFAULT_GECOS_NAME in POSIX_GECOS_SS_ORDER"""
+        DEFAULT_GECOS_NAME in POSIX_GECOS_SOURCE_ORDER"""
         assert self.owner_type == int(self.const.entity_person)
         if self.gecos is not None:
             return self.gecos
         p = Person.Person(self._db)
         p.find(self.owner_id)
-        for ss in cereconf.POSIX_GECOS_SS_ORDER:
+        for ss in cereconf.POSIX_GECOS_SOURCE_ORDER:
             try:
                ret = p.get_name(getattr(self.const, ss),
                                 getattr(self.const,
