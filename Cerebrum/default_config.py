@@ -50,6 +50,7 @@ DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
 # evaluating source systems in in this order
 POSIX_GECOS_SOURCE_ORDER = ("system_lt", "system_fs")
 POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
+POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"
 # Temporary switch until someone can figure out why mktime won't work
 # with year < 1970 on some systems.  Must NOT be set on production
 # systems.
