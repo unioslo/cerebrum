@@ -255,7 +255,7 @@ The currently defined id-types are:
                 from mx.DateTime import DateTime, DateTimeDeltaFromSeconds
                 time_t = int(last_event.split(":")[-1])
                 tstamp = DateTime(1970) + DateTimeDeltaFromSeconds(time_t)
-
+                tstamp += tstamp.gmtoffset()
             tmp = {
                 'job_id': r['job_id'],
                 'transaction_type': r['transaction_type'],
@@ -277,6 +277,9 @@ The currently defined id-types are:
             elif r['transaction_type'] == str(self.const.pqtt_quota_balance):
                 tmp['data'] = "balance"
             ret.append(tmp)
+
+        # Transaction order may be different from the job completion order
+        ret.sort(lambda a, b: cmp(a['tstamp'], b['tstamp']))
         return ret
 
     all_commands['pquota_off'] = Command(
