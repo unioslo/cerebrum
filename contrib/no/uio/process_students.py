@@ -728,8 +728,8 @@ def main():
                                     'paper-file=',
                                     'remove-groupmembers'
                                     'dryrun', 'validate'])
-    except getopt.GetoptError:
-        usage()
+    except getopt.GetoptError, e:
+        usage(str(e))
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            recalc_pq, dryrun, emne_info_file, move_users, remove_groupmembers, \
@@ -795,12 +795,12 @@ def main():
             range = val
             to_stdout = True
         else:
-            usage()
+            usage("Unimplemented option: " + opt)
 
     if (not update_accounts and not create_users and not validate and
           range is None):
         if not recalc_pq:
-            usage()
+            usage("expected mode was recalculate printer quotas")
     else:
         if recalc_pq:
             raise ValueError, "recalc-pq cannot be combined with other operations"
@@ -823,7 +823,9 @@ def main():
     else:
         process_students()
     
-def usage():
+def usage(error=None):
+    if error:
+        print "Error:", error
     print """Usage: process_students.py -d | -c | -u
     -d | --debug: increases debug verbosity
     -c | --create-user : create new users
