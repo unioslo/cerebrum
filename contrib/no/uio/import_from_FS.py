@@ -63,6 +63,8 @@ def write_person_info(outfile):
     # privatist) og Alumni
     cols, students = fs.GetStudinfOpptak()
     for s in students:
+	# The Oracle driver thinks the result of a union of ints is float
+        fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
     # Studenter med alumni opptak til et studieprogram
     cols, students = fs.GetAlumni()
