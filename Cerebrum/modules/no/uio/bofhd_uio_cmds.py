@@ -1145,8 +1145,7 @@ class BofhdExtension(object):
     #
     # entity commands
     #
-    all_commands['entity_info'] = Command(('entity', 'info'),
-                                            Id())
+    all_commands['entity_info'] = None
     def entity_info(self, operator, entity_id):
         """Returns a dings"""
         entity = self._get_entity(id=entity_id)
@@ -2631,7 +2630,10 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
-        entity.add_spread(spread)
+        try:
+            entity.add_spread(spread)
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         if entity_type == 'account':
             self.__spread_sync_group(entity)
         return "OK"
@@ -2841,7 +2843,7 @@ class BofhdExtension(object):
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
             
-        group=self._get_group(filegroup)
+        group=self._get_group(filegroup, grtype="PosixGroup")
         posix_user = PosixUser.PosixUser(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
@@ -3437,6 +3439,10 @@ class BofhdExtension(object):
         if idtype == 'group':
             return self._get_group(id)
         if idtype is None:
+            try:
+                int(id)
+            except ValueError:
+                raise CerebrumError, "Excpected int as id"
             return Entity.object_by_entityid(id, self.db)
         raise CerebrumError, "Invalid idtype"
 
@@ -3483,6 +3489,8 @@ class BofhdExtension(object):
                 raise CerebrumError, "Unknown idtype"
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
+        except Errors.TooManyRowsError:
+            raise CerebrumError, "ID not unique %s=%s" % (idtype, id)
         return person
 
     def _map_person_id(self, id):
@@ -3615,15 +3623,18 @@ class BofhdExtension(object):
 
     def _parse_range(self, selection):
         lst = []
-        for part in selection.split():
-            idx = part.find('-')
-            if idx != -1:
-                for n in range(int(part[:idx]), int(part[idx+1:])+1):
-                    if n not in lst:
-                        lst.append(n)
-            else:
-                part = int(part)
-                if part not in lst:
-                    lst.append(part)
+        try:
+            for part in selection.split():
+                idx = part.find('-')
+                if idx != -1:
+                    for n in range(int(part[:idx]), int(part[idx+1:])+1):
+                        if n not in lst:
+                            lst.append(n)
+                else:
+                    part = int(part)
+                    if part not in lst:
+                        lst.append(part)
+        except ValueError:
+            raise CerebrumError, "Error parsing range '%s'" % selection
         lst.sort()
         return lst
