@@ -1,0 +1,1340 @@
+* TODO-liste for arbeidet mot Cerebrum 1.0
+
+ Vi prioriteterer punktene i fire kategorier:
+
+  1: Må på plass i god tid før 1.0; vi vet om konkret tidsfrist i dag.
+  2: Må på plass innen 1.0.
+  3: Bør på plass innen 1.0, men kan evt. puffes.
+  4: Utsettes til etter 1.0.
+
+* NIS
+** Bygge maskinnettgrupper i tillegg til brukernettgrupper
+
+  Description: Dette er egentlig 'mreg' fase 1.  Det meste her er
+               skrevet jmf RF, men ikke noe er sjekket inn eller
+               testet.  Inneholdet kan beskrives av runefro.
+
+  Dependencies:
+  Assigned to: runefro
+  Due date:
+  Priority: 4 (Innebærer at mreg er på plass)
+
+** Rekursive grupper
+
+  Description: File- og nettgrupper må ta hensyn til subgrupper (både
+               union, snitt og differanse).  Tar hensyn til
+               union-medlemmer i dag, men snitt og differanse er ikke
+               implementert.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Due date:
+  Priority: 3
+  Status:
+
+** Brukere i mange grupper (mer enn 16, nå satt til 20)
+
+*** Utrede hvordan dette bør håndteres
+  Description: Problemet er NFS (egentlig RPC (?)), som ikke takler
+               at brukere er med i flere enn 16 grupper.  Cerebrum har
+               ingen slik begrensning og de fleste andre systemer vi
+               bruker har det heller ikke.  Løsningen må derfor ligge
+               i NIS-modulen, men hva skal løsningen være?  Hvis en
+               bruker er med i flere enn 16 grupper som er kjent i det
+               NIS som det eksporteres til, hvordan velger vi da ut de
+               16 brukeren får?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+*** Implementere løsning
+  Description: 
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Delvis generering av shadowmaps
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+** Personnavnoverstyring 
+  Description: Hvorfor trenger vi dette? 
+
+               Typisk for bruk der personer har offisielle navn (fra
+               folkeregistrert) som de ikke ønsker brukt til daglig.
+               Hvorledes dette skal gjøres må først utredes.
+
+               Det er ikke snakk om den form for overstyring som en
+               kan gjøre med 'user gecos', som bla implisitt kan endre
+               defaultadressen til brukeren.
+  Dependencies:
+  Assigned to: 
+  Resources:
+  Cost:
+  Status: Ikke påbegynt, punktet må flyttes fra NIS.
+  Due date:
+  Priority: 2
+
+* AD
+** OU-struktur på grupper
+  Description: AD er bygget opp slik at grupper er  i en OU.
+               Identifikatoren for gruppen blir da DN for gruppen, og
+               ikke gruppens navn.  Cerebrum bør få støtte for slike
+               grupper (vil kunne bli gjenbrukt i forhold til LDAP,
+               Novell og Notes).
+  Dependencies:
+  Assigned to: fredrivo
+  Resources:
+  Cost:
+  Status: 
+  Due date:
+  Priority: 3
+** OU-struktur på brukere
+  Description: AD er bygget opp slik at brukere ligger i OU'er, denne
+               egenskapen bruker vi ikke i dag.  Det bør være støtte
+               for å angi hvilken OU (basert på hva brukeren har som
+               sin primære affiliation) som brukeren skal ha i AD.
+  Dependencies:
+  Assigned to: fredrivo
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Eksport av forskjellige typer grupper
+  Description: AD har flere forskjellige typer av grupper, per i dag
+               bygger vi kun en type.  Vi trenger støtte for å kunne
+               bygge forskjellige typer grupper.
+  Dependencies:
+  Assigned to: fredrivo
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Rekursive grupper
+  Description: AD har støtte for grupper som medlem av gruppe (på
+               linje med union-medlem i Cerebrum).  Dette bør vi kunne
+               bruke ved AD-synkroniseringen, slik at gruppen som
+               eksporteres ikke flates ut dersom gruppe-medlemmet også
+               er kjent i AD.
+  Dependencies:
+  Assigned to: fredrivo
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Kryptert forbindelse?
+  Description: Synkroniseringen mot PDC må gjøres gjennom en kryptert
+               tunnel.  I dag skjer dette ukryptert, noe som er nær
+               uproblematisk når både Cerebrum-serveren og PDC står på
+               maskinrommet og har et nært privat nett, men som ikke
+               er like uproblematisk når Cerebrum-serveren står i
+               Oslo, og PDC står i Kristiansand.
+  Dependencies:
+  Assigned to: fredrivo
+  Resources: runefro
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+** Skrive om AD-servicen
+  Description: Den gamle servicen skrevet av runefro bør gjennomgås,
+               og hele greia bør skrives om og da gjerne i noe annet 
+               enn C.
+  Dependencies:
+  Assigned to: fredrivo
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Samordne quicksync-grupper og moduler
+  Description: Etablere et felles kode-api for de forskjellige
+               quicksync-skriptene for å ungå kodedublisering.
+  Dependencies:
+  Assigned to: runefro
+  Resources: fredrivo, havlar, mathiasm, areen
+  Cost:
+  Status: Ikke påbegynt, må flyttes til et annet sted (ikke ren AD).
+  Due date:
+  Priority: 3
+** NT profile path (loginscript)
+  Description:
+  Dependencies:
+  Assigned to: fredrivo
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Må ha test av full sync.
+  Description:
+  Dependencies:
+  Assigned to: fredrivo
+  Resources: pcadm
+  Cost:
+  Status:
+  Due date: 2004-12-01
+  Priority: 1
+** Fjerne krav om å oppbevare klartekstpassord i Cerebrum
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+* LDAP
+** Servicetre for lokale brukere bør inn i Cerebrum?
+  Description: Per i dag finnes det lokale brukere i UiO sitt
+               LDAP-tre.  Dette er typisk LDAP-relaterte
+               systembrukere.  Disse bør ha sin opprinnelse i
+               Cerebrum, og et eget spread bør ligge til grunn for i
+               hvilken grad brukeren skal eksistere i 'service-treet'
+               til LDAP-katalogen.
+  Dependencies:
+  Assigned to: mathiasm
+  Resources: hbf
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Sjekke Feide for hvilke attributter vi må ha
+  Description: FEIDE-skjemaet er nå i versjon 1.3, og UiO sin
+               LDAP-katalog må oppdateres til å være i samsvar med
+               dette skjematet.
+  Dependencies:
+  Assigned to: hbf
+  Resources: mathiasm, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+** Hvordan representerer vi Feide-ID i Cerebrum?
+  Description: Vi må kunne assosiere en person sin FEIDE-ID fra en
+               annen institusjon med personen i Cerebrum., samtidig
+               bør vi ha en direkte representasjon av lokal-Feide-ID til
+               personen i Cerebrum (i dag avledes Feide-ID av
+               primærbrukerens brukernavn konkatinert strengen
+               '@uio.no' ved UiO, generelt FQDN).
+
+               Feide-ID bør inn som en egen entitet i Cerebrum, efter
+               som den bla skal kunne være medlem av grupper.  Bør
+               andre (ikke-UiO) involveres?
+  Dependencies:
+  Assigned to: hmeland
+  Resources: runefro, mathiasm, kjetilho, mraaum, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+** 'Dynamiske' grupper
+  Description: Få på plass et generelt gruppe-begrep som representerer
+               en 'dynamisk' gruppe, som det så er lett å generere
+               brukere i.  Administreres fra Cerebrum ("personlig
+               gruppe", kortere levetid)
+  Dependencies:
+  Assigned to: kjetilho
+  Resources: mraaum, hmeland, runefro, mathiasm, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Roller
+  Description: Vi trenger en måte å uttrykke personroller, gitt fra
+               institusjonesn autorative systemer.  Typisk ting som
+               studiekonsulent ved et sted eller studieprogram,
+               dekanus ved et fakultet, foreleser for et emne,
+               personalkonsulent for et sted, foresatt for en elev,
+               sjef for en slave osv.
+  Dependencies:
+  Assigned to: ...
+  Resources: hmeland, runefro, jazz, mathiasm, mraaum, isabelg, baardj,
+             NTNU, FEIDE mfl.
+  Cost: Blod (mraaums)
+  Status:
+  Due date:
+  Priority: 3
+** Grupper/Roller fra FS
+  Description: Grupper rundt programmer/kurs/studieretninger/kull.
+               Dette må ses i sammenheng med CF-synkroniseringen. 
+  Dependencies:
+  Assigned to: hmeland
+  Resources: jazz, kjetilho, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Rene Epost-brukere
+  Description: Brukere som kun får lov til å bruke e-post (henger på
+               utvidelse av karantenebegrepet, slik at en bruker kan
+               være sperret i NIS, men kunne bruke mail som før) 
+  Dependencies:
+  Assigned to: hmeland
+  Resources: jazz, mathiasm, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+** En del tjenester vil snakke med POSIX-treet i Cerebrum
+  Description: ??? (Skjønner ikke hva dette punktet er ment å bety)
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+** Quicksync. av LDAP
+  Description: Det er uklart hvilket LDAP-tre vi tenker på, og
+               eventuelt hvilke deler av et tre som dette skal
+               omfatte. 
+  Dependencies: 
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+* FS
+** Data tilbake til FS.
+  Description: Fra Cerebrum skal FS få data om personens primærbruker,
+               og dennes mailadresse.
+  Dependencies:
+  Assigned to: hmeland
+  Resources:
+  Cost:
+  Due date: 2004-10-15
+  Priority: 1
+  Status: Done
+
+** Personer fra HR til FS.
+  Description: Fra HR via Cerebrum skal FS få data om UiO sine
+               ansatte.  Det skal bygges fagpersoner for alle ansatte
+               (tilsatte og bilagslønnede/kontraktsarbeidere).
+
+               For det vitenskapelige personalet skal det i tillegg
+               registreres at de er aktive som fagpersoner ved den
+               enheten de er tilsatt.
+  Dependencies:
+  Assigned to: baardj
+  Resources:
+  Cost:
+  Due date: 2004-11-15
+	    (Hvor kommer denne datoen fra? Er det realistisk?  Hvis
+	    nei, bør ikke dette dokumentet publiseres med denne
+	    fristen.)
+  Priority: 1
+  Status: Ukjent
+
+** Synkronisere steddata fra HR til FS via Cerebrum
+  Description: Ved UiO er HR autoritativ for OU-informasjon, og FS er
+               et slave-system i forhold til dette.  Vi må få på plass
+               en synkronisering som gjør at steddata kan flyte fra HR
+               til FS, og at vi får oversikt over de mangler som måtte
+               være mellom disse.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Støtte for å hente FS-data fra FS v5.0
+  Description: FS har skrevet om sentrale deler av database-skjemaet.
+               Cerebrum må støtte det nye skjemaet.  Det er for tiden
+               uklart hva det betyr.
+  Dependencies:
+  Assigned to: baardj
+  Resources:
+  Cost:
+  Due date: 2004-11-15
+	    (Hvor kommer denne datoen fra? Er det realistisk?  Hvis
+	    nei, bør ikke dette dokumentet publiseres med denne
+	    fristen.)
+  Priority: 1 (FS 5.0 Settes i prod 2004-11-15)
+  Status:
+
+*** FS 5.0 - bedre mulighet for institusjonsuavhengige script?
+  Description: Det er en målsetting å få redusert eller helst fjernet
+               mest mulig av de institusjonsspesifikke delene av
+               FS-importen.  Det er uklart om versjon 5.0 av FS vil
+               bidra til dette.  Vi må utrede hvorvidt det er
+               formålstjenlig å gjøre FS-koden vår mer
+               institusjonsuavhengig; hvis ja må dette også
+               implementeres.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Import av kull/klasser fra FS
+  Description: Versjon 5.0 av FS rydder opp i en del uklarheter rundt
+               kull og klasser.  Det gjør det mulig å få overført
+               entydige data om disse entitetene til Cerebrum og
+               bygget automatisk vedlikeholdte grupper rundt dette.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Eksport av kull/klasser til ClassFronter
+  Description: Ta tak i de automatisk genererte gruppene som
+               representerer kull/klasser fra FS, og gjøre disse
+               tilgjengelig for ClassFronter.
+  Dependencies: Import av kull/klasser fra FS
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Studieprogram/Studieretninger
+  Description: Vi må få inn støtte for studieretninger under
+               studieprogram for de studieprogram som har
+               studieretninger.  Studieretning er kun en ny måte å
+               gruppere studenter på, som må over til Cerebrum og
+               videre til systemer som trenger denne typen informasjon
+               (typisk LMS).
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Hvordan abstrahere ut fellesinformasjon
+  Description: Tror dette punktet handler om filformatet vi lagrer
+               data hentet fra FS på -- det hadde vært Fint om vi fikk
+               på plass et kildesystem-uavhengig format for
+               f.eks. persondata.
+
+	       Det er mulig vi har gjettet riktig beskrivelse ut fra
+	       punktets overskrift; uansett må dette punktet utdypes
+	       nærmere.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2 (gitt at vi har forstått punktets hensikt riktig)
+
+** Må ha egne søk, kan ikke parse på tags
+  Description: ??? (Skjønner ikke hva dette punktet er ment å bety)
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority:
+
+** Flere alternative adresser per person
+  Description: FS har et flere adresser knyttet til personer, og typer
+               av personer.  Vi må kunne ha disse i Cerebrum, og kunne
+               gjenbruke de i de forskjellige settingene der
+               postadresser behøves.
+
+               I FS finnes:
+                 FS.PERSON - Hjemadresse
+                 FS.STUDENT - Semesteradresse
+                 FS.FAGPERSON - Jobbadresse
+                 FS.DELTAKER - Jobbadresse
+
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Alumni
+  Description: UiO har ikke etablert noen sentral ordning for en
+               Alumni-tjeneste enda, men flere av enhetene har slike
+               på plass.  Det er en UiO-sentral gruppe som jobber med
+               å utarbeide hva Alumni skal bety og uansett hva de
+               kommer opp med så vil det minst bety at de skal ha mail
+               og kunne autentisere seg for enkelte andre tjenester.
+
+	       Andre institusjoner har kanskje tilsvarende
+	       problemstillinger?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Brukernavn/passord for EVU-studenter
+  Description: Bygging av brukere og utsending av brukernavn/passord
+               for EVU.  Dette kan bruke samme automatikk for bygging
+               av konti som for vanlige studenter; vanskelighetene
+               kommer primært i forbindelse med valg av adresser
+               kontoinformasjon skal sendes til.
+  Dependencies: Flere alternative adresser per person
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Endre tidspunktet for brukerbygging til deltakere på EVU-kurs.
+  Description: Tillate bygging av brukere i forhold til EVU-kurs
+               tidligere enn dagens 14 dager før kursstart.  Dette bør
+               antagelig gjøres konfigurerbart
+               pr. Cerebrum-installasjon.
+  Dependencies:
+  Assigned to: hmeland
+  Resources: baardj
+  Cost:
+  Status:
+  Due date: 2004-12-31
+  Priority: 1
+
+** Bygge grupper rundt EVU-kurs tidligere enn i dag.
+  Description: La EVU-kurs være tilgjengelig for export til LMS
+               tidligere enn dagens 14 dager før start og uavhengig av
+               når vi begynner å bygge studentbrukere for kurset.
+               Innebærer i praksis at LMS-eksport inkluderer data om
+               alle fremtidige EVU-kurs.
+  Dependencies:
+  Assigned to: hmeland
+  Resources: baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Avvikling av brukere til EVU-studenter, når og hvordan?
+  Description: I dag avvikles hjemområdet for en EVU-student sammen
+               med ordinære studenter.  Vi trenger en mer rullerende
+               ordning som sender varsel om sperring/sletting og
+               utfører dette ukentlig.
+
+	       Holder det å varsle pr. email, eller gir dette samme
+	       problemer for valg av postadresse som ved bygging av
+	       konti for EVU-brukere?
+  Dependencies:
+  Assigned to: runefro
+  Resources: jazz, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** UiO: Brukerflyttinger må på plass
+  Description: Mekanismen for flytting av brukeres hjemmeområder må
+	       avklares og ferdigstilles, slik at flytting av brukere
+	       kan foregå uten manuell igangsetting.
+  Dependencies:
+  Assigned to: runefro
+  Resources: jazz
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Brukeravvikling (dvs. avvikling av hjemmeområde) må på plass.
+  Description: Automagien rundt varsling, sperring og sletting av
+               brukere (brukeres hjemområde) må gjennomgås slik at den
+               kan kjøre uten alt for store innslag av manuelt arbeid.
+  Dependencies:
+  Assigned to: jazz
+  Resources: runefro
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+
+* HR (POLS)
+** Må ha mulighet for automatisk generering av grupper
+  Description: Det må etableres en automagi som vedlikeholder ymse
+               former for grupper ut fra hvor folk (ansatte og andre)
+               er registrert, hvorledes de er registrert og hvilke
+               funksjoner/roller de innehar i HR.
+  Dependencies:
+  Assigned to:
+  Resources: baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Diverse automatikk i forhold til ansatte/gjester m.fl.
+  Description: En mer utvidet utgave av forrige punkt.  Er ment å gi
+               noe av den samme funksjonaliteten som studentautomagien
+               har i dag for studenter i FS.  Det vil si magi rundt
+               brukerbygging, flytting, avvikling mm, og trolig
+               etablering av en hrconfig.xml til å styre dette.
+  Dependencies: Generalisering av AutoStud
+  Assigned to:
+  Resources: baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+*** Automagi i setting av expire_date for tilsatte som slutter
+*** Automatisk oppdaterte grupper i for sted og type tilsetting
+*** Automatisk tildeling av brukernavn for ny-tilsatte (ikke home,
+    mail (?), kun kjent i katalogen).
+
+** Settinger, herunder roller
+  ??? (Tror dette er det samme som automatisk generering av grupper)
+
+** Må kunne identifisere hvem som er lokal IT for en bruker
+  Description: Cerebrum må ha en algoritme for å finne frem til hvilken
+	       IT-ansvarlig som "eier" en gitt bruker.
+
+	       Hva tenker man å bruke dette til?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** UiO: Hvem er lokal IT
+  Description: Må kunne hente ut oversikt over hvem som er lokal IT.
+	       Dette vil kunne utledes av punktet over.
+
+	       Hva tenker man å bruke dette til?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+
+* UiO: UA
+** UiO: Vet vi hva UA vil ha?
+  Description: UiO sitt fysiske adgangssystem bruker et system som
+               heter LENEL som har et mylder av muligheter og der vi i
+               dag kun har tatt i bruk fragmenter av dette.  Det har
+               vært ytret ønske om at man fra Cerebrum skal kunne
+               overføre grupper slik at man kan automatisere det meste
+               av tilgangskontrollen til enkelt-soner ved UiO.
+
+               Det må gjennomarbeides en plan for hva som skal
+               etableres i samarbeid med TA.  Dette henger mye sammen
+               med hvorledes vi totalt klarer å forankre UA ved USIT.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** UiO: Implementere i hht etablert plan.
+  Description: Når en plan er laget må den implementeres.
+  Dependencies: Planen (dvs. punktet over) må etableres først.
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** UiO: Gjennomgå og eventuelt implementere gammel plan.
+  Description: Har et gammelt utkast til det de vil ha, må gå et par
+               runder med teknisk avd. og se mer på dette.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** UiO: Trenger å få ut kortdataene
+  Description: Tilbake fra UA må vi kunne hente data om kortene som en
+               person har.  Per i dag betyr dette kortnummeret og
+               låntakernummeret til UB.  Disse bør i Cerebrum bli
+               lagret som eksterne ID'er og skal overføres til bla FS
+               og UB.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** UiO: Eksport til UA fra FS via Cerebrum.
+  Description: Data til UA fra FS bør kjøres gjennom Cerebrum, i stedet
+               for dagens løsning som gjør dette direkte fra FS.
+               Scriptet er ferdiglaget, testet, men ikke akseptert av
+               TA og derfor ikke satt i produksjon.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** Hente bilde fra UA til Cerebrum
+  Description: UA har bilder av alle de som man har laget kort til,
+               disse trengs i FS og det er også trolig mulig at vi kan
+               bruke de ved enkelte tilfeller direkte fra Cerebrum.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+
+* LMS
+** Studieprogrammer, studieretning, kull og klasse
+  Description: Vi har etablert en løsning for å håndtere studieprogram
+               og kull i forbindelse med HiA sin instans.  Denne må
+               gjøres noe mer generell, og utvides til å dekke
+               studieretninger og klasser.  Primært betyr det at det
+               må bygges grupper i Cerebrum som så kan gjøres til
+               gjenstand for spread mot CF-løsningene våre.
+  Dependencies:
+  Assigned to: hmeland
+  Resources:
+  Cost:
+  Status:
+  Due date: 2005-02-01
+  Priority: 1
+
+** HiA: Bør CF-eksport oppdateres?
+
+  Description: I dag er HiAs CF-eksport skreddersydd for HiA.  Dersom
+	       en generalisert eksport lages, bør man vurdere hvorvidt
+	       det er en god ide å flytte HiA over til å benytte
+	       denne.
+
+	       Cue diskusjoner om hvem som skal betale, hva
+	       kontraktene sier og hvem som har ansvaret for dagens
+	       situasjon. :-)
+  Dependencies: Studieprogrammer, studieretning, kull og klasse
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority:
+
+** Gjelder dette også Feide2GO etc.?
+  Description: Grunnopplæringen introduserer en del strukturer vi til
+               nå ikke er kjent med eller har noe forhold til.  Det må
+               etableres en plan for hva det skal lages automatiske
+               grupper for i Cerebrum ut i fra en skole-organisering.
+               Disse gruppene må så gjøres tilgjengelige for spread
+               som gjør dem kjent for et LMS.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority:
+
+** IMS enterprise (+extensions?)
+  Description: Det må etableres en generisk eksport-modul som gitt ett
+               eller annet produserer en xml-file i hht en 'ren' IMS
+               Enterprise definisjon.  Typisk bør man kunne gitt:
+                 * En eller flere emnekoder
+                    => XML-file som dekker aktive undervisningsenheter
+                       og undervisningsaktiviteter
+                 * Et eller flere kurs
+                    => XML-file som dekker kursene og
+                       kursaktivitetene.
+                 * Studieprogram
+                    => XML-file som dekker programmet,
+                       studieretningene, kull og klassene under dette
+                       programmet. 
+  Dependencies:
+  Assigned to: hmeland
+  Resources: LMS-tjenestegruppen, baardj
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+
+* Hjemmeområdeadministrering
+** Må kunne kontrollere flere hjemmeområder
+  Description: ??? (Tror dette punktet allerede er ferdig)
+
+** Ett hjemmeområde per spreadtype
+  Description: ??? (Vi har jo allerede dette?)
+
+** Lagre hvert fysiske hjemmeområde for bruker kun en gang i databasen
+  Description: I dag kan brukers hjemmeområde lagres en gang
+	       pr. spread brukeren har, slik at om bruker har samme
+	       hjemmeområde for flere spreads så finnes det ikke noen
+	       garanti for at disse holdes i synk.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** "Fysisk status" på hjemmeområder
+  Description: Sørge for at hjemmeområdestatus i databasen stemmer
+               overens med den virkelige verden.  Dette involverer
+               både å gjennomgå opprettelsesrutinene slik at man
+               unngår å "glemme" områder som ikke blir opprettet, og
+               (for UiOs del) å rydde opp i tidligere synder.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Bygge/flytte/slette hjemmeområder på andre systemer enn UNIX
+*** Administrere hjemmeområder på Windows
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+*** Administrere hjemmeområder på Novell
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** Restore av bruker
+  Description: Hvordan gjenopplives en slettet bruker?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+*** Gjenoppliving av Cerebrum-database-data for bruker
+*** Restore av hjemmeområdedata
+*** Restore av maildata
+
+** Snapshot av hjemmeområde 
+  Description: Ha mulighet for å hente inn snapshot av brukers
+	       hjemmeområde; tenkt brukt dersom påtalemyndighet ønsker
+	       innblikk i brukers data, men ikke har ransakingsordre
+	       ennå.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Avvikling av steder
+  Description: Steder som avvikles i autoritativt kildesystem bør
+	       merkes som avviklet i Cerebrum.  Det er ikke trivielt å
+	       fjerne stedet fra Cerebrum, da det bl.a. kan være
+	       knyttet opp i personers og brukeres affiliations.
+	       Mulig løsning: Utvide ou_info med kolonne for
+	       deleted_date.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Flytting av personer/brukere ved avvikling av steder
+  Description: Lage script for å avhjelpe omorganisering; oppdatere
+	       eksisterende affiliations ved gammelt sted til å heller
+	       være ved nytt sted.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Landkoder i adresser
+  Description: Cerebrums databaseskjema har støtte for landkoder for
+	       adresser, men det finnes ikke noe Python-kode for å
+	       benytte denne featuren.  Python-rammeverk for denne
+	       featuren (med input-data som ofte er fritekst) må
+	       lages.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+
+* Notes
+** Grupper må synkroniseres
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Sjekke at synkroniseringen virker
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Få på plass full synkronisering
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Oppgradering av synkroniseringen
+  ??? (Hva betyr dette?)
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Bli kvitt klartekstpassord
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+
+* E-post
+** ChangeLog for Email.py
+  Description: Email-tingene er i dag ikke Entity-subklasser, og
+	       ChangeLog støtter i dag kun Entity-klasser.  Denne
+	       kombinasjonen medfører at Email-endringer ikke
+	       changelogges, slik at bl.a. quicksync blir umulig.
+  Dependencies:
+  Assigned to: hmeland
+  Resources:
+  Cost:
+  Status:
+  Due date: 2004-12-01
+  Priority: 1
+
+** Quicksync av epostdata
+  Description: Merk at manglende ChangeLog-støtte ekskluderer mulighet
+               for quicksync.
+  Dependencies: ChangeLog for Email.py
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Eksport av grupper til Mailmanlister
+  Description: Etablere eksport av grupper på format som kan brukes av
+	       Mailman.  Hvilken Mailman-versjon sikter vi på?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+
+* Karantener
+** Utvidelse av karantenebegrepet
+  Description: Dagens karantenebegrep har ingen kobling til spreads;
+	       det er ønskelig med karantener som gjelder de fleste,
+	       men ikke alle spreads for en brukere (e.g. bruker
+	       sperres i NIS og AD, men kan fortsatt lese epost).
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status: Design påbegynt
+  Due date:
+  Priority: 2
+
+
+* Ymse
+** Logging generelt, ikke holdbart for drift slik vi gjør det i dag
+  Description: Cerebrum logger for mye og til for mange steder; det
+	       blir vanskelig å holde oversikt/plukke ut signifikante
+	       feil.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date: (Skal være spesifisert 2004-11-15, implementert 2005-02-01)
+  Priority: 1 
+
+** Generalisert XML-import 
+  Description: Finne/definere format(er) for import-scriptene våre
+               slik at filene vi mottar ikke er sterkt bundet til
+               hvilket autoritativt system de kommer fra.  Hvilke
+               skjemaer trenger vi, hvor rike skal de være, må vi lage
+               helt nye...
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Cerebrum og diverse objekter
+  Description: Dersom Cerebrum skal være mellommann mellom flere
+	       autoritative systemer, og deler av dataene som skal
+	       kommuniseres ikke har noen ekvivalent i selve Cerebrum
+	       (e.g. personbilde fra UA via Cerebrum til FS): Hvordan
+	       bør slike "fremmed-elementer" oppbevares?  I
+	       Cerebrum-databasen eller som fil?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** Automatikk for håndtering av expire_dates
+  Description: Når en konto får satt expire_date, må det finnes
+	       rutiner som tar tak i denne og sender ut
+	       varsel/påminnelse/bestiller sletting/etc. automatisk.
+	       Andre ting som har expire_date må også håndteres.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Installasjon og oppgradering av Cerebrum
+  Description: Må gå gjennom eksisterende installasjonsrutine og sørge
+	       for at den beskriver det vi vil, og deretter oppdatere
+	       implementasjonen og dokumentasjonen i samsvar med
+	       dette.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** BOFH må støtte flere sesjoner/være flertrådet
+  Description: Det er for lett å DOSe bofhd i dag; alt man trenger er
+	       telnet.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3 (evt. 2 dersom bofhd ikke skal gå via metaserver)
+
+** UiO: Få på plass webgrensesnitt for flere tjenester
+*** UiO: Lage liste over hvilke tjenester som trengs
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority:
+*** UiO: Implementere nødvendige tjenester
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority:
+
+** BOFH-forbedringer, f.eks. alias.
+  Description: Hvilke andre ting enn "alias"-eksempelet omfattes av
+	       dette punktet?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** BOFH: Tilbakemeldinger for lite spesifikke
+  Description: Når noe går bra, bør det returneres *hva* som gikk bra,
+	       og ikke bare "OK".  Tilsvarende når noe går galt.
+  Dependencies:
+  Assigned to: jazz
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Oppsplitting av bofh_uio_cmds
+  Description: Store deler av bofh_uio_cmds er ikke UiO-spesifikke.
+	       Disse delene bør derfor splittes ut i andre bofh-moduler.
+
+	       Dersom man bestemmer seg for at bofhd skal operere via
+	       metaserver, vil man i stedet for å splitte opp en
+	       eksisterende fil måtte skrive om hele sulamitten -- og
+	       kan da ta jobben med å plassere metodene i passende
+	       moduler i samme slengen.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Skille mellom businesslogikk og presentasjonslag i bofhd
+  Description: NTNU har flagget at de ønsker et klarere skille mellom
+	       businesslogikken og presentasjonslaget i bofh/bofhd.
+
+	       Hvordan dette punktet løses avhenger i stor grad av om
+	       bofhd skrives om til å operere via metaserver eller ei.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Stabilitet
+  Description: ??? (Er ikke lenger sikker på hvilken stabilitet det
+               er snakk om)
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** UiO: Hot stand-by backupserver i tilfelle katastrofe
+  Description:
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 4
+
+** Dokumentasjon
+  Description: Ymse former for dokumentasjon av Cerebrum må på plass.
+  Dependencies:
+  Assigned to:
+  Resources: runefro, hmeland, jazz, mathiasm, christfs
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Rettighetsstruktur i BOFH ikke bra nok, mangler fleksibilitet.
+  Description: ??? Ønsker utdyping; nøyaktig hva er det man savner?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority:
+
+** Generalisering av AutoStud
+  Description: Automatikken som i dag oppretter og administrerer
+	       studentbrukere bør også kunne håndtere andre brukere,
+	       f.eks. ansatt-brukere basert på data fra HR.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** Process BOFH-requests, må generaliseres
+  Description: Er i dag nokså UiO-spesifikk, og omfatter strengt tatt
+	       ikke bare "BOFH"-requests.  Er det mulig/ønskelig å slå
+	       sammen denne med process_changes?
+  Dependencies:
+  Assigned to:
+  Resources: mathiasm
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Utvide request-data
+  Description: Kolonnen i bofh-request-tabellen som kan inneholde
+	       vilkårlige ekstra-data er for liten, og brukes ikke på
+	       noen konsistent måte (kan f.eks. inneholde enten
+	       pickles eller ints).
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Trenger script for å generere statistikk/rapporter fra Cerebrum
+  Description: Bør ha mulighet for å generere noen form for
+	       statistikk/rapport; hvilke rapporter er mest
+	       interessante?
+  Dependencies:
+  Assigned to: baardj
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Mer automatisert testing
+  Description: Vi hadde en gang i tiden starten på et
+	       unittest-rammeverk i Cerebrum, men dette har blitt
+	       liggende brakk.  Det er dumt.
+
+	       For testing av bofhd (og dermed underliggende Cerebrum)
+	       bør bofhd kunne kjøres i hhv. record- og
+	       playback-modus.
+  Dependencies:
+  Assigned to:
+  Resources: hmeland, runefro
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Bytte databasedriver (psycopg)
+  Description: Cerebrum bruker i dag pyPgSQL-driveren, som er ganske
+	       treig.  Vi ønsker å bytte ut denne, f.eks. med
+	       psycopg-driveren, men da denne har et annet type-begrep
+	       må det antagelig litt mer kode inn i Database.py.
+  Dependencies:
+  Assigned to:
+  Resources: runefro, hmeland
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Python 2.3 (eller nyere)
+  Description: Verifisere at Cerebrum fungerer med Python 2.3.
+	       Antagelig bør Cerebrum 1.0 fortsatt kunne fungere med
+	       Python 2.2.1, da tidligere releases ikke er verifisert
+	       å fungere med noen nyere Python.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** Understøtte flere accountingmuligheter
+  Description: Har i dag støtte for accounting ihht. UiOs
+	       betaling-for-utskrift-regime; hvilke andre ting ønsker
+	       man accounting for?
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 3
+
+** UiO: Sentralbordets nye opplegg - hva er det?
+  Description: UiOs nye sentralbord-støttesystem skal ha data fra HR,
+	       men vi vet for lite om detaljer.
+  Dependencies:
+  Assigned to: mraaum
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority:
+
+** UiO: Mer statistikk rundt printerkvoter
+  Description:
+  Dependencies:
+  Assigned to: baardj
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+
+arch-tag: a2bdce9c-5efd-44a2-b13f-d190e665ef25
