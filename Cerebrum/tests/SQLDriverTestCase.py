@@ -22,12 +22,19 @@ class SQLDriverTestCase(unittest.TestCase):
         hash[value] = 1
         assert(1 == hash[value], 'Unable to compare Integer to SQL Integer')
 
-    def testUTF8Text(self):
-        "Check if CHAR VARYING() can store UTF8 text"
+    def testUTF8TextParam(self):
+        "Check if CHAR VARYING() can store Unicode/UTF8 text"
         self.db.execute("CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
         self.db.execute("INSERT INTO test_db_utf8 (value) VALUES (:text)",
                         {'text': u"unicodeTest"})
         self.db.execute("DROP TABLE test_db_utf8")
+        self.db.commit()
+
+    def testUTF8TextStatement(self):
+        "Check if SQL driver accept Unicode/UTF8 statements"
+        self.db.execute(u"CREATE TABLE test_db_utf8 (value CHAR VARYING(128))")
+        self.db.execute(u"INSERT INTO test_db_utf8 (value) VALUES (1)")
+        self.db.execute(u"DROP TABLE test_db_utf8")
         self.db.commit()
 
     def testBrokenDateBefore1901(self):
@@ -50,7 +57,8 @@ class SQLDriverTestCase(unittest.TestCase):
         suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1901"))
         suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
-        suite.addTest(SQLDriverTestCase("testUTF8Text"))
+        suite.addTest(SQLDriverTestCase("testUTF8TextParam"))
+        suite.addTest(SQLDriverTestCase("testUTF8TextStatement"))
         return suite
     suite=staticmethod(suite)
 
