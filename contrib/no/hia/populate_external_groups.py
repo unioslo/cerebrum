@@ -83,9 +83,10 @@ db = logger = fnr2account_id = const = None
 #               Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:studiekull"
 #             4  Gruppe med alle studenter i et kull
 #                  internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
-#                    STUDIEPROGRAMKODE:studiekull:KULLKODE:student
+#                    STUDIEPROGRAMKODE:studiekull:ARSTALL_KULL:
+#                    TERMINKODE_KULL:student
 #                  Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
-#                       studiekull:04v:student"
+#                       studiekull:2004:vår:student"
 #          3  Gruppering av alle personrolle-grupper for et studieprogram
 #               internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
 #                 STUDIEPROGRAMKODE:rolle
@@ -232,11 +233,14 @@ class group_tree(object):
         ret = [x for x in self.list_matches(*args, **kws)]
         if len(ret) == 1:
             return ret
-	elif len(ret) == 0:
-	    # To many users are not registrated correct and flooding 
-	    # the error-log.  
-	    logger.debug("Ikke gyldig kull eller studieprog: args=%r", args)
-	    return () 
+        elif len(ret) == 0:
+            # I praksis viser det seg at mange "aktive" studenter har
+            # registreringer på utgåtte studieprogrammer o.l., slik at
+            # list_matches returnerer 0 grupper.  Den situasjonen er
+            # det lite dette scriptet kan gjøre med, og det bør derfor
+            # ikke føre til noen ERROR-loggmelding.
+            logger.debug("Ikke gyldig kull eller studieprog: args=%r", args)
+            return () 
         logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
                      self, args, kws, ret)
         return ()
@@ -603,7 +607,8 @@ class fs_stprog_3_kull(fs_stprog_group):
         ret = []
         for subg in self.subnodes.itervalues():
             ret.extend([m for m in subg.list_matches(gtype, data, category)])
-        if (not ret) and data.has_key('kullkode'):
+        if (not ret) and (data.has_key('arstall_kull')
+                          and data.has_key('terminkode_kull')):
             ret.extend(self.add(data))
         return ret
 
@@ -618,7 +623,8 @@ class fs_stprog_3_kull(fs_stprog_group):
             # Opprettelse av grupper for de enkelte studiekullene
             # utsettes derfor til senere (i.e. ved parsing av
             # person.xml); se metoden list_matches over.
-            if stprog.has_key('kullkode'):
+            if (stprog.has_key('arstall_kull')
+                and stprog.has_key('terminkode_kull')):
                 gr = self.child_class(self, stprog, category)
                 if gr in children:
                     logger.warn("Kull %r forekommer flere ganger.", stprog)
@@ -637,20 +643,22 @@ class fs_stprog_kull_users(fs_stprog_group):
 
     def __init__(self, parent, stprog, category):
         super(fs_stprog_kull_users, self).__init__(parent)
-        self._prefix = (stprog['kullkode'],)
+        self._prefix = (stprog['arstall_kull'], stprog['terminkode_kull'])
         self._studieprog = stprog['studieprogramkode']
         self._name = (category,)
 
     def description(self):
         category = self._name[0]
         if category == 'student':
-            return ("Studenter på studiekullet %r i"
-                    " studieprogrammet %r" % (self._prefix[0],
+            return ("Studenter på kull %s %s i"
+                    " studieprogrammet %r" % (self._prefix[1],
+                                              self._prefix[0],
                                               self._studieprog))
         raise ValueError("Ugyldig kategori: %r" % category)
 
     def list_matches(self, gtype, data, category):
-        if (data.get('kullkode', self._prefix[0]) == self._prefix[0]
+        if (data.get('arstall_kull', self._prefix[0]) == self._prefix[0]
+            and data.get('terminkode_kull', self._prefix[1]) == self._prefix[1]
             and category == self._name[0]):
             yield self
 
