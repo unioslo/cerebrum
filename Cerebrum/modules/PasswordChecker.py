@@ -347,9 +347,9 @@ class PasswordChecker(DatabaseAccessor):
                 passwd = passwd[:-1]
         if len(passwd) > 15:
             raise PasswordGoodEnoughException(msgs['atmost15'])
-        if re.search(r'[\200-\376]', passwd):
+        if re.search(r'[\200-\376]', fullpasswd):
             raise PasswordGoodEnoughException(msgs['8bit'])
-        if re.search(r' ', passwd):
+        if re.search(r' ', fullpasswd):
             raise PasswordGoodEnoughException(msgs['space'])
         # Concatenated names or words from dictionaries
         if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', passwd[0:7]) or
