@@ -19,10 +19,13 @@ command_help = {
     'email_add_forward': 'Add a forward address',
     'email_remove_forward': 'Remove a forward address',
     'email_info': 'View e-mail information about a user or address',
+    'email_create_list': 'Add addresses needed for a Mailman list',
+    'email_delete_list': "Remove a Mailman list's addresses",
     'email_migrate': 'Migrate users from old to new e-mail service',
     'email_move': 'Move a user\'s e-mail to another server',
     'email_tripnote': 'Turn vacation messages on/off',
     'email_add_tripnote': 'Add vacation message',
+    'email_list_tripnotes': "List user's vacation messages",
     'email_remove_tripnote': 'Remove vacation message',
     },
     'group': {
@@ -166,6 +169,8 @@ Normally only union is used."""],
     'id:entity_ext': ['entity_id', 'Enter entity_id, example: group:foo',
     'Enter an entity_id either as number or as group:name / account:name'],
     'id:op_target': ['op_target_id', 'Enter op_target_id'],
+    'mailman_list': ['address', 'Enter address for Mailman list'],
+    'mailman_list_exist': ['address', 'Enter address of existing Mailman list'],
     'move_type': ['move_type', 'Enter move type',
                   """Legal move types:
  - immediate
@@ -222,9 +227,10 @@ printer."""],
     'string_new_priority': ['new_priority', 'Enter value new priority value',
                             'Enter a positive integer (1..999), lower integers give higher priority'],
     'string_np_type': ['np_type', 'Enter np_type',
-                       """Valid values include:
-'P' - Programvarekonto
-'T' - Testkonto."""],
+                       """Type of non-personal account.  Valid values include:
+'kursbruker'  - Course related
+'programvare' - Software packages
+'testbruker'  - Accounts for testing purposes"""],
     'string_op_set': ['op_set_name', 'Enter name of operation set',
                       "Experts only.  See the documentation for details"],
     'string_old_priority': ['old_priority', 'Enter old priority value',
