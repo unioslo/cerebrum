@@ -21,6 +21,16 @@
 import xmlrpclib
 from mx import DateTime
 
+class AttributeDict(dict):
+    """Adds attribute access to keys, ie. a['knott'] == a.knott"""
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError, name
+    def __setattr__(self, name, value):
+        self[name] = value        
+
 def native_to_xmlrpc(obj, no_unicodify=0):
     """Translate Python objects to XML-RPC-usable structures."""
     if obj is None:
@@ -46,7 +56,8 @@ def native_to_xmlrpc(obj, no_unicodify=0):
         # define any return type for Date
         return xmlrpclib.DateTime(obj.localtime().tuple())
     else:
-        raise ValueError, "Unrecognized parameter type: '%r'" % obj
+        raise ValueError, "Unrecognized parameter type: '%r' %r" % (obj, 
+                        getattr(obj, '__class__', type(obj)))
 
 def xmlrpc_to_native(obj):
     """Translate XML-RPC-usable structures back to Python objects"""
@@ -63,9 +74,8 @@ def xmlrpc_to_native(obj):
         obj_type = type(obj)
         return obj_type([xmlrpc_to_native(x) for x in obj])
     elif isinstance(obj, dict):
-        obj_type = type(obj)
-        return obj_type([(xmlrpc_to_native(x), xmlrpc_to_native(obj[x]))
-                         for x in obj])
+        return AttributeDict([(xmlrpc_to_native(x), xmlrpc_to_native(obj[x]))
+                              for x in obj])
     elif isinstance(obj, (int, long, float)):
         return obj
     elif isinstance(obj, xmlrpclib.DateTime):
