@@ -250,5 +250,12 @@ class EmailLDAP(DatabaseAccessor):
     def get_misc(self, entity_id, target_id, email_target_type):
         # Return optional strings to the script.
         pass
+
+    def close_misc_target(self):
+        # If you need to close, or do something to the things you did in
+        # read_misc_target(); Do that here. This means overriding this
+        # method in your sub-class. The deafult is doing nothing, and should
+        # _never_ do anything else.
+        pass
     
 # arch-tag: ec5fc24f-7ccb-415c-a0f9-c87c7230a2cb

@@ -338,6 +338,7 @@ def get_data(spread):
         print "  done in %d sec." % (now() - curr)
         print "Starting read_misc()..."
         curr = now()
+    # ldap.read_misc_target() is by default empty. See EmailLDAP for details.
     ldap.read_misc_target()
     if verbose:
         print "  done in %d sec." % (now() - curr)
@@ -347,6 +348,11 @@ def get_data(spread):
     if verbose:
         print "  done in %d sec." % (now() - curr)
         print "Total time: %d" % (now() - start)
+    # ldap.read_misc_target() may be used for other operations than
+    # making attributes. In HiAs case we open a file. To get this
+    # working, we need to close the file after it's populated. Default
+    # ldap.read_misc_target() is empty.
+    ldap.close_misc_target()
 
     
 def main():
