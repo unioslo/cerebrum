@@ -931,7 +931,8 @@ class PsycoPG(PostgreSQLBase):
         cdata['dsn_string'] = dsn_string
 
         super(PsycoPG, self).connect(dsn_string)
-        self.execute("SET CLIENT_ENCODING TO '%s'" % 'ISO_8859_1')
+        self.execute("SET CLIENT_ENCODING TO '%s'" % 'ISO_8859_1')        
+        #self.execute("SET CLIENT_ENCODING TO '%s'" % 'UTF-8')
         self.commit()
 
     def cursor(self):
@@ -943,6 +944,10 @@ class PsycoPGCursor(Cursor):
         for k in parameters:
             if type(parameters[k]) is DateTime.DateTimeType:
                 parameters[k] = self._db._db_mod.TimestampFromMx(parameters[k])
+            elif type(parameters[k]) is unicode:
+                # pypgsql1 does not support unicode (only utf-8)
+                #parameters[k] = parameters[k].encode("utf-8")
+                parameters[k] = parameters[k].encode("iso8859-1")
         ret = super(PsycoPGCursor, self).execute(operation, parameters)
         if self.description is not None:
             self._convert_cols = []
