@@ -1393,6 +1393,9 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_list_delete")
     def email_delete_list(self, operator, listname):
+        if listname.count('@') == 0:
+            raise CerebrumError, ("Specify the complete e-mail address, "
+                                  "including the domain")
         lp, dom = listname.split('@')
         ed = self._get_email_domain(dom)
         op = operator.get_entity_id()
@@ -1445,6 +1448,9 @@ class BofhdExtension(object):
         mlist = self._get_mailman_list(listname)
         if mlist is None:
             raise CerebrumError, "%s is not a Mailman list" % listname
+        # List names without complete e-mail address are probably legacy
+        if mlist.count('@') == 0 and listname.startswith(mlist + "@"):
+            return
         if listname <> mlist:
             raise CerebrumError, ("%s is not the official name of the list %s" %
                                   (listname, mlist))
