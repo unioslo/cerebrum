@@ -430,7 +430,7 @@ def generate_person(filename=None):
     except: pass
     affili_stu = "student"
     affili_em = "employee"
-    for row in person.list_extended_person(person_spread, include_quarantines=1):
+    for row in person.list_extended_person(person_spread, include_quarantines=1,incl_mail=False):
 	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
 	person.clear()
         person.entity_id = row['person_id']
@@ -486,12 +486,15 @@ def generate_person(filename=None):
 		    break
 		except:
 		    pass
-	    if row['local_part'] and row['domain']:
-		domain = row['domain']
-		if email_domains and email_domains.has_key(domain):
-		    pers_string += "mail: %s@%s\n" % (row['local_part'],email_domains[domain])
-		else:
-		    pers_string += "mail: %s@%s\n" % (row['local_part'],domain)
+	    if incl_mail:
+	    	if row['local_part'] and row['domain']:
+		    domain = row['domain']
+		    if email_domains and email_domains.has_key(domain):
+			pers_string += "mail: %s@%s\n" % (row['local_part'],email_domains[domain])
+		    else:
+			pers_string += "mail: %s@%s\n" % (row['local_part'],domain)
+	    else:
+		pers_string += "mail: %s\n" % person.get_contact_info(source=None,type=co.contact_email)
 	    if lastname:
 		pers_string += "sn: %s\n" % some2utf(lastname)
 	    if (int(affili) == int(co.affiliation_ansatt)): 
