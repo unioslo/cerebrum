@@ -539,6 +539,10 @@ def process_student(person_info):
     except ValueError, msg:  # TODO: Bad disk should throw a spesific class
         logger.error("  Error for %s: %s" % (fnr, msg))
     logger.set_indent(0)
+    # We commit once for each person to avoid locking too many db-rows
+    if not dryrun:
+        db.commit()
+
     
 def process_students():
     global autostud, students, other_account_owners
