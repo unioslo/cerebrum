@@ -234,8 +234,11 @@ def get_person_info(outfile):
         # fi
             
         prev = None
+        # Order by 'stedkode', then by reverse date
         persondta[p].get('bil', []).sort(lambda x, y:
-                                         cmp(make_key(x), make_key(y)))
+                                         cmp(make_key(x), make_key(y))
+                                         or cmp(y["dato_oppgjor"],
+                                                x["dato_oppgjor"]))
         for t in persondta[p].get('bil', []):
             if make_key(t) == make_key(prev):
                 continue
