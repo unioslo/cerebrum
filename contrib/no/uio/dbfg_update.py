@@ -499,28 +499,26 @@ information about certain kind of expired accounts
                 
     
 
-def main(argv):
+def main():
     """
     Start method for this script. 
     """
     global logger
-    logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-    logger = logging.getLogger("console")
-    logger.setLevel(logging.INFO)
+
+    logger = Factory.get_logger("cronjob")
     logger.info("Performing group synchronization")
     
     try:
-        options, rest = getopt.getopt(argv,
-                                      "dvhoflape:", ["dryrun",
-                                                     "verbose",
-                                                     "help",
-                                                     "expired-file=",
-                                                     "ofprod",
-                                                     "fsprod",
-                                                     "ltprod",
-                                                     "ajprod",
-                                                     "oaprd",
-                                                     ])
+        options, rest = getopt.getopt(sys.argv[1:],
+                                      "dhoflape:", ["dryrun",
+                                                    "help",
+                                                    "expired-file=",
+                                                    "ofprod",
+                                                    "fsprod",
+                                                    "ltprod",
+                                                    "ajprod",
+                                                    "oaprd",
+                                                    ])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
@@ -534,8 +532,6 @@ def main(argv):
     for option, value in options:
         if option in ("-d", "--dryrun"):
             dryrun = True
-        elif option in ("-v", "--verbose"):
-            logger.setLevel(logging.DEBUG)
         elif option in ("-h", "--help"):
             usage()
             sys.exit(2)
@@ -563,6 +559,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
 # fi
 
