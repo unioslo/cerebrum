@@ -348,8 +348,18 @@ class Account(Entity, Abstract.Account):
 
 class Person(Entity, Abstract.Person):
 
-    def create(cls):
-        pass
+    # FIXME - This routine should return why create wasn't 
+    #         successfull, not just None 
+    def create(cls, server, name, birthno, birthdate, ou, affiliation, aff_status):
+        """Creates a person, and returns the object, if successfull, 
+           returns None otherwise"""
+        info = None
+        info = server.person_create(birthno, birthdate, name, ou, affiliation, aff_status)
+        if info.get('person_id'):
+            person = fetch_object_by_id(server, info['person_id'])
+        else:
+            return None
+            
     create = classmethod(create)
 
     def search(cls, server, name=None, account=None, birthno=None, birthdate=None):
