@@ -15,12 +15,399 @@ Fra LT skal vi importere personinformasjon om:
   - Gjester (de som ligger inne som aktive gjester, med en lovlig kode).
 
 
+1.1 Faste ansatte
+-----------------
+
+Alle ansatte har minst en tilsetting i en stillingshjemmel med en
+stillingskode tilhørende en hovedkategori som enten representerer
+vitenskaplig tilsatt eller teknisk-administrativt tilsatt.
+
+For ansatt skal vi ha:
+
+Fra LT.PERSON
+
+       - FØDSELSNUMMER
+       - FORNAVN
+       - ETTERNAVN
+       - NAVN
+       - ADRTYPEKODE_PRIVATADRESSE    (ikke til LDAP)
+       - ADRESSELINJE1_PRIVATADRESSE  (ikke til LDAP)
+       - ADRESSELINJE2_PRIVATADRESSE  (ikke til LDAP)
+       - POSTSTEDNR_PRIVATADRESSE     (ikke til LDAP)
+       - POSTSTEDNAVN_PRIVATADRESSE   (ikke til LDAP)
+       - LANDNAVN_PRIVATADRESSE       (ikke til LDAP)
+       - RETNINGSNR_PRIVATTELEFON     (ikke til LDAP)
+       - TELEFONNR_PRIVATTELEFON      (ikke til LDAP)
+       - TITTEL_PERSONLIG             
+
+Fra LT.ARBSTEDTELEFON
+
+       - RETNINGSNR                   (som telephoneNumber i LDAP)
+       - TELEFONNR                    (som telephoneNumber i LDAP)
+       - INNVALGNR                    (som telephoneNumber i LDAP)
+       - LINJENR                      (som telephoneNumber i LDAP)
+       - TLFPREFTEGN                  (som telephoneNumber i LDAP)
+
+Fra LT.PERSKOMM
+
+       - KOMMTYPEKODE                    
+       - TLFPREFTEGN                     
+       - RETNINGSNR                      
+       - TELEFONNR                       
+       - KOMMNRVERDI                     
+
+   * Disse kommer opp i hht. hva som er ført av 'KOMMTYPEKODE'
+
+     KOMMTYPEKODE                           LDAP attributt
+     ---------------------------------------------------------------
+     EKSTRA TLF                             telephoneNumber
+     EPOST                                  N/A
+     FAX                                    facsimileTelephoneNumber
+     FAXPRIVAT                              N/A
+     FAXUTLAND                              facsimileTelephoneNumber
+     JOBBTLFUTL                             telephoneNumber
+     MOBILINTER                             N/A
+     MOBILTLF                               N/A
+     PERSONSØK                              pager
+     PRIVTLFUTL                             N/A
+     TEKSTPRV                               N/A
+     TEKSTTLF                               N/A
+     UREG-EMAIL                             N/A
+     UREG-USER                              N/A
+
+     N/A her betyr at det ikke er aktuelt å legge denne typen info ut
+     vår LDAP-katalog, men det kan være relevant for Cerebrum å kjenne
+     disse.
+
+
+Fra LT.TILSETTING
+
+     - PROSENT_TILSETTING
+       Gir hvor stor stillingen er, merk at for stil.kode '8013', skal
+       prosentverdien deles på 5 (100% professor II er 20% stilling).
+
+     - FAKULTETNR_UTGIFT
+     - INSTITUTTNR_UTGIFT  
+     - GRUPPENR_UTGIFT
+
+       Koblet mot LT.STED gir dette info om
+            - Adresser
+            - Fax
+            - OU-tilhørighet
+
+     - DATO_FRA           
+     - DATO_TIL 
+
+       Gir gyldighet av stilling
+
+    - STILLINGKODENR_BEREGNET_SIST
+
+      Koblet mot LT.STILLINGSKODE gir det oss
+        - TITTEL 
+          som skal brukes om ikke personligtittel eksisterer.
+
+        - UNIVSTKATKODE
+
+          Koblet mot LT.UNIVSTKATEGORI gir det oss
+            - HOVEDKATKODE
+              'VIT' er vitenskaplig ansatt
+              'ØVR' er teknisk/administrativt ansatt
+              
+
+
+
+1.2 Bilagslønnede
+-----------------
+
+Det er kun aktuelt å legge inn i Cerebrum som aktive de som har mottat
+bilagslønn siste 180 dager.
+
+For gjester skal vi ha:
+
+Fra LT.PERSON
+
+       - FØDSELSNUMMER
+       - FORNAVN
+       - ETTERNAVN
+       - NAVN
+       - ADRTYPEKODE_PRIVATADRESSE    (ikke til LDAP)
+       - ADRESSELINJE1_PRIVATADRESSE  (ikke til LDAP)
+       - ADRESSELINJE2_PRIVATADRESSE  (ikke til LDAP)
+       - POSTSTEDNR_PRIVATADRESSE     (ikke til LDAP)
+       - POSTSTEDNAVN_PRIVATADRESSE   (ikke til LDAP)
+       - LANDNAVN_PRIVATADRESSE       (ikke til LDAP)
+       - RETNINGSNR_PRIVATTELEFON     (ikke til LDAP)
+       - TELEFONNR_PRIVATTELEFON      (ikke til LDAP)
+       - TITTEL_PERSONLIG             
+
+Fra LT.ARBSTEDTELEFON
+
+       - RETNINGSNR                   (som telephoneNumber i LDAP)
+       - TELEFONNR                    (som telephoneNumber i LDAP)
+       - INNVALGNR                    (som telephoneNumber i LDAP)
+       - LINJENR                      (som telephoneNumber i LDAP)
+       - TLFPREFTEGN                  (som telephoneNumber i LDAP)
+
+Fra LT.PERSKOMM
+
+       - KOMMTYPEKODE                    
+       - TLFPREFTEGN                     
+       - RETNINGSNR                      
+       - TELEFONNR                       
+       - KOMMNRVERDI                     
+
+   * Disse kommer opp i hht. hva som er ført av 'KOMMTYPEKODE'
+
+     KOMMTYPEKODE                           LDAP attributt
+     ---------------------------------------------------------------
+     EKSTRA TLF                             telephoneNumber
+     EPOST                                  N/A
+     FAX                                    facsimileTelephoneNumber
+     FAXPRIVAT                              N/A
+     FAXUTLAND                              facsimileTelephoneNumber
+     JOBBTLFUTL                             telephoneNumber
+     MOBILINTER                             N/A
+     MOBILTLF                               N/A
+     PERSONSØK                              pager
+     PRIVTLFUTL                             N/A
+     TEKSTPRV                               N/A
+     TEKSTTLF                               N/A
+     UREG-EMAIL                             N/A
+     UREG-USER                              N/A
+
+     N/A her betyr at det ikke er aktuelt å legge denne typen info ut
+     vår LDAP-katalog.
+
+
+Fra LT.DELPOSTERING
+
+     - FAKULTETNR   
+     - INSTITUTTNR  
+     - GRUPPENR     
+
+     Koblet mot LT.STED gir dette info om
+            - Adresser
+            - Fax
+            - OU-tilhørighet
+
+     Vi reduserer mengden ved å begrense utvalget til:
+
+      * LT.DELPOSTERIN.BELOPSKODENR
+        der kodene hentes fra LT.BELKODESPESIELLE begrenset til
+
+         * LT.BELKODESPESIELL.BELKODEOMRADEKODE = 'LT35UREG'.
+
+      * LT.LONNSPOSTERING.DATO_OPPGJOR ikke er eldre enn 180 dager.
+
+
+1.3 Gjester
+-----------
+
+For gjester skal vi ha:
+
+Fra LT.PERSON
+
+       - FØDSELSNUMMER
+       - FORNAVN
+       - ETTERNAVN
+       - NAVN
+       - ADRTYPEKODE_PRIVATADRESSE    (ikke til LDAP)
+       - ADRESSELINJE1_PRIVATADRESSE  (ikke til LDAP)
+       - ADRESSELINJE2_PRIVATADRESSE  (ikke til LDAP)
+       - POSTSTEDNR_PRIVATADRESSE     (ikke til LDAP)
+       - POSTSTEDNAVN_PRIVATADRESSE   (ikke til LDAP)
+       - LANDNAVN_PRIVATADRESSE       (ikke til LDAP)
+       - RETNINGSNR_PRIVATTELEFON     (ikke til LDAP)
+       - TELEFONNR_PRIVATTELEFON      (ikke til LDAP)
+       - TITTEL_PERSONLIG             
+
+Fra LT.ARBSTEDTELEFON
+
+       - RETNINGSNR                   (som telephoneNumber i LDAP)
+       - TELEFONNR                    (som telephoneNumber i LDAP)
+       - INNVALGNR                    (som telephoneNumber i LDAP)
+       - LINJENR                      (som telephoneNumber i LDAP)
+       - TLFPREFTEGN                  (som telephoneNumber i LDAP)
+
+Fra LT.PERSKOMM
+
+       - KOMMTYPEKODE                    
+       - TLFPREFTEGN                     
+       - RETNINGSNR                      
+       - TELEFONNR                       
+       - KOMMNRVERDI                     
+
+   * Disse kommer opp i hht. hva som er ført av 'KOMMTYPEKODE'
+
+     KOMMTYPEKODE                           LDAP attributt
+     ---------------------------------------------------------------
+     EKSTRA TLF                             telephoneNumber
+     EPOST                                  N/A
+     FAX                                    facsimileTelephoneNumber
+     FAXPRIVAT                              N/A
+     FAXUTLAND                              facsimileTelephoneNumber
+     JOBBTLFUTL                             telephoneNumber
+     MOBILINTER                             N/A
+     MOBILTLF                               N/A
+     PERSONSØK                              pager
+     PRIVTLFUTL                             N/A
+     TEKSTPRV                               N/A
+     TEKSTTLF                               N/A
+     UREG-EMAIL                             N/A
+     UREG-USER                              N/A
+
+     N/A her betyr at det ikke er aktuelt å legge denne typen info ut
+     vår LDAP-katalog.
+
+
+Fra LT.GJEST
+
+     - FAKULTETNR   
+     - INSTITUTTNR  
+     - GRUPPENR     
+
+     Koblet mot LT.STED gir dette info om
+            - Adresser
+            - Fax
+            - OU-tilhørighet
+
+     - GJESTETYPEKODE
+
+       Som skal gi deg tittel om du ikke har en personlig titel hentet
+       fra LT.PERSON.  Tittel bestemmes slik:
+
+       GJESTETYPEKODE                 Title
+       ------------------------------------------------------
+       EKST. KONS                     Ekstern konsulent
+       EMERITUS                       Professor emeritus
+       SIVILARB                       Sivilarbeider
+
+
+
 2.0 Import av roller fra LT til Cerebrum
 ========================================
 
+Rolle-begrepet i LT er noe 'rart', men primært så trenger vi når vi
+leser kun forholde oss til tabellen LT.PERSONROLLE.
+
+Fra LT.PERSONROLLE
+
+   - Fødselsnummer
+     For kobling mot person
+
+   - FAKULTETNR        
+   - INSTITUTTNR       
+   - GRUPPENR          
+     Gir sted for hvor rollen utøves.
+
+   - ANSVARSROLLEKODE  
+     Identifiserer rollen
+
+   - DATO_FRA          
+   - DATO_TIL          
+     Gir gyldighet for rollen.
+
+Dette skal i Cerebrum brukes til å bygge automatiske grupper, der en
+gruppe representerer mengden av brukere med en ansatt-affiliation som
+tilhører personer som har en gitt rolle ved et gitt sted.
 
 
 3.0 Import av steder fra LT til Cerebrum
 ========================================
 
+LT er for UiO autorativ på sted.  Vi henter all info om sted fra LT.
+
+Fra LT.STED
+
+   - FAKULTETNR                      NOT NULL NUMBER(2)
+   - INSTITUTTNR                     NOT NULL NUMBER(2)
+   - GRUPPENR                        NOT NULL NUMBER(2)
+       Unik ID, skal i Cerebrum appendes til Institusjonsnummeret.
+   
+   - AKRONYM
+   - FORKSTEDNAVN                    NOT NULL VARCHAR2(20)
+   - STEDNAVN                        NOT NULL VARCHAR2(40)
+   - STEDNAVNFULLT                            VARCHAR2(80)
+   - STEDKORTNAVN_BOKMAL                      VARCHAR2(30)
+   - STEDKORTNAVN_NYNORSK                     VARCHAR2(30)
+   - STEDKORTNAVN_ENGELSK                     VARCHAR2(30)
+   - STEDLANGNAVN_BOKMAL                      VARCHAR2(120)
+   - STEDLANGNAVN_NYNORSK                     VARCHAR2(120)
+   - STEDLANGNAVN_ENGELSK                     VARCHAR2(120)
+       Gir navn på sted på forskjellige former
+
+   - FAKULTETNR_FOR_ORG_STED         NOT NULL NUMBER(2)
+   - INSTITUTTNR_FOR_ORG_STED        NOT NULL NUMBER(2)
+   - GRUPPENR_FOR_ORG_STED           NOT NULL NUMBER(2)
+       Gir ansvarlig enhet for denne (lager hierarkiet)
+
+   - DATO_OPPRETTET                  NOT NULL DATE
+   - DATO_NEDLAGT                             DATE
+       Gir gyldighet til stedkoden
+
+   - OPPRETTETMERKE_FOR_OPPF_I_KAT            VARCHAR2(1)
+       Gir om stedet skal være synlig i bla. LDAP-katalogen
+
+   - RETNINGSNR                               VARCHAR2(3)
+   - TELEFONNR                                NUMBER(8)
+   - INNVALGNR                                NUMBER(3)
+   - LINJENR                                  NUMBER(5)
+       Gir telefonnummer til stedet.
+
+   - STEDPOSTBOKS                    NOT NULL NUMBER(4)
+       Gir postboks nummeret til stedet.
+
+   - ADRTYPEKODE_BESOK_ADR                    VARCHAR2(4)
+   - ADRESSELINJE1_BESOK_ADR                  VARCHAR2(40)
+   - ADRESSELINJE2_BESOK_ADR                  VARCHAR2(40)
+   - POSTSTEDNR_BESOK_ADR                     NUMBER(4)
+   - POSTSTEDNAVN_BESOK_ADR                   VARCHAR2(16)
+   - LANDNAVN_BESOK_ADR                       VARCHAR2(20)
+       Gir adresse info
+
+   - ADRTYPEKODE_INTERN_ADR                   VARCHAR2(4)
+   - ADRESSELINJE1_INTERN_ADR                 VARCHAR2(40)
+   - ADRESSELINJE2_INTERN_ADR                 VARCHAR2(40)
+   - POSTSTEDNR_INTERN_ADR                    NUMBER(4)
+   - POSTSTEDNAVN_INTERN_ADR                  VARCHAR2(16)
+   - LANDNAVN_INTERN_ADR                      VARCHAR2(20)
+       Gir adresse info
+
+   - ADRTYPEKODE_ALTERNATIV_ADR               VARCHAR2(4)
+   - ADRESSELINJE1_ALTERNATIV_ADR             VARCHAR2(40)
+   - ADRESSELINJE2_ALTERNATIV_ADR             VARCHAR2(40)
+   - POSTSTEDNR_ALTERNATIV_ADR                NUMBER(4)
+   - POSTSTEDNAVN_ALTERNATIV_ADR              VARCHAR2(16)
+   - LANDNAVN_ALTERNATIV_ADR                  VARCHAR2(20)
+       Gir adresse info
+
+Fra LT.STEDKOMM
+
+       - KOMMTYPEKODE                    
+       - TLFPREFTEGN                     
+       - RETNINGSNR                      
+       - TELEFONNR                       
+       - KOMMNRVERDI                     
+
+   * Disse kommer opp i hht. hva som er ført av 'KOMMTYPEKODE'
+
+     KOMMTYPEKODE                           LDAP attributt
+     ---------------------------------------------------------------
+     EKSTRA TLF                             telephoneNumber
+     EPOST                                  N/A
+     FAX                                    facsimileTelephoneNumber
+     FAXPRIVAT                              N/A
+     FAXUTLAND                              facsimileTelephoneNumber
+     JOBBTLFUTL                             telephoneNumber
+     MOBILINTER                             N/A
+     MOBILTLF                               N/A
+     PERSONSØK                              N/A
+     PRIVTLFUTL                             N/A
+     TEKSTPRV                               N/A
+     TEKSTTLF                               N/A
+     UREG-EMAIL                             N/A
+     UREG-USER                              N/A
+
+     N/A her betyr at det ikke er aktuelt å legge denne typen info ut
+     vår LDAP-katalog.
 
