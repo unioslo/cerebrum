@@ -20,40 +20,27 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ##
 INSTALL = @INSTALL@
-OMNIIDL = omniidl #FIXME denne må bli generert med configure
 
-pythondir = @PYTHONDIR@
+pythondir = @PYTHONDIR@/Cerebrum/spine/server
 
 sources = $(wildcard *.idl)
-objdir = Cerebrum/spine/server
-objects = $(objdir)/errors_idl.py \
-		  $(objdir)/server_idl.py \
-		  $(objdir)/Cerebrum_core/__init__.py \
-		  $(objdir)/Cerebrum_core/Errors/__init__.py \
-		  $(objdir)/Cerebrum_core__POA/__init__.py \
-		  $(objdir)/Cerebrum_core__POA/Errors/__init__.py
 
 .PHONY: all install install-lib clean distclean print
 
-#TODO: Plukk idl-kompilator fra cereconf (eller annet lurt sted)
-Cerebrum/spine/server: $(sources)
-	rm -rf Cerebrum
-	omniidl -bpython -Wbpackage=Cerebrum.spine.server $(sources)
-
-all: Cerebrum/spine/server
+all:
 
 print:
-	@echo Sources
+	@echo Sources:
 	@echo $(sources)
 
 install: install-lib
 
-install-lib: all $(sources)
+install-lib: $(sources)
 	$(INSTALL) -d $(DESTDIR)/$(pythondir)
 	$(INSTALL) -v -m 644 $(sources) $(DESTDIR)/$(pythondir)
 
 clean:
-	rm -rf Cerebrum
+	rm -f *~
 
 distclean: clean
 	rm -f Makefile

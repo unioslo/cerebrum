@@ -18,12 +18,10 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include "errors.idl"
-
 /**
 * Module containing all interfaces defined as the core of the server.
 */
-module Cerebrum_core {    
+module SpineCore { 
 
     /**
     * Structure/object used to hold the Spine version.
@@ -45,6 +43,15 @@ module Cerebrum_core {
     * The interface representing Spine, and thus the entry point to the server.
     */
     interface Spine {
+        
+        /**
+        * Error raised when trying to login to the server.
+        * \param explanation A string containing a short explanation.
+        */
+        exception LoginError{
+            string explanation;
+        };
+    
         /**
         * Method for fetching the version. It is recommended that all clients
         * verify compatibility through this method before proceeding.
@@ -79,6 +86,6 @@ module Cerebrum_core {
         * \return A session object 
         */
         Object login(in string username, in string password)
-            raises(Errors::LoginError);
+            raises(LoginError);
     };
 };
