@@ -3836,7 +3836,7 @@ class BofhdExtension(object):
                 raise CerebrumError, "Bad destination disk"
             if move_type == "immediate":
                 br.add_request(operator.get_entity_id(), br.now,
-                               self.const.bofh_move_user,
+                               self.const.bofh_move_user_now,
                                account.entity_id, disk_id, state_data=spread)
                 return "Command queued for immediate execution"
             elif move_type == "batch":
