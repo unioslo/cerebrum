@@ -145,7 +145,11 @@ class my_install_data (install_data.install_data, object):
             self.mkpath(dir)
             os.chmod(dir, tdict['mode'])
             if(os.geteuid() == 0):
-                uinfo = pwd.getpwnam(tdict['owner'])
+                try:
+                    uinfo = pwd.getpwnam(tdict['owner'])
+                except KeyError:
+                    print "Error: Unkown user %s" % tdict['owner']
+                    sys.exit(1)
                 uid, gid = uinfo[2], uinfo[3]
                 os.chown(dir, uid, gid)
             if f[1] == []:
