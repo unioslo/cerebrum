@@ -148,3 +148,5 @@ class CerebrumClass(SpineClass):
         super(CerebrumClass, cls).build_methods()
 
     build_methods = classmethod(build_methods)
+
+# arch-tag: fc65fb2e-4bce-44a7-9ea4-8abb3a5654d1
