@@ -26,7 +26,7 @@ import sys
 import os
 import cerebrum_path
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, latin1_to_iso646_60
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Group
@@ -70,7 +70,7 @@ def generate_passwd(filename, spread=None):
             gecos = row['name']
         if gecos is None:
             gecos = "GECOS NOT SET"
-        gecos = static_posix_user._conv_name(gecos, as_gecos=1)
+        gecos = latin1_to_iso646_60(gecos)
         home = row['home'] 
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
