@@ -424,7 +424,6 @@ class PosixUser(Account.Account):
         random enough.  This is done by checking the mix of
         upper/lowercase letters and special characers, as well as
         checking a database."""
-
         # TODO:  This needs more work.
         msgs = self.msgs
         passwd = passwd[0:8]
@@ -486,7 +485,6 @@ class PosixUser(Account.Account):
             # We'll iterate over several dictionaries.
 
             for d in self.words:
-                print "Check %s in %s" % (chk, d)
                 f = file("%s/%s" % (self.dir, d))
                 look(f, chk, 1, 1)
 
