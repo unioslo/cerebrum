@@ -146,14 +146,14 @@ class Entity(Abstract.Entity):
         return type
 
     def remove_quarantine(self, quarantine=None, type=None):
-        qtype = self._get_type(quarantine, type)
+        qtype = self._get_qtype(quarantine, type)
         self.server.quarantine_remove(self.type,
                                       "id:%s" % self.id,
                                       qtype)
    
     def disable_quarantine(self, quarantine=None, type=None,
                                  until=None):
-        qtype = self._get_type(quarantine, type)
+        qtype = self._get_qtype(quarantine, type)
         self.server.quarantine_disable(self.type,
                                        "id:%s" % self.id,
                                        qtype, until)
@@ -375,7 +375,7 @@ class Person(Entity, Abstract.Person):
         super(Person, self)._load_entity_info(info)
         self.name = info['name']
         self.birthdate = info['birthdate']
-        self.affiliations = info['affiliations']
+        self._affiliations = info['affiliations']
         self.names = info['names']
         self.description = info['description']
         self.gender = info['gender']    
@@ -383,6 +383,17 @@ class Person(Entity, Abstract.Person):
 
     def delete(self):
         pass
+    
+    def affiliations(self):
+        # resolve 'ou' if needed 
+        for affiliation in self._affiliations:
+            if isinstance(affiliation['ou'], OU):
+                # already resolved 
+                continue
+            ou = fetch_object_by_id(self.server, affiliation['ou'])
+            affiliation['ou'] = ou
+        return self._affiliations      
+    affiliations = property(affiliations)    
 
                                                     
 class OU(Entity, Abstract.OU):
