@@ -24,8 +24,14 @@ hash: md5
 # Connection details for ldap sync
 # (preliminary example)
 [ldap]
-host: at.ntnu.no
+host: ldap-master.ntnu.no
 base: dc=ntnu,dc=no
-bind: cn=Administrator,dc=ntnu,dc=no
+realm: ntnu.no
+bind: cn=Manager,dc=ntnu,dc=no
 password: password
 tls: yes
+# Supported hash-typer: sha-1,ssha,md5,smd5,crypt,cleartext
+hash: md5
+#Uri overrised host/tls-settings
+uri: ldaps://ldap-master.ntnu.no
+
