@@ -63,6 +63,7 @@ def update_quotas(dryrun):
         except Errors.NotFoundError:
             logger.warn("Was %i deleted after we started?" % row['account_id'])
             continue
+        new_quota = int(new_quota)  # Avoid PgNumeric 0 = NULL bug
         if new_quota == pq.printer_quota:
             continue
         logger.info("New quota for %i: %i (old=%i)" % (
