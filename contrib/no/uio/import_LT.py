@@ -248,8 +248,6 @@ def process_person(person):
     # TODO: We currently do nothing with PROSENT_TILSETTING
     affiliations = determine_affiliations(person)
     contact = determine_contact(person)
-    if gen_groups == 1:
-        determine_reservations(person)
     if len(affiliations) > 0:      # Legg til fax fra 1ste affiliation
         contact.append((const.contact_fax,
                         get_sted(affiliations[0][0])['fax']))
@@ -265,6 +263,11 @@ def process_person(person):
                 **sted['addr'])
 
     op = new_person.write_db()
+    if gen_groups == 1:
+        # determine_reservation() needs new_person.entity_id to be
+        # set; this should always be the case after write_db() is
+        # done.
+        determine_reservations(person)
     if op is None:
         logger.info2("**** EQUAL ****")
     elif op == True:
