@@ -1,5 +1,4 @@
 # -*- coding: iso-8859-1 -*-
-
 # Copyright 2002-2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -533,6 +532,7 @@ class BofhdExtension(object):
         fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
         matches = []
+	found = False
         prim = acc.get_primary_mailaddress()
 
         if addr == 'local':
@@ -654,6 +654,14 @@ class BofhdExtension(object):
                 return True
         return False
 
+    def _split_email_address(self, addr):
+        if addr.count('@') == 0:
+            raise CerebrumError, \
+                  "E-mail address (%s) must include domain" % addr
+        if addr <> addr.lower():
+            raise CerebrumError, \
+                  "E-mail address (%s) can't contain upper case letters" % addr
+        return addr.split('@')
 
     # email info <account>+
     all_commands['email_info'] = Command(
@@ -668,13 +676,13 @@ class BofhdExtension(object):
         # programs to get the information reasonably easily, while
         # still keeping the suggested output format pretty.
         ("Account:          %s\nMail server:      %s (%s)\n"+
-         "Default address:  %s\nValid addresses:  %s",
-         ("account", "server", "server_type", "def_addr", "valid_addr_1")),
-        ("                  %s",
-         ("valid_addr",)),
-        ("Quota:            %d MiB, warn at %d%% (not enforced)",
+	"Default address:  %s\nValid addresses:  %s",
+	("account", "server", "server_type", "def_addr", "valid_addr_1")),
+	("                  %s",
+	("valid_addr",)),
+	("Quota:            %d MiB, warn at %d%% (not enforced)",
          ("dis_quota_hard", "dis_quota_soft")),
-        ("Quota:            %d MiB, warn at %d%% (%s MiB used)",
+	("Quota:            %d MiB, warn at %d%% (%s MiB used)",
          ("quota_hard", "quota_soft", "quota_used")),
         # TODO: change format so that ON/OFF is passed as separate value.
         # this must be coordinated with webmail code.
@@ -691,13 +699,13 @@ class BofhdExtension(object):
          ("mailman_alias_1", )),
         ("                  %s",
          ("mailman_alias", )),
-        ("Request address:  %s",
+        ("Request addresses:  %s",
          ("mailman_mailcmd_1", )),
-        ("                  %s",
+        ("                    %s",
          ("mailman_mailcmd", )),
-        ("Owner address:    %s",
+        ("Owner addresses:    %s",
          ("mailman_mailowner_1", )),
-        ("                  %s",
+        ("                    %s",
          ("mailman_mailowner", )),
         # target_type == multi
         ("Primary address:  %s",
@@ -732,27 +740,32 @@ class BofhdExtension(object):
          ("fw_addr_1", "fw_enable_1")),
         ("                  %s (%s)",
          ("fw_addr", "fw_enable")),
-        #
-        # both account and Mailman
-        #
-        ("Spam level:       %s (%s)\nSpam action:      %s (%s)",
-         ("spam_level", "spam_level_desc", "spam_action", "spam_action_desc")),
         ]))
     def email_info(self, operator, uname):
         et, acc = self.__get_email_target_and_account(uname)
         ttype = et.email_target_type
+        ttype_name = str(self.const.EmailTarget(ttype))
+        ret = [ {'target_type': ttype_name } ]
+        # The target_type in ret is overwritten when it is considered
+        # redundant information.
         if ttype == self.const.email_target_Mailman:
-            return self._email_info_mailman(uname, et)
+            ret = self._email_info_mailman(uname, et)
         elif ttype == self.const.email_target_multi:
-            return self._email_info_multi(uname, et)
+            ret += self._email_info_multi(uname, et)
         elif ttype == self.const.email_target_pipe:
-            return self._email_info_pipe(uname, et)
+            ret = self._email_info_pipe(uname, et)
         elif ttype == self.const.email_target_forward:
-            return self._email_info_forward(uname, et)
-        elif ttype not in (self.const.email_target_account,
-                           self.const.email_target_deleted):
+            ret += self._email_info_forward(uname, et)
+        elif ttype == self.const.email_target_account:
+            ret = self._email_info_account(operator, acc, et)
+        elif ttype == self.const.email_target_deleted:
+            ret += self._email_info_account(operator, acc, et)
+        else:
             raise CerebrumError, ("email info for target type %s isn't "
-                                  "implemented") % self.num2const[ttype]
+                                  "implemented") % ttype_name
+        return ret
+
+    def _email_info_account(self, operator, acc, et):
         self.ba.can_email_info(operator.get_entity_id(), acc)
         addrs = self.__get_valid_email_addrs(et)
         ret = self._email_info_basic(acc, et, addrs)
@@ -761,8 +774,8 @@ class BofhdExtension(object):
         except PermissionDenied:
             pass
         else:
-            ret += self._email_info_spam(et)
-            ret += self._email_info_detail(acc, addrs)
+            ret += self._email_info_detail(acc)
+            ret += self._email_info_forwarding(et, addrs)
         return ret
 
     def __get_valid_email_addrs(self, et, special=False):
@@ -802,83 +815,32 @@ class BofhdExtension(object):
             info["valid_addr_1"] = "<none>"
         return data
 
-    def _email_info_spam(self, target):
-        info = []
-        esf = Email.EmailSpamFilter(self.db)
-        try:
-            esf.find(target.email_target_id)
-            spam_lev = _EmailSpamLevelCode(int(esf.email_spam_level))
-            spam_act = _EmailSpamActionCode(int(esf.email_spam_action))
-            info.append({'spam_level':       str(spam_lev),
-                         'spam_level_desc':  spam_lev._get_description(),
-                         'spam_action':      str(spam_act),
-                         'spam_action_desc': spam_act._get_description()})
-        except Errors.NotFoundError:
-            pass
-        return info
-
-    def _email_info_detail(self, acc, addrs):
+    def _email_info_detail(self, acc):
         info = []
         eq = Email.EmailQuota(self.db)
         try:
             eq.find_by_entity(acc.entity_id)
-            est = Email.EmailServerTarget(self.db)
-            est.find_by_entity(acc.entity_id)
-            es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                pw = self.db._read_password(cereconf.CYRUS_HOST,
-                                            cereconf.CYRUS_ADMIN)
-                try:
-                    cyrus = cyruslib.CYRUS(es.name)
-                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
-                    # TODO: use imaplib instead of cyruslib, and do
-                    # quotatrees properly.  cyruslib doesn't check to
-                    # see if it's a STORAGE quota or something else.
-                    # not very important for us, though.
-                    used, limit = cyrus.lq("user", acc.account_name)
-                    used = str(used/1024)
-                except TimeoutException:
-                    used = 'DOWN'
-                info.append({'quota_hard': eq.email_quota_hard,
-                             'quota_soft': eq.email_quota_soft,
-                             'quota_used': used})
-            else:
-                info.append({'dis_quota_hard': eq.email_quota_hard,
-                             'dis_quota_soft': eq.email_quota_soft})
+	    info.append({'dis_quota_hard': eq.email_quota_hard,
+			 'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
-        forw = []
-        local_copy = ""
-        ef = Email.EmailForward(self.db)
-        ef.find_by_entity(acc.entity_id)
-        for r in ef.get_forward():
-            if r['enable'] == 'T':
-                enabled = "on"
-            else:
-                enabled = "off"
-            if r['forward_to'] in addrs:
-                local_copy = "+ local delivery (%s)" % enabled
-            else:
-                forw.append("%s (%s) " % (r['forward_to'], enabled))
-        # for aesthetic reasons, print "+ local delivery" last
-        if local_copy:
-            forw.append(local_copy)
-        if forw:
-            info.append({'forward_1': forw[0]})
-            for idx in range(1, len(forw)):
-                info.append({'forward': forw[idx]})
         return info
     
     _interface2addrs = {
         'post': ["%(local_part)s@%(domain)s"],
-        'mailcmd': ["%(local_part)s-request@%(domain)s"],
+        'mailcmd': ["%(local_part)s-request@%(domain)s",
+		    "%(local_part)s-confirm@%(domain)s",
+		    "%(local_part)s-join@%(domain)s",
+		    "%(local_part)s-leave@%(domain)s",
+		    "%(local_part)s-subscribe@%(domain)s",
+		    "%(local_part)s-unsubscribe@%(domain)s"],
         'mailowner': ["%(local_part)s-admin@%(domain)s",
                       "%(local_part)s-owner@%(domain)s",
-                      "owner-%(local_part)s@%(domain)s"]
+		      "%(local_part)s-bounces@%(domain)s"]
         }
-    _mailman_pipe = "|/local/Mailman/mail/wrapper %(interface)s %(listname)s"
-    _mailman_patt = r'\|/local/Mailman/mail/wrapper (\S+) (\S+)$'
+    # These are just for show, HiA is not really using this
+    _mailman_pipe = "|/fake %(interface)s %(listname)s"
+    _mailman_patt = r'\|/fake (\S+) (\S+)$'
     
     def _email_info_mailman(self, addr, et):
         m = re.match(self._mailman_patt, et.email_target_alias)
@@ -904,7 +866,6 @@ class BofhdExtension(object):
         # now find all e-mail addresses
         et.clear()
         et.find(ea.email_addr_target_id)
-        ret += self._email_info_spam(et)
         aliases = []
         for r in et.get_addresses():
             a = "%(local_part)s@%(domain)s" % r
@@ -1017,73 +978,6 @@ class BofhdExtension(object):
                              'fw_enable': self._onoff(forw[idx].enable)})
         return data
 
-    # email create_archive <list-address>
-    all_commands['email_create_archive'] = Command(
-        ("email", "create_archive"),
-        EmailAddress(help_ref="mailman_list"),
-        perm_filter="can_email_archive_create")
-    def email_create_archive(self, operator, listname):
-        """Create e-mail address for archiving messages.  Also adds a
-        request to create the needed directories on the web server."""
-        lp, dom = listname.split('@')
-        ed = self._get_email_domain(dom)
-        self.ba.can_email_archive_create(operator.get_entity_id(), ed)
-        self._check_mailman_official_name(listname)
-        ea = Email.EmailAddress(self.db)
-        try:
-            ea.find_by_local_part_and_domain(lp + "-archive",
-                                             ed.email_domain_id)
-        except Errors.NotFoundError:
-            pass
-        else:
-            raise CerebrumError, ("%s-archive@%s already exists" % (lp, dom))
-        archive_user = 'www'
-        archive_prog = '/local/share/mta/bin/new-archive-monthly'
-        arch = lp.lower() + "-archive"
-        dc = dom.lower().split('.'); dc.reverse()
-        archive_dir = "/uio/caesar/mailarkiv/" + ".".join(dc) + "/" + arch
-        et = Email.EmailTarget(self.db)
-        et.populate(self.const.email_target_pipe,
-                    alias="|%s %s" % (archive_prog, archive_dir),
-                    using_uid=self._get_account(archive_user).entity_id)
-        et.write_db()
-        ea = Email.EmailAddress(self.db)
-        ea.populate(arch, ed.email_domain_id, et.email_target_id)
-        ea.write_db()
-        # TODO: add bofh request to run mkdir on www
-        return ("OK, now run ssh www 'mkdir -p %s; chown www %s; chmod o= %s'" %
-                (archive_dir, archive_dir, archive_dir))
-
-
-    # email delete_archive <address>
-    all_commands['email_delete_archive'] = Command(
-        ("email", "delete_archive"),
-        EmailAddress(help_ref="email_address"),
-        fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
-        perm_filter="can_email_archive_delete")
-    def email_delete_archive(self, operator, addr):
-        lp, dom = addr.split('@')
-        ed = self._get_email_domain(dom)
-        et, acc = self.__get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_pipe:
-            raise CerebrumError, "%s: Not an archive target" % addr
-        # we can imagine passing along the name of the mailing list
-        # to the auth function in the future.
-        self.ba.can_email_archive_delete(operator.get_entity_id(), ed)
-        # All OK, let's nuke it all.
-        result = []
-        ea = Email.EmailAddress(self.db)
-        for r in et.get_addresses():
-            ea.clear()
-            ea.find(r['address_id'])
-            result.append({'address': self.__get_address(ea)})
-            ea.delete()
-        et.delete()
-        return result
-
-    # TODO: commands for creating arbitrary pipe deliveries
-    # email create_pipe <address> <uname> <command>
-    # email delete_pipe <address>
 
     # email create_domain <domainname> <description>
     all_commands['email_create_domain'] = Command(
@@ -1298,20 +1192,18 @@ class BofhdExtension(object):
             raise CerebrumError, "Forward address added already (%s)" % addr
         return "OK"
 
-    # email create_list <list-address> [admin,admin,admin]
+    # email create_list <list-address>
     all_commands['email_create_list'] = Command(
         ("email", "create_list"),
         EmailAddress(help_ref="mailman_list"),
-        SimpleString(help_ref="mailman_admins", optional=True),
-        perm_filter="can_email_list_create")
-    def email_create_list(self, operator, listname, admins = None):
+        perm_filter="is_superuser")
+    def email_create_list(self, operator, listname):
         """Create e-mail addresses listname needs to be a Mailman
-        list.  Also adds a request to create the list on the Mailman
-        server."""
+        list."""
         lp, dom = listname.split('@')
         ed = self._get_email_domain(dom)
         op = operator.get_entity_id()
-        self.ba.can_email_list_create(op, ed)
+        self.ba.is_superuser(op, ed)
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
@@ -1327,58 +1219,7 @@ class BofhdExtension(object):
             raise CerebrumError, ("Won't create list %s, as %s is an "
                                   "existing username") % (listname, lp)
         self._register_list_addresses(listname, lp, dom)
-        if admins:
-            br = BofhdRequests(self.db, self.const)
-            ea.clear()
-            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-            list_id = ea.email_addr_id
-            admin_list = []
-            for addr in admins.split(","):
-                if addr.count('@') == 0:
-                    admin_list.append(addr + "@UIO_HOST")
-                else:
-                    admin_list.append(addr)
-            ea.clear()
-            try:
-                ea.find_by_address(admin_list[0])
-            except Errors.NotFoundError:
-                raise CerebrumError, "%s: unknown address" % admin_list[0]
-            req = br.add_request(op, br.now, self.const.bofh_mailman_create,
-                                 list_id, ea.email_addr_id, None)
-            for addr in admin_list[1:]:
-                ea.clear()
-                try:
-                    ea.find_by_address(addr)
-                except Errors.NotFoundError:
-                    raise CerebrumError, "%s: unknown address" % addr
-                br.add_request(op, br.now, self.const.bofh_mailman_add_admin,
-                               list_id, ea.email_addr_id, str(req))
-        return "OK"
-
-    # email create_list_alias <list-address> <new-alias>
-    all_commands['email_create_list_alias'] = Command(
-        ("email", "create_list_alias"),
-        EmailAddress(help_ref="mailman_list_exist"),
-        EmailAddress(help_ref="mailman_list"),
-        perm_filter="can_email_list_create")
-    def email_create_list_alias(self, operator, listname, address):
-        """Create a secondary name for an existing Mailman list."""
-        lp, dom = address.split('@')
-        ed = self._get_email_domain(dom)
-        self.ba.can_email_list_create(operator.get_entity_id(), ed)
-        self._check_mailman_official_name(listname)
-        try:
-            self._get_account(lp)
-        except CerebrumError:
-            pass
-        else:
-            raise CerebrumError, ("Won't create list %s, as %s is an "
-                                  "existing username") % (address, lp)
-        # we _don't_ check for "more than 8 characters in local
-        # part OR it contains hyphen" since we assume the people
-        # who have access to this command know what they are doing
-        self._register_list_addresses(listname, lp, dom)
-        return "OK"
+        return "Ok, registered list %s" % listname
 
     # email delete_list <list-address>
     all_commands['email_delete_list'] = Command(
@@ -1387,11 +1228,10 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_list_delete")
     def email_delete_list(self, operator, listname):
-        lp, dom = listname.split('@')
+        lp, dom = self._split_email_address(listname)
         ed = self._get_email_domain(dom)
         op = operator.get_entity_id()
         self.ba.can_email_list_delete(op, ed)
-        self._check_mailman_official_name(listname)
         # All OK, let's nuke it all.
         result = []
         et = Email.EmailTarget(self.db)
@@ -1401,6 +1241,7 @@ class BofhdExtension(object):
         for interface in self._interface2addrs.keys():
             alias = self._mailman_pipe % { 'interface': interface,
                                            'listname': listname }
+	    print alias
             try:
                 et.clear()
                 et.find_by_alias(alias)
@@ -1412,9 +1253,6 @@ class BofhdExtension(object):
                     result.append({'address': addr})
             except Errors.NotFoundError:
                 pass
-        br = BofhdRequests(self.db, self.const)
-        br.add_request(op, br.now, self.const.bofh_mailman_remove,
-                       list_id, None, listname)
         return result
 
     def _get_mailman_list(self, listname):
@@ -1445,10 +1283,8 @@ class BofhdExtension(object):
 
 
     def _register_list_addresses(self, listname, lp, dom):
-        """Add list, owner and request addresses.  listname is the
-        name in Mailman, which may be different from lp@dom, which is
-        the basis for the local parts and domain of the addresses
-        which should be added."""
+        """Add list and additional addresses (admin, bounces, confirm,
+	join, leave, owner, request, subscribe, unsubscribe)."""
         
         ed = Email.EmailDomain(self.db)
         ed.find_by_domain(dom)
@@ -1497,152 +1333,67 @@ class BofhdExtension(object):
                 ea.populate(addr_lp, ed.email_domain_id, et.email_target_id)
                 ea.write_db()
 
-    # email create_multi <multi-address> <group>
-    all_commands['email_create_multi'] = Command(
-        ("email", "create_multi"),
-        EmailAddress(help_ref="email_address"),
-        GroupName(help_ref="group_name_dest"),
-        perm_filter="can_email_multi_create")
-    def email_create_multi(self, operator, addr, group):
-        """Create en e-mail target of type 'multi' expanding to
-        members of group, and associate the e-mail address with this
-        target."""
-        lp, dom = addr.split('@')
-        ed = self._get_email_domain(dom)
-        gr = self._get_group(group)
-        self.ba.can_email_multi_create(operator.get_entity_id(), ed, gr)
-        ea = Email.EmailAddress(self.db)
-        try:
-            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-        except Errors.NotFoundError:
-            pass
-        else:
-            raise CerebrumError, "Address <%s> is already in use" % addr
-        et = Email.EmailTarget(self.db)
-        et.populate(self.const.email_target_multi,
-                    entity_type = self.const.entity_group,
-                    entity_id = gr.entity_id)
-        et.write_db()
-        ea.clear()
-        ea.populate(lp, ed.email_domain_id, et.email_target_id)
-        ea.write_db()
-        epat = Email.EmailPrimaryAddressTarget(self.db)
-        epat.populate(ea.email_addr_id, parent=et)
-        epat.write_db()
-        return "OK"
-
-    # email delete_multi <address>
-    all_commands['email_delete_multi'] = Command(
-        ("email", "delete_multi"),
-        EmailAddress(help_ref="email_address"),
-        fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
-        perm_filter="can_email_multi_delete")
-    def email_delete_multi(self, operator, addr):
-        lp, dom = addr.split('@')
-        ed = self._get_email_domain(dom)
-        et, acc = self.__get_email_target_and_account(addr)
-        if et.email_target_type <> self.const.email_target_multi:
-            raise CerebrumError, "%s: Not a multi target" % addr
-        if et.email_target_entity_type <> self.const.entity_group:
-            raise CerebrumError, "%s: Does not point to a group!" % addr
-        gr = self._get_group(et.email_target_entity_id, idtype="id")
-        self.ba.can_email_multi_delete(operator.get_entity_id(), ed, gr)
-        epat = Email.EmailPrimaryAddressTarget(self.db)
-        try:
-            epat.find(et.email_target_id)
-        except Errors.NotFoundError:
-            # a multi target does not need a primary address
-            pass
-        else:
-            # but if one exists, we require the user to supply that
-            # address, not an arbitrary alias.
-            if addr <> self.__get_address(epat):
-                raise CerebrumError, ("%s is not the primary address of "+
-                                      "the target") % addr
-            epat.delete()
-        # All OK, let's nuke it all.
-        result = []
-        ea = Email.EmailAddress(self.db)
-        for r in et.get_addresses():
-            ea.clear()
-            ea.find(r['address_id'])
-            result.append({'address': self.__get_address(ea)})
-            ea.delete()
-        return result
-
     # email migrate
     all_commands['email_migrate'] = Command(
         ("email", "migrate"),
         AccountName(help_ref="account_name", repeat=True),
-        perm_filter='can_email_migrate')
+        perm_filter='is_superuser')
     def email_migrate(self, operator, uname):
         acc = self._get_account(uname)
         op = operator.get_entity_id()
-        self.ba.can_email_migrate(op, acc)
+        self.ba.is_superuser(op, acc)
         for r in acc.get_spread():
-            if r['spread'] == int(self.const.spread_uio_imap):
+            if r['spread'] == int(self.const.spread_hia_email):
                 raise CerebrumError, "%s is already an IMAP user" % uname
         acc.add_spread(self.const.spread_uio_imap)
-        if op <> acc.entity_id:
-            # the local sysadmin should get a report as well, if
-            # possible, so change the request add_spread() put in so
-            # that he is named as the requestee.  the list of requests
-            # may turn out to be empty, ie. processed already, but this
-            # unlikely race condition is too hard to fix.
-            br = BofhdRequests(self.db, self.const)
-            for r in br.get_requests(operation=self.const.bofh_email_move,
-                                     entity_id=acc.entity_id):
-                br.delete_request(request_id=r['request_id'])
-                br.add_request(op, r['run_at'], r['operation'], r['entity_id'],
-                               r['destination_id'], r['state_data'])
-        return 'OK'
+	return "Ok, IMAP-spread added to %s" % uname
 
     # email move
-    all_commands['email_move'] = Command(
-        ("email", "move"),
-        AccountName(help_ref="account_name", repeat=True),
-        SimpleString(help_ref='string_email_host'),
-        perm_filter='can_email_move')
-    def email_move(self, operator, uname, server):
-        acc = self._get_account(uname)
-        self.ba.can_email_move(operator.get_entity_id(), acc)
-        est = Email.EmailServerTarget(self.db)
-        est.find_by_entity(acc.entity_id)
-        old_server = est.email_server_id
-        es = Email.EmailServer(self.db)
-        es.find_by_name(server)
-        if old_server == es.entity_id:
-            raise CerebrumError, "User is already at %s" % server
-        est.populate(es.entity_id)
-        est.write_db()
-        if es.email_server_type == self.const.email_server_type_cyrus:
-            spreads = [int(r['spread']) for r in acc.get_spread()]
-            br = BofhdRequests(self.db, self.const)
-            if not self.const.spread_uio_imap in spreads:
-                acc.add_spread(self.const.spread_uio_imap)
-                # Since server was chosen already, add_spread() has
-                # only queued a create request, not a move request.
-                # Look up the create request so we get the dependency
-                # right.
-                for r in br.get_requests(operation=self.const.bofh_email_create,
-                                         entity_id=acc.entity_id):
-                    req = r['request_id']
-            else:
-                # We need to create the new e-mail account ourselves.
-                req = br.add_request(operator.get_entity_id(), br.now,
-                                     self.const.bofh_email_create,
-                                     acc.entity_id, est.email_server_id)
+##     all_commands['email_move'] = Command(
+##         ("email", "move"),
+##         AccountName(help_ref="account_name", repeat=True),
+##         SimpleString(help_ref='string_email_host'),
+##         perm_filter='can_email_move')
+##     def email_move(self, operator, uname, server):
+##         acc = self._get_account(uname)
+##         self.ba.can_email_move(operator.get_entity_id(), acc)
+##         est = Email.EmailServerTarget(self.db)
+##         est.find_by_entity(acc.entity_id)
+##         old_server = est.email_server_id
+##         es = Email.EmailServer(self.db)
+##         es.find_by_name(server)
+##         if old_server == es.entity_id:
+##             raise CerebrumError, "User is already at %s" % server
+##         est.populate(es.entity_id)
+##         est.write_db()
+##         if es.email_server_type == self.const.email_server_type_cyrus:
+##             spreads = [int(r['spread']) for r in acc.get_spread()]
+##             br = BofhdRequests(self.db, self.const)
+##             if not self.const.spread_uio_imap in spreads:
+##                 acc.add_spread(self.const.spread_uio_imap)
+##                 # Since server was chosen already, add_spread() has
+##                 # only queued a create request, not a move request.
+##                 # Look up the create request so we get the dependency
+##                 # right.
+##                 for r in br.get_requests(operation=self.const.bofh_email_create,
+##                                          entity_id=acc.entity_id):
+##                     req = r['request_id']
+##             else:
+##                 # We need to create the new e-mail account ourselves.
+##                 req = br.add_request(operator.get_entity_id(), br.now,
+##                                      self.const.bofh_email_create,
+##                                      acc.entity_id, est.email_server_id)
 
-            # Now add a move request.
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_email_move,
-                           acc.entity_id, old_server, state_data=req)
-        else:
-            # TBD: should we remove spread_uio_imap ?
-            # It does not do much good to add to a bofh request, mvmail
-            # can't handle this anyway.
-            raise NotImplementedError, "can't move to non-IMAP server" 
-        return "OK"
+##             # Now add a move request.
+##             br.add_request(operator.get_entity_id(), br.now,
+##                            self.const.bofh_email_move,
+##                            acc.entity_id, old_server, state_data=req)
+##         else:
+##             # TBD: should we remove spread_uio_imap ?
+##             # It does not do much good to add to a bofh request, mvmail
+##             # can't handle this anyway.
+##             raise NotImplementedError, "can't move to non-IMAP server" 
+##         return "OK"
 
     # email quota <uname>+ hardquota-in-mebibytes [softquota-in-percent]
     all_commands['email_quota'] = Command(
@@ -1656,14 +1407,14 @@ class BofhdExtension(object):
         op = operator.get_entity_id()
         self.ba.can_email_set_quota(op, acc)
         hquota = int(hquota)
-        if hquota < 100:
-            raise CerebrumError, "The hard quota can't be less than 100 MiB"
+        if hquota < 300:
+            raise CerebrumError, "The hard quota can't be less than 300 MiB"
         if hquota > 1024*1024:
             raise CerebrumError, "The hard quota can't be more than 1 TiB"
         squota = int(squota)
-        if squota < 10 or squota > 99:
+        if squota < 30 or squota > 90:
             raise CerebrumError, ("The soft quota must be in the interval "+
-                                  "10% to 99%")
+                                  "30% to 90%")
         et = Email.EmailTarget(self.db)
         try:
             et.find_by_entity(acc.entity_id)
@@ -1683,85 +1434,32 @@ class BofhdExtension(object):
             eq.populate(squota, hquota, parent=et)
             change = True
         eq.write_db()
-        if change:
-            br = BofhdRequests(self.db, self.const)
-            # if this operator has already asked for a quota change, but
-            # process_bofh_requests hasn't run yet, delete the existing
-            # request to avoid the annoying error message.
-            for r in br.get_requests(operation=self.const.bofh_email_hquota,
-                                     operator_id=op, entity_id=acc.entity_id):
-                br.delete_request(request_id=r['request_id'])
-            br.add_request(op, br.now, self.const.bofh_email_hquota,
-                           acc.entity_id, None)
-        return "OK"
+        return "Ok, updated quota for %s in Cerebrum to %d" % (uname, hquota)
 
-    # email spam_level <level> <uname>+
-    all_commands['email_spam_level'] = Command(
-        ('email', 'spam_level'),
-        SimpleString(help_ref='spam_level'),
-        AccountName(help_ref='account_name', repeat=True),
-        perm_filter='can_email_spam_settings')
-    def email_spam_level(self, operator, level, uname):
-        """Set the spam level for the EmailTarget associated with username.
-        It is also possible for super users to pass the name of a mailing
-        list."""
-        levelcode = None
-        for c in self.const.fetch_constants(_EmailSpamLevelCode):
-            if str(c).startswith(level):
-                if levelcode:
-                    raise CerebrumError, ("'%s' does not uniquely identify "+
-                                          "a spam level") % level
-                levelcode = c
-        if not levelcode:
-            raise CerebrumError, "Spam level code not found: %s" % level
-        et, acc = self.__get_email_target_and_account(uname)
-        self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
-        esf = Email.EmailSpamFilter(self.db)
-        try:
-            esf.find(et.email_target_id)
-            esf.email_spam_level = levelcode
-        except Errors.NotFoundError:
-            esf.clear()
-            esf.populate(levelcode, self.const.email_spam_action_none,
-                         parent=et)
-        esf.write_db()
-        return "OK"
 
-    # email spam_action <action> <uname>+
-    # 
-    # (This code is cut'n'paste of email_spam_level(), only the call
-    # to populate() had to be fixed manually.  It's hard to fix this
-    # kind of code duplication cleanly.)
-    all_commands['email_spam_action'] = Command(
-        ('email', 'spam_action'),
-        SimpleString(help_ref='spam_action'),
-        AccountName(help_ref='account_name', repeat=True),
-        perm_filter='can_email_spam_settings')
-    def email_spam_action(self, operator, action, uname):
-        """Set the spam action for the EmailTarget associated with username.
-        It is also possible for super users to pass the name of a mailing
-        list."""
-        actioncode = None
-        for c in self.const.fetch_constants(_EmailSpamActionCode):
-            if str(c).startswith(action):
-                if actioncode:
-                    raise CerebrumError, ("'%s' does not uniquely identify "+
-                                          "a spam action") % action
-                actioncode = c
-        if not actioncode:
-            raise CerebrumError, "Spam action code not found: %s" % action
-        et, acc = self.__get_email_target_and_account(uname)
-        self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
-        esf = Email.EmailSpamFilter(self.db)
-        try:
-            esf.find(et.email_target_id)
-            esf.email_spam_action = actioncode
-        except Errors.NotFoundError:
-            esf.clear()
-            esf.populate(self.const.email_spam_level_none, actioncode,
-                         parent=et)
-        esf.write_db()
-        return "OK"
+    def _email_info_forwarding(self, target, addrs):
+        info = []
+        forw = []
+        local_copy = ""
+        ef = Email.EmailForward(self.db)
+        ef.find(target.email_target_id)
+        for r in ef.get_forward():
+            if r['enable'] == 'T':
+                enabled = "on"
+            else:
+                enabled = "off"
+            if r['forward_to'] in addrs:
+                local_copy = "+ local delivery (%s)" % enabled
+            else:
+                forw.append("%s (%s) " % (r['forward_to'], enabled))
+        # for aesthetic reasons, print "+ local delivery" last
+        if local_copy:
+            forw.append(local_copy)
+        if forw:
+            info.append({'forward_1': forw[0]})
+            for idx in range(1, len(forw)):
+                info.append({'forward': forw[idx]})
+        return info
 
     # email tripnote on|off <uname> [<begin-date>]
     all_commands['email_tripnote'] = Command(
