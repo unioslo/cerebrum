@@ -12,17 +12,16 @@ if [ -f cerebrum/debian/changelog ] ; then
   rm -f cerebrum/debian/changelog
 fi
 
-(cd cerebrum; cvs up -dPA)
-
 DEBFULLNAME="Andreas Schuldei"
 DEBEMAIL="andreas@debian.org"
-
 export DEBEMAIL DEBFULLNAME
-
-( cd cerebrum-0.0.$DATE ; dch --newversion 0.0.$DATE "new upstream cvs checkout")
+(cd cerebrum
+    cvs up -dPA
+    dch --newversion 0.0.$DATE "new upstream cvs checkout"
+)
 
 mv cerebrum cerebrum-0.0.$DATE
-tar cfzv cerebrum_0.0.$DATE.orig.tar.gz cerebrum-0.0.$DATE \
+tar cfz cerebrum_0.0.$DATE.orig.tar.gz cerebrum-0.0.$DATE \
  --exclude 'CVS' \
  --exclude '.cvsignore' \
  --exclude 'debian/tmp' \
