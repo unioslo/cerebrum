@@ -198,13 +198,13 @@ class PosixUser(LdapBack):
         """Convert Account-object to map ldap-attributes"""
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.fullname
-        s['sn'] = obj.fullname.split()[len(obj.fullname)-1] # presume last name, is surname
+        s['cn'] = obj.gecos
+        s['sn'] = obj.gecos.split()[len(obj.gecos)-1] # presume last name, is surname
         s['uid'] = obj.name
         s['uidNumber'] = obj.uid
         s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
         s['gidNumber'] = obj.gid
-        s['gecos'] = self.gecos(obj.fullname)
+        s['gecos'] = obj.gecos
         s['homeDirectory'] = obj.home
         s['loginShell'] = obj.shell
         return s
@@ -212,6 +212,7 @@ class PosixUser(LdapBack):
     def get_dn(self,obj):
         # Maybe generalize this to LdapBack instead
         return "uid=" + obj.name + "," + config.sync.get('ldap','user_base')
+
 
     def add(self,obj,conn):
         # Convert obj into a useful LDAPObject
@@ -299,8 +300,8 @@ class EduPerson:
     def get_attributes(self,obj):
         s = {}
         s['objectClass'] = self.obj_class
-        s['cn'] = obj.fullname
-        s['sn'] = obj.fullname.split()[len(obj.fullname)-1] # presume last name, is surname
+        s['cn'] = obj.full_name
+        s['sn'] = obj.full_name.split()[len(obj.full_name)-1] # presume last name, is surname
         s['uid'] = obj.name
         s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
         s['eduPersonPrincipalName'] = obj.name + "@" + config.sync.get('ldap','eduperson_realm')
