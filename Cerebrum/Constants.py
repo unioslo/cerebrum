@@ -292,7 +292,7 @@ class _GroupVisibilityCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=group_visibility_code]'
 
 class _QuarantineCode(_CerebrumCode):
-    "Mappings stored in the person_affiliation_code table"
+    "Mappings stored in quarantine_code table"
     _lookup_table = '[:table schema=cerebrum name=quarantine_code]'
 
     def __init__(self, code, description=None, duration=None):
@@ -314,83 +314,7 @@ class _QuarantineCode(_CerebrumCode):
                           'str': self.str,
                           'desc': self._desc})
 
-class Constants(DatabaseAccessor):
-    """Singleton whose members make up all needed coding values.
-
-    Defines a number of variables that are used to get access to the
-    string/int value of the corresponding database key."""
-
-    entity_person = _EntityTypeCode(
-        'person',
-        'Person - see table "cerebrum.person_info" and friends.')
-    entity_ou = _EntityTypeCode(
-        'ou',
-        'Organizational Unit - see table "cerebrum.ou_info" and friends.')
-    entity_account = _EntityTypeCode(
-        'account',
-        'User Account - see table "cerebrum.account_info" and friends.')
-    entity_group = _EntityTypeCode(
-        'group',
-        'Group - see table "cerebrum.group_info" and friends.')
-    entity_host = _EntityTypeCode('host', 'see table host_info')
-    entity_disk = _EntityTypeCode('disk', 'see table disk_info')
-
-    contact_phone = _ContactInfoCode('PHONE', 'Phone')
-    contact_fax = _ContactInfoCode('FAX', 'Fax')
-    contact_email = _ContactInfoCode('EMAIL', 'Email')
-
-    address_post = _AddressCode('POST', 'Post address')
-    address_street = _AddressCode('STREET', 'Street address')
-
-    gender_male = _GenderCode('M', 'Male')
-    gender_female = _GenderCode('F', 'Female')
-    gender_unknown = _GenderCode('X', 'Unknown gender')
-
-    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO',
-                                                 'Norwegian birth number')
-
-    name_first = _PersonNameCode('FIRST', 'First name')
-    name_last = _PersonNameCode('LAST', 'Last name')
-    name_full = _PersonNameCode('FULL', 'Full name')
-
-    affiliation_employee = _PersonAffiliationCode('EMPLOYEE', 'Employed')
-    affiliation_status_employee_valid = _PersonAffStatusCode(
-        affiliation_employee, 'VALID', 'Valid')
-
-    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
-    affiliation_status_student_valid = _PersonAffStatusCode(
-        affiliation_student, 'VALID', 'Valid')
-
-    # UIO specific constants, belong in UiOConstants once we get the
-    # CerebrumFactory up and running
-    system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
-    system_cached = _AuthoritativeSystemCode('Cached', 'Internally cached data')
-
-    account_program = _AccountCode('P', 'Programvarekonto')
-
-    group_namespace = _ValueDomainCode(cereconf.DEFAULT_GROUP_NAMESPACE,
-                                       'Default domain for group names')
-    account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE,
-                                         'Default domain for account names')
-
-    auth_type_md5_crypt = _AuthenticationCode(
-        'MD5-crypt',
-        "MD5-derived password hash as implemented by crypt(3) on some Unix"
-        " variants passed a `salt` that starts with '$1$'.  See <URL:http:"
-        "//www.users.zetnet.co.uk/hopwood/crypto/scan/algs/md5crypt.txt>.")
-    auth_type_crypt3_des = _AuthenticationCode(
-        'crypt3-DES',
-        "Password hash generated with the 'traditional' Unix crypt(3)"
-        " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
-        "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
-
-    group_memberop_union = _GroupMembershipOpCode('union', 'Union')
-    group_memberop_intersection = _GroupMembershipOpCode(
-        'intersection', 'Intersection')
-    group_memberop_difference = _GroupMembershipOpCode(
-        'difference', 'Difference')
-
-    group_visibility_all = _GroupVisibilityCode('A', 'All')
+class ConstantsBase(DatabaseAccessor):
 
     def map_const(self, num):
         skip = list(dir(_CerebrumCode.sql))
@@ -443,6 +367,98 @@ class Constants(DatabaseAccessor):
         # superclasses might use the .sql attribute themselves for
         # other purposes; should be cleaned up.
         _CerebrumCode.sql = database
+
+
+class CoreContants(ConstantsBase):
+
+    entity_person = _EntityTypeCode(
+        'person',
+        'Person - see table "cerebrum.person_info" and friends.')
+    entity_ou = _EntityTypeCode(
+        'ou',
+        'Organizational Unit - see table "cerebrum.ou_info" and friends.')
+    entity_account = _EntityTypeCode(
+        'account',
+        'User Account - see table "cerebrum.account_info" and friends.')
+    entity_group = _EntityTypeCode(
+        'group',
+        'Group - see table "cerebrum.group_info" and friends.')
+    entity_host = _EntityTypeCode('host', 'see table host_info')
+    entity_disk = _EntityTypeCode('disk', 'see table disk_info')
+
+    group_namespace = _ValueDomainCode(cereconf.DEFAULT_GROUP_NAMESPACE,
+                                       'Default domain for group names')
+    account_namespace = _ValueDomainCode(cereconf.DEFAULT_ACCOUNT_NAMESPACE,
+                                         'Default domain for account names')
+
+    group_memberop_union = _GroupMembershipOpCode('union', 'Union')
+    group_memberop_intersection = _GroupMembershipOpCode(
+        'intersection', 'Intersection')
+    group_memberop_difference = _GroupMembershipOpCode(
+        'difference', 'Difference')
+
+    system_cached = _AuthoritativeSystemCode('Cached',
+                                             'Internally cached data')
+
+
+class CommonConstants(ConstantsBase):
+
+    auth_type_md5_crypt = _AuthenticationCode(
+        'MD5-crypt',
+        "MD5-derived password hash as implemented by crypt(3) on some Unix"
+        " variants passed a `salt` that starts with '$1$'.  See <URL:http:"
+        "//www.users.zetnet.co.uk/hopwood/crypto/scan/algs/md5crypt.txt>.")
+    auth_type_crypt3_des = _AuthenticationCode(
+        'crypt3-DES',
+        "Password hash generated with the 'traditional' Unix crypt(3)"
+        " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
+        "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
+
+    contact_phone = _ContactInfoCode('PHONE', 'Phone')
+    contact_fax = _ContactInfoCode('FAX', 'Fax')
+    contact_email = _ContactInfoCode('EMAIL', 'Email')
+
+    address_post = _AddressCode('POST', 'Post address')
+    address_street = _AddressCode('STREET', 'Street address')
+
+    gender_male = _GenderCode('M', 'Male')
+    gender_female = _GenderCode('F', 'Female')
+    gender_unknown = _GenderCode('X', 'Unknown gender')
+
+    group_visibility_all = _GroupVisibilityCode('A', 'All')
+
+    name_first = _PersonNameCode('FIRST', 'First name')
+    name_last = _PersonNameCode('LAST', 'Last name')
+    name_full = _PersonNameCode('FULL', 'Full name')
+
+    system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
+
+
+class Constants(CoreConstants, CommonConstants):
+    pass
+
+
+class ExampleConstants(Constants):
+    """Singleton whose members make up all needed coding values.
+
+    Defines a number of variables that are used to get access to the
+    string/int value of the corresponding database key."""
+
+    externalid_fodselsnr = _PersonExternalIdCode('NO_BIRTHNO',
+                                                 'Norwegian birth number')
+
+    affiliation_employee = _PersonAffiliationCode('EMPLOYEE', 'Employed')
+    affiliation_status_employee_valid = _PersonAffStatusCode(
+        affiliation_employee, 'VALID', 'Valid')
+
+    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
+    affiliation_status_student_valid = _PersonAffStatusCode(
+        affiliation_student, 'VALID', 'Valid')
+
+    # UIO specific constants, belong in UiOConstants once we get the
+    # CerebrumFactory up and running
+    account_program = _AccountCode('P', 'Programvarekonto')
+
 
 def main():
     from Cerebrum.Utils import Factory
