@@ -86,7 +86,7 @@ def read_spam():
         if counter == 0:
             print "  done list_email_spam_filters_ext(): %d sec." % (now() - curr)
             counter = 1
-        targ2spam[int(row['target_id'])] = [row['grade'], row['code_str']]
+        targ2spam[int(row['target_id'])] = [row['level'], row['code_str']]
 
 def read_quota():
     counter = 0
@@ -196,8 +196,8 @@ def write_ldif():
 
             # Find spam-settings:
             if targ2spam.has_key(t):
-                grade, action = targ2spam[t]
-                rest += "spamLevel: %s\n" % grade
+                level, action = targ2spam[t]
+                rest += "spamLevel: %s\n" % level
                 rest += "spamAction: %s\n" % action
 
             # Find virus-setting:
@@ -325,7 +325,7 @@ def write_ldif():
         if targ2forward.has_key(t):
             for addr,enable in targ2forward[t]:
                 if enable == 'T':
-                    f.write("forwardAddress: %s\n" % addr)
+                    f.write("forwardDestination: %s\n" % addr)
                 
         f.write("\n")
 
