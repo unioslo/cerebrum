@@ -112,10 +112,6 @@ def _create_view(req, id):
         page.add_message(_("Could not load person with id %s") % id)
         return (page, None)
 
-    msg = profile.get_last_error_message(req)
-    if msg:
-        page.add_message(_("Error: %s") % msg)
-
     page.menu.setFocus("person/view", id)
     view = PersonViewTemplate()
     page.content = lambda: view.viewPerson(person, req.session['profile'])
