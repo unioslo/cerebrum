@@ -743,21 +743,20 @@ def generate_group(spread=None, filename=None):
     f.write("\n")
     f.close()
 
-
 def generate_netgroup(spread=None, filename=None):
-    pos_netgrp = Factory.get('Group')(Cerebrum) 
+    pos_netgrp = Group.Group(Cerebrum)
     posix_user = PosixUser.PosixUser(Cerebrum)
     if filename:
         f = file(filename, 'w')
     else:
         f = SimilarSizeWriter(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_NETGROUP_FILE),'/'), 'w')
-	f.set_size_change_limit(10)
+        f.set_size_change_limit(10)
     spreads = []
     if spread:
-	spreads.append(int(getattr(co,spread)))
+        spreads.append(int(getattr(co,spread)))
     else:
-	for spread in cereconf.LDAP_NETGROUP_SPREAD:
-	    spreads.append(int(getattr(co,spread)))
+        for spread in cereconf.LDAP_NETGROUP_SPREAD:
+            spreads.append(int(getattr(co,spread)))
     f.write("\n")
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NETGROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
@@ -771,46 +770,45 @@ def generate_netgroup(spread=None, filename=None):
             netgrp_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_NETGROUP_ATTR,netgrp_name,dn_str)
             netgrp_str += "%s" % obj_str
             netgrp_str += "cn: %s\n" % netgrp_name
-	    if not entity2uname.has_key(int(row.group_id)):
-		entity2uname[int(row.group_id)] = netgrp_name
-	    if pos_netgrp.description:
+            if not entity2uname.has_key(int(row.group_id)):
+                entity2uname[int(row.group_id)] = netgrp_name
+            if pos_netgrp.description:
                  netgrp_str+= "description: %s\n" % latin1_to_iso646_60(pos_netgrp.description)
-	    members = []
-	    hosts = []
-	    groups = []
-	    members = pos_netgrp.list_members(None,int(co.entity_account))[0]
-#	    hosts = pos_netgrp.list_members(None,int(co.entity_host))[0]
-	    groups = pos_netgrp.list_members(None,int(co.entity_group))[0]
-	    for id in members:
-                uname_id = int(id[1])
-                if entity2uname.has_key(uname_id):
-		    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_','')
-                else:
-                    pos_netgrp.clear()
-                    pos_netgrp.entity_id = uname_id
-		    netgrp_str += "nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_','')
-#	    for host in hosts:
-#		host_id = int(host[1])
-#		if entity2uname.has_key(host_id):
-#		    netgrp_str += "nisNetgroupTriple: (%s,-,)\n" % % entity2uname[host_id]
-#		else:
-#		    pos_netgrp.clear()
-#		    pos_netgrp.entity_id = host_id
-#		    netgrp_str += "nisNetgroupTriple: (%s,-,)\n" % posix_group.get_name(co.host_namespace)
-	    for group in groups:
-		group_id = int(group[1])
-		if entity2uname.has_key(group_id):
-		    netgrp_str += "memberNisNetgroup: %s\n" % entity2uname[group_id]
-		else:
-		    pos_netgrp.clear()
-		    pos_netgrp.find(group_id)
-		    netgrp_str += "memberNisNetgroup: %s\n" % pos_netgrp.group_name
-            f.write("\n")
             f.write(netgrp_str)
+            get_netgrp(row.group_id,spreads,f)
+            f.write("\n")
         except:
             pass
-    f.write("\n")
     f.close()
+
+def get_netgrp(netgrp_id,spreads,f):
+    pos_netgrp = Group.Group(Cerebrum)
+    pos_user = PosixUser.PosixUser(Cerebrum)
+    pos_netgrp.clear()
+    pos_netgrp.find(int(netgrp_id))
+    try:
+        for id in pos_netgrp.list_members(None,int(co.entity_account))[0]:
+            uname_id = int(id[1])
+            if entity2uname.has_key(uname_id):
+                f.write("nisNetgroupTriple: (,%s,)\n" % entity2uname[uname_id].replace('_',''))
+            else:
+                pos_user.clear()
+                pos_user.find(uname_id)
+                f.write("nisNetgroupTriple: (,%s,)\n" % pos_user.account_name.replace('_',''))
+        for group in pos_netgrp.list_members(None,int(co.entity_group))[0]:
+            valid_spread = False
+            pos_netgrp.clear()
+            group_id = int(group[1])
+            pos_netgrp.find(group_id)
+            for spread_search in spreads:
+                if pos_netgrp.has_spread(spread_search):
+                    valid_spread = True
+            if valid_spread:
+                f.write("memberNisNetgroup: %s\n" % pos_netgrp.group_name)
+            else:
+                get_netgrp(group_id,spreads,f)
+    except: print "Fault with group: %s" % netgrp_id
+
 
 def iso2utf(s):
     """Convert iso8859-1 to utf-8"""
