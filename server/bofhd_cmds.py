@@ -1,4 +1,20 @@
-# #!/usr/bin/env python2.2
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from cmd_param import *
 from Cerebrum import Account
@@ -25,10 +41,10 @@ class BofhdExtension(object):
 
     def tab_foobar(self, *args):
         return ["foo", "bar", "gazonk"]
-        
+
     def prompt_foobar(self, *args):
         return "Enter a joke"
-        
+
     def get_commands(self, uname):
         # TBD: Do some filtering on uname to remove commands
         commands = {}
@@ -83,11 +99,11 @@ class BofhdExtension(object):
             person.find_by_external_id(self.const.externalid_fodselsnr, id)
         else:
             raise NotImplementedError, "Unknown idtype: %s" % idtype
-        
+
         account.populate(accountname,
                          self.const.entity_person,  # Owner type
                          person.entity_id,
-                         None, 
+                         None,
                          creator_id, expire_date)
         account.write_db()
         return {'account_id': account.entity_id}
@@ -195,14 +211,14 @@ class BofhdExtension(object):
                           groupname, description)
         group.write_db()
         return {'group_id': group.entity_id}
-    
+
     ## bofh> group delete <name>
     all_commands['group_delete'] = Command(("group", "delete"),
                                            GroupName("existing"))
     def group_delete(self, user, groupname):
         """Deletes the group 'groupname'"""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> group expand <groupname>
     all_commands['group_expand'] = Command(("group", "expand"),
                                            GroupName("existing"))
@@ -210,7 +226,7 @@ class BofhdExtension(object):
         """Do full group expansion; list resulting members and their
         entity types."""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> group expire <name> <yyyy-mm-dd>
     all_commands['group_expire'] = Command(("group", "expire"),
                                            GroupName("existing"), Date())
@@ -220,23 +236,23 @@ class BofhdExtension(object):
         group.expire_date = self.Cerebrum.Date(*([
             int(x) for x in date.split('-')]))
         group.write_db()
-    
+
     ## bofh> group group <groupname>
     all_commands['group_group'] = Command(("group", "group"),
                                           GroupName("existing"))
     def group_group(self, user, groupname):
         """List all groups where 'groupname' is a (direct or
         indirect) member, and type of membership (union, intersection
-        or difference)."""        
+        or difference)."""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> group info <name>
     all_commands['group_info'] = Command(("group", "info"),
                                          GroupName("existing"))
     def group_info(self, user, groupname):
         """Returns some info about 'groupname'"""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> group list <groupname>
     all_commands['group_list'] = Command(("group", "list"),
                                          GroupName("existing"))
@@ -245,16 +261,16 @@ class BofhdExtension(object):
         categories coresponding to the three membership ops.  """
         group = self._get_group(groupname)
         return group.get_members()
-    
+
     ## bofh> group person <person_id>
     all_commands['group_person'] = Command(("group", "person"),
                                            GroupName("existing"))
     def group_person(self, user, personid):
         """List all groups where 'personid' is a (direct or
         indirect) member, and type of membership (union, intersection
-        or difference)."""        
+        or difference)."""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> group remove <entityname+> <groupname+> [<op>]
     # TODO: "entityname" er litt vagt, skal man gjette entitytype?
     all_commands['group_remove'] = Command(("group", "remove"),
@@ -265,7 +281,7 @@ class BofhdExtension(object):
         """Remove 'entityname' from 'groupname' using specified
         operator"""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> group visibility <name> <visibility>
     all_commands['group_visibility'] = Command(("group", "visibility"),
                                                GroupName("existing"),
@@ -276,7 +292,7 @@ class BofhdExtension(object):
         group = self._get_group(groupname)
         group.visibility = visibility
         group.write_db()
-    
+
     #
     # person commands
     #
@@ -291,14 +307,14 @@ class BofhdExtension(object):
         'idtype'='id'.  Changes the affiliationstatus if person
         already has an affiliation at the destination"""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> person afflist <idtype> <id>
     all_commands['person_afflist'] = Command(
         ("person", "afflist"), PersonIdType(), PersonId(repeat=1))
     def person_afflist(self, user, idtype, id):
         """Return all affiliations for person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> person affrem <idtype> <id> <affiliation> [<ou>]
     all_commands['person_affrem'] = Command(("person", "affrem"),
                                             PersonIdType(), PersonId(repeat=1),
@@ -306,7 +322,7 @@ class BofhdExtension(object):
     def person_affrem(self, user, idtype, id, affiliation, ou):
         """Add 'affiliation'@'ou' with 'status' to person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
-    
+
     ## bofh> person create <display_name> \
     ##         {<birth_date (yyyy-mm-dd)> | <id_type> <id>}
     all_commands['person_create'] = Command(
@@ -428,7 +444,7 @@ class BofhdExtension(object):
             group.find_by_name(id)
         else:
             raise NotImplementedError, "unknown idtype: '%s'" % idtype
-        
+
         return group
 
     def _get_person_name(self, person):
@@ -446,7 +462,7 @@ class BofhdExtension(object):
                     name = "%s %s" % (f, l)
                 except Errors.NotFoundError:
                     pass
-                    
+
         if name is None:
             name = "Ukjent"
         return name
@@ -469,4 +485,3 @@ class BofhdExtension(object):
             return self.const.name_full
         else:
             raise NotImplementedError, "unkown nametype: %s" % nametye
-        

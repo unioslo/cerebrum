@@ -1,5 +1,23 @@
 #!/usr/bin/env python2.2
 
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import cerebrum_path
 
 import pprint
@@ -195,7 +213,7 @@ def update_person(p, spec, type, affiliations, groupnames):
     if p[spec['socialsecno']] <> '':
         # Disabled this one as well until the duplicate oid issue is
         # sorted out.
-        
+
         #person.populate_external_id(source_system, co.externalid_fodselsnr,
         #                            p[spec['socialsecno']])
         pass
@@ -243,7 +261,7 @@ def update_person(p, spec, type, affiliations, groupnames):
                                    source_system, co.affiliation_status_employee_valid)
         elif type == 'foreldre':
             person.add_affiliation(school2ouid[a], co.affiliation_employee,  # TODO: new const
-                                   source_system, co.affiliation_status_employee_valid)            
+                                   source_system, co.affiliation_status_employee_valid)
     for g in groupnames:
         group = Group.Group(Cerebrum)
         try:
@@ -258,7 +276,7 @@ def update_person(p, spec, type, affiliations, groupnames):
 def import_OU(schools):
     """Registers or updates information about all schools listed in the
     'schools' dict."""
-    
+
     ret = {}
     tspec = {'name': 0, 'institutioncode': 1, 'phoneno': 2, 'faxno': 3,
              'address1': 4, 'address3': 5}
@@ -330,7 +348,7 @@ def convert_all():
              "person_elev_gs.txt", "person_elev_vg.txt",
              "person_foreldre_gs.txt", "person_foreldre_vg.txt",
              "sted_gs.txt", "sted_vg.txt")
-    
+
     for f in files:
         spec, ret = read_inputfile("sats/%s" % f)
         save_outputfile(f, spec, ret)

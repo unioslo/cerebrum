@@ -1,5 +1,23 @@
 #!/usr/bin/env python2.2
 
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import cerebrum_path
 
 import re
@@ -50,7 +68,7 @@ class TrivialParser(xml.sax.ContentHandler):
             for k in attrs.keys():
                 self.p_data[k] = attrs[k].encode('iso8859-1')
 
-    def endElement(self, name): 
+    def endElement(self, name):
         if name == "person":
             self.personer.append(self.p_data)
 
@@ -67,14 +85,14 @@ def main():
 
     pp = pprint.PrettyPrinter(indent=4)
     new_person = Person.Person(Cerebrum)
-            
+
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         print "Warning: ENABLE_MKTIME_WORKAROUND is set"
     if len(sys.argv) == 2:
         personfile = sys.argv[1]
     else:
         personfile = default_personfile
-        
+
     for person in LTData(personfile):
         person['fnr'] = fodselsnr.personnr_ok(
             "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
@@ -130,7 +148,7 @@ def main():
             faxer = [t['telefonnr'] or t['kommnrverdi']
                      for t in person['komm'] if t['kommtypekode'] == 'FAX']
         if len(faxer) == 0:
-            pass            # TODO: Hente fax fra stedkode 
+            pass            # TODO: Hente fax fra stedkode
         for tlf in telefoner:
             new_person.populate_contact_info(co.contact_phone, tlf)
         for fax in faxer:

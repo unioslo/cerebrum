@@ -1,4 +1,23 @@
 #!/usr/bin/env python2.2
+
+# Copyright 2002, 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 # $Id$
 
 """
@@ -87,7 +106,7 @@ class PersonUserParser(xml.sax.ContentHandler):
             print "WARNING: unknown element: %s" % name
         self.elementstack.append(name)
 
-    def endElement(self, name): 
+    def endElement(self, name):
         if name == "person":
             self.personer.append(self.person)
             pass
@@ -142,7 +161,7 @@ class FilegroupParser(xml.sax.ContentHandler):
             print "WARNING: unknown element: %s" % name
         self.elementstack.append(name)
 
-    def endElement(self, name): 
+    def endElement(self, name):
         if name == "group":
             self.groups.append(self.group)
         self.elementstack.pop()
@@ -191,7 +210,7 @@ def import_person_users(personfile):
     account = Account.Account(Cerebrum)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     acc_creator_id = account.entity_id
-    
+
     for person in PersonUserData(personfile):
         # pp.pprint(person)
 
@@ -276,18 +295,18 @@ def import_person_users(personfile):
             expire_date = None  # TODO
             gecos = None        # TODO
             shell = co.posix_shell_bash # TODO: shell2shellconst[u['shell']]
-            
+
             group=PosixGroup.PosixGroup(Cerebrum)
             try:
                 group.find_by_gid(u['dfg'])
             except Errors.NotFoundError:
-                print "WARNING: could not find dfg=%s for %s" % (u['dfg'], u['uname']) 
+                print "WARNING: could not find dfg=%s for %s" % (u['dfg'], u['uname'])
                 continue
             account.clear()
             account.populate(u['uname'],
                              co.entity_person,  # Owner type TODO
                              person_id,
-                             None, 
+                             None,
                              acc_creator_id, expire_date)
             account.affect_auth_types(co.auth_type_md5, co.auth_type_crypt)
             for au in u.get('auth', []):

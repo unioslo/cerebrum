@@ -5,6 +5,7 @@ import cerebrum_path
 import re
 import pickle
 import sys
+import getopt
 
 import xml.sax
 
@@ -41,78 +42,88 @@ class TrivialParser(xml.sax.ContentHandler):
         self.steder = []
 
     def startElement(self, name, attrs):
-        if name == "sted":
+        if name == 'data':
+            pass
+        elif name == "sted":
             tmp = {}
             for k in attrs.keys():
                 tmp[k] = attrs[k].encode('iso8859-1')
             self.steder.append(tmp)
+        else:
+            raise ValueError, "Unknown XML element %s" % name
 
-    def endElement(self, name): 
+    def endElement(self, name):
         pass
 
-verbose = 1
-stedfile = "/u2/dumps/LT/sted.xml"
 
 if len(sys.argv) == 2:
     stedfile = sys.argv[1]
 
+
 def main():
+    # Parse command line options and arguments
+    opts, args = getopt.getopt(sys.argv[1:], 'v', ['verbose'])
+
+    verbose = 0
+    stedfile = "/u2/dumps/LT/sted.xml"
+
+    for opt, val in opts:
+        if opt in ('-v', '--verbose'):
+            verbose += 1
+    if args:
+        stedfile = args.pop(0)
+
     Cerebrum = Factory.get('Database')()
     steder = {}
     co = Factory.get('Constants')(Cerebrum)
     ou = OU_class(Cerebrum)
-    if getattr(ou, 'find_stedkode', None) is None:
-        raise ValueError, "Wrong OU class, override CLASS_OU in cereconf.py"
-    new_ou = OU_class(Cerebrum)
     i = 1
     stedkode2ou = {}
-    ou.clear()
     for k in StedData(stedfile):
-        i = i + 1
-        steder[get_stedkode_str(k['fakultetnr'],
-                                k['instituttnr'],
-                                k['gruppenr'])] = k
+        i += 1
+        steder[get_stedkode_str(k)] = k
         if verbose:
-            print "Processing %s '%s'" % (
-                get_stedkode_str(k['fakultetnr'], k['instituttnr'],
-                                 k['gruppenr']),
-                k['forkstednavn']),
-        new_ou.clear()
+            print "Processing %s '%s'" % (get_stedkode_str(k),
+                                          k['forkstednavn']),
+        ou.clear()
         try:
-            new_ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
+            ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'])
         except Errors.NotFoundError:
             pass
-
-        new_ou.populate(k['stednavn'], k['fakultetnr'],
-                        k['instituttnr'], k['gruppenr'], acronym=k.get('akronym', None),
-                        short_name=k['forkstednavn'],
-                        display_name=k['stednavn'],
-                        sort_name=k['stednavn'])
+        ou.populate(k['stednavn'], k['fakultetnr'],
+                    k['instituttnr'], k['gruppenr'],
+                    acronym=k.get('akronym', None),
+                    short_name=k['forkstednavn'],
+                    display_name=k['stednavn'],
+                    sort_name=k['stednavn'])
         if k.has_key('adresselinje1_intern_adr'):
-            new_ou.populate_address(co.system_lt, co.address_post, address_text="%s\n%s" %
-                                    (k['adresselinje1_intern_adr'],
-                                     k.get('adresselinje2_intern_adr', '')),
-                                    postal_number=k.get('poststednr_intern_adr', ''),
-                                    city=k.get('poststednavn_intern_adr', ''))
+            ou.populate_address(co.system_lt, co.address_post,
+                                address_text="%s\n%s" %
+                                (k['adresselinje1_intern_adr'],
+                                 k.get('adresselinje2_intern_adr', '')),
+                                postal_number=k.get('poststednr_intern_adr',
+                                                    ''),
+                                city=k.get('poststednavn_intern_adr', ''))
         if k.has_key('adresselinje1_besok_adr'):
-            new_ou.populate_address(co.system_lt, co.address_street, address_text="%s\n%s" %
-                                    (k['adresselinje1_besok_adr'],
-                                     k.get('adresselinje2_besok_adr', '')),
-                                    postal_number=k.get('poststednr_besok_adr', None),
-                                    city=k.get('poststednavn_besok_adr', None))
+            ou.populate_address(co.system_lt, co.address_street,
+                                address_text="%s\n%s" %
+                                (k['adresselinje1_besok_adr'],
+                                 k.get('adresselinje2_besok_adr', '')),
+                                postal_number=k.get('poststednr_besok_adr',
+                                                    None),
+                                city=k.get('poststednavn_besok_adr', None))
 
-        op = new_ou.write_db()
+        op = ou.write_db()
         if op is None:
             print "**** EQUAL ****"
-        elif op == True:
+        elif op:
             print "**** NEW ****"
-        elif op == False:
+        else:
             print "**** UPDATE ****"
             
-        stedkode = get_stedkode_str(k['fakultetnr'], k['instituttnr'],
-                                    k['gruppenr'])
+        stedkode = get_stedkode_str(k)
         # Not sure why this casting to int is required for PostgreSQL
-        stedkode2ou[stedkode] = int(new_ou.entity_id)
+        stedkode2ou[stedkode] = int(ou.entity_id)
         Cerebrum.commit()
 
     existing_ou_mappings = {}
@@ -131,26 +142,26 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
                       stedkode2ou, co):
     """Recursively create the ou_id -> parent_id mapping"""
     sted = steder[stedkode]
-    org_stedkode = get_stedkode_str(sted['fakultetnr_for_org_sted'],
-                                    sted['instituttnr_for_org_sted'],
-                                    sted['gruppenr_for_org_sted'])
-    if(not stedkode2ou.has_key(org_stedkode)):
-        print "Error in dataset, %s references missing STEDKODE: %s, using None" % \
-              (stedkode, org_stedkode)
+    org_stedkode = get_stedkode_str(sted, suffix='_for_org_sted')
+    if not stedkode2ou.has_key(org_stedkode):
+        print "Error in dataset:"\
+              "  %s references missing STEDKODE: %s, using None" % (
+            stedkode, org_stedkode)
         org_stedkode = None
         org_stedkode_ou = None
     else:
         org_stedkode_ou = stedkode2ou[org_stedkode]
 
-    if(existing_ou_mappings.has_key(stedkode2ou[stedkode])):
-        if(existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou):
+    if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
+        if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
             print "Mapping for %s changed TODO (%s != %s)" % (
                 stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
                 org_stedkode_ou)
         return
 
-    if(org_stedkode_ou is not None and (stedkode != org_stedkode) and
-       (not existing_ou_mappings.has_key(org_stedkode_ou))):
+    if (org_stedkode_ou is not None
+        and (stedkode != org_stedkode)
+        and (not existing_ou_mappings.has_key(org_stedkode_ou))):
         rec_make_stedkode(org_stedkode, ou, existing_ou_mappings, steder,
                           stedkode2ou, co)
 
@@ -162,9 +173,11 @@ def rec_make_stedkode(stedkode, ou, existing_ou_mappings, steder,
         ou.set_parent(co.perspective_lt, None)
     existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
-def get_stedkode_str(faknr, instnr, groupnr):
-    str = "%02d-%02d-%02d" % ( int(faknr), int(instnr), int(groupnr) )
-    return str
+def get_stedkode_str(row, suffix=""):
+    elems = []
+    for key in ('fakultetnr', 'instituttnr', 'gruppenr'):
+        elems.append("%02d" % int(row[key+suffix]))
+    return "-".join(elems)
 
 if __name__ == '__main__':
     main()
