@@ -639,21 +639,28 @@ HRESULT CreateGroupOrUserWrap(LPWSTR pwParentName, LPWSTR pwGroupName, LPWSTR pw
 	return S_FALSE;
 }
 
-HRESULT AddRemoveMemberToGroup(LPWSTR usr, LPWSTR grp, BOOL remove, char *ret){
+HRESULT AddRemoveMemberToGroup(LPWSTR member, LPWSTR grp, BOOL remove, char *ret){
 	HRESULT hr = E_INVALIDARG;
 	IADsGroup * pGroup=NULL;
-	IADsUser * pUser=NULL;
+	IADs* pIADsNewMember=NULL;
+	BSTR bsNewMemberPath;
 
-	hr = ADsGetObject(usr, IID_IADsUser, (void**)&pUser);
+	hr = ADsGetObject(member, IID_IADs, (void**)&pIADsNewMember);
 	BAIL_ON_FAILURE(hr);
+	
+	hr = pIADsNewMember->get_ADsPath(&bsNewMemberPath); 
+	printf("memberPath: %s",pIADsNewMember); 
+	BAIL_ON_FAILURE(hr);
+
 	hr = ADsGetObject(grp, IID_IADsGroup, (void**)&pGroup);
 	BAIL_ON_FAILURE(hr);
 
-	if(remove) hr = pGroup->Remove(usr);
-	else hr = pGroup->Add(usr);
+	if(remove) hr = pGroup->Remove(bsNewMemberPath);
+	else hr = pGroup->Add(bsNewMemberPath);
+
 error:
 	FREE_INTERFACE(pGroup);
-	FREE_INTERFACE(pUser);
+	FREE_INTERFACE(pIADsNewMember);
 //	PrintLastError(hr);
 	return hr;
 }
@@ -689,9 +696,12 @@ HRESULT AlterUser(WCHAR *p[], int n, char *ret){
     }else if(!wcscmp(p[i],L"pf")){
       hr = pUser->put_Profile(p[i+1]);
       BAIL_ON_FAILURE(hr);
-    }else if(!wcscmp(p[i],L"pexp")){
-      var.vt = VT_I4; var.lVal = !wcscmp(p[i+1], L"1") ? 1 : 0;
-      hr = pUser->Put(L"PasswordExpired", var);
+	}else if(!wcscmp(p[i],L"pexp")){
+	  hr = pUser->Get(L"UserFlags", &var);
+      BAIL_ON_FAILURE(hr);
+	  var.intVal |= ADS_UF_DONT_EXPIRE_PASSWD;
+      if(!wcscmp(p[i+1], L"1")) var.intVal ^= ADS_UF_DONT_EXPIRE_PASSWD; 
+	  hr = pUser->Put(L"UserFlags", var);
       BAIL_ON_FAILURE(hr);
     }else if(!wcscmp(p[i],L"ccp")){
       hr = pUser->Get(L"UserFlags", &var);

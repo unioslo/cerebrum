@@ -28,6 +28,7 @@ HANDLE mainThread, acceptThread;
 boolean told2stop = FALSE;
 DWORD cErr=0;
 LPTSTR password;
+char allowed_host[200];
 
 
 void rf_resume(int s, LPTSTR c){
@@ -68,13 +69,15 @@ DWORD AcceptThreadProc( LPDWORD lpdwParam ){
 #ifdef TEST_DEMANDRED
   DOPRINTF(("Warning: ALLOWING CONNECTION FROM ANY HOST (%s connected)!!!!!!\n", inet_ntoa(rsin.sin_addr)));
 #else
-  if(strcmp(inet_ntoa(rsin.sin_addr), ALLOWED_HOST)){
-	  sprintf(szBuff, "320 Connection not allowed from '%s'\r\n", inet_ntoa(rsin.sin_addr));
-	  send_data(sock2, szBuff);
-	  rf_resume(sock2, szBuff); 
-	  return FALSE;  // never reached
+  if(strcmp(inet_ntoa(rsin.sin_addr), allowed_host)){
+	DOPRINTF(("320 Connection not allowed from '%s'\r\n", inet_ntoa(rsin.sin_addr)));	  
+    return FALSE;
+  } else {
+	DOPRINTF(("320 Connection from '%s'\r\n", inet_ntoa(rsin.sin_addr)));	  
   }
 #endif
+
+
   send_data(sock2, L"200 Ready זרו\r\n");
   fb.inbase = (char *)malloc(255); fb.bufsiz = 255; fb.incnt = 0; fb.fd = sock2;
 
@@ -88,7 +91,7 @@ DWORD AcceptThreadProc( LPDWORD lpdwParam ){
 		if(wcscmp(password, lnBuff)){
 			send_data(sock2, L"300 Hey! That wasn't nice! Go away!\n");
 			rf_resume(sock2, respBuff);
-			return FALSE; // never reached
+			return FALSE;
 		} else {
 			send_data(sock2, L"200 Howdy, long time no see!\n");
 			authenticated = TRUE;
@@ -186,7 +189,9 @@ VOID ServiceStart (DWORD dwArgc, LPTSTR *lpszArgv)
   TCHAR szBuff[200];
   DWORD lpd;
   FILE *f;
-  
+  TCHAR iniPath[512];
+   	
+
   if (!ReportStatusToSCMgr(SERVICE_START_PENDING, NO_ERROR, 3000)) return;
   					       
   AddToMessageLog(L"server\n");
@@ -215,18 +220,33 @@ VOID ServiceStart (DWORD dwArgc, LPTSTR *lpszArgv)
 			   			   
   if (!ReportStatusToSCMgr(SERVICE_RUNNING, NO_ERROR, 0)) return;
 
-  if((f = fopen(PASSWORD_FILE, "r")) == NULL){
-	  DOPRINTF(("Oops, failed to read passwordfile\n")); exit(1);
+  /* 
+  if ( GetModuleFileName( NULL, iniPath, 512 ) == 0 ) {
+	DOPRINTF(("failed to get source path"));
+  }
+  
+  printf("inifile: %s\n",INI_FILE) 	
+  wprintf(TEXT("%s\n"), iniPath );
+  */
+
+  if((f = fopen(INI_FILE, "r")) == NULL) {
+	DOPRINTF(("Oops, failed to open ini file\n")); exit(1);
   }
 
   if(fgets(buff, sizeof(buff), f) == NULL){
-	  DOPRINTF(("Oops, failed to read passwordfile\n")); exit(1);
+	DOPRINTF(("Oops, failed to read inifile\n")); exit(1);
   }
-  fclose(f);
-
   password = (TCHAR *) malloc(strlen(buff)*sizeof(TCHAR)+1);
-
   MultiByteToWideChar(CP_ACP, 0, buff, strlen(buff)+1, password, strlen(buff)*2+1);
+
+  if(fgets(buff, sizeof(buff), f) == NULL){
+	DOPRINTF(("Oops, failed to read inifile\n")); exit(1);
+  }	
+  strcpy(allowed_host,buff);
+  DOPRINTF(("allowed_host:'%s'\n", allowed_host));
+  	
+  
+  fclose(f);
 
   while(!told2stop){
     mainThread = GetCurrentThread();
