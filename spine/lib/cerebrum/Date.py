@@ -77,6 +77,9 @@ registry.register_class(Date)
 
 # Commands for clients to create Date-objects.
 
+def get_date_now(self):
+    return Date(mx.DateTime.now())
+
 def get_date(self, year, month, day):
     return Date(mx.DateTime.Date(year, month, day))
 
@@ -89,6 +92,10 @@ def strptime(self, datestr, formatstr):
     Returns a Date-object reflecting the parsed date and time.
     """
     return Date(mx.DateTime.strptime(datestr, formatstr))
+
+# Registers the commands in the Commands-class
+
+Commands.register_method(Method('get_date_now', Date), get_date_now)
 
 date_args = [('year', int), ('month', int), ('day', int)]
 Commands.register_method(Method('get_date', Date, args=date_args), get_date)

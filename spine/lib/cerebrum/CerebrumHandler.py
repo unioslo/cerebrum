@@ -38,10 +38,13 @@ class CerebrumHandler(Transaction, SpineClass):
     ]
     slots = [
         Attribute('time_started', Date),
+        Attribute('name', str, write=True),
+        Attribute('description', str, write=True)
     ]
     method_slots = [
         Method('rollback', None),
-        Method('commit', None)
+        Method('commit', None),
+        Method('get_date', Date)
     ]
 
     def __init__(self, *args, **vargs):
@@ -51,6 +54,9 @@ class CerebrumHandler(Transaction, SpineClass):
         # Set the current time to the started Attribute.
         started = self.get_attr('time_started').get_name_private()
         setattr(self, started, Date(mx.DateTime.now()))
+
+    def get_date(self):
+        return Date(mx.DateTime.now())
 
 def convert_name(name):
     name = list(name)
@@ -78,6 +84,9 @@ def convert_name(name):
     return ''.join(name)
 
 for name, cls in registry.map.items():
+    if cls is Date:
+        continue
+    
     method_name = 'get_' + convert_name(name)
 
     if issubclass(cls, CodeType):
