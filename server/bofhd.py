@@ -229,6 +229,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # ret = ":".join((":Exception:", type(e).__name__, str(e)))
             ret = str(e)
             raise sys.exc_info()[0], ret
+        except TypeError, e:
+            if str(e).find("takes exactly") != -1:
+                raise CerebrumError, str(e)
+            logger.warn("Unexpected exception", exc_info=1)
+            ret = "Unknown error (a server error has been logged)."
+            raise sys.exc_info()[0], ret
         except Exception, e:
             logger.warn("Unexpected exception", exc_info=1)
             # ret = ":".join((":Exception:" + type(e).__name__, "Unknown error."))
