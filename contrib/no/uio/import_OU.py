@@ -157,11 +157,13 @@ def import_org_units(sources):
                                                cereconf.DEFAULT_INSTITUSJONSNR))
         except Errors.NotFoundError:
             pass
-	if noval_ou:
-	    del cer_ou_tab[int(ou.ou_id)]
-	    if (ou.get_entity_quarantine() <> []):
-		for quaran in ou.get_entity_quarantine():
-		    ou.delete_entity_quarantine(quaran['quarantine_type']) 
+        else:
+            if clean_obsolete_ous:
+                del cer_ou_tab[int(ou.ou_id)]
+                for r in ou.get_entity_quarantine():
+                    if (r['quarantine_type'] == co.quarantine_ou_notvalid or
+                        r['quarantine_type'] == co.quarantine_ou_remove):
+                        ou.delete_entity_quarantine(r['quarantine_type'])
         kat_merke = 'F'
         if k.get('opprettetmerke_for_oppf_i_kat'):
             kat_merke = 'T'
@@ -267,26 +269,28 @@ def import_org_units(sources):
     db.commit()
 
 def get_cere_ou_table():
-    stedkode = Stedkode.Stedkode(db)
+    stedkode = OU_class(db)
     sted_tab = {}
     for entry in stedkode.get_stedkoder():
-	value = "%02d%02d%02d" % (entry['fakultet'],entry['institutt'],\
-							entry['avdeling'])
+	value = "%02d%02d%02d" % (entry['fakultet'], entry['institutt'],
+                                  entry['avdeling'])
 	key = int(entry['ou_id'])
 	sted_tab[key] = value
     return(sted_tab)
 
 def set_quaran():
-    #ou = OU_class(db)
-    from Cerebrum import OU 
-    ous = OU.EntityQuarantine(db) 
+    ous = OU_class(db)
     now = db.DateFromTicks(time.time())
+    acc = Factory.get("Account")(db)
+    acc.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     for k in cer_ou_tab.keys():
 	ous.clear()
 	ous.find(k)
 	if (ous.get_entity_quarantine(type=co.quarantine_ou_notvalid) == []):
-		ous.add_entity_quarantine(int(co.quarantine_ou_notvalid),2,\
-					description='import_OU',start = now) 
+		ous.add_entity_quarantine(co.quarantine_ou_notvalid,
+                                          acc.entity_id,
+                                          description='import_OU',
+                                          start = now) 
     db.commit()
 
 
@@ -341,11 +345,11 @@ Imports OU data from systems that use 'stedkoder', primarily used to
 import from UoOs LT system.
 
     -v | --verbose              increase verbosity
-    -c | --clean		quaratine not valid OU
+    -c | --clean		quarantine invalid OUs
     -o | --ou-file FILE         file to read stedinfo from
     -p | --perspective NAME     name of perspective to use
     -s | --source-spec SPEC     colon-separated (source-system, filename) pair
-    --dump-perspective          view the herarchy of the sted.xml file
+    --dump-perspective          view the hierarchy of the ou-file
 
 For backward compatibility, there still is some support for the
 following (deprecated) option; note, however, that the new option
@@ -356,7 +360,7 @@ following (deprecated) option; note, however, that the new option
     sys.exit(exitcode)
 
 def main():
-    global verbose, perspective, cer_ou_tab, noval_ou
+    global verbose, perspective, cer_ou_tab, clean_obsolete_ous
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'vcp:s:o:',
                                    ['verbose',
@@ -373,13 +377,13 @@ def main():
     sources = []
     source_file = None
     source_system = None
-    noval_ou = False
+    clean_obsolete_ous = False
     cer_ou_tab = {}
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
 	elif opt in ('-c','--clean'):
-	    noval_ou = True
+	    clean_obsolete_ous = True
         elif opt in ('-p', '--perspective',):
             perspective = getattr(co, val)
         elif opt in ('-s', '--source-spec'):
@@ -395,7 +399,7 @@ def main():
             sys.exit(0)
     if perspective is None:
         usage(2)
-    if noval_ou:
+    if clean_obsolete_ous:
 	cer_ou_tab = get_cere_ou_table() 
     if sources:
         if source_file is None and source_system is None:
