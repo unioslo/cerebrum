@@ -93,13 +93,17 @@ def process_line(infile):
             disk_id = process_home(home)
             if disk_id == None:
                 logger.warn("User %s got strange home %s.", uname, home)
+                account.set_home(co.spread_stud_nis_user, home=home,
+                                 status=co.home_status_on_disk)
+                logger.debug("User %s got home %s, %s.", uname, home, status)
+                
+                
                 continue
             try:
                 disk_id, home, status = account.get_home(co.spread_stud_nis_user)
-                logger.warn("User %s got home %s, %s, %s.", uname, disk_id,
+                logger.debug("User %s got home %s, %s, %s.", uname, disk_id,
                               home, status)
             except Errors.NotFoundError:
-                print co.spread_stud_nis_user, disk_id
                 account.set_home(co.spread_stud_nis_user, disk_id=disk_id,
                                  status=co.home_status_on_disk)
                 account.write_db()
@@ -126,7 +130,6 @@ def process_home(home):
 
     fields = string.split(home.strip(), "/")
     if len(fields) != 4:
-        logger.error("Bad line: %s. Skipping", home)
         return None
     # fi
 
