@@ -523,7 +523,8 @@ def populate_enhet_groups(enhet_id):
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
 
-                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode].lower()
+                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode].\
+                          lower().strip()
                 m = re.match(r'\S+ (\d+)$', aktnavn)
                 if m:
                     aktnavn = m.group(1)
