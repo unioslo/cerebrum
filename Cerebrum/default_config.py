@@ -92,6 +92,10 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 #CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
 CLASS_CHANGELOG = ['Cerebrum.ChangeLog/ChangeLog']
 
+# Which module(s) to use as ClientAPI
+# (use Cerebrum.Utils.Factory.get_module("ClientAPI")
+MODULE_CLIENTAPI = ['Cerebrum.client.BofhModel']
+
 # URL to bofh server
 BOFH_URL='http://127.0.0.1:8000'
 
