@@ -34,7 +34,9 @@ class CodeValuePresentError(RuntimeError):
 
 
 class _CerebrumCode(DatabaseAccessor):
-    """Abstract base class for accessing code tables in Cerebrum."""
+    """Abstract base class for accessing code tables in Cerebrum.
+       Note that the database connection must be prepared first by
+       setting _CerebrumCode.sql = db"""
 
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
@@ -373,6 +375,7 @@ class _QuarantineCode(_CerebrumCode):
 class ConstantsBase(DatabaseAccessor):
 
     def map_const(self, num):
+        """Returns the Constant object as a reverse lookup on integer num"""
         skip = list(dir(_CerebrumCode.sql))
         skip.extend(("map_const", "initialize"))
         for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
@@ -431,6 +434,9 @@ class ConstantsBase(DatabaseAccessor):
 
     def __init__(self, database):
         super(ConstantsBase, self).__init__(database)
+
+        # Give away database connection to the otherwise unrelated
+        # class _CerebrumCode so it's instances will work properly
 
         # TBD: Works, but is icky -- _CerebrumCode or one of its
         # superclasses might use the .sql attribute themselves for
