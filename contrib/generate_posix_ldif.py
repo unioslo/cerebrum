@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Usage: [options]
+"""Usage: generate_posix_ldif.py [options]
 
 Write user and group information to an LDIF file (if enabled in
 cereconf), which can then be loaded into LDAP.
@@ -289,10 +289,12 @@ def main():
                                    "".join(short2long_opts[0]),
                                    ('help', 'posix') + short2long_opts[1])
         opts = dict(opts)
-    except getopt.GetoptError:
-        usage(1)
-    if args or '--help' in opts:
-        usage(bool(args))
+    except getopt.GetoptError, e:
+        usage("\n" + str(e))
+    if args:
+        usage("\n" "Invalid arguments: %s" % " ".join(args))
+    if '--help' in opts:
+        usage()
     # Copy long options into short options
     for short, long in zip(*short2long_opts):
         val = opts.get('--' + long.replace('=',''))

@@ -18,13 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Usage: [-h|--help] [-o <outfile>|--org=<outfile>] [-m|--omit-mail-module]
-    -o <outfile> | --org=<outfile> : Set ouput file.
-    -m | --omit-mail-module        : Omit the mail module in Cerebrum.
-    -h | --help                    : This help text.
+"""Usage: generate_org_ldif.py [options]
 
 Write organization, person and alias information to an LDIF file (if
 enabled in cereconf), which can then be loaded into LDAP.
+
+Options:
+    -o <outfile> | --org=<outfile> : Set ouput file.
+    -m | --omit-mail-module        : Omit the mail module in Cerebrum.
+    -h | --help                    : This help text.
 
 If --omit-mail-module, mail addresses are read from the contact_info
 table instead of from Cerebrum's e-mail tables.  That's useful for
@@ -41,11 +43,11 @@ def main():
     ofile = None
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'ho:m',
-                                   ['help', 'org=', 'omit-mail-module'])
-        if args:
-            raise getopt.GetoptError
-    except getopt.GetoptError:
-        usage(1)
+                                   ('help', 'org=', 'omit-mail-module'))
+    except getopt.GetoptError, e:
+        usage("\n" + str(e))
+    if args:
+        usage("\n" "Invalid arguments: %s" % " ".join(args))
     for opt, val in opts:
         if opt in ('-o', '--org'):
             ofile = val
@@ -54,7 +56,7 @@ def main():
             sys.stderr.write(
                 "Warning: Option --omit-mail-module (-m) is untested.\n")
         else:
-            usage(0)
+            usage()
 
     logger  = Factory.get_logger("console")
     ldif    = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
