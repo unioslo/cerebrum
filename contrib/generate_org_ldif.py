@@ -325,7 +325,7 @@ def trav_list(parent_id, ou_list, parent_dn):
 
 _init_person_visibility_done = False
 
-def init_person_visibility()
+def init_person_visibility():
     global valid_print_affi, valid_phaddr_affi, valid_aff_aci
     global aci_student_gr, aci_empl_gr
     valid_print_affi = []
@@ -393,7 +393,7 @@ def person_visibility(person_id, p_affiliations):
     else:
         aci = None
 
-    return print_person, aci_person, print_phaddr
+    return print_person, aci, print_phaddr
 
 _affili_em  = { 'employee': True }
 _affili_stu = { 'student':  True }
