@@ -225,6 +225,7 @@ class Constants(DatabaseAccessor):
 
     contact_phone = _ContactInfoCode('PHONE')
     contact_fax = _ContactInfoCode('FAX')
+    contact_email = _ContactInfoCode('EMAIL')
 
     address_post = _AddressCode('POST')
     address_street = _AddressCode('STREET')
