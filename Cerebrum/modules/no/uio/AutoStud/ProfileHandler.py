@@ -233,7 +233,7 @@ class ProfileMatcher(object):
                 d = self.pc.autostud.studieprogramkode2info[
                     entry['studieprogramkode']]
                 if ((v['nivaa_min'] and
-                     int(v['nivaa_min']) <= int(d['studienivakode'])) or
+                     int(d['studienivakode']) < int(v['nivaa_min'])) or
                     (v['nivaa_max'] and
                      int(d['studienivakode']) > int(v['nivaa_max']))):
                     continue
