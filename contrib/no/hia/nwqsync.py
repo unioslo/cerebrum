@@ -361,7 +361,7 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
     elif (ch_type == int(const.spread_add)):
 	if ldap_obj == [] and [x for x in spread_ids if account.has_spread(x)]:
 	    (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, \
-							cl_spread, None)
+							spread, None)
             path2edir(ldap_attrs)
                 #ldap_user = ldap_user.replace('ou=HIST', 'o=HiST')
 		#if input.lower() == 'y':
