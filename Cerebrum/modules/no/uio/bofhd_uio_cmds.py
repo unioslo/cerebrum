@@ -1144,7 +1144,7 @@ class BofhdExtension(object):
                             'weekly_quota', 'termin_quota', 'max_quota')))
     def printer_qpq(self, operator, accountname):
         account = self._get_account(accountname)
-        self.ba.can_query_printerquta(operator.get_entity_id(), account)
+        self.ba.can_query_printerqouta(operator.get_entity_id(), account)
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
@@ -1160,7 +1160,7 @@ class BofhdExtension(object):
         ("print", "upq"), AccountName(), SimpleString(), perm_filter='can_alter_printerquota')
     def printer_upq(self, operator, accountname, pages):
         account = self._get_account(accountname)
-        self.ba.can_alter_printerquta(operator.get_entity_id(), account)
+        self.ba.can_alter_printerqouta(operator.get_entity_id(), account)
         pq = self._get_printerquota(account.entity_id)
         if pq is None:
             return "User has no quota"
