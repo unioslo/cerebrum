@@ -11,4 +11,4 @@ diff -u -r1.4 config.dat
  # of bofhd.  The current format is just a list of files to be imported.
 -Cerebrum.modules.no.bofhd_module_example/BofhdExtension
 +# Cerebrum.modules.no.bofhd_module_example/BofhdExtension
-+Cerebrum.modules.no.feidegvs.bofhd_debian_edu_cmds/BofhdExtension
++Cerebrum.modules.no.debian_edu.bofhd_debian_edu_cmds/BofhdExtension
