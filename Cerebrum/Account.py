@@ -518,16 +518,16 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
     def list_account_name_home(self, spread):
         """Returns a list of account_id, name, home and path."""
         # TODO: Include spread in query
-        return self.query("""
+        return self.query("""  
         SELECT ai.account_id, en.entity_name, ah.home, d.path
         FROM [:table schema=cerebrum name=entity_name] en,
              [:table schema=cerebrum name=account_info] ai,
              [:table schema=cerebrum name=entity_spread] es
              LEFT JOIN [:table schema=cerebrum name=account_home] ah
-               ON ah.spread=:spread
+               ON ah.account_id=es.entity_id AND es.spread = ah.spread
              LEFT JOIN [:table schema=cerebrum name=disk_info] d
                ON d.disk_id = ah.disk_id
-        WHERE ah.account_id=en.entity_id AND en.entity_id=es.entity_id
+        WHERE ai.account_id=en.entity_id AND en.entity_id=es.entity_id
               AND es.spread=:spread""",
                           {'spread': int(spread)})
 
