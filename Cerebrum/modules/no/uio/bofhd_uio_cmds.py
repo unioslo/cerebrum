@@ -3596,7 +3596,7 @@ class BofhdExtension(object):
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
                        account.entity_id, None,
-                       state_data=self.const.spread_uio_nis_user)
+                       state_data=int(self.const.spread_uio_nis_user))
         return "User %s queued for deletion immediately" % account.account_name
 
         # raise NotImplementedError, "Feel free to implement this function"
