@@ -33,14 +33,11 @@ The general workflow is rather simple:
 
 person.xml    --+
                 |
-sted.xml        +--> generate_frida_export.py ===> frida.xml
+                +--> generate_frida_export.py ===> frida.xml
                 |
 <cerebrum db> --+
 
 person.xml is needed for information about hiring / peoples' statuses. 
-
-sted.xml contains information about organizational units (URLs,
-specifically)
 
 <cerebrum db> is needed for everything else.
 
@@ -49,20 +46,12 @@ person.xml format is specified by lt-person.dtd available in the
 export. We use Norwegian fødselsnummer to tie <person>-elements to database
 rows.
 
-sted.xml format is not specified anywhere (but it will be :)). For now, this
-file is ignored and no <URL> elements are generated in frida.xml (in
-violation of the FRIDA.dtd).
-
 The output generation consists of the following steps:
 
 1. grock options
 2. generate hardcoded headers
 3. output information on all interesting organizational units (output_OUs)
 4. output information on all interesting people               (output_people)
-
-Step 3 can be further split into:
-3a. retrieve URL map for OUs
-3b. output information on all interesting OUs (output_OUs)
 
 """
 
@@ -433,80 +422,6 @@ class LTPersonParser(xml.sax.ContentHandler, object):
 
 
 
-class LTStedParser(xml.sax.ContentHandler, object):
-    """
-    This class is used to build a dictionary from sted.xml, mapping OU
-    identification to URLs.
-
-    OUs are identified in sted.xml by a triple - (faculty, institute, group).
-
-    The URLs are of interest to the FRIDA project.
-
-    The dictionary looks thus:
-       { (faculty1, institute1, group1) -> [ URL11, URL12, ... URL1n ],
-         (faculty2, institute2, group2) -> [ URL21, URL22, ... URL2m ],
-         ...
-       }
-    """
-    
-    STED_ELEMENT = "sted"
-    URL_ELEMENT = "komm"
-    URL_ATTRIBUTE = "kommtypekode"
-    URL_VALUE = "kommnrverdi"
-
-    def __init__(self, filename):
-        super(LTStedParser, self).__init__()
-
-        self.filename = filename
-        self.current_OU = None
-        self.map = {}
-
-        xml.sax.parse(self.filename, self)
-    # end
-
-
-    
-    def extract_map(self):
-        return self.map
-    # end
-
-
-
-    def startElement(self, name, attributes):
-        """
-        We have to keep track of which OU is currently being processed. This
-        information is stored in self.current_OU.
-        """
-
-        if name == self.STED_ELEMENT:
-            self.current_OU = (attributes["fakultetnr"].encode("latin1"),
-                               attributes["instituttnr"].encode("latin1"),
-                               attributes["gruppenr"].encode("latin1"))
-        elif ( name == self.URL_ELEMENT and
-               attributes.get(self.URL_ATTRIBUTE, None) == "URL" ):
-            url = attributes[self.URL_VALUE].encode("latin1")
-
-            # sanity check
-            if not self.current_OU:
-                logger.error("Aiee! we have an URL, but we have no OU!")
-            else:
-                self.map.setdefault(self.current_OU, []).append(url)
-            # fi
-        # fi
-    # end startElement
-                                
-
-    def endElement(self, name):
-        if name == self.STED_ELEMENT:
-            self.current_OU = None
-        # fi
-    # end endElement
-# end class LTStedParser
-
-
-
-
-
 def output_element(writer, value, element, attributes = {}):
     '''
     A helper function to write out xml elements.
@@ -646,7 +561,7 @@ def output_OU_parent(writer, child_ou, parent_stedkode, constants):
         
 
 
-def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants, url_map):
+def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants):
     """
     Output all information pertinent to a specific OU
 
@@ -733,17 +648,11 @@ def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants, url_map):
                                       type=constants.contact_fax):
         output_element(writer, row.contact_value, "Fax")
     # od
-        
+
     # URL*
-    # FIXME! Here, I assume that all the OUs are a part of the same
-    # intitution. I.e. this would probably /not/ work if the source for
-    # URL_MAP spans several institutions, as only the quadruple (intitution,
-    # faculty, institute, group) is guaranteed to be unique.
-    key = (str(stedkode.fakultet),
-           str(stedkode.institutt),
-           str(stedkode.avdeling))
-    for url in url_map.get(key, []):
-        output_element(writer, url, "URL")
+    for row in db_ou.get_contact_info(source=constants.system_lt,
+                                      type=constants.contact_url):
+        output_element(writer, row.contact_value, "URL")
     # od
 
     writer.endElement("norOrgUnit")
@@ -751,7 +660,7 @@ def output_OU(writer, id, db_ou, stedkode, parent_stedkode, constants, url_map):
     
 
 
-def output_OUs(writer, db, sted_file):
+def output_OUs(writer, db):
     """
     Output information about all interesting OUs.
 
@@ -765,14 +674,10 @@ def output_OUs(writer, db, sted_file):
     parent_stedkode = Stedkode.Stedkode(db)
     constants = Factory.get("Constants")(db)
 
-    # Fetch the URL map
-    parser = LTStedParser(sted_file)
-    url_map = parser.extract_map()
-
     writer.startElement("OrganizationUnits")
     for id in db_ou.list_all():
         output_OU(writer, id["ou_id"], db_ou,
-                  stedkode, parent_stedkode, constants, url_map)
+                  stedkode, parent_stedkode, constants)
     # od
     writer.endElement("OrganizationUnits")
 # end output_OUs
@@ -1072,8 +977,7 @@ def output_people(writer, db, person_file):
 def output_xml(output_file,
                data_source,
                target,
-               person_file,
-               sted_file):
+               person_file):
     """
     Initialize all connections and start generating the xml output.
 
@@ -1082,8 +986,6 @@ def output_xml(output_file,
     DATA_SOURCE and TARGET are elements in the xml output.
 
     PERSON_FILE is the name of the person LT dump (used as input).
-
-    STED_FILE is the name of the OU LT dump (used as input).
     """
 
     # Nuke the old copy
@@ -1116,7 +1018,7 @@ def output_xml(output_file,
     # FIXME: It's all hardwired
     output_organization(writer, db)
     # Dump all OUs
-    output_OUs(writer, db, sted_file)
+    output_OUs(writer, db)
     writer.endElement("NorOrgUnits")
 
     # Dump all people
@@ -1165,13 +1067,12 @@ def main(argv):
     
     try:
         options, rest = getopt.getopt(argv,
-                                      "o:p:s:vd:t:h", ["output-file=",
-                                                       "person-file=",
-                                                       "sted-file=",
-                                                       "verbose",
-                                                       "data-source=",
-                                                       "target",
-                                                       "help",])
+                                      "o:p:vd:t:h", ["output-file=",
+                                                     "person-file=",
+                                                     "verbose",
+                                                     "data-source=",
+                                                     "target",
+                                                     "help",])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
@@ -1180,7 +1081,6 @@ def main(argv):
     # Default values
     output_file = "frida.xml"
     person_file = "person.xml"
-    sted_file = "sted.xml"
     # FIXME: Maybe snatch these from cereconf?
     data_source = "Cerebrum@uio.no"
     target = "FRIDA"
@@ -1191,8 +1091,6 @@ def main(argv):
             output_file = value
         elif option in ("-p", "--person-file"):
             person_file = value
-        elif option in ("-s", "--sted-file"):
-            sted_file = value
         elif option in ("-v", "--verbose"):
             logger.setLevel(logging.DEBUG)
         elif option in ("-d", "--data-source"):
@@ -1208,8 +1106,7 @@ def main(argv):
     output_xml(output_file = output_file,
                data_source = data_source,
                target = target,
-               person_file = person_file,
-               sted_file = sted_file)
+               person_file = person_file)
 # end main
 
 
