@@ -39,6 +39,7 @@ class Group(EntityName, Entity):
                       'create_date', 'expire_date', 'group_name')
 
     def clear(self):
+        super(Group, self).clear()
         for attr in Group.__read_attr__:
             if hasattr(self, attr):
                 delattr(self, attr)
