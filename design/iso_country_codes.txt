@@ -1,0 +1,201 @@
+# Data from http://medlem.spray.se/celvin/isokoder.html
+# columns are separated by one or more tabs, all columns must have
+# data.  The columns that had multiple Country Codes on one line in
+# the original file, has been split over multiple lines.  This format
+# may be processed by "makedb -c"
+#*Country Code* 		*Internet Domain* 	*Country* 	  	*Dialing Prefix* 	 
+ AD 	 .ad 	 Andorra 	  	 00-376 	 
+ AE 	 .ae 	 United Arab Emirates 	  	 00-971 	 
+ AF 	 .af 	 Afghanistan 	  	 00-93 	 
+ AG 	 .ag 	 Antigua and Barbuda 	  	 00-1-268 	 
+ AL 	 .al 	 Albania 	  	 00-355 	 
+ AM 	 .am 	 Armenia 	  	 00-374 	 
+ AO 	 .ao 	 Angola 	  	 00-244 	 
+ AR 	 .ar 	 Argentina 	  	 00-54 	 
+ AT 	 .at 	 Austria 	  	 00-43 	 
+ AU 	 .au 	 Australia 	  	 00-61 	 
+ AZ 	 .az 	 Azerbaijan 	  	 00-994 	 
+ BA 	 .ba 	 Bosnia and Herzegovina 	  	 00-387 	 
+ BB 	 .bb 	 Barbados 	  	 00-1-246 	 
+ BD 	 .bd 	 Bangladesh 	  	 00-880 	 
+ BE 	 .be 	 Belgium 	  	 00-32 	 
+ BF 	 .bf 	 Burkina Faso 	  	 00-226 	 
+ BG 	 .bg 	 Bulgaria 	  	 00-359 	 
+ BH 	 .bh 	 Bahrain 	  	 00-973 	 
+ BI 	 .bi 	 Burundi 	  	 00-257 	 
+ BJ 	 .bj 	 Benin 	  	 00-229 	 
+ BN 	 .bn 	 Brunei 	  	 00-673 	 
+ BO 	 .bo 	 Bolivia 	  	 00-591 	 
+ BR 	 .br 	 Brazil 	  	 00-55 	 
+ BS 	 .bs 	 Bahamas 	  	 00-1-242 	 
+ BT 	 .bt 	 Bhutan 	  	 00-975 	 
+ BW 	 .bw 	 Botswana 	  	 00-267 	 
+ BY 	 .by 	 Belarus 	  	 00-375 	 
+ BZ 	 .bz 	 Belize 	  	 00-501 	 
+ CA 	 .ca 	 Canada 	  	 00-1 	 
+ CD 	 .cd 	 Congo, Democratic Republic of 	  	 00-243 	 
+ CF 	 .cf 	 Central African Republic 	  	 00-236 	 
+ CG 	 .cg 	 Congo 	  	 00-242 	 
+ CH 	 .ch 	 Switzerland 	  	 00-41 	 
+ CI 	 .ci 	 Côte d´Ivoire 	  	 00-225 	 
+ CL 	 .cl 	 Chile 	  	 00-56 	 
+ CM 	 .cm 	 Cameroon 	  	 00-237 	 
+ CN 	 .cn 	 China 	  	 00-86 	 
+ CO 	 .co 	 Colombia 	  	 00-57 	 
+ CR 	 .cr 	 Costa Rica 	  	 00-506 	 
+ CU 	 .cu 	 Cuba 	  	 00-53 	 
+ CV 	 .cv 	 Cape Verde 	  	 00-238 	 
+ CY 	 .cy 	 Cyprus 	  	 00-357 	 
+ CZ 	 .cz 	 Czech Republic 	  	 00-420 	 
+ DE 	 .de 	 Germany 	  	 00-49 	 
+ DJ 	 .dj 	 Djibouti 	  	 00-253 	 
+ DK 	 .dk 	 Denmark 	  	 00-45 	 
+ DM 	 .dm 	 Dominica 	  	 00-1-767 	 
+ DO 	 .do 	 Dominican Republic 	  	 00-1-809 	 
+ DZ 	 .dz 	 Algeria 	  	 00-213 	 
+ EC 	 .ec 	 Ecuador 	  	 00-593 	 
+ EE 	 .ee 	 Estonia 	  	 00-372 	 
+ EG 	 .eg 	 Egypt 	  	 00-20 	 
+ ER 	 .er 	 Eritrea 	  	 00-291 	 
+ ES 	 .es 	 Spain 	  	 00-34 	 
+ ET 	 .et 	 Ethiopia 	  	 00-251 	 
+ FI 	 .fi 	 Finland 	  	 00-358 	 
+ FJ 	 .fj 	 Fiji 	  	 00-679 	 
+ FM 	 .fm 	 Micronesia 	  	 00-691 	 
+ FR 	 .fr 	 France * 	  	 00-33 	 
+ FX 	 .fx 	 France * 	  	 00-33 	 
+ GA 	 .ga 	 Gabon 	  	 00-241 	 
+ GD 	 .gd 	 Grenada 	  	 00-1-473 	 
+ GE 	 .ge 	 Georgia 	  	 00-995 	 
+ GH 	 .gh 	 Ghana 	  	 00-233 	 
+ GM 	 .gm 	 Gambia 	  	 00-220 	 
+ GN 	 .gn 	 Guinea 	  	 00-224 	 
+ GQ 	 .gq 	 Equatorial Guinea 	  	 00-240 	 
+ GR 	 .gr 	 Greece 	  	 00-30 	 
+ GT 	 .gt 	 Guatemala 	  	 00-502 	 
+ GW 	 .gw 	 Guinea-Bissau 	  	 00-245 	 
+ GY 	 .gy 	 Guyana 	  	 00-592 	 
+ HN 	 .hn 	 Honduras 	  	 00-504 	 
+ HR 	 .hr 	 Croatia 	  	 00-385 	 
+ HT 	 .ht 	 Haiti 	  	 00-509 	 
+ HU 	 .hu 	 Hungary 	  	 00-36 	 
+ ID 	 .id 	 Indonesia 	  	 00-62 	 
+ IE 	 .ie 	 Irland 	  	 00-353 	 
+ IL 	 .il 	 Israel 	  	 00-972 	 
+ IN 	 .in 	 India 	  	 00-91 	 
+ IQ 	 .iq 	 Iraq 	  	 00-964 	 
+ IR 	 .ir 	 Iran 	  	 00-98 	 
+ IS 	 .is 	 Iceland 	  	 00-354 	 
+ IT 	 .it 	 Italy 	  	 00-39 	 
+ JM 	 .jm 	 Jamaica 	  	 00-1-876 	 
+ JO 	 .jo 	 Jordan 	  	 00-962 	 
+ JP 	 .jp 	 Japan 	  	 00-81 	 
+ KE 	 .ke 	 Kenya 	  	 00-254 	 
+ KG 	 .kg 	 Kyrgyzstan 	  	 00-996 	 
+ KH 	 .kh 	 Cambodia 	  	 00-855 	 
+ KI 	 .ki 	 Kiribati 	  	 00-686 	 
+ KM 	 .km 	 Comoros 	  	 00-269 	 
+ KN 	 .kn 	 Saint Kitts and Nevis 	  	 00-1-869 	 
+ KP 	 .kp 	 North Korea 	  	 00-850 	 
+ KR 	 .kr 	 South Korea 	  	 00-82 	 
+ KW 	 .kw 	 Kuwait 	  	 00-965 	 
+ KZ 	 .kz 	 Kazakhstan 	  	 00-7 	 
+ LA 	 .la 	 Laos 	  	 00-856 	 
+ LB 	 .lb 	 Lebanon 	  	 00-961 	 
+ LC 	 .lc 	 Saint Lucia 	  	 00-1-758 	 
+ LI 	 .li 	 Liechtenstein 	  	 00-423 	 
+ LK 	 .lk 	 Sri Lanka 	  	 00-94 	 
+ LR 	 .lr 	 Liberia 	  	 00-231 	 
+ LS 	 .ls 	 Lesotho 	  	 00-266 	 
+ LT 	 .lt 	 Lithuania 	  	 00-370 	 
+ LU 	 .lu 	 Luxembourg 	  	 00-352 	 
+ LV 	 .lv 	 Latvia 	  	 00-371 	 
+ LY 	 .ly 	 Libya 	  	 00-218 	 
+ MA 	 .ma 	 Morocco 	  	 00-212 	 
+ MC 	 .mc 	 Monaco 	  	 00-377 	 
+ MD 	 .md 	 Moldova 	  	 00-373 	 
+ MG 	 .mg 	 Madagascar 	  	 00-261 	 
+ MH 	 .mh 	 Marshall Islands 	  	 00-692 	 
+ MK 	 .mk 	 Macedonia 	  	 00-389 	 
+ ML 	 .ml 	 Mali 	  	 00-223 	 
+ MM 	 .mm 	 Myanmar (Burma) 	  	 00-95 	 
+ MN 	 .mn 	 Mongolia 	  	 00-976 	 
+ MR 	 .mr 	 Mauritania 	  	 00-222 	 
+ MT 	 .mt 	 Malta 	  	 00-356 	 
+ MU 	 .mu 	 Mauritius 	  	 00-230 	 
+ MV 	 .mv 	 Maldives 	  	 00-960 	 
+ MW 	 .mw 	 Malawi 	  	 00-265 	 
+ MX 	 .mx 	 Mexico 	  	 00-52 	 
+ MY 	 .my 	 Malaysia 	  	 00-60 	 
+ MZ 	 .mz 	 Mozambique 	  	 00-258 	 
+ NA 	 .na 	 Namibia 	  	 00-264 	 
+ NE 	 .ne 	 Niger 	  	 00-227 	 
+ NG 	 .ng 	 Nigeria 	  	 00-234 	 
+ NI 	 .ni 	 Nicaragua 	  	 00-505 	 
+ NL 	 .nl 	 Netherlands 	  	 00-31 	 
+ NO 	 .no 	 Norway 	  	 00-47 	 
+ NP 	 .np 	 Nepal 	  	 00-977 	 
+ NR 	 .nr 	 Nauru 	  	 00-674 	 
+ NZ 	 .nz 	 New Zealand 	  	 00-64 	 
+ OM 	 .om 	 Oman 	  	 00-968 	 
+ PA 	 .pa 	 Panama 	  	 00-507 	 
+ PE 	 .pe 	 Peru 	  	 00-51 	 
+ PG 	 .pg 	 Papua New Guinea 	  	 00-675 	 
+ PH 	 .ph 	 Philippines 	  	 00-63 	 
+ PK 	 .pk 	 Pakistan 	  	 00-92 	 
+ PL 	 .pl 	 Poland 	  	 00-48 	 
+ PT 	 .pt 	 Portugal 	  	 00-351 	 
+ PW 	 .pw 	 Palau 	  	 00-680 	 
+ PY 	 .py 	 Paraguay 	  	 00-595 	 
+ QA 	 .qa 	 Qatar 	  	 00-974 	 
+ RO 	 .ro 	 Romania 	  	 00-40 	 
+ RU 	 .ru 	 Russia 	  	 00-7 	 
+ RW 	 .rw 	 Rwanda 	  	 00-250 	 
+ SA 	 .sa 	 Saudi Arabia 	  	 00-966 	 
+ SB 	 .sb 	 Solomon Islands 	  	 00-677 	 
+ SC 	 .sc 	 Seychelles 	  	 00-248 	 
+ SD 	 .sd 	 Sudan 	  	 00-249 	 
+ SE 	 .se 	 Sweden 	  	 00-46 	 
+ SG 	 .sg 	 Singapore 	  	 00-65 	 
+ SI 	 .si 	 Slovenia 	  	 00-386 	 
+ SK 	 .sk 	 Slovakia 	  	 00-421 	 
+ SL 	 .sl 	 Sierra Leone 	  	 00-232 	 
+ SM 	 .sm 	 San Marino 	  	 00-378 	 
+ SN 	 .sn 	 Senegal 	  	 00-221 	 
+ SO 	 .so 	 Somalia 	  	 00-252 	 
+ SR 	 .sr 	 Suriname 	  	 00-597 	 
+ ST 	 .st 	 Sao Tome and Principe 	  	 00-239 	 
+ SV 	 .sv 	 El Salvador 	  	 00-503 	 
+ SY 	 .sy 	 Syria 	  	 00-963 	 
+ SZ 	 .sz 	 Swaziland 	  	 00-268 	 
+ TD 	 .td 	 Chad 	  	 00-235 	 
+ TG 	 .tg 	 Togo 	  	 00-228 	 
+ TH 	 .th 	 Thailand 	  	 00-66 	 
+ TJ 	 .tj 	 Tajikistan 	  	 00-992 	 
+ TL 	 .tl 	 East Timor 	  	 00-670 	 
+ TM 	 .tm 	 Turkmenistan 	  	 00-993 	 
+ TN 	 .tn 	 Tunisia 	  	 00-216 	 
+ TO 	 .to 	 Tonga 	  	 00-676 	 
+ TR 	 .tr 	 Turkey 	  	 00-90 	 
+ TT 	 .tt 	 Trinidad and Tobago 	  	 00-1-868 	 
+ TV 	 .tv 	 Tuvalu 	  	 00-688 	 
+ TW 	 .tw 	 Taiwan 	  	 00-886 	 
+ TZ 	 .tz 	 Tanzania 	  	 00-255 	 
+ UA 	 .ua 	 Ukraine 	  	 00-380 	 
+ UG 	 .ug 	 Uganda 	  	 00-256 	 
+ UK 	 .uk 	 United Kingdom 	  	 00-44 	 
+ GB 	 .gb 	 United Kingdom 	  	 00-44 	 
+ US 	 .us 	 United States 	  	 00-1 	 
+ UY 	 .uy 	 Uruguay 	  	 00-598 	 
+ UZ 	 .uz 	 Uzbekistan 	  	 00-998 	 
+ VA 	 .va 	 Vatican City State 	  	 00-379 	 
+ VC 	 .vc 	 Saint Vincent and Grenadines 	  	 00-1-784 	 
+ VE 	 .ve 	 Venezuela 	  	 00-58 	 
+ VN 	 .vn 	 Vietnam 	  	 00-84 	 
+ VU 	 .vu 	 Vanuatu 	  	 00-678 	 
+ WS 	 .ws 	 Western Samoa 	  	 00-685 	 
+ YE 	 .ye 	 Yemen 	  	 00-967 	 
+ YU 	 .yu 	 Yugoslavia 	  	 00-381 	 
+ ZA 	 .za 	 South Africa 	  	 00-27 	 
+ ZM 	 .zm 	 Zambia 	  	 00-260 	 
+ ZW 	 .zw 	 Zimbabwe 	  	 00-263 	 
