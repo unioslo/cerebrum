@@ -1,4 +1,4 @@
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,10 +19,6 @@
 """
 
 """
-
-# TODO: As PostgreSQL does not have any "schema" concept, the
-#       "cerebrum." prefix to table names should only be used on
-#       Oracle; currently, this is hardcoded.
 
 import cereconf
 from Cerebrum import Errors
@@ -58,15 +54,18 @@ class Entity(DatabaseAccessor):
         self.const = Factory.get('Constants')(database)
         self.clconst = Factory.get('CLConstants')(database)
 
+    def clear_class(self, cls):
+        for attr in cls.__read_attr__:
+            if hasattr(self, attr):
+                if attr not in getattr(cls, 'dontclear', ()):
+                    delattr(self, attr)
+        for attr in cls.__write_attr__:
+            if attr not in getattr(cls, 'dontclear', ()):
+                setattr(self, attr, None)
+        
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
-        for attr in Entity.__read_attr__:
-            if hasattr(self, attr):
-                if attr not in self.dontclear:
-                    delattr(self, attr)
-        for attr in Entity.__write_attr__:
-            if attr not in self.dontclear:
-                setattr(self, attr, None)
+        self.clear_class(Entity)
         self.__updated = False
 
     ###
@@ -150,11 +149,20 @@ class Entity(DatabaseAccessor):
         new entity.
 
         """
-        Entity.populate(self, entity_type)
-        Entity.write_db()
-        # TBD: Is this necessary?  Should it be removed, or maybe
-        # exchanged with self.find()?
-        Entity.find(self, self.entity_id)
+        # The new() method should always be overridden in subclasses.
+        #
+        # That way, when an object of class X has its new() method
+        # called, the variable `self` in that method will always be an
+        # instance of class X; it will never be an instance of a
+        # subclass of X, as then that subclasses overridden new()
+        # method would be the one called.
+        #
+        # This means that new() methods are safe in assuming that when
+        # they do self.method(), the function signature of method()
+        # will be the one found in the same class as new().
+        self.populate(entity_type)
+        self.write_db()
+        self.find(self.entity_id)
 
     def find(self, entity_id):
         """Associate the object with the entity whose identifier is ENTITY_ID.
@@ -252,8 +260,9 @@ class EntityName(Entity):
 class EntityContactInfo(Entity):
     "Mixin class, usable alongside Entity for entities having contact info."
 
-    __read_attr__ = ('_contact_info', )
-    __write_attr__ = ('source_system', )
+    # TBD: Should `source` be moved up to class Entity, so as to span
+    # all Entity* mix-ins?
+    __read_attr__ = ('__data', '_contact_info_source')
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
@@ -264,10 +273,12 @@ class EntityContactInfo(Entity):
         for attr in EntityContactInfo.__write_attr__:
             setattr(self, attr, None)
         self.__updated = False
-        self._contact_info = {}
 
     def add_contact_info(self, source, type, value, pref=None,
                          description=None):
+        # TBD: Should pref=None imply use of the default pref from the
+        # SQL table definition, i.e. should we avoid supplying an
+        # explicit value for pref in the INSERT statement?
         # TODO: Calculate next available pref.  Should also handle the
         # situation where the provided pref is already taken.
         if pref is None:
@@ -294,45 +305,62 @@ class EntityContactInfo(Entity):
 
     def populate_contact_info(self, source_system, type=None, value=None,
                               contact_pref=50, description=None):
-        if self.source_system is None:
-            self.source_system = source_system
-        elif self.source_system <> source_system:
-            raise RuntimeError, "source_system is already set to a different value"
+        if not hasattr(self, '_contact_info_source'):
+            self._contact_info_source = source_system
+            self.__data = {}
+        elif self._contact_info_source <> source_system:
+            raise ValueError, \
+                  "Can't populate multiple `source_system`s w/o write_db()."
         if type is None:
+            # No actual contact info data in this call, so only side
+            # effect should be to set self.__source.
+            #
+            # This type of call is needed to e.g. have write_db()
+            # delete all contact info associated with a particular
+            # source system.
             return
-        self._contact_info[int(type)] = {'value': value,
-                                         'pref': contact_pref,
-                                         'description': description}
+        idx = "%d:%d" % (type, contact_pref)
+        self.__data[idx] = {'value': value,
+                            'description': description}
 
     def write_db(self):
         self.__super.write_db()
-        if self.source_system is None:
+        if not hasattr(self, '_contact_info_source'):
             return
-        for r in self.get_contact_info(source=self.source_system):
+        for row in self.get_contact_info(source=self._contact_info_source):
             do_del = True
-            if self._contact_info.has_key(int(r['contact_type'])):
-                h = self._contact_info[int(r['contact_type'])]
-                if (h['value'] == r['contact_value'] and
-                    h['pref'] == r['contact_pref'] and
-                    h['description'] == r['description']):
-                    del(self._contact_info[int(r['contact_type'])])
+            row_idx = "%d:%d" % (row['contact_type'], row['contact_pref'])
+            if self.__data.has_key(row_idx):
+                tmp = self.__data[row_idx]
+                if (tmp['value'] == row['contact_value'] and
+                    tmp['description'] == row['description']):
+                    del self.__data[row_idx]
                     do_del = False
             if do_del:
-                self.delete_contact_info(self.source_system, r['contact_type'])
-        for type in self._contact_info.keys():
-            self.add_contact_info(self.source_system, type,
-                                  self._contact_info[type]['value'],
-                                  self._contact_info[type]['pref'],
-                                  self._contact_info[type]['description'])
-            
-    def delete_contact_info(self, source, type):
-        self.execute("""
+                self.delete_contact_info(self._contact_info_source,
+                                         row['contact_type'],
+                                         row['contact_pref'])
+        for idx in self.__data.keys():
+            type, pref = [int(x) for x in idx.split(":", 1)]
+            self.add_contact_info(self._contact_info_source,
+                                  type,
+                                  self.__data[idx]['value'],
+                                  pref,
+                                  self.__data[idx]['description'])
+
+    def delete_contact_info(self, source, type, pref='ALL'):
+        sql = """
         DELETE FROM [:table schema=cerebrum name=entity_contact_info]
-        WHERE entity_id=:e_id AND source_system=:src AND
-          contact_type=:c_type""",
-                     {'e_id': self.entity_id,
-                      'src': int(source),
-                      'c_type': int(type)})
+        WHERE
+          entity_id=:e_id AND
+          source_system=:src AND
+          contact_type=:c_type"""
+        if pref <> 'ALL':
+            sql += """ AND contact_pref=:pref"""
+        return self.execute(sql, {'e_id': self.entity_id,
+                                  'src': int(source),
+                                  'c_type': int(type),
+                                  'pref': pref})
 
 
 class EntityAddress(Entity):
