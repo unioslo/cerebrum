@@ -78,6 +78,7 @@ def update_account(profile, account_ids, do_move=0, rem_grp=0, account_info={}):
     for account_id in account_ids:
         logger.info2(" UPDATE:%s" % account_id)
         try:
+            user.clear()
             user.find(account_id)
             # populate logic asserts that db-write is only done if needed
             try:
