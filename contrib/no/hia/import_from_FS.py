@@ -31,6 +31,7 @@ from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.hia.access_FS import HiAFS
+from Cerebrum.Utils import Factory
 
 default_person_file = "/cerebrum/dumps/FS/person.xml"
 default_role_file = "/cerebrum/dumps/FS/roles.xml"
