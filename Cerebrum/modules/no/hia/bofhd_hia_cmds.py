@@ -1946,8 +1946,8 @@ class BofhdExtension(object):
         AccountName(help_ref='account_name', repeat=True))
     def email_update(self, operator, uname):
         acc = self._get_account(uname)
-        acc.update_email_addresses()
-        return "OK"
+	acc.update_email_addresses()
+	return "Ok, update addresses for %s" % uname
 
     # (email virus)
 
@@ -4083,14 +4083,12 @@ class BofhdExtension(object):
 		account.get_home(self._get_constant(spread))
 		raise CerebrumError, "User already has a home in spread %s, use user move" % spread
 	    except:
-		account.set_home(self._get_constant(spread, "No such spread"), 
-				 disk_id=disk_id, home=home,
-				 status=self.const.home_status_not_created)
+		account.set_homedir(disk_id=disk_id, home=home,
+				    status=self.const.home_status_not_created)
 	else:
 	    account.add_spread(self._get_constant(spread, "No such spread"))
-	    account.set_home(self._get_constant(spread, "No such spread"), 
-			     disk_id=disk_id, home=home,
-			     status=self.const.home_status_not_created)
+	    account.set_homedir(disk_id=disk_id, home=home,
+				status=self.const.home_status_not_created)
 	account.write_db()
 	return "Home updated for %s in spread %s" % (accountname, spread)
 	    
