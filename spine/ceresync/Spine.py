@@ -44,6 +44,8 @@ def connect(args=[]):
     obj = orb.string_to_object(ior)
     spine = obj._narrow(SpineCore.Spine)
     if spine is None:
+        # WTF er narrow the spine object? Dette var litt vel dårlig
+        # feilmelding
         raise Exception("Could not narrow the spine object")
 
     return spine
