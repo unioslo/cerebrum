@@ -223,15 +223,8 @@ def process_person_callback(person_info):
     # superior setting.
     
     new_person = Person.Person(db)
-    try:
-        new_person.find_by_external_id(co.externalid_fodselsnr, fnr)
-    except Errors.NotFoundError:
-        pass
-    except Errors.TooManyRowsError:
-        try:
-            new_person.find_by_external_id(co.externalid_fodselsnr, fnr, co.system_fs)
-        except Errors.NotFoundError:
-            pass
+    if fnr2person_id.has_key(fnr):
+        new_person.find(fnr2person_id[fnr])
 
     new_person.populate(db.Date(year, mon, day), gender)
 
@@ -282,7 +275,7 @@ def process_person_callback(person_info):
 
 
 def main():
-    global verbose, ou, db, co, logger
+    global verbose, ou, db, co, logger, fnr2person_id
     verbose = 0
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:g', ['verbose', 'person-file=',
                                                        'studieprogram-file=',
@@ -315,6 +308,16 @@ def main():
         studieprog2sko[s['studieprogramkode']] = \
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
+
+    # create fnr2person_id mapping, always using fnr from FS when set
+    person = Person.Person(db)
+    fnr2person_id = {}
+    for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
+        if co.system_fs == p['source_system']:
+            fnr2person_id[p['external_id']] = p['person_id']
+        elif not fnr2person_id.has_key(p['external_id']):
+            fnr2person_id[p['external_id']] = p['person_id']
+
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     db.commit()
     logger.info("Completed")
