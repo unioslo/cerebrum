@@ -974,7 +974,10 @@ class BofhdAuth(DatabaseAccessor):
            FROM [:table schema=cerebrum name=auth_op_target_attrs]
            WHERE op_target_id=:op_target_id""",
                              {'op_target_id': op_target_id})
-        return r['attr']
+        if r:
+            return r['attr']
+        else:
+            return None
 
     def _has_global_access(self, operator, operation, global_type, victim_id):
         """global_host and global_group should not be allowed to
