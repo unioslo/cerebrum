@@ -249,7 +249,7 @@ def get_person_info(outfile):
                                                    "gruppenr_kontering",)])
             f.write("  " +
                     xml.xmlify_dbrow(attr.values(), attr.keys(),
-                                     "bil") + "\n")
+                                     "bilag") + "\n")
             prev = t
         # od
 
