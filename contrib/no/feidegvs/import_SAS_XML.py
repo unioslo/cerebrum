@@ -578,7 +578,7 @@ def init_mail():
     mser = Email.EmailServer(db)
 
     try:
-        mser.find_by_server_name(cereconf.EMAIL_DEFAULT_SERVER)
+        mser.find_by_name(cereconf.EMAIL_DEFAULT_SERVER)
     except Errors.NotFoundError:
         mser.clear()
         mser.populate(co.email_server_type_cyrus,
