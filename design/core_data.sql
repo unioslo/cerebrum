@@ -30,6 +30,9 @@ INSERT INTO [:table schema=cerebrum name=contact_info_code]
 INSERT INTO [:table schema=cerebrum name=contact_info_code]
   (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'FAX', 'Fax');
+INSERT INTO [:table schema=cerebrum name=contact_info_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next], 'EMAIL', 'Email');
 
 INSERT INTO [:table schema=cerebrum name=address_code]
   (code, code_str, description) VALUES
@@ -159,3 +162,12 @@ INSERT INTO [:table schema=cerebrum name=ou_perspective_code]
 INSERT INTO [:table schema=cerebrum name=ou_perspective_code]
   (code, code_str, description) VALUES
   ([:sequence schema=cerebrum name=code_seq op=next], 'FS', 'FS');
+
+INSERT INTO [:table schema=cerebrum name=authoritative_system_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next], 'SATS', 'SATS');
+
+INSERT INTO [:table schema=cerebrum name=person_external_id_code]
+  (code, code_str, description) VALUES
+  ([:sequence schema=cerebrum name=code_seq op=next], 'SATS_PERSONOID',
+   'PK in SATS');
