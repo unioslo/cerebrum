@@ -20,8 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Spine
-# We need to catch CORBA.UNKNOWN :(
-from Spine import CORBA
 import SpineIDL.Errors as SpineErrors
 import config
 import unittest
@@ -119,9 +117,6 @@ class Sync:
                 t.rollback()        
             except SpineErrors.TransactionError:
                 pass
-            # Some "unknown" exception is cast instead of TransactionError
-            except CORBA.UNKNOWN:
-                pass    
         self._transactions = []
         self._connection = None
 
@@ -453,7 +448,7 @@ class TestTransaction(unittest.TestCase):
         self.t = self.sync._handler.new_transaction()
     
     def tearDown(self):
-        self.t.rollback()    
+        self.t.rollback()
 
     def testAccountSearch(self):
         search = self.t.get_account_searcher()
@@ -481,10 +476,8 @@ class TestSync(unittest.TestCase):
         t = self.s._transaction()
         self.s._rollback()
         # If the t is rolled back, we shouldn't be able to roll back
-        # again 
-        #self.assertRaises(SpineErrors.TransactionError, t.rollback)
-        # Why is this exception suddenly "UNKNOWN" ?  
-        self.assertRaises(CORBA.UNKNOWN, t.rollback)
+        # again
+        self.assertRaises(SpineErrors.TransactionError, t.rollback)
     
     def testGetAccounts(self):
         accounts = self.s.get_accounts()
