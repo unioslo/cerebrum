@@ -109,6 +109,9 @@ class Builder(object):
     slots = []
     method_slots = []
 
+    builder_parents = ()
+    builder_children = ()
+
     def __init__(self, *args, **vargs):
         mark = '_%s%s' % (self.cls_name, id(self))
         # check if the object is old
@@ -129,12 +132,6 @@ class Builder(object):
         setattr(self, mark, time.time())
 
     def map_args(cls, *args, **vargs):
-        length = len(args) + len(vargs)
-        if length > len(cls.slots):
-            raise TypeError('takes at most %s argument%s (%s given)' % (
-                len(cls.slots) + 1,
-                cls.slots and 's' or '', length + 1))
-
         slotMap = dict([(i.name, i) for i in cls.slots])
 
         map = dict(zip(cls.slots, args))
@@ -142,7 +139,7 @@ class Builder(object):
         for key, value in vargs.items():
             attr = slotMap.get(key)
             if attr is None:
-                raise TypeError("got an unexpected keyword argument '%s'" % key)
+                continue
             map[attr] = value
 
         return map
