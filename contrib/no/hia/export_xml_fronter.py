@@ -250,10 +250,26 @@ def register_spread_groups(emne_info, stprog_info):
             emne_sted_id = 'STRUCTURE:%s' % emne_id_prefix
             emne_rom_id = 'ROOM:%s:undenh:%s:%s:%s' % (
                 emne_id_prefix, emnekode, versjon, terminnr)
-            register_room('%s (ver %s, %d. termin)' %
-                          (emnekode.upper(), versjon, int(terminnr)),
-                          emne_rom_id, emne_sted_id,
-                          profile=romprofil_id['emnerom'])
+            if int(terminnr) == 1 or (ar, term) == this_sem:
+                # Registrer rom for alle undervisningsenheter som
+                # danner starten på et kurs (terminnr == 1).
+                #
+                # For senere semestere av flersemesterkurs skal rommet
+                # registreres i korridoren som svarer til inneværende
+                # semester.  Dette betyr at rom for flersemesterkurs
+                # vil bli flyttet til nytt semester først etter at det
+                # nye semesteret har startet.
+                #
+                # Merk dog at så snart det blir registrert studenter
+                # på neste semesters undervisningsenhet, vil disse få
+                # rettigheter til flersemesterkursets rom, selv om
+                # dette på det tidspunktet fortsatt ligger i
+                # korridoren for inneværende semester.
+                register_room('%s (ver %s, %d. termin)' % (emnekode.upper(),
+                                                           versjon,
+                                                           int(terminnr)),
+                              emne_rom_id, emne_sted_id,
+                              profile=romprofil_id['emnerom'])
 
             # Grupper for studenter, forelesere og studieveileder på
             # undervisningsenheten.
@@ -324,8 +340,7 @@ def register_spread_groups(emne_info, stprog_info):
                 # Opprett fellesrom for dette studieprogrammet.
                 fellesrom_sted_id = ':'.join((
                     'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
-                    'fs', 'fellesrom', subg_name_el[2], # institusjonsnr
-                    fak_sko))
+                    'fs', 'fellesrom', institusjonsnr, fak_sko))
                 fellesrom_stprog_rom_id = ':'.join((
                     'ROOM', cereconf.INSTITUTION_DOMAIN_NAME, 'fs',
                     'fellesrom', 'studieprogram', stprog))
@@ -335,8 +350,7 @@ def register_spread_groups(emne_info, stprog_info):
                 if subg_name_el[-1] == 'student':
                     brukere_studenter_id = ':'.join((
                         'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
-                        'fs', 'brukere', subg_name_el[2], # institusjonsnr
-                        fak_sko, 'student'))
+                        'fs', 'brukere', institusjonsnr, fak_sko, 'student'))
                     brukere_stprog_id = brukere_studenter_id + \
                                         ':%s' % stprog
                     register_group(stprog.upper(), brukere_stprog_id,
@@ -425,7 +439,8 @@ def output_group_xml():
         parent = data['parent']
         if parent <> id:
             output(parent)
-        fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
+        fxml.group_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_UPDATE,
+                          data)
         done[id] = True
     for group in new_group.iterkeys():
         output(group)
@@ -578,13 +593,13 @@ def main():
 
     output_group_xml()
     for room, data in new_rooms.iteritems():
-        fxml.room_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_ADD, data)
+        fxml.room_to_XML(data['CFid'], fronter_lib.Fronter.STATUS_UPDATE, data)
 
     for node, data in new_acl.iteritems():
-        fxml.acl_to_XML(node, fronter_lib.Fronter.STATUS_ADD, data)
+        fxml.acl_to_XML(node, fronter_lib.Fronter.STATUS_UPDATE, data)
 
     for gname, members in new_groupmembers.iteritems():
-        fxml.personmembers_to_XML(gname, fronter_lib.Fronter.STATUS_ADD,
+        fxml.personmembers_to_XML(gname, fronter_lib.Fronter.STATUS_UPDATE,
                                   members)
     fxml.end()
 

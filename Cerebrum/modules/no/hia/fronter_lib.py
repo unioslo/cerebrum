@@ -664,7 +664,8 @@ class FronterXML(object):
             self.xml.dataElement('SCHEME', 'FronterStructure1.0')
             self.xml.emptyTag('TYPEVALUE', {'level': 4})
             self.xml.endTag('GROUPTYPE')
-            if (recstatus == Fronter.STATUS_ADD):
+            if True:
+                # (recstatus == Fronter.STATUS_ADD):
                 # Romprofil settes kun ved opprettelse av rommet, og vil
                 # aldri senere tvinges tilbake til noen bestemt profil.
                 self.xml.startTag('GROUPTYPE')
