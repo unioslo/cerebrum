@@ -30,7 +30,7 @@ from dsml import DSMLParser,DSMLWriter
 
 
 import unittest
-from errors import ServerError,BackendError
+from errors import ServerError
 
 import config
 
@@ -367,6 +367,9 @@ class Alias:
     """ Mail aliases, for setups that store additional mailinglists and personal aliases in ldap.
     rfc822 mail address of group member(s)
     Depends on rfc822-MailMember.schema
+
+    Decide which schema you want to follow, and change objectclass-chain and attribute-names.
+    Some prefer to use attribute mailDrop, mailHost etc from ISPEnv2.schema
     """
     def __init__(self,base=None):
         if base == None:
