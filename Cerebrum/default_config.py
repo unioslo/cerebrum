@@ -63,6 +63,6 @@ INITIAL_ACCOUNTNAME = "bootstrap_account"
 # CONSTANTS_MODULE="Cerebrum.modules.no.uio.Constants"
 
 # Path to templates for passweb.py et. al.
-TEMPLATE_DIR=/path
+TEMPLATE_DIR='/path'
 # URL to bofh server
-BOFH_URL=http://127.0.0.1:8000
+BOFH_URL='http://127.0.0.1:8000'
