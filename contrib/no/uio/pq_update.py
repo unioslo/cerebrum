@@ -28,6 +28,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum import Errors
 
+logger = Factory.get_logger("cronjob")
+
 def usage(exitcode=0):
     print """Usage: pq_update.py [--dryrun] -u
     Update printerquotas for users that already have the correct data
@@ -42,11 +44,11 @@ def update_quotas(dryrun):
     pq = PrinterQuotas.PrinterQuotas(db)
     for row in pq.list_quotas():
         if verbose:
-            print "has: %s, acid= %i, pq=%i, wq=%i, mq=%i, tq=%i, ptm=%i" % (
+            logger.debug("has: %s, acid= %i, pq=%i, wq=%i, mq=%i, tq=%i, ptm=%i" % (
                 row['has_printerquota'], row['account_id'],
                 row['printer_quota'], row['weekly_quota'],
                 row['max_quota'], row['termin_quota'],
-                row['pages_this_semester'])
+                row['pages_this_semester']))
         if row['has_printerquota'] not in ('1', 'T'):
             continue
         
@@ -59,12 +61,12 @@ def update_quotas(dryrun):
             pq.clear()
             pq.find(row['account_id'])
         except Errors.NotFoundError:
-            print "ERROR: Was %i deleted after we started?" % row['account_id']
+            logger.warn("Was %i deleted after we started?" % row['account_id'])
             continue
         if new_quota == pq.printer_quota:
             continue
-        print "New quota for %i: %i (old=%i)" % (
-            row['account_id'], new_quota, pq.printer_quota)
+        logger.info("New quota for %i: %i (old=%i)" % (
+            row['account_id'], new_quota, pq.printer_quota))
         if not dryrun:
             pq.printer_quota = new_quota
             pq.write_db()
