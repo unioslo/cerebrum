@@ -267,7 +267,7 @@ class Group(EntityName, Entity):
                   member_id=:m_id""", {'g_id': self.entity_id,
                                        'op': int(op),
                                        'm_id': member.entity_id,
-                                       'm_type': member.entity_type})
+                                       'm_type': int(member.entity_type)})
             return True
         except Errors.NotFoundError:
             return False
