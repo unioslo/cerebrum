@@ -211,6 +211,12 @@ class EmailDomain(EmailEntity):
     def get_domain_name(self):
         return self.email_domain_name
 
+    def rewrite_special_domains(self, domain):
+        # TODO: the configuration variable should be renamed
+        if domain in cereconf.LDAP_REWRITE_EMAIL_DOMAIN:
+            return cereconf.LDAP_REWRITE_EMAIL_DOMAIN[domain]
+        return domain
+
     def get_categories(self):
         return self.query("""
         SELECT category
@@ -389,13 +395,25 @@ class EmailTarget(EmailEntity):
                                   'alias': alias})
         self.find(target_id)
 
-    def get_addresses(self):
-        return self.query("""
+    def get_addresses(self, special=True):
+        """Return all email_addresses associated with this
+        email_target as row objects.  If special is False, rewrite the
+        magic domain names into working domain names."""
+        list = self.query("""
         SELECT ea.local_part, ed.domain, ea.address_id
         FROM [:table schema=cerebrum name=email_address] ea
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
         WHERE ea.target_id = :t_id""", {'t_id': int(self.email_target_id)})
+        if special:
+            return list
+        else:
+            ed = EmailDomain(self._db)
+            rewritten = []
+            for r in list:
+                r['domain'] = ed.rewrite_special_domains(r['domain'])
+                rewritten.append(r)
+            return rewritten
 
     def list_email_targets(self):
         """Return target_id of all EmailTarget in database"""
@@ -1424,8 +1442,8 @@ class AccountEmailMixin(Account.Account):
     def get_primary_mailaddress(self):
         """Return account's current primary address."""
         target_type = int(self.const.email_target_account)
-        return self.query_1("""
-        SELECT ea.local_part || '@' || ed.domain AS email_primary_address
+        r = self.query_1("""
+        SELECT ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=account_info] ai
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
@@ -1439,6 +1457,9 @@ class AccountEmailMixin(Account.Account):
         WHERE ai.account_id = :e_id""",
                               {'e_id': int(self.entity_id),
                                'targ_type': target_type})
+        ed = EmailDomain(self._db)
+        return (r['local_part'] + '@' +
+                ed.rewrite_special_domains(r['domain']))
 
     def wash_email_local_part(self, local_part):
         lp = Utils.latin1_to_iso646_60(local_part)
