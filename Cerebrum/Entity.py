@@ -25,6 +25,7 @@
 #       Oracle; currently, this is hardcoded.
 
 from Cerebrum import Errors
+from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
 class Entity(DatabaseAccessor):
@@ -47,6 +48,7 @@ class Entity(DatabaseAccessor):
         """
         super(Entity, self).__init__(database)
         self._clear()
+        self.__write_db = False
 
     def _clear(self):
         "Clear all attributes associating instance with a DB entity."
@@ -57,6 +59,41 @@ class Entity(DatabaseAccessor):
     ###   Methods dealing with the `cerebrum.entity_info' table
     ###
 
+    def populate(self, entity_type):
+        "Set instance's attributes without referring to the Cerebrum DB."
+        self.entity_type = entity_type
+        self.__write_db = True
+
+    def __eq__(self, other):
+        assert isinstance(other, Entity)
+        return other.entity_type == self.entity_type
+
+    def write_db(self, as_object=None):
+        """Sync instance with Cerebrum database.
+
+        After an instance's attributes has been set using .populate(),
+        this method syncs the instance with the Cerebrum database.
+
+        If `as_object' isn't specified (or is None), the instance is
+        written as a new entry to the Cerebrum database.  Otherwise,
+        the object overwrites the Entity entry corresponding to the
+        instance `as_object'.
+
+        If you want to populate instances with data found in the
+        Cerebrum database, use the .find() method.
+
+        """
+        assert __write_db
+        if as_object is None:
+            entity_id = self.nextval('cerebrum.entity_id_seq')
+        else:
+            entity_id = as_object.entity_id
+        self.execute("""
+        INSERT INTO cerebrum.entity_info(entity_id, entity_type)
+        VALUES (:1, :2)""", entity_id, self.entity_type)
+        self.entity_id = entity_id
+        self.__write_db = False
+
     def new(self, entity_type):
         """Register a new entity of ENTITY_TYPE.  Return new entity_id.
 
@@ -64,12 +101,10 @@ class Entity(DatabaseAccessor):
         new entity.
 
         """
-        new_id = self.nextval('cerebrum.entity_id_seq')
-        self.execute("""
-        INSERT INTO cerebrum.entity_info(entity_id, entity_type)
-        VALUES (:1, :2)""", new_id, entity_type)
-        Entity.find(self, new_id)
-        return new_id
+        Entity.populate(self, entity_type)
+        Entity.write_db(self)
+        Entity.find(self, self.entity_id)
+        return self.entity_id
 
     def find(self, entity_id):
         """Associate the object with the entity whose identifier is ENTITY_ID.
@@ -95,13 +130,31 @@ class Entity(DatabaseAccessor):
 
 class EntityName(object):
     "Mixin class, usable alongside Entity for entities having names."
-    def find_by_name(self, name, domain):
+    def get_name(self, domain=None):
+        return Utils.keep_entries(
+            self.query("""
+            SELECT * FROM cerebrum.entity_name
+            WHERE entity_id=:1""", self.entity_id),
+            ('value_domain', domain))
+
+    def add_name(self, domain, name):
+        return self.execute("""
+        INSERT INTO cerebrum.entity_name
+          (entity_id, value_domain, entity_name)
+        VALUES (:1, :2, :3)""", self.entity_id, domain, name)
+
+    def delete_name(self, domain):
+        return self.execute("""
+        DELETE cerebrum.entity_name
+        WHERE entity_id=:1 AND value_domain=:1""", self.entity_id, domain)
+
+    def find_by_name(self, domain, name):
         "Associate instance with the entity having NAME in DOMAIN."
         entity_id = self.query_1("""
         SELECT entity_id
         FROM cerebrum.entity_name
         WHERE value_domain=:1 AND entity_name=:2""", domain, name)
-        self.find(entity_id)
+        Entity.find(self, entity_id)
 
 class EntityContactInfo(object):
     "Mixin class, usable alongside Entity for entities having contact info."
@@ -119,14 +172,12 @@ class EntityContactInfo(object):
                      self.entity_id, source, type, pref, value, description)
 
     def get_contact_info(self, source=None, contact=None):
-        contacts = self.query("""
-        SELECT * FROM cerebrum.entity_contact_info
-        WHERE entity_id=:1""", self.entity_id)
-        if source is not None:
-            contacts = [c for c in contacts if c.source_system == source]
-        if type is not None:
-            contacts = [c for c in contacts if c.contact_type == type]
-        return contacts
+        return Utils.keep_entries(
+            self.query("""
+            SELECT * FROM cerebrum.entity_contact_info
+            WHERE entity_id=:1""", self.entity_id),
+            ('source_system', source),
+            ('contact_type', type))
 
     def delete_contact_info(self, source, type, pref):
         self.execute("""
@@ -153,14 +204,12 @@ class EntityPhone(object):
                      self.entity_id, source, type, pref, phone, description)
 
     def get_entity_phone(self, source=None, type=None):
-        phones = self.query("""
-        SELECT * FROM cerebrum.entity_phone
-        WHERE entity_id=:1""", self.entity_id)
-        if source is not None:
-            phones = [c for c in phones if c.source_system == source]
-        if type is not None:
-            phones = [c for c in phones if c.phone_type == type]
-        return phones
+        return Utils.keep_entries(
+            self.query("""
+            SELECT * FROM cerebrum.entity_phone
+            WHERE entity_id=:1""", self.entity_id),
+            ('source_system', source),
+            ('phone_type', type))
 
     def delete_entity_phone(self, source, type, pref):
         self.execute("""
@@ -184,14 +233,12 @@ class EntityAddress(object):
                      addr, pobox, zip, city, country)
 
     def get_entity_address(self, source=None, type=None):
-        addrs = self.query("""
-        SELECT * FROM cerebrum.entity_address
-        WHERE entity_id=:1""", self.entity_id)
-        if source is not None:
-            addrs = [a for a in addrs if a.source_system == source]
-        if type is not None:
-            addrs = [a for a in addrs if c.address_type == type]
-        return addrs
+        return Utils.keep_entries(
+            self.query("""
+            SELECT * FROM cerebrum.entity_address
+            WHERE entity_id=:1""", self.entity_id),
+            ('source_system', source),
+            ('address_type', type))
 
     def delete_entity_address(self, source, type):
         self.execute("""
@@ -214,12 +261,11 @@ class EntityQuarantine(object):
                      creator, comment, start, end)
 
     def get_entity_quarantine(self, type=None):
-        quars = self.query("""
-        SELECT * FROM cerebrum.entity_quarantine
-        WHERE entity_id=:1""", self.entity_id)
-        if type is not None:
-            quars = [q for q in quars if c.quarantine_type == type]
-        return quars
+        return Utils.keep_entries(
+            self.query("""
+            SELECT * FROM cerebrum.entity_quarantine
+            WHERE entity_id=:1""", self.entity_id),
+            ('quarantine_type', type))
 
     def disable_entity_quarantine(self, type, until):
         self.execute("""
