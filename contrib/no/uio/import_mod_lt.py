@@ -114,7 +114,8 @@ def find_stedkode(ou, fakultet, institutt, gruppe):
                          cereconf.DEFAULT_INSTITUSJONSNR)
         return True
     except Cerebrum.Errors.NotFoundError, value:
-        logger.error("Aiee! OU not found: %s, %s, %s %s",
+        #logger.error("Aiee! OU not found: %s, %s, %s %s",
+        logger.info("Aiee! OU not found: %s, %s, %s %s",
                      fakultet, institutt, gruppe, value)
     # yrt
 
@@ -267,7 +268,8 @@ def import_gjest(pxml, person, ou, constants):
                              element["fakultetnr"],
                              element["instituttnr"],
                              element["gruppenr"]):
-            logger.error("Missing stedkode for person %s (%s) (<gjest>)",
+            #logger.error("Missing stedkode for person %s (%s) (<gjest>)",
+            logger.info("Missing stedkode for person %s (%s) (<gjest>)",
                          _make_no_ssn(pxml), person.entity_id)
             continue
         # fi
@@ -276,7 +278,8 @@ def import_gjest(pxml, person, ou, constants):
             code = GjestetypeKode(element["gjestetypekode"])
             code = int(code)
         except Cerebrum.Errors.NotFoundError:
-            logger.error("Aiee! Unknown code string %s (GjestetypeKode)",
+            #logger.error("Aiee! Unknown code string %s (GjestetypeKode)",
+            logger.info("Aiee! Unknown code string %s (GjestetypeKode)",
                          element["gjestetypekode"])
             continue
         # yrt
@@ -305,7 +308,8 @@ def import_bilag(pxml, person, ou, constants):
                              element["fakultetnr_kontering"],
                              element["instituttnr_kontering"],
                              element["gruppenr_kontering"]):
-            logger.error("Missing stedkode for person %s (%s) (<bilag>)",
+            #logger.error("Missing stedkode for person %s (%s) (<bilag>)",
+            logger.info("Missing stedkode for person %s (%s) (<bilag>)",
                          _make_no_ssn(pxml), person.entity_id)
             continue 
         # fi
@@ -337,7 +341,8 @@ def import_tilsetting(pxml, person, ou, constants):
                              tilsetting["fakultetnr_utgift"],
                              tilsetting["instituttnr_utgift"],
                              tilsetting["gruppenr_utgift"]):
-            logger.error("Missing stedkode for person %s (%s) (<tils>)",
+            #logger.error("Missing stedkode for person %s (%s) (<tils>)",
+            logger.info("Missing stedkode for person %s (%s) (<tils>)",
                          _make_no_ssn(pxml), person.entity_id)
             continue 
         # fi
@@ -346,7 +351,8 @@ def import_tilsetting(pxml, person, ou, constants):
             code = StillingsKode(tilsetting["stillingkodenr_beregnet_sist"])
             code = int(code)
         except Cerebrum.Errors.NotFoundError:
-            logger.error("Aiee! Unknown code string %s (StillingsKode)",
+            #logger.error("Aiee! Unknown code string %s (StillingsKode)",
+            logger.info("Aiee! Unknown code string %s (StillingsKode)",
                          tilsetting["stillingkodenr_beregnet_sist"])
             continue
         # yrt
@@ -387,7 +393,8 @@ def import_permisjon(tilsetting, permisjon, person):
                                   float(permisjon["prosent_permisjon"]),
                                   lonstatuskode)
     except Cerebrum.Errors.NotFoundError:
-        logger.error("Aiee! Unknown code string ")
+        #logger.error("Aiee! Unknown code string ")
+        logger.info("Aiee! Unknown code string ")
     # yrt
 # end import_permisjon
 
@@ -404,7 +411,8 @@ def import_rolle(pxml, person, ou, constants):
                              element["fakultetnr"],
                              element["instituttnr"],
                              element["gruppenr"]):
-            logger.error("Missing stedkode for person %s (%s) (<rolle>)",
+            #logger.error("Missing stedkode for person %s (%s) (<rolle>)",
+            logger.info("Missing stedkode for person %s (%s) (<rolle>)",
                          _make_no_ssn(pxml), person.entity_id)
             continue
         # fi
@@ -412,7 +420,8 @@ def import_rolle(pxml, person, ou, constants):
         try:
             code = int(RolleKode(element["ansvarsrollekode"]))
         except Cerebrum.Errors.NotFoundError:
-            logger.error("Aiee! Unknown code string %s (RolleKode)",
+            #logger.error("Aiee! Unknown code string %s (RolleKode)",
+            logger.info("Aiee! Unknown code string %s (RolleKode)",
                          element["ansvarsrollekode"])
             continue
         # yrt
@@ -461,7 +470,8 @@ def import_person(pxml, person, ou, constants, import_list):
                                    no_ssn,
                                    constants.system_lt)
     except Cerebrum.Errors.NotFoundError:
-        logger.error("No such person: %s", no_ssn)
+        #logger.error("No such person: %s", no_ssn)
+        logger.info("No such person: %s", no_ssn)
         return
     # yrt
 
