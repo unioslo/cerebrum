@@ -49,10 +49,8 @@ print:
 install: install-lib
 
 install-lib: all $(sources)
-	@for file in $(objects); do \
-	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(pythondir)/$$file || exit 1; \
-	done
-
+	$(INSTALL) -d $(DESTDIR)/$(pythondir)
+	$(INSTALL) -v -m 644 $(sources) $(DESTDIR)/$(pythondir)
 
 clean:
 	rm -rf Cerebrum

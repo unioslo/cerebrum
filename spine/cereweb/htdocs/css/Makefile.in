@@ -31,10 +31,9 @@ print:
 	@echo Going to $(templatedir)
 
 install: $(stylesheets)
-	@for file in $(stylesheets); do \
-	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(cssdir)/$$file || exit 1; \
-	done
-	$(INSTALL) -D -v -m 644 htaccess $(DESTDIR)/$(cssdir)/.htaccess
+	$(INSTALL) -d $(DESTDIR)/$(cssdir)
+	$(INSTALL) -v -m 644 $(stylesheets) $(DESTDIR)/$(cssdir)
+	$(INSTALL) -v -m 644 htaccess $(DESTDIR)/$(cssdir)/.htaccess
 
 clean:
 	rm -f *~ 

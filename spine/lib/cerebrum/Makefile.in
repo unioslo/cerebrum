@@ -32,9 +32,8 @@ all:
 install: install-lib
 
 install-lib: $(sources)
-	@for file in $(sources); do \
-	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(pythondir)/$$file || exit 1; \
-	done
+	$(INSTALL) -d $(DESTDIR)/$(pythondir)
+	$(INSTALL) -v -m 644 $(sources) $(DESTDIR)/$(pythondir)
 	touch $(DESTDIR)/$(pythondir)/__init__.py
 	chmod 644 $(DESTDIR)/$(pythondir)/__init__.py
 

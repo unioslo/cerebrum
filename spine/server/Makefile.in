@@ -30,9 +30,8 @@ sources = $(wildcard *.py)
 all: 
 
 install: $(sources)
-	@for file in $(sources); do \
-	  $(INSTALL) -D -v -m 755 $$file $(prefix)/bin/$$file || exit 1; \
-	done
+	$(INSTALL) -d $(prefix)/bin
+	$(INSTALL) -v -m 644 $(sources) $(prefix)/bin
 
 install-lib:
 

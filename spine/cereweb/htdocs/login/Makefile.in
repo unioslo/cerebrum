@@ -21,10 +21,9 @@ print:
 install-lib:
 
 install: $(sources) htaccess
-	@for file in $(sources); do \
-	  $(INSTALL) -D -v -m 644 $$file $(DESTDIR)/$(webroot)/login/$$file || exit 1; \
-	done
-	$(INSTALL) -D -v -m 644 htaccess $(DESTDIR)/$(webroot)/login/.htaccess
+	$(INSTALL) -d $(DESTDIR)/$(webroot)/login
+	$(INSTALL) -v -m 644 $(sources) $(DESTDIR)/$(webroot)/login
+	$(INSTALL) -v -m 644 htaccess $(DESTDIR)/$(webroot)/login/.htaccess
 
 clean:
 	rm -f *~ 
