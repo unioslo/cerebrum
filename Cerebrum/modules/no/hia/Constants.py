@@ -110,6 +110,8 @@ class Constants(Constants.Constants):
 # SPREAD DEFINISJONER
     spread_hia_novell_user = _SpreadCode('account@edir', Constants.Constants.entity_account,
 					 'User in Novell domain "hia"')
+    spread_hia_novell_labuser = _SpreadCode('account@edirlab', Constants.Constants.entity_account,
+					    'User in Novell domain "hia", employee lab-users only')
     spread_hia_novell_group = _SpreadCode('group@edir', Constants.Constants.entity_group,
 					 'Group in Novell domain "hia"')
     spread_nis_user = _SpreadCode('account@nis', Constants.Constants.entity_account,
