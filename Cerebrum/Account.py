@@ -266,7 +266,7 @@ class Account(EntityName, EntityQuarantine, Entity):
             return self.query_1("""
             SELECT expire_date
             FROM [:table schema=cerebrum name=account_info]
-            WHERE expire_date < now() AND account_id=:a_id""",
+            WHERE expire_date < [:now] AND account_id=:a_id""",
                                 {'a_id': self.entity_id})
         except Errors.NotFoundError:
             return False
