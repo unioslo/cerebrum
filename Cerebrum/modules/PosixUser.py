@@ -17,29 +17,38 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""The PosixUser module is used as a mixin-class for Account, and
-contains additional parameters that are required for building password
-maps used in Unix.  This includes UID, GID, Shell, gecos and home
-directory.
+"""The PosixUser module implements a specialisation of the `Account'
+core class.  The specialisation supports the additional parameters
+that are needed for building password maps usable on Unix systems.
+These parameters include UID, GID, shell, gecos and home directory.
 
-Like the PosixGroup module, the user name is inherited from the
-superclass, which here is Account.
+The specialisation lives in the class PosixUser.PosixUser, which is a
+subclass of the core class Account.  If Cerebrum has been configured
+to use any mixin classes for Account objects, these classes will also
+be among PosixUser.PosixUser superclasses.
+
+Like the PosixGroup class, a user's name is inherited from the
+superclass.
 
 When the gecos field is not set, it is automatically extracted from
 the name variant DEFAULT_GECOS_NAME (what about non-person accounts?).
 SourceSystems are evaluated in the order defined by
-POSIX_GECOS_SOURCE_ORDER"""
+POSIX_GECOS_SOURCE_ORDER.
+
+Note that PosixUser.PosixUser itself is not a transparent Account
+mixin class, as its populate() method requires other arguments than
+the populate() method of Account.
+
+"""
 
 import random
 import re
 import string
 
 import cereconf
-from Cerebrum import Person
+from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum import Account
 from Cerebrum import Constants
-from Cerebrum import Disk
 from Cerebrum.modules import PosixGroup
 
 
@@ -59,8 +68,15 @@ class Constants(Constants.Constants):
     posix_shell_tcsh = _PosixShellCode('tcsh', '/bin/tcsh')
     posix_shell_zsh = _PosixShellCode('zsh', '/bin/zsh')
 
-class PosixUser(Account.Account):
-    """Posix..."""
+Account_class = Factory.get("Account")
+class PosixUser(Account_class):
+    """'POSIX user' specialisation of core class `Account'.
+
+    This class is not meant to be a transparent mixin class
+    (i.e. included in the return value of Utils.Factory.get()) for
+    `Account', but rather should be instantiated explicitly.
+
+    """
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('posix_uid', 'gid_id', 'gecos', 'shell')
@@ -88,11 +104,9 @@ class PosixUser(Account.Account):
             self.home=home
             self.disk_id=disk_id
         else:
-            # super(PosixUser, self).populate(name, owner_type,
-            # owner_id, np_type, creator_id, expire_date)
-            Account.Account.populate(self, name, owner_type, owner_id,
-                                     np_type, creator_id, expire_date,
-                                     home=home, disk_id=disk_id)
+            super(PosixUser, self).populate(name, owner_type, owner_id,
+                                            np_type, creator_id, expire_date,
+                                            home=home, disk_id=disk_id)
         self.__in_db = False
         self.posix_uid = posix_uid
         self.gid_id = gid_id
@@ -140,9 +154,8 @@ class PosixUser(Account.Account):
     def find(self, account_id):
         """Connect object to PosixUser with ``account_id`` in database."""
         self.__super.find(account_id)
-        (self.account_id, self.posix_uid, self.gid_id, self.gecos,
-         self.shell) = self.query_1("""
-         SELECT account_id, posix_uid, gid, gecos, shell
+        (self.posix_uid, self.gid_id, self.gecos, self.shell) = self.query_1("""
+         SELECT posix_uid, gid, gecos, shell
          FROM [:table schema=cerebrum name=posix_user]
          WHERE account_id=:account_id""", locals())
         self.__in_db = True
@@ -211,7 +224,7 @@ class PosixUser(Account.Account):
         assert self.owner_type == int(self.const.entity_person)
         if self.gecos is not None:
             return self.gecos
-        p = Person.Person(self._db)
+        p = Factory.get("Person")(self._db)
         p.find(self.owner_id)
         try:
             ret = p.get_name(self.const.system_cached,
@@ -226,7 +239,7 @@ class PosixUser(Account.Account):
 
         if self.home is not None:
             return self.home
-        disk = Disk.Disk(self._db)
+        disk = Factory.get("Disk")(self._db)
         try:
             disk.find(self.disk_id)
         except Errors.NotFoundError:
@@ -347,9 +360,7 @@ class PosixUser(Account.Account):
     def validate_new_uname(self, domain, uname):
         """Check that the requested username is legal and free"""
         try:
-            # Delayed import to prevent python from barfing
-            from Cerebrum import Account
-            acc = Account.Account(self._db)
+            acc = Account_class(self._db)
             acc.find_by_name(uname, domain=domain)
             return 0
         except Errors.NotFoundError:
