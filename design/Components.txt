@@ -148,7 +148,7 @@ User administration web frontend
 
 Import from SATS (specific to Norway)
 -------------------------------------
-  STATUS: 2002-10-24: Still waiting for specification.
+  STATUS: 2002-10-31: Still waiting for specification and access.
 	  Should be operative by 2002-11-15.
 
   RESPONSIBILITY OF: BHMJ, RF, HM
@@ -164,7 +164,7 @@ Import from SATS (specific to Norway)
 
 Email API
 ---------
-  STATUS: 2002-10-24: Not started
+  STATUS: 2002-10-31: Not started
 	  Should be working by 2002-11-15.
 
   RESPONSIBILITY OF: HM
@@ -183,7 +183,7 @@ Email API
 
 Export to LMS "Itslearning"
 ---------------------------
-  STATUS: 2002-10-24: BHMJ delivers specification/example by 2002-10-31.
+  STATUS: 2002-10-31: BHMJ delivers specification/example by 2002-11-01.
 	  Should be working by 2002-11-15.
 
   RESPONSIBILITY OF: BHMJ, PR
@@ -210,7 +210,7 @@ ChangeLog API
 
 Export to Active Directory
 --------------------------
-  STATUS: Not started
+  STATUS: 2002-10-31: Nearly started.
 	  Should be operative by end of 2002-11-15.
 
   RESPONSIBILITY OF: FV, RF
@@ -224,7 +224,7 @@ Export to Active Directory
 
 Import from FS (Specific to Norway)
 -----------------------------------
-  STATUS: Not started
+  STATUS: 2002-10-31: XML-based proof-of-concept ready.
 
   RESPONSIBILITY OF: RF, HM, BHMJ
 
@@ -252,7 +252,7 @@ Export to FS (Specific to Norway)
 
 Import from MSTAS (Specific to Norway)
 --------------------------------------
-  STATUS: Not started
+  STATUS: 2002-10-31: Started looking at specification.
 
   RESPONSIBILITY OF: RF
 
@@ -309,7 +309,7 @@ Export to UA (Specific to uio.no)
 
 Import from LT (Specific to uio.no)
 -----------------------------------
-  STATUS: Not started
+  STATUS: 2002-10-31: XML-based proof-of-concept ready.
 
   RESPONSIBILITY OF: RF, HBF, HM, BHMJ
 
@@ -411,6 +411,7 @@ Printer quota API
 Password quality check API
 --------------------------
   STATUS: Not started
+	  Should be usable by 2002-11-15.
 
   RESPONSIBILITY OF: SS
 
@@ -431,3 +432,11 @@ Export to Samba
   CODE DEPENDENCIES: Core API
 
   FILES:
+
+Produce printable documentation
+-------------------------------
+  STATUS: Some rather unsuccessful attempt have been made...
+
+  RESPONSIBILITY OF: 
+
+  API documentation as PostScript or PDF.
