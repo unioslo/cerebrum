@@ -63,7 +63,7 @@ class BofhdExtension(object):
     ## bofh> account affadd <accountname> <affiliation> <ou=>
     all_commands['account_affadd'] = Command(
         ('account', 'affadd'), AccountName(), Affiliation(), OU())
-    def account_affadd(self, user, accountname, affiliation, ou=None):
+    def account_affadd(self, operator, accountname, affiliation, ou=None):
         """Add 'affiliation'@'ou' to 'accountname'.  If ou is None,
         try cereconf.default_ou """
         raise NotImplementedError, \
@@ -72,7 +72,7 @@ class BofhdExtension(object):
     ## bofh> account affrem <accountname> <affiliation> <ou=>
     all_commands['account_affrem'] = Command(
         ('account', 'affrem'), AccountName(), Affiliation(), OU())
-    def account_affrem(self, user, accountname, affiliation, ou=None):
+    def account_affrem(self, operator, accountname, affiliation, ou=None):
         """Remove 'affiliation'@'ou' from 'accountname'.  If ou is None,
         try cereconf.default_ou"""
         raise NotImplementedError, \
@@ -85,28 +85,27 @@ class BofhdExtension(object):
         AccountName(ptype="new"), PersonIdType(), PersonId(),
         Affiliation(default=True), OU(default=True), Date(optional=True),
         fs=FormatSuggestion("Created with id: %i", ("account_id",)))
-    def account_create(self, user, accountname, idtype, id,
+    def account_create(self, operator, accountname, idtype, id,
                        affiliation=None, ou=None, expire_date=None):
         """Create account 'accountname' belonging to 'idtype':'id'"""
-        account = Account.Account(self.Cerebrum)  # TBD: Flytt denne
-        account.clear()
-        # TBD: set this from user
-        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        creator_id = account.entity_id
+        account = account = Account.Account(self.Cerebrum)
         account.clear()
         person = self._get_person(id, idtype)
         account.populate(accountname,
                          self.const.entity_person,  # Owner type
                          person.entity_id,
                          None,
-                         creator_id, expire_date)
-        account.write_db()
+                         operator, expire_date)
+        try:
+            account.write_db()
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return {'account_id': account.entity_id}
 
     ## bofh> account password <accountname> [<password>]
     all_commands['account_password'] = Command(
-        ('account', 'password'), AccountName(), AccountPassword(optional=True))
-    def account_password(self, user, accountname, password=None):
+        ('account', 'password'), AccountName(ptype=""), AccountPassword(optional=True))
+    def account_password(self, operator, accountname, password=None):
         """Set account password for 'accountname'.  If password=None,
         set random password.  Returns the set password"""
         account = self._get_account(accountname)
@@ -114,7 +113,10 @@ class BofhdExtension(object):
             raise NotImplementedError, \
                   'make_passwd må flyttes fra PosixUser til Account'
         account.set_password(password)
-        account.write_db()
+        try:
+            account.write_db()
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return password
 
     ## bofh> account posix_create <accountname> <prigroup> <home=> \
@@ -126,18 +128,11 @@ class BofhdExtension(object):
         PosixGecos(default=True),
         fs=FormatSuggestion("Created with password: %s", ("password", )))
     # TODO:  Ettersom posix er optional, flytt denne til en egen fil
-    def account_posix_create(self, user, accountname, prigroup, home=None,
+    def account_posix_create(self, operator, accountname, prigroup, home=None,
                              shell=None, gecos=None):
         """Create a PosixUser for existing 'accountname'"""
-        try:
-            account = self._get_account(accountname)
-        except Errors.NotFoundError:
-            raise CerebrumError, "parent account not found"
-        group=Group.Group(self.Cerebrum)
-        try:
-            group.find_by_name(prigroup)
-        except Errors.NotFoundError:
-            raise CerebrumError, "group not found"
+        account = self._get_account(accountname)
+        group=_get_group(prigroup)
         posix_user = PosixUser.PosixUser(self.Cerebrum)
         uid = posix_user.get_free_uid()
 
@@ -153,13 +148,13 @@ class BofhdExtension(object):
         posix_user.set_password(passwd)
         try: 
             posix_user.write_db()
-        except DatabaseError, m:
+        except self.Cerebrum.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return {'password': passwd}
 
     ## bofh> account type <accountname>
     all_commands['account_type'] = Command(('account', 'type'), AccountName())
-    def account_type(self, user, accountname):
+    def account_type(self, operator, accountname):
         """Return a tuple-of-tuples with information on affiliations
         for 'accountname' where the inner tuples has the format
         (affiliation, status, ou)"""
@@ -173,7 +168,7 @@ class BofhdExtension(object):
     ## bofh> group account <accountname>
     all_commands['group_account'] = Command(('group', 'account'),
                                             AccountName())
-    def group_account(self, user, accountname):
+    def group_account(self, operator, accountname):
         """List all groups where 'accountname' is a (direct or
         indirect) member, and type of membership (union, intersection
         or difference)."""
@@ -187,37 +182,36 @@ class BofhdExtension(object):
                                         AccountName(ptype="source", repeat=True),
                                         GroupName(ptype="destination", repeat=True),
                                         GroupOperation(optional=True))
-    def group_add(self, user, src_name, dest_group,
-                  operator=None):
-        self._group_add(self, user, src_name, dest_group,operator=None , type="account")
+    def group_add(self, operator, src_name, dest_group,
+                  group_operator=None):
+        return self._group_add(operator, src_name, dest_group,
+                               group_operator, type="account")
 
     ## bofh> group gadd <groupname+> <groupname+> [<op>]
     all_commands['group_gadd'] = Command(("group", "gadd"),
                                         GroupName(ptype="source", repeat=True),
                                         GroupName(ptype="destination", repeat=True),
                                         GroupOperation(optional=True))
-    def group_gadd(self, user, src_name, dest_group,
-                  operator=None):
-        self._group_add(self, user, src_name, dest_group,operator=None , type="group")
+    def group_gadd(self, operator, src_name, dest_group,
+                  group_operator=None):
+        return self._group_add(operator, src_name, dest_group,
+                               group_operator, type="group")
 
-    def _group_add(self, user, src_name, dest_group,
-                  operator=None, type=None):
+    def _group_add(self, operator, src_name, dest_group,
+                  group_operator=None, type=None):
         """Add entity named src to group named dest using specified
         operator"""
-        operator = self._get_group_opcode(operator)
+        group_operator = self._get_group_opcode(group_operator)
         group_s = account_s = None
         if type == "group":
-            try:
-                src_entity = self._get_group(src_name)
-            except Errors.NotFoundError:
-                raise CerebrumError, "No such group: %s" % src_name
+            src_entity = self._get_group(src_name)
         elif type == "account":
-            try:
-                src_entity = self._get_account(src_name)
-            except Errors.NotFoundError:
-                raise CerebrumError, "No such account: %s" % src_name
+            src_entity = self._get_account(src_name)
         group_d = self._get_group(dest_group)
-        group_d.add_member(src_entity, operator)
+        try: 
+            group_d.add_member(src_entity, group_operator)
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return "OK"
 
     ## bofh> group create <name> [<description>]
@@ -226,30 +220,30 @@ class BofhdExtension(object):
                                            Description(),
                                            fs=FormatSuggestion("Created: %i",
                                                                ("group_id",)))
-    def group_create(self, user, groupname, description):
+    def group_create(self, operator, groupname, description):
         """Create the group 'groupname' with 'description'.  Returns
         the new groups id"""
 
-        account = Account.Account(self.Cerebrum)
-        # TODO: current user
-        account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         group = Group.Group(self.Cerebrum)
-        group.populate(account, self.const.group_visibility_all,
+        group.populate(operator, self.const.group_visibility_all,
                           groupname, description)
-        group.write_db()
+        try: 
+            group.write_db()
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return {'group_id': group.entity_id}
 
     ## bofh> group delete <name>
     all_commands['group_delete'] = Command(("group", "delete"),
                                            GroupName("existing"))
-    def group_delete(self, user, groupname):
+    def group_delete(self, operator, groupname):
         """Deletes the group 'groupname'"""
         raise NotImplementedError, "Feel free to implement this function"
 
     ## bofh> group expand <groupname>
     all_commands['group_expand'] = Command(("group", "expand"),
                                            GroupName("existing"))
-    def group_expand(self, user, groupname):
+    def group_expand(self, operator, groupname):
         """Do full group expansion; list resulting members and their
         entity types."""
         raise NotImplementedError, "Feel free to implement this function"
@@ -257,17 +251,19 @@ class BofhdExtension(object):
     ## bofh> group expire <name> <yyyy-mm-dd>
     all_commands['group_expire'] = Command(("group", "expire"),
                                            GroupName("existing"), Date())
-    def group_expire(self, user, groupname, date):
+    def group_expire(self, operator, groupname, date):
         """Set group expiration date for 'groupname' to 'date'"""
         group = self._get_group(groupname)
-        group.expire_date = self.Cerebrum.Date(*([
-            int(x) for x in date.split('-')]))
-        group.write_db()
+        group.expire_date = self._parse_date(date)
+        try:
+            group.write_db()
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
 
     ## bofh> group group <groupname>
     all_commands['group_group'] = Command(("group", "group"),
                                           GroupName("existing"))
-    def group_group(self, user, groupname):
+    def group_group(self, operator, groupname):
         """List all groups where 'groupname' is a (direct or
         indirect) member, and type of membership (union, intersection
         or difference)."""
@@ -276,7 +272,7 @@ class BofhdExtension(object):
     ## bofh> group info <name>
     all_commands['group_info'] = Command(("group", "info"),
                                          GroupName("existing"))
-    def group_info(self, user, groupname):
+    def group_info(self, operator, groupname):
         """Returns some info about 'groupname'"""
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -284,16 +280,17 @@ class BofhdExtension(object):
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName("existing"),
         fs=FormatSuggestion("%i", ("member_id",), hdr="Members ids"))
-    def group_list(self, user, groupname):
+    def group_list(self, operator, groupname):
         """List direct members of group (with their entity types), in
         categories coresponding to the three membership ops.  """
+        
         group = self._get_group(groupname)
         return [{'member_id': a} for a in group.get_members()]
 
     ## bofh> group person <person_id>
     all_commands['group_person'] = Command(("group", "person"),
                                            GroupName("existing"))
-    def group_person(self, user, personid):
+    def group_person(self, operator, personid):
         """List all groups where 'personid' is a (direct or
         indirect) member, and type of membership (union, intersection
         or difference)."""
@@ -305,7 +302,7 @@ class BofhdExtension(object):
                                            EntityName(ptype="source", repeat=True),
                                            GroupName("existing", repeat=True),
                                            GroupOperation(optional=True))
-    def group_remove(self, user, entityname, groupname, op=None):
+    def group_remove(self, operator, entityname, groupname, op=None):
         """Remove 'entityname' from 'groupname' using specified
         operator"""
         raise NotImplementedError, "Feel free to implement this function"
@@ -314,12 +311,15 @@ class BofhdExtension(object):
     all_commands['group_visibility'] = Command(("group", "visibility"),
                                                GroupName("existing"),
                                                GroupVisibility())
-    def group_visibility(self, user, groupname, visibility):
+    def group_visibility(self, operator, groupname, visibility):
         """Change 'groupname's visibility to 'visibility'"""
         raise NotImplementedError, "What format should visibility have?"
         group = self._get_group(groupname)
         group.visibility = visibility
-        group.write_db()
+        try:
+            group.write_db()
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
 
     #
     # person commands
@@ -330,7 +330,7 @@ class BofhdExtension(object):
         ("person", "affadd"),
         PersonIdType(), PersonId(repeat=True), Affiliation(),
         AffiliationStatus(default=True), OU(default=True))
-    def person_affadd(self, user, idtype, id, affiliation,
+    def person_affadd(self, operator, idtype, id, affiliation,
                       status=None, ou=None):
         """Add 'affiliation'@'ou' with 'status' to person with
         'idtype'='id'.  Changes the affiliationstatus if person
@@ -340,7 +340,7 @@ class BofhdExtension(object):
     ## bofh> person afflist <idtype> <id>
     all_commands['person_afflist'] = Command(
         ("person", "afflist"), PersonIdType(), PersonId(repeat=True))
-    def person_afflist(self, user, idtype, id):
+    def person_afflist(self, operator, idtype, id):
         """Return all affiliations for person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -349,7 +349,7 @@ class BofhdExtension(object):
                                             PersonIdType(),
                                             PersonId(repeat=True),
                                             Affiliation(), OU(default=True))
-    def person_affrem(self, user, idtype, id, affiliation, ou):
+    def person_affrem(self, operator, idtype, id, affiliation, ou):
         """Add 'affiliation'@'ou' with 'status' to person with 'idtype'='id'"""
         raise NotImplementedError, "Feel free to implement this function"
 
@@ -358,47 +358,48 @@ class BofhdExtension(object):
         ("person", "create"),
         PersonName(), PersonIdType(), PersonId(),
         fs=FormatSuggestion("Created: %i", ("person_id",)))
-    def person_create(self, user, display_name, 
+    def person_create(self, operator, display_name, 
                       id_type=None, id=None):
-        self.person_create(self, user, display_name, id_type=id_type, id=id)
+        return self._person_create(operator, display_name, id_type=id_type, id=id)
         
     ## bofh> person bcreate <display_name> <birth_date (yyyy-mm-dd)>
     all_commands['person_bcreate'] = Command(
         ("person", "bcreate"),
         PersonName(), Date(),
         fs=FormatSuggestion("Created: %i", ("person_id",)))
-    def person_bcreate(self, user, display_name, birth_date=None):
-        self.person_create(self, user, display_name, birth_date=birth_date)
+    def person_bcreate(self, operator, display_name, birth_date=None):
+        return self._person_create(operator, display_name, birth_date=birth_date)
 
-    def _person_create(self, user, display_name, birth_date=None,
+    def _person_create(self, operator, display_name, birth_date=None,
                       id_type=None, id=None):
         """Call to manually add a person to the database.  Created
         person-id is returned"""
         person = self.person
         person.clear()
-        date = None
         if birth_date is not None:
-            date = self.Cerebrum.Date(*([
-                int(x) for x in birth_date.split('-')]))
-        person.populate(date, self.const.gender_male,
+            birth_date = self._parse_date(birth_date)
+        person.populate(birth_date, self.const.gender_male,
                         description='Manualy created')
         # TDB: new constants
         person.affect_names(self.const.system_manual, self.const.name_full)
         person.populate_name(self.const.name_full,
                              display_name.encode('iso8859-1'))
-        if id_type is not None:
-            if id_type == 'fnr':
-                person.populate_external_id(self.const.system_manual,
-                                            self.const.externalid_fodselsnr,
-                                            id)
-        person.write_db()
+        try:
+            if id_type is not None:
+                if id_type == 'fnr':
+                    person.populate_external_id(self.const.system_manual,
+                                                self.const.externalid_fodselsnr,
+                                                id)
+            person.write_db()
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
         return {'person_id': person.entity_id}
 
     ## bofh> person delete <id_type> <id>
     all_commands['person_delete'] = Command(("person", "delete"),
                                             PersonIdType(),
                                             PersonId(repeat=True))
-    def person_delete(self, user, idtype, id):
+    def person_delete(self, operator, idtype, id):
         """Remove person.  Don't do anything if there are data
         (accounts, affiliations, etc.) associatied with the person."""
         raise NotImplementedError, "Feel free to implement this function"
@@ -410,7 +411,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%-15s%-30s%-10s", ("export_id", "name", "bdate"),
                             hdr="%-15s%-30s%-10s" % ("ExportID", "Name",
                                                      "Birthdate")))
-    def person_find(self, user, key, keytype=None):
+    def person_find(self, operator, key, keytype=None):
         """Search for person with 'key'.  If keytype is not set, it is
         assumed to be a date on the format YYYY-MM-DD, or a name"""
         personids = ()
@@ -442,12 +443,9 @@ class BofhdExtension(object):
         "Navn     : %20s\nFødt     : %20s\nKjønn    : %20s\n"
         "person id: %20d\nExport-id: %20s",
         ("name", "birth", "gender", "pid", "expid")))
-    def person_info(self, user, idtype, id):
+    def person_info(self, operator, idtype, id):
         """Returns some info on person with 'idtype'='id'"""
-        try:
-            person = self._get_person(id, idtype)
-        except Errors.NotFoundError:
-            raise CerebrumError, "person not found"
+        person = self._get_person(id, idtype)
         name = self._get_person_name(person)
         return {'name': name, 'pid': person.entity_id,
                 'expid': person.export_id, 'birth': str(person.birth_date),
@@ -457,16 +455,18 @@ class BofhdExtension(object):
     ## bofh> person name <id_type> {<export_id> | <fnr>} <name_type> <name>
     all_commands['person_name'] = Command(("person", "name"),
                                           PersonIdType(), PersonId(),
-                                          PersonNameType(), PersonName(),
-                                          fs=FormatSuggestion("OK", []))
-    def person_name(self, user, idtype, id, nametype, name):
+                                          PersonNameType(), PersonName())
+    def person_name(self, operator, idtype, id, nametype, name):
         """Set name of 'nametype' to 'name' for person with 'idtype'='id'"""
         person = self._get_person(id, idtype)
         nametypeid = self._get_nametypeid(nametype)
         person.affect_names(self.const.system_manual, nametypeid)
         person.populate_name(nametypeid, name)
-        person.write_db()
-        return 1
+        try:
+            person.write_db()
+        except self.Cerebrum.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m           
+        return "OK"
 
     #
     # misc helper functions.
@@ -475,22 +475,27 @@ class BofhdExtension(object):
     def _get_account(self, id, idtype='name'):
         account = Account.Account(self.Cerebrum)  # TBD: Flytt denne
         account.clear()
-        if idtype == 'name':
-            account.find_by_name(id, self.const.account_namespace)
-        elif idtype == 'id':
-            account.find(id)
-        else:
-            raise NotImplementedError, "unknown idtype: '%s'" % idtype
+        try:
+            if idtype == 'name':
+                account.find_by_name(id, self.const.account_namespace)
+            elif idtype == 'id':
+                account.find(id)
+            else:
+                raise NotImplementedError, "unknown idtype: '%s'" % idtype
+        except Errors.NotFoundError:
+            raise CerebrumError, "Could not find account with %s=%s" % (idtype, id)
         return account
 
     def _get_group(self, id, idtype='name'):
         group = Group.Group(self.Cerebrum)
-        if idtype == 'name':
-            group.clear()
-            group.find_by_name(id)
-        else:
-            raise NotImplementedError, "unknown idtype: '%s'" % idtype
-
+        try:
+            if idtype == 'name':
+                group.clear()
+                group.find_by_name(id)
+            else:
+                raise NotImplementedError, "unknown idtype: '%s'" % idtype
+        except Errors.NotFoundError:
+            raise CerebrumError, "Could not find group with %s=%s" % (idtype, id)
         return group
 
     def _get_group_opcode(self, operator):
@@ -526,12 +531,15 @@ class BofhdExtension(object):
     def _get_person(self, id, idtype='fnr'):
         person = self.person
         person.clear()
-        if idtype == 'fnr':
-            person.find_by_external_id(self.const.externalid_fodselsnr, id)
-        elif idtype == 'id':
-            person.find(id)
-        else:
-            raise NotImplementedError, "Unknown idtype: %s" % idtype
+        try:
+            if idtype == 'fnr':
+                person.find_by_external_id(self.const.externalid_fodselsnr, id)
+            elif idtype == 'id':
+                person.find(id)
+            else:
+                raise NotImplementedError, "Unknown idtype: %s" % idtype
+        except Errors.NotFoundError:
+            raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
         return person
 
     def _get_nametypeid(self, nametype):
@@ -543,3 +551,9 @@ class BofhdExtension(object):
             return self.const.name_full
         else:
             raise NotImplementedError, "unkown nametype: %s" % nametye
+
+    def _parse_date(self, date):
+        try:
+            return self.Cerebrum.Date(*([ int(x) for x in date.split('-')]))
+        except:
+            raise CerebrumError, "Illegal date: %s" % date
