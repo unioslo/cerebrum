@@ -35,7 +35,8 @@ class Config(object):
         ret += self._logger.pformat(self.select_mapping)
         ret += "Profile definitions:"
         for p in self.profiles:
-            ret += p.debug_dump()
+            ret += p.debug_dump()+"\n"
+        return ret
 
     def get_matching_profiles(self, select_type, select_key, entry_value):
         """Return a list of ProfileDefinition objects that matches
