@@ -62,4 +62,4 @@ class GroBuilder(Builder, Caching, Locking, CorbaBuilder):
         super(GroBuilder, self).save()
 
 
-# arch-tag: 246ee465-24a3-4541-a55a-7548356aebfb
+# arch-tag: d4705da7-3839-44dd-b436-9ddd7a412327
