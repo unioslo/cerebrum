@@ -112,6 +112,16 @@ class Profile(object):
     def get_brev(self):
         return self.matcher.settings.get("brev", [None])[0]
         
+    def get_build(self):
+        home = False
+        action = False
+        for m in self.matcher.settings.get("build", []):
+            if m.get('action', '') == 'true':
+                action = True
+            if m.get('home', '') == 'true':
+                home = True
+        return {'home': home, 'action': action}
+
     def get_stedkoder(self):
         return self.matcher.settings.get("stedkode", [])
 
@@ -199,23 +209,23 @@ class ProfileMatcher(object):
         for k in as_dict.keys():
             v = as_dict[k]
             had_eksamen = False
-            # Does this aktivt_sted criteria match an 'eksamen'?
-            for entry in student_info.get('eksamen', []):
-                d = self.pc.autostud.emnekode2info[
-                    entry['emnekode']]
-                if ((v['nivaa_min'] and
-                     int(d['studienivakode']) < int(v['nivaa_min'])) or
-                    (v['nivaa_max'] and
-                     int(d['studienivakode']) > int(v['nivaa_max']))):
-                    continue
-                sko = "%02i%02i%02i" % (int(d['faknr_reglement']),
-                                        int(d['instituttnr_reglement']),
-                                        int(d['gruppenr_reglement']))
-                if sko in v['steder']:
-                    self._append_match(
-                        'aktivt_sted', 'emnekode',
-                        entry['emnekode'], v['profiles'])
-                    had_eksamen = True
+#             # Does this aktivt_sted criteria match an 'eksamen'?
+#             for entry in student_info.get('eksamen', []):
+#                 d = self.pc.autostud.emnekode2info[
+#                     entry['emnekode']]
+#                 if ((v['nivaa_min'] and
+#                      int(d['studienivakode']) < int(v['nivaa_min'])) or
+#                     (v['nivaa_max'] and
+#                      int(d['studienivakode']) > int(v['nivaa_max']))):
+#                     continue
+#                 sko = "%02i%02i%02i" % (int(d['faknr_reglement']),
+#                                         int(d['instituttnr_reglement']),
+#                                         int(d['gruppenr_reglement']))
+#                 if sko in v['steder']:
+#                     self._append_match(
+#                         'aktivt_sted', 'emnekode',
+#                         entry['emnekode'], v['profiles'])
+#                     had_eksamen = True
             if had_eksamen:
                 continue
             # Does this aktivt_sted criteria match a 'studieprogram'?
