@@ -172,3 +172,9 @@ JOB_RUNNER_LOG_DIR='.'   # Set to a place where only 'cerebrum' has write access
 
 # Used by Cerebrum/no/Stedkode.py
 DEFAULT_INSTITUSJONSNR=None
+
+# The Email module's algorithm for determining a user's "default"
+# email domain needs a default.  This should be a string, naming fully
+# qualified domain name that is registered in the installation's
+# 'email_domain' table.
+EMAIL_DEFAULT_DOMAIN = None
