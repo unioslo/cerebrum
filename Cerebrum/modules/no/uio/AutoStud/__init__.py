@@ -12,8 +12,9 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum import Disk
 
 class AutoStud(object):
-    def __init__(self, db, cfg_file=STUDCONFIG_FILE, debug=0,
+    def __init__(self, db, logger, cfg_file=STUDCONFIG_FILE, debug=0,
                  studieprogs_file=STUDIEPROGS_FILE):
+        self._logger = logger
         self.debug = debug
         self.db = db
         self.disks = {}
@@ -24,7 +25,7 @@ class AutoStud(object):
                 self.disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
             self.disks_order = self.disks.keys()
             self.disks_order.sort(self._disk_sort)
-        self.pc = ProfileConfig.Config(self, debug=debug, cfg_file=cfg_file)
+        self.pc = ProfileConfig.Config(self, logger, debug=debug, cfg_file=cfg_file)
 
         self.studieprogramkode2info = {}
         for sp in StudentInfo.StudieprogDefParser(studieprogs_file=studieprogs_file):
@@ -41,7 +42,7 @@ class AutoStud(object):
         return cmp(int(num_x), int(num_y))
 
     def start_student_callbacks(self, student_file, callback_func):
-        StudentInfo.StudentInfoParser(student_file, callback_func)
+        StudentInfo.StudentInfoParser(student_file, callback_func, self._logger)
 
     def get_profile(self, student_info, groups=None):
         """Returns a Profile object matching the topics, to check

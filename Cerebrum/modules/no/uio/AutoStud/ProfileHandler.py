@@ -1,13 +1,11 @@
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
 
 class Profile(object):
     """Profile implements the logic that maps a persons student_info
     (and optionaly groups) to the apropriate home, default group etc
     using rules read by the StudconfigParser."""
 
-    def __init__(self, autostud, student_info, groups=None):
+    def __init__(self, autostud, student_info, logger, groups=None):
         """The logic for resolving conflicts and enumerating settings
         is similar for most attributes, thus we resolve the settings
         applicatble for this profile in the constructor
@@ -16,7 +14,8 @@ class Profile(object):
         # topics may contain data from get_studieprog_list
         self._groups = groups
         self._autostud = autostud
-
+        self._logger = logger
+        
         reserve = 0
         mail_user = 0
         full_account = 0
@@ -28,6 +27,7 @@ class Profile(object):
         self._resolve_matches()
 
     def _matches_sort(self, x, y):
+        """Sort by nivaakode, then by profile"""
         if(x[1] == y[1]):
             return cmp(x[0], y[0])
         return cmp(y[1], x[1])
@@ -53,13 +53,14 @@ class Profile(object):
                 list.append(item)
 
     def debug_dump(self):
-        print "Dumping %i match entries" % len(self.matches)
-        pp.pprint(self.matches)
-        print "Settings: "
-        pp.pprint(self.settings)
-        print "Toplevel: "
-        pp.pprint(self.toplevel_settings)
-
+        ret = "Dumping %i match entries\n" % len(self.matches)
+        ret += self._logger.pformat(self.matches)
+        ret += "Settings: "
+        ret += self._logger.pformat(self.settings)
+        ret += "Toplevel: "
+        ret += self._logger.pformat(self.toplevel_settings)
+        return ret
+    
     def _get_profile_matches(self, student_info):
         """Check if student_info contains data of the type identified
         by StudconfigParser.select_elements.  If yes, check if the
@@ -110,6 +111,8 @@ class Profile(object):
         prefix. (i.e from /foo/bar/u11 to /foo/bar/u12)"""
 
         disks = self.toplevel_settings.get("disk", [])
+        if len(disks) == 0:
+            raise ValueError, "No disk matches profiles"
         if current_disk is not None:
             for d in disks:
                 if d.has_key('path'):
@@ -145,7 +148,9 @@ class Profile(object):
         return self.settings.get("stedkode", [])
 
     def get_dfg(self):
-        return self.toplevel_settings['primarygroup'][0]
+        if self.toplevel_settings.has_key('primarygroup'):
+            return self.toplevel_settings['primarygroup'][0]
+        return self.toplevel_settings['gruppe'][0]
 
     def get_grupper(self):
         return self.settings.get('gruppe', [])

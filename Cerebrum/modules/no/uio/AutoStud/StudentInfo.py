@@ -11,7 +11,8 @@ class StudentInfoParser(xml.sax.ContentHandler):
     This class obsoletes TopicsParser and StudieprogsParser which
     probably should be removed."""
 
-    def __init__(self, info_file, call_back_function):
+    def __init__(self, info_file, call_back_function, logger):
+        self._logger = logger
         self.personer = []
         self.elementstack = []
         self.call_back_function = call_back_function
@@ -26,18 +27,18 @@ class StudentInfoParser(xml.sax.ContentHandler):
             if name == "data":
                 pass
             else:
-                print "WARNING: unknown element: %s" % name
+                self._logger.warn("unknown element: %s" % name)
         elif len(self.elementstack) == 1:
             if name == "person":
                 self.person = {'fodselsdato': tmp['fodselsdato'],
                                'personnr': tmp['personnr']}
             else:
-                print "WARNING: unknown element: %s" % name
+                self._logger.warn("unknown element: %s" % name)
         elif self.elementstack[-1] == "person":
             if name in ("fagperson", "opptak", "alumni", "privatist_studieprogram", "aktiv", "privatist_emne", "regkort", "eksamen", "evu", "permisjon", "tilbud"):
                 self.person.setdefault(name, []).append(tmp)
             else:
-                print "WARNING: unknown person element: %s" % name
+                self._logger.warn("unknown person element: %s" % name)
         self.elementstack.append(name)
             
     def endElement(self, name):
@@ -58,7 +59,7 @@ class StudieprogDefParser(xml.sax.ContentHandler):
         if name == "studprog":
             self.studieprogs.append(self.t_data)
 
-    def __init__(self, history=None, fnr=None, studieprogs_file=None):
+    def __init__(self, studieprogs_file):
         self.studieprogs = []
         xml.sax.parse(studieprogs_file, self)
 

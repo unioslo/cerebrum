@@ -5,12 +5,12 @@ import xml.sax
 import pprint
 from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
 
-pp = pprint.PrettyPrinter(indent=4)
-
 class Config(object):
-    def __init__(self, autostud, cfg_file, debug=0):
+    def __init__(self, autostud, logger, cfg_file=None, debug=0):
         self.debug = debug
         self.autostud = autostud
+        self._logger = logger
+        
         sp = StudconfigParser(self)
         self.disk_defs = {}
         self.group_defs = {}
@@ -18,7 +18,7 @@ class Config(object):
         xml.sax.parse(cfg_file, sp)
 
         # Generate select_mapping dict and expand super profiles
-        lookup_helper = LookupHelper(autostud.db)
+        lookup_helper = LookupHelper(autostud.db, logger)
         profilename2profile = {}
         self.select_mapping = {}
         for p in self.profiles:
@@ -30,26 +30,26 @@ class Config(object):
             p.expand_super(profilename2profile)
 
     def debug_dump(self):
-        print "Mapping of select-criteria to profile:"
-        pp.pprint(self.select_mapping)
-        print "Profile definitions:"
+        ret = "Mapping of select-criteria to profile:\n"
+        ret += self._logger.pformat(self.select_mapping)
+        ret += "Profile definitions:"
         for p in self.profiles:
-            p.debug_dump()
+            ret += p.debug_dump()
 
     def get_matching_profiles(self, select_type, select_key, entry_value):
         ret = self.select_mapping.get(select_type, {}).get(
             select_key, {}).get(entry_value, None)
-        if self.debug:
-            print "Check matches for %s / %s / %s -> %s" % (
-                select_type, select_key, entry_value, str(ret))
+        self._logger.debug("Check matches for %s / %s / %s -> %s" % (
+            select_type, select_key, entry_value, str(ret)))
         return ret
         
 class ProfileDefinition(object):
     """Represents a profile as defined in the studconfig.xml file"""
     
-    def __init__(self, name, super=None):
+    def __init__(self, name, logger, super=None):
         self.name = name
         self.super = super
+        self._logger = logger
         self.settings = {}
         self.selection_criterias = {}
 
@@ -97,9 +97,8 @@ class ProfileDefinition(object):
         self.selection_criterias.setdefault(name, []).append(attribs)
 
     def debug_dump(self):
-        print "Profile name: '%s', settings:" % self.name
-        pp.pprint(self.settings)
-
+        return "Profile name: '%s', settings:\n%s" % (
+            self.name, self._logger.pformat(self.settings))
 
     #
     # methods for converting the XML entries to values from the database
@@ -124,7 +123,7 @@ class ProfileDefinition(object):
                     try:
                         config.disk_defs[t][disk[t]]
                     except KeyError:
-                        print "Warning: bad disk: %s=%s" % (t, disk[t])
+                        self._logger.warn("bad disk: %s=%s" % (t, disk[t]))
             if disk.has_key('path'):    # Store disk-id as path
                 for d in config.autostud.disks.keys():
                     if config.autostud.disks[d][0] == disk['path']:
@@ -192,7 +191,8 @@ class StudconfigParser(xml.sax.ContentHandler):
 
         if len(self.elementstack) == 2:
             if ename == 'profil':
-                self._in_profil = ProfileDefinition(tmp['navn'], tmp.get('super', None))
+                self._in_profil = ProfileDefinition(
+                    tmp['navn'], self._config._logger, super=tmp.get('super', None))
                 self._config.profiles.append(self._in_profil)
             elif ename == 'gruppe_oversikt':
                 self._in_gruppe_oversikt = 1
