@@ -61,3 +61,4 @@ for group in s.get_groups():
         else:
             print "Added member",member 
 
+# arch-tag: 21f0a3f1-836d-46cb-af5e-fd261c91330d
