@@ -680,12 +680,12 @@ class FronterXML(object):
         self.xml.endTag('RELATIONSHIP')
         self.xml.endTag('GROUP')
 
-    def personmembers_to_XML(self, gid, recstatus, members):
+    def personmembers_to_XML(self, data, members):
         # lager XML av medlemer
         self.xml.startTag('MEMBERSHIP')
         self.xml.startTag('SOURCEDID')
         self.xml.dataElement('SOURCE', self.DataSource)
-        self.xml.dataElement('ID', gid)
+        self.xml.dataElement('ID', data['group_name'])
         self.xml.endTag('SOURCEDID')
         for uname in members:
             self.xml.startTag('MEMBER')
@@ -694,8 +694,8 @@ class FronterXML(object):
             self.xml.dataElement('ID', uname)
             self.xml.endTag('SOURCEDID')
             self.xml.dataElement('IDTYPE', '1')	# The following member ids are persons.
-            self.xml.startTag('ROLE', {'recstatus': recstatus,
-                                       'roletype': Fronter.ROLE_READ})
+            self.xml.startTag('ROLE', {'recstatus': 1,
+                                       'roletype': data['role']})
             self.xml.dataElement('STATUS', '1')
             self.xml.startTag('EXTENSION')
             self.xml.emptyTag('MEMBEROF', {'type': 1}) # Member of group, not room.

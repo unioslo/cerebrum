@@ -149,17 +149,46 @@ def make_fak_dict(fak_dict):
 	sted.clear()
 	try:
 	    sted.find_stedkode(k,0,0,201) # Constant, senere
+	    # Hent inn riktig &r og termin senere
 	    if sted.acronym:
 		st_name = sted.acronym
 	    else: st_name = sted.short_name
+	    s = k
 	    sted_k = "%02d0000" % k 
 	    res2[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:host:' + (str(sted_k))),
 				'parent':'hia.no:fs:struktur:emner:2004:host','level': 1}
-	    res1[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:vaar:' + (str(sted_k))),
-                                'parent':'hia.no:fs:struktur:emner:2004:vaar','level': 1}
+	    res1[int(k)] = {'title': st_name, 'group_name':('hia.no:fs:struktur:emner:2004:v&r:' + (str(sted_k))),
+                                'parent':'hia.no:fs:struktur:emner:2004:v&r','level': 1}
 	except Errors.NotFoundError: 
 	    pass
+    par1,par2 = res1[int(s)]['parent'], res2[int(s)]['parent']
+    for kor in ('studenter','forelesere','sprint tudieledere'):
+	res2[kor] = {'title':('aktive '+ kor), 'group_name': (':'.join((par2,kor))),
+			'parent':par2 ,'level': 1}
+	res1[kor] = {'title':('aktive '+ kor), 'group_name': (':'.join((par1,kor))),
+                        'parent':par1 ,'level': 1}
     return(res1,res2)
+
+def make_undenh_user_grp():
+    group = Factory.get('Group')(db) 
+    role = {}
+    for rol,acc in [x.split(':') for x in ('student:1',
+					'foreleser:6',
+					'studieleder:5')]:
+	role[rol]= acc
+    for k,v in und_grp.items():
+	for grp in ('student','foreleser','studieleder'):
+	    group.clear()
+	    for id,ro in [mem.split(':')for mem in v.['members']]:
+		if grp == ro:
+		    group.find(int(id))
+		    members = []
+		    for grp_mem in group.list_members(None, 
+						int(const.entity_account),
+                                                get_entity_name=True)[0]: 
+			members.append(grp_mem[2])
+		    data = {'role':role[grp], 'group_name':('hia.no:fs:gruppe:undenh:'+ k + grp)}
+		    xml1.personmembers_to_XML(data,members)
 
 #def check_adm_access():
 #    global 
@@ -263,7 +292,7 @@ def main():
     if len(args) != 1:
         usage(1)
                                                                                                                                                                                                
-    global xml1, fdsl2prim, sh2long
+    global xml1, fdsl2prim, sh2long,
     top_dict = {}
     sh2long = {}
     fdsl2prim = person.getdict_external_id2primary_account(const.externalid_fodselsnr,ent_id=True)
@@ -293,6 +322,7 @@ def main():
         xml1.group_to_XML(v)
     for k,v in und_grp.items():
         xml1.room_to_XML(v)
+    make_undenh_user_grp(fak_d1,fak_d2)
     for k,v in acc2names.items():
 	xml1.user_to_XML(v)
     xml1.end()
