@@ -358,7 +358,11 @@ class Group(EntityName, Entity):
     def list_all(self, spread=None):
         """Lists all groups (of given ``spread``).
            DEPRECATED: use search() instead"""
-        return self.search(filter_spread=spread)
+        # Convert spread id to spread code to confirm with search()
+        spread = _SpreadCode(spread)   
+        result = self.search(filter_spread=spread)
+        # only return (id,name) 
+        return [(id,name) for (id,name,desc) in result]
 
     def search(self, filter_spread=None, filter_name=None, filter_desc=None):
         """Retrieves a list of groups filtered by the given criterias.
@@ -368,9 +372,10 @@ class Group(EntityName, Entity):
            given, wildcards * and ? are expanded for "any chars" and
            "one char".""" 
             
-        def replace_wildcards(value):
+        def prep_string(value):
             value = value.replace("*", "%")
             value = value.replace("?", "_")
+            value = value.lower()
             return value
             
         tables = []
@@ -381,26 +386,37 @@ class Group(EntityName, Entity):
         where.append("en.value_domain=:vdomain")
         
         if filter_spread is not None:
-            filter_spread = int(filter_spread)
             tables.append("[:table schema=cerebrum name=entity_spread] es")
             where.append("gi.group_id=es.entity_id")
             where.append("es.entity_type=:etype")
-            where.append("es.spread=:filterspread")
+            # Support both integers (id-s) and strings. Strings could be
+            # with wildcards
+            try: 
+                filter_spread = int(filter_spread)
+            except (TypeError, ValueError):
+                # match code_str
+                filter_spread = prep_string(filter_spread)
+                tables.append("[:table schema=cerebrum name=spread_code] sc")
+                where.append("es.spread=sc.code")
+                where.append("LOWER(sc.code_str) LIKE :filterspread")
+            else:    
+                # Go for the simple int version
+                where.append("es.spread=:filterspread")
 
         if filter_name is not None:
-            filter_name = replace_wildcards(filter_name)
-            where.append("en.entity_name like :filtername")
+            filter_name = prep_string(filter_name)
+            where.append("LOWER(en.entity_name) LIKE :filtername")
 
         if filter_desc is not None:
-            filter_desc = replace_wildcards(filter_desc)
-            where.append("gi.description like :filterdesc")
+            filter_desc = prep_string(filter_desc)
+            where.append("LOWER(gi.description) LIKE :filterdesc")
             
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
             
         return self.query("""
-        SELECT gi.group_id AS group_id, 
+        SELECT DISTINCT gi.group_id AS group_id, 
                en.entity_name AS name,  
                gi.description AS description
         FROM %s %s""" % (', '.join(tables), where_str), 
