@@ -115,14 +115,22 @@ def get_home(acc):
 def add_forward(user_id, addr):
     ef = Email.EmailForward(db)
     ef.find_by_entity(user_id)
+    # clean up input a little
     if addr.startswith('\\'):
         addr = addr[1:]
-    if addr.find('@') == -1:
-        acc = Factory.get('Account')
+    if addr.endswith('\r'):
+        addr = addr[:-1]
+        
+    if addr.startswith('|') or addr.startswith('"|'):
+        logger.warn("forward to pipe ignored: %s", addr)
+        return
+    elif not addr.count('@'):
+        acc = Factory.get('Account')(db)
         try:
             acc.find_by_name(addr)
         except Errors.NotFoundError:
             logger.warn("forward to unknown username: %s", addr)
+            return
         addr = acc.get_primary_mailaddress()
     for r in ef.get_forward():
         if r['forward_to'] == addr:
