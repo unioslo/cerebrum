@@ -19,7 +19,29 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time, re, string, sys, getopt, base64, os
+"""Usage: [options]
+
+Write user and group information to an LDIF file (if enabled in
+cereconf), which can then be loaded into LDAP.
+
+  --user=<outfile>     | -u <outfile>  Write users to a LDIF-file
+  --group=<outfile>    | -g <outfile>  Write posix groups to a LDIF-file
+  --netgroup=<outfile> | -n <outfile>  Write netgroup map to a LDIF-file
+  --posix  Write all of the above, plus optional top object and extra file,
+           to a file given in cereconf (unless the above options override).
+           Also disable ldapsync first.
+
+With none of the above options, do the same as --posix except only write
+the parts that are enabled in cereconf.
+
+  --user_spread=<value>     | -U <value>  (used by all components)
+  --group_spread=<value>    | -G <value>  (used by --group component)
+  --netgroup_spread=<value> | -N <value>  (used by --netgroup component)
+
+The spread options accept multiple spread-values (<value1>,<value2>,...).
+They cannot be used without at least one of the previous options."""
+
+import time, sys, getopt, os
 
 import cerebrum_path
 import cereconf  
@@ -29,12 +51,12 @@ from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, SimilarSizeWriter
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
-from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import *
 
-Cerebrum = Factory.get('Database')()
-co = Factory.get('Constants')(Cerebrum)
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
 
 logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
 logger = logging.getLogger("cronjob")
@@ -51,8 +73,8 @@ def init_ldap_dump():
 
 
 def generate_users(spread=None,filename=None):
-    posix_user = PosixUser.PosixUser(Cerebrum)
-    disk = Factory.get('Disk')(Cerebrum)
+    posix_user = PosixUser.PosixUser(db)
+    disk = Factory.get('Disk')(db)
     spreads = eval_spread_codes(spread or cereconf.LDAP_USER_SPREAD)
     shells = {}
     for sh in posix_user.list_shells():
@@ -100,8 +122,7 @@ def generate_users(spread=None,filename=None):
                 passwd = "{crypt}%s" % row['auth_data']
             shell = shells[int(shell)]
             if row['quarantine_type'] is not None:
-                qh = QuarantineHandler.QuarantineHandler(
-                    Cerebrum, [row['quarantine_type']])
+                qh = QuarantineHandler(db, (row['quarantine_type'],))
                 if qh.should_skip():
                     continue
                 if qh.is_locked():
@@ -135,8 +156,8 @@ def generate_users(spread=None,filename=None):
 
 
 def generate_posixgroup(spread=None,u_spread=None,filename=None):
-    posix_group = PosixGroup.PosixGroup(Cerebrum)
-    group = Factory.get('Group')(Cerebrum)
+    posix_group = PosixGroup.PosixGroup(db)
+    group = Factory.get('Group')(db)
     spreads = eval_spread_codes(spread or cereconf.LDAP_GROUP_SPREAD)
     u_spreads = eval_spread_codes(u_spread or cereconf.LDAP_USER_SPREAD)
     if filename:
@@ -158,7 +179,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
         pos_grp = "dn: cn=%s,%s\n" % (gname, dn_str)
         pos_grp += "%s" % obj_str
         pos_grp += "cn: %s\n" % gname
-        pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
+        pos_grp += "gidNumber: %d\n" % posix_group.posix_gid
         if posix_group.description:
             # latin1_to_iso646_60 later
             pos_grp += "description: %s\n" % iso2utf(posix_group.description)
@@ -179,7 +200,7 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
 
 def generate_netgroup(spread=None,u_spread=None,filename=None):
     global grp_memb
-    pos_netgrp = Factory.get('Group')(Cerebrum)
+    pos_netgrp = Factory.get('Group')(db)
     if filename:
         f = file(filename, 'w')
         f.write("\n")
@@ -213,9 +234,9 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
 	f.close()
 
 def get_netgrp(netgrp_id, spreads, u_spreads, f):
-    pos_netgrp = Factory.get('Group')(Cerebrum)
+    pos_netgrp = Factory.get('Group')(db)
     pos_netgrp.clear()
-    pos_netgrp.entity_id = int(netgrp_id)
+    pos_netgrp.entity_id = netgrp_id
     for id in pos_netgrp.list_members(u_spreads[0], int(co.entity_account),\
 						get_entity_name= True)[0]:
         uname_id,uname = int(id[1]),id[2]
@@ -226,38 +247,28 @@ def get_netgrp(netgrp_id, spreads, u_spreads, f):
 						get_entity_name=True)[0]:
         pos_netgrp.clear()
         pos_netgrp.entity_id = int(group[1])
-	if True in ([pos_netgrp.has_spread(x) for x in spreads]):
+	if filter(pos_netgrp.has_spread, spreads):
             f.write("memberNisNetgroup: %s\n" % group[2])
         else:
             get_netgrp(int(group[1]), spreads, u_spreads, f)
 
 
 def eval_spread_codes(spread):
-    spreads = []
     if isinstance(spread,(str,int)):
-        if (spread_code(spread)):
-            spreads.append(spread_code(spread))
-    elif isinstance(spread,(list,tuple)):
-        for entry in spread:
-            if (spread_code(entry)):
-                spreads.append(spread_code(entry))
-    else:
-        spreads = None
-    return(spreads)
+        spread = (spread,)
+    if isinstance(spread,(list,tuple)):
+        return filter(None, map(spread_code, spread))
+    return None
 
 def spread_code(spr_str):
-    spread=""
-    #if isinstance(spr_str, _SpreadCode):
-    #    return int(_SpreadCode(spr_str))
-    try: spread = int(spr_str)
+    try: return int(spr_str)
     except:
-	try: spread = int(getattr(co, spr_str))
+	try: return int(getattr(co, spr_str))
         except: 
-	    try: spread = int(_SpreadCode(spr_str)) 
+	    try: return int(_SpreadCode(spr_str)) 
 	    except:
-		print "Not valid Spread-Code"
-		spread = None
-    return(spread)
+		print >>sys.stderr, "Not valid Spread-Code: %r" % spr_str
+		return None
 
 
 def disable_ldapsync_mode():
@@ -292,21 +303,21 @@ def main():
         opts = dict(opts)
     except getopt.GetoptError:
         usage(1)
-    if args or opts.has_key('--help'):
+    if args or '--help' in opts:
         usage(bool(args))
-
+    # Copy long options into short options
     for short, long in zip(*short2long_opts):
         val = opts.get('--' + long.replace('=',''))
         if val is not None:
             opts['-' + short.replace(':','')] = val
 
-    got_posix  = opts.has_key('--posix')
-    got_file   = filter(lambda opt: opts.has_key(opt), ('-u', '-g', '-n'))
-    got_spread = False
-    for opt in ('-U', '-G', '-N'):
-        if opts.has_key(opt):
-	    opts[opt]  = eval_spread_codes(opts[opt].split(','))
-            got_spread = True
+    got_posix  = '--posix' in opts
+    got_file   = filter(opts.has_key, ('-u', '-g', '-n'))
+    got_spread = filter(opts.has_key, ('-U', '-G', '-N'))
+    if got_spread and not (got_posix or got_file):
+        usage(1)
+    for opt in got_spread:
+        opts[opt] = eval_spread_codes(opts[opt].split(','))
 
     global glob_fd
     glob_fd = None
@@ -319,38 +330,20 @@ def main():
         if got_posix:
             disable_ldapsync_mode()
             init_ldap_dump()
-        if got_posix or opts.has_key('-u'):
+        if got_posix or '-u' in opts:
             generate_users(opts.get('-U'), opts.get('-u'))
-        if got_posix or opts.has_key('-g'):
+        if got_posix or '-g' in opts:
             generate_posixgroup(opts.get('-G'), opts.get('-U'), opts.get('-g'))
-        if got_posix or opts.has_key('-n'):
+        if got_posix or '-n' in opts:
             generate_netgroup(opts.get('-N'), opts.get('-U'), opts.get('-n'))
     else:
-        if got_spread:
-            usage(1)
         config()
 
     if glob_fd:
         glob_fd.close()
 
 def usage(exitcode=0):
-    print """Usage: [options]
-
-  --user=<outfile>     | -u <outfile>  Write users to a LDIF-file
-  --group=<outfile>    | -g <outfile>  Write posix groups to a LDIF-file
-  --netgroup=<outfile> | -n <outfile>  Write netgroup map to a LDIF-file
-  --posix  Write all of the above, plus optional top object and extra file,
-           to a file given in cereconf (unless the above options override).
-           Also disable ldapsync first.
-
- With none of the above options, do the same as --posix except only write
- the parts that are enabled in cereconf.
-
-  --user_spread=<value>     | -U <value>  (used by all components)
-  --group_spread=<value>    | -G <value>  (used by --group component)
-  --netgroup_spread=<value> | -N <value>  (used by --netgroup component)
-
-  The spread options accept multiple spread-values (<value1>,<value2>,...)"""
+    print __doc__
     sys.exit(exitcode)
 
 def config():
