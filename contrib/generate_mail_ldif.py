@@ -34,7 +34,7 @@ from Cerebrum.modules.LDIFutils import container_entry_string
 from Cerebrum.Constants import _SpreadCode
 from time import time as now
 
-default_mail_file = "/cerebrum/dumps/LDAP/mail-db.ldif"
+default_mail_file = "mail-db.ldif"
 default_spam_level = 9999
 default_spam_action = 0
 mail_dn = cereconf.LDAP_MAIL_DN
@@ -376,10 +376,9 @@ def main():
     ldap = Factory.get('EmailLDAP')(db)
 
     verbose = 0
-    mail_file = default_mail_file
+    mail_file = None
     spread = None
     ignore = False
-    
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
@@ -394,6 +393,9 @@ def main():
 
     if spread is None:
         raise ValueError, "Must set spread"
+
+    if mail_file is None:
+        mail_file = "/".join((cereconf.LDAP_DUMP_DIR, default_mail_file))
     if ignore:
         f = file(mail_file, 'w')
     else:
