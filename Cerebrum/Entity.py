@@ -496,6 +496,10 @@ class EntityAddress(Entity):
             ('source_system', int(source)),
             ('address_type', type))
 
+    def list_country_codes(self):
+        return self.query("""
+            SELECT * FROM [:table schema=cerebrum name=country_code]""")
+
 class EntityQuarantine(Entity):
     "Mixin class, usable alongside Entity for entities we can quarantine."
     def add_entity_quarantine(self, type, creator, comment=None,
