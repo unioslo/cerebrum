@@ -24,28 +24,33 @@ import cereconf
 
 import thread
 
-from Cerebrum.gro.classes import Scheduler
-from Cerebrum.gro import Communication
-from Cerebrum.gro import Gro
-
-
 def main():
+    print '- importing all classes'
+    from Cerebrum.gro.classes import Scheduler
+    from Cerebrum.gro import Communication
+    from Cerebrum.gro import Gro
+
     com = Communication.get_communication()
     sched = Scheduler.get_scheduler()
 
     # starting the scheduler
+    print '- starting scheduler'
     for i in range(cereconf.GRO_SCHEDULERS):
-        print 'starting scheduler thread'
         thread.start_new_thread(sched.run, ())
 
     # creating server
-    server = Gro.GroImpl()
+    print '- creating server'
+    server = com.servant_to_reference(Gro.GroImpl())
 
     # binding server to Naming Service
-    com.bind_object(server, cereconf.GRO_OBJECT_NAME)
+    print '- writing ior to:', cereconf.GRO_IOR_FILE
+    ior = com.orb.object_to_string(server)
+    fd = open(cereconf.GRO_IOR_FILE, 'w')
+    fd.write(ior)
+    fd.close()
 
     # starting communication
-    print 'starting communication'
+    print 'All ok - starting server'
     com.start()
 
 
