@@ -1363,7 +1363,7 @@ class BofhdExtension(object):
         ed = Email.EmailDomain(self.db)
         try:
             ed.find_by_domain(domainname)
-            raise CerebrumError, "%s: e-mail domain already exists" % name
+            raise CerebrumError, "%s: e-mail domain already exists" % domainname
         except Errors.NotFoundError:
             pass
         if not re.match(r'[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+', domainname):
@@ -2278,7 +2278,9 @@ class BofhdExtension(object):
         Raises CerebrumError if address is unknown."""
         et = Email.EmailTarget(self.db)
         acc = None
-        if address.count('@'):
+        if address.count('@') > 1:
+            raise CerebrumError, "Malformed e-mail address (%s)" % address
+        elif address.count('@') == 1:
             try:
                 ea = Email.EmailAddress(self.db)
                 ea.find_by_address(address)
@@ -3955,8 +3957,12 @@ class BofhdExtension(object):
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         har_opptak = {}
         ret = []
-        db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
-                              DB_driver='Oracle')
+        try:
+            db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
+                                  DB_driver='Oracle')
+        except Database.DatabaseError, e:
+            self.logger.warn("Can't connect to FS (%s)" % e)
+            raise CerebrumError("Can't connect to FS, try later")
         fs = FS(db)
         for row in fs.student.get_studierett(fodselsdato, pnum):
             har_opptak["%s" % row['studieprogramkode']] = \
@@ -5458,7 +5464,7 @@ class BofhdExtension(object):
 	if y < 1800:
 	    raise CerebrumError, "Too long ago: %s" % date
         try:
-            return self.db.Date(y, m, d)
+            return DateTime.Date(y, m, d)
         except:
             raise CerebrumError, "Illegal date: %s" % date
 
