@@ -551,7 +551,10 @@ def process_person_frida_information(db_person, db_ou, constants):
     for sequence in (employments, guests):
         for item in sequence:
             item["dato_fra"] = item["dato_fra"].strftime("%Y-%m-%d")
-            item["dato_til"] = item["dato_til"].strftime("%Y-%m-%d")
+            # dato_til need not be present 
+            if item["dato_til"]:
+                item["dato_til"] = item["dato_til"].strftime("%Y-%m-%d")
+            # fi    
         # od
     # od
 
