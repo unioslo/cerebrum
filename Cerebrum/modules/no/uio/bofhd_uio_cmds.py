@@ -426,7 +426,7 @@ class BofhdExtension(object):
         return self.__getattribute__(func_name)(opset, attr)
 
     def _get_access_id_disk(self, target_name):
-        return self._get_disk(target_name), self.const.auth_target_type_disk
+        return self._get_disk(target_name)[1], self.const.auth_target_type_disk
     def _validate_access_disk(self, opset, attr):
         # TODO: check if the opset is relevant for a disk
         if attr is not None:
@@ -2990,8 +2990,7 @@ class BofhdExtension(object):
     def misc_drem(self, operator, hostname, diskname):
         host = self._get_host(hostname)
         self.ba.can_remove_disk(operator.get_entity_id(), host)
-        disk = Utils.Factory.get('Disk')(self.db)
-        disk.find_by_path(diskname, host_id=host.entity_id)
+        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
         account = self.Account_class(self.db)
         for row in account.list_account_home(disk_id=disk.entity_id):
             if row['disk_id'] is None:
@@ -3209,9 +3208,8 @@ class BofhdExtension(object):
                 raise CerebrumError("Unknown request operation %s" % destination)
             rows = br.get_requests(operation=destination)
         elif search_by == 'disk':
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find_by_path(destination)
-            rows = br.get_requests(destination_id=disk.entity_id)
+            disk_id = self._get_disk(destination)[1]
+            rows = br.get_requests(destination_id=disk_id)
         elif search_by == 'account':
             account = self._get_account(destination)
             rows = br.get_requests(entity_id=account.entity_id)
@@ -3222,8 +3220,7 @@ class BofhdExtension(object):
             op = self.num2const[int(r['operation'])]
             dest = None
             if op in (self.const.bofh_move_user, self.const.bofh_move_request):
-                disk = Utils.Factory.get('Disk')(self.db)
-                disk.find(r['destination_id'])
+                disk = self._get_disk(r['destination_id'])[0]
                 dest = disk.path
             elif op in (self.const.bofh_move_give,):
                 dest = self._get_entity_name(self.const.entity_group,
@@ -4356,12 +4353,12 @@ class BofhdExtension(object):
         posix_user = PosixUser.PosixUser(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
-        disk_id, home = self._get_disk_or_home(home)
-        if home is not None:
-            if home[0] == ':':
-                home = home[1:]
-            else:
-                raise CerebrumError, "Invalid disk"
+        if home[0] != ':':  # Hardcoded path
+            disk_id, home = self._get_disk(home)[1:3]
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("only superusers may use hardcoded path")
+            disk_id, home = None, home[1:]
         posix_user.clear()
         gecos = None
         expire_date = None
@@ -4506,8 +4503,7 @@ class BofhdExtension(object):
                'expire': account.expire_date,
                'home': tmp['home']}
         if tmp['disk_id'] is not None:
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(tmp['disk_id'])
+            disk = self._get_disk(tmp['disk_id'])[0]
             ret['home'] = "%s/%s" % (disk.path, account.account_name)
 
         if is_posix:
@@ -4606,7 +4602,7 @@ class BofhdExtension(object):
         br = BofhdRequests(self.db, self.const)
         spread = int(self.const.spread_uio_nis_user)
         if move_type in ("immediate", "batch", "nofile"):
-            disk_id, home = self._get_disk_or_home(args[0])
+            disk_id = self._get_disk(args[0])[1]
             self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
             if disk_id is None:
                 raise CerebrumError, "Bad destination disk"
@@ -4622,7 +4618,7 @@ class BofhdExtension(object):
                 return "move queued for execution at %s" % br.batch_time
             elif move_type == "nofile":
                 old = account.get_home(spread)
-                account.set_home(spread, disk_id=disk_id, home=home,
+                account.set_home(spread, disk_id=disk_id, home=None,
                                  status=old['status'])
                 account.write_db()
                 return "OK, user moved"
@@ -4671,7 +4667,7 @@ class BofhdExtension(object):
                 return "OK, %i bofhd requests deleted" % count
         elif move_type in ("request",):
             disk, why = args[0], args[1]
-            disk_id = self._get_disk(disk)
+            disk_id = self._get_disk(disk)[1]
             if len(why) > 80:
                 raise CerebrumError, \
                       "Too long explanation, maximum length is 80"
@@ -4747,12 +4743,12 @@ class BofhdExtension(object):
         uid = pu.get_free_uid()
         group = self._get_group(dfg, grtype='PosixGroup')
         shell = self._get_shell(shell)
-        disk_id, home = self._get_disk_or_home(home)
-        if home is not None:
-            if home[0] == ':':
-                home = home[1:]
-            else:
-                raise CerebrumError, "Invalid disk"
+        if home[0] != ':':  # Hardcoded path
+            disk_id, home = self._get_disk(home)[1:3]
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("only superusers may use hardcoded path")
+            disk_id, home = None, home[1:]
         if account.owner_type == self.const.entity_person:
             person = self._get_person("entity_id", account.owner_id)
         else:
@@ -4957,8 +4953,7 @@ class BofhdExtension(object):
         if ac.home is not None:
             ret['home'] = ac.home
         else:
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(ac.disk_id)
+            disk = self._get_disk(ac.disk_id)[0]
             ret['home'] = '%s/%s' % (disk.path, ac.account_name)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
@@ -5215,34 +5210,18 @@ class BofhdExtension(object):
         else:
             return "%s:%s" % (type, id)
 
-    def _get_disk_or_home(self, home):
-        host = None
+    def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
-        if isinstance(home, int):
-            try:
-                disk.find(home)
-                return home, None
-            except Errors.NotFoundError:
-                return None, None
-
-        if home.find(":") != -1:
-            host, path = home.split(":")
-            return None, ':'+path   # We currently don't use the host part
-        else:
-            path = home
         try:
-            disk.find_by_path(path, host)
-            disk_id = disk.entity_id
-            path = None
+            if isinstance(path, str):
+                disk.find_by_path(path, host_id)
+            else:
+                disk.find(path)
+            return disk, disk.entity_id, None
         except Errors.NotFoundError:
-            disk_id = None
-        return disk_id, path
-
-    def _get_disk(self, path):
-        disk, home = self._get_disk_or_home(path)
-        if disk is None:
-            raise CerebrumError("Unknown disk: %s" % path)
-        return disk
+            if raise_not_found:
+                raise CerebrumError("Unknown disk: %s" % path)
+            return disk, None, path
 
     def _map_np_type(self, np_type):
         # TODO: Assert _AccountCode
@@ -5302,7 +5281,10 @@ class BofhdExtension(object):
             return None
         if isinstance(date, DateTime.DateTimeType):
             date = date.Format("%Y-%m-%d")
-        y, m, d = [int(x) for x in date.split('-')]
+        try:
+            y, m, d = [int(x) for x in date.split('-')]
+        except ValueError:
+            raise CerebrumError, "Dates must be numeric"
         # TODO: this should be a proper delta, but rather than using
         # pgSQL specific code, wait until Python has standardised on a
         # Date-type.
