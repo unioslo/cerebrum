@@ -329,8 +329,10 @@ class BofhdAuth(DatabaseAccessor):
         group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
         self._superuser_group = group.entity_id
         self._any_perm_cache = Cache.Cache(mixins=[Cache.cache_mru,
-                                                   Cache.cache_slots],
-                                           size=500)
+                                                   Cache.cache_slots,
+                                                   Cache.cache_timeout],
+                                           size=500,
+                                           timeout=60*60)
 
     def is_superuser(self, operator, query_run_any=False):
         if operator in self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
