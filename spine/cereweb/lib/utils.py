@@ -29,6 +29,10 @@ def url(path):
        url("group/search") could return "/group/search" for normal
        installations, but /~stain/group/search for test installations.
     """
+    if path[:1] == '/':
+        path = path[1:]
+    if not path.startswith('css'):
+        path = 'Chandler.cgi' + '/' + path
     return cereconf.WEBROOT + "/" + path
 
 #_object_type_url_map = {
@@ -76,21 +80,21 @@ def redirect(req, url, temporary=False, seeOther=False):
         An error occured, and you want to go to some default page
             temporary=True    
     """
-    from mod_python import apache
-
+    HTTP_SEE_OTHER = 303
+    HTTP_TEMPORARY_REDIRECT = 307
+    HTTP_MOVED_PERMANENTLY = 301
     if temporary and seeOther:
         raise ProgrammingError, \
               "cannot set both temporary and seeOther"
     elif seeOther:
-        status = apache.HTTP_SEE_OTHER
+        status = HTTP_SEE_OTHER
     elif temporary:
-        status = apache.HTTP_TEMPORARY_REDIRECT
+        status = HTTP_TEMPORARY_REDIRECT
     else:
-        status = apache.HTTP_MOVED_PERMANENTLY
+        status = HTTP_MOVED_PERMANENTLY
 
     req.headers_out['Location'] = url
     req.status = status
-    raise apache.SERVER_RETURN, status
     
 def redirect_object(req, object, method="view", 
                     temporary=False, seeOther=False):
@@ -127,7 +131,7 @@ def new_transaction(req, name="", description=""):
 
 def snapshot(req):
     """Creates a new snapshot."""
-    snap = req.session["session"].snapshot()
+    snap = req.session.get_spine_session().snapshot()
     return snap
 
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6
