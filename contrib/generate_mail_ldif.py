@@ -97,10 +97,6 @@ def write_ldif():
                         home = "%s/%s" % (path, target)
                 else:
                     txt = "Target: %s(account) no user found: %s\n"% (t,ei)
-                    sys.stdout.write(txt)
-                    for an in ldap.acc2name.keys():
-                        sys.stdout.write("%s:%s" % (an, ldap.acc2name[an]))
-                    sys.exit(0)
                     sys.stderr.write(txt)
                     continue
             else:
