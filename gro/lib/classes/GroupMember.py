@@ -52,3 +52,4 @@ def get_members(self):
 Entity.register_method(Method('get_groups', GroupMember, sequence=True), get_members)
 Group.register_method(Method('get_members', GroupMember, sequence=True), get_members)
 
+# arch-tag: db95a633-1591-4f72-91e4-fcb6ab6981e6

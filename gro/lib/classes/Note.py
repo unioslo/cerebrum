@@ -60,3 +60,5 @@ def get_notes(self):
     return s.search()
 
 Entity.register_method(Method('get_notes', Note, sequence=True), get_notes)
+
+# arch-tag: 051b4ae4-d46d-43b6-b339-fb857279db1f

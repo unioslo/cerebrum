@@ -38,3 +38,5 @@ def authenticate(self, password):
     return False
 
 Account.register_method(Method('authenticate', bool, [('password', 'string')]), authenticate)
+
+# arch-tag: bb277dd2-3474-4891-8666-5fe9a096b735
