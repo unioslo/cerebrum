@@ -19,8 +19,8 @@ class Person_createTestCase(OU_createTestCase):
         'birth': OU_createTestCase.Cerebrum.Date(1970, 1, 1),
         'gender': OU_createTestCase.co.gender_male,
         'full_name': "Full Name",
-        'adr': 'adr',
-        'zip': 'zip',
+        'address_text': 'adr',
+        'postal_number': 'zip',
         'city': 'city'
         }
 
@@ -41,10 +41,9 @@ class Person_createTestCase(OU_createTestCase):
         person.populate_name(self.co.name_full, pd['full_name'])
 ##         person.populate_external_id(co.system_manual,
 ##                                     co.externalid_fodselsnr, fnr)
-        person.affect_addresses(self.co.system_manual, self.co.address_post)
-        person.populate_address(self.co.address_post, addr=pd['adr'],
-                                zip=pd['zip'],
-                                city=pd['city'])
+        person.populate_address(self.co.system_manual,
+                                self.co.address_post, address_text=pd['address_text'],
+                                postal_number=pd['postal_number'], city=pd['city'])
         person.affect_affiliations(self.co.system_manual,
                                    self.co.affiliation_student)
         person.populate_affiliation(self.ou_id, self.co.affiliation_student,

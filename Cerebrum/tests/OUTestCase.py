@@ -25,7 +25,7 @@ class OU_createTestCase(unittest.TestCase, object):
         'display_name': 'display_name',
         'sort_name': 'sort_name',
         'addr': 'addr',
-        'zip':'zip',
+        'postal_number':'post_n',
         'city': 'city'
         }
 
@@ -34,9 +34,10 @@ class OU_createTestCase(unittest.TestCase, object):
                     short_name=self.ou_dta['short_name'],
                     display_name=self.ou_dta['display_name'],
                     sort_name=self.ou_dta['sort_name'])
-        ou.affect_addresses(self.co.system_manual, self.co.address_street)
-        ou.populate_address(self.co.address_street, addr=self.ou_dta['addr'],
-                            zip=self.ou_dta['zip'],
+        ou.populate_address(self.co.system_manual,
+                            self.co.address_street,
+                            address_text=self.ou_dta['addr'],
+                            postal_number=self.ou_dta['postal_number'],
                             city=self.ou_dta['city'])
 
     def setUp(self):
