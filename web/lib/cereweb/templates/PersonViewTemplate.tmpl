@@ -59,7 +59,7 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
     <dd>$person.gender</dd>
 
     <dt>$_("Date of birth")</dt>
-    <dd>$person.birthdate</dd>
+    <dd>$person.birthdate.Format('%Y-%m-%d')</dd>
 
 #if $person.deceased
     $_("-- Person is deceased --")
