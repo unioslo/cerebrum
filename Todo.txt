@@ -1718,6 +1718,23 @@
   Due date:
   Priority: 3
 
+** Endringer i utskriftsbetalingsystemet
+  Description: Universitetsstyret har vedtatt endringer i dagens
+               system for accounting av utskrift ved UiO.  Endringen
+               medfører bla at frikvote som tildeles hvert semester
+               endres fra 100 til 150.  Av disse skal 50 kunne
+               akkumuleres, hvorledes dette skal implementeres er
+               uklart.  Det er også besluttet å ta betalt for ark med
+               to trykk, men det vil trolig ikke medføre store
+               endringene på Cerebrum-siden av systemet.
+  Dependencies:
+  Assigned to: runefro
+  Resources: runefro, jazz, baardj
+  Cost:
+  Status:
+  Due date: 2005-08-01
+  Priority: 1.8
+
 ** Sletting av gamle utskriftsdata
   Description: Vi er bare på pålagt å ha informasjon om
                utskriftsjobber i 6 månader.  Da dette er betydelige
