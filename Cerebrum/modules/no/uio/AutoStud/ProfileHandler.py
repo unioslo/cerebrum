@@ -43,9 +43,10 @@ class Profile(object):
         if len(disks) == 0:
             raise ValueError, "No disk matches profiles"
         if current_disk is not None:
+            if not self.pc.autostud.student_disk.has_key(int(current_disk)):
+                return current_disk
             for d in disks:
                 if d.has_key('path'):
-
                     if d['path'] == current_disk:
                         return current_disk
                 else:

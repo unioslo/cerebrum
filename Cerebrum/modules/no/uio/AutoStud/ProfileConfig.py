@@ -184,6 +184,20 @@ class ProfileDefinition(object):
             if id:
                 tmp.append({'group_id': id })
         self.selection_criterias["medlem_av_gruppe"] = tmp  
+
+        # Find all student disks from disk_defs
+        for k in ('path', 'prefix'):
+            for ddef in config.disk_defs[k].keys():
+                path = config.disk_defs[k][ddef].get('path', None)
+                prefix = config.disk_defs[k][ddef].get('prefix', None)
+                for d in config.autostud.disks.keys():
+                    v = config.autostud.disks[d]
+                    if path:
+                        if path == v[0]:
+                            config.autostud.student_disk[d] = 1
+                    else:
+                        if v[0][:len(prefix)] == prefix:
+                            config.autostud.student_disk[d] = 1
                 
 class StudconfigParser(xml.sax.ContentHandler):
     """

@@ -19,6 +19,7 @@ class AutoStud(object):
         self.db = db
         self.disks = {}
         self.disks_order = []
+        self.student_disk = {}
         if True:
             disk = Disk.Disk(db)
             for d in disk.list(filter_expired=True):
