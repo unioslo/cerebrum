@@ -31,8 +31,8 @@ following additional properties are defined:
 """
 
 from Cerebrum import Utils
-
 from Cerebrum.OU import OU
+import cereconf
 
 class Stedkode(OU):
 
@@ -179,3 +179,31 @@ class Stedkode(OU):
           institutt = :institutt AND
           avdeling = :avdeling""", locals())
         self.find(ou_id)
+
+    def get_stedkoder(self, landkode=0,
+                      institusjon=cereconf.DEFAULT_INSTITUSJONSNR,
+                      fakultet=None, institutt=None, avdeling=None):
+        sql = """
+        SELECT ou_id, landkode, institusjon, fakultet, institutt, avdeling
+        FROM [:table schema=cerebrum name=stedkode]
+        WHERE
+          landkode = :landkode AND
+          institusjon = :institusjon """
+        if fakultet is not None:
+            sql += "AND fakultet = :fakultet "
+        if institutt is not None:
+            sql += "AND institutt = :institutt "
+        if avdeling is not None:
+            sql += "AND avdeling = :avdeling "
+        return self.query(sql, locals())
+
+    def get_stedkoder_by_name(self, pattern):
+        # TODO: it may be better to use 'sort_name', but it's meant to
+        # mirror 'name', not 'short_name'.  also, in our DB,
+        # 'sort_name' has been initialised to be an exact copy of
+        # 'name', so it's kind of useless right now.
+        return self.query("""
+        SELECT ou_id
+        FROM [:table schema=cerebrum name=ou_info]
+        WHERE
+          lower(short_name) LIKE :pattern""", locals())

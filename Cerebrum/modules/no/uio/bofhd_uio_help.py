@@ -64,6 +64,7 @@ command_help = {
     'misc_hrem': 'Remove a host entry from Cerebrum',
     'misc_list_passwords': 'View/print all the password altered during a session',
     'misc_list_requests': 'View pending jobs the current BOFH user has requested/may confirm',
+    'misc_stedkode': 'Look up OU by stedkode or name',
     'misc_user_passwd': 'Check whether an account has a given password',
     },
     'perm': {

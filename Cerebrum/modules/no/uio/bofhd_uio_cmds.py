@@ -1747,6 +1747,56 @@ class BofhdExtension(object):
                         })
         return ret
 
+    # misc stedkode <pattern>
+    all_commands['misc_stedkode'] = Command(
+        ("misc", "stedkode"), SimpleString(),
+        fs=FormatSuggestion(" %06s    %s", ('stedkode', 'short_name'),
+                            hdr="Stedkode   Organizational unit"))
+    def misc_stedkode(self, operator, pattern):
+        output = []
+        ou = self.OU_class(self.db)
+        if re.match(r'[0-9]{1,6}$', pattern):
+            fak = [ pattern[0:2] ]
+            inst = [ pattern[2:4] ]
+            avd = [ pattern[4:6] ]
+            if len(fak[0]) == 1:
+                fak = [ int(fak[0]) * 10 + x for x in range(10) ]
+            if len(inst[0]) == 1:
+                inst = [ int(inst[0]) * 10 + x for x in range(10) ]
+            if len(avd[0]) == 1:
+                avd = [ int(avd[0]) * 10 + x for x in range(10) ]
+            # the following loop may look scary, but we will never
+            # call get_stedkoder() more than 10 times.
+            for f in fak:
+                for i in inst:
+                    if i == '':
+                        i = None
+                    for a in avd:
+                        if a == '':
+                            a = None
+                        for r in ou.get_stedkoder(fakultet=f, institutt=i,
+                                                  avdeling=a):
+                            ou.clear()
+                            ou.find(r['ou_id'])
+                            output.append({'stedkode':
+                                           '%02d%02d%02d' % (ou.fakultet,
+                                                             ou.institutt,
+                                                             ou.avdeling),
+                                           'short_name':
+                                           ou.short_name})
+        else:
+            if pattern.count('%') == 0:
+                pattern = '%' + pattern + '%'
+            for r in ou.get_stedkoder_by_name(pattern):
+                ou.clear()
+                ou.find(r['ou_id'])
+                output.append({'stedkode':
+                               '%02d%02d%02d' % (ou.fakultet,
+                                                 ou.institutt,
+                                                 ou.avdeling),
+                               'short_name': ou.short_name})
+        return output
+
     # misc user_passwd
     all_commands['misc_user_passwd'] = Command(
         ("misc", "user_passwd"), AccountName(), AccountPassword())
@@ -2098,30 +2148,42 @@ class BofhdExtension(object):
     # person info
     all_commands['person_info'] = Command(
         ("person", "info"), PersonId(),
-        fs=FormatSuggestion("Name:          %s\n" +
-                            "Export ID:     %s\n" +
-                            "Birth:         %s\n" +
-                            "Affiliations:  %s",
-                            ("name", "export_id", format_day("birth"),
-                             "affiliations")))
+        fs=FormatSuggestion([
+        ("Name:          %s\n" +
+         "Export ID:     %s\n" +
+         "Birth:         %s\n" +
+         "Affiliations:  %s [from %s]",
+         ("name", "export_id", format_day("birth"),
+          "affiliation_1", "source_system_1")),
+        ("               %s [from %s]",
+         ("affiliation", "source_system"))
+        ]))
     def person_info(self, operator, person_id):
         try:
             person = self._get_person(*self._map_person_id(person_id))
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+        data = [{'name': person.get_name(self.const.system_cached,
+                                         getattr(self.const,
+                                                 cereconf.DEFAULT_GECOS_NAME)),
+                 'export_id': person.export_id,
+                 'birth': person.birth_date}]
         affiliations = []
+        sources = []
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s/%s@%s" % (
                 self.num2const[int(row['affiliation'])],
                 self.num2const[int(row['status'])],
                 self._format_ou_name(ou)))
-        return {'name': person.get_name(self.const.system_cached,
-                                        getattr(self.const,
-                                                cereconf.DEFAULT_GECOS_NAME)),
-                'affiliations': (",\n" + (" " * 15)).join(affiliations),
-                'export_id': person.export_id,
-                'birth': person.birth_date}
+            sources.append(str(self.num2const[int(row['source_system'])]))
+        if affiliations:
+            data[0]['affiliation_1'] = affiliations[0]
+            data[0]['source_system_1'] = sources[0]
+        for i in range(len(affiliations)):
+            data.append({'affiliation': affiliations[i],
+                         'source_system': sources[i]})
+        return data
 
     # person set_id
     all_commands['person_set_id'] = Command(
