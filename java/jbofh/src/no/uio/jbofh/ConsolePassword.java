@@ -2,6 +2,8 @@ package no.uio.jbofh;
 
 import java.io.*;
 import javax.swing.JOptionPane;
+import javax.swing.JPasswordField;
+import javax.swing.JDialog;
 
 /**
  * <code>ConsolePassword</code> is an attempt to create a pure java
@@ -65,9 +67,17 @@ class ConsolePassword {
     public String getPasswordByJDialog(String prompt) 
         throws MethodFailedException {
         try {
-            return (String) 
-                JOptionPane.showInputDialog(null, prompt,
-                                            prompt, JOptionPane.QUESTION_MESSAGE);
+            JPasswordField pf = new JPasswordField(10);
+            JOptionPane pane = new JOptionPane(pf, JOptionPane.QUESTION_MESSAGE, 
+                JOptionPane.OK_CANCEL_OPTION);
+            JDialog dialog = pane.createDialog(null, prompt);
+            pf.requestFocus();
+            dialog.show();
+            dialog.dispose();
+            Object value = pane.getValue();
+            if(((Integer) value).intValue() == JOptionPane.OK_OPTION) 
+                return new String(pf.getPassword());
+            return null;
         } catch (java.lang.NoClassDefFoundError e) {
             throw new MethodFailedException();
         }
