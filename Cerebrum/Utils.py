@@ -400,7 +400,7 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + comp, bases, {})
+                comp_class = type('_dynamic_' + comp, tuple(bases), {})
             Factory.class_cache[comp] = comp_class
             return comp_class
         else:
