@@ -41,8 +41,9 @@ group_done = {}
 db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
-logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
-logger = logging.getLogger("console")
+#logging.fileConfig(cereconf.LOGGING_CONFIGFILE)
+#logger = logging.getLogger("console")
+logger = Factory.get_logger("cronjob")
 cl_events = (
 		const.account_mod, \
 		const.account_password, \
@@ -337,7 +338,7 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
     #if cl_spread in spread_ids:
 	try:
 	    account.find(dn_id)
-	    ac_name = account.account_name
+	    acc_name = account.account_name
 	except Error.NotFoundError:
 	    logger.error("Account could not be found: %s" % dn_id)
 	    return
