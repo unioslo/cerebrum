@@ -1,0 +1,61 @@
+Index: setup.py
+===================================================================
+RCS file: /cvsroot/cerebrum/cerebrum/setup.py,v
+retrieving revision 1.36
+diff -u -I^#.*python2\.[23]$ -r1.36 setup.py
+--- setup.py	2 Jul 2004 07:16:23 -0000	1.36
++++ setup.py	2 Aug 2004 11:06:52 -0000
+@@ -144,6 +144,7 @@
+ 
+     def run (self):
+         self.mkpath(self.install_dir)
++        fp = open('/tmp/filelist', 'a')
+         for f in self.data_files:
+             # it's a tuple with dict to install to and a list of files
+             tdict = f[0]
+@@ -154,14 +155,14 @@
+                 dir = change_root(self.root, dir)
+             self.mkpath(dir)
+             os.chmod(dir, tdict['mode'])
+-            if(os.geteuid() == 0):
+-                try:
+-                    uinfo = pwd.getpwnam(tdict['owner'])
+-                except KeyError:
+-                    print "Error: Unkown user %s" % tdict['owner']
+-                    sys.exit(1)
+-                uid, gid = uinfo[2], uinfo[3]
+-                os.chown(dir, uid, gid)
++#            if(os.geteuid() == 0):
++#                try:
++#                    uinfo = pwd.getpwnam(tdict['owner'])
++#                except KeyError:
++#                    print "Error: Unkown user %s" % tdict['owner']
++#                    sys.exit(1)
++#                uid, gid = uinfo[2], uinfo[3]
++#                os.chown(dir, uid, gid)
+             if f[1] == []:
+                 # If there are no files listed, the user must be
+                 # trying to create an empty directory, so add the
+@@ -174,8 +175,9 @@
+                     (out, _) = self.copy_file(data, dir)
+                     self.outfiles.append(out)
+                     os.chmod(out, mode)
+-                    if(os.geteuid() == 0):
+-                        os.chown(out, uid, gid)
++                    fp.write('%s\n' % out)
++#                    if(os.geteuid() == 0):
++#                        os.chown(out, uid, gid)
+ 
+ class test(Command):
+     user_options = [('check', None, 'Run check'),
+@@ -302,7 +304,8 @@
+                        [('client/passweb.py', 0755),
+                         ('client/passweb_form.html', 0644),
+                         ('client/passweb_receipt.html', 0644),
+-                        ('java/jbofh/dist/lib/JBofh.jar', 0644)]),
++#                        ('java/jbofh/dist/lib/JBofh.jar', 0644)
++                        ]),
+                      ({'path': sysconfdir,
+                        'owner': cerebrum_user,
+                        'mode': 0755},
+
