@@ -35,6 +35,7 @@
 import os
 import sys
 import getopt
+import pickle
 
 import cerebrum_path
 import cereconf
@@ -114,6 +115,8 @@ def make_user(entity_id):
     logger.debug("Doing: %s" % str(cmd))
     if debug_hostlist is None or info['host'] in debug_hostlist:
         errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
+    else:
+        errnum = 0
     if not errnum:
         return 1
     logger.error("%s returned %i" % (cmd, errnum))
@@ -122,8 +125,14 @@ def make_user(entity_id):
 def process_changes():
     # Note that CLHandler gets its own database handle
     ei = CLHandler.CLHandler(Factory.get('Database')())
-    for evt in ei.get_events('uio_ch', [cl_const.account_create]):
-        if evt.change_type_id == int(cl_const.account_create):
+    for evt in ei.get_events('uio_ch', [cl_const.account_home_added]):
+        if evt['change_params']:
+            params = pickle.loads(evt['change_params'])
+        else:
+            params = {}
+        if (evt.change_type_id == int(cl_const.account_create) or
+            (evt.change_type_id == int(cl_const.account_home_added) and
+             params.get('spread', 0) == int(home_spread))):
             logger.debug("Creating entity_id=%s" % (evt.subject_entity))
             try:
                 if make_user(evt.subject_entity):
