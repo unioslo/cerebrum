@@ -1,6 +1,9 @@
 profile = {
     # default sorting 
     'group': {
+        'edit': {
+            'show_account_create': False,
+        },
         'members': {
             'sort': {
                 'union': ('+type', '+name'),
@@ -19,6 +22,15 @@ profile = {
             'mode': 'view' # or edit
         },
     },
+    'person': {
+        'edit': {
+            'show_account_create': False,
+        },
+    },
     'menu': {
     },
+    'various': {
+        'last_error_message': ''  # should always be '' in the profile
+    },
+    
 }
