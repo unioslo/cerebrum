@@ -1,3 +1,27 @@
+/* Note about the default values for entity types:
+
+   Entity types are now coded as numbers.  The actual numbers inserted
+   into the code value defining tables are currently not part of the
+   core setup, hence the number used for e.g. a 'person' entity type
+   might vary from installation to installation.
+
+   This complicates the (entity_id, entity_type) FK constraints from
+   e.g. person_info to entity_info, as one needs to know the actual
+   code value the installation uses in order to write the CHECK
+   constraint (and the DEFAULT value).
+
+   In time this will probably be solved via some kind of SQL
+   preprocessor; currently, to get the show on the road, we just use
+   the following numbers :
+
+     2001       ou
+     2002       person
+     2003       account
+     2004       group
+
+*/
+
+
 /*	authoritative_system_code
 
 
@@ -5,8 +29,11 @@
 */
 CREATE TABLE authoritative_system_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT authoritative_system_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT authoritative_system_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -20,8 +47,11 @@ CREATE TABLE authoritative_system_code
 */
 CREATE TABLE entity_type_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT entity_type_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT entity_type_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -54,7 +84,7 @@ CREATE TABLE entity_info
 (
   entity_id	NUMERIC(12,0)
 		CONSTRAINT entity_info_pk PRIMARY KEY,
-  entity_type	CHAR VARYING(16)
+  entity_type	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT entity_info_entity_type
 		  REFERENCES entity_type_code(code),
@@ -88,8 +118,11 @@ CREATE TABLE entity_info
 */
 CREATE TABLE value_domain_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT value_domain_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT value_domain_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -105,7 +138,7 @@ CREATE TABLE entity_name
   entity_id	NUMERIC(12,0)
 		CONSTRAINT entity_name_entity_id
 		  REFERENCES entity_info(entity_id),
-  value_domain	CHAR VARYING(16)
+  value_domain	NUMERIC(6,0)
 		CONSTRAINT entity_name_value_domain
 		  REFERENCES value_domain_code(code),
   entity_name	CHAR VARYING(256)
@@ -124,8 +157,11 @@ CREATE TABLE entity_name
 */
 CREATE TABLE country_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT country_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT country_codestr_u UNIQUE,
   country	CHAR VARYING(64)
 		NOT NULL,
   phone_prefix	CHAR VARYING(8),
@@ -141,8 +177,11 @@ CREATE TABLE country_code
 */
 CREATE TABLE address_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT address_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT address_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -159,67 +198,21 @@ CREATE TABLE entity_address
   entity_id	NUMERIC(12,0)
 		CONSTRAINT entity_address_entity_id
 		  REFERENCES entity_info(entity_id),
-  source_system	CHAR VARYING(16)
+  source_system	NUMERIC(6,0)
 		CONSTRAINT entity_address_source_system
 		  REFERENCES authoritative_system_code(code),
-  address_type	CHAR VARYING(16)
+  address_type	NUMERIC(6,0)
 		CONSTRAINT entity_address_address_type
 		  REFERENCES address_code(code),
   address_text	CHAR VARYING(256),
   p_o_box	CHAR VARYING(10),
   postal_number	CHAR VARYING(8),
   city		CHAR VARYING(128),
-  country	CHAR VARYING(16)
+  country	NUMERIC(6,0)
 		CONSTRAINT entity_address_country
 		  REFERENCES country_code(code),
   CONSTRAINT entity_address_pk
     PRIMARY KEY (entity_id, source_system, address_type)
-);
-
-
-/*	phone_code
-
-
-
-*/
-CREATE TABLE phone_code
-(
-  code		CHAR VARYING(16)
-		CONSTRAINT phone_code_pk PRIMARY KEY,
-  description	CHAR VARYING(512)
-		NOT NULL
-);
-
-
-/*	entity_phone
-
-  `phone_number' should contain no dashes/letters/whitespace, and
-  should be fully specified.  Examples: "+4712345678" and "*12345".
-
-  If there exists multiple `phone_number's of the same `phone_type'
-  for an entity, the `phone_pref' column can be used to indicate an
-  ordering between these `phone_number's; high `phone_pref' values are
-  preferred.
-
-*/
-CREATE TABLE entity_phone
-(
-  entity_id	NUMERIC(12,0)
-		CONSTRAINT entity_phone_entity_id
-		  REFERENCES entity_info(entity_id),
-  source_system	CHAR VARYING(16)
-		CONSTRAINT entity_phone_source_system
-		  REFERENCES authoritative_system_code(code),
-  phone_type	CHAR VARYING(16)
-		CONSTRAINT entity_phone_phone_type
-		  REFERENCES phone_code(code),
-  phone_pref	NUMERIC(2,0)
-		DEFAULT 50,
-  phone_number	CHAR VARYING(20)
-		NOT NULL,
-  description	CHAR VARYING(512),
-  CONSTRAINT entity_phone_pk
-    PRIMARY KEY (entity_id, source_system, phone_type, phone_pref)
 );
 
 
@@ -230,8 +223,11 @@ CREATE TABLE entity_phone
 */
 CREATE TABLE contact_info_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT contact_info_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT contact_info_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -250,10 +246,10 @@ CREATE TABLE entity_contact_info
   entity_id	NUMERIC(12,0)
 		CONSTRAINT entity_contact_info_entity_id
 		 REFERENCES entity_info(entity_id),
-  source_system	CHAR VARYING(16)
+  source_system	NUMERIC(6,0)
 		CONSTRAINT entity_contact_info_source_sys
 		  REFERENCES authoritative_system_code(code),
-  contact_type	CHAR VARYING(16)
+  contact_type	NUMERIC(6,0)
 		CONSTRAINT entity_contact_info_cont_type
 		  REFERENCES contact_info_code(code),
   contact_pref	NUMERIC(2,0)
@@ -277,8 +273,11 @@ CREATE TABLE entity_contact_info
 */
 CREATE TABLE quarantine_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT quarantine_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT quarantine_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL,
   duration	NUMERIC(4,0)
@@ -299,8 +298,11 @@ CREATE TABLE quarantine_code
 */
 CREATE TABLE account_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT account_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT account_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -329,20 +331,20 @@ Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
 CREATE TABLE account_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
-  entity_type	CHAR VARYING(16)
-		DEFAULT 'u'
+  entity_type	NUMERIC(6,0)
+		DEFAULT 2003
 		NOT NULL
 		CONSTRAINT account_info_entity_type_chk
-		  CHECK (entity_type = 'u'),
+		  CHECK (entity_type = 2003),
   account_id	NUMERIC(12,0)
 		CONSTRAINT account_info_pk PRIMARY KEY,
-  owner_type	CHAR VARYING(16)
+  owner_type	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT account_info_owner_type_chk
-		  CHECK (owner_type IN ('p', 'g')),
+		  CHECK (owner_type IN (2002, 2004)),
   owner_id	NUMERIC(12,0)
 		NOT NULL,
-  np_type	CHAR VARYING(16)
+  np_type	NUMERIC(6,0)
 		CONSTRAINT account_info_np_type
 		  REFERENCES account_code(code),
   create_date	DATE
@@ -361,8 +363,8 @@ CREATE TABLE account_info
     FOREIGN KEY (owner_type, owner_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT account_info_np_type_chk
-    CHECK ((owner_type = 'p' AND np_type IS NULL) OR
-	   (owner_type = 'g' AND np_type IS NOT NULL)),
+    CHECK ((owner_type = 2002 AND np_type IS NULL) OR
+	   (owner_type = 2004 AND np_type IS NOT NULL)),
 /* The next constraint is needed to allow `account_type' to have a
    foreign key agains these two columns. */
   CONSTRAINT account_info_id_owner_unique
@@ -392,7 +394,7 @@ CREATE TABLE entity_quarantine
 		CONSTRAINT entity_quarantine_entity_id
 		  REFERENCES entity_info(entity_id),
   quarantine_type
-		CHAR VARYING(16)
+		NUMERIC(6,0)
 		CONSTRAINT entity_quarantine_quar_type
 		  REFERENCES quarantine_code(code),
   creator_id	NUMERIC(12,0)
@@ -426,11 +428,11 @@ CREATE TABLE entity_quarantine
 CREATE TABLE ou_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
-  entity_type	CHAR VARYING(16)
-		DEFAULT 'o'
+  entity_type	NUMERIC(6,0)
+		DEFAULT 2001
 		NOT NULL
 		CONSTRAINT ou_info_entity_type_chk
-		  CHECK (entity_type = 'o'),
+		  CHECK (entity_type = 2001),
   ou_id		NUMERIC(12,0)
 		CONSTRAINT ou_info_pk PRIMARY KEY,
   name		CHAR VARYING(512) NOT NULL,
@@ -464,8 +466,11 @@ CREATE TABLE ou_info
 */
 CREATE TABLE ou_perspective_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT ou_perspective_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT ou_perspective_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -489,7 +494,7 @@ CREATE TABLE ou_structure
   ou_id		NUMERIC(12,0)
 		CONSTRAINT ou_structure_ou_id
 		  REFERENCES ou_info(ou_id),
-  perspective	CHAR VARYING(16)
+  perspective	NUMERIC(6,0)
 		CONSTRAINT ou_structure_perspective
 		  REFERENCES ou_perspective_code(code),
   parent_id	NUMERIC(12,0)
@@ -525,8 +530,11 @@ CREATE TABLE ou_structure
 */
 CREATE TABLE language_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT language_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT language_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -543,7 +551,7 @@ CREATE TABLE ou_name_language
   ou_id		NUMERIC(12,0)
 		CONSTRAINT ou_name_language_ou_id
 		  REFERENCES ou_info(ou_id),
-  language_code	CHAR VARYING(16)
+  language_code	NUMERIC(6,0)
 		CONSTRAINT ou_name_language_language_code
 		  REFERENCES language_code(code),
   name		CHAR VARYING(512)
@@ -564,8 +572,11 @@ CREATE TABLE ou_name_language
 */
 CREATE TABLE gender_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT gender_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT gender_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -592,18 +603,18 @@ CREATE TABLE gender_code
 CREATE TABLE person_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
-  entity_type	CHAR VARYING(16)
-		DEFAULT 'p'
+  entity_type	NUMERIC(6,0)
+		DEFAULT 2002
 		NOT NULL
 		CONSTRAINT person_info_entity_type_chk
-		  CHECK (entity_type = 'p'),
+		  CHECK (entity_type = 2002),
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_info_pk PRIMARY KEY,
   export_id	CHAR VARYING(16)
 		DEFAULT NULL
 		CONSTRAINT person_info_export_id_unique UNIQUE,
   birth_date	DATE,
-  gender	CHAR VARYING(16)
+  gender	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT person_info_gender
 		  REFERENCES gender_code(code),
@@ -631,8 +642,11 @@ CREATE TABLE person_info
 */
 CREATE TABLE person_external_id_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT person_external_id_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT person_external_id_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -652,7 +666,7 @@ CREATE TABLE person_external_id
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_external_id_person_id
 		  REFERENCES person_info(person_id),
-  id_type	CHAR VARYING(16)
+  id_type	NUMERIC(6,0)
 		CONSTRAINT person_external_id_id_type
 		  REFERENCES person_external_id_code(code),
   external_id	CHAR VARYING(256),
@@ -676,8 +690,11 @@ CREATE TABLE person_external_id
 */
 CREATE TABLE person_name_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT person_name_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT person_name_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -695,10 +712,10 @@ CREATE TABLE person_name
   person_id	NUMERIC(12,0)
 		CONSTRAINT person_name_person_id
 		  REFERENCES person_info(person_id),
-  name_variant	CHAR VARYING(16)
+  name_variant	NUMERIC(6,0)
 		CONSTRAINT person_name_name_variant
 		  REFERENCES person_name_code(code),
-  source_system	CHAR VARYING(16)
+  source_system	NUMERIC(6,0)
 		CONSTRAINT person_name_source_system
 		  REFERENCES authoritative_system_code(code),
   name		CHAR VARYING(256)
@@ -717,8 +734,11 @@ CREATE TABLE person_name
 */
 CREATE TABLE person_affiliation_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT person_affiliation_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT person_affiliation_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -733,14 +753,18 @@ CREATE TABLE person_affiliation_code
 */
 CREATE TABLE person_aff_status_code
 (
-  affiliation	CHAR VARYING(16)
+  affiliation	NUMERIC(6,0)
 		CONSTRAINT person_aff_status_affiliation
 		  REFERENCES person_affiliation_code(code),
-  status	CHAR VARYING(16),
+  status	NUMERIC(6,0),
+  status_str	CHAR VARYING(16)
+		NOT NULL,
   description	CHAR VARYING(512)
 		NOT NULL,
   CONSTRAINT person_aff_status_code_pk
-    PRIMARY KEY (affiliation, status)
+    PRIMARY KEY (affiliation, status),
+  CONSTRAINT person_aff_status_codestr_u
+    UNIQUE (affiliation, status_str)
 );
 
 
@@ -764,10 +788,10 @@ CREATE TABLE person_affiliation
   ou_id		NUMERIC(12,0)
 		CONSTRAINT person_affiliation_ou_id
 		  REFERENCES ou_info(ou_id),
-  affiliation	CHAR VARYING(16)
+  affiliation	NUMERIC(6,0)
 		CONSTRAINT person_affiliation_affiliation
 		  REFERENCES person_affiliation_code(code),
-  status	CHAR VARYING(16),
+  status	NUMERIC(6,0),
   create_date	DATE
 		DEFAULT SYSDATE
 		NOT NULL,
@@ -798,7 +822,7 @@ CREATE TABLE account_type
 (
   person_id	NUMERIC(12,0),
   ou_id		NUMERIC(12,0),
-  affiliation	CHAR VARYING(16),
+  affiliation	NUMERIC(6,0),
   account_id	NUMERIC(12,0),
   CONSTRAINT account_type_pk
     PRIMARY KEY (person_id, ou_id, affiliation, account_id),
@@ -818,8 +842,11 @@ CREATE TABLE account_type
 */
 CREATE TABLE authentication_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT authentication_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT authentication_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -849,7 +876,7 @@ CREATE TABLE account_authentication
   account_id	NUMERIC(12,0)
 		CONSTRAINT account_authentication_acc_id
 		  REFERENCES account_info(account_id),
-  method	CHAR VARYING(16)
+  method	NUMERIC(6,0)
 		CONSTRAINT account_authentication_method
 		  REFERENCES authentication_code(code),
   auth_data	CHAR VARYING(4000)
@@ -861,8 +888,11 @@ CREATE TABLE account_authentication
 
 CREATE TABLE group_visibility_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT group_visibility_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT group_visibility_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -884,15 +914,15 @@ CREATE TABLE group_visibility_code
 CREATE TABLE group_info
 (
   /* Dummy column, needed for type check against `entity_id'. */
-  entity_type	CHAR VARYING(16)
-		DEFAULT 'g'
+  entity_type	NUMERIC(6,0)
+		DEFAULT 2004
 		NOT NULL
 		CONSTRAINT group_info_entity_type_chk
-		  CHECK (entity_type = 'g'),
+		  CHECK (entity_type = 2004),
   group_id	NUMERIC(12,0)
 		CONSTRAINT group_info_pk PRIMARY KEY,
   description	CHAR VARYING(512),
-  visibility	CHAR VARYING(16)
+  visibility	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT group_info_visibility
 		  REFERENCES group_visibility_code(code),
@@ -919,8 +949,11 @@ CREATE TABLE group_info
 
 CREATE TABLE group_membership_op_code
 (
-  code		CHAR VARYING(16)
+  code		NUMERIC(6,0)
 		CONSTRAINT group_membership_op_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT group_membership_op_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
 );
@@ -947,10 +980,10 @@ CREATE TABLE group_member
   group_id	NUMERIC(12,0)
 		CONSTRAINT group_member_group_id
 		  REFERENCES group_info(group_id),
-  operation	CHAR VARYING(16)
+  operation	NUMERIC(6,0)
 		CONSTRAINT group_member_operation
 		  REFERENCES group_membership_op_code(code),
-  member_type	CHAR VARYING(16)
+  member_type	NUMERIC(6,0)
 		NOT NULL,
   member_id	NUMERIC(12,0),
   CONSTRAINT group_member_pk
