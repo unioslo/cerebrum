@@ -55,9 +55,9 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         # Our first input line must be of the type
         #    HELO username hostname
         #
-        if cmd[0] <> "HELO":
+        if not (len(cmd) == 3 and cmd[0] == "HELO") :
             self.log('ERROR', "HELO expected %s received" % cmd);
-            self.send("%s %s" % (ecmd, cmd[0]));
+            self.send("%s %s" % (ecmd, str(cmd)));
             return
         else:
             # Get information based on username
@@ -91,9 +91,9 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                 elif cmd[0] == 'QUIT':
                     self.send(bye)
                     done = 1
-                elif cmd[0] == 'CANP':
+                elif cmd[0] == 'CANP' and len(cmd) == 3:
                     self.send(self.check_quota(cmd[1], cmd[2]))
-                elif cmd[0] == 'SUBP':
+                elif cmd[0] == 'SUBP' and len(cmd) == 3:
                     self.send(self.subtract_quota(cmd[1], cmd[2]))
                 else:
                     self.log('ERROR', "Unknown command %s" %  str(cmd))
@@ -110,6 +110,9 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             self.process_commands()
         except IOError, msg:
             self.log('ERROR', "IOError: %s" % msg)
+        except ValueError, msg:
+            self.log('ERROR', "ValueError: %s" % msg)
+            self.send(ebadpage)
         signal.alarm(0)
             
     def check_quota(self, printer, pageunits):
