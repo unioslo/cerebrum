@@ -83,8 +83,11 @@ def process_line(infile):
         fnr = fields[0]
         uname = fields[1]
         if fnr == "":
-            logger.warn("User: %s got no fnr. Skipping", uname)
-            continue
+            if ignore:
+                logger.debug("Ignore-flag set. Continue with user.")
+            else:
+                logger.warn("User: %s got no fnr. Skipping", uname)
+                continue
         if not uname == "":
             user_id = process_user(uname, fnr)
         else:
@@ -115,9 +118,12 @@ def process_user(uname, fnr):
         if pu.owner_id == person.entity_id:
             logger.debug3("User %s exists in Cerebrum with person: %s",
                           uname, fnr)
-            pu.add_spread(spread)
-            pu.write_db()
-            logger.debug3("User %s got spread %s", uname, spread)
+            if pu.has_spread(spread):
+                logger.debug3("User %s got spread %s allready", uname, spread)
+            else:
+                pu.add_spread(spread)
+                pu.write_db()
+                logger.debug3("User %s got new spread %s", uname, spread)
         else:
             logger.warn("User %s exists with owner: %s. We have: %s.",
                         pu.account_name, pu.owner_id, person.entity_id)
@@ -143,6 +149,7 @@ def usage():
                     (more info).
     -f, --file    : File to parse.
     -s, --spread  : Give spread to users.
+    -i, --ignore  : Ignore the fact that no person is affiliated with the user.
     """
     sys.exit(0)
 # end usage
@@ -150,15 +157,16 @@ def usage():
 
 
 def main():
-    global db, co, spread, dryrun, logger, pu, person
+    global db, co, spread, dryrun, logger, pu, person, ignore
 
     logger = Factory.get_logger("console")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:ds:',
+                                   'f:ds:i',
                                    ['file=',
                                     'dryrun',
+                                    'ignore',
                                     'spread'])
     except getopt.GetoptError:
         usage()
@@ -174,6 +182,7 @@ def main():
 
     dryrun = False
     spread = None
+    ignore = False
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
@@ -181,6 +190,8 @@ def main():
             infile = val
         elif opt in ('-s', '--spread'):
             spread = map_spread(val)
+        elif opt in ('-i', '--ignore'):
+            ignore = True
         # fi
     # od
 

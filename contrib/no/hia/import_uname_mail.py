@@ -199,6 +199,8 @@ def process_mail(account_id, type, addr):
     edom = Email.EmailDomain(db)
     epat = Email.EmailPrimaryAddressTarget(db)
 
+    addr = string.lower(addr)    
+
     fld = addr.split('@')
     if len(fld) != 2:
         logger.error("Bad address: %s. Skipping", addr)
@@ -268,6 +270,7 @@ def usage():
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
+    sys.exit(0)
 # end usage
 
 

@@ -172,6 +172,7 @@ def usage():
     -f, --file    : File to parse.
     -r, --remove  : <string> to remove in front of path.
     """
+    sys.exit(0)
 # end usage
 
 

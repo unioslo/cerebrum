@@ -126,7 +126,7 @@ def process_user(uname, uid, gid):
             logger.debug3("User %s exists as PosixUser in Cerebrum", uname)
         else:
             logger.warn("User %s exists with uid: %s. We have: %s.",
-                        pu.account_name, uname, uid)
+                        pu.account_name, pu.posix_uid, uid)
         return
     except Errors.NotFoundError:
         pass
@@ -137,7 +137,8 @@ def process_user(uname, uid, gid):
         if int(pu.posix_uid) == int(uid):
             logger.debug3("User %s exists as PosixUser in Cerebrum", uname)
         else:
-            logger.warn("User %s exists with uid: %s. Will leave alone.", uname, uid)
+            logger.warn("User %s exists with uid: %s. Will leave alone.", uname,
+                        pu.posix_uid)
         return
     except Errors.NotFoundError:
         pu.clear()
