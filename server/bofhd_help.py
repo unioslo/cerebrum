@@ -97,6 +97,40 @@ class Help(object):
                 args.append(tmp)
         return cmd_struct[0][1], args, self.command_help[cmd_struct[0][0]][call_func]
         
+    def _wrap_cmd_help(self, dta):
+        """Try to wrap the help text in a way that looks good.  This
+        is not easy to accomplish for long commands... """
+
+        maxlen = [0, 0]
+        for d in dta:
+            if len(d[0]) > maxlen[0]:
+                maxlen[0] = min(len(d[0]), 20)
+            tmp = len(" ".join(d[1]))
+            if tmp > maxlen[1]:
+                maxlen[1] = min(tmp, 40)
+        ret = []
+        for d in dta:
+            tmp = " ".join(d[1])
+            line = ("    " + d[0] + " " * (maxlen[0] - len(d[0])) + " " +
+                    tmp + " " * (maxlen[1] - len(tmp)))
+            help = d[2]
+            if 0:
+                line += " : "
+                rest_space = 80 - len(line)
+            else:
+                rest_space = 80 - maxlen[0] - 7
+                line += "\n"+ " " * (80 - rest_space - 2) + "- "
+            while rest_space < len(help):
+                idx = help.rfind(" ", 0, rest_space)
+                if idx == -1:
+                    rest_space += 1
+                    continue
+                line += help[:idx] + "\n" + " " * (80 - rest_space)
+                help = help[idx+1:]
+            line += help
+            ret.append(line)
+        return "\n".join(ret)
+        
     # TODO: Need a better way to warn about inconsistency between
     # command-defs and help data
     def get_group_help(self, all_commands, group, no_filter=0):
@@ -107,11 +141,11 @@ class Help(object):
         call_func_keys = self.command_help[group].keys()
         call_func_keys.sort()
         not_shown = known_commands[group].keys()
+        lines = []
         for call_func in call_func_keys:
             if no_filter or known_commands.get(group, {}).get(call_func, None) != None:
-                sub_cmd, args, help = self._cmd_help(all_commands[call_func], call_func)
-                ret += "     %-10s - %-30s : %s\n" % (sub_cmd, " ".join(args), help)
-        return ret
+                lines.append(self._cmd_help(all_commands[call_func], call_func))
+        return ret + self._wrap_cmd_help(lines)
         
     def get_cmd_help(self, all_commands, maingrp, subgrp, filter=1):
         for call_func in all_commands.keys():
