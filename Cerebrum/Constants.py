@@ -159,6 +159,7 @@ class _EntityTypeCode(_CerebrumCode):
 class _SpreadCode(_CerebrumCode):
     """Code values for entity `spread`; table `entity_spread`."""
     _lookup_table = '[:table schema=cerebrum name=spread_code]'
+    _insert_dependency = _EntityTypeCode
 
     def __init__(self, code, entity_type, description=None):
         self.entity_type = entity_type
@@ -293,9 +294,31 @@ class _GroupVisibilityCode(_CerebrumCode):
     "Code values for groups' visibilities."
     _lookup_table = '[:table schema=cerebrum name=group_visibility_code]'
 
+class _QuarantineCode(_CerebrumCode):
+    "Mappings stored in the person_affiliation_code table"
+    _lookup_table = '[:table schema=cerebrum name=quarantine_code]'
+
+    def __init__(self, code, description=None, duration=None):
+        self.duration = duration
+        super(_QuarantineCode, self).__init__(code, description)
+
+    def insert(self):
+        self._pre_insert_check()
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+          (duration, %(code_col)s, %(str_col)s, %(desc_col)s)
+        VALUES
+          (:duration, %(code_seq)s, :str, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'duration': self.duration,
+                          'str': self.str,
+                          'desc': self._desc})
 
 class Constants(DatabaseAccessor):
-
     """Singleton whose members make up all needed coding values.
 
     Defines a number of variables that are used to get access to the
