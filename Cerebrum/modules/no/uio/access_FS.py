@@ -49,6 +49,8 @@ SELECT DISTINCT
        fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
        fp.adrlin3_arbeide, fp.adresseland_arbeide,
        fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
+       p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
+       p.adrlin3_hjemsted, p.adresseland_hjemsted,
        p.telefonnr_hjemsted, fp.stillingstittel_engelsk,
        r.institusjonsnr, r.faknr, r.instituttnr, r.gruppenr,
        r.status_aktiv
@@ -96,7 +98,8 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        'ERASMUS', 'FJERNUND', 'GJEST', 'FULBRIGHT', 'HOSPITANT',
        'KULTURAVTALE', 'KVOTEPROG', 'LEONARDO', 'OVERGANG', 'NUFU',
        'SOKRATES', 'LUBECK', 'NORAD', 'ARKHANG', 'NORDPLUS',
-       'ORDOPPTAK', 'PRIVATIST', 'EVU', 'FULLFØRT')"""
+       'ORDOPPTAK', 'PRIVATIST', 'EVU', 'FULLFØRT')
+       and NVL(st.dato_tildelt,SYSDATE-365) > SYSDATE - 90"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetStudinfPerm(self):
