@@ -18,6 +18,7 @@ db = Utils.Factory.get('Database')()
 db.cl_init(change_program="notify_ch_pass")
 co = Utils.Factory.get('Constants')(db)
 account = Utils.Factory.get('Account')(db)
+disk = Utils.Factory.get('Disk')(db)
 
 mailed_users = []
 splatted_users = []
@@ -32,7 +33,14 @@ db_now = db.Date(*([ int(x) for x in (
 def mail_user(account_id, deadline=''):
     account.clear()
     account.find(account_id)
-    logger.debug("Mailing %s" % account.account_name)
+    try:
+        home = account.get_home(co.spread_uio_nis_user)
+        disk.clear()
+        disk.find(home['disk_id'])
+        home = "%s/%s" % (disk.path, account.account_name)
+    except Errors.NotFoundError:
+        home = 'ukjent'
+    logger.debug("Mailing %s (home=%s)" % (account.account_name, home))
     try:
         prim_email = account.get_primary_mailaddress()
     except Errors.NotFoundError:
