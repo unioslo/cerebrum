@@ -2,7 +2,7 @@ import forgetHTML as html
 html.Element.__call__ = html.Element.__str__
 
 from Cerebrum.web.templates.MainTemplate import MainTemplate
-from Cerebrum.web.ActivityLog import ActivityLog
+from Cerebrum.web.templates.ActivityLogTemplate import ActivityLogTemplate
 from Cerebrum.web.WorkList import WorkList
 from Cerebrum.web.SideMenu import SideMenu
 
@@ -17,9 +17,6 @@ def index(req, tag="p"):
     body.content = table
 
     log = ActivityLog()
-    log.add("Retrieved session")
-    log.add("Said hello")
-    log.add("And finally goodbye")
     body.activitylog = log
 
     worklist = WorkList()
