@@ -52,6 +52,14 @@ class PrinterQuotas(Entity):
         self.__in_db = True
         self.__updated = []
 
+    def list_quotas(self):
+        """Returns all quota settings for all users"""
+        return self.query("""
+        SELECT account_id, printer_quota, pages_printed,
+          pages_this_semester, termin_quota, has_printerquota,
+          weekly_quota, max_quota
+        FROM [:table schema=cerebrum name=printerquotas]""")
+
     def write_db(self):
         # self.__super.write_db()
         if self.__updated:
