@@ -1,3 +1,5 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
 #def sorted_table($tableview, $headers, $change_sort_priority, $change_sort_order, $css_class=None)
 ##doc: Presents a TableView instance.
 ##doc:   tableview -- instance of TableView filled with data, with 
@@ -32,12 +34,21 @@
             <a href='$ord_link'>($dir)</a></td>
 #end for
     </tr>
-#for $row in $tableview.sorted()
+#for $row, $rowdata in $tableview.sorted(includeData=True)
     <tr>
+        $beforeColumns($rowdata)
 #for $col in $row    
         <td>$col</td>
 #end for
+        $afterColumns($rowdata)
     </tr>
 #end for
 </table>
 #end def
+
+#def beforeColumns($rowdata)
+#end def
+
+#def afterColumns($rowdata) 
+#end def
+
