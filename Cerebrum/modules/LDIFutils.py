@@ -1,4 +1,5 @@
 # -*- coding: iso-8859-1 -*-
+
 # Copyright 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,8 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-# Module with various utilities for building LDIF files from Cerebrum data.
-# It will be rewritten later; it or its callers should use the ldif module.
+"""Module with various utilities for building LDIF files from Cerebrum data.
+It will be rewritten later; it or its callers should use the ldif module."""
 
 
 import re, string
@@ -28,52 +29,78 @@ import cereconf
 
 def cereconf2utf(*args):
     """Fetch VARIABLE [with DEFAULT] from cereconf, and translate to UTF-8."""
-    return _deep_iso2utf(getattr(cereconf, *args))
+    return _deep_text2utf(getattr(cereconf, *args))
 
-def _deep_iso2utf(obj):
+def _deep_text2utf(obj):
     if isinstance(obj, str):
         return iso2utf(obj)
+    if isinstance(obj, unicode):
+        return obj.encode('utf-8')
     if isinstance(obj, (tuple, list)):
-        return type(obj)([_deep_iso2utf(x) for x in obj])
+        return type(obj)([_deep_text2utf(x) for x in obj])
     if isinstance(obj, dict):
-        return dict([(_deep_iso2utf(x), _deep_iso2utf(obj[x])) for x in obj])
+        return dict([(_deep_text2utf(x), _deep_text2utf(obj[x])) for x in obj])
     return obj
 
 
-def get_tree_dn(tree_name):
+def get_tree_dn(tree_name, *default_arg):
     """Get DN of TREE_NAME (cereconf.LDAP_<TREE_NAME>_DN).
     The cereconf variable should be a DN, but may (so far) also be
     just the value of an OU, for backwards compatibility."""
 
-    dn = cereconf2utf('LDAP_%s_DN' % tree_name)
-    if not re.match(r'^[-.\w]+=', dn):
-        dn = "ou=%s,%s" % (dn, cereconf.LDAP_BASE)
+    dn = cereconf2utf('LDAP_%s_DN' % tree_name, *default_arg)
+    if dn and not re.match(r'^[-.\w]+=', dn):
+        dn = "ou=%s,%s" % (dn, cereconf.LDAP_BASE_DN)
     return dn
 
+# Match an escaped character in a DN
+dn_escaped_re = re.compile(r'\\([0-9a-zA-Z]{2}|[ \#,+\"\\<>\;])')
+
+def unescape_match(group):
+    """Return the actual character for a match group for an escaped character.
+    Used e.g. with dn_escaped_re.sub(unescape_match, dn_ava_string)."""
+    quoted = group()
+    if len(quoted) == 1:
+        return quoted
+    else:
+        return int(quoted, 16)
+
+dn_escape_re = re.compile('\\A\\s|[#"+,;<>\\\\=\0]|\\s\\Z')
+
+def hex_escape_match(match):
+    """Return the \\hex representation of a match group for a character.
+    Used e.g. with dn_escape_re.sub(hex_escape_match, attr_value)."""
+    return r'\%02X' % ord(match.group())
 
 def entry_string(dn, attrs, add_rdn = True):
     """Return a string with an LDIF entry with the specified DN and ATTRS.
     **Does not currently base64-encode values when necessary.**
-    If ADD_RDN, add the values in the RDN to the attribues if necessary."""
+    If ADD_RDN, add the values in the RDN to the attributes if necessary."""
     if add_rdn:
         for ava in dn.split(',')[0].split('+'):
             ava = ava.split('=', 1)
+            ava[1] = dn_escaped_re.sub(unescape_match, ava[1])
             old = attrs.get(ava[0])
-            if not old:
-                attrs[ava[0]] = (ava[1],)
-            else:
+            if old:
                 norm = normalize_string(ava[1])
-                if not filter(lambda s: normalize_string(s) == norm, old):
+                for val in old:
+                    if normalize_string(val) == norm:
+                        break
+                else:
                     attrs[ava[0]] = (ava[1],) + tuple(old)
-    keys = attrs.keys()
-    keys.sort()         # not necessary, but minimizes changes in file
-    return ("dn: %s\n" % dn
-            + "".join(["%s: %s\n" % (attr, val)
-                       for attr in keys
-                       for val in attrs[attr]])
-            + "\n")
+            else:
+                attrs[ava[0]] = (ava[1],)
+    attrs = attrs.items()
+    attrs.sort()         # not necessary, but minimizes changes in file
+    attrs = [": ".join((attr, val))
+             for attr, vals in attrs
+             for val in vals]
+    attrs.insert(0, "dn: " + dn)
+    attrs.append("\n")
+    return "\n".join(attrs)
 
 def container_entry_string(tree_name, attrs = {}):
+    """Return a string with an LDIF entry for the specified container entry."""
     attrs = dict(cereconf2utf('LDAP_CONTAINER_ATTRS'))
     attrs.update(attrs)
     attrs.update(cereconf2utf('LDAP_%s_ATTRS' % tree_name, {}))
@@ -101,30 +128,30 @@ def utf2iso(s):
     return iso_str
 
 
-# match an 8-bit string which is not an utf-8 string
+# Match an 8-bit string which is not an utf-8 string
 _iso_re = re.compile("[\300-\377](?![\200-\277])|(?<![\200-\377])[\200-\277]")
 
-# match an 8-bit string
+# Match an 8-bit string
 _eightbit_re = re.compile('[\200-\377]')
 
 def some2utf(str):
-    """Convert either iso8859-1 or utf-8 to utf-8"""
+    """Unreliable hack: Convert either iso8859-1 or utf-8 to utf-8"""
     if _iso_re.search(str):
         str = unicode(str, 'iso8859-1').encode('utf-8')
     return str
 
 def some2iso(str):
-    """Convert either iso8859-1 or utf-8 to iso8859-1"""
+    """Unreliable hack: Convert either iso8859-1 or utf-8 to iso8859-1"""
     if _eightbit_re.search(str) and not _iso_re.search(str):
         str = unicode(str, 'utf-8').encode('iso8859-1')
     return str
 
 
 _normalize_trans = string.maketrans(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\t\n\r\f\v",
-    "abcdefghijklmnopqrstuvwxyz     ")
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ" + string.whitespace.replace(" ", ""),
+    "abcdefghijklmnopqrstuvwxyz" + " " * (len(string.whitespace) - 1))
 
-# match multiple spaces
+# Match multiple spaces
 _multi_space_re = re.compile('[%s]{2,}' % string.whitespace)
 
 def normalize_phone(phone):
@@ -133,21 +160,23 @@ def normalize_phone(phone):
  
 def normalize_string(str):
     """Normalize strings for LDAP"""
-    str = _multi_space_re.sub(' ', str.translate(_normalize_trans).strip())
+    str = _multi_space_re.sub(' ', str.translate(_normalize_trans)).strip()
+    # Note: _normalize_trans lowercases ASCII letters.
     if _eightbit_re.search(str):
         str = unicode(str, 'utf-8').lower().encode('utf-8')
     return str
 
 
 # Match attributes with the printableString LDAP syntax
-_printablestring_re = re.compile('^[a-zA-Z0-9\'()+,\\-.=/:? ]+$')
+printablestring_re = re.compile(r"\A[-a-zA-Z0-9'()+,.=/:? ]+\Z")
 
 def verify_printableString(str):
     """Not in use for the moment, remove this line if used """
     """Return true if STR is valid for the LDAP syntax printableString"""
-    return _printablestring_re.match(str)
+    return printablestring_re.match(str)
 
 
+# Match an attribute value which in LDIF must be base64-encoded
 _need_base64_re = re.compile('^\\s|[\0\r\n]|\\s$')
 
 def attr_lines(name, strings, normalize = None, verify = None, raw = False):
