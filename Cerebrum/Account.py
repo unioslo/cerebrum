@@ -585,23 +585,23 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
             return None
 
     def list_account_authentication(self, auth_type=None):
-        type = ""
+        type_str = ""
         if auth_type == None:
-            type = "= %d" % int(self.const.auth_type_md5_crypt)
+            type_str = "= %d" % int(self.const.auth_type_md5_crypt)
         elif isinstance(auth_type, list):
-            type = "IN (%d" % int(auth_type[0])
+            type_str = "IN (%d" % int(auth_type[0])
             for at in auth_type[1:]:
-                type += ", %d" % int(at)
-            type += ")"
+                type_str += ", %d" % int(at)
+            type_str += ")"
         else:
-            type = "= %d" % int(auth_type)
+            type_str = "= %d" % int(auth_type)
         return self.query("""
         SELECT ai.account_id, en.entity_name, aa.method, aa.auth_data
         FROM [:table schema=cerebrum name=entity_name] en,
              [:table schema=cerebrum name=account_info] ai
              LEFT JOIN [:table schema=cerebrum name=account_authentication] aa
                ON ai.account_id=aa.account_id AND aa.method %s
-        WHERE ai.account_id=en.entity_id""" % type)
+        WHERE ai.account_id=en.entity_id""" % type_str)
 
     def get_account_name(self):
         return self.account_name
