@@ -39,6 +39,7 @@ const = Factory.get('Constants')(db)
 processed_person = {}
 person = Person.Person(db)
 pq_logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
+processed_pids = {}
 
 # term_init_mask brukes til å identifisere de kvotetildelinger som har
 # skjedde i dette semesteret.  Den definerer også tidspunktet da
@@ -109,6 +110,7 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
               quota=None):
     logger.debug("set_quota(%i, has=%i, blocked=%i)" % (
         person_id, has_quota, has_blocked_quota))
+    processed_pids[int(person_id)] = True
     if quota is None:
         quota = []
     # Opprett pquota_status entry m/riktige has_*quota settinger
@@ -255,6 +257,52 @@ def get_bet_fritak_data(lt_person_file):
     ThreeLevelDataParser(lt_person_file, lt_callback, "person", ["gjest"])
     return ret
 
+def get_students():
+    """Finner studenter iht. 0.1"""
+    
+    ret = []
+    tmp_gyldige = {}
+    tmp_slettede = {}
+
+    now = db.TimestampFromTicks(time.time())
+    # Alle personer med student affiliation
+    for row in person.list_affiliations(include_deleted=True, fetchall=False):
+        aff = (int(row['affiliation']), int(row['status']))
+        slettet = row['deleted_date'] and row['deleted_date'] < now
+        if slettet:
+            tmp_slettede.setdefault(int(row['person_id']), []).append(aff)
+        else:
+            tmp_gyldige.setdefault(int(row['person_id']), []).append(aff)
+
+    logger.debug("listed all affilations, calculating")
+    for pid in tmp_gyldige.keys():
+        if (int(const.affiliation_student),
+            int(const.affiliation_status_student_aktiv)) in tmp_gyldige[pid]:
+            # Har minst en gyldig STUDENT/aktiv affiliation
+            ret.append(pid)
+            continue
+        elif [x for x in tmp_gyldige[pid]
+              if x[0] == int(const.affiliation_student)]:
+            # Har en gyldig STUDENT affiliation (!= aktiv)
+            if not [x for x in tmp_gyldige[pid]
+                    if not (x[0] == int(const.affiliation_student) or
+                            (x[0] == int(const.affiliation_manuell) and
+                             x[1] == int(const.affiliation_manuell_inaktiv_student)))]:
+                # ... og ingen gyldige ikke-student affiliations
+                ret.append(pid)
+                continue
+
+    for pid in tmp_slettede.keys():
+        if tmp_gyldige.has_key(pid):
+            continue
+        if [x for x in tmp_slettede[pid]
+              if x[0] == int(const.affiliation_student)]:
+            # Har en slettet STUDENT/* affiliation, og ingen ikke-slettede
+            ret.append(pid)
+
+    logger.debug("person.list_affiliations -> %i quota_victims" % len(ret))
+    return ret
+
 def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_file):
     """Finner alle personer som rammes av kvoteordningen ved å:
 
@@ -278,34 +326,20 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     # Finn alle som skal rammes av kvoteregimet
     quota_victim = {}
 
-    # Alle personer med student affiliation
-    for row in person.list_affiliations(affiliation=const.affiliation_student,
-                                        include_deleted=True, fetchall=False):
-        quota_victim[int(row['person_id'])] = True
-    logger.debug("person.list_affiliations -> %i quota_victims" % len(quota_victim))
+    for pid in get_students():
+        quota_victim[pid] = True
 
-    # Alle kontoer der personens eneste konto-affiliation er
-    # student-affiliation
+    # Ta bort de som ikke har konto
     account = Account.Account(db)
-    person_ac_affiliation = {}
     account_id2pid = {}
     has_account = {}
     for row in account.list_accounts_by_type(filter_expired=False, fetchall=False):
-        # TBD: Skal vi skippe expired entries der affiliation != student?
         account_id2pid[int(row['account_id'])] = int(row['person_id'])
         has_account[int(row['person_id'])] = True
-        person_ac_affiliation.setdefault(
-            int(row['person_id']), {})[int(row['affiliation'])] = True
-
     for p_id in quota_victim.keys():
         if not has_account.has_key(p_id):
             del(quota_victim[p_id])
     logger.debug("after removing non-account people: %i" % len(quota_victim))
-
-    for p_id, affs in person_ac_affiliation.items():
-        if affs.has_key(int(const.affiliation_student)) and len(affs) == 1:
-            quota_victim[p_id] = True
-    logger.debug("after adding student-only accounts: %i" % len(quota_victim))
 
     # Ansatte har fritak
     for row in person.list_affiliations(affiliation=const.affiliation_ansatt,
@@ -384,7 +418,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
         desc_mask=term_init_prefix+'%%'):
         free_this_term.setdefault(int(row['person_id']), []).append(
             row['description'][len(term_init_prefix):])
-    logger.debug("free_this_term: %s" % free_this_term)
+    logger.debug("free_this_term: %i" % len(free_this_term))
 
     logger.debug("Prefetch returned %i students" % len(quota_victim))
     return fnr2pid, quota_victim, person_id_member, kopiavgift_fritak, \
@@ -423,6 +457,13 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
     for p in quota_victims.keys():
         if not processed_person.has_key(p):
             recalc_quota_callback({'person_id': p})
+
+    # Turn off quota for anyone that has quota and that we didn't
+    # process
+    logger.info("Turn off quota for those who still has quota")
+    for row in ppq.get_quoata_status(has_quota_filter=True):
+        if not processed_pids.has_key(int(row['person_id'])):
+            set_quota(int(row['person_id']), has_quota=False)
 
 def process_data():
     has_processed = {}
