@@ -14,7 +14,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
@@ -68,17 +67,17 @@ def init_ldap_dump(ou_org,filename=None):
     if filename:
 	f = file(filename,'w')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.ORG_FILE),'/'), 'w')
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ORG_FILE),'/'), 'w')
     print "Generate organization"
     init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
     init_str += "objectClass: top\n"
-    for oc in cereconf.BASE_OBJECTCLASS:
+    for oc in cereconf.LDAP_BASE_OBJECTCLASS:
 	init_str += "objectClass: %s\n" % oc
-    for bc in cereconf.BASE_BUSINESSCATEGORY:
+    for bc in cereconf.LDAP_BASE_BUSINESSCATEGORY:
 	init_str += "businessCategory: %s\n" % bc
-    for dc in cereconf.BASE_ALTERNATIVE_DN:
+    for dc in cereconf.LDAP_BASE_ALTERNATIVE_DN:
 	init_str += "dc: %s\n" % dc
-    for des in cereconf.BASE_DESCRIPTION:
+    for des in cereconf.LDAP_BASE_DESCRIPTION:
 	init_str += "description: %s\n" % des
     ou = OU.OU(Cerebrum)
     ou.find(ou_org)
@@ -100,8 +99,8 @@ def init_ldap_dump(ou_org,filename=None):
         init_str += "norInstitutionNumber: %s\n" % stedkodestr
     except:
         pass
-    init_str += "l: %s\n" % cereconf.BASE_CITY
-    for alt in cereconf.BASE_ALTERNATIVE_NAME:
+    init_str += "l: %s\n" % cereconf.LDAP_BASE_CITY
+    for alt in cereconf.LDAP_BASE_ALTERNATIVE_NAME:
 	init_str += "o: %s\n" % alt
     post_string = street_string = None
     try:
@@ -131,7 +130,7 @@ def init_ldap_dump(ou_org,filename=None):
     except:
         pass
     try:
-        init_str += "labeledURI: %s\n" % cereconf.BASE_URL
+        init_str += "labeledURI: %s\n" % cereconf.LDAP_BASE_URL
     except:
         pass
     f.write(init_str)
@@ -139,26 +138,26 @@ def init_ldap_dump(ou_org,filename=None):
     try:
     	ou_struct[int(ou.ou_id)]= cereconf.LDAP_BASE,post_string,street_string,ou_phones,ou_faxs
     except: pass
-    for org in cereconf.ORG_GROUPS:
+    for org in cereconf.LDAP_ORG_GROUPS:
 	org = string.upper(org)
-	org_name = str(getattr(cereconf,(string.join((org,'DN'),'_'))))
-	init_str = "dn: %s=%s,%s\n" % (cereconf.ORG_ATTR,org_name,cereconf.LDAP_BASE)
+	org_name = str(getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'DN'),'_'))))
+	init_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_ORG_ATTR,org_name,cereconf.LDAP_BASE)
 	#init_str = "dn: %s=%s,%s\n" % (cereconf.ORG_ATTR,getattr(cereconf,(string.join((org,'DN'),'_'))),cereconf.LDAP_BASE)
 	init_str += "objectClass: top\n"
-	for obj in cereconf.ORG_OBJECTCLASS:
+	for obj in cereconf.LDAP_ORG_OBJECTCLASS:
 	    init_str += "objectClass: %s\n" % obj
-	for ous in getattr(cereconf,(string.join((org,'ALTERNATIVE_NAME'),'_'))):
-	    init_str += "%s: %s\n" % (cereconf.ORG_ATTR,ous)
-	init_str += "description: %s\n" % some2utf(getattr(cereconf,(string.join((org,'DESCRIPTION'),'_')))) 
+	for ous in getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'ALTERNATIVE_NAME'),'_'))):
+	    init_str += "%s: %s\n" % (cereconf.LDAP_ORG_ATTR,ous)
+	init_str += "description: %s\n" % some2utf(getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'DESCRIPTION'),'_')))) 
 	try:
-	    for attrs in getattr(cereconf,(string.join((org,'ADD_ATTR'),'_'))):
+	    for attrs in getattr(cereconf,(string.join((string.join(('LDAP',org),'_'),'ADD_ATTR'),'_'))):
 		init_str += attrs + '\n'
 	except: pass
 	init_str += '\n'
 	f.write(init_str)
     try:
-	if cereconf.MAN_LDIF_ADD_FILE:
-	    lfile = file((string.join(('/usit/cerebellum/u1/areen/cerebrum',cereconf.MAN_LDIF_ADD_FILE),'/')),'r')
+	if cereconf.LDAP_MAN_LDIF_ADD_FILE:
+	    lfile = file((string.join(('/usit/cerebellum/u1/areen/cerebrum',cereconf.LDAP_MAN_LDIF_ADD_FILE),'/')),'r')
 	    f.write(lfile.read().strip()) 
 	    f.write('\n')
 	    lfile.close()
@@ -188,10 +187,10 @@ def root_OU():
 def generate_org(ou_id,filename=None):
     ou = OU.OU(Cerebrum)
     ou_list = ou.get_structure_mappings(co.perspective_lt)
-    ou_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.ORG_DN, cereconf.LDAP_BASE)
+    ou_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_ORG_DN, cereconf.LDAP_BASE)
     trav_list(ou_id, ou_list, ou_string, filename)
     stedkode = Stedkode.Stedkode(Cerebrum)
-    if (cereconf.PRINT_NONE_ROOT == 'Enable'):
+    if (cereconf.LDAP_PRINT_NONE_ROOT == 'Enable'):
 	root_ids = ou.root()
 	if len(root_ids) > 1:
 	    for org in root_ids:
@@ -203,7 +202,7 @@ def generate_org(ou_id,filename=None):
 			stedkodestr = string.join((string.zfill(str(stedkode.fakultet),2), 
 						string.zfill(str(stedkode.institutt),2), 
 						string.zfill(str(stedkode.avdeling),2)),'')
-			par_ou = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.NON_ROOT_ATTR,ou_string)
+			par_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NON_ROOT_ATTR,ou_string)
 			str_ou = print_OU(non_org, par_ou, stedkodestr, filename)
     
 def print_OU(id, par_ou, stedkodestr,par, filename=None):
@@ -217,16 +216,16 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
     if filename:
 	f = file(filename, 'a')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.ORG_FILE),'/'), 'a')
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ORG_FILE),'/'), 'a')
     f.write("\n")
     if ou.acronym:
 	ou_dn = make_ou_for_rdn(some2utf(ou.acronym))
     else:
 	ou_dn = make_ou_for_rdn(some2utf(ou.short_name))
-    str_ou = "%s=%s,%s" % (cereconf.ORG_ATTR,ou_dn,par_ou)
+    str_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,ou_dn,par_ou)
     ou_str = "dn: %s\n" % str_ou
     ou_str += "objectClass: top\n"
-    for ss in cereconf.ORG_OBJECTCLASS:
+    for ss in cereconf.LDAP_ORG_OBJECTCLASS:
         ou_str += "objectClass: %s\n" % ss
     try:
 	ou_fax_numbers = get_contacts(id, co.contact_fax)
@@ -355,23 +354,23 @@ def generate_person(filename=None):
     if filename:
 	f = file(filename, 'a')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.PERSON_FILE),'/'), 'w')	
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_PERSON_FILE),'/'), 'w')	
     f.write("\n")
     objclass_string = "objectClass: top\n"
-    for objclass in cereconf.PERSON_OBJECTCLASS:
+    for objclass in cereconf.LDAP_PERSON_OBJECTCLASS:
 	objclass_string += "objectclass: %s\n" % objclass
-    dn_attr = cereconf.PERSON_ATTR
+    dn_attr = cereconf.LDAP_PERSON_ATTR
     dn_base = "%s" % cereconf.LDAP_BASE
-    dn_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.PERSON_DN,dn_base) 
+    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,dn_base) 
     person_spread = acl_spread = None
     aci_empl_gr = valid_print_affi = []
     aci_student_gr = {}
     try: 
-	for status in cereconf.PERSON_LIST_AFFI:
+	for status in cereconf.LDAP_PERSON_LIST_AFFI:
 	    valid_print_affi.append(int(getattr(co,status)))
     except: pass
     try:
-	group.find_by_name(str(cereconf.PERSON_LT_NOT_PUBLIC))
+	group.find_by_name(str(cereconf.PERSON_NOT_PUBLIC_GR))
 	#res_gr = group.list_members(member_type=co.entity_person)[0]
 	for entries in group.list_members(member_type=co.entity_person)[0]:
 	    aci_empl_gr.append(entries[1])
@@ -379,18 +378,18 @@ def generate_person(filename=None):
     except: pass
     group.clear()
     try: 
-	group.find_by_name(str(cereconf.PERSON_FS_PUBLIC))
+	group.find_by_name(str(cereconf.PERSON_PUBLIC_GR))
 	for entries in group.list_members(member_type=co.entity_person)[0]:
 	    aci_student_gr[int(entries[1])] = '1'
     except Errors.NotFoundError: pass
     try:  person_spread = int(getattr(co,cereconf.PERSON_SPREAD))
     except:  pass
-    try:  acl_spread = int(cereconf.PERSON_ACL_SPREAD) 
+    try:  acl_spread = int(cereconf.LDAP_PERSON_ACL_SPREAD) 
     # When change to co -> int(getattr(co,cereconf.PERSON_..)
     except:  pass
     try:
 	email_domains = {}  
-	email_domains = cereconf.PERSON_REWRITE_EMAIL_DOMAIN
+	email_domains = cereconf.LDAP_REWRITE_EMAIL_DOMAIN
     except: pass
     affili_stu = "student"
     affili_em = "employee"
@@ -398,6 +397,7 @@ def generate_person(filename=None):
 	name,entity_name,ou_id,affili,status = row['name'],row['entity_name'],row['ou_id'],row['affiliation'],int(row['status'])
 	person.clear()
         person.entity_id = row['person_id']
+	#p_affiliations = person.list_affiliation(row['person_id'])
 	p_affiliations = person.get_affiliations()
 	aci_person = print_person = 'F'
 	for pr_status in p_affiliations:
@@ -427,11 +427,10 @@ def generate_person(filename=None):
 			par = int(ou_struct[int(par)][5])
 		    prim_org = (ou_struct[par][0])
 	    except:
-		prim_org = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.DUMMY_DN,cereconf.LDAP_BASE)
-	    if (string.find(prim_org,cereconf.ORG_DN) == -1):
-		prim_org = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.DUMMY_DN,cereconf.LDAP_BASE)
+		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_DUMMY_DN,cereconf.LDAP_BASE)
+	    if (string.find(prim_org,cereconf.LDAP_ORG_DN) == -1):
+		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_DUMMY_DN,cereconf.LDAP_BASE)
 	    pers_string += "eduPersonPrimaryOrgUnitDN: %s\n" % prim_org
-            p_affiliations = person.get_affiliations()
 	    org_printed = []
 	    pers_string += "eduPersonOrgUnitDN: %s\n" % prim_org
 	    org_printed.append(prim_org)
@@ -442,7 +441,7 @@ def generate_person(filename=None):
 			pers_string += "eduPersonOrgUnitDN: %s\n" % org
 			org_printed.append(org)
 		except: pass
-	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, cereconf.BASE_DOMAIN)
+	    pers_string += "eduPersonPrincipalName: %s@%s\n" % (entity_name, cereconf.LDAP_BASE_DOMAIN)
 	    lastname = name
 	    for sys in cereconf.SYSTEM_LOOKUP_ORDER:
 		try:
@@ -517,9 +516,9 @@ def generate_person(filename=None):
 	    else:
 		pers_string += "userPassword: {crypt}*Invalid\n"
 	    if (aci_person == 'T') and (int(person.entity_id)  not in aci_empl_gr):
-		pers_string += "%s\n" % cereconf.PERSON_LDAP_ACL
+		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACL
 	    elif  aci_student_gr.has_key(int(person.entity_id)): # (aci_student_gr[int(person.entity_id)]):
-		pers_string += "%s\n" % cereconf.PERSON_LDAP_ACL
+		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACL
 	    alias_list[int(person.entity_id)] = entity_name,prim_org,name,lastname
 	    f.write("\n")
 	    f.write(pers_string)
@@ -530,15 +529,15 @@ def generate_person(filename=None):
 
 def generate_alias(filename=None):
     person = Person.Person(Cerebrum)
-    ou_struct = None
-    dn_string = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.PERSON_DN,cereconf.LDAP_BASE)
+    #ou_struct = None
+    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_PERSON_DN,cereconf.LDAP_BASE)
     if filename:
 	f = file(filename,'a')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.ALIAS_FILE),'/'), 'w')
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_ALIAS_FILE),'/'), 'w')
     f.write("\n")
     obj_string = "\nobjectClass: top"
-    for obj in cereconf.ALIAS_OBJECTCLASS:
+    for obj in cereconf.LDAP_ALIAS_OBJECTCLASS:
         obj_string += "\nobjectClass: %s" % obj
     for alias in person.list_persons():
 	person_id = int(alias['person_id'])
@@ -567,21 +566,21 @@ def generate_users(spread=None,filename=None):
 	#for entry in spread:
  	    spreads.append(int(spread))
     else:
-	for entry in cereconf.USER_SPREAD:
+	for entry in cereconf.LDAP_USER_SPREAD:
 	    spreads.append(int(getattr(co,entry)))
     for sh in posix_user.list_shells():
 	shells[int(sh['code'])] = sh['shell']
     for hd in disk.list():
 	disks[int(hd['disk_id'])] = hd['path']  
-    posix_dn = ",%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.USER_DN,cereconf.LDAP_BASE)
-    posix_dn_string = "%s=" % cereconf.USER_ATTR
+    posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,cereconf.LDAP_BASE)
+    posix_dn_string = "%s=" % cereconf.LDAP_USER_ATTR
     obj_string = "objectClass: top\n"
-    for obj in cereconf.USER_OBJECTCLASS:
+    for obj in cereconf.LDAP_USER_OBJECTCLASS:
 	obj_string += "objectClass: %s\n" % obj
     if filename: 
 	f = file(filename, 'w')
     else: 
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.USER_FILE),'/'), 'w')
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_USER_FILE),'/'), 'w')
     pos_user = posix_user.list_extended_posix_users_test(getattr(co,'auth_type_md5_crypt'),
 								spreads,include_quarantines=1)
     f.write("\n")
@@ -633,7 +632,7 @@ gecos: %s\n""" % (posix_dn_string, uname, posix_dn, obj_string, gecos,
 
 def generate_posixgroup():
     spreads = []
-    for spread in cereconf.GROUP_SPREAD:
+    for spread in cereconf.LDAP_GROUP_SPREAD:
 	spreads.append(int(getattr(co,spread)))
     generate_group(spreads)
 
@@ -641,24 +640,23 @@ def generate_group(spread=None, filename=None):
     posix_group = PosixGroup.PosixGroup(Cerebrum)
     group = Group.Group(Cerebrum)
     pos_usr = PosixUser.PosixUser(Cerebrum)
-    user_spread = int(getattr(co,cereconf.USER_SPREAD[0]))
-    #print "user_spread: %s" % user_spread
+    user_spread = int(getattr(co,cereconf.LDAP_USER_SPREAD[0]))
     if filename:
 	f = file(filename, 'w')
     else:
-	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.GROUP_FILE),'/'), 'w')
+	f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_GROUP_FILE),'/'), 'w')
     f.write("\n")
     groups = {}
-    dn_str = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.GROUP_DN,cereconf.LDAP_BASE)
+    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_GROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
-    for obj in cereconf.GROUP_OBJECTCLASS:
+    for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
     for row in posix_group.list_all_test(spread):
 	posix_group.clear()
 	try:
 	    posix_group.find(row.group_id)
 	    gname = posix_group.group_name
-	    pos_grp = "dn: %s=%s,%s\n" % (cereconf.GROUP_ATTR,gname,dn_str)
+	    pos_grp = "dn: %s=%s,%s\n" % (cereconf.LDAP_GROUP_ATTR,gname,dn_str)
 	    pos_grp += "%s" % obj_str
 	    pos_grp += "cn: %s\n" % gname
 	    pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
@@ -689,25 +687,25 @@ def generate_netgroup(spread=None, filename=None):
     if filename:
         f = file(filename, 'w')
     else:
-        f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.NETGROUP_FILE),'/'), 'w')
+        f = file(string.join((cereconf.LDAP_DUMP_DIR,cereconf.LDAP_NETGROUP_FILE),'/'), 'w')
     spreads = []
     if spread:
 	spreads.append(int(getattr(co,spread)))
     else:
-	for spread in cereconf.NETGROUP_SPREAD:
+	for spread in cereconf.LDAP_NETGROUP_SPREAD:
 	    spreads.append(int(getattr(co,spread)))
 	#spreads = "%s" % cereconf.NETGROUP_SPREAD
     f.write("\n")
-    dn_str = "%s=%s,%s" % (cereconf.ORG_ATTR,cereconf.NETGROUP_DN,cereconf.LDAP_BASE)
+    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_NETGROUP_DN,cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
-    for obj in cereconf.NETGROUP_OBJECTCLASS:
+    for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
         obj_str += "objectClass: %s\n" % obj
     for row in pos_netgrp.list_all_test(spreads):
         pos_netgrp.clear()
         try:
             pos_netgrp.find(row.group_id)
             netgrp_name = pos_netgrp.group_name
-            netgrp_str = "dn: %s=%s,%s\n" % (cereconf.NETGROUP_ATTR,netgrp_name,dn_str)
+            netgrp_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_NETGROUP_ATTR,netgrp_name,dn_str)
             netgrp_str += "%s" % obj_str
             netgrp_str += "cn: %s\n" % netgrp_name
 	    if not entity2uname.has_key(int(row.group_id)):
@@ -865,7 +863,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:',
                                    ['debug', 'help', 'group=','org=','person=','user=',
-                                    'group_spread=','user_spread=', 'netgroup='])
+                                    'group_spread=','user_spread=', 'netgroup=','posix'])
     except getopt.GetoptError:
         usage(1)
 
@@ -877,12 +875,12 @@ def main():
         elif opt in ('-d', '--debug'):
             debug += 1
 	elif opt in ('-o','--org'):
-	    if (cereconf.ORG_ROOT_AUTO == 'Enable'):
-		org_root = int(cereconf.ORG_ROOT)
+	    if (cereconf.LDAP_ORG_ROOT_AUTO == 'Enable'):
+		org_root = int(cereconf.LDAP_ORG_ROOT)
 	    else:
 		org_root = root_OU()
 	    if org_root:
-		load_code_tables() #sjekk nærmere
+		load_code_tables() 
 		init_ldap_dump(org_root,val)
 		generate_org(org_root,val)
 		generate_person(val)
@@ -904,6 +902,10 @@ def main():
 	    user_spread = map_spread(val)
 	elif opt in ('--group_spread',):
 	    group_spread = map_spread(val)
+	elif opt in ('--posix',):
+            generate_users()
+            generate_posixgroup()
+            generate_netgroup()
         else:
             usage()
     if len(opts) == 0:
@@ -923,6 +925,8 @@ def usage(exitcode=0):
       Write posix groups to a LDIF-file
     --netgroup outfile
       Write netgroup map to a LDIF-file
+    --posix 
+      write all posix-user,-group and -netgroup from default ldapconf parameters
 
     Generates a ldif-file of the requested type for the requested spreads."""
     sys.exit(exitcode)
@@ -935,9 +939,9 @@ def map_spread(id):
         raise
 
 def config():
-	if (cereconf.ORG_ROOT_AUTO != 'Enable'):
+	if (cereconf.LDAP_ORG_ROOT_AUTO != 'Enable'):
 	    try:
-	    	org_root = int(cereconf.ORG_ROOT)
+	    	org_root = int(cereconf.LDAP_ORG_ROOT)
 	    except Errors.NotFoundError:
 		print "ORG_ROOT parametre in ldapconf.py not valid"
 		raise
@@ -947,19 +951,19 @@ def config():
 	    load_code_tables()
 	    init_ldap_dump(org_root)
 	    generate_org(org_root)
-	    if (cereconf.PERSON == 'Enable'):
+	    if (cereconf.LDAP_PERSON == 'Enable'):
     		print "Person generate" 
 		generate_person()
-	    if (cereconf.ALIAS == 'Enable'):
+	    if (cereconf.LDAP_ALIAS == 'Enable'):
 		print "Alias generate"
 		generate_alias()
-	    if (cereconf.USER == 'Enable'):
+	    if (cereconf.LDAP_USER == 'Enable'):
 		print "User generate"
 		generate_users()
-	    if (cereconf.GROUP == 'Enable'):
+	    if (cereconf.LDAP_GROUP == 'Enable'):
 		print "Group generate"
 		generate_posixgroup()
-	    if (cereconf.NETGROUP == 'Enable'):
+	    if (cereconf.LDAP_NETGROUP == 'Enable'):
 		print "Netgroup generate"
 		generate_netgroup()
 	    #files_
