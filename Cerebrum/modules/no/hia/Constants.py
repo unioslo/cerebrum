@@ -55,8 +55,10 @@ class Constants(Constants.Constants):
         affiliation_ansatt, 'manuell', 'Ansatt, manuell import')
     affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
-    affiliation_status_ansatt_ovrig = _PersonAffStatusCode(
-        affiliation_ansatt, 'ovrig', 'Ansatt, øvrige ansatte')
+    affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
+        affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
+    affiliation_status_ansatt_primaer = _PersonAffStatusCode(
+        affiliation_ansatt, 'primær', 'Primærtilknytning for SAP ansatte')
     
 # STUDENTER
     affiliation_student = _PersonAffiliationCode(
