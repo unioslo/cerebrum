@@ -158,7 +158,7 @@ def process_file(filename, db, const, person_old, person_new):
         prefix = "%s %s" % (source_system_name, element["date"])
 
         if old == new:
-            logger.info("%s: %s (old) == %s (new). No changes in the db.",
+            logger.info("%s: %s (old) == %s (new). No changes in Cerebrum.",
                         prefix, old, new)
             continue
         # fi
@@ -173,7 +173,7 @@ def process_file(filename, db, const, person_old, person_new):
             person_old.find_by_external_id(id_type, old, source_system)
         except Errors.NotFoundError:
             logger.info("%s: '%s' (old) does not exist in Cerebrum. "
-                        "No changes in the db.", prefix, old)
+                        "No changes in Cerebrum.", prefix, old)
             continue
         # yrt
 
@@ -182,12 +182,12 @@ def process_file(filename, db, const, person_old, person_new):
             person_new.find_by_external_id(id_type, new, source_system)
             logger.warn("%s: Both '%s/%s' (old) and '%s/%s' (new) exist "
                         " in Cerebrum. Manual intervention required. "
-                        "No changes in the db.",
+                        "No changes in Cerebrum.",
                         prefix, old, person_old.entity_id,
                         new, person_new.entity_id)
         except Errors.NotFoundError:
             logger.info("%s: '%s' (new) does not exist in Cerebrum, "
-                        "but '%s/%s' (old) does. db updated.",
+                        "but '%s/%s' (old) does. Cerebrum updated.",
                         prefix, new, old, str(person_old.entity_id))
             person_old.affect_external_id(source_system, id_type)
             person_old.populate_external_id(source_system, id_type, new)
