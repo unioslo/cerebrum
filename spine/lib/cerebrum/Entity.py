@@ -20,6 +20,7 @@
 
 from SpineLib.Builder import Attribute, Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from CerebrumClass import CerebrumClass
 
 from Types import EntityType
 from EntityAuth import EntityAuth
@@ -30,7 +31,7 @@ registry = Registry.get_registry()
 
 __all__ = ['Entity']
 
-class Entity(DatabaseClass, EntityAuth):
+class Entity(CerebrumClass, DatabaseClass, EntityAuth):
     primary = [
         DatabaseAttr('id', 'entity_info', int)
     ]
