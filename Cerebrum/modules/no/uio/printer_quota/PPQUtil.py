@@ -32,7 +32,7 @@ class PPQUtil(object):
                     description, payment_tstamp=None, update_by=None,
                     update_program=None):
         """Utility method that converts money to quota"""
-        paid_pages = round_up(kroner * (1/PAGE_COST[payment_type]))
+        paid_pages = PPQUtil.round_up(kroner * (1/PAGE_COST[payment_type]))
 
         try:
             self.ppq.find(person_id)
