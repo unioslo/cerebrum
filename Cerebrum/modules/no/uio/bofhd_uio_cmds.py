@@ -996,14 +996,16 @@ class BofhdExtension(object):
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-8s %-7s %6i %s", ("op", "type", "id", "name"),
+        fs=FormatSuggestion("%-8s %-12s %6i %s", ("op", "type", "id", "name"),
                             hdr="MemberOp Type    Id     Name"))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         group = self._get_group(groupname)
         ret = []
         u, i, d = group.list_members(get_entity_name=True)
-        for t, rows in ('union', u), ('inters.', i), ('diff', d):
+        for t, rows in ((str(self.const.group_memberop_union), u),
+                        (str(self.const.group_memberop_intersection), i),
+                        (str(self.const.group_memberop_difference), d)):
             for r in rows:
                 ret.append({'op': t,
                             'type': str(self.num2const[int(r[0])]),
