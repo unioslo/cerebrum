@@ -160,7 +160,7 @@ case "$1" in
 	    db_get cerebrum-server/initial_accountname_password
 	    initial_accountname_password=$RET
 	    perl -p -i -e \
-	      "s/^INITIAL_ACCOUNTNAME_PASSWORD\s*=\s.*/INITIAL_ACCOUNTNAME_PASSWORD = $initial_accountname_password/ " \
+	      "s/^INITIAL_ACCOUNTNAME_PASSWORD\s*=\s.*/INITIAL_ACCOUNTNAME_PASSWORD = \"$initial_accountname_password\"/ " \
 	      /etc/cerebrum/cereconf.py
 	    prepare_db
 	else 

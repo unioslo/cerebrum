@@ -24,7 +24,7 @@ DAEMON_JOB_R_OPTS=""
 MANDATORY_FILES=( /etc/cerebrum/config.dat		 \
 		  /etc/cerebrum/logging.ini		 \
 		  /etc/cerebrum/cereconf.py		 \
-		  /etc/cerebrum/scheduled_jobs.py	 \
+#		  /etc/cerebrum/scheduled_jobs.py	 \
 		  /etc/cerebrum/passwd-cerebrum@cerebrum \
 		)
 
