@@ -355,16 +355,45 @@ class Group(EntityName, Entity):
         return res
 
 
-    def list_all(self, spread=None):
-        where = ""
+    def list_all(self, spread=None, filter_name=None, filter_desc=None):
+            
+        def replace_wildcards(value):
+            value = value.replace("*", "%")
+            value = value.replace("?", "_")
+            return value
+            
+        tables = []
+        where = []
+        tables.append("[:table schema=cerebrum name=group_info] gi")
+        
         if spread is not None:
             spread = int(spread)
-            where = """gi, [:table schema=cerebrum name=entity_spread] es
-            WHERE gi.group_id=es.entity_id AND es.entity_type=:etype AND es.spread=:spread"""
+            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            where.append("gi.group_id=es.entity_id")
+            where.append("es.entity_type=:etype")
+            where.append("es.spread=:spread")
+
+        if filter_name is not None:
+            filter_name = replace_wildcards(filter_name)
+            tables.append("[:table schema=cerebrum name=entity_name] en")
+            where.append("en.entity_id=gi.group_id")
+            where.append("en.value_domain=:vdomain")
+            where.append("en.entity_name like :filtername")
+
+        if filter_desc is not None:
+            filter_desc = replace_wildcards(filter_desc)
+            where.append("gi.description like :filterdesc")
+            
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+            
         return self.query("""
         SELECT group_id
-        FROM [:table schema=cerebrum name=group_info] %s""" % where,
-                          {'spread': spread, 'etype': int(self.const.entity_group)})
+        FROM %s %s""" % (', '.join(tables), where_str), 
+            {'spread': spread, 'etype': int(self.const.entity_group),
+             'filtername': filter_name, 'filterdesc': filter_desc,
+             'vdomain': int(self.const.group_namespace)})
 
     def list_all_test(self, spread=None):
         where = spreads = ""
