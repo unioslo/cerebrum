@@ -112,12 +112,18 @@ def get_sted(stedkode):
 def determine_affiliations(person):
     "Determine affiliations in order of significance"
     ret = {}
+    tittel = None
+    prosent_tilsetting = -1
     for t in person.get('tils', ()):
         stedkode =  "%02d%02d%02d" % (int(t['fakultetnr_utgift']),
                                       int(t['instituttnr_utgift']),
                                       int(t['gruppenr_utgift']))
-	if t['tittel']:
-	    new_person.populate_name(const.name_work_title, t['tittel'])
+        pros = float(t['prosent_tilsetting'])
+        if t['tittel'] == 'professor II':
+            pros = pros / 5.0
+        if prosent_tilsetting < pros:
+            prosent_tilsetting = pros
+            tittel = t['tittel']
         if t['hovedkat'] == 'ØVR':
             aff_stat = const.affiliation_status_ansatt_tekadm
         elif t['hovedkat'] == 'VIT':
@@ -132,6 +138,8 @@ def determine_affiliations(person):
 					int(const.affiliation_ansatt)) 
 	if not ret.has_key(k):
 	    ret[k] = sted['id'],const.affiliation_ansatt, aff_stat
+    if tittel:
+        new_person.populate_name(const.name_work_title, tittel)
     for b in person.get('bilag', ()):
         sted = get_sted(b['stedkode'])
         if sted is None:
@@ -242,7 +250,6 @@ def process_person(person):
     # assigned to it.
     op = new_person.write_db()
 
-    # TODO: We currently do nothing with PROSENT_TILSETTING
     affiliations = determine_affiliations(person)
     new_person.populate_affiliation(const.system_lt)
     contact = determine_contact(person)
