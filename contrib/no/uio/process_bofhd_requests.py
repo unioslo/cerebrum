@@ -673,6 +673,11 @@ def process_delete_requests():
         except Errors.NotFoundError:
             account, uname, old_host, old_disk = get_account(
                 r['entity_id'], spread=spread)
+        if account.is_deleted():
+            logger.warn("%s is already deleted" % uname)
+            br.delete_request(request_id=r['request_id'])
+            db.commit()
+            continue
         operator = get_account(r['requestee_id'])[0].account_name
         est = Email.EmailServerTarget(db)
         try:
@@ -786,7 +791,7 @@ def keep_running():
     max_requests -= 1
     if max_requests < 0:
         return False
-    return time.time() - start_time < 30 * 60
+    return time.time() - start_time < 15 * 60
 
 def main():
     global start_time, max_requests
