@@ -182,7 +182,7 @@ def makeInitialUsers(Cerebrum):
     g.populate(a.entity_id, co.group_visibility_all,
                cereconf.INITIAL_GROUPNAME, parent=eg)
     g.write_db()
-
+    g.add_member(a.entity_id, co.entity_account, co.group_memberop_union)
     Cerebrum.commit()
 
 def get_filelist(Cerebrum, extra_files=[]):
