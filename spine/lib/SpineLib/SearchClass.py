@@ -35,6 +35,12 @@ def create_id_iterator(start=0):
         start += 1
 
 class SearchClass(SpineClass):
+    """Base class for all searchclasses.
+
+    Implements the search-method which finds the attributes which have
+    been set, and send them into the generated create_search_method.
+    """
+    
     primary = []
     slots = []
     search_slots = []
@@ -70,7 +76,6 @@ class SearchClass(SpineClass):
             if val is not mine:
                 alive[attr.name] = val
         return alive
-
 
     def search(self):
         unions = sets.Set()
