@@ -35,7 +35,13 @@ import SimpleXMLRPCServer
 import xmlrpclib
 import getopt
 from random import Random
-from M2Crypto import DH, SSL
+
+try:
+    from M2Crypto import SSL
+    CRYPTO_AVAILABLE = True
+except ImportError:
+    CRYPTO_AVAILABLE = False
+
 # import SecureXMLRPCServer
 
 import cerebrum_path
@@ -151,7 +157,8 @@ class BofhdSession(object):
                 WHERE session_id=:session_id
                 """, {'session_id': self._id})
 
-class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
+class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
+                          object):
 
     """Class defining all XML-RPC-callable methods.
 
@@ -159,6 +166,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
     the server is running on.  Care must be taken to validate input.
 
     """
+
+    use_encryption = CRYPTO_AVAILABLE
 
     def _dispatch(self, method, params):
         # Translate params between Python objects and XML-RPC-usable
@@ -271,9 +280,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             self.connection.shutdown(1)
 
     def finish(self):
-        if not unencrypted:
-            self.request.set_shutdown(SSL.SSL_RECEIVED_SHUTDOWN | SSL.SSL_SENT_SHUTDOWN)
+        if self.use_encryption:
+            self.request.set_shutdown(SSL.SSL_RECEIVED_SHUTDOWN |
+                                      SSL.SSL_SENT_SHUTDOWN)
             self.request.close()
+        else:
+            super(self, BofhdRequestHandler).finish()
     
     def bofhd_login(self, uname, password):
         account = Account.Account(self.server.db)
@@ -487,8 +499,7 @@ if __name__ == '__main__':
     opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:',
                                ['config-file=', 'test-help=',
                                 'port=', 'unencrypted'])
-    global unencrypted
-    unencrypted = False
+    use_encryption = CRYPTO_AVAILABLE
     conffile = None
     port = 8000
     for opt, val in opts:
@@ -520,14 +531,16 @@ if __name__ == '__main__':
                 print server.help.get_group_help(commands, val)
             sys.exit()
         elif opt in ('--unencrypted',):
-            unencrypted = True
+            use_encryption = False
+
+    BofhdRequestHandler.use_encryption = use_encryption
             
     if conffile is None:
         usage()
         sys.exit()
         
     print "Server starting at port: %d" % port
-    if not unencrypted:
+    if use_encryption:
         # from echod_lib import init_context
         def init_context(protocol, certfile, cafile, verify, verify_depth=10):
             ctx = SSL.Context(protocol)
