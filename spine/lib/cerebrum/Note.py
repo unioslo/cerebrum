@@ -40,6 +40,10 @@ class Note(DatabaseClass):
         DatabaseAttr('subject', 'note', str),
         DatabaseAttr('description', 'note', str)
     ]
+    method_slots = [
+        Method('delete', None, write=True)
+    ]
+    
     db_attr_aliases = {
         'note': {
             'id': 'note_id',
@@ -48,6 +52,9 @@ class Note(DatabaseClass):
         }
     }
 
+    def delete(self):
+        self._delete()
+        self.invalidate()
 
 registry.register_class(Note)
 
@@ -60,6 +67,11 @@ def add_note(self, subject, description):
     e.add_note(db.change_by, subject, description)
 
 Entity.register_method(Method('add_note', None, args=[('subject', str), ('description', str)], write=True), add_note)
+
+def remove_note(self, note):
+    note.delete()
+
+Entity.register_method(Method('remove_note', None, args=[('note', Note)], write=True), remove_note)
 
 def get_notes(self):
     s = registry.NoteSearcher(self)

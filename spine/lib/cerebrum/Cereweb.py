@@ -32,6 +32,11 @@ __all__ = ['CerewebOption','CerewebMotd']
 option_table = "cereweb_option"
 
 class CerewebOption(DatabaseClass):
+    """Key:Value Option for entities.
+
+    Cereweb-specific options where both key and value is string.
+    """
+    
     primary = [DatabaseAttr('id', option_table, int)]
     slots = [
         DatabaseAttr('entity', option_table, Entity),
@@ -45,12 +50,19 @@ class CerewebOption(DatabaseClass):
 
     def delete(self):
         self._delete()
+        self.invalidate()
 
 registry.register_class(CerewebOption)
 
 motd_table = "cereweb_motd"
 
 class CerewebMotd(DatabaseClass):
+    """Message of the day.
+
+    Cereweb-specific message of the day. No writeable attributes, to
+    avoid the need to have change-dates and info about who changed it.
+    """
+    
     primary = [DatabaseAttr('id', motd_table, int)]
     slots = [
         DatabaseAttr('create_date', motd_table, Date),
@@ -65,10 +77,15 @@ class CerewebMotd(DatabaseClass):
 
     def delete(self):
         self._delete()
+        self.invalidate()
 
 registry.register_class(CerewebMotd)
 
 class CerewebCommands(SpineClass):
+    """Commands for creating new motd and options.
+
+    Class which holds method specific for cereweb.
+    """
     method_slots = [
         Method('create_cereweb_motd', CerewebMotd, write=True,
                     args=[('subject', str), ('message', str)]),

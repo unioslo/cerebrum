@@ -19,9 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.Builder import Method
 
 from Entity import Entity
 from Date import Date
+from Commands import Commands
 
 from SpineLib import Registry
 registry = Registry.get_registry()
@@ -74,5 +76,11 @@ class ChangeLog(DatabaseClass):
         }
     }
 registry.register_class(ChangeLog)
+
+def get_last_changelog_id(self):
+    db = self.get_database()
+    return int(db.query_1('SELECT max(change_id) FROM change_log'))
+
+Commands.register_method(Method('get_last_changelog_id', int), get_last_changelog_id)
 
 # arch-tag: 7e73d1d8-0ac3-46a6-a360-1b3efe6e4549

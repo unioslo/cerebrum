@@ -34,7 +34,7 @@ class PersonName(DatabaseClass):
         DatabaseAttr('source_system', 'person_name', SourceSystem),
     ]
     slots = [
-        DatabaseAttr('name', 'person_name', str)
+        DatabaseAttr('name', 'person_name', str, write=True)
     ]
 
     db_attr_aliases = {

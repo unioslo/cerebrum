@@ -18,27 +18,47 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum.Person
+from Cerebrum.Utils import Factory
 
 from SpineLib.DatabaseClass import DatabaseAttr
+from SpineLib.Builder import Method
 
 from Entity import Entity
 from Date import Date
 from Types import EntityType, GenderType
+from Commands import Commands
 
 from SpineLib import Registry
 registry = Registry.get_registry()
 
 __all__ = ['Person']
 
+# Convert deceased to be inserted into db.
+def to_db(value):
+    if value:
+        return 'T'
+    else:
+        return 'F'
+
+# Convert deceased into boolean from a string.
+def from_db(value):
+    if value == 'T':
+        return True
+    else:
+        return False
+
 table = 'person_info'
 class Person(Entity):
     slots = Entity.slots + [
-        DatabaseAttr('export_id', table, str),
-        DatabaseAttr('birth_date', table, Date),
-        DatabaseAttr('gender', table, GenderType),
-        DatabaseAttr('deceased', table, str), # FIXME: gjøre om til bool
-        DatabaseAttr('description', table, str)
+        DatabaseAttr('export_id', table, str, write=True),
+        DatabaseAttr('birth_date', table, Date, write=True),
+        DatabaseAttr('gender', table, GenderType, write=True),
+        DatabaseAttr('deceased', table, bool, to_db=to_db, from_db=from_db, write=True),
+        DatabaseAttr('description', table, str, write=True)
+    ]
+
+    method_slots = Entity.method_slots + [
+        Method('delete', None, write=True)
     ]
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
@@ -48,6 +68,23 @@ class Person(Entity):
 
     entity_type = EntityType(name='person')
 
+    def delete(self):
+        db = self.get_database()
+        person = Factory.get('Person')(db)
+        person.find(self.get_id())
+        person.delete()
+        self.invalidate()
+
 registry.register_class(Person)
+
+def create(self, birthdate, gender):
+    db = self.get_database()
+    person = Factory.get('Person')(db)
+    person.populate(birthdate.get_date, gender.get_name())
+    person.write_db()
+    return Person(person.entity_id, write_lock=self.get_writelock_holder())
+
+Commands.register_method(Method('create_person', Person, write=True,
+                         args=[('birthdate', Date), ('gender', GenderType)]), create)
 
 # arch-tag: 7b2aca28-7bca-4872-98e1-c45e08faadfc

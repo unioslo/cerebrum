@@ -37,7 +37,7 @@ class EntityName(DatabaseClass):
         DatabaseAttr('value_domain', table, ValueDomain)
     ]
     slots = [
-        DatabaseAttr('name', table, str)
+        DatabaseAttr('name', table, str, write=True)
     ]
 
     db_attr_aliases = {

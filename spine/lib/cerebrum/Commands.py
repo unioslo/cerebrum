@@ -18,43 +18,27 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.Utils import Factory
 
 from SpineLib.SpineClass import SpineClass
-from SpineLib.Builder import Attribute, Method
-
-from Group import Group
-from Types import GroupVisibilityType
-
 from SpineLib import Registry
 registry = Registry.get_registry()
 
 __all__ = ['Commands']
 
 class Commands(SpineClass):
-    primary_key = []
-    slots = []
-    method_slots = [
-        Method('create_group', Group, [('name', str)], write=True),
-        Method('get_last_changelog_id', int)
-    ]
+    """Collection of 'static' methods.
+
+    This is the main class for 'static' methods in the cerebrum core
+    like create_<core-class>. Since we dont support static methods on
+    objects servered over corba, we create command-classes which
+    contains those 'static' methods.
+
+    This class should not implement methods specific to other classes,
+    instead use Registry.get_registry().register_method().
+    """
 
     def __new__(self, *args, **vargs):
         return SpineClass.__new__(self, cache=None)
-
-    def create_group(self, name):
-        db = self.get_database()
-        group = Factory.get('Group')(db)
-        print 'change_by', [db.change_by]
-        group.populate(db.change_by, GroupVisibilityType(name='A').get_id(), name)
-        group.write_db()
-
-        id = group.entity_id
-        return Group(id, write_lock=self.get_writelock_holder())
-
-    def get_last_changelog_id(self):
-        db = self.get_database()
-        return int(db.query_1('SELECT max(change_id) FROM change_log'))
 
 registry.register_class(Commands)
 

@@ -39,10 +39,10 @@ class EntityQuarantine(DatabaseClass):
     ]
     slots = [
         DatabaseAttr('creator', table, Entity),
-        DatabaseAttr('description', table, str),
+        DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
-        DatabaseAttr('start_date', table, Date),
-        DatabaseAttr('end_date', table, Date)
+        DatabaseAttr('start_date', table, Date, write=True),
+        DatabaseAttr('end_date', table, Date, write=True)
     ]
 
     db_attr_aliases = {
