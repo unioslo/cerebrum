@@ -711,38 +711,33 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
                               cereconf.LDAP_GROUP_FILE, 'w')
 	f.set_size_change_limit(10)
     groups = {}
-    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_GROUP_DN,cereconf.LDAP_BASE)
+    dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR, cereconf.LDAP_GROUP_DN,
+                           cereconf.LDAP_BASE)
     obj_str = "objectClass: top\n"
     for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
 	obj_str += "objectClass: %s\n" % obj
     for row in posix_group.list_all_test(spreads):
-	distinct_mem = {}
 	posix_group.clear()
-	try:
-	    posix_group.find(row.group_id)
-	    gname = posix_group.group_name
-	    pos_grp = "dn: %s=%s,%s\n" % (cereconf.LDAP_GROUP_ATTR,gname,dn_str)
-	    pos_grp += "%s" % obj_str
-	    pos_grp += "cn: %s\n" % gname
-	    pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
-	    if posix_group.description:
-		pos_grp += "description: %s\n" % some2utf(posix_group.description) #latin1_to_iso646_60 later
-	    group.clear()
-	    group.find(row.group_id)
-            # Since get_members only support single user spread, spread is set to [0]
-	    for id in group.get_members(spread=u_spreads[0],get_entity_name=True):
-		uname_id = int(id[0])
-		if not distinct_mem.has_key(uname_id):
-		    distinct_mem[uname_id] = True
-		    if entity2uname.has_key(uname_id):
-			pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
-		    else:
-			mem_name = id[1]
-			entity2uname[uname_id] = mem_name 
-			pos_grp += "memberUid: %s\n" % mem_name
-	    f.write("\n")
-            f.write(pos_grp)
-	except:  pass
+        posix_group.find(row.group_id)
+        gname = posix_group.group_name
+        pos_grp = "dn: %s=%s,%s\n" % (cereconf.LDAP_GROUP_ATTR, gname, dn_str)
+        pos_grp += "%s" % obj_str
+        pos_grp += "cn: %s\n" % gname
+        pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
+        if posix_group.description:
+            # latin1_to_iso646_60 later
+            pos_grp += "description: %s\n" % some2utf(posix_group.description)
+	group.clear()
+        group.find(row.group_id)
+        # Since get_members only support single user spread, spread is
+        # set to [0]
+        for id in group.get_members(spread=u_spreads[0], get_entity_name=True):
+            uname_id = int(id[0])
+            if uname_id not in entity2uname:
+                entity2uname[uname_id] = id[1]
+            pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
+	f.write("\n")
+        f.write(pos_grp)
     f.write("\n")
     f.close()
 
