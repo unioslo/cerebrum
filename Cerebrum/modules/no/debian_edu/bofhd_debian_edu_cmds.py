@@ -49,7 +49,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.debian-edu import bofhd_debian_edu_help
+from Cerebrum.modules.no.debian_edu import bofhd_debian_edu_help
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 # TBD: It would probably be cleaner if our time formats were specified
