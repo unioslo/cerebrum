@@ -1,3 +1,23 @@
+#! /usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2005 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Spine
 
@@ -46,6 +66,9 @@ sourcesystem=t.get_source_system('Manual') #it's not
 lastnametype=t.get_name_type("LAST")
 firstnametype=t.get_name_type("FIRST")
 fullnametype=t.get_name_type("FULL")
+bashshell=t.get_posix_shell("bash")
+usersgroup=comm.get_group_by_name("users")
+unionoperation=t.get_group_member_operation_type("union")
 
 def create_random():
    gd=random.choice(("M","F"))
@@ -55,11 +78,16 @@ def create_random():
    p.add_name("%s %s" % (fn, ln), fullnametype, sourcesystem)
    p.add_name(fn, firstnametype, sourcesystem)
    p.add_name(ln, lastnametype, sourcesystem)
-   names=comm.suggest_unames(accountnamevaluedomain, fn, ln)
+   names=comm.suggest_usernames(fn, ln)
    a=comm.create_account(names[0], p, comm.get_date(2010, 12, 31))
-   # spread?
-   g=comm.create_group(names[0])  # noen grupper også
-   # gruppeeier?
+   a.promote_posix(usersgroup, bashshell)
+   #a.promote_ad(loginscript, homedir)
+   a.add_spread(t.get_spread("NIS_user@uio"))
+   a.add_spread(t.get_spread("AD_account"))
+   g=comm.create_group(names[0])
+   g.promote_posix()
+   #g.promote_ad()
+   g.add_member(a, unionoperation)
 
 import time
 
