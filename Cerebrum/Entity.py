@@ -327,7 +327,7 @@ class EntityName(Entity):
         SELECT entity_id, value_domain, entity_name
         FROM [:table schema=cerebrum name=entity_name]
         WHERE value_domain=:value_domain""",
-                            {'value_domain': value_domain})
+                            {'value_domain': int(value_domain)})
 
 class EntityContactInfo(Entity):
     "Mixin class, usable alongside Entity for entities having contact info."
