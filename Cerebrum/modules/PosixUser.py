@@ -75,16 +75,17 @@ class PosixUser(object):
 
         if as_object is None:
             self.execute("""
-            INSERT INTO cerebrum.posix_user (account_id, user_uid, gid,
-                gecos, home, shell)
+            INSERT INTO [:table schema=cerebrum name=posix_user]
+              (account_id, user_uid, gid, gecos, home, shell)
             VALUES (:a_id, :u_id, :gid, :gecos, :home, :shell)""",
                          {'a_id' : self.account_id, 'u_id' : self.user_uid,
                           'gid' : self.gid, 'gecos' : self.gecos,
                           'home' : self.home, 'shell' : int(self.shell)})
         else:
             self.execute("""
-            UPDATE cerebrum.posix_user SET account_id=:a_id, user_uid=:u_id, gid=:gid,
-                gecos=:gecos, home=:home, shell=:shell)
+            UPDATE [:table schema=cerebrum name=posix_user]
+            SET account_id=:a_id, user_uid=:u_id, gid=:gid, gecos=:gecos,
+                home=:home, shell=:shell)
             WHERE account_id=:orig_account_id""",
                          {'a_id' : self.account_id, 'u_id' : self.user_uid,
                           'gid' : self.gid, 'gecos' : self.gecos,
@@ -98,19 +99,21 @@ class PosixUser(object):
         (self.account_id, self.user_id, self.gid, self.gecos,
          self.home, self.shell) = self.query_1(
             """SELECT account_id, user_uid, gid, gecos, home, shell
-               FROM cerebrum.posix_user
+               FROM [:table schema=cerebrum name=posix_user]
                WHERE account_id=:a_id""", {'a_id' : account_id})
 
     def get_all_posix_users(self):
         return self.query("SELECT account_id FROM posix_user")
 
     def get_free_uid(self):
-        "Returns the next free uid from uid_seq"
+        """Returns the next free uid from ``posix_uid_seq``"""
         while 1:
-            uid = self.nextval("uid_seq")
+            uid = self.nextval("posix_uid_seq")
             try:
-                self.query_1("""SELECT user_uid FROM cerebrum.posix_user
-                       WHERE user_uid=:uid""", {'uid' : uid})
+                self.query_1("""
+                SELECT user_uid
+                FROM [:table schema=cerebrum name=posix_user]
+                WHERE user_uid=:uid""", locals())
             except Errors.NotFoundError:
                 return uid
 
