@@ -89,13 +89,22 @@ def init_ldap_dump(ou_org,filename=None):
     else:
 	f = file(cereconf.LDAP_DUMP_DIR + "/" + cereconf.LDAP_ORG_FILE, 'w')
     init_str = "dn: %s\n" % (cereconf.LDAP_BASE)    
-    init_str += "objectClass: top\n"
-    for oc in cereconf.LDAP_BASE_OBJECTCLASS:
+    for oc in ('top', 'organization', 'eduOrg', 'norEduOrg'):
 	init_str += "objectClass: %s\n" % oc
+    try:
+        if cereconf.LDAP_BASE_URL:
+            init_str += """objectClass: labeledURIObject
+eduOrgHomePageURI: %s
+labeledURI: %s
+""" % (cereconf.LDAP_BASE_URL, cereconf.LDAP_BASE_URL)
+    except (AttributeError, NameError):
+        pass
+    init_str += "%s: %s\n" % tuple(cereconf.LDAP_BASE
+                                   .split(',')[0].split('=', 2))
+    init_str += ("norEduOrgUniqueNumber: %08d\n"
+                 % int(cereconf.DEFAULT_INSTITUSJONSNR))
     for bc in cereconf.LDAP_BASE_BUSINESSCATEGORY:
 	init_str += "businessCategory: %s\n" % bc
-    for dc in cereconf.LDAP_BASE_ALTERNATIVE_DN:
-	init_str += "dc: %s\n" % dc
     for des in cereconf.LDAP_BASE_DESCRIPTION:
 	init_str += "description: %s\n" % des
     ou = Factory.get('OU')(Cerebrum)
@@ -103,16 +112,7 @@ def init_ldap_dump(ou_org,filename=None):
     if fax_tab.has_key(int(ou_org)):
 	for fax in fax_tab[int(ou_org)]:
 	    init_str += "facsimileTelephoneNumber: %s\n" % fax
-    try:
-	stedkode = Stedkode.Stedkode(Cerebrum)
-	stedkode.find(ou_org)
-    except:
-        pass
-    else:
-	stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
-                                        stedkode.institutt,
-                                        stedkode.avdeling)
-        init_str += "norInstitutionNumber: %s\n" % stedkodestr
+
     init_str += "l: %s\n" % cereconf.LDAP_BASE_CITY
     for alt in cereconf.LDAP_BASE_ALTERNATIVE_NAME:
 	init_str += "o: %s\n" % alt
@@ -146,13 +146,9 @@ def init_ldap_dump(ou_org,filename=None):
     if ph_tab.has_key(int(ou_org)):
         for phone in ph_tab[int(ou_org)]:
             init_str += "telephoneNumber: %s\n" % phone
-
-    try:
-        init_str += "labeledURI: %s\n" % cereconf.LDAP_BASE_URL
-    except:
-        pass
     f.write(init_str)
     f.write("\n")
+
     ou_struct[int(ou.ou_id)] = (cereconf.LDAP_BASE, post_string,
                                 street_string, None, None, None)
     for org in cereconf.LDAP_ORG_GROUPS:
@@ -228,6 +224,8 @@ def generate_org(ou_id,filename=None):
 			stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
                                                         stedkode.institutt,
                                                         stedkode.avdeling)
+			# ???? Bug: Should use 'ou' instead of LDAP_ORG_ATTR
+			# here, but must get rid of LDAP_DUMMY_DN first.
 			par_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
 						cereconf.LDAP_NON_ROOT_ATTR,
 						ou_string)
@@ -237,7 +235,6 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
     ou = Factory.get('OU')(Cerebrum)
     ou.clear()
     ou.find(id)
-    str_ou = []
     street_string = None
     post_string = None
     ou_phones = ou_faxs = ''
@@ -249,14 +246,12 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	ou_dn = make_ou_for_rdn(some2utf(ou.acronym))
     else:
 	ou_dn = make_ou_for_rdn(some2utf(ou.short_name))
-    str_ou = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,ou_dn,par_ou)
+    str_ou = "ou=%s,%s" % (ou_dn, par_ou)
     if dn_dict.has_key(str_ou):
-        str_ou = "%s=%s+norOrgUnitNumber=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-						ou_dn,stedkodestr,par_ou)
+        str_ou = "norEduOrgUnitUniqueNumber=%s+%s" % (stedkodestr, str_ou)
     dn_dict[str_ou] = stedkodestr
     ou_str = "dn: %s\n" % str_ou
-    ou_str += "objectClass: top\n"
-    for ss in cereconf.LDAP_ORG_OBJECTCLASS:
+    for ss in ('top', 'organizationalUnit', 'norEduOrgUnit'):
         ou_str += "objectClass: %s\n" % ss
     if fax_tab.has_key(id):
 	for ou_fax in fax_tab[id]:
@@ -270,12 +265,13 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
 	if ou_email:
 	    for email in ou_email:
 		ou_str += "mail: %s\n" % email
-    if stedkodestr:	
-	ou_str += "norOrgUnitNumber: %s\n" % stedkodestr
+    ou_str += "norEduOrgUnitUniqueNumber: %s\n" % stedkodestr
+    ou_str += ("norEduOrgUniqueNumber: %08d\n"
+               % int(cereconf.DEFAULT_INSTITUSJONSNR))
     cmp_ou_str = []
     if ou.acronym:
 	acr_name = some2utf(ou.acronym)
-	ou_str += "acronym: %s\n" % acr_name
+	ou_str += "norEduOrgAcronym: %s\n" % acr_name
     ou_str += "ou: %s\n" % ou_dn
     cmp_ou_str.append(normalize_string(ou_dn))
     cn_str = ou_dn
@@ -300,8 +296,7 @@ def print_OU(id, par_ou, stedkodestr,par, filename=None):
             cmp_ou_str.append(normalize_string(sor_name))
             ou_str += "ou: %s\n" % sor_name
             cn_str = sor_name
-    if cn_str:
-	ou_str += "cn: %s\n" % cn_str
+    ou_str += "cn: %s\n" % cn_str
     for cc in cereconf.SYSTEM_LOOKUP_ORDER:
 	try:
 	    post_addr = ou.get_entity_address(int(getattr(co, cc)), 
@@ -364,19 +359,16 @@ def trav_list(par, ou_list, par_ou,filename=None):
 	    try:
 		stedkode.find(c)
 	    except:
-		ou_struct[str(c)] = par_ou
-		str_ou = print_OU(c,par_ou,None,filename)
-		trav_list(c,ou_list,str_ou,filename)
+                sys.exit("ou_id %s mangler stedkode" % c)
+            stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
+                                            stedkode.institutt,
+                                            stedkode.avdeling)
+            if stedkode.katalog_merke == 'T':
+                str_ou = print_OU(c, par_ou, stedkodestr, None, filename)
+                trav_list(c, ou_list, str_ou, filename)
             else:
-		stedkodestr = "%02d%02d%02d" % (stedkode.fakultet,
-                                                stedkode.institutt,
-                                                stedkode.avdeling)
- 	   	if stedkode.katalog_merke == 'T':
-            	    str_ou = print_OU(c,par_ou,stedkodestr,None,filename)
-            	    trav_list(c,ou_list,str_ou,filename)
-    	    	else:
-		    dummy = print_OU(c,par_ou,stedkodestr,p,filename)
-		    trav_list(c,ou_list,par_ou,filename)
+                dummy = print_OU(c, par_ou, stedkodestr, p, filename)
+                trav_list(c, ou_list, par_ou, filename)
 
 def generate_person(filename=None):
     person = Factory.get('Person')(Cerebrum)
@@ -388,13 +380,13 @@ def generate_person(filename=None):
                               cereconf.LDAP_PERSON_FILE, 'w')	
 	f.set_size_change_limit(10)
     f.write("\n")
-    objclass_string = "objectClass: top\n"
-    for objclass in cereconf.LDAP_PERSON_OBJECTCLASS:
-	objclass_string += "objectclass: %s\n" % objclass
-    dn_attr = cereconf.LDAP_PERSON_ATTR
-    dn_base = "%s" % cereconf.LDAP_BASE
-    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-				cereconf.LDAP_PERSON_DN,dn_base) 
+    objclass_string = ""
+    for objclass in ('top', 'person', 'organizationalPerson',
+                     'inetOrgPerson', 'eduPerson', 'norEduPerson'):
+	objclass_string += "objectClass: %s\n" % objclass
+    dn_base = cereconf.LDAP_BASE
+    dn_string = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR, cereconf.LDAP_PERSON_DN,
+                              dn_base)
     person_spread = acl_spread = None
     valid_print_affi = []
     valid_phaddr_affi = []
@@ -464,15 +456,17 @@ def generate_person(filename=None):
 	if print_person:
 	    person.clear()
 	    person.entity_id = row['person_id']
-	    pers_string = "dn: %s=%s,%s\n" % (dn_attr,entity_name,dn_string)
+	    pers_string = "dn: uid=%s,%s\n" % (entity_name,dn_string)
 	    pers_string += "%s" % objclass_string
   	    utf_name = some2utf(name)
 	    pers_string += "cn: %s\n" % utf_name
 	    if row['birth_date']:
-		pers_string += "birthDate: %s\n" % (time.strftime("%d%m%y",
-					time.strptime(str(row['birth_date']),
-					"%Y-%m-%d %H:%M:%S.00")))
-	    pers_string += "norSSN: %s\n" % re.sub('\D','',row['external_id'])
+		pers_string += "norEduPersonBirthDate: %s\n" % (
+                    time.strftime("%Y%m%d",
+                                  time.strptime(str(row['birth_date']),
+                                                "%Y-%m-%d %H:%M:%S.00")))
+	    pers_string += ("norEduPersonNIN: %s\n"
+                            % re.sub(r'\D', '', row['external_id']))
 	    pers_string += "eduPersonOrgDN: %s\n" % dn_base
 	    try:
 		if (ou_struct[int(ou_id)][5] == None):
@@ -483,10 +477,10 @@ def generate_person(filename=None):
 			par = int(ou_struct[int(par)][5])
 		    prim_org = (ou_struct[par][0])
 	    except:
-		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
-					cereconf.LDAP_DUMMY_DN,
-					cereconf.LDAP_BASE)
-	    if (prim_org.find(cereconf.LDAP_ORG_DN) == -1):
+                prim_org = ""
+	    if prim_org.find(cereconf.LDAP_ORG_DN) == -1:
+		# ???? Bug: Should use 'ou' instead of LDAP_ORG_ATTR
+		# here, but must get rid of LDAP_DUMMY_DN first.
 		prim_org = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
                                          cereconf.LDAP_DUMMY_DN,
                                          cereconf.LDAP_BASE)
@@ -615,9 +609,8 @@ def generate_alias(filename=None):
                               cereconf.LDAP_ALIAS_FILE, 'w')
 	f.set_size_change_limit(10)
     f.write("\n")
-    obj_string = "\nobjectClass: top"
-    for obj in cereconf.LDAP_ALIAS_OBJECTCLASS:
-        obj_string += "\nobjectClass: %s" % obj
+    obj_string = "".join(["\nobjectClass: %s" % oc for oc in
+                          ('top', 'alias', 'extensibleObject')])
     for alias in person.list_persons():
 	person_id = int(alias['person_id'])
 	if alias_list.has_key(person_id):
@@ -648,10 +641,8 @@ def generate_users(spread=None,filename=None):
 	disks[int(hd['disk_id'])] = hd['path']  
     posix_dn = ",%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,cereconf.LDAP_USER_DN,
 							cereconf.LDAP_BASE)
-    posix_dn_string = "%s=" % cereconf.LDAP_USER_ATTR
-    obj_string = "objectClass: top\n"
-    for obj in cereconf.LDAP_USER_OBJECTCLASS:
-	obj_string += "objectClass: %s\n" % obj
+    obj_string = "".join(["objectClass: %s\n" % oc for oc in
+                          ('top', 'account', 'posixAccount')])
     if filename is None:
         filename = os.path.join(cereconf.LDAP_DUMP_DIR,
                                 cereconf.LDAP_USER_FILE)
@@ -712,7 +703,7 @@ def generate_users(spread=None,filename=None):
 	    else:
                 continue
             if acc_id <> prev_userid:
-                f.write('dn: %s%s%s\n' % (posix_dn_string, uname, posix_dn))
+                f.write('dn: uid=%s%s\n' % (uname, posix_dn))
                 f.write('%scn: %s\n' % (obj_string, gecos))
                 f.write('uid: %s\n' % uname)
                 f.write('uidNumber: %s\n' % str(row['posix_uid']))
@@ -744,14 +735,13 @@ def generate_posixgroup(spread=None,u_spread=None,filename=None):
     groups = {}
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR, cereconf.LDAP_GROUP_DN,
                            cereconf.LDAP_BASE)
-    obj_str = "objectClass: top\n"
-    for obj in cereconf.LDAP_GROUP_OBJECTCLASS:
-	obj_str += "objectClass: %s\n" % obj
+    obj_str = "".join(["objectClass: %s\n" % oc for oc in
+                       ('top', 'posixGroup')])
     for row in posix_group.list_all_grp(spreads):
 	posix_group.clear()
         posix_group.find(row.group_id)
         gname = posix_group.group_name
-        pos_grp = "dn: %s=%s,%s\n" % (cereconf.LDAP_GROUP_ATTR, gname, dn_str)
+        pos_grp = "dn: cn=%s,%s\n" % (gname, dn_str)
         pos_grp += "%s" % obj_str
         pos_grp += "cn: %s\n" % gname
         pos_grp += "gidNumber: %s\n" % posix_group.posix_gid
@@ -789,16 +779,14 @@ def generate_netgroup(spread=None,u_spread=None,filename=None):
     dn_str = "%s=%s,%s" % (cereconf.LDAP_ORG_ATTR,
                            cereconf.LDAP_NETGROUP_DN,
                            cereconf.LDAP_BASE)
-    obj_str = "objectClass: top\n"
-    for obj in cereconf.LDAP_NETGROUP_OBJECTCLASS:
-        obj_str += "objectClass: %s\n" % obj
+    obj_str = "".join(["objectClass: %s\n" % oc for oc in
+                       ('top', 'nisNetGroup')])
     for row in pos_netgrp.list_all_grp(spreads):
 	grp_memb = {}
         pos_netgrp.clear()
         pos_netgrp.find(row.group_id)
         netgrp_name = pos_netgrp.group_name
-        netgrp_str = "dn: %s=%s,%s\n" % (cereconf.LDAP_NETGROUP_ATTR,
-                                         netgrp_name, dn_str)
+        netgrp_str = "dn: cn=%s,%s\n" % (netgrp_name, dn_str)
         netgrp_str += "%s" % obj_str
         netgrp_str += "cn: %s\n" % netgrp_name
         if not entity2uname.has_key(int(row.group_id)):
@@ -934,7 +922,7 @@ def get_contacts(entity_id=None,source_system=None,contact_type=None,email=0):
 	for ph in ph_list:
 	    if (ph <> '0'):
 		if not email:
-		    ph = re.sub('\s','',normalize_phone(ph))
+		    ph = re.sub(r'\s','',normalize_phone(ph))
 		if ph:
 		    if cont_tab.has_key(key):
 			if ph not in cont_tab[key]: cont_tab[key].append(ph)
