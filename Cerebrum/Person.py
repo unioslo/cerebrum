@@ -223,8 +223,9 @@ class Person(EntityContactInfo, EntityAddress, EntityQuarantine, Entity):
                 else:
                     ou_id, affil, status = [int(x) for x in idx.split(":")]
                     self.add_affiliation(ou_id, affil, source, status)
-		    if db_prim.has_key('%s:%s' % (ou_id, affil)):
-                        del db_affil[db_prim['%s:%s' % (ou_id, affil)]]
+                    primary_key = '%s:%s' % (ou_id, affil)
+		    if db_prim.has_key(primary_key):
+                        del db_affil[db_prim[primary_key]]
                     if is_new <> 1:
                         is_new = False
             for idx in db_affil.keys():
