@@ -106,6 +106,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             self.process_commands()
         except IOError, msg:
             self.log('ERROR', "IOError: %s" % msg)
+        signal.alarm(0)
             
     def check_quota(self, printer, pageunits):
         # check_quota() - Given a username (username from HELO), and a positive
