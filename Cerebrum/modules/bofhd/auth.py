@@ -270,6 +270,8 @@ class BofhdAuthRole(DatabaseAccessor):
         """Return info about who owns the given target_ids"""
         if not isinstance(target_ids, (list, tuple)):
             target_ids = [target_ids]
+        if not target_ids:
+            return ()
         return self.query("""
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
