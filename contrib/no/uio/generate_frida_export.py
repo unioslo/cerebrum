@@ -851,7 +851,9 @@ def output_employment_information(writer, pobj):
                               ("fraDato", "dato_fra"),
                               ("tilDato", "dato_til"),
                               ]:
-            output_element(writer, element[index], output)
+            if element.has_key(index):
+                output_element(writer, element[index], output)
+            # fi
         # od
         writer.endElement("Tilsetting")
     # od
@@ -889,7 +891,9 @@ def output_guest_information(writer, pobj):
                               ("fraDato", "dato_fra"),
                               ("tilDato", "dato_til"),
                               ]:
-            output_element(writer, element[index], output)
+            if element.has_key(index):
+                output_element(writer, element[index], output)
+            # fi
         # od
 
         writer.endElement("Gjest")
@@ -961,10 +965,12 @@ def output_person(writer, pobj, db_person, db_account, constants):
 
         output_element(writer, db_account.get_account_name(), "uname")
 
-        primary_email = db_account.get_primary_mailaddress()
-        if primary_email:
+        try:
+            primary_email = db_account.get_primary_mailaddress()
             output_element(writer, primary_email, "emailAddress")
-        # fi
+        except Cerebrum.Errors.NotFoundError:
+            pass
+        # yrt
     # fi
 
     # <Telephone>?
