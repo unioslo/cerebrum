@@ -130,6 +130,8 @@ class Constants(Constants.Constants):
 
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 'Tilknyttet enheter/instutusjoner som USIT har avtale med')
+    affiliation_manuell_alumni = _PersonAffStatusCode(
+        affiliation_manuell, 'alumni', 'Uteksaminerte studenter')
     affiliation_manuell_sio = _PersonAffStatusCode(
         affiliation_manuell, 'sio', 'SiO')
     affiliation_manuell_radium = _PersonAffStatusCode(
