@@ -42,8 +42,6 @@ import java.awt.Frame;
  * @author  runefro
  */
 
-class MethodFailedException extends Exception { }
-
 class ConsolePassword {
     JBofhFrame jbFrame;
 
