@@ -53,7 +53,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
+from Cerebrum.modules.no.hia.auth import BofhdAuth, BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import PrinterQuotas
@@ -3431,8 +3431,9 @@ class BofhdExtension(object):
           format_day("dato_bekreftet"))),
         ("Semesterreg: %s, %s, betalt: %s, endret: %s",
          ("regformkode", "betformkode", format_day("dato_betaling"),
-          format_day("dato_regform_endret")))
-        ]),
+          format_day("dato_regform_endret"))),
+        ("Klasse: %s, (%s)", ("klassekode", "kullkode"))
+	]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
         person = self._get_person(*self._map_person_id(person_id))
@@ -3446,10 +3447,10 @@ class BofhdExtension(object):
         ret = []
         db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
                               DB_driver='Oracle')
-        fs = FS(db)
+        fs = HiAFS(db)
         for row in fs.GetStudentStudierett(fodselsdato, pnum)[1]:
             har_opptak["%s" % row['studieprogramkode']] = \
-                            row['status_privatist']
+			    row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
                         'opphortstatus': row['opphortstudierettstatkode'],
@@ -3477,6 +3478,11 @@ class BofhdExtension(object):
                         'betformkode': row['betformkode'],
                         'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),
                         'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
+
+	for row in fs.GetStudentKullOgKlasse(fodselsdato, pnum)[1]:
+	    ret.append({'kullkode': row['kullkode'],
+			'klassekode': row['klassekode']})
+
         db.close()
         return ret
 
