@@ -222,8 +222,9 @@ class Builder(Caching, Locking, CorbaBuilder):
         setattr(self, mark, time.time())
 
     def get_database(self):
-        if self.writeLock is not None:
-            return self.writeLock().get_database() # writeLock *should* have get_database :p
+        c = self.get_writelock_holder()
+        if c is not None:
+            return c.get_database() # The lockholder has get_database()
         else:
             return Database.get_database()
 
