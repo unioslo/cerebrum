@@ -82,7 +82,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
                      tstamp=None, update_quota=True):
         """Register an entry in the paid_quota_history table."""
 
-        pageunits_total = pageunits
+        pageunits_total = int(pageunits)
         # Determine how much to subtract from free and paid quota
         pageunits_free = pageunits_paid = 0
         if update_quota:

@@ -21,11 +21,18 @@ class PPQUtil(object):
         self.const = Utils.Factory.get('Constants')(self.db)
         self.ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
 
+    def round_up(n):
+        """Round up to nearest integer"""
+        if int(n) < n:
+            return int(n) + 1
+        return int(n)
+    round_up = staticmethod(round_up)
+
     def add_payment(self, person_id, payment_type, bank_id, kroner,
                     description, payment_tstamp=None, update_by=None,
                     update_program=None):
         """Utility method that converts money to quota"""
-        paid_pages = kroner * (1/PAGE_COST[payment_type])
+        paid_pages = round_up(kroner * (1/PAGE_COST[payment_type]))
 
         try:
             self.ppq.find(person_id)
@@ -68,13 +75,13 @@ class PPQUtil(object):
 
     def set_free_pages(self, person_id, new_value, why,
                        update_by=None, update_program=None):
-        self._alter_free_pages('set', person_id, new_value, why,
+        self._alter_free_pages('set', person_id, int(new_value), why,
                                update_by=update_by,
                                update_program=update_program)
 
     def add_free_pages(self, person_id, increment, why,
                        update_by=None, update_program=None):
-        self._alter_free_pages('add', person_id, increment, why,
+        self._alter_free_pages('add', person_id, int(increment), why,
                                update_by=update_by,
                                update_program=update_program)
 
