@@ -366,6 +366,21 @@ class Person(Entity):
     def delete(self):
         pass
 
+class OU(Entity):
+
+    def __str__(self):
+        return self.name
+
+    def create(cls):
+        pass
+    create = classmethod(create)
+
+    def search(cls, name=None):
+        pass
+
+    def delete(self):
+        pass
+
 
 class Constants(object):
     JOIN = 1

@@ -325,11 +325,17 @@ class Group(Entity, Abstract.Group):
         self.server.group_delete(self.name)
 
 class Account(Entity, Abstract.Account):
+    
+    def _load_entity_info(self, info):
+        super(Account, self)._load_entity_info(info)
+        self.name = info['name']
+        self.owner_id = info['owner_id']
+
 
     def fetch_by_name(cls, name):
         pass
     fetch_by_name = classmethod(fetch_by_name)
-
+    
     def search(cls, name=None, create_date=None, creator_id=None, home=None,
                disk_id=None, expire_date=None, owner_id=None, np_type=None, auth_method=None):
         pass
@@ -379,6 +385,27 @@ class Person(Entity, Abstract.Person):
         pass
 
                                                     
+class OU(Entity, Abstract.OU):
+
+    def create(cls):
+        pass
+    create = classmethod(create)
+
+    def search(cls, server, name=None, account=None, birthno=None, birthdate=None):
+        pass
+    search = classmethod(search)
+
+    def _load_entity_info(self, info):
+        super(OU, self)._load_entity_info(info)
+        self.name = info['name']
+        self.acronym = info['acronym']
+        self.short_name = info['short_name']
+        self.display_name = info['display_name']
+        self.sort_name = info['sort_name']
+
+    def delete(self):
+        pass
+
 
 def fetch_object_by_id(server, id, info=None):
     # Mapping between entity types and classes defined here
@@ -387,8 +414,8 @@ def fetch_object_by_id(server, id, info=None):
     classes = {
         'group': Group,
         'person': Person,
-        # 'account': Account,
-        # 'ou': OU,
+        'account': Account,
+        'ou': OU,
         # 'host': Host,
         # 'disk': Disk
     }
