@@ -38,6 +38,39 @@ def user_print_stats(from_date, to_date, sort_by='total', num=10):
         n += 1
         if n > num:
             break
+
+def user_type_stats(from_date, to_date, sort_by='total'):
+    ac = Factory.get('Account')(db)
+    ac_type = {}
+    for r in ac.list(filter_expired=True):
+        ac_type[int(r['account_id'])] = r['np_type']
+    
+    cols = ['jobs', 'free', 'paid', 'total']
+    rows = ppq.get_pagecount_stats(from_date, to_date, group_by=('account_id',))
+    stats = {}
+    for r in rows:
+        if r['account_id'] is None:
+            t = 'unknown'
+        else:
+            t = ac_type.get(r['account_id'], 'deleted')
+        if not stats.has_key(t):
+            stats[t] = [0, 0, 0, 0]
+        for c in range(len(cols)):
+            stats[t][c] += int(r[cols[c]])
+
+    format = "%-12s %-12s %-12s %-12s"
+    t = ['type']
+    t.extend(cols)
+    print ("%-14s "+format) % tuple(t)
+    format = format.replace('-', '')
+
+    for k, v in stats.items():
+        if k is None:
+            k = 'personlig'
+        else:
+            k = co.Account(k)
+        print "%-14s:" % k , format % tuple(
+            [v[c] for c in range(len(cols))])
     
 def printjob_stats(from_date, to_date, sted_level=None):
     cols = ['jobs', 'free', 'paid', 'total']
@@ -102,7 +135,8 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '', [
             'help', 'from=', 'to=', 'sted-level=', 'printjobs',
-            'payments', 'top-user', 'sort-user-by=', 'user-rows='])
+            'payments', 'top-user', 'sort-user-by=', 'user-rows=',
+            'user-type'])
     except getopt.GetoptError:
         usage(1)
 
@@ -131,6 +165,8 @@ def main():
             user_sort_by = val
         elif opt in ('--user-rows',):
             num_user_rows = int(val)
+        elif opt in ('--user-type',):
+            user_type_stats(from_date, to_date)
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -147,7 +183,8 @@ def usage(exitcode=0):
        --printjobs: show number of printjobs, pages etc
        --payments:  show number of payments
        --top-user:  show top users
-
+       --user-type: show stats by np_type
+       
     Example:
       Show top-20 users whos paid qouta was reduced from june to august:
       quota_stats.py --from 2004-06-01 --to 2004-08-05 --sort-user-by paid \\
