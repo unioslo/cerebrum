@@ -1,6 +1,7 @@
 ##from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.templates.ActivityLogTemplate import ActivityLogTemplate
 from Cerebrum.web.TableView import TableView
+from Cerebrum.web.HistoryLog import object_wrapper
 from Cerebrum.web.utils import url
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
@@ -33,7 +34,7 @@ def _activity_tableview(events):
         #server = req.session['server']
         #ent = ClientAPI.fetch_object_by_id(server, change.change_by)
         #who = ent.name
-        table.add(message=change.message(),
+        table.add(message=change.message(object_wrapper),
                   icon='<img src=\"'+url("img/"+icon)+'\">')
     return table
                                                                                                                                                                             

@@ -1,6 +1,7 @@
 from Cerebrum.web.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cerebrum.web.TableView import TableView
 from Cerebrum.web.utils import url
+from Cerebrum.web.utils import object_link
 from Cerebrum.Utils import Factory
 ClientAPI = Factory.get_module("ClientAPI")
 #from Cerebrum.web.Main import Main
@@ -21,14 +22,24 @@ def view_history(entity):
     table = _history_tableview(events)
     return template.viewCompleteHistoryLog(table)
 
+def object_wrapper(object):
+    """Wraps an object into a nice stringified link, if possible"""
+    try:
+        return str(object_link(object))
+    except:
+        try:
+            return str(object)
+        except:
+            return repr(object)    
+
 def _history_tableview(events):    
+            
     table = TableView("timestamp", "icon", "who", "message")
     for change in events:
         if type(change.change_by) in types.StringTypes:
             who = change.change_by
         else:
-            # TODO: should be a hyperlink to the account
-            who = str(change.change_by)
+            who = object_link(change.change_by)
         icon = get_icon_by_change_type(change.type.type)
         #server = req.session['server']
         #ent = ClientAPI.fetch_object_by_id(server, change.change_by)
@@ -36,7 +47,7 @@ def _history_tableview(events):
         table.add(timestamp=change.date.Format("%Y-%m-%d"),
                   who=who,
                   # TODO: Should use hyperlinks on references 
-                  message=change.message(), 
+                  message=change.message(object_wrapper), 
                   icon='<img src=\"'+url("img/"+icon)+'\">') 
     return table        
         
