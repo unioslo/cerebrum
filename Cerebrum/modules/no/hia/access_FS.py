@@ -31,7 +31,7 @@ class HiAFS(FS):
     """FS klassen definerer et sett med metoder som kan benyttes for å
     hente ut informasjon om personer og OU-er fra FS. De fleste
     metodene returnerer en tuple med kolonnenavn fulgt av en tuple med
-    dbrows."""
+    dbrows. """
 
 ################################################################
 #       Studenter                                              #
@@ -39,7 +39,8 @@ class HiAFS(FS):
 
     def GetTilbud(self, institusjonsnr=0):
 	"""Hent data om studenter med tilbud til opptak på
-	et studieprogram ved Høgskolen i Agder. """
+	et studieprogram ved Høgskolen i Agder som har takket ja
+        til tilbudet. """
 	qry = """
 SELECT DISTINCT
       p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
@@ -53,6 +54,7 @@ WHERE p.fodselsdato=sa.fodselsdato AND
       p.personnr=sa.personnr AND
       sa.institusjonsnr='%s' AND 
       sa.tilbudstatkode IN ('I', 'S') AND
+      sa.svarstatkode_svar_pa_tilbud='J' AND
       sa.studietypenr = osp.studietypenr AND
       osp.studieprogramkode = sp.studieprogramkode
       AND %s
