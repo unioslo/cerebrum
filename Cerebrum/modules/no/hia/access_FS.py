@@ -80,15 +80,17 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
        sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
        sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil
-FROM fs.kull k, fs.studieprogramstudent sps, fs.person p
+FROM fs.kull k, fs.studieprogramstudent sps, fs.person p, fs.student s
 WHERE p.fodselsdato = sps.fodselsdato AND
       p.personnr = sps.personnr AND
+      p.fodselsdato = s.fodselsdato AND
+      p.personnr = s.personnr AND
       %s AND
       k.studieprogramkode = sps.studieprogramkode AND
       k.terminkode = sps.terminkode_kull AND
       k.arstall = sps.arstall_kull AND
       NVL(k.status_aktiv,'J') = 'J' AND
-      NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+      NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
 UNION
 SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -98,12 +100,14 @@ SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
        sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
        sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil
-FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p
+FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p, fs.student s
 WHERE p.fodselsdato = sps.fodselsdato AND
       p.personnr = sps.personnr AND
+      p.fodselsdato = s.fodselsdato AND
+      p.personnr = s.personnr AND
       %s AND
-      sps.fodselsdato = r.fodselsdato AND
-      sps.personnr = r.personnr AND
+      p.fodselsdato = r.fodselsdato AND
+      p.personnr = r.personnr AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
       %s """ % (self.is_alive(), self.is_alive(), self.get_termin_aar(only_current=1))
         return (self._get_cols(qry),self.db.query(qry))
