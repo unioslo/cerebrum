@@ -687,6 +687,18 @@ class BofhdAuth(DatabaseAccessor):
                                 query_run_any=False):
         return self.can_email_forward_edit(operator, account, query_run_any)
 
+    def can_email_list_create(self, operator, domain=None,
+                              query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
+
+    def can_email_list_delete(self, operator, domain=None,
+                              query_run_any=False):
+        return self.can_email_list_create(operator, domain, query_run_any)
+
     def _query_disk_permissions(self, operator, operation, disk, victim_id):
         """Permissions on disks may either be granted to a specific
         disk, a complete host, or a set of disks matching a regexp"""
