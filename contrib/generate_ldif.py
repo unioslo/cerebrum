@@ -580,18 +580,16 @@ def generate_person(filename=None):
 	    elif row['auth_crypt'] is not None:
 		passwd = row['auth_crypt']
 	    else:
-		pass
-	    if passwd:
-		if row['quarantine_type'] is not None:
-            	    qh = QuarantineHandler.QuarantineHandler(Cerebrum, 
-						[row['quarantine_type']])
-            	    if qh.should_skip():
-			continue
-            	    if qh.is_locked():
-			passwd = '*Locked'
-		pers_string += "userPassword: {crypt}%s\n" % passwd
-	    else:
-		pers_string += "userPassword: {crypt}*Invalid\n"
+                passwd = '*Invalid'
+	    if row['quarantine_type'] is not None:
+                qh = QuarantineHandler.QuarantineHandler(Cerebrum, 
+                                                    [row['quarantine_type']])
+                if qh.should_skip():
+                    continue
+                if qh.is_locked():
+                    passwd = '*Locked'
+            pers_string += "userPassword: {crypt}%s\n" % passwd
+
 	    #if aci_person  and (int(person.entity_id)  not in aci_empl_gr):
 	    if aci_person  and not aci_empl_gr.has_key(int(person.entity_id)):
 		pers_string += "%s\n" % cereconf.LDAP_PERSON_ACI
