@@ -118,7 +118,8 @@ class AccountUtil(object):
                                             'groups': [],
                                             'affs': [],
                                             'home': {},
-                                            'gid': None}
+                                            'gid': None,
+                                            'quarantines': []}
         AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
         return account.entity_id
     create_user=staticmethod(create_user)
