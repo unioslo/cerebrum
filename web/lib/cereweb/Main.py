@@ -11,7 +11,7 @@ class Main(MainTemplate):
         self.menu = SideMenu()
         self.worklist = self.session['worklist']
         #self.activitylog = self.session['activitylog']
-        self.activitylog = lambda: ActivityLog.view_operator_history(self.session)
+        #self.activitylog = lambda: ActivityLog.view_operator_history(self.session)
 
     def add_message(self, message, error=False):
         """Adds a message on top of page. If error is true, the 

@@ -1,8 +1,5 @@
-import cerebrum_path
 import forgetHTML as html
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-ClientAPI = Factory.get_module("ClientAPI")
 from Cerebrum.web.templates.GroupSearchTemplate import GroupSearchTemplate
 from Cerebrum.web.templates.GroupViewTemplate import GroupViewTemplate
 from Cerebrum.web.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
@@ -17,6 +14,9 @@ from Cerebrum.web.utils import redirect
 from Cerebrum.web.utils import no_cache
 from mx import DateTime
 
+from Cerebrum.gro import ServerConnection
+import generated
+
 def index(req):
     page = Main(req)
     page.menu.setFocus("group/search")
@@ -30,6 +30,7 @@ def search(req, name="", desc="", spread=""):
     page.title = _("Group search")
     page.setFocus("group/list")
     server = req.session['server']
+    server = ServerConnection.get_orb().string_to_object(server)
     # Store given search parameters in search form
     formvalues = {}
     formvalues['name'] = name
@@ -39,15 +40,19 @@ def search(req, name="", desc="", spread=""):
                        searchList=[{'formvalues': formvalues}])
     result = html.Division()
     result.append(html.Header(_("Group search results"), level=2))
-    groups = ClientAPI.Group.search(server, spread or None, 
-                                    name or None, 
-                                    desc or None)
+
+    searcher = server.get_group_search()
+    searcher.set_name(name)
+    groups = searcher.search()
     table = html.SimpleTable(header="row", _class="results")
     table.add(_("Name"), _("Description"))
-    for (id, name,desc) in groups:
-        desc = desc or ""
-        link = url("group/view?id=%s" % id)
-        link = html.Anchor(name, href=link)
+    for group in groups:
+        try:
+            desc = group.get_description()
+        except:
+            desc = ''
+        link = url("group/view?id=%s" % group.get_entity_id())
+        link = html.Anchor(group.get_name(), href=link)
         table.add(link, desc)
     
     if groups:    
@@ -69,8 +74,9 @@ def list(req):
 
 def _get_group(req, id):
     server = req.session['server']
+    server = ServerConnection.get_orb().string_to_object(server)
     try:
-        return ClientAPI.Group.fetch_by_id(server, int(id))
+        return server.get_group(int(id))
     except Exception, e:
         queue_message(req, _("Could not load group with id=%s") % id, 
                       error=True)
@@ -89,12 +95,10 @@ def view(req, id):
     return page
     
 def _add_box(group):
-    operations = [(ClientAPI.Constants.UNION, _("Union")), 
-                  (ClientAPI.Constants.INTERSECTION, _("Intersection")), 
-                  (ClientAPI.Constants.DIFFERENCE, _("Difference"))]
+    operations = [('union',)*2, ('intersection',)*2, ('difference',)*2]
     member_types = [("account", _("Account")),
                     ("group", _("Group"))]
-    action = url("group/add_member?id=%s" % group.id)
+    action = url("group/add_member?id=%s" % group.get_entity_id())
 
     template = GroupAddMemberTemplate()
     return template.add_member_box(action, member_types, operations)
@@ -146,12 +150,16 @@ def edit(req, id):
     page = Main(req)
     page.menu.setFocus("group/edit")
     edit = GroupEditTemplate()
-    edit.formvalues['name'] = group.name
-    edit.formvalues['desc'] = group.description
-    if group.expire_date:
-        edit.formvalues['expire_date'] = group.expire_date.Format("%Y-%m-%d")
-    else:
-        edit.formvalues['expire_date'] = ""    
+    edit.formvalues['name'] = group.get_name()
+    try:
+        edit.formvalues['desc'] = group.get_description()
+    except:
+        edit.formvalues['desc'] = ''
+#    if group.expire_date:
+#        edit.formvalues['expire_date'] = group.expire_date.Format("%Y-%m-%d")
+#    else:
+#        edit.formvalues['expire_date'] = ""    
+    edit.formvalues['expire_date'] = ""    
     page.content = lambda: edit.form(id)
     return page
 
@@ -163,6 +171,8 @@ def create(req):
     return page
 
 def save(req, id, name, desc, expire_date):
+    #server = req.session['server']
+    #server = ServerConnection.get_orb().string_to_object(server)
     if not(id):
         server = req.session['server']
         group = ClientAPI.Group.create(server, name, desc)
@@ -171,7 +181,7 @@ def save(req, id, name, desc, expire_date):
     
     group = _get_group(req, id)
     
-    if name != group.name:
+    if name != group.get_name():
         #FIXME: Do something, maybe...
         queue_message(req, 
                       _("Sorry, cannot not change group name yet"), 
@@ -186,15 +196,17 @@ def save(req, id, name, desc, expire_date):
                             expire_date.Format("%Y-%m-%d"))
     else:
         # No expire_date date set, check if it's to be removed
-        if group.expire_date:
-            group.set_expire_date(None)
-            queue_message(req, _("Removed expiration date"))
+        pass
+#        if group.expire_date:
+#            group.set_expire_date(None)
+#            queue_message(req, _("Removed expiration date"))
 
-    if desc != group.description:
+    if desc:#desc != group.description:
         #FIXME: Do something, maybe...
-        queue_message(req, 
-                      _("Sorry, cannot not change description yet"), 
-                      error=True)
+        group.set_description(desc)
+#        queue_message(req, 
+#                      _("Sorry, cannot not change description yet"), 
+#                      error=True)
 
     redirect_object(req, group, seeOther=True)
     raise Errors.UnreachableCodeError

@@ -3,7 +3,7 @@
 #extends InitTemplate
 
 #def viewNotes($entity)
-#set $notes = $entity.show_notes()
+#set $notes = $entity.get_notes()
 #for $note in $notes
   <div class="note">
     <div>
@@ -12,7 +12,7 @@
     </div>    
     <div>$note.subject</div>
     <div>$note.description</div>
-    <div><a href="$url('note/delete?id=%s&entity=%s' % ($note.id, $entity.id))">$_("Delete")</a></div>
+    <div><a href="$url('note/delete?id=%s&entity=%s' % ($note.get_id(), $entity.get_entity_id()))">$_("Delete")</a></div>
   </div>
 #end for
 #end def

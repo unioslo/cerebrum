@@ -13,38 +13,38 @@ $url("account/action")#slurp
 #def viewAccountShort($account)
 #set $creator = $account.get_creator_object()
 <div class="account">
-<h2>$_("Account") $account.name</h2>
-$_("Created ") $account.create_date.Format('%Y-%m-%d')
+<h2>$_("Account") $account.get_name()</h2>
+##$_("Created ") $account.create_date.Format('%Y-%m-%d')
 $_("by") $object_link($creator) 
 $actions($account)
 </div>
 #end def
 
 #def viewAccountInfo($account)
-<h1>$_("Account") $account.name</h1>
+<h1>$_("Account") $account.get_name()</h1>
 <div class="info">
 <dl>
     <dt>$_("Date created")</dt>
-    <dd>$account.create_date.Format('%Y-%m-%d')</dd>
+##    <dd>$account.create_date.Format('%Y-%m-%d')</dd>
 
-#if $account.expire_date
+##if $account.expire_date
     <dt>$_("Expire date")</dt>
-    <dd>$account.expire_date.Format('%Y-%m-%d')</dd>
-#end if
+##    <dd>$account.expire_date.Format('%Y-%m-%d')</dd>
+##end if
 
-#set $creator = $account.get_creator_object()
+##set $creator = $account.get_creator_object()
     
     <dt>$_("Created by")</dt>
-    <dd>$object_link($creator)</dd>
+##    <dd>$object_link($creator)</dd>
 
-#set $owner = $account.get_owner_object()
+###set $owner = $account.get_owner_object()
     <dt>$_("Owned by")</dt>
-    <dd><dd>$object_link($owner)</dd></dd>
+##    <dd><dd>$object_link($owner)</dd></dd>
 
-#if $account.spread
+###if $account.spread
     <dt>$_("Spreads")</dt>
-    <dd>$account.spread</dd>
-#end if    
+##    <dd>$account.spread</dd>
+##end if    
 
 </dl>
 </div>
@@ -53,14 +53,14 @@ $actions($account)
 
 #def actions($account)
 <div class="actions">
-#set link = $url("account/edit?id=%s" % $account.id)
+#set link = $url("account/edit?id=%s" % $account.get_entity_id())
 <a href="$link">$_("Edit account")</a>
-#set link = $url("account/delete?id=%s" % $account.id)
+#set link = $url("account/delete?id=%s" % $account.get_entity_id())
 <a href="$link">$_("Remove account")</a>
 </div>
 #end def
 
 #def viewAccount($account)
 $viewAccountInfo($account)
-$view_entity($account)
+##$view_entity($account)
 #end def

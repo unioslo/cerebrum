@@ -4,6 +4,8 @@ from Cerebrum.client import AbstractModel
 from Cerebrum.Errors import ProgrammingError
 import forgetHTML
 
+import generated
+
 def url(path):
     """Returns a full path for a path relative to the base installation.
        Example:
@@ -13,11 +15,10 @@ def url(path):
     return cereconf.WEBROOT + "/" + path
 
 _object_type_url_map = {
-    AbstractModel.Account:      "account",
-    AbstractModel.Group:        "group",
-    AbstractModel.Person:       "person",
+    generated.Account:      "account",
+    generated.Group:        "group",
+    generated.Person:       "person",
     #AbstractModel.OU:           "ou", 
-    AbstractModel.Quarantine:   "quarantine",
 }
 
 def object_url(object, method="view"):
@@ -26,9 +27,10 @@ def object_url(object, method="view"):
        other things."""
     # You might catch special cases here before the for-loop   
     for (type, path) in _object_type_url_map.items():
-        if isinstance(object, type):
+#        if isinstance(object, type):
+        if object._narrow(type):
             return url("%s/%s/?id=%s" % 
-                       (path, method, object.id))
+                       (path, method, object.get_entity_id()))
     raise "Unknown object %r" % object
 
 def object_link(object, text=None, method="view"):

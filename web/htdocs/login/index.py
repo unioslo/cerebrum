@@ -7,7 +7,9 @@ from Cerebrum.web.utils import url
 #FIXME 
 import forgetHTML as html
 
-from Cerebrum.client.ServerConnection import ServerConnection
+from Cerebrum.gro import ServerConnection
+import generated
+
 
 def index(req, user="", password=""):
     # Do this ourself since we are invoked by 
@@ -17,7 +19,9 @@ def index(req, user="", password=""):
     if user:
         error = "Login"
         try:
-            server = ServerConnection(user, password)
+            gro = ServerConnection.connect()
+            server = gro.get_ap_handler(user, password).begin()
+            server = ServerConnection.get_orb().object_to_string(server)
         except Exception, e:
             error = str(e)
             error = error.replace("<", "")

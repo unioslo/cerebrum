@@ -5,7 +5,7 @@
 #from Cerebrum.web import HistoryLog
 
 #def viewGroup($group)
-<h1>$_("Group") $group.name</h1>
+<h1>$_("Group") $group.get_name()</h1>
 $groupInfo($group)
 $groupMembers($group)
 $add_member($group)
@@ -20,7 +20,7 @@ $view_entity($group)
 <%
 memberSets = {}
 for member in allmembers:
-    operation = member['operation']
+    operation = member.get_operation().get_name()
     # fetch (and possibly create) a list to contain members
     members = memberSets.setdefault(operation, [])
     members.append(member)
@@ -58,27 +58,27 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 <div class="info">
 <dl>
     <dt>$_("Name")</dt>
-    <dd>$group.name</dd>
+    <dd>$group.get_name()</dd>
 
-#if $group.gid
-    <dt>$_("Gid")</dt>
-    <dd>$group.gid</dd>
-#end if    
+###if $group.get_gid()
+##    <dt>$_("Gid")</dt>
+##    <dd>$group.get_gid()</dd>
+###end if    
 
     <dt>$_("Description")</dt>
-    <dd>$group.description</dd>
+    <dd>$group.get_description()</dd>
 
-#if $group.expire_date
-#set $expire_date=$group.expire_date.Format("%Y-%m-%d")
-    <dt>$_("Expire")</dt>
-    <dd>$expire_date</dd>
-#end if
+##if $group.expire_date
+##set $expire_date=$group.expire_date.Format("%Y-%m-%d")
+##    <dt>$_("Expire")</dt>
+##    <dd>$expire_date</dd>
+##end if
 
-#set $spreads=', '.join($group.spreads)    
-#if $spreads
-    <dt>$_("Spreads")</dt>
-    <dd>$spreads</dd>
-#end if    
+##set $spreads=', '.join($group.spreads)    
+##if $spreads
+##    <dt>$_("Spreads")</dt>
+##    <dd>$spreads</dd>
+##end if    
 
 </dl>
 </div>
