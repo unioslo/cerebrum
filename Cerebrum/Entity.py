@@ -387,6 +387,7 @@ class EntityAddress(Entity):
                          postal_number=None, city=None, country=None):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
+            self.__data = {}
         elif self._src_sys <> source_system:
             raise ValueError, \
                   "Can't populate multiple `source_system`s w/o write_db()."
