@@ -60,18 +60,18 @@ class AccountUiOMixin(Account.Account):
             est = Email.EmailServerTarget(self._db)
             es = Email.EmailServer(self._db)
             is_on_cyrus = False
+            old_server = None
             try:
                 est.find_by_entity(self.entity_id)
+                old_server = est.email_server_id
                 es.find(est.email_server_id)
                 if es.email_server_type == self.const.email_server_type_cyrus:
                     is_on_cyrus = True
             except Errors.NotFoundError:
                 pass
-            old_server = None
             if not is_on_cyrus:
                 # Randomly choose which IMAP server the user should
                 # reside on.
-                old_server = est.email_server_id
                 imap_servs = []
                 for svr in es.list_email_server_ext():
                     if (svr['server_type']
@@ -82,7 +82,14 @@ class AccountUiOMixin(Account.Account):
                         continue
                     imap_servs.append(svr['server_id'])
                 svr_id = random.choice(imap_servs)
-                est.populate(svr_id)
+                est.email_server_id = svr_id
+                if old_server is None:
+                    et = Email.EmailTarget(self._db)
+                    et.find_by_email_target_attrs(entity_id = self.entity_id)
+                    est.clear()
+                    est.populate(svr_id, parent = et)
+                else:
+                    est.populate(svr_id)
                 est.write_db()
 
             # Set quota.
