@@ -41,6 +41,7 @@
       </fileset>
       <fileset dir="${basedir}">
         <include name="*.properties"/>
+        <include name="cacert.pem"/>
       </fileset>
       <manifest>
         <attribute name="Main-Class" value="no.uio.jbofh.JBofh"/>
