@@ -451,11 +451,14 @@ def create_account(u, owner_id):
 
     home = disk_id = None
     if is_posix:
-        gecos = None        # TODO
-        shell = shell2shellconst[u['shell']]
-        posix_user.clear()
-        accountObj = posix_user
-    else:
+        if not gid2entity_id.has_key(int(u['dfg'])):
+            is_posix = 0
+        else:
+            gecos = None        # TODO
+            shell = shell2shellconst[u['shell']]
+            posix_user.clear()
+            accountObj = posix_user
+    if not is_posix:
         account.clear()
         accountObj = account
 
@@ -515,7 +518,8 @@ def create_account(u, owner_id):
     accountObj.write_db()
     if u.has_key('quarantine') or had_splat:
         if not u.has_key('quarantine'):
-            print "Warning, user %s had splat, but no quatantine" % u['uname']
+            if not u.has_key('deleted_date'):
+                print "Warning, user %s had splat, but no quatantine" % u['uname']
             when = db.TimestampFromTicks(time())
             why = "Had splat on import from ureg2000"
         else:
@@ -601,3 +605,5 @@ if __name__ == '__main__':
             import_groups(gfile, 1)
     if(len(opts) == 0):
         usage()
+    else:
+        showtime("all done")
