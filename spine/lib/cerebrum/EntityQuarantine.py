@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import mx.DateTime
+
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -42,7 +44,12 @@ class EntityQuarantine(DatabaseClass):
         DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('start_date', table, Date, write=True),
-        DatabaseAttr('end_date', table, Date, write=True)
+        DatabaseAttr('end_date', table, Date, write=True),
+        DatabaseAttr('disable_until', table, Date, write=True)
+    ]
+
+    method_slots = [
+        Method('is_active', bool)
     ]
 
     db_attr_aliases = {
@@ -53,6 +60,17 @@ class EntityQuarantine(DatabaseClass):
         }
     }
 
+    def is_active():
+        now = mx.DateTime.now()
+
+        start = self.get_starte_date()
+        end = self.get_end_date()
+        disable = self.get_disable_until()
+
+        return (start <= now
+            and (end is None or end >= now)
+            and (disable is None or disable < now))
+
 registry.register_class(EntityQuarantine)
 
 def get_quarantines(self):
@@ -62,32 +80,43 @@ def get_quarantines(self):
 
 Entity.register_method(Method('get_quarantines', [EntityQuarantine]), get_quarantines)
 
+def get_all_quarantines(self):
+    q = self.get_quarantines()
+    if self.get_type().get_name() == 'account':
+        q += self.get_owner().get_all_quarantines()
+    return q
+
+Entity.register_method(Method('get_all_quarantines', [EntityQuarantine]), get_all_quarantines)
+
+def get_active_quarantines(self):
+    return [i for i in self.get_quarantines() if i.is_active()]
+
 def is_quarantined(self):
-    import Cerebrum.Entity
     import Cerebrum.QuarantineHandler
-    import time
 
-    account = Cerebrum.Entity.EntityQuarantine(self.get_database())
-    account.entity_id = self.get_id()
-
-    # koka fra bofhd
-    quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
-
-    # FIXME: hente tid med sql pga sikkerhetshensyn
-    now = self.get_database().DateFromTicks(time.time())
-    for qrow in account.get_entity_quarantine():
-        if (qrow['start_date'] <= now
-            and (qrow['end_date'] is None or qrow['end_date'] >= now)
-            and (qrow['disable_until'] is None 
-            or qrow['disable_until'] < now)):
-            # The quarantine found in this row is currently
-            # active.
-            quarantines.append(qrow['quarantine_type'])
+    quarantines = [i.get_type() for i in self.get_quarantines() if i.is_active()]
     qh = Cerebrum.QuarantineHandler.QuarantineHandler(self.get_database(), quarantines)
-    if qh.should_skip() or qh.is_locked():
-        return True
-    return False
+
+    return qh.should_skip() or qh.is_locked()
 
 Entity.register_method(Method('is_quarantined', bool), is_quarantined)
+
+def add_quarantine(self, type, description, start, end, disable_until):
+    import mx.DateTime
+    db = self.get_database()
+    obj = self._get_cerebrum_obj()
+
+    if start:
+        start = mx.DateTime.now()
+    if end:
+        end = end._value
+    if disable_until:
+        disable_until = disable_until._value
+
+    obj.add_entity_quarantine(type.get_id(), db.change_by, description, start, end)
+    if disable_until:
+        obj.disable_entity_quarantine(type.get_id(), disable_until)
+
+Entity.register_method(Method('add_quarantine', None, args=[('type', QuarantineType), ('description', str), ('start', Date), ('end', Date), ('disable_until', Date)], write=True), add_quarantine)
 
 # arch-tag: 07667d91-f0b5-4152-8e83-36994ffa9b8e
