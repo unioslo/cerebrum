@@ -310,13 +310,22 @@ class BofhdAuth(DatabaseAccessor):
                                               self.const.auth_target_type_global_maildomain,
                                               None, None)
 
-    def is_account_owner(self, operator, operation, account):
-        if self._has_access_to_entity_via_ou(operator, operation, account):
+    def is_account_owner(self, operator, operation, entity):
+        """See if operator has access to entity.  entity can be either
+        a Person or Account object.  First check if operator is
+        allowed to perform operation on one of the OUs associated with
+        Person or Account.  If that fails, and the entity is an
+        Account, check if operator's access to the account's disk.
+        Returns True for success and raises exception PermissionDenied
+        for failure."""
+        if self._has_access_to_entity_via_ou(operator, operation, entity):
             return True
-        if account.disk_id:
+        if not isinstance(entity, Factory.get('Account')):
+            raise PermissionDenied("No access to person")
+        if entity.disk_id:
             self._query_disk_permissions(operator, operation,
-                                         self._get_disk(account.disk_id),
-                                         account.entity_id)
+                                         self._get_disk(entity.disk_id),
+                                         entity.entity_id)
         else:
             raise PermissionDenied("No access to account")
 
@@ -553,13 +562,17 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_create_user)
-        # TODO: check person's OU for sites with no disks?
-        return self._query_disk_permissions(operator,
-                                            self.const.auth_create_user,
-                                            self._get_disk(disk),
-                                            None)
+            return self._has_operation_perm_somewhere(operator,
+                                                      self.const.auth_create_user)
+        if disk:
+            return self._query_disk_permissions(operator,
+                                                self.const.auth_create_user,
+                                                self._get_disk(disk),
+                                                None)
+        if person:
+            return self.is_account_owner(operator, self.const.auth_create_user,
+                                         person)
+        raise PermissionDenied, "No access"
 
     def can_delete_user(self, operator, account=None,
                         query_run_any=False):
