@@ -42,13 +42,15 @@ class TrivialParser(xml.sax.ContentHandler):
         self.steder = []
 
     def startElement(self, name, attrs):
+        tmp = {}
+        for k in attrs.keys():
+            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
         if name == 'data':
             pass
         elif name == "sted":
-            tmp = {}
-            for k in attrs.keys():
-                tmp[k] = attrs[k].encode('iso8859-1')
             self.steder.append(tmp)
+        elif name == "komm":
+            self.steder[-1].setdefault("komm", []).append(tmp)
         else:
             raise ValueError, "Unknown XML element %s" % name
 
@@ -112,7 +114,20 @@ def main():
                                 postal_number=k.get('poststednr_besok_adr',
                                                     None),
                                 city=k.get('poststednavn_besok_adr', None))
-
+        n = 0
+        for t in k.get('komm', []):
+            n += 1       # TODO: set contact_pref properly
+            if t['kommtypekode'] == 'FAX': 
+                ou.populate_contact_info(co.system_lt, co.contact_fax,
+                                         t['telefonnr'], contact_pref=n)
+            elif t['kommtypekode'] == 'TLF': 
+                if len(t['telefonnr']) == 5:
+                    t['telefonnr'] = "228%s" % t['telefonnr']
+                ou.populate_contact_info(co.system_lt, co.contact_fax,
+                                         t['telefonnr'], contact_pref=n)
+            elif t['kommtypekode'] == 'EPOST': 
+                ou.populate_contact_info(co.system_lt, co.contact_email,
+                                         t['kommnrverdi'], contact_pref=n)
         op = ou.write_db()
         if op is None:
             print "**** EQUAL ****"
