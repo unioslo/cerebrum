@@ -22,8 +22,11 @@ from Cerebrum.Utils import Factory
 
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.Builder import Method
+from CerebrumClass import CerebrumAttr, CerebrumDbAttr
+
 
 from Entity import Entity
+from Account import Account
 from Date import Date
 from Types import EntityType, GenderType
 from Commands import Commands
@@ -34,14 +37,14 @@ registry = Registry.get_registry()
 __all__ = ['Person']
 
 # Convert deceased to be inserted into db.
-def convert_to(value):
+def ct(value):
     if value:
         return 'T'
     else:
         return 'F'
 
 # Convert deceased into boolean from a string.
-def convert_from(value):
+def cf(value):
     if value == 'T':
         return True
     else:
@@ -50,39 +53,41 @@ def convert_from(value):
 table = 'person_info'
 class Person(Entity):
     slots = Entity.slots + [
-        DatabaseAttr('export_id', table, str, write=True),
-        DatabaseAttr('birth_date', table, Date, write=True),
-        DatabaseAttr('gender', table, GenderType, write=True),
-        DatabaseAttr('deceased', table, bool, convert_from=convert_from, convert_to=convert_to, write=True),
-        DatabaseAttr('description', table, str, write=True)
+        CerebrumDbAttr('export_id', table, str, write=True),
+        CerebrumDbAttr('birth_date', table, Date, write=True),
+        CerebrumDbAttr('gender', table, GenderType, write=True),
+        CerebrumDbAttr('deceased', table, bool, convert_from=cf, convert_to=ct, write=True),
+        CerebrumDbAttr('description', table, str, write=True)
     ]
-
     method_slots = Entity.method_slots + [
-        Method('delete', None, write=True)
+        Method('delete', None, write=True),
+        Method('get_primary_account', Account)
     ]
 
-    db_attr_aliases = Entity.db_attr_aliases.copy()
-    db_attr_aliases[table] = {
+    Entity.db_attr_aliases[table] = {
         'id':'person_id'
     }
-
+    cerebrum_attr_aliases = {}
+    cerebrum_class = Factory.get('Person')
     entity_type = EntityType(name='person')
 
     def delete(self):
-        db = self.get_database()
-        person = Factory.get('Person')(db)
-        person.find(self.get_id())
-        person.delete()
+        self._delete()
         self.invalidate()
+
+    def get_primary_account(self):
+        account_id = self._get_cerebrum_obj().get_primary_account()
+        if account_id is None:
+            raise Exception('no primary account found for %s' % self)
+        return Account(account_id)
 
 registry.register_class(Person)
 
 def create(self, birthdate, gender):
     db = self.get_database()
-    person = Factory.get('Person')(db)
-    person.populate(birthdate.get_date, gender.get_name())
-    person.write_db()
-    return Person(person.entity_id, write_lock=self.get_writelock_holder())
+    # FIXME: birthdate.get_date er vel feil?
+    id = Person._create(db, birthdate.strftime("%Y-%m-%d"), gender.get_id())
+    return Person(id, write_lock=self.get_writelock_holder())
 
 Commands.register_method(Method('create_person', Person, write=True,
                          args=[('birthdate', Date), ('gender', GenderType)]), create)
