@@ -116,27 +116,6 @@ class SocketCom(object):
             print '>>', rec
         return rec    
 
-
-    def readgrp(self,out=1):
-        received = []
-        rec = ''
-        while 1:
-            data = self.sockobj.recv(8192)
-            m=self.p.search(data)
-            if m: 
-		break
-	    else:
-            	received.append(data)
-        received.append(data)
-        #process data
-        for i in received:
-	    i.strip()
-	    rec = '%s%s' % (rec,i)		   	
-        if out:     
-            print '>>', rec
-        return rec    
-
-
     def close(self):
         print 'INFO: Finished, ending session', now()
         self.sockobj.send("QUIT\n")
@@ -256,7 +235,8 @@ def find_home_dir(account_id, account_name, disk_spread):
         account.clear()
         account.find(account_id)
         disk.clear()
-        disk.find(account.get_home(disk_spread))
+	disk_id=account.get_home(disk_spread)
+        disk.find(disk_id['disk_id'])
         try:
 	    moho.clear()	
 	    moho.find(disk.host_id)	
