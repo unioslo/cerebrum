@@ -60,7 +60,7 @@ class ChangeLog(object):
 
     def get_log_events(self, start_id, type=None):
         where = ["change_id >= :start_id"]
-        bind = {'start_id': start_id}
+        bind = {'start_id': int(start_id)}
         if type is not None:
             where += "type = :type"
             bind['type'] = type
