@@ -68,11 +68,17 @@ class BofhdExtension(object):
             if isinstance(tmp, _CerebrumCode):
                 self.num2const[int(tmp)] = tmp
                 self.str2const["%s" % tmp] = tmp
-        self.ba = BofhdAuth(server.db)
-        aos = BofhdAuthOpSet(server.db)
+        self.ba = BofhdAuth(self.db)
+        aos = BofhdAuthOpSet(self.db)
         self.num2op_set_name = {}
         for r in aos.list():
             self.num2op_set_name[int(r['op_set_id'])] = r['name']
+        self.change_type2details = {}
+        for r in self.db.get_changetypes():
+            self.change_type2details[int(r['change_type_id'])] = [
+                r['category'], r['type'], r['msg_string']]
+
+
 
     def get_commands(self, uname):
         # TBD: Do some filtering on uname to remove commands
@@ -1093,7 +1099,19 @@ class BofhdExtension(object):
     all_commands['user_history'] = Command(
         ("user", "history"), AccountName())
     def user_history(self, operator, accountname):
-        raise NotImplementedError, "Feel free to implement this function"
+        account = self._get_account(accountname)
+        self.ba.can_show_history(operator.get_entity_id(), account)
+        ret = []
+        for r in self.db.get_log_events(0, subject_entity=account.entity_id):
+            dest = r['dest_entity']
+            if dest is not None:
+                self._get_entity_name(None, dest)
+            msg = self.change_type2details[int(r['change_type_id'])][2] % {
+                'subject': self._get_entity_name(None, r['subject_entity']),
+                'dest': dest}
+            by = r['change_program'] or self._get_entity_name(None, r['change_by'])
+            ret.append("%s [%s]: %s" % (r['tstamp'], by, msg))
+        return "\n".join(ret)
 
     # user info
     all_commands['user_info'] = Command(
