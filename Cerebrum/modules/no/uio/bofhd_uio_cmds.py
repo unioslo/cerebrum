@@ -531,6 +531,7 @@ class BofhdExtension(object):
         info = []
         eq = Email.EmailQuota(self.db)
         try:
+            raise Errors.NotFoundError  # Temporarely disabled due to server problems
             eq.find_by_entity(acc.entity_id)
             est = Email.EmailServerTarget(self.db)
             est.find_by_entity(acc.entity_id)
