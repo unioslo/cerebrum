@@ -44,7 +44,7 @@ class Config(object):
         
         ret = self.select_mapping.get(select_type, {}).get(
             select_key, {}).get(entry_value, None)
-        self._logger.debug("Check matches for %s / %s / %s -> %s" % (
+        self._logger.debug2("Check matches for %s / %s / %s -> %s" % (
             select_type, select_key, entry_value, str(ret)))
         return ret
         
@@ -139,11 +139,20 @@ class ProfileDefinition(object):
                         config.disk_defs[t][disk[t]]
                     except KeyError:
                         self._logger.warn("bad disk: %s=%s" % (t, disk[t]))
+                        self.settings['disk'].remove(disk)
+                        tmp = []
             if disk.has_key('path'):    # Store disk-id as path
+                ok = False
                 for d in config.autostud.disks.keys():
                     if config.autostud.disks[d][0] == disk['path']:
                         disk['path'] = d
-            break   # Only interested in the first disk
+                        ok = True
+                if not ok:
+                    self._logger.warn("bad disk: %s" % disk)
+                    self.settings['disk'].remove(disk)
+                    tmp = []
+            if tmp:
+                break   # Only interested in the first disk
         self.settings["disk"] = tmp
                 
 class StudconfigParser(xml.sax.ContentHandler):
