@@ -26,6 +26,7 @@ default username is stored in is yet to be determined.
 
 from Cerebrum.Entity import \
      Entity, EntityName, EntityQuarantine
+from Cerebrum.Database import Errors
 from Cerebrum import cereconf
 import crypt,random,string
 
@@ -134,10 +135,11 @@ class Account(Entity, EntityName, EntityQuarantine):
                 if self._name_info.get(k, None) is not None:
                     self.add_name(k, self._name_info[k])
         else:
+            new_id = self.account_id
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_info]
             SET owner_type=:o_type, owner_id=:o_id, np_type=:np_type,
-               creator_id:c_id, expire_date:e_date)
+               creator_id=:c_id, expire_date=:e_date
             WHERE account_id=:acc_id""",
                          {'o_type' : int(self.owner_type),
                           'c_id' : self.creator_id,
