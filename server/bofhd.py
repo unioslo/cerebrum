@@ -35,6 +35,8 @@ import SimpleXMLRPCServer
 import xmlrpclib
 import getopt
 from random import Random
+from M2Crypto import DH, SSL
+# import SecureXMLRPCServer
 
 import cerebrum_path
 import cereconf
@@ -260,6 +262,11 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             self.wfile.flush()
             self.connection.shutdown(1)
 
+    def finish(self):
+        if not unencrypted:
+            self.request.set_shutdown(SSL.SSL_RECEIVED_SHUTDOWN | SSL.SSL_SENT_SHUTDOWN)
+            self.request.close()
+    
     def bofhd_login(self, uname, password):
         account = Account.Account(self.server.db)
         try:
@@ -395,12 +402,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
                 return ""
         return getattr(instance, func.__name__)(session, *args)  # TODO: er dette rett syntax?
 
-
-class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
-
-    def __init__(self, database, config_fname, addr,
-                 requestHandler=BofhdRequestHandler, logRequests=1):
-        super(BofhdServer, self).__init__(addr, requestHandler, logRequests)
+class BofhdServer(object):
+    def __init__(self, database, config_fname):
         self.db = database
         self.const = Factory.get('Constants')(database)
         self.cmd2instance = {}
@@ -439,29 +442,46 @@ class BofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, object):
         inst = self.cmd2instance[cmd]
         return (inst, inst.all_commands[cmd])
 
+class StandardBofhdServer(SimpleXMLRPCServer.SimpleXMLRPCServer, BofhdServer):
+    def __init__(self, database, config_fname, addr, requestHandler,
+                 logRequests=1):
+        super(StandardBofhdServer, self).__init__(addr, requestHandler)
+        BofhdServer.__init__(self, database, config_fname)
+    
     def server_bind(self):
         import socket
         import SocketServer
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SocketServer.TCPServer.server_bind(self)
 
+class SSLBofhdServer(SSL.SSLServer, BofhdServer): # SSL.ThreadingSSLServer
+
+    def __init__(self, database, config_fname, addr, requestHandler,
+                 ssl_context):
+        super(SSLBofhdServer, self).__init__(addr, requestHandler, ssl_context)
+        BofhdServer.__init__(self, database, config_fname)
+        self.logRequests = 0
+
 def usage():
     print """Usage: bofhd.py -c filename [-t keyword]
   -c | --config-file <filename>: use as config file
   -t | --test-help <keyword>: check help consistency
+  --unencrypted: don't use https
 """
 
 if __name__ == '__main__':
     opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:',
                                ['config-file=', 'test-help=',
-                                'port='])
+                                'port=', 'unencrypted'])
+    global unencrypted
+    unencrypted = False
     conffile = None
     port = 8000
     for opt, val in opts:
         if opt in ('-c', '--config-file'):
             conffile = val
         elif opt in ('-p', '--port'):
-            port = val
+            port = int(val)
         elif opt in ('-t', '--test-help'):
             # This is a bit icky.  What we want to accomplish is to
             # fetch the results from a bofhd_get_commands client
@@ -485,22 +505,33 @@ if __name__ == '__main__':
             else:
                 print server.help.get_group_help(commands, val)
             sys.exit()
+        elif opt in ('--unencrypted',):
+            unencrypted = True
             
     if conffile is None:
         usage()
         sys.exit()
         
     print "Server starting at port: %d" % port
-    if not cereconf.ENABLE_BOFHD_CRYPTO:
-        server = BofhdServer(Factory.get('Database')(), conffile,
-                             ("0.0.0.0", port))
-    else:
-        from server import MySimpleXMLRPCServer
-        from M2Crypto import SSL
+    if not unencrypted:
+        # from echod_lib import init_context
+        def init_context(protocol, certfile, cafile, verify, verify_depth=10):
+            ctx = SSL.Context(protocol)
+            ctx.load_cert(certfile)
+            ctx.load_client_ca(cafile)
+            ctx.load_verify_info(cafile)
+            ctx.set_verify(verify, verify_depth)
+            ctx.set_allow_unknown_ca(1)
+            ctx.set_session_id_ctx('echod')
+            ctx.set_info_callback()
+            print dir(ctx)
+            return ctx
 
-        ctx = MySimpleXMLRPCServer.init_context('sslv23', 'server.pem',
-                                                'ca.pem',
-                                                SSL.verify_none)
+        ctx = init_context('sslv23', 'server.cert', 'ca.pem', SSL.verify_none)
         ctx.set_tmp_dh('dh1024.pem')
-        server = MySimpleXMLRPCServer.SimpleXMLRPCServer(('',port),ctx)
+        server = SSLBofhdServer(Factory.get('Database')(), conffile,
+                                ("0.0.0.0", port), BofhdRequestHandler, ctx)
+    else:
+        server = StandardBofhdServer(Factory.get('Database')(), conffile,
+                                ("0.0.0.0", port), BofhdRequestHandler)
     server.serve_forever()
