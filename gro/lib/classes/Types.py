@@ -92,7 +92,7 @@ class CodeType(GroBuilder, Searchable):
 
             where = []
             if id is not None:
-                where.append('code = %i' % entity.get_id())
+                where.append('code = %i' % id)
             if name is not None:
                 where.append('LOWER(code_str) LIKE :name')
                 name = prepare_string(name)
