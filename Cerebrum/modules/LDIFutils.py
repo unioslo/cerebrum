@@ -136,7 +136,7 @@ def add_ldif_file(outfile, filename):
         # Removed 'try: / except IOError: pass / else:' around file()
         if not re.match(r'\.*/', filename):
             filename = cereconf.LDAP_DUMP_DIR + '/' + filename
-        outfile.write(file(filename, 'r').read().strip() + "\n\n")
+        outfile.write(file(filename, 'r').read().strip("\n") + "\n\n")
 
 
 def iso2utf(s):
