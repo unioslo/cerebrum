@@ -70,6 +70,7 @@ def _add_res(entity_id):
 def _rem_res(entity_id):
     if group.has_member(entity_id, const.entity_person, const.group_memberop_union):
         group.remove_member(entity_id, const.group_memberop_union)
+        group.write_db()
 
 def conv_name(fullname):
     fullname = fullname.strip()
