@@ -2913,8 +2913,14 @@ class BofhdExtension(object):
         aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
         self.ba.can_remove_affiliation(operator.get_entity_id(), person, ou, aff)
-        person.delete_affiliation(ou.entity_id, aff,
-                                  self.const.system_manual)
+        for row in person.list_affiliations(person_id=person.entity_id,
+                                            affiliation=aff):
+            if row['ou_id'] != int(ou.entity_id):
+                continue
+            if int(row['source_system']) not \
+                   in [int(self.const.system_fs), int(self.const.system_lt)]:
+                person.delete_affiliation(ou.entity_id, aff,
+                                          row['source_system'])
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou), person.entity_id)
 
     # person create
