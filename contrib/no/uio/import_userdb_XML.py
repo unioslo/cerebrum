@@ -1140,9 +1140,19 @@ def create_account(u, owner_id, owner_type, np_type=None):
         mailforward.find(mt_id)
         for tmp in u.get("forwardaddress", []):
             enable = u.get('forward', False)
+            if enable == '2':
+                # forward + local delivery; the local delivery is
+                # ensured by inserting user's local address as a
+                # forward address.
+                mailforward.add_forward('%s@UIO_HOST' % u['uname'], True)
             if isinstance(enable, str) and enable.isdigit():
                 enable = int(enable)
-            mailforward.add_forward(tmp['value'], enable)
+            try:
+                mailforward.add_forward(tmp['value'], enable)
+            except db.DatabaseError:
+                # Probably an integrity error for a forward address
+                # that already was present.
+                pass
 
         mailvacation.clear()
         mailvacation.find(mt_id)
