@@ -139,7 +139,9 @@ class JobRunner(object):
             if time.time() - prev_loop_time < 2:
                 logger.debug("Fast loop: %s" % (time.time() - prev_loop_time))
                 n_fast_loops += 1
-                if n_fast_loops > 3:
+                # Allow a moderatly high number of fast loops as
+                # AssertRunning jobs may finish very quickly
+                if n_fast_loops > 20:
                     logger.critical("Looping too fast.. must be a bug, aborting!")
                     break
             else:
