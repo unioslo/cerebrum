@@ -4571,7 +4571,8 @@ class BofhdExtension(object):
         now = DateTime.now()
         for q in account.get_entity_quarantine():
             if q['start_date'] <= now:
-                if q['end_date'] < now:
+                if (q['end_date'] is not None and
+                    q['end_date'] < now):
                     quarantined = 'expired'
                 elif (q['disable_until'] is not None and
                     q['disable_until'] > now):
