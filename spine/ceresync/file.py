@@ -169,7 +169,7 @@ class ShadowFile(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
-        return "%s:%s:::::::\n" % ( account.name, account.password )
+        return "%s:%s:::::::\n" % ( account.name, account.passwords.get('MD5-crypt', '*'))
 
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"

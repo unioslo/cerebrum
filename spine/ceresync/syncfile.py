@@ -38,40 +38,43 @@ def main():
 
     passwd = file.PasswdFile(config.sync.get("file", "passwd"))
     shadow = file.ShadowFile(config.sync.get("file", "shadow"))
-    passwd.begin(incr)
-    shadow.begin(incr)
+    groupfile = file.GroupFile(config.sync.get("file", "group"))
+
+    backend_map = {
+        'account':[passwd, shadow],
+        'group':[groupfile]
+    }
+    backends = [passwd, shadow, groupfile]
+
+
+    for i in backends:
+        i.begin(incr)
+
     try:
-        for account in s.get_accounts():
+        for operation, obj in s.get_objects():
+            if obj is None:
+                continue # the object is not supported yet
             try:
-                passwd.add(account)
-                shadow.add(account)
+                for i in backend_map[obj.type]:
+                    if operation == 'add':
+                        i.add(obj)
+                    elif operation == 'delete':
+                        print 'promp'
+                    elif operation == 'update':
+                        i.update(obj)
             except errors.NotSupportedError:
                 pass    
     except Exception, e:
         traceback.print_exc()
         print "Exception %s occured, aborting" % e
-        passwd.abort()
-        shadow.abort()            
+        for i in backends:
+            i.abort()
     else:            
-        passwd.close()    
-        shadow.close()
+        for i in backends:
+            i.close()
 
-    groupfile = file.GroupFile(config.sync.get("file", "group"))
-    groupfile.begin(incr)
-    try:
-        for group in s.get_groups():
-            try:
-                groupfile.add(group)
-            except errors.NotSupportedError:
-                pass    
-    except Exception, e:
-        print "Exception %s occured, aborting" % e
-        groupfile.abort()
-    else:    
-        groupfile.close()
-
-    last_update.set(s.last_change)
-    s.close()
+        last_update.set(s.last_change)
+        s.close()
 
 if __name__ == "__main__":
     main()

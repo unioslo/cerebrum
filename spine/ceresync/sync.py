@@ -73,6 +73,7 @@ class Sync:
         """
 
         self._transactions = []
+        self.connection = None
         self._connect()
    
         if incr:
@@ -98,6 +99,7 @@ class Sync:
             self._changes = None
 #            print 'getting everything'
 
+    """
     def __del__(self):
         # We roll back our own passive main connection
         if self._connection:
@@ -108,6 +110,7 @@ class Sync:
         if self._open_transactions():
             print >>sys.stderr, "WARNING: %s transactions still open, rolling back" % len(self._transactions)
         self._rollback()
+"""
     
     def _rollback(self):
         """Rolls back any open transactions"""
@@ -222,6 +225,7 @@ class Sync:
             auths += i.get_authentications
         auth_dumper = t.get_account_authentication_dumper(auths)
         auth_dumper.mark_auth_data()
+        auth_dumper.mark_method()
         auths = {}
         for i in auth_dumper.dump():
             auths[i.reference] = i
@@ -229,7 +233,14 @@ class Sync:
         # replace corba references with the mappings we have made
         for i in accounts:
             i.get_authentications = [auths[j] for j in i.get_authentications]
-            i.password = i.get_authentications[0].auth_data # FIXME: prioritering på type?
+
+            # make a nice mapping between method:data
+            i.passwords = {}
+            types = {}
+            for auth in i.get_authentications:
+                if auth.method not in types:
+                    types[auth.method] = auth.method.get_name()
+                i.passwords[types[auth.method]] = auth.auth_data
 
             # Should get home directory from server.. must be
             # related to the active spread or something like that.
@@ -243,6 +254,8 @@ class Sync:
                 i.gecos = None
                 i.primary_group = None
                 i.shell = None
+
+            i.type = 'account'
         return accounts
 
     def get_groups(self):
@@ -279,6 +292,8 @@ class Sync:
             if not group.posix_gid_exists:
                 group.posix_gid = None
 
+            group.type = 'group'
+
         return groups
 
     def get_persons(self):
@@ -299,7 +314,76 @@ class Sync:
             # domains? 
             person.users = [a.get_name() for a in accounts.search()]
         return results
- 
+
+    def get_changes(self):
+        """
+        returns a list with (type, operation, object) tuples
+
+        type can be ACCOUNT, GROUP, PERSON, OU
+        operation can be ADD, UPDATE, DELETE
+
+        when doing DELETE operations, object is the primary key (i.e username) 
+        """
+
+        s = self._changes.get_dumper()
+
+        # get all types
+        ts = s.dump_type()
+        ts.mark_category()
+        ts.mark_type()
+        ts.mark_msg()
+        types = {}
+        for i in ts.dump():
+            types[i.reference] = i
+
+        s.mark_type()
+        s.mark_subject()
+        s.mark_subject_entity()
+        changes = []
+        for i in s.dump():
+            changes.append((i.id, types[i.type], i))
+
+        changes.sort() # make sure changes are in correct order
+
+        changed = set()
+
+        entities = {}
+        for i in self.get_accounts():
+            entities[i.id] = i
+        for i in self.get_groups():
+            entities[i.id] = i
+
+        for id, change, log in changes:
+            if change.category == 'entity' and change.type == 'del':
+                yield 'del', log.subject_entity
+                continue
+
+            # Skip repeated changes or entities we dont care about
+            if log.subject_entity not in entities:
+                continue
+
+            if change.category == 'entity' and change.type == 'add':
+                yield 'add', entities[log.subject_entity]
+
+            else: # everything else is updates
+                yield 'update', entities[log.subject_entity]
+
+            del entities[log.subject_entity]
+
+        assert not entities # all entities must have been processed
+
+    def get_all(self):
+        for i in self.get_accounts():
+            yield 'add', i
+        for i in self.get_groups():
+            yield 'add', i
+
+    def get_objects(self):
+        if self._changes is None:
+            return self.get_all()
+        else:
+            return self.get_changes()
+
 class Person:
     """Stub object for representation of a person"""
     def __init__(self, person):
@@ -410,7 +494,7 @@ class TestSync(unittest.TestCase):
         assert has_bootstrap
         bootstrap = has_bootstrap[0]
         assert bootstrap.name == "bootstrap_account"
-        assert bootstrap.password
+        assert bootstrap.passwords
         # And he doesn't have any of those POSIX stuff 
         assert not bootstrap.posix_uid 
         assert not bootstrap.primary_group
