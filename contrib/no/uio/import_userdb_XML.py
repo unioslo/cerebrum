@@ -34,7 +34,7 @@ import xml.sax
 import sys
 import getopt
 import cereconf
-from time import gmtime, strftime, time
+from time import gmtime, strftime, time, localtime
 
 from Cerebrum import Account
 from Cerebrum import Disk
@@ -1105,7 +1105,7 @@ def make_disk(hostname, disk, diskname):
 
 def showtime(msg):
     global prev_msgtime
-    print "[%s] %s (delta: %i)" % (strftime("%H:%M:%S", gmtime()), msg, (time()-prev_msgtime))
+    print "[%s] %s (delta: %i)" % (strftime("%H:%M:%S", localtime()), msg, (time()-prev_msgtime))
     prev_msgtime = time()
 
 def usage():
