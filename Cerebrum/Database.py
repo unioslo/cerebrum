@@ -143,7 +143,7 @@ class Cursor(object):
             # should we raise an exception here?
             return None
         # Retrieve the column names involved in the query.
-        fields = [ d[0] for d in self.description ]
+        fields = [ d[0].lower() for d in self.description ]
         # Make a db_row class that corresponds to this set of
         # column names.
         R = db_row.make_row_class(fields)
@@ -395,7 +395,7 @@ class Oracle(Database):
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the
         # DCOracle2 module.
-        super(DCOracle2, self).connect(conn_str)
+        super(Oracle, self).connect(conn_str)
 
     def _read_password(self, database, user):
         import os
