@@ -251,7 +251,10 @@ def process_person(person):
     fnr = fodselsnr.personnr_ok(
         "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
                               int(person['fodtar']), int(person['personnr'])))
-    logger.info2("Process %s " % fnr, append_newline=0)
+
+    # FIXME: How ugly are the logs now?
+    # logger.info2("Process %s " % fnr, append_newline=0)
+    logger.info("Process %s", fnr) 
     new_person.clear()
     gender = const.gender_male
     if(fodselsnr.er_kvinne(fnr)):
@@ -340,11 +343,11 @@ def process_person(person):
         # done.
         determine_reservations(person)
     if op is None and op2 is None:
-        logger.info2("**** EQUAL ****")
+        logger.info("**** EQUAL ****")
     elif op == True:
-        logger.info2("**** NEW ****")
+        logger.info("**** NEW ****")
     else:
-        logger.info2("**** UPDATE ****")
+        logger.info("**** UPDATE ****")
 
 def usage(exitcode=0):
     print """Usage: import_LT.py -p personfile [-v] [-g] [-d]"""
