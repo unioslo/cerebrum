@@ -5,6 +5,7 @@ import cerebrum_path
 import pprint
 import string
 import sys
+import getopt
 
 import cereconf
 from Cerebrum import Errors
@@ -25,6 +26,8 @@ account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 
 source_system = co.system_sats
 school2ouid = {}
+show_warnings = 0
+verbose = 0
 
 def read_inputfile(filename):
     print "Processing %s" % filename
@@ -132,13 +135,13 @@ def populate_people(level, type, pspec, pinfo):
             p_id = update_person(p, spec, type, affiliations.keys(), groups.keys())
             ret[p[spec[oidname]]] = (groups, affiliations)
         except:
-            print "WARNING: Error importing %s" % p[spec[oidname]]
+            print " Error importing %s" % p[spec[oidname]]
             pp.pprint ((p, spec, type, affiliations, groups.keys() ))
             raise
     return ret
 
 def do_all():
-    schools = {'gs': ('VAHL', ), # 'JORDAL'),
+    schools = {'gs': ('VAHL', 'JORDAL'),
                'vg': ('ELV', )}
     global school2ouid
     school2ouid = import_OU(schools)
@@ -157,24 +160,24 @@ def do_all():
         populate_people(level, 'ansatt', aspec, adminoid2info)
     Cerebrum.commit()
 
-def update_person(p, spec,type, affiliations, groupnames):
+def update_person(p, spec, type, affiliations, groupnames):
     """Create or update the persons name, address and contact info.
 
-    TODO: Also set affiliation
     """
     person = Person.Person(Cerebrum)
     gender = co.gender_female
     if p[spec['sex']] == '1':
         gender = co.gender_male
     date = None
+    who = "%s@%s.%s" % (p[spec['personoid']], type, affiliations[0])
+    print "update_person %s" % who
     try:
         day, mon, year = [int(x) for x in p[spec['birthday']].split('.')]
         date = Cerebrum.Date(year, mon, day)
     except:
-        warn("\nWARNING: Bad date %s for %s" % (p[spec['birthday']],
-                                                 p[spec['personoid']]))
+        warn("Bad date '%s' for %s" % (p[spec['birthday']], who))
     if p[spec['firstname']] == '' or p[spec['lastname']] == '':
-        warn("\nWARNING: bad name for %s" % p[spec['personoid']])
+        warn("Bad name for %s" % who)
         return
 
     person.clear()
@@ -188,12 +191,16 @@ def update_person(p, spec,type, affiliations, groupnames):
     person.populate_name(co.name_first, p[spec['firstname']])
     person.populate_name(co.name_last, p[spec['lastname']])
     if p[spec['socialsecno']] <> '':
-        person.populate_external_id(source_system, co.externalid_fodselsnr,
-                                    p[spec['socialsecno']])
+        # Disabled this one as well until the duplicate oid issue is
+        # sorted out.
+        
+        #person.populate_external_id(source_system, co.externalid_fodselsnr,
+        #                            p[spec['socialsecno']])
+        pass
     else:
-        warn("\nWARNING: no ssid for %s" % p[spec['personoid']])
-    person.populate_external_id(source_system, co.externalid_personoid,
-                                p[spec['personoid']])
+        warn("No ssid for %s" % who)
+    # oid is not unique?
+    # person.populate_external_id(source_system, co.externalid_personoid, p[spec['personoid']])
 
     op = person.write_db()
 ##     if op is None:
@@ -232,9 +239,9 @@ def update_person(p, spec,type, affiliations, groupnames):
                                       address_text=p[spec['address1']],
                                       postal_number=postno, city=city)
         else:
-            warn("\nWARNING: Bad address for %s" % p[spec['personoid']])
+            warn("Bad address for %s" % who)
     except ValueError:
-        warn("\nWARNING: Bad address for %s" % p[spec['personoid']])
+        warn("Bad address for %s" % who)
         
     if p[spec['phoneno']] <> '':
         person.add_contact_info(source_system, co.contact_phone, p[spec['phoneno']])
@@ -269,7 +276,7 @@ def import_OU(schools):
             ret["%s:%s" % (level, skole[spec['institutioncode']])] = ou.entity_id
 
             if skole[spec['address3']] == '': # or skole[spec['address1']] == '':
-                print "\nWARNING: Bad info for %s" % skole[spec['name']]
+                print "Bad info for %s" % skole[spec['name']]
                 pp.pprint(skole)
             else:
                 postno, city = skole[spec['address3']].split()
@@ -303,11 +310,25 @@ def convert_all():
         save_outputfile(f, spec, ret)
 
 def warn(msg):
-    # print "WARNING: %s" % msg
-    pass
+    if show_warnings:
+        print "\nWARNING: %s" % msg
 
-def main():
-    do_all()
+def usage():
+    print """import_SATS.py [-w | -v] {-i}"""
 
 if __name__ == '__main__':
-    main()
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "wvi",
+                                   ["warn", "verbose", "import"])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+    for o, a in opts:
+        if o in ('-w', '--warn'):
+            show_warnings = 1
+        elif o in ('-v', '--verbose'):
+            verbose += 1
+        elif o in ('-i', '--import'):
+            do_all()
+    if(len(opts) == 0):
+        usage()
