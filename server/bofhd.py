@@ -135,16 +135,21 @@ class BofhdSession(object):
         """Remove state in the server, such as cached passwords, or
         when logging out."""
         if state_types is None:
-            self._db.execute("""
+            state_types = ('*',)
+        for state in state_types:
+            sql = """
             DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
             WHERE session_id=:session_id
-            """, {'session_id': self._id})
-            self._db.execute("""
-            DELETE FROM [:table schema=cerebrum name=bofhd_session]
-            WHERE session_id=:session_id
-            """, {'session_id': self._id})
-        else:
-            raise NotImplementedError, "Clear only certain state types"
+            """
+            if state <> '*':
+                sql += " AND state_type=:state"
+            self._db.execute(sql, {'session_id': self._id,
+                                   'state': state})
+            if state == '*':
+                self._db.execute("""
+                DELETE FROM [:table schema=cerebrum name=bofhd_session]
+                WHERE session_id=:session_id
+                """, {'session_id': self._id})
 
 class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
 
