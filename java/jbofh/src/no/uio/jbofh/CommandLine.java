@@ -57,7 +57,7 @@ public class CommandLine {
         while(i < chars.length) {
             if(quote != null) {
                 if(chars[i] == quote.charValue()) {                
-                    if(i > pstart) {
+                    if(i >= pstart) {      // We allow empty strings
                         curApp.add(new String(str.substring(pstart, i)));
 		    }
                     pstart = i+1;
@@ -119,13 +119,15 @@ public class CommandLine {
     }
 
     public static void main(String[] args) {
+        org.apache.log4j.PropertyConfigurator.configure("log4j.properties");
 	String tests[] = {
-	    "dette er en test",
+            "dette er en test",
 	    "en 'noe annerledes' test",
 	    "en (parantes test 'med quote' test) hest",
 	    "mer(test hei)du morn ",
 	    "en liten (test av) dette) her",
-	    "mer (enn du(skulle tro))"
+	    "mer (enn du(skulle tro))",
+            "test empty \"\" quote"
 	};
         CommandLine cLine = new CommandLine(Category.getInstance(CommandLine.class), null);
 	for(int j = 0; j < tests.length; j++) {
