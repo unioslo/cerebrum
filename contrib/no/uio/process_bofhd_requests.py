@@ -511,8 +511,20 @@ def process_mailman_requests():
         logger.debug("Req: mailman_create %d at %s",
                      r['request_id'], r['run_at'])
         if r['run_at'] < br.now:
-            listname = get_address(r['entity_id'])
-            admin = get_address(r['destination_id'])
+            try:
+                listname = get_address(r['entity_id'])
+            except Errors.NotFoundError:
+                logger.warn("List address %s deleted!  It probably wasn't "+
+                            "needed anyway.", listname)
+                br.delete_request(request_id=r['request_id'])
+                continue
+            try:
+                admin = get_address(r['destination_id'])
+            except Errors.NotFoundError:
+                logger.error("Admin address deleted for %s!  Ask postmaster "+
+                             "to create list manually.", listname)
+                br.delete_request(request_id=r['request_id'])
+                continue
             cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
                    'mailman', 'newlist', listname, admin ];
             logger.debug(repr(cmd))
