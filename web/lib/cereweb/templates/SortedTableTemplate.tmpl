@@ -20,25 +20,41 @@
 ##doc:      class to be set for the returned table
 
 #if $css_class
-<table class='$css_class'>
+<table class="$css_class">
+<tr class="$css_class">
 #else
 <table>
+<tr>
 #end if
-    <tr>
+
 #for $column in $tableview.columns
 #set $header = $headers.get($column, "")
 #set $pri_link = $change_sort_priority % $column    
 #set $ord_link = $change_sort_order % column
 #set $dir = $tableview.column_order($column)    
-        <td><a href='$pri_link'>$header</a> 
-            <a href='$ord_link'>($dir)</a></td>
+#if $css_class
+<td class="$css_class">
+#else
+<td>
+#end if
+        <a href='$pri_link'>$header</a> 
+        <a href='$ord_link'>($dir)</a></td>
 #end for
     </tr>
 #for $row, $rowdata in $tableview.sorted(includeData=True)
-    <tr>
+#if $css_class
+<tr class="$css_class">
+#else
+<tr>
+#end if
         $beforeColumns($rowdata)
-#for $col in $row    
-        <td>$col</td>
+#for $col in $row
+#if $css_class
+<td class="$css_class">
+#else
+<td>
+#end if    
+        $col</td>
 #end for
         $afterColumns($rowdata)
     </tr>
