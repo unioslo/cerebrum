@@ -34,21 +34,44 @@ import xml.sax
 import sys
 import getopt
 import cereconf
+from time import gmtime, strftime, time
+
 from Cerebrum import Account
+from Cerebrum import Disk
 from Cerebrum import Group
 from Cerebrum import Person
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules.no import Stedkode
 from Cerebrum.Utils import Factory
 
 default_personfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/users.xml'
 default_groupfile = '/local2/home/runefro/usit/cerebrum/contrib/no/uio/filegroups.xml'
-Cerebrum = Factory.get('Database')()
-personObj = Factory.get('Person')(Cerebrum)
-co = Factory.get('Constants')(Cerebrum)
+db = Factory.get('Database')()
+personObj = Factory.get('Person')(db)
+co = Factory.get('Constants')(db)
 pp = pprint.PrettyPrinter(indent=4)
+prev_msgtime = time()
 
+shell2shellconst = {
+    'bash': co.posix_shell_bash,
+    'csh': co.posix_shell_csh,
+    'false': co.posix_shell_false,
+    'nologin': co.posix_shell_nologin,
+    'nologin.autostud': co.posix_shell_nologin,  # TODO: more shells, (and their path)
+    'nologin.brk': co.posix_shell_nologin,
+    'nologin.chpwd': co.posix_shell_nologin,
+    'nologin.ftpuser': co.posix_shell_nologin,
+    'nologin.sh': co.posix_shell_nologin,
+    'nologin.sluttet': co.posix_shell_nologin,
+    'nologin.stengt': co.posix_shell_nologin,
+    'nologin.teppe': co.posix_shell_nologin,
+    'puberos': co.posix_shell_nologin,
+    'sh': co.posix_shell_sh,
+    'tcsh': co.posix_shell_tcsh,
+    'zsh': co.posix_shell_zsh,
+    }
 class PersonUserData(object):
     """This class is used to iterate over all users/persons in the ureg dump. """
 
@@ -133,6 +156,7 @@ class GroupData(object):
         except IndexError:
             raise StopIteration, "End of file"
 
+# TODO: Extend to also handle netgroups
 class FilegroupParser(xml.sax.ContentHandler):
     """Parser for the filegroups.xml file.  Stores recognized data in an
     internal datastructure"""
@@ -167,7 +191,7 @@ class FilegroupParser(xml.sax.ContentHandler):
         self.elementstack.pop()
 
 def import_groups(groupfile, fill=0):
-    account = Account.Account(Cerebrum)
+    account = Account.Account(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 
     print """Processing groups.  Progress indicators means:
@@ -181,8 +205,8 @@ def import_groups(groupfile, fill=0):
         sys.stdout.flush()
         if int(group['gid']) < 1:
             continue
-        groupObj = Group.Group(Cerebrum)
-        pg = PosixGroup.PosixGroup(Cerebrum)
+        groupObj = Group.Group(db)
+        pg = PosixGroup.PosixGroup(db)
         if not fill:
             groupObj.populate(account.entity_id, co.group_visibility_all,
                               group['name'], group['comment'])
@@ -203,14 +227,35 @@ def import_groups(groupfile, fill=0):
                 except Errors.NotFoundError:
                     print "n",
                     continue
-    Cerebrum.commit()
+    db.commit()
 
 def import_person_users(personfile):
     namestr2const = {'lname': co.name_last, 'fname': co.name_first}
-    account = Account.Account(Cerebrum)
+    account = Account.Account(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     acc_creator_id = account.entity_id
 
+    showtime("Preparing")
+    group=PosixGroup.PosixGroup(db)
+    gid2entity_id = {}
+    for row in group.list_all():
+        group.clear()
+        try:
+            group.find(row['group_id'])
+            gid2entity_id[int(group.posix_gid)] = group.entity_id
+        except Errors.NotFoundError:
+            pass  # Not a PosixGroup: OK
+
+    ou = Stedkode.Stedkode(db)
+    stedkode2ou_id = {}
+    for row in ou.list_all():
+        ou.find(row['ou_id'])
+        stedkode2ou_id["%02i%02i%02i" % (
+            ou.fakultet, ou.institutt, ou.avdeling)] = ou.entity_id
+
+    posix_user = PosixUser.PosixUser(db)
+    disk2id = {}
+    showtime("Parsing")
     for person in PersonUserData(personfile):
         # pp.pprint(person)
 
@@ -225,20 +270,21 @@ def import_person_users(personfile):
             try:
                 print "Fnr: %s" % fnr,
                 personObj.find_by_external_id(co.externalid_fodselsnr, fnr)
-                person_id = personObj.person_id
+                person_id = personObj.entity_id
                 print " ********* OLD *************"
             except Errors.NotFoundError:
                 print " ********* NEW *************"
                 pass
         if person_id is None:
             # Personen fantes ikke, lag den
+            # TODO:  hvorfor finnes dato 1999-99-99 i dumpen fra ureg?
             try:
                 bdate = [int(x) for x in person['bdate'].split('-')]
-                bdate = Cerebrum.Date(*bdate)
+                bdate = db.Date(*bdate)
             except:
                 print "Warning, %s is an illegal date" % person['bdate']
                 bdate = [1970, 1, 1]
-                bdate = Cerebrum.Date(*bdate)
+                bdate = db.Date(*bdate)
             personObj.populate(bdate,
                                 co.gender_unknown)
             personObj.affect_names(co.system_ureg, *(namestr2const.values()))
@@ -247,16 +293,20 @@ def import_person_users(personfile):
                 if namestr2const.has_key(k['type']):
                     personObj.populate_name(namestr2const[k['type']], k['val'])
             if fnr is not None:
-                personObj.populate_external_id(co.system_ureg, co.externalid_fodselsnr, fnr)
+                personObj.populate_external_id(co.system_ureg,
+                                               co.externalid_fodselsnr, fnr)
             for c in person['contact']:
                 if c['type'] == 'workphone':
-                    personObj.populate_contact_info(co.system_ureg, co.contact_phone, c['val'],
+                    personObj.populate_contact_info(co.system_ureg,
+                                                    co.contact_phone, c['val'],
                                                     contact_pref=1)
                 elif c['type'] == 'privphone':
-                    personObj.populate_contact_info(co.system_ureg, co.contact_phone, c['val'],
+                    personObj.populate_contact_info(co.system_ureg,
+                                                    co.contact_phone, c['val'],
                                                     contact_pref=2)
                 elif c['type'] == 'workfax':
-                    personObj.populate_contact_info(co.system_ureg, co.contact_phone, c['val'])
+                    personObj.populate_contact_info(co.system_ureg,
+                                                    co.contact_phone, c['val'])
                 elif c['type'] == 'privaddress':
                     a = c['val'].split('$', 2)
                     personObj.populate_address(co.system_ureg, co.address_post,
@@ -271,13 +321,11 @@ def import_person_users(personfile):
                         affstat = co.affiliation_status_employee_valid
 
                     try:
-                        s = person['uio']['psko']
-                        fak, inst, gruppe = s[0:2], s[2:4], s[4:6]
-                        ou.find_stedkode(int(fak), int(inst), int(gruppe))
-                        personObj.populate_affiliation(co.system_ureg, ou.ou_id, aff,
-                                                       affstat)
-                    except:
-                        print "Error setting stedkode: %s" % s
+                        ou_id = stedkode2ou_id[ person['uio']['psko'] ]
+                        personObj.populate_affiliation(co.system_ureg, ou_id,
+                                                       aff, affstat)
+                    except KeyError:
+                        print "Unknown stedkode: %s" % person['uio']['psko']
 
             personObj.write_db()
             person_id = personObj.entity_id
@@ -287,49 +335,73 @@ def import_person_users(personfile):
         # TODO:
         # - ta hensyn til spread
         # - sette rett create_date og creator_id
+        # - hvis disken ikke finnes, registrer den
 
         for u in person['user']:
             expire_date = None  # TODO
             gecos = None        # TODO
-            shell = co.posix_shell_bash # TODO: shell2shellconst[u['shell']]
+            shell = shell2shellconst[u['shell']]
+            posix_user.clear()
 
-            group=PosixGroup.PosixGroup(Cerebrum)
-            try:
-                group.find_by_gid(u['dfg'])
-            except Errors.NotFoundError:
-                print "WARNING: could not find dfg=%s for %s" % (u['dfg'], u['uname'])
-                continue
-            account.clear()
-            account.populate(u['uname'],
-                             co.entity_person,  # Owner type TODO
-                             person_id,
-                             None,
-                             acc_creator_id, expire_date)
-            account.affect_auth_types(co.auth_type_md5_crypt,
+            tmp = u['home'].split("/")
+            disk_id = None
+            if len(tmp) == 5:
+                disk_id = disk2id.get("/".join(tmp[:4]), None)
+                if disk_id is None:
+                    disk = tmp[3]
+                    host = tmp[2]
+                    disk_id = make_disk(host, disk, "/".join(tmp[:4]))
+                    disk2id["/".join(tmp[:4])] = disk_id
+            if disk_id is None:
+                u['home'] = None
+
+            posix_user.affect_auth_types(co.auth_type_md5_crypt,
                                       co.auth_type_crypt3_des)
             for au in u.get('auth', []):
                 if au['type'] == 'plaintext':   # TODO: Should be called last?
-                    account.set_password(au['val'])
+                    posix_user.set_password(au['val'])
                 elif au['type'] == 'md5':
-                    account.populate_authentication_type(
+                    posix_user.populate_authentication_type(
                         co.auth_type_md5_crypt, au['val'])
                 elif au['type'] == 'crypt':
-                    account.populate_authentication_type(
+                    posix_user.populate_authentication_type(
                         co.auth_type_crypt3_des, au['val'])
-            account.write_db()
-
-            posix_user = PosixUser.PosixUser(Cerebrum)
-            posix_user.clear()
-
             posix_user.populate(u['uid'],
                                 group.entity_id,
                                 gecos,
-                                int(shell),
+                                shell,
                                 home=u['home'], # TODO: disk_id
-                                parent=account)
+                                name=u['uname'],
+                                disk_id=disk_id,
+                                owner_type=co.entity_person,
+                                owner_id=person_id,
+                                creator_id=acc_creator_id,
+                                expire_date=expire_date)
 
             posix_user.write_db()
-    Cerebrum.commit()
+    db.commit()
+
+def make_disk(hostname, disk, diskname):
+    host = Disk.Host(db)
+    disk = Disk.Disk(db)
+    try:
+        host.clear()
+        host.find_by_name(hostname)
+    except Errors.NotFoundError:
+        host.populate(hostname, 'uio host')
+        host.write_db()
+    try:
+        disk.clear()
+        disk.find_by_path(diskname, host_id=host.entity_id)
+    except Errors.NotFoundError:
+        disk.populate(host.entity_id, diskname, 'uio disk')
+        disk.write_db()
+
+
+def showtime(msg):
+    global prev_msgtime
+    print "[%s] %s (delta: %i)" % (strftime("%H:%M:%S", gmtime()), msg, (time()-prev_msgtime))
+    prev_msgtime = time()
 
 def usage():
     print """import_userdb_XML.py [-p file | -g file] {-P | -G | -M}
