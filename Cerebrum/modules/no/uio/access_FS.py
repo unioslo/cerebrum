@@ -827,6 +827,53 @@ WHERE NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE)
         """ % d
         
         return (self._get_cols(qry), self.db.query(qry))
+    # end GetEvuKurs
+
+
+    def GetEvuKursInformasjon(self, code):
+        """
+        This one works similar to GetEvuKurs, except for the filtering
+        criteria: in this method we filter by course code, not by time frame
+        """
+
+        query = """
+                SELECT e.etterutdkurskode, e.kurstidsangivelsekode,
+                       TO_CHAR(e.dato_fra, 'YYYY-MM-DD') as dato_fra,
+                       TO_CHAR(e.dato_til, 'YYYY-MM-DD') as dato_til
+                FROM [:table schema=fs name=etterutdkurs] e
+                WHERE e.etterutdkurskode = :code
+                """
+        return self.db.query(query,
+                             { "code" : code })
+    # end GetEvuKursScript
+
+
+
+    def GetEvuKursPameldte(self, kurskode, tid):
+        """
+        List everyone registered for a given course
+        """
+
+        query = """
+                SELECT p.fodselsdato, p.personnr,
+                       p.fornavn, p.Etternavn
+                FROM
+                  [:table schema=fs name=person] p,
+                  [:table schema=fs name=etterutdkurs] e,
+                  [:table schema=fs name=kursdeltakelse] kd,
+                  [:table schema=fs name=deltaker] d
+                WHERE e.etterutdkurskode like :kurskode AND
+                      e.kurstidsangivelsekode like :tid AND
+                      e.etterutdkurskode = kd.etterutdkurskode AND
+                      e.kurstidsangivelsekode = kd.kurstidsangivelsekode AND
+                      kd.deltakernr = d.deltakernr AND
+                      d.fodselsdato = p.fodselsdato AND
+                      d.personnr = p.personnr
+                """
+        return self.db.query(query, {"kurskode" : kurskode,
+                                     "tid" : tid})
+    # end GetEvuKursPameldte
+    
 
 
     def GetAktivitetEvuKurs(self, kurs, tid):
@@ -1128,6 +1175,43 @@ WHERE k.etterutdkurskode=:kurs AND
             'tid': tid,
             'aktkode': aktkode}))
 
+
+    def GetEmneinformasjon(self, emnekode):
+        """
+        Hent informasjon om alle som er registrert på EMNEKODE
+        """
+
+        query = """
+                SELECT p.fodselsdato, p.personnr, p.fornavn, p.etternavn
+                FROM
+                     [:table schema=fs name=person] p,
+                     [:table schema=fs name=eksamensmelding] e
+                WHERE
+                     e.emnekode = :emnekode AND
+                     e.fodselsdato = p.fodselsdato AND
+                     e.personnr = p.personnr
+                """
+
+        # NB! Oracle driver does not like :foo repeated multiple times :-(
+        # That is why we interpolate variables into the query directly.
+        year, month = time.localtime()[0:2]
+        if month < 6:
+            time_part = """
+                        AND e.arstall >= %(year)d
+                        AND e.manednr >= %(month)d
+                        """ % locals()
+        else:
+            time_part = """
+                        AND ((e.arstall = %(year)d AND
+                              e.manednr >= %(month)d) OR
+                             (e.arstall > %(year)d))
+                        """ % locals()
+        # fi
+
+        return self.db.query(query + time_part, {"emnekode" : emnekode})
+    # end GetEmneinformasjon
+        
+        
 
     def list_dbfg_usernames(self, fetchall = False):
         """
