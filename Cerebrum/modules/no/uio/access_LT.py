@@ -17,7 +17,7 @@ class LT(object):
         qry = """
 SELECT
   fakultetnr, instituttnr, gruppenr,
-  forkstednavn, NVL(stednavnfullt, stednavn), akronym,
+  forkstednavn, NVL(stednavnfullt, stednavn) as stednavn, akronym,
   stedpostboks,
   fakultetnr_for_org_sted, instituttnr_for_org_sted, gruppenr_for_org_sted,
   opprettetmerke_for_oppf_i_kat, telefonnr,
@@ -32,7 +32,8 @@ FROM lt.sted
 WHERE
   dato_nedlagt > sysdate
 ORDER BY fakultetnr, instituttnr, gruppenr"""
-        return (self._get_cols(qry), self.db.query(qry))
+        r = self.db.query(qry)
+        return ([x[0] for x in self.db.description], r)
 
     def GetStedKomm(self, fak, inst, gr):
         qry = """SELECT kommtypekode, telefonnr, kommnrverdi
