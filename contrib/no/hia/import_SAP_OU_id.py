@@ -52,7 +52,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.modules.no.hia.access_FS import HiaFS as FS
+from Cerebrum.modules.no.hia.access_FS import HiAFS as FS
 from Cerebrum.modules.no.hia.mod_sap_codes import SAPForretningsOmradeKode
 
 import sys
