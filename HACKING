@@ -2,3 +2,8 @@ Run this on the CVS source to get a compilable version:
 
   aclocal; autoconf
   ./configure
+
+This was tested using these versions:
+
+  aclocal (GNU automake) 1.4-p4
+  autoconf (GNU Autoconf) 2.53
