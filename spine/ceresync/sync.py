@@ -72,7 +72,7 @@ def pgp_decrypt(message):
     msg = fromchild.read()
     exit_code = wait()
     if exit_code:
-        raise IOError, "gpg exited with %i" % exit_code
+        raise IOError, "gpg exited with %s" % exit_code
     return msg
     
 
@@ -246,11 +246,12 @@ class Sync:
                 i.passwords[types[auth.method]] = auth.auth_data
 
             # FIXME: Make this on-demand, this is incredibly slow
-            pgp_key = "PGP-" + config.sync.get("pgp", "keyname")
-            if pgp_key in i.passwords:
-                cleartext = pgp_decrypt(i.passwords[pgp_key])
-                if cleartext: # ignore blank passwords
-                    i.passwords["cleartext"] = cleartext
+            if config.sync.has_option("pgp", "keyname"):
+                pgp_key = "PGP-" + config.sync.get("pgp", "keyname")
+                if pgp_key in i.passwords:
+                    cleartext = pgp_decrypt(i.passwords[pgp_key])
+                    if cleartext: # ignore blank passwords
+                        i.passwords["cleartext"] = cleartext
 
             # Should get home directory from server.. must be
             # related to the active spread or something like that.
