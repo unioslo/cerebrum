@@ -125,7 +125,7 @@ def determine_affiliations(person):
         elif t['hovedkat'] == 'VIT':
             aff_stat = const.affiliation_status_ansatt_vit
         else:
-            logger.warn("Uknown hovedkat: %s" % t['hovedkat'])
+            logger.warn("Unknown hovedkat: %s" % t['hovedkat'])
             continue
         sted = get_sted(stedkode)
         if sted is None:
@@ -142,7 +142,7 @@ def determine_affiliations(person):
         if g['gjestetypekode'] == 'EMERITUS':
             aff_stat = const.affiliation_tilknyttet_emeritus
         else:
-            logger.warn("Uknown gjestetypekode: %s" % g['gjestetypekode'])
+            logger.warn("Unknown gjestetypekode: %s" % g['gjestetypekode'])
             continue
         sted = get_sted(g['sko'])
         if sted is None:
@@ -160,21 +160,21 @@ def determine_contact(person):
             ret.append((const.contact_phone, t['telefonnr']))
         if int(t['linjenr']):
             ret.append((const.contact_phone,
-                        "%i%i" % (int(t['innvalgnr']), int(t['linjenr']))))
+                        "%i%05i" % (int(t['innvalgnr']), int(t['linjenr']))))
     for k in person.get('komm', ()):
         if k['kommtypekode'] in ('EKSTRA TLF', 'JOBBTLFUTL'):
-            if k.has_key('telefonnr'):
-                val = int(k['telefonnr'])
-            elif k.has_key('kommnrverdi'):
+            if k.has_key('kommnrverdi'):
                 val = k['kommnrverdi']
+            elif k.has_key('telefonnr'):
+                val = int(k['telefonnr'])
             else:
                 continue
             ret.append((const.contact_phone, val))
         if k['kommtypekode'] in ('FAX', 'FAXUTLAND'):
-            if k.has_key('telefonnr'):
-                val = int(k['telefonnr'])
-            elif k.has_key('kommnrverdi'):
+            if k.has_key('kommnrverdi'):
                 val = k['kommnrverdi']
+            elif k.has_key('telefonnr'):
+                val = int(k['telefonnr'])
             else:
                 continue
             ret.append((const.contact_fax, val))
@@ -182,14 +182,17 @@ def determine_contact(person):
 
 def determine_reservations(person):
     # TODO: Use something "a bit more defined and permanent".
-    # This is a hack. For now we set a reservation on a person with any
-    # 'ELKAT' reservation.
-    res_on_pers = 0
+    # This is a hack. For now we set a reservation on non-guests with
+    # any 'ELKAT' reservation except 'PRIVADR' and 'PRIVTLF', and
+    # on guests without 'ELKAT'+'GJESTEOPPL' anti-reservations.
+    res_on_pers = person.has_key('gjest') and not person.has_key('tils')
     for r in person.get('res', ()):
         if r['katalogkode'] == "ELKAT":
-            _add_res(new_person.entity_id)
-            res_on_pers = 1
-    if res_on_pers == 0:
+            if r['felttypekode'] not in ("PRIVADR", "PRIVTLF"):
+                res_on_pers = r['felttypekode'] != "GJESTEOPPL"
+    if res_on_pers:
+        _add_res(new_person.entity_id)
+    else:
         _rem_res(new_person.entity_id)
         
 def process_person(person):

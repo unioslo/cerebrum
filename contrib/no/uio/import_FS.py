@@ -87,7 +87,10 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret['address_text'] = "\n".join([a_dict.get(f, None)
                                      for f in (kline1, kline2)
                                      if a_dict.get(f, None)])
-    ret['postal_number'] = a_dict.get(kpost, '')
+    postal_number = a_dict.get(kpost, '')
+    if postal_number:
+        postal_number = "%04i" % int(postal_number)
+    ret['postal_number'] = postal_number
     ret['city'] =  a_dict.get(kline3, '')
     if len(ret['address_text']) < 2:
         return None

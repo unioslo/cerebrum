@@ -164,21 +164,29 @@ def import_org_units(oufile):
                     display_name=k['stednavn'],
                     sort_name=k['stednavn'])
         if k.has_key('adresselinje1_intern_adr'):
+            p_o_box = k.get('stedpostboks', None)
+            if p_o_box == '0':
+                p_o_box = None
+            adrlines = filter(None, (k.get('adresselinje1_intern_adr', None),
+                                     k.get('adresselinje2_intern_adr', None) ))
+            postal_number = k.get('poststednr_intern_adr', '')
+            if postal_number:
+                postal_number = "%04i" % int(postal_number)
             ou.populate_address(source_system, co.address_post,
-                                address_text="%s\n%s" %
-                                (k['adresselinje1_intern_adr'],
-                                 k.get('adresselinje2_intern_adr', '')),
-                                postal_number=k.get('poststednr_intern_adr',
-                                                    ''),
-                                city=k.get('poststednavn_intern_adr', ''))
+                                address_text = "\n".join(adrlines),
+                                p_o_box = p_o_box,
+                                postal_number = postal_number,
+                                city = k.get('poststednavn_intern_adr', ''))
         if k.has_key('adresselinje1_besok_adr'):
+            adrlines = filter(None, (k.get('adresselinje1_besok_adr', None),
+                                     k.get('adresselinje2_besok_adr', None) ))
+            postal_number = k.get('poststednr_besok_adr', None)
+            if postal_number:
+                postal_number = "%04i" % int(postal_number)
             ou.populate_address(source_system, co.address_street,
-                                address_text="%s\n%s" %
-                                (k['adresselinje1_besok_adr'],
-                                 k.get('adresselinje2_besok_adr', '')),
-                                postal_number=k.get('poststednr_besok_adr',
-                                                    None),
-                                city=k.get('poststednavn_besok_adr', None))
+                                address_text = "\n".join(adrlines),
+                                postal_number = postal_number,
+                                city = k.get('poststednavn_besok_adr', None))
         n = 0
         for t in k.get('komm', []):
             n += 1       # TODO: set contact_pref properly
@@ -198,7 +206,7 @@ def import_org_units(oufile):
                                          t['kommnrverdi'], contact_pref=n)
 	n += 1
 	if k.has_key('innvalgnr') and k.has_key('linjenr'):
-	    phone_value = "%s%s" % (k['innvalgnr'],k['linjenr'])
+	    phone_value = "%s%05i" % (k['innvalgnr'], int(k['linjenr']))
             ou.populate_contact_info(source_system, co.contact_phone,
 					phone_value, contact_pref=n)
         op = ou.write_db()
