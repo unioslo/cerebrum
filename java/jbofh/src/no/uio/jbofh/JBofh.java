@@ -254,7 +254,7 @@ public class JBofh {
             } catch (IOException e) {}  // ignore failure
         }
 
-        bc = new BofhdConnection(logger);
+        bc = new BofhdConnection(logger, this);
         String intTrust = (String) props.get("InternalTrustManager.enable");
         if(bofhd_url == null) bofhd_url = (String) props.get("bofhd_url");
         showMessage("Bofhd server is at "+bofhd_url, true);
@@ -300,13 +300,17 @@ public class JBofh {
         if(msg.length() > 0)
             showMessage(msg, true);
 
+        initCommands();
+	showMessage("Welcome to jbofh, v "+version+", type \"help\" for help", true);
+        enterLoop();
+    }
+
+    void initCommands() throws BofhdException {
         bc.updateCommands();
         bcompleter = new BofhdCompleter(this, logger);
 	Readline.setCompleter(bcompleter);
 
         knownFormats = new Hashtable();
-	showMessage("Welcome to jbofh, v "+version+", type \"help\" for help", true);
-        enterLoop();
     }
 
     void showMessage(String msg, boolean crlf) {

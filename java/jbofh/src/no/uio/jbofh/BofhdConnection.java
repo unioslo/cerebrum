@@ -103,10 +103,12 @@ public class BofhdConnection {
     XmlRpcClient xmlrpc;
     String sessid;
     Hashtable commands;
+    JBofh jbofh;
     
     /** Creates a new instance of BofdConnection */
-    public BofhdConnection(Category log) {
+    public BofhdConnection(Category log, JBofh jbofh) {
         this.logger = log;
+        this.jbofh = jbofh;
         // The xmlrpc-1.1 driver doesn't handle character encoding correctly
         System.setProperty("sax.driver", "com.jclark.xml.sax.Driver");
     }
@@ -224,6 +226,11 @@ public class BofhdConnection {
     }
 
     Object sendRawCommand(String cmd, Vector args) throws BofhdException {
+        return sendRawCommand(cmd, args, false);
+    }
+
+    Object sendRawCommand(String cmd, Vector args, boolean gotRestart)
+        throws BofhdException {
         try {
             if(cmd.equals("login")) {
                 logger.debug("sendCommand("+cmd+", ********");
@@ -259,6 +266,11 @@ public class BofhdConnection {
         } catch (XmlRpcException e) {
 	    logger.debug("exception-message: "+e.getMessage());
 	    String match = "Cerebrum.modules.bofhd.errors.";
+	    if(! gotRestart && 
+                e.getMessage().startsWith(match+"ServerRestartedError")) {
+                jbofh.initCommands();
+                return sendRawCommand(cmd, args, true);
+            }
 	    if(e.getMessage().startsWith(match)) {
 		throw new BofhdException("Error: "+e.getMessage().substring(e.getMessage().indexOf(":")+1));
 	    } else {
