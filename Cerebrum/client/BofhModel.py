@@ -35,8 +35,8 @@ class Entity(Abstract.Entity):
         """Loads entity specific data to this object
            from server using the given ``id``.
         """
+        self.id = id
         warn("entity_info not implemented yet")
-        return
         info = self.server.entity_info(id)
         self.names = info['names']
         self.type = info['type']
