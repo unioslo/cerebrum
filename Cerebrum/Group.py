@@ -254,7 +254,7 @@ class Group(EntityQuarantine, EntityName, Entity):
     def has_member(self, member_id, type, op):
         try:
             self.query_1("""
-            SELECT 'x' FROM [:table schema=cerebrum name=group_member]
+            SELECT 'x' AS x FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id AND
                   operation=:op AND
                   member_type=:m_type AND
