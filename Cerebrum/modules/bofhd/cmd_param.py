@@ -90,7 +90,7 @@ class DiskId(Parameter):
     _type = 'disk'
     _help_ref = 'disk'
 
-class EmailAddressString(Parameter):
+class EmailAddress(Parameter):
     _type = 'emailAddress'
     _help_ref = 'email_address'
     
