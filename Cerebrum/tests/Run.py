@@ -6,6 +6,7 @@ import unittest
 
 from Cerebrum.tests.OUTestCase import OUTestCase
 from Cerebrum.tests.PersonTestCase import PersonTestCase
+from Cerebrum.tests.SQLDriverTestCase import SQLDriverTestCase
 
 def suite():
     """Returns a suite containing all the test cases in this module.
@@ -16,8 +17,9 @@ def suite():
 
     suite1 = OUTestCase.suite()
     suite2 = PersonTestCase.suite()
+    suite3 = SQLDriverTestCase.suite()
 
-    return unittest.TestSuite((suite1,suite2))
+    return unittest.TestSuite((suite1,suite2, suite3))
 
 
 if __name__ == '__main__':
