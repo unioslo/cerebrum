@@ -25,11 +25,12 @@ import cereconf
 from Cerebrum import Entity
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory,SimilarSizeWriter
+from Cerebrum.modules.LDIFutils import container_entry_string
 
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
 
-dn_suffix = 'ou=mail-dns,dc=uio,dc=no'
+dn_suffix = cereconf.LDAP_MAIL_DNS_DN
 
 # Only consider hosts with these lowercased hosts as lowest priority MX record
 # and which are also A records
@@ -144,14 +145,8 @@ def write_mail_dns():
                 del cnames[cname]
         del hosts[host]
 
-    f.write("""
-dn: %s
-objectClass: top
-objectClass: norOrganizationalUnit
-ou: %s
-description: Maskiner og domener ved UiO, brukes til mail
+    f.write(container_entry_string('MAIL_DNS'))
 
-""" % (dn_suffix, dn_suffix.split(',')[0].split('=')[1]))
     for domain in domains:
         f.write("""dn: cn=%s,%s
 objectClass: uioHost
