@@ -44,14 +44,14 @@ class AccountType(object):
                           {'account_id': self.entity_id})
 
     def add_account_type(self, person_id, ou_id, affiliation):
-        cols = {'person_id': person_id,
-                'ou_id': ou_id,
-                'affiliation': affiliation,
-                'account_id': self.entity_id}
+        cols = {'person_id': int(person_id),
+                'ou_id': int(ou_id),
+                'affiliation': int(affiliation),
+                'account_id': int(self.entity_id)}
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=account_type] (%(tcols)s)
         VALUES (%(binds)s)""" % {'tcols': ", ".join(cols.keys()),
-                                 'binds': ", ".join([":%s" % cols.keys()])},
+                                 'binds': ", ".join([":%s" % t for t in cols.keys()])},
                      cols)
 
     def del_account_type(self, person_id, ou_id, affiliation):
@@ -79,7 +79,7 @@ class AccountType(object):
         if ou_id is not None:
             extra += " AND at.ou_id=:ou_id"
         return self.query("""
-        SELECT DISTINCT account_id
+        SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id
         FROM [:table schema=cerebrum name=account_type] at,
              [:table schema=cerebrum name=person_affiliation_source] pas
         WHERE at.person_id=pas.person_id AND
