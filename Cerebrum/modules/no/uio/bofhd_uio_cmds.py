@@ -609,7 +609,8 @@ class BofhdExtension(object):
         rows = ar.list(entity_id, opset.op_set_id, op_target_id)
         if len(rows) == 0:
             ar.grant_auth(entity_id, opset.op_set_id, op_target_id)
-            return "OK"
+            return "OK, granted %s %s to %s" % (entity_name, opset.name,
+                                                target_name)
         return "%s already has %s access to %s" % (entity_name, opset.name,
                                                    target_name)
 
@@ -631,7 +632,8 @@ class BofhdExtension(object):
             aot = BofhdAuthOpTarget(self.db)
             aot.find(op_target_id)
             aot.delete()
-        return "OK"
+        return "OK, revoked %s for %s from %s" % (opset.name, entity_name,
+                                                  target_name)
 
     #
     # email commands
@@ -667,7 +669,7 @@ class BofhdExtension(object):
         ea.clear()
         ea.populate(lp, ed.email_domain_id, et.email_target_id)
         ea.write_db()
-        return "OK"
+        return "OK, added '%s' as email-address for '%s'" % (address, uname)
     
     # email remove_address <account> <address>+
     all_commands['email_remove_address'] = Command(
@@ -703,7 +705,7 @@ class BofhdExtension(object):
         ea.delete()
         for r in et.get_addresses():
             # there is at least one address left
-            return "OK"
+            return "OK, removed '%s'" % address
         # clean up and remove the target.
         et.delete()
         return "OK, also deleted e-mail target"
@@ -763,7 +765,7 @@ class BofhdExtension(object):
             return "OK, also deleted e-mail target"
         
         source_acc.update_email_addresses()
-        return "OK"
+        return "OK, reassigned %s" % address
 
     # email forward "on"|"off"|"local" <account>+ [<address>+]
     all_commands['email_forward'] = Command(
@@ -842,7 +844,8 @@ class BofhdExtension(object):
         if self._forward_exists(fw, addr):
             raise CerebrumError, "Forward address added already (%s)" % addr
         fw.add_forward(addr)
-        return "OK"
+        return "OK, added '%s' as forward-address for '%s'" % (
+            address, uname)
 
     # email remove_forward <account>+ <address>+
     # account can also be an e-mail address for pure forwardtargets
@@ -875,7 +878,7 @@ class BofhdExtension(object):
                 removed += 1
         if not removed:
             raise CerebrumError, "No such forward address (%s)" % addr
-        return "OK"
+        return "OK, removed '%s'" % address
 
     def _check_email_address(self, address):
         # To stop some typoes, we require that the address consists of
@@ -1368,7 +1371,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Please supply a better description"
         ed.populate(domainname, desc)
         ed.write_db()
-        return "OK"
+        return "OK, domain '%s' created" % domainname
 
     # email domain_configuration on|off <domain> <category>+
     all_commands['email_domain_configuration'] = Command(
@@ -1549,7 +1552,7 @@ class BofhdExtension(object):
         if eed.entity_email_domain_id <> ed.email_domain_id:
             raise CerebrumError, "No such affiliation for domain"
         eed.delete()
-        return "OK"
+        return "OK, removed domain-affiliation for '%s'" % domainname
 
     # email create_forward <local-address> <remote-address>
     all_commands['email_create_forward'] = Command(
@@ -1584,7 +1587,7 @@ class BofhdExtension(object):
             ef.add_forward(addr)
         except Errors.TooManyRowsError:
             raise CerebrumError, "Forward address added already (%s)" % addr
-        return "OK"
+        return "OK, created forward address '%s'" % remoteaddr
 
     # email create_list <list-address> [admin,admin,admin]
     all_commands['email_create_list'] = Command(
@@ -1646,7 +1649,7 @@ class BofhdExtension(object):
                     raise CerebrumError, "%s: unknown address" % addr
                 br.add_request(op, br.now, self.const.bofh_mailman_add_admin,
                                list_id, ea.email_addr_id, str(req))
-        return "OK"
+        return "OK, list '%s' created" % listname
 
     # email create_list_alias <list-address> <new-alias>
     all_commands['email_create_list_alias'] = Command(
@@ -1671,7 +1674,7 @@ class BofhdExtension(object):
         # part OR it contains hyphen" since we assume the people
         # who have access to this command know what they are doing
         self._register_list_addresses(listname, lp, dom)
-        return "OK"
+        return "OK, list-alias '%s' created" % listname
 
     # email delete_list <list-address>
     all_commands['email_delete_list'] = Command(
@@ -1833,7 +1836,7 @@ class BofhdExtension(object):
         epat = Email.EmailPrimaryAddressTarget(self.db)
         epat.populate(ea.email_addr_id, parent=et)
         epat.write_db()
-        return "OK"
+        return "OK, multi-target for '%s' created" % addr
 
     # email delete_multi <address>
     all_commands['email_delete_multi'] = Command(
@@ -1939,7 +1942,7 @@ class BofhdExtension(object):
             # It does not do much good to add to a bofh request, mvmail
             # can't handle this anyway.
             raise CerebrumError, "can't move to non-IMAP server" 
-        return "OK"
+        return "OK, '%s' scheduled for move to '%s'" % (uname, server)
 
     # email quota <uname>+ hardquota-in-mebibytes [softquota-in-percent]
     all_commands['email_quota'] = Command(
@@ -1990,7 +1993,7 @@ class BofhdExtension(object):
                 br.delete_request(request_id=r['request_id'])
             br.add_request(op, br.now, self.const.bofh_email_hquota,
                            acc.entity_id, None)
-        return "OK"
+        return "OK, set quota for '%s'" % uname
 
     # email spam_level <level> <uname>+
     all_commands['email_spam_level'] = Command(
@@ -2022,7 +2025,7 @@ class BofhdExtension(object):
             esf.populate(levelcode, self.const.email_spam_action_none,
                          parent=et)
         esf.write_db()
-        return "OK"
+        return "OK, set spam-level for '%s'" % uname
 
     # email spam_action <action> <uname>+
     # 
@@ -2058,7 +2061,7 @@ class BofhdExtension(object):
             esf.populate(self.const.email_spam_level_none, actioncode,
                          parent=et)
         esf.write_db()
-        return "OK"
+        return "OK, set spam-action for '%s'" % uname
 
     # email tripnote on|off <uname> [<begin-date>]
     all_commands['email_tripnote'] = Command(
@@ -2084,7 +2087,7 @@ class BofhdExtension(object):
         date = self._find_tripnote(uname, ev, when, opposite_status)
         ev.enable_vacation(date, enable)
         ev.write_db()
-        return "OK"
+        return "OK, set tripnote to '%s' for '%s'" % (action, uname)
 
     all_commands['email_list_tripnotes'] = Command(
         ('email', 'list_tripnotes'),
@@ -2178,7 +2181,7 @@ class BofhdExtension(object):
         text = text.replace('\\n', '\n')
         ev.add_vacation(date_start, text, date_end, enable=True)
         ev.write_db()
-        return "OK"
+        return "OK, added tripnote for '%s'" % uname
 
     # email remove_tripnote <uname> [<when>]
     all_commands['email_remove_tripnote'] = Command(
@@ -2195,7 +2198,7 @@ class BofhdExtension(object):
         date = self._find_tripnote(uname, ev, when)
         ev.delete_vacation(date)
         ev.write_db()
-        return "OK"
+        return "OK, removed tripnote for '%s'" % uname
 
     def _find_tripnote(self, uname, ev, when=None, enabled=None):
         vacs = ev.get_vacation()
@@ -2242,7 +2245,7 @@ class BofhdExtension(object):
     def email_update(self, operator, uname):
         acc = self._get_account(uname)
         acc.update_email_addresses()
-        return "OK"
+        return "OK, updated e-mail address for '%s'" % uname
 
     # (email virus)
 
@@ -2469,7 +2472,8 @@ class BofhdExtension(object):
                                group_operator)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        return "OK"
+        return "OK, added %s to %s" % (self._get_name_from_object(src_entity),
+                                       dest_group)
 
     # group add_entity
     all_commands['group_add_entity'] = None
@@ -2560,7 +2564,8 @@ class BofhdExtension(object):
         self.ba.can_set_default_group(op, account, grp)
         account.gid_id = grp.entity_id
         account.write_db()
-        return "OK"
+        return "OK, set default-group for '%s' to '%s'" % (
+            accountname, groupname)
 
     # group delete
     all_commands['group_delete'] = Command(
@@ -2582,7 +2587,7 @@ class BofhdExtension(object):
             except CerebrumError:
                 pass   # Not a PosixGroup
         grp.delete()
-        return "OK"
+        return "OK, deleted group '%s'" % groupname
 
     # group remove
     all_commands['group_remove'] = Command(
@@ -2626,7 +2631,8 @@ class BofhdExtension(object):
             group.remove_member(member.entity_id, group_operation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        return "OK"
+        return "OK, removed '%s' from '%s'" % (
+            self._get_name_from_object(member), group.group_name)
 
     # group remove_entity
     all_commands['group_remove_entity'] = None
@@ -2814,7 +2820,7 @@ class BofhdExtension(object):
         grp = self._get_group(group, grtype="PosixGroup")
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.delete()
-        return "OK"
+        return "OK, demoted '%s'" % group
     
     # group search
     all_commands['group_search'] = Command(
@@ -2847,7 +2853,7 @@ class BofhdExtension(object):
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.expire_date = self._parse_date(expire)
         grp.write_db()
-        return "OK"
+        return "OK, set expire-date for '%s'" % group
 
     # group set_visibility
     all_commands['group_set_visibility'] = Command(
@@ -2858,7 +2864,7 @@ class BofhdExtension(object):
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.visibility = self._map_visibility_id(visibility)
         grp.write_db()
-        return "OK"
+        return "OK, set visibility for '%s'" % group
 
     # group user
     all_commands['group_user'] = Command(
@@ -2924,7 +2930,7 @@ class BofhdExtension(object):
                        old_req['operation'], old_req['entity_id'],
                        old_req['destination_id'],
                        old_req['state_data'])
-        return "OK"
+        return "OK, altered request %s" % request_id
 
     # misc checkpassw
     # TBD: this command should be renamed "misc check_password"
@@ -2946,7 +2952,7 @@ class BofhdExtension(object):
         ("misc", "clear_passwords"), AccountName(optional=True))
     def misc_clear_passwords(self, operator, account_name=None):
         operator.clear_state(state_types=('new_account_passwd', 'user_passwd'))
-        return "OK"
+        return "OK, passwords cleared"
 
 
     all_commands['misc_dadd'] = Command(
@@ -2963,7 +2969,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         if len(diskname.split("/")) != 4:
             return "OK.  Warning: disk did not follow expected pattern."
-        return "OK"
+        return "OK, added disk '%s' at %s" % (diskname, hostname)
 
     all_commands['misc_dls'] = Command(
         ("misc", "dls"), SimpleString(help_ref='string_host'),
@@ -3019,7 +3025,7 @@ class BofhdExtension(object):
             host.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        return "OK"
+        return "OK, added host '%s'" % hostname
 
     all_commands['misc_hrem'] = Command(
         ("misc", "hrem"), SimpleString(help_ref='string_host'),
@@ -3135,6 +3141,9 @@ class BofhdExtension(object):
                     th.make_barcode(account.entity_id, mapping['barcode'])
                 except IOError, msg:
                     raise CerebrumError(msg)
+            if account.owner_type != self.const.entity_person:
+                raise CerebrumError("Currently only personal users supported. "
+                                    "Use the 'to screen' option")
             person = self._get_person('entity_id', account.owner_id)
             fullname = person.get_name(self.const.system_cached, self.const.name_full)
             mapping['fullname'] =  fullname
@@ -3248,7 +3257,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Request ID %d not found" % req_id
         self.ba.can_cancel_request(operator.get_entity_id(), req_id)
         br.delete_request(request_id=req_id)
-        return "OK"
+        return "OK, %s canceled" % req
 
     all_commands['misc_reload'] = Command(
         ("misc", "reload"), 
@@ -3257,7 +3266,7 @@ class BofhdExtension(object):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         self.server.read_config()
-        return "OK"
+        return "OK, server-config reloaded"
 
     # misc stedkode <pattern>
     all_commands['misc_stedkode'] = Command(
@@ -3447,7 +3456,7 @@ class BofhdExtension(object):
         aot = BofhdAuthOpTarget(self.db)
         aot.find(op_target_id)
         aot.delete()
-        return "OK"
+        return "OK, target %s, attr=%s deleted" % (op_target_id, attr)
 
     # perm list
     all_commands['perm_list'] = Command(
@@ -3493,7 +3502,8 @@ class BofhdExtension(object):
         aos.find_by_name(op_set_name)
 
         bar.grant_auth(entity_id, aos.op_set_id, op_target_id)
-        return "OK"
+        return "OK, granted %s@%s to %s" % (op_set_name, op_target_id,
+                                            entity_id)
 
     # perm revoke
     all_commands['perm_revoke'] = Command(
@@ -3506,7 +3516,8 @@ class BofhdExtension(object):
         aos = BofhdAuthOpSet(self.db)
         aos.find_by_name(op_set_name)
         bar.revoke_auth(entity_id, aos.op_set_id, op_target_id)
-        return "OK"
+        return "OK, revoked  %s@%s from %s" % (op_set_name, op_target_id,
+                                            entity_id)
 
     # perm who_has_perm
     all_commands['perm_who_has_perm'] = Command(
@@ -3859,7 +3870,7 @@ class BofhdExtension(object):
         person.populate_external_id(self.const.system_manual,
                                     idtype, id)
         person.write_db()
-        return "OK"
+        return "OK, set '%s' as new id for '%s'" % (new_id, current_id)
 
     #person set name
     all_commands['person_set_name'] = Command(
@@ -3977,7 +3988,7 @@ class BofhdExtension(object):
             raise CerebrumError("Must specify an existing priority")
         account.set_account_type(ou, affiliation, new_priority)
         account.write_db()
-        return "OK"
+        return "OK, set priority=%i for %s" % (new_priority, account_name)
 
     all_commands['person_list_user_priorities'] = Command(
         ("person", "list_user_priorities"), PersonId(),
@@ -4011,10 +4022,12 @@ class BofhdExtension(object):
     def quarantine_disable(self, operator, entity_type, id, qtype, date):
         entity = self._get_entity(entity_type, id)
         date = self._parse_date(date)
-        qtype = int(self._get_constant(qtype, "No such quarantine"))
+        qconst = self._get_constant(qtype, "No such quarantine")
+        qtype = int(qconst)
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
         entity.disable_entity_quarantine(qtype, date)
-        return "OK"
+        return "OK, disabled quarantine %s for %s" % (
+            qconst, self._get_name_from_object (entity))
 
     # quarantine list
     all_commands['quarantine_list'] = Command(
@@ -4044,10 +4057,12 @@ class BofhdExtension(object):
         perm_filter='can_remove_quarantine')
     def quarantine_remove(self, operator, entity_type, id, qtype):
         entity = self._get_entity(entity_type, id)
-        qtype = int(self._get_constant(qtype, "No such quarantine"))
+        qconst = self._get_constant(qtype, "No such quarantine")
+        qtype = int(qconst)
         self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qtype)
         entity.delete_entity_quarantine(qtype)
-        return "OK"
+        return "OK, removed quarantine %s for %s" % (
+            qconst, self._get_name_from_object (entity))
 
     # quarantine set
     all_commands['quarantine_set'] = Command(
@@ -4057,13 +4072,15 @@ class BofhdExtension(object):
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
         date_start, date_end = self._parse_date_from_to(date)
         entity = self._get_entity(entity_type, id)
-        qtype = int(self._get_constant(qtype, "No such quarantine"))
+        qconst = self._get_constant(qtype, "No such quarantine")
+        qtype = int(qconst)
         self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
         try:
             entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
         except AttributeError:    
             raise CerebrumError("Quarantines cannot be set on %s" % entity_type)
-        return "OK"
+        return "OK, set quarantine %s for %s" % (
+            qconst, self._get_name_from_object (entity))
 
     # quarantine show
     all_commands['quarantine_show'] = Command(
@@ -4098,7 +4115,8 @@ class BofhdExtension(object):
         perm_filter='can_add_spread')
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
-        spread = int(self._get_constant(spread, "No such spread"))
+        spreadconst = self._get_constant(spread, "No such spread")
+        spread = int(spreadconst)
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         try:
             entity.add_spread(spread)
@@ -4106,7 +4124,8 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         if entity_type == 'account':
             self.__spread_sync_group(entity)
-        return "OK"
+        return "OK, added spread %s for %s" % (
+            spreadconst, self._get_name_from_object (entity))
 
     # spread list
     all_commands['spread_list'] = Command(
@@ -4127,14 +4146,16 @@ class BofhdExtension(object):
         perm_filter='can_add_spread')
     def spread_remove(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
-        spread = int(self._get_constant(spread, "No such spread"))
+        spreadconst = self._get_constant(spread, "No such spread")
+        spread = int(spreadconst)
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         if spread == int(self.const.spread_uio_imap):
             raise CerebrumError, "Cannot remove IMAP spread without deleting user"
         entity.delete_spread(spread)
         if entity_type == 'account':
             self.__spread_sync_group(entity)
-        return "OK"
+        return "OK, removed spread %s from %s" % (
+            spreadconst, self._get_name_from_object (entity))
 
     def __spread_sync_group(self, account, group=None):
         """Make sure the group has the NIS spreads corresponding to
@@ -4200,7 +4221,8 @@ class BofhdExtension(object):
                                         account, ou, aff)
         account.del_account_type(ou.entity_id, aff)
         account.write_db()
-        return "OK"
+        return "OK, removed %s@%s from %s" (aff, self._format_ou_name(ou),
+                                            account.owner_id)
 
     def _user_create_prompt_func_helper(self, ac_type, session, *args):
         """A prompt_func on the command level should return
@@ -4433,7 +4455,7 @@ class BofhdExtension(object):
         # methods?  The following call will break if anyone tries this
         # code with an Email-less cereconf.CLASS_ACCOUNT.
         account.update_email_addresses()
-        return "OK"
+        return "OK, set gecos for %s to '%s'" % (accountname, gecos)
 
     # user history
     all_commands['user_history'] = Command(
@@ -4465,10 +4487,12 @@ class BofhdExtension(object):
                               "Affiliations:  %s\n" +
                               "Expire:        %s\n" +
                               "Home:          %s\n" +
-                              "Entity id:     %i",
+                              "Entity id:     %i\n" +
+                              "Owner id:      %i (%s: %s)",
                               ("username", "spread", "affiliations",
                                format_day("expire"),
-                               "home", "entity_id")),
+                               "home", "entity_id", "owner_id", "owner_type",
+                               "owner_desc")),
                              ("UID:           %i\n" +
                               "Default fg:    %i=%s\n" +
                               "Gecos:         %s\n" +
@@ -4501,7 +4525,17 @@ class BofhdExtension(object):
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
                'expire': account.expire_date,
-               'home': tmp['home']}
+               'home': tmp['home'],
+               'owner_id': account.owner_id,
+               'owner_type': str(self.num2const[int(account.owner_type)])}
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person('entity_id', account.owner_id)
+            ret['owner_desc'] = person.get_name(self.const.system_cached,
+                                                getattr(self.const,
+                                                        cereconf.DEFAULT_GECOS_NAME))
+        else:
+            grp = self._get_group(account.owner_id, idtype='id')
+            ret['owner_desc'] = grp.group_name
         if tmp['disk_id'] is not None:
             disk = self._get_disk(tmp['disk_id'])[0]
             ret['home'] = "%s/%s" % (disk.path, account.account_name)
@@ -4759,7 +4793,7 @@ class BofhdExtension(object):
                     disk_id=disk_id, home=home,
                     status=self.const.home_status_not_created)
         pu.write_db()
-        return "OK"
+        return "OK, promoted %s to posix user" % accountname
 
     # user posix_delete
     all_commands['user_demote_posix'] = Command(
@@ -4769,7 +4803,7 @@ class BofhdExtension(object):
             raise PermissionDenied("currently limited to superusers")
         user = self._get_account(accountname, actype="PosixUser")
         user.delete_posixuser()
-        return "ok"
+        return "OK, %s was demoted" % accountname
 
     def user_create_basic_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('Account', session, *args)
@@ -4828,7 +4862,7 @@ class BofhdExtension(object):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         account.expire_date = self._parse_date(date)
         account.write_db()
-        return "OK"
+        return "OK, set expire-date for %s to %s" % (accountname, date)
 
     # user set_np_type
     all_commands['user_set_np_type'] = Command(
@@ -4839,7 +4873,7 @@ class BofhdExtension(object):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         account.np_type = self._map_np_type(np_type)
         account.write_db()
-        return "OK"
+        return "OK, set np-type for %s to %s" % (accountname, np_type)
 
     def user_set_owner_prompt_func(self, session, *args):
         all_args = list(args[:])
@@ -4905,7 +4939,8 @@ class BofhdExtension(object):
             ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
             self._user_create_set_account_type(account, account.owner_id,
                                                ou_id, affiliation)
-        return "OK"
+        return "OK, set owner of %s to %s" % (
+            accountname,  self._get_name_from_object(new_owner))
 
     # user shell
     all_commands['user_shell'] = Command(
@@ -4916,7 +4951,7 @@ class BofhdExtension(object):
         self.ba.can_set_shell(operator.get_entity_id(), account, shell)
         account.shell = shell
         account.write_db()
-        return "OK"
+        return "OK, set shell for %s to %s" % (accountname, shell)
 
     # user student_create
     all_commands['user_student_create'] = Command(
@@ -4991,6 +5026,8 @@ class BofhdExtension(object):
             if idtype == 'name':
                 account.find_by_name(id, self.const.account_namespace)
             elif idtype == 'id':
+                if isinstance(id, str) and not id.isdigit():
+                    raise CerebrumError, "Entity id must be a number"
                 account.find(id)
             else:
                 raise CerebrumError, "unknown idtype: '%s'" % idtype
@@ -5151,6 +5188,8 @@ class BofhdExtension(object):
             if isinstance(idtype, _CerebrumCode):
                 person.find_by_external_id(idtype, id)
             elif idtype == 'entity_id':
+                if isinstance(id, str) and not id.isdigit():
+                    raise CerebrumError, "Entity id must be a number"
                 person.find(id)
             else:
                 raise CerebrumError, "Unknown idtype"
