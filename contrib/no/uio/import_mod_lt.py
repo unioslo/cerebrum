@@ -34,7 +34,6 @@ import cereconf
 import Cerebrum
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.mod_lt_codes import PermisjonsKode
 from Cerebrum.modules.no.uio.mod_lt_codes import RolleKode
@@ -108,28 +107,24 @@ class PersonParser(xml.sax.ContentHandler):
 
 
 
-def find_stedkode(stedkode, fakultet, institutt, gruppe):
+def find_stedkode(ou, fakultet, institutt, gruppe):
     """
     Locate the OU identified by FAKULTET, INSTITUTT, GRUPPE. Populate
-    STEDKODE object with that information.
+    OU object with that information.
 
     Returns True if an OU is located, False otherwise.
     """
 
-    stedkode.clear()
+    ou.clear()
     try: 
-        stedkode.find_stedkode(fakultet,
-                               institutt,
-                               gruppe,
-                               185)
+        ou.find_stedkode(fakultet, institutt, gruppe,
+                         cereconf.DEFAULT_INSTITUSJONSNR)
         return True
     except Cerebrum.Errors.NotFoundError, value:
         logger.error("Aiee! OU not found: %s, %s, %s %s",
                      fakultet, institutt, gruppe, value)
-        return False
     # yrt
 
-    # NOTREACHED
     return False
 # end find_stedkode
 
@@ -250,7 +245,7 @@ def get_reservation(pxml, person):
 
 
 
-def import_reservasjon(pxml, person, stedkode, constanns):
+def import_reservasjon(pxml, person, ou, constanns):
     """
     Import reservation information about PERSON/PXML.
     """
@@ -269,13 +264,13 @@ def import_reservasjon(pxml, person, stedkode, constanns):
 
 
 
-def import_gjest(pxml, person, stedkode, constants):
+def import_gjest(pxml, person, ou, constants):
     """
     Import guest information about PERSON/PXML.
     """
     
     for element in pxml["gjest"]:
-        if not find_stedkode(stedkode,
+        if not find_stedkode(ou,
                              element["fakultetnr"],
                              element["instituttnr"],
                              element["gruppenr"]):
@@ -292,7 +287,7 @@ def import_gjest(pxml, person, stedkode, constants):
         # yrt
 
         
-        person.populate_gjest(stedkode.entity_id,
+        person.populate_gjest(ou.entity_id,
                               element["dato_fra"],
                               code,
                               element.get("dato_til"))
@@ -307,20 +302,20 @@ def import_gjest(pxml, person, stedkode, constants):
 
 
 
-def import_bilag(pxml, person, stedkode, constants):
+def import_bilag(pxml, person, ou, constants):
     """
     Import bilag information about PERSON/PXML.
     """
 
     for element in pxml["bilag"]:
-        if not find_stedkode(stedkode, 
+        if not find_stedkode(ou, 
                              element["fakultetnr_kontering"],
                              element["instituttnr_kontering"],
                              element["gruppenr_kontering"]):
             continue 
         # fi
         
-        person.populate_bilag(stedkode.entity_id,
+        person.populate_bilag(ou.entity_id,
                               element["dato_oppgjor"])
     # od
     person.write_db()
@@ -333,7 +328,7 @@ def import_bilag(pxml, person, stedkode, constants):
 
 
 
-def import_tilsetting(pxml, person, stedkode, constants):
+def import_tilsetting(pxml, person, ou, constants):
     """
     Import tilsetting information about PERSON/PXML.
     """
@@ -345,7 +340,7 @@ def import_tilsetting(pxml, person, stedkode, constants):
         tilsetting = element["tilsetting"]
         permisjon = element["permisjon"]
         
-        if not find_stedkode(stedkode, 
+        if not find_stedkode(ou, 
                              tilsetting["fakultetnr_utgift"],
                              tilsetting["instituttnr_utgift"],
                              tilsetting["gruppenr_utgift"]):
@@ -362,7 +357,7 @@ def import_tilsetting(pxml, person, stedkode, constants):
         # yrt
 
         person.populate_tilsetting(tilsetting["tilsnr"],
-                                   stedkode.entity_id,
+                                   ou.entity_id,
                                    code,
                                    tilsetting["dato_fra"],
                                    tilsetting.get("dato_til"),
@@ -404,14 +399,14 @@ def import_permisjon(tilsetting, permisjon, person):
 
 
 
-def import_rolle(pxml, person, stedkode, constants):
+def import_rolle(pxml, person, ou, constants):
     """
     Register roles for PXML/PERSON
     """
 
     for element in pxml["rolle"]:
 
-        if not find_stedkode(stedkode,
+        if not find_stedkode(ou,
                              element["fakultetnr"],
                              element["instituttnr"],
                              element["gruppenr"]):
@@ -426,7 +421,7 @@ def import_rolle(pxml, person, stedkode, constants):
             continue
         # yrt
         
-        person.populate_rolle(stedkode.entity_id,
+        person.populate_rolle(ou.entity_id,
                               code,
                               element["dato_fra"],
                               element.get("dato_til"))
@@ -440,7 +435,7 @@ def import_rolle(pxml, person, stedkode, constants):
 
 
     
-def import_person(pxml, person, stedkode, constants, import_list):
+def import_person(pxml, person, ou, constants, import_list):
     """
     Synchronize Cerebrum with information on person represented by
     PXML. This object is a dictionary containing all intereseting
@@ -466,7 +461,7 @@ def import_person(pxml, person, stedkode, constants, import_list):
 
     for import_name in import_list:
         function = globals()[import_name]
-        function(pxml, person, stedkode, constants)
+        function(pxml, person, ou, constants)
     # od
 # end import_person
 
@@ -555,7 +550,7 @@ def main(argv):
     db = Factory.get("Database")()
     person = Factory.get("Person")(db) 
     const = Factory.get("Constants")(db)
-    stedkode = Stedkode.Stedkode(db)
+    ou = Factory.get("OU")(db)
 
     if do_remove:
         # Do *NOT*, I repeat, do *NOT* commit/rollback before *all* new data
@@ -565,7 +560,7 @@ def main(argv):
         person.wipe_mod_lt()
     # fi
 
-    func = lambda x: import_person(x, person, stedkode, const, imports)
+    func = lambda x: import_person(x, person, ou, const, imports)
     p = PersonParser(person_file, func)
 
     db.commit()
