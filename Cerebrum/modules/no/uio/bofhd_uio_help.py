@@ -226,6 +226,7 @@ command_help = {
     'user_create': 'Create a POSIX user account',
     'user_delete': 'Delete an account',
     'user_demote_posix': 'Make a POSIX user account into a generic Cerebrum account',
+    'user_find': 'Search for users',
     'user_gecos': 'Set gecos field for a user account',
     'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",
     'user_info': 'View general information about an account',
@@ -500,8 +501,16 @@ number.  If the person is not registered, you must create an instance with
 "person create" """],
     'user_existing':
         ['uname', 'Enter an existing user name'],
+    'user_search_type':
+        ['search_type', 'Enter user search type',
+         """Possible values:
+  - 'stedkode'
+  - 'host'
+  - 'disk'"""],
     'yes_no_force':
-        ['force', 'Force the operation?']
+        ['force', 'Force the operation?'],
+    'yes_no_include_expired':
+        ['include_expired', 'Include expired? (y/n)']
     }
 
 # arch-tag: 9a914c2f-f0bd-472e-9f1b-bfb3aa757dc7
