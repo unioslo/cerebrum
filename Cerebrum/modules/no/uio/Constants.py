@@ -236,6 +236,17 @@ class Constants(Constants.Constants):
                                             'Ekstern konto gått ut på dato')
     quarantine_autointsomm = _QuarantineCode('autointsomm',
                                             'Sommerskolen er ferdig for i år')
+    quarantine_nologin = _QuarantineCode('nologin', 'Gammel ureg karantene nologin')
+    quarantine_nologin_brk = _QuarantineCode('nologin_brk',
+                                             'Gammel ureg karantene nologin_brk')
+    quarantine_nologin_ftpuser = _QuarantineCode('nologin_ftpuser',
+                                                 'Gammel ureg karantene nologin_ftpuser')
+    quarantine_nologin_nystudent = _QuarantineCode('nologin_nystuden',
+                                                   'Gammel ureg karantene nologin_nystudent')
+    quarantine_nologin_sh = _QuarantineCode('nologin_sh',
+                                            'Gammel ureg karantene nologin_sh')
+    quarantine_nologin_stengt = _QuarantineCode('nologin_stengt',
+                                                'Gammel ureg karantene nologin_stengt')
 
     email_domain_category_uio_globals = _EmailSpamActionCode(
         'UIO_GLOBALS',
