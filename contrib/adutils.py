@@ -146,9 +146,10 @@ def get_user_info(account_id, account_name, spread):
         #This account is missing a person_id.
         full_name = account.account_name
         
-    account_disable = '0'	
-    if chk_quarantine(account_id):
-        account_disable = '1'	
+    account_disable = '1'	
+    if account.has_spread(int(co.spread_uio_ad_account)):
+	if not chk_quarantine(account_id):
+            account_disable = '0'	
 
     return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script)
 
