@@ -742,7 +742,6 @@ def generate_group(spread=None, filename=None):
 		if entity2uname.has_key(uname_id):
 		    pos_grp += "memberUid: %s\n" % entity2uname[uname_id]
 		else:
-		    print "ID ikke funnet i tab: %s" % uname_id
  		    posix_group.clear()
 		    posix_group.entity_id = uname_id
 		    mem_name = posix_group.get_name(co.account_namespace)
