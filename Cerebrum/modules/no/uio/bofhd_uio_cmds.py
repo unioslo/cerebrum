@@ -976,9 +976,9 @@ class BofhdExtension(object):
             person = self.person
             person.clear()
             if search_type == 'name':
-                if '%' not in value:
+                if value.strip() and '%' not in value and '_' not in value:
                     # Add wildcards to start and end of value.
-                    value = '%' + value + '%'
+                    value = '%' + value.strip() + '%'
                 matches = person.find_persons_by_name(value)
             elif search_type == 'date':
                 matches = person.find_persons_by_bdate(self._parse_date(value))
