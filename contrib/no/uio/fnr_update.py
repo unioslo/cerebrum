@@ -145,19 +145,21 @@ def process_file(filename, db, const, person_old, person_new):
     try:
         source_system = parser.getSourceSystem()
         source_system = int(const.AuthoritativeSystem(source_system))
+        source_system_name = str(const.AuthoritativeSystem(source_system))
     except Errors.NotFoundError:
         logger.warn("Failed to locate authoritative system '%s'", source_system)
         return
     # yrt
 
-    logger.info("Source system is '%s'", source_system)
+    logger.info("Source system is '%d' (%s)", source_system, source_system_name)
     
     for element in parser:
         old, new = element["old"], element["new"]
+        prefix = "%s %s" % (source_system_name, element["date"])
 
         if old == new:
-            logger.info("%s (old) == %s (new). No changes in the db.",
-                        old, new)
+            logger.info("%s: %s (old) == %s (new). No changes in the db.",
+                        prefix, old, new)
             continue
         # fi
 
@@ -170,20 +172,23 @@ def process_file(filename, db, const, person_old, person_new):
             person_old.clear()
             person_old.find_by_external_id(id_type, old, source_system)
         except Errors.NotFoundError:
-            logger.info("'%s' (old) does not exist in Cerebrum. "
-                        "No changes in the db.", old)
+            logger.info("%s: '%s' (old) does not exist in Cerebrum. "
+                        "No changes in the db.", prefix, old)
             continue
         # yrt
 
         try:
             person_new.clear()
             person_new.find_by_external_id(id_type, new, source_system)
-            logger.warn("Both '%s' (old) and '%s' (new) exist in Cerebrum. "
-                        "Manual intervention required. No changes in the db.",
-                        old, new)
+            logger.warn("%s: Both '%s/%s' (old) and '%s/%s' (new) exist "
+                        " in Cerebrum. Manual intervention required. "
+                        "No changes in the db.",
+                        prefix, old, person_old.entity_id,
+                        new, person_new.entity_id)
         except Errors.NotFoundError:
-            logger.info("'%s' (new) does not exist in Cerebrum, "
-                        "but '%s' (old) does. db updated.", new, old)
+            logger.info("%s: '%s' (new) does not exist in Cerebrum, "
+                        "but '%s/%s' (old) does. db updated.",
+                        prefix, new, old, str(person_old.entity_id))
             person_old.affect_external_id(source_system, id_type)
             person_old.populate_external_id(source_system, id_type, new)
             person_old.write_db()
