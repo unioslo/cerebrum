@@ -65,6 +65,7 @@ import getopt
 
 import cerebrum_path
 import cereconf
+import traceback
 
 import Cerebrum
 from Cerebrum import Database
