@@ -50,9 +50,8 @@ class SpineClass(Builder, Caching, Locking):
         Locking.__init__(self, write_lock)
 
     def get_database(self):
-        c = self.get_writelock_holder()
-        if c is not None:
-            return c.get_database() # The lockholder has get_database()
+        if self.is_writelocked():
+            return self.get_writelock_holder().get_database() # The lockholder has get_database()
         else:
             return Database.get_database()
 

@@ -92,8 +92,7 @@ class Locking(object):
         """
         self.__has_timeouts(client)
 
-        holder = self.get_writelock_holder() 
-        if holder is not None and holder is not client:
+        if self.is_writelocked() and self.get_writelock_holder() is not client:
             raise Errors.AlreadyLockedError, 'Write lock exists on %s' % self
 
         if self.read_locks.has_key(client):
@@ -158,9 +157,12 @@ class Locking(object):
     
     def get_writelock_holder(self):
         if self.write_lock is None:
-            return None
+            raise Exception('No write lock on %s' % self)
         ref, locktime = self.write_lock
         return ref()
+
+    def is_writelocked(self):
+        return self.write_lock is not None
 
 
 # arch-tag: 47ac60c5-2e0e-42f8-b793-8202f48a23e3
