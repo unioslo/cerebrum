@@ -18,26 +18,43 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
-from Cerebrum.Utils import Factory
-ClientAPI = Factory.get_module("ClientAPI")
+import forgetHTML as html
 from gettext import gettext as _
+from Cerebrum.web.Main import Main
 from Cerebrum.web.utils import redirect_object
 from Cerebrum.web.utils import queue_message
+from Cerebrum.gro import ServerConnection
+from Cerebrum.web.templates.NoteAddTemplate import NoteAddTemplate
+
+
+def index(req, entity, subject="", description=""):
+    """Shows the add note template."""
+    server = req.session['server']
+    server = ServerConnection.get_orb().string_to_object(server)
+    entity = server.get_entity(entity)
+    page = Main(req)
+    noteadd = NoteAddTemplate()
+    index = html.Division()
+    index.append(html.Header(_("Add note for entity '%s':") % entity.get_entity_id(), level=2))
+    index.append(noteadd.addForm(entity))
+    page.content = index.output
+    return page
 
 def add(req, entity, subject, description):
-    """Adds a note to some entity"""
+    """Adds a note to some entity."""
     server = req.session['server']
-    entity = ClientAPI.fetch_object_by_id(server, entity)
+    server = ServerConnection.get_orb().string_to_object(server)
+    entity = server.get_entity(int(entity))
     entity.add_note(subject, description)
     queue_message(req, _("Added note '%s'") % subject)
     return redirect_object(req, entity, seeOther=True)
 
 def delete(req, entity, id):
-    """Removes a note"""
+    """Removes a note."""
     server = req.session['server']
-    entity = ClientAPI.fetch_object_by_id(server, entity)
-    entity.remove_note(id)
+    server = ServerConnection.get_orb().string_to_object(server)
+    entity = server.get_entity(int(entity))
+    entity.remove_note(int(id))
     queue_message(req, _("Deleted note"))
     return redirect_object(req, entity, seeOther=True)
 
