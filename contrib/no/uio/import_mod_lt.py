@@ -267,6 +267,8 @@ def import_gjest(pxml, person, ou, constants):
                              element["fakultetnr"],
                              element["instituttnr"],
                              element["gruppenr"]):
+            logger.error("Missing stedkode for person %s (%s) (<gjest>)",
+                         _make_no_ssn(pxml), person.entity_id)
             continue
         # fi
 
@@ -303,6 +305,8 @@ def import_bilag(pxml, person, ou, constants):
                              element["fakultetnr_kontering"],
                              element["instituttnr_kontering"],
                              element["gruppenr_kontering"]):
+            logger.error("Missing stedkode for person %s (%s) (<bilag>)",
+                         _make_no_ssn(pxml), person.entity_id)
             continue 
         # fi
         
@@ -333,6 +337,8 @@ def import_tilsetting(pxml, person, ou, constants):
                              tilsetting["fakultetnr_utgift"],
                              tilsetting["instituttnr_utgift"],
                              tilsetting["gruppenr_utgift"]):
+            logger.error("Missing stedkode for person %s (%s) (<tils>)",
+                         _make_no_ssn(pxml), person.entity_id)
             continue 
         # fi
 
@@ -398,6 +404,8 @@ def import_rolle(pxml, person, ou, constants):
                              element["fakultetnr"],
                              element["instituttnr"],
                              element["gruppenr"]):
+            logger.error("Missing stedkode for person %s (%s) (<rolle>)",
+                         _make_no_ssn(pxml), person.entity_id)
             continue
         # fi
 
@@ -421,6 +429,23 @@ def import_rolle(pxml, person, ou, constants):
 # end import_rolle
 
 
+
+def _make_no_ssn(pxml):
+    """
+    A help function that returns the Norwegian social security number
+    (11-digit fnr) given a dictionary, representing a <person>-element from
+    the LT person dump.
+    """
+
+    attrs = pxml["attrs"]
+    no_ssn = "%02d%02d%02d%05d" % (int(attrs["fodtdag"]),
+                                   int(attrs["fodtmnd"]),
+                                   int(attrs["fodtar"]),
+                                   int(attrs["personnr"]))
+    return no_ssn
+# end _make_no_ssn
+    
+
     
 def import_person(pxml, person, ou, constants, import_list):
     """
@@ -429,12 +454,7 @@ def import_person(pxml, person, ou, constants, import_list):
     information from a <person> element in the xml data source.
     """
 
-    attrs = pxml["attrs"]
-    no_ssn = "%02d%02d%02d" % (int(attrs["fodtdag"]),
-                               int(attrs["fodtmnd"]),
-                               int(attrs["fodtar"]))
-    no_ssn = no_ssn + attrs["personnr"].zfill(5)
-
+    no_ssn = _make_no_ssn(pxml)
     try:
         person.clear()
         person.find_by_external_id(constants.externalid_fodselsnr,
@@ -468,7 +488,8 @@ The following options are supported:
 -l, --rolle		-- import information on roles (rolle)
 -h, --help		-- display this message
 -p, --person-file [file] -- use [file] as data source
--v, --verbose           -- increase logger verbosity level
+--with-remove           -- delete all prior mod_lt data before importing
+--dryrun                -- perform all operations, but rollback database changes
 """)
 # end usage
 
@@ -481,7 +502,7 @@ def main():
 
     try:
         options, rest = getopt.getopt(sys.argv[1:],
-                                      "tbgrlhp:",
+                                      "tbgrlhp:d",
                                       ["tilsetting",
                                        "bilag",
                                        "gjest",
@@ -489,7 +510,8 @@ def main():
                                        "rolle",
                                        "help",
                                        "person-file=",
-                                       "with-remove"])
+                                       "with-remove",
+                                       "dryrun"])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
@@ -498,7 +520,8 @@ def main():
     imports = []
     person_file = None
     do_remove = False
-    # Why does this look _so_ ugly?
+    dryrun = False
+
     for option, value in options:
         if option in ("-t", "--tilsetting"):
             imports.append("import_tilsetting")
@@ -517,6 +540,8 @@ def main():
             person_file = value
         elif option in ("--with-remove",):
             do_remove = True
+        elif option in ("-d", "--dryrun"):
+            dryrun = True
         # fi
     # od
 
@@ -545,7 +570,13 @@ def main():
     func = lambda x: import_person(x, person, ou, const, imports)
     p = PersonParser(person_file, func)
 
-    db.commit()
+    if dryrun:
+        db.rollback()
+        logger.info("Rolled back all changes")
+    else:
+        db.commit()
+        logger.info("Committed all changes")
+    # fi
 # end 
 
 
