@@ -264,16 +264,21 @@ class Account(AccountType, EntityName, EntityQuarantine, Entity):
                           'name': self.account_name})
 
         # We store the plaintext password in the changelog so that
-        # other systens that need it may get it.  The changelog
+        # other systems that need it may get it.  The changelog
         # handler should remove the plaintext password using some
         # criteria.
         try:
-            self._db.log_change(self.entity_id, self.const.a_password,
-                                None, change_params={'password':
-                                                     self.__plaintext_password})
+            plain = self.__plaintext_password
         except AttributeError:
-            pass  # TODO: this is meant to catch that self.__plaintext_password is unset
-        
+            # TODO: this is meant to catch that self.__plaintext_password is unset
+            pass
+        else:
+            # self.__plaintext_password is set.  Put the value in the
+            # changelog.
+            self._db.log_change(self.entity_id, self.const.a_password,
+                                None, change_params={'password': plain})
+
+
         # Store the authentication data.
         for k in self._acc_affect_auth_types:
             k = int(k)
