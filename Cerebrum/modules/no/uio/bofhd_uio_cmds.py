@@ -240,8 +240,8 @@ class BofhdExtension(object):
     # group info
     all_commands['group_info'] = Command(
         ("group", "info"), GroupName(),
-        fs=FormatSuggestion([("Spreads: %s\nDescription: %s\nExpire: %s\nentity id: %i",
-                              ("spread", "desc", "expire:%s" % format_day, "entity_id")),
+        fs=FormatSuggestion([("Name: %s\nSpreads: %s\nDescription: %s\nExpire: %s\nentity id: %i",
+                              ("name", "spread", "desc", "expire:%s" % format_day, "entity_id")),
                              ("Gid: %i", ('gid',))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
@@ -253,6 +253,7 @@ class BofhdExtension(object):
         except CerebrumError:
             grp = self._get_group(groupname)
         ret = {'entity_id': grp.entity_id,
+               'name': grp.group_name,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in grp.get_spread()]),
                'desc': grp.description,
@@ -799,7 +800,7 @@ class BofhdExtension(object):
 
     # perm list
     all_commands['perm_list'] = Command(
-        ("perm", "list"), Id(),
+        ("perm", "list"), Id(help_ref='id:entity_ext'),
         fs=FormatSuggestion("%-8s %-8s %-8i",
                             ("entity_id", "op_set_id", "op_target_id"),
                             hdr="%-8s %-8s %-8s" %
@@ -808,9 +809,22 @@ class BofhdExtension(object):
     def perm_list(self, operator, entity_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
+        if entity_id.startswith("group:"):
+            entities = [ self._get_group(entity_id.split(":")[-1]).entity_id ]
+        elif entity_id.startswith("account:"):
+            account = self._get_account(entity_id.split(":")[-1])
+            group = Group.Group(self.db)
+            entities = [account.entity_id]
+            for row in group.list_groups_with_entity(account.entity_id):
+                if row['operation'] == int(self.const.group_memberop_union):
+                    entities.append(row['group_id'])
+        else:
+            if not entities.isdigit():
+                raise CerebrumError("Expected entity-id")
+            entities = [entity_id]
         bar = BofhdAuthRole(self.db)
         ret = []
-        for r in bar.list(entity_id):
+        for r in bar.list(entities):
             ret.append({'entity_id': self._get_entity_name(None, r['entity_id']),
                         'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
                         'op_target_id': r['op_target_id']})
@@ -837,6 +851,37 @@ class BofhdExtension(object):
         bar = BofhdAuthRole(self.db)
         bar.revoke_auth(entity_id, op_set_id, op_target_id)
         return "OK"
+
+    # perm who_owns
+    all_commands['perm_who_owns'] = Command(
+        ("perm", "who_owns"), Id(help_ref="id:entity_ext"),
+        fs=FormatSuggestion("%-8s %-8s %-8i",
+                            ("entity_id", "op_set_id", "op_target_id"),
+                            hdr="%-8s %-8s %-8s" %
+                            ("entity_id", "op_set_id", "op_target_id")),
+        perm_filter='is_superuser')
+    def perm_who_owns(self, operator, id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        bar = BofhdAuthRole(self.db)
+        if id.startswith("group:"):
+            group = self._get_group(id.split(":")[-1])
+            aot = BofhdAuthOpTarget(self.db)
+            target_ids = []
+            for r in aot.list(target_type='group', entity_id=group.entity_id):
+                target_ids.append(r['op_target_id'])
+        else:
+            if not id.isdigit():
+                raise CerebrumError("Expected target-id")
+            target_ids = [int(id)]
+        if not target_ids:
+            raise CerebrumError("No target_ids for %s" % id)
+        ret = []
+        for r in bar.list_owners(target_ids):
+            ret.append({'entity_id': self._get_entity_name(None, r['entity_id']),
+                        'op_set_id': self.num2op_set_name[int(r['op_set_id'])],
+                        'op_target_id': r['op_target_id']})
+        return ret
 
     #
     # person commands
