@@ -980,12 +980,15 @@ class BofhdExtension(object):
     def email_delete_list(self, operator, listname):
         lp, dom = listname.split('@')
         ed = self._get_email_domain(dom)
-        self.ba.can_email_list_delete(operator.get_entity_id(), ed)
+        op = operator.get_entity_id()
+        self.ba.can_email_list_delete(op, ed)
         self._check_mailman_official_name(listname)
         # All OK, let's nuke it all.
         result = []
         et = Email.EmailTarget(self.db)
         ea = Email.EmailAddress(self.db)
+        ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        list_id = ea.email_addr_id
         for interface in self._interface2addrs.keys():
             alias = self._mailman_pipe % { 'interface': interface,
                                            'listname': listname }
@@ -1000,6 +1003,9 @@ class BofhdExtension(object):
                     result.append({'address': addr})
             except Errors.NotFoundError:
                 pass
+        br = BofhdRequests(self.db, self.const)
+        br.add_request(op, br.now, self.const.bofh_mailman_remove,
+                       list_id, None, listname)
         return result
 
     def _get_mailman_list(self, listname):
