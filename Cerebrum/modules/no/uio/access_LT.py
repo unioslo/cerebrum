@@ -318,31 +318,27 @@ class LT(object):
           fodtdag, fodtmnd, fodtar, personnr, kommnrverdi, tlfpreftegn
         FROM
           lt.perskomm
-        WHERE kommtypekode = :kommtype
-
-        UNION
-
-        SELECT
-          fodtdag, fodtmnd, fodtar, personnr, NULL as kommnrverdi,
-          'A' AS tlfpreftegn
-        FROM
-          lt.person p
-        WHERE NOT EXISTS (
-          SELECT
-            *
-          FROM
-            lt.perskomm k
-          WHERE
-            k.kommtypekode = :kommtype AND
-            p.fodtdag = k.fodtdag AND
-            p.fodtmnd = k.fodtmnd AND
-            p.fodtar = k.fodtar
-        )
+        WHERE kommtypekode = :kommtype AND tlfpreftegn = 'A'
         ORDER BY fodtdag, fodtmnd, fodtar, personnr, tlfpreftegn
         """
 
         return self.db.query(query, {'kommtype': kommtype})
     # end _GetAllPersonsKommType
+
+
+
+    def GetAllPersons(self):
+
+        query = """
+        SELECT
+          fodtdag, fodtmnd, fodtar, personnr
+        FROM
+          lt.person
+        ORDER BY fodtdag, fodtmnd, fodtar, personnr
+        """
+
+        return self.db.query(query)
+    # end GetAllPersons
 
 
 
@@ -388,7 +384,8 @@ class LT(object):
           Fodtar=:aar AND
           Personnr=:personnr AND
           Kommtypekode=:kommtypekode AND
-          kommnrverdi=:kommverdi
+          kommnrverdi=:kommverdi AND
+          tlfpreftegn = 'A'
         """
 
         return self.db.execute(query, {'dag': dag,
@@ -448,6 +445,39 @@ class LT(object):
     def UpdatePriUser(self, fnr, uname):
         return self._UpdateKommtypeVerdi(fnr, 'UREG-USER', uname)
     # end WritePriUser
+
+
+
+    def _InsertKommtypeVerdi(self, fnr, kommtypekode, kommnrverdi):
+        dag, maned, aar, personnr = fodselsnr.del_fnr_4(fnr)
+
+        query = """
+        INSERT INTO
+          lt.perskomm(FODTDAG, FODTMND, FODTAR, PERSONNR,
+                      KOMMTYPEKODE, KOMMNRVERDI, TLFPREFTEGN)
+        VALUES
+          (:dag, :mnd, :aar, :personnr, :kommtypekode, :kommnrverdi, 'A')
+        """
+
+        return self.db.execute(query, {"dag" : dag,
+                                       "mnd" : maned,
+                                       "aar" : aar,
+                                       "personnr" : personnr,
+                                       "kommtypekode" : kommtypekode,
+                                       "kommnrverdi"  : kommnrverdi})
+    # end _InsertKommtypeVerdi
+
+
+
+    def InsertPriMailAddr(self, fnr, email):
+        return self._InsertKommtypeVerdi(fnr, "UREG-EMAIL", email)
+    # end InsertPriMailAddr
+
+
+
+    def InsertPriUser(self, fnr, uname):
+        return self._InsertKommtypeVerdi(fnr, 'UREG-USER', uname)
+    # end InsertPriUser
 
 
 

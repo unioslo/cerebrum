@@ -73,10 +73,19 @@ def attempt_commit(lt):
 
 
 
+def make_key(db_row):
+    return "%02d%02d%02d%05d" % (db_row.fodtdag, db_row.fodtmnd,
+                                    db_row.fodtar, db_row.personnr)
+# end make_key
+
+
+
 def synchronize_attribute(cerebrum_lookup,
+                          lt_people,
                           lt_lookup,
                           lt_update,
                           lt_delete,
+                          lt_insert,
                           const, lt):
     """
     Synchronize an attribute from Cerebrum to LT
@@ -91,38 +100,62 @@ def synchronize_attribute(cerebrum_lookup,
                  lt_update.__name__, lt_delete.__name__)
 
     logger.debug("Fetching information from Cerebrum")
-    fnr2attribute = cerebrum_lookup(const.externalid_fodselsnr)
+    cere2attr = cerebrum_lookup(const.externalid_fodselsnr)
     logger.debug("Done fetching information from Cerebrum")
 
-    for db_row in lt_lookup():
-        fnr = "%02d%02d%02d%05d" % (db_row.fodtdag, db_row.fodtmnd,
-                                    db_row.fodtar, db_row.personnr)
-        lt_attribute = db_row.kommnrverdi
-        
-        # This FNR exists in Cerebrum
-        if fnr2attribute.has_key(fnr):
-            # ... but Cerebrum's value is different from LT's
-            if fnr2attribute[fnr] != lt_attribute:
-                logger.debug("Updating for %s in LT: %s -> %s",
-                             fnr, lt_attribute, fnr2attribute[fnr])
-                lt_update(fnr, fnr2attribute[fnr])
+    logger.debug("Fetching comm information from LT")
+    lt2attr = dict()
+    for row in lt_lookup():
+        fnr = make_key(row)
+        lt2attr[fnr] = row.kommnrverdi
+    # od
+    logger.debug("Done fetching information from LT")
 
+    #
+    # Now, for each person in LT (LT_PERSON), check if the attribute value
+    # in Cerebrum (cerebrum2attribute) matches the one in LT (lt2attribute).
+    # If they mismatch, cerebrum's value takes precendence.
+    #
+    # Please not that there is a delay between looking up the values in
+    # respective databases and checking them for matches. If an update happens
+    # within this time period, we might end up with "old" data (... which
+    # should be taken care of in the next run of the script).
+    # 
+    for db_row in lt_people:
+        fnr = make_key(db_row)
+
+        # This FNR exists in Cerebrum
+        if fnr in cere2attr:
+            # ... but does NOT exist in LT
+            if fnr not in lt2attr:
+                # ... then we *insert* the new value into LT
+                logger.debug("Inserting for %s in LT: -> %s",
+                             fnr, cere2attr[fnr])
+                lt_insert(fnr, cere2attr[fnr])
+                attempt_commit(lt)
+            # ... and the attribute exists in LT, but is different from
+            # Cerebrum
+            elif cere2attr[fnr] != lt2attr[fnr]:
+                # ... then we *update* the value in LT
+                logger.debug("Updating for %s in LT: %s -> %s",
+                             fnr, lt2attr[fnr], cere2attr[fnr])
+                lt_update(fnr, cere2attr[fnr])
                 attempt_commit(lt)
             # fi
-        # This FNR does NOT exist in Cerebrum
+        # ... this FNR does NOT exist in Cerebrum
         else:
-            # ... and it should be deleted
-            if lt_attribute is not None:
+            # ... and if it exists in LT
+            if lt2attr.get(fnr) is not None:
+                # ... it should be deleted
                 logger.debug("Deleting %s's attribute %s in LT",
-                             fnr, lt_attribute)
-                lt_delete(fnr, lt_attribute)
-
+                             fnr, lt2attr[fnr])
+                lt_delete(fnr, lt2attr[fnr])
                 attempt_commit(lt)
             # fi
         # fi
     # od
 
-    logger.debug("Done synchronizing email information")
+    logger.debug("Done synchronizing attribute")
 # end synchronize_attribute
         
 
@@ -171,19 +204,27 @@ def main():
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")(db)
 
+    logger.debug("Fetching all people from LT")
+    lt_people = lt.GetAllPersons()
+    logger.debug("done")
+
     if email:
         synchronize_attribute(person.getdict_external_id2mailaddr,
+                              lt_people,
                               lt.GetAllPersonsUregEmail,
                               lt.UpdatePriMailAddr,
                               lt.DeletePriMailAddr,
+                              lt.InsertPriMailAddr,
                               const, lt)
     # fi
 
     if uname:
         synchronize_attribute(person.getdict_external_id2primary_account,
+                              lt_people,
                               lt.GetAllPersonsUregUser,
                               lt.UpdatePriUser,
                               lt.DeletePriUser,
+                              lt.InsertPriUser,
                               const, lt)
     # fi
 # end main    
