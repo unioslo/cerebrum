@@ -1,0 +1,91 @@
+#from Cerebrum.web.InitTemplate import InitTemplate
+#extends InitTemplate
+#import forgetHTML
+#from Cerebrum.web.TableView import TableView
+#from HistoryLogTemplate import HistoryLogTemplate
+#from Cerebrum.web.utils import url
+
+#def viewPerson(person)
+<h1>$_("Person") $person.name</h1>
+$personInfo($group)
+$personAccounts($group)
+#set $historyLog = HistoryLogTemplate()
+$historyLog.viewHistoryLog()
+#end def
+
+#def personAccounts(person)
+#set $allaccounts = $person.get_accounts()
+#if $allaccounts
+<div class="accounts">
+<h2>$_("Accounts")</h2>
+#*
+<%
+memberSets = {}
+for member in allmembers:
+    operation = member['operation']
+    # fetch (and possibly create) a list to contain members
+    members = memberSets.setdefault(operation, [])
+    members.append(member)
+    
+## FIXME Dont hardcode operations
+for operation in ('union', 'intersection', 'difference'):
+    members = memberSets.get(operation)
+    if not members:
+        # skip empty members
+        continue
+    write(self.memberList(operation, members, group))
+%>
+*#
+</div>
+#end def
+
+#*
+#def accountList($operation, $members, $group)
+#set $operations = {'union': $_('Union'), 'intersection': $_('Intersection'), 'difference': $_('Difference')}
+#set $headers = {'type': $_("Type"), 'name': $_("Name")}
+<div class="memberlist">
+<h3>$operations[$operation]</h3>
+#set $table = $TableView("type", "name")
+#for $member in $members
+$table.add($member['type'], $member['name'], 
+           id=$member['id'], groupid=$group.id, operation=$operation)
+#end for
+$MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("blupp=%s"))
+<input type="submit" value="Remember checked" />
+<input type="submit" value="Remove checked" />
+<input type="submit" value="Check all" />
+<input type="submit" value="Uncheck all" />
+</div>
+#end def
+*#
+
+#def personInfo(person)
+<div class="info">
+<dl>
+    <dt>$_("First Name")</dt>
+    <dd>$person.first_name</dd>
+
+    <dt>$_("Last Name")</dt>
+    <dd>$person.last_name</dd>
+
+    <dt>$_("Gender")</dt>
+    <dd>$person.gender</dd>
+
+    <dt>$_("Date of birth")</dt>
+    <dd>$person.birthdate</dd>
+
+#if $person.deceased
+    $_("-- Person is deceased --")
+#end if
+    
+    <dt>$_("Description")</dt>
+    <dd>$person.description</dd>
+
+    <dt>$_("Other names")</dt>
+    <dd></dd>
+
+    <dt>Affilitations</dt>
+    <dd></dd>
+</dl>
+</div>
+#end def

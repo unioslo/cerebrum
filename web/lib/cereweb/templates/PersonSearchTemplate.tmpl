@@ -1,0 +1,14 @@
+#extends SearchTemplate
+#from Cerebrum.web.utils import url
+
+###attr $action = "/feil/url"
+#attr $fields = [ ("name", "Name"),
+                  ("accountid", "Account name"),
+                  ("birthno", "Birth number (exact match)"),
+                  ("birthdate", "Date of birth"),
+                ]
+#def getAction
+$url("person/search")#slurp
+#end def                             
+
+
