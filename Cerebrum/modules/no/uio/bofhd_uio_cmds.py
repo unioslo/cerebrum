@@ -42,8 +42,8 @@ from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.templates.letters import TemplateHandler
 
 class BofhdExtension(object):
-    """All CallableFuncs takes user as first arg, and is responsible
-    for checking neccesary permissions"""
+    """All CallableFuncs take user as first arg, and are responsible
+    for checking necessary permissions"""
 
     all_commands = {}
     OU_class = Utils.Factory.get('OU')
@@ -601,10 +601,10 @@ class BofhdExtension(object):
                         address = person.get_entity_address(source=self.const.system_lt,
                                                             type=self.const.address_post)
                     except Errors.NotFoundError:
-                        ret.append("Error: Couldn't get authtoritative address for %s" % account.account_name)
+                        ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
                         continue
                 if not address:
-                    ret.append("Error: Couldn't get authtoritative address for %s" % account.account_name)
+                    ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
                     continue
                 address = address[0]
                 alines = address['address_text'].split("\n")+[""]
@@ -1034,7 +1034,7 @@ class BofhdExtension(object):
         "studprogkode", "studierettstatkode", "dato_tildelt:%s" % format_day,
         "dato_gyldig_til:%s" % format_day, "privatist")),
         ("Eksamensmeldinger: %s (%s), %s", ("ekskode", "programmer", "dato:%s" % format_day)),
-        ("Utd. plan: %s, %s, %s, %s", (
+        ("Utd. plan: %s, %s, %d, %s", (
         "studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
         "dato_bekreftet:%s" % format_day)),
         ("Semesterreg: %s, %s, betalt: %s, endret: %s", (
@@ -1547,7 +1547,7 @@ class BofhdExtension(object):
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
                        account.entity_id, None)
-        return "User %s queued for deletion immeadeately" % account.account_name
+        return "User %s queued for deletion immediately" % account.account_name
 
         # raise NotImplementedError, "Feel free to implement this function"
 
@@ -2103,13 +2103,13 @@ class BofhdExtension(object):
             elif idtype == 'entity_id':
                 person.find(id)
             else:
-                raise CerebrumError, "Unkown idtype"
+                raise CerebrumError, "Unknown idtype"
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find person with %s=%s" % (idtype, id)
         return person
 
     def _map_person_id(self, id):
-        """Map <idtype:id> to const.<idtype>, id.  Recognices
+        """Map <idtype:id> to const.<idtype>, id.  Recognizes
         fødselsnummer without <idtype>.  Also recognizes entity_id"""
         if id.isdigit() and len(id) >= 10:
             return self.const.externalid_fodselsnr, id
