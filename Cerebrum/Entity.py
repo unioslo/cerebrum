@@ -166,6 +166,12 @@ class Entity(DatabaseAccessor):
         SELECT entity_id, entity_type
         FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': entity_id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = False
 
     def delete(self):
         "Completely remove an entity."
