@@ -9,7 +9,6 @@ import xml.sax
 from Cerebrum import Database,Errors
 from Cerebrum import Person
 from Cerebrum import cereconf
-from Cerebrum.modules.no.uio import OU
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Utils import Factory
 
@@ -114,7 +113,7 @@ def process_person(Cerebrum, persondta):
                                 city=persondta.get('adrlin3_%s' % atype, ''))
 
     for i in range(0, len(sko_info), 3):
-        ou = OU.OU(Cerebrum)
+        ou = Factory.get('OU')(Cerebrum)
         ou.find_stedkode(int(sko_info[i]), int(sko_info[i+1]),
                          int(sko_info[i+2]))
 
