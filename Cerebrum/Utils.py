@@ -21,6 +21,7 @@
 """
 
 import sys
+import re
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
@@ -293,3 +294,37 @@ class mark_update(auto_super):
         dict['__slots__'] = tuple(slots)
 
         return super(mark_update, cls).__new__(cls, name, bases, dict)
+
+class XMLHelper(object):
+    xml_hdr = '<?xml version="1.0" encoding="ISO-8859-1"?>\n'
+
+    def conv_colnames(self, cols):
+        "Strip tablename prefix from column name"
+        prefix = re.compile(r"[^.]*\.")
+        for i in range(len(cols)):
+            cols[i] = re.sub(prefix, "", cols[i]).lower()
+        return cols
+
+    def xmlify_dbrow(self, row, cols, tag, close_tag=1, extra_attr=None):
+        if close_tag:
+            close_tag = "/"
+        else:
+            close_tag = ""
+        assert(len(row) == len(cols))
+        if extra_attr is not None:
+            extra_attr = " " + " ".join(["%s=%s" % (k, self.escape_xml_attr(extra_attr[k]))
+                                         for k in extra_attr.keys()])
+        else:
+            extra_attr = ''
+        return "<%s " % tag + (
+            " ".join(["%s=%s" % (cols[i], self.escape_xml_attr(row[i]))
+                      for i in range(len(cols)) if row[i] is not None])+
+            "%s%s>" % (extra_attr, close_tag))
+
+    def escape_xml_attr(self, a):
+        # TODO:  Check XML-spec to find out what to quote
+        a = str(a).replace('&', "&amp;")
+        a = a.replace('"', "&quot;")
+        a = a.replace('<', "&lt;")
+        a = a.replace('>', "&gt;")
+        return '"%s"' % a
