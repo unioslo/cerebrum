@@ -169,26 +169,6 @@ class norEduLDIFMixin(OrgLDIF):
             entry['norEduPersonNIN'] = (str(fnr),)
             birth_date = self.birth_dates.get(person_id)
             if birth_date:
-                entry['norEduPersonBirthDate'] = (
-                    time.strftime("%Y%m%d",
-                                  time.strptime(str(birth_date),
-                                                "%Y-%m-%d %H:%M:%S.00")),)
-
-    # TEST - fjern langsom birth_date parsing
-    def update_person_entry(self, entry, row):
-        # Changes from superclass:
-        # If possible, add object class norEduPerson and its attributes
-        # norEduPersonNIN, norEduPersonBirthDate, eduPersonPrincipalName.
-        self.__super.update_person_entry(entry, row)
-        uname = entry.get('uid')
-        person_id = int(row['person_id'])
-        fnr = self.fodselsnrs.get(person_id)
-        if uname and fnr:
-            entry['objectClass'].append('norEduPerson')
-            entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
-            entry['norEduPersonNIN'] = (str(fnr),)
-            birth_date = self.birth_dates.get(person_id)
-            if birth_date:
                 entry['norEduPersonBirthDate'] = ("%04d%02d%02d" % (
                     birth_date.year, birth_date.month, birth_date.day),)
 
