@@ -100,7 +100,7 @@ tag is present, hdr and footer will be empty.
             if status:
                 raise IOError("Error spooling job, see %s for details" % logfile)
         if not skip_lpr:
-            if re.search(r'[^a-z0-9\-]', printer):
+            if re.search(r'[^a-z0-9\-_]', printer):
                 raise IOError("Bad printer name")
             lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
             status = os.system("%s %s.ps >> %s.zz 2>&1" % (
