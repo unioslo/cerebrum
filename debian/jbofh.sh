@@ -3,7 +3,7 @@
 
 # The first existing directory is used for JAVA_HOME (if JAVA_HOME is not
 # defined in $DEFAULT)
-JDK_DIRS="$JAVA_HOME /usr/lib/j2re1.3 /usr/lib/kaffe"
+JDK_DIRS="$JAVA_HOME /usr/lib/j2re1.4 /usr/lib/kaffe"
 
 # Look for the right JVM to use
 for jdir in $JDK_DIRS; do
