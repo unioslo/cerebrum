@@ -22,7 +22,7 @@
 
 from Cerebrum.Entity import \
      Entity, EntityContactInfo, EntityAddress, EntityQuarantine
-from Cerebrum import OU
+from Cerebrum import OU,Utils
 
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
@@ -235,7 +235,7 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         self.description = description
         self.deceased = deceased
 
-        super(Person, self).populate(self.constants.entity_person)
+        super(Person, self).populate(self.const.entity_person)
         self.__write_db = True
 
         
@@ -292,13 +292,13 @@ class Person(Entity, EntityContactInfo, EntityAddress,
         self.person_id = self.entity_id
 
         if as_object is None:
-            self.person_id = super(Person, self).new(int(self.constants.entity_person))
+            self.person_id = super(Person, self).new(int(self.const.entity_person))
 
             self.execute("""
             INSERT INTO cerebrum.person_info (entity_type, person_id,
                export_id, birth_date, gender, deceased, description)
             VALUES (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
-                         {'e_type' : int(self.constants.entity_person),
+                         {'e_type' : int(self.const.entity_person),
                           'p_id' : self.person_id, 'exp_id' : 'exp-'+str(self.person_id),
                           'b_date' : self.birth_date, 'gender' : int(self.gender),
                           'deceased' : 'F', 'desc' : self.description})
@@ -363,6 +363,11 @@ class Person(Entity, EntityContactInfo, EntityAddress,
                       's_system' : int(source_system), 'ext_id' : external_id})
 
         pass
+
+    def find_persons_by_bdate(self, bdate):
+        return Utils.keep_entries(self.query(
+            """SELECT person_id FROM cerebrum.person_info
+               WHERE to_char(birth_date, 'YYYY-MM-DD')=:bdate""", {'bdate' : bdate}))
 
     def find_by_external_id(self, id_type, external_id):
         person_id = self.query_1("""
