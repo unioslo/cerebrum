@@ -4,6 +4,7 @@
 
 import unittest
 from Cerebrum import Database
+from Cerebrum import Errors
 from Cerebrum import OU
 from Cerebrum import Person
 from Cerebrum import Account
@@ -11,13 +12,16 @@ from Cerebrum import Constants
 
 from Cerebrum.tests.OUTestCase import OU_createTestCase
 
+
 class Person_createTestCase(OU_createTestCase):
 
     person_dta = {
         'birth': OU_createTestCase.Cerebrum.Date(1970, 1, 1),
         'gender': OU_createTestCase.co.gender_male,
         'full_name': "Full Name",
-        'adr': 'adr', 'zip': 'zip', 'city': 'city'
+        'adr': 'adr',
+        'zip': 'zip',
+        'city': 'city'
         }
 
     def setUp(self):
@@ -32,14 +36,11 @@ class Person_createTestCase(OU_createTestCase):
 
     def _myPopulatePerson(self, person):
         pd = self.person_dta
-
         person.populate(pd['birth'], pd['gender'])
         person.affect_names(self.co.system_manual, self.co.name_full)
         person.populate_name(self.co.name_full, pd['full_name'])
-
-        # person.populate_external_id(co.system_manual, co.externalid_fodselsnr,
-        #                             fnr)
-
+##         person.populate_external_id(co.system_manual,
+##                                     co.externalid_fodselsnr, fnr)
         person.affect_addresses(self.co.system_manual, self.co.address_post)
         person.populate_address(self.co.address_post, addr=pd['adr'],
                                 zip=pd['zip'],
@@ -51,9 +52,20 @@ class Person_createTestCase(OU_createTestCase):
 
     def tearDown(self):
         # print "Person_createTestCase.tearDown()"
+        self.Cerebrum.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_affiliation]
+        WHERE person_id=:id""", {'id': self.person_id})
+        self.Cerebrum.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_name]
+        WHERE person_id=:id""", {'id': self.person_id})
+        self.Cerebrum.execute("""
+        DELETE FROM [:table schema=cerebrum name=person_info]
+        WHERE person_id=:id""", {'id': self.person_id})
         super(Person_createTestCase, self).tearDown()
 
+
 class PersonTestCase(Person_createTestCase):
+
     def testCreatePerson(self):
         "Test that one can create a Person"
         self.failIf(getattr(self, "person_id", None) is None)
@@ -65,7 +77,6 @@ class PersonTestCase(Person_createTestCase):
         new_person = Person.Person(self.Cerebrum)
         new_person.clear()
         self._myPopulatePerson(new_person)
-
         if(new_person <> person):
             print "Error: should be equal"
         person.birth_date = self.person_dta['birth']
@@ -77,22 +88,9 @@ class PersonTestCase(Person_createTestCase):
         "Delete the person"
         # This is actually a clean-up method, as we don't support
         # deletion of Persons
-        self.Cerebrum.execute(
-            """DELETE FROM [:table schema=cerebrum name=person_affiliation]
-               WHERE person_id=:id""", {'id': self.person_id})
-        self.Cerebrum.execute(
-            """DELETE FROM [:table schema=cerebrum name=person_name]
-               WHERE person_id=:id""", {'id': self.person_id})
-        self.Cerebrum.execute(
-            """DELETE FROM [:table schema=cerebrum name=person_info]
-               WHERE person_id=:id""", {'id': self.person_id})
+        self.tearDown()
         person = Person.Person(self.Cerebrum)
-        try:
-            person.find(self.person_id)
-            fail("Error: Should no longer exist")
-        except:
-            # OK
-            pass
+        self.assertRaises(Errors.NotFoundError, person.find, self.person_id)
 
     def suite():
         suite = unittest.TestSuite()
@@ -102,18 +100,20 @@ class PersonTestCase(Person_createTestCase):
         return suite
     suite = staticmethod(suite)
 
+
 def suite():
     """Returns a suite containing all the test cases in this module.
-       It can be a good idea to put an identically named factory function
-       like this in every test module. Such a naming convention allows
-       automation of test discovery.
+
+    It can be a good idea to put an identically named factory function
+    like this in every test module. Such a naming convention allows
+    automation of test discovery.
+
     """
 
     suite1 = PersonTestCase.suite()
-
     return unittest.TestSuite((suite1,))
 
 
 if __name__ == '__main__':
-    # When this module is executed from the command-line, run all its tests
+    # When executed as a script, perform all tests in suite().
     unittest.main(defaultTest='suite')
