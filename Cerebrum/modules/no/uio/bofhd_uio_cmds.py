@@ -156,7 +156,7 @@ class BofhdExtension(object):
         elif not addr and not matches:
             raise (CerebrumError,
                    "No forward addresses for %s" % uname)
-        prim = self._rewrite_address(acc.get_primary_mailaddress())
+        prim = acc.get_primary_mailaddress()
         if action == 'local':
             action = 'on'
             if self._forward_exists(fw, prim):
@@ -207,7 +207,7 @@ class BofhdExtension(object):
         fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
         if address == 'local':
-            address = self._rewrite_address(acc.get_primary_mailaddress())
+            address = acc.get_primary_mailaddress()
         addr = self._check_email_address(address)
         if self._forward_exists(fw, addr):
             fw.delete_forward(addr)
@@ -303,13 +303,12 @@ class BofhdExtension(object):
         info["server"] = es.name
         type = int(es.email_server_type)
         info["server_type"] = str(Email._EmailServerTypeCode(type))
-        info["def_addr"] = self._rewrite_address(acc.get_primary_mailaddress())
+        info["def_addr"] = acc.get_primary_mailaddress()
         et = Email.EmailTarget(self.db)
         et.find_by_entity(acc.entity_id)
         addrs = []
-        for r in et.get_addresses():
-            dom = self._rewrite_domain(r['domain'])
-            addrs.append(r['local_part'] + '@' + dom)
+        for r in et.get_addresses(special=False):
+            addrs.append(r['local_part'] + '@' + r['domain'])
         info["valid_addr"] = "\n                  ".join(addrs)
         return [ info ]
 
@@ -357,7 +356,7 @@ class BofhdExtension(object):
         local_copy = ""
         ef = Email.EmailForward(self.db)
         ef.find_by_entity(acc.entity_id)
-        prim = self._rewrite_address(acc.get_primary_mailaddress())
+        prim = acc.get_primary_mailaddress()
         for r in ef.get_forward():
             if r['enable'] == 'T':
                 enabled = "on"
@@ -416,15 +415,6 @@ class BofhdExtension(object):
                         "\n                  ".join(aliases)})
         # and all administrative addresses ... TODO
         return ret
-
-    def _rewrite_domain(self, dom):
-        if dom in cereconf.LDAP_REWRITE_EMAIL_DOMAIN:
-            return cereconf.LDAP_REWRITE_EMAIL_DOMAIN[dom]
-        return dom
-    
-    def _rewrite_address(self, addr):
-        lp, dom = addr.split('@')
-        return lp + "@" + self._rewrite_domain(dom)
 
     # email create_list <list-address> [<existing-list>]
     all_commands['email_create_list'] = Command(
