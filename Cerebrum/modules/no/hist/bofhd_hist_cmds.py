@@ -4369,7 +4369,11 @@ class BofhdExtension(object):
         ('user', 'create_reserve'), prompt_func=user_create_basic_prompt_func,
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
         perm_filter='can_create_user')
-    def user_reserve(self, operator, idtype, person_id, affiliation, uname):
+    def user_reserve(self, operator, *args):
+        if len(args) == 4:  
+            idtype, person_id, affiliation, uname = args
+        else:
+            idtype, person_id, yes_no, affiliation, uname = args
         person = self._get_person("entity_id", person_id)
         account = self.Account_class(self.db)
         account.clear()
