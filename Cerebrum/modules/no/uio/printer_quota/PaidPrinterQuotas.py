@@ -108,6 +108,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
             self.co.pqtt_printout, person_id, pageunits_free,
             pageunits_paid, pageunits_total, update_program=update_program,
             tstamp=tstamp)
+        if job_name is not None:
+            job_name = job_name[:128]
         binds = {
             'account_id': account_id,
             'job_id': job_id,
