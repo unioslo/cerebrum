@@ -563,7 +563,8 @@ class Factory(object):
                       'ChangeLog': 'CLASS_CHANGELOG',
                       'DBDriver': 'CLASS_DBDRIVER',
                       'EmailLDAP': 'CLASS_EMAILLDAP',
-                      'OrgLDIF': 'CLASS_ORGLDIF'}
+                      'OrgLDIF': 'CLASS_ORGLDIF',
+		      'PosixLDIF': 'CLASS_POSIXLDIF'}
         if Factory.class_cache.has_key(comp):
             return Factory.class_cache[comp]
         try:
