@@ -129,13 +129,12 @@ WHERE p.fodselsdato=sa.fodselsdato AND
       """ % (institutsjonsnr, self.is_alive())
         return (self._get_cols(qry), self.db.query(qry))
 
-
-    def GetStudinfOpptak(self):
+    def _GetOpptakQuery(self):
 	aar, maned = time.localtime()[0:2]
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som i løpet av de to siste år har avlagt en
+        institusjonen og som i løpet av siste år har avlagt en
         eksamen eller har vært eksamensmeldt i minst ett emne ved
-        institusjonen i løpet av de to siste år inngår i denne gruppen
+        institusjonen i løpet av siste år inngår i denne gruppen
         Med untak av de som har 'studierettstatkode' lik 'PRIVATIST'
         skal alle disse får affiliation student med kode 'opptak'
         ('privatist' for disse) til stedskoden sp.faknr_studieansv +
@@ -158,20 +157,36 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        st.studieprogramkode = sp.studieprogramkode AND
        p.fodselsdato=el.fodselsdato AND
        p.personnr=el.personnr AND 
-       st.studierettstatkode IN (
-       'AUTOMATISK', 'AVTALE', 'CANDMAG', 'DIVERSE', 'EKSPRIV',
-       'ERASMUS', 'FJERNUND', 'GJEST', 'FULBRIGHT', 'HOSPITANT',
-       'KULTURAVTALE', 'KVOTEPROG', 'LEONARDO', 'OVERGANG', 'NUFU',
-       'SOKRATES', 'LUBECK', 'NORAD', 'ARKHANG', 'NORDPLUS',
-       'ORDOPPTAK','FULLFØRT','EVU', 'PRIVATIST') AND
+       st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER)
+       ) AND
        ((el.arstall = %s and el.manednr <=%s) OR
-       (el.arstall = %s) OR 
        (el.arstall = %s and el.manednr >= %s))
        %s	
-       """ % (aar, maned, aar-1, aar-2, maned, self.is_alive())
+       """ % (aar, maned, aar-1, maned, self.is_alive())
         # Man kan ikke sjekke el.aarstall >= i fjor ettersom tabellen
         # også inneholder fremtidige meldinger.
+        return qry
+    
+    def GetStudinfOpptak(self):
+        studierettstatkoder = """'AUTOMATISK', 'AVTALE', 'CANDMAG',
+       'DIVERSE', 'EKSPRIV', 'ERASMUS', 'FJERNUND', 'GJEST',
+       'FULBRIGHT', 'HOSPITANT', 'KULTURAVTALE', 'KVOTEPROG',
+       'LEONARDO', 'OVERGANG', 'NUFU', 'SOKRATES', 'LUBECK', 'NORAD',
+       'ARKHANG', 'NORDPLUS', 'ORDOPPTAK', 'EVU'"""
+        qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
+                                             studierettstatkoder)
+        return (self._get_cols(qry), self.db.query(qry))
 
+    def GetAlumni(self):
+        studierettstatkoder = "'FULLFØRT'"
+        qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
+                                             studierettstatkoder)
+        return (self._get_cols(qry), self.db.query(qry))
+
+    def GetPrivatistStudieprogram():
+        studierettstatkoder = "'PRIVATIST'"
+        qry = self._GetOpptakQuery().replace("RELEVANTE_STUDIERETTSTATKODER",
+                                             studierettstatkoder)
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetStudinfAktiv(self):
@@ -261,7 +276,7 @@ SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
        s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
        p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
        p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-       p.sprakkode_malform, sp.studieprogramkode, p.kjonn
+       p.sprakkode_malform, sp.studieprogramkode, p.kjonn, em.emnekode
 FROM fs.student s, fs. person p, fs.studieprogram sp, fs.registerkort r,
      fs.eksamensmelding em, fs.emne_i_studieprogram es 
 WHERE s.fodselsdato=p.fodselsdato AND
@@ -351,6 +366,9 @@ WHERE  p.status_dod = 'J'"""
     def GetAlleEksamener(self):
 	"""Hent ut alle eksamensmeldinger i nåværende sem.
 	samt fnr for oppmeldte(topics.xml)"""
+        # TODO: Det er mulig denne skal splittes i to søk, ett som
+        # returnerer lovlige, og et som returnerer "ulovlige"
+        # eksamensmeldinger (sistnevnte er vel GetStudinfPrivatist?)
 	aar = time.localtime()[0:1]
 	qry = """
 SELECT p.fodselsdato, p.personnr, e.emnekode, e.studieprogramkode
@@ -363,7 +381,6 @@ ORDER BY fodselsdato, personnr
       """ %(aar[0],self.is_alive())                            
       	return (self._get_cols(qry), self.db.query(qry))
     
-
     def get_termin_aar(self, only_current=0):
         yr, mon, md = t = time.localtime()[0:3]
         if mon <= 6:
