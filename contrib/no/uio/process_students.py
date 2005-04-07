@@ -643,8 +643,8 @@ def get_existing_accounts():
     pid2fnr = {}
     for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr):
         if (row['source_system'] == int(const.system_fs) or
-            (not pid2fnr.has_key(int(row['person_id'])))):
-            pid2fnr[int(row['person_id'])] = row['external_id']
+            (not pid2fnr.has_key(int(row['entity_id'])))):
+            pid2fnr[int(row['entity_id'])] = row['external_id']
             persons[row['external_id']] = {
                 'affs': [], 'stud_ac': [], 'other_ac': [], 'reserved_ac': [], 'spreads': [],
                 'groups': []}
