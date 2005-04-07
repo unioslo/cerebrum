@@ -23,6 +23,7 @@ import mx.DateTime
 from SpineLib.Builder import Attribute, Method
 from SpineLib.SpineClass import SpineClass
 from SpineLib.Transaction import Transaction
+from SpineLib.DatabaseClass import DatabaseError
 
 from Entity import Entity
 from Types import CodeType
@@ -102,7 +103,7 @@ for name, cls in registry.map.items():
         for i in cls.primary:
             args.append((i.name, i.data_type))
 
-    method = Method(method_name, cls, args)
+    method = Method(method_name, cls, args, exceptions=[DatabaseError])
     CerebrumHandler.register_method(method, m)
 
 registry.register_class(CerebrumHandler)
