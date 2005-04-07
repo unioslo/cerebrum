@@ -735,7 +735,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             WHERE
               eei.id_type = :id_type AND
               eei.entity_type = [:get_constant name=entity_person] AND
-              eei.person_id = at.person_id AND
+              eei.entity_id = at.person_id AND
               at.priority = (SELECT
                                min(at2.priority)
                              FROM
