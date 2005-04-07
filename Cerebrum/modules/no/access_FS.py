@@ -1001,13 +1001,16 @@ class Undervisning(FSObject):
               fp.instituttnr_ansatt AS instituttnr,
               fp.gruppenr_ansatt AS gruppenr,
               fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
-              '%s' AS terminkode, '%s' AS arstall,
-              p.kjonn, p.status_dod
+              p.kjonn, p.status_dod,
         FROM fs.person p, fs.fagperson fp
         WHERE fp.fodselsdato = p.fodselsdato AND
               fp.personnr = p.personnr AND
-              fp.status_aktiv = 'J'
-        """ % (self.semester, self.year)
+              fp.status_aktiv = 'J' AND
+	      fp.institusjonsnr_ansatt IS NOT NULL AND
+	      fp.faknr_ansatt IS NOT NULL AND
+	      fp.instituttnr_ansatt IS NOT NULL AND
+              fp.gruppenr_ansatt IS NOT NULL
+        """ 
         return self.db.query(qry)
 
     def get_fagperson_semester(self, fnr, pnr, institusjonsnr, fakultetnr,
