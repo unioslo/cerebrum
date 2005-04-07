@@ -740,6 +740,7 @@ class EntityExternalId(Entity):
     def clear(self):
         self.__super.clear()
         self._external_id= {}
+        self.clear_class(EntityExternalId)
     
     def delete(self):
         # Entities cannot be both Persons and OUs with the same entity_id
