@@ -205,8 +205,8 @@ keep_togglers = [
     # Person external id
     {'columns': ('subject_entity', ),
      'change_params': ('id_type', 'src'),
-     'triggers': (co.person_ext_id_del, co.person_ext_id_mod,
-                  co.person_ext_id_add)},
+     'triggers': (co.entity_ext_id_del, co.entity_ext_id_mod,
+                  co.entity_ext_id_add)},
     # Person affiliation
     # TBD: The CL data could preferably contain more data
     {'columns': ('subject_entity', ),
