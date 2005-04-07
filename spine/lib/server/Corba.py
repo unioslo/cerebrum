@@ -199,10 +199,11 @@ def _create_corba_method(method):
                 
                 #temp throw unknown exceptions to the client.
                 #remember to remove this, and in Builder.py before production.
-                exception = SpineIDL.Errors.DebugException
                 name = getattr(e, '__class__',str(e))
                 traceback.print_exc()
-                raise exception("Unkown error '%s': %s" % (name, str(e.args)))
+                exception_string = "Unknown error '%s':\n%s\n%s" % (
+                                    name, str(e.args), traceback.format_exc())
+                raise SpineIDL.Errors.DebugException(exception_string)
                 #raise
 
             if len(e.args) > 0 and type(e.args[0]) is str:
