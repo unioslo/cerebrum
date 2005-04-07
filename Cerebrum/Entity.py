@@ -813,7 +813,7 @@ class EntityExternalId(Entity):
                                                'src': int(source_system),
                                                'value': external_id})
         self.execute(sql, {'e_id': self.entity_id,
-                           'e_type': self.entity_type,
+                           'e_type': int(self.entity_type),
                            'id_type': int(id_type),
                            'src': int(source_system),
                            'ext_id': external_id})
