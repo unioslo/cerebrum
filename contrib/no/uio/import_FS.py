@@ -424,9 +424,9 @@ def main():
     fnr2person_id = {}
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
         if co.system_fs == p['source_system']:
-            fnr2person_id[p['external_id']] = p['person_id']
+            fnr2person_id[p['external_id']] = p['entity_id']
         elif not fnr2person_id.has_key(p['external_id']):
-            fnr2person_id[p['external_id']] = p['person_id']
+            fnr2person_id[p['external_id']] = p['entity_id']
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     if include_delete:
 	rem_old_aff()

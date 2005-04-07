@@ -263,7 +263,7 @@ def get_bet_fritak_utv_data(lt_person_file):
     now = "%d%02d%02d" % time.localtime()[:3]
     for p in person.list_external_ids(source_system=const.system_lt,
                                       id_type=const.externalid_fodselsnr):
-        fnr2pid[p['external_id']] = int(p['person_id'])
+        fnr2pid[p['external_id']] = int(p['entity_id'])
     def lt_callback(data):
         person = data['person'][0]
         fnr = fodselsnr.personnr_ok(
@@ -403,7 +403,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     fnr2pid = {}
     for p in person.list_external_ids(source_system=const.system_fs,
                                       id_type=const.externalid_fodselsnr):
-        fnr2pid[p['external_id']] = int(p['person_id'])
+        fnr2pid[p['external_id']] = int(p['entity_id'])
 
     # Dr.grads studenter har fritak
     for row in GeneralDataParser(drgrad_file, "drgrad"):
