@@ -1001,7 +1001,7 @@ class Undervisning(FSObject):
               fp.instituttnr_ansatt AS instituttnr,
               fp.gruppenr_ansatt AS gruppenr,
               fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
-              p.kjonn, p.status_dod,
+              p.kjonn, p.status_dod
         FROM fs.person p, fs.fagperson fp
         WHERE fp.fodselsdato = p.fodselsdato AND
               fp.personnr = p.personnr AND
