@@ -25,7 +25,8 @@ from Cerebrum.Utils import Factory
 class DatabaseAccessor(object):
 
     __slots__ = Database.API_TYPE_CTOR_NAMES + \
-                Database.API_EXCEPTION_NAMES + ('_db', '__logger')
+                Database.API_EXCEPTION_NAMES + ('_db',
+                                                '_DatabaseAccessor__logger')
 
     def __init__(self, database):
         assert isinstance(database, Database.Database)
