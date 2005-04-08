@@ -20,15 +20,17 @@
 """Provide objects with database access methods."""
 
 from Cerebrum import Database
+from Cerebrum.Utils import Factory
 
 class DatabaseAccessor(object):
 
     __slots__ = Database.API_TYPE_CTOR_NAMES + \
-                Database.API_EXCEPTION_NAMES + ('_db',)
+                Database.API_EXCEPTION_NAMES + ('_db', '__logger')
 
     def __init__(self, database):
         assert isinstance(database, Database.Database)
         self._db = database
+        self.__logger = None
         # Copy driver-specific type constructors and exceptions.
         # We need this since the standard only defines their
         # names, and don't define any driver-independent way 
@@ -54,5 +56,12 @@ class DatabaseAccessor(object):
 
     def commit(self):
         return self._db.commit()
+
+    def _get_logger(self):
+        if self.__logger is None:
+            self.__logger = Factory.get_logger()
+        return self.__logger
+    logger = property(_get_logger, None, None,
+                      "Cerebrum logger object for use from library methods.")
 
 # arch-tag: 00d1fe61-c527-4159-9f4f-74510846d83d
