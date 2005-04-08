@@ -78,20 +78,8 @@ class AccountUiOMixin(Account.Account):
             est = self._UiO_update_email_server(
                 self.const.email_server_type_cyrus)
 
-            if state.get('email_server_id') == est.email_server_id:
-                return ret
-            br = BofhdRequests(self._db, self.const)
-            # Register a BofhdRequest to create the mailbox
-            reqid = br.add_request(None,        # Requestor
-                                   br.now, self.const.bofh_email_create,
-                                   self.entity_id, est.email_server_id)
-            if state.get('email_server_id'):
-                # Move user iff we chose a new server.  Add a
-                # dependency on the create above.
-                br.add_request(None,    # Requestor
-                               br.now, self.const.bofh_email_move,
-                               self.entity_id, state['email_server_id'],
-                               state_data = reqid)
+            self._UiO_order_cyrus_action(self.const.bofh_email_create,
+                                         est.email_server_id)
             # The user's email target is now associated with an email
             # server; try generating email addresses connected to the
             # target.
@@ -106,6 +94,21 @@ class AccountUiOMixin(Account.Account):
             tmp = self.get_home(self.const.spread_uio_nis_user)
             self.set_home(spread, tmp['homedir_id'])
         return ret
+
+    def _UiO_order_cyrus_action(self, action, destination, state_data=None):
+        br = BofhdRequests(self._db, self.const)
+        # If there are any registered BofhdRequests for this account
+        # that would conflict with 'action', remove them.
+        for anti_action in br.get_conflicts(action):
+            for r in br.get_requests(entity_id=self.entity_id,
+                                     operation=anti_action):
+                self.logger.info("Removing BofhdRequest #%d: %r",
+                                 r['request_id'], r)
+                br.delete_request(request_id=r['request_id'])
+        # Register a BofhdRequest to create the mailbox.
+        reqid = br.add_request(None,    # Requestor
+                               br.now, action, self.entity_id, destination,
+                               state_data=state_data)
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
@@ -132,7 +135,7 @@ class AccountUiOMixin(Account.Account):
         try:
             est.find_by_entity(self.entity_id)
             old_server = est.email_server_id
-            es.find(est.email_server_id)
+            es.find(old_server)
             if es.email_server_type == server_type:
                 # All is well
                 return est
@@ -239,11 +242,8 @@ class AccountUiOMixin(Account.Account):
             int(self.const.spread_uio_imap) in spreads):
             est = Email.EmailServerTarget(self._db)
             est.find_by_entity(self.entity_id)
-            br = BofhdRequests(self._db, self.const)
-            br.add_request(None,        # Requestor
-                           br.now, self.const.bofh_email_delete,
-                           self.entity_id, None,
-                           state_data=est.email_server_id)
+            self._UiO_order_cyrus_action(self.const.bofh_email_delete, None,
+                                         state_data=est.email_server_id)
             # TBD: should we also perform a "cascade delete" from EmailTarget?
 
         #
