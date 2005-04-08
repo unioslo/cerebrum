@@ -741,7 +741,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                              FROM
                                [:table schema=cerebrum name=account_type] at2
                              WHERE
-                               at2.person_id = pei.person_id) AND
+                               at2.person_id = eei.person_id) AND
               at.account_id = en.entity_id
             """, {"id_type" : int(id_type)}):
             result[row.external_id] = row.entity_name
