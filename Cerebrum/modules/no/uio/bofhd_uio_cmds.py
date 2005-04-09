@@ -3925,17 +3925,17 @@ class BofhdExtension(object):
         for row in matches:
             # We potentially get multiple rows for a person when
             # s/he has more than one source system or affiliation.
-            if row['person_id'] in seen:
+            if row['entity_id'] in seen:
                 continue
-            seen[row['person_id']] = True
-            person = self._get_person('entity_id', row['person_id'])
+            seen[row['entity_id']] = True
+            person = self._get_person('entity_id', row['entity_id'])
             pname = person.get_name(self.const.system_cached,
                                     getattr(self.const,
                                             cereconf.DEFAULT_GECOS_NAME))
             # Ideally we'd fetch the authoritative last name, but
             # it's a lot of work.  We cheat and use the last word
             # of the name, which should work for 99.9% of the users.
-            ret.append({'id': row['person_id'],
+            ret.append({'id': row['entity_id'],
                         'birth': person.birth_date,
                         'export_id': person.export_id,
                         'name': pname,
