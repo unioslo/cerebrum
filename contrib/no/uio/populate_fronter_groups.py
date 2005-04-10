@@ -97,6 +97,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, latin1_wash
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
 
 def ordered_uniq(input):
@@ -125,7 +126,7 @@ def prefetch_primaryusers():
     person = Factory.get('Person')(db)
     fnr_source = {}
     for row in person.list_external_ids(id_type=co.externalid_fodselsnr):
-        p_id = int(row['person_id'])
+        p_id = int(row['entity_id'])
         fnr = row['external_id']
         src_sys = int(row['source_system'])
         if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
@@ -184,13 +185,13 @@ def fnrs2account_ids(rows, primary_only=True, prefer_student=False):
     else:
         return (prim, sec)
 
-def process_kursdata():
+def process_kursdata(role_mapping):
     logger.debug("Getting all primaryusers")
     prefetch_primaryusers()
     logger.debug(" ... done")
     get_undervisningsenheter()    # Utvider UndervEnhet med mer data
     get_undervisningsaktiviteter()
-    get_evukurs_aktiviteter()
+    get_evukurs_aktiviteter(role_mapping)
     # logger.debug(UndervEnhet)
 
     for k in UndervEnhet.keys():
@@ -200,7 +201,7 @@ def process_kursdata():
         # eller en EVU-enhet (starter med "evu:"); vi overlater til
         # populate_enhet_groups å behandle forskjellige type enheter på
         # passende vis.
-        populate_enhet_groups(k)
+        populate_enhet_groups(k, role_mapping)
 
     # Nettgrupper for Ifi med data på tvers av enheter
     populate_ifi_groups()
@@ -329,7 +330,7 @@ def get_undervisningsaktiviteter():
         UndervEnhet[enhet_id][
             'aktivitet'][akt['aktivitetkode']] = akt['aktivitetsnavn']
 
-def get_evukurs_aktiviteter():
+def get_evukurs_aktiviteter(role_mapping):
     for kurs in fs.evu.list_kurs():
         kurs_id = "evu:%s:%s" % (kurs['etterutdkurskode'],
                                  kurs['kurstidsangivelsekode'])
@@ -339,9 +340,15 @@ def get_evukurs_aktiviteter():
             UndervEnhet[kurs_id].setdefault('aktivitet', {})[
                 aktivitet['aktivitetskode']] = aktivitet['aktivitetsnavn']
         tmp = {}
+
+        evu_key = (kurs['etterutdkurskode'], kurs['kurstidsangivelsekode'])
+        if evu_key not in role_mapping:
+            logger.warn("Aiee! evukurs: %s has no roles", evu_key) 
+        else:
+            logger.debug("Role found for evukurs %s", evu_key)
+        
         for evuansv in \
-            fnrs2account_ids(fs.evu.get_kurs_ansv(kurs['etterutdkurskode'],
-                                                  kurs['kurstidsangivelsekode'])):
+            fnrs2account_ids(role_mapping.get(evu_key, list())):
             tmp[evuansv] = 1
         UndervEnhet[kurs_id]['fagansv'] = tmp.copy()
         tmp = {}
@@ -360,7 +367,7 @@ def get_evu_students(kurskode, tidsrom):
     kurs_id = "evu:%s:%s" % (kurskode, tidsrom)
     return UndervEnhet[kurs_id]['students']
 
-def populate_enhet_groups(enhet_id):
+def populate_enhet_groups(enhet_id, role_mapping):
     type_id = enhet_id.split(":")
     type = type_id.pop(0).lower()
 
@@ -388,13 +395,45 @@ def populate_enhet_groups(enhet_id):
         # Ansvarlige for undervisningsenheten.
         logger.debug(" enhetsansvar")
         enhet_ansv = {}
+
+        role_undenh_key = (Instnr, emnekode, versjon, termk, aar, termnr)
+        if role_undenh_key not in role_mapping:
+            logger.warn("Aiee! undenh: %s has no roles", role_undenh_key)
+        else:
+            logger.debug("Role found for undenh %s", role_undenh_key)
+        
         prim, sec = fnrs2account_ids(
-            fs.undervisning.list_ansvarlig_for_enhet(Instnr, emnekode,
-                                                     versjon, termk,
-                                                     aar, termnr),
-            primary_only = False)
+                        role_mapping.get(role_undenh_key, list()),
+                        primary_only = False)
         for account_id in prim:
             enhet_ansv[account_id] = 1
+
+        # I tillegg til de "ekte ansvarlige" knyttet direkte til emnet, så
+        # er alle de ansvarlige for aktivitet 'forelesning' (undformkode =
+        # 'FOR'), også ansvarlige for emnet. Slike ansvarlige slår vi opp i
+        # rollefilen (enn så lenge). Ytterlige spørsmål til hvordan dette
+        # skal foregå, henvises til baardj@usit.uio.no.
+        for row in \
+            fs.undervisning.get_undform_aktiviteter(Instnr, emnekode, versjon,
+                                                    termk, aar, termnr, "FOR"):
+            tmp_key = tuple([str(x) for x in
+                             (row["institusjonsnr"], row["emnekode"],
+                              row["versjonskode"], row["terminkode"],
+                              row["arstall"], row["terminnr"],
+                              row["aktivitetkode"])])
+
+            additionals = role_mapping.get(tmp_key, list())
+            if additionals:
+                logger.debug("%d additional entries for enhet_ansv: %s",
+                             len(additionals), tmp_key)
+            # fi
+
+            prim_tmp, sec_tmp = fnrs2account_ids(additionals,
+                                                 primary_only = False)
+            for account_id_tmp in prim_tmp:
+                enhet_ansv[account_id_tmp] = 1
+            # od
+        # od
 
         # TODO: generaliser ifi-hack seinare
         if (re.match(r"(dig|inf|med-inf|tool)", emnekode.lower())
@@ -429,13 +468,13 @@ def populate_enhet_groups(enhet_id):
         # en egen interngruppe, og de to interngruppene blir medlemmer
         # i Ifis nettgruppe.
         if ifi_hack:
-            enhet_ansv = {}
+            enhet_ansv_sek = {}
             for account_id in sec:
-                enhet_ansv[account_id] = 1
+                enhet_ansv_sek[account_id] = 1
             sync_group(kurs_id, "%s:enhetsansvar-sek" % enhet_id,
                        ("Ansvarlige %s %s %s%s (sekundærkonti)" %
                         (emnekode, termk, aar, enhet_suffix)),
-                       co.entity_account, enhet_ansv);
+                       co.entity_account, enhet_ansv_sek);
             gname = mkgname("%s:enhetsansvar" % enhet_id,
                             prefix = 'uio.no:fs:')
             gmem = { gname: 1,
@@ -500,10 +539,16 @@ def populate_enhet_groups(enhet_id):
             # Ansvarlige for denne undervisningsaktiviteten.
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             akt_ansv = {}
+            role_undakt_key = (Instnr, emnekode, versjon, termk,
+                               aar, termnr, aktkode)
+            if role_undakt_key not in role_mapping:
+                logger.warn("Aiee! undakt: %s has no roles", role_undakt_key)
+            else:
+                logger.debug("Role found for undakt %s", role_undakt_key)
+
             prim, sec = \
-                  fnrs2account_ids(fs.undervisning.get_ansvarlig_for_enhet( \
-                                       Instnr, emnekode, versjon, termk, aar,
-                                       termnr, aktkode),
+                  fnrs2account_ids(
+                      role_mapping.get(role_undakt_key, list()),
                                    primary_only=False)
             for account_id in prim:
                 akt_ansv[account_id] = 1
@@ -691,9 +736,14 @@ def populate_enhet_groups(enhet_id):
             # Ansvarlige for kursaktivitet
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             evu_akt_ansv = {}
+            evu_akt_key = (kurskode, tidsrom, aktkode)
+            if evu_akt_key not in role_mapping:
+                logger.warn("Aiee! evuakt: %s has no roles", evu_akt_key)
+            else:
+                logger.debug("Role found for evuakt %s", evu_akt_key)
+
             for account_id in \
-                fnrs2account_ids(fs.evu.list_aktivitet_ansv(kurskode, tidsrom,
-                                                            aktkode)):
+                fnrs2account_ids(role_mapping.get(evu_akt_key, list())):
                 evu_akt_ansv[account_id] = 1
 
             sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
@@ -889,6 +939,61 @@ def usage(exitcode=0):
     --db-service name: connect to given database"""
     sys.exit(exitcode)
 
+def parse_xml_roles(fname):
+    """
+    Parse XML dump of FS roles (roller) and returna mapping structured thus:
+
+    map = { undenh1 : { undakt1 : S_1,
+                        undakt2 : S_2,
+                        undaktK : S_k },}
+
+    ... where each S_i is a *sequence* of mappings structured thus:
+
+    map2 = { 'fodselsdato' : ...,
+             'personnr'    : ..., }
+
+    S_i are an attempt to mimic db_rows (output from this function is used
+    elsewhere where such keys are required).
+    """
+
+    result = dict()
+    def gimme_lambda(element, data):
+        kind = data[roles_xml_parser.validate_delim]
+        if len(kind) > 1:
+            logger.warn("Cannot decide on role kind for: %s", kind)
+            return
+        kind = kind[0]
+
+        if kind in ("undakt", "undenh"):
+            key = (data["institusjonsnr"],
+                   data["emnekode"],
+                   data["versjonskode"],
+                   data["terminkode"],
+                   data["arstall"],
+                   data["terminnr"])
+            if kind == "undakt":
+                key = key + (data["aktivitetkode"],)
+            # fi
+        elif kind in ("kursakt", "evu"):
+            key = (data["etterutdkurskode"],
+                   data["kurstidsangivelsekode"])
+            if kind == "kursakt":
+                key = key + (data["aktivitetskode"],)
+            # fi
+        else:
+            logger.warn("Wrong role entry kind: %s", kind)
+            return
+        # fi
+        
+        result.setdefault(key, list()).append(
+            dict(fodselsdato = int(data["fodselsdato"]),
+                 personnr = int(data["personnr"])))
+
+    roles_xml_parser(fname, gimme_lambda)
+    import pprint
+    logger.debug(pprint.pformat(result))
+    return result
+
 def main():
     global fs, db, co, logger, emne_versjon, emne_termnr, account_id2fnr, \
            fnr2account_id, fnr2stud_account_id, AffiliatedGroups, \
@@ -904,16 +1009,23 @@ def main():
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "",
-                                   ["db-user=", "db-service="])
+                                   ["db-user=", "db-service=",
+                                    "role-file=", "dryrun"])
     except getopt.GetoptError:
         usage(2)
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
+    role_file = None
+    dryrun = False
     for o, val in opts:
         if o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
             db_service = val
+        elif o in ('--role-file',):
+            role_file = val
+        elif o in ('--dryrun',):
+            dryrun = True
     fs = FS(user = db_user, database = db_service)
 
     db = Factory.get('Database')()
@@ -941,9 +1053,15 @@ def main():
     # struktur.
     auto_supergroup = "{autogroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
-    process_kursdata()
-    logger.debug("commit...")
-    db.commit()
+
+    role_mapping = parse_xml_roles(role_file)
+    process_kursdata(role_mapping)
+    if dryrun:
+        logger.debug("Dry run. Rolling back all changes...")
+        db.rollback()
+    else:
+        logger.debug("Committing all changes...")
+        db.commit()
     logger.info("All done")
 
 if __name__ == '__main__':

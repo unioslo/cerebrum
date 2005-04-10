@@ -101,18 +101,19 @@ class Person(FSObject):
 
     def get_personroller(self, fnr, pnr):
 	return self.db.query("""
-        SELECT fodselsdato, personnr, rollenr, rollekode, 
-          dato_fra, dato_til, institusjonsnr, faknr, gruppenr, 
-          studieprogramkode, emnekode, versjonskode, aktivitetkode, 
-          terminkode, arstall, terminnr, etterutdkurskode, 
-          kurstidsangivelsekode
+        SELECT pr.fodselsdato, pr.personnr, pr.rollenr, pr.rollekode, 
+          pr.dato_fra, pr.dato_til, pr.institusjonsnr, pr.faknr, pr.gruppenr, 
+          pr.studieprogramkode, pr.emnekode, pr.versjonskode, pr.aktivitetkode, 
+          pr.terminkode, pr.arstall, pr.terminnr, pr.etterutdkurskode, 
+          pr.kurstidsangivelsekode
         FROM 
-          fs.personrolle
-        WHERE 
+          [:table schema=fs name=personrolle] pr
+	WHERE 
           fodselsdato=:fnr AND 
           personnr=:pnr AND
-          dato_fra < SYSDATE AND 
-          NVL(dato_til,SYSDATE) >= sysdate""", {'fnr': fnr, 'pnr': pnr})
+          pr.dato_fra < SYSDATE AND
+	  NVL(pr.dato_til,SYSDATE) >= sysdate
+        """, {'fnr': fnr, 'pnr': pnr})
 
     def get_fagperson(self, fnr, pnr):
         return self.db.query("""
@@ -795,22 +796,23 @@ class Undervisning(FSObject):
     def list_alle_personroller(self):
 	qry = """
 	SELECT DISTINCT
-	  fodselsdato, personnr, rollenr, rollekode,
-	  dato_fra, dato_til, institusjonsnr, faknr, 
-	  gruppenr, studieprogramkode, emnekode,
-	  versjonskode, aktivitetkode, terminkode, 
-	  arstall, terminnr, etterutdkurskode, 
-	  kurstidsangivelsekode
-        FROM 
-          fs.personrolle
+	  pr.fodselsdato, pr.personnr, pr.rollenr, pr.rollekode,
+	  pr.dato_fra, pr.dato_til, pr.institusjonsnr, pr.faknr, 
+	  pr.gruppenr, pr.studieprogramkode, pr.emnekode,
+	  pr.versjonskode, pr.aktivitetkode, pr.terminkode, 
+	  pr.arstall, pr.terminnr, pr.etterutdkurskode, 
+	  pr.kurstidsangivelsekode
+        FROM
+          [:table schema=fs name=personrolle] pr
 	WHERE 
-          dato_fra < SYSDATE AND
-	  NVL(dato_til,SYSDATE) >= sysdate"""
+          pr.dato_fra < SYSDATE AND
+	  NVL(pr.dato_til,SYSDATE) >= sysdate
+          """
 
         return self.db.query(qry)
 
-    def list_ansvarlig_for_enhet(self, Instnr, emnekode, versjon,
-                                 termk, aar, termnr): # GetAnsvUndervEnhet
+    def list_ansvarlig_for_enhet_50(self, Instnr, emnekode, versjon,
+                                    termk, aar, termnr): # GetAnsvUndervEnhet
         qry = """
         SELECT
           uan.fodselsdato AS fodselsdato,
@@ -869,8 +871,8 @@ class Undervisning(FSObject):
             'arstall': aar,
             'terminnr': termnr})
 
-    def get_ansvarlig_for_enhet(self, Instnr, emnekode, versjon, termk,
-                                aar, termnr, aktkode):  # GetAnsvUndAktivitet
+    def get_ansvarlig_for_enhet_50(self, Instnr, emnekode, versjon, termk,
+                                   aar, termnr, aktkode):  # GetAnsvUndAktivitet
         qry = """
         SELECT
           ual.fodselsdato_fagansvarlig AS fodselsdato,
@@ -979,6 +981,43 @@ class Undervisning(FSObject):
            ua.arstall > :aar)""",
                              {'aar': start_aar,
                               'semester': start_semester})
+
+    def get_undform_aktiviteter(self, Instnr, emnekode, versjon, termk,
+                                aar, termnr, undformkode):
+        """
+        Returnerer alle aktiviteter med en gitt undformkode innen det
+        oppgitte (år, semester)
+        """
+
+        return self.db.query("""
+        SELECT
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode,
+          ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode
+        FROM
+          [:table schema=fs name=undaktivitet] ua,
+          [:table schema=fs name=arstermin] t
+        WHERE
+          ua.institusjonsnr = :Instnr AND
+          ua.emnekode = :emnekode AND
+          ua.versjonskode = :versjon AND
+          ua.terminkode = :termk AND
+          ua.terminnr = :termnr AND
+          ua.undformkode = :undformkode AND
+          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode = t.terminkode AND
+          ((ua.arstall = :aar AND
+            EXISTS (SELECT 'x' FROM fs.arstermin tt
+                    WHERE tt.terminkode = :termk AND
+                    t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
+           ua.arstall > :aar)
+          """, { "Instnr"      : Instnr,
+                 "emnekode"    : emnekode,
+                 "versjon"     : versjon,
+                 "termk"       : termk,
+                 "termnr"      : termnr,
+                 "aar"         : aar,
+                 "undformkode" : undformkode, })
+    # end get_undform_aktiviteter
 
     def list_fagperson_semester(self): # GetFagperson_50
         # (GetKursFagpersonundsemester var duplikat)
@@ -1141,7 +1180,7 @@ class EVU(FSObject):
 
         return self.db.query(qry) 
 
-    def get_kurs_ansv(self, kurs, tid):  # GetAnsvEvuKurs
+    def get_kurs_ansv_50(self, kurs, tid):  # GetAnsvEvuKurs
         qry = """
         SELECT k.fodselsdato, k.personnr
         FROM fs.kursfagansvarlig k
@@ -1160,7 +1199,7 @@ class EVU(FSObject):
               d.personnr IS NOT NULL"""
         return self.db.query(qry, {'kurs': kurs, 'tid': tid})
 
-    def list_aktivitet_ansv(self, kurs, tid, aktkode):  # GetAnsvEvuAktivitet
+    def list_aktivitet_ansv_50(self, kurs, tid, aktkode):  # GetAnsvEvuAktivitet
         qry = """
         SELECT k.fodselsdato, k.personnr
         FROM fs.kursaktivitet_fagperson k
@@ -1432,11 +1471,17 @@ class roles_xml_parser(non_nested_xml_parser):
     "Parserklasse for studieprog.xml."
 
     elements = {'data': False,
-                'role': True,
+                'rolle': True,
                 }
 
+    validate_delim = "::roletarget::"
+
+    def __init__(self, *rest):
+        self.logger = Factory.get_logger()
+        super(roles_xml_parser, self).__init__(*rest)
+
     def endElement(self, name):
-        if name == 'role':
+        if name == 'rolle':
             do_callback = self.validate_role(self._data)
             if not do_callback:
                 self._in_element = None
@@ -1460,19 +1505,18 @@ class roles_xml_parser(non_nested_xml_parser):
             'studieprogramkode': ['stprog'],
             'emnekode': ['emne', 'undenh', 'undakt'],
             'versjonskode': ['emne', 'undenh', 'undakt'],
-            'aktivitetkode': ['undakt'],
+            'aktivitetkode': ['undakt', 'kursakt'],
             'terminkode': ['undenh', 'undakt'],
             'arstall': ['undenh', 'undakt'],
             'terminnr': ['undenh', 'undakt'],
-            'etterutdkurskode': ['evu'],
-            'kurstidsangivelsekode': ['evu'],
+            'etterutdkurskode': ['evu', 'kursakt'],
+            'kurstidsangivelsekode': ['evu', 'kursakt'],
             'saksbehinit_opprettet': None,
             'dato_opprettet': None,
             'saksbehinit_endring': None,
             'dato_endring': None,
             'merknadtekst': None,
             }
-        logger = Factory.get_logger()
         data = attrs.copy()
         target = None
         not_target = sets.Set()
@@ -1503,7 +1547,7 @@ class roles_xml_parser(non_nested_xml_parser):
         if data:
             # Det fantes kolonner i posteringen som ikke er tatt med i
             # 'col2target'-dicten.
-            logger.error("Ukjente kolonner i FS.PERSONROLLE: %r", data)
+            self.logger.error("Ukjente kolonner i FS.PERSONROLLE: %r", data)
             do_callback = False
 
         if target is not None:
@@ -1514,23 +1558,23 @@ class roles_xml_parser(non_nested_xml_parser):
             target = ()
         if len(target) <> 1:
             if len(target) > 1:
-                logger.error("Personrolle har flertydig angivelse av",
-                             " targets, kan være: %r (XML = %r).",
-                             target, attrs)
-                attrs['::rolletarget::'] = target
+                self.logger.error("Personrolle har flertydig angivelse av",
+                                  " targets, kan være: %r (XML = %r).",
+                                  target, attrs)
+                attrs[self.validate_delim] = target
             else:
-                logger.error("Personrolle har ingen tilstrekkelig"
-                             " spesifisering av target, inneholder"
-                             " elementer fra: %r (XML = %r).",
-                             tuple(possible_targets), attrs)
-                attrs['::rolletarget::'] = tuple(possible_targets)
+                self.logger.error("Personrolle har ingen tilstrekkelig"
+                                  " spesifisering av target, inneholder"
+                                  " elementer fra: %r (XML = %r).",
+                                  tuple(possible_targets), attrs)
+                attrs[self.validate_delim] = tuple(possible_targets)
             do_callback = False
         else:
-            logger.debug("Personrolle OK, target = %r (XML = %r).",
-                         target[0], attrs)
+            self.logger.debug("Personrolle OK, target = %r (XML = %r).",
+                              target[0], attrs)
             # Target er entydig og tilstrekkelig spesifisert; gjør
             # dette tilgjengelig for callback.
-            attrs['::rolletarget::'] = target
+            attrs[self.validate_delim] = target
         return do_callback
 
 
