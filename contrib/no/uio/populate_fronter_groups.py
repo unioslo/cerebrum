@@ -986,12 +986,10 @@ def parse_xml_roles(fname):
         # fi
         
         result.setdefault(key, list()).append(
-            dict(fodselsdato = int(data["fodselsdato"]),
-                 personnr = int(data["personnr"])))
+            { "fodselsdato" : int(data["fodselsdato"]),
+              "personnr"    : int(data["personnr"]), })
 
     roles_xml_parser(fname, gimme_lambda)
-    import pprint
-    logger.debug(pprint.pformat(result))
     return result
 
 def main():
