@@ -167,10 +167,13 @@ class SelectMapAktivtSted(SelectMapSuper):
              'emnekode', '_reglement')):
             #self._logger.debug2("Check with %s" % match_tag)
             for pdta in person_info.get('aktiv', []):
+                if not pdta.has_key(match_tag):
+                    continue  # emnekode not set for some aktiv tags.
                 try:
                     fs_info = fs_infodict[pdta[match_tag]]
                 except KeyError:
-                    self._logger.error("Ukjent: %s=%s" % (match_tag, pdta[match_tag]))
+                    self._logger.error("Ukjent: %s/%s in %s" % (
+                        match_tag, match_tag, pdta))
                     continue
                 sko = "%02i%02i%02i" % (int(fs_info['faknr%s' % col_postfix]),
                                         int(fs_info['instituttnr%s' % col_postfix]),
