@@ -3925,17 +3925,20 @@ class BofhdExtension(object):
         for row in matches:
             # We potentially get multiple rows for a person when
             # s/he has more than one source system or affiliation.
-            if row['entity_id'] in seen:
+            col = 'entity_id'
+            if not row._has_key(col):
+                col = 'person_id'
+            if row[col] in seen:
                 continue
-            seen[row['entity_id']] = True
-            person = self._get_person('entity_id', row['entity_id'])
+            seen[row[col]] = True
+            person = self._get_person('entity_id', row[col])
             pname = person.get_name(self.const.system_cached,
                                     getattr(self.const,
                                             cereconf.DEFAULT_GECOS_NAME))
             # Ideally we'd fetch the authoritative last name, but
             # it's a lot of work.  We cheat and use the last word
             # of the name, which should work for 99.9% of the users.
-            ret.append({'id': row['entity_id'],
+            ret.append({'id': row[col],
                         'birth': person.birth_date,
                         'export_id': person.export_id,
                         'name': pname,
@@ -5537,7 +5540,7 @@ class BofhdExtension(object):
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
         try:
-            if isinstance(path, str):
+            if isinstance(path, (str, unicode)):
                 disk.find_by_path(path, host_id)
             else:
                 disk.find(path)
