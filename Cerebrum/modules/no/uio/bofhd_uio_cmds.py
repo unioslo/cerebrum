@@ -3276,16 +3276,17 @@ class BofhdExtension(object):
             fullname = person.get_name(self.const.system_cached, self.const.name_full)
             mapping['fullname'] =  fullname
             if tpl_lang.endswith("letter"):
-                try:
-                    address = person.get_entity_address(source=self.const.system_fs,
-                                                        type=self.const.address_post)
-                except Errors.NotFoundError:
-                    try:
-                        address = person.get_entity_address(source=self.const.system_lt,
-                                                            type=self.const.address_post)
-                    except Errors.NotFoundError:
-                        ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
-                        continue
+                address = None
+                for source, kind in ((self.const.system_lt, self.const.address_post),
+                                     (self.const.system_fs, self.const.address_post),
+                                     (self.const.system_fs, self.const.address_post_private)):
+		    try:
+                        address = person.get_entity_address(source = source,
+                                                            type = kind)
+                        break
+		    except Errors.NotFoundError:
+                        pass
+  
                 if not address:
                     ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
                     continue
@@ -4895,6 +4896,8 @@ class BofhdExtension(object):
         ("user", "move"), prompt_func=user_move_prompt_func,
         perm_filter='can_move_user')
     def user_move(self, operator, move_type, accountname, *args):
+        ifi_spread_warn = ""
+        ifi_spread = False
         account = self._get_account(accountname)
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
@@ -4902,25 +4905,30 @@ class BofhdExtension(object):
         spread = int(self.const.spread_uio_nis_user)
         if move_type in ("immediate", "batch", "nofile"):
             disk_id = self._get_disk(args[0])[1]
-            self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
             if disk_id is None:
                 raise CerebrumError, "Bad destination disk"
+            self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
+            for r in account.get_spread():
+                if r['spread'] == int(self.const.spread_ifi_nis_user):
+                    ifi_spread = True
+            if ifi_spread and not re.match(r'^/ifi/', args[0]):
+                ifi_spread_warn = "WARNING: moving user with a NIS_user@ifi-spread to a non-IFI disk.\n"
             if move_type == "immediate":
                 br.add_request(operator.get_entity_id(), br.now,
                                self.const.bofh_move_user_now,
                                account.entity_id, disk_id, state_data=spread)
-                return "Command queued for immediate execution"
+                return ifi_spread_warn + "Command queued for immediate execution."
             elif move_type == "batch":
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_user,
                                account.entity_id, disk_id, state_data=spread)
-                return "move queued for execution at %s" % br.batch_time
+                return ifi_spread_warn + "Move queued for execution at %s." % br.batch_time 
             elif move_type == "nofile":
                 ah = account.get_home(spread)
                 account.set_homedir(current_id=ah['homedir_id'],
                                     disk_id=disk_id)
                 account.write_db()
-                return "OK, user moved"
+                return ifi_spread_warn + "User moved."
         elif move_type in ("hard_nofile",):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hard_nofile")
