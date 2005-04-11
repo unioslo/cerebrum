@@ -163,7 +163,7 @@ class ProfileDefinition(object):
 
             for k in tmp_super._settings.keys():
                 if k == 'disk' and self._settings.has_key(k):
-                    break  # We're not interested in disks from super
+                    continue  # We're not interested in disks from super
                 self._settings.setdefault(k, []).extend(
                     tmp_super._settings[k])
 
