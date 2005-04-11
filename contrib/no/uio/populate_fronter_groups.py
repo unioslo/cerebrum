@@ -342,11 +342,6 @@ def get_evukurs_aktiviteter(role_mapping):
         tmp = {}
 
         evu_key = (kurs['etterutdkurskode'], kurs['kurstidsangivelsekode'])
-        if evu_key not in role_mapping:
-            logger.warn("Aiee! evukurs: %s has no roles", evu_key) 
-        else:
-            logger.debug("Role found for evukurs %s", evu_key)
-        
         for evuansv in \
             fnrs2account_ids(role_mapping.get(evu_key, list())):
             tmp[evuansv] = 1
@@ -397,11 +392,6 @@ def populate_enhet_groups(enhet_id, role_mapping):
         enhet_ansv = {}
 
         role_undenh_key = (Instnr, emnekode, versjon, termk, aar, termnr)
-        if role_undenh_key not in role_mapping:
-            logger.warn("Aiee! undenh: %s has no roles", role_undenh_key)
-        else:
-            logger.debug("Role found for undenh %s", role_undenh_key)
-        
         prim, sec = fnrs2account_ids(
                         role_mapping.get(role_undenh_key, list()),
                         primary_only = False)
@@ -541,11 +531,6 @@ def populate_enhet_groups(enhet_id, role_mapping):
             akt_ansv = {}
             role_undakt_key = (Instnr, emnekode, versjon, termk,
                                aar, termnr, aktkode)
-            if role_undakt_key not in role_mapping:
-                logger.warn("Aiee! undakt: %s has no roles", role_undakt_key)
-            else:
-                logger.debug("Role found for undakt %s", role_undakt_key)
-
             prim, sec = \
                   fnrs2account_ids(
                       role_mapping.get(role_undakt_key, list()),
@@ -737,11 +722,6 @@ def populate_enhet_groups(enhet_id, role_mapping):
             logger.debug(" aktivitetsansvar:%s" % aktkode)
             evu_akt_ansv = {}
             evu_akt_key = (kurskode, tidsrom, aktkode)
-            if evu_akt_key not in role_mapping:
-                logger.warn("Aiee! evuakt: %s has no roles", evu_akt_key)
-            else:
-                logger.debug("Role found for evuakt %s", evu_akt_key)
-
             for account_id in \
                 fnrs2account_ids(role_mapping.get(evu_akt_key, list())):
                 evu_akt_ansv[account_id] = 1
@@ -941,13 +921,14 @@ def usage(exitcode=0):
 
 def parse_xml_roles(fname):
     """
-    Parse XML dump of FS roles (roller) and returna mapping structured thus:
+    Parse XML dump of FS roles (roller) and return a mapping structured thus:
 
-    map = { undenh1 : { undakt1 : S_1,
-                        undakt2 : S_2,
-                        undaktK : S_k },}
+    map = { K1 : [ S_1, S_2, ... S_k ],
+            ...
+            Kn : [ S_1, ..., S_kn ], }
 
-    ... where each S_i is a *sequence* of mappings structured thus:
+    ... where each K_i is a key falling into one of these four categories:
+    undakt, undenh, kursakt, evu; and each S_i is a mapping structured thus:
 
     map2 = { 'fodselsdato' : ...,
              'personnr'    : ..., }
@@ -1052,7 +1033,9 @@ def main():
     auto_supergroup = "{autogroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
 
+    logger.info("Parsing role file %s", role_file)
     role_mapping = parse_xml_roles(role_file)
+    logger.info("Parsing roles complete")
     process_kursdata(role_mapping)
     if dryrun:
         logger.debug("Dry run. Rolling back all changes...")
