@@ -42,8 +42,10 @@ class SelectMapSuper(object):
             niva = 50
         elif niva >= 100 and niva < 500: # Laveregrad, Cand.Mag, Bachelor
             niva = 100
-        elif niva >= 500: # Høyeregrad, Profesjon, hovedfag, master, PHD
-            niva = 300
+        elif niva >= 500 and niva < 900: # Høyeregrad, Profesjon, hovedfag, master
+            niva = 500
+        elif niva >= 900: # PHD
+            niva = 900
         return niva
 
 class SelectMapTag(SelectMapSuper):
