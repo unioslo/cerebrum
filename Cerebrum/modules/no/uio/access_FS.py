@@ -112,7 +112,6 @@ WHERE s.fodselsdato=r.fodselsdato AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
       %s
 UNION """ %(self._get_termin_aar(only_current=1))
-
         qry = qry + """
 SELECT DISTINCT
       s.fodselsdato, s.personnr, sp.studieprogramkode,
@@ -133,20 +132,19 @@ WHERE sps.studieprogramkode = 'ENKELTEMNE' AND
       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
       %s
 UNION """ %(self._get_termin_aar(only_current=1))
-
         qry = qry + """
 SELECT DISTINCT
      s.fodselsdato, s.personnr, sp.studieprogramkode,
      sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-     em.emnekode, em.versjonskode
+     em.emnekode, em.versjonskode 
 FROM fs.student s, fs.studieprogramstudent sps, fs.eksamensmelding em, 
      fs.studprogstud_planbekreft r, fs.studieprogram sp
 WHERE s.fodselsdato=sps.fodselsdato AND
       s.personnr=sps.personnr AND
       s.fodselsdato=r.fodselsdato AND
       s.personnr=r.personnr AND
-      s.fodselsdato=em.fodselsdato AND
-      s.personnr=em.personnr AND
+      s.fodselsdato=em.fodselsdato (+) AND
+      s.personnr=em.personnr (+) AND
       sps.studieprogramkode=sp.studieprogramkode AND
       sp.status_utdplan='J' AND
       sps.status_privatist='N' AND
@@ -156,7 +154,6 @@ WHERE s.fodselsdato=sps.fodselsdato AND
       r.arstall_bekreft = %d AND
       r.terminkode_bekreft = '%s'
 UNION""" %(self.year, self.semester)
-
         qry = qry + """
 SELECT DISTINCT sp.fodselsdato, sp.personnr, sps.studieprogramkode,
       sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
@@ -170,7 +167,7 @@ WHERE sp.arstall >= %s AND
       sp.institusjonsnr = '185' AND
       sp.emnekode = es.emnekode AND
       es.studieprogramkode = sps.studieprogramkode AND
-      NVL(sps.DATO_studierett_GYLDIG_TIL,SYSDATE) >= sysdate AND
+      NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
       sps.status_privatist = 'N'
       """ %(self.year, self.mndnr)
      	return self.db.query(qry)
