@@ -147,6 +147,9 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
             logger.warn("Mapping for %s changed (%s != %s)" % (
                 stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
                 org_stedkode_ou))
+            # Assert that parents are properly placed before placing ourselves
+            rec_make_ou(org_stedkode, ou, existing_ou_mappings, org_units,
+                        stedkode2ou, co)
         else:
             return
     elif (org_stedkode_ou is not None
