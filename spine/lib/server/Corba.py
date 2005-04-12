@@ -202,7 +202,10 @@ def _create_corba_method(method):
                 name = getattr(e, '__class__',str(e))
                 traceback.print_exc()
                 exception_string = "Unknown error '%s':\n%s\n%s" % (
-                                    name, str(e.args), traceback.format_exc())
+                                    name, str(e.args), 
+                                    ''.join(traceback.format_exception(sys.exc_type, 
+                                        sys.exc_value,
+                                        sys.exc_traceback)))
                 raise SpineIDL.Errors.DebugException(exception_string)
                 #raise
 
