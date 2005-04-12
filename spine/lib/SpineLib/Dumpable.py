@@ -22,6 +22,8 @@ import copy
 
 from Builder import Method, Attribute
 
+from sets import Set
+
 __all__ = ['Dumpable']
 
 def create_mark_method(name, method_name, optional=False, attr=None):
@@ -137,7 +139,7 @@ def create_generic_dumper(dumper_class, name, method_name, optional=False):
     m = Method(name, dumper_class, write=True)
     def get_dumper(self):
         holder = self.get_writelock_holder()
-        objects = set()
+        objects = Set()
         for i in self._objects:
 #            i.lock_for_reading(holder)
             if optional:

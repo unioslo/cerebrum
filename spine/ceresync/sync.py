@@ -24,7 +24,7 @@ import SpineIDL.Errors as SpineErrors
 import config
 import unittest
 import sys
-import sets
+from sets import Set
 import popen2
 import errors
 try:
@@ -313,7 +313,7 @@ class Sync:
         groups = dumper.dump()
 
         # map all accounts
-        members = sets.Set()
+        members = Set()
         for i in groups:
             members.union_update(i.get_members)
         account_dumper = t.get_account_dumper(list(members))
@@ -380,7 +380,7 @@ class Sync:
 
         changes.sort() # make sure changes are in correct order
 
-        changed = set()
+        changed = Set()
 
         entities = {}
         for i in self.get_accounts():
