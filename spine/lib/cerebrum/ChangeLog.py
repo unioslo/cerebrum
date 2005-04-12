@@ -98,7 +98,8 @@ registry.register_class(ChangeLog)
 
 def get_last_changelog_id(self):
     db = self.get_database()
-    return int(db.query_1('SELECT max(change_id) FROM change_log'))
+    # db_query_1 will return None when there's no change_log 
+    return int(db.query_1('SELECT max(change_id) FROM change_log') or 0)
 
 Commands.register_method(Method('get_last_changelog_id', int), get_last_changelog_id)
 
