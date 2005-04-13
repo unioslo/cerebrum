@@ -323,10 +323,10 @@ class ProfileDefinition(object):
                     v = config.autostud.disks[d]
                     if path:
                         if path == v[0]:
-                            config.autostud.student_disk[d] = 1
+                            config.autostud.student_disk[d] = config.disk_defs[k][ddef]
                     else:
                         if v[0][:len(prefix)] == prefix:
-                            config.autostud.student_disk[d] = 1
+                            config.autostud.student_disk[d] = config.disk_defs[k][ddef]
 
         for m in lookup_helper.get_lookup_errors():
             self.config.add_error(m)
@@ -374,6 +374,7 @@ class StudconfigParser(xml.sax.ContentHandler):
                 self._default_group_auto = tmp['default_auto']
             elif ename == 'disk_oversikt':
                 self._default_disk_max = tmp['default_max']
+                self._default_auto = tmp.get('default_auto', None)
                 self._default_disk_kvote = tmp.get(
                     'default_disk_kvote',
                     self._config.default_values.get('disk_kvote_value', None))
@@ -411,6 +412,10 @@ class StudconfigParser(xml.sax.ContentHandler):
                 if not self._tmp_disk_spreads:
                     raise ValueError, "DTD-violation: no disk_spread defined"
                 tmp['max'] = tmp.get('max', self._default_disk_max)
+                tmp['auto'] = tmp.get('auto', self._default_auto)
+                if not tmp['auto'] :
+                    self._config.add_error(
+                        "Missing auto attribute for %s" % repr(tmp))
                 tmp['disk_kvote'] = tmp.get('disk_kvote', self._default_disk_kvote)
                 if tmp['disk_kvote'] is not None:
                     self._config.using_disk_kvote = True
