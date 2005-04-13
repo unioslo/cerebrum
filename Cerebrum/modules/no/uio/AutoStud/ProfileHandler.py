@@ -87,19 +87,25 @@ class Profile(object):
             return False
         return True
 
-    def _solve_disk_match(self, disk_spread):
+    def _get_potential_disks(self, disk_spread, only_to=False):
+        """Determine all disks at the highest nivaakode, and make a
+        list with (setting, [all profilenames with this setting]).
+        Will expand disk-pools"""
+        
         potential_disks = []
         tmp_nivaakode = None
 
-        # Determine all disks at the highest nivaakode, and make a list
-        # with (setting, [all profilenames with this setting])
-        for d, n, profile_names in self.matcher.get_raw_match('disk'):
-            if disk_spread not in d.keys():
-                continue            # Incorrect spread for this disk
-            if not tmp_nivaakode:
-                tmp_nivaakode = n
-            if n != tmp_nivaakode:  # This disk is at a lower nivåkode
-                break
+        def _do_append(d):
+            if only_to:
+                tmp = d[disk_spread]
+                if tmp.has_key('prefix'):
+                    disk_def = self.pc.disk_defs['prefix'][tmp['prefix']]
+                else:
+                    disk_def = self.pc.disk_defs['path'][tmp['path']]
+                if disk_def['auto'] not in ('auto', 'to'):
+                    self._logger.debug2("Not to %s" % repr(tmp))
+                    return
+
             appended = False
             for tmp_d, tmp_pnames in potential_disks:
                 if tmp_d == d[disk_spread]:
@@ -108,6 +114,24 @@ class Profile(object):
                     break
             if not appended:
                 potential_disks.append((d[disk_spread], profile_names))
+
+        for d, n, profile_names in self.matcher.get_raw_match('disk'):
+            if disk_spread not in d.keys():
+                continue            # Incorrect spread for this disk
+            if not tmp_nivaakode:
+                tmp_nivaakode = n
+            if n != tmp_nivaakode:  # This disk is at a lower nivåkode
+                break
+            pool = d[disk_spread].get('pool', None)
+            if pool:
+                for d2 in self.pc.disk_pools[pool]:
+                    _do_append({disk_spread: d2})
+            else:
+                _do_append(d)
+        return potential_disks
+
+    def _solve_disk_match(self, disk_spread):
+        potential_disks = self._get_potential_disks(disk_spread, only_to=True)
         if not potential_disks:
             raise NoAvailableDisk, "No disk matches profiles"
         self._logger.debug2("Resolve %s" % potential_disks)
@@ -134,7 +158,7 @@ class Profile(object):
             if did_del:
                 i1 = len(potential_disks) - 1
         if len(potential_disks) > 1:
-            if tmp_nivaakode < 300:
+            if tmp_nivaakode < 500:
                 # TODO: These cereconf variables should actually be
                 # read from the xml file
                 new_disk = cereconf.AUTOADMIN_DIV_LGRAD_DISK
@@ -144,41 +168,46 @@ class Profile(object):
             new_disk = potential_disks[0][0]
         self._logger.debug2("Result: %s" % repr(new_disk))
         return new_disk
-    
+
+    def _check_move_ok(self, current_disk, extra_match, disk_spread):
+        """We only move the user if:
+        * it is OK to move the user from the disk it resides on
+        * the user currently does not reside on a disk that matches"""
+
+        disk_def = self.pc.autostud.student_disk.get(int(current_disk), None)
+        if not disk_def or disk_def['auto'] not in ('auto', 'from'):
+            return False   # Won't move users from this disk
+
+        matches = [p[0] for p in self._get_potential_disks(disk_spread, only_to=True)]
+
+        if extra_match:
+            matches.append(extra_match)  # in case we also match a div-disk
+
+        # Check if user already is on a matching disk
+        for d in matches:
+            if d.has_key('path'):
+                if d['path'] == current_disk:
+                    return False
+            else:
+                disk_path = self.pc.autostud.disks[int(current_disk)][0]
+                if d['prefix'] == disk_path[0:len(d['prefix'])]:
+                    return False
+        return True
+
     def get_disk(self, disk_spread, current_disk=None):
         """Return a disk_id matching the current profile.  If the
         account already exists, current_disk should be set to assert
         that the user is not moved to a new disk with the same
         prefix. (i.e from /foo/bar/u11 to /foo/bar/u12)"""
 
-        # TBD: The above statement is incorrect; we will only move a
-        # user if it no longer matches a profile with the users
-        # current disk.  Is this the correct behaviour?
-
         # Detect conflicting disks at same 'nivåkode'
         disk_spread = int(disk_spread)
 
         new_disk = self._solve_disk_match(disk_spread)
-
-        # Check if one of the matching disks matches the disk that the
-        # user currently is on
-        if current_disk is not None:
-            if not self.pc.autostud.student_disk.has_key(int(current_disk)):
-                return current_disk
-            matches = self.matcher.get_match("disk")[:]
-            if new_disk is not None:   # avoid moving users between div disks
-                matches.append({disk_spread: new_disk})
-            for d in matches:
-                if disk_spread not in d.keys():
-                    continue            # Incorrect spread for this disk
-                d = d[disk_spread]
-                if d.has_key('path'):
-                    if d['path'] == current_disk:
-                        return current_disk
-                else:
-                    disk_path = self.pc.autostud.disks[int(current_disk)][0]
-                    if d['prefix'] == disk_path[0:len(d['prefix'])]:
-                        return current_disk
+        if current_disk and not self._check_move_ok(
+            current_disk, new_disk, disk_spread):
+            self._logger.debug2("_check_move_ok not ok %s" % repr((current_disk, new_disk)))
+            return current_disk
 
         if new_disk.has_key('pool'):
             tmp = self.pc.disk_pools[new_disk['pool']]
