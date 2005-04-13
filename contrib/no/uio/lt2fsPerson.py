@@ -220,7 +220,7 @@ def prefetch_person_info():
     # Finn alle personenes fødselsnummer
     for row in person.list_external_ids(source_system=co.system_lt,
                                         id_type=co.externalid_fodselsnr):
-        sp = pid2person.get(long(row['person_id']), None)
+        sp = pid2person.get(long(row['entity_id']), None)
         if not sp:
             continue
         sp.fnr11 = row['external_id']
@@ -229,7 +229,7 @@ def prefetch_person_info():
         sp.gender = fodselsnr.er_mann(sp.fnr11) and 'M' or 'K'
     for row in person.list_external_ids(source_system=co.system_fs,
                                         id_type=co.externalid_fodselsnr):
-        sp = pid2person.get(long(row['person_id']), None)
+        sp = pid2person.get(long(row['entity_id']), None)
         if sp:
             if row['external_id'] != sp.fnr11:
                 sp.fnr_mismatch = "FS:%s LT:%s" % (row['external_id'], sp.fnr11)
