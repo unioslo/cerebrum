@@ -174,8 +174,8 @@ class SelectMapAktivtSted(SelectMapSuper):
                 try:
                     fs_info = fs_infodict[pdta[match_tag]]
                 except KeyError:
-                    self._logger.error("Ukjent: %s/%s in %s" % (
-                        match_tag, match_tag, pdta))
+                    self._logger.error("Ukjent: %s in %s" % (
+                        match_tag, pdta))
                     continue
                 sko = "%02i%02i%02i" % (int(fs_info['faknr%s' % col_postfix]),
                                         int(fs_info['instituttnr%s' % col_postfix]),
