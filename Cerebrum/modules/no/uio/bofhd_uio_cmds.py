@@ -2772,7 +2772,13 @@ class BofhdExtension(object):
                              ("Moderator:    %s %s (%s)",
                               ('owner_type', 'owner', 'opset')),
                              ("Gid:          %i",
-                              ('gid',))]))
+                              ('gid',)),
+                             ("members:      %i groups, %i accounts",
+                              ('c_group_u', 'c_account_u')),
+                             ("members (intersection): %i groups, %i accounts",
+                              ('c_group_i', 'c_account_i')),
+                             ("members (difference): %i groups, %i accounts",
+                              ('c_group_d', 'c_account_d'))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
@@ -2802,6 +2808,18 @@ class BofhdExtension(object):
             ret.append({'owner_type': str(self.num2const[int(en.entity_type)]),
                         'owner': owner,
                         'opset': aos.name})
+        # Count group members of different types
+        u, i, d = grp.list_members()
+        
+        for members, op in ((u, 'u'), (i, 'i'), (d, 'd')):
+            tmp = {}
+            for ret_pfix, entity_type in (
+                ('c_group_', int(self.const.entity_group)),
+                ('c_account_', int(self.const.entity_account))):
+                tmp[ret_pfix+op] = len(
+                    [x for x in members if int(x[0]) == entity_type])
+            if [x for x in tmp.values() if x > 0]:
+                ret.append(tmp)
         return ret
 
     # group list
