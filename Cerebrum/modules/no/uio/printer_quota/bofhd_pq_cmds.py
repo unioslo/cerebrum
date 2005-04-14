@@ -368,7 +368,7 @@ The currently defined id-types are:
           'person_id', 'update_by', 'update_program',
           'pageunits_free', 'pageunits_paid', 'pageunits_total')),
         ("Printer queue:   %s\n"+
-         "Account:         %i\n"+
+         "Account:         %s\n"+
          "Job name:        %s\n"+
          "Stedkode:        %s\n"+
          "Spool trace:     %s\n"+
@@ -413,7 +413,7 @@ The currently defined id-types are:
         # values when format-specifier != %s.  The client probably has
         # to be fixed.
         for c in ('person_id', 'update_by', 'pages', 'target_job_id',
-                  'kroner'):
+                  'kroner', 'account_id'):
             if ret.has_key(c):
                 ret[c] = str(ret[c])
         ret['transaction_type'] = self.tt_mapping[ret['transaction_type']]
