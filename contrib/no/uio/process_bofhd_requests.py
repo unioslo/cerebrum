@@ -235,7 +235,16 @@ def process_email_requests():
                 br.delay_request(request_id=r['request_id'])
                 db.commit()
                 continue
-            
+
+            operator = ""
+            if r['requestee_id'] is not None:
+                try:
+                    acc.clear()
+                    acc.find(r['requestee_id'])
+                    operator = acc.account_name
+                except Errors.NotFoundError:
+                    pass
+
             # The database contains the new host, so the id of the server
             # to remove from is passed in state_data.
             server = Email.EmailServer(db)
@@ -247,7 +256,7 @@ def process_email_requests():
                 br.delay_request(request_id=r['request_id'])
                 db.commit()
                 continue
-            if cyrus_delete(server.name, uname):
+            if cyrus_delete(server.name, uname, operator):
                 br.delete_request(request_id=r['request_id'])
             else:
                 db.rollback()
@@ -426,8 +435,14 @@ def cyrus_create(user_id):
     cyrus_subscribe(uname, imaphost)
     return True
 
-def cyrus_delete(host, uname):
+def cyrus_delete(host, uname, operator):
     logger.debug("will delete %s from %s", uname, host)
+    # Backup Cyrus data before deleting it.
+    null_home = "%s/%s" % (None, uname)
+    if not delete_user(uname, old_host=None, old_home=null_home,
+                       operator=operator, mail_server=host):
+        logger.error("bofh_email_delete: delete_user() failed.")
+        return False
     try:
         cyradm = connect_cyrus(host=host)
     except CerebrumError, e:
