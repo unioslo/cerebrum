@@ -3927,7 +3927,13 @@ class BofhdExtension(object):
             # We potentially get multiple rows for a person when
             # s/he has more than one source system or affiliation.
             col = 'entity_id'
-            if not row._has_key(col):
+            # If we ever upgrade to a newer version of db_row.py, we
+            # can remove this "detect if we're working with a dict or
+            # a db_row" hack, as newer db_row versions have a proper
+            # .has_key() method.
+            row_has_key = getattr(row, 'has_key',
+                                  getattr(row, '_has_key'))
+            if not row_has_key(col):
                 col = 'person_id'
             if row[col] in seen:
                 continue
