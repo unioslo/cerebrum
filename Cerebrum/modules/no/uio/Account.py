@@ -105,8 +105,12 @@ class AccountUiOMixin(Account.Account):
                 self.logger.info("Removing BofhdRequest #%d: %r",
                                  r['request_id'], r)
                 br.delete_request(request_id=r['request_id'])
+        # If the ChangeLog module knows who the user requesting this
+        # change is, use that knowledge.  Otherwise, set requestor to
+        # None; it's the best we can do.
+        requestor = getattr(self._db, 'change_by', None)
         # Register a BofhdRequest to create the mailbox.
-        reqid = br.add_request(None,    # Requestor
+        reqid = br.add_request(requestor,
                                br.now, action, self.entity_id, destination,
                                state_data=state_data)
 
@@ -353,7 +357,11 @@ class AccountUiOMixin(Account.Account):
             # wins.
             br.delete_request(entity_id=self.entity_id,
                               operation=self.const.bofh_email_hquota)
-            br.add_request(None, br.now, self.const.bofh_email_hquota,
+            # If the ChangeLog module knows who the user requesting
+            # this change is, use that knowledge.  Otherwise, set
+            # requestor to None; it's the best we can do.
+            requestor = getattr(self._db, 'change_by', None)
+            br.add_request(requestor, br.now, self.const.bofh_email_hquota,
                            self.entity_id, None)
 
     def is_employee(self):
