@@ -303,6 +303,11 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         which are forwarded to the _dispatch method for handling.
         """
 
+        # Whenever unexpected exception occurs, we'd like to include
+        # as much debugging info as possible.  To avoid raising
+        # NameError in the debug-printing code, we pre-initialise a
+        # few central variables.
+        data = params = method = None
         try:
             # get arguments
             data = self.rfile.read(int(self.headers["content-length"]))
@@ -330,7 +335,10 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                     xmlrpclib.Fault(1, "%s:%s" % (error_class, sys.exc_value))
                     )                
             except:
-                logger.warn("Unexpected exception 1", exc_info=1)
+                logger.warn(
+                    "Unexpected exception 1 (client=%r, params=%r, method=%r)",
+                    self.client_address, params, method,
+                    exc_info = True)
                 # report exception back to server
                 response = xmlrpclib.dumps(
                     xmlrpclib.Fault(1, "%s:%s" % (sys.exc_type, sys.exc_value))
@@ -338,7 +346,9 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             else:
                 response = xmlrpclib.dumps(response, methodresponse=1)
         except:
-            logger.warn("Unexpected exception 2", exc_info=1)
+            logger.warn("Unexpected exception 2 (client %r, data=%r)",
+                        self.client_address, data,
+                        exc_info = True)
             # internal error, report as HTTP server error
             self.send_response(500)
             self.end_headers()
