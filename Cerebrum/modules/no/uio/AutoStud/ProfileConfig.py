@@ -48,17 +48,9 @@ class Config(object):
         self.required_spread_order = []
         self.lookup_helper = LookupHelper(autostud.db, logger, autostud.ou_perspective)
         self.using_disk_kvote = False
-        sp = StudconfigParser(self)
-        parser = xml.sax.make_parser()
-        parser.setContentHandler(sp)
-        # Don't resolve external entities
+
         try:
-            parser.setFeature(xml.sax.handler.feature_external_ges, 0)
-        except xml.sax._exceptions.SAXNotRecognizedException:
-            # Older API versions don't try to handle external entities
-            pass
-        try:
-            parser.parse(cfg_file)
+            sp = StudconfigParser(self, cfg_file)
         except:
             if self._errors:
                 logger.fatal("Got the following errors, and a stack trace: \n"
@@ -330,8 +322,86 @@ class ProfileDefinition(object):
 
         for m in lookup_helper.get_lookup_errors():
             self.config.add_error(m)
-                
-class StudconfigParser(xml.sax.ContentHandler):
+
+class GeneralXMLParser(xml.sax.ContentHandler):
+    """This is a general SAX-based XML parser capable of generating
+    callbacks once requested information has been parsed.  The cfg
+    constructor parameter has the format::
+
+      cfg = ((['tag1, 'tag1_1'], got_tag1_1_callback))
+
+    Once parsing of tag1_1 has been completed, the callback function
+    is called with the arguments dta, elem_stack.  elem_stack contains
+    a list of (entity_name, attrs_dict) tuples up to the root XML
+    node.  dta contains a list of (entity_name, attrs_dict, children)
+    tuples inside the requested tag.  children has the same format as
+    dta, thus if one use something like cfg = ((['root_tag'], cb)),
+    the dta in the callback would contain a parsed tree of the entire
+    XML file.
+
+    The parser is only suitable for XML files that does not contain
+    text parts outside the tags.
+    """
+
+    def __init__(self, cfg, xml_file):
+        self._elementstack = []
+        self.top_elementstack = []
+        self.cfg = cfg
+        self._in_dta = None
+
+        parser = xml.sax.make_parser()
+        parser.setContentHandler(self)
+        # Don't resolve external entities
+        try:
+            parser.setFeature(xml.sax.handler.feature_external_ges, 0)
+        except xml.sax._exceptions.SAXNotRecognizedException:
+            # Older API versions don't try to handle external entities
+            pass
+        parser.parse(xml_file)
+
+    def startElement(self, ename, attrs):
+        tmp = {}
+        for k in attrs.keys():
+            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
+        ename = ename.encode('iso8859-1')
+        self._elementstack.append(ename)
+        if not self._in_dta:
+            self.top_elementstack.append((ename, tmp))
+            for loc, cb in self.cfg:
+                if loc == self._elementstack:
+                    self._in_dta = loc
+                    self._cb = cb
+                    self._start_pos = []
+                    self._tmp_pos = self._start_pos
+                    self._child_stack = [self._start_pos]
+                    break
+        else:
+            children = []
+            self._child_stack.append(children)
+            self._tmp_pos.append((ename, tmp, children))
+            self._tmp_pos = children
+
+    def endElement(self, ename):
+        if self._in_dta == self._elementstack:
+            self._cb(self._start_pos, self.top_elementstack)
+            self._in_dta = None
+            self.top_elementstack.pop()
+        elif not self._in_dta:
+            self.top_elementstack.pop()
+        else:
+            self._child_stack.pop()
+            if self._child_stack:
+                self._tmp_pos = self._child_stack[-1]
+
+        self._elementstack.pop()
+
+    def dump_tree(dta, lvl=0):
+        for ename, attrs, children in dta:
+            print "%s%s %s" % (" " * lvl * 2, ename, attrs)
+            GeneralXMLParser.dump_tree(children, lvl+1)
+    dump_tree = staticmethod(dump_tree)
+
+class StudconfigParser(object):
     """
     Parses the studconfig XML file.  The XML file consists of the
     following elements:
@@ -343,131 +413,124 @@ class StudconfigParser(xml.sax.ContentHandler):
     applied, thus values from the current profile will appear before
     values from the super."""
 
+    # TODO: All the checks for unexpected tags can be avoided if we
+    # let some utility check the XML file against the DTD
+
     profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
                        "printer_kvote", "disk_kvote", "brev", "build",
                        "print_kvote_fritak", "print_betaling_fritak",
                        "priority", "quarantine")
 
-    def __init__(self, config):
-        self.elementstack = []
+    def __init__(self, config, cfg_file):
+        cfg = ((['studconfig', 'default_values'], self.got_default_values),
+               (['studconfig', 'disk_oversikt'], self.got_disk_oversikt),
+               (['studconfig', 'gruppe_oversikt',], self.got_gruppe_oversikt),
+               (['studconfig', 'spread_oversikt',], self.got_spread_oversikt),
+               (['studconfig', 'profil',], self.got_profil),
+               (['studconfig', 'disk_pools',], self.got_disk_pool),
+               )
         self._config = config
-        self._super = None
-        self.legal_spreads = {}
         self._legal_groups = {}
-        self._in_profil = None
+        self.legal_spreads = {}
+        GeneralXMLParser(cfg, cfg_file)
 
-    def startElement(self, ename, attrs):
-        tmp = {}
-        for k in attrs.keys():
-            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
-        ename = ename.encode('iso8859-1')
-        self.elementstack.append(ename)
+    def got_default_values(self, dta, elem_stack):
+        for ename, attrs, children in dta:
+            for a in attrs:
+                self._config.default_values['%s_%s' % (ename, a)] = attrs[a]
 
-        if len(self.elementstack) == 1 and ename == 'studconfig':
-            pass
-        elif len(self.elementstack) == 2:
-            if ename == 'profil':
-                self._in_profil = ProfileDefinition(self._config,
-                    tmp['navn'], self._config._logger, super=tmp.get('super', None))
-                self._config.profiles.append(self._in_profil)
-            elif ename == 'gruppe_oversikt':
-                self._default_group_auto = tmp['default_auto']
-            elif ename == 'disk_oversikt':
-                self._default_disk_max = tmp['default_max']
-                self._default_auto = tmp.get('default_auto', None)
-                self._default_disk_kvote = tmp.get(
-                    'default_disk_kvote',
-                    self._config.default_values.get('disk_kvote_value', None))
-                self._tmp_disk_spreads = []
-            elif ename in ('default_values', 'disk_pools', 'spread_oversikt'):
-                pass
-            else:
-                raise ValueError, "DTD-violation: unknown tag: %s" % self.elementstack
-        elif len(self.elementstack) == 3 and self.elementstack[1] == 'default_values':
-            for k in tmp.keys():
-                self._config.default_values['%s_%s' % (ename, k)] = tmp[k]
-            pass
-        elif len(self.elementstack) == 3 and self.elementstack[1] == 'spread_oversikt':
-            if ename == 'spreaddef':
-                self._config.required_spread_order.append(
-                    self._config.lookup_helper.get_spread(tmp['kode']))
-                self.legal_spreads[tmp['kode']] = 1
-            else:
-                self._config.add_error(
-                    "Unexpected tag %s in spread_oversikt" % ename)
-        elif len(self.elementstack) == 3 and self.elementstack[1] == 'gruppe_oversikt':
-            if ename == 'gruppedef':
-                self._legal_groups[tmp['navn']] = 1
-                self._config.group_defs[tmp['navn']] = {
-                    'auto': tmp.get('auto', self._default_group_auto)}
-            else:
-                self._config.add_error(
-                    "Unexpected tag %s in gruppe_oversikt" % ename)
-        elif len(self.elementstack) == 3 and self.elementstack[1] == 'disk_oversikt':
+    def got_disk_oversikt(self, dta, elem_stack):
+        tmp_disk_spreads = []
+        for ename, attrs, children in dta:
             if ename == 'disk_spread':
-                s = int(self._config.lookup_helper.get_spread(tmp['kode']))
-                self._tmp_disk_spreads.append(s)
+                s = int(self._config.lookup_helper.get_spread(attrs['kode']))
+                tmp_disk_spreads.append(s)
                 self._config.disk_spreads[s] = 1
             elif ename == 'diskdef':
-                if not self._tmp_disk_spreads:
+                if not tmp_disk_spreads:
                     raise ValueError, "DTD-violation: no disk_spread defined"
-                tmp['max'] = tmp.get('max', self._default_disk_max)
-                tmp['auto'] = tmp.get('auto', self._default_auto)
-                if not tmp['auto'] :
+                attrs['max'] = attrs.get(
+                    'max', elem_stack[-1][-1]['default_max'])
+                attrs['auto'] = attrs.get(
+                    'auto', elem_stack[-1][-1].get('default_auto', None))
+                if not attrs['auto'] :
                     self._config.add_error(
-                        "Missing auto attribute for %s" % repr(tmp))
-                tmp['disk_kvote'] = tmp.get('disk_kvote', self._default_disk_kvote)
-                if tmp['disk_kvote'] is not None:
+                        "Missing auto attribute for %s" % repr(attrs))
+                attrs['disk_kvote'] = attrs.get(
+                    'disk_kvote', elem_stack[-1][-1].get(
+                    'default_disk_kvote', self._config.default_values.get(
+                    'disk_kvote_value', None)))
+                if attrs['disk_kvote'] is not None:
                     self._config.using_disk_kvote = True
-                tmp['spreads'] = self._tmp_disk_spreads
-                if tmp.has_key('path'):
-                    self._config.disk_defs.setdefault('path', {})[tmp['path']] = tmp
+                attrs['spreads'] = tmp_disk_spreads
+                if attrs.has_key('path'):
+                    self._config.disk_defs.setdefault(
+                        'path', {})[attrs['path']] = attrs
                 else:
-                    self._config.disk_defs.setdefault('prefix', {})[tmp['prefix']] = tmp
+                    self._config.disk_defs.setdefault(
+                        'prefix', {})[attrs['prefix']] = attrs
             else:
                 self._config.add_error(
                     "Unexpected tag %s in disk_oversikt" % ename)
-        elif self.elementstack[1] == 'disk_pools':
-            if len(self.elementstack) == 3 and ename == 'pool':
-                self._tmp_pool_name = tmp['name']
-                self._config.disk_pools[self._tmp_pool_name] = []
-            elif len(self.elementstack) == 4 and ename == 'disk':
-                self._config.disk_pools[self._tmp_pool_name].append(tmp)
-        elif self._in_profil:
-            if len(self.elementstack) == 3:
-                if ename == 'select':
-                    pass
-                elif ename in self.profil_settings:
-                    if ename == 'gruppe' and not self._legal_groups.has_key(tmp['navn']):
-                        self._config.add_error("Not in groupdef: %s" % \
-                                               tmp['navn'])
-                    elif ename == 'spread' and not self.legal_spreads.has_key(tmp['system']):
-                        self._config.add_error("Not in spreaddef: %s" % \
-                                               tmp['system'])
-                    elif ename == 'disk_kvote':
-                        self._config.using_disk_kvote = True
-                    self._in_profil.add_setting(ename, tmp)
-                else:
-                    self._config.add_error("Unexpected tag %s in %s" % (
-                        ename, repr(self.elementstack)))
-            elif (len(self.elementstack) == 4 and
-                  self.elementstack[2] == 'select' and
-                  ename in SelectTool.select_map_defs):
-                if (ename == 'medlem_av_gruppe' and
-                    not self._legal_groups.has_key(tmp['navn'])):
-                    self._config.add_error("Not in groupdef: %s" % \
-                                           tmp['navn'])
-                self._in_profil.add_selection_criteria(ename, tmp)
-            else:
-                self._config.add_error("Unexpected tag '%s', attr=%s in %s" % (
-                    ename, str(tmp), repr(self.elementstack)))
-        else:
-            self._config.add_error("Unexpected tag %s in %s" % (
-                ename, repr(self.elementstack)))
 
-    def endElement(self, ename):
-        self.elementstack.pop()
-        if self._in_profil and ename == 'profil':
-            self._in_profil = None
+    def got_disk_pool(self, dta, elem_stack):
+        for ename, attrs, children in dta:
+            if ename == 'pool':
+                self._config.disk_pools[attrs['name']] = []
+                for ename2, attrs2, children2 in children:
+                    if ename == 'disk':
+                        self._config.disk_pools[attrs['name']].append(attrs2)
+            
+    def got_gruppe_oversikt(self, dta, elem_stack):
+        for ename, attrs, children in dta:
+            if ename == 'gruppedef':
+                self._legal_groups[attrs['navn']] = 1
+                self._config.group_defs[attrs['navn']] = {
+                    'auto': attrs.get('auto',
+                                      elem_stack[-1][-1]['default_auto'])}
+            else:
+                self._config.add_error(
+                    "Unexpected tag %s in gruppe_oversikt" % ename)
+    
+    def got_spread_oversikt(self, dta, elem_stack):
+        for ename, attrs, children in dta:
+            if ename == 'spreaddef':
+                self._config.required_spread_order.append(
+                    self._config.lookup_helper.get_spread(attrs['kode']))
+                self.legal_spreads[attrs['kode']] = 1
+            else:
+                self._config.add_error(
+                    "Unexpected tag %s in spread_oversikt" % ename)
+
+    def got_profil(self, dta, elem_stack):
+        in_profil = ProfileDefinition(
+            self._config, elem_stack[-1][-1]['navn'], self._config._logger,
+            super=elem_stack[-1][-1].get('super', None))
+
+        for ename, attrs, children in dta:
+            if ename in self.profil_settings:
+                if ename == 'gruppe' and not self._legal_groups.has_key(
+                    attrs['navn']):
+                    self._config.add_error("Not in groupdef: %s" % \
+                                           attrs['navn'])
+                elif ename == 'spread' and not self.legal_spreads.has_key(
+                    attrs['system']):
+                    self._config.add_error("Not in spreaddef: %s" % \
+                                           attrs['system'])
+                elif ename == 'disk_kvote':
+                    self._config.using_disk_kvote = True
+                in_profil.add_setting(ename, attrs)
+            elif ename == 'select':
+                for ename2, attrs2, children2 in children:
+                    if not ename2 in SelectTool.select_map_defs:
+                        self._config.add_error(
+                            "Unexpected tag '%s', attr=%s in %s" % (
+                            ename2, str(attrs2), repr(elem_stack)))
+                        continue
+                    in_profil.add_selection_criteria(ename2, attrs2)
+            else:
+                self._config.add_error("Unexpected tag %s in %s" % (
+                    ename, repr(self.elementstack)))
+        self._config.profiles.append(in_profil)
 
 # arch-tag: 8d52e58e-fdc3-456f-a9d0-7fe2d2281398
