@@ -152,3 +152,5 @@ class testKerberosBack(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+# arch-tag: c8362ce4-2019-430d-a311-5e90ffd0f575
