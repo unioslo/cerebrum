@@ -166,7 +166,7 @@ class AccountHiAMixin(Account.Account):
             eq.find_by_entity(self.entity_id)
         except Errors.NotFoundError:
             change = True
-            eq.populate(270, quota)
+            eq.populate(90, quota)
             eq.write_db()
         else:
             # We never decrease the quota, to allow for manual overrides
