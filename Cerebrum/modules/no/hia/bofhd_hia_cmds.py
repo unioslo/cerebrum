@@ -682,8 +682,8 @@ class BofhdExtension(object):
 	("valid_addr",)),
 	("Quota:            %d MiB, warn at %d%% (not enforced)",
          ("dis_quota_hard", "dis_quota_soft")),
-	("Quota:            %d MiB, warn at %d%% (%s MiB used)",
-         ("quota_hard", "quota_soft", "quota_used")),
+	("Quota:            %d MiB, warn at %d%% ",
+         ("quota_hard", "quota_soft")),
         # TODO: change format so that ON/OFF is passed as separate value.
         # this must be coordinated with webmail code.
         ("Forwarding:       %s",
@@ -3768,9 +3768,9 @@ class BofhdExtension(object):
     all_commands['user_home_create'] = Command(
 	("user", "home_create"), AccountName(), Spread(), DiskId(), perm_filter='can_create_user')
     def user_home_create(self, operator, accountname, spread, disk):
-	hdisk = Utils.Factory.get('Disk')(self.db)
 	account = self._get_account(accountname)
-	disk_id, home = self._get_disk_or_home(disk)
+        disk_id, home = self._get_disk(disk)[1:3]
+        homedir_id = None
         if home is not None:
             if home[0] == ':':
                 home = home[1:]
@@ -3786,12 +3786,14 @@ class BofhdExtension(object):
 		account.get_home(self._get_constant(spread))
 		raise CerebrumError, "User already has a home in spread %s, use user move" % spread
 	    except:
-		account.set_homedir(disk_id=disk_id, home=home,
-				    status=self.const.home_status_not_created)
+                homedir_id = account.set_homedir(disk_id=disk_id, home=home,
+                                                 status=self.const.home_status_not_created)
+
 	else:
 	    account.add_spread(self._get_constant(spread, "No such spread"))
-	    account.set_homedir(disk_id=disk_id, home=home,
-				status=self.const.home_status_not_created)
+	    homedir_id = account.set_homedir(disk_id=disk_id, home=home,
+                                             status=self.const.home_status_not_created)
+        account.set_home(self.const.spread_ans_nis_user, homedir_id)
 	account.write_db()
 	return "Home updated for %s in spread %s" % (accountname, spread)
 	    
@@ -3890,7 +3892,6 @@ class BofhdExtension(object):
 		tmp = account.get_home(int(row['spread']))
 		disk.clear()
 		disk.find(tmp['disk_id'])
-		print tmp['disk_id']
 		hm.append("%s/%s (%s)" % (disk.path, account.account_name, self.num2const[int(row['spread'])]))
 	    except Errors.NotFoundError:
 		tmp = {'disk_id': None, 'home': None}
@@ -3970,7 +3971,6 @@ class BofhdExtension(object):
     # user move
     def user_move_prompt_func(self, session, *args):
         all_args = list(args[:])
-        print all_args
         if not all_args:
             mt = MoveType()
             return mt.get_struct(self)
@@ -4617,11 +4617,18 @@ class BofhdExtension(object):
             disk_id = None
         return disk_id, path
 
-    def _get_disk(self, path):
-        disk, home = self._get_disk_or_home(path)
-        if disk is None:
-            raise CerebrumError("Unknown disk: %s" % path)
-        return disk
+    def _get_disk(self, path, host_id=None, raise_not_found=True):
+        disk = Utils.Factory.get('Disk')(self.db)
+        try:
+            if isinstance(path, (str, unicode)):
+                disk.find_by_path(path, host_id)
+            else:
+                disk.find(path)
+            return disk, disk.entity_id, None
+        except Errors.NotFoundError:
+            if raise_not_found:
+                raise CerebrumError("Unknown disk: %s" % path)
+            return disk, None, path
 
     def _map_np_type(self, np_type):
         # TODO: Assert _AccountCode
