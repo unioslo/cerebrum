@@ -3979,129 +3979,48 @@ class BofhdExtension(object):
             an = AccountName()
             return an.get_struct(self)
         ac_name = all_args.pop(0)
-        if mtype in ("immediate", "batch", "nofile", "hard_nofile"):
+        if mtype == "nofile":
+            if not all_args:
+                spread = Spread(help_ref="spread")
+                r = spread.get_struct(self)
+                r['last_arg'] = True
+                return r
+            spread = all_args.pop(0)
             if not all_args:
                 di = DiskId()
                 r = di.get_struct(self)
                 r['last_arg'] = True
                 return r
-            return {'last_arg': True}
-        elif mtype in ("student", "student_immediate", "confirm", "cancel"):
-            return {'last_arg': True}
-        elif mtype in ("request",):
-            if not all_args:
-                di = DiskId()
-                return di.get_struct(self)
-            disk = all_args.pop(0)
-            if not all_args:
-                ss = SimpleString(help_ref="string_why")
-                r = ss.get_struct(self)
-                r['last_arg'] = True
-                return r
-            return {'last_arg': True}
-        elif mtype in ("give",):
-            if not all_args:
-                who = GroupName()
-                return who.get_struct(self)
-            who = all_args.pop(0)
-            if not all_args:
-                ss = SimpleString(help_ref="string_why")
-                r = ss.get_struct(self)
-                r['last_arg'] = True
-                return r
+            di = all_args.pop(0)
             return {'last_arg': True}
         raise CerebrumError, "Bad user_move command (%s)" % mtype
         
     all_commands['user_move'] = Command(
         ("user", "move"), prompt_func=user_move_prompt_func,
-        perm_filter='can_move_user')
+        perm_filter='is_superuser')
     def user_move(self, operator, move_type, accountname, *args):
         account = self._get_account(accountname)
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
-        br = BofhdRequests(self.db, self.const)
-        spread = int(self.const.spread_uio_nis_user)
-        if move_type in ("immediate", "batch", "nofile"):
-            disk_id, home = self._get_disk_or_home(args[0])
-            self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
+        if move_type == "nofile":
+            move_ok = False
+            spread = int(self._get_constant(args[0], "No such spread"))
+            for r in account.get_spread():
+                if int(r['spread']) == spread:
+                    move_ok = True
+            if not move_ok:
+                raise CerebrumError, "You can not move a user that does not have homedir in the given spread. Use home_create."
+            path = args[1]
+            disk_id = self._get_disk(path)[1]
+            print disk_id
             if disk_id is None:
                 raise CerebrumError, "Bad destination disk"
-            if move_type == "immediate":
-                br.add_request(operator.get_entity_id(), br.now,
-                               self.const.bofh_move_user_now,
-                               account.entity_id, disk_id, state_data=spread)
-                return "Command queued for immediate execution"
-            elif move_type == "batch":
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_user,
-                               account.entity_id, disk_id, state_data=spread)
-                return "move queued for execution at %s" % br.batch_time
-            elif move_type == "nofile":
-                old = account.get_home(spread)
-                account.set_home(spread, disk_id=disk_id, home=home,
-                                 status=old['status'])
-                account.write_db()
-                return "OK, user moved"
-        elif move_type in ("hard_nofile",):
-            if not self.ba.is_superuser(operator.get_entity_id()):
-                raise PermissionDenied("only superusers may use hard_nofile")
-            account.set_home(spread, disk_id=None, home=args[0],
-                             status=self.const.home_status_on_disk)
+            ah = account.get_home(spread)
+            account.set_homedir(current_id=ah['homedir_id'],
+                                disk_id=disk_id)
+            account.set_home(spread, ah['homedir_id'])
             account.write_db()
-            return "OK, user moved to hardcoded homedir"
-        elif move_type in ("student", "student_immediate", "confirm", "cancel"):
-            self.ba.can_give_user(operator.get_entity_id(), account)
-            if move_type == "student":
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_student,
-                               account.entity_id, None, state_data=spread)
-                return "student-move queued for execution at %s" % br.batch_time
-            elif move_type == "student_immediate":
-                br.add_request(operator.get_entity_id(), br.now,
-                               const.bofh_move_student,
-                               account.entity_id, None, state_data=spread)
-                return "student-move queued for immediate execution"
-            elif move_type == "confirm":
-                r = br.get_requests(entity_id=account.entity_id,
-                                    operation=self.const.bofh_move_request)
-                if not r:
-                    raise CerebrumError, "No matching request found"
-                br.delete_request(account.entity_id,
-                                  operation=self.const.bofh_move_request)
-                # Flag as authenticated
-                br.add_request(operator.get_entity_id(), br.batch_time,
-                               self.const.bofh_move_user,
-                               account.entity_id, r[0]['destination_id'],
-                               state_data=spread)
-                return "move queued for execution at %s" % br.batch_time
-            elif move_type == "cancel":
-                # TBD: Should superuser delete other request types as well?
-                count = 0
-                for tmp in br.get_requests(entity_id=account.entity_id):
-                    if tmp['operation'] in (
-                        self.const.bofh_move_student, self.const.bofh_move_user,
-                        self.const.bofh_move_give, self.const.bofh_move_request,
-                        self.const.bofh_move_user_now):
-                        count += 1
-                        br.delete_request(request_id=tmp['request_id'])
-                return "OK, %i bofhd requests deleted" % count
-        elif move_type in ("request",):
-            disk, why = args[0], args[1]
-            disk_id = self._get_disk(disk)
-            self.ba.can_receive_user(operator.get_entity_id(), account, disk_id)
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_move_request,
-                           account.entity_id, disk_id, why)
-            return "OK, request registered"
-        elif move_type in ("give",):
-            self.ba.can_give_user(operator.get_entity_id(), account)
-            group, why = args[0], args[1]
-            group = self._get_group(group)
-            br.add_request(operator.get_entity_id(), br.now,
-                           self.const.bofh_move_give,
-                           account.entity_id, group.entity_id, why)
-            return "OK, 'give' registered"
-
+        return "Ok, user %s moved." % accountname
     # user password
     all_commands['user_password'] = Command(
         ('user', 'password'), AccountName(), AccountPassword(optional=True))
