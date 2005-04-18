@@ -810,7 +810,8 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True):
 
         if group.is_expired():
             # Extend the group's life by 6 months
-            group.expire_date = mx.DateTime.now() + mx.DateTimeDelta(6*30)
+            from mx.DateTime import now, DateTimeDelta
+            group.expire_date = now() + DateTimeDelta(6*30)
             group.write_db()
 
         u, i, d = group.list_members(member_type=mtype, filter_expired=False)
