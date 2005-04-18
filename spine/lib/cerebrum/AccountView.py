@@ -102,3 +102,5 @@ class AccountViewSearcher(SpineClass):
         return result
 
 registry.register_class(AccountViewSearcher)
+
+# arch-tag: 83956c70-b01a-11d9-9b05-d2defbe82553
