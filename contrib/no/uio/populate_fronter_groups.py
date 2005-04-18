@@ -808,7 +808,12 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True):
             group.description = descr
             group.write_db()
 
-        u, i, d = group.list_members(member_type=mtype)
+        if group.is_expired():
+            # Extend the group's life by 6 months
+            group.expire_date = mx.DateTime.now() + mx.DateTimeDelta(6*30)
+            group.write_db()
+
+        u, i, d = group.list_members(member_type=mtype, filter_expired=False)
         for member in u:
             member = int(member[1]) # member_id has index=1 (poor API design?)
             if members.has_key(member):
@@ -873,7 +878,7 @@ def destroy_group(gname, max_recurse=2, recurse=True):
             ea.delete()
         et.delete()
     # Fetch group's members
-    u, i, d = gr.list_members(member_type=co.entity_group)
+    u, i, d = gr.list_members(member_type=co.entity_group, filter_expired=False)
     logger.debug("destroy_group() subgroups: %r" % (u,))
     # Remove any spreads the group has
     for row in gr.get_spread():
