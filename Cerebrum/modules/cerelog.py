@@ -70,17 +70,11 @@ import cereconf
 
 
 import sys
-if sys.version_info >= (2, 3):
-    # The 'logging' module is bundled with Python 2.3 and newer.
-    import logging
-    from logging import handlers
-else:
-    # Even though the 'logging' module might have been installed with
-    # this older-than-2.3 Python, we'd rather not deal with troubles
-    # from using too old versions of the module; use the version
-    # bundled with Cerebrum.
-    from Cerebrum.extlib import logging
-# fi
+
+# NB! This will break on python2.2
+import logging
+from logging import handlers
+
 import os.path
 import os
 import getopt
@@ -570,7 +564,7 @@ class CerebrumLogger(logging.Logger):
 
 
 
-class CerebrumRotatingHandler(logging.FileHandler, object):
+class CerebrumRotatingHandler(handlers.RotatingFileHandler, object):
     """
     Cerebrum's own rotating handler. 
     """
@@ -624,7 +618,8 @@ class CerebrumRotatingHandler(logging.FileHandler, object):
         self.filename = os.path.join(self.logdir,
                                      self.directory,
                                      self.basename)
-        super(CerebrumRotatingHandler, self).__init__(self.filename, mode)
+        super(CerebrumRotatingHandler, self).__init__(self.filename, mode,
+                                                      maxBytes, backupCount)
 
         self.maxBytes = maxBytes
         self.backupCount = backupCount
