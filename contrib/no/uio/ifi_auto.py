@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003, 2004 University of Oslo, Norway
+# Copyright 2003-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -165,6 +165,22 @@ def make_filegroup_name(course, act, names):
             course = threethousandlevel
     return names[course] + convert_activitynumber(act)
 
+def add_members(gname, new_members):
+    """Add the new members as union members to existing group gname.
+    This is not a sync, so other members are left alone.  The
+    new_members is a dict with group_id as key.  The value for each
+    key is arbitrary."""
+
+    group = get_group(gname)
+    u, i, d = group.list_members(member_type=co.entity_group)
+    for memb in u:
+        if memb[1] in new_members:
+            del new_members[memb[1]]
+    for memb in new_members.keys():
+        logger.debug("Adding %s to %s", get_group(memb).group_name, gname)
+        group.add_member(memb, co.group_memberop_union)
+    group.write_db()
+
 def sync_filegroup(fgname, group, course, act):
     posix_group = PosixGroup.PosixGroup(db)
     # Make the group last a year or so.  To avoid changing the database
@@ -188,7 +204,7 @@ def sync_filegroup(fgname, group, course, act):
             logger.info("Extending life of %s", fgname)
             posix_group.expire_date = expdate
             posix_group.write_db()
-    u, i, d = posix_group.list_members()
+    u, i, d = posix_group.list_members(filter_expired=False)
     uptodate = False
     for type, id in u:
         if type <> co.entity_group:
@@ -229,14 +245,17 @@ def process_groups(super, fg_super):
                              "følge av Ifi-automatikk")
         fg_super_gr.write_db()
     else:
-        u, i, d = fg_super_gr.list_members(member_type=co.entity_group)
+        u, i, d = fg_super_gr.list_members(member_type=co.entity_group,
+                                           filter_expired=False)
         for type, group_id in u:
             auto_fg[group_id] = True
 
     # fetch super group's members and update accordingly
     todo = {}
+    vortex_access = {}
     short_name = {}
-    u, i, d = get_group(super).list_members(member_type=co.entity_group)
+    u, i, d = get_group(super).list_members(member_type=co.entity_group,
+                                            filter_expired=False)
     for type, group_id in u:
         group = get_group(group_id)
         if group.group_name.startswith('sinf'):
@@ -246,6 +265,9 @@ def process_groups(super, fg_super):
         if m:
             course = m.group(1)
             act = int(m.group(2))
+            # activity 0 is the course itself
+            if act == 0:
+                vortex_access[group.group_id] = True
             # this group often has a single member which is a
             # different group, so get rid of needless indirection.
             leaf = find_leaf(group)
@@ -278,7 +300,9 @@ def process_groups(super, fg_super):
             logger.info("New automatic filegroup %s", fgname)
             fg_super_gr.add_member(fgroup.entity_id, co.entity_group,
                                    co.group_memberop_union)
-            
+
+    add_members("ifivtx", vortex_access)
+
     # the groups in auto_fg are obsolete, and we remove all members.  we
     # will however keep the PosixGroup around, since the files still
     # exist on disk, and it is painful if the gid changes every time a
@@ -286,7 +310,7 @@ def process_groups(super, fg_super):
     # Autumn, so half the year they are invalid).
     for fgname in auto_fg:
         fgroup = get_group(fgname)
-        u, i, d = fgroup.list_members()
+        u, i, d = fgroup.list_members(filter_expired=False)
         for type, id in u:
             logger.info("Remove %s %d from obsolete filegroup %s",
                         co.EntityType(type), id, fgroup.group_name)
