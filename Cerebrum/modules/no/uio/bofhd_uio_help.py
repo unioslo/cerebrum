@@ -144,7 +144,6 @@ command_help = {
     'group_gremove': 'Remove member-groups from a given group',
     'group_info': 'View information about a spesific group',
     'group_list': 'List account members of a group',
-    'group_list_all': 'List all existing groups',
     'group_list_expanded': 'List all members of a group, direct og indirect',
     'group_personal': 'Create a new personal filegroup for an account',
     'group_promote_posix': 'Make an existing group into a POSIX-group',
@@ -453,11 +452,23 @@ printer."""],
     'string_spread':
 	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
-        ['hostname', 'Enter e-mail server.  Example: mail-sg2'],
+        ['hostname', 'Enter e-mail server.  Example: cyrus02'],
     'string_filename':
         ['filename', 'Enter filename'],
     'string_group_filter':
-        ['filter', 'Enter filter'],
+        ['filter', 'Enter filter',
+         """Enter a comma-separated list of filters.  There are four filter types:
+  'name'   - Name of group
+  'desc'   - Description text of group
+  'expire' - Include expired groups (default "no")
+  'spread' - List only groups with specified spread
+
+A filter is entered on the format 'type:value'.  If you leave out the
+type, 'name' is assumed.  The values for 'name' and 'desc' can contain
+wildcards (* and ?).
+
+Example:
+  pc*,spread:AD_group  - list all AD groups whose names start with 'pc'"""],
     'string_host':
         ['hostname', 'Enter hostname.  Example: ulrik'],
     'string_new_priority':
