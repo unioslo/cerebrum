@@ -62,4 +62,6 @@ import Request
 # Cereweb
 import Cereweb
 
+import AccountView
+
 # arch-tag: c7e1e253-6ca8-41f0-929e-dec949b76992
