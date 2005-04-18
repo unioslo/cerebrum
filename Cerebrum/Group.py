@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,6 +24,8 @@ Note that even though the database allows us to define groups in
 would probably turn out to be a bad idea if one tried to use groups in
 that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
+
+import mx
 
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -77,8 +79,14 @@ class Group(EntityQuarantine, EntityName, Entity):
         # "group_name".
         self.group_name = name
 
+    def is_expired(self):
+        now = mx.DateTime.now()
+        if self.expire_date is None or self.expire_date >= now:
+            return False
+        return True
+
     def illegal_name(self, name):
-        """Return a string with error message if username is illegal"""
+        """Return a string with error message if groupname is illegal"""
         return False
 
     def write_db(self):
@@ -287,7 +295,8 @@ class Group(EntityQuarantine, EntityName, Entity):
         FROM [:table schema=cerebrum name=group_member]
         WHERE member_id=:member_id""", {'member_id': entity_id})
 
-    def list_members(self, spread=None, member_type=None, get_entity_name=False):
+    def list_members(self, spread=None, member_type=None, get_entity_name=False,
+                     filter_expired=True):
         """Return a list of lists indicating the members of the group.
 
         The top-level list returned is on the form
@@ -304,45 +313,64 @@ class Group(EntityQuarantine, EntityName, Entity):
             member_type = int(member_type)
         if spread is not None:
             extfrom = ", [:table schema=cerebrum name=entity_spread] es"
-            extwhere = """gm.member_id=es.entity_id AND es.spread=:spread AND """
+            extwhere += """gm.member_id=es.entity_id AND es.spread=:spread AND """
             spread = int(spread)
         if get_entity_name:
+            # TBD: If we add another member_type, this code needs to
+            # updated.  Generalising the code to look up the right
+            # value_domain is probably impossible.  The check can be
+            # removed if we decide that an entity never can have two
+            # different names in different value domains.  Currently
+            # at UiO, there are no entities with two names.
+            
             extcols += ", entity_name"
-            extfrom += ", [:table schema=cerebrum name=entity_name] en"
-            # TBD: Is the value_domain check really neccesary?
-            extwhere += """gm.member_id=en.entity_id AND
-              ((en.value_domain=:group_dom AND gm.member_type=:entity_group) OR
-              (en.value_domain=:account_dom AND gm.member_type=:entity_account))
-              AND """
+            extfrom += """
+            JOIN [:table schema=cerebrum name=entity_name] en
+              ON (gm.member_id = en.entity_id AND
+                  ((en.value_domain = :group_dom AND
+                    gm.member_type = :entity_group) OR
+                   (en.value_domain = :account_dom AND
+                    gm.member_type = :entity_account)))"""
+        if filter_expired:
+            extfrom += """
+            LEFT JOIN [:table schema=cerebrum name=account_info] ai
+              ON (gm.member_type = :entity_account AND
+                  ai.account_id = gm.member_id)
+            LEFT JOIN [:table schema=cerebrum name=group_info] gi
+              ON (gm.member_type = :entity_group AND
+                  gi.group_id = gm.member_id)
+            """
+            extwhere += """(ai.expire_date IS NULL OR
+                            ai.expire_date > [:now]) AND
+                           (gi.expire_date IS NULL OR
+                            gi.expire_date > [:now]) AND """
         members = [[], [], []]
         op2set = {int(self.const.group_memberop_union): members[0],
                   int(self.const.group_memberop_intersection): members[1],
                   int(self.const.group_memberop_difference): members[2]}
-        for row in self.query("""
-        SELECT operation, member_type, member_id %s
-        FROM [:table schema=cerebrum name=group_member] gm %s
-        WHERE %s gm.group_id=:g_id""" % (extcols, extfrom, extwhere), {
-            'g_id': self.entity_id,
-            'spread': spread,
-            'member_type': member_type,
-            'group_dom': int(self.const.group_namespace),
-            'account_dom': int(self.const.account_namespace),
-            'entity_group': int(self.const.entity_group),
-            'entity_account': int(self.const.entity_account)}):
+        for row in self.query(
+            """
+            SELECT operation, member_type, member_id %s
+            FROM [:table schema=cerebrum name=group_member] gm %s
+            WHERE %s gm.group_id=:g_id""" % (extcols, extfrom, extwhere),
+            {'g_id': self.entity_id,
+             'spread': spread,
+             'member_type': member_type,
+             'group_dom': int(self.const.group_namespace),
+             'account_dom': int(self.const.account_namespace),
+             'entity_group': int(self.const.entity_group),
+             'entity_account': int(self.const.entity_account)
+             }):
             op2set[int(row[0])].append(row[1:])
-            # Could have been, but some way breaks mr. internet
-            # in auth
-            #op2set[int(row[0])].append(row)
-            # don't confuse legacy code by including operation
-            #del row[0]
         return members
 
-    def get_members(self, _trace=(), spread=None, get_entity_name=False):
+    def get_members(self, _trace=(), spread=None, get_entity_name=False,
+                    filter_expired=True):
         """Return a flattened list of entity ids of all account
         members in this group and its subgroups.  If spread is set,
         only include accounts with that spread.  If get_entity_name is
         set, return a list [id, name] for each account."""
-        
+
         if self.entity_id in _trace:
             # TODO: Circular list definition, log value of _trace.
             return Set()
@@ -351,7 +379,8 @@ class Group(EntityQuarantine, EntityName, Entity):
        
         # Some small utility functions 
         def format_accounts(accounts):
-            """Select wanted fields from list of accounts as returned by list_members"""
+            """Select wanted fields from list of accounts as returned by
+            list_members"""
             if get_entity_name:
                 filter = lambda account: (account[1], account[2])
             else:
@@ -366,18 +395,21 @@ class Group(EntityQuarantine, EntityName, Entity):
             for (t, group_id) in groups:
                 group.clear()
                 group.find(group_id)
-                group_members = group.get_members(_trace,
-                                            spread=spread,
-                                            get_entity_name=get_entity_name)
+                group_members = group.get_members(
+                    _trace, spread=spread, get_entity_name=get_entity_name,
+                    filter_expired=filter_expired)
                 accounts.update(group_members)
             return accounts
             
-        member_accounts = self.list_members(get_entity_name=get_entity_name,
-                                    spread=spread,
-                                    member_type=self.const.entity_account)
+        member_accounts = self.list_members(
+            get_entity_name=get_entity_name, spread=spread,
+            member_type=self.const.entity_account,
+            filter_expired=filter_expired)
         # select wanted fields
-        member_accounts = [format_accounts(accounts) for accounts in member_accounts]
-        member_groups = self.list_members(member_type=self.const.entity_group)
+        member_accounts = [format_accounts(accounts)
+                           for accounts in member_accounts]
+        member_groups = self.list_members(member_type=self.const.entity_group,
+                                          filter_expired=filter_expired)
 
         # Expand and get all member-accounts
         member_groups = map(expand_groups, member_groups)
@@ -399,38 +431,22 @@ class Group(EntityQuarantine, EntityName, Entity):
             all_accounts.difference_update(differences)
         return all_accounts
 
-    def list_all(self, spread=None):
-        """Lists all groups (of given ``spread``).
-
-        DEPRECATED: use search() instead
-
-        """
-        return self.search(filter_spread=spread)
-
-    def search(self, filter_spread=None, filter_name=None, filter_desc=None,
-               exclude_expired=False, spread=None, name=None, description=None):
+    def search(self, spread=None, name=None, description=None,
+               filter_expired=True):
         """Retrieves a list of groups filtered by the given criterias.
         
         Returns a list of tuples with the info  (group_id, name, description)).
         If no criteria is given, all groups are returned. ``name`` and
         ``description`` should be strings if given. ``spread`` can be either
         string or int. Wildcards * and ? are expanded for "any chars" and
-        "one char". ``filter_*`` are DEPRECATED."""
-
-        # If the new names arent use, use the old ones.
-        if spread is None:
-            spread = filter_spread
-        if name is None:
-            name = filter_name
-        if description is None:
-            description = filter_desc
+        "one char"."""
 
         def prepare_string(value):
             value = value.replace("*", "%")
             value = value.replace("?", "_")
             value = value.lower()
             return value
-            
+
         tables = []
         where = []
         tables.append("[:table schema=cerebrum name=group_info] gi")
@@ -464,7 +480,7 @@ class Group(EntityQuarantine, EntityName, Entity):
             description = prepare_string(description)
             where.append("LOWER(gi.description) LIKE :description")
 
-        if exclude_expired:
+        if filter_expired:
             where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
             
         where_str = ""
