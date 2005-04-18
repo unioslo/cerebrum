@@ -630,10 +630,10 @@ def import_groups(groupfile, fill=False):
     group_has_member = {}
     tmpg = Group.Group(db)
     tmpg2 = Group.Group(db)
-    for g in tmpg.list_all():
+    for g in tmpg.search():
         tmpg2.clear()
         tmpg2.find(g['group_id'])
-        u, i, d = tmpg2.list_members()
+        u, i, d = tmpg2.list_members(filter_expired=False)
         group_has_member[int(g['group_id'])] = {}
         for t, rows in ('union', u), ('inters.', i), ('diff', d):
             for r in rows:
@@ -737,7 +737,7 @@ def import_person_users(personfile):
     gid2entity_id = {}
     # if False and not quick_test:
     if not quick_test:
-        for row in group.list_all():
+        for row in group.search():
             group.clear()
             try:
                 group.find(row['group_id'])

@@ -159,7 +159,7 @@ class NISGroupUtil(object):
         self._exported_groups = {}
         self._tmp_group_prefix = tmp_group_prefix
         self._group = Factory.get('Group')(db)
-        for row in self._group.list_all(spread=group_spread):
+        for row in self._group.search(spread=group_spread):
             self._exported_groups[int(row['group_id'])] = row['name']
         self._num = 0
 

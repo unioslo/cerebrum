@@ -182,7 +182,7 @@ def generate_netgroup(filename, group_spread, user_spread):
     f.set_size_change_limit(5)
     num = 0
     exported_groups = {}
-    for row in group.list_all(spread=group_spread):
+    for row in group.search(spread=group_spread):
         exported_groups[int(row['group_id'])] = row['name']
     for group_id in exported_groups.keys():
         group_members = []
@@ -256,8 +256,7 @@ def generate_group(filename, group_spread, user_spread):
     for row in posix_user.list_extended_posix_users():
 	account2def_group[int(row['account_id'])] = int(row['posix_gid'])
     user_membership_count = {}
-    for row in posix_group.search(filter_spread=group_spread,
-                                  exclude_expired=True):
+    for row in posix_group.search(spread=group_spread):
         posix_group.clear()
         try:
             posix_group.find(row.group_id)

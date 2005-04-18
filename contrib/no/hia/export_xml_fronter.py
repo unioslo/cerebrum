@@ -200,7 +200,7 @@ def get_ans_fak(fak_list, ent2uname):
 def register_spread_groups(emne_info, stprog_info):
     group = Factory.get('Group')(db)
     this_sem, next_sem = get_semester()
-    for r in group.search(filter_spread=const.spread_hia_fronter):
+    for r in group.search(spread=const.spread_hia_fronter):
         gname = r['name']
         gname_el = gname.split(':')
         if gname_el[4] == 'undenh':

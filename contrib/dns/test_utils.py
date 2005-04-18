@@ -39,7 +39,7 @@ def test_cname(a_rec_id):
 def clean_netgroup():
     group = Group.Group(db)
     group2 = Group.Group(db)
-    for g in group.search(filter_spread=co.spread_uio_machine_netgroup):
+    for g in group.search(spread=co.spread_uio_machine_netgroup):
         group.clear()
         group.find(g['group_id'])
         for g2 in group.list_groups_with_entity(g['group_id']):
