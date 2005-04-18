@@ -1491,11 +1491,11 @@ class BofhdExtension(object):
             return "%s unchanged" % str(catcode)
 
     def _get_boolean(self, onoff):
-        if onoff.lower() == 'on':
+        if onoff.lower() in ('on', 'true', 'yes'):
             return True
-        elif onoff.lower() == 'off':
+        elif onoff.lower() in ('off', 'false', 'no'):
             return False
-        raise CerebrumError, "Enter one of ON or OFF"
+        raise CerebrumError, "Enter one of ON or OFF, not %s" % onoff
 
     def _onoff(self, enable):
         if enable:
@@ -2436,10 +2436,10 @@ class BofhdExtension(object):
             result['creator_id'] = entity.creator_id
             result['create_date'] = entity.create_date
             result['expire_date'] = entity.expire_date
-            # FIXME: Should be a list instead of a string, but text clients doesn't 
-            # know how to view such a list
-            result['spread'] = ", ".join([self.num2str(a.spread)
-                                         for a in entity.get_spread()])
+            # FIXME: Should be a list instead of a string, but text
+            # clients doesn't know how to view such a list
+            result['spread'] = ", ".join([str(self.const.Spread(r['spread']))
+                                          for r in entity.get_spread()])
         if entity.entity_type == self.const.entity_group:
             result['name'] = entity.group_name
             result['description'] = entity.description
@@ -2773,11 +2773,11 @@ class BofhdExtension(object):
                               ('owner_type', 'owner', 'opset')),
                              ("Gid:          %i",
                               ('gid',)),
-                             ("members:      %i groups, %i accounts",
+                             ("Members:      %i groups, %i accounts",
                               ('c_group_u', 'c_account_u')),
-                             ("members (intersection): %i groups, %i accounts",
+                             ("Members (intersection): %i groups, %i accounts",
                               ('c_group_i', 'c_account_i')),
-                             ("members (difference): %i groups, %i accounts",
+                             ("Members (difference):   %i groups, %i accounts",
                               ('c_group_d', 'c_account_d'))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
@@ -2833,6 +2833,9 @@ class BofhdExtension(object):
             return cmp(a['type'], b['type']) or cmp(a['name'], b['name'])
         group = self._get_group(groupname)
         ret = []
+        # TBD: the default is to leave out include expired accounts or
+        # groups.  How should we make the information about expired
+        # members available?
         u, i, d = group.list_members(get_entity_name=True)
         for t, rows in ((str(self.const.group_memberop_union), u),
                         (str(self.const.group_memberop_intersection), i),
@@ -2849,18 +2852,6 @@ class BofhdExtension(object):
             unsorted.sort(compare)
             ret.extend(unsorted)
         return ret
-
-    # group list_all
-    all_commands['group_list_all'] = Command(
-        ("group", "list_all"), SimpleString(help_ref="string_group_filter", optional=True),
-        fs=FormatSuggestion("%8i %s", ("id", "name"), hdr="%8s %s" % ("Id", "Name")),
-        perm_filter='is_superuser')
-    def group_list_all(self, operator, filter=None):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers (is is slooow)")
-        # superseeded by group_search - note that filter (which was never
-        # implemented) is NOT passed on   
-        return self.group_search(operator)    
 
     # group list_expanded
     all_commands['group_list_expanded'] = Command(
@@ -2956,24 +2947,40 @@ class BofhdExtension(object):
     
     # group search
     all_commands['group_search'] = Command(
-        ("group", "search"), GroupSearchType(optional=True),
-        fs=FormatSuggestion("%8i %s", ("id", "name"), hdr="%8s %s" % ("Id", "Name")),
+        ("group", "search"), SimpleString(help_ref="string_group_filter"),
+        fs=FormatSuggestion("%8i %-16s %s", ("id", "name", "desc"),
+                            hdr="%8s %-16s %s" % ("Id", "Name", "Description")),
         perm_filter='can_search_group')
-    def group_search(self, operator, filter={}):
-        # FIXME: Check filters to avoid "Search all" for all
+    def group_search(self, operator, filter=""):
         group = self.Group_class(self.db)
+        if filter == "":
+            raise CerebrumError, "No filter specified"
+        filters = {'name': None,
+                   'desc': None,
+                   'spread': None,
+                   'expired': "no"}
+        rules = filter.split(",")
+        for rule in rules:
+            if rule.count(":"):
+                filter_type, pattern = rule.split(":")
+            else:
+                filter_type = 'name'
+                pattern = rule
+            if filter_type not in filters:
+                raise CerebrumError, "Unknown filter type: %s" % filter_type
+            filters[filter_type] = pattern
+        if filters['name'] == '*' and len(rules) == 1:
+            raise CerebrumError, "Please provide a more specific filter"
+        filter_expired = not self._get_boolean(filters['expired'])
         ret = []
-        # unpack filters (security.. hehe) 
-        filter_name = filter.get('name', None)
-        filter_desc = filter.get('desc',  None)
-        filter_spread = filter.get('spread',  None)
-        for r in group.search(filter_spread=filter_spread,  
-                              filter_name=filter_name,
-                              filter_desc=filter_desc):
-            ret.append({'id': r.group_id,
-                        'name': r.name,
-                        'desc': r.description,
-                      })
+        for r in group.search(spread=filters['spread'],
+                              name=filters['name'],
+                              description=filters['desc'],
+                              filter_expired=filter_expired):
+            ret.append({'id': r['group_id'],
+                        'name': r['name'],
+                        'desc': r['description'],
+                        })
         return ret
 
     # group set_description
