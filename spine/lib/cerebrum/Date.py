@@ -105,6 +105,11 @@ def strptime(self, datestr, formatstr):
     """
     return Date(mx.DateTime.strptime(datestr, formatstr))
 
+def get_date_none(self):
+        return Date(None)
+
+Commands.register_method(Method('get_date_none', Date), get_date_none)
+
 # Registers the commands in the Commands-class
 
 Commands.register_method(Method('get_date_now', Date), get_date_now)
