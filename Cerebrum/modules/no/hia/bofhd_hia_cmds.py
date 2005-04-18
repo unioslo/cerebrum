@@ -4079,9 +4079,9 @@ class BofhdExtension(object):
         person = self._get_person("entity_id", account.owner_id)
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
         pu.populate(uid, group.entity_id, None, shell, parent=account)
-        homedir_nis_id = posix_user.set_homedir(disk_id=disk_id, home=home,
-                                                status=self.const.home_status_not_created)
-        posix_user.set_home(self.const.spread_nis_user, homedir_nis_id)
+        homedir_nis_id = pu.set_homedir(disk_id=disk_id, home=home,
+                                        status=self.const.home_status_not_created)
+        pu.set_home(self.const.spread_nis_user, homedir_nis_id)
         pu.write_db()
         return "OK"
 
