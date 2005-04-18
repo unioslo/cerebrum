@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -231,7 +231,7 @@ class EmailLDAP(DatabaseAccessor):
         for member_id in grp.get_members():
             acc.clear()
             acc.find(member_id)
-            if acc.is_deleted() or acc.is_reserved():
+            if acc.is_reserved():
                 continue
             # The address selected for the target will become the
             # envelope recipient address after expansion, so it must
