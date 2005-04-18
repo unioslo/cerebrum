@@ -23,15 +23,18 @@ from SpineLib import Registry
 registry = Registry.get_registry()
 
 __all__ = ['CodeType']
-
+a = id
 class CodeType(DatabaseClass):
-    def create_primary_key(cls, id=None, name=None, **args):
+    def __new__(cls, id=None, name=None, **args):
         if id is None and name is not None:
-            s = cls.search_class(name)
+            s = cls.search_class()
             s.set_name(name)
             (obj,) = s.search()
-            id = obj.get_id()
+            return obj
+        else:
+            return super(CodeType, cls).__new__(cls, id=id, name=name, **args)
 
+    def create_primary_key(cls, id=None, name=None, **args):
         assert type(id) in (int, long)
 
         return super(CodeType, cls).create_primary_key(id, name, **args)
