@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -256,15 +256,17 @@ class _EntityTypeCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=entity_type_code]'
     pass
 
-class _SpreadCode(_CerebrumCode):
-    """Code values for entity `spread`; table `entity_spread`."""
-    _lookup_table = '[:table schema=cerebrum name=spread_code]'
+class _CerebrumCodeWithEntityType(_CerebrumCode):
+    """Auxilliary class for code tables with an additional entity_type
+    column.  Should not and can not be instantiated directly."""
     _insert_dependency = _EntityTypeCode
 
     def __init__(self, code, entity_type=None, description=None):
         if entity_type is not None:
-            self.entity_type = entity_type
-        super(_SpreadCode, self).__init__(code, description)
+            if not isinstance(entity_type, _EntityTypeCode):
+                entity_type = _EntityTypeCode(entity_type)
+            self._entity_type = entity_type
+        super(_CerebrumCodeWithEntityType, self).__init__(code, description)
 
     def insert(self):
         self.sql.execute("""
@@ -281,14 +283,23 @@ class _SpreadCode(_CerebrumCode):
                           'str': self.str,
                           'desc': self._desc})
 
-    def entity_type(self):
-        return _EntityTypeCode(self.sql.query_1("""
-        SELECT entity_type
-        FROM %(table)s
-        WHERE %(code_col)s = :code""" % {
-            'table': self._lookup_table,
-            'code_col': self._lookup_code_column},
-                                                {'code': int(self)}))
+    def _get_entity_type(self):
+        if not hasattr(self, '_entity_type'):
+            self._entity_type = _EntityTypeCode(self.sql.query_1(
+                """
+                SELECT entity_type
+                FROM %(table)s
+                WHERE %(code_col)s = :code
+                """ % {'table': self._lookup_table,
+                       'code_col': self._lookup_code_column},
+                {'code': int(self)}))
+        return self._entity_type
+    entity_type = property(_get_entity_type)
+
+class _SpreadCode(_CerebrumCodeWithEntityType):
+    """Code values for entity `spread`; table `entity_spread`."""
+    _lookup_table = '[:table schema=cerebrum name=spread_code]'
+    pass
 
 class _ContactInfoCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
@@ -322,25 +333,23 @@ class _CountryCode(_CerebrumCode):
                           'phone': self.phone_prefix,
                           'desc': self.description})
 
-    def country(self):
-        if self.country is None:
-            self.country = self._get_column('country')
-        return self.country
+    def _fetch_column(self, col_name):
+        attr_name = "_" + col_name
+        if not hasattr(self, attr_name):
+            self.__setattr__(attr_name, self.sql.query_1(
+                """
+                SELECT %(col_name)s
+                FROM %(table)s
+                WHERE %(code_col)s = :code
+                """ % {'col_name': col_name,
+                       'table': self._lookup_table,
+                       'code_col': self._lookup_code_column},
+                {'code': int(self)}))
+        return getattr(self, attr_name)
 
-    def phone_prefix(self):
-        if self.phone_prefix is None:
-            self.phone_prefix = self._get_column('phone_prefix')
-        return self.phone_prefix
+    country = property(lambda (self): self._fetch_column("country"))
+    phone_prefix = property(lambda (self): self._fetch_column("phone_prefix"))
 
-    def _get_column(self, col_name):
-        return self.query_1("""
-        SELECT %(col_name)s
-        FROM %(table)s
-        WHERE %(code_col)s = :code""" % {
-            'col_name': col_name,
-            'table': self._lookup_table,
-            'code_col': self._lookup_code_column},
-                            {'code': int(self)})
 
 class _AddressCode(_CerebrumCode):
     "Mappings stored in the address_code table"
@@ -352,49 +361,10 @@ class _GenderCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=gender_code]'
     pass
 
-class _EntityExternalIdCode(_CerebrumCode):
+class _EntityExternalIdCode(_CerebrumCodeWithEntityType):
     "Mappings stored in the entity_external_id_code table"
     _lookup_table = '[:table schema=cerebrum name=entity_external_id_code]'
-    _insert_dependency = _EntityTypeCode
-
-    def __init__(self, code, entity_type=None, description=None):
-        if entity_type is not None:
-            if not isinstance(entity_type, _EntityTypeCode):
-                entity_type = _EntityTypeCode(entity_type)
-            self.entity_type = entity_type
-        super(_EntityExternalIdCode, self).__init__(code, description)
-
-    def __int__(self):
-        i = super(_EntityExternalIdCode, self).__int__()
-        # Casting a CerebrumCode object to int is the de facto way of
-        # forcing a database lookup.  Make sure we also initialise
-        # entity_type from the database, if needed.
-        if not hasattr(self, 'entity_type'):
-            self.entity_type = _EntityTypeCode(self.sql.query_1(
-                """
-                SELECT entity_type
-                FROM %(table)s
-                WHERE %(code_col)s = :code
-                """ % { 'table': self._lookup_table,
-                        'code_col': self._lookup_code_column},
-                {'code': int(self)}))
-        return i
-
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (entity_type, %(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (:entity_type, %(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'entity_type': int(self.entity_type),
-                          'str': self.str,
-                          'desc': self._desc})
-
+    pass
 
 class _PersonNameCode(_CerebrumCode):
     "Mappings stored in the person_name_code table"
