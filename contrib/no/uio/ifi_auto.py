@@ -178,7 +178,7 @@ def add_members(gname, new_members):
             del new_members[memb[1]]
     for memb in new_members.keys():
         logger.debug("Adding %s to %s", get_group(memb).group_name, gname)
-        group.add_member(memb, co.group_memberop_union)
+        group.add_member(memb, co.entity_group, co.group_memberop_union)
     group.write_db()
 
 def sync_filegroup(fgname, group, course, act):
@@ -267,7 +267,7 @@ def process_groups(super, fg_super):
             act = int(m.group(2))
             # activity 0 is the course itself
             if act == 0:
-                vortex_access[group.group_id] = True
+                vortex_access[group_id] = True
             # this group often has a single member which is a
             # different group, so get rid of needless indirection.
             leaf = find_leaf(group)
