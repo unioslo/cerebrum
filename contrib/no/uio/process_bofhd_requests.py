@@ -236,15 +236,6 @@ def process_email_requests():
                 db.commit()
                 continue
 
-            operator = ""
-            if r['requestee_id'] is not None:
-                try:
-                    acc.clear()
-                    acc.find(r['requestee_id'])
-                    operator = acc.account_name
-                except Errors.NotFoundError:
-                    pass
-
             # The database contains the new host, so the id of the server
             # to remove from is passed in state_data.
             server = Email.EmailServer(db)
@@ -256,7 +247,7 @@ def process_email_requests():
                 br.delay_request(request_id=r['request_id'])
                 db.commit()
                 continue
-            if cyrus_delete(server.name, uname, operator):
+            if cyrus_delete(server.name, uname):
                 br.delete_request(request_id=r['request_id'])
             else:
                 db.rollback()
@@ -435,13 +426,11 @@ def cyrus_create(user_id):
     cyrus_subscribe(uname, imaphost)
     return True
 
-def cyrus_delete(host, uname, operator):
+def cyrus_delete(host, uname):
     logger.debug("will delete %s from %s", uname, host)
     # Backup Cyrus data before deleting it.
-    null_home = "%s/%s" % (None, uname)
-    if not delete_user(uname, old_host=None, old_home=null_home,
-                       operator=operator, mail_server=host):
-        logger.error("bofh_email_delete: delete_user() failed.")
+    if not archive_cyrus_data(uname, host):
+        logger.error("bofh_email_delete: Archival of Cyrus data failed.")
         return False
     try:
         cyradm = connect_cyrus(host=host)
@@ -498,6 +487,17 @@ def cyrus_subscribe(uname, server, action="create"):
         errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     else:
         errnum = 0
+    if not errnum:
+        return True
+    logger.error("%s returned %i", cmd, errnum)
+    return False
+
+def archive_cyrus_data(uname, mail_server):
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'archivemail',
+           mail_server, uname]
+    cmd = ["%s" % x for x in cmd]
+    logger.debug("doing %s" % cmd)
+    errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     if not errnum:
         return True
     logger.error("%s returned %i", cmd, errnum)
