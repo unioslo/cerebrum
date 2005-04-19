@@ -3305,12 +3305,9 @@ class BofhdExtension(object):
                 for source, kind in ((self.const.system_lt, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post_private)):
-		    try:
-                        address = person.get_entity_address(source = source,
-                                                            type = kind)
+                    address = person.get_entity_address(source = source, type = kind)
+                    if address:
                         break
-		    except Errors.NotFoundError:
-                        pass
   
                 if not address:
                     ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
