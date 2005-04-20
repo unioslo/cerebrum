@@ -69,20 +69,14 @@ eperm = "517 Permission denied"
 
 # pqdlog = "/u2/log/priss/prissquotad"
 pqdlog = "/cerebrum/var/log/prissquotad2"
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
 my_pid = os.getpid()
 
 # To perform accounting for jobs by unknown accounts
 log_unknown_accounts = True
-
-class MyServer(SocketServer.TCPServer):
-    allow_reuse_address = 1    # Seems to make sense in testing environment
-
+last_refresh = 0
 
 ok_has_quota = {}
-def _assert_has_quota(person_id):
+def _assert_has_quota(person_id, db, ppq):
     # Assert that person has a paid_quota_status entry so that we can
     # track total_pages
     if ok_has_quota.has_key(person_id):
@@ -94,10 +88,38 @@ def _assert_has_quota(person_id):
         except Errors.NotFoundError:
             ppq.new_quota(person_id)
             db.commit()
-    
+
+def refresh_has_quota_hash(db):
+    global last_refresh
+    last_refresh = time()
+    ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
+    for row in ppq.list():
+        ok_has_quota[long(row['person_id'])] = True
+
+class MyServer(SocketServer.ForkingTCPServer):
+    # We use a forking server to attemt to work-around client-timeouts
+    # during periods with up to 10k connections/hour.  This means that
+    # we must initialize our db-connectors in the child.
+    # Unfortunately, this means that children can no longer update a
+    # cash of known quota victims.  This hash must now be regularly
+    # re-created in the parent.
+
+    SocketServer.TCPServer.allow_reuse_address = 1    # Seems to make sense in testing environment
+    def close_request(self, request):
+        SocketServer.ForkingTCPServer.close_request(self, request)
+        if last_refresh < time() - 3600:
+            refresh_has_quota_hash(Factory.get('Database')())
+
 # class RequestHandler(SocketServer.BaseRequestHandler):
 class RequestHandler(SocketServer.StreamRequestHandler):
+    def set_vars(self):
+        assert os.getpid() != my_pid  # Should only be done in child
+        self.db = Factory.get('Database')()
+        self.co = Factory.get('Constants')(self.db)
+        self.ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
+
     def process_commands(self):
+        self.set_vars()
         if not self.client_address[0].startswith(
             cereconf.PQ_IP_CONNECT_PREFIX):
             self.send(eperm)
@@ -120,7 +142,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             # Get information based on username
             self.username = cmd[1]
             try:
-                account = Factory.get('Account')(db)
+                account = Factory.get('Account')(self.db)
                 account.clear()
                 account.find_by_name(self.username)
             except Errors.NotFoundError:
@@ -136,9 +158,9 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             if account is not None:
                 self.account_id = account.entity_id
                 try:
-                    if account.owner_type == co.entity_person:
+                    if account.owner_type == self.co.entity_person:
                         self.person_id = account.owner_id
-                        self.pq_data = ppq.find(account.owner_id)
+                        self.pq_data = self.ppq.find(account.owner_id)
                 except Errors.NotFoundError:
                     self.log('TRACE', "%s / %i / %i has no quota" % (cmd[1],  account.entity_id, self.person_id))
                     pass
@@ -183,6 +205,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         signal.alarm(30)
         signal.signal(signal.SIGALRM, self.alarm_handler)
+        start = time()
         try:
             self.process_commands()
         except IOError, msg:
@@ -193,6 +216,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         except:
             self.log('CRITICAL', 'Unexpected exception: %s' % \
                      self.formatException(sys.exc_info()))
+        self.log('DEBUG', 'Total execution time: %s' % (time() - start))
         signal.alarm(0)
             
     def check_quota(self, printer, pageunits):
@@ -232,19 +256,20 @@ class RequestHandler(SocketServer.StreamRequestHandler):
 
         update_quota = self.pq_data and self.pq_data['has_quota'] == 'T'
 
-        _assert_has_quota(self.person_id)
-        job_id = ppq.add_printjob(self.person_id, self.account_id, printer,
-                                  pageunits, 'pq',
-                                  stedkode=job_data.get('STEDKODE', None),
-                                  job_name=job_data.get('JOBNAME', None),
-                                  spool_trace=job_data.get('SPOOL_TRACE', None),
-                                  priss_queue_id=job_data.get('PRISS_QUEUE_ID', None),
-                                  paper_type=job_data.get('PAPERTYPE', None),
-                                  pages=job_data.get('PAGES', None),
-                                  update_quota=update_quota)
+        _assert_has_quota(self.person_id, self.db, self.ppq)
+        job_id = self.ppq.add_printjob(
+            self.person_id, self.account_id, printer,
+            pageunits, 'pq',
+            stedkode=job_data.get('STEDKODE', None),
+            job_name=job_data.get('JOBNAME', None),
+            spool_trace=job_data.get('SPOOL_TRACE', None),
+            priss_queue_id=job_data.get('PRISS_QUEUE_ID', None),
+            paper_type=job_data.get('PAPERTYPE', None),
+            pages=job_data.get('PAGES', None),
+            update_quota=update_quota)
         if self.person_id is None and self.account_id is None:
             self.log("INFO", "Job %i by unknown account: %s" % (job_id, str(self._helo)))
-        db.commit()
+        self.db.commit()
         return ok        
 
 
@@ -255,11 +280,11 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         if not person_id:
             self.send(enouser)
             return
-        when = db.Date(*( localtime(time()-3600*24*7)[:3]))
-        rows = ppq.get_history(person_id=person_id, tstamp=when)
+        when = self.db.Date(*( localtime(time()-3600*24*7)[:3]))
+        rows = self.ppq.get_history(person_id=person_id, tstamp=when)
         ok_data = ok[:3] +'-'
         for r in rows[-7:]:
-            if  r['transaction_type'] == int(co.pqtt_printout):
+            if  r['transaction_type'] == int(self.co.pqtt_printout):
                 self.send(ok_data+":".join(["%s" % x for x in (
                     r['job_id'], r['tstamp'].ticks(), r['printer_queue'],
                     r['pageunits_total'])]))
@@ -275,7 +300,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
 
     def log(self, lvl, msg):
         f = file(pqdlog, "a")
-        f.write("%s [%s] %s %s\n" % (strftime("%Y-%m-%d %H:%M:%S", gmtime()), my_pid, lvl, msg))
+        f.write("%s [%s] %s %s\n" % (
+            strftime("%Y-%m-%d %H:%M:%S", localtime()), os.getpid(), lvl, msg))
         f.close()
 
     def formatException(self, ei):  # from logging.py
