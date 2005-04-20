@@ -782,12 +782,10 @@ def make_letters(data_file=None, type=None, range=None):
         address = None
 	for source, kind in ((const.system_fs, const.address_post),
 			     (const.system_fs, const.address_post_private)):
-	    try:
-		address = person.get_entity_address(source=source,
+            address = person.get_entity_address(source=source,
 						    type=kind)
+            if address:
 		break
-	    except Errors.NotFoundError:
-		pass
 	if not address:
             logger.warn("Could not find authoritative address for %s" % account_id)
             continue
