@@ -70,16 +70,29 @@ import cereconf
 
 
 import sys
-
-# NB! This will break on python2.2
-import logging
-from logging import handlers
+if sys.version_info >= (2, 3):
+    import logging
+    from logging import handlers
+else:
+    from Cerebrum.extlib import logging
+# fi
 
 import os.path
 import os
 import getopt
 import string
 import re
+import inspect
+
+
+#
+# We need our own findCaller()
+# 
+if string.lower(__file__[-4:]) in ['.pyc', '.pyo']:
+    _srcfile = __file__[:-4] + '.py'
+else:
+    _srcfile = __file__
+_srcfile = os.path.normcase(_srcfile)
 
 
 
@@ -526,6 +539,26 @@ class CerebrumLogger(logging.Logger):
         logging.Logger.__init__(self, name, level)
     # end __init__
 
+    def findCaller(self):
+        rv = (None, None)
+        frame = inspect.currentframe()
+        while frame:
+            source = inspect.getsourcefile(frame)
+            if source:
+                source = os.path.normcase(source)
+            if ((source != _srcfile) and
+                (source and (source.find("logging/__init__.py") == -1))):
+                lineno = inspect.getlineno(frame)
+                rv = (source, lineno)
+                break
+            # fi
+
+            frame = frame.f_back
+        # od
+
+        return rv
+    # end findCaller
+      
 
     def __cerebrum_debug(self, level, msg, *args, **kwargs):
         if self.manager.disable >= level:
@@ -564,7 +597,14 @@ class CerebrumLogger(logging.Logger):
 
 
 
-class CerebrumRotatingHandler(handlers.RotatingFileHandler, object):
+if sys.version_info >= (2, 3):
+    rotator = handlers.RotatingFileHandler
+else:
+    rotator = logging.FileHandler
+# fi
+
+
+class CerebrumRotatingHandler(rotator, object):
     """
     Cerebrum's own rotating handler. 
     """
@@ -618,8 +658,7 @@ class CerebrumRotatingHandler(handlers.RotatingFileHandler, object):
         self.filename = os.path.join(self.logdir,
                                      self.directory,
                                      self.basename)
-        super(CerebrumRotatingHandler, self).__init__(self.filename, mode,
-                                                      maxBytes, backupCount)
+        super(CerebrumRotatingHandler, self).__init__(self.filename, mode)
 
         self.maxBytes = maxBytes
         self.backupCount = backupCount
