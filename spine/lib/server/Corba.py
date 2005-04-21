@@ -61,7 +61,10 @@ def convert_to_corba(obj, transaction, data_type):
         struct = corba_structs[data_type]
 
         vargs = {}
-        vargs['reference'] = convert_to_corba(obj['reference'], transaction, data_type)
+        if 'reference' in obj:
+            vargs['reference'] = convert_to_corba(obj['reference'], transaction, data_type)
+        else:
+            vargs['reference'] = None
 
         methods = [i for i in data_type.method_slots if not i.write and not i.args]
         for attr in data_type.slots + methods:
