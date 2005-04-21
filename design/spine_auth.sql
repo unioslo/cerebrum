@@ -39,7 +39,11 @@ version=1.0;
 
 
 category:drop;
+DROP TABLE auth_func_map;
+category:drop;
 DROP TABLE auth_role;
+category:drop;
+DROP TABLE auth_op_target_attrs;
 category:drop;
 DROP TABLE auth_op_target;
 category:drop;
@@ -50,6 +54,28 @@ category:drop;
 DROP TABLE auth_operation_set;
 category:drop;
 DROP TABLE auth_op_code;
+category:drop;
+DROP TABLE auth_op_target_attrs_key_code;
+category:drop;
+DROP TABLE auth_op_target_type_code;
+
+
+/* Maps [object_type][.method] to authentication function
+* 
+*
+*
+*/
+category:main;
+CREATE TABLE auth_func_map (
+  auth_func_id      NUMERIC(6,0)
+                        CONSTRAINT auth_func_map_pk PRIMARY KEY,
+  priority          SMALLINT
+                        NOT NULL,
+  object_type       CHAR VARYING(128),
+  method            CHAR VARYING(128),
+  auth_func_name    CHAR VARYING(128)
+                        NOT NULL
+);
 
 
 /* Defines the legal operations that may be performed.
@@ -59,6 +85,9 @@ DROP TABLE auth_op_code;
 * methods: "get_description", "set_name". If you want an account to be able to
 * set his own password, you have to give him the operation_code "set_password"
 * and make it target his own account.
+*
+*
+* is_method set to true if code_str is objtype.method
 */
 category:code;
 CREATE TABLE auth_op_code (
@@ -68,7 +97,10 @@ CREATE TABLE auth_op_code (
                      NOT NULL
                      CONSTRAINT auth_op_codestr_u UNIQUE,
   description      CHAR VARYING(512)
+                     NOT NULL,
+  is_method        BOOLEAN
                      NOT NULL
+                     DEFAULT '0'
 );
 
 
@@ -121,6 +153,21 @@ CREATE TABLE auth_op_attrs (
 );
 
 
+/*
+*
+*/
+category:code;
+CREATE TABLE auth_op_target_type_code (
+  code             NUMERIC(6,0)
+                     CONSTRAINT auth_op_target_type_code_pk PRIMARY KEY,
+  code_str         CHAR VARYING(64)
+                     NOT NULL
+                     CONSTRAINT auth_op_target_type_codestr_u UNIQUE,
+  description      CHAR VARYING(512)
+                     NOT NULL
+);
+
+
 /* Defines rules for finding an entity target.
 *
 * The targets is the entity wich the operation is performed on.
@@ -142,13 +189,54 @@ CREATE TABLE auth_op_target (
   op_target_id     NUMERIC(12,0)
                      CONSTRAINT auth_op_target_pk PRIMARY KEY,
   entity_id        NUMERIC(12,0),
-  target_type      CHAR VARYING(16)
-		     NOT NULL,
+  target_type      NUMERIC(6,0)
+                    NOT NULL
+                    CONSTRAINT auth_op_target_type_fk
+                        REFERENCES auth_op_target_type_code(code),
   attr             CHAR VARYING(50)
 );
 
 category:main;
 CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
+
+
+/*
+*
+*/
+category:code;
+CREATE TABLE auth_op_target_attrs_key_code (
+  code             NUMERIC(6,0)
+                     CONSTRAINT auth_op_target_attrs_key_code_pk PRIMARY KEY,
+  code_str         CHAR VARYING(64)
+                     NOT NULL
+                     CONSTRAINT auth_op_target_attrs_key_codestr_u UNIQUE,
+  description      CHAR VARYING(512)
+                     NOT NULL,
+  target_type      NUMERIC(6,0)
+                    NOT NULL
+                    CONSTRAINT auth_op_target_attrs_key_code_target_type_fk
+                        REFERENCES auth_op_target_type_code(code)
+);
+
+
+/*
+*
+*/
+category:main;
+CREATE TABLE auth_op_target_attrs (
+  op_target_id      NUMERIC(12,0)
+                        NOT NULL
+                        CONSTRAINT auth_op_target_attrs_op_target_id_fk
+                            REFERENCES auth_op_target(op_target_id),
+  key               NUMERIC(6,0)
+                        NOT NULL
+                        CONSTRAINT auth_op_target_attrs_key_fk
+                            REFERENCES auth_op_target_attrs_key_code(code),
+  value             CHAR VARYING(256)
+                        NOT NULL,
+
+  CONSTRAINT auth_op_target_attrs_pk PRIMARY KEY (op_target_id, key)
+);
 
 
 /* A role associates an auth_operation_set with an auth_op_target.
