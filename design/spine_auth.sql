@@ -1,5 +1,5 @@
 /*
- * Copyright 2004 University of Oslo, Norway
+ * Copyright 2004-2005 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -18,7 +18,7 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* Tables used for authentication in GRO.
+/* Tables used for authentication in Spine.
 *
 * Authentication of commands performed in gro uses these tables wich are:
 * - auth_op_code        : Operation codes like "set_password"
@@ -33,7 +33,7 @@
 * The target the command is to perform on, is the entity_id in auth_op_target.
 */
 category:metainfo;
-name=gro_auth;
+name=spine_auth;
 category:metainfo;
 version=1.0;
 
@@ -54,7 +54,7 @@ DROP TABLE auth_op_code;
 
 /* Defines the legal operations that may be performed.
 *
-* Everything in GRO is methods, and the operations should be the same as
+* Everything in Spine is methods, and the operations should be the same as
 * the method, to give access to it. Attributes are accessed through get and set
 * methods: "get_description", "set_name". If you want an account to be able to
 * set his own password, you have to give him the operation_code "set_password"
@@ -155,7 +155,7 @@ CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
 *
 * Links the entity with a set of legal operations and a target.
 * The operationset contains several operations wich got operationcodes wich
-* equals GRO-commands, and attr who can be used for validation.
+* equals Spine-commands, and attr who can be used for validation.
 */
 category:main;
 CREATE TABLE auth_role (
