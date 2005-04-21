@@ -61,7 +61,7 @@ class ChangeLog(DatabaseClass):
         DatabaseAttr('subject', table, Entity, optional=True),
         DatabaseAttr('subject_entity', table, int),
         DatabaseAttr('type', table, ChangeType),
-        DatabaseAttr('destination', table, Entity),
+        DatabaseAttr('destination', table, Entity, optional=True),
         DatabaseAttr('params', table, str),
         DatabaseAttr('change_by', table, Entity),
         DatabaseAttr('change_program', table, str),
