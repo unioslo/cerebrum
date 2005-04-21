@@ -82,6 +82,10 @@ class AffiliationStatus(Parameter):
     _type = 'affiliationStatus'
     _help_ref = 'affiliation_status'
 
+class SourceSystem(Parameter):
+    _type = 'sourceSystem'
+    _help_ref = 'source_system'
+    
 class Date(Parameter):
     _type = 'date'
     _help_ref = 'date'
