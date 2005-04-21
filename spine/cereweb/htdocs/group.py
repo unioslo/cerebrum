@@ -68,7 +68,10 @@ def search(req, name="", desc="", spread="", transaction=None):
         server = transaction
         searcher = server.get_group_searcher()
         if name:
-            searcher.set_name_like(name)
+            namesearcher = server.get_entity_name_searcher()
+            namesearcher.set_name_like(name)
+            namesearcher.mark_entity()
+            searcher.set_intersections([namesearcher])
         if desc:
             searcher.set_description_like(desc)
         if spread:
@@ -188,7 +191,7 @@ def remove_member(req, transaction, groupid, memberid, operation):
 
     group_member = transaction.get_group_member(group, operation, member, member.get_type())
     group.remove_group_member(group_member)
-    queue_message(req, _("%s removed from group %s") % (memberid, group))
+    queue_message(req, _("%s removed from group %s") % (object_link(member), group))
     redirect_object(req, group, seeOther=True)
 
     transaction.commit()
@@ -213,17 +216,14 @@ def create(req, name="", expire="", description=""):
     page.setFocus("group/create")
     
     # Store given parameters in the create-form
-    values = {}
-    values['name'] = name
-    values['expire'] = expire
-    values['description'] = description
-    create = GroupCreateTemplate(searchList=[{'formvalues': values}])
+    create = GroupCreateTemplate()
 
     if name:
         server = req.session.get("active")
         page.add_message(_("Sorry, group not create error!"), error=True)
     
-    page.content = create.form
+    content = create.form(name, expire, description)
+    page.content = lambda :content
     return page
 
 def save(req, id, name, expire, description):
@@ -238,19 +238,21 @@ def save(req, id, name, expire, description):
     queue_message(req, _("Group successfully updated."))
     redirect_object(req, group, seeOther=True)
 
-def make(req, name, expire="", description=""):
+@transaction_decorator
+def make(req, transaction, name, expire="", description=""):
     """Performs the creation towards the server."""
-    server = req.session.get("active")
-    group = server.get_commands().create_group(name)
+    commands = transaction.get_commands()
+    group = commands.create_group(name)
 
-    if expiration:
-        expire = server.get_commands().strptime(expire, "%Y-%m-%d")
+    if expire:
+        expire = commands.strptime(expire, "%Y-%m-%d")
         group.set_expire_date(expire)
 
     if description:
         group.set_description(description)
     
     queue_message(req, _("Group successfully created."))
-    redirect_object(req, person, seeOther=True)
+    redirect_object(req, group, seeOther=True)
+    transaction.commit()
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

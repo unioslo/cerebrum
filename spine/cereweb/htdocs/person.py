@@ -24,7 +24,7 @@ from gettext import gettext as _
 from Cerebrum.extlib import sets
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator
+from Cereweb.utils import transaction_decorator, object_link
 from Cereweb.templates.PersonSearchTemplate import PersonSearchTemplate
 from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
 from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
@@ -115,14 +115,9 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
         for person in persons:
             date = person.get_birth_date().strftime("%Y-%m-%d")
             date = html.TableCell(date, align="center")
-            accounts = ""
-#            for account in person.get_accounts()[:4]:
-#                viewaccount = url("account/view?id=%i" % account.get_id())
-#                accounts.append(str(html.Anchor(account.get_name(), href=viewaccount)))
-#            if len(accounts) > 3:
-#                accounts = ", ".join(accounts[:3]) + "..."
-#            else:
-#                accounts = ", ".join(accounts)
+            accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]
+            accounts = ', '.join(accounts[:3]) + (len(accounts) == 4 and '...' or '')
+
             view = url("person/view?id=%i" % person.get_id())
             edit = url("person/edit?id=%i" % person.get_id())
             link = html.Anchor(_(_primary_name(person)), href=view)
@@ -297,10 +292,25 @@ def remove_name(req, id, name, variant, ss):
     redirect_object(req, person, seeOther=True)
 
 @transaction_decorator
+def add_external_id(req, transaction, id, external_id, id_type):
+    person = _get_person(req, transaction, id)
+    source_system = transaction.get_source_system('Manual')
+    type = transaction.get_person_external_id_type(id_type)
+    person.add_external_id(external_id, type, source_system)
+
+    queue_message(req, _("External id successfully added.."))
+    redirect_object(req, person, seeOther=True)
+
+    transaction.commit()
+
+@transaction_decorator
 def remember(req, transaction, id):
     person = _get_person(req, transaction, int(id))
     obj = ('person', _primary_name(person), id)
     req.session['remembered'].append(obj)
     redirect_object(req, person)
- 
+
+def accounts(req, owner, add=None, remember=None, delete=None):
+    if add:
+        redirect(req, url('account/create?owner=%s' % owner))
 # arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6
