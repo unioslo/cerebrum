@@ -131,7 +131,7 @@ def process_employees(filename, db):
             continue
         # fi
 
-        sap_id = str(db_row.person_id)
+        sap_id = str(db_row.external_id)
         phone = get_contact(person, const.contact_phone, const)
         cellphone = get_contact(person, const.contact_phone_cellular, const)
         email = get_email(person, account)
