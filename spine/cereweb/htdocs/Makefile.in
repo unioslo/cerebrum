@@ -8,7 +8,7 @@ prefix = @prefix@
 libdir = @libdir@
 webroot = @webroot@
 
-sources = $(wildcard *.py)
+sources = $(wildcard *.py *.js)
 
 .PHONY: all install install-lib clean distclean print
 

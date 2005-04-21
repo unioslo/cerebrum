@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from Cereweb.utils import url
+#from Cereweb.WorkList import remember_link
 #from AccountViewTemplate import AccountViewTemplate
 #from PersonNameViewTemplate import PersonNameViewTemplate
 #from PersonNameAddTemplate import PersonNameAddTemplate
@@ -61,10 +62,9 @@ $view_entity($person, $req)
     <div class="actions">
         #set $edit = $url("person/edit?id=%s" % $person.get_id())
         #set $delete = $url("person/delete?id=%s" % $person.get_id())
-        #set $remember = $url("person/remember?id=%s" % $person.get_id())
         <a href="$edit">$_("edit person")</a>
         <a href="$delete">$_("delete person")</a>
-        <a href="$remember">$_("remember")</a>
+        $remember_link($person)
     </div>
 </div>
 #end def
@@ -123,6 +123,7 @@ $view_entity($person, $req)
                 #set $edit = $url("account/edit?id=%i" % $account_id)
                 <a href="$view" class="actions">$_("view")</a>
                 <a href="$edit" class="actions">$_("edit")</a>
+                $remember_link($account, _class="actions")
                 #if $account_name == $primary
                     (primary)
                 #end if
@@ -140,6 +141,7 @@ $view_entity($person, $req)
                 <a href="$view" class="actions">$_("view")</a>
                 <a href="$edit" class="actions">$_("edit")</a>
                 <a href="$leave" class="actions">$_("leave group")</a>
+                $remember_link($group, _class="actions")
             </div>
             #end for
             #end for

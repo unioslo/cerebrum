@@ -25,6 +25,7 @@ from Cerebrum.extlib import sets
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
 from Cereweb.utils import transaction_decorator, object_link
+from Cereweb.WorkList import remember_link
 from Cereweb.templates.PersonSearchTemplate import PersonSearchTemplate
 from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
 from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
@@ -121,9 +122,10 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
             view = url("person/view?id=%i" % person.get_id())
             edit = url("person/edit?id=%i" % person.get_id())
             link = html.Anchor(_(_primary_name(person)), href=view)
-            view = html.Anchor(_('view') , href=view, _class="actions")
-            edit = html.Anchor(_('edit') , href=edit, _class="actions")
-            table.add(link, date, accounts, str(view)+str(edit))
+            view = str(html.Anchor(_('view') , href=view, _class="actions"))
+            edit = str(html.Anchor(_('edit') , href=edit, _class="actions"))
+            remb = str(remember_link(person, _class="actions"))
+            table.add(link, date, accounts, view+edit+remb)
     
         if persons:
             result.append(table)
@@ -303,14 +305,8 @@ def add_external_id(req, transaction, id, external_id, id_type):
 
     transaction.commit()
 
-@transaction_decorator
-def remember(req, transaction, id):
-    person = _get_person(req, transaction, int(id))
-    obj = ('person', _primary_name(person), id)
-    req.session['remembered'].append(obj)
-    redirect_object(req, person)
-
 def accounts(req, owner, add=None, remember=None, delete=None):
     if add:
         redirect(req, url('account/create?owner=%s' % owner))
+
 # arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6

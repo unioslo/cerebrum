@@ -31,7 +31,8 @@ def url(path):
     """
     if path[:1] == '/':
         path = path[1:]
-    if not path.startswith('css') and not path.endswith('png'):
+    if not (path.startswith('css') or path.endswith('png')
+            or path.endswith('js')):
         path = 'Chandler.cgi' + '/' + path
     return cereconf.WEBROOT + "/" + path
 

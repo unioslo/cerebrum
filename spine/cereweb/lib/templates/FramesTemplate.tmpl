@@ -37,6 +37,12 @@
     <link rel="stylesheet" type="text/css" href="$css" />
 #end def
 
+## Method for adding javascript files into the html page
+#def jscript($name)
+    #set $js = url("" + $name)
+    <script language="JavaScript" src="$js"></script>
+#end def
+
 ## Messages, like errormessages and more..
 #def viewMessages
 <div class="messages">
@@ -75,6 +81,7 @@ $css("fixed_ie5.css")
     <![endif]-->
 $css("default.css")
 $css("style.css")
+$jscript("worklist.js")
 </head>
 <body>
     <div class="content">

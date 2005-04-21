@@ -27,15 +27,18 @@
 #def worklist(objects, buttons, actions, selected)
 <div class="worklist">
     <h2>$_("Work list"):</h2>
-    <form action="#" method="POST">
+    <form name="worklistForm" action="#" method="POST">
         <div class="buttons">
-            #for $key, $label in $buttons
-            <input type="submit" class="workbutton" name="$key" value="$label" />
+            #for $key, $label, $action in $buttons
+            #if $action
+                #set $action = "onClick=\"%s\"" % $action #
+            #end if
+            <input type="button" class="workbutton" name="$key" value="$label" $action/>
             <br />
             #end for
         </div>
         <div class="list">
-            <select multiple="multiple" size="6">
+            <select multiple="multiple" size="6" id ="worklistSel">
                 #if not $objects
                 <option>-Remembered objects-</option>
                 #end if
