@@ -67,8 +67,12 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
         search = server.get_account_searcher()
         intersections = [search,]
         
+
         if name:
-            search.set_name_like(name)
+            namesearcher = server.get_entity_name_searcher()
+            namesearcher.set_name_like(name)
+            namesearcher.mark_entity()
+            search.set_intersections([namesearcher])
 
         if owner:
             personnamesearch = server.get_person_name_searcher()
@@ -121,28 +125,49 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
 
     return page
 
-def create(req, owner="", name="", expire_date=""):
+@transaction_decorator
+def create(req, transaction, owner, name="", expire_date=""):
     page = Main(req)
     page.title = _("Create a new Account:")
     page.setFocus("account/create")
 
-    # Store given createparameters in the create-form
-    values = {}
-    values['owner'] = owner
-    values['name'] = name
-    values['expire_date'] = expire_date
-    create = AccountCreateTemplate(searchList=[{'formvalues': values}])
+    create = AccountCreateTemplate()
+
+    owner = transaction.get_entity(int(owner))
+    if owner.get_type().get_name() == 'person':
+        full_name = owner.get_cached_full_name().split()
+        if len(full_name) == 1:
+            first = ''
+            last, = full_name
+        else:
+            first, last = full_name[0], full_name[-1]
+    else:
+        first = "fisk"
+        last = "frosk"
+
+    alts = transaction.get_commands().suggest_usernames(first, last)
+
+    if not name:
+        name = alts[0]
     
-    page.content = create.form
+    content = create.form(owner, name, expire_date, alts)
+    page.content = lambda: content
     return page
 
-def _get_account(req, transaction, id):
-    try:
-        return transaction.get_account(int(id))
-    except Exception, e:
-        queue_message(req, _("Could not load account with id=%i" % id), error=True)
-        queue_message(req, _(str(e)), error=True)
-        redirect(req, url("account"), temporary=True)
+@transaction_decorator
+def make(req, transaction, owner, name, expire_date=""):
+    commands = transaction.get_commands()
+
+    owner = transaction.get_entity(int(owner))
+    if not expire_date:
+        expire_date = commands.get_date_none()
+    else:
+        expire_date = commands.strptime(expire_date, "%Y-%m-%d")
+
+    account = commands.create_account(name, owner, expire_date)
+    redirect_object(req, account)
+    transaction.commit()
+
 
 @transaction_decorator
 def view(req, transaction, id):
@@ -150,7 +175,7 @@ def view(req, transaction, id):
        a Main-template"""
     page = Main(req)
     page.title = ""
-    account = _get_account(req, transaction, id)
+    account = transaction.get_account(int(id))
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
     content = view.viewAccount(req, account)
@@ -160,7 +185,7 @@ def view(req, transaction, id):
 @transaction_decorator
 def edit(req, transaction, id):
     """Creates a page with the form for editing an account."""
-    account = _get_account(req, transaction, id)
+    account = transaction.get_account(int(id))
     page = Main(req)
     page.title = ""
     page.setFocus("account/edit")
