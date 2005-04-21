@@ -3856,7 +3856,7 @@ class BofhdExtension(object):
         if bdate is not None:
             bdate = self._parse_date(bdate)
             if bdate > self._today():
-                raise CerebrumError, "Planning ahead, eh? *nudge* *nudge*"
+                raise CerebrumError, "Please check the date of birth, cannot register date_of_birth > now"
         if person_id:
             id_type, id = self._map_person_id(person_id)
         else:
@@ -4043,33 +4043,55 @@ class BofhdExtension(object):
         person.write_db()
         return "OK, set '%s' as new id for '%s'" % (new_id, current_id)
 
-    #person set name
+    #person set_name
     all_commands['person_set_name'] = Command(
 	("person", "set_name"),PersonId(help_ref="person_id_other"),
 	PersonName(help_ref="person_name_full"),
 	fs=FormatSuggestion("Name altered for: %i",
         ("person_id",)),
-	perm_filter='is_superuser')
+	perm_filter='can_create_person')
     def person_set_name(self, operator, person_id, person_fullname):
         person = self._get_person(*self._map_person_id(person_id))
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-
+        self.ba.can_create_person(operator.get_entity_id())        
 	for a in person.get_affiliations():
-	    if (int(a['source_system']) in \
+	    if (int(a['source_system']) in
                 [int(self.const.system_fs), int(self.const.system_lt)]):
-		raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
+		raise PermissionDenied("You are not allowed to alter names.")
 	    else:
 		pass
 	    person.affect_names(self.const.system_manual, self.const.name_full)
 	    person.populate_name(self.const.name_full,
 				 person_fullname.encode('iso8859-1'))
-	    
 	    try:
 		person.write_db()
 	    except self.db.DatabaseError, m:
 		raise CerebrumError, "Database error: %s" % m
 	    return {'person_id': person.entity_id}
+
+    # person clear_name
+    all_commands['person_clear_name'] = Command(
+	("person", "clear_name"),PersonId(help_ref="person_id_other"),
+	SourceSystem(help_ref="source_system", optional=True),
+	fs=FormatSuggestion("Name removed for: %i",
+        ("person_id",)),
+	perm_filter='is_superuser')
+    def person_clear_name(self, operator, person_id, source_system):
+        person = self._get_person(*self._map_person_id(person_id))
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        if not source_system in cereconf.SYSTEM_LOOKUP_ORDER:
+            raise CerebrumError("No such source system")
+        for x in [self.const.name_first, self.const.name_last]:
+            try:
+                person.get_name(getattr(self.const, source_system), x)
+            except Errors.NotFoundError:
+                raise CerebrumError("No name registered from %s" % source_system)
+            try:
+                person._delete_name(getattr(self.const, source_system), x)
+                person._update_cached_names()
+            except:
+                raise CerebrumError("Could not delete name from %s", source_system)
+        return "Removed name from %s for %s" % (source_system, person_id)
 
     # person student_info
     all_commands['person_student_info'] = Command(
