@@ -272,6 +272,9 @@ possible affiliations"""],
 defined organizational unit (e.a. whether the person is an active
 student or an employee on leave).  'misc affiliations' lists
 affiliation status codes"""],
+    'source_system':
+        ['source_system', 'Enter source system',
+         'The name of the source system, i.e. system_fs/system_lt etc.'],
     'command_line':
         ['command', 'Enter command line'],
     'date':
