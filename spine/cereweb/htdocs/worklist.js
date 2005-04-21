@@ -1,4 +1,3 @@
-
 // wrkElements : ((id, class, name), ...)
 var maxElements = 20;
 var wrkElements = new Array(maxElements);
@@ -11,8 +10,9 @@ for (var i = 0; i < maxElements; i++) {
 
 // change the text on links to forget for things already in the worklist
 
+
 // method to add an entity to the worklist
-function worklist_remember(id, class, name) {
+function worklist_remember(id, cls, name) {
     var worklist = document.getElementById('worklistSel');
 
     if (worklist.length >= maxElements) {
@@ -44,12 +44,13 @@ function worklist_remember(id, class, name) {
     }
 
     // add element to wrkElements
-    wrkElements[worklist.length-1] = new Array(id, class, name);
+    wrkElements[worklist.length-1] = new Array(id, cls, name);
 
     // change the text on the element by id
-    var link = document.getElementById("wrkElement"+id)
+    var link = document.getElementById("wrkElement"+id);
     link.innerText = "forget";
 }
+
 
 // method for removing an element from the worklist by position
 function worklist_forget_by_pos(pos) {
