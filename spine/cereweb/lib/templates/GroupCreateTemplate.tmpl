@@ -20,42 +20,25 @@
 #from Cereweb.utils import url
 #extends InitTemplate
 
-#attr $formvalues = {}
-#attr $help = ["* Expiration date: The date the group should expire, format: YYYY-MM-DD"]
-
-## Url to go to when the form for creating the group is submittet.
-#def getAction
-    #return $url("group/make")
-#end def
-
 ## Creates html-code for input-boxes for the form.
-#def input($name, $label)
-    #set $value = $formvalues.get($name, "")
+#def input($name, $label, $value)
     <label for="$name">$_($label):</label>
     <input type="text" name="$name" id="$name" value="$value" /><br />
 #end def
 
 ## Creates the form for creating a new group.
-#def form
+#def form($name, $expire, $description)
 <div class="create">
     <div class="subtitle">
         <h3>$_("General groupinfo"):</h3>
     </div>
-    <form action="$getAction()" method="POST">
+    <form action="make" method="POST">
         <div class="createform">
-            $input("name", "Name")
-            <label for="desc">$_('Description'):</label>
-            #set $desc = $formvalues.get("desc", "")
-            <textarea rows="3" cols="40" name="desc">$desc</textarea>
+            $input("name", "Name", $name)
+            <label for="description">$_('Description'):</label>
+            <textarea rows="3" cols="40" name="description">$description</textarea>
             <br />
-            $input("expire", "Expiration date *")
-        </div>
-        <div class="help">
-            #for $line in $help
-            <div class="extra">
-                $_($line)
-            </div>
-            #end for
+            $input("expire", "Expiration date *", $expire)
         </div>
         <div>
             <center>

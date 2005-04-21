@@ -1,0 +1,46 @@
+## Copyright 2004 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
+#extends InitTemplate
+
+
+
+## Creates a form for adding an external id to a person.
+#def addForm($entity, $req)
+<form action="$url('person/add_external_id')" type="post">
+    #set $title = $_("Add an external id")
+    <h2>$title:</h2>
+    <input type="hidden" name="id" value="$entity.get_id()" />
+    <label for="name">$_("Name"):</label>
+    <input type="text" size="40" name="external_id" /> <br />
+    <label for="id_type">$_('Id type'):</label>
+    <select name="id_type">
+        #for $id_type, $desc in [('NO_BIRTHNO', 'Norwegian birth number')]
+        <option value="$id_type">$_($desc)</option>
+        #end for
+    </select> <br />
+    <div class="actions">
+        <input type="submit" value="$_('Add')" />
+##        #set $tmp_url = "person/view?id=%s#names" % ($entity.get_id())
+##        <a href="$url($tmp_url)">$_("Cancel")</a>
+    </div>
+</form>
+#end def
+

@@ -17,43 +17,45 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from Cereweb.utils import url, object_link
 #extends InitTemplate
 
 
-## List of tuples (name, label)
-#attr $fields = [("name", "Name"),
-                 ("affiliation", "Affiliation"),
-                 ("expire_date", "Expire date")]
-
-#attr $formvalues = {}
-
-
-#def getAction
-$url("account/create")#slurp
-#end def
-
-
-#def input($name, $label)
-    #set $value = $formvalues.get($name, "")
+#def input($label, $name, $value, $type="text", $text="")
     <label for="$name">$_($label):</label>
-    <input type="text" name="$name" id="$name" value="$value" /><br />
+    <input type="$type" name="$name" id="$name" value="$value">$text</input><br />
+#end def
+
+#def radio($label, $name, $alts, $default)
+    <label for="$name">$_($label):</label>
+    #for $alt in $alts
+        <br>
+        #if $default == $alt
+            <input type="radio" name="$name" value="$alt" CHECKED>
+        #else
+            <input type="radio" name="$name" value="$alt">
+        #end if
+        $alt
+        </input>
+    #end for
+    <br>
 #end def
 
 
-#def form
+#def form($owner, $name, $expire_date, $alts)
 <div class="create">
-    <form action="$getAction()" method="POST">
+    <form action="make" method="POST">
         <div class="createform">
-            #for $name, $label in $fields #
-                #echo $input($name, $label) #
-            #end for
+            $input("Owner", "owner", $owner.get_id(), "hidden", object_link($owner))
+            $radio("Username", "name", $alts, $name)
+            $input("Expire date", "expire_date", $expire_date)
+
         </div>
         <div>
             <center>
-                <input type="submit" name="create" value="$_('Create')" />&nbsp;
-                <input type="submit" name="abort" value="$_('Abort')" />&nbsp;
-                <input type="reset" name="reset" value="$_('Clear')" />
+                <input type="submit" value="$_('Create')" />&nbsp;
+##                <input type="submit" value="$_('Abort')" />&nbsp;
+##                <input type="reset" value="$_('Clear')" />
             </center>
         </div>
     </form>

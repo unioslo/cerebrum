@@ -30,7 +30,7 @@
 <div class="person">
     $form($person, $req)
     $personNames($person, $req, $addName)
-    $externalIds($person)
+    $externalIds($person, $req)
     $personAccounts($person, $req)
 </div>
 $view_entity($person, $req)
@@ -64,14 +64,17 @@ $view_entity($person, $req)
 ## The current gender is first in the list if supplied.
 #def gender($req, $gender=None)
     #set $genders = [('F', 'Female'), ('M', 'Male'), ('X', 'Unknown gender')]
-    #set $gender_name = $gender.get_name()
-    #set $gender_desc = $gender.get_description()
     <label for="gender">$_('Gender'):</label>
     <select name="gender">
 
-    <option value="$gender_name">$gender_desc</option>
+    ## FIXME: dette er idiotisk
     #for $name, $desc in $genders
-        #if $gender_name != $name
+        #if $gender == $name
+            <option value="$name">$desc</option>
+        #end if
+    #end for
+    #for $name, $desc in $genders
+        #if $gender != $name
             <option value="$name">$desc</option>
         #end if
     #end for

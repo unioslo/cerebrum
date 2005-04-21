@@ -21,6 +21,7 @@
 #from PersonNameViewTemplate import PersonNameViewTemplate
 #from PersonNameAddTemplate import PersonNameAddTemplate
 #from PersonExternalIdTemplate import PersonExternalIdTemplate
+#from PersonExternalIdAddTemplate import PersonExternalIdAddTemplate
 #extends EntityViewTemplate
 
 ## Overloaded by other pages to get the right url, used in personNames().
@@ -31,7 +32,7 @@
 <div class="person">
     $personInfo($person)
     $personNames($person, $req, $addName)
-    $externalIds($person)
+    $externalIds($person, $req)
     $personAccounts($person, $req)
 </div>
 $view_entity($person, $req)
@@ -87,41 +88,55 @@ $view_entity($person, $req)
 #end def
 
 ## List external ids for this person, and form for adding more.
-#def externalIds($person)
+#def externalIds($person, $req)
 <div class="personnames">
     <a name="external ids" />
     #set $v = PersonExternalIdTemplate()
+    #set $a = PersonExternalIdAddTemplate()
     $v.externalIds($person)
+    $a.addForm($person, $req)
 </div>
 #end def
 
 ## List accounts and groups those accounts belong to.
 #def personAccounts($person, $req)
 #set $allaccounts = $person.get_accounts()
-#if $allaccounts
+#if 1
     #set $t = $AccountViewTemplate()
+    #set $primary = $person.get_primary_account()
+    #if $primary
+        #set $primary = $primary.get_name()
+    #end if
+    #set $person_id = $person.get_id()
     <div class="personaccounts">
         <div class="subtitle">
             <h3>$_("Accounts & Groups:")</h3>
         </div>
         <form action="$url('person/accounts')" type="post">
             #for $account in $allaccounts
+                #set $account_id = $account.get_id()
+                #set $account_name = $account.get_name()
             <div class="personaccount">
-                <input type="checkbox" name="account_$account.get_id()" />
-                <em>$_('Account'):</em> $_($account.get_name())
-                #set $view = $url("account/view?id=%i" % $account.get_id())
-                #set $edit = $url("account/edit?id=%i" % $account.get_id())
+                <input type="checkbox" name="account_$account_id" />
+                <em>$_('Account'):</em> $_($account_name)
+                #set $view = $url("account/view?id=%i" % $account_id)
+                #set $edit = $url("account/edit?id=%i" % $account_id)
                 <a href="$view" class="actions">$_("view")</a>
                 <a href="$edit" class="actions">$_("edit")</a>
+                #if $account_name == $primary
+                    (primary)
+                #end if
             </div>
             #for $group in $account.get_groups()
             <div class="persongroup">
-                <input type="checkbox" name="group_$group.get_id()" />
-                <em>$_('Group'):</em> $_($group.get_name()+' - '+$group.get_description())
-                #set $view = $url("group/view?id=%i" % $group.get_id())
-                #set $edit = $url("group/edit?id=%i" % $group.get_id())
+                #set $group_id = $group.get_id()
+                #set $group_name = $group.get_name()
+                <input type="checkbox" name="group_$group_id" />
+                <em>$_('Group'):</em> $_($group_name)
+                #set $view = $url("group/view?id=%i" % $group_id)
+                #set $edit = $url("group/edit?id=%i" % $group_id)
                 #set $leave = $url("person/leavegroup?id=%i&group=%i" % \
-                                ($person.get_id(), $group.get_id()))
+                                ($person_id, $group_id))
                 <a href="$view" class="actions">$_("view")</a>
                 <a href="$edit" class="actions">$_("edit")</a>
                 <a href="$leave" class="actions">$_("leave group")</a>
@@ -130,8 +145,11 @@ $view_entity($person, $req)
             #end for
             <div>
                 ##<center>
+                #if $allaccounts
                     <input type="submit" value="$_('Delete')" name="delete" />
                     <input type="submit" value="$_('Remember')" name="remember" />
+                #end if
+                    <input type="hidden" value=$person_id name="owner" />
                     <input type="submit" value="$_('Add new account')" name="add" />
                 ##</center>
             </div>

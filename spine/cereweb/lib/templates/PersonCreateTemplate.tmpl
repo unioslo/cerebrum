@@ -38,12 +38,12 @@
     <form action="$getAction()" method="POST">
         <div class="createform">
             $edit.input("name", "Full name *", $formvalues.get("name", ""))
-            $edit.input("birthnr", "Birthnumber ?", $formvalues.get("birthnr", ""))
+##            $edit.input("birthnr", "Birthnumber ?", $formvalues.get("birthnr", ""))
             $edit.gender($req)
             $edit.input("birthdate", "Birthdate *", $formvalues.get("birthdate", ""))
-            $edit.input("ou", "Organization unit ?", $formvalues.get("ou", ""))
-            $edit.input("affiliation", "Affiliation ?", $formvalues.get("affiliation", ""))
-            $edit.input("aff_status", "Affilation status ?", $formvalues.get("aff_status", ""))
+##            $edit.input("ou", "Organization unit ?", $formvalues.get("ou", ""))
+##            $edit.input("affiliation", "Affiliation ?", $formvalues.get("affiliation", ""))
+##            $edit.input("aff_status", "Affilation status ?", $formvalues.get("aff_status", ""))
             $edit.input("description", "Description", $formvalues.get("description", ""))
         </div>
         $edit.showHelp($help)
