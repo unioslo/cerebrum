@@ -312,8 +312,10 @@ class Group(EntityQuarantine, EntityName, Entity):
             extwhere = "member_type=:member_type AND "
             member_type = int(member_type)
         if spread is not None:
-            extfrom = ", [:table schema=cerebrum name=entity_spread] es"
-            extwhere += """gm.member_id=es.entity_id AND es.spread=:spread AND """
+            extfrom = """
+            JOIN [:table schema=cerebrum name=entity_spread] es
+              ON gm.member_id = es.entity_id AND
+                 es.spread = :spread"""
             spread = int(spread)
         if get_entity_name:
             # TBD: If we add another member_type, this code needs to
