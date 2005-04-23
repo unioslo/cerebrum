@@ -18,19 +18,35 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* Tables used for authentication in Spine.
+/* Tables used for authorization in Spine.
 *
-* Authentication of commands performed in gro uses these tables wich are:
-* - auth_op_code        : Operation codes like "set_password"
-* - auth_op_attrs       : Operation attrs used for validation
-* - auth_operation      : Linking codes and attrs with operationsets
-* - auth_operation_set  : A set of auth operations.
-* - auth_op_target      : Targets of the operation, entities.
-* - auth_role           : Linking an operation set and a target with a entity
+* Authorization commands performed in gro uses these tables wich are:
+* - auth_func_map             Authorization function by spine type and method
+* - auth_role                 Linking an operation set and a target with 
+*                             a entity
+* - auth_operation_set        A set of auth operations, like "own_user"
+* - auth_operation            Linking codes and attrs with operation sets
+* - auth_op_code              Operation codes like "set_password"
+* - auth_op_attrs             Operation attrs used for validation
+* - auth_op_target            Targets of the operation, entities, spreads
+* - auth_op_target_type_code  Valid target types for auth_op_target
+* - auth_op_target_attrs      Limiting the target, like ou=some_institute 
+* - auth_op_target_attrs_key  Valid keys for auth_op_target_attrs given 
+*                             auth_op_target target type 
 *
-* The user trying to perform a command is found as the entity_id in auth_role.
-* The command tried to perform is found as the code_str in auth_op_code.
-* The target the command is to perform on, is the entity_id in auth_op_target.
+* The user trying to perform a command is found as the entity_id in auth_role,
+* either directly by his account_id or by any of his groups.
+*
+* The method called on a given Spine object will be matched by 
+* auth_func_map - and the returned authorization functions
+* will determine if the method call is allowed, by either:
+* 
+* 1) Special hard-coded rules
+* 2) Looking up one or several auth_op_code directly, 
+*    for instance set_unlimited_quota
+* 3) Looking up the auth_op_code SpineType_method
+*
+* See comments below for more information.
 */
 category:metainfo;
 name=spine_auth;
@@ -60,9 +76,9 @@ category:drop;
 DROP TABLE auth_op_target_type_code;
 
 
-/* Maps [object_type][.method] to authentication function
+/* Maps [object_type][.method] to authorization function
 *   
-* When authenticating a method call, Spine will search this 
+* When authorization a method call, Spine will search this 
 * mapping to find a valid match. The search will be done 
 * something like this:
 * 
@@ -131,7 +147,7 @@ DROP TABLE auth_op_target_type_code;
 * 
 * If both object_type and method is NULL, the mapping will always match.
 *
-* auth_func_name is the name of the authentication function
+* auth_func_name is the name of the authorization function
 * for Spine to call. 
 * 
 * The function will be called as 
@@ -143,7 +159,7 @@ DROP TABLE auth_op_target_type_code;
 * Note that any other return values than None will be
 * interpreted as True or False by their boolean value.
 *
-* FIXME: Name the (factory-compiled) class of authentication functions
+* FIXME: Name the (factory-compiled) class of authorization functions
 *        and check the parameters
 * 
 */
