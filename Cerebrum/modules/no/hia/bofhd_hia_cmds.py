@@ -3793,7 +3793,7 @@ class BofhdExtension(object):
 	    account.add_spread(self._get_constant(spread, "No such spread"))
 	    homedir_id = account.set_homedir(disk_id=disk_id, home=home,
                                              status=self.const.home_status_not_created)
-        account.set_home(self.const.spread_ans_nis_user, homedir_id)
+        account.set_home(int(self._get_constant(spread)), homedir_id)
 	account.write_db()
 	return "Home updated for %s in spread %s" % (accountname, spread)
 	    
