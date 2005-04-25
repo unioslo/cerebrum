@@ -128,10 +128,11 @@ class Profile(object):
                     _do_append({disk_spread: d2})
             else:
                 _do_append(d)
-        return potential_disks
+        return tmp_nivaakode, potential_disks
 
     def _solve_disk_match(self, disk_spread):
-        potential_disks = self._get_potential_disks(disk_spread, only_to=True)
+        tmp_nivaakode, potential_disks = self._get_potential_disks(
+            disk_spread, only_to=True)
         if not potential_disks:
             raise NoAvailableDisk, "No disk matches profiles"
         self._logger.debug2("Resolve %s" % potential_disks)
@@ -178,7 +179,8 @@ class Profile(object):
         if not disk_def or disk_def['auto'] not in ('auto', 'from'):
             return False   # Won't move users from this disk
 
-        matches = [p[0] for p in self._get_potential_disks(disk_spread, only_to=True)]
+        matches = [p[0] for p in self._get_potential_disks(
+            disk_spread, only_to=True)[1]]
 
         if extra_match:
             matches.append(extra_match)  # in case we also match a div-disk
