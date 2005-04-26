@@ -78,12 +78,7 @@ from Cerebrum.modules.no.uio.access_OF import OF
 from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
 
-# FIXME: As of python 2.3, this module is part of the standard distribution
-if sys.version >= (2, 3):
-    import logging
-else:
-    from Cerebrum.extlib import logging
-# fi
+
 
 
 
@@ -219,6 +214,7 @@ def synchronize_group(external_group, cerebrum_group_name):
         # Find it in cerebrum
         try:
             cerebrum_account.clear()
+            # NB! This one searches among expired and non-expired users
             cerebrum_account.find_by_name(account_name)
         except Cerebrum.Errors.NotFoundError:
             logger.info("%s exists in the external source, but not in Cerebrum",
@@ -226,13 +222,17 @@ def synchronize_group(external_group, cerebrum_group_name):
         else:
             # Here we now that the account exists in Cerebrum.
             # Is it a member of CEREBRUM_GROUP_NAME already?
-            if not current.has_key(account_name):
+            if ((account_name not in current) and
+                (not cerebrum_account.get_account_expired())):
                 # New member for the group! Add it to Cerebrum
-                add_to_cerebrum_group(cerebrum_account, cerebrum_group, constants)
+                add_to_cerebrum_group(cerebrum_account, cerebrum_group,
+                                      constants)
                 new_count += 1
             else:
                 # Mark this account as processed
-                del current[account_name]
+                if account_name in current:
+                    del current[account_name]
+                # fi
             # fi
         # yrt
     # od
@@ -328,6 +328,7 @@ def add_to_cerebrum_group(account, group, constants):
                      group.group_name,
                      str(type), str(value),
                      string.join(traceback.format_tb(tb)))
+        
     # yrt
 # end 
 
@@ -368,17 +369,19 @@ def perform_synchronization(user, services):
     Synchronize cerebrum groups with all external SERVICES.
     """
 
-    for service, accessor_class, cerebrum_group in services:
+    for item in services:
+        service = item["dbname"]
+        klass = item["class"]
+        accessor_name = item["sync_accessor"]
+        cerebrum_group = item["ceregroup"]
+
         logger.debug("Synchronizing against source %s", service)
 
         try:
             db = Database.connect(user = user, service = service,
                                   DB_driver = "Oracle")
-            if isinstance(accessor_class, dict):
-                tmp = accessor_class['class'](db)
-                accessor = getattr(tmp, accessor_class['list_users'])
-            else:
-                accessor = accessor_class(db).list_dbfg_usernames
+            obj = klass(db)
+            accessor = getattr(obj, accessor_name)
         except:
             type, value, tb = sys.exc_info()
             logger.error("Aiee! Failed to connect to %s: %s, %s, %s",
@@ -394,7 +397,7 @@ def perform_synchronization(user, services):
 
 
 
-def _check_owner_status(person, owner_id, username, stream):
+def check_owner_status(person, owner_id, username):
     """
     A help function for report_expired_users.
     """
@@ -403,85 +406,148 @@ def _check_owner_status(person, owner_id, username, stream):
         person.clear()
         person.find(owner_id)
     except Cerebrum.Errors.NotFoundError:
-        stream.write("Username %s has no owner\n" % username)
-        return
+        return "Username %s has no owner\n" % username
     # yrt
 
     now = time.strftime("%Y%m%d", time.gmtime(time.time()))
     if not (person.get_tilsetting(now) or
             person.get_bilag() or
             person.get_gjest(now)):
-        stream.write(("Owner of account %s has no tilsetting/bilag/gjest " +
-                      "records in LT\n") % username)
+        return (("Owner of account %s has no tilsetting/bilag/gjest " +
+                 "records in LT\n") % username)
     # fi
-# end _check_owner_status
-    
+
+    return ""
+# end check_owner_status
 
 
-import StringIO
-def report_expired_users(user, filename):
+
+def check_expired(account):
+    """
+    Check if the given account has expired.
     """
 
-    Select user names from the financial database and report the ones that
-    have been expired.
+    if account.get_account_expired():
+        return "Account expired: %s\n" % account.account_name
+    # fi
 
-    'expired' means that the expiration date is in the past. Furthermore, we
-    require that the user names have spread NIS_user@uio.
+    return ""
+# end check_expired
+
+
+
+def check_spread(account, sprd):
+    """
+    Check if the given account has (UiO) NIS spread.
+    """
+
+    is_nis = False
+    for spread in account.get_spread():
+        if int(spread.spread) == int(sprd):
+            is_nis = True
+            break
+        # fi
+    # od
+
+    if not is_nis:
+        return "No spread NIS_user@uio for %s\n" % account.account_name
+    # fi
+
+    return ""
+# end check_nis_spread
+
+    
+
+def report_users(user, stream_name, external_dbs):
+    """
+    Prepare status report about users in various databases.
     """
 
     db_cerebrum = Factory.get("Database")()
-    account = Factory.get("Account")(db_cerebrum)
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
-    report_stream = AtomicFileWriter(filename, "w")
 
-    for service, accessor in [("OFPROD.uio.no", OF),
-                              ("OAPRD.uio.no", OA),]:
-        db = Database.connect(user = user, service = service,
-                              DB_driver = "Oracle")
-        source = accessor(db)
-        stream = StringIO.StringIO()
+    report_stream = AtomicFileWriter(stream_name, "w")
 
-        for db_row in source.list_applsys_usernames():
-            username = db_row.username
-                
-            try:
-                account.clear()
-                account.find_by_name(username)
-            except Cerebrum.Errors.NotFoundError:
-                stream.write("No such account in Cerebrum: %s\n" % username)
-                continue
-            # yrt
-
-            if account.get_account_expired():
-                stream.write("Account expired: %s\n" % username)
-            # fi
-
-            is_nis = False
-            for spread in account.get_spread():
-                if int(spread.spread) == int(constants.spread_uio_nis_user):
-                    is_nis = True
-                # fi
-            # od
-
-            if not is_nis:
-                stream.write("No spread NIS_user@uio for %s\n" % username)
-            # fi
-
-            _check_owner_status(person, account.owner_id, username, stream)
-        # od
-
-        report_data = stream.getvalue()
-        stream.close()
-        if report_data:
+    #
+    # Report expired users for all databases
+    for dbname in ("fsprod", "ltprod", "ajprod",):
+        item = external_dbs[dbname]
+        message = make_report(user, False, item, item["sync_accessor"],
+                              check_expired)
+        if message:
+            report_stream.write("%s contains these expired accounts:\n" %
+                                item["dbname"])
+            report_stream.write(message)
+            report_stream.write("\n")
+        # fi
+    # od
+        
+    #
+    # Report NIS spread / owner's work record
+    for dbname in ("ofprod", "oaprd",):
+        item = external_dbs[dbname]
+        message = make_report(user, True, item, item["report_accessor"],
+                              check_expired,
+                              lambda acc: check_spread(acc,
+                                            constants.spread_uio_nis_user),
+                              lambda acc: check_owner_status(person,
+                                            acc.owner_id,
+                                            acc.account_name))
+        if message:
             report_stream.write("%s contains these strange accounts:\n" %
-                                service)
-            report_stream.write(report_data)
+                                item["dbname"])
+            report_stream.write(message)
+            report_stream.write("\n")
         # fi
     # od
 
     report_stream.close()
-# end report_expired_users
+# end report_users
+
+
+
+import StringIO
+def make_report(user, report_missing, item, acc_name, *func_list):
+    """
+    Help function to generate report stats.
+    """
+
+    db_cerebrum = Factory.get("Database")()
+    account = Factory.get("Account")(db_cerebrum)
+    service = item["dbname"]
+    db = Database.connect(user = user, service = service,
+                          DB_driver = "Oracle")
+    source = item["class"](db)
+    accessor = getattr(source, acc_name)
+    stream = StringIO.StringIO()
+
+    for db_row in accessor():
+        #
+        # NB! This is not quite what we want. See comments in sanitize_group
+        username = string.lower(db_row.username)
+                
+        try:
+            account.clear()
+            account.find_by_name(username)
+        except Cerebrum.Errors.NotFoundError:
+            if report_missing:
+                stream.write("No such account in Cerebrum: %s\n" % username)
+            continue
+        # yrt
+
+        for function in func_list:
+            message = function(account)
+            if message:
+                stream.write(message)
+            # fi
+        # od
+    # od
+
+    report_data = stream.getvalue()
+    stream.close()
+    return report_data
+# end make_report
 
 
 
@@ -491,11 +557,11 @@ def usage():
 This script performes updates of certain groups in Cerebrum and fetches
 information about certain kind of expired accounts
 
---ofprod, -o		update ofprod group
---fsprod, -f		update fsprod group
---ltprod, -l		update ltprod group
---ajprod, -a		update ajprod group
---oaprd,  -p		update oaprd group
+--ofprod		update ofprod group
+--fsprod		update fsprod group
+--ltprod		update ltprod group
+--ajprod		update ajprod group
+--oaprd			update oaprd group
 --expired-file, -e=file	locate expired accounts and generate a report
 """
     logger.info(message)
@@ -511,18 +577,36 @@ def main():
 
     logger = Factory.get_logger("cronjob")
     logger.info("Performing group synchronization")
-    
+
+    external_dbs = { "ofprod" : { "dbname"    : "OFPROD.uio.no",
+                                  "class"     : OF,
+                                  "sync_accessor"  : "list_dbfg_usernames",
+                                  "report_accessor" : "list_applsys_usernames",
+                                  "ceregroup" : "ofprod" },
+                     "fsprod" : { "dbname"    : "FSPROD.uio.no",
+                                  "class"     : FS,
+                                  "sync_accessor"  : "list_dbfg_usernames",
+                                  "ceregroup" : "fsprod" },
+                     "ltprod" : { "dbname"    : "LTPROD.uio.no",
+                                  "class"     : LT,
+                                  "sync_accessor"  : "list_dbfg_usernames",
+                                  "ceregroup" : "ltprod" },
+                     "ajprod" : { "dbname"    : "AJPROD.uio.no",
+                                  "class"     : AJ,
+                                  "sync_accessor"  : "list_dbfg_usernames",
+                                  "ceregroup" : "ajprod" },
+                     "oaprd" : { "dbname"    : "OAPRD.uio.no",
+                                 "class"     : OA,
+                                 "sync_accessor"  : "list_dbfg_usernames",
+                                 "report_accessor" : "list_applsys_usernames",
+                                 "ceregroup" : "oaprd" },
+                     }
     try:
         options, rest = getopt.getopt(sys.argv[1:],
-                                      "dhoflape:", ["dryrun",
-                                                    "help",
-                                                    "expired-file=",
-                                                    "ofprod",
-                                                    "fsprod",
-                                                    "ltprod",
-                                                    "ajprod",
-                                                    "oaprd",
-                                                    ])
+                                      "dhe:",
+                                      ["dryrun",
+                                       "help",
+                                       "expired-file="] + external_dbs.keys())
     except getopt.GetoptError:
         usage()
         sys.exit(1)
@@ -533,28 +617,18 @@ def main():
     services = []
     global dryrun
     dryrun = False
+
     for option, value in options:
         if option in ("-d", "--dryrun"):
             dryrun = True
         elif option in ("-h", "--help"):
             usage()
             sys.exit(2)
-        # Ugh, ugly code
-        elif option in ("-o", "--ofprod"):
-            services.append(("OFPROD.uio.no", OF, "ofprod"))
-        elif option in ("-f", "--fsprod"):
-            services.append(("FSPROD.uio.no", 
-                             {'class': FS,
-                              'list_users': 'list_dbfg_usernames'},
-                             "fsprod"))
-        elif option in ("-l", "--ltprod"):
-            services.append(("LTPROD.uio.no", LT, "ltprod"))
-        elif option in ("-a", "--ajprod"):
-            services.append(("AJPROD.uio.no", AJ, "ajprod"))
-        elif option in ("-p", "--oaprd"):
-            services.append(("OAPRD.uio.no", OA, "oaprd"))
         elif option in ("-e", "--expired-file"):
-            report_expired_users(user, value)
+            report_users(user, value, external_dbs)
+        elif option in [ "--" + x for x in external_dbs.keys() ]:
+            key = option[2:]
+            services.append( external_dbs[key] )
         # fi
     # od
 
