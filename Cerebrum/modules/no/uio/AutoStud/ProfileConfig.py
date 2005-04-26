@@ -37,17 +37,12 @@ class Config(object):
         self.autostud = autostud
         self._logger = logger
         self._errors = []
-        
-        self.disk_defs = {}
-        self.disk_pools = {}
-        self.disk_spreads = {}  # defined <disk_spread> tags
         self.group_defs = {}
         self.default_values = {}
         self.profiles = []
         self.profilename2profile = {}
         self.required_spread_order = []
         self.lookup_helper = LookupHelper(autostud.db, logger, autostud.ou_perspective)
-        self.using_disk_kvote = False
 
         try:
             sp = StudconfigParser(self, cfg_file)
@@ -58,6 +53,7 @@ class Config(object):
             raise
         self.spread_defs = [int(autostud.co.Spread(x)) for x in sp.legal_spreads.keys()]
         self._post_process_config()
+        self.autostud.disk_tool.post_process()
 
     def _post_process_config(self):
         # Config parsing complete.  Convert config-settings to
@@ -106,8 +102,6 @@ class Config(object):
         for tag, sm in self.select_tool.select_map_defs.items():
             ret += "  %s\n" % tag
             ret += "".join(["    %s\n" % line for line in str(sm).split("\n")])
-        ret += "Pools:\n"
-        ret += pp.pformat(self.disk_pools)
         return ret
 
     def add_error(self, msg):
@@ -206,67 +200,6 @@ class ProfileDefinition(object):
     # methods for converting the XML entries to values from the database
     #
 
-    def _convert_disk_settings(self, config):
-        """Update self._settings["disk"] so that it looks like:
-        [{spread1: {Either:  'path': int(disk_id),
-                    Or:      'prefix': 'prefix'
-                    Or:      'pool': 'pool'}},
-          spread2: {....}]"""
-
-
-        def _convert_data(disk):
-            """Update 'spreads' and 'path' attributes, and return
-            disk-spreads for this disk."""
-            # Add 'spreads' attr to disk-setting
-            ret = []
-            for t in ('path', 'prefix'):
-                if disk.has_key(t):
-                    try:
-                        disk['spreads'] = config.disk_defs[
-                            t][disk[t]]['spreads']
-                        ret.extend(disk['spreads'])
-                    except KeyError:
-                        config.add_error(
-                            "Tried to use not-defined disk: %s" % disk)
-            # Convert 'path'-attrs to disk-id
-            if disk.has_key('path'):
-                ok = False
-                for d in config.autostud.disks.keys():
-                    if config.autostud.disks[d][0] == disk['path']:
-                        disk['path'] = d
-                        ok = True
-                if not ok:
-                    self.config.add_error("bad disk: %s" % disk)
-            return ret
-
-        for d in self._settings.get("disk", []):
-            if d.has_key('pool'):
-                tmp_spreads = []
-                for d2 in config.disk_pools[d['pool']]:
-                    tmp_spreads.extend(_convert_data(d2))
-                d['spreads'] = dict([(t, 0) for t in tmp_spreads]).keys()
-            else:
-                _convert_data(d)
-        if config._errors:
-            return
-
-        tmp = {}
-        for disk in self._settings.get("disk", []):
-            # We're only interested in the first disk for each single
-            # spread.  This allows a sub-profile to override the home
-            # in its super without interpreting the target as a 'div
-            # disk'
-
-            for s in disk['spreads']:
-                if not tmp.has_key(s):
-                    for t in ('prefix', 'path', 'pool'):
-                        if disk.has_key(t):
-                            tmp[s] = {t: disk[t]}
-        if not tmp:
-            tmp = []
-        else:
-            self._settings["disk"] = [tmp]
-
     def _convertToDatabaseRefs(self, lookup_helper, config):
         """Convert references in profil-settings to database values
         where apropriate"""
@@ -298,28 +231,24 @@ class ProfileDefinition(object):
                 tmp.append(tmp2)
         self._settings["stedkode"] = tmp
         tmp = []
+        tmp_spreads = []
+        for disk_attrs in self._settings.get("disk", []):
+            ddef = self.config.autostud.disk_tool.get_diskdef_by_select(
+                **disk_attrs)
+            if [x for x in ddef.spreads if x not in tmp_spreads]:
+                # We're only interested in the first disk for each
+                # single spread.  This allows a sub-profile to
+                # override the home in its super without interpreting
+                # the target as a 'div disk'
+                tmp.append(ddef)
+                tmp_spreads.extend(ddef.spreads)
+        self._settings["disk"] = tmp
+        tmp = []
         for q in self._settings.get("quarantine", []):
             tmp.append({'quarantine': config.autostud.co.Quarantine(q['navn']),
                         'start_at': int(q.get('start_at', 0)) * 3600 * 24,
                         'scope': q.get('scope', None)})
         self._settings["quarantine"] = tmp  
-
-        self._convert_disk_settings(config)
-
-        # Find all student disks from disk_defs
-        for k in ('path', 'prefix'):
-            for ddef in config.disk_defs.get(k, {}).keys():
-                path = config.disk_defs[k][ddef].get('path', None)
-                prefix = config.disk_defs[k][ddef].get('prefix', None)
-                for d in config.autostud.disks.keys():
-                    v = config.autostud.disks[d]
-                    if path:
-                        if path == v[0]:
-                            config.autostud.student_disk[d] = config.disk_defs[k][ddef]
-                    else:
-                        if v[0][:len(prefix)] == prefix:
-                            config.autostud.student_disk[d] = config.disk_defs[k][ddef]
-
         for m in lookup_helper.get_lookup_errors():
             self.config.add_error(m)
 
@@ -445,7 +374,7 @@ class StudconfigParser(object):
             if ename == 'disk_spread':
                 s = int(self._config.lookup_helper.get_spread(attrs['kode']))
                 tmp_disk_spreads.append(s)
-                self._config.disk_spreads[s] = 1
+                self._config.autostud.disk_tool.add_known_spread(s)
             elif ename == 'diskdef':
                 if not tmp_disk_spreads:
                     raise ValueError, "DTD-violation: no disk_spread defined"
@@ -463,12 +392,7 @@ class StudconfigParser(object):
                 if attrs['disk_kvote'] is not None:
                     self._config.using_disk_kvote = True
                 attrs['spreads'] = tmp_disk_spreads
-                if attrs.has_key('path'):
-                    self._config.disk_defs.setdefault(
-                        'path', {})[attrs['path']] = attrs
-                else:
-                    self._config.disk_defs.setdefault(
-                        'prefix', {})[attrs['prefix']] = attrs
+                self._config.autostud.disk_tool.add_disk_def(**attrs)
             else:
                 self._config.add_error(
                     "Unexpected tag %s in disk_oversikt" % ename)
@@ -476,11 +400,11 @@ class StudconfigParser(object):
     def got_disk_pool(self, dta, elem_stack):
         for ename, attrs, children in dta:
             if ename == 'pool':
-                self._config.disk_pools[attrs['name']] = []
                 for ename2, attrs2, children2 in children:
-                    if ename == 'disk':
-                        self._config.disk_pools[attrs['name']].append(attrs2)
-            
+                    if ename2 == 'disk':
+                        self._config.autostud.disk_tool.append_to_pool(
+                            attrs['name'], **attrs2)
+                        
     def got_gruppe_oversikt(self, dta, elem_stack):
         for ename, attrs, children in dta:
             if ename == 'gruppedef':
@@ -518,7 +442,7 @@ class StudconfigParser(object):
                     self._config.add_error("Not in spreaddef: %s" % \
                                            attrs['system'])
                 elif ename == 'disk_kvote':
-                    self._config.using_disk_kvote = True
+                    self._config.autostud.disk_tool.using_disk_kvote = True
                 in_profil.add_setting(ename, attrs)
             elif ename == 'select':
                 for ename2, attrs2, children2 in children:

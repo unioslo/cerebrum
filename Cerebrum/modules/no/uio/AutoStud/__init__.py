@@ -30,6 +30,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import ProfileConfig
 from Cerebrum.modules.no.uio.AutoStud import ProfileHandler
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+from Cerebrum.modules.no.uio.AutoStud.DiskTool import DiskTool
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -40,21 +41,12 @@ class AutoStud(object):
         self._logger = logger
         self.debug = debug
         self.db = db
-        self.disks = {}
-        self.disks_order = []
-        self.student_disk = {}
         self.co = Factory.get('Constants')(db)
+        self.disk_tool = DiskTool(db, self.co)
         if not ou_perspective:
             self.ou_perspective = self.co.perspective_fs
         else:
             self.ou_perspective = ou_perspective
-        if True:
-            disk = Factory.get('Disk')(db)
-            for d in disk.list(filter_expired=True, spread=getattr(self.co, cereconf.HOME_SPREADS[0])):
-                self.disks[int(d['disk_id'])] = [d['path'], int(d['count'])]
-            self.disks_order = self.disks.keys()
-            self.disks_order.sort(self._disk_sort)
-            logger.debug("Disks: "+pp.pformat(self.disks))
         self.pc = ProfileConfig.Config(self, logger, debug=debug, cfg_file=cfg_file)
         logger.debug(self.pc.debug_dump())
         self.studieprogramkode2info = {}
@@ -63,21 +55,6 @@ class AutoStud(object):
         self.emnekode2info = {}
         for emne in StudentInfo.EmneDefParser(emne_info_file):
             self.emnekode2info[emne['emnekode']] = emne
-
-    def _disk_sort(self, x, y):
-        regexp = re.compile(r"^(\D+)(\d*)")
-        m_x = regexp.match(self.disks[x][0])
-        m_y = regexp.match(self.disks[y][0])
-        pre_x, num_x = m_x.group(1), m_x.group(2)
-        pre_y, num_y = m_y.group(1), m_y.group(2)
-        if pre_x <> pre_y:
-            return cmp(pre_x, pre_y)
-        try:
-            return cmp(int(num_x), int(num_y))
-        except ValueError:
-            self._logger.warn("Unexpected disk name %s or %s" % (
-                              self.disks[x][0], self.disks[y][0]))
-            return cmp(pre_x, pre_y)
 
     def start_student_callbacks(self, student_file, callback_func):
         StudentInfo.StudentInfoParser(student_file, callback_func, self._logger)
