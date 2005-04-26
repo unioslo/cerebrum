@@ -272,10 +272,10 @@ class AccountUtil(object):
         may_be_quarantined = False
         if not ac['home']:
             may_be_quarantined = True
-        for s in autostud.pc.disk_spreads.keys():
+        for s in autostud.disk_tool.get_known_spreads():
             tmp = ac['home'].get(s, None)
             if (tmp and
-                autostud.student_disk.has_key(int(tmp[0]))):
+                autostud.disk_tool.get_diskdef_by_diskid(tmp[0])):
                 may_be_quarantined = True
 
         current_disk_id = None
@@ -293,11 +293,13 @@ class AccountUtil(object):
                     profile.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
                     current_disk_id = new_disk
+                    # TODO: disk_kvote setting krever at homedir_id er kjent
+                    # ac['home'][disk_spread] = (new_disk, None)
 
-        if autostud.pc.using_disk_kvote:
+        if autostud.disk_tool.using_disk_kvote:
             for spread, (disk_id, homedir_id) in accounts[
                 account_id]['home'].items():
-                if not autostud.student_disk.has_key(disk_id):
+                if not autostud.disk_tool.get_diskdef_by_diskid(disk_id):
                     # Setter kun kvote på student-disker
                     continue
                 quota = profile.get_disk_kvote(disk_id)
@@ -960,7 +962,7 @@ def list_noncallback_users(fname):
     on_student_disk = {}
     # TBD: This includes expired accounts, is that what we want?
     for row in account_obj.list_account_home(filter_expired=False):
-        if autostud.student_disk.has_key(int(row['disk_id'] or 0)):
+        if autostud.disk_tool.get_diskdef_by_diskid(int(row['disk_id'])):
             on_student_disk[int(row['account_id'])] = True
 
     for ac_id in on_student_disk.keys():
