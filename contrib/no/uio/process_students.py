@@ -290,7 +290,7 @@ class AccountUtil(object):
                 except AutoStud.ProfileHandler.NoAvailableDisk, msg:
                     raise
                 if current_disk_id != new_disk:
-                    profile.notify_used_disk(old=current_disk_id, new=new_disk)
+                    autostud.disk_tool.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
                     current_disk_id = new_disk
                     # TODO: disk_kvote setting krever at homedir_id er kjent
