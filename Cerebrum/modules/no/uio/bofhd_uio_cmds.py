@@ -4695,17 +4695,7 @@ class BofhdExtension(object):
         self.ba.can_show_history(operator.get_entity_id(), account)
         ret = []
         for r in self.db.get_log_events(0, subject_entity=account.entity_id):
-            dest = r['dest_entity']
-            if dest is not None:
-                try:
-                    dest = self._get_entity_name(None, dest)
-                except Errors.NotFoundError:
-                    pass
-            msg = self.change_type2details[int(r['change_type_id'])][2] % {
-                'subject': self._get_entity_name(None, r['subject_entity']),
-                'dest': dest}
-            by = r['change_program'] or self._get_entity_name(None, r['change_by'])
-            ret.append("%s [%s]: %s" % (r['tstamp'], by, msg))
+            ret.append(self._format_changelog_entry(r))
         return "\n".join(ret)
 
     # user info
@@ -5703,5 +5693,76 @@ class BofhdExtension(object):
             raise CerebrumError, "Error parsing range '%s'" % selection
         lst.sort()
         return lst
+
+    def _format_from_cl(self, format, val):
+        # TODO: using num2const is not optimal, but the
+        # const.ChangeType(int) magic doesn't work for CLConstants
+        if val is None:
+            return ''
+
+        if format == 'affiliation':
+            return str(self.num2const[int(val)])
+        elif format == 'disk':
+            disk = Utils.Factory.get('Disk')(self.db)
+            disk.find(val)
+            return disk.path
+        elif format == 'homedir':
+            return 'homedir_id:%s' % val
+        elif format == 'id_type':
+            return str(self.num2const[int(val)])
+        elif format == 'int':
+            return str(val)
+        elif format == 'name_variant':
+            return str(self.num2const[int(val)])
+        elif format == 'ou':
+            ou = self._get_ou(ou_id=val)
+            return self._format_ou_name(ou)
+        elif format == 'quarantine_type':
+            return str(self.num2const[int(val)])
+        elif format == 'source_system':
+            return str(self.num2const[int(val)])
+        elif format == 'spread_code':
+            return str(self.num2const[int(val)])
+        elif format == 'string':
+            return str(val)
+        elif format == 'value_domain':
+            return str(self.num2const[int(val)])
+        else:
+            self.logger.warn("bad cl format: %s", repr((format, val)))
+            return ''
+
+    def _format_changelog_entry(self, row):
+        dest = row['dest_entity']
+        if dest is not None:
+            try:
+                dest = self._get_entity_name(None, dest)
+            except Errors.NotFoundError:
+                pass
+        this_cl_const = self.num2const[int(row['change_type_id'])]
+
+        msg = this_cl_const.msg_string % {
+            'subject': self._get_entity_name(None, row['subject_entity']),
+            'dest': dest}
+
+        # Append information from change_params to the string.  See
+        # _ChangeTypeCode.__doc__
+        if row['change_params']:
+            params = pickle.loads(row['change_params'])
+        else:
+            params = {}
+
+        if this_cl_const.format:
+            for f in this_cl_const.format:
+                repl = {}
+                for part in re.findall(r'%\([^\)]+\)s', f):
+                    fmt_type, key = part[2:-2].split(':')
+                    repl['%%(%s:%s)s' % (fmt_type, key)] = self._format_from_cl(
+                        fmt_type, params.get(key, None))
+                if [x for x in repl.values() if x]:
+                    for k, v in repl.items():
+                        f = f.replace(k, v)
+                    msg += ", " + f
+        by = row['change_program'] or self._get_entity_name(None, row['change_by'])
+        return "%s [%s]: %s" % (row['tstamp'], by, msg)
 
 # arch-tag: 98930b8a-4170-453a-a5db-34177f3ac40f
