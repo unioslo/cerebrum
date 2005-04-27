@@ -1,22 +1,24 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 '''
 File:          db_row.py
 
 Authors:       Kevin Jacobs (jacobs@theopalgroup.com)
 
-Created:       February 12, 2002
+Created:       May 14, 2002
 
 Abstract:      This module defines light-weight objects which allow very
                flexible access to a fixed number of positional and named
                attributes via several interfaces.
 
-Compatibility: Python 2.2
+Compatibility: Python 2.2 and above
 
-Requires:      new-style classes, Python 2.2 super builtin, types module
+Requires:      new-style classes, Python 2.2 super builtin
+
+Version:       0.8
 
 Revision:      $Id$
 
-Copyright (c) 2002 The OPAL Group.
+Copyright (c) 2002,2003 The OPAL Group.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to
@@ -42,29 +44,28 @@ This module defines light-weight objects suitable for many applications,
 though the primary goal of the implementer is for storage of database query
 results.  The primary design criteria for the data-structure where:
 
-  1) store a sequence of arbitrary Python objects
-  2) the number of items stored in each instance should be constant
+  1) store a sequence of arbitrary Python objects.
+  2) the number of items stored in each instance should be constant.
   3) each instance must be as light-weight as possible, since many thousands
-     of them could be created
-  4) values must be retrievable by index
+     of them are likely to be created.
+  4) values must be retrievable by index:
      e.g.: d[3]
-  5) values must be retrievable by a field name using the Python attribute syntax:
-     e.g.: d.field
-  6) values must be retrievable by a field name using the Python item syntax:
-     e.g.: d['field']
-  7) optionally, operations using field names should be case-insensitive
-     e.g.: d['FiElD']
-  8) should support standard list and dictionary -like interfaces, including
-     slicing
-  9) should be convertible to a list, tuple or dictionary
+  5) values must be retrievable by field name by both Python attribute syntax and
+     item syntax:
+     e.g.: d.fields.foo == d['foo']
+  6) optionally, operations using field names should be case-insensitive
+     e.g.: d['FiElD'], d.fields.FiElD
+  7) Otherwise drop-in compatible with tuple objects.
+  8) Maintains a disjoint namespace for field names so they do not conflict
+     with method names.
 
-These criteria are chosen to simplify access to rows that are returned from
+These criteria were chosen to simplify access to rows that are returned from
 database queries.  Lets say that you run this query:
 
   cursor.execute('SELECT a,b,c FROM blah;')
   results = cursor.fetchall()
 
-The resulting data-structure is typically a list if row tuples. e.g.:
+The resulting data-structure is typically a list of row tuples. e.g.:
 
   results = [ (1,2,3), (3,4,5), (6,7,8) ]
 
@@ -83,12 +84,13 @@ dictionaries, one for each row.  e.g.:
 
 This has the advantage of easier access to attributes by name, e.g.:
 
-  b = results[1]['b']
+  foo = results[1]['b']
 
 however, there are several serious disadvantages.
 
   1) each row requires a heavy-weight dictionary _per instance_.  This can
-     damage performance when returning, say, 100,000 rows from a query.
+     damage performance by forcing a loaded system to start swapping virtual
+     memory to disk when returning, say, 100,000 rows from a query.
 
   2) access by index is lost since Python dictionaries are unordered.
 
@@ -97,47 +99,50 @@ however, there are several serious disadvantages.
 
      i.e., x['a'] vs. x.a.
 
-Of course, the second and third problems can be addressed by creating a
-UserDict (a Python class that looks and acts like a dictionary), though that
-only magnifies the performance problems.
+  4) Compatibility with code that expects tuples is lost.
 
-HOWEVER, there are some new features in Python 2.2 that can provide the best
-of all possible worlds.  Here is an example:
+Of course, the second and third problems can be partially addressed by
+creating a UserDict (a Python class that looks and acts like a dictionary),
+though that only magnifies the performance problems.
 
-  # Create a new class type to store the results from our query
-  # (we'll make field names case-insensitive just to show off)
-  > R=make_row_class(['a','b','c'], insensitive = 1)
+HOWEVER, there are some new features in Python 2.2 and newer that can
+provide the best of all possible worlds.  Here is an example:
+
+  # Create a new class type to store the results from our query (we'll make
+  # field names case-insensitive just to show off)
+
+  R=IMetaRow(['a','b','c'])
 
   # Create an instance of our new tuple class with values 1,2,3
-  > r=R( (1,2,3) )
+  r=R( (1,2,3) )
 
   # Demonstrate all three accessor types
-  > print r['a'], r[1], r.c
-  1 2 3
+  print r['a'], r[1], r.fields.c
+  > 1 2 3
 
   # Demonstrate case-insensitive operation
-  > print r['a'], r['A']
-  1 1
+  print r['a'], r['A']
+  > 1 1
 
   # Return the keys (column names)
-  > print r._keys()
-  ('a', 'b', 'c')
+  print r.keys()
+  > ('a', 'b', 'c')
 
   # Return the values
-  > print r._values()
-  (1, 2, 3)
+  print r.values()
+  > (1, 2, 3)
 
   # Return a list of keys and values
-  > print r._items()
-  (('a', 1), ('b', 2), ('c', 3))
+  print r.items()
+  > (('a', 1), ('b', 2), ('c', 3))
 
   # Return a dictionary of the keys and values
-  > print r._dict()
-  {'a': 1, 'c': 3, 'b': 2}
+  print r.dict()
+  > {'a': 1, 'c': 3, 'b': 2}
 
   # Demonstrate slicing behavior
-  > print r[1:3]
-  (2, 3)
+  print r[1:3]
+  > (2, 3)
 
 This solution uses some new Python 2.2 features and ends up allocating only
 one dictionary _per row class_, not per row instance.  i.e., the row
@@ -148,430 +153,982 @@ Here is how you could use these objects:
 
   cursor.execute('SELECT a,b,c FROM blah;')
 
-  # Build the field list from the field names returned by the query
-  fields = [ d[0] for d in cursor.description ]
-
   # Make a class to store the resulting rows
-  R = make_row_class(fields, insensitive = 1)
+  R = IMetaRow(cursor.description)
 
   # Build the rows from the row class and each tuple returned from the cursor
   results = [ R(row) for row in cursor.fetchall() ]
 
-  print results[1].b, results[2].B, results[3]['b'], results[2][1]
-
-Performance:
-
-  Memory and object construction benchmark:
-
-  This benchmark was created to test that the memory footprint savings using
-  Python 2.2 slots mechanism.  In these tests, 200,000 row objects were
-  created using various representations and the process size
-  (code+heap+stack) and program execution time where measured in these
-  situations:
-
-         baseline: measures the memory and time required to allocate a list
-                   of 200,000 None objects.
-
-            tuple: measures the memory and time required to allocate a list
-                   of 200,000 tuple objects, each with 11 integer members.
-
-                   rows = []
-                   N=200000
-                   for i in range(N):
-                     rows.append( (i,i,i,i,i,i,i,i,i,i,i) )
-
-             dict: measures the memory and time required to allocate a list
-                   of 200,000 dictionary objects, each with 11 integer members.
-
-                   fields = ('a','b','c','d','e','f','g','h','i','j','k')
-                   rows = []
-                   N=200000
-                   for i in range(N):
-                     rows.append( dict(zip(fields,(i,i,i,i,i,i,i,i,i,i,i))) )
-
-      db_row slot: measures the memory and time required to allocate a list
-                   of 200,000 db_row objects (using the slots mechanism),
-                   each with 11 integer members.
-
-                   fields = ('a','b','c','d','e','f','g','h','i','j','k')
-                   rows = []
-                   N=200000
-                   R=db_row.make_row_class( fields )
-                   for i in range(N):
-                     rows.append( R((i,i,i,i,i,i,i,i,i,i,i)) )
-
-      db_row dict: as above, except the db_row implementation uses
-                   per-instance dictionaries instead of slots.  (i.e.,
-                   globally search and replace __slots__ with
-                   _slots_ in the rb_row implementation)
-
-         C db_row: The same as the db_row slot except coded as a C extension
-                   module.  This implementaion is not yet complete, though
-                   object construction and initialization is working.
-
-  RESULTS:
-
-        [Results generated on a quiescent dual processor Intel  III
-         733MHz system w/ 256MB RAM running Linux 2.4.1 (uptime 372 days!)]
-
-                                     Time     Approx.
-                             SIZE    (sec)  Bytes/row
-                         --------   ------  ---------
-            baseline:     4,744KB     0.56        -
-               tuple:    18,948KB     2.49       73
-                dict:       117MB    13.50      589
-         db_row slot:    18,960KB    17.23       73
-         db_row dict:       117MB    24.09      589
-            C db_row:    18,924KB     4.85       73
-
-  Real world benchmark:
-
-  This (native-Python) implementation was tested in a very large business
-  report generation engine.  An automated test suite was run which produced
-  84 complex reports and generating ~11MB of HTML/XML output over a local
-  HTTPS connection.  The report server performed many large and small
-  queries for security access checks, user interface generation, as well as
-  for the reports themselves.
-
-  Here are the results of running the same test suite 3 different ways:
-
-            baseline: These are the results that are obtained before any
-                      modifications where made to add db_row support.
-
-        basic db_row: All queries were modified to produce case-sensitive
-                      db_row objects, though none of the reports were
-                      modified to use the new access methods.  Since access
-                      by index is now the most expensive way to access the
-                      data values, and many small queries are run that do
-                      not benefit from db_rows at all, this scenario
-                      demonstrates the near worst-case behavior.
-
-       insens db_row: This is the same as the basic db_row test, except all
-                      db_row objects are now case-insensitive.  Here, the
-                      functional call overhead for each attribute access is
-                      doubled.
-
-         dict db_row: This implementation uses an instance dictionary instead
-                      of the slots mechanism to implement field access.
-
-  insens dict db_row: This is the same as the dict db_row test, except all
-                      db_row objects are now case-sensitive.
-                      doubled.
-
-            C db_row: This is the same as basic db_row except that it is
-                      implemented as a C extension module.
-
-  RESULTS:
-        [Results generated on a quiescent dual processor Intel Pentium III
-         733MHz system w/ 256MB RAM running Linux 2.4.1 (uptime 372 days!)]
-
-                         Output     Total       Average
-                           Size      Time    Throughput
-                        -------     -----    ----------
-             baseline:  11.00MB     3.66m     53.05KB/s
-         basic db_row:  11.00MB     4.12m     47.10KB/s
-        insens db_row:  11.00MB     4.75m     40.84KB/s
-          dict db_row:  11.00MB     4.14m     46.87KB/s
-   insens dict db_row:  11.00MB     4.77m     40.62KB/s
-             C db_row:  11.00MB     3.67m     52.86KB/s
-
-  Conclusions:
-
-    For many applications, db_row objects incur an acceptable performance
-    penalty relative to other access methods.  The very minimal difference
-    in running time between the slot and dictionary based db_row objects
-    indicates that the inherent performance difference due to the different
-    data-structures is negligible compared to other sources of runtime
-    overhead.  We can also infer that much of the slow-down is due to the
-    penalty imposed by Python when replacing native object containers with
-    Python coded containers.  The implementation of rb_row as a C extension
-    module reduces the performance gap between tuples and db_rows to the
-    point where it is negligible.
-
+  print results[1].fields.b, results[2].fields.B, results[3]['b'], results[2][1]
 
 Open implementation issues:
 
-  o This implementation will likely break when Python 2.3 comes out, since
-    super will become a keyword, and possibly due to other syntactic changes.
-    The code will be trivial to fix, so this is not a big concern.
+  o Values are currently mutable, so hashing of rows is explicitly
+    disallowed.  This does not bother me much, though some may desire both
+    mutable and immutable instance types.
 
-  o Values are currently mutable.  This opens the door to several problems:
+  o The current row code returns most slicing, copying, combing operations
+    (objects resulting from the '+' and '*' operators), keys(), values(),
+    items() as tuples.  This is done to better conform to legacy code which
+    assumes that rows are always tuples.  This seems sensible enough, though
+    I welcome other opinions on the subject.
 
-     1) ._items(), ._values() and ._keys() do not skip slots that do not
-        have values assigned.  This is so that the field indices will always
-        be consistent.  Missing, unassigned, or deleted values are
-        represented with 'None' objects.  e.g.:
+   o More documentation and doc-strings are needed.
 
-          > R=make_row_class(['a','b','c'], insensitive = 1)
-          > r=R([1,2,3])
-          > print r._items()
-          (('a', 1), ('b', 2), ('c', 3))
-          > del r[:]
-          > print r._items()
-          (('a', None), ('b', None), ('c', None))
+   o Improve the integrated unit-tests (a la doctest or unittest, most likely)
 
-     2) Row equality and hashing are open issues.  I do not intend to
-        compare rows or store them in dictionaries, so this does not bother
-        me much.  Others may want to, so maybe it is desirable to have both
-        mutable and immutable instance types.
+   o Add some better example code.
 
-   o The current code returns its _keys, _values, _items and slices as tuples.
-     This is done to better conform to legacy code which assumes that rows
-     are always tuples.  This seems sensible enough, though I welcome other
-     opinions on the subject.
+Changes from version 0.71 -> 0.8:
 
-   o Concatenation of db_rows with lists, tuples and other db_rows is
-     implemented, though the result is a list, tuple, or tuple,
-     respectively.  The behavior of the last case may not be optimal for all
-     users, though I am hesitant to create dynamic row classes "on the fly".
+  o Ported to win32+Mingw32 and includes pre-compiled Win32 versions for
+    Python 2.2 and Python 2.3.
 
-   o More doc-strings are needed, including dynamic row class doc-strings
+  o Fixed C implmentation to allow fields with zero elements.  The behavior
+    now matches the pure-Python version.  (Reported by Anthony Baxter)
 
-   o Add integrated unit-tests (a la doctest, most likely)
+  o Fixed C implementation so that accessing unitialized fields raise an
+    exception.  The behavior now matches the pure-Python version.
 
-   o Maybe some better example code
+  o Other minor cleanups and tweaks
+
+  o Added more unit tests.
+
+Changes from version 0.7 -> 0.71:
+
+  o Removed an unnecessary call to 'enumerate', which is only available in
+    Python 2.3.  Thanks to Ben Golding of Object Craft for noticing this.
+
+Changes from version 0.6 -> 0.7:
+
+  o Removed some cruft from the Python implementation of FieldsBase.
+
+  o Made the behavior of the Python base classes better match the C version
+    in a few spots.
+
+  o Cleaned up driver and description storage using properties.
+
+  o Added a dictionary-like .get(key,default=None) method to the Row class.
+
+  o Added new test cases.
+
+Changes from version 0.5 -> 0.6:
+
+  o Added missing slots declaration from Python FieldsBase object.  This
+    corrected a major flaw in the pure-Python implementation which caused
+    the allocation of per-instance dictionaries, and allowing access to
+    undeclared fields.  The C version of FieldsBase was not affected.
+
+  o Fixed exception types so that various accessors raise the appropriate
+    exceptions.  e.g., previously __getitem__ would incorrectly raise
+    AttributeError exceptions.  These changes were made in both the Python
+    and C versions.
+
+  o Added many new test cases to the regression suite, including much more
+    rigorous read/write testing.
+
+  o Removed some unnecessary (and slow!) code from the C fields_subscript
+    function.  I suspect it was a left-over from past debugging that was
+    not completely removed.
 '''
 
-import types
+__all__ = ['MetaFields', 'IMetaFields',
+           'MetaRow',    'IMetaRow',
+           'Fields',     'IFields',
+           'Row',        'IRow',
+           'FieldDescriptor']
 
-class abstract_row(object):
-  '''abstract_row:
+FORCE_PURE_PYTHON = 0
 
-     A light-weight object which allows very flexible access to a fixed
-     number of positional and named attributes via several interfaces.
+try:
+  Nothing
+except NameError:
+  Nothing = object()
 
-     Use make_row_class(...) to construct row types.
+class MetaFields(type):
+  '''MetaFields:
+
+     A meta-class that adds properties to a class that allow access to
+     indexed elements in the class by names specified in the __fields__
+     attribute of the class.  Indices start with __fieldoffset__ if it
+     exists, or 0 if it does not.  Field name access is case-sensitive,
+     though case-insensitive classes may be created using the
+     IMetaFields meta-class.
   '''
 
   __slots__ = ()
 
-  def __init__(self, values=None):
-    if values:
-      self[:] = values
+  def __new__(cls, name, bases, field_dict):
+    fields = field_dict.get('__fields__',())
+    cls.build_properties(cls, fields, field_dict)
 
-  def __len__(self):
-    '''x.__len__() <==> len(x)'''
-    return len(self.__slots__)
+    return super(MetaFields,cls).__new__(cls, name, bases, field_dict)
 
-  def _keys(self):
-    '''r._keys() -> list of r's fields'''
-    return tuple(self.__slots__)
+  def build_properties(self, fields, field_dict):
+    '''Helper function that creates field properties'''
 
-  def _values(self):
-    '''r._values() -> tuple of r's values'''
-    return tuple([ getattr(self,name,None) for name in self.__slots__ ])
+    slots = list(field_dict.get('__slots__',[]))
 
-  def _items(self):
-    '''r._items() -> tuple of r's (field, value) pairs, as 2-tuples'''
-    return tuple([ (name,getattr(self,name,None)) for name in self.__slots__ ])
+    field_names = {}
+    for s in slots:
+      field_names[s] = 1
 
-  def _has_key(self, key):
-    '''r._has_key(k) -> 1 if r has a field k, else 0'''
-    return key in self.__slots__ and hasattr(self, key)
+    for f in fields:
+      if type(f) is not str:
+        raise TypeError, 'Field names must be ASCII strings'
+      if not f:
+        raise ValueError, 'Field names cannot be empty'
+      if f in field_names:
+        raise ValueError, 'Field names must be unique: %s' % f
 
-  def __contains__(self, value):
-    '''r.__contains__(y) <==> y in r'''
-    return value in self._values()
+      slots.append(f)
+      field_names[f] = 1
 
-  def _dict(self):
-    '''r._dict() -> dictionary mapping r's fields to its values'''
-    return dict(self._items())
+    fields = tuple(fields)
+    slots  = tuple(slots)
 
-  def __getitem__(self, key):
-    '''x.__getitem__(i) <==> x[i], where i is an integer index or a case-sensitive string'''
-    if type(key) == type(1):
-      key = self.__slots__[key]
-    return getattr(self, key)
+    field_dict['__fieldnames__'] = fields
+    field_dict['__fields__']     = fields
+    field_dict['__slots__']      = slots
 
-  def __setitem__(self, key, value):
-    '''x.__setitem__(i, y) <==> x[i]=y, where i is an integer index or a case-sensitive string'''
-    if type(key) == type(1):
-      key = self.__slots__[key]
-    setattr(self, key, value)
-
-  def __delitem__(self, key):
-    '''x.__delitem__(i) <==> del x[i], where i is an integer index or a case-sensitive string'''
-    if type(key) == type(1):
-      key = self.__slots__[key]
-    return delattr(self, key)
-
-  def __setslice__(self, i, j, values):
-    '''x.__setslice__(i, j, y) <==> x[i:j]=y'''
-    slots=self.__slots__[i:j]
-    if len(slots) != len(values):
-      raise IndexError, "list index out of range"
-    for name,value in zip(slots, values):
-      setattr(self, name, value)
-
-  def __getslice__(self, i, j):
-    '''x.__getslice__(i, j) <==> x[i:j]'''
-    return tuple([ getattr(self,name,None) for name in self.__slots__[i:j] ])
-
-  def __delslice__(self, i, j):
-    '''x.__delslice__(i, j) <==> del x[i:j]'''
-    for name in self.__slots__[i:j]:
-      delattr(self, name)
-
-  def __add__(self, x):
-    '''r.__add__(y) <==> T(r)+y, where T is tuple() unless y is a list, then T is list()'''
-    if type(x) == types.TupleType:
-      return tuple(self._values()) + x
-    elif type(x) == types.ListType:
-      return list(self._values()) + x
-    elif isinstance(x, abstract_row):
-      return self._values() + x._values()
-    else:
-      raise TypeError, 'Invalid concatenation type'
-
-  def __radd__(self, x):
-    '''r.__radd__(y) <==> y+T(r), where T is tuple() unless y is a list, then T is list()'''
-    if type(x) == types.TupleType:
-      return x + tuple(self._values())
-    elif type(x) == types.ListType:
-      return x + list(self._values())
-    elif isinstance(x, abstract_row):
-      return x._values() + self._values()
-    else:
-      raise TypeError, 'Invalid concatenation type'
+  build_properties = staticmethod(build_properties)
 
 
-class insensitive_abstract_row(abstract_row):
-  '''An row object that supports case-insensitive string keys'''
+class IMetaFields(MetaFields):
+  '''IMetaFields:
+
+     A meta-class that adds properties to a class that allow access to
+     indexed elements in the class by names specified in the __fields__
+     attribute of the class.  Indices start with __fieldoffset__ if it
+     exists, or 0 if it does not.  Field name access is case-insensitive,
+     though case-sensitive classes may be created using the
+     MetaFields meta-class.
+  '''
+
+  __slots__  = ()
+
+  def build_properties(cls, fields, field_dict):
+    '''Helper function that creates field properties'''
+
+    try:
+      ifields = tuple( [ f.lower() for f in fields ] )
+    except AttributeError:
+      raise TypeError, 'Field names must be ASCII strings'
+
+    super(IMetaFields,cls).build_properties(cls, ifields, field_dict)
+    field_dict['__fields__'] = tuple(fields)
+
+  build_properties = staticmethod(build_properties)
+
+
+try:
+  if FORCE_PURE_PYTHON:
+    raise ImportError
+
+  import db_rowc
+  FieldsBase  = db_rowc.abstract_fields
+  IFieldsBase = db_rowc.abstract_ifields
+
+except ImportError:
+  class FieldsBase(object):
+
+    __slots__ = ()
+
+    def __init__(self, values):
+      fields = type(self).__fieldnames__
+      for field,value in zip(fields,values):
+        setattr(self, field, value)
+
+    def __len__(self):
+      fields = type(self).__fieldnames__
+      return len(fields)
+
+    def __contains__(self, item):
+      return item in tuple(self)
+
+    def __str__(self):
+      return str(tuple(self))
+
+    def __repr__(self):
+      return repr(tuple(self))
+
+    def __getitem__(self, i):
+      try:
+        if isinstance(i, int):
+          fields = self.__fieldnames__
+          return getattr(self, fields[i])
+        else:
+          return getattr(self, i)
+      except AttributeError:
+        return None
+
+    def __setitem__(self, i, value):
+      if isinstance(i, int):
+        fields = type(self).__fieldnames__
+        setattr(self, fields[i], value)
+      else:
+        setattr(self, i, value)
+
+    def __delitem__(self, i):
+      if isinstance(i, int):
+        fields = type(self).__fieldnames__
+        delattr(self,fields[i])
+      else:
+        delattr(self,i)
+
+    def __getslice__(self, i, j):
+      return tuple(self)[i:j]
+
+    def __setslice__(self, i, j, values):
+      fields = type(self).__fieldnames__[i:j]
+      for field,value in zip(fields,values):
+        setattr(self, field, value)
+
+    def __delslice__(self, i, j):
+      fields = type(self).__fieldnames__[i:j]
+      for field in fields:
+        delattr(self,field)
+
+    def __eq__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(self) == tuple(other)
+      return tuple(self) == other
+
+    def __ne__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(self) != tuple(other)
+      return tuple(self) != other
+
+    def __lt__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(self) < tuple(other)
+      return tuple(self) < other
+
+    def __gt__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(self) > tuple(other)
+      return tuple(self) > other
+
+    def __le__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(self) <= tuple(other)
+      return tuple(self) <= other
+
+    def __ge__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(self) >= tuple(other)
+      return tuple(self) >= other
+
+    def __add__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(self) + tuple(other)
+      return tuple(self) + other
+
+    def __radd__(self, other):
+      if isinstance(other, FieldsBase):
+        return tuple(other) + tuple(self)
+      return other + tuple(self)
+
+    def __mul__(self, other):
+      return tuple(self) * other
+
+    def __delattr__(self, key):
+      super(FieldsBase, self).__setattr__(key,None)
+
+
+  class IFieldsBase(FieldsBase):
+    '''IFields:
+
+       A tuple-like base-class that gains properties to allow access to
+       indexed elements in the class by names specified in the __fields__
+       attribute when the class is declared.  Indices start with
+       __fieldoffset__ if it exists, or 0 if it does not.  Field name access
+       is case-insensitive, though case-sensitive objects may be created by
+       inheriting from the Fields base-class.
+    '''
+
+    __slots__ = ()
+
+    def __getattribute__(self, key):
+      return super(IFieldsBase, self).__getattribute__(key.lower())
+
+    def __setattr__(self, key, value):
+      super(IFieldsBase, self).__setattr__(key.lower(),value)
+
+    def __delattr__(self, key):
+      super(IFieldsBase, self).__setattr__(key.lower(),None)
+
+
+class Fields(FieldsBase):
+  '''Fields:
+
+     A tuple-like base-class that gains properties to allow access to
+     indexed elements in the class by names specified in the __fields__
+     attribute when the class is declared.  Indices start with
+     __fieldoffset__ if it exists, or 0 if it does not.  Field name access
+     is case-sensitive, though case-insensitive objects may be created by
+     inheriting from the IFields base-class.
+  '''
+
+  __metaclass__ = MetaFields
+  __slots__ = ()
+
+
+class IFields(IFieldsBase):
+  '''IFields:
+
+     A tuple-like base-class that gains properties to allow access to
+     indexed elements in the class by names specified in the __fields__
+     attribute when the class is declared.  Indices start with
+     __fieldoffset__ if it exists, or 0 if it does not.  Field name access
+     is case-insensitive, though case-sensitive objects may be created by
+     inheriting from the Fields base-class.
+  '''
+
+  __metaclass__ = IMetaFields
+  __slots__ = ()
+
+
+try:
+  if FORCE_PURE_PYTHON:
+    raise ImportError
+
+  import db_rowc
+  RowBase = db_rowc.abstract_row
+
+except ImportError:
+  class RowBase(object):
+    '''Row:
+
+       A light-weight object which allows very flexible access to a fixed
+       number of positional and named fields via several interfaces.  Field
+       access by name is case-sensitive, though case-insensitive access is
+       available via the IRow object.
+    '''
+
+    __slots__ = ('fields',)
+
+    def __getitem__(self, key):
+      if type(key) is str:
+        try:
+          return getattr(self.fields,key)
+        except AttributeError:
+          raise KeyError,key
+      return self.fields.__getitem__(key)
+
+    def __setitem__(self, key, value):
+      if type(key) is str:
+        try:
+          setattr(self.fields,key,value)
+        except AttributeError:
+          raise KeyError,key
+      else:
+        self.fields.__setitem__(key,value)
+
+    def __delitem__(self, key):
+      if type(key) is str:
+        try:
+          delattr(self.fields,key)
+        except AttributeError:
+          raise KeyError,key
+      else:
+        self.fields.__delitem__(key)
+
+    def __getslice__(self, i, j):
+      return self.fields.__getslice__(i, j)
+
+    def __setslice__(self, i, j, values):
+      self.fields.__setslice__(i, j, values)
+
+    def __delslice__(self, i, j):
+      self.fields.__delslice__(i, j)
+
+    def __hash__(self):
+      raise NotImplementedError,'Row objects are not hashable'
+
+    def __len__(self):
+      return len(self.fields)
+
+    def __contains__(self, item):
+      return item in self.fields
+
+    def __str__(self):
+      return str(self.fields)
+
+    def __repr__(self):
+      return repr(self.fields)
+
+    def __eq__(self, other):
+      if isinstance(other, Row):
+        return self.fields == other.fields
+      return self.fields == other
+
+    def __ne__(self, other):
+      if isinstance(other, Row):
+        return self.fields != other.fields
+      return self.fields != other
+
+    def __lt__(self, other):
+      if isinstance(other, Row):
+        return self.fields < other.fields
+      return self.fields < other
+
+    def __gt__(self, other):
+      if isinstance(other, Row):
+        return self.fields > other.fields
+      return self.fields > other
+
+    def __le__(self, other):
+      if isinstance(other, Row):
+        return self.fields <= other.fields
+      return self.fields <= other
+
+    def __ge__(self, other):
+      if isinstance(other, Row):
+        return self.fields >= other.fields
+      return self.fields >= other
+
+    def __add__(self, other):
+      if isinstance(other, Row):
+        return self.fields + other.fields
+      return self.fields + other
+
+    def __radd__(self, other):
+      if isinstance(other, Row):
+        return other.fields + self.fields
+      return other + self.fields
+
+    def __mul__(self, other):
+      return self.fields * other
+
+
+class Row(RowBase):
+  '''Row:
+
+     A light-weight object which allows very flexible access to a fixed
+     number of positional and named fields via several interfaces.  Field
+     access by name is case-sensitive, though case-insensitive access is
+     available via the IRow object.
+  '''
 
   __slots__ = ()
 
-  def _has_key(self, key):
-    '''r._has_key(k) -> 1 if r has a field k, else 0, insensitive to the case of k'''
-    key = key.lower()
-    return super(insensitive_abstract_row, self).has_key(key)
+  driver = property(lambda self: type(self).driver)
+  descr  = property(lambda self: type(self).field_descriptors)
 
-  def __getitem__(self, key):
-    '''x.__getitem__(i) <==> x[i], where i is an integer index or a case-insensitive string'''
-    if type(key) == type(1):
-      key = self.__slots__[key]
-    else:
+  def keys(self):
+    '''r.keys() -> list of r's field names'''
+    return type(self.fields).__fields__
+
+  def items(self):
+    '''r.items() -> tuple of r's (field, value) pairs, as 2-tuples'''
+    return zip(self.keys(),self.fields)
+
+  def get(self, key, default=None):
+    if not isinstance(key, str):
+      return default
+    try:
+      return self[key]
+    except KeyError:
+      return default
+
+  def has_key(self, key):
+    '''r.has_key(k) -> 1 if r has field k, else 0'''
+    return key in type(self.fields).__fieldnames__
+
+  def dict(self):
+    '''r.dict() -> dictionary mapping r's fields to its values'''
+    return dict(self.items())
+
+  def copy(self):
+    '''r.copy() -> a shallow copy of r'''
+    return type(self)(self)
+
+  def __hash__(self):
+    raise NotImplementedError,'Row objects are not hashable'
+
+
+class IRow(Row):
+  '''IRow:
+
+     A light-weight object which allows very flexible access to a fixed
+     number of positional and named fields via several interfaces.  Field
+     access by name is case-insensitive, though case-sensitive access is
+     available via the Row object.
+  '''
+
+  __slots__ = ()
+
+  def has_key(self, key):
+    if isinstance(key, str):
       key = key.lower()
-    return super(insensitive_abstract_row, self).__getattribute__(key)
-
-  def __setitem__(self, key, value):
-    '''x.__setitem__(i, y) <==> x[i]=y, where i is an integer index or a case-insensitive string'''
-    if type(key) == type(1):
-      key = self.__slots__[key]
-    else:
-      key = key.lower()
-    super(insensitive_abstract_row, self).__setattr__(key, value)
-
-  def __delitem__(self, key):
-    '''x.__delitem__(i) <==> del x[i], where i is an integer index or a case-insensitive string'''
-    if type(key) == type(1):
-      key = self.__slots__[key]
-    else:
-      key = key.lower()
-    super(insensitive_abstract_row, self).__delattr__(key)
-
-  def __getattr__(self, key):
-    '''x.__getattr__(a) <==> x.a, insensitive to the case of a'''
-    key = key.lower()
-    return super(insensitive_abstract_row, self).__getattribute__(key)
-
-  def __setattr__(self, key, value):
-    '''x.__setattr__(a,y) <==> x.a=y, insensitive to the case of a'''
-    key = key.lower()
-    super(insensitive_abstract_row, self).__setattr__(key, value)
-
-  def __delattr__(self, key):
-    '''x.__delattr__(a) <==> del x.a, insensitive to the case of a'''
-    key = key.lower()
-    super(insensitive_abstract_row, self).__delattr__(key)
+    return super(IRow, self).has_key(key)
 
 
-def make_row_class(fields, insensitive = 0):
-  '''Helper function that creates row classes'''
+class MetaRowBase(type):
+  '''MetaRowBase:
 
-  field_dict = {}
+     A meta-class that builds row objects given a list of fields or field
+     schema.  Field acces is case-sensitive, though a case-insensitive
+     version, IMetaRow, is also available.
+  '''
 
-  for f in fields:
-    if type(f) != types.StringType:
-      raise TypeError, 'Field names must be ASCII strings'
-    if not f:
-      raise ValueError, 'Field names cannot be empty'
+  __slots__  = ()
 
-    if insensitive:
-      f = f.lower()
+  def __new__(cls, name, bases, cls_dict):
+    fields = tuple(cls_dict.get('__fields__',()))
 
-    if field_dict.has_key(f):
-      raise ValueError, 'Field names must be unique'
-    field_dict[f] = 1
+    field_dict = {}
+    field_dict['__slots__'] = getattr(cls.field_base,'__slots__',())
 
-  if insensitive:
-    base_class = insensitive_abstract_row
-    fields = [ f.lower() for f in fields ]
-  else:
-    base_class = abstract_row
+    field_names = []
+    field_descriptors = []
 
-  return type('row', (base_class,), { '__slots__' : tuple(fields) })
+    for field in fields:
+      descriptor = FieldDescriptor(field)
+      field_names.append(descriptor.name)
+      field_descriptors.append(descriptor)
+
+    field_dict['__fields__'] = tuple(field_names)
+    field_class = type('%s_fields' % name, (cls.field_base,), field_dict)
+
+    cls_dict['field_descriptors'] = field_class(field_descriptors)
+
+    row_class = super(MetaRowBase,cls).__new__(cls, name, bases, cls_dict)
+
+    assert '__init__' not in cls_dict
+
+    def __init__(self, fields):
+      super(row_class, self).__init__(fields)
+      self.fields = field_class(fields)
+
+    row_class.__init__ = __init__
+
+    return row_class
 
 
-def test():
-  D=make_row_class(['a','b','c'])
-  print dir(D)
+class MetaRow(MetaRowBase):
+  '''MetaRow:
+
+     A meta-class that builds row objects given a list of fields or field
+     schema.  Field acces is case-sensitive, though a case-insensitive
+     version, IMetaRow, is also available.
+  '''
+
+  __slots__  = ()
+  row_base   = Row
+  field_base = Fields
+
+  def __new__(cls, fields, driver = None):
+    cls_dict = {'__slots__' : (), '__fields__' : fields, 'driver' : driver}
+    return super(MetaRow,cls).__new__(cls, 'row', (cls.row_base,), cls_dict)
+
+
+class IMetaRow(MetaRowBase):
+  '''IMetaRow:
+
+     A meta-class that builds row objects given a list of fields or field
+     schema.  Field acces is case-insensitive, though a case-sensitive
+     version, MetaRow, is also available.
+  '''
+
+  __slots__  = ()
+  row_base   = IRow
+  field_base = IFields
+
+  def __new__(cls, fields, driver = None):
+    cls_dict = {'__slots__' : (), '__fields__' : fields, 'driver' : driver}
+    return super(IMetaRow,cls).__new__(cls, 'irow', (cls.row_base,), cls_dict)
+
+
+class FieldDescriptor(Fields):
+  '''FieldDescriptor:
+
+     A class that includes the Python DB-API 2.0 schema description fields
+     that allows read-only access to data elements by name and by index.
+  '''
+
+  __slots__  = ()
+  __fields__ = ('name', 'type_code', 'display_size', 'internal_size',
+               'precision', 'scale', 'null_ok')
+
+  def __init__(cls, desc):
+    if isinstance(desc, (tuple,list)):
+      desc = tuple(desc) + (None,)*(6-len(desc))
+    elif not isinstance(desc, FieldDescriptor):
+      desc = (desc,)+(None,)*6
+
+    super(FieldDescriptor,cls).__init__(desc)
+
+  def __str__(self):
+    fields = type(self).__fields__
+    values = ['%s: %s' % (key,repr(value)) for key,value in zip(fields, self) ]
+    return '{%s}' % ', '.join(values)
+
+  __repr__ = __str__
+
+
+class RowList(list):
+  __slots__ = ('row_class',)
+  def __init__(self, values, row_class = None):
+    super(RowList,self).__init__(values)
+    self.row_class = row_class
+  driver = property(lambda self: self.row_class.driver)
+  descr  = property(lambda self: self.row_class.field_descriptors)
+
+
+class NullRow(type(Nothing)):
+  __slots__ = ('driver','row_class','descr')
+  driver = property(lambda self: self.row_class.driver)
+  descr  = property(lambda self: self.row_class.field_descriptors)
+  def __new__(self):
+    return object.__new__(self)
+  def __init__(self, row_class = None):
+    self.row_class = row_class
+  def __eq__(self, other):
+    return 0
+  def __ne__(self, other):
+    return 1
+  def __nonzero__(self):
+    return 0
+
+
+def test(cls):
+  D=cls(['a','B','c'])
   d=D( (1,2,3) )
 
-  assert d['a']==d[0]==d.a==1
-  assert d['b']==d[1]==d.b==2
-  assert d['c']==d[2]==d.c==3
+  assert d['a']==d[0]==d.fields.a==d.fields[0]==1
+  assert d['B']==d[1]==d.fields.B==d.fields[1]==2
+  assert d['c']==d[2]==d.fields.c==d.fields[2]==3
 
-  print d['a'],d[0],d.a
-  print d._keys()
-  print d._values()
-  print d._items()
-  print d._dict()
-  print d[-1]
-  print d[1:3]
+  assert len(d) == 3
+  assert d.has_key('a')
+  assert d.has_key('B')
+  assert d.has_key('c')
+  assert 'd' not in d
+  assert 1 in d
+  assert 2 in d
+  assert 3 in d
+  assert 4 not in d
+  assert not d.has_key(4)
+  assert not d.has_key('d')
+  assert d[-1] == 3
+  assert d[1:3] == (2,3)
+
+  assert d.keys() == ('a','B','c')
+  assert d.items() == [('a', 1), ('B', 2), ('c', 3)]
+  assert d.dict()  == {'a': 1, 'c': 3, 'B': 2}
+  assert d.copy() == d
+  assert d == d.copy()
+  assert d is not d.copy()
+  assert type(d) is type(d.copy())
+  assert d.fields is not d.copy().fields
+  assert [ x for x in d ] == [1,2,3]
+
+  assert d.get('a') == 1
+  assert d.get('B') == 2
+  assert d.get('c') == 3
+
+  assert d.get('d') == None
+  assert d.get(0)   == None
+  assert d.get(3)   == None
+
+  assert d.get('d', -1) == -1
+  assert d.get(0,   -1) == -1
+  assert d.get(3,   -1) == -1
+
+  assert d.fields==d.fields
+  assert d == d
+  assert d == (1,2,3)
+  assert (1,2,3) == d
+  assert d!=()
+  assert ()<d
+  assert ()<=d
+  assert d>()
+  assert d>=()
+
+  try:
+    d[4]
+    raise AssertionError, 'Illegal index not caught'
+  except IndexError:
+    pass
+
+  try:
+    d['f']
+    raise AssertionError, 'Illegal key not caught'
+  except KeyError:
+    pass
+
+  try:
+    d.fields.f
+    raise AssertionError, 'Illegal attribute not caught'
+  except AttributeError:
+    pass
+
+
+def test_insensitive(cls):
+  D=cls(['a','B','c'])
+  d=D( (1,2,3) )
+
+  assert d['a']==d['A']==d[0]==d.fields.A==d.fields.a==d.fields[0]==1
+  assert d['b']==d['B']==d[1]==d.fields.B==d.fields.b==d.fields[1]==2
+  assert d['c']==d['C']==d[2]==d.fields.C==d.fields.c==d.fields[2]==3
+
+  assert d.has_key('a')
+  assert d.has_key('A')
+  assert d.has_key('b')
+  assert d.has_key('B')
+  assert d.has_key('c')
+  assert d.has_key('C')
+  assert not d.has_key('d')
+  assert not d.has_key('D')
+
+  assert 1 in d
+  assert 2 in d
+  assert 3 in d
+  assert 4 not in d
+  assert 'a' not in d
+  assert 'A' not in d
+  assert 'd' not in d
+  assert 'D' not in d
+
+  assert d.get('A') == 1
+  assert d.get('b') == 2
+  assert d.get('C') == 3
+
+
+def test_concat(cls):
+  D=cls(['a','B','c'])
+  d=D( (1,2,3) )
+
+  assert d+(4,5,6) == (1, 2, 3, 4, 5, 6)
+  assert (4,5,6)+d == (4, 5, 6, 1, 2, 3)
+  assert d+d       == (1, 2, 3, 1, 2, 3)
+  assert d*2       == (1, 2, 3, 1, 2, 3)
+
+
+def test_descr(cls):
+  D=cls( (('field1', 1, 2, 3, 4, 5, 6),
+          ('field2', 0, 0, 0, 0, 0, 0),
+          'field3') )
+  d = D( (1,2,3) )
+
+  assert d==(1,2,3)
+  assert len(d.descr) == 3
+  assert d.descr[0] == ('field1', 1, 2, 3, 4, 5, 6)
+  assert d.descr[0].name          == 'field1'
+  assert d.descr[0].type_code     == 1
+  assert d.descr[0].display_size  == 2
+  assert d.descr[0].internal_size == 3
+  assert d.descr[0].precision     == 4
+  assert d.descr[0].scale         == 5
+  assert d.descr[0].null_ok       == 6
+  assert d.descr[1] == ('field2', 0, 0, 0, 0, 0, 0)
+  assert d.descr[2] == ('field3', None, None, None, None, None, None)
+
+
+def test_rw(cls):
+  D=cls(['a','B','c'])
+  d=D( (1,2,3) )
+
+  assert d['a']==d[0]==d.fields.a==1
+  assert d['B']==d[1]==d.fields.B==2
+  assert d['c']==d[2]==d.fields.c==3
+
+  d['a']     = 4
+  d[1]       = 5
+  d.fields.c = 6
+
+  assert d['a']==d[0]==d.fields.a==4
+  assert d['B']==d[1]==d.fields.B==5
+  assert d['c']==d[2]==d.fields.c==6
+
+  d[:] = (7,8,9)
+
+  assert d['a']==d[0]==d.fields.a==7
+  assert d['B']==d[1]==d.fields.B==8
+  assert d['c']==d[2]==d.fields.c==9
+
+  d.fields[:] = (1,2,3)
+
+  assert d['a']==d[0]==d.fields.a==1
+  assert d['B']==d[1]==d.fields.B==2
+  assert d['c']==d[2]==d.fields.c==3
+
   del d[0]
-  del d.b
-  del d['c']
-  print d._items()
-  print d._dict()
 
-def test_insensitive():
-  D=make_row_class(['a','b','c'], insensitive = 1)
+  assert d[0] == None
+  assert d == (None, 2, 3)
 
-  d=D( (1,2,3) )
+  del d[:]
 
-  assert d['a']==d['A']==d[0]==d.A==d.a==1
-  assert d['b']==d['B']==d[1]==d.B==d.b==2
-  assert d['c']==d['C']==d[2]==d.C==d.c==3
+  assert d == (None, None, None)
+  assert d[0]==d[1]==d[2]==None
 
-  d.A    += 1
-  d['B'] += 1
-  d[2]   += 1
+  d.fields.a = 1
+  d['B'] = 2
+  assert d[0:2] == (1,2)
 
-  assert d['a']==d['A']==d[0]==d.A==d.a==2
-  assert d['b']==d['B']==d[1]==d.B==d.b==3
-  assert d['c']==d['C']==d[2]==d.C==d.c==4
-
-  del d.A
+  del d.fields.a
   del d['B']
-  del d[2]
+  assert d[0:2] == (None,None)
 
-  dd=d._dict()
+  try:
+    d['g'] = 'illegal'
+    raise AssertionError,'Illegal setitem'
+  except KeyError:
+    pass
 
-  assert dd['a'] == dd['b'] == dd['c'] == None
+  try:
+    del d['g']
+    raise AssertionError,'Illegal delitem'
+  except KeyError:
+    pass
 
-def test_concat():
-  D=make_row_class(['a','b','c'], insensitive = 1)
+  try:
+    d[5] = 'illegal'
+    raise AssertionError,'Illegal setitem'
+  except IndexError:
+    pass
+
+  try:
+    del d[5]
+    raise AssertionError,'Illegal delitem'
+  except IndexError:
+    pass
+
+  try:
+    d.fields.g = 'illegal'
+    raise AssertionError,'Illegal setattr'
+  except AttributeError:
+    pass
+
+  try:
+    del d.fields.g
+    raise AssertionError,'Illegal delattr'
+  except AttributeError:
+    pass
+
+
+def test_Irw(cls):
+  D=cls(['a','B','c'])
   d=D( (1,2,3) )
 
-  print d+(4,5,6)
-  print [4,5,6]+d
-  print d+[4,5,6]
-  print (4,5,6)+d
-  print d+d
+  assert d['a']==d[0]==d.fields.a==1
+  assert d['B']==d[1]==d.fields.B==2
+  assert d['c']==d[2]==d.fields.c==3
+
+  d['A']     = 4
+  d[1]       = 5
+  d.fields.C = 6
+
+  assert d['A']==d[0]==d.fields.A==4
+  assert d['b']==d[1]==d.fields.B==5
+  assert d['C']==d[2]==d.fields.C==6
+
+  d[:] = (7,8,9)
+
+  assert d['a']==d[0]==d.fields.a==7
+  assert d['B']==d[1]==d.fields.B==8
+  assert d['c']==d[2]==d.fields.c==9
+
+  d.fields[:] = (1,2,3)
+
+  assert d['a']==d[0]==d.fields.a==1
+  assert d['b']==d[1]==d.fields.b==2
+  assert d['c']==d[2]==d.fields.c==3
+
+  del d[0]
+
+  assert d[0] == None
+  assert d == (None, 2, 3)
+
+  del d[:]
+
+  assert d == (None, None, None)
+  assert d[0]==d[1]==d[2]==None
+
+  d.fields.A = 1
+  d['b'] = 2
+  assert d[0:2] == (1,2)
+
+  del d.fields.A
+  del d['b']
+  assert d[0:2] == (None,None)
+
+
+def test_incomplete(cls):
+  D=cls(['a','B','c'])
+  d=D( ' ' )
+
+  assert d['a'] == ' '
+  assert d.fields.a == ' '
+
+  try:
+    d['B']
+    raise AssertionError,'Illegal getitem: "%s"' % d['B']
+  except KeyError:
+    pass
+
+  try:
+    d['c']
+    raise AssertionError,'Illegal getitem'
+  except KeyError:
+    pass
+
+  try:
+    d.fields.b
+    raise AssertionError,'Illegal getattr'
+  except AttributeError:
+    pass
+
+  try:
+    d.fields.c
+    raise AssertionError,'Illegal getattr'
+  except AttributeError:
+    pass
+
+  d['c'] = 1
+  d.fields.c = 2
+
+
+def test_empty(cls):
+  D=cls([])
+  d=D([])
+
 
 if __name__ == '__main__':
-  test()
-  test_insensitive()
-  test_concat()
+  import gc,sys
+
+  N = 100
+
+  orig_objects = len(gc.get_objects())
+
+  for i in range(N):
+    for cls in [MetaRow,IMetaRow]:
+      test(cls)
+      test_concat(cls)
+      test_descr(cls)
+      test_rw(cls)
+      test_incomplete(cls)
+      test_empty(cls)
+
+    test_insensitive(IMetaRow)
+    test_Irw(IMetaRow)
+    gc.collect()
+
+  # Detect memory leak fixed in 2.2.2 (& 2.3pre CVS)
+  gc.collect()
+  new_objects = len(gc.get_objects()) - orig_objects
+  if new_objects >= N:
+    print "WARNING: Detected memory leak of %d objects." % new_objects
+    if sys.version_info >= (2,2,2):
+      print "         Please notify jacobs@theopalgroup.com immediately."
+    else:
+      print "         You are running a Python older than 2.2.1 or older.  Several"
+      print "         memory leaks in the core interepreter were fixed in version"
+      print "         2.2.2, so we strongly recommend upgrading."
+
+  print 'Tests passed'
 
 # arch-tag: 8aacc7bc-31a2-4545-ad10-a7de82bb95ea
