@@ -681,10 +681,7 @@ class BofhdAuth(DatabaseAccessor):
             op_acc.owner_type == account.owner_type):
             myself = True
         else:
-            disk = self._get_user_disk(account.entity_id)
-            if disk:
-                disk = disk['disk_id']
-            self.can_create_user(operator, disk=disk)
+            self.can_set_password(operator, account=account)
 
         # aff_status is only None when removing account_type.
         if myself and aff_status is None:
