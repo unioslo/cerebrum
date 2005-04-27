@@ -16,7 +16,7 @@ Requires:      new-style classes, Python 2.2 super builtin
 
 Version:       0.8
 
-Revision:      $Id$
+Revision:      Id: db_row.py,v 4.9 2003/10/15 18:03:03 jacobs Exp
 
 Copyright (c) 2002,2003 The OPAL Group.
 
@@ -508,6 +508,44 @@ except ImportError:
 
     __slots__ = ('fields',)
 
+    def __getattribute__(self, key):
+      '''This function is only needed for backwards compatibility with
+         earlier versions of db_row.py, ie. it allows code to say
+         row.attr rather than row['attr'] or row.fields.attr
+      '''
+      try:
+        return object.__getattribute__(self, key)
+      except AttributeError:
+        pass
+      
+      # Log the use of the deprecated interface.  We try to avoid
+      # logging duplicates, but this technique will probably only
+      # quiesce loops.
+      
+      myclass = self.__class__
+      try:
+        myclass.__deprecated_usage
+      except AttributeError:
+        myclass.__deprecated_usage = {}
+      new_occurence = False
+      log_message = "Backtrace"
+      import inspect
+      for f in inspect.getouterframes(inspect.currentframe())[1:]:
+        line = "%s:%s (function %s)" % f[1:4]
+        log_message += " => " + line
+        if line not in myclass.__deprecated_usage:
+          new_occurence = True
+          myclass.__deprecated_usage[line] = True
+      if new_occurence:
+        import cerebrum_path
+        from Cerebrum.Utils import Factory
+        logger = Factory.get_logger()
+        logger.warn("Deprecated usage of db_row, attr %s. %s" %
+                    (key, log_message))
+
+      # Finally the actual code which provides backwards compatibility:
+      return self.fields.__getattribute__(key)
+
     def __getitem__(self, key):
       if type(key) is str:
         try:
@@ -767,6 +805,9 @@ class FieldDescriptor(Fields):
 
   __repr__ = __str__
 
+# two aliases for compatibility:
+abstract_row = FieldsBase
+make_row_class = MetaRow
 
 class RowList(list):
   __slots__ = ('row_class',)
