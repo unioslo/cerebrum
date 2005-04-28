@@ -158,10 +158,10 @@ class Profile(object):
                 # TODO: These cereconf variables should actually be
                 # read from the xml file
                 new_disk = self.pc.autostud.disk_tool.get_diskdef_by_select(
-                    cereconf.AUTOADMIN_DIV_LGRAD_DISK)
+                    **cereconf.AUTOADMIN_DIV_LGRAD_DISK)
             else:
                 new_disk = self.pc.autostud.disk_tool.get_diskdef_by_select(
-                    cereconf.AUTOADMIN_DIV_HGRAD_DISK)
+                    **cereconf.AUTOADMIN_DIV_HGRAD_DISK)
         else:
             new_disk = potential_disks[0][0]
         self._logger.debug2("Result: %s" % repr(new_disk))
