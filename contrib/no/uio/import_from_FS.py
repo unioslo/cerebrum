@@ -109,6 +109,11 @@ def write_person_info(outfile):
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
 
+    # Drgradsstudenter med opptak
+    cols, drstudents = _ext_cols(fs.student.list_drgrad())
+    for d in drstudents:
+        f.write(xml.xmlify_dbrow(d, xml.conv_colnames(cols), 'drgrad') + "\n")
+
     # EVU students
     # En del EVU studenter vil være gitt av søket over
 
