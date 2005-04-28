@@ -5704,8 +5704,11 @@ class BofhdExtension(object):
             return str(self.num2const[int(val)])
         elif format == 'disk':
             disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(val)
-            return disk.path
+            try:
+                disk.find(val)
+                return disk.path
+            except Errors.NotFoundError:
+                return "deleted_disk:%s" % val
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
