@@ -55,7 +55,7 @@ class StudentInfoParser(xml.sax.ContentHandler):
             else:
                 self._logger.warn("unknown element: %s" % name)
         elif self.elementstack[-1] == "person":
-            if name in ("fagperson", "opptak", "alumni", "privatist_studieprogram", "aktiv", "privatist_emne", "regkort", "eksamen", "evu", "permisjon", "tilbud"):
+            if name in ("fagperson", "opptak", "alumni", "privatist_studieprogram", "aktiv", "privatist_emne", "regkort", "eksamen", "evu", "permisjon", "tilbud", "drgrad"):
                 self.person.setdefault(name, []).append(tmp)
             else:
                 self._logger.warn("unknown person element: %s" % name)
