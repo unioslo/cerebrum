@@ -76,6 +76,8 @@ class Constants(Constants.Constants):
         affiliation_student, 'opptak', 'Har studierett ved studieprogram')
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student, 'aktiv', 'Aktiv student')
+    affiliation_status_student_drgrad = _PersonAffStatusCode(
+        affiliation_student, 'drgrad', 'Registrert student på doktorgrad')
     affiliation_status_student_privatist = _PersonAffStatusCode(
         affiliation_student, 'privatist', 'Registrert som privatist i FS')
     affiliation_status_student_evu = _PersonAffStatusCode(
