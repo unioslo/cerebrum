@@ -652,9 +652,14 @@ class Student(FSObject):
                sp.instituttnr_studieansv AS instituttnr, 
                sp.gruppenr_studieansv AS gruppenr,
                sps.dato_studierett_tildelt,
-               sps.dato_studierett_gyldig_til
-        FROM fs.studieprogramstudent sps, fs.studieprogram sp
-        WHERE sps.dato_studierett_tildelt <= SYSDATE AND
+               sps.dato_studierett_gyldig_til,
+               sps.studieprogramkode,
+               p.adrlin1_hjemsted, p.adrlin2_hjemsted,
+               p.adrlin3_hjemsted, postnr_hjemsted,
+               p.adresseland_hjemsted
+        FROM fs.studieprogramstudent sps, fs.studieprogram sp, fs.person p
+        WHERE p.fodselsdato = sps.fodselsdato AND
+              p.personnr = sps.personnr AND
               NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
               sps.studieprogramkode = sp.studieprogramkode AND
               sp.studienivakode = 980"""
