@@ -111,7 +111,7 @@ class DiskTool(object):
     def get_cerebrum_disk_from_diskdef(self, new_disk):
         if new_disk.path:
             # TBD: Should we ignore max_on_disk when path is explisitly set?
-            return new_disk._cerebrum_disk
+            return new_disk._cerebrum_disk.disk_id
 
         dest_pfix = new_disk.prefix
         max_on_disk = new_disk.max
