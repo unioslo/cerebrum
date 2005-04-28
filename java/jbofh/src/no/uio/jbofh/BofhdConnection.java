@@ -166,6 +166,7 @@ public class BofhdConnection {
 	}
         try {
             xmlrpc = new XmlRpcClient(host_url);
+            // XmlRpc.setDebug(true);
         } catch (java.net.MalformedURLException e) {
             System.out.println("Bad url '"+host_url+"', check your property file");
             System.exit(0);
@@ -256,6 +257,17 @@ public class BofhdConnection {
         return sendRawCommand(cmd, args, false, sessid_loc);
     }
 
+    private void checkSafeString(String s) throws BofhdException {
+        /* http://www.w3.org/TR/2004/REC-xml-20040204/#NT-Char
+           #x9 | #xA | #xD | [#x20-#xD7FF] */
+        char chars[] = s.toCharArray();
+        for (int i = 0; i < chars.length; i++) {
+            int c = chars[i];
+            if (c >= 0x20){ continue; }
+            if (c == 0x9 || c == 0xa || c == 0xd){ continue; }
+            throw new BofhdException("You entered an illegal charcter:"+c);
+        }
+    }
     /**
      * Handle bofhds extensions to XML-RPC by pre-prosessing the
      * arguments.  Since we only send String (or Vector with
@@ -263,7 +275,7 @@ public class BofhdConnection {
      *
      * @param args a <code>Vector</code> representing the arguments
      */
-    void washCommandArgs(Vector args) {
+    void washCommandArgs(Vector args) throws BofhdException {
         for (int i = args.size()-1; i >= 0; i--) {
             Object tmp = args.get(i);
             if (tmp instanceof String) {
@@ -271,6 +283,7 @@ public class BofhdConnection {
                     tmp = ":"+((String) tmp);
                     args.setElementAt(tmp, i);
                 }
+                checkSafeString((String) tmp);
             } else if (tmp instanceof Vector) {
                 Vector v = (Vector) tmp;
                 for (int j = v.size()-1; j >= 0; j--) {
@@ -279,6 +292,7 @@ public class BofhdConnection {
 			tmp = ":"+((String) tmp);
 			v.setElementAt(tmp, j);
 		    }
+                    checkSafeString((String) tmp);
                 }
             }
         }
