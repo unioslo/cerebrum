@@ -130,6 +130,7 @@ def _calc_address(person_info):
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_semadr', '_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
+        ('drgrad', (None, '_hjemsted', None)),
         ('privatist', ('_semadr', '_hjemsted', None)),
         ('opptak', (None, '_hjemsted', None)),
         ]
@@ -173,19 +174,19 @@ def _calc_address(person_info):
 
 def _load_cere_aff():
     fs_aff = {}
-    person = Person.Person(db) # ?!?
+    person = Factory.get("Person")(db)
     for row in person.list_affiliations(source_system=co.system_fs):
 	k = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
         fs_aff[str(k)] = True
     return(fs_aff)
 
 def rem_old_aff():
-    person = Person.Person(db)
+    person = Factory.get("Person")(db)
     for k,v in old_aff.items():
 	if v:
 	    ent_id,ou,affi = k.split(':')
             person.clear()
-	    person.entity_id = int(ent_id)
+            person.find(int(ent_id))
             person.delete_affiliation(ou, affi, co.system_fs)
 
 def process_person_callback(person_info):
@@ -231,7 +232,7 @@ def process_person_callback(person_info):
             continue
         # Get name
         if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne',
-			'privatist_studieprogram', 'alumni'):
+			'privatist_studieprogram', 'alumni', 'drgrad'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
@@ -263,6 +264,10 @@ def process_person_callback(person_info):
         elif dta_type in ('perm',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
+                                 affiliations, studieprog2sko[p['studieprogramkode']])
+        elif dta_type in ('drgrad',):
+            _process_affiliation(co.affiliation_student,
+                                 co.affiliation_status_student_drgrad,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('tilbud',):
 	    for row in x:
