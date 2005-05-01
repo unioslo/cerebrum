@@ -275,7 +275,9 @@ class SelectTool(object):
         "privatist_studieprogram": SelectMapTag(['studieprogram', 'studieretning'],
                                                 'privatist_studieprogram',
                                                 ['studieprogramkode', 'studieretningkode']),
-
+        "drgrad": SelectMapTag(['studieprogram'],
+                               'drgrad',
+                               ['studieprogramkode']),
         "emne": SelectMapTag('emnekode', 'eksamen', 'emnekode'),
         "privatist_emne": SelectMapTag('emnekode','privatist_emne', 'emnekode'),
         "aktivt_sted": SelectMapAktivtSted(),
