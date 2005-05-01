@@ -218,6 +218,7 @@ def process_person_callback(person_info):
     affiliations = []
     address_info = None
     aktiv_sted = []
+
     # Iterate over all person_info entries and extract relevant data    
     if person_info.has_key('aktiv'):
         for row in person_info['aktiv']:
@@ -237,7 +238,6 @@ def process_person_callback(person_info):
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
-
         # Get affiliations
         if dta_type in ('fagperson',):
             _process_affiliation(co.affiliation_tilknyttet,
@@ -255,8 +255,10 @@ def process_person_callback(person_info):
 		    subtype = co.affiliation_status_student_privatist
 		elif row['studierettstatkode'] == 'FULLFØRT':
 		    subtype = co.affiliation_status_student_alumni
+                elif int(row['studienivakode']) >= 980:
+                    subtype = co.affiliation_status_student_drgrad
 		_process_affiliation(co.affiliation_student, subtype,
-                                 affiliations, studieprog2sko[row['studieprogramkode']])
+                                     affiliations, studieprog2sko[row['studieprogramkode']])
 	elif dta_type in ('privatist_studieprogram',):
 	    _process_affiliation(co.affiliation_student,
 				 co.affiliation_status_student_privatist,
@@ -265,15 +267,11 @@ def process_person_callback(person_info):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
-        elif dta_type in ('drgrad',):
-            _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_drgrad,
-                                 affiliations, studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('tilbud',):
 	    for row in x:
-           	 _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_tilbud,
-                                 affiliations, studieprog2sko[row['studieprogramkode']])
+                _process_affiliation(co.affiliation_student,
+                                     co.affiliation_status_student_tilbud,
+                                     affiliations, studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('evu', ):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_evu,
@@ -286,7 +284,7 @@ def process_person_callback(person_info):
         return
 
     # TODO: If the person already exist and has conflicting data from
-    # another source-system, some mecanism is needed to determine the
+    # another source-system, some mechanism is needed to determine the
     # superior setting.
     
     new_person = Factory.get('Person')(db)
