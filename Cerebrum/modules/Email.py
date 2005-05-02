@@ -1720,6 +1720,72 @@ class AccountEmailMixin(Account.Account):
         return ret
 
 
+class AccountEmailQuotaMixin(Account.Account):
+    """Email-quota module for core class 'Account'."""
+
+    def update_email_quota(self, force=False, request=False):
+        """Set e-mail quota according to values in cereconf.EMAIL_HARD_QUOTA.
+         EMAIL_HARD_QUOTA is in MiB andbased on affiliations.  If request=True
+         and any change is made and user's e-mail is on a Cyrus server, add a
+         request to have Cyrus updated accordingly.  If request and force is true,
+         such a request is always made for Cyrus users (i.e. quota < new_quota).
+         Soft quota is in percent, fetched from EMAIL_SOFT_QUOTA."""
+        change = force
+        quota = self.get_quota()
+        eq = EmailQuota(self._db)
+        try:
+            eq.find_by_entity(self.entity_id)
+        except Errors.NotFoundError:
+            change = True
+            eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
+            eq.write_db()
+        else:
+            # We never decrease the quota, to allow for manual overrides
+            if quota > eq.email_quota_hard:
+                change = True
+                eq.email_quota_hard = quota
+                eq.write_db()
+        if not change:
+            return
+        if request:
+            from Cerebrum.modules.bofhd.utils import BofhdRequests
+            br = BofhdRequests(self._db, self.const)
+            est = EmailServerTarget(self._db)
+            try:
+                est.find_by_entity(self.entity_id)
+            except:
+                return
+            es = EmailServer(self._db)
+            es.find(est.email_server_id)
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                br = BofhdRequests(self._db, self.const)
+                # The call graph is too complex when creating new users or
+                # migrating old users.  So to avoid problems with this
+                # function being called more than once, we just remove any
+                # conflicting requests, so that the last request added
+                # wins.
+                br.delete_request(entity_id=self.entity_id,
+                                  operation=self.const.bofh_email_hquota)
+                # If the ChangeLog module knows who the user requesting
+                # this change is, use that knowledge.  Otherwise, set
+                # requestor to None; it's the best we can do.
+                requestor = getattr(self._db, 'change_by', None)
+                br.add_request(requestor, br.now, self.const.bofh_email_hquota,
+                               self.entity_id, None)
+
+    # Calculate quota for this account 
+    def get_quota(self):
+        quota_settings = cereconf.EMAIL_HARD_QUOTA
+        # '*' is default quota size in EMAIL_HARD_QUOTA dict
+        max_quota = quota_settings['*']
+        for r in self.get_account_types():
+            affiliation = (str(self.const.PersonAffiliation(int(r['affiliation']))))
+            if quota_settings.has_key(affiliation):
+                # always choose the largest quota
+                if quota_settings[affiliation] > max_quota:
+                    max_quota = quota_settings[affiliation]
+        return max_quota
+
 
 class PersonEmailMixin(Person.Person):
 
