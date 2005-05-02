@@ -2040,18 +2040,17 @@ class BofhdExtension(object):
         Integer(help_ref='number_size_mib'),
         Integer(help_ref='number_percent', optional=True),
         perm_filter='can_email_set_quota')
-    def email_quota(self, operator, uname, hquota, squota="90"):
+    def email_quota(self, operator, uname, hquota, squota=cereconf.EMAIL_SOFT_QUOTA):
         acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_email_set_quota(op, acc)
-        if not (hquota.isdigit() and squota.isdigit()):
-            raise CerebrumError, "Quotas must be numeric"
+        if not hquota.isdigit():
+            raise CerebrumError, "Quota must be numeric"
         hquota = int(hquota)
         if hquota < 100:
             raise CerebrumError, "The hard quota can't be less than 100 MiB"
         if hquota > 1024*1024:
             raise CerebrumError, "The hard quota can't be more than 1 TiB"
-        squota = int(squota)
         if squota < 10 or squota > 99:
             raise CerebrumError, ("The soft quota must be in the interval "+
                                   "10% to 99%")
