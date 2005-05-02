@@ -669,6 +669,8 @@ class BofhdExtension(object):
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_info',
         fs=FormatSuggestion([
+        ("Type:             %s",
+         ("target_type",)),
         #
         # target_type == Account
         #
