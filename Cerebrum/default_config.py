@@ -244,6 +244,18 @@ INSTITUTION_DOMAIN_NAME = "my-institution.example"
 # 'email_domain' table.
 EMAIL_DEFAULT_DOMAIN = None
 
+# If your CLASS_ACCOUNT uses Email/AccountEmailQuotaMixin you
+# have to set this variable in your cereconf.py. The purpose of this
+# structure is to set default email_quota values based on affiliation
+# in an {'AFFILIATION': value}, where value is an int ({'*': values} is considered default
+# quota value)
+EMAIL_HARD_QUOTA = None
+
+# Warn user when mailbox is email_quota_warn percent full, i.e. if
+# EMAIL_SOFT_QUOTE = 90 the users with EMAIL_HARD_QUOTA = 100 will
+# be warned when the mailbox contains 90 MiB
+EMAIL_SOFT_QUOTA = None
+
 # Base reference for URLs on webpages
 WEBROOT = "/"
 
