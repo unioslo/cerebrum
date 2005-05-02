@@ -1349,51 +1349,33 @@ class BofhdExtension(object):
 	return "Ok, IMAP-spread added to %s" % uname
 
     # email move
-##     all_commands['email_move'] = Command(
-##         ("email", "move"),
-##         AccountName(help_ref="account_name", repeat=True),
-##         SimpleString(help_ref='string_email_host'),
-##         perm_filter='can_email_move')
-##     def email_move(self, operator, uname, server):
-##         acc = self._get_account(uname)
-##         self.ba.can_email_move(operator.get_entity_id(), acc)
-##         est = Email.EmailServerTarget(self.db)
-##         est.find_by_entity(acc.entity_id)
-##         old_server = est.email_server_id
-##         es = Email.EmailServer(self.db)
-##         es.find_by_name(server)
-##         if old_server == es.entity_id:
-##             raise CerebrumError, "User is already at %s" % server
-##         est.populate(es.entity_id)
-##         est.write_db()
-##         if es.email_server_type == self.const.email_server_type_cyrus:
-##             spreads = [int(r['spread']) for r in acc.get_spread()]
-##             br = BofhdRequests(self.db, self.const)
-##             if not self.const.spread_uio_imap in spreads:
-##                 acc.add_spread(self.const.spread_uio_imap)
-##                 # Since server was chosen already, add_spread() has
-##                 # only queued a create request, not a move request.
-##                 # Look up the create request so we get the dependency
-##                 # right.
-##                 for r in br.get_requests(operation=self.const.bofh_email_create,
-##                                          entity_id=acc.entity_id):
-##                     req = r['request_id']
-##             else:
-##                 # We need to create the new e-mail account ourselves.
-##                 req = br.add_request(operator.get_entity_id(), br.now,
-##                                      self.const.bofh_email_create,
-##                                      acc.entity_id, est.email_server_id)
-
-##             # Now add a move request.
-##             br.add_request(operator.get_entity_id(), br.now,
-##                            self.const.bofh_email_move,
-##                            acc.entity_id, old_server, state_data=req)
-##         else:
-##             # TBD: should we remove spread_uio_imap ?
-##             # It does not do much good to add to a bofh request, mvmail
-##             # can't handle this anyway.
-##             raise NotImplementedError, "can't move to non-IMAP server" 
-##         return "OK"
+    all_commands['email_move'] = Command(
+        ("email", "move"),
+        AccountName(help_ref="account_name", repeat=True),
+        SimpleString(help_ref='string_email_host'),
+        perm_filter='can_email_move')
+    def email_move(self, operator, uname, server):
+        acc = self._get_account(uname)
+        self.ba.can_email_move(operator.get_entity_id(), acc)
+        est = Email.EmailServerTarget(self.db)
+        est.find_by_entity(acc.entity_id)
+        old_server = est.email_server_id
+        es = Email.EmailServer(self.db)
+        es.find_by_name(server)
+        if old_server == es.entity_id:
+            raise CerebrumError, "User is already at %s" % server
+        est.populate(es.entity_id)
+        est.write_db()
+        if es.email_server_type == self.const.email_server_type_cyrus:
+            spreads = [int(r['spread']) for r in acc.get_spread()]
+            if not self.const.spread_hia_email in spreads:
+                acc.add_spread(self.const.spread_hia_email)
+        else:
+            # TBD: should we remove spread_uio_imap ?
+            # It does not do much good to add to a bofh request, mvmail
+            # can't handle this anyway.
+            raise NotImplementedError, "can't move to non-IMAP server" 
+        return "Moved %s to %s" % (uname, server)
 
     # email quota <uname>+ hardquota-in-mebibytes [softquota-in-percent]
     all_commands['email_quota'] = Command(
@@ -1402,7 +1384,7 @@ class BofhdExtension(object):
         Integer(help_ref='number_size_mib'),
         Integer(help_ref='number_percent', optional=True),
         perm_filter='can_email_set_quota')
-    def email_quota(self, operator, uname, hquota, squota=90):
+    def email_quota(self, operator, uname, hquota, squota=cereconf.EMAIL_SOFT_QUOTA):
         acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_email_set_quota(op, acc)
@@ -1411,7 +1393,6 @@ class BofhdExtension(object):
             raise CerebrumError, "The hard quota can't be less than 300 MiB"
         if hquota > 1024*1024:
             raise CerebrumError, "The hard quota can't be more than 1 TiB"
-        squota = int(squota)
         if squota < 30 or squota > 90:
             raise CerebrumError, ("The soft quota must be in the interval "+
                                   "30% to 90%")
@@ -3442,10 +3423,10 @@ class BofhdExtension(object):
         perm_filter='can_add_spread')
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
+        for r in cereconf.HOME_SPREADS:
+            if spread == r:
+                return "Please use the command 'user home_create' to assign an extra homedir to the user!"
         spread = int(self._get_constant(spread, "No such spread"))
-	# TODO probably not the most optimal solution, 
-	if spread == int(self.const.spread_hia_novell_user):
-	    return "Please use the command 'user home_create' to assign an extra homedir to the user!"
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         try:
             entity.add_spread(spread)
@@ -3453,7 +3434,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         if entity_type == 'account':
             self.__spread_sync_group(entity)
-        return "OK"
+        return "Added spread to %s: %s" % (entity_type, id)
 
     # spread list
     all_commands['spread_list'] = Command(
@@ -3477,7 +3458,7 @@ class BofhdExtension(object):
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         if spread == int(self.const.spread_hia_email):
-            raise CerebrumError, "Cannot remove IMAP spread without deleting user"
+            raise CerebrumError, "Cannot remove IMAP spread without deleting user!"
         entity.delete_spread(spread)
         if entity_type == 'account':
             self.__spread_sync_group(entity)
