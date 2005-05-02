@@ -87,7 +87,7 @@ class AccountUiOMixin(Account.Account):
             # Make sure that Cyrus is told about the quota, the
             # previous call probably didn't change the database value
             # and therefore didn't add a request.
-            self.update_email_quota(force=True)
+            self.update_email_quota(force=True, request=True)
         elif spread == self.const.spread_ifi_nis_user:
             # Add an account_home entry pointing to the same disk as
             # the uio spread
@@ -317,53 +317,6 @@ class AccountUiOMixin(Account.Account):
 
         return userobj.__super.update_email_addresses()
 
-    def update_email_quota(self, force=False):
-        """Set e-mail quota according to affiliation.  If any change
-        is made and user's e-mail is on a Cyrus server, add a request
-        to have Cyrus updated accordingly.  If force is true, such a
-        request is always made for Cyrus users."""
-        change = force
-        quota = 100
-        if self.is_employee():
-            quota = 200
-        eq = Email.EmailQuota(self._db)
-        try:
-            eq.find_by_entity(self.entity_id)
-        except Errors.NotFoundError:
-            change = True
-            eq.populate(90, quota)
-            eq.write_db()
-        else:
-            # We never decrease the quota, to allow for manual overrides
-            if quota > eq.email_quota_hard:
-                change = True
-                eq.email_quota_hard = quota
-                eq.write_db()
-        if not change:
-            return
-        est = Email.EmailServerTarget(self._db)
-        try:
-            est.find_by_entity(self.entity_id)
-        except:
-            return
-        es = Email.EmailServer(self._db)
-        es.find(est.email_server_id)
-        if es.email_server_type == self.const.email_server_type_cyrus:
-            br = BofhdRequests(self._db, self.const)
-            # The call graph is too complex when creating new users or
-            # migrating old users.  So to avoid problems with this
-            # function being called more than once, we just remove any
-            # conflicting requests, so that the last request added
-            # wins.
-            br.delete_request(entity_id=self.entity_id,
-                              operation=self.const.bofh_email_hquota)
-            # If the ChangeLog module knows who the user requesting
-            # this change is, use that knowledge.  Otherwise, set
-            # requestor to None; it's the best we can do.
-            requestor = getattr(self._db, 'change_by', None)
-            br.add_request(requestor, br.now, self.const.bofh_email_hquota,
-                           self.entity_id, None)
-
     def is_employee(self):
         for r in self.get_account_types():
             if r['affiliation'] == self.const.affiliation_ansatt:
@@ -372,7 +325,7 @@ class AccountUiOMixin(Account.Account):
 
     def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
         return pgp_encrypt(plaintext, cereconf.PGPID)
-
+    
     def enc_auth_type_md4_nt(self,plaintext,salt=None):
         import smbpasswd
         return smbpasswd.nthash(plaintext)
