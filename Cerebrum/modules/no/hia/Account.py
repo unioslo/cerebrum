@@ -57,18 +57,13 @@ class AccountHiAMixin(Account.Account):
                     ea.email_addr_expire_date = expire_date
                 ea.write_db()
             return
-        # Until a user's email target is associated with an email
-        # server, the mail system won't know where to deliver mail for
-        # that user.  Hence, we return early (thereby avoiding
-        # creation of email addresses) for such users.
-        # For the time being we do not have to check this at HiA
-        # It is, however, possible that HiA will require this at
-        # a later point so we will not take it away just yet
-        #est = Email.EmailServerTarget(self._db)
-        #try:
-        #    est.find(et.email_target_id)
-        #except Errors.NotFoundError:
-        #    return
+        # if an account without email_server_target is found assign
+        # the appropriate server
+        est = Email.EmailServerTarget(self._db)
+        try:
+            est.find(et.email_target_id)
+        except Errors.NotFoundError:
+            est = self._update_email_server()
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
@@ -139,6 +134,36 @@ class AccountHiAMixin(Account.Account):
                     primary_set = True
 		self.update_email_quota()
 
+    # TODO: check this method, may probably be done better
+    def _update_email_server(self):
+        est = Email.EmailServerTarget(self._db)
+        es = Email.EmailServer(self._db)
+        et = Email.EmailTarget(self._db)
+        if self.is_employee():
+            server_name = 'mail-imap1'
+        else:
+            server_name = 'mail-imap2'
+        es.find_by_name(server_name)
+        try:
+            et.find_by_email_target_attrs(entity_id = self.entity_id)
+        except Errors.NotFoundError:
+            # Not really sure about this. it is done at UiO, but maybe it is not
+            # right to make en email_target if one is not found??
+            et.clear()
+            et.populate(self.const.email_target_account,
+                        self.entity_id,
+                        self.const.entity_account)
+            et.write_db()
+        try:
+            est.find_by_entity(self.entity_id)
+            if est.server_id == es.entity_id:
+                return est
+        except:
+            est.clear()
+            est.populate(es.entity_id, parent = et)
+            est.write_db()
+        return est
+
     def write_db(self):
         try:
             plain = self.__plaintext_password
@@ -157,22 +182,10 @@ class AccountHiAMixin(Account.Account):
         return self.__super.suggest_unames(domain, fname, lname, maxlen,
                                            suffix=year)
 
-    def update_email_quota(self, force=False):
-        """Set e-mail quota in Cerebrum"""
-        change = force
-        quota = 300
-        eq = Email.EmailQuota(self._db)
-        try:
-            eq.find_by_entity(self.entity_id)
-        except Errors.NotFoundError:
-            change = True
-            eq.populate(90, quota)
-            eq.write_db()
-        else:
-            # We never decrease the quota, to allow for manual overrides
-            if quota > eq.email_quota_hard:
-                change = True
-                eq.email_quota_hard = quota
-                eq.write_db()
+    def is_employee(self):
+        for r in self.get_account_types():
+            if r['affiliation'] == self.const.affiliation_ansatt:
+                return True
+        return False
 
 # arch-tag: e0828813-9221-4e43-96f0-0194d131e683
