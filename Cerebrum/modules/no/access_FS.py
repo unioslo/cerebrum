@@ -646,7 +646,8 @@ class Student(FSObject):
         eller ikke passert."""
 
         qry = """
-        SELECT sps.fodselsdato, sps.personnr,
+        SELECT DISTINCT
+	       sps.fodselsdato, sps.personnr,
                sp.institusjonsnr_studieansv AS institusjonsnr,
                sp.faknr_studieansv AS faknr,
                sp.instituttnr_studieansv AS instituttnr, 
@@ -662,7 +663,7 @@ class Student(FSObject):
               p.personnr = sps.personnr AND
               NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
               sps.studieprogramkode = sp.studieprogramkode AND
-              sp.studienivakode = 980"""
+              sp.studienivakode >= 980"""
         return self.db.query(qry)
 
     def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
