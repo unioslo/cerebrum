@@ -2507,12 +2507,9 @@ class BofhdExtension(object):
                                       self.const.address_post),
                                      (self.const.system_fs,
                                       self.const.address_post_private)):
-                    try:
-                        address = person.get_entity_address(source = source,
-                                                            type = kind)
+                    address = person.get_entity_address(source = source, type = kind)
+                    if address:
                         break
-                    except Errors.NotFoundError:
-                        pass
 
                 if not address:
                     ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
@@ -2528,7 +2525,7 @@ class BofhdExtension(object):
                 mapping['country'] = address['country']
 
                 mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-                mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
+                mapping['emailadr'] = account.get_primary_mailaddress()  
 	    num_ok += 1	
             out.write(th.apply_template('body', mapping, no_quote=('barcode',)))
         if not (num_ok > 0):
