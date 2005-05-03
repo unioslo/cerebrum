@@ -646,8 +646,7 @@ class Student(FSObject):
         eller ikke passert."""
 
         qry = """
-        SELECT DISTINCT
-               sps.fodselsdato, sps.personnr,
+        SELECT sps.fodselsdato, sps.personnr,
                sp.institusjonsnr_studieansv AS institusjonsnr,
                sp.faknr_studieansv AS faknr,
                sp.instituttnr_studieansv AS instituttnr, 
@@ -655,7 +654,6 @@ class Student(FSObject):
                sps.dato_studierett_tildelt,
                sps.dato_studierett_gyldig_til,
                sps.studieprogramkode,
-               p.etternavn, p.fornavn,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.adrlin3_hjemsted, postnr_hjemsted,
                p.adresseland_hjemsted
@@ -664,7 +662,7 @@ class Student(FSObject):
               p.personnr = sps.personnr AND
               NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
               sps.studieprogramkode = sp.studieprogramkode AND
-              sp.studienivakode >= 980"""
+              sp.studienivakode = 980"""
         return self.db.query(qry)
 
     def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
@@ -1505,7 +1503,7 @@ class roles_xml_parser(non_nested_xml_parser):
             'rollekode': None,
             'dato_fra': None,
             'dato_til': None,
-            'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt'],
+            'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt', 'evu'],
             'faknr': ['sted'],
             'instituttnr': ['sted'],
             'gruppenr': ['sted'],
