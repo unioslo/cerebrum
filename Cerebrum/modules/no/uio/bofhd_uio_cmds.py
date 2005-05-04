@@ -935,9 +935,9 @@ class BofhdExtension(object):
          ("account", "server", "server_type", "def_addr", "valid_addr_1")),
         ("                  %s",
          ("valid_addr",)),
-        ("Quota:            %d MiB, warn at %d%% (not enforced)",
+        ("Mail quota:       %d MiB, warn at %d%% (not enforced)",
          ("dis_quota_hard", "dis_quota_soft")),
-        ("Quota:            %d MiB, warn at %d%% (%s MiB used)",
+        ("Mail quota:       %d MiB, warn at %d%% (%s MiB used)",
          ("quota_hard", "quota_soft", "quota_used")),
         # TODO: change format so that ON/OFF is passed as separate value.
         # this must be coordinated with webmail code.
@@ -2040,13 +2040,15 @@ class BofhdExtension(object):
         Integer(help_ref='number_size_mib'),
         Integer(help_ref='number_percent', optional=True),
         perm_filter='can_email_set_quota')
-    def email_quota(self, operator, uname, hquota, squota=cereconf.EMAIL_SOFT_QUOTA):
+    def email_quota(self, operator, uname, hquota,
+                    squota=cereconf.EMAIL_SOFT_QUOTA):
         acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_email_set_quota(op, acc)
-        if not hquota.isdigit():
+        if not hquota.isdigit() or not str(squota).isdigit():
             raise CerebrumError, "Quota must be numeric"
         hquota = int(hquota)
+        squota = int(squota)
         if hquota < 100:
             raise CerebrumError, "The hard quota can't be less than 100 MiB"
         if hquota > 1024*1024:
