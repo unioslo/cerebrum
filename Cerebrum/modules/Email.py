@@ -1737,12 +1737,15 @@ class AccountEmailQuotaMixin(Account.Account):
         try:
             eq.find_by_entity(self.entity_id)
         except Errors.NotFoundError:
-            change = True
-            eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
-            eq.write_db()
+            if quota is not None:
+                change = True
+                eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
+                eq.write_db()
         else:
             # We never decrease the quota, to allow for manual overrides
-            if quota > eq.email_quota_hard:
+            if quota is None:
+                eq.delete()
+            elif quota > eq.email_quota_hard:
                 change = True
                 eq.email_quota_hard = quota
                 eq.write_db()
@@ -1777,12 +1780,16 @@ class AccountEmailQuotaMixin(Account.Account):
     # Calculate quota for this account 
     def _calculate_account_emailquota(self):
         quota_settings = cereconf.EMAIL_HARD_QUOTA
+        if quota_settings is None:
+            return None
         # '*' is default quota size in EMAIL_HARD_QUOTA dict
         max_quota = quota_settings['*']
         for r in self.get_account_types():
-            affiliation = (str(self.const.PersonAffiliation(int(r['affiliation']))))
+            affiliation = str(self.const.PersonAffiliation(r['affiliation']))
             if quota_settings.has_key(affiliation):
                 # always choose the largest quota
+                if quota_settings[affiliation] is None:
+                    return None
                 if quota_settings[affiliation] > max_quota:
                     max_quota = quota_settings[affiliation]
         return max_quota
