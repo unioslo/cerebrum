@@ -87,7 +87,7 @@ class AccountUiOMixin(Account.Account):
             # Make sure that Cyrus is told about the quota, the
             # previous call probably didn't change the database value
             # and therefore didn't add a request.
-            self.update_email_quota(force=True, request=True)
+            self.update_email_quota(force=True)
         elif spread == self.const.spread_ifi_nis_user:
             # Add an account_home entry pointing to the same disk as
             # the uio spread
