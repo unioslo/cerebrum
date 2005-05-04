@@ -256,6 +256,11 @@ EMAIL_HARD_QUOTA = None
 # be warned when the mailbox contains 90 MiB
 EMAIL_SOFT_QUOTA = None
 
+# Some Cerebrum instances communicate with Cyrus via registered requests in
+# bofhd_request-table in Cerebrum, while others don't. This variable decides
+# whether a request should be added or not {True/False}
+EMAIL_ADD_QUOTA_REQUEST = None
+
 # Base reference for URLs on webpages
 WEBROOT = "/"
 
