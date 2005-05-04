@@ -1723,15 +1723,16 @@ class AccountEmailMixin(Account.Account):
 class AccountEmailQuotaMixin(Account.Account):
     """Email-quota module for core class 'Account'."""
 
-    def update_email_quota(self, force=False, request=False):
+    def update_email_quota(self, force=False):
         """Set e-mail quota according to values in cereconf.EMAIL_HARD_QUOTA.
-         EMAIL_HARD_QUOTA is in MiB andbased on affiliations.  If request=True
-         and any change is made and user's e-mail is on a Cyrus server, add a
-         request to have Cyrus updated accordingly.  If request and force is true,
-         such a request is always made for Cyrus users (i.e. quota < new_quota).
+         EMAIL_HARD_QUOTA is in MiB andbased on affiliations.
+         If cereconf.EMAIL_ADD_QUOTA_REQUEST = True, any change is made and
+         user's e-mail is on a Cyrus server, add a request in Cerebrum to have
+         Cyrus updated accordingly.  If force is true, such a request is always
+         made for Cyrus users (i.e. quota < new_quota).
          Soft quota is in percent, fetched from EMAIL_SOFT_QUOTA."""
         change = force
-        quota = self.get_quota()
+        quota = self._calculate_account_emailquota()
         eq = EmailQuota(self._db)
         try:
             eq.find_by_entity(self.entity_id)
@@ -1747,7 +1748,7 @@ class AccountEmailQuotaMixin(Account.Account):
                 eq.write_db()
         if not change:
             return
-        if request:
+        if cereconf.EMAIL_ADD_QUOTA_REQUEST:
             from Cerebrum.modules.bofhd.utils import BofhdRequests
             br = BofhdRequests(self._db, self.const)
             est = EmailServerTarget(self._db)
@@ -1774,7 +1775,7 @@ class AccountEmailQuotaMixin(Account.Account):
                                self.entity_id, None)
 
     # Calculate quota for this account 
-    def get_quota(self):
+    def _calculate_account_emailquota(self):
         quota_settings = cereconf.EMAIL_HARD_QUOTA
         # '*' is default quota size in EMAIL_HARD_QUOTA dict
         max_quota = quota_settings['*']
