@@ -244,22 +244,24 @@ INSTITUTION_DOMAIN_NAME = "my-institution.example"
 # 'email_domain' table.
 EMAIL_DEFAULT_DOMAIN = None
 
-# If your CLASS_ACCOUNT uses Email/AccountEmailQuotaMixin you
-# have to set this variable in your cereconf.py. The purpose of this
-# structure is to set default email_quota values based on affiliation
-# in an {'AFFILIATION': value}, where value is an int ({'*': values} is considered default
-# quota value)
+# If your CLASS_ACCOUNT uses Email/AccountEmailQuotaMixin you have to
+# set this variable in your cereconf.py. The purpose of this structure
+# is to set default email_quota values based on affiliation in an
+# {'AFFILIATION': value}, where value is an int ({'*': values} is
+# considered default quota value)
 EMAIL_HARD_QUOTA = None
 
 # Warn user when mailbox is email_quota_warn percent full, i.e. if
-# EMAIL_SOFT_QUOTE = 90 the users with EMAIL_HARD_QUOTA = 100 will
-# be warned when the mailbox contains 90 MiB
-EMAIL_SOFT_QUOTA = None
+# EMAIL_SOFT_QUOTA = 90 the users with EMAIL_HARD_QUOTA = 200 should
+# be warned when the mailbox contains 180 MiB.  Cerebrum leaves this
+# checking to the mail server, and only exports the information to
+# LDAP.
+EMAIL_SOFT_QUOTA = 90
 
 # Some Cerebrum instances communicate with Cyrus via registered requests in
 # bofhd_request-table in Cerebrum, while others don't. This variable decides
 # whether a request should be added or not {True/False}
-EMAIL_ADD_QUOTA_REQUEST = None
+EMAIL_ADD_QUOTA_REQUEST = False
 
 # Base reference for URLs on webpages
 WEBROOT = "/"
