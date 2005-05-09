@@ -795,7 +795,7 @@ def move_student_callback(person_info):
                         current_disk_id = account.get_home(d_spread)['disk_id']
                     except Errors.NotFoundError:
                         current_disk_id = None
-                    if autostud.student_disk.has_key(int(current_disk_id)):
+                    if autostud.disk_tool.get_diskdef_by_diskid(int(current_disk_id)):
                         logger.debug("Already on a student disk")
                         raise "NextAccount"
                     try:
