@@ -194,7 +194,7 @@ class SelectMapAktivtSted(SelectMapSuper):
 
 class SelectMapEvuSted(SelectMapAktivtSted):
     def set_select_map(self, select_attrs, profile):
-        self._logger.debug("EVU Map: %s -> %s" % (select_attrs, profile))
+        self._logger.debug2("EVU Map: %s -> %s" % (select_attrs, profile))
         super(SelectMapEvuSted, self).set_select_map(select_attrs, profile)
     
     def get_matches(self, person_info, member_groups=None, person_affs=None):
@@ -238,7 +238,7 @@ class SelectMapGroupMember(SelectMapSuper):
 
 class SelectMapPersonAffiliation(SelectMapSuper):
     def set_select_map(self, select_attrs, profile):
-        self._logger.debug("Paff Map: %s -> %s" % (select_attrs, profile))
+        self._logger.debug2("Paff Map: %s -> %s" % (select_attrs, profile))
         for s_attr in select_attrs:
             affiliation = self._pc.autostud.co.PersonAffiliation(
                 s_attr['affiliation'])
@@ -297,7 +297,7 @@ class SelectTool(object):
             smd._pc = profile_config
         for p in profiles:
             for select_name, select_attrs in p.selection_criterias.items():
-                self._logger.debug("S: %s -> %s" % (select_name, select_attrs))
+                self._logger.debug2("S: %s -> %s" % (select_name, select_attrs))
                 sm_obj = self.select_map_defs[select_name]
                 sm_obj.set_select_map(select_attrs, p)
 
