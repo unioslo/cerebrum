@@ -235,7 +235,6 @@ class Person(FSObject):
 
 class Student(FSObject):
     def list_semreg(self):   # GetStudinfRegkort
-
         """Hent informasjon om semester-registrering og betaling"""
         qry = """
         SELECT DISTINCT
@@ -334,7 +333,7 @@ class Student(FSObject):
           sps.arstall_kull = k.arstall AND
           %s""" % self.is_alive()
 	return self.db.query(qry, {'fnr': fnr,
-                                   'pnr': pnr}))
+                                   'pnr': pnr})
 
     def get_utdanningsplan(self, fnr, pnr): # GetStudentUtdPlan
         """Hent opplysninger om utdanningsplan for student"""
@@ -351,9 +350,10 @@ class Student(FSObject):
         """ % self._is_alive()
 	return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
-    
+
     def list_tilbud(self, institutsjonsnr=0):  # GetStudentTilbud_50
-        """Hent personer som har fått tilbud om opptak
+        """Hent personer som har fått tilbud om opptak og
+        har takket ja til tilbudet.
 	Disse skal gis affiliation student med kode tilbud til
         stedskoden sp.faknr_studieansv+sp.instituttnr_studieansv+
         sp.gruppenr_studieansv. Personer som har fått tilbud om
@@ -362,8 +362,7 @@ class Student(FSObject):
 	registreres i tabellen fs.soknadsalternativ og informasjon om
 	noen har fått tilbud om opptak hentes også derfra (feltet
         fs.soknadsalternativ.tilbudstatkode er et godt sted å 
-        begynne å lete etter personer som har fått tilbud).Forutsetter
-        at studentene har takket ja til tilbudet."""
+        begynne å lete etter personer som har fått tilbud)."""
 
         qry = """
         SELECT DISTINCT
@@ -385,7 +384,6 @@ class Student(FSObject):
               %s
               """ % (institutsjonsnr, self._is_alive())
         return self.db.query(qry)
-
 
     def list_utvekslings_student(self): # GetStudinfUtvekslingsStudent
         """ Henter personer som er registrert som utvekslingsSTUDENT i
@@ -453,7 +451,8 @@ class Student(FSObject):
         FROM fs.studieprogramstudent sps, fs.studieprogram sp, fs.person p
         WHERE p.fodselsdato = sps.fodselsdato AND
               p.personnr = sps.personnr AND
-              NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
+              (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
+               NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
               sps.studieprogramkode = sp.studieprogramkode AND
               sp.studienivakode >= 980"""
         return self.db.query(qry)
