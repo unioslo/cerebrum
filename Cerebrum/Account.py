@@ -217,7 +217,8 @@ class AccountHome(object):
             'spread': int(spread)})
         self._db.log_change(
             self.entity_id, self.const.account_home_removed, None,
-            change_params={'spread': int(spread)})
+            change_params={'spread': int(spread),
+                           'homedir_id': int(ah['homedir_id'])})
 
         # If no other account_home.homedir_id points to this
         # homedir.homedir_id, remove it to avoid dangling unused data
@@ -235,7 +236,7 @@ class AccountHome(object):
             status = int(status)   # Constants.__eq__ don't like strings
         tmp = [['account_id', self.entity_id],
                ['home', home],
-               ['disk_id', disk_id],
+               ['disk_id', Utils.format_as_int(disk_id)],
                ['status', status]]
         if ((home is not None and not isinstance(home, NotSet)) and
             (disk_id is not None and not isinstance(disk_id, NotSet))):
@@ -246,34 +247,37 @@ class AccountHome(object):
                 if isinstance(t[1], NotSet):
                     t[1] = None
         else:
-            tmp.append(('homedir_id', current_id))
+            tmp.append(('homedir_id', Utils.format_as_int(current_id)))
         if isinstance(current_id, NotSet):
+            binds = dict([(t[0], t[1]) for t in tmp])
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=homedir]
               (%s)
             VALUES (%s)""" % (
                 ", ".join([t[0] for t in tmp]),
-                ", ".join([":%s" % t[0] for t in tmp])),
-                       dict([(t[0], t[1]) for t in tmp]))
+                ", ".join([":%s" % t[0] for t in tmp])), binds)
             self._db.log_change(
                 self.entity_id, self.const.homedir_add, None,
-                change_params={'homedir_id': tmp[-1][1]})
+                change_params={'homedir_id': binds['homedir_id'],
+                               'disk_id': binds.get('disk_id', None),
+                               'home': binds.get('home', None)})
         else:
             tmp = filter(lambda k: not (k[1] is None or isinstance(k[1], NotSet)), tmp)
             if 'home' in [x[0] for x in tmp]:
                 tmp.append(['disk_id', None])
             elif 'disk_id' in [x[0] for x in tmp]:
                 tmp.append(['home', None])
-
+            binds = dict([(t[0], t[1]) for t in tmp])
             self.execute("""
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
             WHERE homedir_id=:homedir_id""" % (
-                ", ".join(["%s=:%s" % (t[0], t[0]) for t in tmp])),
-                       dict([(t[0], t[1]) for t in tmp]))
+                ", ".join(["%s=:%s" % (t[0], t[0]) for t in tmp])), binds)
             self._db.log_change(
                 self.entity_id, self.const.homedir_update, None,
-                change_params={'homedir_id': tmp[-1][1]})
+                change_params={'homedir_id': binds['homedir_id'],
+                               'disk_id': binds.get('disk_id', None),
+                               'home': binds.get('home', None)})
         return tmp[-1][1]
 
     def clear_homedir(self, homedir_id):
@@ -317,7 +321,8 @@ class AccountHome(object):
               (:account_id, :spread, :homedir_id)""", binds)
             self._db.log_change(
                 self.entity_id, self.const.account_home_added, None,
-                change_params={'spread': int(spread)})
+                change_params={'spread': int(spread),
+                               'homedir_id' : homedir_id})
 
     def get_home(self, spread):
         return self.query_1("""
