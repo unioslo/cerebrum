@@ -1747,6 +1747,34 @@
   Due date:
   Priority: 3
 
+** Changelog logger for lite
+  Description: Det er ønskelig at man fra change-log'en ikke bare kan
+  	       lese at en entitet er endret, men også hva endringen
+  	       var.  Spesielt ved brukerflyttinger er det viktig å
+  	       huske hvor brukeren lå.  Flere steder i API'et foretas
+  	       change-logging uten at det sendes med noe informasjon
+  	       om hva endringen bestod i.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** uio: reparere changelog for flyttede brukere
+  Description: Vi har en del flyttede brukere der change-log'en
+  	       hverken ikke forteller hvor brukeren ble flyttet fra.
+  	       Denne informasjonen må re-genereres fra mvuser loggen
+  	       (e.l.), og tilhørende change-log entries oppdateres.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
 * Opprydding i API
 ** Etablere kode-standard
   Description: Det har etterhvert dukket opp en mengde list_extended
@@ -1789,5 +1817,36 @@
   Status:
   Due date:
   Priority: 3
+
+* Automatikk rundt kjøring av jobber
+** job_runner trenger not-run støtte
+  Description: Det må være mulig å si at en jobb ikke skal kjøre på
+               gitte tidspunkt, selv om den normalt ville kjørt.  Har
+               man f.eks en jobb med freq=15, kan det være at den ikke
+               skal kjøre på lørdager mellom kl 8 og 9.  Det enkleste
+               er trolig om dette får samme konsekvens som når
+               max_freq hindrer at jobben kjører (i.e. det gir ikke
+               konsekvenser for jobber som er avhengige av den
+               aktuelle jobben).
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2
+
+** uio: rydde i scheduled_jobs.py
+  Description: scheduled_jobs.py ved UiO har blitt noe stor og
+  	       uoversiktlig, spesielt morning jobben ser ut til å
+  	       skape trøbbel.  Filen trenger trolig en fullstendig
+  	       omskriving, gjerne m/flere metoder.
+  Dependencies:
+  Assigned to:
+  Resources:
+  Cost:
+  Status:
+  Due date:
+  Priority: 2.8
 
 arch-tag: 0876b50a-28af-461d-876e-6532b0d85988
