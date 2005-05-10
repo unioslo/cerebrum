@@ -2571,13 +2571,13 @@ class BofhdExtension(object):
         group_d = self._get_group(dest_group)
         if operator:
             self.ba.can_alter_group(operator.get_entity_id(), group_d)
+        src_name = self._get_name_from_object(src_entity)
         # Make the error message for the most common operator error
         # more friendly.  Don't treat this as an error, useful if the
         # operator has specified more than one entity.
         if group_d.has_member(src_entity.entity_id, src_entity.entity_type,
                               group_operator):
-            return ("%s is already a member of %s" %
-                    (self._get_name_from_object(src_entity), dest_group))
+            return "%s is already a member of %s" % (src_name, dest_group)
         # This can still fail, e.g., if the entity is a member with a
         # different operation.
         try:
@@ -2585,8 +2585,45 @@ class BofhdExtension(object):
                                group_operator)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        return "OK, added %s to %s" % (self._get_name_from_object(src_entity),
-                                       dest_group)
+        # Warn the user about NFS filegroup limitations.
+        for spread_name in cereconf.NIS_SPREADS:
+            fg_spread = getattr(self.const, spread_name)
+            for row in group_d.get_spread():
+                if row['spread'] == fg_spread:
+                    count = self._group_count_memberships(src_entity.entity_id,
+                                                          fg_spread)
+                    if count > 16:
+                        return ("WARNING: %s is a member of %d groups with "
+                                "spread %s" % (src_name, count, fg_spread))
+        return "OK, added %s to %s" % (src_name, dest_group)
+
+    def _group_count_memberships(self, entity_id, spread):
+        """Count how many groups of a given spread entity_id has
+        entity_id as a member, either directly or indirectly."""
+        groups = {}
+        gr = Utils.Factory.get("Group")(self.db)
+        for r in gr.list_groups_with_entity(entity_id):
+            # TODO: list_member_groups recurses upwards and returns a
+            # list with the "root" as the last element.  We should
+            # actually look at just that root and recurse downwards to
+            # generate group lists to process difference and
+            # intersection correctly.  Seems a lot of work to support
+            # something we don't currently use, and it's probably
+            # better to improve the API of list_member_groups anyway.
+            if r['operation'] != self.const.group_memberop_union:
+                continue
+            # It would be nice if list_groups_with_entity included the
+            # spread column, but that would lead to duplicate rows.
+            # So we do the filtering here.
+            gr.clear()
+            gr.find(r['group_id'])
+            for sp_row in gr.get_spread():
+                if (sp_row['spread'] == spread):
+                    groups[int(r['group_id'])] = True
+            for group_id in gr.list_member_groups(r['group_id'],
+                                                  spreads=(spread,)):
+                groups[group_id] = True
+        return len(groups.keys())
 
     # group add_entity
     all_commands['group_add_entity'] = None
