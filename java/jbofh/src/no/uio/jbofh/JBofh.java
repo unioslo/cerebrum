@@ -79,32 +79,50 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
         this.jbofh = jbofh;
         this.logger = logger;
         this.enabled = false;
-        buildCompletionHash();
+        complete = new Hashtable();
+        //buildCompletionHash();
     }
     
     public void setEnabled(boolean state) {
         this.enabled = state;
     }
 
-    public void buildCompletionHash() {
-        complete = new Hashtable();
-        for (Enumeration e = jbofh.bc.commands.keys(); e.hasMoreElements(); ) {
+    /**
+     * {   'access': {   'disk': 'access_disk', ... } }
+     */
+    public void addCompletion(Vector cmd_parts, String target) 
+        throws BofhdException{
+        Hashtable parent = complete;
+        for(Enumeration e = cmd_parts.elements(); e.hasMoreElements(); ) {
             String protoCmd = (String) e.nextElement();
-            Vector cmd = (Vector) ((Vector) jbofh.bc.commands.get(protoCmd)).get(0);
-            logger.debug(protoCmd+" -> "+cmd);
-            Hashtable h = complete;
-            for(int i = 0; i < cmd.size(); i++) {
-                Hashtable h2 = (Hashtable) h.get(cmd.get(i));
-                if(h2 == null) {
-                    h2 = new Hashtable();
-                    h.put(cmd.get(i), h2);
+            Object tmp = parent.get(protoCmd);
+            if(tmp == null) {
+                if(e.hasMoreElements()) {
+                    parent.put(protoCmd, tmp = new Hashtable());
+                    parent = (Hashtable) tmp;
+                } else {
+                    parent.put(protoCmd, target);
                 }
-                h = h2;
+            } else {
+                if(tmp instanceof Hashtable) {
+                    if(! e.hasMoreElements()) {
+                        throw new BofhdException(
+                            "Existing map target for"+cmd_parts);
+                    }
+                    parent = (Hashtable) tmp;
+                } else {
+                    if(e.hasMoreElements()) {
+                        throw new BofhdException(
+                            "Existing map target is not a "+
+                            "Hashtable for "+cmd_parts);
+                    } else {
+                        parent.put(protoCmd, target);
+                    }
+                }
             }
         }
-        logger.debug(complete);
     }
-    
+
     /**
      * Analyze the command that user has entered by comparing with the
      * list of legal commands, and translating to the command-parts
@@ -114,77 +132,61 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
      * Otherwise a list of legal values is returned.
      *
      * If expat < 0 and all checked parameters defined in the list of
-     * legal commands were ok, the expanded parameters are returned.
+     * legal commands were ok, the expanded parameters are returned,
+     * followed by the corresponding protocol_command.  Otherwise an
+     * exception is thrown.
      *
      * @param cmd the arguments to analyze
      * @param expat the level at which expansion should occour, or < 0 to translate
      * @throws AnalyzeCommandException
      * @return list of completions, or translated commands
      */    
-    public Vector analyzeCommand(Vector cmd, int expat) throws AnalyzeCommandException {
-        int lvl = 0;
-        boolean debugCmdAnalyzer = false;
-        Hashtable h = complete;
-        Enumeration e = h.keys();
-        if (debugCmdAnalyzer) 
-            while(e.hasMoreElements()) logger.debug("dta: "+e.nextElement());
-        e = h.keys();
 
-        if (debugCmdAnalyzer) logger.debug("analyzeCommand("+cmd.size()+", "+expat);
+    public Vector analyzeCommand(Vector cmd, int expat) throws AnalyzeCommandException { 
+        Hashtable parent = complete;
+        Vector cmdStack = new Vector();
+        int lvl = 0;
+
         while(expat < 0 || lvl <= expat) {
-            Vector thisLvl = new Vector();
-            while(e.hasMoreElements()) {   // Find matching commands at this level
-                String tmp = (String) e.nextElement();
-                if (debugCmdAnalyzer) logger.debug("chk: "+tmp);
-		boolean ok = false;
-		if(lvl >= cmd.size()) {
-		    ok = true;
-		} else if((cmd.get(lvl) instanceof String) &&
-                    tmp.startsWith((String) cmd.get(lvl))) {
-		    ok = true;
-                    if(tmp.equals((String) cmd.get(lvl))) {
-                        thisLvl.clear();
-                        thisLvl.add(tmp);
-                        break;
-                    }
-		}
-		if(ok) {
-                    if (debugCmdAnalyzer) logger.debug("added");
-                    thisLvl.add(tmp);
-                }
+            String this_cmd = null;
+            if (lvl < cmd.size()) this_cmd = (String) cmd.get(lvl);
+            Vector thisLevel = new Vector();
+
+            for(Enumeration enumCompleter = parent.keys(); 
+                enumCompleter.hasMoreElements(); ) {
+                String this_key = (String) enumCompleter.nextElement();
+                if(this_cmd == null || this_key.startsWith(this_cmd))
+                    thisLevel.add(this_key);
             }
-            if (debugCmdAnalyzer) logger.debug(expat+" == "+lvl);
-            if(expat == lvl) {
-                return thisLvl;
-            }
-            if(thisLvl.size() == 1) {  // Check next level
-                if (lvl >= cmd.size()) 
-                    throw new AnalyzeCommandException(lvl + " >= " + cmd.size());
-                cmd.set(lvl, thisLvl.get(0));
-                h = (Hashtable) h.get(cmd.get(lvl));
-                if(h.size() == 0 && expat < 0) {
-                    Vector ret = new Vector();
-                    for(int i = 0; i < lvl; i++) ret.add(cmd.get(i));
-                    return ret;
+            if (lvl == expat)
+                return thisLevel;
+            if(thisLevel.size() != 1 || 
+               (expat < 0 && cmdStack.size() >= cmd.size())) {
+                if(expat < 0){
+                    if (thisLevel.size() == 0)
+                        throw new AnalyzeCommandException("Unknown command");
+                    throw new AnalyzeCommandException(
+                        "Incomplete command, possible subcommands: "+thisLevel);
                 }
-                /* TODO:  If h.size() == 0 -> we have reached the max completion
-                 * depth.  It would perhaps be nice to signal that even when expat >= 0?
-                 **/
-                if(h == null) {
-                    Vector ret = new Vector();
-                    for(int i = 0; i < lvl; i++) ret.add(cmd.get(i));
-                    return ret;
-                }
-                e = h.keys();
-                lvl++;
-            } else {
-                throw new AnalyzeCommandException("size="+thisLvl.size());
+                throw new AnalyzeCommandException(cmd+" -> "+thisLevel+","+lvl);
             }
+            String cmdPart = (String) thisLevel.get(0);
+            cmdStack.add(cmdPart);
+            Object tmp = parent.get(cmdPart);
+            if(!(tmp instanceof Hashtable)) {
+                if(expat < 0){
+                    cmdStack.add(tmp);
+                    return cmdStack;
+                }
+                return new Vector();  // No completions
+            }
+            parent = (Hashtable) tmp;
+            lvl++;
         }
-        logger.error("oops!");
+        logger.error("oops: analyzeCommand "+parent+", "+lvl+", "+expat);
         throw new RuntimeException("Internal error");  // Not reached
     }
-        
+
     public String completer(String str, int param) {
         /*
          * The readLine library gives too little information about the
@@ -210,11 +212,9 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
 		iter = null;
 		return null;
 	    }
-            logger.debug("len="+args.size()+", trail_space="+(cmdLineText.endsWith(" ") ? "true" : "false"));
             int len = args.size();
             if(! cmdLineText.endsWith(" ")) len--;
             if(len < 0) len = 0;
-            logger.debug("new len: "+len);
             if(len >= 2) {
                 iter = null;
                 return null;
@@ -390,6 +390,19 @@ public class JBofh {
     void initCommands() throws BofhdException {
         bc.updateCommands();
         bcompleter = new BofhdCompleter(this, logger);
+        for (Enumeration e = bc.commands.keys(); e.hasMoreElements(); ) {
+            String protoCmd = (String) e.nextElement();
+            Vector cmd = (Vector) ((Vector) bc.commands.get(protoCmd)).get(0);
+            bcompleter.addCompletion(cmd, protoCmd);
+        }
+        Vector v = new Vector();
+        v.add(new String("help"));
+        bcompleter.addCompletion(v, "");
+        v.set(0, new String("source"));
+        bcompleter.addCompletion(v, "");
+        /* We don't want completion for quit
+          v.set(0, new String("quit"));
+          bcompleter.addCompletion(v, ""); */
 	Readline.setCompleter(bcompleter);
 
         knownFormats = new Hashtable();
@@ -407,35 +420,6 @@ public class JBofh {
 	}
     }
 
-    /**
-     * Translate a command-line command to a protocol-command.
-     *
-     * @param cmd the command-line arguments
-     * @return the protocol command
-     */    
-    Object []translateCommand(Vector cmd) {
-        Object ret[] = new Object[2];
-        if(cmd.size() < 2) return null;
-        for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
-            Object key = e.nextElement();
-            Vector cmd_def = (Vector) bc.commands.get(key);
-            if(cmd_def.get(0) instanceof String) {
-                showMessage("Warning, "+key+" is old protocol, skipping", true);
-                continue;
-            }
-            Vector c = (Vector) cmd_def.get(0);
-            if(((String) cmd.get(0)).equals(c.get(0)) && 
-                ((String) cmd.get(1)).equals(c.get(1))) {
-                ret[0] = key;
-                Vector t = new Vector();                
-                for(int i = 2; i < cmd.size(); i++) t.add(cmd.get(i));
-                ret[1] = t;
-                return ret;
-            }
-        }
-        return null; // Throw?
-    }
-
     private boolean processCmdLine() {
         Vector args;
         try {
@@ -451,59 +435,64 @@ public class JBofh {
         }
         if(args.size() == 0) return true;
         try {
-            if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
-                for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
-                    Object key = e.nextElement();
-                    showMessage(key+" -> "+ bc.commands.get(key), true); 
-                }
-            } else if(((String) args.get(0)).equals("quit")) {
-                bye();
-            } else if(((String) args.get(0)).equals("source")) {
-                if(args.size() == 1) {
-                    showMessage("Must specify filename to source", true);
-                } else {
-                    sourceFile((String) args.get(1));
-                }
-            } else if(((String) args.get(0)).equals("help")) {
-                args.remove(0);
-                showMessage(bc.getHelp(args), true);
-            } else {
-                try {
-                    Vector lst = bcompleter.analyzeCommand(args, -1);
-                    for(int i = 0; i < lst.size(); i++) args.set(i, lst.get(i));
-                } catch (AnalyzeCommandException e) {
-                    showMessage("Unknown command", true); return true;
-                }
-                    
-                Object r[] = translateCommand(args);
-                if(r == null) {
-                    showMessage("Unknown command", true); return true;
-                }
-                String protoCmd = (String) r[0];
-                Vector protoArgs = (Vector) r[1];
-                protoArgs = checkArgs(protoCmd, protoArgs);
-                if(protoArgs == null) return true;
-                try {
-                    boolean multiple_cmds = false;
-                    for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) 
-                        if(e.nextElement() instanceof Vector)
-                            multiple_cmds = true;
-                    if(guiEnabled) mainFrame.showWait(true);
-                    Object resp = bc.sendCommand(protoCmd, protoArgs);
-                    if(resp != null) showResponse(protoCmd, resp, multiple_cmds, true);
-                } catch (BofhdException ex) {
-                    showMessage(ex.getMessage(), true);
-                } catch (Exception ex) {
-                    showMessage("Unexpected error (bug): "+ex, true);
-                    ex.printStackTrace();
-                } finally {
-                    if(guiEnabled) mainFrame.showWait(false);
-                }
-            }
+            runCommand(args, false);
         } catch (BofhdException be) {
             showMessage(be.getMessage(), true);
         }
         return true;
+    }
+
+    private void runCommand(Vector args, boolean sourcing) 
+        throws BofhdException {
+        if(((String) args.get(0)).equals("commands")) {  // Neat while debugging
+            for (Enumeration e = bc.commands.keys() ; e.hasMoreElements() ;) {
+                Object key = e.nextElement();
+                showMessage(key+" -> "+ bc.commands.get(key), true); 
+            }
+        } else if(((String) args.get(0)).equals("quit")) {
+            bye();
+        } else if(((String) args.get(0)).equals("source")) {
+            if(args.size() == 1) {
+                showMessage("Must specify filename to source", true);
+            } else {
+                sourceFile((String) args.get(1));
+            }
+        } else if(((String) args.get(0)).equals("help")) {
+            args.remove(0);
+            showMessage(bc.getHelp(args), true);
+        } else {
+            String protoCmd;
+            Vector protoArgs;
+            try {
+                Vector lst = bcompleter.analyzeCommand(args, -1);
+                logger.debug("R:"+lst);
+                protoCmd = (String) lst.get(lst.size() - 1);
+                protoArgs = new Vector(
+                    args.subList(lst.size()-1, args.size()));
+            } catch (AnalyzeCommandException e) {
+                showMessage(e.getMessage(), true); return;
+            }
+            if(! sourcing) {
+                protoArgs = checkArgs(protoCmd, protoArgs);
+                if(protoArgs == null) return;
+            }
+            try {
+                boolean multiple_cmds = false;
+                for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) 
+                    if(e.nextElement() instanceof Vector)
+                        multiple_cmds = true;
+                if(guiEnabled && ! sourcing) mainFrame.showWait(true);
+                Object resp = bc.sendCommand(protoCmd, protoArgs);
+                if(resp != null) showResponse(protoCmd, resp, multiple_cmds, true);
+            } catch (BofhdException ex) {
+                showMessage(ex.getMessage(), true);
+            } catch (Exception ex) {
+                showMessage("Unexpected error (bug): "+ex, true);
+                ex.printStackTrace();
+            } finally {
+                if(guiEnabled && ! sourcing) mainFrame.showWait(false);
+            }
+        }        
     }
             
     void enterLoop() {
@@ -541,27 +530,14 @@ public class JBofh {
             try {
                 args = cLine.splitCommand(cmd);
             } catch (ParseException ex) {
-                showMessage("Unknown command ("+cmd+")", true); continue;
+                showMessage("Error parsing command ("+cmd+")", true); return;
              }
-            Object r[] = translateCommand(args);
-            if(r == null) {
-                showMessage("Unknown command: "+cmd, true); continue;
-            }
-            String protoCmd = (String) r[0];
-            Vector protoArgs = (Vector) r[1];
+
+            showMessage(((String) props.get("console_prompt"))+cmd, true);
             try {
-                showMessage(((String) props.get("console_prompt"))+cmd, true);
-                boolean multiple_cmds = false;
-                for (Enumeration e2 = protoArgs.elements() ; e2.hasMoreElements() ;) 
-                    if(e2.nextElement() instanceof Vector)
-                        multiple_cmds = true;
-                Object resp = bc.sendCommand(protoCmd, protoArgs);
-                if(resp != null) showResponse(protoCmd, resp, multiple_cmds, true);
-            } catch (BofhdException ex) {
-                showMessage(ex.getMessage(), true);
-            } catch (Exception ex) {
-                showMessage("Unexpected error (bug, true): "+ex, true);
-                ex.printStackTrace();
+                runCommand(args, true);
+            } catch (BofhdException be) {
+                showMessage(be.getMessage(), true);
             }
         }
         if(guiEnabled) mainFrame.showWait(false);
