@@ -61,7 +61,7 @@ class DiskQuota(DatabaseAccessor):
                   override_expiration=NotSet(), description=NotSet()):
         """Insert or update disk_quota for homedir_id.  Will only
         affect the columns used as keyword arguments"""
-        tmp = (['homedir_id', homedir_id],
+        tmp = (['homedir_id', int(homedir_id)],
                ['quota', quota],
                ['override_quota', override_quota],
                ['override_expiration', override_expiration],
@@ -81,8 +81,8 @@ class DiskQuota(DatabaseAccessor):
                 ", ".join([t[0] for t in tmp]),
                 ", ".join([":%s" % t[0] for t in tmp])),
                          dict([(t[0], t[1]) for t in tmp]))
-        else:
-            tmp = filter(lambda k: not isinstance(k[1], NotSet), tmp)
+        tmp = filter(lambda k: not isinstance(k[1], NotSet), tmp)
+        if not is_new:
             self.execute("""
             UPDATE [:table schema=cerebrum name=disk_quota]
             SET %s
