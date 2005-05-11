@@ -30,6 +30,13 @@ def suite():
         #tests.append("directory")
     except ImportError: 
         print "Module 'ldap' not installed, ignoring test 'directory'"
+
+    try:
+        import win32com
+        tests.append("adsi")
+    except ImportError:
+        print "No win32 extensions, ignoring test 'adsi'"    
+
     return unittest.defaultTestLoader.loadTestsFromNames(tests)
 
 if __name__ == "__main__":
