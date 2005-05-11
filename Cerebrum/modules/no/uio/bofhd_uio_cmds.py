@@ -4682,7 +4682,13 @@ class BofhdExtension(object):
         perm_filter='can_set_disk_quota')
     def user_set_disk_quota(self, operator, accountname, size, date, why):
         account = self._get_account(accountname)
-        age = DateTime.strptime(date, '%Y-%m-%d') - DateTime.now()
+        try:
+            age = DateTime.strptime(date, '%Y-%m-%d') - DateTime.now()
+        except:
+            raise CerebrumError, "Error parsing date"
+        why = why.strip()
+        if len(why) < 3:
+            raise CerebrumError, "Why cannot be blank"
         unlimited = forever = False
         if age.days > 185:
             forever = True
