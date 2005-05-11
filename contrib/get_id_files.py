@@ -46,4 +46,4 @@ for user in users:
    file.close
 
 sock.send('QUIT\n')
-sock.close()
+sock.close()# arch-tag: 9f49f3fa-c21c-11d9-950f-f7f6e76069a4
