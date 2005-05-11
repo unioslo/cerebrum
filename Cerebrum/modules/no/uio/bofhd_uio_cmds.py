@@ -2798,16 +2798,25 @@ class BofhdExtension(object):
                              group_operation):
         group_operation = self._get_group_opcode(group_operation)
         self.ba.can_alter_group(operator.get_entity_id(), group)
+        member_name = self._get_name_from_object(member)
         if not group.has_member(member.entity_id, member.entity_type,
                                 group_operation):
             return ("%s isn't a member of %s" %
-                    (self._get_name_from_object(member), group.group_name))
+                    (member_name, group.group_name))
+        if member.entity_type == self.const.entity_account:
+            try:
+                pu = PosixUser.PosixUser(self.db)
+                pu.find(member.entity_id)
+                if pu.gid_id == group.entity_id:
+                    raise CerebrumError, ("Can't remove %s from primary group" %
+                                          member_name)
+            except Errors.NotFoundError:
+                pass
         try:
             group.remove_member(member.entity_id, group_operation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        return "OK, removed '%s' from '%s'" % (
-            self._get_name_from_object(member), group.group_name)
+        return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
     # group remove_entity
     all_commands['group_remove_entity'] = None
@@ -3092,6 +3101,7 @@ class BofhdExtension(object):
                         'group': grp.group_name,
                         'spreads': ",".join(["%s" % self.num2const[int(a['spread'])]
                                              for a in grp.get_spread()])})
+        ret.sort(lambda a,b: cmp(a['group'], b['group']))
         return ret
 
     #
