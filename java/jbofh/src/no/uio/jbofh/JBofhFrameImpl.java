@@ -232,6 +232,7 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
     }
 
     public String getCmdLineText(){
+        tfCmdLine.requestFocusInWindow();
         return tfCmdLine.getText();
     }
 
