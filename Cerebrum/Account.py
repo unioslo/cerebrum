@@ -236,7 +236,7 @@ class AccountHome(object):
             status = int(status)   # Constants.__eq__ don't like strings
         tmp = [['account_id', self.entity_id],
                ['home', home],
-               ['disk_id', Utils.format_as_int(disk_id)],
+               ['disk_id', disk_id],
                ['status', status]]
         if ((home is not None and not isinstance(home, NotSet)) and
             (disk_id is not None and not isinstance(disk_id, NotSet))):
@@ -259,7 +259,7 @@ class AccountHome(object):
             self._db.log_change(
                 self.entity_id, self.const.homedir_add, None,
                 change_params={'homedir_id': binds['homedir_id'],
-                               'disk_id': binds.get('disk_id', None),
+                               'disk_id': Utils.format_as_int(binds.get('disk_id', None)),
                                'home': binds.get('home', None)})
         else:
             tmp = filter(lambda k: not (k[1] is None or isinstance(k[1], NotSet)), tmp)
@@ -276,7 +276,7 @@ class AccountHome(object):
             self._db.log_change(
                 self.entity_id, self.const.homedir_update, None,
                 change_params={'homedir_id': binds['homedir_id'],
-                               'disk_id': binds.get('disk_id', None),
+                               'disk_id': Utils.format_as_int(binds.get('disk_id', None)),
                                'home': binds.get('home', None)})
         return tmp[-1][1]
 
