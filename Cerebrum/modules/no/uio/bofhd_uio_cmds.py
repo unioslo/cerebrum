@@ -927,12 +927,15 @@ class BofhdExtension(object):
         #
         # target_type == Account
         #
+        ("Account:          %s\nMail server:      %s (%s)",
+         ("account", "server", "server_type")),
+        ("Default address:  %s",
+         ("def_addr", )),
         # We use valid_addr_1 and (multiple) valid_addr to enable
         # programs to get the information reasonably easily, while
         # still keeping the suggested output format pretty.
-        ("Account:          %s\nMail server:      %s (%s)\n"+
-         "Default address:  %s\nValid addresses:  %s",
-         ("account", "server", "server_type", "def_addr", "valid_addr_1")),
+        ("Valid addresses:  %s",
+         ("valid_addr_1", )),
         ("                  %s",
          ("valid_addr",)),
         ("Mail quota:       %d MiB, warn at %d%% (not enforced)",
@@ -963,8 +966,6 @@ class BofhdExtension(object):
         ("                  %s",
          ("mailman_mailowner", )),
         # target_type == multi
-        ("Primary address:  %s",
-         ("multi_def_addr",)),
         ("Valid address:    %s",
          ("multi_valid_addr_1",)),
         ("                  %s",
@@ -1005,19 +1006,32 @@ class BofhdExtension(object):
         et, acc = self.__get_email_target_and_account(uname)
         ttype = et.email_target_type
         ttype_name = str(self.const.EmailTarget(ttype))
-        ret = [ {'target_type': ttype_name } ]
-        # The target_type in ret is overwritten when it is considered
-        # redundant information.
+
+        ret = []
+        if ttype not in (self.const.email_target_account,
+                         self.const.email_target_Mailman,
+                         self.const.email_target_pipe):
+            ret += [ {'target_type': ttype_name } ]
+
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            epat.find(et.email_target_id)
+        except Errors.NotFoundError:
+            if ttype == self.const.email_target_account:
+                ret.append({'def_addr': "<none>"})
+        else:
+            ret.append({'def_addr': self.__get_address(epat)})
+
         if ttype == self.const.email_target_Mailman:
-            ret = self._email_info_mailman(uname, et)
+            ret += self._email_info_mailman(uname, et)
         elif ttype == self.const.email_target_multi:
             ret += self._email_info_multi(uname, et)
         elif ttype == self.const.email_target_pipe:
-            ret = self._email_info_pipe(uname, et)
+            ret += self._email_info_pipe(uname, et)
         elif ttype == self.const.email_target_forward:
             ret += self._email_info_forward(uname, et)
         elif ttype == self.const.email_target_account:
-            ret = self._email_info_account(operator, acc, et)
+            ret += self._email_info_account(operator, acc, et)
         elif ttype == self.const.email_target_deleted:
             ret += self._email_info_account(operator, acc, et)
         else:
@@ -1064,10 +1078,6 @@ class BofhdExtension(object):
             info["server"] = es.name
             type = int(es.email_server_type)
             info["server_type"] = str(self.const.EmailServerType(type))
-        try:
-            info["def_addr"] = acc.get_primary_mailaddress()
-        except Errors.NotFoundError:
-            info["def_addr"] = "<none>"
         if addrs:
             info["valid_addr_1"] = addrs[0]
             for idx in range(1, len(addrs)):
@@ -1153,11 +1163,12 @@ class BofhdExtension(object):
                 info.append({'forward': forw[idx]})
         return info
 
+    # The first address in the list becomes the primary address.
     _interface2addrs = {
         'post': ["%(local_part)s@%(domain)s"],
         'mailcmd': ["%(local_part)s-request@%(domain)s"],
-        'mailowner': ["%(local_part)s-admin@%(domain)s",
-                      "%(local_part)s-owner@%(domain)s",
+        'mailowner': ["%(local_part)s-owner@%(domain)s",
+                      "%(local_part)s-admin@%(domain)s",
                       "owner-%(local_part)s@%(domain)s"]
         }
     _mailman_pipe = "|/local/Mailman/mail/wrapper %(interface)s %(listname)s"
@@ -1221,13 +1232,6 @@ class BofhdExtension(object):
         ret = []
         # a multi target does not need a primary address target, but
         # let's handle it just in case.
-        epat = Email.EmailPrimaryAddressTarget(self.db)
-        try:
-            epat.find(et.email_target_id)
-        except Errors.NotFoundError:
-            pass
-        else:
-            ret.append({'multi_def_addr': self.__get_address(epat)})
         addr_list = []
         for r in et.get_addresses():
             addr_list.append("%(local_part)s@%(domain)s" % r)
@@ -1685,7 +1689,7 @@ class BofhdExtension(object):
         SimpleString(help_ref="mailman_admins", optional=True),
         perm_filter="can_email_list_create")
     def email_create_list(self, operator, listname, admins = None):
-        """Create e-mail addresses listname needs to be a Mailman
+        """Create the e-mail addresses 'listname' needs to be a Mailman
         list.  Also adds a request to create the list on the Mailman
         server."""
         lp, dom = self._split_email_address(listname)
@@ -1781,6 +1785,7 @@ class BofhdExtension(object):
         result = []
         et = Email.EmailTarget(self.db)
         ea = Email.EmailAddress(self.db)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
         ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
         list_id = ea.email_addr_id
         for interface in self._interface2addrs.keys():
@@ -1789,12 +1794,20 @@ class BofhdExtension(object):
             try:
                 et.clear()
                 et.find_by_alias(alias)
+                epat.clear()
+                try:
+                    epat.find(et.email_target_id)
+                except Errors.NotFoundError:
+                    pass
+                else:
+                    epat.delete()
                 for r in et.get_addresses():
                     addr = '%(local_part)s@%(domain)s' % r
                     ea.clear()
                     ea.find_by_address(addr)
                     ea.delete()
                     result.append({'address': addr})
+                et.delete()
             except Errors.NotFoundError:
                 pass
         br = BofhdRequests(self.db, self.const)
@@ -1851,6 +1864,7 @@ class BofhdExtension(object):
 
         et = Email.EmailTarget(self.db)
         ea = Email.EmailAddress(self.db)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
             ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
         except Errors.NotFoundError:
@@ -1888,10 +1902,19 @@ class BofhdExtension(object):
                         et.populate(self.const.email_target_Mailman,
                                     alias=targ, using_uid=mailman.entity_id)
                         et.write_db()
-                    found_target = True
                 ea.clear()
                 ea.populate(addr_lp, ed.email_domain_id, et.email_target_id)
                 ea.write_db()
+                if not found_target:
+                    epat.clear()
+                    try:
+                        epat.find(et.email_target_id)
+                    except Errors.NotFoundError:
+                        epat.clear()
+                        epat.populate(ea.email_addr_id, parent=et)
+                        epat.write_db()
+                    found_target = True
+
 
     # email create_multi <multi-address> <group>
     all_commands['email_create_multi'] = Command(
