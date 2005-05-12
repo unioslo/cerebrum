@@ -31,19 +31,19 @@ sync.read(('sync.conf.template', 'sync.conf'))
 
 def apply_quarantine(obj, typestr):
     for q in obj.get_quarantines:
-	try:
+        try:
             a=sync.get('%s_quarantenes' % typestr, q.name)
-	except ConfigParser.NoOptionError:
-	    try:
+        except ConfigParser.NoOptionError:
+            try:
                 a=sync.get('%s_quarantenes' % typestr, "DEFAULT")
-	    except ConfigParser.NoOptionError:
-		return
+            except ConfigParser.NoOptionError:
+                return
         try:
             (var, val) = a.split('=')
             #val=eval(val)  # ouch! but needed for strings/ints/etc
-	except ValueError:
+        except ValueError:
             logging.error("Bad quarantene action \"%s\"" % a)
-	setattr(obj, var, val)
+        setattr(obj, var, val)
 
 def apply_override(obj, typestr):
     section='%s_override' % typestr
@@ -55,7 +55,7 @@ def apply_default(obj, typestr):
     section='%s_default' % typestr
     attribs=obj.__dict__.copy()
     for a in sync.options(section):
-	if not obj.__dict__.has_key(a):
+        if not obj.__dict__.has_key(a):
             setattr(obj, a, sync.get(section, a, vars=attribs))
 
 # Not only tests that config file contains values, but that they make

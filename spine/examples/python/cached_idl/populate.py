@@ -35,8 +35,8 @@ name_m = ["ole", "jens", "gunnar", "frode", "jørgen", "kristian",
           "marius", "lars", "martin", "leiv", "arild", "johan",
           "sverre" ]
 name_f  = ["lise", "mari", "gro", "anne", "kristin", "jenny", "hanne",
-	"ida", "marit", "maria", "siv", "silje", "tine", "tina",
-	"idunn", "hege", "marte", "gry", "vigdis" ]
+        "ida", "marit", "maria", "siv", "silje", "tine", "tina",
+        "idunn", "hege", "marte", "gry", "vigdis" ]
 name_g  = ["myr", "teig", "skog", "fjell", "vass"]
 name_s  = ["set", "stad", "sæter", "by", "voll", "eng", "sjø",
         "vatn", "å", "skog", "ås", "vik", "nes"]
@@ -49,12 +49,12 @@ name_2 = mult(name_m, ["sen"]) * 4 + mult(name_m, ["son"]) \
 import random
 def get_name_first(g):
     if g:
-	if g=="M":
-	    return name_m[random.randrange(len(name_m))].capitalize()
-	else:
-	    return name_f[random.randrange(len(name_f))].capitalize()
+        if g=="M":
+            return name_m[random.randrange(len(name_m))].capitalize()
+        else:
+            return name_f[random.randrange(len(name_f))].capitalize()
     else:
-	return name_1[random.randrange(len(name_1))].capitalize()
+        return name_1[random.randrange(len(name_1))].capitalize()
 
 def get_name_last():
     return name_2[random.randrange(len(name_2))].capitalize()
@@ -94,7 +94,7 @@ import time
 def create_many(n):
     t=time.time()
     for i in range(n):
-	create_random()
+        create_random()
     dt=time.time()-t
     print "Created %d persons/users/groups in %f seconds %f/s\n" % (n, dt, n/dt)
 
