@@ -99,8 +99,9 @@ class _AdsiBack(object):
 
     def close(self):
         """Close the connection to AD"""
-        for obj in self._remains.values():
-            self._delete(obj)
+        if not self.incr:
+            for obj in self._remains.values():
+                self._delete(obj)
         self._remains = None
         self.ou = None
 
@@ -142,7 +143,7 @@ class _ADAccount(_AdsiBack):
         implement self.objectClass. (For instance, you're searching for
         a group, but found a username instead. As groups and users share
         the saMAccountName domain in AD, you can't have both). If you
-        want to override this, specify the paramter objectClass.
+        want to override this, specify the parameter objectClass.
         
         Raises OutsideOUError if a conflicting object with
         the given name exists outside our managed OU self.ou.
@@ -180,9 +181,16 @@ class _ADAccount(_AdsiBack):
         return None   
     
     def add(self, obj):
+        """Adds an object to AD. If it already exist, the existing
+           AD object will be updated instead."""
         already_exists = self._find(obj.name)
         if already_exists:
-#            print >>sys.stderr, "Already exists ", already_exists, "updating instead"
+            # FIXME: Proper logging, and maybe hint caller that he
+            # should do a full sync instead
+            if self.incr:
+                # in non-incr (full-sync) mode, everything will be
+                # add(), so we won't report those
+                print >>sys.stderr, "Already exists ", already_exists, "updating instead"
             return self.update(obj)
         
         ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)    
@@ -190,16 +198,18 @@ class _ADAccount(_AdsiBack):
         ad_obj.setInfo()
         # update should fetch object again for auto-generated values 
         ad_obj = self.update(obj)
-        if not self.incr:
-            if obj.name in self._remains:
-                del self._remains[obj.name]
+        # update() will also remove from self._remains if necessary
         return ad_obj
 
     def update(self, obj):
+        """Updates an object in AD. If it does not already exist, the
+           AD object will be added instead."""
         # Do the specialization here, always return for subclasses to
         # do more work on object
         ad_obj = self._find(obj.name)
         if not ad_obj:
+            # FIXME: Proper logging, and maybe hint caller that he
+            # should do a full sync instead
             print >>sys.stderr, "Did not exists ", already_exists, "adding instead"
             return self.add(obj)
         if not self.incr:
@@ -325,57 +335,115 @@ class TestOUFramework(unittest.TestCase):
         return "LDAP://ou=%s,%s" % (self.ou, self.context)
     ou_uri = property(ou_uri)    
 
-    def deleteOU(self):
-        """Recusively deletes our temporary ou"""
+    def deleteOU(self, ou=None):
+        """Recusively deletes an ou with the given name.
+        ou must be located in root.
+        If parameter ou is not given, uses self.ou"""
+        if ou is None:
+            ou = self.ou
         self.assertEqual(cscript("""
         on error resume next
-        set ou = GetObject("%s")
+        set ou = GetObject("LDAP://OU=%s,%s")
         ou.DeleteObject 0
-        """ % self.ou_uri), "")
-
-    def setUp(self):
-        # Find our root, ie dc=some,dc=doman,dc=com
-        self.context = cscript("""
-        Wscript.Echo(GetObject("LDAP://rootDSE").Get("defaultNamingContext"))
-        """)
+        """ % (ou, self.context)), "")
+        
+    def createOU(self, ou=None):
+        """Creates a new (blank) ou with the given name, located in root.
+        If parameter ou is not given, uses self.ou.
+        WARNING: Will recursive delete if ou already exists."""
+        if ou is None:
+            ou = self.ou
         # delete tempOU if already exist 
-        self.deleteOU()
+        self.deleteOU(ou)
 
         # Create our working temporary OU
         self.assertEqual(cscript("""
         set root = GetObject("LDAP://%s")
         set tempOU = root.Create("organizationalUnit", "ou=%s")
         tempOU.SetInfo()
-        """ % (self.context, self.ou)), "")
+        """ % (self.context, ou)), "")
+
+    def setUp(self):
+        # Find our root, ie dc=some,dc=doman,dc=com
+        self.context = cscript("""
+        Wscript.Echo(GetObject("LDAP://rootDSE").Get("defaultNamingContext"))
+        """)
+        self.createOU()
     
     def tearDown(self):    
         self.deleteOU()
 
-    def addUser(self, user="temp1337"):
+    def createUser(self, user="temp1337", ou=None):
         """Adds a user through vbscript"""
+        if ou is None:
+            ou = self.ou
         self.assertEqual(cscript("""
-        set ou = GetObject("%s")
+        set ou = GetObject("LDAP://ou=%s,%s")
         set user = ou.Create("user", "cn=%s")
         user.saMAccountName = "%s"
         user.SetInfo()
-        """ % (self.ou_uri, user, user)), "")
+        """ % (ou, self.context, user, user)), "")
 
-    def hasNotUser(self, user="temp1337"):      
+    def hasNotUser(self, user="temp1337", ou=None):      
         """Fails if the user exists"""
+        if ou is None:
+            ou = self.ou
         #  Should not find anything
         self.assertEqual(cscript("""
         On Error Resume Next
         set account = GetObject("LDAP://cn=%s,ou=%s,%s")
         Wscript.Echo(account.distinguishedName)
-        """ % (user, self.ou, self.context)), "")
+        """ % (user, ou, self.context)), "")
 
-    def hasUser(self, user="temp1337"):      
+    def hasUser(self, user="temp1337", ou=None):
         """Fails if the user does not exist"""
-        dn = "CN=%s,OU=%s,%s" % (user, self.ou, self.context) 
+        if ou is None:
+            ou = self.ou
+        dn = "CN=%s,OU=%s,%s" % (user, ou, self.context) 
         self.assertEqual(cscript("""
         set account = GetObject("LDAP://%s")
         Wscript.Echo(account.distinguishedName)
         """ % dn), dn)
+
+class TestTestOUFramework(TestOUFramework):
+    def testFramework(self):
+        """Quick test of our testing framework"""
+        self.hasNotUser()
+        self.assertRaises(AssertionError, self.hasUser)
+        self.createUser()
+        self.hasUser()
+        self.assertRaises(AssertionError, self.hasNotUser)
+        self.deleteOU()
+        # should not fail if not exist    
+        self.deleteOU()
+        # Should fail if OU is missing
+        self.assertRaises(AssertionError, self.hasUser)
+
+        self.createOU()
+        self.createUser()
+        # createOU should delete existing OU
+        self.createOU()
+        self.hasNotUser()
+
+        # create/has with another username
+        self.createUser("fish1337")
+        self.hasUser("fish1337")
+        self.hasNotUser()
+        self.assertRaises(AssertionError, self.hasNotUser, "fish1337")
+
+        # another OU
+        self.createOU("temp42")
+        self.createUser("knott1337", ou="temp42")
+        self.assertRaises(AssertionError, self.hasUser, "knott1337")
+        self.assertRaises(AssertionError, self.hasNotUser, "knott1337", ou="temp42")
+        self.hasUser("knott1337", ou="temp42")
+        self.deleteOU("temp42")
+        self.createOU("temp42")
+
+    def tearDown(self):
+        super(TestTestOUFramework, self).tearDown()
+        self.deleteOU("temp42")       
+
 
 class TestOU(TestOUFramework):
     def testWasCreated(self):
@@ -390,19 +458,46 @@ class TestADSIBack(TestOUFramework):
         self.adsi = _AdsiBack(self.ou_uri)
         self.adsi.begin()
     
+    def testBegin(self):    
+        self.assertEqual(self.adsi.ou.distinguishedName,
+            "OU=%s,%s" % (self.ou, self.context))
+    
+    def testBeginDefaultRoot(self):    
+        # Test default constructor instead
+        adsi = _AdsiBack()
+        adsi.begin()
+        # Should pick root, ie DC=..  without any OU=
+        self.assertEqual(adsi.ou.distinguishedName,
+                         self.context)
+    
     def testRemainsEmpty(self):
         self.assertEqual(self.adsi._remains, {})
     
     def testContainsUsers(self):
-        self.addUser()
+        self.createUser()
         self.adsi.begin() # reload _remains
         self.assertEqual(self.adsi._remains.keys(), ["temp1337"])
         self.hasUser()
 
-    def testRemovesUnknown(self):
-        self.addUser()
-        self.adsi.begin(incr=False) # reload _remains
+    def testCloseRemovesUnknown(self):
+        self.createUser()
+        self.hasUser()
+        self.adsi.begin() # reload _remains
         self.adsi.close() # Should delete the user we added
+        #  Should not find anything
+        self.hasNotUser()
+        self.assertEqual(self.adsi._remains, None)
+        self.assertEqual(self.adsi.ou, None)
+        
+    def testAbortRemovesNothing(self):
+        self.createUser()
+        self.hasUser()
+        self.adsi.begin() # reload _remains
+        self.adsi.abort() # Should not delete the user we added
+        #  Should still find user
+        self.hasUser()
+        self.assertEqual(self.adsi._remains, None)
+        self.assertEqual(self.adsi.ou, None)
 
     def testDomain(self):
         self.assertEqual(self.adsi._domain().path(), 
@@ -414,13 +509,17 @@ class TestADAccount(TestOUFramework):
         self.adaccount = _ADAccount(self.ou_uri)
         self.adaccount.begin()
 
+    def tearDown(self):    
+        self.deleteOU(self.ou + "1337")
+        super(TestADAccount, self).tearDown()
+
     def testRemoveAccount(self):
         class Account:
             """Dummy account object"""
             name = "temp1337"
         account = Account()    
 
-        self.addUser()
+        self.createUser()
         self.adaccount.begin() 
         # reload _remains to mimic containsUser
         self.adaccount.delete(account)
@@ -430,8 +529,58 @@ class TestADAccount(TestOUFramework):
         self.adaccount.begin() # reload _remains
         # now empty again
         self.assertEqual(self.adaccount._remains.keys(), []) 
-        
+
+    def testRemoveAccount(self):
+        class Account:
+            """Dummy account object"""
+            name = "temp1337"
+        account = Account()    
+
+        self.createUser()
+        self.adaccount.begin() 
+        # reload _remains to mimic containsUser
+        self.adaccount.delete(account)
+        #  Should not find anything
+        self.hasNotUser()
+        # Should no longer be in _remains
+        self.assertEqual(self.adaccount._remains.keys(), []) 
+
+    def testFindAccount(self):
+        # should not find before creation
+        self.assertEqual(self.adaccount._find("temp1337"), None)
+        self.createUser()
+        account = self.adaccount._find("temp1337")
+        self.assertEqual(account.distinguishedName, 
+                         "CN=temp1337,OU=%s,%s" % (self.ou, self.context))
+        # Should not find another name 
+        self.assertEqual(self.adaccount._find("nottemp1337"), None)
     
+    def testFindOutsideOU(self):     
+        anotherOU = self.ou + "1337"
+        self.createOU(anotherOU)
+        self.createUser("outside1337", ou=anotherOU)
+        self.assertRaises(OutsideOUError, self.adaccount._find, "outside1337")
+
+        # But if we specify root as ou it should work 
+        anotherOUobj = self.adaccount
+        account = self.adaccount._find("outside1337", ad.root())
+        self.assertEqual(account.distinguishedName, 
+                         "CN=outside1337,OU=%s,%s" % (anotherOU, self.context))
+         
+    def testFindWrongClass(self):     
+        self.createUser()
+        # default is self.adaccount.objectClass, for _ADAccount this is
+        # "top" - which every object is part of
+        u = self.adaccount._find("temp1337")
+        # temp1337 is a user
+        self.adaccount._find("temp1337", objectClass="user")
+        # but not a group
+        self.assertRaises(WrongClassError,
+                          self.adaccount._find, "temp1337", 
+                          objectClass="group")
+    # cannot test _ADAccount.add() as both groups and users will require
+    # another self.objectClass than "top" - ie. _ADAccount.add() is an
+    # abstract method. 
 
 if __name__ == "__main__":
     print "Note that these tests must be run as a domain administrator locally"
