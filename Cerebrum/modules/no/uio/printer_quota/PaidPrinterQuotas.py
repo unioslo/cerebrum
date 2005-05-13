@@ -76,6 +76,11 @@ class PaidPrinterQuotas(DatabaseAccessor):
             FROM [:table schema=cerebrum name=paid_quota_status]
             WHERE person_id=:person_id""", {'person_id': person_id})
 
+    def list(self):
+        return self.query("""
+        SELECT has_quota, has_blocked_quota, person_id
+        FROM [:table schema=cerebrum name=paid_quota_status]""")
+
     def new_quota(self, person_id, has_quota=False,
                   has_blocked_quota=False):
         """Register person in the paid_quota_status table"""
@@ -176,9 +181,11 @@ class PaidPrinterQuotas(DatabaseAccessor):
     def _add_quota_history(self, transaction_type, person_id,
                            pageunits_free, pageunits_paid, pageunits_total,
                            update_by=None, update_program=None,
-                           tstamp=None):
-
-        id = int(self.nextval('printer_log_id_seq'))
+                           tstamp=None, _override_job_id=None):
+        if _override_job_id:
+            id = _override_job_id
+        else:
+            id = int(self.nextval('printer_log_id_seq'))
         binds = {
             'job_id': id,
             'transaction_type': int(transaction_type), 
@@ -202,7 +209,9 @@ class PaidPrinterQuotas(DatabaseAccessor):
     def _add_transaction(
         self, transaction_type, person_id, update_by, update_program,
         pageunits_free=0, pageunits_paid=0, target_job_id=None,
-        description=None, bank_id=None, kroner=0, payment_tstamp=None):
+        description=None, bank_id=None, kroner=0, payment_tstamp=None,
+        _do_not_alter_quota=False, _override_job_id=None,
+        _override_pageunits_total=None):
         """Register an entry in the paid_quota_transaction table.
         Should not be called directly.  Use
         PPQUtil. add_payment/undo_transaction"""
@@ -212,14 +221,19 @@ class PaidPrinterQuotas(DatabaseAccessor):
             raise CerebrumError, "Must set update_by OR update_program"
 
         # Update quota
-        self._alter_quota(person_id, pageunits_free=pageunits_free,
-                          pageunits_paid=pageunits_paid)
+        if not _do_not_alter_quota:
+            self._alter_quota(person_id, pageunits_free=pageunits_free,
+                              pageunits_paid=pageunits_paid)
 
+        pageunits_total = pageunits_free+pageunits_paid
+        if _override_pageunits_total is not None:
+            pageunits_total = _override_pageunits_total
         # register history entries
         id = self._add_quota_history(
             transaction_type, person_id, pageunits_free,
-            pageunits_paid, pageunits_free+pageunits_paid,
-            update_by=update_by, update_program=update_program)
+            pageunits_paid, pageunits_total,
+            update_by=update_by, update_program=update_program,
+            _override_job_id=_override_job_id)
 
         binds = {
             'job_id': id,
@@ -275,6 +289,25 @@ class PaidPrinterQuotas(DatabaseAccessor):
 	WHERE person_id=:person_id""",{
 	    'person_id': int(person_id)})
 
+    def _delete_history(self, job_id, entry_type):
+        if entry_type == 'printjob':
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=paid_quota_printjob]
+            WHERE job_id=:job_id""",{
+                'job_id': int(job_id)})
+        elif entry_type == 'transaction':
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=paid_quota_transaction]
+            WHERE job_id=:job_id""",{
+                'job_id': int(job_id)})
+        else:
+            raise ValueError("This method is private for a reason")
+	self.execute("""
+	DELETE FROM [:table schema=cerebrum name=paid_quota_history]
+	WHERE job_id=:job_id""",{
+	    'job_id': int(job_id)})
+        
+
     def get_quoata_status(self, has_quota_filter=None):
         if has_quota_filter is not None:
             if has_quota_filter:
@@ -315,20 +348,21 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where = ""
         return self.query(
             """SELECT pqh.job_id, transaction_type, person_id, description,
-               bank_id, target_job_id
+               bank_id, target_job_id, kroner
             FROM [:table schema=cerebrum name=paid_quota_transaction] pqt,
                  [:table schema=cerebrum name=paid_quota_history] pqh
             WHERE pqh.job_id=pqt.job_id %s %s""" % (where, order_by),
             binds, fetchall=fetchall)
 
     def get_history(self, job_id=None, person_id=None, tstamp=None,
-                    target_job_id=None):
+                    target_job_id=None, before=None):
         # In theory we could have one big LEFT JOIN search, but there
         # is a chance that it would give us a performance hit with
         # +1 million records in the database
         binds = {'job_id': job_id,
                  'person_id': person_id,
                  'tstamp': tstamp,
+                 'before': before,
                  'target_job_id': target_job_id}
         where = []
         if person_id:
@@ -339,6 +373,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where.append("target_job_id=:target_job_id")
         if tstamp:
             where.append("tstamp >= :tstamp")
+        if before:
+            where.append("tstamp < :before")
         if where:
             where = "AND "+" AND ".join(where)
         else:
@@ -389,17 +425,22 @@ class PaidPrinterQuotas(DatabaseAccessor):
         %s""" % (extra_cols, group_by)
         return self.query(qry, binds)
 
-    def get_payment_stats(self, tstamp_from, tstamp_to):
+    def get_payment_stats(self, tstamp_from, tstamp_to,
+                          group_by=('transaction_type',)):
         binds = {'tstamp_from': tstamp_from,
                  'tstamp_to': tstamp_to}
+        if group_by:
+            extra_cols = ", " + ", ".join(group_by)
+            group_by = "GROUP BY " + ", ".join(group_by)
+        else:
+            group_by = extra_cols = ""
         qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
-            sum(pageunits_paid) AS paid, sum(kroner) AS kroner,
-            transaction_type
+            sum(pageunits_paid) AS paid, sum(kroner) AS kroner %s
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
              [:table schema=cerebrum name=paid_quota_transaction] pqt
         WHERE pqh.job_id=pqt.job_id AND tstamp >= :tstamp_from AND
               tstamp < :tstamp_to
-        GROUP BY transaction_type"""
+        %s"""
         return self.query(qry, binds)
 
     
