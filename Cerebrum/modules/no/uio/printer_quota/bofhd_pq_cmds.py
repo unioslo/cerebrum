@@ -344,7 +344,7 @@ The currently defined id-types are:
             elif r['transaction_type'] == str(self.const.pqtt_undo):
                 tmp['data'] = ("undo %s: %s" % (r['target_job_id'],
                                                 r['description']))[:20]
-            elif r['transaction_type'] == str(self.const.pqtt_quota_balance):
+            elif r['transaction_type'] == str(self.const.pqtt_balance):
                 tmp['data'] = "balance"
             ret.append(tmp)
 
