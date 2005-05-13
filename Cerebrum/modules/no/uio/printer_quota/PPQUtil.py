@@ -257,4 +257,43 @@ class PPQUtil(object):
         self.ppq._set_status_attr(new_id, tmp)
         return True
 
+    def truncate_log(self, person_id, to_date, update_program):
+        """Removes all jobs by person_id with tstamp < to_date, and
+        replaces the last removed job with balance.  Returns a tuple
+        (removed, new_status) where removed contains all the
+        database-rows that was removed, and new_status is a tuple
+        (job_id, free, aid, total, kroner) for the newly inserted
+        record."""
+
+        rows = self.ppq.get_history(person_id=person_id, before=to_date)
+        pageunits_free = pageunits_paid = pageunits_total = kroner = 0
+        last_id = None
+        for row in rows:
+            tt = row['transaction_type']
+            pageunits_free += int(row['pageunits_free'])
+            pageunits_paid += int(row['pageunits_paid'])
+            pageunits_total += int(row['pageunits_total'])
+            if tt == int(self.const.pqtt_printout):
+                entry_type = 'printjob'
+                pass  # No relevant extra data
+            elif tt in(int(self.const.pqtt_balance),
+                       int(self.const.pqtt_quota_fill_pay),
+                       int(self.const.pqtt_quota_fill_free),
+                       int(self.const.pqtt_undo)):
+                entry_type = 'transaction'
+                kroner += float(row['kroner'])
+            else:
+                raise errors.InvalidQuotaData("Unknown transaction type: %i" % tt)
+            self.ppq._delete_history(row['job_id'], entry_type)
+            last_id = long(row['job_id'])
+        if last_id is not None:
+            self.ppq._add_transaction(
+                self.const.pqtt_balance, person_id, None, update_program,
+                pageunits_free=pageunits_free, pageunits_paid=pageunits_paid,
+                kroner=kroner, _do_not_alter_quota=True,
+                description='truncate_log', _override_job_id=last_id,
+                _override_pageunits_total=pageunits_total)
+        return rows, (last_id, pageunits_free, pageunits_paid,
+                      pageunits_total, kroner)
+
 # arch-tag: 46f32b24-2441-4162-be3e-d7392874318a
