@@ -24,6 +24,8 @@ dersom man skal ha kode for en spesifik FS-versjon.
 Disse klassene er ment brukt ved å instansiere klassen FS
 """
 
+import cerebrum_path
+import cereconf
 import time
 import xml.sax
 
@@ -47,7 +49,7 @@ class FSObject(object):
 
     def __init__(self, db):
         self.db = db
-        t = time.localtime()[0:2]
+        t = time.localtime()[0:3]
         if t[1] <= 6:
             self.sem = 'V'
             self.semester = 'VÅR'
@@ -56,33 +58,33 @@ class FSObject(object):
             self.semester = 'HØST'
         self.year = t[0]
         self.mndnr = t[1]
+        self.dday = t[2]
         self.YY = str(t[0])[2:]
-
+        self.institusjonsnr = cereconf.DEFAULT_INSTITUSJONSNR
+        
     def _is_alive(self):
 	return "NVL(p.status_dod, 'N') = 'N'\n"
 
     def _get_termin_aar(self, only_current=0):
-        yr, mon, md = time.localtime()[0:3]
-        if mon <= 6:
+        if self.mndnr <= 6:
             # Months January - June == Spring semester
-            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % yr;
-            if only_current or mon >= 3 or (mon == 2 and md > 15):
+            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year;
+            if only_current or self.mndnr >= 3 or (self.mndnr == 2 and self.dday > 15):
                 return current
             return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
-                current, yr-1)
+                current, self.year-1)
         # Months July - December == Autumn semester
-        current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % yr
-        if only_current or mon >= 10 or (mon == 9 and md > 15):
+        current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
+        if only_current or self.mndnr >= 10 or (self.mndnr == 9 and self.dday > 15):
             return current
-        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, yr)
+        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, self.year)
 
     def _get_next_termin_aar(self):
         """henter neste semesters terminkode og årstal."""
-        yr, mon, md = time.localtime()[0:3]
-        if mon <= 6:
-            next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % yr
+        if self.mndnr <= 6:
+            next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % self.year
         else:
-            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (yr + 1)
+            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (self.year + 1)
         return next
 
 class Person(FSObject):
@@ -264,7 +266,6 @@ class Student(FSObject):
         # TODO: Det er mulig denne skal splittes i to søk, ett som
         # returnerer lovlige, og et som returnerer "ulovlige"
         # eksamensmeldinger (sistnevnte er vel GetStudinfPrivatist?)
-	aar = time.localtime()[0:1]
 	qry = """
         SELECT p.fodselsdato, p.personnr, e.emnekode, e.studieprogramkode
         FROM fs.person p, fs.eksamensmelding e
@@ -273,32 +274,8 @@ class Student(FSObject):
               e.arstall=%s 
               AND %s
         ORDER BY fodselsdato, personnr
-        """ %(aar[0],self._is_alive())                            
+        """ % (self.year, self._is_alive())                            
       	return self.db.query(qry)
-
-    def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
-        """Hent informasjon om alle som er registrert på EMNEKODE"""
-        query = """
-        SELECT p.fodselsdato, p.personnr, p.fornavn, p.etternavn
-        FROM person p, eksamensmelding e
-        WHERE e.emnekode = :emnekode AND
-             e.fodselsdato = p.fodselsdato AND
-             e.personnr = p.personnr"""
-        # NB! Oracle driver does not like :foo repeated multiple times :-(
-        # That is why we interpolate variables into the query directly.
-        year, month = time.localtime()[0:2]
-        if month < 6:
-            time_part = """
-                        AND e.arstall >= %(year)d
-                        AND e.manednr >= %(month)d
-                        """ % locals()
-        else:
-            time_part = """
-                        AND ((e.arstall = %(year)d AND
-                              e.manednr >= %(month)d) OR
-                             (e.arstall > %(year)d))
-                        """ % locals()
-        return self.db.query(query + time_part, {"emnekode" : emnekode})
 
     def get_eksamensmeldinger(self, fnr, pnr): # GetStudentEksamen
 	"""Hent alle aktive eksamensmeldinger for en student"""
@@ -310,11 +287,50 @@ class Student(FSObject):
               em.personnr = :pnr AND
               em.fodselsdato = p.fodselsdato AND
               em.personnr = p.personnr AND
-              em.arstall >= year
-              AND %s""" % self._is_alive()
+              em.arstall >= %s
+              AND %s""" % (self.year, self._is_alive())
         return self.db.query(qry, {'fnr': fnr,
-                                   'pnr': pnr,
-                                   'year': self.year})
+                                   'pnr': pnr})
+
+    def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
+	"""Hent info om alle studierett en student har eller har hatt"""
+        qry = """
+        SELECT DISTINCT
+           sps.studieprogramkode, sps.studierettstatkode,
+           sps.studieretningkode,sps.dato_studierett_tildelt, 
+           sps.dato_studierett_gyldig_til,sps.status_privatist, 
+           sps.studentstatkode
+        FROM fs.studieprogramstudent sps, fs.person p
+        WHERE sps.fodselsdato=:fnr AND
+              sps.personnr=:pnr AND
+              sps.fodselsdato=p.fodselsdato AND
+              sps.personnr=p.personnr 
+              AND %s
+        """ % self._is_alive()
+        return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
+    
+    def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
+        """Hent informasjon om alle som er registrert på EMNEKODE"""
+        query = """
+        SELECT p.fodselsdato, p.personnr, p.fornavn, p.etternavn
+        FROM person p, eksamensmelding e
+        WHERE e.emnekode = :emnekode AND
+             e.fodselsdato = p.fodselsdato AND
+             e.personnr = p.personnr"""
+        # NB! Oracle driver does not like :foo repeated multiple times :-(
+        # That is why we interpolate variables into the query directly.
+        if month < 6:
+            time_part = """
+                        AND e.arstall >= %(self.year)d
+                        AND e.manednr >= %(self.mndnr)d
+                        """ % locals()
+        else:
+            time_part = """
+                        AND ((e.arstall = %(self.year)d AND
+                              e.manednr >= %(self.mndnr)d) OR
+                             (e.arstall > %(self.year)d))
+                        """ % locals()
+        return self.db.query(query + time_part, {"emnekode" : emnekode})
 
     def get_student_kull(self, fnr, pnr):
 	"""Hent opplysninger om hvilken klasse studenten er en del av og 
@@ -331,7 +347,7 @@ class Student(FSObject):
           sps.studieprogramkode = k.studieprogramkode AND
           sps.terminkode_kull = k.terminkode AND
           sps.arstall_kull = k.arstall AND
-          %s""" % self.is_alive()
+          %s""" % self._is_alive()
 	return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
 
@@ -351,7 +367,7 @@ class Student(FSObject):
 	return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
 
-    def list_tilbud(self, institutsjonsnr=0):  # GetStudentTilbud_50
+    def list_tilbud(self):  # GetStudentTilbud_50
         """Hent personer som har fått tilbud om opptak og
         har takket ja til tilbudet.
 	Disse skal gis affiliation student med kode tilbud til
@@ -362,7 +378,10 @@ class Student(FSObject):
 	registreres i tabellen fs.soknadsalternativ og informasjon om
 	noen har fått tilbud om opptak hentes også derfra (feltet
         fs.soknadsalternativ.tilbudstatkode er et godt sted å 
-        begynne å lete etter personer som har fått tilbud)."""
+        begynne å lete etter personer som har fått tilbud). Hvis vi skal
+        kjøre dette på UiO kan det hende at vi må ha:
+        "sa.opptakstypekode = 'NOM'" med i søket. Dette er imidlertid
+        uklart"""
 
         qry = """
         SELECT DISTINCT
@@ -375,14 +394,13 @@ class Student(FSObject):
              fs.studieprogram sp
         WHERE p.fodselsdato=sa.fodselsdato AND
               p.personnr=sa.personnr AND
-              sa.institusjonsnr='%s' AND 
-              sa.opptakstypekode = 'NOM' AND
+              sa.institusjonsnr=%s AND 
               sa.tilbudstatkode IN ('I', 'S') AND
               sa.svarstatkode_svar_pa_tilbud='J' AND
               sa.studietypenr = osp.studietypenr AND
               osp.studieprogramkode = sp.studieprogramkode AND
               %s
-              """ % (institutsjonsnr, self._is_alive())
+              """ % (self.institusjonsnr, self._is_alive())
         return self.db.query(qry)
 
     def list_utvekslings_student(self): # GetStudinfUtvekslingsStudent
@@ -457,136 +475,31 @@ class Student(FSObject):
               sp.studienivakode >= 980"""
         return self.db.query(qry)
 
-    def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
-	"""Hent info om alle studierett en student har eller har hatt"""
-        qry = """
+    def list_privatist(self):
+	"""Her henter vi informasjon om privatister.
+	Som privatist regnes alle studenter med en forekomst i
+	FS.STUDIEPROGRAMSTUDENT der dato_studierett_gyldig_til
+        er større eller lik dagens dato og studierettstatuskode
+        er PRIVATIST eller status_privatist er satt til 'J'"""
+	qry = """
         SELECT DISTINCT
-           sps.studieprogramkode, sps.studierettstatkode,
-           sps.studieretningkode,sps.dato_studierett_tildelt, 
-           sps.dato_studierett_gyldig_til,sps.status_privatist, 
-           sps.studentstatkode
-        FROM fs.studieprogramstudent sps, fs.person p
-        WHERE sps.fodselsdato=:fnr AND
-              sps.personnr=:pnr AND
-              sps.fodselsdato=p.fodselsdato AND
-              sps.personnr=p.personnr 
-              AND %s
-        """ % self._is_alive()
-        return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
-
-class Student40(FSObject):
-    def list_tilbud(self, institutsjonsnr=0):  # GetStudinfTilbud
-        """Hent personer som har fått tilbud om opptak
-	Disse skal gis affiliation student med kode tilbud til
-        stedskoden sp.faknr_studieansv+sp.instituttnr_studieansv+
-        sp.gruppenr_studieansv. Personer som har fått tilbud om
-        opptak til et studieprogram ved institusjonen vil inngå i
-        denne kategorien.  Alle søkere til studierved institusjonen
-	registreres i tabellen fs.soknadsalternativ og informasjon om
-	noen har fått tilbud om opptak hentes også derfra (feltet
-        fs.soknadsalternativ.tilbudstatkode er et godt sted å 
-        begynne å lete etter personer som har fått tilbud)."""
-
-        qry = """
-        SELECT DISTINCT
-              p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
-              p.adrlin1_hjemsted, p.adrlin2_hjemsted,
-              p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
-              p.sprakkode_malform, osp.studieprogramkode, p.kjonn,
-              p.status_reserv_nettpubl
-        FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
-             fs.studieprogram sp
-        WHERE p.fodselsdato=sa.fodselsdato AND
-              p.personnr=sa.personnr AND
-              sa.institusjonsnr='%s' AND 
-              sa.opptakstypekode = 'NOM' AND
-              sa.tilbudstatkode IN ('I', 'S') AND
-              sa.studietypenr = osp.studietypenr AND
-              osp.studieprogramkode = sp.studieprogramkode
-              AND %s
-      """ % (institutsjonsnr, self._is_alive())
+          p.fodselsdato, p.personnr, p.etternavn,
+          p.fornavn, p.kjonn, s.adrlin1_semadr,
+          s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
+          s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.sprakkode_malform,sps.studieprogramkode,
+          sps.studieretningkode, sps.status_privatist, 
+          s.studentnr_tildelt, p.telefonnr_mobil
+        FROM fs.student s, fs.person p, fs.studieprogramstudent sps
+        WHERE p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          (sps.studierettstatkode = 'PRIVATIST' OR
+          sps.status_privatist = 'J') AND
+          sps.dato_studierett_gyldig_til >= sysdate """
         return self.db.query(qry)
 
-    def get_studierett(self, fnr, pnr):  # GetStudentStudierett
-	"""Hent info om alle studierett en student har eller har hatt"""
-        qry = """
-        SELECT DISTINCT
-          st.studieprogramkode, st.studierettstatkode, st.dato_tildelt,
-          st.dato_gyldig_til, st.status_privatist, st.opphortstudierettstatkode
-        FROM fs.studierett st, fs.person p
-        WHERE st.fodselsdato=:fnr AND
-              st.personnr=:pnr AND
-              st.fodselsdato=p.fodselsdato AND
-              st.personnr=p.personnr 
-              AND %s
-        """ % self._is_alive()
-        return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
-
-
-    def _list_opptak_query(self):
-	aar, maned = time.localtime()[0:2]
-        """Hent personer med opptak til et studieprogram ved
-        institusjonen og som enten har vært registrert siste året
-        eller opptak efter 2003-01-01.  Henter ikke de som har
-        fremtidig opptak.  Disse kommer med 14 dager før dato for
-        tildelt opptak.  Med untak av de som har 'studierettstatkode'
-        lik 'PRIVATIST' skal alle disse få affiliation student med
-        kode 'opptak' ('privatist' for disse) til stedskoden
-        sp.faknr_studieansv + sp.instituttnr_studieansv +
-        sp.gruppenr_studieansv"""
-
-        qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-               s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-               p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-               p.sprakkode_malform, st.studieprogramkode, st.studieretningkode,
-               st.studierettstatkode, p.kjonn
-        FROM fs.student s, fs.person p, fs.studierett st, fs.studieprogram sp
-        WHERE  p.fodselsdato=s.fodselsdato AND
-               p.personnr=s.personnr AND
-               p.fodselsdato=st.fodselsdato AND
-               p.personnr=st.personnr AND 
-               st.studieprogramkode = sp.studieprogramkode AND
-               NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
-               st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
-               st.dato_tildelt < SYSDATE + 14 AND
-               st.dato_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
-       """
-        qry += """ UNION
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-               s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-               p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, p.status_reserv_nettpubl,
-               p.sprakkode_malform, st.studieprogramkode, st.studieretningkode,
-               st.studierettstatkode, p.kjonn
-        FROM fs.student s, fs.person p, fs.studierett st, fs.registerkort r,
-             fs.studieprogram sp
-        WHERE  p.fodselsdato=s.fodselsdato AND
-               p.personnr=s.personnr AND
-               p.fodselsdato=st.fodselsdato AND
-               p.personnr=st.personnr AND
-               st.studieprogramkode = sp.studieprogramkode AND
-               p.fodselsdato=r.fodselsdato AND
-               p.personnr=r.personnr AND
-               NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
-               st.studierettstatkode IN (RELEVANTE_STUDIERETTSTATKODER) AND
-               r.arstall >= (%s - 1)
-       """ % (aar)
-        return qry
-
-    def list_opptak(self): # GetStudinfOpptak
-        studierettstatkoder = """'AUTOMATISK','AVTALE','CANDMAG', 'DIVERSE',
-        'EKSPRIV', 'ERASMUS', 'FJERNUND', 'GJEST', 'FULBRIGHT',
-        'HOSPITANT', 'KULTURAVT', 'KVOTEPROG', 'LEONARDO', 'OVERGANG',
-        'NUFU', 'SOKRATES', 'LUBECK', 'NORAD', 'ARKHANG', 'NORDPLUS',
-        'ORDOPPTAK', 'EVU', 'UTLOPPTAK'"""
-        qry = self._list_opptak_query().replace(
-            "RELEVANTE_STUDIERETTSTATKODER", studierettstatkoder)
-        return self.db.query(qry)
-        
 class Undervisning(FSObject):
     def list_aktivitet(self, Instnr, emnekode, versjon, termk,
                        aar, termnr, aktkode): # GetStudUndAktivitet
@@ -640,7 +553,7 @@ class Undervisning(FSObject):
 
     def list_undervisningenheter(self, year=None, sem=None): # GetUndervEnhetAll
         if year is None:
-            year = time.localtime()[0]
+            year = self.year
         if sem is None:
             sem = self.semester
         return self.db.query("""
@@ -667,7 +580,7 @@ class Undervisning(FSObject):
                               'sem': sem})
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
-                                      start_semester=None):
+                         start_semester=None):
         if start_semester is None:
             start_semester = self.semester
         return self.db.query("""
@@ -850,134 +763,6 @@ class Undervisning(FSObject):
             'termin': termin, 'arstall': arstall,
             'status_aktiv': status_aktiv, 'status_publiseres': status_publiseres})
 
-class Student50(FSObject):
-    def list_drgrad_50(self): # GetStudinfDrgrad
-	"""Henter info om aktive doktorgradsstudenter."""
-        qry = """
-        SELECT fodselsdato, personnr, institusjonsnr, faknr,
-               instituttnr, gruppenr
-        FROM fs.drgradsavtale
-        WHERE dato_start <= SYSDATE AND
-              NVL(DATO_BEREGNET_SLUTT, sysdate) >= SYSDATE"""
-        return self.db.query(qry)
-
-class Undervisning50(FSObject):    
-    def list_ansvarlig_for_enhet_50(self, Instnr, emnekode, versjon,
-                                    termk, aar, termnr): # GetAnsvUndervEnhet
-        qry = """
-        SELECT
-          uan.fodselsdato AS fodselsdato,
-          uan.personnr AS personnr
-        FROM
-          fs.undervisningsansvarlig uan
-        WHERE
-          uan.institusjonsnr = :instnr AND
-          uan.emnekode       = :emnekode AND
-          uan.versjonskode   = :versjon AND
-          uan.terminkode     = :terminkode AND
-          uan.arstall        = :arstall AND
-          uan.terminnr       = :terminnr
-        UNION
-        SELECT
-          ue.fodselsdato_Ansvarligkontakt AS fodselsdato,
-          ue.personnr_Ansvarligkontakt AS personnr
-        FROM
-          fs.undervisningsenhet ue
-        WHERE
-          ue.institusjonsnr = :instnr AND
-          ue.emnekode       = :emnekode AND
-          ue.versjonskode   = :versjon AND
-          ue.terminkode     = :terminkode AND
-          ue.arstall        = :arstall AND
-          ue.terminnr       = :terminnr AND
-          ue.fodselsdato_Ansvarligkontakt IS NOT NULL AND
-          ue.personnr_Ansvarligkontakt IS NOT NULL
-        UNION
-        SELECT
-          ual.fodselsdato_fagansvarlig AS fodselsdato,
-          ual.personnr_fagansvarlig AS personnr
-        FROM
-          fs.undaktivitet ua, fs.undaktivitet_lerer ual
-        WHERE
-          ua.institusjonsnr = :instnr AND
-          ua.emnekode       = :emnekode AND
-          ua.versjonskode   = :versjon AND
-          ua.terminkode     = :terminkode AND
-          ua.arstall        = :arstall AND
-          ua.terminnr       = :terminnr AND
-          ua.undformkode    = 'FOR' AND
-          ua.institusjonsnr = ual.institusjonsnr AND
-          ua.emnekode       = ual.emnekode AND
-          ua.versjonskode   = ual.versjonskode AND
-          ua.terminkode     = ual.terminkode AND
-          ua.arstall        = ual.arstall AND
-          ua.terminnr       = ual.terminnr AND
-          ua.aktivitetkode  = ual.aktivitetkode"""
-
-        return self.db.query(qry, {
-            'instnr': Instnr,
-            'emnekode': emnekode,
-            'versjon': versjon,
-            'terminkode': termk,
-            'arstall': aar,
-            'terminnr': termnr})
-
-    def get_ansvarlig_for_enhet_50(self, Instnr, emnekode, versjon, termk,
-                                   aar, termnr, aktkode):  # GetAnsvUndAktivitet
-        qry = """
-        SELECT
-          ual.fodselsdato_fagansvarlig AS fodselsdato,
-          ual.personnr_fagansvarlig AS personnr,
-          ual.status_publiseres AS publiseres
-        FROM
-          fs.undaktivitet_lerer ual
-        WHERE
-          ual.institusjonsnr = :instnr AND
-          ual.emnekode       = :emnekode AND
-          ual.versjonskode   = :versjon AND
-          ual.terminkode     = :terminkode AND
-          ual.arstall        = :arstall AND
-          ual.terminnr       = :terminnr AND
-          ual.aktivitetkode  = :aktkode
-        UNION
-        SELECT
-          ul.fodselsdato_underviser AS fodselsdato,
-          ul.personnr_underviser AS personnr,
-          ul.status_publiseres AS publiseres
-        FROM
-          FS.UNDERVISNING_LERER ul
-        WHERE
-          ul.institusjonsnr = :instnr AND
-          ul.emnekode       = :emnekode AND
-          ul.versjonskode   = :versjon AND
-          ul.terminkode     = :terminkode AND
-          ul.arstall        = :arstall AND
-          ul.terminnr       = :terminnr AND
-          ul.aktivitetkode  = :aktkode
-        UNION
-        SELECT ua.fodselsdato_fagansvarlig AS fodselsdato,
-          ua.personnr_fagansvarlig AS personnr,
-          ua.status_fagansvarlig_publiseres AS publiseres
-        FROM fs.undaktivitet ua
-        WHERE
-          ua.institusjonsnr = :instnr AND
-          ua.emnekode       = :emnekode AND
-          ua.versjonskode   = :versjon AND
-          ua.terminkode     = :terminkode AND
-          ua.arstall        = :arstall AND
-          ua.terminnr       = :terminnr AND
-          ua.aktivitetkode  = :aktkode AND
-          ua.fodselsdato_fagansvarlig IS NOT NULL AND
-          ua.personnr_fagansvarlig IS NOT NULL"""
-
-        return self.db.query(qry, {
-            'instnr': Instnr,
-            'emnekode': emnekode,
-            'versjon': versjon,
-            'terminkode': termk,
-            'arstall': aar,
-            'terminnr': termnr,
-            'aktkode': aktkode})
 
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50
@@ -1089,58 +874,7 @@ class EVU(FSObject):
             'tid': tid,
             'aktkode': aktkode})
 
-class EVU50(FSObject):
-    def list_aktivitet_ansv_50(self, kurs, tid, aktkode):  # GetAnsvEvuAktivitet
-        qry = """
-        SELECT k.fodselsdato, k.personnr
-        FROM fs.kursaktivitet_fagperson k
-        WHERE k.etterutdkurskode=:kurs AND
-              k.kurstidsangivelsekode=:tid AND
-              k.aktivitetskode=:aktkode"""
-        return self.db.query(qry, {
-            'kurs': kurs,
-            'tid': tid,
-            'aktkode': aktkode})
-    
-    def get_kurs_ansv_50(self, kurs, tid):  # GetAnsvEvuKurs
-        qry = """
-        SELECT k.fodselsdato, k.personnr
-        FROM fs.kursfagansvarlig k
-        WHERE k.etterutdkurskode=:kurs AND
-              k.kurstidsangivelsekode=:tid"""
-        return self.db.query(qry, {'kurs': kurs, 'tid': tid})
-    
-class EVU40(FSObject):
-    def list(self): # GetStudinfEvu
-    	"""Hent info om personer som er ekte EVU-studenter ved
-    	UiO, dvs. er registrert i EVU-modulen i tabellen 
-    	fs.deltaker"""
 
- 	qry = """
-        SELECT DISTINCT 
-               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
-               d.adrlin1_job, d.adrlin2_job, d.postnr_job,
-               d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
-               d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
-               d.adresseland_hjem, p.adrlin1_hjemsted,
-               p.status_reserv_nettpubl, p.adrlin2_hjemsted,
-               p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
-               k.etterutdkurskode, e.studieprogramkode,
-               e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
-               e.gruppenr_adm_ansvar
-        FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-             fs.etterutdkurs e
-        WHERE p.fodselsdato=d.fodselsdato AND
-              p.personnr=d.personnr AND
-              d.deltakernr=k.deltakernr AND
-              e.etterutdkurskode=k.etterutdkurskode AND
-              NVL(e.status_nettbasert_und,'J')='J' AND
-              k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
-              e.dato_til > SYSDATE - 180 
-              AND %s
-      """ % self._is_alive()
-	return self.db.query(qry)
 
 class Alumni(FSObject):
     def list(self):  # GetAlumni_50
@@ -1169,34 +903,8 @@ class Alumni(FSObject):
                'OVERGANG', 'ORDOPPTAK')
        """
         return self.db.query(qry)
-    
-class Alumni40(FSObject):
-    def list(self):  # GetAlumni
-        qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-               s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-               p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, p.status_reserv_nettpubl, 
-               p.sprakkode_malform,st.studieprogramkode, st.studierettstatkode,
-               p.kjonn
-        FROM fs.student s, fs.person p, fs.studierett st, fs.eksmeldinglogg el,
-             fs.studieprogram sp
-        WHERE  p.fodselsdato=s.fodselsdato AND
-               p.personnr=s.personnr AND
-               p.fodselsdato=st.fodselsdato AND
-               p.personnr=st.personnr AND 
-               st.studieprogramkode = sp.studieprogramkode AND
-               p.fodselsdato=el.fodselsdato AND
-               p.personnr=el.personnr AND
-               st.opphortstudierettstatkode = 'FULLFØRT'  AND
-               st.studierettstatkode IN ('AUTOMATISK', 'CANDMAG', 'DIVERSE',
-               'OVERGANG', 'ORDOPPTAK')
-       """
-        return self.db.query(qry)
 
 class StudieInfo(FSObject):
-
     def list_studieprogrammer(self): # GetStudieproginf
 	"""For hvert definerte studieprogram henter vi 
 	informasjon om utd_plan og eier samt studieprogkode. Vi burde
@@ -1206,21 +914,21 @@ class StudieInfo(FSObject):
         SELECT studieprogramkode, status_utdplan,
                institusjonsnr_studieansv, faknr_studieansv,
                instituttnr_studieansv, gruppenr_studieansv,
-               studienivakode, status_utgatt
+               studienivakode, status_utgatt, studieprognavn
         FROM fs.studieprogram"""
         return self.db.query(qry)
 
     def list_emner(self): # GetEmneinf
-	"""For hvert definerte Emne henter vi informasjon om 
+	"""For hvert definerte emne henter vi informasjon om 
            ansvarlig sted."""
         qry = """
         SELECT e.emnekode, e.versjonskode, e.institusjonsnr,
                e.faknr_reglement, e.instituttnr_reglement,
                e.gruppenr_reglement, e.studienivakode
         FROM fs.emne e
-        WHERE e.institusjonsnr = '185' AND
-              NVL(e.arstall_eks_siste, :year) >= :year - 1"""
-        return self.db.query(qry, {'year': self.year})
+        WHERE e.institusjonsnr = %s AND
+              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr, self.year, self.year)
+        return self.db.query(qry)
 
     def get_emne_i_studieprogram(self,emne): # GetEmneIStudProg
         """Hent alle studieprogrammer et gitt emne kan inngå i."""
@@ -1239,12 +947,12 @@ class StudieInfo(FSObject):
           institusjonsnr, faknr, instituttnr, gruppenr, stedakronym,
           stednavn_bokmal, faknr_org_under, instituttnr_org_under,
           gruppenr_org_under, adrlin1, adrlin2, postnr, adrlin3,
-          stedkortnavn, telefonnr, faxnr, adrlin1_besok,
+          stedkortnavn, telefonnr, faxnr, adrlin1_besok, emailadresse,
           adrlin2_besok, postnr_besok, url, bibsysbeststedkode,
           stedkode_konv
         FROM fs.sted
-        WHERE institusjonsnr='%s'
-        """ % institusjonsnr
+        WHERE institusjonsnr=%s
+        """ % self.institusjonsnr
         return self.db.query(qry)
 
     def list_kull(self):
@@ -1270,7 +978,7 @@ class FS(object):
         self.undervisning = Undervisning(db)
         self.evu = EVU(db)
         self.alumni = Alumni(db)
-        self.info = AdministrativInfo(db)
+        self.info = StudieInfo(db)
 
     def list_dbfg_usernames(self, fetchall = False):
         """
