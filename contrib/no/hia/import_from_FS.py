@@ -30,7 +30,7 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
-from Cerebrum.modules.no.hia.access_FS import HiAFS
+from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.Utils import Factory
 
 default_person_file = "/cerebrum/dumps/FS/person.xml"
@@ -41,6 +41,7 @@ default_studieprogram_file = "/cerebrum/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
 default_emne_file = "/cerebrum/dumps/FS/emner.xml"
 default_fnr_update_file = "/cerebrum/dumps/FS/fnr_update.xml"
+default_evu_kursinfo_file = "/cerebrum/dumps/FS/evu_kursinfo.xml"
 
 xml = XMLHelper()
 fs = None
@@ -48,30 +49,37 @@ fs = None
 KiB = 1024
 MiB = KiB**2
 
+def _ext_cols(db_rows):
+    # TBD: One might consider letting xmlify_dbrow handle this
+    cols = None
+    if db_rows:
+        cols = list(db_rows[0]._keys())
+    return cols, db_rows
+
 def write_hia_person_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(1*MiB)
     f.write(xml.xml_hdr + "<data>\n")
 
     #Aktive ordinære studenter ved HiA
-    cols, hiastudent = fs.GetAktive()
+    cols, hiastudent = _ext_cols(fs.student.list_aktiv())
     for a in hiastudent:
 	fix_float(a)
         f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
     # Eksamensmeldinger
-    cols, hiastudent = fs.GetAlleEksamensmeldinger()
+    cols, hiastudent = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in hiastudent:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
     #Privatister ved HiA
-    cols, hiastudent = fs.GetPrivatist()
+    cols, hiastudent = _ext_cols(fs.student.list_privatist())
     for p in hiastudent:
 	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
     #Personer som har tilbud om opptak ved HiA
-    cols, hiastudent = fs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
+    cols, hiastudent = _ext_cols(fs.student.list_tilbud())
     for t in hiastudent:
         f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
     #EVU-studenter ved HiA
-    cols, hiastudent = fs.GetDeltaker()
+    cols, hiastudent = _ext_cols(fs.evu.list())
     for e in hiastudent:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
 
@@ -83,7 +91,7 @@ def write_ou_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, ouer = fs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)  # TODO
+    cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR)) 
     for o in ouer:
         sted = {}
         for fs_col, xml_attr in (
@@ -126,13 +134,24 @@ def write_ou_info(outfile):
     f.write("</data>\n")
     f.close()
 
+def write_evukurs_info(outfile):
+    """Skriv data om alle EVU-kurs (vi trenger dette bl.a. for å bygge EVU-delen av CF)."""
+    f = AtomicFileWriter(outfile)
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, evukurs = _ext_cols(fs.evu.list_kurs())
+    for ek in evukurs:
+        f.write(xml.xmlify_dbrow(ek, xml.conv_colnames(cols), "evukurs") + "\n")
+    f.write("</data>\n")
+    f.close()
+    # end write_evukurs_inf
+    
 def write_role_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, role = fs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR)
+    cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
     for r in role:
-	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'role') + "\n")
+	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
     f.write("</data>\n")
     f.close()
 
@@ -142,7 +161,7 @@ def write_undenh_metainfo(outfile):
     f.set_minimum_size_limit(100*KiB)
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in ('current', 'next'):
-        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
         for u in undenh:
             f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
                     + "\n")
@@ -151,20 +170,19 @@ def write_undenh_metainfo(outfile):
 
 def write_undenh_student(outfile):
     """Skriv oversikt over personer oppmeldt til undervisningsenheter.
-
     Tar med data for alle undervisingsenheter i inneværende+neste
     semester."""
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(10*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     for semester in ('current', 'next'):
-        cols, undenh = fs.GetUndervEnhet(sem=semester)
+        cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
         for u in undenh:
             u_attr = {}
             for k in ('institusjonsnr', 'emnekode', 'versjonskode',
                       'terminnr', 'terminkode', 'arstall'):
                 u_attr[k] = u[k]
-            student_cols, student = fs.GetStudenterUndervEnhet(**u_attr)
+            student_cols, student = _ext_cols(fs.undervisning.list_studenter_underv_enhet(**u_attr))
             for s in student:
                 s_attr = u_attr.copy()
                 for k in ('fodselsdato', 'personnr'):
@@ -180,7 +198,7 @@ def write_studprog_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(50*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetStudieproginf()
+    cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog')
                 + "\n")
@@ -191,10 +209,11 @@ def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
     f=open(outfile, 'w')
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = fs.GetAlleEmner()
+    cols, dta =_ext_cols(fs.info.list_emner())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
+
 
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
@@ -211,7 +230,7 @@ def write_fnrupdate_info(outfile):
 
     writer.startElement("data", {"source_system" : str(const.system_fs)})
 
-    junk, data = fs.GetFnrEndringer()
+    data = fs.person.list_fnr_endringer()
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
@@ -231,6 +250,16 @@ def write_fnrupdate_info(outfile):
     stream.close()
 # end get_fnr_update_info
 
+def write_misc_info(outfile, tag, func_name):
+    """Lager fil med data fra gitt funksjon i access_FS"""
+    f=open(outfile, 'w')
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = _ext_cols(eval("fs.%s" % func_name)())
+    for t in dta:
+        fix_float(t)
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
+    f.write("</data>\n")
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
@@ -245,7 +274,11 @@ def usage(exitcode=0):
     --hia-emneinfo-file: override emne info
     --hia-student-undenh-file: override student on UE file
     --hia-fnr-update-file: override fnr_update file
+    --misc-func func: name of function in access_FS to call
+    --misc-file name: name of output file for misc-func
+    --misc-tag tag: tag to use in misc-file
     --ou-file name: override ou xml filename
+    --evu-kursinfo-file: override evu-kurs xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
     -s: generate studprog xml file
@@ -255,6 +288,7 @@ def usage(exitcode=0):
     -f: generate fnr_update file
     -e: generate emne info file
     -u: generate undervisningsenhet xml file
+    -E: generate evu_kurs xml file
     -U: generate student on UE xml file
     """
     sys.exit(exitcode)
@@ -264,16 +298,18 @@ def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
     if fs is None:
         db = Database.connect(user=user, service=service,
                               DB_driver='Oracle')
-        fs = HiAFS(db)
+        fs = FS(db)
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoe",
+        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeE",
                                    ["hia-personinfo-file=", "studprog-file=", 
 				    "hia-roleinfo-file=", "hia-undenh-file=",
                                     "hia-student-undenh-file=",
 				    "hia-emneinfo-file=",
-				    "hia-fnr-update-file=",
+                                    "--evu-kursinfo-file=",
+				    "hia-fnr-update-file=", "misc-func=", 
+                                    "misc-file=", "misc-tag=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
@@ -284,7 +320,8 @@ def main():
     ou_file = default_ou_file
     role_file = default_role_file
     undervenh_file = default_undvenh_file
-    emne_info_file = default_emne_file 
+    emne_info_file = default_emne_file
+    evu_kursinfo_file = default_evu_kursinfo_file
     fnr_update_file = default_fnr_update_file
     undenh_student_file = default_undenh_student_file
     db_user = None         # TBD: cereconf value?
@@ -292,6 +329,8 @@ def main():
     for o, val in opts:
         if o in ('--hia-personinfo-file',):
             person_file = val
+        elif o in ('--evu-kursinfo-file=',):
+            evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
 	elif o in ('--hia-roleinfo-file',):
@@ -326,6 +365,15 @@ def main():
 	    write_fnrupdate_info(fnr_update_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
+        elif o in ('-E',):
+            write_evukurs_info(evu_kursinfo_file)
+        # We want misc-* to be able to produce multiple file in one script-run
+        elif o in ('--misc-func',):
+            misc_func = val
+        elif o in ('--misc-tag',):
+            misc_tag = val
+        elif o in ('--misc-file',):
+            write_misc_info(val, misc_tag, misc_func)
 
 if __name__ == '__main__':
     main()
