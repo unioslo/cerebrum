@@ -212,14 +212,15 @@ def process_person_callback(person_info):
 	p = x[0]
         if isinstance(p, str):
             continue
+        if not dta_type in ('tilbud', 'eksamen', 'evu'):
+            if p.has_key('studentnr_tildelt'):
+                studentnr = p['studentnr_tildelt']
+            else: 
+                logger.info("\n%s mangler studentnr!" % fnr)
         # Get name
         if dta_type in ('aktiv','tilbud','evu', 'privatist_studieprogram',):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
-        if p.has_key('studentnr_tildelt'):
-            studentnr = p['studentnr_tildelt']
-	else: 
-	    logger.info("\n%s mangler studentnr!" % fnr)
         # Get address
         if address_info is None:
 	    if dta_type in ('aktiv','privatist_studieprogram',):
@@ -309,7 +310,6 @@ def process_person_callback(person_info):
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)
     new_person.populate_name(co.name_last, etternavn)
-
 
     if studentnr is not None:
         new_person.affect_external_id(co.system_fs,
@@ -437,14 +437,13 @@ def main():
     fnr2person_id = {}
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
         if co.system_fs == p['source_system']:
-            fnr2person_id[p['external_id']] = p['person_id']
+            fnr2person_id[p['external_id']] = p['entity_id']
         elif not fnr2person_id.has_key(p['external_id']):
-            fnr2person_id[p['external_id']] = p['person_id']
+            fnr2person_id[p['external_id']] = p['entity_id']
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     if include_delete:
 	rem_old_aff()
     db.commit()
-    logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
 
 if __name__ == '__main__':
