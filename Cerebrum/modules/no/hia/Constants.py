@@ -24,25 +24,23 @@ The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
-from Cerebrum.Constants import Constants, \
-     _AuthoritativeSystemCode, _OUPerspectiveCode, _SpreadCode, \
+from Cerebrum import Constants
+from Cerebrum.Constants import _AuthoritativeSystemCode, \
+     _OUPerspectiveCode, _SpreadCode, \
      _QuarantineCode, _EntityExternalIdCode, _PersonAffiliationCode, \
      _PersonAffStatusCode, _AccountCode, _PersonNameCode, \
      _ContactInfoCode, _CountryCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
-central_Constants = Constants
-
-class Constants(central_Constants):
-
+class Constants(Constants.Constants):
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
-                                                 central_Constants.entity_person,
+                                                 Constants.Constants.entity_person,
                                                  'Norwegian birth number')
     externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
-                                                 central_Constants.entity_person,
+                                                 Constants.Constants.entity_person,
                                                  'Norwegian student number')
     externalid_sap_ansattnr = _EntityExternalIdCode('HiA_SAP_EMP#',
-                                                    central_Constants.entity_person,
+                                                    Constants.Constants.entity_person,
                                                     'HiA SAP employee number')
 
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
@@ -152,65 +150,65 @@ class Constants(central_Constants):
 
 ## DEFINISJON AV SPREAD
     spread_hia_novell_user = _SpreadCode(
-        'account@edir', central_Constants.entity_account,
+        'account@edir', Constants.Constants.entity_account,
         'User in Novell domain "hia"')
     spread_hia_novell_empl = _SpreadCode(
-        'employee@edir', central_Constants.entity_account,
+        'employee@edir', Constants.Constants.entity_account,
         'Employee in Novell domain "hia"')
     spread_hia_novell_labuser = _SpreadCode(
-        'account@edirlab', central_Constants.entity_account,
+        'account@edirlab', Constants.Constants.entity_account,
         'User in Novell domain "hia", employee lab-users only')
     spread_hia_novell_group = _SpreadCode(
-        'group@edir', central_Constants.entity_group,
+        'group@edir', Constants.Constants.entity_group,
         'Group in Novell domain "hia"')
     spread_nis_user = _SpreadCode(
-        'account@nis', central_Constants.entity_account,
+        'account@nis', Constants.Constants.entity_account,
         'User in NIS domain "stud"')
     spread_ans_nis_user = _SpreadCode(
-        'account@nisans', central_Constants.entity_account,
+        'account@nisans', Constants.Constants.entity_account,
         'User in NIS domain "ans"')
     spread_nis_fg = _SpreadCode(
-        'group@nis', central_Constants.entity_group,
+        'group@nis', Constants.Constants.entity_group,
         'File group in NIS domain "stud"')
     spread_nis_ng = _SpreadCode(
-        'netgroup@nis', central_Constants.entity_group,
+        'netgroup@nis', Constants.Constants.entity_group,
         'Net group in NIS domain "stud"')
     spread_ans_nis_fg = _SpreadCode(
-        'group@nisans', central_Constants.entity_group,
+        'group@nisans', Constants.Constants.entity_group,
         'File group in NIS domain "ans"')
     spread_ans_nis_ng = _SpreadCode(
-        'netgroup@nisans', central_Constants.entity_group,
+        'netgroup@nisans', Constants.Constants.entity_group,
         'Net group in NIS domain "ans"')
     spread_hia_adgang = _SpreadCode(
-        'account@adgang', central_Constants.entity_person,
+        'account@adgang', Constants.Constants.entity_person,
         'Person exported to Adgang system')
     spread_hia_email = _SpreadCode(
-        'account@imap', central_Constants.entity_account,
+        'account@imap', Constants.Constants.entity_account,
         'Email user at HiA')
     spread_hia_bibsys = _SpreadCode(
-        'account@bibsys', central_Constants.entity_person,
+        'account@bibsys', Constants.Constants.entity_person,
         'Person exported to BIBSYS')
     spread_hia_tele = _SpreadCode(
-        'account@telefon', central_Constants.entity_person,
+        'account@telefon', Constants.Constants.entity_person,
         'Person exported to phone system')
     spread_hia_ldap_person = _SpreadCode(
-        'account@ldap', central_Constants.entity_person, 
+        'account@ldap', Constants.Constants.entity_person, 
         'Person included in LDAP directory')
     spread_hia_ldap_ou = _SpreadCode(
-        'ou@ldap', central_Constants.entity_ou,
+        'ou@ldap', Constants.Constants.entity_ou,
         'OU included in LDAP directory')
     spread_hia_helpdesk = _SpreadCode(
-        'account@helpdesk', central_Constants.entity_account, 
+        'account@helpdesk', Constants.Constants.entity_account, 
         'Account exported to helpdesk system')
     spread_hia_ad_account = _SpreadCode(
-        'account@ad', central_Constants.entity_account,
+        'account@ad', Constants.Constants.entity_account,
         'Account included in Active Directory')
     spread_hia_ad_group = _SpreadCode(
-        'group@ad', central_Constants.entity_group,
+        'group@ad', Constants.Constants.entity_group,
         'group included in Active Directory')   
 
     spread_hia_fronter = _SpreadCode(
-        'group@fronter', central_Constants.entity_group,
+        'group@fronter', Constants.Constants.entity_group,
         ('Group representing a course that should be exported to'
          ' the ClassFronter.  Should only be given to groups that'
          ' have been automatically generated from FS.'))
@@ -218,10 +216,10 @@ class Constants(central_Constants):
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 
 ##     spread_hia_fs = _SpreadCode(
-##         'FS@hia', central_Constants.entity_account,
+##         'FS@hia', Constants.Constants.entity_account,
 ##         'Account exported to FS')
 ##     spread_hia_sap = _SpreadCode(
-##         'SAP@hia', central_Constants.entity_account,
+##         'SAP@hia', Constants.Constants.entity_account,
 ##         'Account exported to SAP')
 
 ## KARANTENEGRUPPER
