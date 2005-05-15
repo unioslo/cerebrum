@@ -313,8 +313,8 @@ class _CountryCode(_CerebrumCode):
     def __init__(self, code, country=None, phone_prefix=None,
                  description=None):
         if country is not None:
-            self.country = country
-            self.phone_prefix = phone_prefix
+            self._country = country
+            self._phone_prefix = phone_prefix
         super(_CountryCode, self).__init__(code, description)
 
     def insert(self):
@@ -329,8 +329,8 @@ class _CountryCode(_CerebrumCode):
             'desc_col': self._lookup_desc_column,
             'code_seq': self._code_sequence},
                          {'str': self.str,
-                          'country': self.country,
-                          'phone': self.phone_prefix,
+                          'country': self._country,
+                          'phone': self._phone_prefix,
                           'desc': self.description})
 
     def _fetch_column(self, col_name):
