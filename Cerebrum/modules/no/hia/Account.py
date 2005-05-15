@@ -63,7 +63,11 @@ class AccountHiAMixin(Account.Account):
         try:
             est.find(et.email_target_id)
         except Errors.NotFoundError:
-            est = self._update_email_server()
+            if self.get_account_types():
+                est = self._update_email_server()
+            else:
+                # do not set email_server_target until account_type is registered
+                return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
