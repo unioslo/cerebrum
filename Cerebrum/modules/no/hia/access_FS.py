@@ -17,15 +17,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
-import os
-import sys
 import time
-import xml.sax
 
-from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.Utils import Factory
-from Cerebrum.extlib import sets
+from Cerebrum.modules.no import access_FS
 
 class HiAStudent(access_FS.Student):
     def list_aktiv(self):
@@ -35,73 +30,52 @@ class HiAStudent(access_FS.Student):
         for inneværende semester og har en gyldig studierett"""
 
 	qry = """
-SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-       p.adresseland_hjemsted, p.status_reserv_nettpubl,
-       p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
-       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
-       s.studentnr_tildelt
-FROM fs.kull k, fs.studieprogramstudent sps, fs.person p, fs.student s
-WHERE p.fodselsdato = sps.fodselsdato AND
-      p.personnr = sps.personnr AND
-      p.fodselsdato = s.fodselsdato AND
-      p.personnr = s.personnr AND
-      %s AND
-      k.studieprogramkode = sps.studieprogramkode AND
-      k.terminkode = sps.terminkode_kull AND
-      k.arstall = sps.arstall_kull AND
-      NVL(k.status_aktiv,'J') = 'J' AND
-      NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
-UNION
-SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-       s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-       s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-       p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-       p.adresseland_hjemsted, p.status_reserv_nettpubl,
-       p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
-       sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-       sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil, s.studentnr_tildelt
-FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p, fs.student s
-WHERE p.fodselsdato = sps.fodselsdato AND
-      p.personnr = sps.personnr AND
-      p.fodselsdato = s.fodselsdato AND
-      p.personnr = s.personnr AND
-      %s AND
-      p.fodselsdato = r.fodselsdato AND
-      p.personnr = r.personnr AND
-      NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
-      %s """ % (self.is_alive(), self.is_alive(), self.get_termin_aar(only_current=1))
+        SELECT DISTINCT
+          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+          sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
+          s.studentnr_tildelt
+        FROM fs.kull k, fs.studieprogramstudent sps, fs.person p,
+             fs.student s
+        WHERE p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          %s AND
+          k.studieprogramkode = sps.studieprogramkode AND
+          k.terminkode = sps.terminkode_kull AND
+          k.arstall = sps.arstall_kull AND
+          NVL(k.status_aktiv,'J') = 'J' AND
+          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
+        UNION
+        SELECT DISTINCT
+          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+          sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
+          s.studentnr_tildelt
+        FROM fs.registerkort r, fs.studieprogramstudent sps, fs.person p, fs.student s
+        WHERE p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          %s AND
+          p.fodselsdato = r.fodselsdato AND
+          p.personnr = r.personnr AND
+          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+          %s """ % (self._is_alive(), self._is_alive(), self._get_termin_aar(only_current=1))
         return self.db.query(qry)
 
-    def list_privatist(self):
-	"""Her henter vi informasjon om privatister ved HiA
-	Som privatist regnes alle studenter med en forekomst i
-	FS.STUDIEPROGRAMSTUDENT der dato_studierett_gyldig_til
-        er større eller lik dagens dato og studierettstatuskode
-        er PRIVATIST eller status_privatist er satt til 'J'"""
-	qry = """
-SELECT DISTINCT
-    p.fodselsdato, p.personnr, p.etternavn,
-    p.fornavn, p.kjonn, s.adrlin1_semadr,
-    s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
-    s.adresseland_semadr, p.adrlin1_hjemsted,
-    p.sprakkode_malform,sps.studieprogramkode,
-    sps.studieretningkode, sps.status_privatist, 
-    s.studentnr_tildelt, p.telefonnr_mobil
-FROM fs.student s, fs.person p, fs.studieprogramstudent sps
-WHERE p.fodselsdato = s.fodselsdato AND
-    p.personnr = s.personnr AND
-    p.fodselsdato = sps.fodselsdato AND
-    p.personnr = sps.personnr AND
-    (sps.studierettstatkode = 'PRIVATIST' OR
-    sps.status_privatist = 'J') AND
-    sps.dato_studierett_gyldig_til >= sysdate """
-        return self.db.query(qry)
-
-class HiAUndervisning(access_FS.FSObject):
+class HiAUndervisning(access_FS.Undervisning):
     def list_undervisningenheter(self, sem="current"):
 	"""Metoden som henter data om undervisningsenheter
 	i nåverende (current) eller neste (next) semester. Default
@@ -150,8 +124,8 @@ class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
 
-        # Override with uio-spesific classes
+        # Override with hia-spesific classes
         self.student = HiAStudent(self.db)
-        self.portal = HiAUndervisning(self.db)
+        self.undervisning = HiAUndervisning(self.db)
         
 # arch-tag: 57960926-bfc8-429c-858e-b76f8b0ca6c4
