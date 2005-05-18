@@ -318,7 +318,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where = ""
         return self.query(
             """SELECT person_id, has_quota, has_blocked_quota, weekly_quota,
-                      max_quota, paid_quota, free_quota
+                      max_quota, paid_quota, free_quota, total_pages
             FROM [:table schema=cerebrum name=paid_quota_status] %s""" % where)
 
     def get_history_payments(self, transaction_type=None, desc_mask=None,
@@ -355,20 +355,29 @@ class PaidPrinterQuotas(DatabaseAccessor):
             binds, fetchall=fetchall)
 
     def get_history(self, job_id=None, person_id=None, tstamp=None,
-                    target_job_id=None, before=None):
+                    target_job_id=None, before=None, after_job_id=None,
+                    transaction_type=None):
         # In theory we could have one big LEFT JOIN search, but there
         # is a chance that it would give us a performance hit with
         # +1 million records in the database
         binds = {'job_id': job_id,
+                 'after_job_id': after_job_id,
+                 'transaction_type': transaction_type,
                  'person_id': person_id,
                  'tstamp': tstamp,
                  'before': before,
                  'target_job_id': target_job_id}
         where = []
-        if person_id:
+        if person_id == 'NULL':   # TODO: We need a generic way for this
+            where.append("person_id is NULL")            
+        elif person_id:
             where.append("person_id=:person_id")
         if job_id:
             where.append("pqh.job_id=:job_id")
+        elif after_job_id:
+            where.append("pqh.job_id > :after_job_id")            
+        if transaction_type:
+            where.append("transaction_type=:transaction_type")
         if target_job_id:
             where.append("target_job_id=:target_job_id")
         if tstamp:
@@ -379,7 +388,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where = "AND "+" AND ".join(where)
         else:
             where = ""
-        
+        print "H: ", where, binds
         ret = [r for r in self.query(
             """SELECT pqh.job_id, transaction_type, person_id, tstamp,
                   update_by, update_program, pageunits_free,
@@ -435,12 +444,13 @@ class PaidPrinterQuotas(DatabaseAccessor):
         else:
             group_by = extra_cols = ""
         qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
-            sum(pageunits_paid) AS paid, sum(kroner) AS kroner %s
+            sum(pageunits_paid) AS paid, sum(kroner) AS kroner,
+            sum(pageunits_total) AS total %s
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
              [:table schema=cerebrum name=paid_quota_transaction] pqt
         WHERE pqh.job_id=pqt.job_id AND tstamp >= :tstamp_from AND
               tstamp < :tstamp_to
-        %s"""
+        %s""" % (extra_cols, group_by)
         return self.query(qry, binds)
 
     

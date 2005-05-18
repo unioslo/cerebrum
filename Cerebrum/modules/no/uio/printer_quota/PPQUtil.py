@@ -265,10 +265,34 @@ class PPQUtil(object):
         (job_id, free, aid, total, kroner) for the newly inserted
         record."""
 
-        rows = self.ppq.get_history(person_id=person_id, before=to_date)
+        tmp_person_id = person_id
+        if person_id is None:
+            tmp_person_id = 'NULL'
+        rows = self.ppq.get_history(person_id=tmp_person_id, before=to_date)
+        if not rows:
+            return None, None
+        # Jobs that has been undone requires some extra attention in
+        # that the undo operation must be handled first.  We solve
+        # this by:
+        # - find all undone jobs for person
+        # - remove from rows any jobs that has been undone if the undo
+        #   operation is not among the rows.
+        # - sort the rows with descending job_id so that we delete the
+        #   undo operation before the actual operaton.
+
+        rows.sort(lambda x,y: cmp(y[0], x[0]))  # Sort decending
+        undone_later = self.ppq.get_history(
+            person_id=tmp_person_id, after_job_id=rows[0]['job_id'],
+            transaction_type=int(self.const.pqtt_undo))
+        undone_later = dict([(long(row['target_job_id']), True)
+                             for row in undone_later])
+        print "Later: ", undone_later.keys()
         pageunits_free = pageunits_paid = pageunits_total = kroner = 0
         last_id = None
         for row in rows:
+            if undone_later.has_key(long(row['job_id'])):
+                continue
+            print "Row: ", row._items()
             tt = row['transaction_type']
             pageunits_free += int(row['pageunits_free'])
             pageunits_paid += int(row['pageunits_paid'])
@@ -285,7 +309,8 @@ class PPQUtil(object):
             else:
                 raise errors.InvalidQuotaData("Unknown transaction type: %i" % tt)
             self.ppq._delete_history(row['job_id'], entry_type)
-            last_id = long(row['job_id'])
+            if last_id is None:
+                last_id = long(row['job_id'])
         if last_id is not None:
             self.ppq._add_transaction(
                 self.const.pqtt_balance, person_id, None, update_program,
