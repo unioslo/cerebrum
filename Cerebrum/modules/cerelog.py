@@ -546,8 +546,15 @@ class CerebrumLogger(logging.Logger):
             source = inspect.getsourcefile(frame)
             if source:
                 source = os.path.normcase(source)
+            #
+            # We should test that source is neither *this* file, nor
+            # anything else within the logging framework (be it 2.2 (extlib)
+            # og 2.3 version).
+            #
             if ((source != _srcfile) and
-                (source and (source.find("logging/__init__.py") == -1))):
+                (source and
+                 (source.find("logging/__init__.py") == -1) and
+                 (source.find("logging.py") == -1))):
                 lineno = inspect.getlineno(frame)
                 rv = (source, lineno)
                 break
