@@ -99,7 +99,7 @@ class Profile(object):
         def _do_append(disk_def):
             if only_to:
                 if disk_def.auto not in ('auto', 'to'):
-                    self._logger.debug2("Not to %s" % repr(tmp_nivaakode))
+                    self._logger.debug2("Not to %s" % repr(disk_def))
                     return
 
             appended = False
