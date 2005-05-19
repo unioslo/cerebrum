@@ -286,13 +286,11 @@ class PPQUtil(object):
             transaction_type=int(self.const.pqtt_undo))
         undone_later = dict([(long(row['target_job_id']), True)
                              for row in undone_later])
-        print "Later: ", undone_later.keys()
         pageunits_free = pageunits_paid = pageunits_total = kroner = 0
         last_id = None
         for row in rows:
             if undone_later.has_key(long(row['job_id'])):
                 continue
-            print "Row: ", row._items()
             tt = row['transaction_type']
             pageunits_free += int(row['pageunits_free'])
             pageunits_paid += int(row['pageunits_paid'])

@@ -225,9 +225,10 @@ class PaidPrinterQuotas(DatabaseAccessor):
             self._alter_quota(person_id, pageunits_free=pageunits_free,
                               pageunits_paid=pageunits_paid)
 
-        pageunits_total = pageunits_free+pageunits_paid
         if _override_pageunits_total is not None:
             pageunits_total = _override_pageunits_total
+        else:   # pageunits_total should normaly only count printjobs
+            pageunits_total = 0
         # register history entries
         id = self._add_quota_history(
             transaction_type, person_id, pageunits_free,
@@ -388,7 +389,6 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where = "AND "+" AND ".join(where)
         else:
             where = ""
-        print "H: ", where, binds
         ret = [r for r in self.query(
             """SELECT pqh.job_id, transaction_type, person_id, tstamp,
                   update_by, update_program, pageunits_free,

@@ -72,6 +72,7 @@ def noia_check():
                              'paid': int(row['paid_quota']),
                              'total': int(row['total_pages'])}
 
+    unknown = []
     for row in (ppq.get_payment_stats(
         DateTime.Date(1980,1,1,1,1,1), DateTime.Date(2020,1,1,1,1,1),
         group_by=('person_id',))+ 
@@ -79,17 +80,29 @@ def noia_check():
         DateTime.Date(1980,1,1,1,1,1), DateTime.Date(2020,1,1,1,1,1),
         group_by=('person_id',))):
         pid = row['person_id'] and long(row['person_id']) or 'NULL'
+        if not person_stats.has_key(pid):
+            unknown.append(pid)
+            continue
         tmp = person_stats[pid]
         tmp['free'] -= int(row['free'])
         tmp['paid'] -= int(row['paid'])
         tmp['total'] -= int(row['total'])
 
+    if unknown:
+        logger.debug("No paid_quota_status entry for %s" % unknown)
+
+    ok_count = 0
     for pid in person_stats.keys():
+        ok = True
         for k in ('free', 'paid', 'total'):
             if person_stats[pid][k] != 0:
                 # TODO: The total check will fail 
                 logger.warn("noia check failed for %s: %s" % (
                     pid, repr(person_stats[pid])))
+                ok = False
+        if ok:
+            ok_count += 1
+    logger.debug("Found %i OK records" % ok_count)
 
 def main():
     try:
