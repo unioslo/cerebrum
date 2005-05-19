@@ -707,7 +707,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         accounts = acc.get_account_types(all_persons_types=True,
                                          owner_id=self.entity_id)
         if accounts:
-            return accounts[0].account_id
+            return accounts[0]["account_id"]
         else:
             return None
 
@@ -744,7 +744,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                at2.person_id = eei.entity_id) AND
               at.account_id = en.entity_id
             """, {"id_type" : int(id_type)}):
-            result[row.external_id] = row.entity_name
+            result[row["external_id"]] = row["entity_name"]
         # od
 
         return result

@@ -19,7 +19,6 @@
 
 import time
 
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import access_FS
 
 class HiAStudent(access_FS.Student):
@@ -124,8 +123,12 @@ class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
 
-        # Override with hia-spesific classes
+        # Override with uio-spesific classes
         self.student = HiAStudent(self.db)
         self.undervisning = HiAUndervisning(self.db)
-        
+
+
+
+
+
 # arch-tag: 57960926-bfc8-429c-858e-b76f8b0ca6c4

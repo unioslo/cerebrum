@@ -30,7 +30,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.hia import access_FS
+# from Cerebrum.modules.no.hia import access_FS
+from Cerebrum.modules.no import access_FS
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.hia import fronter_lib
 
@@ -48,13 +49,16 @@ def init_globals():
     logger = Factory.get_logger("cronjob")
 
     cf_dir = '/cerebrum/dumps/Fronter'
+    global fs_dir
+    fs_dir = '/cerebrum/dumps/FS'
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
                                    ['host=', 'rom-profil=',
                                     'uten-dette-semester',
                                     'uten-passord',
-                                    'debug-file=', 'debug-level='])
+                                    'debug-file=', 'debug-level=',
+                                    'cf-dir=', 'fs-dir='])
     except getopt.GetoptError:
         usage(1)
     debug_file = os.path.join(cf_dir, "x-import.log")
@@ -73,14 +77,22 @@ def init_globals():
             include_this_sem = False
         elif opt == '--uten-passord':
             set_pwd = False
+        elif opt == '--cf-dir':
+            cf_dir = val
+        elif opt == '--fs-dir':
+            fs_dir = val
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
     host_profiles = {'hia': {'emnerom': 1520,
+                             # FIXME: dette er ren gjetting
+                             'evukursrom' : 1520,
                              'studieprogram': 1521},
                      'hia2': {'emnerom': 42,
+                              'evukursrom' : 42,
                               'studieprogram': 42},
                      'hia3': {'emnerom': 1520,
+                              'evukursrom' : 1520,
                               'studieprogram': 1521}
                      }
     if host_profiles.has_key(host):
@@ -197,13 +209,113 @@ def get_ans_fak(fak_list, ent2uname):
     return fak_res
 
 
-def register_spread_groups(emne_info, stprog_info):
+def register_spread_groups_evu(row, group, evukurs_info):
+    """
+    Registrer alle rom/grupper knyttet til en intern gruppe representert av
+    row.
+    """
+
+    gname = row["name"]
+    gname_el = gname.split(":")
+
+    assert gname_el[4] == 'evu', \
+           "Registerer en ikke-evu gruppe %s som om den var EVU" % gname
+
+    logger.debug("bygger grupper knyttet til %s", gname)
+
+    #
+    # Oppgaven foran oss er slik: CF-strukturen til EVU-delen er
+    # egentlig ikke så veldig fancy. Vi har:
+    # 
+    # * Et evukursrom for hvert EVU-kurs (KR)
+    # * En gruppe for studenter for det tilsvarende kurset som får
+    #   rettigheter i KR.
+    # * En gruppe for forelesere for det tilsvarende kurset som får
+    #   rettigheter i KR.
+
+    # eukk == etterutdkurskode, tak == kurstidsangivelsekode
+    junk, domain, fs_part, domain_nr, evu_part, eukk, ktak = gname_el
+
+    # Denne skal allerede finnes (den er statisk)
+    kursrom_parent = 'STRUCTURE:%s:fs:%s:evu:kursrom' % (domain, domain_nr)
+    # Rom for EVU-kurset
+    evukursrom_id = 'ROOM:%s:fs:%s:evu:%s:%s' % (domain, domain_nr,
+                                                 eukk, ktak)
+    register_room(evukurs_info[eukk, ktak],
+                  evukursrom_id,
+                  kursrom_parent,
+                  profile = romprofil_id["evukursrom"])
+
+    #
+    # Grupper for studenter og forelesere på EVU-kurset
+    group.clear()
+    group.find(row["group_id"])
+    for op, subg_id, subg_name in \
+            group.list_members(None, int(const.entity_group),
+                               get_entity_name = True)[0]:
+        #
+        # Gruppenavn er her på formen:
+        #     internal:DOMAIN:fs:INSTITUSJONSNR:evu:EUKK:KTAK:KATEGORI
+        # Tilsvarende CF-navn blir derimot
+        #     DOMAIN:fs:INSTITUSJONSNR:evu:KATEGORI:EUKK:KTAK
+        subg_name_el = subg_name.split(':')
+        if subg_name_el[0] == 'internal':
+            subg_name_el.pop(0)
+        else:
+            raise ValueError, "intern gruppe uten 'internal':%s" % \
+                              subg_name
+        # fi
+
+        category = subg_name_el[6]
+        parent_id = "STRUCTURE:%s:fs:%s:evu" % (subg_name_el[0],
+                                                subg_name_el[2])
+        if category == "kursdeltaker":
+            title = "Kursdeltakere %s"
+            permission = fronter_lib.Fronter.ROLE_WRITE
+            parent_suffix = "kursdeltaker"
+        elif category == "foreleser":
+            title = "Forelesere %s"
+            permission = fronter_lib.Fronter.ROLE_DELETE
+            parent_suffix = "foreleser"
+        else:
+            raise ValueError, "ukjent kategori '%s' for %s" % (category,
+                                                               subg_name)
+        # fi
+
+        parent_id = parent_id + ":" + parent_suffix
+        title = title % evukurs_info[eukk, ktak]
+        fronter_gname = ':'.join(subg_name_el[0:4] + [category,] +
+                                 subg_name_el[4:6])
+        # FIXME: allow_contact?
+        register_group(title, fronter_gname, parent_id, allow_contact = True)
+
+        group.clear()
+        group.find(subg_id)
+        user_members = [
+            row[2] # username
+            for row in group.list_members(None,
+                                          const.entity_account,
+                                          get_entity_name=True)[0]]
+        if user_members:
+            register_members(fronter_gname, user_members)
+        # fi
+
+        register_room_acl(evukursrom_id, fronter_gname, permission)
+    # od
+# end 
+
+
+
+def register_spread_groups(emne_info, stprog_info, evukurs_info):
     group = Factory.get('Group')(db)
     this_sem, next_sem = get_semester()
     for r in group.search(spread=const.spread_hia_fronter):
         gname = r['name']
         gname_el = gname.split(':')
-        if gname_el[4] == 'undenh':
+
+        if gname_el[4] == 'evu':
+            register_spread_groups_evu(r, group, evukurs_info)
+        elif gname_el[4] == 'undenh':
             # Nivå 3: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
             #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
             #
@@ -491,8 +603,20 @@ def main():
                    cereconf.INSTITUTION_DOMAIN_NAME
     register_group('Fellesrom', fellesrom_id, root_node_id)
 
-    # Populer dicter for "emnekode -> emnenavn" og "fakultet ->
-    # [emnekode ...]".
+    # Registrer statiske EVU-strukturnoder
+    # Ting blir litt enklere, hvis vi drar med oss institusjonsnummeret
+    evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME,
+                                              cereconf.DEFAULT_INSTITUSJONSNR)
+    register_group('EVU', evu_node_id, root_node_id)
+    for suffix, title in (("kursrom", "EVU kursrom"),
+                          ("kursdeltaker", "EVU kursdeltaker"),
+                          ("foreleser", "EVU foreleser")):
+        node_id = evu_node_id + ":" + suffix
+        register_group(title, node_id, evu_node_id)
+    # od
+
+    # Populer dicter for "emnekode -> emnenavn", "fakultet ->
+    # [emnekode ...]" og "<evukurs> -> evukursnavn".
     emne_info = {}
     fakulteter = []
     def finn_emne_info(element, attrs):
@@ -504,7 +628,7 @@ def main():
                                'fak': faknr}
         if faknr not in fakulteter:
             fakulteter.append(faknr)
-    access_FS.underv_enhet_xml_parser('/cerebrum/dumps/FS/underv_enhet.xml',
+    access_FS.underv_enhet_xml_parser(os.path.join(fs_dir, 'underv_enhet.xml'),
                                       finn_emne_info)
 
     stprog_info = {}
@@ -516,8 +640,32 @@ def main():
         stprog_info[stprog] = {'fak': faknr}
         if faknr not in fakulteter:
             fakulteter.append(faknr)
-    access_FS.studieprog_xml_parser('/cerebrum/dumps/FS/studieprog.xml',
-                                    finn_stprog_info)
+    access_FS.studieprog_xml_parser(os.path.join(fs_dir, 'studieprog.xml'),
+                                    finn_stprog_info) 
+    
+    evukurs_info = {}
+    def finn_evukurs_info(element, attrs):
+        if element != "evukurs":
+            return
+
+        # Reglene er slik (euknk == ...kursnavnkort):
+        # -> NEI! 1. Bruk "<euknk> (emnekode)", dersom begge finnes
+        # 2. Bruk "<euknk>", dersom emnekode er tom
+        # 3. Bruk "<eukursnavn>", dersom euknk er tom
+        name = attrs.get("etterutdkursnavnkort", attrs["etterutdkursnavn"])
+
+        # FIXME: Dette er nok misbruk av emnekode i denne konteksten
+        # if "emnekode" in attrs:
+        #     name += " (%s)" % attrs["emnekode"]
+        # # fi
+
+        eukk, ktak = (attrs["etterutdkurskode"].lower(),
+                      attrs["kurstidsangivelsekode"].lower())
+        evukurs_info[eukk, ktak] = name
+    # end finn_evukurs_info
+    access_FS.evukurs_xml_parser(os.path.join(fs_dir, 'evukurs.xml'),
+                                 finn_evukurs_info)
+    
     # Henter ut ansatte per fakultet
     ans_dict = get_ans_fak(fakulteter, acc2names)
     # Opprett de forskjellige stedkode-korridorene.
@@ -564,7 +712,7 @@ def main():
         register_group(faknavn, fellesrom_sted_id, fellesrom_id,
                        allow_room=True)
 
-    register_spread_groups(emne_info, stprog_info)
+    register_spread_groups(emne_info, stprog_info, evukurs_info)
 
     output_group_xml()
     for room, data in new_rooms.iteritems():

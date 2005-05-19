@@ -26,6 +26,7 @@ from __future__ import generators
 import sys
 import os
 import locale
+import getopt
 
 if True:
     import cerebrum_path
@@ -33,7 +34,7 @@ if True:
     from Cerebrum import Errors
     from Cerebrum.Utils import Factory
     from Cerebrum.modules import Email
-    from Cerebrum.modules.no.hia import access_FS
+    from Cerebrum.modules.no import access_FS
 else:
     class liksom_module(object): pass
     cereconf = liksom_module()
@@ -96,6 +97,17 @@ db = logger = fnr2account_id = const = None
 #                    STUDIEPROGRAMKODE:rolle:studieleder
 #                  Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
 #                       rolle:studieleder"
+#    1  Gruppering av alle grupper relatert til EVU
+#         Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu"
+#       2  Gruppering av alle grupper knyttet til et bestemt EVU-kurs
+#            Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår"
+#          3  Gruppe med kursdeltakere på et bestemt EVU-kurs
+#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
+#                    kursdeltakere"
+#          3  Gruppe med forelesere på et bestemt EVU-kurs
+#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
+#                    forelesere"
+#
 
 ###
 ### Struktur SAP-grupper i Cerebrum
@@ -349,6 +361,10 @@ class fs_supergroup(group_tree):
             subg = fs_undenh_1(self, attrs)
         elif gtype == 'studieprogram':
             subg = fs_stprog_1(self, attrs)
+        elif gtype == 'evu':
+            subg = fs_evu_1(self, attrs)
+        else:
+            raise ValueError, "Ukjent gruppe i hierarkiet: %r" % (gtype,)
         children = self.subnodes
         # TBD: Make fs_{undenh,stprog}_N into singleton classes?
         if children.has_key(subg):
@@ -392,8 +408,8 @@ class fs_undenh_1(fs_undenh_group):
     def list_matches(self, gtype, data, category):
         if gtype <> 'undenh':
             return ()
-        if '::rolletarget::' in data:
-            target = data['::rolletarget::']
+        if access_FS.roles_xml_parser.target_key in data:
+            target = data[access_FS.roles_xml_parser.target_key]
             if not (len(target) == 1 and target[0] == 'undenh'):
                 return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
@@ -546,8 +562,8 @@ class fs_stprog_1(fs_stprog_group):
     def list_matches(self, gtype, data, category):
         if gtype <> 'studieprogram':
             return ()
-        if '::rolletarget::' in data:
-            target = data['::rolletarget::']
+        if access_FS.roles_xml_parser.target_key in data:
+            target = data[access_FS.roles_xml_parser.target_key]
             if not (len(target) == 1 and target[0] == 'stprog'):
                 return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
@@ -729,6 +745,139 @@ class fs_stprog_rolle_users(fs_stprog_group):
         self.users[fnr] = user
 
 
+
+class fs_evu_1(fs_undenh_group):
+    """
+    EVU-subtre
+    """
+
+    max_recurse = 2
+
+    def __init__(self, parent, evudata):
+        super(fs_evu_1, self).__init__(parent)
+        self._prefix = (evudata["institusjonsnr_adm_ansvar"], "evu")
+        self.child_class = fs_evu_2
+    # end __init__
+
+
+    def description(self):
+        return ("Supergruppe for alle grupper avledet fra"
+                " EVU-kurs i %s sin FS" %
+                cereconf.INSTITUTION_DOMAIN_NAME)
+    # end description
+
+
+    def list_matches(self, gtype, data, category):
+        if gtype != "evu":
+            return ()
+        # fi
+
+        if access_FS.roles_xml_parser.target_key in data:
+            target = data[access_FS.roles_xml_parser.target_key]
+            if not (len(target) == 1 and target[0] == "evu"):
+                return ()
+            # fi
+        # fi
+
+        if (data.get("institusjonsnr_adm_ansvar", self._prefix[0]) !=
+            self._prefix[0]):
+            return ()
+
+        return super(fs_evu_1, self).list_matches(gtype, data, category)
+    # end list_matches
+# end class fs_evu_1
+
+
+
+class fs_evu_2(fs_undenh_group):
+    max_recurse = 1
+
+    def __init__(self, parent, evudata):
+        super(fs_evu_2, self).__init__(parent)
+        self._prefix = (evudata["etterutdkurskode"],
+                        evudata["kurstidsangivelsekode"])
+        self.spreads = (const.spread_hia_fronter,)
+    # end __init__
+
+
+    def description(self):
+        return ("Supergruppe for grupper tilknyttet EVU-kurs %s:%s" %
+                (self._prefix[0], self._prefix[1]))
+    # end description
+
+
+    def list_matches(self, gtype, data, category):
+        if data.get("etterutdkurskode", self._prefix[0]) != self._prefix[0]:
+            return ()
+        if (data.get("kurstidsangivelsekode", self._prefix[1]) !=
+            self._prefix[1]):
+            return ()
+
+        return super(fs_evu_2, self).list_matches(gtype, data, category)
+    # end list_matches
+
+
+    def add(self, evudata):
+        children = self.subnodes
+        for category in ("kursdeltaker", "foreleser"):
+            gr = fs_evu_users(self, evudata, category)
+            if gr in children:
+                logger.warn("EVU-kurs %r forekommer flere ganger.",
+                            evudata)
+                continue 
+            # fi
+
+            children[gr] = gr
+        # od
+    # end add
+# end class fs_evu_2
+
+
+
+class fs_evu_users(fs_undenh_group):
+
+    max_recurse = 0
+
+    def __init__(self, parent, evudata, category):
+        super(fs_evu_users, self).__init__(parent)
+        self._name = (category,)
+    # end __init__
+
+
+    def description(self):
+        category = self._name[0]
+        if category == "kursdeltaker":
+            return "Kursdeltakere på %s" % self.parent.name()
+        elif category == "foreleser":
+            return "Forelesere på %s" % self.parent.name()
+        else:
+            raise ValueError, "Ukjent EVU-brukergrupper: %r" % (category,)
+        # fi
+    # end description
+
+
+    def list_matches(self, gtype, data, category):
+        if category == self._name[0]:
+            yield self
+        # fi
+    # end list_matches
+
+
+    def add(self, user):
+        fnr = "%06d%05d" % (int(user["fodselsdato"]), int(user["personnr"]))
+        if fnr in self.users:
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r "
+                        " flere ganger (XML = %r).",
+                        fnr, self.name(), user)
+            return
+        # fi
+
+        self.users[fnr] = user
+    # end add
+# end class fs_evu_users
+
+
+
 def prefetch_primaryusers():
     logger.debug("Start: prefetch_primaryusers()")
     # TBD: This code is used to get account_id for both students and
@@ -743,7 +892,7 @@ def prefetch_primaryusers():
     person = Factory.get('Person')(db)
     fnr_source = {}
     for row in person.list_external_ids(id_type=const.externalid_fodselsnr):
-        p_id = int(row['person_id'])
+        p_id = int(row['entity_id'])
         fnr = row['external_id']
         src_sys = int(row['source_system'])
         if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
@@ -775,21 +924,36 @@ def prefetch_primaryusers():
 
 def init_globals():
     global db, const, logger, fnr2account_id
+    global dump_dir, dryrun
+
+    # Håndter upper- og lowercasing av strenger som inneholder norske
+    # tegn.
+    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
+
+    dump_dir = '/cerebrum/dumps/FS'
+    dryrun = False
+    logger = Factory.get_logger("cronjob")
+
+    opts, rest = getopt.getopt(sys.argv[1:],
+                               "d:r",
+                               ["dump-dir=", "dryrun",])
+    for option, value in opts:
+        if option in ("-d", "--dump-dir"):
+            dump_dir = value
+        elif option in ("-r", "--dryrun"):
+            dryrun = True
+        # fi
+    # od
+
     db = Factory.get("Database")()
     db.cl_init(change_program='pop_extern_grps')
     const = Factory.get("Constants")(db)
-    logger = Factory.get_logger("cronjob")
 
     fnr2account_id = {}
     prefetch_primaryusers()
 
 def main():
     init_globals()
-    dump_dir = '/cerebrum/dumps/FS'
-
-    # Håndter upper- og lowercasing av strenger som inneholder norske
-    # tegn.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     # Opprett objekt for "internal:hia.no:fs:{supergroup}"
     fs_super = fs_supergroup()
@@ -809,6 +973,21 @@ def main():
         os.path.join(dump_dir, 'underv_enhet.xml'),
         create_UE_helper)
 
+    # Gå igjennom alle kjente EVU-kurs; opprett gruppeobjekter for disse.
+    def create_evukurs_helper(el_name, attrs):
+        if (el_name == "evukurs" and
+            attrs.get("status_aktiv") == 'J' and
+            attrs.get("status_nettbasert_und") == 'J'):
+            # NB! Vi har allerede filtrert på dato_til
+            fs_super.add("evu", attrs)
+        # fi
+    # end create_evukurs_helper
+    xmlfile = "evukurs.xml"
+    logger.info("Leser XML-fil: %s", xmlfile)
+    access_FS.evukurs_xml_parser(os.path.join(dump_dir, xmlfile),
+                                 create_evukurs_helper)
+    logger.info("Ferdig med %s", xmlfile)
+
     # Meld studenter inn i undervisningsenhet-gruppene
     def student_UE_helper(el_name, attrs):
         if el_name == 'student':
@@ -821,47 +1000,82 @@ def main():
         os.path.join(dump_dir, 'student_undenh.xml'),
         student_UE_helper)
 
+    # Meld EVU-kursdeltakere i de respektive EVU-kursgruppene.
+    def EVU_deltaker_helper(el_name, attrs):
+        if el_name == "person" and len(attrs.get("evu")) > 0:
+            # Dette blir ikke fult så pent -- i merged_persons plasserer man
+            # informasjonen om EVU-tilknytning i form av underelementer av
+            # <person>. Dermed må ethvert EVU-underelement (de er samlet i en
+            # liste av dict'er under nøkkelen "evu" under) "suppleres" med
+            # fdato/pnr på eieren til det EVU-underelementet.
+            tmp = { "fodselsdato" : attrs["fodselsdato"],
+                    "personnr"  : attrs["personnr"], }
+            for evuattrs in attrs["evu"]:
+                evuattrs.update(tmp)
+                for evukurs in fs_super.list_matches_1("evu", evuattrs,
+                                                       "kursdeltaker"):
+                    evukurs.add(evuattrs)
+                # od
+            # od
+        # fi
+    # end create_EVU_participant_helper
+    xmlfile = "merged_persons.xml"
+    logger.info("Leser XML-fil: %s", xmlfile)
+    access_FS.deltaker_xml_parser(os.path.join(dump_dir, xmlfile),
+                                  EVU_deltaker_helper)
+    logger.info("Ferdig med %s", xmlfile)
+
     # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
     # for disse.
     def create_studieprog_helper(el_name, attrs):
         if el_name == 'studprog' and attrs.get('status_utgatt') <> 'J':
             fs_super.add('studieprogram', attrs)
-
     logger.info("Leser XML-fil: studieprog.xml")
     access_FS.studieprog_xml_parser(
         os.path.join(dump_dir, 'studieprog.xml'),
         create_studieprog_helper)
 
-    # Meld forelesere og studieledere inn i undervisningsenhet-gruppene
+    # Meld forelesere og studieledere inn i passende
+    # undervisningsenhet/EVU-kurs -gruppene
     def rolle_helper(el_name, attrs):
-        if el_name <> 'role':
+        if el_name != 'rolle':
             return
         rolle = attrs['rollekode']
-        target = attrs['::rolletarget::']
-        if len(target) <> 1:
+        target = attrs[access_FS.roles_xml_parser.target_key]
+        if len(target) != 1:
             return
         target = target[0]
-        if target not in ('undenh', 'stprog'):
-            # Denne importen oppretter kun grupper basert på
-            # undervisningsenhet- og studieprogram-roller.
-            return
-        if rolle == 'FORELESER':
-            for ue_foreleser in fs_super.list_matches('undenh', attrs,
-                                                      'foreleser'):
-                ue_foreleser.add(attrs)
-        elif rolle in ('STUDILEDER', 'STUDKOORD'):
-            for ue_studieleder in fs_super.list_matches('undenh', attrs,
-                                                        'studieleder'):
-                ue_studieleder.add(attrs)
-            for stpr_studieleder in fs_super.list_matches('studieprogram',
-                                                          attrs,
-                                                          'studieleder'):
-                stpr_studieleder.add(attrs)
+        if target in ('undenh', 'stprog'):
+            if rolle == 'FORELESER':
+                for ue_foreleser in fs_super.list_matches('undenh', attrs,
+                                                          'foreleser'):
+                    ue_foreleser.add(attrs)
+            elif rolle in ('STUDILEDER', 'STUDKOORD'):
+                for ue_studieleder in fs_super.list_matches('undenh', attrs,
+                                                            'studieleder'):
+                    ue_studieleder.add(attrs)
+                for stpr_studieleder in fs_super.list_matches('studieprogram',
+                                                              attrs,
+                                                              'studieleder'):
+                    stpr_studieleder.add(attrs)
+            # fi
+        elif target in ('evu',):
+            if rolle == 'FORELESER':
+                # Kan ett element tilhøre flere evukurs?
+                for evu_foreleser in fs_super.list_matches('evu', attrs,
+                                                           "foreleser"):
+                    evu_foreleser.add(attrs)
+                # od
+            # fi
+        # fi
+    # end rolle_helper
+            
 
-    logger.info("Leser XML-fil: roles.xml")
-    access_FS.roles_xml_parser(
-        os.path.join(dump_dir, 'roles.xml'),
-        rolle_helper)
+    xmlfile = "roles.xml"
+    logger.info("Leser XML-fil: %s", xmlfile)
+    access_FS.roles_xml_parser(os.path.join(dump_dir, xmlfile),
+                               rolle_helper)
+    logger.info("Ferdig med %s", xmlfile)
 
     # Finn alle studenter 
     def student_studieprog_helper(el_name, attrs):
@@ -875,10 +1089,46 @@ def main():
         os.path.join(dump_dir, 'person.xml'),
         student_studieprog_helper)
 
+    # Write back all changes to the database
     fs_super.sync()
-    db.commit()
+
+    if dryrun:
+        logger.info("rolling back all changes")
+        db.rollback()
+    else:
+        logger.info("committing all changes")
+        db.commit()
+    # fi
+# end main
+
+
+
+def walk_hierarchy(root, indent = 0, print_users = False):
+    """
+    Display the data structure (tree) from a given node. Useful to get an
+    overview over how various nodes are structured/populated. This is used for
+    debugging only.
+    """
+    logger.debug("%snode: %r (%d subnode(s), %d user(s))",
+                 ' ' * indent, root.name(), len(root.subnodes),
+                 len(root.users))
+    if print_users and root.users:
+        import pprint
+        logger.debug("%susers: %s", ' ' * indent, pprint.pformat(root.users))
+    # fi
+    
+    for n in root.subnodes:
+        walk_hierarchy(n, indent + 2)
+    # od
+# end walk_hierarchy
+    
+
+
+
 
 if __name__ == '__main__':
     main()
+# fi
+
 
 # arch-tag: 08d1695f-8c9b-481d-aa48-fa0bae7d71a8

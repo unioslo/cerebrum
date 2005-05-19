@@ -800,11 +800,15 @@ class EVU(FSObject):
         d = time.strftime("%Y-%m-%d", date)
         qry = """
         SELECT e.etterutdkurskode, e.kurstidsangivelsekode, e.etterutdkursnavn,
+          e.etterutdkursnavnkort,
           e.institusjonsnr_adm_ansvar, e.faknr_adm_ansvar,
           e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
-          TO_CHAR(e.dato_til,'YYYY-MM-DD') AS dato_til
+          TO_CHAR(NVL(e.dato_fra, SYSDATE), 'YYYY-MM-DD') AS dato_fra,
+          TO_CHAR(NVL(e.dato_til, SYSDATE), 'YYYY-MM-DD') AS dato_til,
+          e.status_aktiv, e.status_nettbasert_und
         FROM fs.etterutdkurs e
-        WHERE NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE) <  (e.dato_til+30)
+        WHERE NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE) <
+              NVL(e.dato_til, SYSDATE) + 30
         """ % d
         return self.db.query(qry)
 
@@ -978,7 +982,7 @@ class FS(object):
         self.undervisning = Undervisning(db)
         self.evu = EVU(db)
         self.alumni = Alumni(db)
-        self.info = StudieInfo(db)
+        # self.info = AdministrativInfo(db)
 
     def list_dbfg_usernames(self, fetchall = False):
         """
@@ -1081,7 +1085,7 @@ class roles_xml_parser(non_nested_xml_parser):
                 'rolle': True,
                 }
 
-    validate_delim = "::roletarget::"
+    target_key = "::rolletarget::"
 
     def __init__(self, *rest):
         self.logger = Factory.get_logger()
@@ -1168,20 +1172,20 @@ class roles_xml_parser(non_nested_xml_parser):
                 self.logger.error("Personrolle har flertydig angivelse av",
                                   " targets, kan være: %r (XML = %r).",
                                   target, attrs)
-                attrs[self.validate_delim] = target
+                attrs[self.target_key] = target
             else:
                 self.logger.error("Personrolle har ingen tilstrekkelig"
                                   " spesifisering av target, inneholder"
                                   " elementer fra: %r (XML = %r).",
                                   tuple(possible_targets), attrs)
-                attrs[self.validate_delim] = tuple(possible_targets)
+                attrs[self.target_key] = tuple(possible_targets)
             do_callback = False
         else:
             self.logger.debug("Personrolle OK, target = %r (XML = %r).",
                               target[0], attrs)
             # Target er entydig og tilstrekkelig spesifisert; gjør
             # dette tilgjengelig for callback.
-            attrs[self.validate_delim] = target
+            attrs[self.target_key] = target
         return do_callback
 
 
@@ -1206,5 +1210,65 @@ class student_undenh_xml_parser(non_nested_xml_parser):
                 'student': True
                 }
 
+class evukurs_xml_parser(non_nested_xml_parser):
+    "Parserklasse for evukurs.xml."
+
+    elements = { "data" : False,
+                 "evukurs" : True }
+# end evukurs_xml_parser
+
+
+class deltaker_xml_parser(xml.sax.ContentHandler, object):
+    "Parserklasse for å hente EVU kursdeltaker informasjon."
+                          
+    def __init__(self, filename, callback, encoding="iso8859-1"):
+        self._callback = callback
+        self._encoding = encoding
+        self._in_person = False
+        self._legal_elements = ("person", "evu", "aktiv", "tilbud",
+                                "data", "privatist_studieprogram")
+        xml.sax.parse(filename, self)
+    # end __init__
+
+    def startElement(self, name, attrs):
+        if name not in self._legal_elements:
+            raise ValueError, "Unknown XML element: %r" % (name,)
+        # fi
+
+        if name not in ("person", "evu"):
+            return
+        # fi
+
+        tmp = dict()
+        for k, v in attrs.items():
+            tmp[k] = v.encode(self._encoding)
+        # od
+
+        if name == "person":
+            assert not self._in_person, "Nested <person> element!"
+            self._in_person = { "evu" : list(), }
+            self._in_person.update(tmp)
+        else:
+            assert self._in_person, "<evu> outside of <person>!"
+            self._in_person["evu"].append(tmp)
+        # fi
+    # end startElement
+
+
+    def endElement(self, name):
+        if name not in self._legal_elements:
+            raise ValueError, "Unknown XML element: %r" % (name,)
+        # fi
+
+        if name == "person":
+            self._callback(name, self._in_person)
+            self._in_person = None
+        # fi
+    # end endElement
+# end deltaker_xml_parser
+
+
+
+        
 
 # arch-tag: 15c18bb0-05e8-4c3b-a47c-c84566e57803

@@ -145,10 +145,10 @@ def match_external_ids(person, sap_id, no_ssn, const):
 
     # There is at most one such ID, get_external_id returns a sequence, though
     if cerebrum_sap_id:
-        cerebrum_sap_id = str(cerebrum_sap_id[0].external_id)
+        cerebrum_sap_id = str(cerebrum_sap_id[0]["external_id"])
     # fi
     if cerebrum_no_ssn:
-        cerebrum_no_ssn = str(cerebrum_no_ssn[0].external_id)
+        cerebrum_no_ssn = str(cerebrum_no_ssn[0]["external_id"])
     # fi
 
     if (cerebrum_sap_id and cerebrum_sap_id != sap_id):

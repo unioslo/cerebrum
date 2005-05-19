@@ -945,7 +945,7 @@ def parse_xml_roles(fname):
 
     result = dict()
     def gimme_lambda(element, data):
-        kind = data[roles_xml_parser.validate_delim]
+        kind = data[roles_xml_parser.target_key]
         if len(kind) > 1:
             logger.warn("Cannot decide on role kind for: %s", kind)
             return
