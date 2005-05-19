@@ -287,7 +287,7 @@ class PPQUtil(object):
         undone_later = dict([(long(row['target_job_id']), True)
                              for row in undone_later])
         pageunits_free = pageunits_paid = pageunits_total = kroner = 0
-        last_id = None
+        last_id = last_tstamp = None
         for row in rows:
             if undone_later.has_key(long(row['job_id'])):
                 continue
@@ -309,12 +309,14 @@ class PPQUtil(object):
             self.ppq._delete_history(row['job_id'], entry_type)
             if last_id is None:
                 last_id = long(row['job_id'])
+                last_tstamp = row['tstamp']
         if last_id is not None:
             self.ppq._add_transaction(
                 self.const.pqtt_balance, person_id, None, update_program,
                 pageunits_free=pageunits_free, pageunits_paid=pageunits_paid,
                 kroner=kroner, _do_not_alter_quota=True,
-                description='truncate_log', _override_job_id=last_id,
+                description='truncate_log', tstamp = last_tstamp,
+                _override_job_id=last_id,
                 _override_pageunits_total=pageunits_total)
         return rows, (last_id, pageunits_free, pageunits_paid,
                       pageunits_total, kroner)

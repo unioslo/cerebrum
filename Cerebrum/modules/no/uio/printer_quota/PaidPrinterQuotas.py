@@ -210,7 +210,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         self, transaction_type, person_id, update_by, update_program,
         pageunits_free=0, pageunits_paid=0, target_job_id=None,
         description=None, bank_id=None, kroner=0, payment_tstamp=None,
-        _do_not_alter_quota=False, _override_job_id=None,
+        tstamp=None, _do_not_alter_quota=False, _override_job_id=None,
         _override_pageunits_total=None):
         """Register an entry in the paid_quota_transaction table.
         Should not be called directly.  Use
@@ -234,6 +234,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             transaction_type, person_id, pageunits_free,
             pageunits_paid, pageunits_total,
             update_by=update_by, update_program=update_program,
+            tstamp=tstamp,
             _override_job_id=_override_job_id)
 
         binds = {
@@ -369,7 +370,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
                  'before': before,
                  'target_job_id': target_job_id}
         where = []
-        if person_id == 'NULL':   # TODO: We need a generic way for this
+        if isinstance(person_id, str) and person_id == 'NULL':   # TODO: We need a generic way for this
             where.append("person_id is NULL")            
         elif person_id:
             where.append("person_id=:person_id")
