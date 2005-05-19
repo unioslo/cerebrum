@@ -4729,7 +4729,7 @@ class BofhdExtension(object):
             size = int(size)
         except ValueError:
             raise CerebrumError, "Expected int as size"
-        if size > 1024:           # "unlimited" for perm-check = +1024M
+        if size > 1024 or size < 0:    # "unlimited" for perm-check = +1024M
             unlimited = True
         self.ba.can_set_disk_quota(operator.get_entity_id(), account,
                                    unlimited=unlimited, forever=forever)
