@@ -59,7 +59,49 @@ class _AdsiBack(object):
            called.  
            """
         self.ou_path = ou_path   
+        self._connect()
+    
+    def _prefix(self, uri=None):
+        """Returns the URI prefix of the given URI. 
+           If the uri parameter is not given, the prefix of self.ou is
+           returned.
+           The URI prefix is either "LDAP://" or "LDAP://some.server/".
+        """   
+           
+        if uri is None:
+            uri = self.ou.ADsPath
+        # avoid searching after cn=
+        uri = uri.split("=")[0]
+        protocol,server = uri.split("://")[:2]
+        if not "/" in server:
+            # LDAP://cn=psdkm,dc=akdjs,dc=akjdsk
+            # -> LDAP://
+            return protocol + "://"
+        # LDAP://some.server/cn=sdkm,dc=akdjs,dc=akjdsk
+        # -> LDAP://some.server/
+        server = server.split("/")[0]
+        return "%s://%s/" % (protocol, server)
+    prefix = property(_prefix)    
         
+    def is_rid_manager(self):
+        """Returns True if the current server is the RID manager."""    
+        # The RID manager of an AD domain is the domain controller
+        # responsible for giving out new IDs, and the idea is to 
+        # only proceed to run the cerebrum sync if we are connected
+        # to the RID manager. The AD administrators will anyway have
+        # to manually switch over the current RID manager if that
+        # server fails.
+        root = self._domain()
+        rid_ref = root.rIDManagerReference
+        rid = ad.AD_object(path=self.prefix + rid_ref)
+        ntds = ad.AD_object(path=self.prefix + rid.fSMORoleOwner)
+        rid_manager = ntds.parent()
+
+        # compare with ourself
+        rootDSE = ad.GetObject(self.prefix + "rootDSE")
+        our_server = rootDSE.serverName
+        return our_server == rid_manager.distinguishedName
+    is_rid_manager = property(is_rid_manager)     
 
     def _domain(self, obj=None):
         """Finds the domain of an AD object, ie. the root node. If
@@ -71,14 +113,18 @@ class _AdsiBack(object):
             obj = obj.parent()
         return obj    
 
-    def begin(self, incr=False):
+    def _connect(self):
         """Connects to Active Directory"""
-        self.incr = incr
         if self.ou_path is None:
             # Use the root      
             self.ou = ad.root()
         else:
             self.ou = ad.AD_object(path=self.ou_path)
+
+    def begin(self, incr=False):
+        """Initializes the Active Directory synchronization"""
+        self.incr = incr
+        self._connect() # reconnect
         
         # Find all existing objects
         if not self.incr:
@@ -240,7 +286,6 @@ class ADUser(_ADAccount):
         ad_obj.fullName = obj.gecos or ""
         password = obj.passwords.get("cleartext")
         if password is not None:
-            print "Setting password for", obj.name
             ad_obj.setPassword(password)
         ad_obj.setInfo()
         return ad_obj
@@ -335,6 +380,13 @@ class TestOUFramework(unittest.TestCase):
         return "LDAP://ou=%s,%s" % (self.ou, self.context)
     ou_uri = property(ou_uri)    
 
+    def hostname(self):
+        return cscript("""
+        set rootDSE = GetObject("LDAP://rootDSE")
+        Wscript.Echo(rootDSE.dnsHostName)
+        """)
+    hostname = property(hostname)       
+
     def deleteOU(self, ou=None):
         """Recusively deletes an ou with the given name.
         ou must be located in root.
@@ -408,6 +460,12 @@ class TestOUFramework(unittest.TestCase):
 class TestTestOUFramework(TestOUFramework):
     def testFramework(self):
         """Quick test of our testing framework"""
+        assert "LDAP://" in self.ou_uri
+        assert "ou=" in self.ou_uri
+        assert "DC=" in self.ou_uri
+
+        assert self.hostname.count(".")
+
         self.hasNotUser()
         self.assertRaises(AssertionError, self.hasUser)
         self.createUser()
@@ -469,6 +527,65 @@ class TestADSIBack(TestOUFramework):
         # Should pick root, ie DC=..  without any OU=
         self.assertEqual(adsi.ou.distinguishedName,
                          self.context)
+    
+    def testPrefix(self):
+        # Simplest case
+        adsi = _AdsiBack()    
+        self.assertEqual(adsi.prefix, "LDAP://")
+
+        # OK, but what about with a hostname=
+        my_hostname = cscript("""
+        set rootDSE = GetObject("LDAP://rootDSE")
+        Wscript.Echo(rootDSE.dnsHostName)
+        """)
+        assert my_hostname
+
+        adsi = _AdsiBack("LDAP://%s/ou=%s,%s" % 
+                (my_hostname, self.ou, self.context))
+        self.assertEqual(adsi.prefix, 
+                         "LDAP://%s/" % my_hostname)
+
+        # And with port? 
+        my_hostname += ":389"
+        adsi = _AdsiBack("LDAP://%s/ou=%s,%s" % 
+                (my_hostname, self.ou, self.context))
+        self.assertEqual(adsi.prefix, 
+                         "LDAP://%s/" % my_hostname)
+
+
+        # And for the rest of the test, we test with manual parameters
+        self.assertEqual(adsi._prefix("LDAP://"), "LDAP://") 
+        self.assertEqual(adsi._prefix("LDAP://server/"), "LDAP://server/") 
+        self.assertEqual(adsi._prefix("LDAP://dc=fish"), "LDAP://") 
+        self.assertEqual(adsi._prefix("LDAP://some.host/dc=fish"), 
+                                      "LDAP://some.host/") 
+        # With nasty / in cn
+        self.assertEqual(adsi._prefix("LDAP://cn=some/thing,dc=some,dc=domain"), 
+                                      "LDAP://") 
+        self.assertEqual(adsi._prefix("LDAP://fishy.com/cn=some/thing,dc=some,dc=domain"), 
+                                      "LDAP://fishy.com/")
+        # with user/pass/port 
+        self.assertEqual(adsi._prefix("LDAP://user:pass@some.host:port/dc=fish"), 
+                                      "LDAP://user:pass@some.host:port/")
+    
+    def testIsRIDManager(self):
+        adsi = _AdsiBack()
+
+        ridmanager = cscript("""
+        set RID = GetObject("LDAP://CN=RID Manager$,CN=System,%s")
+        RIDManager = RID.fSMORoleOwner
+        set NTDS = GetObject("LDAP://" & RIDManager)
+        set Comp = GetObject(NTDS.Parent)
+        Wscript.Echo(Comp.dnsHostName)""" % self.context)
+
+        my_name = cscript("""
+        set rootDSE = GetObject("LDAP://rootDSE")
+        hostname = rootDSE.dnsHostName
+        Wscript.Echo(hostname)
+        """)
+
+        self.assertEqual(adsi.is_rid_manager, 
+                         (ridmanager == my_name) )
     
     def testRemainsEmpty(self):
         self.assertEqual(self.adsi._remains, {})
@@ -578,9 +695,75 @@ class TestADAccount(TestOUFramework):
         self.assertRaises(WrongClassError,
                           self.adaccount._find, "temp1337", 
                           objectClass="group")
-    # cannot test _ADAccount.add() as both groups and users will require
-    # another self.objectClass than "top" - ie. _ADAccount.add() is an
-    # abstract method. 
+    # cannot test _ADAccount.add() here as both groups and users will
+    # require another self.objectClass than "top" - ie. _ADAccount.add()
+    # is an abstract method. 
+ 
+class TestADUser(TestOUFramework):
+    def setUp(self):
+        super(TestADUser, self).setUp()
+        self.adaccount = ADUser(self.ou_uri)
+        self.adaccount.begin()
+
+    def lastChangedPassword(self, user, ou=None):
+        if not ou:
+            ou = self.ou
+        last_changed = cscript("""
+        function iso_date(byval dt)
+            dim y: y = year(dt)
+            dim m: m=month(dt)
+            dim d: d=day(dt)
+            dim h: h=hour(dt)
+            dim n: n=minute(dt)
+            dim s: s=second(dt)
+
+            if m < 10 then m="0" & m
+            if d < 10 then d="0" & d
+            if h < 10 then h="0" & h
+            if n < 10 then n="0" & m
+            if s < 10 then s="0" & s
+
+            iso_date = y & "-" & m & "-" & d & " " & h & ":" & n & ":" & s
+        end function
+        set user = GetObject("LDAP://CN=%s,OU=%s,%s")
+        dtmValue = user.PasswordLastChanged
+        Wscript.Echo(iso_date(dtmValue))
+        """ % ("user1337", ou, self.context))
+
+        if "(null)" in last_changed:
+            return None
+            # C:\Scripts\Listing2.vbs(2, 1) (null): 0x8000500D
+            # This is a common error message in ADSI. It means that an attribute
+            # requested in the script cannot be found in the local property
+            # cache. The name for this ADSI error code is
+            # E_ADS_PROPERTY_NOT_FOUND.
+        else:
+            return last_changed
+            
+    def testAdd(self):
+        class User:
+            name = "user1337"    
+            passwords = {}
+            gecos = "The 1337 User"
+        user = User()      
+        self.adaccount.add(user)
+        self.hasUser(user.name)
+        self.assertEqual(self.lastChangedPassword(user.name), None)
+        self.assertEqual(cscript("""
+        set user = GetObject("LDAP://CN=%s,OU=%s,%s")
+        Wscript.Echo user.saMAccountName
+        """ % (user.name, self.ou, self.context)), user.name)
+    
+    def testAddWithPassword(self):     
+        class User:
+            name = "user1337"    
+            passwords = {'cleartext': 'fishsoup'}
+            gecos = "The 1337 User"
+        user = User()      
+        self.adaccount.add(user)
+        self.hasUser(user.name)
+        self.assertNotEqual(self.lastChangedPassword(user.name), None)
+   
 
 if __name__ == "__main__":
     print "Note that these tests must be run as a domain administrator locally"
