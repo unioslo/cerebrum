@@ -30,7 +30,6 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-# from Cerebrum.modules.no.hia import access_FS
 from Cerebrum.modules.no import access_FS
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.hia import fronter_lib
@@ -663,7 +662,7 @@ def main():
                       attrs["kurstidsangivelsekode"].lower())
         evukurs_info[eukk, ktak] = name
     # end finn_evukurs_info
-    access_FS.evukurs_xml_parser(os.path.join(fs_dir, 'evukurs.xml'),
+    access_FS.evukurs_xml_parser(os.path.join(fs_dir, 'evu_kursinfo.xml'),
                                  finn_evukurs_info)
     
     # Henter ut ansatte per fakultet
