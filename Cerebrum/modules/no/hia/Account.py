@@ -24,6 +24,7 @@ import time
 from Cerebrum import Account
 from Cerebrum.modules import Email
 from Cerebrum import Errors
+from Cerebrum.modules import PasswordHistory
 
 class AccountHiAMixin(Account.Account):
     def update_email_addresses(self, set_primary = False):
@@ -167,6 +168,12 @@ class AccountHiAMixin(Account.Account):
             est.populate(es.entity_id, parent = et)
             est.write_db()
         return est
+
+    def set_password(self, plaintext):
+        # Override Account.set_password so that we get a copy of the
+        # plaintext password
+        self.__plaintext_password = plaintext
+        self.__super.set_password(plaintext)
 
     def write_db(self):
         try:
