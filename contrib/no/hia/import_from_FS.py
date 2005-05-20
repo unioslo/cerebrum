@@ -134,12 +134,23 @@ def write_ou_info(outfile):
     f.write("</data>\n")
     f.close()
 
+def write_evukurs_info(outfile):
+    """Skriv data om alle EVU-kurs (vi trenger dette bl.a. for å bygge EVU-delen av CF)."""
+    f = AtomicFileWriter(outfile)
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, evukurs = _ext_cols(fs.evu.list_kurs())
+    for ek in evukurs:
+        f.write(xml.xmlify_dbrow(ek, xml.conv_colnames(cols), "evukurs") + "\n")
+    f.write("</data>\n")
+    f.close()
+    # end write_evukurs_inf
+    
 def write_role_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, roles = _ext_cols(fs.undervisning.list_alle_personroller())
-    for r in roles:
+    cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
+    for r in role:
 	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
     f.write("</data>\n")
     f.close()
@@ -179,33 +190,6 @@ def write_undenh_student(outfile):
                 f.write(xml.xmlify_dbrow({}, (), 'student',
                                          extra_attr=s_attr)
                         + "\n")
-    f.write("</data>\n")
-    f.close()
-
-
-#
-# FIXME: This baby has to go.
-#
-def _ext_cols(db_rows):
-    # TBD: One might consider letting xmlify_dbrow handle this
-    cols = None
-    if db_rows:
-        cols = list(db_rows[0]._keys())
-    return cols, db_rows
-
-def write_evukurs_info(outfile):
-    """
-    Skriv data om alle EVU-kurs (vi trenger dette bl.a. for å bygge EVU-delen
-    av CF).
-    """
-
-    f = AtomicFileWriter(outfile)
-    f.write(xml.xml_hdr + "<data>\n")
-    cols, evukurs = _ext_cols(fs.evu.list_kurs())
-    
-    for ek in evukurs:
-        f.write(xml.xmlify_dbrow(ek,
-                                 xml.conv_colnames(cols), "evukurs") + "\n")
     f.write("</data>\n")
     f.close()
 
@@ -294,7 +278,7 @@ def usage(exitcode=0):
     --misc-file name: name of output file for misc-func
     --misc-tag tag: tag to use in misc-file
     --ou-file name: override ou xml filename
-    --evu-kursinfo-file: override evu-kurs xml filename
+    --hia-evukursinfo-file: override evu-kurs xml filename
     --db-user name: connect with given database username
     --db-service name: connect to given database
     -s: generate studprog xml file
@@ -318,13 +302,14 @@ def assert_connected(user="CEREBRUM", service="FSHIA.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoe",
+        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeE",
                                    ["hia-personinfo-file=", "studprog-file=", 
 				    "hia-roleinfo-file=", "hia-undenh-file=",
                                     "hia-student-undenh-file=",
 				    "hia-emneinfo-file=",
-				    "hia-fnr-update-file=",
-                                    "hia-evukurs-file=",
+                                    "hia-evukursinfo-file=",
+				    "hia-fnr-update-file=", "misc-func=", 
+                                    "misc-file=", "misc-tag=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
@@ -339,14 +324,12 @@ def main():
     evu_kursinfo_file = default_evu_kursinfo_file
     fnr_update_file = default_fnr_update_file
     undenh_student_file = default_undenh_student_file
-    evukurs_file = None
-    
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
         if o in ('--hia-personinfo-file',):
             person_file = val
-        elif o in ('--evu-kursinfo-file=',):
+        elif o in ('--hia-evukursinfo-file=',):
             evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
@@ -364,8 +347,6 @@ def main():
             db_user = val
         elif o in ('--db-service',):
             db_service = val
-        elif o in ('--hia-evukurs-file',):
-            evukurs_file = val
     assert_connected(user=db_user, service=db_service)
     for o, val in opts:
         if o in ('-p',):
@@ -394,14 +375,7 @@ def main():
         elif o in ('--misc-file',):
             write_misc_info(val, misc_tag, misc_func)
 
-    if evukurs_file:
-        write_evukurs_info(evukurs_file)
-
 if __name__ == '__main__':
     main()
-
-
-
-
 
 # arch-tag: 64983f85-1234-4b7a-9ef2-205f6ec3f2ed
