@@ -223,6 +223,8 @@ def process_email_requests():
 
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_delete):
+        if not is_valid_request(r['request_id']):
+            continue
         logger.debug("Req: email_delete %s", r['run_at'])
 	if keep_running() and r['run_at'] < now:
 	    try:
@@ -256,6 +258,8 @@ def process_email_requests():
 
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_move):
+        if not is_valid_request(r['request_id']):
+            continue
         logger.debug("Req: email_move %s %d", r['run_at'], int(r['state_data']))
 	if keep_running() and r['run_at'] < now:
             # state_data is a request-id which must complete first,
@@ -309,6 +313,8 @@ def process_email_requests():
 
     start_time = time.time()
     for r in br.get_requests(operation=const.bofh_email_convert):
+        if not is_valid_request(r['request_id']):
+            continue
         logger.debug("Req: email_convert %s", r['run_at'])
 	if keep_running() and r['run_at'] < now:
             user_id = r['entity_id']
@@ -561,6 +567,8 @@ def process_mailman_requests():
     br = BofhdRequests(db, const)
     now = mx.DateTime.now()
     for r in br.get_requests(operation=const.bofh_mailman_create):
+        if not is_valid_request(r['request_id']):
+            continue
         logger.debug("Req: mailman_create %d at %s",
                      r['request_id'], r['run_at'])
         if keep_running() and r['run_at'] < now:
@@ -592,6 +600,8 @@ def process_mailman_requests():
                              (listname, errnum))
                 br.delay_request(r['request_id'])
     for r in br.get_requests(operation=const.bofh_mailman_add_admin):
+        if not is_valid_request(r['request_id']):
+            continue
         logger.debug("Req: mailman_add_admin %d at %s",
                      r['request_id'], r['run_at'])
         if keep_running() and r['run_at'] < now:
@@ -611,6 +621,8 @@ def process_mailman_requests():
                              (listname, errnum))
                 br.delay_request(r['request_id'])
     for r in br.get_requests(operation=const.bofh_mailman_remove):
+        if not is_valid_request(r['request_id']):
+            continue
         logger.debug("Req: mailman_remove %d at %s",
                      r['request_id'], r['run_at'])
         if keep_running() and r['run_at'] < now:
@@ -652,6 +664,8 @@ def process_move_requests():
         process_move_student_requests() # generates bofh_move_user requests
         requests.extend(br.get_requests(operation=const.bofh_move_user))    
     for r in requests:
+        if not is_valid_request(r['request_id']):
+            continue
         if keep_running() and r['run_at'] < now:
             logger.debug("Req %d: bofh_move_user %d",
                          r['request_id'], r['entity_id'])
@@ -718,6 +732,8 @@ def process_move_student_requests():
     account = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
     for r in rows:
+        if not is_valid_request(r['request_id']):
+            continue
         account.clear()
         account.find(r['entity_id'])
         person.clear()
@@ -840,6 +856,8 @@ def process_delete_requests():
     now = mx.DateTime.now()
     group = Factory.get('Group')(db)
     for r in br.get_requests(operation=const.bofh_delete_user):
+        if not is_valid_request(r['request_id']):
+            continue
         if not keep_running():
             break
         if r['run_at'] > now:
@@ -996,6 +1014,12 @@ def keep_running():
     if max_requests < 0:
         return False
     return time.time() - start_time < 15 * 60
+
+def is_valid_request(req_id):
+    # The request may have been canceled very recently
+    for r in br.get_requests(request_id=req_id):
+        return True
+    return False
 
 def main():
     global start_time, max_requests
