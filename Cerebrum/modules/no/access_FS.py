@@ -799,16 +799,16 @@ class EVU(FSObject):
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
         d = time.strftime("%Y-%m-%d", date)
         qry = """
-        SELECT e.etterutdkurskode, e.kurstidsangivelsekode, e.etterutdkursnavn,
-          e.etterutdkursnavnkort,
-          e.institusjonsnr_adm_ansvar, e.faknr_adm_ansvar,
-          e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
-          TO_CHAR(NVL(e.dato_fra, SYSDATE), 'YYYY-MM-DD') AS dato_fra,
-          TO_CHAR(NVL(e.dato_til, SYSDATE), 'YYYY-MM-DD') AS dato_til,
-          e.status_aktiv, e.status_nettbasert_und
-        FROM fs.etterutdkurs e
-        WHERE NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE) <
-              NVL(e.dato_til, SYSDATE) + 30
+        SELECT etterutdkurskode, kurstidsangivelsekode,
+          etterutdkursnavn, etterutdkursnavnkort,
+          institusjonsnr_adm_ansvar, faknr_adm_ansvar,
+          instituttnr_adm_ansvar, gruppenr_adm_ansvar,
+          TO_CHAR(NVL(dato_fra, SYSDATE), 'YYYY-MM-DD') AS dato_fra,
+          TO_CHAR(NVL(dato_til, SYSDATE), 'YYYY-MM-DD') AS dato_til,
+          status_aktiv, status_nettbasert_und
+        FROM fs.etterutdkurs
+        WHERE status_aktiv='J' AND
+          NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE) < (dato_til + 30)
         """ % d
         return self.db.query(qry)
 
@@ -831,7 +831,7 @@ class EVU(FSObject):
         query = """
         SELECT fodselsdato, personnr,
           fornavn, etternavn
-        FROM person p, etterutdkurs] e,
+        FROM person p, etterutdkurs e,
           kursdeltakelse kd, deltaker d
         WHERE e.etterutdkurskode like :kurskode AND
           e.kurstidsangivelsekode like :tid AND
@@ -982,7 +982,7 @@ class FS(object):
         self.undervisning = Undervisning(db)
         self.evu = EVU(db)
         self.alumni = Alumni(db)
-        # self.info = AdministrativInfo(db)
+        self.info = StudieInfo(db)
 
     def list_dbfg_usernames(self, fetchall = False):
         """
