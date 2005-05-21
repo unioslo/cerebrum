@@ -446,7 +446,9 @@ class TestOUFramework(unittest.TestCase):
         self.assertEqual(cscript("""
         set ou = GetObject("LDAP://ou=%s,%s")
         set group = ou.Create("group", "cn=%s")
-        group.groupType = ADS_GROUP_TYPE_SECURITY_ENABLED | ADS_GROUP_TYPE_GLOBAL_GROUP
+        group.saMAccountName = %s
+        ' this seems to be the default anyway
+        ' group.groupType = ADS_GROUP_TYPE_SECURITY_ENABLED + ADS_GROUP_TYPE_GLOBAL_GROUP
         group.SetInfo()
         """ % (ou, self.context, group, group)), "")
 
@@ -470,6 +472,16 @@ class TestOUFramework(unittest.TestCase):
         set account = GetObject("LDAP://%s")
         Wscript.Echo(account.distinguishedName)
         """ % dn), dn)
+        self.assertEqual(cscript("""
+        set account = GetObject("LDAP://%s")
+        Wscript.Echo(account.sAMAccountName)
+        """ % dn), account)
+
+    def hasGroup(self, account="temp1337", ou=None):
+        """Fails if the account does not exist"""
+        if ou is None:
+            ou = self.ou
+        dn = "CN=%s,OU=%s,%s" % (account, ou, self.context) 
 
     def accountGID(self, account="temp1337", ou=None):
         """Fails if the account does not exist"""
@@ -516,7 +528,7 @@ class TestTestOUFramework(TestOUFramework):
     def testHostname(self):
         assert self.hostname.count(".")
 
-    def testHasHasNot(self):
+    def testCreateHasHasNot(self):
         self.hasNotAccount()
         self.assertRaises(AssertionError, self.hasAccount)
         self.createUser()
@@ -551,8 +563,12 @@ class TestTestOUFramework(TestOUFramework):
         self.hasAccount("knott1337", ou="temp42")
         self.deleteOU("temp42")
         self.createOU("temp42")
+    
+    def testCreateGroup(self):
+        self.createGroup()
+        self.hasAccount()
 
-    def testUserGid(self):
+    def testAccountGid(self):
         self.createUser()
         gid = self.accountGID()
         self.assertEqual(len(gid), 32)
