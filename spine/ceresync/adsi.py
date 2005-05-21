@@ -29,6 +29,9 @@ from sets import Set
 import unittest
 import tempfile
 import win32pipe
+import time
+import logging
+import StringIO
 
 class WrongClassError(errors.AlreadyExistsError):
     """Already exists in OU, but is wrong objectClass"""    
@@ -236,7 +239,7 @@ class _ADAccount(_AdsiBack):
             if self.incr:
                 # in non-incr (full-sync) mode, everything will be
                 # add(), so we won't report those
-                print >>sys.stderr, "Already exists ", already_exists, "updating instead"
+                logging.warn("Already exists %s, updating instead", obj.name)
             return self.update(obj)
         
         ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)    
@@ -256,13 +259,12 @@ class _ADAccount(_AdsiBack):
         if not ad_obj:
             # FIXME: Proper logging, and maybe hint caller that he
             # should do a full sync instead
-            print >>sys.stderr, "Did not exists ", already_exists, "adding instead"
+            logging.warn("Did not exist %s, adding instead", obj.name)
             return self.add(obj)
         if not self.incr:
             if obj.name in self._remains:
                 del self._remains[obj.name]
         return ad_obj    
-
 
 class ADUser(_ADAccount):
     objectClass = "user"
@@ -289,8 +291,6 @@ class ADUser(_ADAccount):
             ad_obj.setPassword(password)
         ad_obj.setInfo()
         return ad_obj
-    
-                
 
 class ADGroup(_ADAccount):
     """Backend for Groups in Active Directory. 
@@ -330,10 +330,10 @@ class ADGroup(_ADAccount):
         check_members()           
         return ad_obj
 
-class ADOU(_AdsiBack):
-    """Backend for OUs in Active Directory. 
-    """
-    objectClass = "organizationalUnit"
+#class ADOU(_AdsiBack):
+#    """Backend for OUs in Active Directory. 
+#    """
+#    objectClass = "organizationalUnit"
 
 #class ADAlias(AdsiBack):
 #    """Handles mail-aliases (distribution lists) within Exchange/AD"""
@@ -343,7 +343,9 @@ class ADOU(_AdsiBack):
 # TODO: Move out!
 
 def cscript(script, type="vbs"):
-    """Run a (VB)script using cscript and return the result"""
+    """Run a (VB)script using cscript and return the result.
+       NOTE: This function should only be used for UNIT TESTS.
+    """
     # We will use this to set up the AD environment and test it,
     # using known-to-work VBscript code instead of our own code.
     file = tempfile.mktemp(".%s" % type)
@@ -421,6 +423,7 @@ class TestOUFramework(unittest.TestCase):
         Wscript.Echo(GetObject("LDAP://rootDSE").Get("defaultNamingContext"))
         """)
         self.createOU()
+        self.prepareLogger()
     
     def tearDown(self):    
         self.deleteOU()
@@ -436,8 +439,19 @@ class TestOUFramework(unittest.TestCase):
         user.SetInfo()
         """ % (ou, self.context, user, user)), "")
 
-    def hasNotUser(self, user="temp1337", ou=None):      
-        """Fails if the user exists"""
+    def createGroup(self, group="temp1337", ou=None):
+        """Adds a group through vbscript"""
+        if ou is None:
+            ou = self.ou
+        self.assertEqual(cscript("""
+        set ou = GetObject("LDAP://ou=%s,%s")
+        set group = ou.Create("group", "cn=%s")
+        group.groupType = ADS_GROUP_TYPE_SECURITY_ENABLED | ADS_GROUP_TYPE_GLOBAL_GROUP
+        group.SetInfo()
+        """ % (ou, self.context, group, group)), "")
+
+    def hasNotAccount(self, account="temp1337", ou=None):      
+        """Fails if the account exists"""
         if ou is None:
             ou = self.ou
         #  Should not find anything
@@ -445,58 +459,110 @@ class TestOUFramework(unittest.TestCase):
         On Error Resume Next
         set account = GetObject("LDAP://cn=%s,ou=%s,%s")
         Wscript.Echo(account.distinguishedName)
-        """ % (user, ou, self.context)), "")
+        """ % (account, ou, self.context)), "")
 
-    def hasUser(self, user="temp1337", ou=None):
-        """Fails if the user does not exist"""
+    def hasAccount(self, account="temp1337", ou=None):
+        """Fails if the account does not exist"""
         if ou is None:
             ou = self.ou
-        dn = "CN=%s,OU=%s,%s" % (user, ou, self.context) 
+        dn = "CN=%s,OU=%s,%s" % (account, ou, self.context) 
         self.assertEqual(cscript("""
         set account = GetObject("LDAP://%s")
         Wscript.Echo(account.distinguishedName)
         """ % dn), dn)
 
+    def accountGID(self, account="temp1337", ou=None):
+        """Fails if the account does not exist"""
+        if ou is None:
+            ou = self.ou
+        dn = "CN=%s,OU=%s,%s" % (account, ou, self.context) 
+        return cscript("""
+        set account = GetObject("LDAP://%s")
+        Wscript.Echo(account.GUID)
+        """ % dn)
+    
+    def prepareLogger(self):
+        """Makes logger use a buffer instead of stderr. 
+           The lines logged (format: "WARNING: asdlksldk") can be
+           fetched with the method lastLog.
+        """
+        self.logbuf = StringIO.StringIO()
+        logger = logging.getLogger()
+        loghandler = logging.StreamHandler(self.logbuf)
+        loghandler.setLevel(logging.INFO)
+        loghandler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        del logger.handlers[:] # any old ones goodbye
+        logger.addHandler(loghandler)
+        logger.setLevel(logging.INFO)
+
+    def lastLog(self):
+        """Returns what's been logged since last call."""
+        last = self.logbuf.getvalue()
+        self.logbuf.seek(0)
+        self.logbuf.truncate()
+        return last
+        
+
+
 class TestTestOUFramework(TestOUFramework):
     def testFramework(self):
         """Quick test of our testing framework"""
+    
+    def testOuURI(self):    
         assert "LDAP://" in self.ou_uri
         assert "ou=" in self.ou_uri
         assert "DC=" in self.ou_uri
-
+         
+    def testHostname(self):
         assert self.hostname.count(".")
 
-        self.hasNotUser()
-        self.assertRaises(AssertionError, self.hasUser)
+    def testHasHasNot(self):
+        self.hasNotAccount()
+        self.assertRaises(AssertionError, self.hasAccount)
         self.createUser()
-        self.hasUser()
-        self.assertRaises(AssertionError, self.hasNotUser)
+        self.hasAccount()
+        self.assertRaises(AssertionError, self.hasNotAccount)
+    
+    def testDeleteOU(self):    
+        self.createOU()
         self.deleteOU()
         # should not fail if not exist    
         self.deleteOU()
         # Should fail if OU is missing
-        self.assertRaises(AssertionError, self.hasUser)
-
-        self.createOU()
+        self.assertRaises(AssertionError, self.hasAccount)
+    
+    def testCreateOUDeletes(self):
         self.createUser()
         # createOU should delete existing OU
         self.createOU()
-        self.hasNotUser()
-
-        # create/has with another username
+        self.hasNotAccount()
+    
+    def testCreateAnotherUser(self):
         self.createUser("fish1337")
-        self.hasUser("fish1337")
-        self.hasNotUser()
-        self.assertRaises(AssertionError, self.hasNotUser, "fish1337")
+        self.hasAccount("fish1337")
+        self.hasNotAccount()
+        self.assertRaises(AssertionError, self.hasNotAccount, "fish1337")
 
-        # another OU
+    def testAnotherOU(self):
         self.createOU("temp42")
         self.createUser("knott1337", ou="temp42")
-        self.assertRaises(AssertionError, self.hasUser, "knott1337")
-        self.assertRaises(AssertionError, self.hasNotUser, "knott1337", ou="temp42")
-        self.hasUser("knott1337", ou="temp42")
+        self.assertRaises(AssertionError, self.hasAccount, "knott1337")
+        self.assertRaises(AssertionError, self.hasNotAccount, "knott1337", ou="temp42")
+        self.hasAccount("knott1337", ou="temp42")
         self.deleteOU("temp42")
         self.createOU("temp42")
+
+    def testUserGid(self):
+        self.createUser()
+        gid = self.accountGID()
+        self.assertEqual(len(gid), 32)
+        self.createUser("test1442")
+        self.assertNotEqual(gid,  self.accountGID("test1442"))
+
+    def testLog(self):
+        logging.error("Hello")
+        self.assertEqual(self.lastLog(), "ERROR: Hello\n")
+        self.assertEqual(self.lastLog(), "")
 
     def tearDown(self):
         super(TestTestOUFramework, self).tearDown()
@@ -594,25 +660,25 @@ class TestADSIBack(TestOUFramework):
         self.createUser()
         self.adsi.begin() # reload _remains
         self.assertEqual(self.adsi._remains.keys(), ["temp1337"])
-        self.hasUser()
+        self.hasAccount()
 
     def testCloseRemovesUnknown(self):
         self.createUser()
-        self.hasUser()
+        self.hasAccount()
         self.adsi.begin() # reload _remains
         self.adsi.close() # Should delete the user we added
         #  Should not find anything
-        self.hasNotUser()
+        self.hasNotAccount()
         self.assertEqual(self.adsi._remains, None)
         self.assertEqual(self.adsi.ou, None)
         
     def testAbortRemovesNothing(self):
         self.createUser()
-        self.hasUser()
+        self.hasAccount()
         self.adsi.begin() # reload _remains
         self.adsi.abort() # Should not delete the user we added
         #  Should still find user
-        self.hasUser()
+        self.hasAccount()
         self.assertEqual(self.adsi._remains, None)
         self.assertEqual(self.adsi.ou, None)
 
@@ -641,7 +707,7 @@ class TestADAccount(TestOUFramework):
         # reload _remains to mimic containsUser
         self.adaccount.delete(account)
         #  Should not find anything
-        self.hasNotUser()
+        self.hasNotAccount()
 
         self.adaccount.begin() # reload _remains
         # now empty again
@@ -658,7 +724,7 @@ class TestADAccount(TestOUFramework):
         # reload _remains to mimic containsUser
         self.adaccount.delete(account)
         #  Should not find anything
-        self.hasNotUser()
+        self.hasNotAccount()
         # Should no longer be in _remains
         self.assertEqual(self.adaccount._remains.keys(), []) 
 
@@ -702,8 +768,8 @@ class TestADAccount(TestOUFramework):
 class TestADUser(TestOUFramework):
     def setUp(self):
         super(TestADUser, self).setUp()
-        self.adaccount = ADUser(self.ou_uri)
-        self.adaccount.begin()
+        self.aduser = ADUser(self.ou_uri)
+        self.aduser.begin()
 
     def lastChangedPassword(self, user, ou=None):
         if not ou:
@@ -746,8 +812,8 @@ class TestADUser(TestOUFramework):
             passwords = {}
             gecos = "The 1337 User"
         user = User()      
-        self.adaccount.add(user)
-        self.hasUser(user.name)
+        self.aduser.add(user)
+        self.hasAccount(user.name)
         self.assertEqual(self.lastChangedPassword(user.name), None)
         self.assertEqual(cscript("""
         set user = GetObject("LDAP://CN=%s,OU=%s,%s")
@@ -760,14 +826,119 @@ class TestADUser(TestOUFramework):
             passwords = {'cleartext': 'fishsoup'}
             gecos = "The 1337 User"
         user = User()      
-        self.adaccount.add(user)
-        self.hasUser(user.name)
+        self.aduser.add(user)
+        self.hasAccount(user.name)
         self.assertNotEqual(self.lastChangedPassword(user.name), None)
-   
+
+    def testUpdatePassword(self):     
+        class User:
+            name = "user1337"    
+            passwords = {'cleartext': 'fishsoup'}
+            gecos = "The 1337 User"
+        user = User()      
+        self.aduser.add(user)
+        oldgid = self.accountGID(user.name)
+        time.sleep(2) # Make sure we have time diff
+        first_change = self.lastChangedPassword(user.name)
+        self.aduser.update(user)
+        last_change = self.lastChangedPassword(user.name)
+        newgid = self.accountGID(user.name)
+        self.assertEqual(oldgid, newgid)
+        assert first_change < last_change
+  
+    def testAddDoesUpdate(self):
+        class User:
+            name = "user1337"    
+            passwords = {'cleartext': 'fishsoup'}
+            gecos = "The 1337 User"
+        user = User()      
+        self.aduser.add(user)
+        oldgid = self.accountGID(user.name)
+        time.sleep(2) # Make sure we have time diff
+        first_change = self.lastChangedPassword(user.name)
+        self.aduser.add(user)
+        last_change = self.lastChangedPassword(user.name)
+        newgid = self.accountGID(user.name)
+        # if it was a real update, not an add, we should have the same GID
+        self.assertEqual(oldgid, newgid)
+        assert first_change < last_change
+        # Should not report add -> update in non-incr
+        self.assertEqual(self.lastLog(), "")
+        # But if we are incr, we should not get an add on someone who
+        # already exist
+        self.aduser.begin(incr=True)
+        self.aduser.add(user)
+        self.assertEqual(self.lastLog(), 
+        "WARNING: Already exists user1337, updating instead\n")
+  
+    def testUpdateDoesAdd(self):      
+        class User:
+            name = "user1337"    
+            passwords = {'cleartext': 'fishsoup'}
+            gecos = "The 1337 User"
+        user = User()      
+        self.aduser.update(user)
+        self.hasAccount(user.name)
+        self.assertEqual(self.lastLog(), 
+        "WARNING: Did not exist user1337, adding instead\n")
+
+class TestADGroup(TestOUFramework):
+    def setUp(self):
+        super(TestADGroup, self).setUp()
+        self.adgroup = ADGroup(self.ou_uri)
+        self.adgroup.begin()
+
+    def testGroupInfo(self):
+        class Group:
+            name = "group1337"
+            membernames = []
+        group = Group()    
+        self.adgroup.add(group)    
+        self.hasAccount(group.name)
+
+class TestHardcore(TestOUFramework):
+    def _testMany(self):
+        # Disabled because this is a functional test, not a unit test
+        # You can call it anyway like this:
+        #    python adsi.py TestHardcore._testMany
+        adaccount = ADUser(self.ou_uri)
+        adaccount.begin()
+        class User:
+            passwords = {'cleartext': 'fishsoup'}
+            gecos = "The 1337 User"
+        user = User()      
+        bars = r"/-\|"
+        for round in range(3):
+            start = time.time()
+            print " ",
+            for x in xrange(500):
+                if not(x % 5):
+                    print "\010\010" + bars[(x/5)%4],
+                user.name = "userX%s" % x
+                if round == 3:
+                    adaccount.update(user)
+                else:    
+                    adaccount.add(user)
+            stop = time.time()    
+            print "\010\010 "
+            if round == 0:
+                print "Added",
+            elif round == 1:    
+                print "Re-added",
+            else:    
+                print "Updated",
+            print "500 users in %0.2f secs" % (stop-start)
+        start = time.time()
+        adaccount.begin()       
+        adaccount.close() # Should delete those 500
+        stop = time.time()
+        print "Deleted 500 users in %0.2f secs" % (stop-start)
+
+
 
 if __name__ == "__main__":
-    print "Note that these tests must be run as a domain administrator locally"
-    print "on a domain controller to be able to create temporary OUs."
+    logging.warn("Note that these tests must be run as a domain administrator " 
+    "locally on a domain controller to be able to create temporary OUs.")
     unittest.main()
 
 
