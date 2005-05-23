@@ -63,7 +63,7 @@ class FSObject(object):
         self.institusjonsnr = cereconf.DEFAULT_INSTITUSJONSNR
         
     def _is_alive(self):
-	return "NVL(p.status_dod, 'N') = 'N'\n"
+        return "NVL(p.status_dod, 'N') = 'N'\n"
 
     def _get_termin_aar(self, only_current=0):
         if self.mndnr <= 6:
@@ -111,18 +111,18 @@ class Person(FSObject):
             'fornavn2': fornavn, 'etternavn2': etternavn})
 
     def get_personroller(self, fnr, pnr):
-	return self.db.query("""
+        return self.db.query("""
         SELECT fodselsdato, personnr, rollenr, rollekode, 
           dato_fra, dato_til, institusjonsnr, faknr, gruppenr, 
           studieprogramkode, emnekode, versjonskode, aktivitetkode, 
           terminkode, arstall, terminnr, etterutdkurskode, 
           kurstidsangivelsekode
         FROM personrolle
-	WHERE 
+        WHERE 
           fodselsdato=:fnr AND 
           personnr=:pnr AND
           dato_fra < SYSDATE AND
-	  NVL(dato_til,SYSDATE) >= sysdate""", {'fnr': fnr,
+          NVL(dato_til,SYSDATE) >= sysdate""", {'fnr': fnr,
                                                 'pnr': pnr})
 
     def get_fagperson(self, fnr, pnr):
@@ -258,15 +258,15 @@ class Student(FSObject):
               r.personnr = p.personnr AND
               %s
         """ %(self._get_termin_aar(only_current=1), self._is_alive())
-	return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
+        return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
 
     def list_eksamensmeldinger(self):  # GetAlleEksamener
-	"""Hent ut alle eksamensmeldinger i nåværende sem.
-	samt fnr for oppmeldte(topics.xml)"""
+        """Hent ut alle eksamensmeldinger i nåværende sem.
+        samt fnr for oppmeldte(topics.xml)"""
         # TODO: Det er mulig denne skal splittes i to søk, ett som
         # returnerer lovlige, og et som returnerer "ulovlige"
         # eksamensmeldinger (sistnevnte er vel GetStudinfPrivatist?)
-	qry = """
+        qry = """
         SELECT p.fodselsdato, p.personnr, e.emnekode, e.studieprogramkode
         FROM fs.person p, fs.eksamensmelding e
         WHERE p.fodselsdato=e.fodselsdato AND
@@ -275,10 +275,10 @@ class Student(FSObject):
               AND %s
         ORDER BY fodselsdato, personnr
         """ % (self.year, self._is_alive())                            
-      	return self.db.query(qry)
+        return self.db.query(qry)
 
     def get_eksamensmeldinger(self, fnr, pnr): # GetStudentEksamen
-	"""Hent alle aktive eksamensmeldinger for en student"""
+        """Hent alle aktive eksamensmeldinger for en student"""
         qry = """
         SELECT DISTINCT
           em.emnekode, em.dato_opprettet, em.status_er_kandidat
@@ -293,7 +293,7 @@ class Student(FSObject):
                                    'pnr': pnr})
 
     def get_studierett(self, fnr, pnr): # GetStudentStudierett_50
-	"""Hent info om alle studierett en student har eller har hatt"""
+        """Hent info om alle studierett en student har eller har hatt"""
         qry = """
         SELECT DISTINCT
            sps.studieprogramkode, sps.studierettstatkode,
@@ -333,8 +333,8 @@ class Student(FSObject):
         return self.db.query(query + time_part, {"emnekode" : emnekode})
 
     def get_student_kull(self, fnr, pnr):
-	"""Hent opplysninger om hvilken klasse studenten er en del av og 
-	hvilken kull studentens klasse tilhører."""
+        """Hent opplysninger om hvilken klasse studenten er en del av og 
+        hvilken kull studentens klasse tilhører."""
         qry = """
         SELECT DISTINCT
           sps.studieprogramkode, sps.terminkode_kull, sps.arstall_kull,
@@ -348,7 +348,7 @@ class Student(FSObject):
           sps.terminkode_kull = k.terminkode AND
           sps.arstall_kull = k.arstall AND
           %s""" % self._is_alive()
-	return self.db.query(qry, {'fnr': fnr,
+        return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
 
     def get_utdanningsplan(self, fnr, pnr): # GetStudentUtdPlan
@@ -364,19 +364,19 @@ class Student(FSObject):
               utdp.personnr = p.personnr AND
               %s
         """ % self._is_alive()
-	return self.db.query(qry, {'fnr': fnr,
+        return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
 
     def list_tilbud(self):  # GetStudentTilbud_50
         """Hent personer som har fått tilbud om opptak og
         har takket ja til tilbudet.
-	Disse skal gis affiliation student med kode tilbud til
+        Disse skal gis affiliation student med kode tilbud til
         stedskoden sp.faknr_studieansv+sp.instituttnr_studieansv+
         sp.gruppenr_studieansv. Personer som har fått tilbud om
         opptak til et studieprogram ved institusjonen vil inngå i
         denne kategorien.  Alle søkere til studierved institusjonen
-	registreres i tabellen fs.soknadsalternativ og informasjon om
-	noen har fått tilbud om opptak hentes også derfra (feltet
+        registreres i tabellen fs.soknadsalternativ og informasjon om
+        noen har fått tilbud om opptak hentes også derfra (feltet
         fs.soknadsalternativ.tilbudstatkode er et godt sted å 
         begynne å lete etter personer som har fått tilbud). Hvis vi skal
         kjøre dette på UiO kan det hende at vi må ha:
@@ -431,12 +431,12 @@ class Student(FSObject):
         """Hent personer som har innvilget permisjon.  Disse vil
         alltid ha opptak, så vi henter bare noen få kolonner.
         Disse tildeles affiliation student med kode permisjon
-	til sp.faknr_studieansv, sp.instituttnr_studieansv, 
+        til sp.faknr_studieansv, sp.instituttnr_studieansv, 
         sp.gruppenr_studieansv"""
 
         qry = """
         SELECT  pe.studieprogramkode, pe.fodselsdato, pe.personnr,
-        	pe.fraverarsakkode_hovedarsak 
+                pe.fraverarsakkode_hovedarsak 
         FROM fs.innvilget_permisjon pe, fs.person p
         WHERE p.fodselsdato = pe.fodselsdato AND
               p.personnr = pe.personnr AND
@@ -447,7 +447,7 @@ class Student(FSObject):
 
 
     def list_drgrad(self): # GetStudinfDrgrad
-	"""Henter info om aktive doktorgradsstudenter.  Aktive er
+        """Henter info om aktive doktorgradsstudenter.  Aktive er
         definert til å være de som har en studierett til et program
         som har nivåkode lik 980, og der datoen for tildelt studierett
         er passert og datoen for fratatt studierett enten ikke er satt
@@ -455,7 +455,7 @@ class Student(FSObject):
 
         qry = """
         SELECT DISTINCT
-	       sps.fodselsdato, sps.personnr,
+               sps.fodselsdato, sps.personnr,
                sp.institusjonsnr_studieansv AS institusjonsnr,
                sp.faknr_studieansv AS faknr,
                sp.instituttnr_studieansv AS instituttnr, 
@@ -476,12 +476,12 @@ class Student(FSObject):
         return self.db.query(qry)
 
     def list_privatist(self):
-	"""Her henter vi informasjon om privatister.
-	Som privatist regnes alle studenter med en forekomst i
-	FS.STUDIEPROGRAMSTUDENT der dato_studierett_gyldig_til
+        """Her henter vi informasjon om privatister.
+        Som privatist regnes alle studenter med en forekomst i
+        FS.STUDIEPROGRAMSTUDENT der dato_studierett_gyldig_til
         er større eller lik dagens dato og studierettstatuskode
         er PRIVATIST eller status_privatist er satt til 'J'"""
-	qry = """
+        qry = """
         SELECT DISTINCT
           p.fodselsdato, p.personnr, p.etternavn,
           p.fornavn, p.kjonn, s.adrlin1_semadr,
@@ -537,18 +537,18 @@ class Undervisning(FSObject):
             'aktkode': aktkode})
 
     def list_alle_personroller(self):
-	qry = """
-	SELECT DISTINCT
-	  fodselsdato, personnr, rollenr, rollekode,
-	  dato_fra, dato_til, institusjonsnr, faknr, 
-	  gruppenr, studieprogramkode, emnekode,
-	  versjonskode, aktivitetkode, terminkode, 
-	  arstall, terminnr, etterutdkurskode, 
-	  kurstidsangivelsekode
+        qry = """
+        SELECT DISTINCT
+          fodselsdato, personnr, rollenr, rollekode,
+          dato_fra, dato_til, institusjonsnr, faknr, 
+          gruppenr, studieprogramkode, emnekode,
+          versjonskode, aktivitetkode, terminkode, 
+          arstall, terminnr, etterutdkurskode, 
+          kurstidsangivelsekode
         FROM fs.personrolle
-	WHERE 
+        WHERE 
           dato_fra < SYSDATE AND
-	  NVL(dato_til,SYSDATE) >= sysdate"""
+          NVL(dato_til,SYSDATE) >= sysdate"""
         return self.db.query(qry)
 
     def list_undervisningenheter(self, year=None, sem=None): # GetUndervEnhetAll
@@ -699,7 +699,7 @@ class Undervisning(FSObject):
 
     def list_fagperson_semester(self): # GetFagperson_50
         # (GetKursFagpersonundsemester var duplikat)
-	"""Disse skal gis affiliation tilknyttet med kode fagperson 
+        """Disse skal gis affiliation tilknyttet med kode fagperson 
         til stedskoden faknr+instituttnr+gruppenr
         Hent ut fagpersoner som har undervisning i inneværende
         eller forrige kalenderår"""
@@ -723,9 +723,9 @@ class Undervisning(FSObject):
         WHERE fp.fodselsdato = p.fodselsdato AND
               fp.personnr = p.personnr AND
               fp.status_aktiv = 'J' AND
-	      fp.institusjonsnr_ansatt IS NOT NULL AND
-	      fp.faknr_ansatt IS NOT NULL AND
-	      fp.instituttnr_ansatt IS NOT NULL AND
+              fp.institusjonsnr_ansatt IS NOT NULL AND
+              fp.faknr_ansatt IS NOT NULL AND
+              fp.instituttnr_ansatt IS NOT NULL AND
               fp.gruppenr_ansatt IS NOT NULL
         """ 
         return self.db.query(qry)
@@ -766,12 +766,12 @@ class Undervisning(FSObject):
 
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50
-    	"""Hent info om personer som er ekte EVU-studenter ved
-    	dvs. er registrert i EVU-modulen i tabellen 
-    	fs.deltaker,  Henter alle som er knyttet til kurs som
+        """Hent info om personer som er ekte EVU-studenter ved
+        dvs. er registrert i EVU-modulen i tabellen 
+        fs.deltaker,  Henter alle som er knyttet til kurs som
         tidligst ble avsluttet for 30 dager siden."""
 
- 	qry = """
+        qry = """
         SELECT DISTINCT 
                p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
@@ -794,7 +794,7 @@ class EVU(FSObject):
               NVL(e.status_nettbasert_und,'J')='J') AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
-	return self.db.query(qry)
+        return self.db.query(qry)
         
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
         d = time.strftime("%Y-%m-%d", date)
@@ -910,8 +910,8 @@ class Alumni(FSObject):
 
 class StudieInfo(FSObject):
     def list_studieprogrammer(self): # GetStudieproginf
-	"""For hvert definerte studieprogram henter vi 
-	informasjon om utd_plan og eier samt studieprogkode. Vi burde
+        """For hvert definerte studieprogram henter vi 
+        informasjon om utd_plan og eier samt studieprogkode. Vi burde
         her ha en sjekk på om studieprogrammet er utgått, men datagrunnalget
         er for svakt. ( WHERE status_utgatt = 'N')"""
         qry = """
@@ -923,7 +923,7 @@ class StudieInfo(FSObject):
         return self.db.query(qry)
 
     def list_emner(self): # GetEmneinf
-	"""For hvert definerte emne henter vi informasjon om 
+        """For hvert definerte emne henter vi informasjon om 
            ansvarlig sted."""
         qry = """
         SELECT e.emnekode, e.versjonskode, e.institusjonsnr,
@@ -945,7 +945,7 @@ class StudieInfo(FSObject):
         return self.db.query(qry, {'emne': emne})
 
     def list_ou(self, institusjonsnr=0): # GetAlleOUer
-	"""Hent data om stedskoder registrert i FS"""
+        """Hent data om stedskoder registrert i FS"""
         qry = """
         SELECT DISTINCT
           institusjonsnr, faknr, instituttnr, gruppenr, stedakronym,
@@ -960,8 +960,8 @@ class StudieInfo(FSObject):
         return self.db.query(qry)
 
     def list_kull(self):
-       	"""Henter informasjon om aktive studiekull."""
-	qry = """
+        """Henter informasjon om aktive studiekull."""
+        qry = """
         SELECT
           studieprogramkode, kullkode, studiekullnavn, 
           klassetrinn_start, terminnr_maks
