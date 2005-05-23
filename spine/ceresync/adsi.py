@@ -452,6 +452,38 @@ class TestOUFramework(unittest.TestCase):
         group.SetInfo()
         """ % (ou, self.context, group, group)), "")
 
+    def addGroupMember(self, member, group="temp1337", ou=None):
+        """Adds the given username to the given group.
+           The member and group must both be in the given ou.
+        """
+        if ou is None:
+            ou = self.ou
+        context = self.context
+        self.assertEqual(cscript("""
+        set group = GetObject("LDAP://cn=%(group)s,ou=%(ou)s,%(context)s")
+        group.add("LDAP://cn=%(member)s,ou=%(ou)s,%(context)s")
+        group.setInfo()
+        """ % locals()), "")
+ 
+    
+    def groupMembers(self, group="temp1337", ou=None):
+        """Returns a (sorted) list of group members.
+           Note that a member might be either a user or a group.
+        """
+        if ou is None:
+            ou = self.ou
+        members = cscript("""
+        set group = GetObject("LDAP://cn=%s,ou=%s,%s")
+        for each member in group.members
+            Wscript.echo member.sAMAccountName
+        next    
+        """ % (group, ou, self.context))
+        if not members: return []
+        #result = [x.replace("CN=", "") for x in members.split("\n")]
+        result = members.split("\n")
+        result.sort()
+        return result
+
     def hasNotAccount(self, account="temp1337", ou=None):      
         """Fails if the account exists"""
         if ou is None:
@@ -567,6 +599,38 @@ class TestTestOUFramework(TestOUFramework):
     def testCreateGroup(self):
         self.createGroup()
         self.hasAccount()
+        
+
+    def testAddGroupMember(self):
+        self.createGroup()
+        self.createUser("user1337")
+        self.addGroupMember("user1337")
+
+    def testGroupMembersEmpty(self):
+        self.createGroup()
+        self.assertEqual(self.groupMembers(), [])
+        
+    def testGroupMembers(self):    
+        self.createGroup()
+        self.createUser("user1337")
+        self.createUser("user31337")
+        self.addGroupMember("user1337")
+        self.assertEqual(self.groupMembers(), ["user1337"])
+        self.addGroupMember("user31337")
+        self.assertEqual(self.groupMembers(), ["user1337", "user31337"])
+        
+    def testGroupMembersOther(self):
+        self.createGroup()
+        self.createGroup("other1337")
+        self.createUser("user1337")
+        self.createUser("user31337")
+        self.addGroupMember("user1337")
+        self.addGroupMember("user31337", "other1337")
+        # add group temp1337 as member (!)
+        self.addGroupMember("temp1337", "other1337")
+        # member user1337 is "behind" group temp1337
+        self.assertEqual(self.groupMembers("other1337"),
+                         ["temp1337", "user31337"])
 
     def testAccountGid(self):
         self.createUser()
@@ -906,11 +970,109 @@ class TestADGroup(TestOUFramework):
 
     def testGroupInfo(self):
         class Group:
-            name = "group1337"
+            name = "temp1337"
             membernames = []
         group = Group()    
         self.adgroup.add(group)    
-        self.hasAccount(group.name)
+        self.hasAccount()
+        self.assertEqual(self.groupMembers(), [])
+     
+    def testGroupWithMember(self):
+        self.createUser("user1337")
+        class Group:
+            name = "temp1337"
+            membernames = ["user1337"]
+        group = Group()    
+        self.adgroup.add(group)    
+        self.assertEqual(self.groupMembers(), group.membernames)
+        
+    def testGroupAddMember(self):
+        self.createUser("user1337")
+        self.createUser("user31337")
+        self.createGroup()
+        self.addGroupMember("user1337")
+        old_gid = self.accountGID()
+        class Group:
+            name = "temp1337"
+            membernames = ["user1337", "user31337"]
+        group = Group()
+        self.adgroup.update(group)    
+        new_gid = self.accountGID()
+        self.assertEqual(self.groupMembers(), group.membernames)
+        self.assertEqual(old_gid, new_gid)
+ 
+    def testGroupRemoveMember(self):
+        self.createUser("user1337")
+        self.createUser("user31337")
+        self.createGroup()
+        self.addGroupMember("user1337")
+        self.addGroupMember("user31337")
+        old_gid = self.accountGID()
+        class Group:
+            name = "temp1337"
+            membernames = ["user31337"]
+        group = Group()
+        self.adgroup.update(group)
+        new_gid = self.accountGID()
+        self.assertEqual(self.groupMembers(), group.membernames)
+        self.assertEqual(old_gid, new_gid)
+ 
+    def testGroupAddUnknownAccount(self):
+        self.createGroup()
+        self.createUser("user31337") # but not user1337
+        class Group:
+            name = "temp1337"
+            membernames = ["user1337", "user31337"]
+        group = Group()
+        self.adgroup.add(group)
+        # did not fail, and did not include user1337 
+        self.assertEqual(self.groupMembers(), ["user31337"])
+       
+    def testGroupAddUsersOutsideOu(self):
+        self.createOU("other1337")
+        # Even users outside our OU are to be included
+        # (as we might (must!) have different OUs for groups and
+        #  users)
+        self.createUser("user1337", ou="other1337")
+        self.createUser("user31337")
+        self.createGroup() 
+        class Group:
+            name = "temp1337"
+            membernames = ["user1337", "user31337"]
+        group = Group()
+        self.adgroup.update(group)
+        self.assertEqual(self.groupMembers(), group.membernames)
+    
+    def testAddGroupAsMember(self):
+        self.createGroup()    
+        self.createGroup("other1337")
+        self.createUser("user1337")
+        class Group:
+            name = "temp1337"
+            membernames = ["user1337", "other31337"]
+        group = Group()
+        # should skip other31337 as group.membernames
+        # is the EXPANDED list of members
+        self.adgroup.update(group)
+        # Actually supporting groups-in-groups requires 
+        # spine support
+        self.assertEqual(self.groupMembers(), ["user1337"])
+
+    def testRemoveGroupAsMember(self):
+        self.createGroup()    
+        self.createGroup("other1337")
+        self.createUser("user1337")
+        self.addGroupMember("other1337")
+        class Group:
+            name = "temp1337"
+            membernames = ["user1337"]
+        group = Group()
+        self.adgroup.update(group)
+        self.assertEqual(self.groupMembers(), group.membernames)
+
+    def tearDown(self):
+        super(TestADGroup, self).tearDown()
+        self.deleteOU("other1337")       
 
 class TestHardcore(TestOUFramework):
     def _testMany(self):
