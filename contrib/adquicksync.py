@@ -61,25 +61,25 @@ def quick_user_sync():
                                   clco.quarantine_refresh,
                                   clco.account_home_added,
                                   clco.account_home_updated,
-				  clco.homedir_update,
-				  clco.homedir_add,
-				  clco.homedir_remove))
+                                  clco.homedir_update,
+                                  clco.homedir_add,
+                                  clco.homedir_remove))
 
-    for ans in answer:	
+    for ans in answer:  
         chg_type = ans['change_type_id']
         if debug:
             logger.debug("change_id: %s" % ans['change_id'])
         cl.confirm_event(ans)
         if chg_type == clco.account_password:
-	    try:	
-            	change_params = pickle.loads(ans['change_params'])
-	    except EOFError:
-		logger.warn('picle.load EOFError on change_id: %s' % ans['change_id'])
-		continue
+            try:        
+                change_params = pickle.loads(ans['change_params'])
+            except EOFError:
+                logger.warn('picle.load EOFError on change_id: %s' % ans['change_id'])
+                continue
             if change_pw(ans['subject_entity'],change_params):
-		cl.confirm_event(ans)
-	    else:
-		logger.warn('Failed changing password for %s ' % ans['subject_entity'])
+                cl.confirm_event(ans)
+            else:
+                logger.warn('Failed changing password for %s ' % ans['subject_entity'])
         elif chg_type == clco.group_add or chg_type == clco.group_rem:
             entity.clear()
             try:
@@ -93,35 +93,35 @@ def quick_user_sync():
                 continue
             if entity.has_spread(int(co.spread_uio_ad_account)):
                 group.clear()
-		try:
-		    g_obj = group.find(ans['dest_entity'])
-		except Errors.NotFoundError:
-		    # Ignore this change; as the member entity it refers
-		    # to no longer seems to exists in Cerebrum, we're
-		    # unable to find a username for it (outside of the
-		    # changelog, and we'll process this entity's deletion
-		    # changelog entry later).
-		    continue
-	        if group.has_spread(int(co.spread_uio_ad_group)):
+                try:
+                    g_obj = group.find(ans['dest_entity'])
+                except Errors.NotFoundError:
+                    # Ignore this change; as the member entity it refers
+                    # to no longer seems to exists in Cerebrum, we're
+                    # unable to find a username for it (outside of the
+                    # changelog, and we'll process this entity's deletion
+                    # changelog entry later).
+                    continue
+                if group.has_spread(int(co.spread_uio_ad_group)):
                     account_name = id_to_name(ans['subject_entity'],'user')
-		    if not account_name:
-	    		return False
+                    if not account_name:
+                        return False
                     group_name = id_to_name(ans['dest_entity'],'group')
-		    if not group_name:
-	    		return False
+                    if not group_name:
+                        return False
                     if debug:
                         logger.debug("account:%s,group_name:%s" % (account_name,group_name))
                     if chg_type == clco.group_add:
                         if group_add(account_name,group_name):
-			    cl.confirm_event(ans)
-			else:
-		            logger.debug('Failed adding %s to group %s' % (account_name,group_name))
+                            cl.confirm_event(ans)
+                        else:
+                            logger.debug('Failed adding %s to group %s' % (account_name,group_name))
                     else:
-			if group_rem(account_name,group_name):
-			    cl.confirm_event(ans)
-			else:
-			    logger.debug('Failed removing %s from group %s' % (account_name,group_name))
-		else:
+                        if group_rem(account_name,group_name):
+                            cl.confirm_event(ans)
+                        else:
+                            logger.debug('Failed removing %s from group %s' % (account_name,group_name))
+                else:
                     if debug:
                         logger.debug('%s add/rem group: missing spread_uio_ad_group' % ans['dest_entity'])
             else:
@@ -131,22 +131,22 @@ def quick_user_sync():
         elif chg_type == clco.spread_add:
             change_params = pickle.loads(ans['change_params'])
             if add_spread(ans['subject_entity'], change_params['spread']):
-		cl.confirm_event(ans)
+                cl.confirm_event(ans)
         elif chg_type == clco.spread_del:
             change_params = pickle.loads(ans['change_params'])
             if del_spread(ans['subject_entity'], change_params['spread']):
-		cl.confirm_event(ans)
-	elif (chg_type == clco.quarantine_add or
+                cl.confirm_event(ans)
+        elif (chg_type == clco.quarantine_add or
               chg_type == clco.quarantine_del or
               chg_type == clco.quarantine_mod or
               chg_type == clco.quarantine_refresh):
-	    change_quarantine(ans['subject_entity'])
-	elif (chg_type == clco.account_home_updated or
+            change_quarantine(ans['subject_entity'])
+        elif (chg_type == clco.account_home_updated or
               chg_type == clco.account_home_added or 
-	      chg_type == clco.homedir_update or 
-	      chg_type == clco.homedir_add or
-	      chg_type == clco.homedir_remove):
-	    move_account(ans['subject_entity'])
+              chg_type == clco.homedir_update or 
+              chg_type == clco.homedir_add or
+              chg_type == clco.homedir_remove):
+            move_account(ans['subject_entity'])
     cl.commit_confirmations()
 
 
@@ -154,39 +154,39 @@ def move_account(entity_id):
     account.clear()
     account.find(entity_id)
     if account.is_expired():
-	logger.debug('move_account:Account %s is expired' % entity_id)
-	return False
+        logger.debug('move_account:Account %s is expired' % entity_id)
+        return False
     if account.has_spread(int(co.spread_uio_ad_account)):
-	account_name = id_to_name(entity_id, 'user')
-	if not account_name:
-	    return False
-	home = adutils.find_home_dir(entity_id, account_name, disk_spread)
-       	sock.send('ALTRUSR&%s/%s&hdir&%s\n' % (cereconf.AD_DOMAIN,
+        account_name = id_to_name(entity_id, 'user')
+        if not account_name:
+            return False
+        home = adutils.find_home_dir(entity_id, account_name, disk_spread)
+        sock.send('ALTRUSR&%s/%s&hdir&%s\n' % (cereconf.AD_DOMAIN,
                                                account_name, home))
-	if sock.read() != ['210 OK']:
-	    logger.warn('Failed update home directory %s' % account_name)
+        if sock.read() != ['210 OK']:
+            logger.warn('Failed update home directory %s' % account_name)
 
 
 def change_quarantine(entity_id):
     account.clear()
     try:
-	account.find(entity_id)
-	if account.is_expired():
-	    logger.debug('change_quarantine:Account %s is expired' % entity_id)
-	    return False
+        account.find(entity_id)
+        if account.is_expired():
+            logger.debug('change_quarantine:Account %s is expired' % entity_id)
+            return False
     except Errors.NotFoundError:
-	# The entity exists, but account information deleted, ignore
-	# further processing.
-	return False
+        # The entity exists, but account information deleted, ignore
+        # further processing.
+        return False
     if account.has_spread(int(co.spread_uio_ad_account)):
-    	if adutils.chk_quarantine(entity_id):
-	    del_spread(entity_id, co.spread_uio_ad_account,
+        if adutils.chk_quarantine(entity_id):
+            del_spread(entity_id, co.spread_uio_ad_account,
                        delete=False)
-    	else:
-	    account_name = id_to_name(entity_id,'user')
-	    if not account_name:
-	    	return False	
-	    ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)		
+        else:
+            account_name = id_to_name(entity_id,'user')
+            if not account_name:
+                return False    
+            ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)            
             sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, account_name))
             ou_in_ad = sock.read()[0]
             if ou_in_ad[0:3] == '210':
@@ -198,8 +198,8 @@ def change_quarantine(entity_id):
                                                account_name,
                                                cereconf.AD_PASSWORD_EXPIRE,
                                                cereconf.AD_CANT_CHANGE_PW))
-		    if sock.read() != ['210 OK']:
-			logger.debug("Failed enabling account %s" % account_name)
+                    if sock.read() != ['210 OK']:
+                        logger.debug("Failed enabling account %s" % account_name)
                 else:
                     logger.debug("Failed move user %s" % account_name)
             else:
@@ -209,19 +209,19 @@ def change_quarantine(entity_id):
 def build_user(entity_id):
     account_name =id_to_name(entity_id,'user')
     if not account_name:
-	return False
-	
+        return False
+        
     ad_ou = cereconf.AD_LOST_AND_FOUND 
 
     sock.send('NEWUSR&LDAP://OU=%s,%s&%s&%s\n' % ( ad_ou, cereconf.AD_LDAP, account_name, account_name))
     #Set a random password on user, bacause NEWUSR creates an
     #account with blank password.
     if sock.read() == ['210 OK']:
-	if entity_id in passwords:
-	#Set correct password if in an earlier changelog entry.
-	    pw = passwords[entity_id]
-	else:
-	    #Set random password.
+        if entity_id in passwords:
+        #Set correct password if in an earlier changelog entry.
+            pw = passwords[entity_id]
+        else:
+            #Set random password.
             pw = account.make_passwd(account_name)
             pw=pw.replace('%','%25')
             pw=pw.replace('&','%26')
@@ -242,7 +242,7 @@ def build_user(entity_id):
                                                cereconf.AD_PASSWORD_EXPIRE,
                                                cereconf.AD_CANT_CHANGE_PW))
             if sock.read() == ['210 OK']:
-		logger.debug('Builded user:%s' % account_name)
+                logger.debug('Builded user:%s' % account_name)
         else:
             logger.warn('Failed replacing password or Move account: %s' % account_name)
 
@@ -253,11 +253,11 @@ def build_user(entity_id):
 def add_spread(entity_id, spread):
     if spread == co.spread_uio_ad_account:
         account_name = id_to_name(entity_id,'user')
-	if not account_name:
-	    return False
-	ou.clear()
-    	ou.find(cereconf.AD_CERE_ROOT_OU_ID)
-    	ourootname='OU=%s' % ou.acronym
+        if not account_name:
+            return False
+        ou.clear()
+        ou.find(cereconf.AD_CERE_ROOT_OU_ID)
+        ourootname='OU=%s' % ou.acronym
 
         if cereconf.AD_DEFAULT_OU=='0':
             ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
@@ -280,11 +280,11 @@ def add_spread(entity_id, spread):
             #Set a random password on user, bacause NEWUSR creates an
             #account with blank password.
             if sock.read() == ['210 OK']:
-		if entity_id in passwords:
-		    #Set correct password if in an earlier changelog entry.
-		    pw = passwords[entity_id]
-		else:
-		    #Set random password.
+                if entity_id in passwords:
+                    #Set correct password if in an earlier changelog entry.
+                    pw = passwords[entity_id]
+                else:
+                    #Set random password.
                     pw = account.make_passwd(account_name)
                     pw=pw.replace('%','%25')
                     pw=pw.replace('&','%26')
@@ -324,7 +324,7 @@ def add_spread(entity_id, spread):
     elif spread == co.spread_uio_ad_group:
         grp=id_to_name(entity_id,'group')
         if not grp:
-	    return False
+            return False
         if cereconf.AD_DEFAULT_OU=='0':
             ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
         else:
@@ -333,12 +333,12 @@ def add_spread(entity_id, spread):
             ourootname='OU=%s' % ou.acronym
             ad_ou = id_to_ou_path(cereconf.AD_DEFAULT_OU,ourootname)
 
-	sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, grp))
+        sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, grp))
         ou_in_ad = sock.read()[0]
         if ou_in_ad[0:3] == '210':
             #Account already in AD, we move to correct OU.
             sock.send('MOVEOBJ&%s&LDAP://%s\n' % ( ou_in_ad[4:],ad_ou ))
-	else:
+        else:
             sock.send('NEWGR&LDAP://%s&%s&%s\n' % ( ad_ou, grp, grp))
         if sock.read() == ['210 OK']:
             group.clear()
@@ -346,16 +346,16 @@ def add_spread(entity_id, spread):
             for grpmemb in group.get_members():
                 account.clear()
                 account.find(grpmemb)
-		if account.is_expired():
-		    #Groupmember is expired and is not added to group.	
-		    logger.debug('Add_spread:Groupmember %s is expired' % entity_id)
+                if account.is_expired():
+                    #Groupmember is expired and is not added to group.  
+                    logger.debug('Add_spread:Groupmember %s is expired' % entity_id)
                     if account.has_spread(co.spread_uio_ad_account):
                         name = account.get_name(int(co.account_namespace))
                         logger.debug('Add %s to %s' % (name,grp))
                         sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
                         if sock.read() != ['210 OK']:
                             logger.debug('Failed add %s to %s' % (name, grp))
-	    return True
+            return True
         logger.debug('Failed create group %s in OU Users' % grp)
     else:
         if debug:
@@ -367,8 +367,8 @@ def del_spread(entity_id, spread, delete=delete_users):
 
     if spread == co.spread_uio_ad_account:
         user=id_to_name(entity_id,'user')
-	if not user:
-	    return False
+        if not user:
+            return False
         if delete:
             sock.send('DELUSR&%s/%s\n' % (cereconf.AD_DOMAIN, user))
             if sock.read() != ['210 OK']:
@@ -391,8 +391,8 @@ def del_spread(entity_id, spread, delete=delete_users):
 
     elif spread == co.spread_uio_ad_group:
         group_n=id_to_name(entity_id,'group')
-	if not group_n:
-	    return False
+        if not group_n:
+            return False
         if delete_groups:
             sock.send('DELGR&%s/%s\n' % (cereconf.AD_DOMAIN, group_n))
             if sock.read() != ['210 OK']:
@@ -429,14 +429,14 @@ def del_spread(entity_id, spread, delete=delete_users):
 def group_add(account_name,group_name):
     sock.send('ADDUSRGR&%s/%s&%s/%s\n' % ( cereconf.AD_DOMAIN,account_name, cereconf.AD_DOMAIN,group_name ))
     if sock.read() == ['210 OK']:
-	return True
+        return True
     return False
 
 
 def group_rem(account_name,group_name):
     sock.send('DELUSRGR&%s/%s&%s/%s\n' % ( cereconf.AD_DOMAIN,account_name, cereconf.AD_DOMAIN,group_name ))
     if sock.read() == ['210 OK']:
-	return True
+        return True
     return False
 
 
@@ -444,33 +444,33 @@ def change_pw(account_id,pw_params):
     account.clear()
     account.find(account_id)
     if account.is_expired():
-	logger.debug('change_pw:Account %s is expired' % account_id)
-	return False
+        logger.debug('change_pw:Account %s is expired' % account_id)
+        return False
     user = id_to_name(account_id,'user')
     if not user:
-	return False
+        return False
     if account.has_spread(int(co.spread_uio_ad_account)):
         sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, user))
         ou_in_ad = sock.read()[0]
         if ou_in_ad[0:3] != '210':
-	    build_user(account_id)	
-	set_pw(account_id,pw_params,user)	
+            build_user(account_id)      
+        set_pw(account_id,pw_params,user)       
         return True
 
 
 def set_pw(account_id,pw_params,user):
 
     if not pw_params.has_key('password'):
-	return False
+        return False
     pw=pw_params['password']
     #Convert password so that it don't mess up the communication protocol.
     pw=pw.replace('%','%25')
     pw=pw.replace('&','%26')
     sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
     if sock.read() == ['210 OK']:
-	return True
+        return True
     else:
-	#Remember password from changelog, if user not yet created in AD.
+        #Remember password from changelog, if user not yet created in AD.
         passwords[account_id] = pw
 
 
@@ -489,8 +489,8 @@ def id_to_name(id,entity_type):
         name = entityname.get_name(namespace)
         obj_name = "%s%s" % (name,grp_postfix)
     except Errors.NotFoundError:
-	logger.debug('id %s missing, probably deleted' % id)
-	return False
+        logger.debug('id %s missing, probably deleted' % id)
+        return False
     return obj_name
 
 

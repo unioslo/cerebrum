@@ -399,7 +399,7 @@ def pass_one(name, dta):
                     {'name': name,
                      'id': int(arecord.entity_id)})
             else:
-                # "tassenmac01	A	129.240.79.31" fantes 2 ganger i sonefila
+                # "tassenmac01  A       129.240.79.31" fantes 2 ganger i sonefila
                 logger.warn("Duplicate A-record violation: %s->%s" % (a[0], a[1]))
         if dta.has_key('HINFO'):
             if len(dta['HINFO']) != 1:

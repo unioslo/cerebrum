@@ -65,42 +65,42 @@ def quick_sync():
         clco.quarantine_mod, clco.quarantine_refresh))
 
     for ans in answer:
-	cl.confirm_event(ans)	
+        cl.confirm_event(ans)   
         chg_type = ans['change_type_id']
-	try:
-	    entity.clear()
-    	    entity.find(ans['subject_entity'])
+        try:
+            entity.clear()
+            entity.find(ans['subject_entity'])
 #            entity.has_spread(int(co.spread_uio_notes_account))
-    	
-	    if entity.has_spread(int(co.spread_uio_notes_account)):        
-	        if chg_type == clco.account_password:
-            	    change_params = pickle.loads(ans['change_params'])	
+        
+            if entity.has_spread(int(co.spread_uio_notes_account)):        
+                if chg_type == clco.account_password:
+                    change_params = pickle.loads(ans['change_params'])  
                     change_pw(ans['subject_entity'],change_params)
                 elif chg_type == clco.spread_add:
                     change_params = pickle.loads(ans['change_params'])
                     if change_params['spread'] == int(co.spread_uio_notes_account):    
                         add_user(ans['subject_entity'])
                 elif chg_type == clco.spread_del:
-            	    change_params = pickle.loads(ans['change_params'])
-		    if change_params['spread'] == int(co.spread_uio_notes_account):    
-              	        delundel_user(ans['subject_entity'],'splatt')
+                    change_params = pickle.loads(ans['change_params'])
+                    if change_params['spread'] == int(co.spread_uio_notes_account):    
+                        delundel_user(ans['subject_entity'],'splatt')
                 elif (chg_type == clco.quarantine_add or
                       chg_type == clco.quarantine_del or
                       chg_type == clco.quarantine_mod or
                       chg_type == clco.quarantine_refresh):
-		    change_quarantine(ans['subject_entity']) 
-	except Errors.NotFoundError:
-	    logger.warn("Could not find entity %s", ans['subject_entity'])
+                    change_quarantine(ans['subject_entity']) 
+        except Errors.NotFoundError:
+            logger.warn("Could not find entity %s", ans['subject_entity'])
 
     cl.commit_confirmations()    
 
 def change_quarantine(entity_id):
     if notesutils.chk_quarantine(entity_id):
-	delundel_user(entity_id,'splatt')
+        delundel_user(entity_id,'splatt')
     else:
-	delundel_user(entity_id,'unsplat')
+        delundel_user(entity_id,'unsplat')
 
-    	
+        
 def change_pw(account_id,pw_params):
     pw=pw_params['password']
     user = id_to_name(account_id)
@@ -110,36 +110,36 @@ def change_pw(account_id,pw_params):
     sock.read()
 
 
-def add_user(account_id):		
+def add_user(account_id):               
     account_name =id_to_name(account_id)        
     pri_ou = notesutils.get_primary_ou(account_id)
     if not pri_ou:
-	oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
+        oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
     else:
-    	ou = notesutils.get_crbrm_ou(pri_ou)
-    	if ou:
-    	    oustr = ""
-    	    i=0
-	    ou.reverse()				
-    	    for elem in ou:
-	    	i = i+1
-	    	oustr="%sOU%s&%s&" % (oustr,i,elem)
-    	else:
-	    oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
+        ou = notesutils.get_crbrm_ou(pri_ou)
+        if ou:
+            oustr = ""
+            i=0
+            ou.reverse()                                
+            for elem in ou:
+                i = i+1
+                oustr="%sOU%s&%s&" % (oustr,i,elem)
+        else:
+            oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
 
-    name=get_names(account_id)	 
-    if name: 	
+    name=get_names(account_id)   
+    if name:    
         sock.send('CREATEUSR&ShortName&%s&FirstName&%s&LastName&%s&%s\n' % (account_name,name[0],name[1],oustr))
-        sock.read()        	
+        sock.read()             
     if notesutils.chk_quarantine(account_id):
-	delundel_user(account_id,'splatt')	
+        delundel_user(account_id,'splatt')      
 
 def delundel_user(account_id,status):
     account_name = id_to_name(account_id)
     name=get_names(account_id)
-    if name:		 	
-    	sock.send('DELUNDELUSR&ShortName&%s&FirstName&%s&LastName&%s&Status&%s\n' % (account_name,name[0],name[1],status))
-    	sock.read()
+    if name:                    
+        sock.send('DELUNDELUSR&ShortName&%s&FirstName&%s&LastName&%s&Status&%s\n' % (account_name,name[0],name[1],status))
+        sock.read()
 
 
 

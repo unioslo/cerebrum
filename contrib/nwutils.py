@@ -303,7 +303,7 @@ def get_account_info(account_id, spread, site_callback, cache_pass=False):
     
     try:
         pq.clear();
-    	pq.find(account_id)
+        pq.find(account_id)
     except Errors.NotFoundError:
         pq = None  # User has no quota
 
@@ -321,7 +321,7 @@ def get_account_info(account_id, spread, site_callback, cache_pass=False):
     attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
     attrs.append( ("loginDisabled", account_disable) )
     if pq is not None:
-    	attrs.append( ("accountBalance", pq.printer_quota) )
+        attrs.append( ("accountBalance", pq.printer_quota) )
     passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
     attrs.append( ("userPassword", passwd) )
     if site_callback is not None:
@@ -465,7 +465,7 @@ def id_to_ou_path(ou_id,ourootname):
         else:
             crbrm_ou = get_crbrm_ou(cereconf.NW_DEFAULT_OU_ID)
     if (cereconf.NW_LDAP_ROOT != ""):
-    	crbrm_ou = crbrm_ou.replace(ourootname,cereconf.NW_LDAP_ROOT)
+        crbrm_ou = crbrm_ou.replace(ourootname,cereconf.NW_LDAP_ROOT)
     return crbrm_ou
 
 

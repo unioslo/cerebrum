@@ -242,8 +242,8 @@ class BofhdRequests(object):
                 t = now
             when = self._db.TimestampFromTicks(t + minutes*60)
             self._db.execute("""
-		UPDATE [:table schema=cerebrum name=bofhd_request]
-		SET run_at=:when WHERE request_id=:id""",
+                UPDATE [:table schema=cerebrum name=bofhd_request]
+                SET run_at=:when WHERE request_id=:id""",
                              {'when': when, 'id': request_id})
             return
         raise Errors.NotFoundError, "No such request %d" % request_id

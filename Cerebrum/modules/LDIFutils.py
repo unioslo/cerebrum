@@ -294,27 +294,27 @@ class ldif_parser(object):
     """
 
     def __init__(self,inputfile,
-		ignored_attr_types=None,
-		max_entries=0,
-		process_url_schemes=None,
-		line_sep='\n'):
-	try:
+                ignored_attr_types=None,
+                max_entries=0,
+                process_url_schemes=None,
+                line_sep='\n'):
+        try:
             import ldif
-	except ImportError, e:
-	    raise _Errors.PoliteException((str(e) + '\n' + \
-				"python-ldap module probably not installed."))
+        except ImportError, e:
+            raise _Errors.PoliteException((str(e) + '\n' + \
+                                "python-ldap module probably not installed."))
         self._ldif = ldif.LDIFParser(inputfile,ignored_attr_types,max_entries,
-					process_url_schemes,line_sep)
+                                        process_url_schemes,line_sep)
         self._ldif.handle = self.handle
-	self.res_dict = {}
+        self.res_dict = {}
 
     def handle(self,dn,entry):
-	""" Load into a dict"""
-	self.res_dict[dn] = entry
+        """ Load into a dict"""
+        self.res_dict[dn] = entry
 
     def parse(self):
-	self._ldif.parse()
-	return(self.res_dict)
+        self._ldif.parse()
+        return(self.res_dict)
 
 
 # arch-tag: 9544a041-07cb-4494-92ea-c8dc82c9808a

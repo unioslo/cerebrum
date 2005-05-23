@@ -1285,7 +1285,7 @@ class BofhdAuth(DatabaseAccessor):
                              'target_type':
                                      self.const.auth_target_type_ou,
                              'global_target_type':
-                             	     self.const.auth_target_type_global_ou,
+                                     self.const.auth_target_type_global_ou,
                              'id': entity.entity_id,
                              'operation_attr': operation_attr}):
             if not r['attr']:
@@ -1343,7 +1343,7 @@ class BofhdAuth(DatabaseAccessor):
         try:
             account = Factory.get('Account')(self._db)
             account.find(account_id)
-	    spread = self.const.Spread(cereconf.BOFHD_CHECK_DISK_SPREAD)
+            spread = self.const.Spread(cereconf.BOFHD_CHECK_DISK_SPREAD)
             return account.get_home(int(spread))
         except Errors.NotFoundError:
             return None

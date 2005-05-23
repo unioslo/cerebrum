@@ -54,15 +54,15 @@ class SocketCom(object):
         
     def connect(self):    
         try:
-	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	    self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
+            self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             logger.debug(">> %s" % self.sockobj.recv(8192).strip())
-	    logger.debug("<< Authenticating")
-	    self.sockobj.send(cereconf.AD_PASSWORD)
-	    self.read()
-	    logger.debug("Connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))	
+            logger.debug("<< Authenticating")
+            self.sockobj.send(cereconf.AD_PASSWORD)
+            self.read()
+            logger.debug("Connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))    
         except:
-	    logger.fatal("Failed connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
+            logger.fatal("Failed connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             raise 
 
 
@@ -92,7 +92,7 @@ class SocketCom(object):
         received.append(data)
         #process data
         for i in received:
-	    rec.append(i.strip())		   	
+            rec.append(i.strip())                       
         if out:     
             for elem in rec:
                  logger.debug('>> %s' % elem)
@@ -105,14 +105,14 @@ class SocketCom(object):
             data = self.sockobj.recv(8192)
             m=self.p.search(data)
             if m: 
-		break
-	    else:
-            	received.append(data)
+                break
+            else:
+                received.append(data)
         received.append(data)
         #process data
         for i in received:
-	    i.strip()
-	    rec = '%s%s' % (rec,i)		   	
+            i.strip()
+            rec = '%s%s' % (rec,i)                      
         if out:     
             logger.debug('>> %s' % rec)
         return rec    
@@ -147,10 +147,10 @@ def get_user_info(account_id, account_name, spread):
         #This account is missing a person_id.
         full_name = account.account_name
         
-    account_disable = '1'	
+    account_disable = '1'       
     if account.has_spread(int(co.spread_uio_ad_account)):
-	if not chk_quarantine(account_id):
-            account_disable = '0'	
+        if not chk_quarantine(account_id):
+            account_disable = '0'       
 
     return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script)
 
@@ -165,11 +165,11 @@ def chk_quarantine(account_id):
         qua.append(row['quarantine_type']) 
     qh = QuarantineHandler.QuarantineHandler(db, qua)
     try:
-    	if qh.is_locked():           
+        if qh.is_locked():           
             return True
     except KeyError:
-	pass
-    return False	
+        pass
+    return False        
 
 
 def get_primary_ou(account_id):
@@ -194,9 +194,9 @@ def get_ad_ou(ldap_path):
 
 def get_crbrm_ou(ou_id):
      ou.clear()
-     ou.find(cereconf.AD_CERE_ROOT_OU_ID)	
+     ou.find(cereconf.AD_CERE_ROOT_OU_ID)       
      return 'OU=%s' % ou.acronym
-     	
+        
 #    Do not use OU placement at UiO.
 #    try:      
 #        ou.clear()
@@ -226,17 +226,17 @@ def find_home_dir(account_id, account_name, disk_spread):
         account.clear()
         account.find(account_id)
         disk.clear()
-	disk_id=account.get_home(disk_spread)
+        disk_id=account.get_home(disk_spread)
         disk.find(disk_id['disk_id'])
         try:
-	    moho.clear()	
-	    moho.find(disk.host_id)	
-	    home_srv = moho.mount_name			
-	except Errors.NotFoundError:
-	    host.clear()
+            moho.clear()        
+            moho.find(disk.host_id)     
+            home_srv = moho.mount_name                  
+        except Errors.NotFoundError:
+            host.clear()
             host.find(disk.host_id)
             home_srv = host.name
-	return "\\\\%s\\%s" % (home_srv,account_name)
+        return "\\\\%s\\%s" % (home_srv,account_name)
     except Errors.NotFoundError:
         logger.debug("Failure finding the disk of account: %s" % account_id)
         

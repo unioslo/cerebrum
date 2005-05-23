@@ -499,57 +499,57 @@ class Group(EntityQuarantine, EntityName, Entity):
 
 
     def list_all_test(self, spread=None):
-	""" Will be removed """
+        """ Will be removed """
         return self.list_all_grp(spread=spread)
 
     def list_all_grp(self, spread=None):
-	where = ""
-	if spread is not None:
-	    spreads = '(' + ' OR '.join(['es.spread=' + str(x) for x in spread]) + ')'
-	    where = """gi, [:table schema=cerebrum name=entity_spread] es
-	    WHERE gi.group_id=es.entity_id AND es.entity_type=[:get_constant name=entity_group] 
-		AND %s""" % spreads
-	return self.query("""
-	SELECT DISTINCT group_id
-	FROM [:table schema=cerebrum name=group_info]
-	%s""" % where)
+        where = ""
+        if spread is not None:
+            spreads = '(' + ' OR '.join(['es.spread=' + str(x) for x in spread]) + ')'
+            where = """gi, [:table schema=cerebrum name=entity_spread] es
+                WHERE gi.group_id=es.entity_id AND es.entity_type=[:get_constant name=entity_group] 
+                AND %s""" % spreads
+        return self.query("""
+            SELECT DISTINCT group_id
+            FROM [:table schema=cerebrum name=group_info]
+            %s""" % where)
 
 
     def list_member_groups(self, grp_id, spreads, grp_sup=False, ent_type=False):
-	""" Return a list of groups with spread(s) which is recursivly a member 
-	    of the group. It goes recursivly through the group-tree. Support
+        """ Return a list of groups with spread(s) which is recursivly a member 
+            of the group. It goes recursivly through the group-tree. Support
             external systems with group-member support and group that has to 
-	    expand accounts and users (no support of group as member). 
-	    Ex: if account is added to an 'internal'-group, we will do a 
-	    netgroup-search with group_support, and without if it is an 
-	    file-group, which has to expand all members. Spreads must be a 
-	    list or a tupple with at least one entry()"""
-	global cyc_l, list_grp
-	cyc_l = []
-	list_grp = []
-	if not ent_type:
-	    ent_type = self.const.entity_group
-	self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
-	return(list_grp)
-	
+            expand accounts and users (no support of group as member). 
+            Ex: if account is added to an 'internal'-group, we will do a 
+            netgroup-search with group_support, and without if it is an 
+            file-group, which has to expand all members. Spreads must be a 
+            list or a tupple with at least one entry()"""
+        global cyc_l, list_grp
+        cyc_l = []
+        list_grp = []
+        if not ent_type:
+            ent_type = self.const.entity_group
+        self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
+        return(list_grp)
+        
 
     def _rec_member_groups(self, grp_id, spreads, grp_sup, ent_type):
-	""" Recursive group-tree search. Used by 'list_member_groups'"""
-	for entry in self.list_groups_with_entity(grp_id):
-	    if entry['member_type'] == ent_type:
-		# Not very nice programming. WHAT TO DO??
-		self.clear()
-		grp_id = int(entry['group_id'])
-		self.entity_id = grp_id
-		if grp_id in cyc_l: continue
-		else: cyc_l.append(grp_id)
-		if not grp_sup and [x for x in spreads if self.has_spread(x)]:
-		    list_grp.append(grp_id)
-		    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
-		elif grp_sup and [x for x in spreads if self.has_spread(x)]:
-		    list_grp.append(grp_id)
-		else:
-		    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
+        """ Recursive group-tree search. Used by 'list_member_groups'"""
+        for entry in self.list_groups_with_entity(grp_id):
+            if entry['member_type'] == ent_type:
+                # Not very nice programming. WHAT TO DO??
+                self.clear()
+                grp_id = int(entry['group_id'])
+                self.entity_id = grp_id
+                if grp_id in cyc_l: continue
+                else: cyc_l.append(grp_id)
+                if not grp_sup and [x for x in spreads if self.has_spread(x)]:
+                    list_grp.append(grp_id)
+                    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
+                elif grp_sup and [x for x in spreads if self.has_spread(x)]:
+                    list_grp.append(grp_id)
+                else:
+                    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
 
-	       
+               
 # arch-tag: 880c43c0-16da-4b32-a70d-0fda8ec600db

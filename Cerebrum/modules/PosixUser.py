@@ -188,8 +188,8 @@ class PosixUser(Account_class):
         FROM [:table schema=cerebrum name=posix_user]""")
 
     def list_extended_posix_users(self, 
-				  auth_method=Constants.auth_type_crypt3_des, 
-				  spread=None, include_quarantines=0,
+                                  auth_method=Constants.auth_type_crypt3_des, 
+                                  spread=None, include_quarantines=0,
                                   filter_expired=True):
         """Returns data required for building a password map.  It is
         not recommended to use this method.  If you do, be prepared to
@@ -205,12 +205,12 @@ class PosixUser(Account_class):
             if isinstance(spread, (tuple, list)):
                 spreads = spread
             else:
-		spreads = []
-		spreads.append(spread)
-	    esprd = ' AND (' + ' OR '.join(['es.spread=%i' % x for x \
-			in spreads]) + ')'
+                spreads = []
+                spreads.append(spread)
+            esprd = ' AND (' + ' OR '.join(['es.spread=%i' % x for x \
+                        in spreads]) + ')'
             asprd = ' AND (' + ' OR '.join(['ah.spread=%i' % x for x \
-			in spreads]) + ')'
+                        in spreads]) + ')'
             ecols += ", hd.home, hd.disk_id"
             efrom += """
             JOIN [:table schema=cerebrum name=entity_spread] es

@@ -164,7 +164,7 @@ def generate_passwd(filename, shadow_file, spread=None):
             except NISMapException:
                 pass
     if e_o_f:
-	f.write('E_O_F\n')
+        f.write('E_O_F\n')
     f.close()
     if shadow_file:
         s.close()
@@ -239,7 +239,7 @@ def generate_netgroup(filename, group_spread, user_spread):
             line = "%s %s" % (tmp_gname, line[:pos])
         f.write("%s %s\n" % (exported_groups[group_id], line))
     if e_o_f:
-	f.write('E_O_F\n')
+        f.write('E_O_F\n')
     f.close()
 
 def generate_group(filename, group_spread, user_spread):
@@ -254,7 +254,7 @@ def generate_group(filename, group_spread, user_spread):
         entity2uname[int(row['entity_id'])] = row['entity_name']
     account2def_group = {}
     for row in posix_user.list_extended_posix_users():
-	account2def_group[int(row['account_id'])] = int(row['posix_gid'])
+        account2def_group[int(row['account_id'])] = int(row['posix_gid'])
     user_membership_count = {}
     for row in posix_group.search(spread=group_spread):
         posix_group.clear()
@@ -353,7 +353,7 @@ def generate_group(filename, group_spread, user_spread):
             gname = make_name(g)
         groups[g] = None
     if e_o_f:
-	f.write('E_O_F\n')
+        f.write('E_O_F\n')
     f.close()
 
 def join(fields, sep=':'):

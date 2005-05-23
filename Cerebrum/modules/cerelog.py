@@ -58,8 +58,8 @@ logging framework:
 The behaviour of this module can be partially controlled from the command
 line, through the following arguments:
 
---logger-name=<name>	-- specify a particular logger to initialize
---logger-level=<level>	-- specify a particular verbosity setting to use
+--logger-name=<name>    -- specify a particular logger to initialize
+--logger-level=<level>  -- specify a particular verbosity setting to use
 
 References:
   [1] <URL: http://www.python.org/peps/pep-0282.html>

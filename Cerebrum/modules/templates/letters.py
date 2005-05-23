@@ -123,7 +123,7 @@ tag is present, hdr and footer will be empty.
         old_dir = os.getcwd()
         if os.path.dirname(filename):
             os.chdir(os.path.dirname(filename))
-        base_filename = filename[:filename.rindex('.')]	
+        base_filename = filename[:filename.rindex('.')] 
         try:
             if type == 'tex':
                 status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (

@@ -721,7 +721,7 @@ class EntityQuarantine(Entity):
         if entity_types:
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
-	      ON ei.entity_id = eq.entity_id AND ei.entity_type """
+              ON ei.entity_id = eq.entity_id AND ei.entity_type """
             if isinstance(entity_types, (list, tuple)):
                 sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
             else:

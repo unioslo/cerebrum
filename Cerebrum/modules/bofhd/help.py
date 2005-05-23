@@ -103,7 +103,7 @@ consequences) are temporarily stored in a way that allows the user to
 retrace his or hers steps.
 Online help is also available throughout the session.  
                """,
-	       'basics': """
+               'basics': """
 Register a new employee and create an account for them:
 Preprocessing:
 
@@ -218,7 +218,7 @@ basic command for this is user move. user move accepts following options:
    Why? >Vil ha.
    OK, request registered
  
-	       """
+               """
               }
 
 # Help for all commands.  Format:

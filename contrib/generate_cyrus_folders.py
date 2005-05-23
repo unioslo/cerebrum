@@ -49,7 +49,7 @@ def read_targ():
         mail_targ.find(id)
 
         if mail_targ.get_target_type() == account_type:
-	    targets.append(id)
+            targets.append(id)
 
 def get_quota(t):
     """Look up email quota for target t."""

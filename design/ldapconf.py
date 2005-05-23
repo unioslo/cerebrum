@@ -64,12 +64,12 @@ LDAP_PERSON_ATTRS = {
     'ou': ('people', 'Persons'),
     'description': ('All persons in Example INC Company',) }
 LDAP_PERSON_FILE = 'person.ldif'
-LDAP_PERSON_FILTER = 'Disable' 	
+LDAP_PERSON_FILTER = 'Disable'  
 # Filters. _LIST_AFFI list is a filter on which entry should be exported based on 
 # the person affiliation. _PH_ADDR_AFFI will export contact info of persons with 
 # the affiliation listed. 
 LDAP_PERSON_LIST_AFFI = ('affiliation_status_employee_staff','affiliation_status_employee_sales',
-			'affiliation_status_external_consultant','affiliation_status_contract_hired')
+                        'affiliation_status_external_consultant','affiliation_status_contract_hired')
 LDAP_PERSON_PH_ADDR_AFFI = ('affiliation_status_employee_sales',)
 # OPENLDAPaci-filters: Only support one filter to add on a person-entry.
 # This example has default not open public search, and the aci will open the entry
@@ -115,8 +115,8 @@ LDAP_NETGROUP_FILE = 'posixnetgroup.ldif'
 #### Obsolete variables, retained temporarily for backwards compatibility ####
 
 LDAP_BASE_BUSINESSCATEGORY = ('Manufacturing','Education')
-LDAP_BASE_DESCRIPTION = ('Example INC Company, Middle Of Nowhere','Test')	
-LDAP_BASE_CITY = 'City of Example' 		
+LDAP_BASE_DESCRIPTION = ('Example INC Company, Middle Of Nowhere','Test')       
+LDAP_BASE_CITY = 'City of Example'              
 LDAP_BASE_ALTERNATIVE_NAME = ('Example','Example INC','EX INC')
 LDAP_BASE_URL = 'http://www.example.com'
 

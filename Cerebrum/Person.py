@@ -202,12 +202,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             db_affil = {}
             # db_prim is used to see if a row with that primary key
             # exists.
-	    db_prim = {}
+            db_prim = {}
             for row in self.get_affiliations(include_deleted = True):
                 if source == row['source_system']:
                     idx = "%d:%d:%d" % (row['ou_id'], row['affiliation'], row['status'])
                     db_affil[idx] = row['deleted_date']
-		    db_prim['%s:%s' % (row['ou_id'], row['affiliation'])] = idx
+                    db_prim['%s:%s' % (row['ou_id'], row['affiliation'])] = idx
             pop_affil = self.__affil_data
             for prim in pop_affil.keys():
                 idx = "%s:%d" % (prim, pop_affil[prim])
@@ -573,7 +573,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                           include_deleted=False, fetchall = True):
         where = []
         for t in ('person_id', 'affiliation', 'source_system', 'status', \
-								'ou_id'):
+                                                                'ou_id'):
             val = locals()[t]
             if val is not None:
                 if isinstance(val, (list, tuple)):
@@ -816,21 +816,21 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             efrom += """
             JOIN [:table schema=cerebrum name=entity_spread] es
               ON pi.person_id=es.entity_id AND es.spread=:spread"""
-	if idtype:
-	    efrom += """
-	    JOIN [:table schema=cerebrum name=entity_external_id] eei
+        if idtype:
+            efrom += """
+            JOIN [:table schema=cerebrum name=entity_external_id] eei
             ON pi.person_id = eei.entity_id AND eei.id_type=:idtype AND
                eei.entity_type = [:get_constant name=entity_person]"""
-	else:
-	    efrom += """
-	    JOIN [:table schema=cerebrum name=entity_external_id] eei
+        else:
+            efrom += """
+            JOIN [:table schema=cerebrum name=entity_external_id] eei
             ON pi.person_id = eei.entity_id AND
                eei.entity_type = [:get_constant name=entity_person]""" 
 
         return self.query("""
         SELECT DISTINCT pi.person_id, pi.birth_date, at.account_id, eei.external_id,
           at.ou_id, at.affiliation %(ecols)s
-	FROM
+        FROM
           [:table schema=cerebrum name=person_info] pi
           JOIN [:table schema=cerebrum name=account_type] at
             ON at.person_id = pi.person_id AND
@@ -838,7 +838,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                  SELECT MIN(priority)
                  FROM [:table schema=cerebrum name=account_type] at2
                  WHERE at2.person_id = pi.person_id)
-	  %(efrom)s
+          %(efrom)s
           """ % locals(), {'spread': spread,'idtype': idtype}, fetchall=False)
 
 

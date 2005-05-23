@@ -52,15 +52,15 @@ class SocketCom(object):
 
     def connect(self):
         try:
-	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	    self.sockobj.connect((cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT))
+            self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sockobj.connect((cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT))
             logger.info("Connecting, starting session %s", now())
             logger.info(">> %s", self.sockobj.recv(8192))
-	    logger.info("<< Authenticating")
-	    self.sockobj.send(cereconf.NOTES_PASSWORD)
-	    self.readline()
+            logger.info("<< Authenticating")
+            self.sockobj.send(cereconf.NOTES_PASSWORD)
+            self.readline()
         except:
-	    logger.critical("failed connecting to: %s:%s",
+            logger.critical("failed connecting to: %s:%s",
                             cereconf.NOTES_SERVER_HOST, cereconf.NOTES_SERVER_PORT)
             raise
 
@@ -89,9 +89,9 @@ class SocketCom(object):
                 self._buffer += new_data
             else:
                 ret = self._buffer[:eol]
-		self._buffer = self._buffer[eol+1:]
+                self._buffer = self._buffer[eol+1:]
                 break
-	ret=ret.lstrip()
+        ret=ret.lstrip()
         return ret
 
 
@@ -127,10 +127,10 @@ def get_crbrm_ou(ou_id):
         ou.clear()
         ou.find(ou_id)
         path = ou.structure_path(co.perspective_lt)
-	#Notes can only take 4 OU levels.
+        #Notes can only take 4 OU levels.
         ou_path = path.split('/',4)
-	#Do not wish to send the root OU name to Notes.
-	return ou_path[:-1]
+        #Do not wish to send the root OU name to Notes.
+        return ou_path[:-1]
     except Errors.NotFoundError:
         logger.warn("Could not find OU with id %s", ou_id)
 
@@ -150,7 +150,7 @@ def chk_quarantine(account_id):
     except KeyError:
         logger.warn("missing QUARANTINE_RULE")
     if account_disable:
-	return True
+        return True
 
 
 def get_primary_ou(account_id):

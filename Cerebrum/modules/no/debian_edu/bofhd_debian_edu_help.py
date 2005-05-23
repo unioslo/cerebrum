@@ -268,7 +268,7 @@ affiliation status codes"""],
     'group_name_src':
         ['gname', 'Enter the source group'],
     'group_name_moderator':
-	['gname', 'Enter the name of the moderator group'],
+        ['gname', 'Enter the name of the moderator group'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.
@@ -402,7 +402,7 @@ printer."""],
     'string_description':
         ['description', 'Enter description'],
     'string_spread':
-	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
+        ['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: mail-sg2'],
     'string_filename':

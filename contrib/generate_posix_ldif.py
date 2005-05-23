@@ -111,10 +111,10 @@ def main():
 
     got_file = filter(opts.has_key, ("-u", "-f", "-n"))
     for opt in ("-U", "-F", "-N"):
-	if opts.has_key(opt):
-	    opts[opt] = opts[opt].split(",")
-	else:
-	    opts[opt] = None
+        if opts.has_key(opt):
+            opts[opt] = opts[opt].split(",")
+        else:
+            opts[opt] = None
 
     do_all = "--posix" in opts or not got_file
     fd = None
@@ -129,7 +129,7 @@ def main():
              ('LDAP_FILEGROUP', posldif.filegroup_ldif,       "-f"),
              ('LDAP_NETGROUP',  posldif.netgroup_ldif,        "-n")):
         if (do_all or arg in opts) and getattr(cereconf, var).get('dn'):
-	    func(opts.get(arg))
+            func(opts.get(arg))
         elif arg in opts:
             sys.exit("Option %s requires cereconf.%s['dn']." % (args[-1], var))
     if fd:

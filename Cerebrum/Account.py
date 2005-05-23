@@ -783,7 +783,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         maxlen: maximum length of a username (incl. the suffix)
         suffix: string to append to every generated username
         """
-        goal = 15	# We may return more than this
+        goal = 15       # We may return more than this
         maxlen -= len(suffix)
         potuname = ()
         if lname.strip() == "":

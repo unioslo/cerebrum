@@ -145,7 +145,7 @@ def generate_passwd(filename, shadow_file, spread=None):
             except NISMapException:
                 pass
     if e_o_f:
-	f.write('E_O_F\n')
+        f.write('E_O_F\n')
     f.close()
     if shadow_file:
         s.close()

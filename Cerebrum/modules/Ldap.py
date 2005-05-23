@@ -42,18 +42,18 @@ ldap_update_str = "ou=services," + ldapconf('ORG', 'dn')
 class LdapCall:
 
     def __init__(self,s_dict):
-	self.s_list = {}
-	
+        self.s_list = {}
+        
     def __call__(self, s_dict):
-	return s_dict
+        return s_dict
 
     def get_update_tag(self,cn_tag):
-	ldap_update_dn = ','.join(('cn=' + cn_tag, ldap_update_str))
-	ldap_update_tag =  [ (ldap_update_dn),
+        ldap_update_dn = ','.join(('cn=' + cn_tag, ldap_update_str))
+        ldap_update_tag =  [ (ldap_update_dn),
                         {'cn':[cn_tag],
                         'objectclass':['top','applicationProcess'],
                         'description':['Disable dynamic LDAP sync.']}]
-	return(ldap_update_tag)
+        return(ldap_update_tag)
 
 
 
@@ -112,128 +112,128 @@ class LdapCall:
 
 
     def get_ldap_value(self,search_id,dn,retrieveAttributes=None):
-	searchScope = ldap.SCOPE_SUBTREE
-	result_set = []
-	for serv,l in self.s_list.items():
-	    try:
-		ldap_result_id = l[1].search(search_id,searchScope,dn,retrieveAttributes)
-		while 1:
-		    result_type, result_data = l[1].result(ldap_result_id, 0)
-		    if (result_data == []):
-			break
-		    else:
-			if result_type == ldap.RES_SEARCH_ENTRY:
-			    result_data.append(serv)
-			    result_set.append(result_data)
-			else:
-			    pass
-	    except ldap.LDAPError, e:
-		logger.info(e) # Do some spec logging of server-messages
-	    	return(None)
-	return(result_set)
+        searchScope = ldap.SCOPE_SUBTREE
+        result_set = []
+        for serv,l in self.s_list.items():
+            try:
+                ldap_result_id = l[1].search(search_id,searchScope,dn,retrieveAttributes)
+                while 1:
+                    result_type, result_data = l[1].result(ldap_result_id, 0)
+                    if (result_data == []):
+                        break
+                    else:
+                        if result_type == ldap.RES_SEARCH_ENTRY:
+                            result_data.append(serv)
+                            result_set.append(result_data)
+                        else:
+                            pass
+            except ldap.LDAPError, e:
+                logger.info(e) # Do some spec logging of server-messages
+                return(None)
+        return(result_set)
 
  
     def mod_ldap(self,ldap_mod,attr,attr_value,dn_value,list=None):
-	if list:
-	    ldif_list = [(ldap_mod,attr,attr_value)]
-	else:
-	    ldif_list = [(ldap_mod,attr,(attr_value,))]
-	for serv,l in self.s_list.items():
-	    result_ldap_mod = l[1].modify(dn_value,ldif_list)
-	    log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
-	    if result_ldap_mod:
-		l[0].write(log_str)
-	    else:
-		log_str = '\n# ' + serv + ': ' + log_str
-		logger.info(log_str)
+        if list:
+            ldif_list = [(ldap_mod,attr,attr_value)]
+        else:
+            ldif_list = [(ldap_mod,attr,(attr_value,))]
+        for serv,l in self.s_list.items():
+            result_ldap_mod = l[1].modify(dn_value,ldif_list)
+            log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
+            if result_ldap_mod:
+                l[0].write(log_str)
+            else:
+                log_str = '\n# ' + serv + ': ' + log_str
+                logger.info(log_str)
                                                                                                                                                                                                                                         
     def mod_ldap_serv(self,ldap_mod,attr,attr_value,dn_value,k,list=None):
-	if list:
-	    ldif_list = [(ldap_mod,attr,attr_value)]
-	else:
-	    ldif_list = [(ldap_mod,attr,(attr_value,))]
-	result_ldap_mod = self.s_list[k][1].modify(dn_value,ldif_list)
-	log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
-	if result_ldap_mod :
-	    self.s_list[k][0].write(log_str)
-	else:
-	    log_str = '\n# ' + serv + ': ' + log_str
-	    logger.info(log_str)
+        if list:
+            ldif_list = [(ldap_mod,attr,attr_value)]
+        else:
+            ldif_list = [(ldap_mod,attr,(attr_value,))]
+        result_ldap_mod = self.s_list[k][1].modify(dn_value,ldif_list)
+        log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
+        if result_ldap_mod :
+            self.s_list[k][0].write(log_str)
+        else:
+            log_str = '\n# ' + serv + ': ' + log_str
+            logger.info(log_str)
 
 
     def add_ldap(self,dn_value,ldif_list):
-	for serv,l in self.s_list.items():
-	    result_add_ldap = l[1].add(dn_value,ldif_list)
-	    log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
-	    if result_add_ldap:
-		l[0].write(log_str)
-	    else:
-		log_str = '\n# ' + serv + ': ' + log_str
-		logger.info(log_str)
+        for serv,l in self.s_list.items():
+            result_add_ldap = l[1].add(dn_value,ldif_list)
+            log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
+            if result_add_ldap:
+                l[0].write(log_str)
+            else:
+                log_str = '\n# ' + serv + ': ' + log_str
+                logger.info(log_str)
 
 
     def add_ldap_serv(self,dn_value,ldif_list,k):
-	result_add_ldap = self.s_list[k][1].add(dn_value,ldif_list)
-	log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
-	if result_add_ldap:
-	    self.s_list[k][0].write(log_str)
-	else:
-	    log_str = '\n# ' + serv + ': ' + log_str
-	    logger.info(log_str)
+        result_add_ldap = self.s_list[k][1].add(dn_value,ldif_list)
+        log_str = '\n' + ldif.CreateLDIF(dn_value,ldif_list)
+        if result_add_ldap:
+            self.s_list[k][0].write(log_str)
+        else:
+            log_str = '\n# ' + serv + ': ' + log_str
+            logger.info(log_str)
 
 
     def delete_ldap(self,dn_value):
-	for serv,l in self.s_list.items():
-	    result_del_ldap = l[1].delete(dn_value)
-	    log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': \
-							('delete',)})
-	    if result_del_ldap:
-		l[0].write(log_str)
-	    else:
-		log_str = '\n# ' + serv + ': ' + log_str
-		logger.info(log_str)
+        for serv,l in self.s_list.items():
+            result_del_ldap = l[1].delete(dn_value)
+            log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': \
+                                                        ('delete',)})
+            if result_del_ldap:
+                l[0].write(log_str)
+            else:
+                log_str = '\n# ' + serv + ': ' + log_str
+                logger.info(log_str)
                                                                                                                                   
     def delete_ldap_serv(self,dn_value,k):
-	result_del_ldap = self.s_list[k][1].delete(dn_value)
-	log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('delete',)})
-	if result_del_ldap:
-	    s_list[k][0].write(log_str)
-	else:
-	    log_str = '\n# ' + k + ': ' + log_str
-	    logger.info(log_str)
+        result_del_ldap = self.s_list[k][1].delete(dn_value)
+        log_str = '\n' + ldif.CreateLDIF(dn_value,{'changetype': ('delete',)})
+        if result_del_ldap:
+            s_list[k][0].write(log_str)
+        else:
+            log_str = '\n# ' + k + ': ' + log_str
+            logger.info(log_str)
                                                                                                                                   
           
     def modrdn_ldap(self,dn_value,new_value,delete_old=True):
-	for serv,l in self.s_list.items():
-	    result_del_ldap = l[1].modrdn(dn_value,new_value,delete_old)
-	    log_str = '\n' + ldif.CreateLDIF(dn_value,\
-					{'changetype': ('modrdn',),\
-                        		'newrdn':(new_value,),\
-					'deleteoldrdn':(str(delete_old),)})
-	    if result_del_ldap:
-		l[0].write(log_str)
-	    else:
-		log_str = '# ' + serv + ': ' + log_str
-		logger.info(log_str)
+        for serv,l in self.s_list.items():
+            result_del_ldap = l[1].modrdn(dn_value,new_value,delete_old)
+            log_str = '\n' + ldif.CreateLDIF(dn_value,\
+                                        {'changetype': ('modrdn',),\
+                                        'newrdn':(new_value,),\
+                                        'deleteoldrdn':(str(delete_old),)})
+            if result_del_ldap:
+                l[0].write(log_str)
+            else:
+                log_str = '# ' + serv + ': ' + log_str
+                logger.info(log_str)
 
  
     def add_disable_sync(self,cn_tag):
-	ldap_update_tag = self.get_update_tag(cn_tag)
-	ldif_list = modlist.addModlist(ldap_update_tag[1])
-	self.add_ldap(ldap_update_tag[0],ldif_list)
+        ldap_update_tag = self.get_update_tag(cn_tag)
+        ldif_list = modlist.addModlist(ldap_update_tag[1])
+        self.add_ldap(ldap_update_tag[0],ldif_list)
 
  
     def check_sync_mode(self,cn_tag):
-	cn_str = str('cn=' + cn_tag)
-	value = self.get_ldap_value(ldap_update_str,cn_str)
-	if (value == []):
-	    return(True)
-	else:
- 	    return(False)
+        cn_str = str('cn=' + cn_tag)
+        value = self.get_ldap_value(ldap_update_str,cn_str)
+        if (value == []):
+            return(True)
+        else:
+            return(False)
 
     def delete_disable_sync(self,cn_tag):
-	cn_str = ','.join(('cn=' + cn_tag, ldap_update_str))
-	self.delete_ldap(cn_str)
+        cn_str = ','.join(('cn=' + cn_tag, ldap_update_str))
+        self.delete_ldap(cn_str)
 
 
 

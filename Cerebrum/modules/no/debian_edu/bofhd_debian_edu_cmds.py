@@ -141,7 +141,7 @@ class BofhdExtension(object):
         """Returns the numerical value of a string constant"""
         return int(self.str2const[str(string)])
 
-	    
+            
     def get_commands(self, account_id):
         try:
             return self._cached_client_commands[int(account_id)]
@@ -1508,7 +1508,7 @@ class BofhdExtension(object):
             map = [(("%8s %s", "uname", "operation"), None)]
             for row in self._get_cached_passwords(session):
                 map.append((("%-12s %s", row['account_id'], row['operation']), n))
-		
+                
                 n += 1
             if n == 1:
                 raise CerebrumError, "no users"
@@ -1553,9 +1553,9 @@ class BofhdExtension(object):
             fullname = person.get_name(self.const.system_cached, self.const.name_full)
             mapping['fullname'] =  fullname
             mapping['address_line1'] = fullname
-	    mapping['address_line2'] = person.birth_date.strftime('%Y-%m-%d')
-	    mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-	    mapping['emailadr'] =  account.get_primary_mailaddress() 
+            mapping['address_line2'] = person.birth_date.strftime('%Y-%m-%d')
+            mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
+            mapping['emailadr'] =  account.get_primary_mailaddress() 
 
             out.write(th.apply_template('body', mapping))
         if th._footer is not None:
@@ -1598,16 +1598,16 @@ class BofhdExtension(object):
     all_commands['person_create'] = Command(
         ("person", "create"), PersonId(),
         Date(help_ref='date_birth'), PersonName(help_ref="person_name_first"), 
-	PersonName(help_ref="person_name_last"), OU(),
+        PersonName(help_ref="person_name_last"), OU(),
         Affiliation(), AffiliationStatus(),
         fs=FormatSuggestion("Created: %i",
         ("person_id",)), perm_filter='can_create_person')
     def person_create(self, operator, person_id, bdate, person_name_first,
-		      person_name_last, ou, affiliation, aff_status):
-	print ou
+                      person_name_last, ou, affiliation, aff_status):
+        print ou
         try:
             ou = self._get_ou(int(ou))
-	    print ou.entity_id
+            print ou.entity_id
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown OU (%s)" % ou
         try:
@@ -1649,10 +1649,10 @@ class BofhdExtension(object):
         person.populate(bdate, gender,
                         description='Manually created')
         person.affect_names(self.const.system_manual, self.const.name_first, 
-			    self.const.name_last)
+                            self.const.name_last)
         person.populate_name(self.const.name_first,
                              person_name_first.encode('iso8859-1'))
-	person.populate_name(self.const.name_last,
+        person.populate_name(self.const.name_last,
                              person_name_last.encode('iso8859-1'))
         try:
             person.write_db()
@@ -1808,7 +1808,7 @@ class BofhdExtension(object):
                             "Birth:         %s\n" +
                             "Affiliations:  %s",
                             ("name", "export_id", format_day("birth"),
-			     "affiliations")))
+                             "affiliations")))
     def person_info(self, operator, person_id):
         try:
             person = self._get_person(*self._map_person_id(person_id))
@@ -2419,8 +2419,8 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("user_passwd", {'account_id': int(account.entity_id),
                                              'password': password})
-	
-	return "Bruk 'misc list_passwords' for å skrive ut passordet"
+        
+        return "Bruk 'misc list_passwords' for å skrive ut passordet"
     
     # misc helper functions.
     # TODO: These should be protected so that they are not remotely callable
@@ -2484,14 +2484,14 @@ class BofhdExtension(object):
         return int(self._get_constant(shell, "Unknown shell"))
     
     def _get_ou(self, ou_id=None):
-	ou = self.OU_class(self.db)
+        ou = self.OU_class(self.db)
         ou.clear()
         if ou_id is not None:
             ou.find(ou_id)
         else:
             if not ou_id.isdigit():
                 raise CerebrumError("Expected a digit")
-	return ou
+        return ou
 
     def _get_group_opcode(self, operator):
         if operator is None:

@@ -85,6 +85,6 @@ def usage(err=0):
 
 
 if __name__ == '__main__':
-    	main()
+        main()
 
 # arch-tag: 67ab2aa3-9a05-4ece-a9ff-0c068be632dd

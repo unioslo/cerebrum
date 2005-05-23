@@ -333,7 +333,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE perspective=:perspective""", {'perspective': int(perspective)})
 
     def root(self):
-	return self.query("""
+        return self.query("""
         SELECT ou_id
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id ISNULL""")

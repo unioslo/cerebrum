@@ -67,8 +67,8 @@ class DebianEduConstants(Constants.Constants):
         'teacher in a school')
 
     affiliation_manuell = _PersonAffiliationCode(
-	'MANUELL',
-	'Manualy registered person')
+        'MANUELL',
+        'Manualy registered person')
 
     affiliation_status_manuell_active = _PersonAffStatusCode(
         affiliation_manuell,
@@ -139,20 +139,20 @@ class DebianEduConstants(Constants.Constants):
         'A pupils parent.')
 
     quarantine_generell = _QuarantineCode(
-	'generell', 
-	'Generell splatt')
+        'generell', 
+        'Generell splatt')
 
     quarantine_teppe = _QuarantineCode(
-	'teppe', 
-	'Kallt inn på teppet til drift')
+        'teppe', 
+        'Kallt inn på teppet til drift')
 
     quarantine_system = _QuarantineCode(
-	'system', 
-	'Systembrukar som ikke skal logge inn')
+        'system', 
+        'Systembrukar som ikke skal logge inn')
 
     quarantine_svakt_passord = _QuarantineCode(
-	'svakt_passord', 
-	'For dårlig passord')
+        'svakt_passord', 
+        'For dårlig passord')
 
     externalid_fodselsnr = _EntityExternalIdCode(
         'NO_BIRTHNO',

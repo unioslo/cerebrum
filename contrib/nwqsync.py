@@ -50,17 +50,17 @@ db = Factory.get('Database')()
 const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
 cl_events = (
-		const.account_mod, \
-		const.account_password, \
-		const.group_add, \
-		const.group_rem, \
-		const.group_mod, \
-		const.spread_add, \
-		const.spread_del, \
-		const.quarantine_add, \
-		const.quarantine_mod, \
-		const.quarantine_del
-		)
+                const.account_mod, \
+                const.account_password, \
+                const.group_add, \
+                const.group_rem, \
+                const.group_mod, \
+                const.spread_add, \
+                const.spread_del, \
+                const.quarantine_add, \
+                const.quarantine_mod, \
+                const.quarantine_del
+                )
 
 dbg_level = -1
 NONE = 0
@@ -71,23 +71,23 @@ DEBUG = 4
 
 
 cltype = {}
-cl_entry = {'group_mod' : 'pass', 				
-	'group_add' : 'group_mod(cll.change_type_id,cll.subject_entity,\
-					cll.dest_entity,cll.change_id)',
-	'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
-					cll.dest_entity,cll.change_id)',
-	'account_mod' : 'mod_account(cll.subject_entity,i)',
-	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)',
-	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-							cll.change_params)',
-	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-							cll.change_params)',
-	'quarantine_add' : 'change_quarantine(cll.subject_entity,\
-							cll.change_type_id)',
-	'quarantine_mod' : 'change_quarantine(cll.subject_entity,\
-							cll.change_type_id)',
-	'quarantine_del' : 'change_quarantine(cll.subject_entity,\
-							cll.change_type_id)'}
+cl_entry = {'group_mod' : 'pass',                               
+        'group_add' : 'group_mod(cll.change_type_id,cll.subject_entity,\
+                                        cll.dest_entity,cll.change_id)',
+        'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
+                                        cll.dest_entity,cll.change_id)',
+        'account_mod' : 'mod_account(cll.subject_entity,i)',
+        'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)',
+        'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
+                                                        cll.change_params)',
+        'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
+                                                        cll.change_params)',
+        'quarantine_add' : 'change_quarantine(cll.subject_entity,\
+                                                        cll.change_type_id)',
+        'quarantine_mod' : 'change_quarantine(cll.subject_entity,\
+                                                        cll.change_type_id)',
+        'quarantine_del' : 'change_quarantine(cll.subject_entity,\
+                                                        cll.change_type_id)'}
 
 
 def nwqsync(spreads):
@@ -309,7 +309,7 @@ def change_spread(dn_id,ch_type,ch_params):
         change_group_spread(dn_id,ch_type,ch_params)
     else:
         print("\n# Change_spread did not resolve request (%s,%s)" 
-					% (dn_id,ch_type)) 
+                                        % (dn_id,ch_type)) 
 
 
 def mod_account(dn_id,i):
@@ -330,9 +330,9 @@ def mod_account(dn_id,i):
         if base_entry.has_key('ndsHomeDirectory'):
             newpath = path2edir([('ndsHomeDirectory', base_entry['ndsHomeDirectory'])])
             if newpath != None:
-            	base_entry['ndsHomeDirectory'] = newpath[1]
+                base_entry['ndsHomeDirectory'] = newpath[1]
             else:
-		del base_entry['ndsHomeDirectory']
+                del base_entry['ndsHomeDirectory']
         for entry in base_entry.keys():
             try:
                 if (ldap_attr[entry] <> base_entry[entry]):
@@ -394,8 +394,8 @@ def group_mod(ch_type,dn_id,dn_dest,log_id):
 
 def load_cltype_table(cltype):
     for clt,proc in cl_entry.items():
-	# make if-entry to list in cereconf to remove dynamic service
-	cltype[int(getattr(co,clt))] = proc	
+        # make if-entry to list in cereconf to remove dynamic service
+        cltype[int(getattr(co,clt))] = proc     
 
 
 def usage(exitcode=0):
@@ -430,7 +430,7 @@ def main():
         if port is None:
             port = cereconf.NW_LDAPPORT
         dbg_print(INFO, 'INFO: Novell eDirectory quicksync starting at %s' % nwutils.now())
-	passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
+        passwd = db._read_password(host,cereconf.NW_ADMINUSER.split(',')[:1][0])
         ldap_handle = nwutils.LDAPConnection(host, port,
                                     binddn=cereconf.NW_ADMINUSER, password=passwd, scope='sub')
         load_cltype_table(cltype)                            

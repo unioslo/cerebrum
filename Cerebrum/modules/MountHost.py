@@ -41,7 +41,7 @@ class MountHost(Host):
 
     def find(self, host_id):
         """Associate the object with MountHost whose identifier is 
-	mount_host_id. If mount_host_id isn't an existing ID identifier,
+        mount_host_id. If mount_host_id isn't an existing ID identifier,
         NotFoundError is raised."""
         self.__super.find(host_id)
         (self.mount_host_id, self.mount_type, self.mount_name) = self.query_1("""
