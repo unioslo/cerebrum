@@ -27,10 +27,7 @@ from Cerebrum import Utils
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import errors
 
-PAGE_COST = {
-    'fs': 0.30,
-    'epay': 0.30
-    }
+PAGE_COST = 0.30
 
 def is_free_period(year, month, mday):
     if ((month, mday) >= cereconf.PQ_SPRING_FREE[0] and
@@ -59,18 +56,10 @@ class PPQUtil(object):
         self.const = Utils.Factory.get('Constants')(self.db)
         self.ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
 
-    def round_up(n):
-        """Round up to nearest integer"""
-        if int(n) < n:
-            return int(n) + 1
-        return int(n)
-    round_up = staticmethod(round_up)
-
     def add_payment(self, person_id, payment_type, bank_id, kroner,
                     description, payment_tstamp=None, update_by=None,
                     update_program=None):
         """Utility method that converts money to quota"""
-        paid_pages = PPQUtil.round_up(kroner * (1/PAGE_COST[payment_type]))
 
         try:
             self.ppq.find(person_id)
@@ -82,8 +71,6 @@ class PPQUtil(object):
         self.ppq._add_transaction(
             self.const.pqtt_quota_fill_pay,
             person_id,
-            pageunits_free=0,
-            pageunits_paid=paid_pages,
             description=description,
             bank_id=bank_id,
             kroner=kroner,

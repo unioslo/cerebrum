@@ -24,7 +24,7 @@
 category:metainfo;
 name=printer_quota;
 category:metainfo;
-version=1.0;
+version=1.1;
 category:drop;
 DROP TABLE paid_quota_printjob;
 category:drop;
@@ -49,11 +49,12 @@ DROP SEQUENCE printer_log_id_seq;
        0. Brukes typisk hvis kopipenger til kopinor ikke er betalt.
    total_pages
        Totalt antall sider personen har skrevet ut
-   paid_quota
-       Antal gjenstående pageunits på kvoten som personen har betalt for
    free_quota
        Antal gjenstående pageunits på kvoten som personen har fått gratis
-
+   accum_quota
+       Antal gjenstående pageunits på kvoten som personen har fått gratis
+   kroner
+       Antal gjenstående kroner på kvoten
 
   Trenger:
 
@@ -83,8 +84,9 @@ CREATE TABLE paid_quota_status (
  weekly_quota        NUMERIC(8),
  max_quota           NUMERIC(8),
  total_pages         NUMERIC(8) NOT NULL,
- paid_quota          NUMERIC(8) NOT NULL,
  free_quota          NUMERIC(8) NOT NULL
+ accum_quota         NUMERIC(8) NOT NULL,
+ kroner              NUMERIC(7,2) NOT NULL,
 );
 
 category:main;
@@ -122,13 +124,15 @@ CREATE TABLE paid_quota_transaction_type_code (
    update_program
        Navn på programmet som har foretatt transaksjonen. Skal ikke
        være satt dersom update_by er satt.
-   pageunit_free / page_units_paid
+   pageunit_free / page_units_accum / page_units_paid
        betydningen beskrevet i tabellene nedenfor.  Har negativt
        fortegn ved utskrift.
    pageunits_total
        totalt antall sider for entryen.  Merk at for utskrifter
        foretatt av personer som har has_quota='F', vil free/paid=0,
        mens denne inneholder utskriftens størrelse.
+   kroner
+       se transaksjoner/utskrift
 */
 category:main;
 CREATE TABLE paid_quota_history (
@@ -145,8 +149,10 @@ CREATE TABLE paid_quota_history (
   update_by           NUMERIC(12,0),
   update_program      CHAR VARYING(16),
   pageunits_free      NUMERIC(6,0) NOT NULL,
+  pageunits_accum     NUMERIC(6,0) NOT NULL,
   pageunits_paid      NUMERIC(6,0) NOT NULL,
-  pageunits_total     NUMERIC(6,0) NOT NULL
+  pageunits_total     NUMERIC(6,0) NOT NULL,
+  kroner              NUMERIC(7,2) NOT NULL
 );
 category:main;
 CREATE INDEX paid_quota_history_person_id_idx ON paid_quota_history(person_id);
@@ -168,9 +174,6 @@ CREATE INDEX paid_quota_history_person_id_idx ON paid_quota_history(person_id);
          samme innbetaling unngås.
      payment_tstamp
          Klokkeslett for betalingen iflg. FS/e-pay
-     kroner
-         Innbetalt sum i kroner.  NULL dersom transaksjonen ikke er en
-         betaling.
 
      Kolonnene pageunits_free og pageunits_paid har forskjellig betydning
      avhengig av transaction_type:
@@ -197,8 +200,7 @@ CREATE TABLE paid_quota_transaction (
   description         CHAR VARYING(128) NOT NULL,
   bank_id             CHAR VARYING(128)
 	               	CONSTRAINT paid_quota_transaction_bank_id_u UNIQUE,
-  payment_tstamp      TIMESTAMP,
-  kroner              NUMERIC(6,2)
+  payment_tstamp      TIMESTAMP
 );
 category:main;
 CREATE INDEX paid_quota_transaction_job_id_idx ON paid_quota_transaction(job_id);

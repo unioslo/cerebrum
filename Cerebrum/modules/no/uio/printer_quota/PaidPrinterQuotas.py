@@ -72,7 +72,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
     def find(self, person_id):
         return self.query_1(
             """SELECT has_quota, has_blocked_quota, weekly_quota,
-                      max_quota, paid_quota, free_quota, total_pages
+                      max_quota, kroner, free_quota, accum_quota, total_pages
             FROM [:table schema=cerebrum name=paid_quota_status]
             WHERE person_id=:person_id""", {'person_id': person_id})
 
@@ -134,29 +134,36 @@ class PaidPrinterQuotas(DatabaseAccessor):
         pageunits = int(pageunits)
         pageunits_total = pageunits
         # Determine how much to subtract from free and paid quota
-        pageunits_free = pageunits_paid = 0
+        pageunits_free = pageunits_accum = pageunits_paid = kroner = 0
         if update_quota:
             row = self.find(person_id)
-            old_free, old_pay = (row['free_quota'], row['paid_quota'])
+            old_free, old_accum = (row['free_quota'], row['accum_quota'])
             if old_free > 0:
                 delta = min(old_free, pageunits)
-                #new_free -= delta
+                pageunits_free = -delta
+                pageunits -= delta
+            if pageunits and old_accum > 0:
+                delta = min(old_accum, pageunits)
                 pageunits_free = -delta
                 pageunits -= delta
             if pageunits:
                 pageunits_paid = -pageunits
                 #new_paid = old_pay - pageunits
+            kroner = pageunits_paid * PPQUtil.PAGE_COST
 
         # Update quota_status.  Note that if update_quota=False,
         # free/paid will be 0
-        self._alter_quota(
-            person_id, pageunits_free=pageunits_free,
-            pageunits_paid=pageunits_paid, pageunits_total=pageunits_total)
+        self._alter_quota(person_id,
+            pageunits_free=pageunits_free,
+            pageunits_accum=pageunits_accum,
+            pageunits_total=pageunits_total,
+            kroner=kroner)
 
         # register history entries
         job_id = self._add_quota_history(
             self.co.pqtt_printout, person_id, pageunits_free,
-            pageunits_paid, pageunits_total, update_program=update_program,
+            pageunits_accum, pageunits_paid, pageunits_total, kroner,
+            update_program=update_program,
             tstamp=tstamp)
         if job_name is not None:
             job_name = job_name[:128]
@@ -179,7 +186,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
         return job_id
     
     def _add_quota_history(self, transaction_type, person_id,
-                           pageunits_free, pageunits_paid, pageunits_total,
+                           pageunits_free, pageunits_accum, pageunits_paid,
+                           pageunits_total, kroner,
                            update_by=None, update_program=None,
                            tstamp=None, _override_job_id=None):
         if _override_job_id:
@@ -194,7 +202,9 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'update_program': update_program, 
             'pageunits_free': pageunits_free,
             'pageunits_paid': pageunits_paid,
-            'pageunits_total': pageunits_total}
+            'pageunits_accum': pageunits_accum,
+            'pageunits_total': pageunits_total,
+            'kroner': kroner}
         if tstamp:                  # Should only used when importing data
             binds['tstamp'] = tstamp
         
@@ -208,7 +218,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
 
     def _add_transaction(
         self, transaction_type, person_id, update_by, update_program,
-        pageunits_free=0, pageunits_paid=0, target_job_id=None,
+        pageunits_free=0, pageunits_paid=0, pageunits_accum=0,
+        target_job_id=None,
         description=None, bank_id=None, kroner=0, payment_tstamp=None,
         tstamp=None, _do_not_alter_quota=False, _override_job_id=None,
         _override_pageunits_total=None):
@@ -222,7 +233,9 @@ class PaidPrinterQuotas(DatabaseAccessor):
 
         # Update quota
         if not _do_not_alter_quota:
-            self._alter_quota(person_id, pageunits_free=pageunits_free,
+            self._alter_quota(person_id,
+                              pageunits_free=pageunits_free,
+                              pageunits_accum=pageunits_accum,
                               pageunits_paid=pageunits_paid)
 
         if _override_pageunits_total is not None:
@@ -232,7 +245,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         # register history entries
         id = self._add_quota_history(
             transaction_type, person_id, pageunits_free,
-            pageunits_paid, pageunits_total,
+            pageunits_accum, pageunits_paid, pageunits_total,
             update_by=update_by, update_program=update_program,
             tstamp=tstamp,
             _override_job_id=_override_job_id)
@@ -252,8 +265,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
                                  binds)
 
 
-    def _alter_quota(self, person_id, pageunits_free=0, pageunits_paid=0,
-                     pageunits_total=0):
+    def _alter_quota(self, person_id, pageunits_free=0,
+                     pageunits_total=0, pageunits_accum=0, kroner=0):
         """Updates paid_quota_status.  Should not be called outside
         this class.  Use add_printjob/add_transaction so that the
         history table is also updated."""
@@ -261,13 +274,15 @@ class PaidPrinterQuotas(DatabaseAccessor):
         self.execute("""
         UPDATE [:table schema=cerebrum name=paid_quota_status]
         SET free_quota = free_quota + :pageunits_free,
-            paid_quota = paid_quota + :pageunits_paid,
-            total_pages = total_pages + :pageunits_total
+            accum_quota = accum_quota + :pageunits_accum,
+            total_pages = total_pages + :pageunits_total,
+            kroner = kroner + :kroner
         WHERE person_id=:person_id""", {
             'person_id': person_id,
             'pageunits_free': int(pageunits_free),  # Avoid db-driver 0 = NULL
-            'pageunits_paid': int(pageunits_paid),
-            'pageunits_total': int(pageunits_total)})
+            'pageunits_accum': int(pageunits_accum),
+            'pageunits_total': int(pageunits_total),
+            'kroner': float(kroner)})
 
     def _change_history_owner(self, old_id, new_id):
 	self.execute("""
@@ -393,7 +408,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         ret = [r for r in self.query(
             """SELECT pqh.job_id, transaction_type, person_id, tstamp,
                   update_by, update_program, pageunits_free,
-                  pageunits_paid, pageunits_total, target_job_id, description,
+                  pageunits_paid, pageunits_accum, pageunits_total, target_job_id, description,
                   bank_id, kroner, payment_tstamp
             FROM [:table schema=cerebrum name=paid_quota_history] pqh,
                  [:table schema=cerebrum name=paid_quota_transaction] pqt
@@ -404,8 +419,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
             for r in self.query(
                 """SELECT pqh.job_id, transaction_type, person_id,
                       tstamp, update_by, update_program, account_id,
-                      pageunits_free, pageunits_paid, pageunits_total,
-                      job_name, printer_queue, stedkode, spool_trace,
+                      pageunits_free, pageunits_paid, pageunits_accum, pageunits_total,
+                      kroner, job_name, printer_queue, stedkode, spool_trace,
                       priss_queue_id, paper_type, pages
                 FROM [:table schema=cerebrum name=paid_quota_history] pqh,
                      [:table schema=cerebrum name=paid_quota_printjob] pqp

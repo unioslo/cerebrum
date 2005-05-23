@@ -246,10 +246,11 @@ The currently defined id-types are:
     # pquota status
     all_commands['pquota_status'] = Command(
         ("pquota", "status"), PersonId(),
-        fs=FormatSuggestion("Has quota Blocked   Paid   Free\n"+
-                            "%-9s %-9s %-6i %i",
+        fs=FormatSuggestion("Has quota Blocked   Paid(calc.)  Free AccFree Kroner\n"+
+                            "%-9s %-9s %-6i       %-4i %-7i %-6.2f ",
                             ('has_quota', 'has_blocked_quota',
-                            'paid_quota', 'free_quota')))
+                            'paid_quota', 'free_quota',
+                             'accum_quota', 'kroner')))
     def pquota_status(self, operator, person_id):
         # Everyone can access quota-status for anyone
         ppq_info = self.bu.get_pquota_status(
@@ -257,8 +258,10 @@ The currently defined id-types are:
         return {
             'has_quota': ppq_info['has_quota'],
             'has_blocked_quota': ppq_info['has_blocked_quota'],
-            'paid_quota': ppq_info['paid_quota'],
-            'free_quota': ppq_info['free_quota']
+            'paid_quota': int(1/PPQUtil.PAGE_COST * ppq_info['kroner']),
+            'kroner': ppq_info['kroner'],
+            'free_quota': ppq_info['free_quota'],
+            'accum_quota': ppq_info['accum_quota']
             }
 
     # We provide two methods for history data, one for jbofh, and one
@@ -298,14 +301,14 @@ The currently defined id-types are:
 
     all_commands['jbofh_pquota_history'] = Command(
         ("pquota", "history"), PersonId(), Integer(help_ref="int_when", optional=True),
-        fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %5i",
+        fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %6i %5i %6.2f",
                             ('job_id', 'transaction_type',
                              format_time('tstamp'), 'update_by',
-                             'data', 'pageunits_free',
-                             'pageunits_paid'),
-                            hdr="%-8s %-7s %-16s %-10s %-20s %-5s %-5s" %
+                             'data', 'pageunits_free', 'pageunits_accum',
+                             'pageunits_paid', 'kroner'),
+                            hdr="%-8s %-7s %-16s %-10s %-20s %-5s %-6s %-5s %s" %
                             ("JobId", "Type", "When", "By", "Data", "#Free",
-                             "#Paid")),
+                             "#Afree", "#Paid", "Kroner")),
         perm_filter='can_pquota_list_history')
     def jbofh_pquota_history(self, operator, person_id, when=None):
         ret = []
@@ -330,7 +333,9 @@ The currently defined id-types are:
                 'transaction_type': r['transaction_type'],
                 'tstamp': tstamp,
                 'pageunits_free': r['pageunits_free'],
-                'pageunits_paid': r['pageunits_paid']}
+                'pageunits_accum': r['pageunits_accum'],
+                'pageunits_paid': r['pageunits_paid'],
+                'kroner': r['kroner']}
             if not r['update_by']:
                 r['update_by'] = r['update_program']
             tmp['update_by'] = r['update_by'][:10]

@@ -10,6 +10,7 @@ from Cerebrum import Errors
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.Utils import Factory
+from Cerebrum import Metainfo
 
 db = Factory.get('Database')()
 db.cl_init(change_program="skeleton")
@@ -104,11 +105,68 @@ def noia_check():
             ok_count += 1
     logger.debug("Found %i OK records" % ok_count)
 
+def migrate_to_1_1():
+    # Add extra columns to tables
+    for sql in (
+        "ALTER TABLE paid_quota_status "
+        "  ADD COLUMN accum_quota NUMERIC(8)",
+        "ALTER TABLE paid_quota_status "
+        "  ADD COLUMN kroner NUMERIC(7,2)",
+        "ALTER TABLE paid_quota_history "
+        "  ADD COLUMN pageunits_accum NUMERIC(6,0)",
+        "ALTER TABLE paid_quota_history "
+        "  ADD COLUMN kroner NUMERIC(7,2)"):
+        print sql
+        db.execute(sql)
+
+    # Fill new columns with data
+    for sql in (
+        "UPDATE paid_quota_status SET kroner=paid_quota*0.3, accum_quota=0",
+        # pageunits_paid -> kroner
+        "UPDATE paid_quota_history "
+        "SET kroner=0.3*pageunits_paid, pageunits_accum=0",
+        # pageunits_paid skal ikke lenger røres ved betalinger
+        "UPDATE paid_quota_history SET pageunits_paid=0 "
+        "WHERE transaction_type=%i" % co.pqtt_quota_fill_pay,
+        #
+        # Innbetalinger kunne i teorien vært gjort som med søket
+        # under, men da ville ikke summen gått opp med
+        # paid_quota_status.paid_quota*0.3.  Vi 'faker' derfor det
+        # innbetalte beløpet, slik at det er loggført 200.10 kr selv
+        # om studenten kun betalte 200.00 kr.  Differansen er på
+        # totalt ca 2400kr i studentenes favør.
+        #
+        # "UPDATE paid_quota_history SET kroner=t.kroner "
+        # "FROM paid_quota_transaction t "
+        # "WHERE paid_quota_history.job_id=t.job_id"
+        ):
+        print sql
+        db.execute(sql)
+
+    # Remove obsolete columns
+    for sql in (
+        "ALTER TABLE paid_quota_status DROP COLUMN paid_quota",
+        "ALTER TABLE paid_quota_transaction DROP COLUMN kroner",
+        "ALTER TABLE paid_quota_status"
+        "  ALTER COLUMN accum_quota SET NOT NULL",
+        "ALTER TABLE paid_quota_status"
+        "  ALTER COLUMN kroner SET NOT NULL",
+        "ALTER TABLE paid_quota_history"
+        "  ALTER COLUMN pageunits_accum SET NOT NULL",
+        "ALTER TABLE paid_quota_history"
+        "  ALTER COLUMN kroner SET NOT NULL"):
+        print sql
+        db.execute(sql)
+
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo('sqlmodule_%s' % 'printer_quota', '1.1')
+    db.commit()
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '', [
             'help', 'truncate=', 'truncate-log=', 'person-id=',
-            'noia-check'])
+            'noia-check', 'migrate-to-1-1'])
     except getopt.GetoptError:
         usage(1)
 
@@ -129,6 +187,8 @@ def main():
                 val = (time.time() - time.mktime(
                     time.strptime(val, '%Y-%m-%d')))/(3600*24)
             truncate_log(int(val), truncate_fname, person_id=person_id)
+        elif opt in ('--migrate-to-1-1',):
+            migrate_to_1_1()
     if not opts:
         usage(1)
 

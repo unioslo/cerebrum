@@ -238,7 +238,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         pageunits = float(pageunits)
         if pageunits <= 0:
             return ebadpage
-        quota = self.pq_data['free_quota'] + self.pq_data['paid_quota']
+        quota = self.pq_data['free_quota'] + self.pq_data['accum_quota'] + \
+                (1/PPQUtil.PAGE_COST)*self.pq_data['kroner']
         if quota >= pageunits:
             return ok+", quota=%f" % (quota)
         return no
