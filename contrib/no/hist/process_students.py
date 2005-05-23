@@ -215,9 +215,9 @@ def update_account(profile, fnr, account_ids, account_info={}):
                     changes.append("disk %s->%s" % (
                         autostud.disks.get(current_disk_id, ['None'])[0],
                         autostud.disks.get(new_disk, ['None'])[0]))
-                        logger.debug("Set home: %s" % new_disk)
-                        user.set_home(disk_spread, disk_id = new_disk,
-                                      status=const.home_status_not_created)
+                    logger.debug("Set home: %s" % new_disk)
+                    user.set_home(disk_spread, disk_id = new_disk,
+                                  status=const.home_status_not_created)
         tmp = user.write_db()
         logger.debug("write_db=%s" % tmp)
 
