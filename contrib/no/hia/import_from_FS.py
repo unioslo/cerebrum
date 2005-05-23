@@ -143,7 +143,7 @@ def write_evukurs_info(outfile):
         f.write(xml.xmlify_dbrow(ek, xml.conv_colnames(cols), "evukurs") + "\n")
     f.write("</data>\n")
     f.close()
-    # end write_evukurs_inf
+    # end write_evukurs_info
     
 def write_role_info(outfile):
     f = MinimumSizeWriter(outfile)
@@ -327,9 +327,11 @@ def main():
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
-        if o in ('--hia-personinfo-file',):
+        if o in ('--hia-emneinfo-file',):
+            emne_info_file = val
+        elif o in ('--hia-personinfo-file',):
             person_file = val
-        elif o in ('--hia-evukursinfo-file=',):
+        elif o in ('--hia-evukursinfo-file',):
             evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val

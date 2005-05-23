@@ -324,6 +324,14 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
             ar, term, emnekode, versjon, terminnr = gname_el[5:10]
             if (ar, term) not in (this_sem, next_sem):
                 continue
+
+            if emnekode not in emne_info:
+                logger.warn("Emne %s er ikke i emne_info/underv_enhet.xml, " +
+                            "men det finnes en gruppe %s med fronter spread",
+                            emnekode, gname)
+                continue
+            # fi
+
             fak_sko = "%02d0000" % emne_info[emnekode]['fak']
 
             # Rom for undervisningsenheten.

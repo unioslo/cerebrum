@@ -1076,6 +1076,7 @@ class person_xml_parser(non_nested_xml_parser):
                 'tilbud': True,
                 'evu': True,
                 'privatist_studieprogram': True,
+                'eksamen' : True,
                 }
 
 class roles_xml_parser(non_nested_xml_parser):
@@ -1226,7 +1227,7 @@ class deltaker_xml_parser(xml.sax.ContentHandler, object):
         self._encoding = encoding
         self._in_person = False
         self._legal_elements = ("person", "evu", "aktiv", "tilbud",
-                                "data", "privatist_studieprogram")
+                                "data", "privatist_studieprogram", "eksamen",)
         xml.sax.parse(filename, self)
     # end __init__
 

@@ -982,7 +982,7 @@ def main():
             fs_super.add("evu", attrs)
         # fi
     # end create_evukurs_helper
-    xmlfile = "evukurs.xml"
+    xmlfile = "evu_kursinfo.xml"
     logger.info("Leser XML-fil: %s", xmlfile)
     access_FS.evukurs_xml_parser(os.path.join(dump_dir, xmlfile),
                                  create_evukurs_helper)
@@ -1088,6 +1088,7 @@ def main():
     access_FS.person_xml_parser(
         os.path.join(dump_dir, 'person.xml'),
         student_studieprog_helper)
+    logger.info("Ferdig med XML-fil: person.xml")
 
     # Write back all changes to the database
     fs_super.sync()
