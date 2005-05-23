@@ -446,9 +446,9 @@ class TestOUFramework(unittest.TestCase):
         self.assertEqual(cscript("""
         set ou = GetObject("LDAP://ou=%s,%s")
         set group = ou.Create("group", "cn=%s")
-        group.saMAccountName = %s
+        group.saMAccountName = "%s"
         ' this seems to be the default anyway
-        ' group.groupType = ADS_GROUP_TYPE_SECURITY_ENABLED + ADS_GROUP_TYPE_GLOBAL_GROUP
+        'group.groupType = ADS_GROUP_TYPE_SECURITY_ENABLED + ADS_GROUP_TYPE_GLOBAL_GROUP
         group.SetInfo()
         """ % (ou, self.context, group, group)), "")
 
