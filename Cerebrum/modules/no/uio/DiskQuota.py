@@ -30,7 +30,11 @@ class NotSet(object): pass
 
 class DiskQuotaConstants(Constants.Constants):
     disk_quota_set = _ChangeTypeCode(
-        'disk_quota', 'set', 'set disk quota for %(subject)s')
+        'disk_quota', 'set', 'set disk quota for %(subject)s',
+        ('quota=%(int:quota)s',
+         'override_quota=%(int:override_quota)s',
+         'override_exp=%(string:override_expiration)s',
+         'reason=%(string:description)s'))
     disk_quota_clear = _ChangeTypeCode(
         'disk_quota', 'clear', 'clear disk quota for %(subject)s')
 
@@ -61,42 +65,57 @@ class DiskQuota(DatabaseAccessor):
                   override_expiration=NotSet(), description=NotSet()):
         """Insert or update disk_quota for homedir_id.  Will only
         affect the columns used as keyword arguments"""
-        tmp = (['homedir_id', int(homedir_id)],
-               ['quota', quota],
-               ['override_quota', override_quota],
-               ['override_expiration', override_expiration],
-               ['description', description])
+        new_values = { 'homedir_id': int(homedir_id),
+                       'quota': quota,
+                       'override_quota': override_quota,
+                       'override_expiration': override_expiration,
+                       'description': description }
+        old_values = {}
         try:
-            self.get_quota(homedir_id=homedir_id)
+            old_values = self.get_quota(homedir_id=homedir_id)
             is_new = False
         except Errors.NotFoundError:
             is_new = True
+        for col in new_values.keys():
+            if isinstance(new_values[col], NotSet):
+                if is_new:
+                    new_values[col] = None
+                else:
+                    del new_values[col]
         if is_new:
-            for n in range(len(tmp)):
-                if isinstance(tmp[n][1], NotSet):
-                    tmp[n][1] = None
             self.execute("""
-            INSERT INTO [:table schema=cerebrum name=disk_quota]
-            (%s) VALUES (%s)""" % (
-                ", ".join([t[0] for t in tmp]),
-                ", ".join([":%s" % t[0] for t in tmp])),
-                         dict([(t[0], t[1]) for t in tmp]))
-        tmp = filter(lambda k: not isinstance(k[1], NotSet), tmp)
-        if not is_new:
+                INSERT INTO [:table schema=cerebrum name=disk_quota]
+                (%s) VALUES (%s)
+                """ % (", ".join(new_values.keys()),
+                       ", ".join([":%s" % col for col in new_values.keys()])),
+                         new_values)
+        else:
+            for col in new_values.keys():
+                if new_values[col] == old_values[col]:
+                    del new_values[col]
+            if not new_values:
+                return
+            # The above filter removes an important value, so we reinsert it.
+            new_values['homedir_id'] = int(homedir_id)
             self.execute("""
-            UPDATE [:table schema=cerebrum name=disk_quota]
-            SET %s
-            WHERE homedir_id=:homedir_id""" % (
-                ", ".join(["%s=:%s" % (t[0], t[0]) for t in tmp])),
-                         dict([(t[0], t[1]) for t in tmp]))
-        tmp = dict(tmp)
-        if tmp.get('override_expiration', None):
-            # The DBI-Api don't provide a consistent way to parse input-dates
-            t = self.get_quota(homedir_id)
-            tmp['override_expiration'] = t['override_expiration'].strftime(
-                '%Y-%m-%d')
+                UPDATE [:table schema=cerebrum name=disk_quota]
+                SET %s
+                WHERE homedir_id=:homedir_id
+                """ % (", ".join(["%s=:%s" % (col, col)
+                                  for col in new_values.keys()])),
+                         new_values)
+        # We reformat the date into something simpler before pickling.
+        # This requires the input date argument to be somewhat
+        # DateTime compatible, i.e., support strftime().  The call to
+        # Database.execute() will actually convert the date object in
+        # new_values to something unusable, but luckily it's still
+        # available in the local variable.
+        if not isinstance(override_expiration, NotSet):
+            new_values['override_expiration'] = override_expiration.\
+                                                strftime('%Y-%m-%d')
         self._db.log_change(self._get_account_id(homedir_id),
-                            self.co.disk_quota_set, None, change_params=tmp)
+                            self.co.disk_quota_set, None,
+                            change_params=new_values)
 
     def clear_override(self, homedir_id):
         """Convenience method for clearing override settings"""
