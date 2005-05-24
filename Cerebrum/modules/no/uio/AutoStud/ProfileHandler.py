@@ -222,6 +222,8 @@ class Profile(object):
             return max_quota
         # Look for match by diskdef
         disk_def = self.pc.autostud.disk_tool.get_diskdef_by_diskid(disk_id)
+        if disk_def is None:
+            raise AutostudError("No defined disk_kvote")
         if disk_def.disk_kvote:
             return disk_def.disk_kvote
         if self.pc.default_values.has_key('disk_kvote_value'):
