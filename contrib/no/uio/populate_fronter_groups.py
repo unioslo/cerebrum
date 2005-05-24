@@ -297,7 +297,7 @@ def process_kursdata(role_mapping):
 
 def get_undervisningsenheter():
     # TODO: Dumpe alle unervisningsenheter til fil
-    for enhet in fs.undervisning.list_enheter():
+    for enhet in fs.undervisning.list_undervisningenheter():
         # Prefikser alle nøkler i %UndervEnhet som stammer fra
         # undervisningsenheter med "kurs:".
         enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
@@ -482,7 +482,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         logger.debug(" student")
         alle_stud = {}
         prim, sec = \
-              fnrs2account_ids(fs.student.list_undervisningsenhet(\
+              fnrs2account_ids(fs.undervisning.list_studenter_underv_enhet(\
                                    Instnr, emnekode, versjon, termk, aar,
                                    termnr),
                                primary_only=False,
