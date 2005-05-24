@@ -11,6 +11,8 @@ class DiskDef(object):
         self.path = path
         self.spreads = spreads
         self.max = max
+        if disk_kvote is not None:
+            disk_kvote = int(disk_kvote)
         self.disk_kvote = disk_kvote
         self.auto = auto
         self._cerebrum_disk = None
