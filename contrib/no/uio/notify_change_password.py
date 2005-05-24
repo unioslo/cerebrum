@@ -95,6 +95,43 @@ def splat_user(account_id):
         "password not changed", db_now, None)
     db.commit()
 
+def fix_manual_updates(excempt_users):
+    """quarantine_autopassord should only be updated by this script.
+    We do not honour change of end-date, and only allow delaying the
+    quarantine up to 7 days.
+    """
+    tmp = []
+    for u in excempt_users.split(","):
+        if not u:
+            continue
+        account.clear()
+        account.find_by_name(u)
+        tmp.append(int(account.entity_id))
+    excempt_users = tmp
+    
+    threshold = db.Date(*([ int(x) for x in (
+        "%d-%d-%d" % time.localtime(time.time()+3600*24*7)[:3]).split('-')]))
+    change_quarantines = {}
+    for row in account.list_entity_quarantines():
+        if row['quarantine_type'] == int(co.quarantine_autopassord):
+            if int(row['entity_id']) in excempt_users:
+                continue
+            if row['end_date']:
+                logger.debug("Clearing end-date for %i" % row['entity_id'])
+                account.clear()
+                account.find(row['entity_id'])
+                account.delete_entity_quarantine(int(co.quarantine_autopassord))
+                account.add_entity_quarantine(
+                    co.quarantine_autopassord, splattee_id,
+                    "password not changed", db_now, None)
+                db.commit()
+            if row['disable_until'] is not None and row['disable_until'] > threshold:
+                logger.debug("reducing disable_until to threshold for %i" % row['entity_id'])
+                account.clear()
+                account.find(row['entity_id'])
+                account.disable_entity_quarantine(int(co.quarantine_autopassord), threshold)
+                db.commit()
+                
 def process_data(status_mode=False, normal_mode=False):
     # mail_data_file always contain information about users that
     # currently has been warned that their account will be locked.
@@ -202,7 +239,7 @@ def main():
             ['help', 'from=', 'to=', 'cc=', 'msg-file=',
              'max-password-age=', 'grace-period=', 'data-file=',
              'max-users=', 'debug', 'status', 'reminder-delay=',
-             'reminder-msg-file=', 'debug-data='])
+             'reminder-msg-file=', 'debug-data=', 'fix-manual-updates='])
     except getopt.GetoptError:
         usage(1)
     if len(opts) == 0:
@@ -259,6 +296,8 @@ def main():
                 print "Must use --debug with --status"
                 sys.exit(1)
             process_data(status_mode=True)
+        elif opt in ('--fix-manual-updates',):
+            fix_manual_updates(val)
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -283,6 +322,9 @@ def usage(exitcode=0):
     --debug-data: comma separated username list of users with expired passwords
     --status : Show statistics about what would happen if the script
          was ran now.  Does not update files/send mail.
+    --fix-manual-updates excempt_users: Override any manual changes
+      that has been done to a password-quarantine.  excempt_users is a
+      comma separated list of users that are skipped
 
 Example: notify_change_password.py --logger-name=console --debug --debug-data uname --from foo@bar.com --to foo@bar.com --msg-file templates/no_NO/email/skiftpassordmail.txt --reminder-msg-file templates/no_NO/email/skiftpassordmail_reminder.txt --max-password-age 350 --grace-period 30 --reminder-delay 16 --data-file notify_change_password.dat -p
          """
