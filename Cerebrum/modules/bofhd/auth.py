@@ -683,22 +683,28 @@ class BofhdAuth(DatabaseAccessor):
         else:
             self.can_set_password(operator, account=account)
 
+        if account.owner_type != self.const.entity_person:
+            raise PermissionDenied, \
+                  "Can't manipulate account not owned by a person"
+
+        others = False
+        exists = False
+        for r in account.get_account_types(all_persons_types=True):
+            if r['ou_id'] == ou.entity_id and r['affiliation'] == aff:
+                if r['account_id'] == account.entity_id:
+                    exists = True
+                else:
+                    others = True
+
         # aff_status is only None when removing account_type.
-        if myself and aff_status is None:
-            others = False
-            exists = False
-            for r in account.get_account_types(all_persons_types=True):
-                if r['ou_id'] == ou.entity_id and r['affiliation'] == aff:
-                    if r['account_id'] == account.entity_id:
-                        exists = True
-                    else:
-                        others = True
-            if not exists:
-                raise PermissionDenied, "No such affiliation"
-            if not others:
-                raise PermissionDenied, \
-                      "Can't remove affiliation from last account"
-            return True
+        removing = aff_status is None
+        if not exists and removing:
+            raise PermissionDenied, "No such affiliation"
+        if myself and removing:
+            if others:
+                return True
+            raise PermissionDenied, \
+                  "Can't remove affiliation from last account"
 
         person = Person.Person(self._db)
         person.find(account.owner_id)
@@ -707,6 +713,10 @@ class BofhdAuth(DatabaseAccessor):
                 tmp_aff['affiliation'] == aff and
                 (aff_status is None or tmp_aff['status'] == aff_status)):
                 return True
+        # The person lacks the affiliation we try to add/remove.
+        # We applaud removing such affiliations.
+        if removing:
+            return True
         raise PermissionDenied("No access")
 
     def can_remove_account_type(self, operator, account=None, ou=None,
