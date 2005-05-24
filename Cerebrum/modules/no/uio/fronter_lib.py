@@ -300,7 +300,7 @@ class Fronter(object):
         # aktuelle undervisningsenhetene/EVU-kursene (og tilhørende
         # aktiviteter) fra ymse dumpfiler.
         #
-        for enhet in self._fs.undervisning.list_enheter():
+        for enhet in self._fs.undervisning.list_undervisningenheter():
             id_seq = (self.EMNE_PREFIX, enhet['institusjonsnr'],
                       enhet['emnekode'], enhet['versjonskode'],
                       enhet['terminkode'], enhet['arstall'],
