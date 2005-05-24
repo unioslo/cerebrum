@@ -1680,7 +1680,7 @@ class BofhdExtension(object):
             ef.add_forward(addr)
         except Errors.TooManyRowsError:
             raise CerebrumError, "Forward address added already (%s)" % addr
-        return "OK, created forward address '%s'" % remoteaddr
+        return "OK, created forward address '%s'" % localaddr
 
     # email create_list <list-address> [admin,admin,admin]
     all_commands['email_create_list'] = Command(
@@ -4477,8 +4477,9 @@ class BofhdExtension(object):
         self.ba.can_add_account_type(operator.get_entity_id(), account, ou, aff, aff_status)
         account.set_account_type(ou.entity_id, aff)
         account.write_db()
-        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou), account.owner_id)
-    
+        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou),
+                                          accountname)
+
     # user affiliation_remove
     all_commands['user_affiliation_remove'] = Command(
         ("user", "affiliation_remove"), AccountName(), OU(), Affiliation(),
@@ -4492,7 +4493,7 @@ class BofhdExtension(object):
         account.del_account_type(ou.entity_id, aff)
         account.write_db()
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou),
-                                              account.owner_id)
+                                              accountname)
 
     def _user_create_prompt_func_helper(self, ac_type, session, *args):
         """A prompt_func on the command level should return
