@@ -982,7 +982,7 @@ def main():
                                     'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
                                     'paper-file=',
-                                    'remove-groupmembers'
+                                    'remove-groupmembers',
                                     'dryrun', 'validate',
                                     'with-quarantines'])
     except getopt.GetoptError, e:
