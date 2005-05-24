@@ -59,7 +59,7 @@ def mail_user(account_id, mail_type, deadline='', first_time=''):
     account.clear()
     account.find(account_id)
     try:
-        home = account.get_home(co.spread_uio_nis_user)
+        home = account.get_home(getattr(co, spread))
         disk.clear()
         disk.find(home['disk_id'])
         home = "%s/%s" % (disk.path, account.account_name)
@@ -135,7 +135,10 @@ def fix_manual_updates(excempt_users):
 def process_data(status_mode=False, normal_mode=False):
     # mail_data_file always contain information about users that
     # currently has been warned that their account will be locked.
-    global max_users
+    global max_users, spread
+    if not spread:
+        print "\nHome spread must be given (i.e. enter --home-spread spread_foo)\n"
+        usage(1)
     logger.info("process_data started, debug_enabled=%i, debug_verbose=%i" % (
         debug_enabled, debug_verbose))
     try:
@@ -188,7 +191,7 @@ def process_data(status_mode=False, normal_mode=False):
             new_mail_data[account_id] = mail_data[account_id]
     if status_mode:
         print ("Users with old password: %i\nWould splat: %i\n"
-               "Would mail: %i\nPreviously warned: %i\nNum reminded: %i" %(
+               "Would mail: %i\nPreviously warned: %i\nNum reminded: %i"%(
             len(account_ids), num_splatted, num_mailed,
             num_previously_warned, num_reminded))
     if not normal_mode:
@@ -239,23 +242,28 @@ def main():
             ['help', 'from=', 'to=', 'cc=', 'msg-file=',
              'max-password-age=', 'grace-period=', 'data-file=',
              'max-users=', 'debug', 'status', 'reminder-delay=',
-             'reminder-msg-file=', 'debug-data=', 'fix-manual-updates='])
+             'reminder-msg-file=', 'debug-data=', 'fix-manual-updates=',
+             'home-spread='])
     except getopt.GetoptError:
         usage(1)
     if len(opts) == 0:
         usage(1)
 
     global summary_email_info, max_users, max_password_age, \
-           grace_period, mail_data_file, email_info, reminder_delay
+           grace_period, mail_data_file, email_info, reminder_delay, \
+           spread
     max_users = 999999
     email_info = {}
     summary_email_info = {}
     reminder_delay = None
+    spread = ""
     mail_data_file = '/cerebrum/var/logs/notify_change_password.dta'
 
     for opt, val in opts:
         if opt in ('--help',):
             usage()
+        elif opt in ('--home-spread',):
+            spread = val
         elif opt in ('-p',):
             process_data(normal_mode=True)
         elif opt in ('--from',):
@@ -322,11 +330,13 @@ def usage(exitcode=0):
     --debug-data: comma separated username list of users with expired passwords
     --status : Show statistics about what would happen if the script
          was ran now.  Does not update files/send mail.
+    --home-spread : enter spread in which user must have a home in order to be
+         considered active (i.e. spread_uio_nis_user)
     --fix-manual-updates excempt_users: Override any manual changes
       that has been done to a password-quarantine.  excempt_users is a
       comma separated list of users that are skipped
 
-Example: notify_change_password.py --logger-name=console --debug --debug-data uname --from foo@bar.com --to foo@bar.com --msg-file templates/no_NO/email/skiftpassordmail.txt --reminder-msg-file templates/no_NO/email/skiftpassordmail_reminder.txt --max-password-age 350 --grace-period 30 --reminder-delay 16 --data-file notify_change_password.dat -p
+Example: notify_change_password.py --logger-name=console --debug --debug-data uname --from foo@bar.com --to foo@bar.com --msg-file templates/no_NO/email/skiftpassordmail.txt --reminder-msg-file templates/no_NO/email/skiftpassordmail_reminder.txt --max-password-age 350 --grace-period 30 --reminder-delay 16 --data-file notify_change_password.dat --home-spread home_spread_foo -p
          """
     sys.exit(exitcode)
 
