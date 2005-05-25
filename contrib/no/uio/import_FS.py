@@ -130,7 +130,7 @@ def _calc_address(person_info):
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_semadr', '_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
-        ('drgrad', (None, '_hjemsted', None)),
+        ('drgrad', ('_semadr', '_hjemsted', None)),
         ('privatist', ('_semadr', '_hjemsted', None)),
         ('opptak', (None, '_hjemsted', None)),
         ]
@@ -233,7 +233,7 @@ def process_person_callback(person_info):
             continue
         # Get name
         if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne',
-			'privatist_studieprogram', 'alumni', 'drgrad'):
+			'privatist_studieprogram', 'alumni'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
