@@ -29,6 +29,7 @@ from email import Header
 
 import cerebrum_path
 import cereconf
+from Cerebrum.Constants import _SpreadCode
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import PasswordHistory
@@ -59,7 +60,7 @@ def mail_user(account_id, mail_type, deadline='', first_time=''):
     account.clear()
     account.find(account_id)
     try:
-        home = account.get_home(getattr(co, spread))
+        home = account.get_home(co.Spread(spread))
         disk.clear()
         disk.find(home['disk_id'])
         home = "%s/%s" % (disk.path, account.account_name)
