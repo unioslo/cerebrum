@@ -21,6 +21,7 @@
 from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uio import printer_quota
 
 """PaidPrinterQuotas and PPQUtil contains routines for updating the
 paid_quota_* tables.  They should not provide any public methods that
@@ -88,8 +89,9 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'person_id': person_id,
             'has_quota': parse_bool(has_quota) and 'T' or 'F',
             'has_blocked_quota': parse_bool(has_blocked_quota) and 'T' or 'F',
-            'paid_quota': 0,
+            'kroner': 0,
             'free_quota': 0,
+            'accum_quota': 0,
             'total_pages': 0}
 
         self.execute("""
@@ -149,7 +151,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             if pageunits:
                 pageunits_paid = -pageunits
                 #new_paid = old_pay - pageunits
-            kroner = pageunits_paid * PPQUtil.PAGE_COST
+            kroner = pageunits_paid * printer_quota.PAGE_COST
 
         # Update quota_status.  Note that if update_quota=False,
         # free/paid will be 0
@@ -236,7 +238,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             self._alter_quota(person_id,
                               pageunits_free=pageunits_free,
                               pageunits_accum=pageunits_accum,
-                              pageunits_paid=pageunits_paid)
+                              kroner=kroner)
 
         if _override_pageunits_total is not None:
             pageunits_total = _override_pageunits_total
@@ -247,7 +249,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             transaction_type, person_id, pageunits_free,
             pageunits_accum, pageunits_paid, pageunits_total,
             update_by=update_by, update_program=update_program,
-            tstamp=tstamp,
+            tstamp=tstamp, kroner=kroner,
             _override_job_id=_override_job_id)
 
         binds = {
@@ -255,8 +257,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'target_job_id': target_job_id,
             'description': description,
             'payment_tstamp': payment_tstamp,
-            'bank_id': bank_id,
-            'kroner': kroner
+            'bank_id': bank_id
             }
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=paid_quota_transaction]
@@ -408,8 +409,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
         ret = [r for r in self.query(
             """SELECT pqh.job_id, transaction_type, person_id, tstamp,
                   update_by, update_program, pageunits_free,
-                  pageunits_paid, pageunits_accum, pageunits_total, target_job_id, description,
-                  bank_id, kroner, payment_tstamp
+                  pageunits_paid, pageunits_accum, pageunits_total,
+                  target_job_id, description, bank_id, kroner, payment_tstamp
             FROM [:table schema=cerebrum name=paid_quota_history] pqh,
                  [:table schema=cerebrum name=paid_quota_transaction] pqt
             WHERE pqh.job_id=pqt.job_id %s""" % where, binds,
@@ -419,9 +420,9 @@ class PaidPrinterQuotas(DatabaseAccessor):
             for r in self.query(
                 """SELECT pqh.job_id, transaction_type, person_id,
                       tstamp, update_by, update_program, account_id,
-                      pageunits_free, pageunits_paid, pageunits_accum, pageunits_total,
-                      kroner, job_name, printer_queue, stedkode, spool_trace,
-                      priss_queue_id, paper_type, pages
+                      pageunits_free, pageunits_paid, pageunits_accum,
+                      pageunits_total, kroner, job_name, printer_queue,
+                      stedkode, spool_trace, priss_queue_id, paper_type, pages
                 FROM [:table schema=cerebrum name=paid_quota_history] pqh,
                      [:table schema=cerebrum name=paid_quota_printjob] pqp
                 WHERE pqh.job_id=pqp.job_id %s""" % where, binds,

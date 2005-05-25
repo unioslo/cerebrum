@@ -34,6 +34,7 @@ from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
 from Cerebrum.modules.no.uio.printer_quota import errors
+from Cerebrum.modules.no.uio import printer_quota
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 
@@ -258,7 +259,7 @@ The currently defined id-types are:
         return {
             'has_quota': ppq_info['has_quota'],
             'has_blocked_quota': ppq_info['has_blocked_quota'],
-            'paid_quota': int(1/PPQUtil.PAGE_COST * ppq_info['kroner']),
+            'paid_quota': int(1/printer_quota.PAGE_COST * float(ppq_info['kroner'])),
             'kroner': ppq_info['kroner'],
             'free_quota': ppq_info['free_quota'],
             'accum_quota': ppq_info['accum_quota']

@@ -27,8 +27,6 @@ from Cerebrum import Utils
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import errors
 
-PAGE_COST = 0.30
-
 def is_free_period(year, month, mday):
     if ((month, mday) >= cereconf.PQ_SPRING_FREE[0] and
         (month, mday) <= cereconf.PQ_SPRING_FREE[1]):
@@ -77,8 +75,6 @@ class PPQUtil(object):
             payment_tstamp=payment_tstamp,
             update_by=update_by,
             update_program=update_program)
-        return paid_pages
-
 
     def _alter_free_pages(self, op, person_id, new_value, why,
                           update_by=None, update_program=None, force=False):
@@ -147,24 +143,32 @@ class PPQUtil(object):
             raise errors.IllegalUndoRequest, "person_id doesn't match job_id"
 
         # Calculate change
-        old_free, old_paid, old_total = [int(rows[0][x]) for x in (
-            'pageunits_free', 'pageunits_paid', 'pageunits_total')]
+        old_free, old_accum, old_paid, old_total = [int(rows[0][x]) for x in (
+            'pageunits_free', 'pageunits_accum', 'pageunits_paid',
+            'pageunits_total')]
+        old_kroner = float(rows[0]['kroner'])
         if page_units == '':
-            delta_free, delta_paid, delta_total = (
-                -old_free, -old_paid, -old_total)
+            delta_free, delta_accum, delta_paid, delta_total, delta_kroner = (
+                -old_free, -old_accum, -old_paid, -old_total, -old_kroner)
         else:
             if ignore_transaction_type:
                 # Don't know why we would need this
                 raise errors.IllegalUndoRequest, "Not implemented"
-            if page_units > -old_free + -old_paid:
+            if page_units > -old_free + -old_accum + -old_paid:
                 raise errors.IllegalUndoRequest, \
                       "Cannot undo more pages than was in the job"
 
             delta_total = -page_units
-            delta_free = delta_paid = 0
+            delta_free = delta_paid = delta_accum = delta_kroner = 0
             if old_paid < 0:                  # Paid for refered print-job
                 delta = min(abs(old_paid), page_units)
                 delta_paid = delta
+                page_units -= delta
+                # får igjen etter samme sidepris som ble betalt
+                delta_kroner = delta_paid * abs(old_kroner/old_paid)
+            if page_units and old_accum < 0:  # old job had accum pages
+                delta = min(abs(old_accum), page_units)
+                delta_accum = delta
                 page_units -= delta
             if page_units and old_free < 0:  # old job had free pages
                 delta = min(abs(old_free), page_units)
@@ -172,12 +176,13 @@ class PPQUtil(object):
                 page_units -= delta
             if page_units != 0:
                 raise ValueError, "oops, page_units=%i" % page_units
-
         self.ppq._add_transaction(
             self.const.pqtt_undo,
             person_id,
             pageunits_free=delta_free,
+            pageunits_accum=delta_accum,
             pageunits_paid=delta_paid,
+            kroner=delta_kroner,
             target_job_id=target_job_id,
             description=description,
             update_by=update_by,
@@ -239,8 +244,8 @@ class PPQUtil(object):
             
         self.ppq._change_history_owner(old_id, new_id)
         self.ppq._delete_status(old_id)
-        for k in ('paid_quota', 'free_quota', 'total_pages'):
-            tmp[k] = int(old_ppq[k] + new_ppq[k])
+        for k in ('free_quota', 'acc_quota', 'total_pages', 'kroner'):
+            tmp[k] = float(old_ppq[k] + new_ppq[k])
         self.ppq._set_status_attr(new_id, tmp)
         return True
 
@@ -273,15 +278,18 @@ class PPQUtil(object):
             transaction_type=int(self.const.pqtt_undo))
         undone_later = dict([(long(row['target_job_id']), True)
                              for row in undone_later])
-        pageunits_free = pageunits_paid = pageunits_total = kroner = 0
+        pageunits_free = pageunits_accum = pageunits_paid = pageunits_total = \
+                         kroner = 0
         last_id = last_tstamp = None
         for row in rows:
             if undone_later.has_key(long(row['job_id'])):
                 continue
             tt = row['transaction_type']
             pageunits_free += int(row['pageunits_free'])
+            pageunits_accum += int(row['pageunits_accum'])
             pageunits_paid += int(row['pageunits_paid'])
             pageunits_total += int(row['pageunits_total'])
+            kroner += float(row['kroner'])
             if tt == int(self.const.pqtt_printout):
                 entry_type = 'printjob'
                 pass  # No relevant extra data
@@ -290,7 +298,6 @@ class PPQUtil(object):
                        int(self.const.pqtt_quota_fill_free),
                        int(self.const.pqtt_undo)):
                 entry_type = 'transaction'
-                kroner += float(row['kroner'])
             else:
                 raise errors.InvalidQuotaData("Unknown transaction type: %i" % tt)
             self.ppq._delete_history(row['job_id'], entry_type)
@@ -301,6 +308,7 @@ class PPQUtil(object):
             self.ppq._add_transaction(
                 self.const.pqtt_balance, person_id, None, update_program,
                 pageunits_free=pageunits_free, pageunits_paid=pageunits_paid,
+                pageunits_accum=pageunits_accum,
                 kroner=kroner, _do_not_alter_quota=True,
                 description='truncate_log', tstamp = last_tstamp,
                 _override_job_id=last_id,

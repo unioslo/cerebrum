@@ -46,6 +46,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
+from Cerebrum.modules.no.uio import printer_quota
 from Cerebrum.Utils import Factory
 
 rev = '$Revision$'
@@ -239,7 +240,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
         if pageunits <= 0:
             return ebadpage
         quota = self.pq_data['free_quota'] + self.pq_data['accum_quota'] + \
-                (1/PPQUtil.PAGE_COST)*self.pq_data['kroner']
+                (1/printer_quota.PAGE_COST)*self.pq_data['kroner']
         if quota >= pageunits:
             return ok+", quota=%f" % (quota)
         return no
