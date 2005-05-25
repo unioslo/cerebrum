@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
 import time
 
 from Cerebrum import Database
@@ -74,7 +73,8 @@ WHERE  p.fodselsdato=s.fodselsdato AND
        p.personnr=s.personnr AND
        p.fodselsdato=sps.fodselsdato AND
        p.personnr=sps.personnr AND
-       NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
+       (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
+       NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
        sps.status_privatist='N' AND
        sps.studieprogramkode=sp.studieprogramkode AND
        sp.studienivakode >= 980
@@ -212,80 +212,97 @@ WHERE sp.arstall=%s AND
       """ %(self.year, self._get_termin_aar(only_current=1))
      	return self.db.query(qry)
 
-class UiOStudent40(access_FS.Student):
-    def list_aktiv(self):  # GetStudinfAktiv
-        """Hent fødselsnummer+studieprogram for alle aktive studenter.
-        Som aktive studenter regner vi alle studenter med opptak til
-        et studieprogram som samtidig har en eksamensmelding eller en
-        avlagt eksamen inneverende semester i et emne som kan inngå i
-        dette studieprogrammet, eller som har bekreftet sin
-        utdanningsplan.  Disse får affiliation student med kode aktiv
-        til sp.faknr_studieansv+sp.instituttnr_studieansv+
-        sp.gruppenr_studieansv.  Vi har alt hentet opplysninger om
-        adresse ol. efter som de har opptak.  Henter derfor kun
-        fødselsnummer og studieprogram.  Medfører at du kan få med
-        linjer som du ikke har personinfo for, dette vil være snakk om
-        ekte-døde personer."""
+    def list_privatist_emne(self):  # GetStudentPrivatistEmne_50
+        """Hent personer som er uekte privatister, dvs. som er
+	eksamensmeldt til et emne i et studieprogram de ikke har
+	opptak til. Disse tildeles affiliation privatist til stedet
+	som eier studieprogrammet de har opptak til.  Dette blir ikke
+	helt riktig efter som man kan ha opptak til studieprogramet
+	'ENKELTEMNE' som betyr at man kan være ordninær student selv
+	om man havner i denne gruppen som plukkes ut av dette søket"""
+
+	qry = """
+        SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+               s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+               p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+               p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+               p.sprakkode_malform, p.kjonn, p.status_dod, em.emnekode
+        FROM fs.student s, fs. person p, fs.registerkort r,
+             fs.eksamensmelding em
+        WHERE s.fodselsdato=p.fodselsdato AND
+              s.personnr=p.personnr AND
+              p.fodselsdato=r.fodselsdato AND
+              p.personnr=r.personnr AND
+              p.fodselsdato=em.fodselsdato AND
+              p.personnr=em.personnr AND
+               %s AND
+              NOT EXISTS
+              (SELECT 'x' FROM fs.studieprogramstudent sps,
+                               fs.emne_i_studieprogram es
+               WHERE p.fodselsdato=sps.fodselsdato AND
+                     p.personnr=sps.personnr AND
+                     es.emnekode=em.emnekode AND
+                     es.studieprogramkode = sps.studieprogramkode AND
+                     NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= SYSDATE)
+      """ % (self._get_termin_aar(only_current=1))
+        return self.db.query(qry)
+    
+    def list_privatist(self): # GetStudentPrivatist_50
+        """Hent personer med privatist 'opptak' til et studieprogram
+        ved institusjonen og som enten har vært registrert siste året
+        eller har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de som
+        har fremtidig opptak.  Disse kommer med 14 dager før dato for
+        tildelt privatist 'opptak'.  Alle disse skal ha affiliation
+        med status kode 'privatist' til stedskoden sp.faknr_studieansv
+        + sp.instituttnr_studieansv + sp.gruppenr_studieansv"""
 
         qry = """
-SELECT DISTINCT
-      s.fodselsdato, s.personnr, sp.studieprogramkode, st.studieretningkode
-FROM fs.studieprogram sp, fs.studierett st, fs.student s,
-     fs.registerkort r, fs.eksamensmelding em,
-     fs.emne_i_studieprogram es
-WHERE s.fodselsdato=r.fodselsdato AND
-      s.personnr=r.personnr AND
-      s.fodselsdato=st.fodselsdato AND
-      s.personnr=st.personnr AND
-      s.fodselsdato=em.fodselsdato AND
-      s.personnr=em.personnr AND
-      es.studieprogramkode=sp.studieprogramkode AND
-      em.emnekode=es.emnekode AND
-      st.status_privatist='N' AND 
-      st.studieprogramkode=sp.studieprogramkode AND
-      r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL') AND
-      NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
-      %s
-UNION """ %(self._get_termin_aar(only_current=1))
-
-        qry = qry + """
-SELECT DISTINCT
-     s.fodselsdato, s.personnr, sp.studieprogramkode, st.studieretningkode
-FROM fs.student s, fs.studierett st,
-     fs.studprogstud_planbekreft r, fs.studieprogram sp
-WHERE s.fodselsdato=st.fodselsdato AND
-      s.personnr=st.personnr AND
-      s.fodselsdato=r.fodselsdato AND
-      s.personnr=r.personnr AND
-      sp.status_utdplan='J' AND
-      st.status_privatist='N' AND     
-      r.studieprogramkode=st.studieprogramkode AND
-      st.studieprogramkode=sp.studieprogramkode AND
-      NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
-      r.dato_bekreftet < SYSDATE AND
-      r.arstall_bekreft = %d AND
-      r.terminkode_bekreft = '%s'
-UNION""" %(self.year, self.semester)
-        
-        qry = qry + """
-SELECT DISTINCT sp.fodselsdato, sp.personnr, st.studieprogramkode,
-                st.studieretningkode
-FROM fs.studentseksprotokoll sp, fs.studierett st,
-     fs.emne_i_studieprogram es
-WHERE sp.arstall >= %s AND
-      (%s <= 6 OR sp.manednr > 6 ) AND
-      sp.fodselsdato = st.fodselsdato AND
-      sp.personnr = st.personnr AND
-      sp.institusjonsnr = '185' AND
-      sp.emnekode = es.emnekode AND
-      es.studieprogramkode = st.studieprogramkode AND
-      (st.opphortstudierettstatkode IS NULL OR
-      st.DATO_GYLDIG_TIL >= sysdate) AND
-      st.status_privatist = 'N'
-      """ %(self.year, self.mndnr)
-     	return self.db.query(qry)
-
-
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+               s.adrlin3_semadr, s.adresseland_semadr,
+               p.adrlin1_hjemsted, p.adrlin2_hjemsted,
+               p.postnr_hjemsted, p.adrlin3_hjemsted,
+               p.adresseland_hjemsted, p.status_reserv_nettpubl,
+               p.sprakkode_malform, sps.studieprogramkode,
+               sps.studieretningkode, sps.studierettstatkode,
+               sps.studentstatkode, sps.terminkode_kull,
+               sps.arstall_kull, p.kjonn, p.status_dod
+        FROM fs.student s, fs.person p, fs.studieprogramstudent sps
+        WHERE  p.fodselsdato=s.fodselsdato AND
+               p.personnr=s.personnr AND
+               p.fodselsdato=sps.fodselsdato AND
+               p.personnr=sps.personnr AND
+               NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
+               sps.status_privatist = 'J' AND
+               sps.dato_studierett_tildelt < SYSDATE + 14 AND
+               sps.dato_studierett_tildelt >= to_date('2003-01-01',
+                                                      'yyyy-mm-dd')
+       """
+        qry += """ UNION
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+               s.adrlin3_semadr, s.adresseland_semadr,
+               p.adrlin1_hjemsted, p.adrlin2_hjemsted,
+               p.postnr_hjemsted, p.adrlin3_hjemsted,
+               p.adresseland_hjemsted, p.status_reserv_nettpubl,
+               p.sprakkode_malform, sps.studieprogramkode,
+               sps.studieretningkode, sps.studierettstatkode,
+               sps.studentstatkode, sps.terminkode_kull,
+               sps.arstall_kull, p.kjonn, p.status_dod
+        FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
+             fs.registerkort r
+        WHERE  p.fodselsdato=s.fodselsdato AND
+               p.personnr=s.personnr AND
+               p.fodselsdato=sps.fodselsdato AND
+               p.personnr=sps.personnr AND
+               p.fodselsdato=r.fodselsdato AND
+               p.personnr=r.personnr AND
+               NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
+               sps.status_privatist = 'J' AND
+               r.arstall >= (%s - 1)
+               """ % (self.year)
+        return self.db.query(qry)
 
 
 class UiOPortal(access_FS.FSObject):
@@ -415,133 +432,7 @@ class UiOPortal(access_FS.FSObject):
                               "aar3" : self.year,
                               "semester": semester},
                              False)
-    
-class UiOPortal40(access_FS.FSObject):
-    def list_eksmeld(self):  # GetPortalInfo
-        """
-        Hent ut alle eksamensmeldinger i nåværende semester med all
-        interessant informasjon for portaldumpgenerering.
 
-        SQL-spørringen er dyp magi. Spørsmål rettes til baardj.
-        """
-
-        #
-        # NB! Det er ikke meningen at vanlige dødelige skal kunne forstå
-        # denne SQL-spørringen. Lurer du på noe, plag baardj
-        # 
-
-        # Velg ut studentens eksamensmeldinger for inneværende og
-        # fremtidige semestre.  Søket sjekker at studenten har
-        # rett til å følge kurset, og at vedkommende er
-        # semesterregistrert i inneværende semester (eller,
-        # dersom fristen for semesterregistrering dette
-        # semesteret ennå ikke er utløpt, hadde
-        # semesterregistrert seg i forrige semester)
-
-        query = """
-        SELECT m.fodselsdato, m.personnr,
-               m.emnekode, m.arstall, m.manednr,
-               sprg.studienivakode,
-               e.institusjonsnr_reglement, e.faknr_reglement,
-               e.instituttnr_reglement, e.gruppenr_reglement,
-               es.studieprogramkode
-        FROM fs.eksamensmelding m, fs.emne e, fs.studierett st,
-             fs.emne_i_studieprogram es, fs.registerkort r,
-             fs.studieprogram sprg, fs.person p
-        WHERE
-            m.arstall >= :aar1 AND
-            m.fodselsdato = st.fodselsdato AND
-            m.personnr = st.personnr AND
-            m.fodselsdato = r.fodselsdato AND
-            m.personnr = r.personnr AND
-            m.fodselsdato = p.fodselsdato AND
-            m.personnr = p.personnr AND
-            NVL(p.status_dod, 'N') = 'N' AND
-            %s AND
-            NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
-            st.status_privatist = 'N' AND
-            m.institusjonsnr = e.institusjonsnr AND
-            m.emnekode = e.emnekode AND
-            m.versjonskode = e.versjonskode AND
-            m.institusjonsnr = es.institusjonsnr AND
-            m.emnekode = es.emnekode AND
-            es.studieprogramkode = st.studieprogramkode AND
-            es.studieprogramkode = sprg.studieprogramkode
-        """ % self._get_termin_aar()
-
-        # Velg ut studentens avlagte UiO eksamener i inneværende
-        # semester (studenten er fortsatt gyldig student ut
-        # semesteret, selv om alle eksamensmeldinger har gått
-        # over til å bli eksamensresultater).
-        #
-        # Søket sjekker _ikke_ at det finnes noen
-        # semesterregistrering for inneværende registrering
-        # (fordi dette skal være implisitt garantert av FS)
-        query += """ UNION
-        SELECT sp.fodselsdato, sp.personnr,
-               sp.emnekode, sp.arstall, sp.manednr,
-               sprg.studienivakode,
-               e.institusjonsnr_reglement, e.faknr_reglement,
-               e.instituttnr_reglement, e.gruppenr_reglement,
-               st.studieprogramkode
-        FROM fs.studentseksprotokoll sp, fs.emne e, fs.studierett st,
-             fs.emne_i_studieprogram es, fs.studieprogram sprg, fs.person p
-        WHERE
-            sp.arstall >= :aar2 AND
-            sp.fodselsdato = st.fodselsdato AND
-            sp.personnr = st.personnr AND
-            sp.fodselsdato = p.fodselsdato AND
-            sp.personnr = p.personnr AND
-            NVL(p.status_dod, 'N') = 'N' AND
-            NVL(st.DATO_GYLDIG_TIL,SYSDATE) >= sysdate AND
-            st.status_privatist = 'N' AND
-            sp.emnekode = e.emnekode AND
-            sp.versjonskode = e.versjonskode AND
-            sp.institusjonsnr = e.institusjonsnr AND
-            sp.institusjonsnr = '185' AND
-            sp.emnekode = es.emnekode AND
-            es.studieprogramkode = st.studieprogramkode AND
-            es.studieprogramkode = sprg.studieprogramkode
-        """
-
-        # Velg ut alle studenter som har opptak til et studieprogram
-        # som krever utdanningsplan og som har bekreftet utdannings-
-        # planen dette semesteret.
-        #
-        # NB! TO_*-konverteringene er påkrevd
-        query += """ UNION
-        SELECT stup.fodselsdato, stup.personnr,
-               TO_CHAR(NULL) as emnekode, TO_NUMBER(NULL) as arstall,
-               TO_NUMBER(NULL) as manednr,
-               sprg.studienivakode,
-               sprg.institusjonsnr_studieansv, sprg.faknr_studieansv,
-               sprg.instituttnr_studieansv, sprg.gruppenr_studieansv,
-               st.studieprogramkode
-        FROM fs.studprogstud_planbekreft stup,fs.studierett st,
-             fs.studieprogram sprg, fs.person p
-        WHERE
-              stup.arstall_bekreft=:aar3 AND
-              stup.terminkode_bekreft=:semester AND
-              stup.fodselsdato = st.fodselsdato AND
-              stup.personnr = st.personnr AND
-              stup.fodselsdato = p.fodselsdato AND
-              stup.personnr = p.personnr AND
-              NVL(p.status_dod, 'N') = 'N' AND
-              NVL(st.DATO_GYLDIG_TIL, SYSDATE) >= sysdate AND
-              st.status_privatist = 'N' AND
-              stup.studieprogramkode = st.studieprogramkode AND
-              stup.studieprogramkode = sprg.studieprogramkode AND
-              sprg.status_utdplan = 'J'
-        """
-
-        semester = "%s" % self.semester
-        # FIXME! Herregud da, hvorfor må de ha hver sitt navn?
-        return self.db.query(query,
-                             {"aar1" : self.year,
-                              "aar2" : self.year,
-                              "aar3" : self.year,
-                              "semester": semester},
-                             False)
 
 class UiOBetaling(access_FS.FSObject):
     ################################################
@@ -583,13 +474,12 @@ class UiOBetaling(access_FS.FSObject):
               fkd.status_betalt = 'J' AND
               fkd.fakturadetaljtypekode = 'UTSKRIFT' AND
               frk.status_betalt = 'J' %s""" % where
-        
         return self.db.query(qry)
-
     
     ################################################
     # Papirpenger
     # Skal avvikles i løpet av sommeren 2004
+    # Todo: er denne kommentaren riktig? 
     ################################################
 
     def list_betalt_papiravgift(self):  # GetStudBetPapir
@@ -635,10 +525,9 @@ class UiOBetaling(access_FS.FSObject):
 #	NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
 #	st.studierettstatkode IN ('ERASMUS','NORDPLUS',
 #       'SOKRATES','NORAD','FULBRIGHT','KULTURAVT') """	
-
         return self.db.query(qry, {'semester': self.semester,
                                    'year': self.year})
-    
+
 class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
