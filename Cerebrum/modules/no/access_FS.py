@@ -463,12 +463,17 @@ class Student(FSObject):
                sps.dato_studierett_tildelt,
                sps.dato_studierett_gyldig_til,
                sps.studieprogramkode,
+               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+               s.adrlin3_semadr, s.adresseland_semadr, 
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
-               p.adrlin3_hjemsted, postnr_hjemsted,
+               p.adrlin3_hjemsted, p.postnr_hjemsted,
                p.adresseland_hjemsted
-        FROM fs.studieprogramstudent sps, fs.studieprogram sp, fs.person p
+        FROM fs.studieprogramstudent sps, fs.studieprogram sp, fs.person p,
+             fs.student s
         WHERE p.fodselsdato = sps.fodselsdato AND
               p.personnr = sps.personnr AND
+              p.fodselsdato = s.fodselsdato AND
+              p.personnr = s.personnr AND
               (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
                NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
               sps.studieprogramkode = sp.studieprogramkode AND
@@ -589,8 +594,8 @@ class Undervisning(FSObject):
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
           ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn
         FROM
-          undaktivitet ua,
-          arstermin t
+          fs.undaktivitet ua,
+          fs.arstermin t
         WHERE
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
@@ -617,8 +622,8 @@ class Undervisning(FSObject):
           ua.institusjonsnr, ua.emnekode, ua.versjonskode,
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode
         FROM
-          undaktivitet ua,
-          arstermin t
+          fs.undaktivitet ua,
+          fs.arstermin t
         WHERE
           ua.institusjonsnr = :Instnr AND
           ua.emnekode = :emnekode AND
