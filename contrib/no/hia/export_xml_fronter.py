@@ -610,11 +610,15 @@ def main():
                    cereconf.INSTITUTION_DOMAIN_NAME
     register_group('Fellesrom', fellesrom_id, root_node_id)
 
-    # Registrer statiske EVU-strukturnoder
+    # Registrer statiske EVU-strukturnoder. Husk at det hele skal under
+    # "Automatisk"-noden.
+    auto_node_id = 'STRUCTURE:%s:automatisk' % cereconf.INSTITUTION_DOMAIN_NAME
+    register_group('Automatisk', auto_node_id, root_node_id)
+    
     # Ting blir litt enklere, hvis vi drar med oss institusjonsnummeret
     evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME,
                                               cereconf.DEFAULT_INSTITUSJONSNR)
-    register_group('EVU', evu_node_id, root_node_id)
+    register_group('EVU', evu_node_id, auto_node_id)
     for suffix, title in (("kursrom", "EVU kursrom"),
                           ("kursdeltaker", "EVU kursdeltaker"),
                           ("foreleser", "EVU foreleser")):
