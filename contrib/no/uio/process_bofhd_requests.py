@@ -761,6 +761,7 @@ def process_move_student_requests():
     logger.debug(str(fnr2move_student.values()))
     for tmp_stud in fnr2move_student.values():
         for account_id, request_id, requestee_id in tmp_stud:
+            logger.debug("Sending %s to pending disk" % repr(account_id))
             br.delete_request(request_id=request_id)
             br.add_request(requestee_id, br.batch_time,
                            const.bofh_move_user,
@@ -786,6 +787,7 @@ def move_student_callback(person_info):
     logger.debug("Callback for %s" % fnr)
     account = Factory.get('Account')(db)
     group = Factory.get('Group')(db)
+    br = BofhdRequests(db, const)
     for account_id, request_id, requestee_id in fnr2move_student.get(fnr, []):
         account.clear()
         account.find(account_id)
@@ -794,6 +796,7 @@ def move_student_callback(person_info):
             groups.append(int(r['group_id']))
         try:
             profile = autostud.get_profile(person_info, member_groups=groups)
+            logger.debug(profile.matcher.debug_dump())
         except AutostudError, msg:
             logger.debug("Error getting profile, using pending: %s" % msg)
             continue
@@ -813,11 +816,19 @@ def move_student_callback(person_info):
                         current_disk_id = None
                     if autostud.disk_tool.get_diskdef_by_diskid(int(current_disk_id)):
                         logger.debug("Already on a student disk")
+                        br.delete_request(request_id=request_id)
+                        db.commit()
+                        # actually, we remove a bit too much data from
+                        # the below dict, but remaining data will be
+                        # rebuilt on next run.
+                        
+                        del(fnr2move_student[fnr])
                         raise "NextAccount"
                     try:
-                        disks.append(
-                            (profile.get_disk(d_spread, current_disk_id),
-                             d_spread))
+                        new_disk = profile.get_disk(d_spread, current_disk_id,
+                                                    do_check_move_ok=False)
+                        if new_disk != current_disk_id:
+                            disks.append((new_disk, d_spread))
                     except AutostudError, msg:
                         # Will end up on pending (since we only use one spread)
                         logger.debug("Error getting disk: %s" % msg)
@@ -826,8 +837,8 @@ def move_student_callback(person_info):
             pass   # Stupid python don't have labeled breaks
         logger.debug(str((fnr, account_id, disks)))
         if disks:
+            logger.debug("Destination %s" % repr(disks))
             del(fnr2move_student[fnr])
-            br = BofhdRequests(db, const)
             for disk, spread in disks:
                 br.delete_request(request_id=request_id)
                 br.add_request(requestee_id, br.batch_time,
@@ -1017,6 +1028,7 @@ def keep_running():
 
 def is_valid_request(req_id):
     # The request may have been canceled very recently
+    br = BofhdRequests(db, const)
     for r in br.get_requests(request_id=req_id):
         return True
     return False
