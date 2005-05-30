@@ -193,7 +193,8 @@ class Profile(object):
                     return False
         return True
 
-    def get_disk(self, disk_spread, current_disk=None):
+    def get_disk(self, disk_spread, current_disk=None,
+                 do_check_move_ok=True):
         """Return a disk_id matching the current profile.  If the
         account already exists, current_disk should be set to assert
         that the user is not moved to a new disk with the same
@@ -203,7 +204,7 @@ class Profile(object):
         disk_spread = int(disk_spread)
 
         new_disk = self._solve_disk_match(disk_spread)
-        if current_disk and not self._check_move_ok(
+        if do_check_move_ok and current_disk and not self._check_move_ok(
             current_disk, new_disk, disk_spread):
             self._logger.debug2("_check_move_ok not ok %s" % repr((current_disk, new_disk)))
             return current_disk
