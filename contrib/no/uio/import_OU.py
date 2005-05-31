@@ -132,7 +132,7 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
         org_stedkode = None
         org_stedkode_ou = None
     elif stedkode == org_stedkode:
-        logger.warn("Warning: %s has self as parent, using None" % stedkode)
+        logger.debug("%s has self as parent, using None" % stedkode)
         org_stedkode = None
         org_stedkode_ou = None
     else:
