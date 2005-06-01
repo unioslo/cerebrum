@@ -468,14 +468,16 @@ class Student(FSObject):
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.adrlin3_hjemsted, p.postnr_hjemsted,
                p.adresseland_hjemsted
-        FROM fs.studieprogramstudent sps, fs.studieprogram sp, fs.person p,
-             fs.student s
+        FROM fs.studieprogramstudent sps, fs.studieprogram sp,
+             fs.person p, fs.student s
         WHERE p.fodselsdato = sps.fodselsdato AND
               p.personnr = sps.personnr AND
               p.fodselsdato = s.fodselsdato AND
               p.personnr = s.personnr AND
               (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
-               NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
+              NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
+              NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
+              sps.status_sperr_aut_oppd = 'N' AND
               sps.studieprogramkode = sp.studieprogramkode AND
               sp.studienivakode >= 980"""
         return self.db.query(qry)
