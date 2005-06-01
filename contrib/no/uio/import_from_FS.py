@@ -95,8 +95,6 @@ def write_person_info(outfile):
     # Aktive studenter
     cols, students = _ext_cols(fs.student.list_aktiv())
     for s in students:
-        # The Oracle driver thinks the result of a union of ints is float
-        fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
 
     # Semester-registrering
