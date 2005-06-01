@@ -377,7 +377,7 @@ class Alias:
         else:
             self.base = base
         self.filter = config.sync.get("ldap","mailfilter")
-        self.obj_class = ('top','nicMailAlias')
+        self.obj_class = ('top','nisMailAlias')
 
     def get_dn(self,obj):
         return "cn=" + obj.name + "," + self.base
