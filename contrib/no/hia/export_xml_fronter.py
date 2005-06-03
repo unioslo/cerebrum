@@ -269,11 +269,11 @@ def register_spread_groups_evu(row, group, evukurs_info):
         parent_id = "STRUCTURE:%s:fs:%s:evu" % (subg_name_el[0],
                                                 subg_name_el[2])
         if category == "kursdeltaker":
-            title = "Kursdeltakere %s"
+            title = "Kursdeltakere"
             permission = fronter_lib.Fronter.ROLE_WRITE
             parent_suffix = "kursdeltaker"
         elif category == "foreleser":
-            title = "Forelesere %s"
+            title = "Forelesere"
             permission = fronter_lib.Fronter.ROLE_DELETE
             parent_suffix = "foreleser"
         else:
@@ -282,7 +282,7 @@ def register_spread_groups_evu(row, group, evukurs_info):
         # fi
 
         parent_id = parent_id + ":" + parent_suffix
-        title = title % evukurs_info[eukk, ktak]
+        title = "%s %s %s" % (title, eukk, ktak)
         fronter_gname = ':'.join(subg_name_el[0:4] + [category,] +
                                  subg_name_el[4:6])
         # FIXME: allow_contact?
@@ -610,15 +610,11 @@ def main():
                    cereconf.INSTITUTION_DOMAIN_NAME
     register_group('Fellesrom', fellesrom_id, root_node_id)
 
-    # Registrer statiske EVU-strukturnoder. Husk at det hele skal under
-    # "Automatisk"-noden.
-    auto_node_id = 'STRUCTURE:%s:automatisk' % cereconf.INSTITUTION_DOMAIN_NAME
-    register_group('Automatisk', auto_node_id, root_node_id)
-    
+    # Registrer statiske EVU-strukturnoder.
     # Ting blir litt enklere, hvis vi drar med oss institusjonsnummeret
     evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME,
                                               cereconf.DEFAULT_INSTITUSJONSNR)
-    register_group('EVU', evu_node_id, auto_node_id)
+    register_group('EVU', evu_node_id, root_node_id)
     for suffix, title in (("kursrom", "EVU kursrom"),
                           ("kursdeltaker", "EVU kursdeltaker"),
                           ("foreleser", "EVU foreleser")):
@@ -659,16 +655,9 @@ def main():
         if element != "evukurs":
             return
 
-        # Reglene er slik (euknk == ...kursnavnkort):
-        # -> NEI! 1. Bruk "<euknk> (emnekode)", dersom begge finnes
-        # 2. Bruk "<euknk>", dersom emnekode er tom
-        # 3. Bruk "<eukursnavn>", dersom euknk er tom
-        name = attrs.get("etterutdkursnavnkort", attrs["etterutdkursnavn"])
-
-        # FIXME: Dette er nok misbruk av emnekode i denne konteksten
-        # if "emnekode" in attrs:
-        #     name += " (%s)" % attrs["emnekode"]
-        # # fi
+        name = "%s (%s, %s)" % (attrs.get("etterutdkursnavnkort", ""),
+                                attrs.get("etterutdkurskode", ""),
+                                attrs.get("kurstidsangivelsekode", ""))
 
         eukk, ktak = (attrs["etterutdkurskode"].lower(),
                       attrs["kurstidsangivelsekode"].lower())
