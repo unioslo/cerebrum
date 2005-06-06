@@ -807,7 +807,7 @@ class EVU(FSObject):
         d = time.strftime("%Y-%m-%d", date)
         qry = """
         SELECT etterutdkurskode, kurstidsangivelsekode,
-          etterutdkursnavn, etterutdkursnavnkort,
+          etterutdkursnavn, etterutdkursnavnkort, emnekode,
           institusjonsnr_adm_ansvar, faknr_adm_ansvar,
           instituttnr_adm_ansvar, gruppenr_adm_ansvar,
           TO_CHAR(NVL(dato_fra, SYSDATE), 'YYYY-MM-DD') AS dato_fra,
