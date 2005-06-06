@@ -537,6 +537,25 @@ class LT(object):
 
 
 
+    def list_dba_usernames(self, fetchall = False):
+        """
+        Get all usernames for internal statistics.
+        """
+
+        query = """
+        SELECT
+           lower(username) as username
+        FROM
+           dba_users
+        WHERE
+           default_tablespace = 'USERS' and account_status != 'LOCKED'
+        """
+
+        return self.db.query(query, fetchall = fetchall)
+    # end list_dba_usernames
+
+
+
     def GetPermisjoner(self):
         """
         Returns current leaves of absence (permisjoner) for all individuals

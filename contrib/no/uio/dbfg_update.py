@@ -443,7 +443,7 @@ def check_spread(account, sprd):
 
     is_nis = False
     for spread in account.get_spread():
-        if int(spread.spread) == int(sprd):
+        if int(spread["spread"]) == int(sprd):
             is_nis = True
             break
         # fi
@@ -471,7 +471,7 @@ def report_users(user, stream_name, external_dbs):
 
     #
     # Report expired users for all databases
-    for dbname in ("fsprod", "ltprod", "ajprod",):
+    for dbname in ("ajprod",):
         item = external_dbs[dbname]
         message = make_report(user, False, item, item["sync_accessor"],
                               check_expired)
@@ -485,7 +485,7 @@ def report_users(user, stream_name, external_dbs):
         
     #
     # Report NIS spread / owner's work record
-    for dbname in ("ofprod", "oaprd",):
+    for dbname in ("ofprod", "oaprd", "fsprod", "ltprod"):
         item = external_dbs[dbname]
         message = make_report(user, True, item, item["report_accessor"],
                               check_expired,
@@ -525,7 +525,7 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     for db_row in accessor():
         #
         # NB! This is not quite what we want. See comments in sanitize_group
-        username = string.lower(db_row.username)
+        username = string.lower(db_row["username"])
                 
         try:
             account.clear()
@@ -586,10 +586,12 @@ def main():
                      "fsprod" : { "dbname"    : "FSPROD.uio.no",
                                   "class"     : FS,
                                   "sync_accessor"  : "list_dbfg_usernames",
+                                  "report_accessor" : "list_dba_usernames",
                                   "ceregroup" : "fsprod" },
                      "ltprod" : { "dbname"    : "LTPROD.uio.no",
                                   "class"     : LT,
                                   "sync_accessor"  : "list_dbfg_usernames",
+                                  "report_accessor"  : "list_dba_usernames",
                                   "ceregroup" : "ltprod" },
                      "ajprod" : { "dbname"    : "AJPROD.uio.no",
                                   "class"     : AJ,
