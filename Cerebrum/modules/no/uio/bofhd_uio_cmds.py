@@ -1819,10 +1819,12 @@ class BofhdExtension(object):
         if addr.count('@') == 0:
             raise CerebrumError, \
                   "E-mail address (%s) must include domain" % addr
-        if addr <> addr.lower():
+        lp, dom = addr.split('@')
+        if addr != addr.lower() and \
+           dom not in cereconf.LDAP['rewrite_email_domain']:
             raise CerebrumError, \
                   "E-mail address (%s) can't contain upper case letters" % addr
-        return addr.split('@')
+        return lp, dom
 
     def _get_mailman_list(self, listname):
         """Returns the official name for the list, or raise an error
