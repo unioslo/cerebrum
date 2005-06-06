@@ -34,8 +34,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.hia import nwutils
 
-#class UserSkipQuarantine(Exception): pass
-
 global group_done, logger
 group_done = {}
 int_log = None
@@ -44,41 +42,39 @@ const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
 db.cl_init(change_program='nwqsync')
 logger = Factory.get_logger("cronjob")
-cl_events = (
-		const.account_mod, \
-		const.account_password, \
-		const.group_add, \
-		const.group_rem, \
-		const.group_mod, \
-		const.entity_name_del,
-		const.spread_add, \
-		const.spread_del, \
-		const.quarantine_add, \
-		const.quarantine_mod, \
-		const.person_name_add,\
-		const.person_name_mod,\
-		const.quarantine_del
-		)
+cl_events = (const.account_mod,
+             const.account_password,
+             const.group_add,
+             const.group_rem,
+             const.group_mod,
+             const.entity_name_del,
+             const.spread_add,
+             const.spread_del,
+             const.quarantine_add,
+             const.quarantine_mod,
+             const.person_name_add,
+             const.person_name_mod,
+             const.quarantine_del
+             )
 
 cl_entry = {'group_mod' : 'pass', 	
-	'group_add' : 'group_mod(cll.change_type_id,cll.subject_entity,\
-					cll.dest_entity,cll.change_id)',
-	'group_rem' : 'group_mod(cll.change_type_id,cll.subject_entity,\
-					cll.dest_entity,cll.change_id)',
-	#'account_mod' : 'mod_account(cll.subject_entity,i)',
-	'spread_add' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-						cll.change_params)',
-	'spread_del' : 'change_spread(cll.subject_entity,cll.change_type_id,\
-						cll.change_params)',
-	'quarantine_add' : 'change_quarantine(cll.subject_entity)',
-	'quarantine_mod' : 'change_quarantine(cll.subject_entity)',
-	'quarantine_del' : 'change_quarantine(cll.subject_entity)',
-	'person_name_mod': 'pers_name_mod(cll.subject_entity)',
-	'person_name_add': 'pers_name_mod(cll.subject_entity)',
-	'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)'
-	}
+            'group_add' : 'group_mod(cll.change_type_id, cll.subject_entity,
+                                     cll.dest_entity, cll.change_id)',
+            'group_rem' : 'group_mod(cll.change_type_id, cll.subject_entity,
+                                     cll.dest_entity, cll.change_id)',
+            'spread_add' : 'change_spread(cll.subject_entity, cll.change_type_id,
+                                          cll.change_params)',
+            'spread_del' : 'change_spread(cll.subject_entity, cll.change_type_id,
+				          cll.change_params)',
+            'quarantine_add' : 'change_quarantine(cll.subject_entity)',
+            'quarantine_mod' : 'change_quarantine(cll.subject_entity)',
+            'quarantine_del' : 'change_quarantine(cll.subject_entity)',
+            'person_name_mod': 'pers_name_mod(cll.subject_entity)',
+            'person_name_add': 'pers_name_mod(cll.subject_entity)',
+            'account_password' : 'change_passwd(cll.subject_entity, cll.change_params)'
+            }
 
-# Replace constants-name with database contants integer 
+# Replace constants-name with database constants values (int)
 for clt,proc in cl_entry.items():
     del cl_entry[clt]
     cl_entry[int(getattr(co,clt))] = proc
@@ -183,9 +179,6 @@ def nwqsync(spreads,g_spread):
         clh.confirm_event(cll)
     clh.commit_confirmations()
 
-    
-
-
 def delete_ldap(obj_dn):
     try:
         ldap_handle.DeleteObject(obj_dn)
@@ -194,7 +187,6 @@ def delete_ldap(obj_dn):
 	int_log.write(log_str)
     except ldap.LDAPError, e:
         logger.warn("delete_ldap() ERROR: %s " % str(e))
-    
     
 def add_ldap(obj_dn, attrs):
     try:
@@ -208,9 +200,7 @@ def add_ldap(obj_dn, attrs):
 	int_log.write(log_str)
     except ldap.LDAPError, e:
         logger.warn("add_ldap() ERROR: %s ,%s ,%s " % (str(e),obj_dn, attrs))
-        
-    
-    
+
 def attr_add_ldap(obj_dn, attrs):
     try:
         ldap_handle.AddAttributes(obj_dn, attrs)
@@ -221,7 +211,6 @@ def attr_add_ldap(obj_dn, attrs):
     except ldap.LDAPError, e:
         logger.warn("attr_add_ldap() ERROR: %s, %s ,%s" % (str(e), obj_dn,\
 								attrs))
-    
     
 def attr_del_ldap(obj_dn, attrs):
     try:
@@ -453,10 +442,11 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 	except Errors.NotFoundError:
 	    logger.error("Account could not be found: %s" % dn_id)
 	    return
-    else: acc_name = uname
-    search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % acc_name
-    search_dn = "%s" % cereconf.NW_LDAP_ROOT
-    ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
+    else:
+        acc_name = uname
+        search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % acc_name
+        search_dn = "%s" % cereconf.NW_LDAP_ROOT
+        ldap_obj = ldap_handle.GetObjects(search_dn,search_str)
     if not isinstance(ldap_obj,list):
 	logger.warn("Lost TLS-connection to server.")
 	sys.exit(0)
@@ -464,24 +454,23 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 	# Set loginDisable and move user to a specific (rem-user
 	# 
 	if ldap_obj == []:
-	    logger.info('Delete_user %s ,but doesnt exist on eDir-server' % \
-								acc_name)
+	    logger.info('Delete_user %s ,but doesnt exist on eDir-server' %
+                        acc_name)
 	else: 
 	    (ldap_user, ldap_attrs) = ldap_obj[0]
 	    if not uname:
 		for x in spread_ids:
-		    if account.get_home(x)['status'] ==\
-					co.AccountHomeStatus('archived'):
+		    if account.get_home(x)['status'] == co.AccountHomeStatus('archived'):
 			delete_ldap(ldap_user)
 		    else:
 			log_txt = "Cant delete user, active home-directory:" 
 			logger.warn("%s %s" % (log_txt,account.account_name))
-	    else:
+            else:
 		delete_ldap(ldap_user)
     elif (ch_type == int(const.spread_add)):
 	if ldap_obj == [] and [x for x in spread_ids if account.has_spread(x)]:
-	    (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id, \
-							spread, None)
+	    (ldap_user, ldap_attrs) = nwutils.get_account_info(dn_id,
+                                                               spread, None)
             dsk_path = path2edir(ldap_attrs)
 	    add_ldap(ldap_user,ldap_attrs)
             # Check if 
@@ -492,34 +481,23 @@ def change_user_spread(dn_id,ch_type,spread,uname=None):
 		    if dsk_path in disk_name[0].split(','):
 			(c_homedir, c_diskid, c_home, stat) = account.get_home(spread)
 			account.set_home(spread, c_homedir)
-
-# This seems unnecessary?? TODO: find out why is this being done
-##                     else:
-## 			s_path = disk_name.split(',')[0].split('=')[1].lower().\
-## 								replace('_','/')
-## 			s_path = '/' + s_path +'%'
-## 			dsk = Factory.get('Disk')(db)
-## 			if len(dsk.search(path=s_path)) == 1:
-## 			    new_disk = dsk.search(path=s_path)[0]['disk_id']
-## 			    account.set_home(spread, disk_id=new_disk,
-## 						status=co.home_status_on_disk)
                     db.commit()
                     break
                 time.sleep(delay)
             else:
-                logger.warn("Could not verify that user:%s was created on eDir-server"\
+                logger.warn("Could not verify that user:%s was created on eDir-server"
                             % ldap_user)
 	    for grp in group.list_groups_with_entity(dn_id):
                 user_add_del_grp(const.group_add, int(dn_id), grp['group_id'])
 	elif ldap_obj <> []:
             (ldap_user, ldap_attrs) = ldap_obj[0]
-            logger.warn("WARNING: add_user but user %s already exist as %s" % \
-							(acc_name,ldap_user))
+            logger.warn("WARNING: add_user but user %s already exist as %s" % 
+                        (acc_name,ldap_user))
 	else: 
 	    logger.warn('User_add/del bu could not resolve!')
     else:
-	logger.info('Something is really wrong (id:%s,ch-type:%s' % (dn_id,\
-								ch_type))
+	logger.info('Something is really wrong (id:%s,ch-type:%s' % (dn_id,
+                                                                     ch_type))
 
 
 
@@ -545,10 +523,6 @@ def change_group_spread(dn_id,ch_type,gname=None):
 	sys.exit(0)
     if ch_type==int(const.spread_del) and ldap_obj <> []:
 	(ldap_group, ldap_attrs) = ldap_obj[0]
-	#if not nwutils.touchable(ldap_attrs):
-	#    logger.info("ERROR: LDAP object %s not managed by Cerebrum." % ldap_group)
-	#    return
-	#else:
 	for mem in ldap_attrs['member']:
 	    attr_del_ldap(mem, [('groupMembership', [ldap_group,])])
 	    attr_del_ldap(mem, [('securityEquals', [ldap_group,])])

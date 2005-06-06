@@ -52,7 +52,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.modules.no.hia.access_FS import HiAFS as FS
+from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.no.hia.mod_sap_codes import SAPForretningsOmradeKode
 
 import sys
@@ -73,7 +73,7 @@ def process_OUs(db):
 
     total = 0; success = 0
 
-    _, OUs = fs.GetAlleOUer(cereconf.DEFAULT_INSTITUSJONSNR)
+    OUs = fs.info.list_ou()
     for row in OUs:
         total += 1
         try:

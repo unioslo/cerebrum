@@ -442,7 +442,7 @@ def main():
     logger = Factory.get_logger("console")
 
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "dp:e:a",
+                                  "dp:e:a:r",
                                   ["dryrun",
                                    "person-file=",
                                    "employment-file=",

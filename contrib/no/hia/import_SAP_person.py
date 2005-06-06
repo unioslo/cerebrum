@@ -190,7 +190,7 @@ def populate_external_ids(db, person, fields, const):
 
     if (fo_kode and 
         int(SAPForretningsOmradeKode(fo_kode)) ==
-          int(const.sap_eksterne_tilfeldige)):
+        int(const.sap_eksterne_tilfeldige)):
         logger.debug("Ignored external person: «%s»«%s»", sap_id, no_ssn)
         return False
     # fi
@@ -233,12 +233,12 @@ def populate_external_ids(db, person, fields, const):
                               const.externalid_sap_ansattnr) 
     
     person.populate_external_id(const.system_sap,
-                                const.externalid_sap_ansattnr,
-                                sap_id)
+                                int(const.externalid_sap_ansattnr),
+                                str(sap_id))
     
     person.populate_external_id(const.system_sap,
-                                const.externalid_fodselsnr,
-                                no_ssn)
+                                int(const.externalid_fodselsnr),
+                                str(no_ssn))
     return True
 # end populate_external_ids
 
@@ -324,7 +324,11 @@ def populate_address(person, fields, const):
     city = fields[22].strip() or None
     postal_number = fields[23].strip() or None
     if fields[24].strip():
-        country = int(const.Country(fields[24].strip()))
+	try:
+	    country = int(const.Country(fields[24].strip()))
+	except Errors.NotFoundError:
+	    logger.warn("Could not find country code for «%s», please define country in Constants.py",fields[24].strip())
+    # yrt
     else:
         country = None
     # fi
