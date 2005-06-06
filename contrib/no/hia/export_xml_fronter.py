@@ -615,11 +615,13 @@ def main():
     evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME,
                                               cereconf.DEFAULT_INSTITUSJONSNR)
     register_group('EVU', evu_node_id, root_node_id)
-    for suffix, title in (("kursrom", "EVU kursrom"),
-                          ("kursdeltaker", "EVU kursdeltaker"),
-                          ("foreleser", "EVU foreleser")):
+    for (suffix,
+         title,
+         allow_room) in (("kursrom", "EVU kursrom", True),
+                         ("kursdeltaker", "EVU kursdeltaker", False),
+                         ("foreleser", "EVU foreleser", False)):
         node_id = evu_node_id + ":" + suffix
-        register_group(title, node_id, evu_node_id)
+        register_group(title, node_id, evu_node_id, allow_room)
     # od
 
     # Populer dicter for "emnekode -> emnenavn", "fakultet ->
@@ -655,9 +657,11 @@ def main():
         if element != "evukurs":
             return
 
-        name = "%s (%s, %s)" % (attrs.get("etterutdkursnavnkort", ""),
-                                attrs.get("etterutdkurskode", ""),
-                                attrs.get("kurstidsangivelsekode", ""))
+        name = "%s (%s)" % (attrs.get("etterutdkursnavnkort", ""),
+                            ", ".join(filter(None,
+                                        (attrs.get("etterutdkurskode"),
+                                         attrs.get("kurstidsangivelsekode"),
+                                         attrs.get("emnekode")))))
 
         eukk, ktak = (attrs["etterutdkurskode"].lower(),
                       attrs["kurstidsangivelsekode"].lower())
