@@ -68,7 +68,7 @@ import sys
 import getopt
 import string
 
-FIELDS_IN_ROW = 36
+FIELDS_IN_ROW = 37
 
 
 
@@ -380,7 +380,6 @@ def process_people(filename, db):
     stream = open(filename, "r")
     for entry in stream:
         fields = sap_row_to_tuple(entry)
-
         if len(fields) != FIELDS_IN_ROW:
             logger.debug("Strange line: «%s»", entry)
             continue
