@@ -136,7 +136,8 @@ def write_ou_info(outfile):
 
 def write_evukurs_info(outfile):
     """Skriv data om alle EVU-kurs (vi trenger dette bl.a. for å bygge EVU-delen av CF)."""
-    f = AtomicFileWriter(outfile)
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(1*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     cols, evukurs = _ext_cols(fs.evu.list_kurs())
     for ek in evukurs:
