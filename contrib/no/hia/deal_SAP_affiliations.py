@@ -44,7 +44,7 @@ import getopt
 import string
 import time
 
-FIELDS_IN_ROW_PERSON = 36
+FIELDS_IN_ROW_PERSON = 37
 FIELDS_IN_ROW_EMPLOYMENT = 9
 NOW = time.strftime("%Y%m%d")
 
@@ -442,7 +442,7 @@ def main():
     logger = Factory.get_logger("console")
 
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "dp:e:a:r",
+                                  "dp:e:a",
                                   ["dryrun",
                                    "person-file=",
                                    "employment-file=",
