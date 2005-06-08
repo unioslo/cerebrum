@@ -349,3 +349,5 @@ def wrapComError(obj):
 # Delete temporary variables that should not be exported
 del adsi_errors,adsi20_errors,errno,ldap,win32,descr,SomeException
 del generic_errors,com_errors
+
+# arch-tag: be5df952-d825-11d9-806d-c873c459f5b2

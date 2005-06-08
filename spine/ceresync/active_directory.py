@@ -433,3 +433,5 @@ def search_ex(query_string=""):
     for result in query(query_string, Page_size=50):
         yield result
 
+
+# arch-tag: bdf43c56-d825-11d9-8655-2481a842a0fe
