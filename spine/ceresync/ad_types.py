@@ -2,7 +2,7 @@
 # Created by makepy.py version 0.4.8
 # By python version 2.3.4 (#53, May 25 2004, 21:17:02) [MSC v.1200 32 bit (Intel)]
 # From type library 'activeds.tlb'
-# On Mon Jan 31 17:48:12 2005
+# On Mon Jun 06 13:12:53 2005
 """Active DS Type Library"""
 makepy_version = '0.4.8'
 python_version = 0x20304f0
@@ -3781,5 +3781,3 @@ NamesToIIDMap = {
 
 win32com.client.constants.__dicts__.append(constants.__dict__)
 
-
-# arch-tag: a2a80eeb-ca77-442b-bf23-1dafc6e56040

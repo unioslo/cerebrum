@@ -22,8 +22,11 @@
 import sys
 import os
 #from win32com.client import GetObject
-import active_directory as ad
 from ad_types import constants
+import ad_errors
+import active_directory as ad
+# Wrapped version that catches ADSI errors
+ad = ad_errors.wrapComError(ad)
 import errors
 from sets import Set
 import unittest
@@ -242,7 +245,7 @@ class _ADAccount(_AdsiBack):
                 logging.warn("Already exists %s, updating instead", obj.name)
             return self.update(obj)
         
-        ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)    
+        ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
         ad_obj.saMAccountName = obj.name
         ad_obj.setInfo()
         # update should fetch object again for auto-generated values 
@@ -305,7 +308,7 @@ class ADGroup(_ADAccount):
         ad_obj.setInfo()
         def check_members():
             # FIXME: Should supports groups as members of groups
-            ad_members = ad_obj.members()
+            ad_members = Set(ad_obj.members())
             old = Set([m.saMAccountName for m in ad_members])
             spline = Set(obj.membernames)
             add = spline - old
@@ -401,12 +404,16 @@ class TestOUFramework(unittest.TestCase):
         ou.DeleteObject 0
         """ % (ou, self.context)), "")
         
-    def createOU(self, ou=None):
+    def createOU(self, ou=None, root=None):
         """Creates a new (blank) ou with the given name, located in root.
         If parameter ou is not given, uses self.ou.
+        If parameter root is given, that distinguishedName will be used,
+        example: createOU(root="ou=someOU,dc=some,dc=domain,dc=com")
         WARNING: Will recursive delete if ou already exists."""
         if ou is None:
             ou = self.ou
+        if root is None:
+            root = self.context     
         # delete tempOU if already exist 
         self.deleteOU(ou)
 
@@ -415,7 +422,7 @@ class TestOUFramework(unittest.TestCase):
         set root = GetObject("LDAP://%s")
         set tempOU = root.Create("organizationalUnit", "ou=%s")
         tempOU.SetInfo()
-        """ % (self.context, ou)), "")
+        """ % (root, ou)), "")
 
     def setUp(self):
         # Find our root, ie dc=some,dc=doman,dc=com
@@ -580,6 +587,11 @@ class TestTestOUFramework(TestOUFramework):
         # createOU should delete existing OU
         self.createOU()
         self.hasNotAccount()
+    
+    def testCreateOUOtherRoot(self):
+        self.createOU()
+        self.createOU("deep1337", root="ou=tempOU,%s" % self.context)
+        self.deleteOU() # Should also delete sub-OUs
     
     def testCreateAnotherUser(self):
         self.createUser("fish1337")
@@ -1075,10 +1087,14 @@ class TestADGroup(TestOUFramework):
         self.deleteOU("other1337")       
 
 class TestHardcore(TestOUFramework):
-    def _testMany(self):
-        # Disabled because this is a functional test, not a unit test
-        # You can call it anyway like this:
-        #    python adsi.py TestHardcore._testMany
+    """More demanding and weird situations that we should handle."""
+
+    def _testAddMany(self):
+        """Adds 500 dummy users in a row to time AD operations.
+        Disabled because this is a functional test, not a unit test.
+        You can call it anyway like this:
+            python adsi.py TestHardcore._testAddMany
+        """
         adaccount = ADUser(self.ou_uri)
         adaccount.begin()
         class User:
@@ -1111,7 +1127,19 @@ class TestHardcore(TestOUFramework):
         adaccount.close() # Should delete those 500
         stop = time.time()
         print "Deleted 500 users in %0.2f secs" % (stop-start)
-
+    
+    def testUsernameIsReallyOU(self):
+        """We might be asked to add a user that already exist as an OU"""
+        self.createOU("temp1337", root="ou=tempOU,%s" % self.context)
+        adaccount = ADUser(self.ou_uri)
+        adaccount.begin()
+        class User:
+            passwords = {'cleartext': 'fishsoup'}
+            gecos = "The 1337 User"
+            name = "temp1337"
+        user = User()      
+        adaccount.add(user)
+        adaccount.close()
 
 
 if __name__ == "__main__":
