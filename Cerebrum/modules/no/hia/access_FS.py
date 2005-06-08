@@ -119,7 +119,7 @@ class HiAUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
-class HiAEVU(FSObject):
+class HiAEVU(access_FS.EVU):
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
         d = time.strftime("%Y-%m-%d", date)
         qry = """
