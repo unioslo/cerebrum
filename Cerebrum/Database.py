@@ -413,7 +413,7 @@ class Cursor(object):
         database.
 
         """
-        self.execute("""SELECT 1 [:from_dual]""")
+        self.execute("""SELECT 1 AS foo [:from_dual]""")
 
 
 class RowIterator(object):
