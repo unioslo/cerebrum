@@ -404,6 +404,17 @@ class Cursor(object):
         else:
             raise Errors.TooManyRowsError, repr(params)
 
+    def ping(self):
+        """Check that communication with the database works.
+
+        Do a database-side no-op with the cursor represented by this
+        object.  The no-op should result in an exception being raised
+        if the cursor is no longer able to communicate with the
+        database.
+
+        """
+        self.execute("""SELECT 1 [:from_dual]""")
+
 
 class RowIterator(object):
     def __init__(self, cursor):
@@ -754,6 +765,18 @@ class Database(object):
         return self.query_1("""
         SELECT [:sequence schema=cerebrum name=%s op=next]
         [:from_dual]""" % seq_name)
+
+    def ping(self):
+        """Check that communication with the database works.
+
+        Force the underlying database driver module to raise an
+        exception if the database communication channel represented by
+        this object for some reason isn't working properly.
+
+        """
+        c = self.cursor()
+        c.ping()
+        c.close()
 
     def sql_repr(self, op, *args):
         """Translate SQL portability item to SQL dialect of this driver."""

@@ -699,8 +699,7 @@ class BofhdServerImplementation(object):
         # down; anything resembling automatic reconnection magic could
         # alter the crashed state of the database, making debugging
         # more difficult.
-        csr = self.db.cursor()
-        csr.close()
+        self.db.ping()
 
 class _TCPServer(SocketServer.TCPServer, object):
     "SocketServer.TCPServer as a new-style class."
