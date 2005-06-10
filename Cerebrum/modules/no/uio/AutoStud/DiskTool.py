@@ -10,7 +10,8 @@ class DiskDef(object):
         self.prefix = prefix
         self.path = path
         self.spreads = spreads
-        self.max = max
+        if max is not None:
+            self.max = int(max)
         if disk_kvote is not None:
             disk_kvote = int(disk_kvote)
         self.disk_kvote = disk_kvote
@@ -123,7 +124,7 @@ class DiskTool(object):
             tmp_disk = self._cerebrum_disks[d]
             if (dest_pfix == tmp_disk.path[0:len(dest_pfix)]
                 and tmp_disk.count < max_on_disk):
-                 return d
+                return d
         raise ProfileHandler.NoAvailableDisk,\
               "No disks with free space matches %s" % new_disk
 
