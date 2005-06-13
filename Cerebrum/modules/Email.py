@@ -1425,9 +1425,12 @@ class AccountEmailMixin(Account.Account):
         target_type = self.const.email_target_account
         if self.is_expired() or self.is_reserved():
             target_type = self.const.email_target_deleted
+        changed = False
         try:
             et.find_by_email_target_attrs(entity_id = self.entity_id)
-            et.email_target_type = target_type
+            if et.email_target_deleted != target_type:
+                changed = True
+                et.email_target_type = target_type
         except Errors.NotFoundError:
             # We don't want to create e-mail targets for reserved or
             # deleted accounts, but we do convert the type of existing
@@ -1439,14 +1442,16 @@ class AccountEmailMixin(Account.Account):
         # For deleted/reserved users, set expire_date for all of the
         # user's addresses, and don't allocate any new addresses.
         ea = EmailAddress(self._db)
-        if target_type == self.const.email_target_deleted:
-            expire_date = self._db.DateFromTicks(time.time() +
-                                                 60 * 60 * 24 * 180)
+        if changed and cereconf.EMAIL_EXPIRE_ADDRESSES is not False:
+            if target_type == self.const.email_target_deleted:
+                seconds = cereconf.EMAIL_EXPIRE_ADDRESSES * 86400
+                expire_date = self._db.DateFromTicks(time.time() + seconds)
+            else:
+                expire_date = None
             for row in et.get_addresses():
                 ea.clear()
                 ea.find(row['address_id'])
-                if ea.email_addr_expire_date is None:
-                    ea.email_addr_expire_date = expire_date
+                ea.email_addr_expire_date = expire_date
                 ea.write_db()
             return
         # Until a user's email target is associated with an email
@@ -1494,10 +1499,12 @@ class AccountEmailMixin(Account.Account):
                     if ea.email_addr_target_id <> et.email_target_id:
                         # Address already exists, and points to a
                         # target not owned by this Account.
+                        #
+                        # TODO: An expired address gets removed by a
+                        # database cleaning job, and when it's gone,
+                        # the address will eventually be recreated
+                        # connected to this target.
                         continue
-                    # Address belongs to this account; make sure
-                    # there's no expire_date set on it.
-                    ea.email_addr_expire_date = None
                 except Errors.NotFoundError:
                     # Address doesn't exist; create it.
                     ea.populate(lp, ed.email_domain_id, et.email_target_id,
