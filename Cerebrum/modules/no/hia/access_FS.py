@@ -137,7 +137,38 @@ class HiAEVU(access_FS.EVU):
           NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE) < (e.dato_til + 30)
         """ % d
         return self.db.query(qry)
+    
+    def list(self):  # GetDeltaker_50
+        """Hent info om personer som er ekte EVU-studenter ved
+        dvs. er registrert i EVU-modulen i tabellen 
+        fs.deltaker,  Henter alle som er knyttet til kurs som
+        tidligst ble avsluttet for 30 dager siden."""
 
+        qry = """
+        SELECT DISTINCT 
+               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               d.adrlin1_job, d.adrlin2_job, d.postnr_job,
+               d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
+               d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
+               d.adresseland_hjem, p.adrlin1_hjemsted,
+               p.status_reserv_nettpubl, p.adrlin2_hjemsted,
+               p.postnr_hjemsted, p.adrlin3_hjemsted,
+               p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
+               k.etterutdkurskode, e.studieprogramkode,
+               e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
+               e.gruppenr_adm_ansvar, p.kjonn, p.status_dod
+        FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
+             fs.etterutdkurs e
+        WHERE p.fodselsdato=d.fodselsdato AND
+              p.personnr=d.personnr AND
+              d.deltakernr=k.deltakernr AND
+              e.etterutdkurskode=k.etterutdkurskode AND
+              (NVL(e.status_kontotildeling,'J')='J' OR 
+              NVL(e.status_nettbasert_und,'J')='J') AND
+              NVL(k.status_opptatt, 'N')='J') AND
+              k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
+              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
+        return self.db.query(qry)
 
 class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
