@@ -715,8 +715,23 @@ class BofhdExtension(object):
         ed.find(ea.email_addr_domain_id)
         self.ba.can_email_address_add(operator.get_entity_id(),
                                       account=acc, domain=ed)
+        addresses = et.get_addresses()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            epat.find(et.email_target_id)
+            primary = epat.email_primaddr_id
+        except Errors.NotFoundError:
+            primary = None
+
+        if primary == ea.email_addr_id:
+            if len(addresses) == 1:
+                # We're down to the last address, remove the primary
+                epat.delete()
+            else:
+                raise CerebrumError, \
+                      "Can't remove primary address <%s>" % address
         ea.delete()
-        for r in et.get_addresses():
+        if len(addresses) > 1:
             # there is at least one address left
             return "OK, removed '%s'" % address
         # clean up and remove the target.
@@ -1673,6 +1688,9 @@ class BofhdExtension(object):
         ea.clear()
         ea.populate(lp, ed.email_domain_id, et.email_target_id)
         ea.write_db()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        epat.populate(ea.email_addr_id, parent=et)
+        epat.write_db()
         ef = Email.EmailForward(self.db)
         ef.find(et.email_target_id)
         addr = self._check_email_address(remoteaddr)
