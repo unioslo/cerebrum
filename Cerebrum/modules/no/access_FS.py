@@ -799,6 +799,7 @@ class EVU(FSObject):
               e.etterutdkurskode=k.etterutdkurskode AND
               (NVL(e.status_kontotildeling,'J')='J' OR 
               NVL(e.status_nettbasert_und,'J')='J') AND
+              NVL(k.status_opptatt, 'N')='J') AND
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
