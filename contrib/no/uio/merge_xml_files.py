@@ -90,7 +90,8 @@ def main():
         elif opt in ('-f', '--file'):
             CollectParser(val, big_xml, delim)
         elif opt in ('-o', '--out'):
-            f=open(val, 'w')
+            f = Utils.SimilarSizeWriter(val, "w")
+            f.set_size_change_limit(10)
             xml = XMLHelper()
             f.write(xml.xml_hdr + "<data>\n")
             for bx_key in big_xml.keys():
