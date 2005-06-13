@@ -64,7 +64,8 @@ def write_person_info(outfile):
     # fil der all informasjon om en person er samlet under en egen
     # <person> tag?
     
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     # Fagpersoner
     cols, fagpersoner = _ext_cols(fs.undervisning.list_fagperson_semester())
@@ -133,7 +134,8 @@ def write_person_info(outfile):
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))  # TODO
     for o in ouer:
@@ -178,7 +180,8 @@ def write_ou_info(outfile):
 def write_topic_info(outfile):
     """Lager fil med informasjon om alle XXX"""
     # TODO: Denne filen blir endret med det nye opplegget :-(
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, topics = _ext_cols(fs.student.list_eksamensmeldinger())
     for t in topics:
@@ -190,7 +193,8 @@ def write_topic_info(outfile):
 def write_regkort_info(outfile):
     """Lager fil med informasjon om semesterregistreringer for
     inneværende semester"""
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, regkort = _ext_cols(fs.student.list_semreg())
     for r in regkort:
@@ -199,7 +203,8 @@ def write_regkort_info(outfile):
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:
@@ -208,7 +213,8 @@ def write_studprog_info(outfile):
 
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_emner())
     for t in dta:
@@ -217,7 +223,8 @@ def write_emne_info(outfile):
 
 def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.undervisning.list_alle_personroller())
     for t in dta:
@@ -226,7 +233,8 @@ def write_personrole_info(outfile):
 
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(eval("fs.%s" % func_name)())
     for t in dta:
@@ -273,7 +281,8 @@ def write_fnrupdate_info(outfile):
 
 def write_betalt_papir_info(outfile):
     """Lager fil med informasjon om alle som har betalt papirpenger"""
-    f=open(outfile, 'w')
+    f = Utils.SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.betaling.list_betalt_papiravgift())
     for t in dta:
