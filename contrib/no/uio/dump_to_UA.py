@@ -59,6 +59,7 @@ import ftplib
 
 import Cerebrum
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib.sets import Set
 
 
@@ -411,7 +412,7 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
     # od
     oldfile.close()
 
-    out = open(os.path.join(dirname, outfile), 'w')
+    out = AtomicFileWriter(os.path.join(dirname, outfile), 'w')
     newin = open(os.path.join(dirname, newfile))
     
     newline = newin.readline()        
@@ -524,7 +525,7 @@ def main():
         # fi
     # od
 
-    output_file = open(os.path.join(output_directory, "uadata.new"), "w")
+    output_file = AtomicFileWriter(os.path.join(output_directory, "uadata.new"), "w")
     generate_output(output_file, do_employees, do_students)
     output_file.close()
 
