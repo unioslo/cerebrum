@@ -263,6 +263,14 @@ EMAIL_SOFT_QUOTA = 90
 # whether a request should be added or not {True/False}
 EMAIL_ADD_QUOTA_REQUEST = False
 
+# When an account is deleted, the e-mail addresses associated with its
+# target will be set to expire some time in the future.  When an
+# account is resurrected, any expire dates on its addresses are
+# removed.  The value is in days.  The expire date is only set on a
+# transition from "account" to "deleted" status or vice versa.
+# If this value is set to False, no changes are made.
+EMAIL_EXPIRE_ADDRESSES = 180
+
 # Base reference for URLs on webpages
 WEBROOT = "/"
 
