@@ -71,7 +71,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
                              institusjon=institusjon)
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
-            logger.warn("bad stedkode: %s" % key)
+            logger.warn("bad stedkode: %s (institusjonsnr: %s)", key, institusjon)
             ou_cache[key] = None
     return ou_cache[key]
 
