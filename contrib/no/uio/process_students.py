@@ -33,7 +33,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
@@ -956,9 +956,12 @@ def validate_config():
 def list_noncallback_users(fname):
     """Dump accounts on student-disk that did not get a callback
     resulting in update_account."""
-    
+
+    if dryrun:
+        fname += ".dryrun"
     logger.info("Dumping noncallback users to %s" % fname)
-    f = file(fname, 'w')
+    f = SimilarSizeWriter(fname, 'w')
+    f.set_size_change_limit(10)
     on_student_disk = {}
     # TBD: This includes expired accounts, is that what we want?
     for row in account_obj.list_account_home(filter_expired=False):
