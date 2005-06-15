@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,7 +23,41 @@ Active Directory Service Interfaces (ADSI) errors.
 
 The ADSI interface can return different error codes. These constants map
 the known errors to readable human text and catchable Python exception.
+
+To convert a typical pythoncom.com_error, use convertComError().
+For instance::
+
+    try:
+        ad_obj.setInfo()
+    except pythoncom.com_error, e:
+        raise ad_errors.convertComError(e)       
     
+
+You can instead apply a wrapper on your ADSI objects by using 
+wrapComError(). This wrapper will convert any com_errors raised to one
+of the ad_errors exceptions - in the worst case an UnknownError. 
+
+The wrapper will also wrap any mutable values returned - so if you have
+a module active_directory, you only need to wrap on the top level::
+
+    import active_directory, ad_errors
+    active_directory = ad_errors.wrapComError(active_directory)
+    # fetch the root (will be wrapped by wrapComError)
+    root = active_directory.root()
+    # create a new ad_obj (will also be wrapped)
+    ad_obj = root.create("user", "cn=Administrator")
+    ad_obj.saMAccountName = "Administrator"
+    try:
+        ad_obj = acti
+        ad_obj.setInfo()
+    except ad_errors.ObjectAlreadyExistsError:
+        # wrapper converted com_error
+        print "Could not add user 'Administrator'"
+
+
+Note that the exception classes in this module will be generated at
+runtime. Use dir(ad_errors) or help(ad_errors) to get a list of
+exceptions.
 
 """
 
@@ -335,7 +369,7 @@ class WrapMeta(type):
             except pythoncom.com_error, e:
                 # Find out object name
                 if name in ("__getattr__", "__getattribute__"):
-                    wrapname = self.__wrap_name__ + args[0]
+                    wrapname = self.__wrap_name__ + repr(args[0])
                 else:
                     wrapname = self.__wrap_name__   
                 raise convertComError(e), wrapname
