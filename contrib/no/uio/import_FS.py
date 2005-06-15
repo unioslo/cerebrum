@@ -59,19 +59,24 @@ def _rem_res(entity_id):
         group.remove_member(entity_id, co.group_memberop_union)
 
 def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
-    key = "-".join((a_dict[kfak], a_dict[kinst], a_dict[kgr]))
+    #
+    # We cannot ignore institusjon (inst A, sko x-y-z is NOT the same as
+    # inst B, sko x-y-z)
+    if kinstitusjon is not None:
+        institusjon = a_dict[kinstitusjon]
+    else:
+        institusjon = cereconf.DEFAULT_INSTITUSJONSNR
+    # fi
+    
+    key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
     if not ou_cache.has_key(key):
         ou = Factory.get('OU')(db)
-        if kinstitusjon is not None:
-            institusjon=a_dict[kinstitusjon]
-        else:
-            institusjon=cereconf.DEFAULT_INSTITUSJONSNR
         try:
             ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]), int(a_dict[kgr]),
                              institusjon=institusjon)
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
-            logger.warn("bad stedkode: %s (institusjonsnr: %s)", key, institusjon)
+            logger.warn("bad stedkode: %s", key)
             ou_cache[key] = None
     return ou_cache[key]
 
