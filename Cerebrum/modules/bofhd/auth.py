@@ -596,28 +596,10 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_create_personal_group(self, operator, account=None,
                                   query_run_any=False):
-        if self.is_superuser(operator):
+        if query_run_any or self.is_superuser(operator):
             return True
-        if query_run_any:
-            if self._has_operation_perm_somewhere(operator,
-                                                  self.const.auth_create_user):
-                return True
-            account = Factory.get('Account')(self._db)
-            account.find(operator)
-        # No need to add this command if the operator has a personal
-        # file group already.
-        lacks_group = False
-        try:
-            pg = PosixGroup.PosixGroup(self._db)
-            pg.find_by_name(account.account_name)
-        except Errors.NotFoundError:
-            lacks_group = True
-        if query_run_any:
-            return lacks_group
         if operator == account.entity_id:
-            if lacks_group:
-                return True
-            raise PermissionDenied("Already has personal file group")
+            return True
         return self.is_account_owner(operator, self.const.auth_create_user,
                                      account)
 
@@ -797,8 +779,12 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_set_gecos)
+            return (self._has_operation_perm_somewhere(operator,
+                                                  self.const.auth_set_gecos) or
+                    self._has_operation_perm_somewhere(operator,
+                                                  self.const.auth_create_user))
+        if self._is_owner_of_nonpersonal_account(operator, account):
+            return True
         return self.is_account_owner(operator, self.const.auth_set_gecos,
                                      account)
 
@@ -1095,6 +1081,18 @@ class BofhdAuth(DatabaseAccessor):
         if account:
             self.is_account_owner(operator, operation, account)
         return True
+
+    def _is_owner_of_nonpersonal_account(self, operator, account):
+        """Return True if account is non-personal and operator is a
+        member of the group owning the account."""
+        if (account.np_type is None or
+            account.owner_type != self.const.entity_group):
+            return False
+        owner_group = Factory.get("Group")(self._db)
+        owner_group.find(account.owner_id)
+        # TODO: check groups recursively (should be done by Group API)
+        return owner_group.has_member(operator, self.const.entity_account,
+                                      self.const.group_memberop_union)
 
     def _query_disk_permissions(self, operator, operation, disk, victim_id,
                                 operation_attr=None):
