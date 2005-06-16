@@ -1102,7 +1102,7 @@ class roles_xml_parser(non_nested_xml_parser):
             'rollekode': None,
             'dato_fra': None,
             'dato_til': None,
-            'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt', 'evu'],
+            'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt'],
             'faknr': ['sted'],
             'instituttnr': ['sted'],
             'gruppenr': ['sted'],
