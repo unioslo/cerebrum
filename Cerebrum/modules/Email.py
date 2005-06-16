@@ -1428,7 +1428,7 @@ class AccountEmailMixin(Account.Account):
         changed = False
         try:
             et.find_by_email_target_attrs(entity_id = self.entity_id)
-            if et.email_target_deleted != target_type:
+            if et.email_target_type != target_type:
                 changed = True
                 et.email_target_type = target_type
         except Errors.NotFoundError:
