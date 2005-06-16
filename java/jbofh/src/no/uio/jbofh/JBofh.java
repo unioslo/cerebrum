@@ -155,8 +155,15 @@ class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
             for(Enumeration enumCompleter = parent.keys(); 
                 enumCompleter.hasMoreElements(); ) {
                 String this_key = (String) enumCompleter.nextElement();
-                if(this_cmd == null || this_key.startsWith(this_cmd))
+                if(this_cmd == null || this_key.startsWith(this_cmd)) {
                     thisLevel.add(this_key);
+                    if(this_key.equals(this_cmd) && expat < 1) {
+                        // expanding, and one command matched exactly
+                        thisLevel.clear();
+                        thisLevel.add(this_key);
+                        break;
+                    }
+                }
             }
             if (lvl == expat)
                 return thisLevel;
