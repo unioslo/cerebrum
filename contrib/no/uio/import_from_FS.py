@@ -131,6 +131,7 @@ def write_person_info(outfile):
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
     
     f.write("</data>\n")
+    f.close()
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
@@ -176,6 +177,7 @@ def write_ou_info(outfile):
                     ' />\n')
         f.write('</sted>\n')
     f.write("</data>\n")
+    f.close()
 
 def write_topic_info(outfile):
     """Lager fil med informasjon om alle XXX"""
@@ -189,6 +191,7 @@ def write_topic_info(outfile):
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'topic') + "\n")
     f.write("</data>\n")
+    f.close()
 
 def write_regkort_info(outfile):
     """Lager fil med informasjon om semesterregistreringer for
@@ -200,6 +203,7 @@ def write_regkort_info(outfile):
     for r in regkort:
         f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'regkort') + "\n")
     f.write("</data>\n")
+    f.close()
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
@@ -220,6 +224,7 @@ def write_emne_info(outfile):
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
+    f.close()
 
 def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
@@ -230,6 +235,7 @@ def write_personrole_info(outfile):
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'rolle') + "\n")
     f.write("</data>\n")
+    f.close()
 
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
@@ -241,6 +247,7 @@ def write_misc_info(outfile, tag, func_name):
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
     f.write("</data>\n")
+    f.close()
 
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
@@ -289,6 +296,7 @@ def write_betalt_papir_info(outfile):
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'betalt') + "\n")
     f.write("</data>\n")
+    f.close()
 
 def fix_float(row):
     for n in range(len(row)):
