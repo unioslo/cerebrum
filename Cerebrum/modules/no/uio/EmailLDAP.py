@@ -146,14 +146,14 @@ class EmailLDAPUiOMixin(EmailLDAP):
             lp, dom = row['local_part'], row['domain']
             # If this address is in a domain that is subject to overrides
             # from "magic" domains, and the local_part was overridden, skip
-            # this row.
-            if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
-                continue
+            # this row from being added to targ2addr.
             addr = self._build_addr(lp, dom)
             a_id, t_id = [int(row[x]) for x in ('address_id', 'target_id')]
-            self.targ2addr.setdefault(t_id, []).append(addr)
             self.aid2addr[a_id] = addr
-            
+            if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
+                continue
+            self.targ2addr.setdefault(t_id, []).append(addr)
+                        
                 
     def _validate_primary(self, dom, prim, local_uio_domain):
         if prim in ['pat', 'mons', 'goggins', 'miss', 'smtp', 'mail-mx1',
