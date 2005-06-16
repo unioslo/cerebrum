@@ -214,6 +214,7 @@ def write_studprog_info(outfile):
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
     f.write("</data>\n")
+    f.close()
 
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
