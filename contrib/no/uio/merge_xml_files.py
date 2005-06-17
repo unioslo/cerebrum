@@ -24,7 +24,7 @@ import cerebrum_path
 import getopt
 import xml.sax
 import sys
-from Cerebrum.Utils import XMLHelper
+from Cerebrum.Utils import XMLHelper,SimilarSizeWriter
 
 class CollectParser(xml.sax.ContentHandler):
     def __init__(self, filename, results, hash_keys):
@@ -90,7 +90,7 @@ def main():
         elif opt in ('-f', '--file'):
             CollectParser(val, big_xml, delim)
         elif opt in ('-o', '--out'):
-            f = Utils.SimilarSizeWriter(val, "w")
+            f = SimilarSizeWriter(val, "w")
             f.set_size_change_limit(10)
             xml = XMLHelper()
             f.write(xml.xml_hdr + "<data>\n")
