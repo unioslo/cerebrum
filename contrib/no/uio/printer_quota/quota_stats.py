@@ -21,6 +21,7 @@
 
 import getopt
 import sys
+import mx
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
@@ -210,9 +211,11 @@ def main():
         if opt in ('--help',):
             usage()
         elif opt in ('--from',):
-            from_date = db.Date(*([ int(x) for x in (val+'-0-0-0').split('-')]))
+            from_date = mx.DateTime.DateTime(
+                *([ int(x) for x in (val+'-0-0-0').split('-')]))
         elif opt in ('--to',):
-            to_date = db.Date(*([ int(x) for x in (val+'-0-0-0').split('-')]))
+            to_date = mx.DateTime.DateTime(
+                *([ int(x) for x in (val+'-0-0-0').split('-')]))
         elif opt in ('--sted-level',):
             sted_level = val
         elif opt in ('--printjobs',):
