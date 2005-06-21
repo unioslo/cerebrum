@@ -130,9 +130,11 @@ class HiAEVU(access_FS.EVU):
           TO_CHAR(NVL(e.dato_fra, SYSDATE), 'YYYY-MM-DD') AS dato_fra,
           TO_CHAR(NVL(e.dato_til, SYSDATE), 'YYYY-MM-DD') AS dato_til,
           e.status_aktiv, e.status_nettbasert_und
-        FROM fs.etterutdkurs e, fs.etterutdkursemne ee
-        WHERE e.etterutdkurskode=ee.etterutdkurskode (+) AND
-          e.kurstidsangivelsekode=ee.kurstidsangivelsekode (+) AND
+        FROM fs.etterutdkurs e
+        LEFT OUTER JOIN fs.etterutdkursemne ee
+                     ON e.etterutdkurskode=ee.etterutdkurskode AND
+                        e.kurstidsangivelsekode=ee.kurstidsangivelsekode
+        WHERE
           e.status_aktiv='J' AND
           e.status_nettbasert_und='J' AND
           NVL(TO_DATE('%s', 'YYYY-MM-DD'), SYSDATE) < (e.dato_til + 30)
