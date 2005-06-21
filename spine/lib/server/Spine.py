@@ -28,7 +28,7 @@ omniORB.importIDL(spine_core)
 import SpineCore
 import SpineCore__POA
 
-import Session
+import SessionHandler, Session
 from Cerebrum.spine.Account import get_account_by_name
 
 # The major version number of the Spine server
@@ -89,16 +89,18 @@ class SpineImpl(SpineCore__POA.Spine):
         if account.is_quarantined():
             raise exception
 
-        # Log successfull login..
+        # TODO: Log successful login
         
-        if account in self.sessions:
-            return self.sessions[account]
+        # TODO: Move this to SessionHandler?
+        #if account in self.sessions:
+        #    return self.sessions[account]
+
+        #self.sessions[account] = corba_obj
 
         session = Session.SessionImpl(account)
-        com = Communication.get_communication()
-        corba_obj = com.servant_to_reference(session)
-        self.sessions[account] = corba_obj
 
-        return corba_obj
+        session_handler = SessionHandler.get_session_handler()
+        return session_handler.add(session)
+
 
 # arch-tag: 6c78d470-4b73-491a-a448-c54cc8650148

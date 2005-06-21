@@ -29,10 +29,12 @@ class TransactionError(SpineException):
     pass
 
 class Transaction(LockHolder):
-    def __init__(self, client):
+    def __init__(self, session):
         LockHolder.__init__(self)
         self._refs = []
-        self._db = Database.SpineDatabase(client.get_id())
+        self._session = session
+        self._session.reset_timeout()
+        self._db = Database.SpineDatabase(session.client.get_id())
         self.transaction_started = True
 
     def add_ref(self, obj):
@@ -42,14 +44,18 @@ class Transaction(LockHolder):
         if the transaction is commited and rolled back if the transaction
         is aborted.
         """
+        self._session.reset_timeout()
         if not self.transaction_started:
             raise TransactionError('No transaction started')
 
         self._refs.append(obj)
-   
-    def is_started(self):
-        """Is the transaction started?"""
-        return self.transaction_started
+
+    def _invalidate(self):
+        self._refs = None
+        self._session.invalidate_transaction(self)
+        self._session = None
+        self._db = None
+        self.transaction_started = False
 
     def commit(self):
         """Commits all changes made by this transaction to all objects
@@ -57,19 +63,19 @@ class Transaction(LockHolder):
 
         This transaction object cannot be used again.
         """
+        self._session.reset_timeout()
         if not self.transaction_started:
             raise TransactionError('No transaction started')
 
         try:
             self._db.commit()
+            self._db.close()
             for item in self._refs:
                 item.unlock(self)
-
         except Exception, e:
+            self.rollback()
             raise TransactionError('Failed to commit: %s' % e)
-
-        self._refs = None
-        self.transaction_started = False
+        self._invalidate()
         
 
     def rollback(self):
@@ -78,11 +84,11 @@ class Transaction(LockHolder):
 
         This transaction object cannot be used again.
         """
-
         if not self.transaction_started:
-            raise TransactionError('No transaction started')
+            return
 
         self._db.rollback()
+        self._db.close()
 
         for item in self._refs:
             if item.has_writelock(self):
@@ -90,10 +96,7 @@ class Transaction(LockHolder):
                 item.unlock(self)
             else:
                 item.unlock(self)
-
-        self._db = None
-        self._refs = None
-        self.transaction_started = False
+        self._invalidate()
 
     def get_database(self):
         if self._db is None:

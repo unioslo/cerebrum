@@ -25,13 +25,21 @@ import cereconf
 
 class Communication(object):
     def __init__(self):
+        if cereconf.SPINE_USE_SSL:
+            self._init_ssl()
+        else:
+            self._init_plain()
+
+        self.rootPOA = self.orb.resolve_initial_references("RootPOA")
+
+    def _init_ssl(self):
         sslTP.certificate_authority_file(cereconf.SSL_CA_FILE)
         sslTP.key_file(cereconf.SSL_KEY_FILE)
         sslTP.key_file_password(cereconf.SSL_KEY_FILE_PASSWORD)
-
         self.orb = CORBA.ORB_init(['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
 
-        self.rootPOA = self.orb.resolve_initial_references("RootPOA")
+    def _init_plain(self):
+        self.orb = CORBA.ORB_init([], CORBA.ORB_ID)
 
     def servant_to_reference(self, *objects):
         """Must be called on all objects that clients are to interact with."""
@@ -47,6 +55,11 @@ class Communication(object):
 
         # return a tuple only if there is more than 1 object
         return len(r) == 1 and r[0] or tuple(r)
+
+    def remove_reference(self, *objects):
+        for i in objects:
+            oid = self.rootPOA.reference_to_id(i)
+            self.rootPOA.deactivate_object(oid)
     
     def start(self):
         """Activates and starts Communication."""

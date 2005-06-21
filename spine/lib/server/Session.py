@@ -24,13 +24,16 @@ import md5
 
 import omniORB
 
-from Corba import create_idl_source, convert_to_corba, register_spine_class
+from Corba import create_idl_source, convert_to_corba, register_spine_class, drop_associated_objects
+import Communication
+import SessionHandler
 from Cerebrum.spine.CerebrumHandler import CerebrumHandler
 from Cerebrum.spine.SpineLib.Builder import Attribute, Method
 
 from Cerebrum.spine.SpineLib import Registry
-registry = Registry.get_registry()
+from Cerebrum.spine.SpineLib.Transaction import TransactionError
 
+registry = Registry.get_registry()
 
 def count():
     i = 0
@@ -59,44 +62,66 @@ class Session:
     builder_children = ()
     
     def __init__(self, client):
-        print 'login', client
         self.client = client
         self.counter = count()
         self.transactions = {}
+        self.corba_transactions = {}
+
+    def reset_timeout(self):
+        """This method resets the timeout of this session in its session handler."""
+        handler = SessionHandler.get_session_handler()
+        handler.update(self)
 
     def new_transaction(self):
         self.cleanup()
         id = self.counter.next()
-        transaction = CerebrumHandler(self.client, id)
+        transaction = CerebrumHandler(self, self.client, id)
         corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
-        self.transactions[id] = corba_obj
+        self.transactions[id] = transaction
+        self.corba_transactions[id] = corba_obj
         return corba_obj
 
     def cleanup(self):
         dirty = []
         for id in self.transactions:
-            if not CerebrumHandler(self.client, id).transaction_started:
+            if not self.transactions[id].transaction_started:
                 dirty.append(id)
 
         for id in dirty:
+            drop_associated_objects(self.transactions[id])
+            del self.corba_transactions[id]
             del self.transactions[id]
 
     def get_transactions(self):
         self.cleanup()
-        return self.transactions.values()
+        self.reset_timeout()
+        return self.corba_transactions.values()
 
     def get_transaction(self, id):
-        return self.transactions[id]
+        self.reset_timeout()
+        return self.corba_transactions[id]
+
+    def destroy(self):
+        """ Rollback all transactions and drop the references to them."""
+        for transaction in self.transactions.values():
+            transaction.rollback()
+        self.cleanup()
+        self.client = None
+
+    def invalidate_transaction(self, transaction):
+        com = Communication.get_communication()
+        for id in self.transactions:
+            if self.transactions[id] == transaction:
+                #com.remove_reference(self.corba_transactions[id])
+                break
+        drop_associated_objects(self.transactions[id])
+        del self.corba_transactions[id]
+        del self.transactions[id]
 
     def logout(self):
-        print 'logout', self.client
-        for i in self.transactions.values():
-            try:
-                i.rollback()
-            except Exception, e:
-                print i, e
-
-        self.cleanup()
+        handler = SessionHandler.get_session_handler()
+        handler.remove(self)
+        self.destroy()
 
     # TODO legge til:
     #   - is_admin()?
@@ -105,7 +130,6 @@ class Session:
     #   - Spine-admin-ting?
     #       - statistikk
     #       - oversikt over alle brukere/transaksjoner.
-
 
 # Build corba-classes and idls.
 registry.build_all()

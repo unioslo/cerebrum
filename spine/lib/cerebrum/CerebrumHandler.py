@@ -48,9 +48,9 @@ class CerebrumHandler(Transaction, SpineClass):
         Method('get_date', Date)
     ]
 
-    def __init__(self, *args, **vargs):
+    def __init__(self, session, *args, **vargs):
         if not SpineClass.__init__(self, *args, **vargs):
-            Transaction.__init__(self, self.get_client())
+            Transaction.__init__(self, session)
         
         # Set the current time to the started Attribute.
         started = self.get_attr('time_started').get_name_private()

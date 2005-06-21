@@ -23,15 +23,18 @@ import cerebrum_path
 import cereconf
 
 import thread
+import traceback
 
 def main():
     print '- importing all classes'
     from Cerebrum.spine.SpineLib import Scheduler
     from Cerebrum.spine.server import Communication
+    from Cerebrum.spine.server import SessionHandler
     from Cerebrum.spine.server import Spine
 
     com = Communication.get_communication()
     sched = Scheduler.get_scheduler()
+    handler = SessionHandler.get_session_handler()
 
     # starting the scheduler
     print '- starting scheduler'
@@ -51,7 +54,15 @@ def main():
 
     # starting communication
     print 'All ok - starting server'
-    com.start()
+    try:
+        com.start()
+    except KeyboardInterrupt:
+        pass
+    except:
+        traceback.print_exc()
+    print 'Stopping session handler...'
+    handler.stop()
+    print 'Spine is going down.'
 
 
 if __name__ == '__main__':        

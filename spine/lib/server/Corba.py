@@ -29,16 +29,19 @@ Public functions:
 """
 
 import sys
+import threading
+import weakref
 import Communication
 
 from Cerebrum.extlib import sets
 from Cerebrum.spine.SpineLib.Builder import Method
 from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
 from Cerebrum.spine.SpineLib.SearchClass import SearchClass
+from Cerebrum.spine.SpineLib.ScopedLock import ScopedLock
 from Cerebrum.spine.Auth import AuthOperationType
 
 __all__ = ['convert_to_corba', 'convert_from_corba',
-           'create_idl_source', 'register_spine_class']
+           'create_idl_source', 'register_spine_class','drop_associated_objects']
 
 # FIXME: weakref her?
 class_cache = {}
@@ -47,8 +50,26 @@ object_cache = {}
 corba_types = [int, str, bool, None]
 corba_structs = {}
 
+object_cache_lock = threading.RLock()
+
+def drop_associated_objects(transaction):
+    """Removes all objects associated with the given transaction from the object cache."""
+    global object_cache_lock, object_cache
+    com = Communication.get_communication()
+    s = ScopedLock(object_cache_lock)
+    deletable = []
+    for key in object_cache:
+        if key[1] == transaction:
+            deletable.append(key)
+    for key in deletable:
+        value = object_cache[key]
+        com.remove_reference(value)
+        del object_cache[key]
+
+
 def convert_to_corba(obj, transaction, data_type):
     """Convert obj to a data type corba knows of."""
+    global object_cache_lock
     if obj is None and data_type is not None:
         if data_type in corba_types:
             return _convert_corba_types_to_none(data_type)
@@ -92,6 +113,7 @@ def convert_to_corba(obj, transaction, data_type):
 
         corba_class = class_cache[data_type]
         key = (corba_class, transaction, obj)
+        scoped_lock = ScopedLock(object_cache_lock)
         if key in object_cache:
             return object_cache[key]
 
@@ -127,26 +149,27 @@ def _convert_corba_types_to_none(data_type):
     return value
 
 def _create_corba_method(method):
-    """Creates a wrapper for method.
-
-    Creates a corbamethod which wraps the method 'method'.
-    The wrapper handles authentication, and converts arguments
-    from corbaobjects to pythonobjects.
+    """Creates a wrapper for the given method. The supplied method must be an instance of
+    Builder.Method.
+    This method converts all arguments of the Builder.Method to 
     """
     args_table = {}
     for name, data_type in method.args:
         args_table[name] = data_type
         
     def corba_method(self, *corba_args, **corba_vargs):
+        transaction = self.get_transaction()
+        if transaction is None:
+            raise ValueError('This transaction is terminated.') # FIXME: Throw proper Spine exception
         if len(corba_args) + len(corba_vargs) > len(args_table):
-            raise TypeError('too many arguments')
+            raise TypeError('Too many arguments')
 
         try:    # Wrap expected exceptions in corba-expcetions.
 
             # Auth
             class_name = self.spine_class.__name__
-            if self.transaction is not None:
-                operator = self.transaction.get_client()
+            if transaction is not None:
+                operator = transaction.get_client()
             else:
                 operator = None
             operation_name = '%s.%s' % (class_name, method.name)
@@ -169,13 +192,14 @@ def _create_corba_method(method):
                 # FIXME: kaste en exception
                 pass
 
-            # Transaction
-            self.transaction.add_ref(self.spine_object)
+            # Add a reference to the object in the transaction making the call.
+            #if transaction != self.spine_object:
+            transaction.add_ref(self.spine_object)
 
             if method.write:
-                self.spine_object.lock_for_writing(self.transaction)
+                self.spine_object.lock_for_writing(transaction)
             else:
-                self.spine_object.lock_for_reading(self.transaction)
+                self.spine_object.lock_for_reading(transaction)
 
             # convert corba arguments to real arguments
             args = []
@@ -193,7 +217,7 @@ def _create_corba_method(method):
             if method.write:
                 self.spine_object.save()
 
-            return convert_to_corba(value, self.transaction, method.data_type)
+            return convert_to_corba(value, transaction, method.data_type)
 
         except Exception, e:
             import SpineIDL, types, traceback
@@ -483,7 +507,7 @@ class CorbaClass:
     
     def __init__(self, spine_object, transaction):
         self.spine_object = spine_object
-        self.transaction = transaction
+        self.get_transaction = weakref.ref(transaction)
 
 def register_spine_class(cls, idl_cls, idl_struct):
     """Create corba for the class 'cls'.
