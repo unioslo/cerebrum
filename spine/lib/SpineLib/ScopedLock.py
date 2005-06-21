@@ -24,3 +24,5 @@ class ScopedLock:
         self.lock.acquire()
     def __del__(self):
         self.lock.release()
+
+# arch-tag: 6e243490-e254-11d9-886e-166d782cb55f

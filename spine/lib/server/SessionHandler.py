@@ -105,3 +105,4 @@ def get_session_handler():
         _session_handler = SessionHandler()
     return _session_handler
 
+# arch-tag: 6f392b10-e254-11d9-92c2-10a21545da7f
