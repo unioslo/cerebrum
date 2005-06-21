@@ -343,11 +343,13 @@ class Builder(object):
             raise AttributeError('%s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, method_func)
         method.doc = method_func.__doc__
+        for m in cls.method_slots:
+            if m.name == method.name:
+                cls.method_slots.remove(m)
         cls.method_slots.append(method)
         if cls.builder_children is not None:
             for i in cls.builder_children:
                 i.method_slots.append(method)
-
     register_method = classmethod(register_method)
 
     def build_methods(cls):
