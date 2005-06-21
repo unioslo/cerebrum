@@ -34,7 +34,7 @@ class SpineDatabase(Database):
         self._lock = Lock()
         Database.__init__(self)
         if entity_id is None:
-            self.cl_init(change_program='GRO')
+            self.cl_init(change_program='Spine')
         else:
             self.cl_init(change_by=entity_id)
 
