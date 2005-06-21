@@ -22,7 +22,7 @@ import copy
 
 from Builder import Method, Attribute
 
-from sets import Set
+from Cerebrum.extlib.sets import Set
 
 __all__ = ['Dumpable']
 
