@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Errors
+
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -53,8 +55,10 @@ def get_entity_name(self, value_domain):
     s = registry.EntityNameSearcher((self, value_domain))
     s.set_entity(self)
     s.set_value_domain(self)
-    (name, ) = s.search()
-    return name
+    result = s.search()
+    if not len(result) == 1:
+        raise Cerebrum.Errors.NotFoundError # FIXME: Raise SpineException?
+    return result[0]
 
 m = Method('get_entity_name', EntityName, args=[('value_domain', ValueDomain)])
 Entity.register_method(m, get_entity_name)

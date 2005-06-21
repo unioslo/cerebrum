@@ -18,56 +18,30 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import SpineLib.Dumpable
-import Types
+from SpineLib.Builder import Attribute, Method
+from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
-## core
+from SpineLib import Registry
+from Types import OUPerspectiveType
+from OU import OU
 
-# Entity
-import Entity
-import EntityAddress
-import EntityContactInfo
-import EntitySpread
-import EntityQuarantine
-import EntityName
+registry = Registry.get_registry()
 
-# Group
-import Group
-import GroupMember
+__all__ = ['OUStructure']
 
-# Person
-import Person
-import PersonName
-import PersonExternalId
+table = 'ou_structure'
+class OUStructure(DatabaseClass):
+    primary = [
+        DatabaseAttr('ou', table, OU),
+        DatabaseAttr('perspective', table, OUPerspectiveType),
+    ]
+    slots = [DatabaseAttr('parent', table, OU)]
+    db_attr_aliases = {
+        table : {
+            'ou' : 'ou_id',
+            'parent' : 'parent_id',
+        }
+    }
 
-# Account
-import Account
-import AccountAuthentication
-import AccountHome
+registry.register_class(OUStructure)
 
-# OU
-import OUStructure
-import OU
-
-# Disk
-import Host
-import Disk
-
-# Modules
-import Note
-import PosixGroup
-import PosixUser
-import ChangeLog
-import Commands
-import Auth
-import EntityFlag
-import Request
-import Stedkode
-
-# Cereweb
-import Cereweb
-
-import AccountView
-
-
-# arch-tag: c7e1e253-6ca8-41f0-929e-dec949b76992

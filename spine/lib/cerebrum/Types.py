@@ -19,7 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.SpineExceptions import *
 from SpineLib import Registry
+
 registry = Registry.get_registry()
 
 __all__ = ['CodeType']
@@ -29,8 +31,12 @@ class CodeType(DatabaseClass):
         if id is None and name is not None:
             s = cls.search_class()
             s.set_name(name)
-            (obj,) = s.search()
-            return obj
+            results = s.search()
+            if not len(results):
+                raise NotFoundError('No match for %s(%s)' % (cls.__name__, name))
+            elif len(results) > 1:
+                raise NotFoundError('Multiple matches for %s(%s)' % (cls.__name__, name))
+            return results[0]
         else:
             return super(CodeType, cls).__new__(cls, id=id, name=name, **args)
 
@@ -58,7 +64,8 @@ for name, table in [('AccountType', 'account_code'),
                     ('AuthOperationType', 'auth_op_code'),
                     ('HomeStatus', 'home_status_code'),
                     ('PersonExternalIdType', 'person_external_id_code'),
-                    ('ValueDomain', 'value_domain_code')]:
+                    ('ValueDomain', 'value_domain_code'),
+                    ('LanguageType', 'language_code')]:
 
     exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)
 

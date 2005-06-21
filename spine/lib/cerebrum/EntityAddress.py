@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Entity
+
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -59,5 +61,14 @@ def get_addresses(self):
     return s.search()
 
 Entity.register_method(Method('get_addresses', [EntityAddress]), get_addresses)
+
+def create_address(self, address_type, source_system):
+    cerebrum_entity = Cerebrum.Entity.EntityAddress(self.get_database())
+    cerebrum_entity.find(self.get_id())
+    cerebrum_entity.populate_address(source_system.get_id(), address_type.get_id())
+    cerebrum_entity.write_db()
+    return EntityAddress(self, source_system, address_type, write_lock=self.get_writelock_holder())
+
+Entity.register_method(Method('create_address', EntityAddress, args=[('address_type', AddressType), ('source_system', SourceSystem)], write=True), create_address)
 
 # arch-tag: ff3c2894-d69c-4de5-bf1f-8bd44d0a8e31

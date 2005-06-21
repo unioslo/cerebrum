@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Entity
+
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -55,5 +57,16 @@ def get_contact_info(self):
     return s.search()
 
 Entity.register_method(Method('get_contact_info', [EntityContactInfo]), get_contact_info)
+
+def add_contact_info(self, info, description, preference, contact_type, source_system):
+    entity = Cerebrum.Entity.EntityContactInfo(self.get_database())
+    entity.find(self.get_id())
+    entity.add_contact_info(source_system.get_id(), contact_type.get_id(), info, preference, description)
+    entity.write_db()
+    return EntityContactInfo(Entity(entity.entity_id, writelock=self.get_writelock_holder()), source_system, contact_type, preference, writelock=self.get_writelock_holder())
+
+Entity.register_method(Method('add_contact_info', EntityContactInfo, args=[('info', str),
+    ('description', str), ('preference', int), ('contact_type', ContactInfoType),
+    ('source_system', SourceSystem)], write=True), add_contact_info)
 
 # arch-tag: 955583e8-356a-4422-b7c0-bb843c854157
