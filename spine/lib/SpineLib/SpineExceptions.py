@@ -21,22 +21,12 @@
 
 """Module for all exceptions in Spine which should be sent to clients.
 
-Contains SpineException, which should be the baseclass for all exceptions
+Contains SpineException, which should be the base class for all exceptions
 which should be sent to users.
 
 Implement exceptions localy, in the modules where they fit the most.
-Exceptions which is not so clear to where they should be placed, can be
-implemented here.
-
-Public exceptions in this module:
-* SpineException - Base-class for all exceptions in spine.
-* AccessDeniedError - Raised if client dont have access to the method.
-* ClientProgrammingError - Raised when the client does something illegal.
+Exceptions which have no obvious location can be implemented here.
 """
-
-__all__ = [
-    'SpineException', 'AccessDeniedError', 'ClientProgrammingError'
-]
 
 class SpineException(Exception):
     """Base-class for all exceptions in spine."""
@@ -47,7 +37,10 @@ class AccessDeniedError(SpineException):
 class ClientProgrammingError(SpineException):
     """Raised when the client does something illegal."""
 
+class NotFoundError(SpineException):
+    """Raised when one or more objects are not found."""
+
 class DebugException(SpineException):
-    """Exceptions sent to the client for debbuging purposes."""
+    """Exceptions sent to the client for debugging purposes."""
 
 # arch-tag: 7c3b53d8-649b-4dfc-8582-1664e52b6e0e
