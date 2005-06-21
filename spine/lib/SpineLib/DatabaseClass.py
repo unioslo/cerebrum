@@ -174,19 +174,18 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         db = self.get_database()
 
         for table, attributes in self._get_sql_tables().items():
-
             # only update tables with changed attributes
-            attributes = []
+            changed_attributes = []
             for i in self.updated:
                 if i in attributes and i in self._db_save_attributes:
-                    attributes.append(i)
+                    changed_attributes.append(i)
 
-            if not attributes:
+            if not changed_attributes:
                 continue
 
             sql = 'UPDATE %s SET %s' % (
                 table,
-                ', '.join(['%s=:%s' % (self._get_real_name(attr), attr.name) for attr in attributes])
+                ', '.join(['%s=:%s' % (self._get_real_name(attr), attr.name) for attr in changed_attributes])
             )
 
             sql += ' WHERE '
@@ -196,7 +195,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             sql += ' AND '.join(tmp)
 
             keys = {}
-            for i in self.primary + attributes:
+            for i in self.primary + changed_attributes:
                 keys[i.name] = attr.convert_to(getattr(self, i.get_name_private()))
             try:
                 db.execute(sql, keys)
