@@ -45,3 +45,4 @@ class OUStructure(DatabaseClass):
 
 registry.register_class(OUStructure)
 
+# arch-tag: 95e0857c-e251-11d9-858a-30ac8d2e9d97

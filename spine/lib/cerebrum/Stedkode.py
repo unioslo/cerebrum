@@ -65,3 +65,5 @@ Commands.register_method(Method('create_ou', OU, args=[('name', str), ('institus
     ('institutt', int), ('avdeling', int)], write=True), create_ou, overwrite=True)
 
 OU.register_method(Method('get_stedkode', str, args=[]), get_stedkode)
+
+# arch-tag: 975c6be6-e251-11d9-9880-98d92f1bc0af
