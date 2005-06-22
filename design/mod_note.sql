@@ -30,7 +30,6 @@ CREATE TABLE note
   note_id       NUMERIC(12,0)
                   NOT NULL
                   CONSTRAINT note_id_pk PRIMARY KEY,
-                  DEFAULT
   create_date   TIMESTAMP
                   DEFAULT [:now]
                   NOT NULL,
