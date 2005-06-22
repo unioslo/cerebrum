@@ -148,8 +148,21 @@ AD_LOST_AND_FOUND = 'lost-n-found'
 #A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.
 AD_DEFAULT_OU = '0'
 AD_CERE_ROOT_OU_ID = '682'
-AD_DONT_TOUCH = ('Group Policy Creator Owners','DnsUpdateProxy','Tivoli_Admin_Privileges','Domain Guests','Domain Admins','Domain Users','Cert Publishers','Domain Controllers','Domain Computers','Administrator','Guest','tmersrvd','krbtgt','TsInternetUser')
-#Necesary if groups and users have different namespaces in Cerebrum.
+AD_DONT_TOUCH = ('Group Policy Creator Owners',
+                 'DnsUpdateProxy',
+                 'Tivoli_Admin_Privileges',
+                 'Domain Guests',
+                 'Domain Admins',
+                 'Domain Users',
+                 'Cert Publishers',
+                 'Domain Controllers',
+                 'Domain Computers',
+                 'Administrator',
+                 'Guest',
+                 'tmersrvd',
+                 'krbtgt',
+                 'TsInternetUser')
+# Necessary if groups and users have different namespaces in Cerebrum.
 AD_GROUP_POSTFIX = '-gruppe'
 AD_HOME_DRIVE = 'M:'
 AD_PASSWORD_EXPIRE = '0'
@@ -166,19 +179,18 @@ NW_DEFAULT_OU_ID = 13
 NW_ADMINUSER = 'cn=xxxxyyyyy,ou=HiST,ou=user,o=NOVELL'
 NW_PASSWORD = 'pass-here'
 NW_LOST_AND_FOUND = 'ou=lost-n-found'
-#Necesary if groups and users have different namespaces in Cerebrum.
+# Necessary if groups and users have different namespaces in Cerebrum.
 NW_GROUP_POSTFIX = '-gruppe'
 NW_PASSWORD_EXPIRE = 'FALSE'
 NW_CAN_CHANGE_PW = 'FALSE'
 NW_GROUP_SPREAD = ('spread_novell_group',)
 
 
-#Notes spesifikke variable.
+# Notes-spesifikke variable.
 NOTES_SERVER_HOST = 'devel01.uio.no'
 NOTES_SERVER_PORT = 2000
 NOTES_PASSWORD = 'test\n'
 NOTES_DEFAULT_OU = 'andre'
-NOTES_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
 
 # You should set this variable to the location of your logging ini file
 LOGGING_CONFIGFILE = None
