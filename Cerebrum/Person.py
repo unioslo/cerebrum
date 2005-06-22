@@ -470,9 +470,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 name_parts = cached_name['name_full'].split()
                 if len(name_parts) >= 2:
                     last_name = name_parts.pop()
-                    if 'name_last' not in cached_name:
+                    if cached_name['name_last'] is None:
                         cached_name['name_last'] = last_name
-                    if 'name_first' not in cached_name:
+                    if cached_name['name_first'] is None:
                         cached_name['name_first'] = " ".join(name_parts)
 
         # TBD: When we're unable to find cacheable data, it would
