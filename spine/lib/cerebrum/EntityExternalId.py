@@ -18,53 +18,52 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Entity
+
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
-from Person import Person
-from Types import PersonExternalIdType, SourceSystem
+from Entity import Entity
+from Types import EntityType, EntityExternalIdType, SourceSystem
 
 from SpineLib import Registry
 registry = Registry.get_registry()
 
-table = 'person_external_id'
-class PersonExternalId(DatabaseClass):
+table = 'entity_external_id'
+class EntityExternalId(DatabaseClass):
     primary = [
-        DatabaseAttr('person', table, Person),
-        DatabaseAttr('id_type', table, PersonExternalIdType),
+        DatabaseAttr('entity', table, Entity),
+        DatabaseAttr('id_type', table, EntityExternalIdType),
         DatabaseAttr('source_system', table, SourceSystem),
     ]
     slots = [
-        DatabaseAttr('external_id', table, str)
+        DatabaseAttr('entity_type', table, EntityType),
+        DatabaseAttr('external_id', table, str, write=True)
     ]
 
     db_attr_aliases = {
-        table:{
-            'person':'person_id'
+        table: {
+            'entity':'entity_id'
         }
     }
         
-registry.register_class(PersonExternalId)
+registry.register_class(EntityExternalId)
 
 def get_external_ids(self):
-    s = registry.PersonExternalIdSearcher()
-    s.set_person(self)
+    s = registry.EntityExternalIdSearcher()
+    s.set_entity(self)
     return s.search()
 
-Person.register_method(Method('get_external_ids', [PersonExternalId]), get_external_ids)
+Entity.register_method(Method('get_external_ids', [EntityExternalId]), get_external_ids)
 
 def add_external_id(self, id, id_type, source_system):
-    obj = self._get_cerebrum_obj()
-    obj.affect_external_id(source_system.get_id(), id_type.get_id())
-    obj.populate_external_id(source_system.get_id(), id_type.get_id(), id)
-    obj.write_db()
+    e = Cerebrum.Entity.EntityExternalId(self.get_database())
+    e.find(self.get_id())
+    e.affect_external_id(source_system.get_id(), id_type.get_id())
+    e.populate_external_id(source_system.get_id(), id_type.get_id(), id)
+    e.write_db()
+    return EntityExternalId(self, id_type, source_system)
 
-    # this is a hack to make sure all PersonName objects is up to date
-    # maybe we should implement our own create/save
-    for i in self.get_external_ids():
-        i.get_external_id()
-        del i._external_id
-
-Person.register_method(Method('add_external_id', None, args=[('id', str), ('id_type', PersonExternalIdType), ('source_system', SourceSystem)], write=True), add_external_id)
+Entity.register_method(Method('add_external_id', EntityExternalId, args=[('id', str), ('id_type', EntityExternalIdType), ('source_system', SourceSystem)], write=True), add_external_id)
 
 # arch-tag: ee7aa1c8-845b-4ead-89e0-4fc7aa7051b6

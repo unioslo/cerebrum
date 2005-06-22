@@ -104,6 +104,8 @@ class Locking(object):
             raise AlreadyLockedError, 'Other read locks exist on %s' % self
 
         def rollback(obj):
+            if self.get_writelock_holder() is None:
+                return
             self.reset()
 
         self.write_lock = weakref.ref(client, rollback), time.time()

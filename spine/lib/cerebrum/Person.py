@@ -28,7 +28,7 @@ from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Entity import Entity
 from Account import Account
 from Date import Date
-from Types import EntityType, GenderType
+from Types import EntityType, GenderType, NameType, SourceSystem
 from Commands import Commands
 
 from SpineLib import Registry
@@ -83,13 +83,23 @@ class Person(Entity):
 
 registry.register_class(Person)
 
-def create(self, birthdate, gender):
+def create(self, birthdate, gender, full_name, source_system):
     db = self.get_database()
-    # FIXME: birthdate.get_date er vel feil?
-    id = Person._create(db, birthdate.strftime("%Y-%m-%d"), gender.get_id())
-    return Person(id, write_lock=self.get_writelock_holder())
+    person = Factory.get('Person')(db)
+    person.populate(birthdate.strftime('%Y-%m-%d'), gender.get_id(), None, 'F')
+    full = NameType(name='FULL')
+    person.affect_names(source_system.get_id(), full.get_id())
+    person.populate_name(full.get_id(), full_name)
+    try:
+        person.write_db()
+    except ValueError, e:
+        raise e # FIXME: Raise proper Spine exception telling that the source
+                # system does not exist in the lookup table
+    #id = Person._create(db, birthdate.strftime("%Y-%m-%d"), gender.get_id())
+    p = Person(person.entity_id, write_lock=self.get_writelock_holder())
+    return p
 
 Commands.register_method(Method('create_person', Person, write=True,
-                         args=[('birthdate', Date), ('gender', GenderType)]), create)
+                         args=[('birthdate', Date), ('gender', GenderType), ('full_name', str), ('source_system', SourceSystem)]), create)
 
 # arch-tag: 7b2aca28-7bca-4872-98e1-c45e08faadfc

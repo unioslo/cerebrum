@@ -42,8 +42,9 @@ class Date(SpineClass):
         Method('get_hour', int),
         Method('get_minute', int),
         Method('get_second', int),
+        Method('get_unix', int),
         Method('strftime', str, args=[('formatstr', str)]),
-        Method('toString', str)
+        Method('to_string', str)
     ]
 
     def create_primary_key(cls, value):
@@ -73,10 +74,13 @@ class Date(SpineClass):
     def get_second(self):
         return self._value.second
 
+    def get_unix(self):
+        return int(self._value.ticks())
+
     def strftime(self, formatstr):
         return self._value.strftime(formatstr)
 
-    def toString(self):
+    def to_string(self):
         format = getattr(self, self.get_attr('format').get_name_private(), None)
         if format is None:
             return str(self._value)

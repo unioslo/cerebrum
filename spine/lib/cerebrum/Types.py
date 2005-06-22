@@ -87,4 +87,25 @@ for name, table in [('AccountType', 'account_code'),
     registry.register_class(cls)
     __all__.append(name)
 
+table = 'entity_external_id_code'
+class EntityExternalIdType(CodeType):
+    primary = [
+        DatabaseAttr('id', table, int),
+    ]
+    slots = [
+        DatabaseAttr('type', table, EntityType),
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('description', table, str)
+    ]
+    db_attr_aliases = {
+        table:{
+            'id':'code',
+            'name':'code_str',
+            'type':'entity_type'
+        }
+    }
+
+registry.register_class(EntityExternalIdType)
+__all__.append(EntityExternalIdType)
+
 # arch-tag: 965b1b0a-4526-4189-b507-2459e1ed646d

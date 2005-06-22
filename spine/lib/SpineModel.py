@@ -27,9 +27,10 @@ import Types
 import Entity
 import EntityAddress
 import EntityContactInfo
-import EntitySpread
+import EntityExternalId
 import EntityQuarantine
 import EntityName
+import EntitySpread
 
 # Group
 import Group
@@ -38,7 +39,6 @@ import GroupMember
 # Person
 import Person
 import PersonName
-import PersonExternalId
 
 # Account
 import Account
