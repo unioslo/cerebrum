@@ -368,7 +368,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     logger.debug("Prefetching data")
 
     betaling_fritak = get_bet_fritak_utv_data(lt_person_file)
-    logger.debug("Fritak for: %s" % betaling_fritak)
+    logger.debug2("Fritak for: %s" % betaling_fritak)
     # Finn alle som skal rammes av kvoteregimet
     quota_victim = {}
 
@@ -468,6 +468,11 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     logger.debug("free_this_term: %i" % len(free_this_term))
 
     logger.debug("Prefetch returned %i students" % len(quota_victim))
+    n = 0
+    for pid in betaling_fritak.keys():
+        if quota_victim.has_key(pid):
+            n += 1
+    logger.debug("%i av disse har betaling_fritak" % n)
     return fnr2pid, quota_victim, person_id_member, kopiavgift_fritak, \
            har_betalt, free_this_term, betaling_fritak
 
@@ -488,7 +493,7 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
     (fnr2pid, quota_victims, person_id_member, kopiavgift_fritak,
      har_betalt, free_this_term, betaling_fritak) = fetch_data(
         drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_file)
-    logger.debug("Victims: %s" % quota_victims)
+    logger.debug2("Victims: %s" % quota_victims)
     # Start call-backs via autostud modulen med vanlig
     # merged_persons.xml fil.  Vi har da mulighet til å styre kvoter
     # via de vanlige select kriteriene.  Callback metoden må sjekke
