@@ -424,7 +424,7 @@ def del_spread(entity_id, spread, delete=delete_users):
                         if result:
                             for line in result.splitlines():
                                 if line != '210 OK':
-                                    mem = l.split('&')
+                                    mem = line.split('&')
                                     sock.send('DELUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, group_n))
                                     if sock.read() != ['210 OK']:
                                         logger.debug('Failed delete %s from %s') % (member, group_n)
