@@ -70,24 +70,29 @@ def noia_check():
     for row in ppq.get_quoata_status():
         pid = row['person_id'] and long(row['person_id']) or 'NULL'
         person_stats[pid] = {'free': int(row['free_quota']),
-                             'paid': int(row['paid_quota']),
+                             'kroner': float(row['kroner']),
+                             'accum': int(row['accum_quota']),
                              'total': int(row['total_pages'])}
-
+    logger.debug("listed %i quota_status entries" % len(person_stats))
     unknown = []
+    n = 0
     for row in (ppq.get_payment_stats(
         DateTime.Date(1980,1,1,1,1,1), DateTime.Date(2020,1,1,1,1,1),
         group_by=('person_id',))+ 
                 ppq.get_pagecount_stats(
         DateTime.Date(1980,1,1,1,1,1), DateTime.Date(2020,1,1,1,1,1),
         group_by=('person_id',))):
+        n += 1
         pid = row['person_id'] and long(row['person_id']) or 'NULL'
         if not person_stats.has_key(pid):
             unknown.append(pid)
             continue
         tmp = person_stats[pid]
         tmp['free'] -= int(row['free'])
-        tmp['paid'] -= int(row['paid'])
+        tmp['accum'] -= int(row['accum'])
+        tmp['kroner'] -= float(row['kroner'])
         tmp['total'] -= int(row['total'])
+    logger.debug("listed %i quota_payment entries" % n)
 
     if unknown:
         logger.debug("No paid_quota_status entry for %s" % unknown)
@@ -95,9 +100,9 @@ def noia_check():
     ok_count = 0
     for pid in person_stats.keys():
         ok = True
-        for k in ('free', 'paid', 'total'):
-            if person_stats[pid][k] != 0:
-                # TODO: The total check will fail 
+        for k in ('free', 'total', 'kroner', 'accum'):
+            if (person_stats[pid][k] != 0 and  # we may be off by 1.0e-14
+                abs(person_stats[pid][k]) > 0.0001):
                 logger.warn("noia check failed for %s: %s" % (
                     pid, repr(person_stats[pid])))
                 ok = False
