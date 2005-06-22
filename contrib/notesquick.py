@@ -154,20 +154,13 @@ def get_names(account_id):
         logger.warn("find on person or account failed: %s", account_id)
         return False
 
-    firstname = lastname = None
-    for ss in cereconf.NOTES_SOURCE_SEARCH_ORDER:
-        try:
-            firstname = person.get_name(int(getattr(co, ss)), int(co.name_first))
-            lastname = person.get_name(int(getattr(co, ss)), int(co.name_last))
-        except Errors.NotFoundError:
-            pass
-        if firstname and lastname:
-            return (firstname, lastname)
-
-    logger.warn("getting persons name failed, account.owner_id: %s", person_id)
-    return False
-
-
+    try:
+        return (person.get_name(co.system_cached, co.name_first),
+                person.get_name(co.system_cached, co.name_last))
+    except Errors.NotFoundError:
+        logger.warn("getting persons name failed, account.owner_id: %s",
+                    person_id)
+        return False
 
 
 def id_to_name(id):
