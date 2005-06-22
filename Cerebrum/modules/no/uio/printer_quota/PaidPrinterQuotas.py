@@ -286,26 +286,26 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'kroner': float(kroner)})
 
     def _change_history_owner(self, old_id, new_id):
-	self.execute("""
+        self.execute("""
         UPDATE [:table schema=cerebrum name=paid_quota_history]
         SET person_id=:new_id
         WHERE person_id=:old_id""", {
             'old_id': old_id,
-	    'new_id': new_id})
+            'new_id': new_id})
 
     def _change_status_owner(self, old_id, new_id):
-	self.execute("""
+        self.execute("""
         UPDATE [:table schema=cerebrum name=paid_quota_status]
         SET person_id=:new_id
         WHERE person_id=:old_id""", {
             'old_id': old_id,
-	    'new_id': new_id})
+            'new_id': new_id})
 
     def _delete_status(self, person_id):
-	self.execute("""
-	DELETE FROM [:table schema=cerebrum name=paid_quota_status]
-	WHERE person_id=:person_id""",{
-	    'person_id': int(person_id)})
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=paid_quota_status]
+        WHERE person_id=:person_id""",{
+            'person_id': int(person_id)})
 
     def _delete_history(self, job_id, entry_type):
         if entry_type == 'printjob':
@@ -320,10 +320,10 @@ class PaidPrinterQuotas(DatabaseAccessor):
                 'job_id': int(job_id)})
         else:
             raise ValueError("This method is private for a reason")
-	self.execute("""
-	DELETE FROM [:table schema=cerebrum name=paid_quota_history]
-	WHERE job_id=:job_id""",{
-	    'job_id': int(job_id)})
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=paid_quota_history]
+        WHERE job_id=:job_id""",{
+            'job_id': int(job_id)})
         
 
     def get_quoata_status(self, has_quota_filter=None):
@@ -336,7 +336,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where = ""
         return self.query(
             """SELECT person_id, has_quota, has_blocked_quota, weekly_quota,
-                      max_quota, paid_quota, free_quota, total_pages
+                      max_quota, total_pages, free_quota, accum_quota, kroner
             FROM [:table schema=cerebrum name=paid_quota_status] %s""" % where)
 
     def get_history_payments(self, transaction_type=None, desc_mask=None,
@@ -443,6 +443,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         else:
             group_by = extra_cols = ""
         qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
+                  sum(pageunits_accum) AS accum, sum(kroner) AS kroner,
                   sum(pageunits_paid) AS paid, sum(pageunits_total) AS total %s
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
              [:table schema=cerebrum name=paid_quota_printjob] pqp
@@ -461,6 +462,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         else:
             group_by = extra_cols = ""
         qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
+            sum(pageunits_accum) AS accum,
             sum(pageunits_paid) AS paid, sum(kroner) AS kroner,
             sum(pageunits_total) AS total %s
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
