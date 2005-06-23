@@ -27,6 +27,7 @@ import sys
 import os
 import locale
 import getopt
+import time
 
 if True:
     import cerebrum_path
@@ -924,7 +925,7 @@ def prefetch_primaryusers():
 
 def init_globals():
     global db, const, logger, fnr2account_id
-    global dump_dir, dryrun
+    global dump_dir, dryrun, immediate_evu_expire
 
     # Håndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
@@ -933,15 +934,19 @@ def init_globals():
     dump_dir = '/cerebrum/dumps/FS'
     dryrun = False
     logger = Factory.get_logger("cronjob")
+    immediate_evu_expire = False
 
     opts, rest = getopt.getopt(sys.argv[1:],
                                "d:r",
-                               ["dump-dir=", "dryrun",])
+                               ["dump-dir=", "dryrun",
+                                "immediate-evu-expire",])
     for option, value in opts:
         if option in ("-d", "--dump-dir"):
             dump_dir = value
         elif option in ("-r", "--dryrun"):
             dryrun = True
+        elif option in ("--immediate-evu-expire",):
+            immediate_evu_expire = True
         # fi
     # od
 
@@ -978,8 +983,16 @@ def main():
         if (el_name == "evukurs" and
             attrs.get("status_aktiv") == 'J' and
             attrs.get("status_nettbasert_und") == 'J'):
-            # NB! Vi har allerede filtrert på dato_til
-            fs_super.add("evu", attrs)
+            
+            if (immediate_evu_expire and
+                time.mktime(time.strptime(attrs.get("dato_til"),
+                                          "%Y-%m-%d")) < time.time()):
+                logger.debug("Kurs %s-%s ekspirerte",
+                             attrs["etterutdkurskode"],
+                             attrs["kurstidsangivelsekode"])
+            else:
+                fs_super.add("evu", attrs)
+            # fi
         # fi
     # end create_evukurs_helper
     xmlfile = "evu_kursinfo.xml"
