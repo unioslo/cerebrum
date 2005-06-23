@@ -69,7 +69,7 @@ class Constants(Constants.Constants):
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
         affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
     affiliation_status_ansatt_primaer = _PersonAffStatusCode(
-        affiliation_ansatt, 'primær', 'Primærtilknytning for SAP ansatte')
+        affiliation_ansatt, 'primaer', 'Primærtilknytning for SAP ansatte')
     
 ## AFFILIATIONS FOR STUDENTER
     affiliation_student = _PersonAffiliationCode('STUDENT', 'Student ved HiA')
