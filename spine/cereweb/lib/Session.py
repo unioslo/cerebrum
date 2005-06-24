@@ -24,6 +24,7 @@ import SpineClient
 
 class Session(dict):
     def __init__(self, id, create=False):
+        dict.__init__(self)
         self.id = id
         self.filename = '/tmp/cereweb_%s' % id
         if not create:
@@ -37,7 +38,7 @@ class Session(dict):
     def save(self):
         tmpname = self.filename + ".tmp." + str(os.getpid())
         fd = open(tmpname, 'w')
-        cPickle.dump(self.items(), fd)
+        cPickle.dump(self, fd)
         fd.close()
         os.rename(tmpname, self.filename)
 
