@@ -57,15 +57,32 @@ def get_gecos(self):
     return p.get_gecos()
 
 table = 'posix_user'
+# FIXME: posix_id attribute really only needed by is_posix() below
+Account.register_attribute(DatabaseAttr('posix_id', table, int, optional=True))
 Account.register_attribute(DatabaseAttr('posix_uid', table, int, optional=True))
 Account.register_attribute(DatabaseAttr('primary_group', table, Group, optional=True))
 Account.register_attribute(DatabaseAttr('pg_member_op', table, GroupMemberOperationType, optional=True))
 Account.register_attribute(DatabaseAttr('gecos', table, str, optional=True), get=get_gecos)
 Account.register_attribute(DatabaseAttr('shell', table, PosixShell, optional=True))
-Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
+Account.db_attr_aliases[table] = {'id':'account_id', 
+                                  'primary_group':'gid',
+                                  'posix_id': 'account_id'}
 
 Account.build_methods()
 Account.search_class.build_methods()
+
+def is_posix(self):
+    """Check if a account has been promoted to posix.
+    """
+    account_search = registry.AccountSearcher()
+    account_search.set_id(self.get_id())
+    # FIXME: Ugly hack to "join" in posix_account.account_id
+    account_search.set_posix_id(self.get_id())
+    account_search.set_posix_uid_exists(True)
+    result = account_search.search()
+    return result and True or False
+
+Account.register_method(Method('is_posix', bool), is_posix)
 
 def promote_posix(self, primary_group, shell):
     obj = self._get_cerebrum_obj()

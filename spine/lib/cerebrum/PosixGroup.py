@@ -29,9 +29,24 @@ registry = Registry.get_registry()
 import Cerebrum.modules.PosixGroup
 
 Group.register_attribute(DatabaseAttr('posix_gid', 'posix_group', int, optional=True))
-Group.db_attr_aliases['posix_group'] = {'id':'group_id'}
+# FIXME: posix_id attribute really only needed by is_posix() below
+Group.register_attribute(DatabaseAttr('posix_id', 'posix_group', int, optional=True))
+Group.db_attr_aliases['posix_group'] = {'id':'group_id', 'posix_id': 'group_id'}
 Group.build_methods()
 Group.build_search_class()
+
+def is_posix(self):
+    """Check if a group has been promoted to posix.
+    """
+    group_search = registry.GroupSearcher()
+    group_search.set_id(self.get_id())
+    # FIXME: Ugly hack to "join" in posix_group.group_id
+    group_search.set_posix_id(self.get_id())
+    group_search.set_posix_gid_exists(True)
+    result = group_search.search()
+    return result and True or False
+
+Group.register_method(Method('is_posix', bool), is_posix)
 
 def promote_posix(self):
     obj = self._get_cerebrum_obj()
