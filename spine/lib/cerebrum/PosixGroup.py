@@ -28,7 +28,8 @@ registry = Registry.get_registry()
 
 import Cerebrum.modules.PosixGroup
 
-Group.register_attribute(DatabaseAttr('posix_gid', 'posix_group', int, optional=True))
+Group.register_attribute(DatabaseAttr('posix_gid', 'posix_group', int,
+                                      write=True, optional=True))
 Group.db_attr_aliases['posix_group'] = {'id':'group_id'}
 Group.build_methods()
 Group.build_search_class()

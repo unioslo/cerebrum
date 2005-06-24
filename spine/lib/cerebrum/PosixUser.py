@@ -57,11 +57,17 @@ def get_gecos(self):
     return p.get_gecos()
 
 table = 'posix_user'
-Account.register_attribute(DatabaseAttr('posix_uid', table, int, optional=True))
-Account.register_attribute(DatabaseAttr('primary_group', table, Group, optional=True))
-Account.register_attribute(DatabaseAttr('pg_member_op', table, GroupMemberOperationType, optional=True))
-Account.register_attribute(DatabaseAttr('gecos', table, str, optional=True), get=get_gecos)
-Account.register_attribute(DatabaseAttr('shell', table, PosixShell, optional=True))
+Account.register_attribute(DatabaseAttr('posix_uid', table, int,
+                                        write=True, optional=True))
+Account.register_attribute(DatabaseAttr('primary_group', table, Group,
+                                        write=True, optional=True))
+Account.register_attribute(DatabaseAttr('pg_member_op', table,
+                                        GroupMemberOperationType,
+                                        write=True, optional=True))
+Account.register_attribute(DatabaseAttr('gecos', table, str, write=True,
+                                        optional=True), get=get_gecos)
+Account.register_attribute(DatabaseAttr('shell', table, PosixShell,
+                                        write=True, optional=True))
 Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
 
 Account.build_methods()
