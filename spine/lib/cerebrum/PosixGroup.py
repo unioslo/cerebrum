@@ -29,9 +29,7 @@ registry = Registry.get_registry()
 import Cerebrum.modules.PosixGroup
 
 Group.register_attribute(DatabaseAttr('posix_gid', 'posix_group', int, optional=True))
-# FIXME: posix_id attribute really only needed by is_posix() below
-Group.register_attribute(DatabaseAttr('posix_id', 'posix_group', int, optional=True))
-Group.db_attr_aliases['posix_group'] = {'id':'group_id', 'posix_id': 'group_id'}
+Group.db_attr_aliases['posix_group'] = {'id':'group_id'}
 Group.build_methods()
 Group.build_search_class()
 
@@ -40,10 +38,9 @@ def is_posix(self):
     """
     group_search = registry.GroupSearcher()
     group_search.set_id(self.get_id())
-    # FIXME: Ugly hack to "join" in posix_group.group_id
-    group_search.set_posix_id(self.get_id())
     group_search.set_posix_gid_exists(True)
-    result = group_search.search()
+    where = 'group_info.group_id = posix_group.group_id'
+    result = group_search.search(sql_where=where)
     return result and True or False
 
 Group.register_method(Method('is_posix', bool), is_posix)
