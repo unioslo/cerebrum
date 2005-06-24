@@ -44,7 +44,6 @@ def list(req):
         req.session.get('account_lastsearch', ("", "", "", ""))
     return search(req, name, owner, expire_date, create_date)
 
-@transaction_decorator
 def search(req, name="", owner="", expire_date="", create_date="", transaction=None):
     req.session['account_lastsearch'] = (name, owner,
                                          expire_date, create_date)
@@ -124,8 +123,8 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
         page.content = lambda: accountsearch.form()
 
     return page
+search = transaction_decorator(search)
 
-@transaction_decorator
 def create(req, transaction, owner, name="", expire_date=""):
     page = Main(req)
     page.title = _("Create a new Account:")
@@ -153,8 +152,8 @@ def create(req, transaction, owner, name="", expire_date=""):
     content = create.form(owner, name, expire_date, alts)
     page.content = lambda: content
     return page
+create = transaction_decorator(create)
 
-@transaction_decorator
 def make(req, transaction, owner, name, expire_date=""):
     commands = transaction.get_commands()
 
@@ -167,9 +166,9 @@ def make(req, transaction, owner, name, expire_date=""):
     account = commands.create_account(name, owner, expire_date)
     redirect_object(req, account)
     transaction.commit()
+make = transaction_decorator(make)
 
 
-@transaction_decorator
 def view(req, transaction, id):
     """Creates a page with a view of the account given by id, returns
        a Main-template"""
@@ -181,19 +180,30 @@ def view(req, transaction, id):
     content = view.viewAccount(req, account)
     page.content = lambda: content
     return page
+view = transaction_decorator(view)
 
-@transaction_decorator
 def edit(req, transaction, id):
     """Creates a page with the form for editing an account."""
     account = transaction.get_account(int(id))
     page = Main(req)
     page.title = ""
     page.setFocus("account/edit")
+    
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()
+    if account.get_expire_date():
+        edit.formvalues['expire_date'] = account.get_expire_date().strftime("%Y-%m-%d")
+    if account.is_posix():
+        edit.formvalues['uid'] = account.get_posix_uid()
+        edit.formvalues['primary_group'] = account.get_primary_group().get_name()
+        edit.formvalues['pg_member_op'] = account.get_pg_member_op().get_name()
+        edit.formvalues['gecos'] = account.get_gecos()
+        edit.formvalues['shell'] = account.get_shell().get_name()
+        
     content = edit.edit(account)
     page.content = lambda: content
     return page
+edit = transaction_decorator(edit)
 
 def save(req, id, save=None, abort=None, expire_date=''):
     pass

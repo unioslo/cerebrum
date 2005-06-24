@@ -24,7 +24,6 @@ from Cereweb.Main import Main
 from Cereweb.templates.MotdViewTemplate import MotdViewTemplate
 from Cereweb.utils import transaction_decorator
 
-@transaction_decorator
 def index(req, transaction):
     page = Main(req)
     page.title = _("Welcome to Cereweb")
@@ -34,5 +33,6 @@ def index(req, transaction):
     page.content = lambda: content
 
     return page
+index = transaction_decorator(index)
 
 # arch-tag: d11bf90a-f730-4568-9234-3fc494982911

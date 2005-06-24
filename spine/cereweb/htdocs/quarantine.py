@@ -24,9 +24,6 @@ from Cereweb.Main import Main
 from Cereweb.utils import queue_message, redirect_object, transaction_decorator
 from Cereweb.templates.QuarantineTemplate import QuarantineTemplate
 
-def index(req):
-    return 'Move along, nothing to see here'
-
 def _quarantine_vars():
     fields =[("entity_type", "Entity type"),
              ("entity_name", "Entity name"),
@@ -40,72 +37,67 @@ def _quarantine_vars():
         formvalues[name] = ""
     return (fields, formvalues)
 
-@transaction_decorator
-def edit(req, transaction, entity_id, type, submit=None, why=None, start=None, end=None, disable_until=None):
-    err_msg = ""
-    (fields, formvalues) = _quarantine_vars()
-    entity = transaction.get_entity(entity_id)
-    for q in entity.get_quarantines():
-        if q.get_type().get_name() == type:
-            formvalues['type'] = type
-            formvalues['why'] = row.why
-            if row.start:
-                formvalues['start'] = row.start.strftime("%Y-%m-%d")
-            if row.end:
-                formvalues['end'] = row.end.strftime("%Y-%m-%d")
-            if row.disable_until:
-                formvalues['disable_until'] = row.disable_until.strftime("%Y-%m-%d")
-            formvalues['entity_type'] = ent.type
-            formvalues['entity_name'] = ent.name
+def format_date(date, format="%Y-%m-%d"):
+    if not date:
+        return ""
+    return date.strftime(format)
 
-    if (submit == 'Save'):
-        did_add = False
-        if (formvalues['why'] != why or
-            formvalues['start'] != start or
-            formvalues['end'] != end):
-            try:
-                ent.remove_quarantine(type=type)
-                ent.add_quarantine(type, why, start, end)
-                did_add = True
-            except:
-                err_msg += "Unable to edit quarantine!"
-        if (did_add or formvalues['disable_until'] != disable_until):
-            try:
-                ent.disable_quarantine(type=type, until=disable_until)
-                did_add = True
-            except:
-                did_add = False
-                err_msg += "Unable to disable quarantine!"
-        if (did_add):
-            redirect_object(req, ent, seeOther=True)
-        else:
-            for name, desc in fields:
-                try:
-                    formvalues[name] = eval(name)
-                except:
-                    pass
+def edit(req, transaction, entity_id, type):
+    (fields, formvalues) = _quarantine_vars()
+    entity = transaction.get_entity(int(entity_id))
+
     page = Main(req)
     edit = QuarantineTemplate()
     edit.fields = fields
     edit.formvalues = formvalues
-    page.content = lambda: edit.quarantine_form(ent, "quarantine/edit")
-    if (err_msg):
-        page.add_message(err_msg, True)
+
+    for q in entity.get_quarantines():
+        if q.get_type().get_name() == type:
+            formvalues['type'] = type
+            formvalues['why'] = q.get_description()
+            formvalues['start'] = format_date(q.get_start_date())
+            formvalues['end'] = format_date(q.get_end_date())
+            formvalues['disable_until'] = format_date(q.get_disable_until())
+    content = edit.quarantine_form(entity, "quarantine/save")
+    page.content = lambda: content
     return page
+edit = transaction_decorator(edit)
 
-def remove(req, entity_id, type):
-    err_msg = ""
-    server = req.session['server']
-    try:
-        ent = ClientAPI.fetch_object_by_id(server, entity_id)
-        ent.remove_quarantine(type=type)
-    except:
-        err_msg = _("Unable to remove quarantine!")
-    queue_message(req, _("Removed quarantine"))
-    return redirect_object(req, ent, seeOther=True)
+def save(req, transaction, entity_id, type, why="", submit=None,
+         start=None, end=None, disable_until=None):
 
-@transaction_decorator
-def add(req, transaction, entity_id, submit=None, type=None, why=None,
+    entity = transaction.get_entity(int(entity_id))
+    for quarantine in entity.get_quarantines():
+        if quarantine.get_type().get_name() == type:
+            break
+    else:
+        queue_message(req, 
+                      _("No such quarantine %s on entity") % type, 
+                      error=True)
+        redirect_object(req, entity, seeOther=True)
+
+    c = transaction.get_commands()
+    quarantine.set_description(why)
+    quarantine.set_start_date(start and c.strptime(start, "%Y-%m-%d") or c.get_date_now())
+    quarantine.set_end_date(end and c.strptime(end, "%Y-%m-%d") or c.get_date_none())
+    quarantine.set_disable_until(disable_until and
+            c.strptime(disable_until, "%Y-%m-%d") or c.get_date_none())
+
+    queue_message(req, _("Updated quarantine %s" % type))
+    redirect_object(req, entity, seeOther=True)
+    transaction.commit()
+save = transaction_decorator(save) 
+
+def remove(req, transaction, entity_id, type):
+    entity = transaction.get_entity(int(entity_id))
+    q_type = transaction.get_quarantine_type(type)
+    entity.remove_quarantine(q_type)
+    queue_message(req, _("Removed quarantine %s") % q_type.get_name())
+    redirect_object(req, entity, seeOther=True)
+    transaction.commit()
+remove = transaction_decorator(remove)
+
+def add(req, transaction, entity_id, submit=None, type=None, why="",
         start=None, end=None, disable_until=None):
 
     err_msg = ""
@@ -132,19 +124,18 @@ def add(req, transaction, entity_id, submit=None, type=None, why=None,
                 Return to the entity's form if OK.
             """
             q_type = transaction.get_quarantine_type(type)
-            #entity.add_quarantine(q_type, why, start, end, disable_until)
             c = transaction.get_commands()
             date_none = c.get_date_none()
 
-            date_start = start and c.strptime(start, "%Y-%m-%d") or date_none
+            date_start = start and c.strptime(start, "%Y-%m-%d") or c.get_date_now()
             date_end = end and c.strptime(end, "%Y-%m-%d") or date_none
-            date_disable_until = disable_until and c.strptime(disable_until, "%Y-%m-%d") or date_none
-            entity.add_quarantine(q_type, why, date_start, date_end, date_disable_until)
-            if (not err_msg):
-                queue_message(req, _("Added quarantine %s" % type))
-                redirect_object(req, entity, seeOther=True)
-                transaction.commit()
-                return
+            date_dis = disable_until and c.strptime(disable_until, "%Y-%m-%d") or date_none
+            entity.add_quarantine(q_type, why, date_start, date_end, date_dis)
+            queue_message(req, _("Added quarantine %s" % type))
+            redirect_object(req, entity, seeOther=True)
+            transaction.commit()
+            return
+        
         except "Jeg vil se feilmeldingen":
             """ Save the values given by the user, and set up
                 en error message to be shown.
@@ -161,17 +152,20 @@ def add(req, transaction, entity_id, submit=None, type=None, why=None,
     add.fields = fields
     add.formvalues = formvalues
 
-    types = dict((i.get_name(), i.get_description()) for i in transaction.get_quarantine_type_searcher().search())
+    has_types = [q.get_type().get_name() for q in entity.get_quarantines()]
     # only present types not already set
+    types = [(qt.get_name(), "%s (%s)" % (qt.get_description(), qt.get_name())) 
+             for qt in transaction.get_quarantine_type_searcher().search()
+             if qt.get_name() not in has_types]
+
     # FIXME: Should only present types appropriate for the
     # entity_type. (how could we know that?) 
-    for i in (i.get_type().get_name() for i in entity.get_quarantines()):
-        del types[i]
     content = add.quarantine_form(entity, "quarantine/add", types)
     page.content = lambda: content
     if (err_msg):
         page.add_message(err_msg, True)
 
     return page
+add = transaction_decorator(add)
 
 # arch-tag: fd438bb2-ecb9-480b-b833-e42484da0a39

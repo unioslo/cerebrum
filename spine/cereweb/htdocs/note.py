@@ -25,7 +25,6 @@ from Cereweb.utils import redirect_object, queue_message, transaction_decorator
 from Cereweb.templates.NoteAddTemplate import NoteAddTemplate
 
 
-@transaction_decorator
 def index(req, transaction, entity, subject="", description=""):
     """Shows the add-note-template."""
     entity = transaction.get_entity(int(entity))
@@ -36,18 +35,20 @@ def index(req, transaction, entity, subject="", description=""):
     index.append(noteadd.addForm(entity))
     page.content = index.output
     return page
+index = transaction_decorator(index)
 
-@transaction_decorator
-def add(req, transaction, entity, subject, description):
+def add(req, transaction, entity, subject="", description=""):
     """Adds a note to some entity."""
     entity = transaction.get_entity(int(entity))
-    entity.add_note(subject, description)
-    queue_message(req, _("Added note '%s'") % subject)
+    if not subject and not description:
+        queue_message(req, _("Could not add blank note"), error=True)
+    else:
+        entity.add_note(subject, description)
+        queue_message(req, _("Added note '%s'") % subject)
     redirect_object(req, entity, seeOther=True)
-
     transaction.commit()
+add = transaction_decorator(add)
 
-@transaction_decorator
 def delete(req, transaction, entity, id):
     """Removes a note."""
     entity = transaction.get_entity(int(entity))
@@ -55,5 +56,6 @@ def delete(req, transaction, entity, id):
     entity.remove_note(note)
     queue_message(req, _("Note deleted"))
     redirect_object(req, entity, seeOther=True)
+delete = transaction_decorator(delete)
 
 # arch-tag: a346491e-4e47-42c1-8646-391b6375b69f

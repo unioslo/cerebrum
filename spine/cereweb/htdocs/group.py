@@ -49,8 +49,7 @@ def list(req):
     (name, desc, spread) = req.session.get('group_lastsearch', ("", "", ""))
     return search(req, name, desc, spread)
 
-@transaction_decorator
-def search(req, name="", desc="", spread="", transaction=None):
+def search(req, name="", desc="", spread="", gid="", transaction=None):
     """Creates a page with a list of groups matching the given criterias."""
     req.session['group_lastsearch'] = (name, desc, spread)
     page = Main(req)
@@ -64,7 +63,7 @@ def search(req, name="", desc="", spread="", transaction=None):
     values['spread'] = spread
     form = GroupSearchTemplate(searchList=[{'formvalues': values}])
 
-    if name or desc or spread:
+    if name or desc or gid:
         server = transaction
         searcher = server.get_group_searcher()
         if name:
@@ -74,6 +73,9 @@ def search(req, name="", desc="", spread="", transaction=None):
             searcher.set_intersections([namesearcher])
         if desc:
             searcher.set_description_like(desc)
+        if gid:
+            searcher.set_posix_gid(int(gid))
+            raise NotImplementedError, "GID-search"
         if spread:
             spreadsearcher = server.get_spread_searcher()
             spreadsearcher.set_name_like(spread)
@@ -112,6 +114,7 @@ def search(req, name="", desc="", spread="", transaction=None):
         page.content = form.form
 
     return page
+search = transaction_decorator(search)
 
 def _get_group(req, transaction, id):
     """Returns a Group-object from the database with the specific id."""
@@ -122,7 +125,6 @@ def _get_group(req, transaction, id):
         queue_message(req, str(e), error=True)
         redirect(req, url("group"), temporary=True)
 
-@transaction_decorator
 def view(req, transaction, id):
     """Creates a page with the view of the group with the given by."""
     group = _get_group(req, transaction, id)
@@ -134,6 +136,7 @@ def view(req, transaction, id):
     content = view.viewGroup(req, group)
     page.content = lambda: content
     return page
+view = transaction_decorator(view)
     
 def _add_box(group):
     ops = operations.items()
@@ -146,7 +149,6 @@ def _add_box(group):
     template = GroupAddMemberTemplate()
     return template.add_member_box(action, member_types, ops)
 
-@transaction_decorator
 def add_member(req, transaction, id, name, type, operation):
     group = _get_group(req, transaction, id)
     try:
@@ -182,8 +184,8 @@ def add_member(req, transaction, id, name, type, operation):
 
     transaction.commit()
     raise Errors.UnreachableCodeError
+add_member = transaction_decorator(add_member)
 
-@transaction_decorator
 def remove_member(req, transaction, groupid, memberid, operation):
     group = _get_group(req, transaction, groupid)
     member = transaction.get_entity(int(memberid))
@@ -191,54 +193,57 @@ def remove_member(req, transaction, groupid, memberid, operation):
 
     group_member = transaction.get_group_member(group, operation, member, member.get_type())
     group.remove_group_member(group_member)
+
     queue_message(req, _("%s removed from group %s") % (object_link(member), group))
     redirect_object(req, group, seeOther=True)
-
     transaction.commit()
+remove_member = transaction_decorator(remove_member)
 
-def edit(req, id):
+def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
-    group = _get_group(req, id)
+    group = _get_group(req, transaction, id)
     page = Main(req)
     page.title = _("Edit %s:" % group.get_name())
     page.setFocus("group/edit", str(group.get_id()))
     edit = GroupEditTemplate()
-    page.content = lambda: edit.editGroup(req, group)
+    content = edit.editGroup(req, group)
+    page.content = lambda: content
     return page
+edit = transaction_decorator(edit)
 
 def create(req, name="", expire="", description=""):
-    """Creates a page with the form for creating a group.
-
-    If names is given, a group is created.
-    """
+    """Creates a page with the form for creating a group."""
     page = Main(req)
     page.title = _("Create a new group:")
     page.setFocus("group/create")
     
-    # Store given parameters in the create-form
-    create = GroupCreateTemplate()
-
-    if name:
-        server = req.session.get("active")
-        page.add_message(_("Sorry, group not create error!"), error=True)
-    
-    content = create.form(name, expire, description)
+    content = GroupCreateTemplate().form(name, expire, description)
     page.content = lambda :content
     return page
 
-def save(req, id, name, expire, description):
+def save(req, transaction, id, name, expire="", description="", gid=None):
     """Save the changes to the server."""
-    server = req.session.get("active")
-    group = _get_group(req, id)
+    group = _get_group(req, transaction, id)
+    c = transaction.get_commands()
     
+    if expire:
+        expire = c.strptime(expire, "%Y-%m-%d")
+    else:
+        expire = c.get_date_none()
+
+    if gid is not None and group.is_posix():
+        group.set_posix_gid(int(gid))
+
     group.set_name(name)
-    group.set_expire_date(server.get_commands().strptime(expire, "%Y-%m-%d"))
+    group.set_expire_date(expire)
     group.set_description(description)
-
-    queue_message(req, _("Group successfully updated."))
+    
     redirect_object(req, group, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Group successfully updated."))
+save = transaction_decorator(save)
 
-@transaction_decorator
+
 def make(req, transaction, name, expire="", description=""):
     """Performs the creation towards the server."""
     commands = transaction.get_commands()
@@ -254,5 +259,6 @@ def make(req, transaction, name, expire="", description=""):
     queue_message(req, _("Group successfully created."))
     redirect_object(req, group, seeOther=True)
     transaction.commit()
+make = transaction_decorator(make)
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

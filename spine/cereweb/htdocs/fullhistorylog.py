@@ -31,7 +31,6 @@ def index(req):
     #page.content = viewhistory.form
     return page
 
-@transaction_decorator
 def view(req, transaction, id):
     """Creates a page with a view of the entire historylog
        based on an entity"""
@@ -48,5 +47,6 @@ def view(req, transaction, id):
     content = view.viewFullHistoryLog(entity)
     page.content = lambda: content
     return page
+view = transaction_decorator(view)
 
 # arch-tag: b5256b7a-e7d9-48f8-9623-92875f2a4f46

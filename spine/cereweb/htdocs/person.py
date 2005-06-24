@@ -43,69 +43,71 @@ def index(req):
 
 def list(req):
     """Creates a page wich content is the last search performed."""
-    (fullname, firstname, lastname,  accountname, birthdate) = \
-        req.session.get('person_lastsearch', ("", "", "", "", ""))
-    return search(req, fullname, firstname, lastname, accountname, birthdate)
+    (name,  accountname, birthdate) = \
+            req.session.get('person_lastsearch', ("", "", ""))
+    return search(req, name, accountname, birthdate)
 
-@transaction_decorator
-def search(req, fullname="", firstname="", lastname="", accountname="", birthdate="", transaction=None):
+def search(req, name="", accountname="", birthdate="", transaction=None):
     """Creates a page with a list of persons matching the given criterias."""
-    req.session['person_lastsearch'] = (fullname, firstname, lastname,
-                                         accountname, birthdate)
+    req.session['person_lastsearch'] = (name, accountname, birthdate)
     page = Main(req)
     page.title = _("Search for person(s):")
     page.setFocus("person/list")
     
     # Store given search parameters in search form
     values = {}
-    values['fullname'] = fullname
-    values['firstname'] = firstname
-    values['lastname'] = lastname
+    values['name'] = name
     values['accountname'] = accountname
     values['birthdate'] = birthdate
     form = PersonSearchTemplate(searchList=[{'formvalues': values}])
     
-    if fullname or firstname or lastname or accountname or birthdate:
-        server = transaction
-        
-        personsearcher = server.get_person_searcher()
+    if name or accountname or birthdate:
+        """
+        Searches first through accountnames and birthdates,
+        then perform an intersection with the result of a search
+        through all name_types for 'name'.
+        """
+        persons = sets.Set()
         intersections = []
 
-        if fullname:
-            searcher = server.get_person_name_searcher()
-            searcher.set_name_variant(server.get_name_type("FULL"))
-            searcher.set_name_like(fullname)
-            searcher.mark_person()
-            intersections.append(searcher)
-
-        if firstname:
-            searcher = server.get_person_name_searcher()
-            searcher.set_name_variant(server.get_name_type("FIRST"))
-            searcher.set_name_like(firstname)
-            searcher.mark_person()
-            intersections.append(searcher)
-
-        if lastname:
-            searcher = server.get_person_name_searcher()
-            searcher.set_name_variant(server.get_name_type("LAST"))
-            searcher.set_name_like(lastname)
-            searcher.mark_person()
-            intersections.append(searcher)
-        
         if accountname:
-            searcher = server.get_account_searcher()
+            searcher = transaction.get_account_searcher()
             searcher.set_name_like(accountname)
             searcher.mark_owner()
             intersections.append(searcher)
             
         if birthdate:
-            date = server.get_commands().strptime(birthdate, "%Y-%m-%d")
+            date = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
             personsearcher.set_birth_date(date)
-
+            
+        if name:
+            unions = []
+            for name_type in transaction.get_name_type_searcher().search():
+                searcher = transaction.get_person_name_searcher()
+                searcher.set_name_variant(name_type)
+                searcher.set_name_like(name)
+                unions.append(searcher)
+            searcher.set_unions(unions[:-1])
+            result = [i.get_person() for i in searcher.search()]
+            if persons:
+                persons.intersection_update(sets.Set(result))
+            else:
+                persons.update(result)
+            
         if intersections:
+            personsearcher = transaction.get_person_searcher()
             personsearcher.set_intersections(intersections)
-        
-        persons = personsearcher.search()
+            result = personsearcher.search()
+            if persons:
+                persons.intersection_update(sets.Set(result))
+            else:
+                persons.update(result)
+
+        #Remove duplicates, checks on person_id.
+        tmp = {}
+        for person in persons:
+            tmp[person.get_id()] = person
+        persons = tmp.values()
         
         # Print results
         result = html.Division(_class="searchresult")
@@ -143,6 +145,7 @@ def search(req, fullname="", firstname="", lastname="", accountname="", birthdat
         page.content = form.form
     
     return page
+search = transaction_decorator(search)
 
 def _primary_name(person):
     """Returns the primary display name for the person."""
@@ -165,7 +168,6 @@ def _get_person(req, transaction, id):
         queue_message(req, str(e), error=True)
         redirect(req, url("person"), temporary=True)
 
-@transaction_decorator
 def view(req, transaction, id, addName=False):
     """Creates a page with a view of the person given by id.
 
@@ -179,8 +181,8 @@ def view(req, transaction, id, addName=False):
     content = view.viewPerson(req, person, addName)
     page.content = lambda: content
     return page
+view = transaction_decorator(view)
 
-@transaction_decorator
 def edit(req, transaction, id, addName=False):
     """Creates a page with the form for editing a person.
     
@@ -190,16 +192,25 @@ def edit(req, transaction, id, addName=False):
     page = Main(req)
     page.title = _("Edit %s:" % _primary_name(person))
     page.setFocus("person/edit", str(person.get_id()))
+
+    genders = [(g.get_name(), g.get_description()) for g in 
+               transaction.get_gender_type_searcher().search()]
+
     edit = PersonEditTemplate()
-    content = edit.editPerson(req, person, addName)
+    content = edit.editPerson(req, person, addName, genders)
     page.content = lambda: content
     return page
+edit = transaction_decorator(edit)
 
-def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_status=""):
+def create(req, transaction, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_status=""):
     """Creates a page with the form for creating a person."""
     page = Main(req)
     page.title = _("Create a new person:")
     page.setFocus("person/create")
+
+    genders = [(g.get_name(), g.get_description()) for g in 
+               transaction.get_gender_type_searcher().search()]
+    
     # Store given create parameters in create-form
     values = {}
     values['birthnr'] = birthnr
@@ -208,12 +219,12 @@ def create(req, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_
     values['affiliation'] = affiliation
     values['aff_status'] = aff_status
     create = PersonCreateTemplate(searchList=[{'formvalues': values}])
-    content = create.form(req)
+    content = create.form(req, genders)
     page.content = lambda: content
     return page
+create = transaction_decorator(create)
 
-@transaction_decorator
-def save(req, transaction, id, gender, birthdate, description, deceased, save):
+def save(req, transaction, id, gender, birthdate, deceased, description=""):
     """Store the form for editing a person into the database."""
     person = _get_person(req, transaction, id)
     
@@ -227,53 +238,50 @@ def save(req, transaction, id, gender, birthdate, description, deceased, save):
     person.set_description(description)
     person.set_deceased(deceased)
     
-    queue_message(req, _("Person successfully updated."))
     redirect_object(req, person, seeOther=True)
-
     transaction.commit()
+    queue_message(req, _("Person successfully updated."))
+save = transaction_decorator(save)
 
-@transaction_decorator
 def make(req, transaction, name, gender, birthdate, description="Created with cereweb"):
     """Create a new person with the given values."""
     birthdate = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
     gender = transaction.get_gender_type(gender)
-    person = transaction.get_commands().create_person(birthdate, gender)
     
-    name_type = transaction.get_name_type('FULL')
     source_system = transaction.get_source_system('Manual')
-    person.add_name(name, name_type, source_system)
+    person = transaction.get_commands().create_person(
+               birthdate, gender, name, source_system)
 
     if description:
         person.set_description(description)
     
-    queue_message(req, _("Person successfully created."))
     redirect_object(req, person, seeOther=True)
     transaction.commit()
+    queue_message(req, _("Person successfully created."))
+make = transaction_decorator(make)
 
-@transaction_decorator
 def delete(req, transaction, id):
     """Delete the person from the server."""
     person = _get_person(req, transaction, id)
     person.delete()
 
-    queue_message(req, "Person successfully deleted.")
     redirect(req, url("person"), seeOther=True)
-    
     transaction.commit()
+    queue_message(req, "Person successfully deleted.")
+delete = transaction_decorator(delete)
 
-@transaction_decorator
 def add_name(req, transaction, id, name, name_type):
     """Add a new name to the person with the given id."""
     person = _get_person(req, transaction, id)
 
     name_type = transaction.get_name_type(name_type)
     source_system = transaction.get_source_system('Manual')
-    person.add_name(name, name_type, source_system)
+    person.set_name(name, name_type, source_system)
 
-    queue_message(req, _("Name successfully added.."))
     redirect_object(req, person, seeOther=True)
-
     transaction.commit()
+    queue_message(req, _("Name successfully added."))
+add_name = transaction_decorator(add_name)
 
 # remove_name ser ikke ut til å være støttet av cerebrum-core
 def remove_name(req, id, name, variant, ss):
@@ -293,17 +301,16 @@ def remove_name(req, id, name, variant, ss):
     queue_message(req, _("Name successfully removed."))
     redirect_object(req, person, seeOther=True)
 
-@transaction_decorator
 def add_external_id(req, transaction, id, external_id, id_type):
     person = _get_person(req, transaction, id)
     source_system = transaction.get_source_system('Manual')
     type = transaction.get_person_external_id_type(id_type)
     person.add_external_id(external_id, type, source_system)
 
-    queue_message(req, _("External id successfully added.."))
     redirect_object(req, person, seeOther=True)
-
     transaction.commit()
+    queue_message(req, _("External id successfully added."))
+add_external_id = transaction_decorator(add_external_id)
 
 def accounts(req, owner, add=None, remember=None, delete=None):
     if add:
