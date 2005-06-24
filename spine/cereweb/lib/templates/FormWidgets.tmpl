@@ -1,4 +1,4 @@
-## Copyright 2004, 2055 University of Oslo, Norway
+## Copyright 2004, 2005 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -16,6 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
 
 ## Creates a drop-down option list where 'selected' is preselected.
 #def generate_option($name, $types, $selected=None)
@@ -48,5 +50,18 @@
         <option value="True">True</option>
     #end if
     </select><br />
+#end def
+
+## Creates a box with info about the form, from the attribute help.
+#def showHelp($lines)
+#if $lines
+    <div class="help">
+        #for $line in $lines
+        <div class="extra">
+            $_($line)
+        </div>  
+        #end for
+    </div>  
+#end if
 #end def
 

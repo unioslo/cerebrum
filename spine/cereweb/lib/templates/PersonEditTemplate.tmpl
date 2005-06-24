@@ -41,19 +41,6 @@
     #return $url("person/save")
 #end def
 
-## Creates a box with info about the form, from the attribute help.
-#def showHelp($lines)
-#if $lines
-    <div class="help">
-        #for $line in $lines
-        <div class="extra">
-            $_($line)
-        </div>
-        #end for
-    </div>
-#end if
-#end def
-
 ## Creates the form for editing the main person info.
 #def form($person, $genders)
 <div class="edit">
@@ -73,7 +60,7 @@
             $form_widgets.boolWidget("deceased", "Deceased", $person.get_deceased())
             <input type="hidden" name="id" value="$person.get_id()" />
         </div>
-        $showHelp($help)
+        $form_widgets.showHelp($help)
         <div>
             <center>
                 <input type="submit" value="Save" />&nbsp;

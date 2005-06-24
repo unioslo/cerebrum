@@ -27,34 +27,42 @@
 
 #attr $help = ["* Expire date: YYYY-MM-DD"]
 
+#def input($name, $label)
+    #set $value = $formvalues.get($name, "")
+    $form_widgets.input($name, $label, $value)
+#end def
+
 #def getAction
     #return $url("account/save")
 #end def
 
 #def edit($account)
-<div class="editaccount">
-
-#set $heading = $_("Edit account %s") % ($account.get_name())
-<h2>$heading:</h2>
-
-<form action="$getAction()" method="POST">
-    $form_widgets.input("name", "Name", $formvalues.get("name", ""))
-    $form_widgets.input("expire_date", "Expire date *", $formvalues.get("expire_date",""))
-    $form_widgets.input("owner", "Owner", $formvalues.get("owner",""))
-    #if $account.is_posix()
-        $form_widgets.input("uid", "UID", $formvalues.get("uid",""))
-        $form_widgets.input("primary_group", "Primary group",
-                            $formvalues.get("primary_group",""))
-        $form_widgets.input("pg_member_op", "Primary group operation",
-                            $formvalues.get("pg_member_op",""))
-        $form_widgets.input("gecos", "Gecos", $formvalues.get("gecos",""))
-        $form_widgets.input("shell","Shell", $formvalues.get("shell",""))
-    #end if
-    <input type="hidden" name="id" value="$account.get_id()" />
-    <center>
-        <input type="submit" value="$_('Save')" />
-    </center>
-</form>
+<div class="edit">
+    <div class="subtitle">
+        #set $heading = $_("Edit account %s") % ($account.get_name())
+        <h3>$heading:</h3>
+    </div>
+    <form action="$getAction()" method="POST">
+        <div class="editform">
+            $input("name", "Name")
+            $input("expire_date", "Expire date *")
+            $input("owner", "Owner")
+            #if $account.is_posix()
+                $input("uid", "UID")
+                $input("primary_group", "Primary group")
+                $input("pg_member_op", "Group operation")
+                $input("gecos", "Gecos")
+                $input("shell","Shell")
+            #end if
+            <input type="hidden" name="id" value="$account.get_id()" />
+        </div>
+        $form_widgets.showHelp($help)
+        <div>
+            <center>
+                <input type="submit" value="$_('Save')" />
+            </center>
+        </div>
+    </form>
 </div>
 #end def
 
