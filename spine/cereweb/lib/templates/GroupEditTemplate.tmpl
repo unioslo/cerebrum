@@ -17,24 +17,23 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from Cereweb.utils import url
-#extends EntityViewTemplate
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
 
 ## List of strings wich describes the form.
-#attr $help = ["No help ready at this moment."]
+#attr $help = ["* Expire date: YYYY-MM-DD"] 
 
 ## Creates the content on the group edit page.
 #def editGroup($req, $group)
 <div class="group">
     $form($group)
     ##$posixgroup($req, $group)
-    $members($req, $group)
 </div>
-$view_entity($group, $req)
 #end def
 
 ## Action to go to when the form is submitted.
 #def getAction
-$url("group/edit")#slurp
+$url("group/save")#slurp
 #end def
 
 ## Creates input and labes with given values.
@@ -65,30 +64,29 @@ $url("group/edit")#slurp
     <form action="$getAction()" method="POST">
         <div class="editform">
             $input("name", "Name", $group.get_name())
-            <label for="desc">$_('Description'):</label>
-            <textarea rows="3" cols="40" name="desc">$group.get_description()</textarea>
+            #if $group.is_posix()
+            $input("gid", "Gid", $group.get_posix_gid())
+            #end if
+            <label for="description">$_('Description'):</label>
+            <textarea rows="3" cols="40" name="description">$group.get_description()</textarea>
             <br />
-            #set $date = $group.get_expire_date().strftime("%Y-%m-%d")
-            $input("expire_date", "Expire date", $date)
+            #set $date = $group.get_expire_date()
+            #set $date = $date and $date.strftime("%Y-%m-%d") or ""
+            $input("expire", "Expire date *", $date)
             <input type="hidden" name="id" value="$group.get_id()" />
         </div>
         $showHelp($help)
         <div>
             <center>
-                <input type="submit" name="save" value="Save" />&nbsp;
+                <input type="submit" value="Save" />&nbsp;
+                <!--
                 <input type="submit" name="delete" value="Delete" />&nbsp;
                 <input type="submit" name="remember" value="Remember" />&nbsp;
+                -->
             </center>
         </div>
     </form>
 </div>
 #end def
 
-#def members($req, $group)
-<div class="groupmembers">
-    <div class="subtitle">
-        <h3>$_("Members"):</h3>
-    </div>
-</div>
-#end def
 

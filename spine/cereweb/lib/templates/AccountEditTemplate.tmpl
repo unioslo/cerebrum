@@ -1,4 +1,4 @@
-## Copyright 2004 University of Oslo, Norway
+## Copyright 2004, 2005 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -20,26 +20,16 @@
 #from Cereweb.utils import url
 #extends InitTemplate
 
-
-## List of tuples (name, label)
-#attr $fields = [("name", "Name"),
-                 ("owner", "Owner"),
-                 ("affiliation", "Affiliation"),
-                 ("expire_date", "Expire date"),
-                ]
-#def getAction
-$url("account/save")#slurp
-#end def
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
 
 #attr $formvalues = {}
 
+#attr $help = ["* Expire date: YYYY-MM-DD"]
 
-#def input($name, $label)
-    #set $value = $formvalues.get($name, "")
-    <label for="$name">$label</label>
-    <input type="text" name="$name" id="$name" value="$value" /><br />
+#def getAction
+    #return $url("account/save")
 #end def
-
 
 #def edit($account)
 <div class="editaccount">
@@ -48,12 +38,22 @@ $url("account/save")#slurp
 <h2>$heading:</h2>
 
 <form action="$getAction()" method="POST">
-#for $name, $label in $fields
-    #echo $input($name, $label)
-#end for
+    $form_widgets.input("name", "Name", $formvalues.get("name", ""))
+    $form_widgets.input("expire_date", "Expire date *", $formvalues.get("expire_date",""))
+    $form_widgets.input("owner", "Owner", $formvalues.get("owner",""))
+    #if $account.is_posix()
+        $form_widgets.input("uid", "UID", $formvalues.get("uid",""))
+        $form_widgets.input("primary_group", "Primary group",
+                            $formvalues.get("primary_group",""))
+        $form_widgets.input("pg_member_op", "Primary group operation",
+                            $formvalues.get("pg_member_op",""))
+        $form_widgets.input("gecos", "Gecos", $formvalues.get("gecos",""))
+        $form_widgets.input("shell","Shell", $formvalues.get("shell",""))
+    #end if
     <input type="hidden" name="id" value="$account.get_id()" />
-    <input type="submit" name="save" value="$_('Save')" />
-    <input type="submit" name="abort" value="$_('Abort')" />
+    <center>
+        <input type="submit" value="$_('Save')" />
+    </center>
 </form>
 </div>
 #end def

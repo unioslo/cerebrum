@@ -1,0 +1,52 @@
+## Copyright 2004, 2055 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+
+## Creates a drop-down option list where 'selected' is preselected.
+#def generate_option($name, $types, $selected=None)
+    <select name="$name" >
+    #for $name, $desc in $types
+        #set $is_selected = ""
+        #if $selected==$name
+            #set $is_selected = " selected"
+        #end if
+        <option$is_selected value="$name">$desc</option>
+    #end for
+    </select>
+#end def
+
+## Creates inputs and labels from given arguments.
+#def input($name, $label, $value="")
+    <label for="$name">$label:</label>
+    <input type="text" name="$name" id="$name" value="$value" /><br />
+#end def
+
+## Creates a drop-down list with true or false.
+#def boolWidget($name, $label, $$default=True)
+    <label for="$name">$_($label):</label>
+    <select name="$name">
+    #if $default
+        <option value="True">True</option>
+        <option value="False">False</option>
+    #else
+        <option value="False">False</option>
+        <option value="True">True</option>
+    #end if
+    </select><br />
+#end def
+

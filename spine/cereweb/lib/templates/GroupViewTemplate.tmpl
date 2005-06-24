@@ -36,6 +36,7 @@
     <div class="members">
         <h2>$_("Members")</h2>
 <%
+# Split memberships by operation type
 memberSets = {}
 for member in allmembers:
     operation = member.get_operation().get_name()
@@ -51,6 +52,10 @@ for operation in ('union', 'intersection', 'difference'):
         continue
     write(self.memberList(operation, members, group))
 %>
+
+     
+$derivedMembers($group)
+
     </div>
     #end if
 #end def
@@ -74,6 +79,18 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 </div>
 #end def
 
+#def derivedMembers($group)
+<h3>$_("Derived members")</h3>
+<p>
+#set members=$group.get_members()
+$members.sort()
+#for $account in $members
+    $object_link($account)
+#end for
+</p>
+
+#end def
+
 
 #def groupInfo(group)
 <div class="info">
@@ -81,27 +98,34 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
     <dt>$_("Name")</dt>
     <dd>$group.get_name()</dd>
 
-#if $group.get_id()
+#if $group.is_posix()
     <dt>$_("Gid")</dt>
-    <dd>$group.get_id()</dd>
+    <dd>$group.get_posix_gid()</dd>
 #end if
 
+#if $group.get_description()
     <dt>$_("Description")</dt>
     <dd>$group.get_description()</dd>
+#end if
 
-##if $group.get_expire_date()
-##set $expire_date=$group.get_expire_date().Format("%Y-%m-%d")
-##    <dt>$_("Expire")</dt>
-##    <dd>$group.get_expire_date().get_date()</dd>
-##end if
+
+#if $group.get_expire_date()
+#set $expire_date = $group.get_expire_date().strftime("%Y-%m-%d")
+    <dt>$_("Expire date")</dt>
+    <dd>$expire_date</dd>
+#end if
 
 ##set $spreads=', '.join($group.spreads)    
 ##if $spreads
 ##    <dt>$_("Spreads")</dt>
 ##    <dd>$spreads</dd>
 ##end if
+#set $edit = $url("group/edit?id=%i" % $group.get_id())
+<a href="$edit">[Edit]</a>
 
 </dl>
+
+
 </div>
 #end def
 

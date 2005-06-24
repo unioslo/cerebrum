@@ -41,6 +41,21 @@
 
         <dt>$_("Owned by")</dt>
         <dd>$object_link($account.get_owner())</dd>
+
+#if $account.is_posix()
+        <dt>$_("UID")</dt>
+        <dd>$account.get_posix_uid()</dd>
+
+        <dt>$_("Primary group")</dt>
+        <dd>$object_link($account.get_primary_group())</dd>
+
+        <dt>$_("Gecos")</dt>
+        <dd>$account.get_gecos()</dd>
+
+        <dt>$_("Shell")</dt>
+        <dd>$account.get_shell().get_name()</dd>
+#end if
+
     </dl>
 </div>
 <div class="actions">
