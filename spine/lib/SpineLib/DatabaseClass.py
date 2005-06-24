@@ -396,8 +396,6 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             if _sql_only:
                 return sql, values
 
-            import time
-            start = time.time()
             # Build objects from the query result, and return them in a list.
             try:
                 rows = self.get_database().query(sql, values)
