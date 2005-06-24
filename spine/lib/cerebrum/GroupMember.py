@@ -90,7 +90,8 @@ def _get_members(group, group_members):
 
 def get_groups(self):
     group_members = {}
-
+    # BUG: Returnerer også grupper hvor vedkommende skal være
+    # difference-tatt-bort. :(
     def get(entity):
         s = registry.GroupMemberSearcher(('get_groups', entity))
         s.set_member(entity)

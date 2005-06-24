@@ -102,12 +102,19 @@ def is_quarantined(self):
 Entity.register_method(Method('is_quarantined', bool), is_quarantined)
 
 def add_quarantine(self, type, description, start, end, disable_until):
-    import mx.DateTime
+    """Add a quarantine to the entity.
+
+    If start date is false the current time is set as start-date.
+    """
+    
     db = self.get_database()
     obj = self._get_cerebrum_obj()
 
     if start:
+        start = start._value
+    else:
         start = mx.DateTime.now()
+        
     if end:
         end = end._value
     if disable_until:
@@ -118,5 +125,13 @@ def add_quarantine(self, type, description, start, end, disable_until):
         obj.disable_entity_quarantine(type.get_id(), disable_until)
 
 Entity.register_method(Method('add_quarantine', None, args=[('type', QuarantineType), ('description', str), ('start', Date), ('end', Date), ('disable_until', Date)], write=True), add_quarantine)
+
+def remove_quarantine(self, type):
+    db = self.get_database()
+    obj = self._get_cerebrum_obj()
+    obj.delete_entity_quarantine(type.get_id())
+
+Entity.register_method(Method('remove_quarantine', None, args=[('type', QuarantineType)], write=True), remove_quarantine)
+
 
 # arch-tag: 07667d91-f0b5-4152-8e83-36994ffa9b8e

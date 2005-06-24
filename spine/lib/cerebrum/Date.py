@@ -112,8 +112,6 @@ def strptime(self, datestr, formatstr):
 def get_date_none(self):
         return Date(None)
 
-Commands.register_method(Method('get_date_none', Date), get_date_none)
-
 # Registers the commands in the Commands-class
 
 Commands.register_method(Method('get_date_now', Date), get_date_now)
@@ -127,5 +125,7 @@ Commands.register_method(Method('get_datetime', Date, args=datetime_args), get_d
 
 strptime_args = [("datestr", str), ("formatstr", str)]
 Commands.register_method(Method('strptime', Date, args=strptime_args), strptime)
+
+Commands.register_method(Method('get_date_none', Date), get_date_none)
 
 # arch-tag: 57d51c14-a6c9-4913-a011-1f7222ad79b5
