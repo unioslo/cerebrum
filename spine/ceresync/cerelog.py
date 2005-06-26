@@ -49,10 +49,6 @@ module initializes everything listed in the configuration file).
 Furthermore, no files/sockets/etc. are opened and no directories are created
 unless there is a LogRecord that *has* to be written out.
 
-The following parameters are fetched from cereconf:
-- DEFAULT_LOGGER, which is the logger name used when nothing else is
-  specified.
-
 
 Multiple instances:
 -------------------
@@ -156,9 +152,6 @@ Configuration:
 
 If no configuration file is found, a default logger is returned.
 
-If no section is found for a given logger name, name is set to
-cereconf.DEFAULT_LOGGER.
-
 Each of loggers, handlers, formatters and filters have their own sections. All
 of these entities are identified by name. Each entity's section is prefixed
 with the entity's type (i.e. '[filter_bar]' for a section describing a filter
@@ -219,18 +212,6 @@ patterns   = [ ('failure', 2),
 (The key 'patterns' is meaningful for DumbSuppressionFilter only.)
 
 
-Examples:
----------
-
-The examples presented in the logging.py package apply to this module as well
-as to the standard logging package. However, in Cerebrum context this module
-is to be used in conjuction with Factory:
-
-import cerebrum_path, cereconf
-from Cerebrum.Utils import Factory
-
-l = Factory.get_logger('foo')
-l.info('blubb blubb')
 """
 
 import types, time, os, sys, string, types, cStringIO, traceback, re
@@ -1537,8 +1518,6 @@ def get_logger(config_file, name=None, fallback=None):
     * It is an error to supply both name and fallback.
     * The first call with fallback == None will set __primary to the name of
       the logger that is constructed.
-    * If no name is given, use primary logger. If it does not exist, use
-      cereconf.DEFAULT_LOGGER.
     * If name is given, always use that name (unless overridden by command
       line args).
     * get_logger(fallback='foo') will log to __primary, if it has been set,
@@ -1562,12 +1541,6 @@ def get_logger(config_file, name=None, fallback=None):
         # ... if there is no primary logger, use fallback
         else:
             name = fallback
-
-    # No name is specified, no fallback is given and no primary has been
-    # registered. Use default.
-    if name is None:
-        import cereconf
-        name = cereconf.DEFAULT_LOGGER
 
     if __loggers.has_key(name):
         logger = __loggers[name]
