@@ -96,7 +96,7 @@ class HiAUndervisning(access_FS.Undervisning):
 	return self.db.query(qry)
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
-                                    terminnr, terminkode, arstall):
+                                    terminkode, arstall, terminnr):
 	"""Finn fødselsnumrene til alle studenter på et gitt 
 	undervisningsenhet. Skal brukes til å generere grupper for
 	adgang til CF."""
