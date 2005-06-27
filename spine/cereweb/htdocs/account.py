@@ -202,7 +202,8 @@ def edit(req, transaction, id):
     # groups which the user can have as primary group
     groups = ()
     if account.is_posix():
-        groups = [(i.get_id(), i.get_name()) for i in account.get_groups()]
+        groups = [(i.get_id(), i.get_name())
+                    for i in account.get_groups() if i.is_posix()]
 
     # shells which the user can change on the account
     shell_searcher = transaction.get_posix_shell_searcher()
