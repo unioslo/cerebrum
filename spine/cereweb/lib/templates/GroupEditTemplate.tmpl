@@ -24,10 +24,10 @@
 #attr $help = ["* Expire date: YYYY-MM-DD"] 
 
 ## Creates the content on the group edit page.
-#def editGroup($req, $group)
+#def editGroup($group)
 <div class="group">
     $form($group)
-    ##$posixgroup($req, $group)
+    ##$posixgroup($group)
 </div>
 #end def
 

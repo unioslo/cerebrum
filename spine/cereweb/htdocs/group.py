@@ -133,7 +133,7 @@ def view(req, transaction, id):
     page.setFocus("group/view", str(group.get_id()))
     view = GroupViewTemplate()
     view.add_member = lambda group:_add_box(group)
-    content = view.viewGroup(req, group)
+    content = view.viewGroup(transaction, group)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
@@ -206,7 +206,7 @@ def edit(req, transaction, id):
     page.title = _("Edit %s:" % group.get_name())
     page.setFocus("group/edit", str(group.get_id()))
     edit = GroupEditTemplate()
-    content = edit.editGroup(req, group)
+    content = edit.editGroup(group)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)

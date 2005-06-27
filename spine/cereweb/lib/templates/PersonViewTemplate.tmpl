@@ -21,22 +21,19 @@
 #from AccountViewTemplate import AccountViewTemplate
 #from PersonNameViewTemplate import PersonNameViewTemplate
 #from PersonNameAddTemplate import PersonNameAddTemplate
-#from PersonExternalIdTemplate import PersonExternalIdTemplate
-#from PersonExternalIdAddTemplate import PersonExternalIdAddTemplate
 #extends EntityViewTemplate
 
 ## Overloaded by other pages to get the right url, used in personNames().
 #attr $page_url = "person/view"
 
 ## Main method for creating the person view page.
-#def viewPerson($req, $person, $addName)
+#def viewPerson($transaction, $person, $addName)
 <div class="person">
     $personInfo($person)
-    $personNames($person, $req, $addName)
-    $externalIds($person, $req)
-    $personAccounts($person, $req)
+    $personNames($person, $transaction, $addName)
+    $personAccounts($person)
 </div>
-$view_entity($person, $req)
+$view_entity($person, $transaction)
 #end def
 
 ## View information about person, like birthdate and gender.
@@ -70,14 +67,14 @@ $view_entity($person, $req)
 #end def
 
 ## List names for this person, and form for adding a name.
-#def personNames($person, $req, $addName)
+#def personNames($person, $transaction, $addName)
 <div class="personnames">
     <a name="names" />
     #set $v = PersonNameViewTemplate()
     #set $a = PersonNameAddTemplate()
     $v.personNames($person)
     #if $addName == "True" or $addName == True
-        $a.addForm($person, $req)
+        $a.addForm($person, $transaction)
     #else
     #set $tmp_url = "%s?id=%i&addName=True#names" % ($page_url, $person.get_id())
     <div class="actions">
@@ -87,19 +84,8 @@ $view_entity($person, $req)
 </div>
 #end def
 
-## List external ids for this person, and form for adding more.
-#def externalIds($person, $req)
-<div class="personnames">
-    <a name="external ids" />
-    #set $v = PersonExternalIdTemplate()
-    #set $a = PersonExternalIdAddTemplate()
-    $v.externalIds($person)
-    $a.addForm($person, $req)
-</div>
-#end def
-
 ## List accounts and groups those accounts belong to.
-#def personAccounts($person, $req)
+#def personAccounts($person)
 #set $allaccounts = $person.get_accounts()
 #if 1
     #set $t = $AccountViewTemplate()

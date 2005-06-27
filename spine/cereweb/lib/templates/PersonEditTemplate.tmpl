@@ -30,7 +30,7 @@
 #attr $help = ["* Birthdate: YYYY-MM-DD"]
 
 ## Creates the content on the person edit page.
-#def editPerson($req, $person, $addName, $genders)
+#def editPerson($person, $addName, $genders)
 <div class="person">
     $form($person, $genders)
 </div>
@@ -49,11 +49,8 @@
     </div>
     <form action="$getAction()" method="POST">
         <div class="editform">
-            <label for="gender">$_("Gender"):</label>
-            $form_widgets.generate_option("gender", 
+            $form_widgets.generate_loption("gender",  "Gender",
                        $genders, $person.get_gender().get_name())
-            <br />           
-
             #set $date = $person.get_birth_date().strftime("%Y-%m-%d")
             $form_widgets.input("birthdate", "Birthdate *", $date)
             $form_widgets.input("description", "Description", $person.get_description())

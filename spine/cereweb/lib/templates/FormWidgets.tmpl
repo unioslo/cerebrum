@@ -32,6 +32,13 @@
     </select>
 #end def
 
+## Creates a drop-down option list with a label.
+#def generate_loption($name, $label, $types, $selected=None)
+    <label for="$name">$_($label):</label>
+    $generate_option($name, $types, $selected)
+    <br />  
+#end def
+
 ## Creates inputs and labels from given arguments.
 #def input($name, $label, $value="")
     <label for="$name">$_($label):</label>

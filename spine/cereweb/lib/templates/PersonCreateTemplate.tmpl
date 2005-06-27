@@ -1,4 +1,4 @@
-## Copyright 2004 University of Oslo, Norway
+## Copyright 2004, 2005 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -18,8 +18,10 @@
 
 #from Cereweb.InitTemplate import InitTemplate
 #from Cereweb.utils import url
-#from PersonEditTemplate import PersonEditTemplate
 #extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
 
 #attr $formvalues = {}
 #attr $help = ["* Birthnumber: 11 digits",
@@ -32,21 +34,18 @@
 #end def
 
 ## The main method for creating the form for the person create page.
-#def form($req)
-#set $edit = PersonEditTemplate()
+#def form($genders)
 <div class="create">
     <form action="$getAction()" method="POST">
         <div class="createform">
-            $edit.input("name", "Full name *", $formvalues.get("name", ""))
-##            $edit.input("birthnr", "Birthnumber ?", $formvalues.get("birthnr", ""))
-            $edit.gender($req)
-            $edit.input("birthdate", "Birthdate *", $formvalues.get("birthdate", ""))
-##            $edit.input("ou", "Organization unit ?", $formvalues.get("ou", ""))
-##            $edit.input("affiliation", "Affiliation ?", $formvalues.get("affiliation", ""))
-##            $edit.input("aff_status", "Affilation status ?", $formvalues.get("aff_status", ""))
-            $edit.input("description", "Description", $formvalues.get("description", ""))
+            #set $fv = $formvalues
+            $form_widgets.input("name", "Full name *", $fv.get("name", ""))
+            $form_widgets.generate_loption("gender", "Gender",
+                                           $genders, $fv.get("gender", ""))
+            $form_widgets.input("birthdate", "Birthdate *", $fv.get("birthdate", ""))
+            $form_widgets.input("description", "Description", $fv.get("description", ""))
         </div>
-        $edit.showHelp($help)
+        $form_widgets.showHelp($help)
         <div>
             <center>
                 <input type="submit" value="$_('Create')" />&nbsp;

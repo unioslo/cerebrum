@@ -1,4 +1,4 @@
-## Copyright 2004 University of Oslo, Norway
+## Copyright 2004, 2005 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -23,23 +23,26 @@
 #from NoteAddTemplate import NoteAddTemplate
 #from QuarantineViewTemplate import QuarantineViewTemplate
 #from SpreadViewTemplate import SpreadViewTemplate
+#from ExternalIdTemplate import ExternalIdTemplate
+#from ExternalIdAddTemplate import ExternalIdAddTemplate
 #extends InitTemplate
 
 ## Main method for creating a view of the entity.
-#def view_entity($entity, $req)
+#def view_entity($entity, $transaction)
 <div class="entityview">
-    $spreads($entity, $req)
+    $spreads($entity)
+    $externalIds($entity, $transaction)
     $quarantines($entity)
-    $notes($entity, $req)
+    $notes($entity)
     $history($entity)
 </div>
 #end def
 
 ## Shows the spreads the entity has.
-#def spreads($entity, $req)
+#def spreads($entity)
 <div class="personnames">
     #set s = SpreadViewTemplate()
-    $s.view_spreads($entity, $req)
+    $s.view_spreads($entity)
 </div>
 #end def
 
@@ -56,11 +59,25 @@
 #end def
 
 ## Shows all notes the entity has, and form for creating a new note.
-#def notes($entity, $req)
+#def notes($entity)
 <div class="notes">
     #set t = NoteViewTemplate()
-    $t.viewNotes($entity, $req)
+    $t.viewNotes($entity)
     #set t = NoteAddTemplate()
     $t.addForm($entity)
 </div>
 #end def
+
+## List external ids for this entity, and form for adding more.
+#def externalIds($entity, $transaction)
+<div class="personnames">
+    <a name="external ids" />
+    #set $v = ExternalIdTemplate()
+    #set $a = ExternalIdAddTemplate()
+    $v.externalIds($entity)
+    #set $searcher = $transaction.get_entity_external_id_type_searcher()
+    #set $id_types = $searcher.search()
+    $a.addForm($entity, $id_types)
+</div>
+#end def
+

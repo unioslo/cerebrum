@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -177,7 +177,7 @@ def view(req, transaction, id):
     account = transaction.get_account(int(id))
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
-    content = view.viewAccount(req, account)
+    content = view.viewAccount(transaction, account)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)

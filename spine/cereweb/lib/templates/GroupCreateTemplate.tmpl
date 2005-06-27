@@ -1,4 +1,4 @@
-## Copyright 2004 University of Oslo, Norway
+## Copyright 2004, 2005 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -20,6 +20,11 @@
 #from Cereweb.utils import url
 #extends InitTemplate
 
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+#attr $help = ["* Expire date: YYYY-MM-DD"]
+
 ## Creates html-code for input-boxes for the form.
 #def input($name, $label, $value)
     <label for="$name">$_($label):</label>
@@ -38,8 +43,9 @@
             <label for="description">$_('Description'):</label>
             <textarea rows="3" cols="40" name="description">$description</textarea>
             <br />
-            $input("expire", "Expiration date *", $expire)
+            $input("expire", "Expire date *", $expire)
         </div>
+        $form_widgets.showHelp($help)
         <div>
             <center>
                 <input type="submit" value="$_('Create')" />&nbsp;
@@ -47,9 +53,6 @@
             </center>
         </div>
     </form>
-    <div class="subtitle">
-        <h3>$_("Posix groupinfo")</h3>
-    </div>
 </div>
 #end def
 

@@ -178,7 +178,7 @@ def view(req, transaction, id, addName=False):
     page.title = _("Person %s:" % _primary_name(person))
     page.setFocus("person/view", str(person.get_id()))
     view = PersonViewTemplate()
-    content = view.viewPerson(req, person, addName)
+    content = view.viewPerson(transaction, person, addName)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
@@ -197,12 +197,12 @@ def edit(req, transaction, id, addName=False):
                transaction.get_gender_type_searcher().search()]
 
     edit = PersonEditTemplate()
-    content = edit.editPerson(req, person, addName, genders)
+    content = edit.editPerson(person, addName, genders)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
 
-def create(req, transaction, birthnr="", gender="", birthdate="", ou="", affiliation="", aff_status=""):
+def create(req, transaction, gender="", birthdate=""):
     """Creates a page with the form for creating a person."""
     page = Main(req)
     page.title = _("Create a new person:")
@@ -213,13 +213,14 @@ def create(req, transaction, birthnr="", gender="", birthdate="", ou="", affilia
     
     # Store given create parameters in create-form
     values = {}
-    values['birthnr'] = birthnr
     values['birthdate'] = birthdate
-    values['ou'] = ou
-    values['affiliation'] = affiliation
-    values['aff_status'] = aff_status
+    values['gender'] = gender
+
+    genders = [(g.get_name(), g.get_description()) for g in 
+               transaction.get_gender_type_searcher().search()]
+    
     create = PersonCreateTemplate(searchList=[{'formvalues': values}])
-    content = create.form(req, genders)
+    content = create.form(genders)
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
