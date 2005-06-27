@@ -66,4 +66,11 @@ def add_external_id(self, id, id_type, source_system):
 
 Entity.register_method(Method('add_external_id', EntityExternalId, args=[('id', str), ('id_type', EntityExternalIdType), ('source_system', SourceSystem)], write=True), add_external_id)
 
+def remove_external_id(self, id, id_type, source_system):
+    e = Cerebrum.Entity.EntityExternalId(self.get_database())
+    e.find(self.get_id())
+    e._delete_external_id(source_system.get_id(), id_type.get_id())
+
+Entity.register_method(Method('remove_external_id', None, args=[('id', str), ('id_type', EntityExternalIdType), ('source_system', SourceSystem)], write=True), remove_external_id)
+
 # arch-tag: ee7aa1c8-845b-4ead-89e0-4fc7aa7051b6
