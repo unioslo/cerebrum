@@ -32,11 +32,18 @@
     $form_widgets.input($name, $label, $value)
 #end def
 
+#def generate_option($name, $label, $types)
+    <label for="$name">$_($label):</label>
+    #set $selected = $formvalues.get($name, None)
+    $form_widgets.generate_option($name, $types, $selected)
+    <br />
+#end def
+
 #def getAction
     #return $url("account/save")
 #end def
 
-#def edit($account)
+#def edit($account, $groups, $shells)
 <div class="edit">
     <div class="subtitle">
         #set $heading = $_("Edit account %s") % ($account.get_name())
@@ -46,13 +53,11 @@
         <div class="editform">
             $input("name", "Name")
             $input("expire_date", "Expire date *")
-            $input("owner", "Owner")
             #if $account.is_posix()
                 $input("uid", "UID")
-                $input("primary_group", "Primary group")
-                $input("pg_member_op", "Group operation")
+                $generate_option("primary_group", "Primary group", $groups)
                 $input("gecos", "Gecos")
-                $input("shell","Shell")
+                $generate_option("shell", "Shell", $shells)
             #end if
             <input type="hidden" name="id" value="$account.get_id()" />
         </div>

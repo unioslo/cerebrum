@@ -195,18 +195,76 @@ def edit(req, transaction, id):
         edit.formvalues['expire_date'] = account.get_expire_date().strftime("%Y-%m-%d")
     if account.is_posix():
         edit.formvalues['uid'] = account.get_posix_uid()
-        edit.formvalues['primary_group'] = account.get_primary_group().get_name()
-        edit.formvalues['pg_member_op'] = account.get_pg_member_op().get_name()
+        edit.formvalues['primary_group'] = account.get_primary_group().get_id()
         edit.formvalues['gecos'] = account.get_gecos()
         edit.formvalues['shell'] = account.get_shell().get_name()
+
+    # groups which the user can have as primary group
+    groups = ()
+    if account.is_posix():
+        groups = [(i.get_id(), i.get_name()) for i in account.get_groups()]
+
+    # shells which the user can change on the account
+    shell_searcher = transaction.get_posix_shell_searcher()
+    shells = [(i.get_name(), i.get_name())
+                    for i in shell_searcher.search()]
         
-    content = edit.edit(account)
+    content = edit.edit(account, groups, shells)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
 
-def save(req, id, save=None, abort=None, expire_date=''):
-    pass
+def save(req, transaction, id, name, expire_date="", uid="",
+         primary_group="", gecos="", shell=None):
+    account = transaction.get_account(int(id))
+    c = transaction.get_commands()
+    error_msgs = []
+
+    if expire_date:
+        expire_date = c.strptime(expire_date, "%Y-%m-%d")
+    else:
+        expire_date = c.get_date_none()
+
+    if shell is not None:
+        shell_searcher = transaction.get_posix_shell_searcher()
+        shell_searcher.set_name(shell)
+        shells = shell_searcher.search()
+
+        if len(shells) == 1:
+            shell = shells[0]
+        else:
+            error_msgs.append("Error, no such shell: %s" % shell)
+        
+    account.set_name(name)
+    account.set_expire_date(expire_date)
+
+    if account.is_posix():
+        if uid:
+            account.set_posix_uid(int(uid))
+
+        if shell:
+            account.set_shell(shell)
+
+        if primary_group:
+            for group in account.get_groups():
+                if group.get_id() == int(primary_group):
+                    account.set_primary_group(group)
+                    break
+            else:
+                error_msgs.append("Error, primary group not found.")
+        
+        account.set_gecos(gecos)
+
+    if error_msgs:
+        for msg in error_msgs:
+            queue_message(req, msg, error=True)
+        redirect_object(req, account, seeOther=True)
+        transaction.rollback()
+    else:
+        redirect_object(req, account, seeOther=True)
+        transaction.commit()
+        queue_message(req, _("Group successfully updated."))
+save = transaction_decorator(save)
 
 def delete(req, id):
     pass

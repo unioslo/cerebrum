@@ -49,7 +49,7 @@
     </div>
     <form action="$getAction()" method="POST">
         <div class="editform">
-            <label for="gender">Gender</label>
+            <label for="gender">$_("Gender"):</label>
             $form_widgets.generate_option("gender", 
                        $genders, $person.get_gender().get_name())
             <br />           

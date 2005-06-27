@@ -19,18 +19,8 @@
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 
-
-#def generate_option($name, $options, $selected=None)
-    <select name="$name" />
-#for $value, $text in $options
-#set $is_selected = ""
-#if $selected==$value
-#set $is_selected = ' selected="selected"'
-#end if
-        <option$is_selected value="$value">$text</option>
-#end for
-    </select>
-#end def
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
 
 #def add_member_box($action, $member_types, $operations)
 <div class="add_member">
@@ -40,10 +30,10 @@
         <label for="name">$_("Name")</label>
         <input type="text" value="" name="name" />
         <label for="type">$_("Type")</label>
-$generate_option("type", $member_types)
+        $form_widgets.generate_option("type", $member_types)
     </div>
     <label for="operation">$_("Operations")</label>
-$generate_option("operation", $operations)
+    $form_widgets.generate_option("operation", $operations)
     <input type="submit" value="$_("Add")"/>
 </form>
 </div>

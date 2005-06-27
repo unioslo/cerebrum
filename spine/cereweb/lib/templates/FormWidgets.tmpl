@@ -34,8 +34,8 @@
 
 ## Creates inputs and labels from given arguments.
 #def input($name, $label, $value="")
-    <label for="$name">$label:</label>
-    <input type="text" name="$name" id="$name" value="$value" /><br />
+    <label for="$name">$_($label):</label>
+    <input type="text" name="$name" id="$name" value="$_($value)" /><br />
 #end def
 
 ## Creates a drop-down list with true or false.
