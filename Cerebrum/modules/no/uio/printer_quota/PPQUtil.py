@@ -244,7 +244,7 @@ class PPQUtil(object):
             
         self.ppq._change_history_owner(old_id, new_id)
         self.ppq._delete_status(old_id)
-        for k in ('free_quota', 'acc_quota', 'total_pages', 'kroner'):
+        for k in ('free_quota', 'accum_quota', 'total_pages', 'kroner'):
             tmp[k] = float(old_ppq[k] + new_ppq[k])
         self.ppq._set_status_attr(new_id, tmp)
         return True
