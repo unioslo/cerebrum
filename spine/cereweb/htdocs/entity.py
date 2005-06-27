@@ -48,3 +48,4 @@ def remove_external_id(req, transaction, id, external_id, id_type):
     queue_message(req, _("External id successfully removed."))
 remove_external_id = transaction_decorator(remove_external_id)
 
+# arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e
