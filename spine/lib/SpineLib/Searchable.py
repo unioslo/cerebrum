@@ -21,6 +21,7 @@
 import copy
 
 from Builder import Method
+from SpineExceptions import ServerProgrammingError
 
 __all__ = ['Searchable']
 
@@ -77,15 +78,15 @@ def create_set_method(attr):
     Will only return the set-method if the 'attr' has the exists-
     attribute. Raises an exception if the 'value' is False.
     """
-    def set(self, value):
-        if not value:
-            raise ValueError('value %s is not allowed for this method' % value)
-        orig = getattr(self, attr.get_name_private(), None)
-        if orig is not value:
-            setattr(self, attr.get_name_private(), value)
-            self.updated.add(attr)
-
     if getattr(attr, 'exists', False):
+        def set(self, value):
+            if not value:
+                raise ServerProgrammingError('Value %s is not allowed for this method' % value)
+            orig = getattr(self, attr.get_name_private(), None)
+            if orig is not value:
+                setattr(self, attr.get_name_private(), value)
+                self.updated.add(attr)
+
         return set
     else:
         return None
@@ -119,8 +120,6 @@ class Searchable(object):
                 search_class_name, search_class_name)
 
         search_class = cls.search_class
-            
-        search_class._cls = cls
 
         search_class.slots = SearchClass.slots + []
         search_class.method_slots = SearchClass.method_slots + []
@@ -180,9 +179,9 @@ class Searchable(object):
     def create_search_method(cls):
         """
         This function creates a search(**args) method for the search class, using
-        the slots convention of the AP API.
+        the slots convention of the Spine API.
         """
-        raise NotImplementedError('this needs to be implemented in subclass')
+        raise ServerProgrammingError('create_search_method() needs to be implemented in subclass %s.' % cls.__name__)
 
     create_search_method = classmethod(create_search_method)
 

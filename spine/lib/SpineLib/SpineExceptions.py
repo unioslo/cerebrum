@@ -34,13 +34,28 @@ class SpineException(Exception):
 class AccessDeniedError(SpineException):
     """Raised if client dont have access to the method."""
 
+class AlreadyLockedError(SpineException):
+    """Raised if a locking error occurs."""
+
+class ReadOnlyAttributeError(SpineException):
+    """Raised if the attribute trying to be written is read-only."""
+
+class DatabaseError(SpineException):
+    """Raised if an error occurs with the database."""
+
+class TransactionError(SpineException):
+    """Raised if the error is related to a transaction."""
+
 class ClientProgrammingError(SpineException):
     """Raised when the client does something illegal."""
+
+class ServerProgrammingError(SpineException):
+    """Raised when something illegal is done in the server-side code."""
 
 class NotFoundError(SpineException):
     """Raised when one or more objects are not found."""
 
-class DebugException(SpineException):
-    """Exceptions sent to the client for debugging purposes."""
+class TooManyMatchesError(SpineException):
+    """Raised when a search, find, get or something similar has too many matches."""
 
 # arch-tag: 7c3b53d8-649b-4dfc-8582-1664e52b6e0e

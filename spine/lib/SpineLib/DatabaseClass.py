@@ -18,29 +18,26 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+# FIXME: Remove PgSQL dependency
 import pyPgSQL.PgSQL
 import Cerebrum
-import Cerebrum.Errors
 from Cerebrum.extlib import sets
 
 from Builder import Attribute
 from Searchable import Searchable
 from Dumpable import Dumpable
 from SpineClass import SpineClass
-from SpineExceptions import SpineException
+from SpineExceptions import DatabaseError, NotFoundError
 
 __all__ = [
-    'DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute', 'DatabaseError',
+    'DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute',
 ]
 
-class DatabaseError(SpineException):
-    pass
-
 class ConvertableAttribute(object):
-    """Mixin for attributes which needs to be converted.
+    """Mixin for attributes which need to be converted.
 
-    This mixin is for attributes which might need to be converted when
-    loaded or saved. Attributes which inherits this class should accept
+    This mixin is for attributes which may need to be converted when loaded or
+    saved in the database. Attributes which inherit this class should accept
     convert_to and convert_from in their __init__-method, so they can be
     overridden for that specific attribute.
     """
@@ -62,10 +59,10 @@ class ConvertableAttribute(object):
         return self.data_type(value)
 
 class DatabaseAttr(Attribute, ConvertableAttribute):
-    """Ojbect attribute from the database.
+    """Object representing an attribute from the database.
 
     Used to represent an attribute which can be found in the database.
-    The value of this attribute will be loaded and saved from/to the
+    The value of this attribute will be loaded/saved from/to the
     database.
 
     You can include your own methods for converting to and from the
@@ -83,7 +80,7 @@ class DatabaseAttr(Attribute, ConvertableAttribute):
         exceptions += [DatabaseError]
 
         Attribute.__init__(self, name, data_type, exceptions=exceptions,
-                           write=write, optional=optional)
+                write=write, optional=optional)
 
         self.table = table
 
@@ -93,7 +90,7 @@ class DatabaseAttr(Attribute, ConvertableAttribute):
             self.convert_from = convert_from
 
 def get_real_name(map, attr, table=None):
-    """Finds the real name from map.
+    """Finds the real name for attr in map.
 
     Map should be a dict with dicts in it, where the table is the key in
     the outer dict, and you have DatabaseAttr.name as key in the inner
@@ -121,6 +118,36 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
     db_attr_aliases = {}
     db_table_order = []
 
+    def __wrapped_execute(self, sql, keys):
+        """Wraps around the execute call on the database to catch exceptions
+        and rethrow proper Spine exceptions."""
+        db = self.get_database()
+        try:
+            return db.execute(sql, keys)
+        except Cerebrum.Errors.DatabaseConnectionError, e:
+            raise DatabaseError('Connection to the database failed', *e.args)
+        except Cerebrum.Errors.DatabaseException, e:
+            raise DatabaseError('Error during query', *e.args)
+        except Cerebrum.Database.DatabaseError, e:
+            raise DatabaseError('Error during query', *e.args)
+
+    def __wrapped_query_1(self, sql, keys):
+        """Wraps around the query_1 call on the database to catch exceptions
+        and rethrow proper Spine exceptions."""
+        db = self.get_database()
+        try:
+            return db.query_1(sql, keys)
+        except Cerebrum.Errors.DatabaseConnectionError, e:
+            raise DatabaseError('Connection to the database failed', *e.args)
+        except Cerebrum.Errors.DatabaseException, e:
+            raise DatabaseError('Error during query', *e.args)
+        except Cerebrum.Database.DatabaseError, e:
+            raise DatabaseError('Error during query', *e.args)
+        except Cerebrum.Errors.NotFoundError, e:
+            raise NotFoundError(*e.args)
+        except Cerebrum.Errors.TooManyRowsError, e:
+            raise NotFoundError(*e.args)
+
     def _load_db_attributes(self, attributes=None):
         """Load 'attributes' from the database.
 
@@ -130,8 +157,6 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         if attributes is None:
             attributes = self._db_load_attributes
 
-        db = self.get_database()
-        
         tables = sets.Set([i.table for i in attributes])
 
         sql = 'SELECT '
@@ -149,12 +174,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         for i in self.primary:
             keys[i.name] = i.convert_to(getattr(self, i.get_name_private()))
 
-        try:
-            row = db.query_1(sql, keys)
-        except Cerebrum.Errors.DatabaseConnectionError, e:
-            raise DatabaseError("Connection to the db failed: %s" % str(e.args))
-        except Cerebrum.Errors.DatabaseException, e:
-            raise DatabaseError(*e.args)
+        row = self.__wrapped_query_1(sql, keys)
         
         if len(attributes) == 1:
             row = {attributes[0].name:row}
@@ -171,8 +191,6 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         been updated, and is a subclass of DatabaseAttr, through one
         SQL-call for each db-table.
         """
-        db = self.get_database()
-
         for table, attributes in self._get_sql_tables().items():
             # only update tables with changed attributes
             changed_attributes = []
@@ -197,12 +215,8 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             keys = {}
             for i in self.primary + changed_attributes:
                 keys[i.name] = attr.convert_to(getattr(self, i.get_name_private()))
-            try:
-                db.execute(sql, keys)
-            except Cerebrum.Errors.DatabaseConnectionError, e:
-                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
-            except Cerebrum.Errors.DatabaseException, e:
-                raise DatabaseError(*e.args)
+
+            self.__wrapped_execute(sql, keys)
 
     def _delete(self):
         """Generic method for deleting this instance from the database.
@@ -211,7 +225,6 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         database which this instance fills. The reverse of db_table_order
         is used if set, and primary slots is used to create the where clause.
         """
-        db = self.get_database()
         table_order = self.db_table_order[:].reverse()
 
         # Prepare primary keys for each table to delete from
@@ -228,12 +241,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         for table in (table_order or tables.keys()):
             sql = "DELETE FROM %s WHERE " % table
             sql += " AND ".join(['%s = :%s' % (a, a) for a in tables[table].keys()])
-            try:
-                db.execute(sql, tables[table])
-            except Cerebrum.Errors.DatabaseConnectionError, e:
-                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
-            except Cerebrum.Errors.DatabaseException, e:
-                raise DatabaseError(*e.args)
+            self.__wrapped_execute(sql, tables[table])
 
     def _create(cls, db, *args, **vargs):
         """Generic method for creating instances in the database.
@@ -249,9 +257,9 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             db = self.get_database()
             id = int(db.nextval('example'))
             Example._create(db, id, example)
-            return Example(id, write_lock=self.get_writelock_holder())
+            return Example(id, write_locker=self.get_writelock_holder())
 
-        Notice the write_lock argument when returning the new object.
+        Notice the write_locker argument when returning the new object.
         """
         map = cls.map_args(*args, **vargs)
         tables = cls._get_sql_tables()
@@ -262,12 +270,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 tmp[cls._get_real_name(attr, table)] = attr.convert_to(map[attr])
             sql = "INSERT INTO %s (%s) VALUES (:%s)" % (
                     table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
-            try:
-                db.execute(sql, tmp)
-            except Cerebrum.Errors.DatabaseConnectionError, e:
-                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
-            except Cerebrum.Errors.DatabaseException, e:
-                raise DatabaseError(*e.args)
+            self.__wrapped_execute(sql, tmp)
 
     _create = classmethod(_create)
 
@@ -400,9 +403,13 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             try:
                 rows = self.get_database().query(sql, values)
             except Cerebrum.Errors.DatabaseConnectionError, e:
-                raise DatabaseError("Connection to the db failed: %s" % str(e.args))
+                raise DatabaseError('Connection to the database failed', *e.args)
             except Cerebrum.Errors.DatabaseException, e:
-                raise DatabaseError(*e.args)
+                raise DatabaseError('Error during query', *e.args)
+            except Cerebrum.Database.DatabaseError, e:
+                raise DatabaseError('Error during query', *e.args)
+            except Cerebrum.Errors.NotFoundError, e:
+                raise NotFoundError(*e.args)
 
             objects = []
             for row in rows:

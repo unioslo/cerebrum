@@ -19,15 +19,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.extlib import sets
-from Transaction import TransactionError
-from Locking import AlreadyLockedError
-from SpineExceptions import AccessDeniedError, DebugException
-
+import Cerebrum.Errors
+from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, ReadOnlyAttributeError, ServerProgrammingError, TransactionError
 
 __all__ = ['Attribute', 'Method', 'Builder']
-
-class ReadOnlyAttributeError(Exception):
-    pass
 
 class Attribute(object):
     """Representation of an attribute in Spine.
@@ -61,8 +56,10 @@ class Attribute(object):
         assert optional in (True, False)
 
         self.data_type = data_type
+        # Add the 'standard' exceptions to the attribute
         self.exceptions = exceptions + [
-            AlreadyLockedError, TransactionError, AccessDeniedError, DebugException
+            AlreadyLockedError, DatabaseError, TransactionError, 
+            AccessDeniedError, ServerProgrammingError
         ]
         self.write = write
         self.optional = optional
@@ -100,8 +97,8 @@ class Method(object):
     The methods will be wrapped to allow for authentication and access
     control.
 
-    If the method is "write", the object will be locked for writing
-    before the method is called.
+    If the method is "write" and the object is a subclass of Locking, the
+    object will be locked for writing before the method is called.
     """
     
     def __init__(self, name, data_type, args=None, exceptions=None, write=False):
@@ -111,7 +108,7 @@ class Method(object):
         data_type   - the return type, should be a class or type: str, list, Entity.
         args        - a list with lists of arguments, like (("name", str), ("blipp", list")).
         exceptions  - list with all exceptions accessing this attribute might raise.
-        write       - should be True for methods which should requiere writelocks.
+        write       - should be True for methods which change and object and/or require write locks.
         """
         if args is None:
             args = ()
@@ -126,7 +123,8 @@ class Method(object):
         self.data_type = data_type
         self.args = args
         self.exceptions = exceptions + [
-            AlreadyLockedError, TransactionError, AccessDeniedError, DebugException
+            AlreadyLockedError, DatabaseError, TransactionError, 
+            AccessDeniedError, ServerProgrammingError
         ]
         self.write = write
         self.doc = None
@@ -175,11 +173,11 @@ class Builder(object):
     Attributes which subclasses should implement:
     'primary' should contain attributes which are unique for objects.
     'slots' should contain the rest of the attributes for the class.
-    'method_slots' should containt methods which are implementet with
+    'method_slots' should contain methods which are implemented with
     the same name in the class.
 
     'builder_parents' and 'builder_children' are used for inheritance
-    in corba.
+    in CORBA.
     """
     
     primary = []
@@ -223,7 +221,7 @@ class Builder(object):
         for attr in cls.slots:
             if attr.name == name:
                 return attr
-        raise KeyError('Attribute %s not found in %s' % (name, cls))
+        raise ServerProgrammingError('Attribute %s not found in %s' % (name, cls))
 
     get_attr = classmethod(get_attr)
 
@@ -245,10 +243,6 @@ class Builder(object):
                 load_method = getattr(self, attr.get_name_load(), None)
                 if load_method not in loaded and load_method is not None:
                     if attr.optional:
-                        # FIXME: pass på riktig exception
-                        # Cerebrum.spine.server.Cerebrum_core og 
-                        # Cerebrum.Errors er ikke det samme.
-                        import Cerebrum.Errors
                         try:
                             load_method()
                         except Cerebrum.Errors.NotFoundError, e:
@@ -315,9 +309,9 @@ class Builder(object):
                 set = create_readonly_set_method(attribute)
 
         def quick_register(var, method):
-            if method is not None: # no use setting a to None
+            if method is not None: # no use setting the method to None
                 if hasattr(cls, var) and not overwrite:
-                    raise AttributeError('%s already exists in %s' % (var, cls.__name__))
+                    raise ServerProgrammingError('Accessor method %s already exists in %s' % (var, cls.__name__))
                 setattr(cls, var, method)
 
         quick_register(var_load, load)
@@ -327,9 +321,6 @@ class Builder(object):
 
         if register:
             cls.slots.append(attribute)
-#            if cls.builder_children is not None:
-#                for i in cls.builder_children:
-#                    i.slots.append(attribute)
 
     register_attribute = classmethod(register_attribute)
 
@@ -337,10 +328,11 @@ class Builder(object):
         """Registers a method.
         
         Registers the method 'method', and points it towards the method
-        'method_func'.
+        'method_func'. If overwrite is True, an already existing method
+        with the same name will be overwritten.
         """
         if hasattr(cls, method.name) and not overwrite:
-            raise AttributeError('%s already exists in %s' % (method.name, cls.__name__))
+            raise ServerProgrammingError('Method %s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, method_func)
         method.doc = method_func.__doc__
         for m in cls.method_slots:
@@ -353,9 +345,10 @@ class Builder(object):
     register_method = classmethod(register_method)
 
     def build_methods(cls):
-        """Create get/set methods for slots."""
+        """Create get/set methods for all slots."""
         if cls.primary != cls.slots[:len(cls.primary)]:
             cls.slots = cls.primary + cls.slots
+
         for attr in cls.slots:
             get = getattr(cls, attr.get_name_get(), None)
             set = getattr(cls, attr.get_name_set(), None)

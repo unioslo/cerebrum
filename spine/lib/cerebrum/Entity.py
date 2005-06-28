@@ -20,6 +20,7 @@
 
 from SpineLib.Builder import Attribute, Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.SpineExceptions import NotFoundError
 from CerebrumClass import CerebrumClass
 
 from Types import EntityType
@@ -70,10 +71,9 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
                 break
         else:
             entity_class = Entity
-            #raise Exception('unknown or not implemented type %s' % entity_type.get_name())
 
         if cls is not entity_class and cls is not Entity:
-            raise Exception('wrong class. Asked for %s, but found %s' % (cls, entity_class))
+            raise NotFoundError('Wrong class. Asked for %s, but found %s' % (cls, entity_class))
         else:
             obj.__class__ = entity_class
 

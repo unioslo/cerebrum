@@ -20,6 +20,7 @@
 
 from SpineLib.Builder import Attribute
 from SpineLib.SpineClass import SpineClass
+from SpineLib.SpineExceptions import ServerProgrammingError
 from SpineLib.DatabaseClass import DatabaseAttr, ConvertableAttribute
 
 __all__ = ['CerebrumAttr', 'CerebrumDbAttr', 'CerebrumClass']
@@ -80,7 +81,7 @@ class CerebrumClass(SpineClass):
         obj = self.cerebrum_class(db)
         id = self.get_id()
         if not hasattr(obj, 'find'):
-            raise Exception("Cerebrum-class %s has no find-method" % obj.__class__)
+            raise ServerProgrammingError("Cerebrum class %s has no find() method" % obj.__class__)
         obj.find(id)
         return obj
     
