@@ -1,0 +1,21 @@
+[spine]
+idl: SpineCore.idl
+use_ssl: true
+
+[cache]
+cache: true
+cache_dir: /tmp/spine
+idl_file: SpineIDL.idl
+md5_file: SpineIDL.md5
+
+[corba]
+url: http://localhost/spine.ior
+
+[ssl]
+ca_file: CA.crt
+key_file: client.pem
+password: client
+
+[login]
+username: user
+password: pass

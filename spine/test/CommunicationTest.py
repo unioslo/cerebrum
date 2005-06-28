@@ -19,24 +19,22 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
 
-import Spine
 import unittest
-from test import test_support
+from TestBase import *
 
-def Connection():
-    """Returns a new connection to Spine."""
-    return Spine.connect()
+class CommunicationTest(unittest.TestCase):
+    """A simple test to verify that the Spine server is available and that
+    CORBA and self.sessions are working."""
+    def testConnect(self):
+        """Test that we can connect to Spine."""
+        version = spine.get_version()
+        assert type(version.major) is int and type(version.minor) is int
 
-def Session():
-    """Creates a new session using the username and password from the configuration file."""
-    spine = Spine.connect()
-    user = Spine.config.get('spine', 'username')
-    password = Spine.config.get('spine', 'password')
-    return spine.login(user, password)
+    def testSession(self):
+        """Test that it is possible to create a self.session and logout successfully."""
+        self.session = spine.login(username, password)
+        assert len(self.session.get_transactions()) == 0
+        self.session.logout()
 
-def Transaction():
-    """Grabs a new session and returns a new transaction."""
-    session = Session()
-    return session.new_transaction()
-
-# arch-tag: 55b61b58-f4d8-42c6-afcf-1c3001d96371
+if __name__ == '__main__':
+    unittest.main()

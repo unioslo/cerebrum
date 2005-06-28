@@ -19,15 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
 
-import unittest
+import os, sys, traceback, unittest
+from test import test_support
+sys.path.append(os.path.join(os.path.dirname(__file__), '../examples/python/cached_idl/'))
+import Spine
 
-# Test classes
-from AutoTest import *
-from CommunicationTest import *
-from LockingTest import *
-from TransactionTest import *
-
-if __name__ == '__main__':
-    unittest.main()
-
-# arch-tag: d4e71fa7-90e0-4fd5-8b38-ce5ac0340e2f
+username = Spine.conf.get('login', 'username')
+password = Spine.conf.get('login', 'password')
+spine = Spine.connect()
