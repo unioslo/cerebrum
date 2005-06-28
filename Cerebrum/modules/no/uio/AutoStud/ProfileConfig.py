@@ -454,7 +454,7 @@ class StudconfigParser(object):
                     in_profil.add_selection_criteria(ename2, attrs2)
             else:
                 self._config.add_error("Unexpected tag %s in %s" % (
-                    ename, repr(self.elementstack)))
+                    ename, repr(elem_stack)))
         self._config.profiles.append(in_profil)
 
 # arch-tag: 8d52e58e-fdc3-456f-a9d0-7fe2d2281398
