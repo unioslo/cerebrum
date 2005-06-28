@@ -176,8 +176,9 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
     for q in quota:
         for quota_type in ('start', 'free_akk'):
             if q.get(quota_type, 0) > 0:
-                if q['id'] not in free_this_term.get(person_id, []):
-                    logger.debug("grant %s for %i" % (q['id'], person_id))
+                qid = "%s:%s" % (q['id'], quota_type)
+                if qid not in free_this_term.get(person_id, []):
+                    logger.debug("grant %s for %i" % (qid, person_id))
                     pageunits_accum = increment = 0
                     if quota_type == 'start':
                         increment = q[quota_type]
@@ -185,11 +186,11 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                         pageunits_accum = q[quota_type]
                     pu.add_free_pages(person_id,
                                       increment,
-                                      '%s%s:%s' % (term_init_prefix, q['id'], quota_type),
+                                      '%s%s' % (term_init_prefix, qid),
                                       pageunits_accum=pageunits_accum,
                                       update_program=update_program)
                     pq_logger.info("grant %s=%i for %i" % (
-                        q['id'], q[quota_type], person_id))
+                        qid, q[quota_type], person_id))
         if q.has_key('weekly'):
             new_weekly = (new_weekly or 0) + q['weekly']
         if q.has_key('max'):
