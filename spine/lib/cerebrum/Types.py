@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.SpineExceptions import *
+from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 from SpineLib import Registry
 
 registry = Registry.get_registry()
@@ -35,7 +35,7 @@ class CodeType(DatabaseClass):
             if not len(results):
                 raise NotFoundError('No match for %s(%s)' % (cls.__name__, name))
             elif len(results) > 1:
-                raise NotFoundError('Multiple matches for %s(%s)' % (cls.__name__, name))
+                raise TooManyMatchesError('Multiple matches for %s(%s)' % (cls.__name__, name))
             return results[0]
         else:
             return super(CodeType, cls).__new__(cls, id=id, name=name, **args)
@@ -63,6 +63,7 @@ for name, table in [('AccountType', 'account_code'),
                     ('OUPerspectiveType', 'ou_perspective_code'),
                     ('AuthOperationType', 'auth_op_code'),
                     ('HomeStatus', 'home_status_code'),
+                    ('PersonAffiliationType', 'person_affiliation_code'),
                     ('ValueDomain', 'value_domain_code'),
                     ('LanguageType', 'language_code')]:
 
@@ -75,6 +76,7 @@ for name, table in [('AccountType', 'account_code'),
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
     ]
+    cls.method_slots = []
     cls.db_attr_aliases = {
         table:{
             'id':'code',
@@ -96,6 +98,7 @@ class EntityExternalIdType(CodeType):
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
     ]
+    method_slots = []
     db_attr_aliases = {
         table:{
             'id':'code',
@@ -106,5 +109,26 @@ class EntityExternalIdType(CodeType):
 
 registry.register_class(EntityExternalIdType)
 __all__.append(EntityExternalIdType)
+
+table = 'person_aff_status_code'
+class PersonAffiliationStatusType(CodeType):
+    primary = [
+        DatabaseAttr('id', table, int),
+    ]
+    slots = [
+        DatabaseAttr('affiliation', table, PersonAffiliationType),
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('description', table, str)
+    ]
+    method_slots = []
+    db_attr_aliases = {
+        table : {
+            'id' : 'status',
+            'name' : 'status_str'
+        }
+    }
+
+registry.register_class(PersonAffiliationStatusType)
+__all__.append(PersonAffiliationStatusType)
 
 # arch-tag: 965b1b0a-4526-4189-b507-2459e1ed646d

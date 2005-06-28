@@ -39,6 +39,7 @@ import GroupMember
 # Person
 import Person
 import PersonName
+import PersonAffiliation
 
 # Account
 import Account
@@ -47,6 +48,7 @@ import AccountHome
 
 # OU
 import OUStructure
+import OUName
 import OU
 
 # Disk
