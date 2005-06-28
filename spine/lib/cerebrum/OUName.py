@@ -67,3 +67,4 @@ OU.register_method(Method('create_name', OUName,
     args=[('name', str), ('language', LanguageType)], write=True),
     create_name)
 
+# arch-tag: 841ed6f0-e7d7-11d9-8d7b-6f95ec48c53b

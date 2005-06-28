@@ -36,3 +36,5 @@ f = open('commented.idl', 'w')
 f.write(src)
 f.close()
 print 'Done!'
+
+# arch-tag: 83bf6634-e7d7-11d9-8f72-cb1ef6981e96

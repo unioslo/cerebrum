@@ -94,3 +94,4 @@ def get_affiliations(self):
 Person.register_method(Method('get_affiliations', [PersonAffiliation], args=[]), get_affiliations)
 
 
+# arch-tag: 848f642e-e7d7-11d9-8ba0-fa7bc076c927
