@@ -76,14 +76,15 @@ class PPQUtil(object):
             update_by=update_by,
             update_program=update_program)
 
-    def _alter_free_pages(self, op, person_id, new_value, why,
+    def _alter_free_pages(self, op, person_id, new_value, why, pageunits_accum=0,
                           update_by=None, update_program=None, force=False):
         if new_value < 0:
             raise errors.InvalidQuotaData, "Cannot %s negative quota" % op
         row = self.ppq.find(person_id)
         if op == 'set':
             new_value = new_value - int(row['free_quota'])
-        if new_value == 0 and not force:
+            pageunits_accum = pageunits_accum - int(row['accum_quota'])
+        if new_value == 0 and pageunits_accum == 0 and not force:
             # don't want excessive logging of peoples typos, but
             # things like quota_update should be allowed to force so
             # that the initial semester quota is granted on first run,
@@ -94,6 +95,7 @@ class PPQUtil(object):
             self.const.pqtt_quota_fill_free,
             person_id,
             pageunits_free=new_value,
+            pageunits_accum=pageunits_accum,
             description=why,
             update_by=update_by,
             update_program=update_program)
@@ -105,9 +107,10 @@ class PPQUtil(object):
                                update_program=update_program,
                                force=force)
 
-    def add_free_pages(self, person_id, increment, why,
+    def add_free_pages(self, person_id, increment, why, pageunits_accum=0,
                        update_by=None, update_program=None):
         self._alter_free_pages('add', person_id, int(increment), why,
+                               pageunits_accum=pageunits_accum,
                                update_by=update_by,
                                update_program=update_program)
 
