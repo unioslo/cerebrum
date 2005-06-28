@@ -119,6 +119,26 @@ class HiAUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
+    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
+        """Hent alle studentene som er oppført på et gitt kull."""
+
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studieprogramkode = :studieprogramkode AND
+            terminkode_kull = :terminkode_kull AND
+            arstall_kull = :arstall_kull
+        """
+
+        return self.db.query(query, {"studieprogramkode" : studieprogramkode,
+                                     "terminkode_kull"   : terminkode,
+                                     "arstall_kull"      : arstall})
+    # end list_studenter_kull
+
+
 class HiAEVU(access_FS.EVU):
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
         d = time.strftime("%Y-%m-%d", date)
@@ -170,6 +190,7 @@ class HiAEVU(access_FS.EVU):
               k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
+    
 
 class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
