@@ -354,23 +354,33 @@ def add_spread(entity_id, spread):
         if sock.read() == ['210 OK']:
             group.clear()
             group.find(entity_id)
+
             for grpmemb in group.get_members():
                 account.clear()
                 account.find(grpmemb)
-		if account.is_expired():
-		    #Groupmember is expired and is not added to group.	
-		    logger.debug('Add_spread:Groupmember %s is expired' % entity_id)
-                    if account.has_spread(co.spread_uio_ad_account):
+
+                if account.has_spread(co.spread_uio_ad_account):
+		    if not account.is_expired():
                         name = account.get_name(int(co.account_namespace))
                         logger.debug('Add %s to %s' % (name,grp))
-                        sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
+                        sock.send('ADDUSRGR&%s/%s&%s/%s\n' % 
+				(cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
                         if sock.read() != ['210 OK']:
                             logger.debug('Failed add %s to %s' % (name, grp))
+
+		    else:
+		    	logger.debug('Add_spread:Groupmember %s is expired' % entity_id)
+
+		else:
+		    logger.debug('Add_spread:Groupmember %s not ad_spread' % entity_id)
+
 	    return True
+
         logger.debug('Failed create group %s in OU Users' % grp)
     else:
         if debug:
             logger.debug('Add spread: %s not an ad_spread' %  spread) 
+
         return True
 
 
