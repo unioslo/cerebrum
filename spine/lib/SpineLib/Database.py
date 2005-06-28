@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from threading import Lock
+from threading import RLock
 from Cerebrum.Utils import Factory
 Database = Factory.get('Database')
 
@@ -31,7 +31,7 @@ class SpineDatabase(Database):
     """
     
     def __init__(self, entity_id=None):
-        self._lock = Lock()
+        self._lock = RLock()
         Database.__init__(self)
         if entity_id is None:
             self.cl_init(change_program='Spine')
