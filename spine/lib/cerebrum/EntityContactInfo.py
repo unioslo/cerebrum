@@ -44,6 +44,7 @@ class EntityContactInfo(DatabaseClass):
         DatabaseAttr('contact_value', table, str, write=True),
         DatabaseAttr('description', table, str, write=True)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table:{'entity':'entity_id'}

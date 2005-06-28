@@ -63,7 +63,7 @@ def create(self, name, description):
     host = Factory.get('Host')(db)
     host.populate(name, description)
     host.write_db()
-    return Host(host.entity_id, write_lock=self.get_writelock_holder())
+    return Host(host.entity_id, write_locker=self.get_writelock_holder())
     
 args = [('name', str), ('description', str)]
 Commands.register_method(Method('create_host', Host, args=args, write=True), create)

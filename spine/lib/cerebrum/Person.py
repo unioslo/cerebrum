@@ -96,7 +96,7 @@ def create(self, birthdate, gender, full_name, source_system):
         raise e # FIXME: Raise proper Spine exception telling that the source
                 # system does not exist in the lookup table
     #id = Person._create(db, birthdate.strftime("%Y-%m-%d"), gender.get_id())
-    p = Person(person.entity_id, write_lock=self.get_writelock_holder())
+    p = Person(person.entity_id, write_locker=self.get_writelock_holder())
     return p
 
 Commands.register_method(Method('create_person', Person, write=True,

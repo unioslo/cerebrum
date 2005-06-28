@@ -41,6 +41,7 @@ class PosixShell(CodeType):
         DatabaseAttr('name', table, str),
         DatabaseAttr('shell', table, str)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table:{

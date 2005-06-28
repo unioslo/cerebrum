@@ -66,7 +66,7 @@ def create(self, host, path, description):
     disk = Factory.get('Disk')(db)
     disk.populate(host, path, description)
     disk.write_db()
-    return Disk(disk.entity_id, write_lock=self.get_writelock_holder())
+    return Disk(disk.entity_id, write_locker=self.get_writelock_holder())
 
 args = [('host', Host), ('path', str), ('description', str)]
 Commands.register_method(Method('create_disk', Disk, args=args, write=True), create)

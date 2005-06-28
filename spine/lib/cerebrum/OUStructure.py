@@ -36,6 +36,7 @@ class OUStructure(DatabaseClass):
         DatabaseAttr('perspective', table, OUPerspectiveType),
     ]
     slots = [DatabaseAttr('parent', table, OU)]
+    method_slots = []
     db_attr_aliases = {
         table : {
             'ou' : 'ou_id',

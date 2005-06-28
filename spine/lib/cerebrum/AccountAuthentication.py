@@ -40,6 +40,8 @@ class AccountAuthentication(DatabaseClass):
         DatabaseAttr('auth_data', table, str, write=True)
     ]
 
+    method_slots = []
+
     db_attr_aliases = {
         table:{
             'account':'account_id'

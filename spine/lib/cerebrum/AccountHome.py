@@ -18,13 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import crypt
-
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Account import Account
-from Disk import Disk
 from Types import Spread, HomeStatus
 
 from SpineLib import Registry
@@ -38,14 +34,14 @@ class AccountHome(DatabaseClass):
     ]
     slots = [
         DatabaseAttr('home', table, str, write=True),
-        DatabaseAttr('disk', table, Disk, write=True),
-        DatabaseAttr('status', table, HomeStatus, write=True)
     ]
+
+    method_slots = []
 
     db_attr_aliases = {
         table:{
             'account':'account_id',
-            'disk':'disk_id'
+            'home':'homedir_id'
         }
     }
 

@@ -57,7 +57,7 @@ def create_ou(self, name, institusjon, fakultet, institutt, avdeling):
     ou = Factory.get('OU')(db)
     ou.populate(name, fakultet, institutt, avdeling, institusjon)
     ou.write_db()
-    spine_ou = OU(ou.entity_id, write_lock=self.get_writelock_holder())
+    spine_ou = OU(ou.entity_id, write_locker=self.get_writelock_holder())
     return spine_ou
 
 # Overwrite the OU create method to take additional arguments

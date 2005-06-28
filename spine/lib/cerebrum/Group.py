@@ -79,7 +79,7 @@ def create(self, name):
     group = Factory.get('Group')(db)
     group.populate(db.change_by, GroupVisibilityType(name='A').get_id(), name)
     group.write_db()
-    return Group(group.entity_id, write_lock=self.get_writelock_holder())
+    return Group(group.entity_id, write_locker=self.get_writelock_holder())
 
 Commands.register_method(Method('create_group', Group, args=[('name', str)], write=True), create)
 

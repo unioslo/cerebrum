@@ -36,6 +36,7 @@ class PersonName(DatabaseClass):
     slots = [
         DatabaseAttr('name', 'person_name', str, write=True)
     ]
+    method_slots = []
     db_attr_aliases = {
         'person_name':{
             'person':'person_id'

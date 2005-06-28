@@ -39,6 +39,7 @@ class GroupMember(DatabaseClass):
         DatabaseAttr('member_type', table, EntityType)
     ]
     slots = []
+    method_slots = []
     db_attr_aliases = {
         table:{
             'group':'group_id',

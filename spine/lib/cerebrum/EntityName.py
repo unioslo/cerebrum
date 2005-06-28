@@ -41,6 +41,7 @@ class EntityName(DatabaseClass):
     slots = [
         DatabaseAttr('name', table, str, write=True)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table:{

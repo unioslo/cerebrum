@@ -37,6 +37,7 @@ class EntitySpread(DatabaseClass):
         DatabaseAttr('entity_type', table, EntityType),
         DatabaseAttr('spread', table, Spread)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table:{'entity':'entity_id'}

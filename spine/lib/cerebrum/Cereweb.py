@@ -105,7 +105,7 @@ class CerewebCommands(SpineClass):
         id = int(db.nextval('cereweb_seq'))
         creator = self.get_writelock_holder().get_client()
         CerewebMotd._create(db, id, creator=creator, subject=subject, message=message)
-        return CerewebMotd(id, write_lock=self.get_writelock_holder())
+        return CerewebMotd(id, write_locker=self.get_writelock_holder())
 
     def create_cereweb_option(self, entity, key, value):
         """Create a new option.
@@ -115,7 +115,7 @@ class CerewebCommands(SpineClass):
         db = self.get_database()
         id = int(db.nextval('cereweb_seq'))
         CerewebOption._create(db, id, entity, key, value)
-        return CerewebOption(id, write_lock=self.get_writelock_holder())
+        return CerewebOption(id, write_locker=self.get_writelock_holder())
 
 registry.register_class(CerewebCommands)
 

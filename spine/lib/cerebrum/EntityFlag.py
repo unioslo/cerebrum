@@ -36,6 +36,7 @@ class EntityFlag(DatabaseClass):
         DatabaseAttr('entity', table, Entity),
         DatabaseAttr('flag', table, Flag)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table:{'entity':'entity_id'}

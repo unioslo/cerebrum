@@ -40,6 +40,7 @@ class EntityExternalId(DatabaseClass):
         DatabaseAttr('entity_type', table, EntityType),
         DatabaseAttr('external_id', table, str, write=True)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table: {

@@ -44,6 +44,7 @@ class AccountView(SpineClass):
         Attribute('passwd_des', str),
         Attribute('fullname', str)
     ]
+    method_slots = []
 
     def __new__(self, *args, **vargs):
         return SpineClass.__new__(self, cache=None, *args, **vargs)

@@ -42,6 +42,7 @@ class ChangeType(DatabaseClass):
         DatabaseAttr('type', table, str),
         DatabaseAttr('message', table, str)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table: {
@@ -68,6 +69,8 @@ class ChangeLog(DatabaseClass):
         DatabaseAttr('description', table, str),
         Attribute('message', str),
     ]
+
+    method_slots = []
 
     db_attr_aliases = {
         table:{

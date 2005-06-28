@@ -38,6 +38,7 @@ class RequestCode(CodeType):
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table: {
@@ -60,6 +61,7 @@ class Request(DatabaseClass):
         DatabaseAttr('destination', table, str), # Entity
         DatabaseAttr('state_data', table, str),
     ]
+    method_slots = []
 
     db_attr_aliases = {
         table:{
