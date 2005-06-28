@@ -18,64 +18,96 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys
+import md5
 import os
+import sys
 import urllib
+import ConfigParser
 
-from omniORB import CORBA, sslTP, importIDL, importIDLString
+from omniORB import CORBA, importIDL, importIDLString
 
-import config
 
-sslTP.certificate_authority_file(config.conf.get('ssl', 'ca_file'))
-sslTP.key_file(config.conf.get('ssl', 'key_file'))
-sslTP.key_file_password(config.conf.get('ssl', 'password'))
+conf = ConfigParser.ConfigParser()
+conf.read(('client.conf.template', 'client.conf'))
 
-idl_path = config.conf.get('idl', 'path')
-idl_core = os.path.join(idl_path, config.conf.get('idl', 'core'))
+if conf.getboolean('spine', 'use_ssl'):
+    from omniORB import sslTP
+    sslTP.certificate_authority_file(conf.get('ssl', 'ca_file'))
+    sslTP.key_file(conf.get('ssl', 'key_file'))
+    sslTP.key_file_password(conf.get('ssl', 'password'))
+
+cache_dir = conf.get('cache', 'cache_dir')
+core_idl_file = os.path.join(conf.get('spine', 'idl'))
+idl_file = os.path.join(cache_dir, conf.get('cache', 'idl_file'))
+md5_file = os.path.join(cache_dir, conf.get('cache', 'md5_file'))
 
 def connect(args=[]):
     """Returns the server object.
     
     Method for connecting and fetch the Spine object.
-    The method prefers SSL connections.
     """
-    orb = CORBA.ORB_init(args + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
-    ior = urllib.urlopen(config.conf.get('corba', 'url')).read()
+    if conf.getboolean('spine', 'use_ssl'):
+        orb = CORBA.ORB_init(args + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
+    else:
+        orb = CORBA.ORB_init(args, CORBA.ORB_ID)
+    ior = urllib.urlopen(conf.get('corba', 'url')).read()
     obj = orb.string_to_object(ior)
     spine = obj._narrow(SpineCore.Spine)
     if spine is None:
         raise Exception("Could not narrow the spine object")
-
     return spine
 
-if config.conf.getboolean('spine', 'cache'):
-    # add tmp path to sys.path if it doesnt exists
-    cache_dir = config.conf.get('spine', 'cache_dir')
+if conf.getboolean('cache', 'cache'):
+    # Add cache path to sys.path if it doesnt exists
     if cache_dir not in sys.path:
         sys.path.append(cache_dir)
 
     try:
         import SpineCore
     except:
-        os.system('omniidl -bpython -C %s %s' % (cache_dir, idl_core))
+        os.system('omniidl -bpython -C %s %s' % (cache_dir, core_idl_file))
         import SpineCore
 
     try:
+        spine = connect()
+        f = open(md5_file)
+        cached_md5 = f.read()
+        f.close()
+        if cached_md5 != spine.get_idl_md5():
+            raise 'Get new IDL'
         import SpineIDL
+        Errors = SpineIDL.Errors
     except:
-        source = connect().get_idl()
-        generated = os.path.join(cache_dir, 'SpineIDL.idl')
-        fd = open(generated, 'w')
-        fd.write(source)
-        fd.close()
+        try:
+            spine = connect()
+            source = spine.get_idl()
+            spine_md5 = spine.get_idl_md5()
+            md5sum = md5.md5()
+            md5sum.update(source)
+            if md5sum.hexdigest() != spine_md5:
+                raise RuntimeError('Spine reported erroneous MD5 sum for IDL definitions: %s != %s' % (spine_md5, md5sum.hexdigest()))
+        except CORBA.TRANSIENT:
+            raise RuntimeError('Unable to connect to Spine.')
+        generated = os.path.join(cache_dir, idl_file)
+        f = open(generated, 'w')
+        f.write(source)
+        f.close()
         os.system('omniidl -bpython -C %s %s' % (cache_dir, generated))
+        f = open(md5_file, 'w')
+        f.write(spine_md5)
+        f.close()
         import SpineIDL
+        Errors = SpineIDL.Errors
 else:
-    importIDL(idl_core)
+    importIDL(idl_file)
     import SpineCore
 
-    idl = connect().get_idl()
+    try:
+        idl = connect().get_idl()
+    except CORBA.TRANSIENT:
+        raise RuntimeError('Unable to connect to Spine.')
     importIDLString(idl)
     import SpineIDL
+    Errors = SpineIDL.Errors
 
 # arch-tag: 380b39b2-0d61-411c-80ce-a3b230b04618
