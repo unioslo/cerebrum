@@ -347,7 +347,7 @@ class StudconfigParser(object):
 
     profil_settings = ("stedkode", "gruppe", "spread", "disk", "mail",
                        "printer_kvote", "disk_kvote", "brev", "build",
-                       "print_kvote_fritak", "print_betaling_fritak",
+                       "print_kopiavgift_fritak", "print_betaling_fritak",
                        "priority", "quarantine")
 
     def __init__(self, config, cfg_file):
@@ -443,6 +443,10 @@ class StudconfigParser(object):
                                            attrs['system'])
                 elif ename == 'disk_kvote':
                     self._config.autostud.disk_tool.using_disk_kvote = True
+                elif ename == 'printer_kvote':
+                    for k, v in attrs.items():
+                        if k != 'id':
+                            attrs[k] = int(v)
                 in_profil.add_setting(ename, attrs)
             elif ename == 'select':
                 for ename2, attrs2, children2 in children:

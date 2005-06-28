@@ -236,8 +236,8 @@ class Profile(object):
             return b
         return None  # TBD: Raise error?
         
-    def get_printer_kvote_fritak(self):
-        return self.matcher.get_match("print_kvote_fritak") and 1 or 0
+    def get_printer_kopiavgift_fritak(self):
+        return self.matcher.get_match("print_kopiavgift_fritak") and 1 or 0
 
     def get_printer_betaling_fritak(self):
         return self.matcher.get_match("print_betaling_fritak") and 1 or 0
