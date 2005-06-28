@@ -28,7 +28,9 @@ omniORB.importIDL(spine_core)
 import SpineCore
 import SpineCore__POA
 
-import SessionHandler, Session
+import Session
+import SessionHandler
+
 from Cerebrum.spine.Account import get_account_by_name
 
 # The major version number of the Spine server
@@ -81,6 +83,7 @@ class SpineImpl(SpineCore__POA.Spine):
         except:
             raise exception
 
+
         # Check password
         if not account.authenticate(password):
             raise exception
@@ -99,7 +102,7 @@ class SpineImpl(SpineCore__POA.Spine):
 
         session = Session.SessionImpl(account)
 
-        session_handler = SessionHandler.get_session_handler()
+        session_handler = SessionHandler.get_handler()
         return session_handler.add(session)
 
 

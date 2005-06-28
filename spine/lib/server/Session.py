@@ -37,104 +37,73 @@ registry = Registry.get_registry()
 
 def count():
     i = 0
-    while 1:
-        yield i
+    while True:
         i += 1
+        yield i
 
 class Session:
-    """User-spesific session.
+    """
+    This class implements sessions in Spine.
 
-    This is returned to the client when they succesfully login. If they
-    dont logout, the same session will be returned next time they login.
-
-    This has to be an old-style object, since the idl definition says
-    that Spine should return an Object when logged in.
+    It has to be an old-style object, since the IDL definition says that Spine
+    should return an Object when logged in.
     """
     
     slots = []
     method_slots = [
         Method('new_transaction', CerebrumHandler),
         Method('get_transactions', [CerebrumHandler]),
-        Method('get_transaction', CerebrumHandler, args=[('id', int)]),
         Method('logout', None)
     ]
     builder_parents = ()
     builder_children = ()
     
     def __init__(self, client):
-        self.client = client
         self.counter = count()
-        self.transactions = {}
-        self.corba_transactions = {}
+        self.client = client
+        self._transactions = {}
 
     def reset_timeout(self):
         """This method resets the timeout of this session in its session handler."""
-        handler = SessionHandler.get_session_handler()
+        handler = SessionHandler.get_handler()
         handler.update(self)
 
     def new_transaction(self):
-        self.cleanup()
-        id = self.counter.next()
-        transaction = CerebrumHandler(self, self.client, id)
+        self.reset_timeout()
+        transaction = CerebrumHandler(self, self.client, self.counter.next())
         corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
-        self.transactions[id] = transaction
-        self.corba_transactions[id] = corba_obj
+        self._transactions[transaction] = corba_obj
         return corba_obj
 
-    def cleanup(self):
-        dirty = []
-        for id in self.transactions:
-            if not self.transactions[id].transaction_started:
-                dirty.append(id)
-
-        for id in dirty:
-            drop_associated_objects(self.transactions[id])
-            del self.corba_transactions[id]
-            del self.transactions[id]
-
     def get_transactions(self):
-        self.cleanup()
         self.reset_timeout()
-        return self.corba_transactions.values()
-
-    def get_transaction(self, id):
-        self.reset_timeout()
-        return self.corba_transactions[id]
+        return self._transactions.values() # NOTE: Returns CORBA references
 
     def destroy(self):
-        """ Rollback all transactions and drop the references to them."""
-        for transaction in self.transactions.values():
-            transaction.rollback()
-        self.cleanup()
+        """Rollback all transactions and drop the references to them."""
+        # Get all keys since the dict will change size and raise RuntimeError
+        # if we iterate over it
+        transactions = self._transactions.keys() 
+        for transaction in transactions:
+            transaction.rollback() # This will make the transaction remove itself
         self.client = None
 
-    def invalidate_transaction(self, transaction):
-        com = Communication.get_communication()
-        for id in self.transactions:
-            if self.transactions[id] == transaction:
-                #com.remove_reference(self.corba_transactions[id])
-                break
-        drop_associated_objects(self.transactions[id])
-        del self.corba_transactions[id]
-        del self.transactions[id]
+    def remove_transaction(self, transaction):
+        """Remove all objects associated with the transaction, and remove the
+        sessions reference to the transaction."""
+        assert transaction in self._transactions
+        drop_associated_objects(transaction)
+        del self._transactions[transaction]
 
     def logout(self):
-        handler = SessionHandler.get_session_handler()
+        handler = SessionHandler.get_handler()
         handler.remove(self)
         self.destroy()
 
-    # TODO legge til:
-    #   - is_admin()?
-    #   - is_superuser()??
-    #   - Events
-    #   - Spine-admin-ting?
-    #       - statistikk
-    #       - oversikt over alle brukere/transaksjoner.
-
-# Build corba-classes and idls.
+# Build corba-classes and IDL
 registry.build_all()
 classes = []
-classes += registry.classes
+classes += registry.classes 
 classes.append(Session)
 
 idl_source = create_idl_source(classes, 'SpineIDL')

@@ -20,10 +20,9 @@
 
 import mx.DateTime
 
-from SpineLib.Builder import Attribute, Method
-from SpineLib.SpineClass import SpineClass
+from SpineLib.Builder import Builder, Attribute, Method
 from SpineLib.Transaction import Transaction
-from SpineLib.DatabaseClass import DatabaseError
+from SpineLib.SpineExceptions import DatabaseError
 
 from Entity import Entity
 from Types import CodeType
@@ -32,7 +31,7 @@ from Date import Date
 from SpineLib import Registry
 registry = Registry.get_registry() 
 
-class CerebrumHandler(Transaction, SpineClass):
+class CerebrumHandler(Transaction, Builder):
     primary = [
         Attribute('client', Entity),
         Attribute('id', int)
@@ -49,8 +48,8 @@ class CerebrumHandler(Transaction, SpineClass):
     ]
 
     def __init__(self, session, *args, **vargs):
-        if not SpineClass.__init__(self, *args, **vargs):
-            Transaction.__init__(self, session)
+        Transaction.__init__(self, session)
+        Builder.__init__(self, *args, **vargs)
         
         # Set the current time to the started Attribute.
         started = self.get_attr('time_started').get_name_private()

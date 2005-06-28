@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Communication
-from Cerebrum.spine.SpineLib.ScopedLock import ScopedLock
 import cereconf
 import threading
 import time
@@ -27,67 +26,69 @@ import time
 _session_handler = None
 
 class SessionHandler(threading.Thread):
-    """The session handler assumes ownership for all sessions provided to it.
-    It periodically checks if one of the sessions it maintains has timed out,
+    """The session handler assumes ownership of all sessions provided to it.
+    It periodically checks if any of the sessions it maintains has timed out,
     and deletes it if that is the case.
     
-    The session timeout value is determined by the constant SPINE_SESSION_TIMEOUT
-    in cereconf.
-    The interval between checking sessions is determined by the constant
-    SPINE_SESSION_CHECK_INTERVAL.
+    The session timeout value is determined by the constant
+    SPINE_SESSION_TIMEOUT in cereconf.  The interval between checking sessions
+    is determined by the constant SPINE_SESSION_CHECK_INTERVAL. 
     """
     def __init__(self):
         threading.Thread.__init__(self)
-        self._timer_lock = threading.RLock()
-        self._corba_lock = threading.RLock()
+        self._session_lock = threading.RLock()
+        self._corbasession_lock = threading.RLock()
+        self._transaction_lock = threading.RLock()
         self.running = False
         self._sessions = {}
         self._corba_sessions = {}
-        # Start the thread 
-        self.start()
 
     def add(self, session):
         com = Communication.get_communication()
-        self.update(session)
         corba_obj = com.servant_to_reference(session)
-        lock = ScopedLock(self._corba_lock)
+
+        self._corbasession_lock.acquire()
         self._corba_sessions[session] = corba_obj
+        self._corbasession_lock.release()
+        
+        self.update(session)
         return corba_obj
 
     def update(self, session):
-        """Updates the given sessions timestamp. The handler assumes that it controls a session
-        object that has been sent to this method at least once. It will delete a session
-        SPINE_SESSION_TIMEOUT seconds after the last call to this method with that session as the
-        argument."""
-
-        s = ScopedLock(self._timer_lock)
+        """
+        Updates the given sessions timestamp. The handler assumes that it
+        controls a session object that has been sent to this method at least
+        once. It will delete a session SPINE_SESSION_TIMEOUT seconds after the
+        last call to this method with that session as the argument.
+        """
+        self._session_lock.acquire()
         self._sessions[session] = time.time() + cereconf.SPINE_SESSION_TIMEOUT
+        self._session_lock.release()
 
     def remove(self, session):
         """Release ownership of the given session."""
-        s = ScopedLock(self._timer_lock)
-        sc = ScopedLock(self._corba_lock)
-        del self._sessions[session]
         com = Communication.get_communication()
+
+        self._corbasession_lock.acquire()
         com.remove_reference(self._corba_sessions[session])
         del self._corba_sessions[session]
+        self._corbasession_lock.release()
 
-    def _get_timedout_sessions(self):
-        s = ScopedLock(self._timer_lock)
-        now = time.time()
-        deletable = []
-        for session in self._sessions:
-            if self._sessions[session] <= now:
-                deletable.append(session)
-        return deletable
+        self._session_lock.acquire()
+        del self._sessions[session]
+        self._session_lock.release()
 
     def _check_times(self):
-        """Internal method called by the thread of control every SPINE_SESSION_CHECK_INTERVAL
-        seconds."""
-        deletable = self._get_timedout_sessions()
-        for session in deletable:
-            session.destroy()
-            self.remove(session)
+        """Internal method called by the thread of control every
+        SPINE_SESSION_CHECK_INTERVAL seconds. The method checks for deletable
+        sessions, destroys them and removes them from the handler."""
+        self._session_lock.acquire()
+        for session, stamp in self._sessions.items():
+            now = time.time()
+            if stamp <= now:
+                session.destroy()
+                self.remove(session) # TODO: Two lock grabs per call here, optimize!
+        self._session_lock.release()
 
     def run(self):
         self.running = True
@@ -98,7 +99,7 @@ class SessionHandler(threading.Thread):
     def stop(self):
         self.running = False
 
-def get_session_handler():
+def get_handler():
     """Returns the singleton instance of the session handler."""
     global _session_handler
     if _session_handler is None:

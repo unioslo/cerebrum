@@ -18,44 +18,78 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import threading
+
 import Database
-from LockHolder import LockHolder
-from SpineExceptions import SpineException
+from Cerebrum.extlib.sets import Set
+from Cerebrum.spine.server import LockHandler
+from Locking import Locking
+from SpineExceptions import TransactionError
 
 
-__all__ = ['Transaction', 'TransactionError']
+__all__ = ['Transaction']
 
-class TransactionError(SpineException):
-    pass
-
-class Transaction(LockHolder):
+class Transaction:
     def __init__(self, session):
-        LockHolder.__init__(self)
-        self._refs = []
+        handler = LockHandler.get_handler()
+        handler.add_transaction(self)
+        self._lost_locks = []
+        self._lost_locks_lock = threading.RLock()
+        self._refs = Set()
         self._session = session
         self._session.reset_timeout()
         self._db = Database.SpineDatabase(session.client.get_id())
-        self.transaction_started = True
 
     def add_ref(self, obj):
         """Add a new object to this transaction.
 
-        Changes made by this client will be written to the database
-        if the transaction is commited and rolled back if the transaction
-        is aborted.
+        Changes made on the object by this transaction will be written to the
+        database if the transaction is commited and rolled back if the
+        transaction is aborted.
         """
         self._session.reset_timeout()
-        if not self.transaction_started:
-            raise TransactionError('No transaction started')
+        self._refs.add(obj)
 
-        self._refs.append(obj)
+    def lost_lock(self, object):
+        """
+        This method is called by the lock handler when the transaction
+        has lost a lock on the given object.
+
+        The method checks if the lost lock is a write lock. If that is the
+        case, the object is reset to its original state.
+        """
+        assert isinstance(object, Locking) # This method should only be called with a lockable object
+        assert object in self._refs # The object must be referenced by this transaction
+        self._refs.remove(object)
+        self._lost_locks_lock.acquire()
+        self._lost_locks.append(object) 
+        self._lost_locks_lock.release()
+        # We unlock the object here because there may be some time before the
+        # transaction makes its next call and checks if it lost any locks
+        if object.has_writelock(self):
+            object.reset()
+        object.unlock(self)
+
+    def check_lost_locks(self):
+        """
+        This method is called whenever the transaction tries to call a method
+        on an object in Spine. If the transaction has lost a lock, it is rolled
+        back, and an exception is raised.
+        """
+        self._lost_locks_lock.acquire()
+        if len(self._lost_locks):
+            l = self._lost_locks.pop(0)
+            self.rollback()
+            self._lost_locks_lock.release()
+            raise TransactionError('Your lock on %s timed out, transaction was rolled back.' % l)
 
     def _invalidate(self):
+        handler = LockHandler.get_handler()
+        handler.remove_transaction(self)
         self._refs = None
-        self._session.invalidate_transaction(self)
+        self._session.remove_transaction(self)
         self._session = None
         self._db = None
-        self.transaction_started = False
 
     def commit(self):
         """Commits all changes made by this transaction to all objects
@@ -64,14 +98,14 @@ class Transaction(LockHolder):
         This transaction object cannot be used again.
         """
         self._session.reset_timeout()
-        if not self.transaction_started:
-            raise TransactionError('No transaction started')
 
         try:
             self._db.commit()
             self._db.close()
-            for item in self._refs:
-                item.unlock(self)
+            while len(self._refs):
+                item = self._refs.pop()
+                if isinstance(item, Locking):
+                    item.unlock(self)
         except Exception, e:
             self.rollback()
             raise TransactionError('Failed to commit: %s' % e)
@@ -84,17 +118,14 @@ class Transaction(LockHolder):
 
         This transaction object cannot be used again.
         """
-        if not self.transaction_started:
-            return
-
         self._db.rollback()
         self._db.close()
 
-        for item in self._refs:
-            if item.has_writelock(self):
-                item.invalidate()
-                item.unlock(self)
-            else:
+        while len(self._refs):
+            item = self._refs.pop()
+            if isinstance(item, Locking):
+                if item.has_writelock(self):
+                    item.invalidate()
                 item.unlock(self)
         self._invalidate()
 

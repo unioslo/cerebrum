@@ -26,44 +26,49 @@ import thread
 import traceback
 
 def main():
-    print '- importing all classes'
-    from Cerebrum.spine.SpineLib import Scheduler
+    print 'Importing all classes...'
     from Cerebrum.spine.server import Communication
+    from Cerebrum.spine.server import LockHandler
     from Cerebrum.spine.server import SessionHandler
     from Cerebrum.spine.server import Spine
 
     com = Communication.get_communication()
-    sched = Scheduler.get_scheduler()
-    handler = SessionHandler.get_session_handler()
-
-    # starting the scheduler
-    print '- starting scheduler'
-    for i in range(cereconf.SPINE_SCHEDULERS):
-        thread.start_new_thread(sched.run, ())
+    session_handler = SessionHandler.get_handler()
+    lock_handler = LockHandler.get_handler()
 
     # creating server
-    print '- creating server'
+    print 'Creating server object...'
     server = com.servant_to_reference(Spine.SpineImpl())
 
-    # binding server to ior file
-    print '- writing ior to:', cereconf.SPINE_IOR_FILE
+    print 'Starting session handler...'
+    session_handler.start()
+
+    print 'Starting lock handler...'
+    lock_handler.start()
+
+    # Write server object IOR to file
+    print 'IOR written to:', cereconf.SPINE_IOR_FILE
     ior = com.orb.object_to_string(server)
     fd = open(cereconf.SPINE_IOR_FILE, 'w')
     fd.write(ior)
     fd.close()
 
-    # starting communication
-    print 'All ok - starting server'
+    # Starting communication
+    print 'Running server...'
     try:
         com.start()
     except KeyboardInterrupt:
+        print 'Interrupt caught! Shutting down...'
         pass
+    except AssertionError, e:
+        raise e # Asserts should make us die
     except:
         traceback.print_exc()
+    print 'Stopping lock handler...'
+    lock_handler.stop()
     print 'Stopping session handler...'
-    handler.stop()
+    session_handler.stop()
     print 'Spine is going down.'
-
 
 if __name__ == '__main__':        
     main()
