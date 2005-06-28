@@ -19,6 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Builder import Builder
+from Searchable import Searchable
+from Dumpable import Dumpable
+from SpineExceptions import ServerProgrammingError
 
 class Registry(object):
     def __init__(self):
@@ -26,9 +29,6 @@ class Registry(object):
         self.classes = []
 
     def register_class(self, cls):
-        from Searchable import Searchable
-        from Dumpable import Dumpable
-        
         name = cls.__name__
 
         cls.builder_parents = ()
@@ -56,6 +56,8 @@ class Registry(object):
         self.classes.append(cls)
 
     def __getattr__(self, key):
+        if not key in self.map:
+            raise ServerProgrammingError('Class %s is not in the Spine registry.' % key)
         return self.map[key]
 
     def build_all(self):
