@@ -35,9 +35,9 @@ class SpineClass(Builder, Caching, Locking):
     """
     
     def __init__(self, *args, **vargs):
-        write_lock = vargs.get('write_lock', None)
-        if 'write_lock' in vargs:
-            del vargs['write_lock']
+        write_locker = vargs.get('write_locker', None)
+        if 'write_locker' in vargs:
+            del vargs['write_locker']
 
         # Builder will only update attributes who has not been set
         Builder.__init__(self, *args, **vargs)
@@ -45,11 +45,11 @@ class SpineClass(Builder, Caching, Locking):
         # Caching will return a timestamp if this object is old
         old = Caching.__init__(self)
         if old:
-            if write_lock is not None:
-                self.lock_for_writing(write_lock)
+            if write_locker is not None:
+                self.lock_for_writing(write_locker)
             return old
 
-        Locking.__init__(self, write_lock)
+        Locking.__init__(self, write_locker)
 
     def get_database(self):
         """Returns the database cursor.
