@@ -18,10 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import weakref
 import time
-
-import Scheduler
+import weakref
 
 class Caching(object):
     """Handles caching of objects.
@@ -96,11 +94,11 @@ class Caching(object):
 #            scheduler.addTimer(minimum_lifetime, holder)
 
     def invalidate(self):
-        """ Remove the node from the cache.
-        
-        Will not prevent this object from futher use.
+        """ 
+        Remove the node from the cache.
+        Will not prevent this object from further use.
         """
-        if self.cache is not None:
+        if self.cache is not None and self.cache.has_key(self.__key):
             del self.cache[self.__key]
 
     def create_primary_key(*args, **vargs):
