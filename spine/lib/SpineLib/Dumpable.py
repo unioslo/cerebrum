@@ -37,12 +37,6 @@ def create_mark_method(name, method_name, optional=False, attr=None):
         for obj in self._objects:
             obj.lock_for_reading(holder)
 
-
-        if attr is not None:
-            objects = [i for i in self._objects if not hasattr(i, attr.get_name_private())]
-            if len(objects) > 100:
-                self.cls.search_class().search()
-
         for struct, obj in zip(self.structs, self._objects):
             if optional:
                 struct['%s_exists' % name] = True
@@ -79,8 +73,6 @@ class Dumpable(object):
                 dumper_class_name, dumper_class_name)
                 
         dumper_class = cls.dumper_class
-            
-        dumper_class.cls = cls
         
         dumper_class.primary = [Attribute('objects', [cls])]
         dumper_class.slots = DumpClass.slots + []
@@ -102,9 +94,7 @@ class Dumpable(object):
             mark.write = True
             dumper_class.register_method(mark, get, overwrite=True)
 
-
         # dumper methods for attributes and methods
-
         for attr in cls.slots:
             if type(attr.data_type) == type(Dumpable) and issubclass(attr.data_type, Dumpable):
                 name = 'dump_%s' % attr.name
