@@ -174,15 +174,22 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
     new_weekly = None
     new_max = None
     for q in quota:
-        if q.has_key('start'):
-            if q['id'] not in free_this_term.get(person_id, []):
-                logger.debug("grant %s for %i" % (q['id'], person_id))
-                pu.add_free_pages(person_id,
-                                  q['start'],
-                                  '%s%s' % (term_init_prefix, q['id']),
-                                  update_program=update_program)
-                pq_logger.info("grant %s=%i for %i" % (
-                    q['id'], q['start'], person_id))
+        for quota_type in ('start', 'free_akk'):
+            if q.get(quota_type, 0) > 0:
+                if q['id'] not in free_this_term.get(person_id, []):
+                    logger.debug("grant %s for %i" % (q['id'], person_id))
+                    pageunits_accum = increment = 0
+                    if quota_type == 'start':
+                        increment = q[quota_type]
+                    else:
+                        pageunits_accum = q[quota_type]
+                    pu.add_free_pages(person_id,
+                                      increment,
+                                      '%s%s:%s' % (term_init_prefix, q['id'], quota_type),
+                                      pageunits_accum=pageunits_accum,
+                                      update_program=update_program)
+                    pq_logger.info("grant %s=%i for %i" % (
+                        q['id'], q[quota_type], person_id))
         if q.has_key('weekly'):
             new_weekly = (new_weekly or 0) + q['weekly']
         if q.has_key('max'):
@@ -222,17 +229,6 @@ def recalc_quota_callback(person_info):
         set_quota(person_id, has_quota=False)
         return
     
-    # Blokker de som ikke har betalt/ikke har kopiavgift-fritak
-    if (require_kopipenger and
-        not har_betalt.get(person_id, False) and
-        not kopiavgift_fritak.get(person_id, False)):
-        logger.debug("block %s (bet=%i, fritak=%i)" % (
-            person_id, har_betalt.get(person_id, False),
-            kopiavgift_fritak.get(person_id, False)))
-        set_quota(person_id, has_quota=True, has_blocked_quota=True)
-        logger.set_indent(0)
-        return
-
     # Sjekk matching mot studconfig.xml
     quota=None
     try:
@@ -246,6 +242,18 @@ def recalc_quota_callback(person_info):
         logger.warn("(person) not found error for %s: %s" %  (person_id, msg))
         profile = None
     
+    # Blokker de som ikke har betalt/ikke har kopiavgift-fritak
+    if (require_kopipenger and
+        not har_betalt.get(person_id, False) and
+        not kopiavgift_fritak.get(person_id, False) and
+        not (profile and profile.get_printer_kopiavgift_fritak())):
+        logger.debug("block %s (bet=%i, fritak=%i)" % (
+            person_id, har_betalt.get(person_id, False),
+            kopiavgift_fritak.get(person_id, False)))
+        set_quota(person_id, has_quota=True, has_blocked_quota=True)
+        logger.set_indent(0)
+        return
+
     # Har fritak fra kvote
     if (betaling_fritak.has_key(person_id) or 
         profile and profile.get_printer_betaling_fritak()):
