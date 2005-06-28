@@ -19,13 +19,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-from omniORB import CORBA, sslTP
+from omniORB import CORBA
 
 import cereconf
 
 class Communication(object):
     def __init__(self):
         if cereconf.SPINE_USE_SSL:
+            from omniORB import sslTP
             self._init_ssl()
         else:
             self._init_plain()
