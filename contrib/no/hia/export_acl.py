@@ -290,24 +290,11 @@ def prepare_kull(writer):
     kull_cache = dict()
 
     for row in fs.info.list_kull():
-        # FIXME: THIS IS UGLY BEYOND BELIEF. Kull IDs have changed between
-        # FS-versions. "old-style" kull id contains both semester and
-        # year. In the New style ID they are split up. We need to remap from
-        # one to the other.
-        # FIXME: This crap must be fixed (y2k *and* major ugliness)
-        studieprogram_kode = str(row["studieprogramkode"])
-        kull_kode = str(row["kullkode"])
-        year, code = int(kull_kode[0:2]), kull_kode[2:]
-        if year > 60:
-            arstall = 1900 + year
-        else:
-            arstall = 2000 + year
-        # fi
-        terminkode = { "H" : "HØST",
-                       "S" : "SOM",
-                       "V" : "VÅR" }[code]
+        studieprogram = str(row["studieprogramkode"])
+        terminkode = str(row["terminkode"])
+        arstall = int(row["arstall"])
 
-        internal_id = str(row["studieprogramkode"]), terminkode, arstall
+        internal_id = studieprogram, terminkode, arstall
         if internal_id in kull_cache:
             continue
         # fi
