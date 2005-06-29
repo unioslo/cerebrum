@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import threading
+import traceback
 
 import Database
 from Cerebrum.extlib.sets import Set
@@ -118,8 +119,13 @@ class Transaction:
 
         This transaction object cannot be used again.
         """
-        self._db.rollback()
-        self._db.close()
+        assert self._db is not None # Rollback should only be called ONCE on a transaction
+        try:
+            self._db.rollback()
+            self._db.close()
+        except:
+            print 'DEBUG: Unable to rollback the database object!'
+            traceback.print_exc() # TODO: Log this
 
         while len(self._refs):
             item = self._refs.pop()
