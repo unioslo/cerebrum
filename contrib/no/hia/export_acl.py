@@ -186,6 +186,25 @@ def output_people(writer):
             continue
         # yrt
 
+        # We have to delay outputting person information, until we know that
+        # (s)he has a name.
+        name_collection = list()
+        for xmlid, cereid in (("given", const.PersonName("FIRST")),
+                              ("family", const.PersonName("LAST")),
+                              ("other", const.PersonName("WORKTITLE"))):
+            name = person_get_item(person.get_name, cereid)
+            if name:
+                name_collection.append((xmlid, name))
+            # fi
+        # od    
+
+        if (not ("given" in [x[0] for x in name_collection]) or 
+            not ("family" in [x[0] for x in name_collection])):
+            # Don't make it a warn() -- there are too damn many
+            logger.debug("Person id %s has no names and will be ignored", id)
+            continue
+        # fi    
+
         writer.startElement("person")
 
         #
@@ -210,14 +229,9 @@ def output_people(writer):
         # Output all the names
         writer.startElement("name")
         writer.startElement("n")
-        getter = person.get_name
-        # About 7 minute penalty for looking these up
-        output_elem(writer, "given",
-                    person_get_item(getter, const.PersonName("FIRST")))
-        output_elem(writer, "family",
-                    person_get_item(getter, const.PersonName("LAST")))
-        output_elem(writer, "other",
-                    person_get_item(getter, const.PersonName("WORKTITLE")))
+        for xmlid, value in name_collection:
+            output_elem(writer, xmlid, value)
+        # od    
         writer.endElement("n")
         writer.endElement("name")
                         
