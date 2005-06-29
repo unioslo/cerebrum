@@ -63,8 +63,7 @@ class LockHandler(threading.Thread):
         self._transactions_lock.acquire()
         assert self._transactions.has_key(transaction)
         assert self._transactions[transaction].has_key(object)
-        if self._transactions[transaction].has_key(object):
-            del self._transactions[transaction][object]
+        del self._transactions[transaction][object]
         self._transactions_lock.release()
 
     def _get_timedout_locks(self):
