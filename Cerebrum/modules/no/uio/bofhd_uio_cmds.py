@@ -663,6 +663,7 @@ class BofhdExtension(object):
         ttype = et.email_target_type
         if ttype not in (self.const.email_target_Mailman,
                          self.const.email_target_forward,
+                         self.const.email_target_file,
                          self.const.email_target_multi,
                          self.const.email_target_pipe,
                          self.const.email_target_account):
