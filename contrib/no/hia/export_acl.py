@@ -198,7 +198,7 @@ def output_people(writer):
             # fi
         # od    
 
-        if (not ("given" in [x[0] for x in name_collection]) or 
+        if (not ("given" in [x[0] for x in name_collection]) and 
             not ("family" in [x[0] for x in name_collection])):
             # Don't make it a warn() -- there are too damn many
             logger.debug("Person id %s has no names and will be ignored", id)
