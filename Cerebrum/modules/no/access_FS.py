@@ -969,9 +969,9 @@ class StudieInfo(FSObject):
         """Henter informasjon om aktive studiekull."""
         qry = """
         SELECT
-          studieprogramkode, kullkode, studiekullnavn, 
-          klassetrinn_start, terminnr_maks
-        FROM  fs.studiekull
+          studieprogramkode, terminkode, arstall, studiekullnavn, 
+          kulltrinn_start, terminnr_maks, status_generer_epost
+        FROM  fs.kull
         WHERE status_aktiv = 'J' """
         return self.db.query(qry) 
 
