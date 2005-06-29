@@ -40,7 +40,6 @@ from Cerebrum.spine.Auth import AuthOperationType
 __all__ = ['convert_to_corba', 'convert_from_corba',
            'create_idl_source', 'register_spine_class','drop_associated_objects']
 
-# FIXME: weakref her?
 class_cache = {}
 object_cache = {}
 
@@ -54,14 +53,14 @@ def drop_associated_objects(transaction):
     global object_cache_lock, object_cache
     com = Communication.get_communication()
     object_cache_lock.acquire()
-    deletable = []
-    for key in object_cache:
+    for key, value in object_cache.items():
         if key[1] == transaction:
-            deletable.append(key)
-    for key in deletable:
-        value = object_cache[key]
-        com.remove_reference(value)
-        del object_cache[key]
+            try:
+                com.remove_reference(value)
+            except:
+                print 'DEBUG: Unable to remove reference when dropping from object cache!'
+                traceback.print_exc() # TODO: Log this
+            del object_cache[key]
     object_cache_lock.release()
 
 
@@ -117,9 +116,11 @@ def convert_to_corba(obj, transaction, data_type):
             return object_cache[key]
 
         com = Communication.get_communication()
-        corba_object = com.servant_to_reference(corba_class(obj, transaction))
-        object_cache[key] = corba_object
-        object_cache_lock.release()
+        try:
+            corba_object = com.servant_to_reference(corba_class(obj, transaction))
+            object_cache[key] = corba_object
+        finally:
+            object_cache_lock.release()
         return corba_object
     else:
         raise ServerProgrammingError('Cannot convert to CORBA type; unknown data type.', data_type)
