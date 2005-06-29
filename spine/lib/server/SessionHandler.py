@@ -22,6 +22,7 @@ import Communication
 import cereconf
 import threading
 import time
+import traceback
 
 _session_handler = None
 
@@ -37,8 +38,6 @@ class SessionHandler(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self._session_lock = threading.RLock()
-        self._corbasession_lock = threading.RLock()
-        self._transaction_lock = threading.RLock()
         self.running = False
         self._sessions = {}
         self._corba_sessions = {}
@@ -47,9 +46,9 @@ class SessionHandler(threading.Thread):
         com = Communication.get_communication()
         corba_obj = com.servant_to_reference(session)
 
-        self._corbasession_lock.acquire()
+        self._session_lock.acquire()
         self._corba_sessions[session] = corba_obj
-        self._corbasession_lock.release()
+        self._session_lock.release()
         
         self.update(session)
         return corba_obj
@@ -67,27 +66,36 @@ class SessionHandler(threading.Thread):
 
     def remove(self, session):
         """Release ownership of the given session."""
-        com = Communication.get_communication()
-
-        self._corbasession_lock.acquire()
-        com.remove_reference(self._corba_sessions[session])
-        del self._corba_sessions[session]
-        self._corbasession_lock.release()
-
         self._session_lock.acquire()
-        del self._sessions[session]
+        try:
+            self._remove(session)
+        except:
+            print 'DEBUG: Error while removing session!'
+            traceback.print_exc() # TODO: Log instead
         self._session_lock.release()
+
+    def _remove(self, session):
+        """This method must ONLY be used internally, and ONLY after acquiring
+        the session lock. It removes the given session from the handler."""
+        com = Communication.get_communication()
+        try:
+            com.remove_reference(self._corba_sessions[session])
+        except:
+            pass
+        del self._corba_sessions[session]
+        del self._sessions[session]
 
     def _check_times(self):
         """Internal method called by the thread of control every
         SPINE_SESSION_CHECK_INTERVAL seconds. The method checks for deletable
         sessions, destroys them and removes them from the handler."""
         self._session_lock.acquire()
+        now = time.time()
         for session, stamp in self._sessions.items():
-            now = time.time()
             if stamp <= now:
                 session.destroy()
-                self.remove(session) # TODO: Two lock grabs per call here, optimize!
+                self._remove(session)
+
         self._session_lock.release()
 
     def run(self):
