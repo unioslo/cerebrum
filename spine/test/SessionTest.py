@@ -66,3 +66,5 @@ class SessionTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+# arch-tag: 21cec634-e964-11d9-9061-acc5d1c280b0
