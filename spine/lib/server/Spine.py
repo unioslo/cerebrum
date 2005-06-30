@@ -70,7 +70,6 @@ class SpineImpl(SpineCore__POA.Spine):
         exception 'LoginError'.
         """
         # We will always throw the same exception in here. This is important!
-
         exception = SpineCore.Spine.LoginError('Wrong username or password')
 
         # Check username
@@ -83,7 +82,6 @@ class SpineImpl(SpineCore__POA.Spine):
         except:
             raise exception
 
-
         # Check password
         if not account.authenticate(password):
             raise exception
@@ -93,12 +91,6 @@ class SpineImpl(SpineCore__POA.Spine):
             raise exception
 
         # TODO: Log successful login
-        
-        # TODO: Move this to SessionHandler?
-        #if account in self.sessions:
-        #    return self.sessions[account]
-
-        #self.sessions[account] = corba_obj
 
         session = Session.SessionImpl(account)
 

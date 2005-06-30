@@ -41,6 +41,9 @@ class Transaction:
         self._session.reset_timeout()
         self._db = Database.SpineDatabase(session.client.get_id())
 
+    def get_encoding(self):
+        return self._session.get_encoding()
+
     def add_ref(self, obj):
         """Add a new object to this transaction.
 

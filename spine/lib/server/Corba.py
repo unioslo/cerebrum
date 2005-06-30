@@ -26,6 +26,8 @@ import sys
 import threading
 import traceback
 import weakref
+
+import cereconf
 import Communication
 
 from Cerebrum.extlib import sets
@@ -73,6 +75,8 @@ def convert_to_corba(obj, transaction, data_type):
         elif data_type in class_cache:
             return None
     elif data_type in corba_types:
+        if data_type is str:
+            return _string_from_db(obj, transaction.get_encoding())
         return obj
     elif isinstance(data_type, Struct):
         data_type = data_type.data_type
@@ -149,6 +153,24 @@ def _convert_corba_types_to_none(data_type):
         value = []
     return value
 
+def _string_from_db(str, encoding):
+    """
+    Converts a string from the database string encoding to the clients
+    string encoding.
+    """
+    if encoding == cereconf.SPINE_DATABASE_ENCODING:
+        return str
+    return str.decode(cereconf.SPINE_DATABASE_ENCODING).encode(encoding)
+
+def _string_to_db(str, encoding):
+    """
+    Converts a string from the clients string encoding to the database string
+    encoding.
+    """
+    if encoding == cereconf.SPINE_DATABASE_ENCODING:
+        return str
+    return str.decode(encoding).encode(cereconf.SPINE_DATABASE_ENCODING)
+
 def _create_corba_method(method):
     """
     Creates a wrapper for the given method. 
@@ -218,12 +240,18 @@ def _create_corba_method(method):
             # convert from CORBA arguments to python server-side arguments
             args = []
             for value, (name, data_type) in zip(corba_args, method.args):
-                args.append(convert_from_corba(value, data_type))
+                arg = convert_from_corba(value, data_type)
+                if data_type is str:
+                    arg = _string_to_db(arg, transaction.get_encoding())
+                args.append(arg)
 
             vargs = {}
             for name, value in corba_vargs:
                 data_type = args_table[name]
-                vargs[name] = convert_from_corba(value, data_type)
+                varg = convert_from_corba(value, data_type)
+                if data_type is str:
+                    varg = _string_to_db(varg, transaction.get_encoding())
+                vargs[name] = varg
 
             # Run the real method
             value = getattr(self.spine_object, method.name)(*args, **vargs)
@@ -251,8 +279,6 @@ def _create_corba_method(method):
                                         sys.exc_traceback)))
                 raise SpineIDL.Errors.ServerProgrammingError(exception_string)
 
-            #if len(e.args) > 0 and type(e.args[0]) is str:
-            #    explanation = e.args[0]
             if len(e.args) > 0:
                 explanation = ', '.join(['%s' % i for i in e.args])
             else:
@@ -260,8 +286,6 @@ def _create_corba_method(method):
             
             exception = getattr(SpineIDL.Errors, e.__class__.__name__)
             exception = exception(explanation)
-            #exception = exception(e.args)
-             
             raise exception
 
     return corba_method

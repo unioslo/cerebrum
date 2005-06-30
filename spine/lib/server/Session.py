@@ -20,9 +20,12 @@
 
 from __future__ import generators
 
+import codecs
 import md5
 
 import omniORB
+
+import cereconf
 
 from Corba import create_idl_source, convert_to_corba, register_spine_class, drop_associated_objects
 import Communication
@@ -31,6 +34,7 @@ from Cerebrum.spine.CerebrumHandler import CerebrumHandler
 from Cerebrum.spine.SpineLib.Builder import Attribute, Method
 
 from Cerebrum.spine.SpineLib import Registry
+from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError
 from Cerebrum.spine.SpineLib.Transaction import TransactionError
 
 registry = Registry.get_registry()
@@ -53,12 +57,50 @@ class Session:
     method_slots = [
         Method('new_transaction', CerebrumHandler),
         Method('get_transactions', [CerebrumHandler]),
+        Method('get_encoding', str),
+        Method('set_encoding', None, args=[('encoding', str)], exceptions=[NotFoundError]),
         Method('logout', None)
     ]
     builder_parents = ()
     builder_children = ()
-    
+
+    def new_transaction(self):
+        pass
+
+    def get_transactions(self):
+        pass
+
+    def get_encoding(self):
+        pass
+
+    def set_encoding(self, encoding):
+        pass
+
+    def logout(self):
+        pass
+
+# Build corba-classes and IDL
+registry.build_all()
+classes = []
+classes += registry.classes 
+classes.append(Session)
+
+idl_source = create_idl_source(classes, 'SpineIDL')
+idl_source_md5 = md5.new(idl_source).hexdigest()
+idl_source_commented = create_idl_source(classes, 'SpineIDL', docs=True)
+
+omniORB.importIDLString(idl_source)
+
+import SpineIDL, SpineIDL__POA
+
+for name, cls in registry.map.items():
+    idl_class = getattr(SpineIDL__POA, 'Spine' + name)
+    idl_struct = getattr(SpineIDL, name + 'Struct', None)
+    register_spine_class(cls, idl_class, idl_struct)
+
+class SessionImpl(Session, SpineIDL__POA.SpineSession):
     def __init__(self, client):
+        self._encoding = cereconf.SPINE_DEFAULT_CLIENT_ENCODING
         self.counter = count()
         self.client = client
         self._transactions = {}
@@ -74,6 +116,16 @@ class Session:
         corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
         self._transactions[transaction] = corba_obj
         return corba_obj
+
+    def get_encoding(self):
+        return self._encoding
+
+    def set_encoding(self, encoding):
+        try:
+            codecs.lookup(encoding)
+        except LookupError:
+            raise SpineIDL.Errors.NotFoundError('Requested encoding %s is unknown.' % encoding)
+        self._encoding = encoding
 
     def get_transactions(self):
         self.reset_timeout()
@@ -99,27 +151,5 @@ class Session:
         handler = SessionHandler.get_handler()
         handler.remove(self)
         self.destroy()
-
-# Build corba-classes and IDL
-registry.build_all()
-classes = []
-classes += registry.classes 
-classes.append(Session)
-
-idl_source = create_idl_source(classes, 'SpineIDL')
-idl_source_md5 = md5.new(idl_source).hexdigest()
-idl_source_commented = create_idl_source(classes, 'SpineIDL', docs=True)
-
-omniORB.importIDLString(idl_source)
-
-import SpineIDL, SpineIDL__POA
-
-for name, cls in registry.map.items():
-    idl_class = getattr(SpineIDL__POA, 'Spine' + name)
-    idl_struct = getattr(SpineIDL, name + 'Struct', None)
-    register_spine_class(cls, idl_class, idl_struct)
-
-class SessionImpl(Session, SpineIDL__POA.SpineSession):
-    pass
 
 # arch-tag: 6fceeb42-b06a-4779-a088-7316dd68a981
