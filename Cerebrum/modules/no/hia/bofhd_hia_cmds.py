@@ -437,7 +437,6 @@ class BofhdExtension(object):
 	    epat.populate(ea.email_addr_id)
 	except Errors.NotFoundError:
 	    epat.clear()
-	    epat.find(ea.email_addr_target_id)
 	    epat.populate(ea.email_addr_id, parent = et)
 	epat.write_db()
 	return "Registered %s as primary address for %s" % (address, uname)
