@@ -24,6 +24,7 @@ import unittest
 # Test classes
 from AutoTest import *
 from CommunicationTest import *
+from SessionTest import *
 from LockingTest import *
 from TransactionTest import *
 

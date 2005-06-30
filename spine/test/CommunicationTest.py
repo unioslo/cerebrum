@@ -25,16 +25,11 @@ from TestBase import *
 class CommunicationTest(unittest.TestCase):
     """A simple test to verify that the Spine server is available and that
     CORBA and self.sessions are working."""
+
     def testConnect(self):
         """Test that we can connect to Spine."""
         version = spine.get_version()
         assert type(version.major) is int and type(version.minor) is int
-
-    def testSession(self):
-        """Test that it is possible to create a self.session and logout successfully."""
-        self.session = spine.login(username, password)
-        assert len(self.session.get_transactions()) == 0
-        self.session.logout()
 
 if __name__ == '__main__':
     unittest.main()

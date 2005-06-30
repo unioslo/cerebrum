@@ -94,7 +94,9 @@ class TransactionTest(unittest.TestCase):
         """Test that changes can be commited by setting a person name, commiting, setting the old name and commiting again."""
         transaction = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 1
-        ou = transaction.get_ou_searcher().search()[0]
+        ous = transaction.get_ou_searcher().search()
+        assert len(ous) >= 1 # We need an OU to continue the test
+        ou = ous[0]
         ou_id = ou.get_id()
         old_name = ou.get_name()
         ou.set_name('A testname')
