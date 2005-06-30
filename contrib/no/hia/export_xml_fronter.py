@@ -114,7 +114,11 @@ def init_globals():
 def get_semester():
     t = time.localtime()[0:2]
     this_year = t[0]
-    if t[1] <= 6:
+    # the normal state:
+    # if t[1] <= 6
+
+    # Need to make the spring term last at least untill 2005-08-1:
+    if t[1] <= 7:
         this_sem = 'vår'
         next_year = this_year
         next_sem = 'høst'
