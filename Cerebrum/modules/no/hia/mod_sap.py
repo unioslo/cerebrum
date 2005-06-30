@@ -460,7 +460,7 @@ class PersonSAPMixin(Person.Person):
         try:
             self.query_1("""
                         SELECT
-                          '1'
+                          '1' as dummy
                         FROM
                           %s
                         WHERE
