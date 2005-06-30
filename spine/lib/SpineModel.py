@@ -62,7 +62,7 @@ import PosixUser
 import ChangeLog
 import Commands
 import Auth
-import EntityFlag
+#import EntityFlag
 import Request
 import Stedkode
 
