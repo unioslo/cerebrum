@@ -110,35 +110,35 @@ class BofhdExtension(object):
 
     def get_help_strings(self):
         group_help = {
-            'ip': "Commands for administrating IP numbers",
+            'host': "Commands for administrating IP numbers",
             }
 
         # The texts in command_help are automatically line-wrapped, and should
         # not contain \n
         command_help = {
-            'ip': {
-            'ip_a_add': 'legg til en a-record',
-            'ip_a_rem': 'fjern en a-record',
-            'ip_alloc': 'Registrerer ip-addresse for en ny maskin',
-            'ip_cname_add': 'registrer et cname',
-            'ip_comment': 'Sette kommentar for en gitt maskin',
-            'ip_contact': 'Oppgi contact for gitt maskin',
-            'ip_free': 'Sletter data for oppgitt hosnavn/ip-nr',
-            'ip_hinfo_list': 'list definerte hinfo',
-            'ip_hinfo_set': 'sette hinfo',
-            'ip_info': 'Lister data for gitt hostnavn/ip-addresse eller cname',
-            'ip_list_free': 'list ledige ipnr',
-            'ip_mx_add': 'legg ny entry til et MX set',
-            'ip_mx_del': 'fjern entry fra et MX set',
-            'ip_mx_list': 'list definerte MX set',
-            'ip_mx_set': 'sette MX',
-            'ip_mx_show': 'Vid definisjonen av et MX set',
-            'ip_rename': 'Forande et IP-nr/navn til et annet IP-nr/navn.',
-            'ip_revmap_override': 'Registrer/slett override på reversemap',
-            'ip_srv_add': 'Opprette en SRV record',
-            'ip_srv_del': 'Fjerne en SRV record',
-            'ip_ttl_set': 'Set TTL for en DNS-owner',
-            'ip_txt_set': 'sette TXT',
+            'host': {
+            'host_a_add': 'legg til en a-record',
+            'host_a_rem': 'fjern en a-record',
+            'host_alloc': 'Registrerer ip-addresse for en ny maskin',
+            'host_cname_add': 'registrer et cname',
+            'host_comment': 'Sette kommentar for en gitt maskin',
+            'host_contact': 'Oppgi contact for gitt maskin',
+            'host_free': 'Sletter data for oppgitt hosnavn/ip-nr',
+            'host_hinfo_list': 'list definerte hinfo',
+            'host_hinfo_set': 'sette hinfo',
+            'host_info': 'Lister data for gitt hostnavn/ip-addresse eller cname',
+            'host_list_free': 'list ledige ipnr',
+            'host_mx_add': 'legg ny entry til et MX set',
+            'host_mx_del': 'fjern entry fra et MX set',
+            'host_mx_list': 'list definerte MX set',
+            'host_mx_set': 'sette MX',
+            'host_mx_show': 'Vid definisjonen av et MX set',
+            'host_rename': 'Forande et IP-nr/navn til et annet IP-nr/navn.',
+            'host_revmap_override': 'Registrer/slett override på reversemap',
+            'host_srv_add': 'Opprette en SRV record',
+            'host_srv_del': 'Fjerne en SRV record',
+            'host_ttl_set': 'Set TTL for en DNS-owner',
+            'host_txt_set': 'sette TXT',
             },
             }
         
@@ -174,14 +174,14 @@ class BofhdExtension(object):
              'will be interpreted as a subnet.  You may skip the 129.240 part'],
             'hinfo':
             ['hinfo', 'Enter HINFO code',
-             'Use "ip hinfo_list" to get a list of legal values, some examples are:\n'
+             'Use "host hinfo_list" to get a list of legal values, some examples are:\n'
              "- unix\n"
              "- windows\n"
              "- mac\n"
              "- nettboks"],
             'mx_set':
             ['mx_set', 'Enter mx_set',
-             'Use "ip list_mx_set" to get a list of legal values'],
+             'Use "host list_mx_set" to get a list of legal values'],
             'contact':
             ['contact', 'Enter contact',
              'Typically an e-mail address'],
@@ -221,12 +221,12 @@ class BofhdExtension(object):
 #    def _alloc_arecord(self, host_name, subnet, ip, force):
 #        return self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
 
-    # ip a_add
-    all_commands['ip_a_add'] = Command(
-        ("ip", "a_add"), HostName(), SubNetOrIP(),
+    # host a_add
+    all_commands['host_a_add'] = Command(
+        ("host", "a_add"), HostName(), SubNetOrIP(),
         Force(optional=True))
     # TBD: Comment/contact?
-    def ip_a_add(self, operator, host_name, subnet_or_ip, force=False):
+    def host_a_add(self, operator, host_name, subnet_or_ip, force=False):
         force = self.mb_utils.parse_force(force)
         subnet, ip, ip_ref = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
         if subnet is None and not force:
@@ -235,21 +235,21 @@ class BofhdExtension(object):
         ip = self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
         return "OK, ip=%s" % ip
 
-    # ip a_rem
-    all_commands['ip_a_rem'] = Command(
-        ("ip", "a_rem"), HostName(), Ip(optional=True))
-    def ip_a_rem(self, operator, host_name, ip=None):
+    # host a_rem
+    all_commands['host_a_rem'] = Command(
+        ("host", "a_rem"), HostName(), Ip(optional=True))
+    def host_a_rem(self, operator, host_name, ip=None):
         a_record_id = self.mb_utils.find_a_record(host_name, ip)
         self.mb_utils.remove_arecord(a_record_id)
         return "OK"
 
-    # ip alloc
-    all_commands['ip_alloc'] = Command(
-        ("ip", "alloc"), HostNameRepeat(), SubNetOrIP(), Hinfo(),
+    # host alloc
+    all_commands['host_alloc'] = Command(
+        ("host", "alloc"), HostNameRepeat(), SubNetOrIP(), Hinfo(),
         Comment(), Contact(), Force(optional=True),
         fs=FormatSuggestion("%-30s %s", ('name', 'ip'),
                             hdr="%-30s %s" % ('name', 'ip')))
-    def ip_alloc(self, operator, hostname, subnet_or_ip, hinfo,
+    def host_alloc(self, operator, hostname, subnet_or_ip, hinfo,
                  comment, contact, force=False):
         force = self.mb_utils.parse_force(force)
         hostnames = self.mb_utils.parse_hostname_repeat(hostname)
@@ -274,19 +274,19 @@ class BofhdExtension(object):
             ret.append({'name': name, 'ip': ip})
         return ret
 
-    # ip cname_add
-    all_commands['ip_cname_add'] = Command(
-        ("ip", "cname_add"), HostName(help_ref="host_name_alias"),
+    # host cname_add
+    all_commands['host_cname_add'] = Command(
+        ("host", "cname_add"), HostName(help_ref="host_name_alias"),
         HostName(help_ref="host_name_exist"), Force(optional=True))
-    def ip_cname_add(self, operator, cname_name, target_name, force=False):
+    def host_cname_add(self, operator, cname_name, target_name, force=False):
         force = self.mb_utils.parse_force(force)
         self.mb_utils.alloc_cname(cname_name, target_name, force)
         return "OK, cname registered for %s" % target_name
 
-    # ip comment
-    all_commands['ip_comment'] = Command(
-        ("ip", "comment"), HostName(), Comment())
-    def ip_comment(self, operator, host_name, comment):
+    # host comment
+    all_commands['host_comment'] = Command(
+        ("host", "comment"), HostName(), Comment())
+    def host_comment(self, operator, host_name, comment):
         owner_id = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         operation = self.mb_utils.alter_entity_note(
@@ -294,20 +294,20 @@ class BofhdExtension(object):
         return "OK, %s comment for %s" % (operation, host_name)
 
 
-    # ip contact
-    all_commands['ip_contact'] = Command(
-        ("ip", "contact"), HostName(), Contact())
-    def ip_contact(self, operator, name, contact):
+    # host contact
+    all_commands['host_contact'] = Command(
+        ("host", "contact"), HostName(), Contact())
+    def host_contact(self, operator, name, contact):
         owner_id = self.mb_utils.find_target_by_parsing(name, dns.DNS_OWNER)
         operation = self.mb_utils.alter_entity_note(
             owner_id, self.const.note_type_contact, contact)
         return "OK, %s contact for %s" % (operation, name)
 
 
-    # ip free
-    all_commands['ip_free'] = Command(
-        ("ip", "free"), HostId(), Force(optional=True))
-    def ip_free(self, operator, host_id, force=False):
+    # host free
+    all_commands['host_free'] = Command(
+        ("host", "free"), HostId(), Force(optional=True))
+    def host_free(self, operator, host_id, force=False):
         force = self.mb_utils.parse_force(force)
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
@@ -318,13 +318,13 @@ class BofhdExtension(object):
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
         return "OK, DNS-owner %s completly removed" % host_id
 
-    # ip hinfo_list
-    all_commands['ip_hinfo_list'] = Command(
-        ("ip", "hinfo_list"), 
+    # host hinfo_list
+    all_commands['host_hinfo_list'] = Command(
+        ("host", "hinfo_list"), 
         fs=FormatSuggestion("%-10s %-10s %-10s",
                             ('hinfo.code', 'hinfo.os', 'hinfo.cpu'),
                             hdr="%-10s %-10s %-10s" % ('Code', 'OS', 'CPU')))
-    def ip_hinfo_list(self, operator):
+    def host_hinfo_list(self, operator):
         ret = []
         for row in self.const.HinfoCode.list(self.db):
             ret.append({'hinfo.code': row['code_str'],
@@ -332,10 +332,10 @@ class BofhdExtension(object):
                         'hinfo.cpu': row['cpu']})
         return ret
 
-    # ip hinfo_set
-    all_commands['ip_hinfo_set'] = Command(
-        ("ip", "hinfo_set"), HostName(), Hinfo())
-    def ip_hinfo_set(self, operator, host_name, hinfo):
+    # host hinfo_set
+    all_commands['host_hinfo_set'] = Command(
+        ("host", "hinfo_set"), HostName(), Hinfo())
+    def host_hinfo_set(self, operator, host_name, hinfo):
         hinfo = self._map_hinfo_code(hinfo)
         owner_id = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
@@ -345,9 +345,9 @@ class BofhdExtension(object):
         host.write_db()
         return "OK, hinfo set for %s" % host_name
 
-    # ip info
-    all_commands['ip_info'] = Command(
-        ("ip", "info"), HostId(),
+    # host info
+    all_commands['host_info'] = Command(
+        ("host", "info"), HostId(),
         fs=FormatSuggestion([("  %-20s %s %s",
                               ('name', 'ip', 'a_comment'), "%-22s IP" % 'A-records'),
                              ("  %-20s %s", ('rev_ip', 'rev_name'), "Rev-map override:"),
@@ -365,7 +365,7 @@ class BofhdExtension(object):
                              ("SRV: %s %i %i %i %s %s", ('srv_owner', 'srv_pri',
                                           'srv_weight', 'srv_port',
                                           'srv_ttl', 'srv_target'))]))
-    def ip_info(self, operator, host_id):
+    def host_info(self, operator, host_id):
         # TODO: fikse formateringen av output fra denne komandoen
 
         arecord = ARecord.ARecord(self.db)
@@ -468,11 +468,11 @@ class BofhdExtension(object):
                         'srv_target': srv['target_name']})
         return ret
 
-    # ip list_free
-    all_commands['ip_list_free'] = Command(
-        ("ip", "list_free"), SubNetOrIP(),
+    # host list_free
+    all_commands['host_list_free'] = Command(
+        ("host", "list_free"), SubNetOrIP(),
         fs=FormatSuggestion("%s", ('ip',), hdr="Ip"))
-    def ip_list_free(self, operator, subnet):
+    def host_list_free(self, operator, subnet):
         # TODO: Skal det være mulig å få listet ut ledige reserved IP?
         subnet, ip, ip_ref = self.mb_utils.parse_subnet_or_ip(subnet)
         ret = []
@@ -480,40 +480,40 @@ class BofhdExtension(object):
             ret.append({'ip': ip})
         return ret
 
-    # ip mx_add
-    all_commands['ip_mx_add'] = Command(
-        ("ip", "mx_add"), MXSet(), Priority(), HostName())
-    def ip_mx_add(self, operator, mx_set, priority, host_name):
+    # host mx_add
+    all_commands['host_mx_add'] = Command(
+        ("host", "mx_add"), MXSet(), Priority(), HostName())
+    def host_mx_add(self, operator, mx_set, priority, host_name):
         host_ref = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         self.mb_utils.mx_set_add(mx_set, priority, host_ref)
         return "OK, added %s to mx_set %s" % (host_name, mx_set)
 
-    # ip mx_del
-    all_commands['ip_mx_del'] = Command(
-        ("ip", "mx_del"), MXSet(), HostName())
-    def ip_mx_del(self, operator, mx_set, target_host_name):
+    # host mx_del
+    all_commands['host_mx_del'] = Command(
+        ("host", "mx_del"), MXSet(), HostName())
+    def host_mx_del(self, operator, mx_set, target_host_name):
         host_ref = self.mb_utils.find_target_by_parsing(
             target_host_name, dns.DNS_OWNER)
         self.mb_utils.mx_set_del(mx_set, host_ref)
         return "OK, deleted %s from mx_set %s" % (target_host_name, mx_set)
 
-    # ip mx_list
-    all_commands['ip_mx_list'] = Command(
-        ("ip", "mx_list"), 
+    # host mx_list
+    all_commands['host_mx_list'] = Command(
+        ("host", "mx_list"), 
         fs=FormatSuggestion("%s", ('mx_set',),
                             hdr="%s" % ('Name')))
-    def ip_mx_list(self, operator):
+    def host_mx_list(self, operator):
         m = DnsOwner.MXSet(self.db)
         ret = []
         for row in m.list():
             ret.append({'mx_set': row['name']})
         return ret
 
-    # ip mx_set
-    all_commands['ip_mx_set'] = Command(
-        ("ip", "mx_set"), HostName(), MXSet())
-    def ip_mx_set(self, operator, name, mx_set):
+    # host mx_set
+    all_commands['host_mx_set'] = Command(
+        ("host", "mx_set"), HostName(), MXSet())
+    def host_mx_set(self, operator, name, mx_set):
         owner_id = self.mb_utils.find_target_by_parsing(
             name, dns.DNS_OWNER)
         dns_owner = DnsOwner.DnsOwner(self.db)
@@ -522,14 +522,14 @@ class BofhdExtension(object):
         dns_owner.write_db()
         return "OK, mx set for %s" % name
 
-    # ip mx_show
-    all_commands['ip_mx_show'] = Command(
-        ("ip", "mx_show"), MXSet(),
+    # host mx_show
+    all_commands['host_mx_show'] = Command(
+        ("host", "mx_show"), MXSet(),
         fs=FormatSuggestion("%-20s %-12s %-10i %s",
                             ('mx_set', 'ttl', 'pri', 'target'),
                             hdr="%-20s %-12s %-10s %s" % (
         'MX-set', 'TTL', 'Priority', 'Target')))
-    def ip_mx_show(self, operator, mx_set):
+    def host_mx_show(self, operator, mx_set):
         m = DnsOwner.MXSet(self.db)
         try:
             m.find_by_name(mx_set)
@@ -543,10 +543,10 @@ class BofhdExtension(object):
                         'target': row['target_name']})
         return ret
 
-    # ip rename
-    all_commands['ip_rename'] = Command(
-        ("ip", "rename"), HostId(), HostId())
-    def ip_rename(self, operator, old_id, new_id):
+    # host rename
+    all_commands['host_rename'] = Command(
+        ("host", "rename"), HostId(), HostId())
+    def host_rename(self, operator, old_id, new_id):
         tmp = new_id.split(".")
 
         # Rename by IP-number
@@ -558,11 +558,11 @@ class BofhdExtension(object):
         self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
         return "OK, dns-owner %s renamed to %s" % (old_id, new_id)
 
-    # ip revmap_override
-    all_commands['ip_revmap_override'] = Command(
-        ("ip", "revmap_override"), HostId(),
+    # host revmap_override
+    all_commands['host_revmap_override'] = Command(
+        ("host", "revmap_override"), HostId(),
         HostId(help_ref='new_host_id_or_clear'), Force(optional=True))
-    def ip_revmap_override(self, operator, ip_host_id, dest_host, force=False):
+    def host_revmap_override(self, operator, ip_host_id, dest_host, force=False):
         force = self.mb_utils.parse_force(force)
         ip_owner_id = self.mb_utils.find_target_by_parsing(
             ip_host_id, dns.IP_NUMBER)
@@ -571,11 +571,11 @@ class BofhdExtension(object):
 
         return "OK, %s reversemap override for %s" % (operation, ip_host_id)
         
-    # ip srv_add
-    all_commands['ip_srv_add'] = Command(
-        ("ip", "srv_add"), ServiceName(), Priority(), Weight(),
+    # host srv_add
+    all_commands['host_srv_add'] = Command(
+        ("host", "srv_add"), ServiceName(), Priority(), Weight(),
         Port(), HostName())
-    def ip_srv_add(self, operator, service_name, priority,
+    def host_srv_add(self, operator, service_name, priority,
                    weight, port, target_name):
         target_id = self.mb_utils.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
@@ -584,11 +584,11 @@ class BofhdExtension(object):
             int(port), target_id)
         return "OK, added SRV record %s -> %s" % (service_name, target_name)
 
-    # ip srv_del
-    all_commands['ip_srv_del'] = Command(
-        ("ip", "srv_del"), ServiceName(), TTL(), Priority(), Weight(),
+    # host srv_del
+    all_commands['host_srv_del'] = Command(
+        ("host", "srv_del"), ServiceName(), TTL(), Priority(), Weight(),
         Port(), HostName())
-    def ip_srv_del(self, operator, service_name, priority,
+    def host_srv_del(self, operator, service_name, priority,
                    weight, port, target_name , ttl=None):
         target_id = self.mb_utils.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
@@ -600,10 +600,10 @@ class BofhdExtension(object):
         return "OK, deletded SRV record %s -> %s" % (service_name, target_name)
 
 
-    # ip ttl_set
-    all_commands['ip_ttl_set'] = Command(
-        ("ip", "ttl_set"), HostName(), TTL())
-    def ip_ttl_set(self, operator, host_name, ttl):
+    # host ttl_set
+    all_commands['host_ttl_set'] = Command(
+        ("host", "ttl_set"), HostName(), TTL())
+    def host_ttl_set(self, operator, host_name, ttl):
         owner_id = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         if ttl:
@@ -614,10 +614,10 @@ class BofhdExtension(object):
             owner_id, ttl)
         return "OK, set TTL record for %s to %s" % (host_name, ttl)
 
-    # ip txt
-    all_commands['ip_txt_set'] = Command(
-        ("ip", "txt_set"), HostName(), TXT())
-    def ip_txt_set(self, operator, host_name, txt):
+    # host txt
+    all_commands['host_txt_set'] = Command(
+        ("host", "txt_set"), HostName(), TXT())
+    def host_txt_set(self, operator, host_name, txt):
         owner_id = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         if ttl:
