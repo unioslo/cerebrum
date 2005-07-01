@@ -54,5 +54,12 @@ def promote_posix(self):
 
 Group.register_method(Method('promote_posix', None, write=True), promote_posix)
 
+def demote_posix(self):
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.PosixGroup.PosixGroup(self.get_database())
+    p.find(obj.entity_id)
+    p.delete()
+
+Group.register_method(Method('demote_posix', None, write=True), demote_posix)
 
 # arch-tag: 1d1d6cc7-0222-42b1-9e43-4953ad046987

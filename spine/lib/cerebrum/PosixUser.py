@@ -100,4 +100,13 @@ def promote_posix(self, primary_group, shell):
 
 Account.register_method(Method('promote_posix', None, args=[('primary_group', Group), ('shell', PosixShell)], write=True), promote_posix)
 
+def demote_posix(self):
+    """Demotes the PosixUser to a normal Account."""
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
+    p.find(obj.entity_id)
+    p.delete_posixuser()
+
+Account.register_method(Method('demote_posix', None, write=True), demote_posix)
+
 # arch-tag: 6397155e-c46c-4e57-a5f7-54d2f046f622
