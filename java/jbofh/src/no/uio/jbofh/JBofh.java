@@ -523,6 +523,9 @@ public class JBofh {
                 new InputStreamReader(new FileInputStream(filename)));
             String sin;
             while((sin = in.readLine()) != null) {
+                sin = sin.trim();
+                if(sin.startsWith("#") ||  sin.length() == 0)
+                    continue;
                 cmds.add(sin);
             }
         } catch (IOException io) {
