@@ -42,7 +42,6 @@ class HostInfo(EntityNote, Entity):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
-        hinfo = int(hinfo)
         for k in locals().keys():
             if k != 'self':
                 setattr(self, k, locals()[k])
@@ -60,6 +59,8 @@ class HostInfo(EntityNote, Entity):
         if not self.__updated:
             return
         is_new = not self.__in_db
+        if(len(self.hinfo.split("\t")) != 2):
+            raise ValueError, "Illegal HINFO (missing tab)"
 
         cols = [('entity_type', ':e_type'),
                 ('host_id', ':e_id'),
@@ -69,7 +70,7 @@ class HostInfo(EntityNote, Entity):
         binds = {'e_type' : int(self.const.entity_dns_host),
                  'e_id': self.entity_id,
                  'dns_owner_id': self.dns_owner_id,
-                 'hinfo': int(self.hinfo),
+                 'hinfo': self.hinfo,
                  'ttl' : self.ttl}
         if is_new:
             self.execute("""

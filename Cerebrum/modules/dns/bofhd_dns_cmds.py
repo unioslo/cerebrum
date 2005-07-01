@@ -101,12 +101,23 @@ def int_or_none_as_str(val):
 class BofhdExtension(object):
     all_commands = {}
 
-    def __init__(self, server):
+    legal_hinfo = (
+        ("win", "IBM-PC\tWINDOWS"),
+        ("linux", "IBM_PC\tLINUX"),
+        ("printer", "PRINTER\tPRINTER"),
+        ("unix", "UNIX\tUNIX"),
+        ("nett", "NET\tNET"),
+        ("mac", "MAC\tDARWIN"),
+        ("other", "OTHER\tOTHER"),
+        )
+
+    def __init__(self, server, default_zone='uio'):
         self.server = server
         self.logger = server.logger
         self.db = server.db
         self.const = Factory.get('Constants')(self.db)
-        self.mb_utils = DnsBofhdUtils(server)
+        self.default_zone = self.const.DnsZone(default_zone)
+        self.mb_utils = DnsBofhdUtils(server, self.default_zone)
 
     def get_help_strings(self):
         group_help = {
@@ -124,7 +135,6 @@ class BofhdExtension(object):
             'host_comment': 'Sette kommentar for en gitt maskin',
             'host_contact': 'Oppgi contact for gitt maskin',
             'host_free': 'Sletter data for oppgitt hosnavn/ip-nr',
-            'host_hinfo_list': 'list definerte hinfo',
             'host_hinfo_set': 'sette hinfo',
             'host_info': 'Lister data for gitt hostnavn/ip-addresse eller cname',
             'host_list_free': 'list ledige ipnr',
@@ -174,11 +184,8 @@ class BofhdExtension(object):
              'will be interpreted as a subnet.  You may skip the 129.240 part'],
             'hinfo':
             ['hinfo', 'Enter HINFO code',
-             'Use "host hinfo_list" to get a list of legal values, some examples are:\n'
-             "- unix\n"
-             "- windows\n"
-             "- mac\n"
-             "- nettboks"],
+             'Legal values are: \n%s' % "\n".join(
+            [" - %-8s -> %s" % (t[0], t[1]) for t in BofhdExtension.legal_hinfo])],
             'mx_set':
             ['mx_set', 'Enter mx_set',
              'Use "host list_mx_set" to get a list of legal values'],
@@ -213,10 +220,10 @@ class BofhdExtension(object):
         return commands
 
     def _map_hinfo_code(self, code_str):
-        try:
-            return self.const.HinfoCode(code_str)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Unknown hinfo: %s" % code_str
+        for k, v in BofhdExtension.legal_hinfo:
+            if code_str == k:
+                return v
+        raise CerebrumError("Illegal HINFO '%s'" % code_str)
 
 #    def _alloc_arecord(self, host_name, subnet, ip, force):
 #        return self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
@@ -258,6 +265,8 @@ class BofhdExtension(object):
             raise CerebrumError, "Unknown subnet.  Must force"
         if ip and len(hostnames) > 1:
             raise CerebrumError, "Explicit IP and multiple hostnames"
+        if not len(contact.strip()) > 3:
+            raise CerebrumError, "Contact is mandatory"
         hinfo = self._map_hinfo_code(hinfo)
         if not ip:
             free_ip_numbers = self.mb_utils.find_free_ip(subnet)
@@ -270,7 +279,7 @@ class BofhdExtension(object):
             ip = self.mb_utils.alloc_arecord(
                 name, subnet, free_ip_numbers.pop(0), force)
             self.mb_utils.alloc_host(
-                name, hinfo, mx_set, comment, contact)
+                name, hinfo, mx_set.mx_set_id, comment, contact)
             ret.append({'name': name, 'ip': ip})
         return ret
 
@@ -318,20 +327,6 @@ class BofhdExtension(object):
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
         return "OK, DNS-owner %s completly removed" % host_id
 
-    # host hinfo_list
-    all_commands['host_hinfo_list'] = Command(
-        ("host", "hinfo_list"), 
-        fs=FormatSuggestion("%-10s %-10s %-10s",
-                            ('hinfo.code', 'hinfo.os', 'hinfo.cpu'),
-                            hdr="%-10s %-10s %-10s" % ('Code', 'OS', 'CPU')))
-    def host_hinfo_list(self, operator):
-        ret = []
-        for row in self.const.HinfoCode.list(self.db):
-            ret.append({'hinfo.code': row['code_str'],
-                        'hinfo.os': row['os'],
-                        'hinfo.cpu': row['cpu']})
-        return ret
-
     # host hinfo_set
     all_commands['host_hinfo_set'] = Command(
         ("host", "hinfo_set"), HostName(), Hinfo())
@@ -354,9 +349,9 @@ class BofhdExtension(object):
                              ("%-22s %s" % ("Name:", "%s"),
                               ('dns_owner', )),
                              ("%-22s %s\n%-22s %s\n%-22s %s" % (
-        'Hinfo:', 'os=%s cpu=%s (code=%s)',
+        'Hinfo:', 'os=%s cpu=%s',
         ' ', 'contact=%s', ' ', 'owner=%s'),
-                              ('hinfo.os', 'hinfo.cpu', 'hinfo.code',
+                              ('hinfo.os', 'hinfo.cpu',
                                'host_contact', 'host_comment')),
                              ("%-22s %s" % ("MX-set:", "%s"), ('mx_set',)),
                              ("%-22s %s" % ("TXT:", "%s"), ('txt', )),
@@ -364,7 +359,8 @@ class BofhdExtension(object):
                               ('cname', 'cname_target', 'cname_comment')),
                              ("SRV: %s %i %i %i %s %s", ('srv_owner', 'srv_pri',
                                           'srv_weight', 'srv_port',
-                                          'srv_ttl', 'srv_target'))]))
+                                          'srv_ttl', 'srv_target')),
+                             ("Zone: %22s", ('zone',))]))
     def host_info(self, operator, host_id):
         # TODO: fikse formateringen av output fra denne komandoen
 
@@ -390,15 +386,15 @@ class BofhdExtension(object):
 
         # HINFO records
         ret = []
+        ret.append({'zone': str(self.const.DnsZone(dns_owner.zone))})
         try:
             ret.append({'dns_owner': dns_owner.name})
             
             host = HostInfo.HostInfo(self.db)
             host.find_by_dns_owner_id(owner_id)
-            hinfo = self._map_hinfo_code(int(host.hinfo))
-            ret.append({'hinfo.os': hinfo.os,
-                        'hinfo.cpu': hinfo.cpu,
-                        'hinfo.code': str(hinfo),
+            hinfo_os, hinfo_cpu = host.hinfo.split("\t", 2)
+            ret.append({'hinfo.os': hinfo_os,
+                        'hinfo.cpu': hinfo_cpu,
                         'host_comment': None,
                         'host_contact': None})
             try:
@@ -412,13 +408,14 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
 
-            txt = dns_owner.list_general_dns_records(
-                field_type=self.const.field_type_txt,
-                dns_owner_id=dns_owner.entity_id)
-            if txt:
-                ret.append({'txt': txt[0]['data']})
         except Errors.NotFoundError:  # not found
             pass
+
+        txt = dns_owner.list_general_dns_records(
+            field_type=self.const.field_type_txt,
+            dns_owner_id=dns_owner.entity_id)
+        if txt:
+            ret.append({'txt': txt[0]['data']})
 
         forward_ips = []
         # A records
@@ -517,8 +514,8 @@ class BofhdExtension(object):
         owner_id = self.mb_utils.find_target_by_parsing(
             name, dns.DNS_OWNER)
         dns_owner = DnsOwner.DnsOwner(self.db)
-        dns._ownerfind(owner_id)
-        dns_owner.mx_set_id = self.mb_utils.find_mx_set(mx_set)
+        dns_owner.find(owner_id)
+        dns_owner.mx_set_id = self.mb_utils.find_mx_set(mx_set).mx_set_id
         dns_owner.write_db()
         return "OK, mx set for %s" % name
 
@@ -530,11 +527,7 @@ class BofhdExtension(object):
                             hdr="%-20s %-12s %-10s %s" % (
         'MX-set', 'TTL', 'Priority', 'Target')))
     def host_mx_show(self, operator, mx_set):
-        m = DnsOwner.MXSet(self.db)
-        try:
-            m.find_by_name(mx_set)
-        except Errors.NotFoundError:
-            raise CerebrumError, "No mx-set with name %s" % mx_set
+        m = self.mb_utils.find_mx_set(mx_set)
         ret = []
         for row in m.list_mx_sets(mx_set_id=m.mx_set_id):
             ret.append({'mx_set': m.name,
@@ -620,10 +613,6 @@ class BofhdExtension(object):
     def host_txt_set(self, operator, host_name, txt):
         owner_id = self.mb_utils.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
-        if ttl:
-            ttl = int(ttl)
-        else:
-            ttl = None
         operation = self.mb_utils.alter_general_dns_record(
             owner_id, int(self.const.field_type_txt), txt)
         return "OK, %s TXT record for %s" % (operation, host_name)

@@ -30,12 +30,7 @@ zone_postfix = '.uio.no.'
 
 hinfo_cache = {}
 def get_hinfo(code):
-    code = int(code)
-    if not hinfo_cache.has_key(code):
-        tmp = co.HinfoCode(code)
-        tmp = "%s\t%s" % (tmp.cpu, tmp.os)
-        hinfo_cache[code] = tmp
-    return hinfo_cache[code] 
+    return code
 
 def exp_name(name, no_dot=False):
     ret = name
@@ -158,8 +153,8 @@ def generate_zone_file(fname, heads):
         # and cnames with foreign targets
         name = trim_name(row['name'])
         for s_ref in srv_records.get(row['dns_owner_id'], []):
-            line += "%s\t%i\tSRV\t%i\t%i\t%i\t%s\n" % (name,
-                s_ref['ttl'], s_ref['pri'], s_ref['weight'],
+            line += "%s\t%s\tSRV\t%i\t%i\t%i\t%s\n" % (name,
+                s_ref['ttl'] or '', s_ref['pri'], s_ref['weight'],
                 s_ref['port'], exp_name(s_ref['target_name']))
             name = ''
         if not shown_owner.has_key(row['dns_owner_id']):
