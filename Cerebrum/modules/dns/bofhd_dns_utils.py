@@ -137,15 +137,6 @@ class DnsParser(object):
             ret.append(("%s%0"+fill+"i") % (m.group(1), n))
         return ret
 
-    def append_zone_suffix(self, name):
-        """Convert dns names to fully qualified by appending default domain"""
-        if not name[-1] == '.':
-            if name.endswith("uio.no"):
-                return name+"."
-            else:
-                return name+".uio.no."                
-        return name
-
     def find_target_by_parsing(self, host_id, target_type):
         """Find a target with given host_id of the specified
         target_type.  Legal target_types ad IP_NUMBER and DNS_OWNER.
@@ -177,9 +168,9 @@ class DnsParser(object):
                 raise CerebrumError, "Not unique name for ip-number: %s" % host_id
             return self._arecord.dns_owner_id
 
+        host_id = self.mr_helper.qualify_hostname(host_id)
         self._dns_owner.clear()
         try:
-            host_id = self.append_zone_suffix(host_id)
             self._dns_owner.find_by_name(host_id)
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find dns-owner: %s" % host_id
@@ -197,8 +188,11 @@ class DnsParser(object):
 
     def find_mx_set(self, name):
         self._mx_set.clear()
-        self._mx_set.find_by_name(name)
-        return self._mx_set.mx_set_id
+        try:
+            self._mx_set.find_by_name(name)
+        except Errors.NotFoundError:
+            raise CerebrumError, "No mx-set with name %s" % name
+        return self._mx_set
 
     def find_target_type(self, owner_id, target_ip=None):
         """Find a target and its type by prefering hosts above
@@ -268,7 +262,6 @@ class DnsParser(object):
         return ar.entity_id
 
 class DnsBofhdUtils(IPUtils, DnsParser):
-
     # A number of utility methods used by
     # bofhd_dns_cmds.BofhdExtension.
 
@@ -279,7 +272,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
     # the problem.
     
 
-    def __init__(self, server):
+    def __init__(self, server, default_zone):
         super(DnsBofhdUtils, self).__init__(server)
         self.server = server
         self.logger = server.logger
@@ -291,10 +284,9 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         self._dns_owner = DnsOwner.DnsOwner(self.db)
         self._ip_number = IPNumber.IPNumber(self.db)
         self._cname = CNameRecord.CNameRecord(self.db)
-        self.mr_helper = Helper.Helper(self.db)
+        self.mr_helper = Helper.Helper(self.db, default_zone)
         self._mx_set = DnsOwner.MXSet(self.db)
-
-
+        self.default_zone = default_zone
 
     def ip_rename(self, name_type, old_id, new_id):
         """Performs an ip-rename by directly updating dns_owner or
@@ -314,6 +306,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             self._ip_number.write_db()
         else:
             old_ref = self.find_target_by_parsing(old_id, dns.DNS_OWNER)
+            new_id = self.mr_helper.qualify_hostname(new_id)
             # Check if the name is in use, or is illegal
             self.mr_helper.dns_reg_owner_ok(new_id, dns.CNAME_OWNER)
             self._dns_owner.clear()
@@ -352,6 +345,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
     #
 
     def alloc_host(self, name, hinfo, mx_set, comment, contact):
+        name = self.mr_helper.qualify_hostname(name)
         dns_owner_ref, same_type = self.mr_helper.dns_reg_owner_ok(
             name, dns.HOST_INFO)
 
@@ -361,7 +355,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         self._dns_owner.write_db()
         
         self._host.clear()
-        self._host.populate(dns_owner_ref, int(hinfo))
+        self._host.populate(dns_owner_ref, hinfo)
         self._host.write_db()
         if comment:
             self._host.add_entity_note(self.const.note_type_comment, comment)
@@ -369,6 +363,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             self._host.add_entity_note(self.const.note_type_contact, contact)
 
     def alloc_cname(self, cname_name, target_name, force):
+        cname_name = self.mr_helper.qualify_hostname(cname_name)
         dns_owner_ref, same_type = self.mr_helper.dns_reg_owner_ok(
             cname_name, dns.CNAME_OWNER)
         dns_owner_ref = self.alloc_dns_owner(cname_name)
@@ -421,28 +416,33 @@ class DnsBofhdUtils(IPUtils, DnsParser):
     
     def alloc_dns_owner(self, name, mx_set=None):
         self._dns_owner.clear()
-        self._dns_owner.populate(name, mx_set_id=mx_set)
+        if not name.endswith(self.default_zone.postfix):
+            zone = self.const.other_zone
+        else:
+            zone = self.default_zone
+        self._dns_owner.populate(zone, name, mx_set_id=mx_set)
         self._dns_owner.write_db()
         return self._dns_owner.entity_id
 
-    def alter_dns_record(self, owner_id, ttl_type, dta, ttl=None):
+    def alter_general_dns_record(self, owner_id, ttl_type, dta, ttl=None):
         self._dns_owner.clear()
         self._dns_owner.find(owner_id)
         if not dta:
-            self._dns_owner.delete_dns_record(self._dns_owner.entity_id, ttl_type)
+            self._dns_owner.delete_general_dns_record(self._dns_owner.entity_id, ttl_type)
             return "removed"
         try:
-            self._dns_owner.get_dns_record(self._dns_owner.entity_id, ttl_type)
+            self._dns_owner.get_general_dns_record(self._dns_owner.entity_id, ttl_type)
         except Errors.NotFoundError:
-            self._dns_owner.add_dns_record(
+            self._dns_owner.add_general_dns_record(
                 self._dns_owner.entity_id, ttl_type, ttl, dta)
             return "added"
-        self._dns_owner.update_dns_record(
+        self._dns_owner.update_general_dns_record(
             self._dns_owner.entity_id, ttl_type, ttl, dta)
         return "updated"
 
     def alter_srv_record(self, operation, service_name, pri,
                          weight, port, target, ttl=None):
+        service_name = self.mr_helper.qualify_hostname(service_name)
         # TBD: should we assert that target is of a given type?
         self._dns_owner.clear()
         try:
@@ -549,6 +549,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         return self._arecord.entity_id
 
     def alloc_arecord(self, host_name, subnet, ip, force):
+        host_name = self.mr_helper.qualify_hostname(host_name)
         # Check for existing record with same name
         dns_owner_ref, same_type = self.mr_helper.dns_reg_owner_ok(
             host_name, dns.A_RECORD)

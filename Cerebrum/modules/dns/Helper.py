@@ -29,8 +29,19 @@ class Helper(DatabaseAccessor):
     TODO: that is easier said than done, as we don't really know from
     the DnsOwner class what type of data is being registered."""
 
-    def __init__(self, database):
+    def __init__(self, database, default_zone):
         super(Helper, self).__init__(database)
+        self.default_zone = default_zone
+
+    def qualify_hostname(self, name):
+        """Convert dns names to fully qualified by appending default domain"""
+        if not name[-1] == '.':
+            postfix = self.default_zone.postfix
+            if name.endswith(postfix[:-1]):
+                return name+"."
+            else:
+                return name+postfix
+        return name
 
     def dns_reg_owner_ok(self, name, record_type):
         """Checks if it is legal to register a record of type
@@ -62,8 +73,11 @@ class Helper(DatabaseAccessor):
         return dns_owner.entity_id, False
 
     def legal_dns_owner_name(self, name):
-        if not re.search(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*$', name):
-            raise DNSError, "Illegal name: '%s'" % name
+        if not name.endswith('.'):
+            raise DNSError, "Name not fully qualified"
+        for n in name[:-1].split("."):
+            if not re.search(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*$', n):
+                raise DNSError, "Illegal name: '%s'" % name
 
     def get_referers(self, ip_number_id=None, dns_owner_id=None):
         """Return information about registrations that point to this
