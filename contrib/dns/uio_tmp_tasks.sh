@@ -3,6 +3,16 @@
 # Collection of scripts for common tasks while tsting at UiO.  Will be
 # removed/converted once we near a stable implementation.
 
+new_db() {
+    # /local/opt/postgresql/bin/dropdb -U cerebrum cerebrum_dns
+    # /local/opt/postgresql/bin/createdb -U cerebrum -E unicode cerebrum_dns
+
+    # Trenger egentlig ikke alle disse tabellene, men ønsker å slipe å
+    # klå på CLASS_CONSTANTS
+    ./makedb.py --extra-file=design/bofhd_tables.sql --extra-file=design/bofhd_auth.sql --extra-file=design/mod_posix_user.sql --extra-file=design/mod_changelog.sql --extra-file=design/mod_stedkode.sql --extra-file=design/mod_email.sql --extra-file=design/mod_lt.sql --extra-file=design/mod_printer_quota.sql --extra-file=design/mod_dns.sql
+
+}
+
 migrate_uio() {
     # nukes existing dns data, end re-imports them
     ./makedb.py --drop design/mod_dns.sql || true
@@ -22,11 +32,11 @@ migrate_uio() {
 	./contrib/dns/strip4cmp.py -i data/uio.no.orig -o data/uio.no.orig.cmp -z
     fi
 
-    time ./contrib/dns/import_dns.py -z data/uio.no.orig -r data/129.240.orig -h data/hosts.orig -i
+    time ./contrib/dns/import_dns.py -Z uio -z data/uio.no.orig -r data/129.240.orig -h data/hosts.orig -i
     time ./contrib/dns/import_dns.py --netgroups data/netgroup.host.orig -n
     time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/129.240.head -r data/129.240.new
     time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/uio.no.static_head --head /cerebrum/etc/cerebrum/dns/uio.no.head -b data/uio.no.new
-    time ./contrib/generate_nismaps.py --group_spread NIS_mng@uio --user_spread NIS_user@uio -n data/netgroup.host.new || true
+    time ./contrib/dns/generate_nismaps.py --group_spread NIS_mng@uio --user_spread NIS_user@uio -n data/netgroup.host.new || true
     ./contrib/dns/strip4cmp.py -i data/129.240.new -o data/129.240.new.cmp -r
     ./contrib/dns/strip4cmp.py -i data/uio.no.new -o data/uio.no.new.cmp -z
 
@@ -45,11 +55,14 @@ case "$1" in
     --migrate)
 	migrate_uio
 	;;
+    --new-db)
+	new_db
+	;;
     --fetch)
 	fetch_src_files
 	;;
     *)
-	echo "Usage: old_and_large.sh --migrate | --fetch"
+	echo "Usage: old_and_large.sh --migrate | --fetch | --new-db"
 	;;
 esac
 
