@@ -84,9 +84,9 @@ CREATE TABLE paid_quota_status (
  weekly_quota        NUMERIC(8),
  max_quota           NUMERIC(8),
  total_pages         NUMERIC(8) NOT NULL,
- free_quota          NUMERIC(8) NOT NULL
+ free_quota          NUMERIC(8) NOT NULL,
  accum_quota         NUMERIC(8) NOT NULL,
- kroner              NUMERIC(7,2) NOT NULL,
+ kroner              NUMERIC(7,2) NOT NULL
 );
 
 category:main;
