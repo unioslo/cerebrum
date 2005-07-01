@@ -23,7 +23,7 @@ DROP TABLE dns_mx_set;
 category:drop;
 DROP TABLE dns_owner;
 category:drop;
-DROP TABLE dns_hinfo_code;
+DROP TABLE dns_zone;
 category:drop;
 DROP TABLE dns_entity_note;
 category:drop;
@@ -58,6 +58,29 @@ CREATE TABLE dns_ip_number (
   ipnr          NUMERIC(14,0) NOT NULL
 );
 
+/*	dns_zone
+
+The ``dns_zone`` is currently only used to group which hosts should be
+included in the forward map.  It has the following columns::
+
+  zone           TODO - for multiple zones (affects name unique constr.)
+  dns_owner_id   identifier (PK)
+  entity_type    dns_owner (part of FK)
+  mx_set_id      FK to mx_set
+
+The name is stored in entity_name.  By making it an entity,
+netgroups becomes trivial.
+*/
+category:code;
+CREATE TABLE dns_zone (
+  zone_id       NUMERIC(12,0)
+                  CONSTRAINT dns_zone_pk PRIMARY KEY,
+  name          CHAR VARYING(30) NOT NULL
+                  CONSTRAINT zone_name_u UNIQUE,
+  postfix       CHAR VARYING(30) NULL UNIQUE
+);
+
+
 /*	dns_owner
 
 The ``dns_owner`` table represents the leftmost argument in a typical
@@ -67,6 +90,7 @@ zone file, typically a host-name.  It has the following columns::
   dns_owner_id   identifier (PK)
   entity_type    dns_owner (part of FK)
   mx_set_id      FK to mx_set
+  expire_date    date when this entry is no longer valid
 
 The name is stored in entity_name.  By making it an entity,
 netgroups becomes trivial.
@@ -80,7 +104,13 @@ CREATE TABLE dns_owner (
                 NOT NULL
                 CONSTRAINT a_record_entity_type_chk
                   CHECK (entity_type = [:get_constant name=entity_dns_owner]),
+  zone_id       NUMERIC(12,0)
+                  NOT NULL
+                  CONSTRAINT dns_owner_zone_fk
+                  REFERENCES dns_zone(zone_id),
   mx_set_id     NUMERIC(12,0),
+  expire_date	DATE
+		DEFAULT NULL,
   CONSTRAINT dns_owner_entity_id
     FOREIGN KEY (entity_type, dns_owner_id)
     REFERENCES entity_info(entity_type, entity_id)
@@ -126,23 +156,6 @@ CREATE TABLE dns_a_record (
     UNIQUE (ip_number_id, dns_owner_id)
 );
 
-/*	dns_hinfo_code
-
-Defines legal HINFO values
-*/
-
-category:code;
-CREATE TABLE dns_hinfo_code
-(
-  code          NUMERIC(6,0)
-                CONSTRAINT hinfo_code_pk PRIMARY KEY,
-  code_str      CHAR VARYING(16)
-                NOT NULL
-                CONSTRAINT hinfo_codestr_u UNIQUE,
-  cpu           CHAR VARYING(64) NOT NULL,
-  os            CHAR VARYING(64) NOT NULL
-);
-
 /*	dns_host_info
 
 The ``dns_host_info`` table store information about a host.  A host is
@@ -152,7 +165,7 @@ typically a hardware box.  It has the following columns::
   host_id        identifier (PK)
   dns_owner_id   FK to dns_owner
   ttl            optional TTL value          
-  hinfo          FK to hinfo_code
+  hinfo          string representing hinfo
 
 it is an entity so that we may register entity_note (comment/contact)
 for it.
@@ -172,9 +185,7 @@ CREATE TABLE dns_host_info (
                   REFERENCES dns_owner(dns_owner_id)
                 CONSTRAINT dns_host_info_dns_owner_id_u UNIQUE,
   ttl           NUMERIC(6,0), 
-  hinfo         NUMERIC(6,0) NOT NULL
-                  CONSTRAINT hinfo_code
-                  REFERENCES dns_hinfo_code(code),
+  hinfo         CHAR VARYING(128) NULL,
   CONSTRAINT dns_host_info_entity_id
     FOREIGN KEY (entity_type, host_id)
     REFERENCES entity_info(entity_type, entity_id)
@@ -415,7 +426,7 @@ CREATE TABLE dns_entity_note (
   note_type       NUMERIC(6,0) NOT NULL
                     CONSTRAINT entity_note_code_fk
                   REFERENCES dns_entity_note_code(code),
-  data            CHAR VARYING(128) NOT NULL,
+  data            CHAR VARYING(256) NOT NULL,
   CONSTRAINT entity_note_pk PRIMARY KEY (entity_id, note_type)
 );
 
