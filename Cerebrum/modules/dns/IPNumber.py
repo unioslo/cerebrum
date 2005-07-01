@@ -162,15 +162,17 @@ class IPNumber(DatabaseAccessor):
         WHERE ip_number_id=:ip_number_id""", locals())
 
     def list_override(self, ip_number_id=None):
-        where = ['ovr.dns_owner_id=d.dns_owner_id',
-                 'ovr.dns_owner_id=en.entity_id']
+        where = ''
         if ip_number_id:
-            where.append("ovr.ip_number_id=:ip_number_id")
+            where = "AND ovr.ip_number_id=:ip_number_id"
         return self.query("""
-        SELECT ovr.ip_number_id, ovr.dns_owner_id, en.entity_name AS name
-        FROM [:table schema=cerebrum name=dns_override_reversemap] ovr,
-             [:table schema=cerebrum name=dns_owner] d,
-             [:table schema=cerebrum name=entity_name] en
-        WHERE %s """ % " AND ".join(where), {'ip_number_id': ip_number_id})
+        SELECT ovr.ip_number_id, ovr.dns_owner_id, dip.a_ip, dip.ipnr,
+               en.entity_name AS name
+        FROM [:table schema=cerebrum name=dns_override_reversemap] ovr JOIN
+             [:table schema=cerebrum name=dns_ip_number] dip ON (
+               ovr.ip_number_id=dip.ip_number_id %s)
+             LEFT JOIN [:table schema=cerebrum name=entity_name] en ON
+               ovr.dns_owner_id=en.entity_id
+        """ % where, {'ip_number_id': ip_number_id})
 
 # arch-tag: 8f5892d4-5af8-45a7-acc1-92e91250cbf3
