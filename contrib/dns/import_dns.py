@@ -153,6 +153,11 @@ class FileParsers(object):
                 lparts[-1] = filter_name(lparts[-1])   # remove .uio.no.
             return rectype, ttl, lparts, comment
 
+    def set_zone(z):
+        global zone
+        zone = z
+    set_zone = staticmethod(set_zone)
+
 class MergeRestart(Exception):
     pass
 def parse_netgroups(fname):
@@ -405,22 +410,33 @@ def pass_one(name, dta):
             name2host[name] = (int(host.entity_id),
                                int(host.dns_owner_id))
                                
-            # All existing TXT records are connected to host
-            if dta.has_key('TXT'):
-                if len(dta['TXT']) > 1:
-                    logger.warn("Multiple TXT records for %s" % name)
-                ttl, txt_val = dta['TXT'][0]
-                dnsowner.add_general_dns_record(host.dns_owner_id, co.field_type_txt, ttl, txt_val)
-                del dta['TXT']
+        # All existing TXT records are connected to host
+        if dta.has_key('TXT'):
+            if len(dta['TXT']) > 1:
+                logger.warn("Multiple TXT records for %s" % name)
+            ttl, txt_val = dta['TXT'][0]
+            dnsowner.add_general_dns_record(host.dns_owner_id, co.field_type_txt, ttl, txt_val)
+            del dta['TXT']
         del dta['A']
 
 def pass_two(name, dta):
     # We delay insertion of mx-records because we want the A-record to
     # exist first
+
+    def _sort_mx(mx_records):
+        d = {}
+        for m in mx_records:
+            d[(m[1], m[2])] = m
+        ret = d.values()
+        ret.sort()
+        return ret
     
     if dta.has_key('MX'):
-        dta['MX'].sort()
-        key = "-".join([ str(x) for x in dta['MX'] ])
+        mx_records = _sort_mx(dta['MX'])
+        if(len(dta['MX']) != len(mx_records)):
+            logger.warn("Multiple equal MX records for %s" % name)
+
+        key = "-".join([ str(x) for x in mx_records ])
         if not mx_targets.has_key(key):
             mx_name = "mx_target_%i" % (len(mx_targets) + 1)
             logger.debug("Creating %s (%s)" % (mx_name, key))
@@ -429,7 +445,7 @@ def pass_two(name, dta):
             mx_set.write_db()
             mx_targets[key] = int(mx_set.mx_set_id)
             prev_mx_member = ()
-            for ttl, pri, target_name in dta['MX']:
+            for ttl, pri, target_name in mx_records:
                 if prev_mx_member == (pri, target_name):
                     logger.warn("Multiple equal MX records for %s" % name)
                     continue
@@ -665,6 +681,8 @@ def main():
             records_to_db(recs)
             records_to_revdb(reverse_file)
         elif opt in ('-n',):
+            if zone is None:
+                raise ValueError("-Z is required")
             import_netgroups(netgroup_file)
 
 if __name__ == '__main__':
