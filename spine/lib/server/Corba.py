@@ -227,15 +227,15 @@ def _create_corba_method(method):
                 # FIXME: Raise NotFoundError (Spine exception)
                 pass
 
-            # Add a reference to the object in the transaction making the call.
-            transaction.add_ref(self.spine_object)
-
             # Lock the object if it should be locked
             if isinstance(self.spine_object, Locking):
                 if method.write:
                     self.spine_object.lock_for_writing(transaction)
                 else:
                     self.spine_object.lock_for_reading(transaction)
+
+            # Add a reference to the object in the transaction making the call.
+            transaction.add_ref(self.spine_object)
 
             # convert from CORBA arguments to python server-side arguments
             args = []

@@ -125,11 +125,24 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         try:
             return db.execute(sql, keys)
         except Cerebrum.Errors.DatabaseConnectionError, e:
-            raise DatabaseError('Connection to the database failed', *e.args)
+            raise DatabaseError('Connection to the database failed', str(e), sql)
         except Cerebrum.Errors.DatabaseException, e:
-            raise DatabaseError('Error during query', *e.args)
+            raise DatabaseError('Error during query', str(e), sql)
         except Cerebrum.Database.DatabaseError, e:
-            raise DatabaseError('Error during query', *e.args)
+            raise DatabaseError('Error during query', str(e), sql)
+
+    def __wrapped_query(self, sql, keys):
+        """Wraps around the query call on the database to catch exceptions
+        and rethrow proper Spine exceptions."""
+        db = self.get_database()
+        try:
+            return db.query(sql, keys)
+        except Cerebrum.Errors.DatabaseConnectionError, e:
+            raise DatabaseError('Connection to the database failed', str(e), sql)
+        except Cerebrum.Errors.DatabaseException, e:
+            raise DatabaseError('Error during query', str(e), sql)
+        except Cerebrum.Database.DatabaseError, e:
+            raise DatabaseError('Error during query', str(e), sql)
 
     def __wrapped_query_1(self, sql, keys):
         """Wraps around the query_1 call on the database to catch exceptions
@@ -137,16 +150,16 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
         db = self.get_database()
         try:
             return db.query_1(sql, keys)
-        except Cerebrum.Errors.DatabaseConnectionError, e:
-            raise DatabaseError('Connection to the database failed', *e.args)
-        except Cerebrum.Errors.DatabaseException, e:
-            raise DatabaseError('Error during query', *e.args)
-        except Cerebrum.Database.DatabaseError, e:
-            raise DatabaseError('Error during query', *e.args)
         except Cerebrum.Errors.NotFoundError, e:
             raise NotFoundError(*e.args)
         except Cerebrum.Errors.TooManyRowsError, e:
-            raise NotFoundError(*e.args)
+            raise TooManyMatchesError(*e.args)
+        except Cerebrum.Errors.DatabaseConnectionError, e:
+            raise DatabaseError('Connection to the database failed', str(e), sql)
+        except Cerebrum.Errors.DatabaseException, e:
+            raise DatabaseError('Error during query', str(e), sql)
+        except Cerebrum.Database.DatabaseError, e:
+            raise DatabaseError('Error during query', str(e), sql)
 
     def _load_db_attributes(self, attributes=None):
         """Load 'attributes' from the database.
@@ -403,13 +416,11 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             try:
                 rows = self.get_database().query(sql, values)
             except Cerebrum.Errors.DatabaseConnectionError, e:
-                raise DatabaseError('Connection to the database failed', *e.args)
+                raise DatabaseError('Connection to the database failed', str(e), sql)
             except Cerebrum.Errors.DatabaseException, e:
-                raise DatabaseError('Error during query', *e.args)
+                raise DatabaseError('Error during query', str(e), sql)
             except Cerebrum.Database.DatabaseError, e:
-                raise DatabaseError('Error during query', *e.args)
-            except Cerebrum.Errors.NotFoundError, e:
-                raise NotFoundError(*e.args)
+                raise DatabaseError('Error during query', str(e), sql)
 
             objects = []
             for row in rows:

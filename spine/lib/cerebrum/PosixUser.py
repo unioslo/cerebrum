@@ -18,8 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Errors
+import Cerebrum.modules.PosixUser
+
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
+from SpineLib.SpineExceptions import NotFoundError
 
 from Account import Account
 from Group import Group
@@ -29,8 +33,6 @@ from SpineLib import Registry
 registry = Registry.get_registry()
 
 __all__ = ['PosixUser', 'PosixShell']
-
-import Cerebrum.modules.PosixUser
 
 table = 'posix_shell_code'
 class PosixShell(CodeType):
@@ -53,7 +55,10 @@ registry.register_class(PosixShell)
 
 def get_gecos(self):
     p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
-    p.find(self.get_id())
+    try:
+        p.find(self.get_id())
+    except Cerebrum.Errors.NotFoundError:
+        raise NotFoundError('Could not find gecos for %s' % self)
 
     return p.get_gecos()
 

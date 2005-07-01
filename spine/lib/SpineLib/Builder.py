@@ -20,7 +20,7 @@
 
 from Cerebrum.extlib import sets
 import Cerebrum.Errors
-from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, ReadOnlyAttributeError, ServerProgrammingError, TransactionError
+from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, NotFoundError, ReadOnlyAttributeError, ServerProgrammingError, TooManyMatchesError, TransactionError
 
 __all__ = ['Attribute', 'Method', 'Builder']
 
@@ -61,6 +61,9 @@ class Attribute(object):
             AlreadyLockedError, DatabaseError, TransactionError, 
             AccessDeniedError, ServerProgrammingError
         ]
+        if optional:
+            self.exceptions.append(NotFoundError)
+            self.exceptions.append(TooManyMatchesError)
         self.write = write
         self.optional = optional
 

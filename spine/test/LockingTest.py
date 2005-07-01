@@ -140,6 +140,20 @@ class LockingTest(unittest.TestCase):
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 0
 
+    def testDenyWritelockOnReadlockedObject(self):
+        """Tests that a write lock is denied when an object is already read locked."""
+        t1 = self.session.new_transaction()
+        t2 = self.session.new_transaction()
+
+        a1 = t1.get_account_searcher().search()[0]
+        a1.get_name()
+
+        a2 = t2.get_account_searcher().search()[0]
+        self.assertRaises(Spine.Errors.AlreadyLockedError, a2.set_name, 'foo')
+        t2.rollback()
+        t1.rollback()
+
+
 
 if __name__ == '__main__':
     unittest.main()

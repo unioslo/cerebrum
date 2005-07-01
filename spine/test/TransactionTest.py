@@ -99,7 +99,7 @@ class TransactionTest(unittest.TestCase):
         ou = ous[0]
         ou_id = ou.get_id()
         old_name = ou.get_name()
-        ou.set_name('A testname')
+        ou.set_name(str(id(ou)))
         transaction.commit()
         assert len(self.session.get_transactions()) == 0
 
@@ -115,23 +115,23 @@ class TransactionTest(unittest.TestCase):
         transaction = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 1
         account = transaction.get_account_searcher().search()[0]
-        id = account.get_id()
+        new_name = str(id(account))
+        id_1 = account.get_id()
         name = account.get_name()
-        new_name = 'Test'
         account.set_name(new_name)
         transaction.commit()
         assert len(self.session.get_transactions()) == 0
 
         transaction = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 1
-        account = transaction.get_account(id)
+        account = transaction.get_account(id_1)
         self.assertEquals(account.get_name(), new_name)
         account.set_name(name)
         transaction.commit()
         assert len(self.session.get_transactions()) == 0
 
         transaction = self.session.new_transaction()
-        account = transaction.get_account(id)
+        account = transaction.get_account(id_1)
         self.assertEquals(account.get_name(), name)
         transaction.rollback()
         assert len(self.session.get_transactions()) == 0
@@ -145,7 +145,6 @@ class MultipleTransactionTest(unittest.TestCase):
 
     def testMultipleTransactionsWithDifferentObjects(self):
         """Test multiple transaction manipulating different objects, commiting changes and verifying that they were written to the database."""
-        test_name = 'test'
         transaction_1 = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 1
         transaction_2 = self.session.new_transaction()
@@ -153,13 +152,15 @@ class MultipleTransactionTest(unittest.TestCase):
         search = transaction_1.get_account_searcher().search()
         assert len(search) >= 2 # We need two accounts to continue the test
         account_1 = search[0]
+        test_name = str(id(account_1))
+        test_name2 = str(id(account_1) + 1)
         account_2 = search[1]
         id_1 = account_1.get_id()
         id_2 = account_2.get_id()
         name_1 = account_1.get_name()
         name_2 = account_2.get_name()
         account_1.set_name(test_name)
-        account_2.set_name(test_name)
+        account_2.set_name(test_name2)
         transaction_1.commit()
         assert len(self.session.get_transactions()) == 1
         transaction_2.commit()
@@ -172,7 +173,7 @@ class MultipleTransactionTest(unittest.TestCase):
         account_1 = transaction_1.get_account(id_1)
         account_2 = transaction_1.get_account(id_2)
         self.assertEquals(account_1.get_name(), test_name)
-        self.assertEquals(account_2.get_name(), test_name)
+        self.assertEquals(account_2.get_name(), test_name2)
         account_1.set_name(name_1)
         account_2.set_name(name_2)
         transaction_1.commit()
@@ -195,15 +196,15 @@ class MultipleTransactionTest(unittest.TestCase):
 
     def testMultipleTransactionsWithSameObjects(self):
         """Test multiple transactions operating on the same object (verifies that locking works as expected)."""
-        test_name = 'test'
-        test_name2 = 'test2'
         transaction_1 = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 1
         transaction_2 = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 2
         account_1 = transaction_1.get_account_searcher().search()[0]
-        id = account_1.get_id()
-        account_2 = transaction_2.get_account(id)
+        test_name = str(id(account_1))
+        test_name2 = str(id(account_1) + 1)
+        id_1 = account_1.get_id()
+        account_2 = transaction_2.get_account(id_1)
         name_1 = account_1.get_name()
         name_2 = account_2.get_name()
         self.assertEquals(name_1, name_2)
@@ -213,7 +214,7 @@ class MultipleTransactionTest(unittest.TestCase):
         account_1.set_name(test_name)
         transaction_2 = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 2
-        account_2 = transaction_2.get_account(id)
+        account_2 = transaction_2.get_account(id_1)
 
         self.assertRaises(Spine.Errors.AlreadyLockedError, account_2.get_name)
         
@@ -221,7 +222,7 @@ class MultipleTransactionTest(unittest.TestCase):
         assert len(self.session.get_transactions()) == 1
         transaction_1 = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 2
-        account_1 = transaction_1.get_account(id)
+        account_1 = transaction_1.get_account(id_1)
 
         account_2.set_name(test_name2)
 
@@ -238,7 +239,7 @@ class MultipleTransactionTest(unittest.TestCase):
 
         transaction_1 = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 1
-        account_1 = transaction_1.get_account(id)
+        account_1 = transaction_1.get_account(id_1)
         self.assertEquals(account_1.get_name(), name_1)
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 0

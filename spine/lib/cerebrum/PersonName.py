@@ -20,6 +20,7 @@
 
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 
 from Person import Person
 from Types import NameType, SourceSystem
@@ -72,7 +73,7 @@ def get_cached_full_name(self):
     full = NameType(name='FULL')
     return PersonName(self, full, cached).get_name()
 
-Person.register_method(Method('get_cached_full_name', str), get_cached_full_name)
+Person.register_method(Method('get_cached_full_name', str, exceptions=[NotFoundError, TooManyMatchesError]), get_cached_full_name)
 
 
 # arch-tag: 6a0ecb31-a1a6-4581-ad50-c9e53323041b
