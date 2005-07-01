@@ -199,12 +199,16 @@ def remove_member(req, transaction, groupid, memberid, operation):
     transaction.commit()
 remove_member = transaction_decorator(remove_member)
 
-def edit(req, transaction, id):
+def edit(req, transaction, id, promote=False):
     """Creates a page with the form for editing a person."""
     group = _get_group(req, transaction, id)
     page = Main(req)
     page.title = _("Edit %s:" % group.get_name())
     page.setFocus("group/edit", str(group.get_id()))
+
+    if promote == "posix":
+        group.promote_posix()
+    
     edit = GroupEditTemplate()
     content = edit.editGroup(group)
     page.content = lambda: content
@@ -243,7 +247,6 @@ def save(req, transaction, id, name, expire="", description="", gid=None):
     queue_message(req, _("Group successfully updated."))
 save = transaction_decorator(save)
 
-
 def make(req, transaction, name, expire="", description=""):
     """Performs the creation towards the server."""
     commands = transaction.get_commands()
@@ -260,5 +263,16 @@ def make(req, transaction, name, expire="", description=""):
     redirect_object(req, group, seeOther=True)
     transaction.commit()
 make = transaction_decorator(make)
+
+def posix_demote(req, transaction, id):
+    group = transaction.get_group(int(id))
+    group.demote_posix()
+    redirect_object(req, group, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Group successfully demoted."))
+posix_demote = transaction_decorator(posix_demote)
+
+def delete(req, id):
+    pass
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

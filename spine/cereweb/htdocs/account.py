@@ -182,13 +182,30 @@ def view(req, transaction, id):
     return page
 view = transaction_decorator(view)
 
-def edit(req, transaction, id):
+def edit(req, transaction, id, promote=False):
     """Creates a page with the form for editing an account."""
     account = transaction.get_account(int(id))
     page = Main(req)
     page.title = ""
     page.setFocus("account/edit")
-    
+
+    # promote account to posix
+    if promote == "posix":
+        primary_group = None
+        for group in account.get_groups():
+            if group.is_posix():
+                primary_group = group
+                break
+        
+        if primary_group:
+            searcher = transaction.get_posix_shell_searcher()
+            shell = searcher.search()[0]
+            account.promote_posix(primary_group, shell)
+        else:
+            queue_message(req, _("Account is not member of any posix-groups, and cannot be promoted to posix-user."), error=True)
+            redirect_object(req, account, seeOther=True)
+            #TODO: maybe we should rather create the posix-group
+            
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()
     if account.get_expire_date():
@@ -264,10 +281,27 @@ def save(req, transaction, id, name, expire_date="", uid="",
     else:
         redirect_object(req, account, seeOther=True)
         transaction.commit()
-        queue_message(req, _("Group successfully updated."))
+        queue_message(req, _("Account successfully updated."))
 save = transaction_decorator(save)
 
-def delete(req, id):
-    pass
+def posix_demote(req, transaction, id):
+    account = transaction.get_account(int(id))
+    account.demote_posix()
+    redirect_object(req, account, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Account successfully demoted."))
+posix_demote = transaction_decorator(posix_demote)
+
+def delete(req, transaction, id):
+    account = transaction.get_account(int(id))
+    #account.delete()
+    #redirect(req, url("index"), seeOther=True)
+    #transaction.commit()
+    #queue_message(req, _("Account successfully deleted."))
+    queue_message(req, _("Error. Not implemented correctly on the server yet."),
+                  error=True)
+    redirect_object(req, account, seeOther=True)
+    
+delete = transaction_decorator(delete)
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

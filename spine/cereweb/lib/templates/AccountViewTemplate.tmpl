@@ -1,4 +1,4 @@
-## Copyright 2004 University of Oslo, Norway
+## Copyright 2004, 2005 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -18,6 +18,7 @@
 
 #extends EntityViewTemplate
 #from Cereweb.utils import url, object_link, view_date
+#from Cereweb.WorkList import remember_link
 
 ## Main method for creating the view of accounts.
 #def viewAccount($transaction, $account)
@@ -59,9 +60,18 @@
     </dl>
 </div>
 <div class="actions">
-    #set link = $url("account/edit?id=%s" % $account.get_id())
-    #set link2 = $url("account/delete?id=%s" % $account.get_id())
-    <a href="$link">$_("Edit account")</a><a href="$link2">$_("Remove account")</a>
+    #set link1 = $url("account/edit?id=%s" % $account.get_id())
+    #set link3 = $url("account/delete?id=%s" % $account.get_id())
+    <a href="$link1">$_("Edit")</a>
+    #if $account.is_posix()
+        #set link2 = $url("account/posix_demote?id=%s&" % $account.get_id())
+        <a href="$link2">$_("Demote from Posix")</a>
+    #else
+        #set link2 = $url("account/edit?id=%s&promote=posix" % $account.get_id())
+        <a href="$link2">$_("Promote to Posix")</a>
+    #end if
+    <a href="$link3">$_("Remove")</a>
+    $remember_link($account)
 </div>
 #end def
 

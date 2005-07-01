@@ -244,7 +244,7 @@ def save(req, transaction, id, gender, birthdate, deceased, description=""):
     queue_message(req, _("Person successfully updated."))
 save = transaction_decorator(save)
 
-def make(req, transaction, name, gender, birthdate, description="Created with cereweb"):
+def make(req, transaction, name, gender, birthdate, description=""):
     """Create a new person with the given values."""
     birthdate = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
     gender = transaction.get_gender_type(gender)

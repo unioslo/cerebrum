@@ -1,4 +1,4 @@
-## Copyright 2004 University of Oslo, Norway
+## Copyright 2004, 2005 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -54,7 +54,19 @@ $view_entity($person, $transaction)
         #set $dob = $person.get_birth_date().strftime("%Y-%m-%d")
         <div class="info"><em>$_("Date of birth"):</em> $dob</div>
         <div class="info"><em>$_("Description"):</em> $person.get_description()</div>
-        <div class="info"><em>$_("Affilitations"):</em> none!</div>
+        <div class="info"><em>$_("Affilitations"):</em>
+        #set $affils = $person.get_affiliations()
+        #if $affils
+            #for $affil in $affils
+                OU - $affil.get_ou().get_name()<br />
+                Affilation - $affil.get_affiliation().get_name()<br />
+                status - $affil.get_status().get_name()<br />
+                <br />
+            #end for
+        #else
+        No affiliations.
+        #end if
+        </div>
     </div>
     <div class="actions">
         #set $edit = $url("person/edit?id=%s" % $person.get_id())
