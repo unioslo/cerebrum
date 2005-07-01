@@ -58,6 +58,8 @@ import fcntl
 import select
 import getopt
 import threading
+import traceback
+import string
 
 import cerebrum_path
 import cereconf
@@ -93,6 +95,11 @@ if True:
             lvl = "%3i %s" % (delta, lvl)
             if os.getpid() != ppid:
                 lvl = "      %s" % lvl
+            if exc_info:
+                type, value, tb = sys.exc_info()
+                msg = "%s: %s: %s\n%s" % (
+                    msg,  str(type), str(value),
+                    string.join(traceback.format_tb(tb)))
             sys.stdout.write("%s [%i] %s\n" % (lvl, os.getpid(), msg))
             sys.stdout.flush()
 
