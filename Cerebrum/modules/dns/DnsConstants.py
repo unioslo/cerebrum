@@ -10,65 +10,26 @@ class _EntityNoteCode(Constants._CerebrumCode):
     "Mappings stored in the entity_note_code table"
     _lookup_table = '[:table schema=cerebrum name=dns_entity_note_code]'
 
-class _HinfoCode(Constants._CerebrumCode):
-    "Mappings stored in the field_type_code table"
-    _lookup_table = '[:table schema=cerebrum name=dns_hinfo_code]'
-    _key_size = 2
-    
-    # TODO: the caching done by __new__ don't seem to work, or is very
-    # slow when looking up by code=int.
-    def __init__(self, code, cpu=None, os=None):
-        """When called with two arguments (os=None), try to lookup an
-        existing value by cpu=code and os=cpu.  If code is int, lookup
-        by numerical value."""
-        if os is None:
-            if isinstance(code, int):
-                code = self.sql.query_1("""
-                SELECT code FROM %s WHERE code=:code""" % (
-                    self._lookup_table), {'code': code})
-            else:
-                if cpu is None:
-                    code = self.sql.query_1("""
-                    SELECT code FROM %s WHERE code_str=:code_str""" % (
-                        self._lookup_table), {'code_str': code})
-                else:
-                    code = self.sql.query_1("""
-                    SELECT code FROM %s WHERE cpu=:cpu and os=:os""" % (
-                        self._lookup_table), {'cpu': code, 'os': cpu})
-        super(_HinfoCode, self).__init__(code, None)
-        if cpu is not None:
-            self.cpu = cpu
-            self.os = os
-        else:
-            self.cpu, self.os = self.sql.query_1("""
-            SELECT cpu, os FROM %s WHERE %s=:code""" % (
-                self._lookup_table, self._lookup_code_column), {
-                'code': int(self) })
+class _DnsZoneCode(Constants._CerebrumCode):
+    _lookup_table = '[:table schema=cerebrum name=dns_zone]'
 
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, cpu, os)
-        VALUES
-          (%(code_seq)s, :str, :cpu, :os)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'cpu': self.cpu,
-            'os': self.os,
-            'code_seq': self._code_sequence},
-                         {'cpu': self.cpu,
-                          'str': self.str,
-                          'os': self.os})
+    _lookup_code_column = 'zone_id'
+    _lookup_str_column = 'name'
+    _lookup_desc_column = 'postfix'
 
-    def list(db):
-        return db.query("""
-        SELECT %(code_col)s, %(str_col)s, cpu, os
-        FROM %(code_table)s"""  % {
-            'code_table': _HinfoCode._lookup_table,
-            'code_col': _HinfoCode._lookup_code_column,
-            'str_col': _HinfoCode._lookup_str_column})
-    list = staticmethod(list)
+    def _get_name(self):
+        return self.str
+    name = property(_get_name, None, None, "the name")
+
+    def _get_zone_id(self):
+        return int(self)
+    zone_id = property(_get_zone_id, None, None, "the zone_id")
+
+    def _get_postfix(self):
+        if not hasattr(self, '_postfix'):
+            self._postfix = self._get_description()
+        return self._postfix
+    postfix = property(_get_postfix, None, None, "the postfix")
 
 class Constants(Constants.Constants):
     """``DnsConstants.Constants(Constants.Constants)`` defines
@@ -96,10 +57,12 @@ class Constants(Constants.Constants):
     note_type_contact = _EntityNoteCode('CONTACT', 'Contact information')
     note_type_comment = _EntityNoteCode('COMMENT', 'A comment')
 
-    #hi = _HinfoCode("auto1", "I86", "LINUX")
-
     FieldTypeCode = _FieldTypeCode
-    HinfoCode = _HinfoCode
     EntityNoteCode = _EntityNoteCode
+
+    uio_zone = _DnsZoneCode("uio", ".uio.no.")
+    other_zone = _DnsZoneCode("other", None)
+    DnsZone = _DnsZoneCode
+
 
 # arch-tag: 05900130-fb6f-4186-97d0-ded361bdfd88
