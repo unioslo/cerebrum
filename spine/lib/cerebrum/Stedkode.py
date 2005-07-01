@@ -19,11 +19,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.Utils import Factory
+import Cerebrum.Database
 
 from CerebrumClass import CerebrumDbAttr
 from Commands import Commands
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
+from SpineLib.SpineExceptions import DatabaseError
 
 from OU import OU
 
@@ -56,7 +58,10 @@ def create_ou(self, name, institusjon, fakultet, institutt, avdeling):
     db = self.get_database()
     ou = Factory.get('OU')(db)
     ou.populate(name, fakultet, institutt, avdeling, institusjon)
-    ou.write_db()
+    try:
+        ou.write_db()
+    except Cerebrum.Database.OperationalError, e:
+        raise DatabaseError('Could not create OU \'%s\', another OU with the same primary key probably exists already.' % name)
     spine_ou = OU(ou.entity_id, write_locker=self.get_writelock_holder())
     return spine_ou
 
