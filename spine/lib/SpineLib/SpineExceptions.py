@@ -49,6 +49,9 @@ class TransactionError(SpineException):
 class ClientProgrammingError(SpineException):
     """Raised when the client does something illegal."""
 
+class ValueError(ClientProgrammingError):
+    """Raised when the client does something involving an invalid value."""
+
 class ServerProgrammingError(SpineException):
     """Raised when something illegal is done in the server-side code."""
 

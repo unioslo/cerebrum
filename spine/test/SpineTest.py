@@ -27,6 +27,7 @@ from CommunicationTest import *
 from SessionTest import *
 from LockingTest import *
 from TransactionTest import *
+from OUTest import *
 
 if __name__ == '__main__':
     unittest.main()

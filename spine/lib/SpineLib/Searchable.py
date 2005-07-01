@@ -21,7 +21,7 @@
 import copy
 
 from Builder import Method
-from SpineExceptions import ServerProgrammingError
+import SpineExceptions
 
 __all__ = ['Searchable']
 
@@ -31,9 +31,14 @@ def create_get_method(attr):
     This function creates a simple get method get(self), which
     uses getattr(). Methods created with this function are used
     in search objects.
+
+    The get method for search objects will raise SpineExceptions.ValueError if
+    the attribute has not yet been set.
     """
     def get(self):
         # get the variable
+        if not hasattr(self, attr.get_name_private()):
+            raise SpineExceptions.ValueError('Attribute %s is not set.' % attr.name)
         return getattr(self, attr.get_name_private())
     return get
 
@@ -81,7 +86,7 @@ def create_set_method(attr):
     if getattr(attr, 'exists', False):
         def set(self, value):
             if not value:
-                raise ServerProgrammingError('Value %s is not allowed for this method' % value)
+                raise SpineExceptions.ValueError('Value %s is not allowed for this method' % value)
             orig = getattr(self, attr.get_name_private(), None)
             if orig is not value:
                 setattr(self, attr.get_name_private(), value)
@@ -165,6 +170,7 @@ class Searchable(object):
 
                 get = create_get_method(new_attr)
                 set = create_set_method(new_attr)
+                new_attr.exceptions.append(SpineExceptions.ValueError) # Search attributes raise ValueError on get/set
                 search_class.register_attribute(new_attr, get=get, set=set,
                                                 overwrite=True)
 
@@ -181,7 +187,7 @@ class Searchable(object):
         This function creates a search(**args) method for the search class, using
         the slots convention of the Spine API.
         """
-        raise ServerProgrammingError('create_search_method() needs to be implemented in subclass %s.' % cls.__name__)
+        raise SpineExceptions.ServerProgrammingError('create_search_method() needs to be implemented in subclass %s.' % cls.__name__)
 
     create_search_method = classmethod(create_search_method)
 

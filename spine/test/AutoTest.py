@@ -52,6 +52,14 @@ def _create_testclass_base(cls_name):
         self.session.logout()
     testclass.tearDown = tearDown
 
+    def testSearchObject(self):
+        """Tests that getting any attribute on a fresh search object raises a
+        proper exception."""
+        for attr in dir(self.search_obj):
+            if attr.startswith('get_') and not attr == 'get_dumper':
+                self.assertRaises(Spine.Errors.ValueError, getattr(self.search_obj, attr))
+    testclass.testSearchObject = testSearchObject
+
     def testDump(self):
         """Tests that a %s dump works.""" % self.obj.__class__.__name__
         if not hasattr(self.search_obj, 'get_dumper'):
