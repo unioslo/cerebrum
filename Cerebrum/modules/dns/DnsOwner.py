@@ -3,7 +3,9 @@
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity, EntityName
+from Cerebrum import Errors
 from Cerebrum.modules import dns
+from Cerebrum.modules.dns.DnsConstants import _DnsZoneCode
 
 class MXSet(DatabaseAccessor):
     """``DnsOwner.MXSet(DatabaseAccessor)`` handles the dns_mx_set and
@@ -200,7 +202,6 @@ class GeneralDnsRecord(object):
         FROM [:table schema=cerebrum name=dns_general_dns_record] %s""" % where,
                           locals())
 
-
 class DnsOwner(GeneralDnsRecord, EntityName, Entity):
     """``DnsOwner(GeneralDnsRecord, Entity)`` primarily updates the
     DnsOwner table using the standard Cerebrum populate framework.
@@ -208,31 +209,23 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity):
     The actual name of the machine is stored using EntityName.  Names
     are stored as fully-qualified, including the trailing dot, and all
     share the same namespace (const.dns_namespace).  This makes
-    netgroup handling easier.  At a later time, we expect to handle
-    multiple zones.  At such time it will be easier to keep data in
-    sync if only one namespace is used.
-    
-    TODO: The dns_zone table is expected to have the columns zone_id
-    and name, and dns_owner will have a FK there.  The only purpose of
-    the dns_zone table is to group which hosts should be included in
-    the forward-map (in the reverse-map this is deduced from the
-    ip-number).
+    netgroup handling easier.
 
-    For mappings such as 129.240.x.y -> gutta.org (i.e, where we only
-    have a reverse-map), the zone 'other' will be used rather than
-    generating dozens of nearly empty zones.
+    The only purpose of the dns_zone table is to group which hosts
+    should be included in the forward-map (in the reverse-map this is
+    deduced from the ip-number).
     """
 
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('name', 'mx_set_id')
+    __write_attr__ = ('name', 'mx_set_id', 'zone')
 
     def clear(self):
         super(DnsOwner, self).clear()
         self.clear_class(DnsOwner)
         self.__updated = []
 
-    def populate(self, name, mx_set_id=None, parent=None):
-        #print "DnsOwner.populate: %s" % name
+    def populate(self, zone, name, mx_set_id=None, parent=None):
+        """zone may either be a number or a DnsZone constant"""
         if parent is not None:
             self.__xerox__(parent)
         else:
@@ -244,6 +237,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity):
             self.__in_db = False
         self.name = name
         self.mx_set_id = mx_set_id
+        self.zone = zone
 
     def __eq__(self, other):
         assert isinstance(other, DnsOwner)
@@ -255,20 +249,29 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity):
         if not self.__updated:
             return
         is_new = not self.__in_db
-##         if self.name.endswith(dns.ZONE+'.'):
-##             # remove zone suffix from name only if it ends with a dot
-##             # to allow typos like ahusbaerbar1.uio.no.uio.no.
-##             self.name = self.name[:-(len(dns.ZONE)+2)]
+
         binds = {
             'e_id': self.entity_id,
             'e_type': int(self.const.entity_dns_owner),
             'name': self.name,
             'mx_set_id': self.mx_set_id}
+
+        # Do some primitive checks to assert that name is a FQDN, and
+        # that the zone matches the DN.
+        if not self.name[-1] == '.':
+            raise ValueError("hostname must be fully qualified")
+        if isinstance(self.zone, _DnsZoneCode):
+            if (self.zone.postfix is not None and
+                not self.name.endswith(self.zone.postfix)):
+                raise ValueError("Zone mismatch for %s" % self.name)
+            binds['zone_id'] = self.zone.zone_id
+        else:
+            binds['zone_id'] = self.zone
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=dns_owner]
-              (dns_owner_id, entity_type, mx_set_id)
-            VALUES (:e_id, :e_type, :mx_set_id)""", binds)
+              (dns_owner_id, entity_type, mx_set_id, zone_id)
+            VALUES (:e_id, :e_type, :mx_set_id, :zone_id)""", binds)
             self.add_entity_name(self.const.dns_owner_namespace, self.name)
         else:
             self.execute("""
@@ -285,8 +288,8 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity):
 
     def find(self, host_id):
         self.__super.find(host_id)
-        self.mx_set_id = self.query_1("""
-        SELECT mx_set_id
+        self.zone, self.mx_set_id = self.query_1("""
+        SELECT zone_id, mx_set_id
         FROM [:table schema=cerebrum name=dns_owner]
         WHERE dns_owner_id=:e_id""", {'e_id': self.entity_id})
         self.name = self.get_name(self.const.dns_owner_namespace)
