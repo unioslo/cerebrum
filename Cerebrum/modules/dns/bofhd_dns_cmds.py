@@ -235,10 +235,11 @@ class BofhdExtension(object):
     # TBD: Comment/contact?
     def host_a_add(self, operator, host_name, subnet_or_ip, force=False):
         force = self.mb_utils.parse_force(force)
-        subnet, ip, ip_ref = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
+        subnet, ip = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
+        if subnet is None and ip is None:
+            raise CerebrumError, "Unknown subnet and incomplete ip"
         if subnet is None and not force:
             raise CerebrumError, "Unknown subnet.  Must force"
-        #ip = self._alloc_arecord(host_name, subnet, ip, force)
         ip = self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
         return "OK, ip=%s" % ip
 
@@ -260,7 +261,9 @@ class BofhdExtension(object):
                  comment, contact, force=False):
         force = self.mb_utils.parse_force(force)
         hostnames = self.mb_utils.parse_hostname_repeat(hostname)
-        subnet, ip, ip_ref = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
+        subnet, ip = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
+        if subnet is None and ip is None:
+            raise CerebrumError, "Unknown subnet and incomplete ip"
         if subnet is None and not force:
             raise CerebrumError, "Unknown subnet.  Must force"
         if ip and len(hostnames) > 1:
@@ -471,7 +474,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%s", ('ip',), hdr="Ip"))
     def host_list_free(self, operator, subnet):
         # TODO: Skal det være mulig å få listet ut ledige reserved IP?
-        subnet, ip, ip_ref = self.mb_utils.parse_subnet_or_ip(subnet)
+        subnet, ip = self.mb_utils.parse_subnet_or_ip(subnet)
         ret = []
         for ip in self.mb_utils.find_free_ip(subnet):
             ret.append({'ip': ip})

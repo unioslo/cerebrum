@@ -80,7 +80,7 @@ class IPUtils(object):
                         [511])             # $subnet+1.255
         else:
             # TODO: Hvilke nummer i øvrige nettmasker skal man ligge unna?
-            reserved = []
+            reserved = [0]
         self._ip_number.clear()
         taken = {}
         for row in self._ip_number.find_in_range(start, stop):
@@ -96,29 +96,41 @@ class DnsParser(object):
     # Must be used as a mix-in for DnsBofhdUtils, should not be
     # instantiated directly
 
-    def parse_subnet_or_ip(self, subnet_or_ip):
-        """Parse subnet_or_ip as a subnet or an IP-number.
+    def parse_subnet_or_ip(self, ip_id):
+        """Parse ip_id either as a subnet, or as an IP-number.
 
-        Returns the subnet, a_ip and ip_ref.  If IP is not in
-        database, ip_ref is None.  If the explicit IP is on an unknown
-        subnet, subnet is None"""
+        Return: (subnet, a_ip)
+          - subnet is None if unknown
+          - a_ip is only set if the user requested a spesific IP
+        
+        A request for a subnet is identified by a trailing /, or an IP
+        with < 4 octets.  Example::
 
-        if len(subnet_or_ip.split(".")) < 3:
-            subnet_or_ip = '129.240.%s' % subnet_or_ip
-        if len(subnet_or_ip.split(".")) == 5:  # Explicit IP
-            a_ip = subnet_or_ip
-            self._ip_number.clear()
+          129.240.200    -> adress on 129.240.200.0/23 
+          129.240.200.0/ -> adress on 129.240.200.0/23 
+          129.240.200.0  -> explicit IP
+        """
+
+        tmp = ip_id.split("/")
+        ip_id = tmp[0]
+        if (not ip_id[0].isdigit()) and len(tmp) > 1:  # Support ulrik.uio.no./
             try:
-                self._ip_number.find_by_ip(a_ip)
-                ip_ref = self._ip_number.ip_number_id
+                self._arecord.clear()
+                self._arecord.find_by_name(self.mr_helper.qualify_hostname(ip_id))
+                self._ip_number.clear()
+                self._ip_number.find(self._arecord.ip_number_id)
             except Errors.NotFoundError:
-                ip_ref = None
-            try:
-                return self._find_subnet(subnet_or_ip[:-1]), a_ip[:-1], ip_ref
-            except Helper.DNSError:
-                return None, a_ip[:-1], ip_ref
-        else:
-            return self._find_subnet(subnet_or_ip), None, None
+                raise CerebrumError, "Could not find %s" % ip_id
+            ip_id = self._ip_number.a_ip
+
+        full_ip = len(ip_id.split(".")) == 4
+        if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
+            full_ip = False
+        try:
+            subnet = self._find_subnet(ip_id)
+        except Helper.DNSError:
+            subnet = None
+        return subnet, full_ip and ip_id or None
 
     def parse_force(self, string):
         if string and string[0] in ('Y', 'y'):
