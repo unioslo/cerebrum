@@ -21,7 +21,7 @@
 import time
 import forgetHTML as html
 from gettext import gettext as _
-from Cerebrum.extlib import sets
+import sets
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
 from Cereweb.utils import transaction_decorator, object_link
@@ -43,13 +43,11 @@ def index(req):
 
 def list(req):
     """Creates a page wich content is the last search performed."""
-    (name,  accountname, birthdate) = \
-            req.session.get('person_lastsearch', ("", "", ""))
-    return search(req, name, accountname, birthdate)
+    return search(req, *req.session.get('person_lastsearch', ()))
 
-def search(req, name="", accountname="", birthdate="", transaction=None):
+def search(req, name="", accountname="", birthdate="", spread="", transaction=None):
     """Creates a page with a list of persons matching the given criterias."""
-    req.session['person_lastsearch'] = (name, accountname, birthdate)
+    req.session['person_lastsearch'] = (name, accountname, birthdate, spread)
     page = Main(req)
     page.title = _("Search for person(s):")
     page.setFocus("person/list")
@@ -59,15 +57,16 @@ def search(req, name="", accountname="", birthdate="", transaction=None):
     values['name'] = name
     values['accountname'] = accountname
     values['birthdate'] = birthdate
+    values['spread'] = spread
     form = PersonSearchTemplate(searchList=[{'formvalues': values}])
     
-    if name or accountname or birthdate:
+    if name or accountname or birthdate or spread:
         """
         Searches first through accountnames and birthdates,
         then perform an intersection with the result of a search
         through all name_types for 'name'.
         """
-        persons = sets.Set()
+        personsearcher = transaction.get_person_searcher()
         intersections = []
 
         if accountname:
@@ -79,36 +78,30 @@ def search(req, name="", accountname="", birthdate="", transaction=None):
         if birthdate:
             date = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
             personsearcher.set_birth_date(date)
-            
-        if name:
-            unions = []
-            for name_type in transaction.get_name_type_searcher().search():
-                searcher = transaction.get_person_name_searcher()
-                searcher.set_name_variant(name_type)
-                searcher.set_name_like(name)
-                unions.append(searcher)
-            searcher.set_unions(unions[:-1])
-            result = [i.get_person() for i in searcher.search()]
-            if persons:
-                persons.intersection_update(sets.Set(result))
-            else:
-                persons.update(result)
-            
-        if intersections:
-            personsearcher = transaction.get_person_searcher()
-            personsearcher.set_intersections(intersections)
-            result = personsearcher.search()
-            if persons:
-                persons.intersection_update(sets.Set(result))
-            else:
-                persons.update(result)
 
-        #Remove duplicates, checks on person_id.
-        tmp = {}
-        for person in persons:
-            tmp[person.get_id()] = person
-        persons = tmp.values()
-        
+        if name:
+            searcher = transaction.get_person_name_searcher()
+            searcher.set_name_like(name)
+            searcher.mark_person()
+            intersections.append(searcher)
+
+
+        if spread:
+            persons = sets.Set()
+            spreadsearcher = transaction.get_spread_searcher()
+            spreadsearcher.set_name_like(spread)
+            for spread in spreadsearcher.search():
+                searcher = transaction.get_entity_spread_searcher()
+                searcher.set_spread(spread)
+                searcher.mark_entity()
+                personsearcher.set_intersections(intersections + [searcher])
+
+                persons.update(personsearcher.search())
+
+        else:
+            personsearcher.set_intersections(intersections)
+            persons = personsearcher.search()
+
         # Print results
         result = html.Division(_class="searchresult")
         header = html.Header(_("Person search results:"), level=3)

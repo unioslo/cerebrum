@@ -18,9 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sets
+
 import forgetHTML as html
 from gettext import gettext as _
-from Cerebrum import Errors
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect_object, redirect
 from Cereweb.utils import object_link, transaction_decorator
@@ -46,8 +47,7 @@ def index(req):
 
 def list(req):
     """Creates a page wich content is the last group-search performed."""
-    (name, desc, spread) = req.session.get('group_lastsearch', ("", "", ""))
-    return search(req, name, desc, spread)
+    return search(req, *req.session.get('group_lastsearch', ()))
 
 def search(req, name="", desc="", spread="", gid="", transaction=None):
     """Creates a page with a list of groups matching the given criterias."""
@@ -61,9 +61,10 @@ def search(req, name="", desc="", spread="", gid="", transaction=None):
     values['name'] = name
     values['desc'] = desc
     values['spread'] = spread
+    values['gid'] = gid
     form = GroupSearchTemplate(searchList=[{'formvalues': values}])
 
-    if name or desc or gid:
+    if name or desc or spread or gid:
         server = transaction
         searcher = server.get_group_searcher()
         if name:
@@ -77,12 +78,19 @@ def search(req, name="", desc="", spread="", gid="", transaction=None):
             searcher.set_posix_gid(int(gid))
             raise NotImplementedError, "GID-search"
         if spread:
+            groups = sets.Set()
+
             spreadsearcher = server.get_spread_searcher()
             spreadsearcher.set_name_like(spread)
-            #hmm, her må det vel litt magi til? spread->entity_spread->entity?
-            #iallefall hvis vi skal støtte wildchars i spreadsøket..
-            
-        groups = searcher.search()
+            for spread in spreadsearcher.search():
+                s = server.get_entity_spread_searcher()
+                s.set_spread(spread)
+                s.mark_entity()
+                searcher.set_intersections([s])
+
+                groups.update(searcher.search())
+        else:
+            groups = searcher.search()
 
         # Print results
         result = html.Division(_class="searchresult")
@@ -158,7 +166,7 @@ def add_member(req, transaction, id, name, type, operation):
         queue_message(req, _("%s is not a valid operation.") % 
                            operation, error=True)
         redirect_object(req, group, seeOther=True)
-        raise Errors.UnreachableCodeError
+        return
     
     try:
         search = transaction.get_entity_name_searcher()
@@ -170,7 +178,7 @@ def add_member(req, transaction, id, name, type, operation):
         queue_message(req, _("Could not add non-existing member %s %s") %
                          (type, name), error=True)       
         redirect_object(req, group, seeOther=True)
-        raise Errors.UnreachableCodeError
+        return
 
     try:
         group.add_member(entity, operation)
@@ -183,7 +191,6 @@ def add_member(req, transaction, id, name, type, operation):
     redirect_object(req, group, seeOther=True)
 
     transaction.commit()
-    raise Errors.UnreachableCodeError
 add_member = transaction_decorator(add_member)
 
 def remove_member(req, transaction, groupid, memberid, operation):

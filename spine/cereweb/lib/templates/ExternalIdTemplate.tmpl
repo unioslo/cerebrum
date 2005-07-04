@@ -20,9 +20,12 @@
 #from Cereweb.utils import url
 #extends InitTemplate
 
-#def externalIds($entity)
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+#def externalIds($entity, $id_types)
     #set $ids = $entity.get_external_ids()
-    <h2>$_("External Ids:")</h2>
+    <h2>$_("External identifiers:")</h2>
     #for $id in $ids
     <div class="name">
         #set $external_id = $id.get_external_id()
@@ -39,5 +42,11 @@
         <div><em>$_("Source system"):</em> $ss_name ($ss_desc)</div>
     </div>
     #end for
+    <form action="$url('entity/add_external_id')" type="post">
+        <input type="hidden" name="id" value="$entity.get_id()" />
+        <input type="input" size="20" name="external_id" />
+        $form_widgets.generate_option("id_type", $id_types)
+        <input type="submit" value="$_('Set')" />
+    </form>
 #end def
 

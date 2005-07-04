@@ -126,8 +126,8 @@ $members.sort()
     <div class="actions">
         #set $edit = $url("group/edit?id=%i" % $group.get_id())
         <a href="$edit">$_("Edit")</a>
-        #if $account.is_posix()
-            #set $psoix = $url("group/posix_demote?id=%i" % $group.get_id())
+        #if $group.is_posix()
+            #set $posix = $url("group/posix_demote?id=%i" % $group.get_id())
             <a href="$posix">$_("Demote from Posix")</a>
         #else
             #set $posix = $url("group/edit?id=%i&promote=posix" % $group.get_id())

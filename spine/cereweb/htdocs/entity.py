@@ -48,4 +48,27 @@ def remove_external_id(req, transaction, id, external_id, id_type):
     queue_message(req, _("External id successfully removed."))
 remove_external_id = transaction_decorator(remove_external_id)
 
+def add_spread(req, transaction, id, spread):
+    entity = transaction.get_entity(int(id))
+    spread = transaction.get_spread(spread)
+    entity.add_spread(spread)
+
+    #TODO: Redirect to where we actualy came from.
+    redirect_object(req, entity, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Spread successfully added."))
+add_spread = transaction_decorator(add_spread)
+
+def remove_spread(req, transaction, id, spread):
+    entity = transaction.get_entity(int(id))
+    spread = transaction.get_spread(spread)
+    entity.delete_spread(spread)
+
+    #TODO: Redirect to where we actualy came from.
+    redirect_object(req, entity, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Spread successfully removed."))
+remove_spread = transaction_decorator(remove_spread)
+
+
 # arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e

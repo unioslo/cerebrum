@@ -30,7 +30,7 @@
 ## Main method for creating a view of the entity.
 #def view_entity($entity, $transaction)
 <div class="entityview">
-    $spreads($entity)
+    $spreads($entity, $transaction)
     $externalIds($entity, $transaction)
     $quarantines($entity)
     $notes($entity)
@@ -39,10 +39,17 @@
 #end def
 
 ## Shows the spreads the entity has.
-#def spreads($entity)
+#def spreads($entity, $transaction)
 <div class="personnames">
-    #set s = SpreadViewTemplate()
-    $s.view_spreads($entity)
+    #set $s = SpreadViewTemplate()
+    #set $type = $entity.get_type()
+    #set $spreads= []
+    #for $spread in $transaction.get_spread_searcher().search()
+        #if $type == $spread.get_entity_type()
+            $spreads.append(($spread.get_name(), $spread.get_name()))
+        #end if
+    #end for
+    $s.view_spreads($entity, $spreads)
 </div>
 #end def
 
@@ -73,11 +80,12 @@
 <div class="personnames">
     <a name="external ids" />
     #set $v = ExternalIdTemplate()
-    #set $a = ExternalIdAddTemplate()
-    $v.externalIds($entity)
     #set $searcher = $transaction.get_entity_external_id_type_searcher()
-    #set $id_types = $searcher.search()
-    $a.addForm($entity, $id_types)
+    #set $id_types = []
+    #for $type in $searcher.search()
+        $id_types.append(($type.get_name(), $type.get_description()))
+    #end for
+    $v.externalIds($entity, $id_types)
 </div>
 #end def
 

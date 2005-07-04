@@ -20,17 +20,25 @@
 #from Cereweb.utils import url
 #extends InitTemplate
 
-#def view_spreads($entity)
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+#def view_spreads($entity, $spreads_ids)
     #set spreads = $entity.get_spreads()
-    #if spreads
+    #set id = $entity.get_id()
     <h2>$_("Spreads:")</h2>
     #for $spread in $spreads
     <div class="name">
         <div class="actions">
-            $spread.get_name() - $spread.get_description() 
-            <!-- <a href="delete">$_("Remove")</a> -->
+            #set $name = $spread.get_name()
+            $name - $spread.get_description() 
+            <a href="$url('entity/remove_spread?id=%s&spread=%s' % ($id, $name))">$_("Remove")</a>
         </div>
     </div>
     #end for
-    #end if
+    <form action="$url('entity/add_spread')" type="post">
+        $form_widgets.generate_option("spread", $spreads_ids)
+        <input type="hidden" name="id" value="$entity.get_id()" />
+        <input type="submit" value="$_('Add')" />
+    </form>
 #end def

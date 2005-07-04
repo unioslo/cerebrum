@@ -18,9 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sets
+
 import forgetHTML as html
 from gettext import gettext as _
-from Cerebrum import Errors
 from Cereweb.Main import Main
 from Cereweb.utils import url, redirect, redirect_object, queue_message
 from Cereweb.utils import object_link, transaction_decorator
@@ -29,6 +30,7 @@ from Cereweb.templates.AccountViewTemplate import AccountViewTemplate
 from Cereweb.templates.AccountEditTemplate import AccountEditTemplate
 from Cereweb.templates.AccountCreateTemplate import AccountCreateTemplate
 from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
+from Cereweb.WorkList import remember_link
 
 
 def index(req):
@@ -40,26 +42,24 @@ def index(req):
     return page
 
 def list(req):
-    (name, owner, expire_date, create_date) = \
-        req.session.get('account_lastsearch', ("", "", "", ""))
-    return search(req, name, owner, expire_date, create_date)
+    return search(*req.session.get('account_lastsearch', ()))
 
-def search(req, name="", owner="", expire_date="", create_date="", transaction=None):
-    req.session['account_lastsearch'] = (name, owner,
-                                         expire_date, create_date)
+def search(req, name="", expire_date="", create_date="", spread="", description="", transaction=None):
+    req.session['account_lastsearch'] = (name, expire_date, create_date, spread, description)
     page = Main(req)
     page.title = _("Account search:")
     page.setFocus("account/list")
     # Store given search parameters in search form
     formvalues = {}
     formvalues['name'] = name
-    formvalues['owner'] = owner
+    formvalues['spread'] = spread
     formvalues['expire_date'] = expire_date
     formvalues['create_date'] = create_date
+    formvalues['description'] = description
     accountsearch = AccountSearchTemplate(
                        searchList=[{'formvalues': formvalues}])
 
-    if name or owner or expire_date or create_date:
+    if name or expire_date or create_date or spread or description:
         server = transaction
 
         entitysearch = server.get_entity_searcher()
@@ -73,12 +73,6 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
             namesearcher.mark_entity()
             search.set_intersections([namesearcher])
 
-        if owner:
-            personnamesearch = server.get_person_name_searcher()
-            personnamesearch.set_name_like(owner)
-            personnamesearch.mark_person()
-            intersections.append(personnamesearch)
-        
         if expire_date:
             date = server.get_commands().strptime(expire_date, "%Y-%m-%d")
             search.set_expire_date(date)
@@ -87,8 +81,27 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
             date = server.get_commands().strptime(create_date, "%Y-%m-%d")
             search.set_create_date(date)
 
-        entitysearch.set_intersections(intersections)
-        accounts = entitysearch.search()
+        if description:
+            if not description.startswith('*'):
+                description = '*' + description
+            if not description.endswith('*'):
+                description += '*'
+            search.set_description_like(date)
+
+        if spread:
+            accounts = sets.Set()
+            spreadsearcher = server.get_spread_searcher()
+            spreadsearcher.set_name_like(spread)
+            for spread in spreadsearcher.search():
+                searcher = server.get_entity_spread_searcher()
+                searcher.set_spread(spread)
+                searcher.mark_entity()
+                entitysearch.set_intersections(intersections + [searcher])
+
+                accounts.update(entitysearch.search())
+        else:
+            entitysearch.set_intersections(intersections)
+            accounts = entitysearch.search()
    
         if accounts:
             result = html.Division()
@@ -108,7 +121,6 @@ def search(req, name="", owner="", expire_date="", create_date="", transaction=N
                     edate = edate.strftime("%Y-%m-%d")
                 else:
                     edate = ''
-                #table.add(link, owner, cdate, edate, account.get_description())
                 table.add(link, owner, cdate, edate, account.get_description())
 
             result.append(table)
