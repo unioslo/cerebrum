@@ -371,11 +371,16 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
             values = {}
             for attr, value in map.items():
                 if not isinstance(attr, DatabaseAttr):
-                    continue
+                    raise Exception('unable to search with attribute %s' % attr)
                 whr, val = convert_value(attr, value)
                 where.append(whr)
                 values[unique_key + attr.name] = val
-                #tables.add(attr.table)
+
+                # Then we need to add it
+                if attr.optional:
+                    if attr.table not in tables:
+                        tables.append(attr.table)
+                    attrs.append(attr)
 
             table = tables[0]
             for i in cls.primary:
