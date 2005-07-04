@@ -14,7 +14,6 @@ sources = $(wildcard *.py *.js)
 
 all: 
 	$(MAKE) -C css $@
-	$(MAKE) -C login $@
 	$(MAKE) -C img $@
 
 print:
@@ -29,18 +28,15 @@ install: $(sources) htaccess
 	$(INSTALL) -v -m 755 Chandler.py $(DESTDIR)/$(webroot)/Chandler.cgi
 	$(INSTALL) -v -m 644 htaccess $(DESTDIR)/$(webroot)/.htaccess
 	$(MAKE) -C css $@
-	$(MAKE) -C login $@
 	$(MAKE) -C img $@
 
 clean:
 	rm -f *~ 
 	$(MAKE) -C css $@
-	$(MAKE) -C login $@
 	$(MAKE) -C img $@
 
 distclean: clean
 	rm -f Makefile
 	$(MAKE) -C css $@
-	$(MAKE) -C login $@
 	$(MAKE) -C img $@
 
