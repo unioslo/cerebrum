@@ -50,25 +50,28 @@ corba_structs = {}
 
 object_cache_lock = threading.RLock()
 
+# FIXME: We should instead organize object_cache with key == transcation.
+#        This will be too slow and add unnecessary latency when we have many
+#        short lived transactions.
 def drop_associated_objects(transaction):
     """Removes all objects associated with the given transaction from the object cache."""
-    global object_cache_lock, object_cache
     com = Communication.get_communication()
     object_cache_lock.acquire()
-    for key, value in object_cache.items():
-        if key[1] == transaction:
-            try:
-                com.remove_reference(value)
-            except:
-                print 'DEBUG: Unable to remove reference when dropping from object cache!'
-                traceback.print_exc() # TODO: Log this
-            del object_cache[key]
-    object_cache_lock.release()
+    try:
+        for key, value in object_cache.items():
+            if key[1] == transaction:
+                try:
+                    com.remove_reference(value)
+                except:
+                    print 'DEBUG: Unable to remove reference when dropping from object cache!'
+                    traceback.print_exc() # TODO: Log this
+                del object_cache[key]
+    finally:
+        object_cache_lock.release()
 
 
 def convert_to_corba(obj, transaction, data_type):
     """Convert object 'obj' to a data type CORBA knows."""
-    global object_cache_lock
     if obj is None and data_type is not None:
         if data_type in corba_types:
             return _convert_corba_types_to_none(data_type)
@@ -114,18 +117,18 @@ def convert_to_corba(obj, transaction, data_type):
 
         corba_class = class_cache[data_type]
         key = (corba_class, transaction, obj)
+        
         object_cache_lock.acquire()
-        if key in object_cache:
-            object_cache_lock.release()
-            return object_cache[key]
-
-        com = Communication.get_communication()
         try:
-            corba_object = com.servant_to_reference(corba_class(obj, transaction))
-            object_cache[key] = corba_object
+            if key in object_cache:
+                return object_cache[key]
+            else:
+                com = Communication.get_communication()
+                corba_object = com.servant_to_reference(corba_class(obj, transaction))
+                object_cache[key] = corba_object
+                return corba_object
         finally:
             object_cache_lock.release()
-        return corba_object
     else:
         raise ServerProgrammingError('Cannot convert to CORBA type; unknown data type.', data_type)
 
