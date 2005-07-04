@@ -60,7 +60,7 @@ class EntityQuarantine(DatabaseClass):
         }
     }
 
-    def is_active():
+    def is_active(self):
         now = mx.DateTime.now()
 
         start = self.get_starte_date()
