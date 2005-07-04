@@ -63,7 +63,7 @@ class EntityQuarantine(DatabaseClass):
     def is_active(self):
         now = mx.DateTime.now()
 
-        start = self.get_starte_date()
+        start = self.get_start_date()
         end = self.get_end_date()
         disable = self.get_disable_until()
 
