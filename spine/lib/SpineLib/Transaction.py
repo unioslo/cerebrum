@@ -24,7 +24,7 @@ import traceback
 import Database
 from Cerebrum.extlib.sets import Set
 from Cerebrum.spine.server import LockHandler
-from Locking import Locking
+from Locking import Locking, serialized_decorator
 from SpineExceptions import TransactionError
 
 
@@ -65,14 +65,14 @@ class Transaction:
         assert isinstance(object, Locking) # This method should only be called with a lockable object
         assert object in self._refs # The object must be referenced by this transaction
         self._refs.remove(object)
-        self._lost_locks_lock.acquire()
         self._lost_locks.append(object) 
-        self._lost_locks_lock.release()
+
         # We unlock the object here because there may be some time before the
         # transaction makes its next call and checks if it lost any locks
         if object.has_writelock(self):
             object.reset()
         object.unlock(self)
+    lost_lock = serialized_decorator(lost_lock, '_lost_locks_lock')
 
     def check_lost_locks(self):
         """
@@ -80,12 +80,11 @@ class Transaction:
         on an object in Spine. If the transaction has lost a lock, it is rolled
         back, and an exception is raised.
         """
-        self._lost_locks_lock.acquire()
         if len(self._lost_locks):
             l = self._lost_locks.pop(0)
             self.rollback()
-            self._lost_locks_lock.release()
             raise TransactionError('Your lock on %s timed out, transaction was rolled back.' % l)
+    check_lost_locks = serialized_decorator(check_lost_locks, '_lost_locks_lock')
 
     def _invalidate(self):
         handler = LockHandler.get_handler()

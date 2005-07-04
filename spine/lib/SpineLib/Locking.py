@@ -27,7 +27,18 @@ from Cerebrum.extlib.sets import Set
 from SpineExceptions import AlreadyLockedError, TransactionError
 from Cerebrum.spine.server import LockHandler
 
-__all__ = ['Locking']
+__all__ = ['Locking', 'serialized_decorator']
+
+
+def serialized_decorator(method, lock_name):
+    def serialized(self, *args, **vargs):
+        getattr(self, lock_name).acquire()
+        try:
+            return method(self, *args, **vargs)
+        finally:
+            getattr(self, lock_name).release()
+
+    return serialized
 
 class Locking(object):
     """
@@ -54,7 +65,7 @@ class Locking(object):
         """
         self.__read_locks = Set()
         self.__write_lock = None
-        self.__locking_lock = threading.RLock()
+        self._locking_lock = threading.RLock()
         # If a locker (an object wanting to lock this object) was passed to us,
         # we lock ourselves for writing for that object.
         if write_locker is not None:
@@ -66,9 +77,7 @@ class Locking(object):
         This method also checks if the client trying to get a read lock has
         other read locks that have timed out.
         """
-        self.__locking_lock.acquire()
         if self.is_writelocked():
-            self.__locking_lock.release()
             self.lock_for_writing(locker) # Update the timestamp for the write lock
         else:
             # Update the handler so that it knows this object is locked
@@ -76,28 +85,24 @@ class Locking(object):
             handler.add_lock(locker, self)
             # Add the read lock
             self.__read_locks.add(locker)
-            self.__locking_lock.release()
+    lock_for_reading = serialized_decorator(lock_for_reading, '_locking_lock')
 
     def lock_for_writing(self, locker):
         """
         Try to lock the object for writing.
         """
         # Check if someone else has a write lock
-        self.__locking_lock.acquire()
         if self.is_writelocked() and self.get_writelock_holder() is not locker:
-            self.__locking_lock.release()
             raise AlreadyLockedError, 'Write lock exists on %s' % self
 
         # Check if we and anyone else have a read lock. If others have read locks,
         # the object cannot be write locked.
         if locker in self.__read_locks:
             if len(self.__read_locks) > 1:
-                self.__locking_lock.release()
                 raise AlreadyLockedError, 'Other read locks exist on %s' % self
             self.__read_locks.remove(locker)
             assert len(self.__read_locks) == 0
         elif len(self.__read_locks) > 0:
-            self.__locking_lock.release()
             raise AlreadyLockedError, 'Other read locks exist on %s' % self
 
         # Create a callback method so the object can be reset if the
@@ -114,8 +119,7 @@ class Locking(object):
         # Create the write lock as a weak reference, resetting this object
         # if the client is lost (i.e. the transaction is ended abruptly)
         self.__write_lock = weakref.ref(locker, rollback)
-
-        self.__locking_lock.release()
+    lock_for_writing = serialized_decorator(lock_for_writing, '_locking_lock')
         
     def unlock(self, locker):
         """
@@ -123,8 +127,6 @@ class Locking(object):
         """
         assert not getattr(self, 'updated', None) # TODO: Is this right?
         
-        self.__locking_lock.acquire()
-
         if self.has_writelock(locker):
             assert len(self.__read_locks) == 0 # There cannot be read locks when the object is write-locked
             self.__write_lock = None
@@ -133,39 +135,32 @@ class Locking(object):
 
         handler = LockHandler.get_handler()
         handler.remove_lock(locker, self)
-        self.__locking_lock.release()
+    unlock = serialized_decorator(unlock, '_locking_lock')
         
     def has_readlock(self, locker):
         """
         Checks if the given object has a read lock on this object.
         """
-        self.__locking_lock.acquire()
-        has_lock = locker in self.__read_locks or self.has_writelock(locker)
-        self.__locking_lock.release()
-        return has_lock
+        return locker in self.__read_locks or self.has_writelock(locker)
+    has_readlock = serialized_decorator(has_readlock, '_locking_lock')
 
     def has_writelock(self, locker):
         """
         Checks if the given object has a write lock on this object.
         """
-        self.__locking_lock.acquire()
         has_lock = False
         if self.__write_lock is not None:
             if self.__write_lock() is locker:
                 has_lock = True
-        self.__locking_lock.release()
         return has_lock
+    has_writelock = serialized_decorator(has_writelock, '_locking_lock')
 
     def get_readlock_holders(self):
         """
         Returns a (possibly empty) list of clients with a read lock on this item.
         """
-        holders = []
-        self.__locking_lock.acquire()
-        for locker in self.__read_locks:
-            holders.append(locker)
-        self.__locking_lock.release()
-        return holders
+        return list(self.__read_locks)
+    get_readlock_holders = serialized_decorator(get_readlock_holders, '_locking_lock')
     
     def get_writelock_holder(self):
         """
@@ -173,21 +168,16 @@ class Locking(object):
         Calling this method if a write lock is not present raises a
         TransactionError.
         """
-        self.__locking_lock.acquire()
         if self.__write_lock is None:
-            self.__locking_lock.release()
             raise TransactionError('No write lock on %s' % self)
-        holder = self.__write_lock()
-        self.__locking_lock.release()
-        return holder
+        return self.__write_lock()
+    get_readlock_holders = serialized_decorator(get_readlock_holders, '_locking_lock')
 
     def is_writelocked(self):
         """
         Checks if the object is write locked.
         """
-        self.__locking_lock.acquire()
-        locked = self.__write_lock is not None
-        self.__locking_lock.release()
-        return locked
+        return self.__write_lock is not None
+    is_writelocked = serialized_decorator(is_writelocked, '_locking_lock')
 
 # arch-tag: 47ac60c5-2e0e-42f8-b793-8202f48a23e3
