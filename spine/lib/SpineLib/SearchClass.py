@@ -45,7 +45,7 @@ class SearchClass(SpineClass):
     primary = []
     slots = []
     search_slots = []
-    method_slots = []
+    method_slots = [Method('clear', None, write=True)]
 
     search_id_iterator = create_id_iterator()
 
@@ -77,6 +77,11 @@ class SearchClass(SpineClass):
             if val is not mine:
                 alive[attr.name] = val
         return alive
+
+    def clear(self):
+        for attr in self.slots:
+            if hasattr(self, '_' + attr.name):
+                delattr(self, '_' + attr.name)
 
     def search(self, **vargs):
         alive = self.get_alive_slots()
