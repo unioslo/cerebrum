@@ -219,13 +219,17 @@ def _create_corba_method(method):
 
             # FIXME: bruk isinstance eller issubclass
             # FIXME: Remove 'operator is not None'
-            if operator is not None and hasattr(self.spine_object, 'check_permission'):
-                if not self.spine_object.check_permission(operator, operation_type):
+            # FIXME: Remove 'operation_type is not None'
+            # FIXME FIXME FIXME
+#            if (operator is not None and operation_type is not None and
+#                   hasattr(self.spine_object, 'check_permission')):
+#                if not self.spine_object.check_permission(operator, operation_type):
                     # FIXME: raise AccessDeniedError('User %s is not allowed to perform the requested operation.' % (operator))
-                    pass
-            else:
+#                    pass
+#            else:
                 # FIXME: Raise NotFoundError (Spine exception)
-                pass
+#                pass
+# (FIXME)
 
             # Lock the object if it should be locked
             if isinstance(self.spine_object, Locking):
