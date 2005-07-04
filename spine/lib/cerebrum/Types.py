@@ -131,4 +131,6 @@ class PersonAffiliationStatusType(CodeType):
 registry.register_class(PersonAffiliationStatusType)
 __all__.append(PersonAffiliationStatusType)
 
+Spread.slots.append(DatabaseAttr('entity_type', 'spread_code', EntityType))
+
 # arch-tag: 965b1b0a-4526-4189-b507-2459e1ed646d
