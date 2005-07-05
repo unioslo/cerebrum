@@ -41,7 +41,6 @@ class Disk(Entity):
     ]
 
     method_slots = Entity.method_slots + [
-        Method('delete', None, write=True)
     ]
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
@@ -50,23 +49,16 @@ class Disk(Entity):
         'host':'host_id'
     }
 
+    cerebrum_class = Factory.get('Disk')
     entity_type = EntityType(name='disk')
-
-    def delete(self):
-        db = self.get_database()
-        disk = Factory.get('Disk')(db)
-        disk.find(self.get_id())
-        disk.delete()
-        self.invalidate()
 
 registry.register_class(Disk)
 
 def create(self, host, path, description):
     db = self.get_database()
-    disk = Factory.get('Disk')(db)
-    disk.populate(host, path, description)
-    disk.write_db()
-    return Disk(disk.entity_id, write_locker=self.get_writelock_holder())
+    new_id = Disk._create(db, host.get_id(), path, description)
+    
+    return Disk(new_id, write_locker=self.get_writelock_holder())
 
 args = [('host', Host), ('path', str), ('description', str)]
 Commands.register_method(Method('create_disk', Disk, args=args, write=True), create)

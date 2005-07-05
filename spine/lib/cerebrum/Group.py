@@ -47,7 +47,6 @@ class Group(Entity):
         CerebrumAttr('name', str, write=True)
     ]
     method_slots = Entity.method_slots + [
-        Method('delete', None, write=True)
     ]
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
@@ -61,25 +60,17 @@ class Group(Entity):
 
     entity_type = EntityType(name='group')
 
-    def load_name(self):
-        entityName = registry.EntityName(self, registry.ValueDomain(name='group_names'))
-        self._name = entityName.get_name()
-
-    def delete(self):
-        db = self.get_database()
-        group = Factory.get('Group')(db)
-        group.find(self.get_id())
-        group.delete()
-        self.invalidate()
-
 registry.register_class(Group)
 
 def create(self, name):
     db = self.get_database()
-    group = Factory.get('Group')(db)
-    group.populate(db.change_by, GroupVisibilityType(name='A').get_id(), name)
-    group.write_db()
-    return Group(group.entity_id, write_locker=self.get_writelock_holder())
+    new_id = Group._create(db, db.change_by, GroupVisibilityType(name='A').get_id(), name)
+
+    transaction = self.get_writelock_holder()
+    group = Group(new_id, write_locker=transaction)
+    transaction.add_ref(group)
+
+    return group
 
 Commands.register_method(Method('create_group', Group, args=[('name', str)], write=True), create)
 

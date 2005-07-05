@@ -63,7 +63,6 @@ class Account(Entity):
         CerebrumAttr('name', str, write=True)
     ]
     method_slots = Entity.method_slots + [
-        Method('delete', None, write=True)
     ]
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
@@ -78,13 +77,6 @@ class Account(Entity):
 
     entity_type = EntityType(name='account')
 
-    def delete(self):
-        db = self.get_database()
-        account = Factory.get('Account')(db)
-        account.find(self.get_id())
-        account.delete()
-        self.invalidate()
-
 registry.register_class(Account)
 
 def create_account(self, name, owner, expire_date):
@@ -95,12 +87,9 @@ def create_account(self, name, owner, expire_date):
     \\param expire_date The date on which the account will expire.
     \\return The created Account object.
     """
-
     db = self.get_database()
-    account = Factory.get('Account')(db)
-    account.populate(name, owner.get_type().get_id(), owner.get_id(), None, db.change_by, expire_date._value)
-    account.write_db()
-    return Account(account.entity_id, write_locker=self.get_writelock_holder())
+    new_id = Account._create(db, name, owner.get_type().get_id(), owner.get_id(), None, db.change_by, expire_date._value)
+    return Account(new_id, write_locker=self.get_writelock_holder())
 
 args = [('name', str), ('owner', Entity), ('expire_date', Date)]
 Commands.register_method(Method('create_account', Account, args=args, write=True), create_account)

@@ -39,7 +39,9 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
     slots = [
         DatabaseAttr('type', 'entity_info', EntityType)
     ]
-    method_slots = []
+    method_slots = [
+        Method('delete', None, write=True)
+    ]
 
     db_attr_aliases = {
         'entity_info': {
@@ -78,6 +80,10 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
             obj.__class__ = entity_class
 
         return obj
+
+    def delete(self):
+        self._delete()
+        self.invalidate()
 
 registry.register_class(Entity)
 

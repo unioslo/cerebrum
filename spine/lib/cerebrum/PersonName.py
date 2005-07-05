@@ -71,9 +71,12 @@ Person.register_method(Method('set_name', None, args=[('name', str), ('name_type
 def get_cached_full_name(self):
     cached = SourceSystem(name='Cached')
     full = NameType(name='FULL')
-    return PersonName(self, full, cached).get_name()
+    transaction = None
+    if self.is_writelocked():
+        transaction = self.get_writelock_holder()
+    return PersonName(self, full, cached, write_locker=transaction).get_name()
 
-Person.register_method(Method('get_cached_full_name', str, exceptions=[NotFoundError, TooManyMatchesError]), get_cached_full_name)
+Person.register_method(Method('get_cached_full_name', str, exceptions=[NotFoundError]), get_cached_full_name)
 
 
 # arch-tag: 6a0ecb31-a1a6-4581-ad50-c9e53323041b
