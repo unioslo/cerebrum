@@ -73,15 +73,15 @@ class SearchClass(SpineClass):
         alive = {}
         mine = object() # make a unique object
         for attr in self.slots:
-            val = getattr(self, '_' + attr.name, mine)
+            val = getattr(self, attr.get_name_private(), mine)
             if val is not mine:
                 alive[attr.name] = val
         return alive
 
     def clear(self):
         for attr in self.slots:
-            if hasattr(self, '_' + attr.name):
-                delattr(self, '_' + attr.name)
+            if hasattr(self, attr.get_name_private()):
+                delattr(self, attr.get_name_private())
 
     def search(self, **vargs):
         alive = self.get_alive_slots()
