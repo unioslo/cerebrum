@@ -1,9 +1,9 @@
-[spine]
-cache: true
-cache_dir: /tmp/spine
+[cereweb]
+webroot: /
 
 [corba]
 url: http://localhost/spine.ior
+use_ssl: false
 
 [ssl]
 ca_file: CA.crt
@@ -11,6 +11,4 @@ key_file: client.pem
 password: client
 
 [idl]
-path: .
-server: server.idl
-errors: errors.idl
+spine_core: SpineCore.idl

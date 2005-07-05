@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2004 University of Oslo, Norway
@@ -18,37 +19,63 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-This module handles the connection with the server.
-
-Public functions:
-connect     - connects to the server, and returns the spine object.
-"""
-
-import sys
 import os
+import sys
 import urllib
-import ConfigParser
 
-from omniORB import CORBA, sslTP
+from omniORB import CORBA, sslTP, importIDL, importIDLString
 
-import SpineCore
-import SpineIDL
+def fixOmniORB():
+    """Workaround for bugs in omniorb
 
-#Configuration of the connection to the server.
-path = os.path.dirname(__file__) or '.'
-conf = ConfigParser.ConfigParser()
-conf.read(path + '/' + 'cereweb.conf.template')
-conf.read(path + '/' + 'cereweb.conf')
+    Makes it possible to use obj1 == obj2 instead of having to do
+    obj1._is_equivalent(obj2).
+    Also makes it possible to use corba objects as keys in
+    dictionaries etc.
+    """
+    import omniORB.CORBA
+    import _omnipy
+    def __eq__(self, other):
+        if self is other:
+            return True
+        return _omnipy.isEquivalent(self, other)
 
+    def __hash__(self):
+        # sys.maxint is the maximum value returned by _hash
+        return self._hash(sys.maxint)
 
-sslTP.certificate_authority_file(conf.get('ssl', 'ca_file'))
-sslTP.key_file(conf.get('ssl', 'key_file'))
-sslTP.key_file_password(conf.get('ssl', 'password'))
+    omniORB.CORBA.Object.__hash__ = __hash__
+    omniORB.CORBA.Object.__eq__ = __eq__
 
-ior_url = conf.get('corba', 'url')
+#FIXME: make optional?
+fixOmniORB()
 
-orb = CORBA.ORB_init(['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
+import Cereweb
+from Cereweb import config
+
+try:
+    import SpineCore
+    import SpineIDL
+except:
+    print>>sys.stderr, 'need to run bootstrap'
+
+idl_core = config.conf.get('idl', 'spine_core')
+
+if not os.path.exists(idl_core):
+    print 'ERROR: %s not found, please set correct idl path' % idl_core
+    sys.exit(1)
+
+ior_url = config.conf.get('corba', 'url')
+
+def init_ssl(args):
+    sslTP.certificate_authority_file(config.conf.get('ssl', 'ca_file'))
+    sslTP.key_file(config.conf.get('ssl', 'key_file'))
+    sslTP.key_file_password(config.conf.get('ssl', 'password'))
+
+    return CORBA.ORB_init(args + ['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
+
+def init(args):
+    return CORBA.ORB_init(args)
 
 def connect(args=[]):
     """Returns the server object.
@@ -56,12 +83,44 @@ def connect(args=[]):
     Method for connecting and fetch the Spine object.
     The method prefers SSL connections.
     """
+    importIDL(idl_core)
+    import SpineCore
+
+    if config.conf.getboolean('corba', 'use_ssl'):
+        orb = init_ssl(args)
+    else:
+        orb = init(args)
+
     ior = urllib.urlopen(ior_url).read()
-    obj = orb.string_to_object(ior)
+    try:
+        obj = orb.string_to_object(ior)
+    except:
+        print 'ERROR: %s not found, please set correct corba url' % ior_url
+        sys.exit(2)
     spine = obj._narrow(SpineCore.Spine)
     if spine is None:
         raise Exception("Could not narrow the spine object")
 
     return spine
 
-# arch-tag: 2e2f1f7a-4582-4ef7-a4e8-0b538df047c1
+def bootstrap():
+    spine = connect()
+    print '- connected to:', spine
+    import Cereweb
+    target = os.path.dirname(os.path.dirname(os.path.realpath(Cereweb.__file__)))
+    print '- downloading source'
+    source = spine.get_idl()
+    print '- (%s bytes)' % len(source)
+    generated = os.path.join(target, 'SpineIDL.idl')
+    fd = open(generated, 'w')
+    fd.write(source)
+    fd.close()
+    print '- Compiling to', target
+
+    os.system('omniidl -bpython -C %s -Wbpackage=Cereweb %s %s' %
+                                            (target, idl_core, generated))
+
+    import Cereweb.SpineIDL, Cereweb.SpineCore
+    print '- All done:', Cereweb.SpineIDL, Cereweb.SpineCore
+
+# arch-tag: 3da72f49-4a08-47ab-b189-5147403d3181
