@@ -22,12 +22,13 @@
 import unittest
 
 # Test classes
-from AutoTest import *
 from CommunicationTest import *
 from SessionTest import *
-from LockingTest import *
 from TransactionTest import *
+from LockingTest import *
+from CreateDeleteTest import *
 from OUTest import *
+from AutoTest import *
 
 if __name__ == '__main__':
     unittest.main()
