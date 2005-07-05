@@ -243,7 +243,7 @@ def prefetch_person_info():
             sp = pid2person.get(long(row['entity_id']), None)
             if sp:
                 if len(row['contact_value']) > 8:
-                    logger.warn("Ignoring too long contact for %s: %s" % (
+                    logger.info("Ignoring too long contact for %s: %s" % (
                         sp.fnr11, row['contact_value']))
                     continue
                 setattr(sp, attr_name, row['contact_value'])
