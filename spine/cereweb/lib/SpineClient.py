@@ -123,4 +123,4 @@ def bootstrap():
     import Cereweb.SpineIDL, Cereweb.SpineCore
     print '- All done:', Cereweb.SpineIDL, Cereweb.SpineCore
 
-# arch-tag: 3da72f49-4a08-47ab-b189-5147403d3181
+# arch-tag: 2e2f1f7a-4582-4ef7-a4e8-0b538df047c1

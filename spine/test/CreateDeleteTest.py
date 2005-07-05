@@ -105,4 +105,3 @@ class CreateDeleteTest(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
-# arch-tag: d6bdf662-ea24-11d9-8fea-e50755c48550
