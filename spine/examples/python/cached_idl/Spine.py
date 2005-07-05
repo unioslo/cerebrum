@@ -99,7 +99,7 @@ if conf.getboolean('cache', 'cache'):
         import SpineIDL
         Errors = SpineIDL.Errors
 else:
-    importIDL(idl_file)
+    importIDL(core_idl_file)
     import SpineCore
 
     try:
