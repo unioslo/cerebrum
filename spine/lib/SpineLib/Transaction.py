@@ -105,6 +105,7 @@ class Transaction:
         try:
             self._db.commit()
             self._db.close()
+            # FIXME: any reason why we use while and pop?
             while len(self._refs):
                 item = self._refs.pop()
                 if isinstance(item, Locking):
@@ -134,6 +135,8 @@ class Transaction:
             if isinstance(item, Locking):
                 if item.has_writelock(self):
                     item.reset()
+                    if item.is_deleted():
+                        item._undelete()
                 item.unlock(self)
         self.__invalidate()
 

@@ -49,8 +49,8 @@ class CerewebOption(DatabaseClass):
     method_slots = [Method('delete', None, write=True)]
 
     def delete(self):
+        self._delete_from_db()
         self._delete()
-        self.invalidate()
 
 registry.register_class(CerewebOption)
 

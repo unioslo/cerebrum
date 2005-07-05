@@ -50,8 +50,8 @@ class AuthOperationSet(DatabaseClass):
     }
 
     def delete(self):
+        self._delete_from_db()
         self._delete()
-        self.invalidate()
 
 registry.register_class(AuthOperationSet)
 
@@ -78,8 +78,8 @@ class AuthOperation(DatabaseClass):
     }
 
     def delete(self):
+        self._delete_from_db()
         self._delete()
-        self.invalidate()
 
 registry.register_class(AuthOperation)
 
@@ -103,8 +103,8 @@ class AuthOperationAttr(DatabaseClass):
     }
 
     def delete(self):
+        self._delete_from_db()
         self._delete()
-        self.invalidate()
 
 registry.register_class(AuthOperationAttr)
 
@@ -128,8 +128,8 @@ class AuthRole(DatabaseClass):
     }
 
     def delete(self):
+        self._delete_from_db()
         self._delete()
-        self.invalidate()
 
 registry.register_class(AuthRole)
 

@@ -72,7 +72,8 @@ class PersonAffiliation(DatabaseClass):
         person.find(self.get_person().get_id())
         person.delete_affiliation(self.get_ou().get_id(), self.get_affiliation().get_id(), self.get_source_system().get_id())
         person.write_db()
-        self.invalidate()
+
+        self._delete()
         
 registry.register_class(PersonAffiliation)
 

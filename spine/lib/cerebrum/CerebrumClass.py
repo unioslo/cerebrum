@@ -114,12 +114,8 @@ class CerebrumClass(SpineClass):
             setattr(obj, self._get_cerebrum_name(attr), attr.convert_to(value))
         obj.write_db()
 
-    def _delete(self):
-        """Generic method for deleting this instance from cerebrum.
-
-        You should implement your own delete method which will
-        invalidate the object after this method has been called.
-        """
+    def _delete_from_cerebrum(self):
+        """Generic method for deleting this instance from cerebrum."""
         obj = self._get_cerebrum_obj()
         obj.delete()
 

@@ -231,7 +231,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
 
             self.__wrapped_execute(sql, keys)
 
-    def _delete(self):
+    def _delete_from_db(self):
         """Generic method for deleting this instance from the database.
         
         Creates the SQL query and executes it to remove the rows in the

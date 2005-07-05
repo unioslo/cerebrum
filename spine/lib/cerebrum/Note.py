@@ -53,8 +53,7 @@ class Note(DatabaseClass):
     }
 
     def delete(self):
-        self._delete()
-        self.invalidate()
+        self._delete_from_db()
 
 registry.register_class(Note)
 

@@ -220,10 +220,30 @@ def _create_corba_method(method):
             if transaction is None:
                 raise TransactionError('This transaction is terminated.')
 
-            if isinstance(self.spine_object, Caching) and not self.spine_object.is_valid():
-                invalidate_corba_object(self)
-                # FIXME: maybe find a better minor.
-                raise Communication.CORBA.OBJECT_NOT_EXIST
+            # deleted objects needs special handling
+            if isinstance(self.spine_object, Caching) and self.spine_object.is_deleted():
+                if isinstance(self.spine_object, Locking):
+                    if self.spine_object.has_writelock(transaction):
+                        # The transaction has already deleted the object.
+
+                        # FIXME: maybe find a better minor, or another exception?
+                        # The client is really doing something stupid when it tries to
+                        # access an object it has already deleted. 20050705 erikgors.
+                        raise Communication.CORBA.OBJECT_NOT_EXIST
+                    elif not self.spine_object.is_writelocked():
+                        # This object has been deleted _and_ committed.
+                        # The transaction might have gotten a reference
+                        # from a search, and is now trying to access it.
+                        raise Communication.CORBA.OBJECT_NOT_EXIST
+                    else:
+                        # We do nothing. The object is marked for deletion
+                        # but has not yet been committed, so it might yet be undeleted.
+                        # The transaction will get a AllreadyLockedError when it tries
+                        # to lock_for_reading/lock_for_writing later on.
+                        pass
+                else:
+                    assert 0 # possible to delete, but has no locking?
+
 
             # Check for lost locks (raises an exception if a lost lock is found)
             transaction.check_lost_locks()

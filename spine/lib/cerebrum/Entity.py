@@ -82,8 +82,8 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
         return obj
 
     def delete(self):
+        self._delete_from_cerebrum()
         self._delete()
-        self.invalidate()
 
 registry.register_class(Entity)
 

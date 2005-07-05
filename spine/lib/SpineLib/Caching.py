@@ -61,6 +61,7 @@ class Caching(object):
         self.__key = key
         self.cache = cache
         self.__valid = True
+        self.__deleted = False
 
         if cache is not None:
             self.cache_self()
@@ -100,6 +101,8 @@ class Caching(object):
         Remove the node from the cache.
         Will not prevent this object from further use.
         """
+        assert 0 # do not use. 20050706 erikgors.
+
         if self.cache is not None:
             assert self.__key in self.cache
             del self.cache[self.__key]
@@ -108,6 +111,15 @@ class Caching(object):
 
     def is_valid(self):
         return self.__valid
+
+    def _delete(self):
+        self.__deleted = True
+
+    def _undelete(self):
+        self.__deleted = False
+
+    def is_deleted(self):
+        return self.__deleted
 
     def create_primary_key(*args, **vargs):
         return None # this will make it a singleton
