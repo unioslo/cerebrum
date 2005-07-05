@@ -86,7 +86,7 @@ class Transaction:
             raise TransactionError('Your lock on %s timed out, transaction was rolled back.' % l)
     check_lost_locks = serialized_decorator(check_lost_locks, '_lost_locks_lock')
 
-    def _invalidate(self):
+    def __invalidate(self):
         handler = LockHandler.get_handler()
         handler.remove_transaction(self)
         self._refs = None
@@ -112,7 +112,7 @@ class Transaction:
         except Exception, e:
             self.rollback()
             raise TransactionError('Failed to commit: %s' % e)
-        self._invalidate()
+        self.__invalidate()
         
 
     def rollback(self):
@@ -133,9 +133,9 @@ class Transaction:
             item = self._refs.pop()
             if isinstance(item, Locking):
                 if item.has_writelock(self):
-                    item.invalidate()
+                    item.reset()
                 item.unlock(self)
-        self._invalidate()
+        self.__invalidate()
 
     def get_database(self):
         if self._db is None:

@@ -39,6 +39,8 @@ class Caching(object):
         the cache. If so, then a reference to it is returned.
         Otherwise a new object is created and the reference to that is
         returned instead.
+
+        Remember __init__ will be called, even when returning an old object
         """
         # FIXME: vi trenger låsing her
         cache = vargs.get('cache', cls.global_cache)
@@ -58,11 +60,11 @@ class Caching(object):
         self = object.__new__(cls)
         self.__key = key
         self.cache = cache
+        self.__valid = True
 
         if cache is not None:
             self.cache_self()
 
-        # remember __init__ will be run, even though it is an old object
         return self 
 
     def __init__(self):
@@ -98,8 +100,14 @@ class Caching(object):
         Remove the node from the cache.
         Will not prevent this object from further use.
         """
-        if self.cache is not None and self.cache.has_key(self.__key):
+        if self.cache is not None:
+            assert self.__key in self.cache
             del self.cache[self.__key]
+
+        self.__valid = False
+
+    def is_valid(self):
+        return self.__valid
 
     def create_primary_key(*args, **vargs):
         return None # this will make it a singleton

@@ -239,20 +239,12 @@ class Builder(object):
         self.updated.clear()
 
     def reset(self):
-        """Reload all changed attributes."""
+        """Reset all changed write attributes."""
         loaded = sets.Set()
         for attr in self.slots:
-            if attr not in self.primary:
-                load_method = getattr(self, attr.get_name_load(), None)
-                if load_method not in loaded and load_method is not None:
-                    if attr.optional:
-                        try:
-                            load_method()
-                        except Cerebrum.Errors.NotFoundError, e:
-                            continue
-                    else:
-                        load_method()
-                    loaded.add(load_method)
+            if attr not in self.primary and attr.write:
+                if hasattr(self, attr.get_name_private()):
+                    delattr(self, attr.get_name_private())
         self.updated.clear()
 
     def create_primary_key(cls, *args, **vargs):

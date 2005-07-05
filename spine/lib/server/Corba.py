@@ -34,6 +34,7 @@ from Cerebrum.extlib import sets
 from Cerebrum.spine.SpineLib.Builder import Method
 from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
 from Cerebrum.spine.SpineLib.Locking import Locking
+from Cerebrum.spine.SpineLib.Caching import Caching
 from Cerebrum.spine.SpineLib.SearchClass import SearchClass
 from Cerebrum.spine.SpineLib.SpineExceptions import AccessDeniedError, ServerProgrammingError, TransactionError
 from Cerebrum.spine.SpineLib.Transaction import Transaction
@@ -50,25 +51,41 @@ corba_structs = {}
 
 object_cache_lock = threading.RLock()
 
+def invalidate_reference(reference):
+    object_cache_lock.acquire()
+    try:
+        try:
+            com = Communication.get_communication()
+            com.remove_reference(reference)
+        except:
+            print 'DEBUG: Unable to remove reference when dropping from object cache!'
+            traceback.print_exc() # TODO: Log this
+    finally:
+        object_cache_lock.release()
+
+def invalidate_corba_object(corba_obj):
+    object_cache_lock.acquire()
+    try:
+        key = (corba_obj.get_transaction(), corba_obj.spine_object)
+        reference = object_cache[key]
+        invalidate_reference(reference)
+        del object_cache[key]
+    finally:
+        object_cache_lock.release()
+
 # FIXME: We should instead organize object_cache with key == transcation.
 #        This will be too slow and add unnecessary latency when we have many
 #        short lived transactions.
 def drop_associated_objects(transaction):
     """Removes all objects associated with the given transaction from the object cache."""
-    com = Communication.get_communication()
     object_cache_lock.acquire()
     try:
         for key, value in object_cache.items():
-            if key[1] == transaction:
-                try:
-                    com.remove_reference(value)
-                except:
-                    print 'DEBUG: Unable to remove reference when dropping from object cache!'
-                    traceback.print_exc() # TODO: Log this
-                del object_cache[key]
+            if key[0] == transaction:
+                invalidate_reference(value)
+            del object_cache[key]
     finally:
         object_cache_lock.release()
-
 
 def convert_to_corba(obj, transaction, data_type):
     """Convert object 'obj' to a data type CORBA knows."""
@@ -116,7 +133,7 @@ def convert_to_corba(obj, transaction, data_type):
             data_type = obj.__class__
 
         corba_class = class_cache[data_type]
-        key = (corba_class, transaction, obj)
+        key = (transaction, obj)
         
         object_cache_lock.acquire()
         try:
@@ -203,6 +220,11 @@ def _create_corba_method(method):
             if transaction is None:
                 raise TransactionError('This transaction is terminated.')
 
+            if isinstance(self.spine_object, Caching) and not self.spine_object.is_valid():
+                invalidate_corba_object(self)
+                # FIXME: maybe find a better minor.
+                raise Communication.CORBA.OBJECT_NOT_EXIST
+
             # Check for lost locks (raises an exception if a lost lock is found)
             transaction.check_lost_locks()
 
@@ -268,6 +290,9 @@ def _create_corba_method(method):
 
             return convert_to_corba(value, transaction, method.data_type)
 
+        except Communication.CORBA.OBJECT_NOT_EXIST, e:
+            raise e
+
         except Exception, e:
             # SpineIDL is imported here because it doesn't exist during loading
             # of Corba.py 
@@ -277,8 +302,8 @@ def _create_corba_method(method):
                 # Temporary raise of unknown exceptions to the client Remember
                 # to remove the message given, and remove in Builder.py before
                 # production.
-                name = getattr(e, '__class__', str(e))
                 traceback.print_exc()
+                name = getattr(e, '__class__', str(e))
                 exception_string = "Unknown error '%s':\n%s\n%s" % (
                                     name, str(e.args), 
                                     ''.join(traceback.format_exception(sys.exc_type, 
@@ -503,6 +528,7 @@ def _create_idl_interface(cls, error_module="", docs=False):
 
     # Inheritance
     parent_slots = sets.Set()
+    parent_slots_names = sets.Set()
     if cls.builder_parents:
         spam = sets.Set(cls.builder_parents)
         txt += ': ' + ', '.join(['Spine' + i.__name__ for i in spam])
@@ -510,7 +536,20 @@ def _create_idl_interface(cls, error_module="", docs=False):
             parent_slots.update(i.slots)
             parent_slots.update(i.method_slots)
 
+            for attr in i.slots:
+                parent_slots_names.add(attr.get_name_get())
+                parent_slots_names.add(attr.get_name_set())
+            for method in i.method_slots:
+                parent_slots_names.add(method.name)
+                parent_slots_names.add(method.name)
+
     txt += ' {\n'
+
+    def checkName(name, names=sets.Set()):
+        if name in names or name in parent_slots_names:
+            msg = 'Class %s has duplicate definitions of "%s"' % (cls.__name__, name)
+            raise ServerProgrammingError(msg)
+        names.add(name)
 
     # Attributes
     if docs and cls.slots:
@@ -518,6 +557,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
     for attr in cls.slots:
         if attr in parent_slots:
             continue
+        checkName(attr.get_name_get())
+        checkName(attr.get_name_set())
         if not hasattr(cls, attr.get_name_get()) or (attr.write and not hasattr(cls, 
                 attr.get_name_set())):
             msg = 'Class %s has no method %s, check declaration of %s.slots.'
@@ -548,6 +589,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
     for method in cls.method_slots:
         if method in parent_slots:
             continue
+
+        checkName(method.name)
 
         # If the class does not have the method, then method_slots contains an
         # invalid method declaration
@@ -642,6 +685,7 @@ class CorbaClass:
         self.spine_object = spine_object
         self.get_transaction = weakref.ref(transaction)
 
+
 def register_spine_class(cls, idl_cls, idl_struct):
     """
     Create CORBA class for the class 'cls'.
@@ -658,6 +702,8 @@ def register_spine_class(cls, idl_cls, idl_struct):
         corba_class_name, corba_class_name)
 
     corba_class.spine_class = cls
+
+    names = sets.Set()
 
     for attr in cls.slots:
         get_name = attr.get_name_get()

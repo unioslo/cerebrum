@@ -40,6 +40,10 @@ def serialized_decorator(method, lock_name):
 
     return serialized
 
+# FIXME: Maybe we should run write_locker.add_ref(self)
+#        in lock_for_readin/writing. This will fix problems with "loose"
+#        objects. (method calls which needs to writelock other objects).
+
 class Locking(object):
     """
     Implements support for locking an object.
