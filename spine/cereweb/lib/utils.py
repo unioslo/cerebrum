@@ -20,8 +20,10 @@
 
 import time
 import forgetHTML
-import cereconf
+import Cereweb.config
 from Cerebrum.Errors import ProgrammingError
+
+WEBROOT = Cereweb.config.conf.get('cereweb', 'webroot')
 
 def url(path):
     """Returns a full path for a path relative to the base installation.
@@ -34,7 +36,7 @@ def url(path):
     if not (path.startswith('css') or path.endswith('png')
             or path.endswith('js')):
         path = 'Chandler.cgi' + '/' + path
-    return cereconf.WEBROOT + "/" + path
+    return WEBROOT + "/" + path
 
 def object_url(object, method="view"):
     """Returns the full path to a page treating the object.

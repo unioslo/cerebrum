@@ -22,8 +22,6 @@ from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cereweb.TableView import TableView
 from Cereweb.utils import url
 from Cereweb.utils import object_link
-from Cerebrum.Utils import Factory
-ClientAPI = Factory.get_module("ClientAPI")
 import types
 import cPickle
 
