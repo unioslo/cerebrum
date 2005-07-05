@@ -114,7 +114,7 @@ def get_fs_stedkoder():
         stedkode = tuple([int(row[c]) for c in (
             'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')])
         if not stedkode2ou_id.has_key(stedkode):
-            logger.warn("Ukjent sted: %s" % repr(stedkode))
+            logger.warn("Unknown stedkode: %s" % repr(stedkode))
             continue
         sted_info[stedkode2ou_id[stedkode]] = row
     return sted_info
@@ -243,7 +243,7 @@ def prefetch_person_info():
             sp = pid2person.get(long(row['entity_id']), None)
             if sp:
                 if len(row['contact_value']) > 8:
-                    logger.warn("Ignoring too long contact: %s for %s" % (
+                    logger.warn("Ignoring too long contact for %s: %s" % (
                         sp.fnr11, row['contact_value']))
                     continue
                 setattr(sp, attr_name, row['contact_value'])
