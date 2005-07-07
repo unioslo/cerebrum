@@ -19,6 +19,9 @@
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
 ## fields should contain a list of tuples with (name, label)
 #attr $fields = []
 
@@ -37,18 +40,20 @@
 ## Creates html-code for each inputfield.
 #def input($name, $label)
     #set $value = $formvalues.get($name, "")
-    <label for='$name'>$_($label):</label>
-    <input type='text' name='$name' id='$name' value='$value' /><br />
+    $form_widgets.input($name, $label, $value)
 #end def
 
 ## Creates the form for searching.
-#def form
+#def form($extra=None)
 <div class="search">
     <form action="$getAction()" method="POST">
         <div class="searchform">
             #for $name, $label in $fields
                 $input($name, $label)
             #end for
+            #if $extra
+                $extra
+            #end if
         </div>
         <div class="help">
             #for $line in $help

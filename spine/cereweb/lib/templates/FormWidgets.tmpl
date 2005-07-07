@@ -46,17 +46,14 @@
 #end def
 
 ## Creates a drop-down list with true or false.
-#def boolWidget($name, $label, $$default=True)
-    <label for="$name">$_($label):</label>
-    <select name="$name">
+#def boolWidget($name, $label, $default=True)
+    #set types = (("True", "True"), ("False", "False"))
     #if $default
-        <option value="True">True</option>
-        <option value="False">False</option>
+        #set $default = "True"
     #else
-        <option value="False">False</option>
-        <option value="True">True</option>
+        #set $default = "False"
     #end if
-    </select><br />
+    $generate_loption($name, $label, $types, $default)
 #end def
 
 ## Creates a box with info about the form, from the attribute help.

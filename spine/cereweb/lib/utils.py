@@ -46,20 +46,20 @@ def object_url(object, method="view"):
     type = object.get_type().get_name()
     return url("%s/%s?id=%s" % (type, method, object.get_id()))
 
-def object_link(object, text=None, method="view"):
+def object_link(object, text=None, method="view", _class=None):
     """Creates a HTML anchor (a href=..) for the object.
        The text of the anchor will be str(object) - unless
        the parameter text is given."""
     url = object_url(object, method)   
     if text is None:
         type = object.get_type().get_name()
-        if type in ('group', 'account'):
+        if type in ('group', 'account', 'ou'):
             text = object.get_name()
         elif type == 'person':
             text = object.get_cached_full_name()
         else:
             text = str(object)
-    return forgetHTML.Anchor(text, href=url)        
+    return forgetHTML.Anchor(text, href=url, _class=_class)
 
 def redirect(req, url, temporary=False, seeOther=False):
     """

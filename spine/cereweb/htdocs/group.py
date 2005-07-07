@@ -49,9 +49,10 @@ def list(req):
     """Creates a page wich content is the last group-search performed."""
     return search(req, *req.session.get('group_lastsearch', ()))
 
-def search(req, name="", desc="", spread="", gid="", transaction=None):
+def search(req, name="", desc="", spread="", gid="",
+           gid_end="", gid_option="", transaction=None):
     """Creates a page with a list of groups matching the given criterias."""
-    req.session['group_lastsearch'] = (name, desc, spread)
+    req.session['group_lastsearch'] = (name, desc, spread, gid, gid_end, gid_option)
     page = Main(req)
     page.title = _("Search for group(s):")
     page.setFocus("group/list")
@@ -62,6 +63,8 @@ def search(req, name="", desc="", spread="", gid="", transaction=None):
     values['desc'] = desc
     values['spread'] = spread
     values['gid'] = gid
+    values['gid_end'] = gid_end
+    values['gid_option'] = gid_option
     form = GroupSearchTemplate(searchList=[{'formvalues': values}])
 
     if name or desc or spread or gid:
@@ -75,8 +78,17 @@ def search(req, name="", desc="", spread="", gid="", transaction=None):
         if desc:
             searcher.set_description_like(desc)
         if gid:
-            searcher.set_posix_gid(int(gid))
-            raise NotImplementedError, "GID-search"
+            if gid_option == "exact":
+                searcher.set_posix_gid(int(gid))
+            elif gid_option == "above":
+                searcher.set_posix_gid_more_than(int(gid))
+            elif gid_option == "below":
+                searcher.set_posix_gid_less_than(int(gid))
+            elif gid_option == "range":
+                searcher.set_posix_gid_more_than(int(gid))
+                if gid_end:
+                    searcher.set_posix_gid_less_than(int(gid_end))
+                
         if spread:
             groups = sets.Set()
 
