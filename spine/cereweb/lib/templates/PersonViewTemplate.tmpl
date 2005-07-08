@@ -16,21 +16,22 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url
+#from Cereweb.utils import url, object_link
 #from Cereweb.WorkList import remember_link
 #from AccountViewTemplate import AccountViewTemplate
-#from PersonNameViewTemplate import PersonNameViewTemplate
-#from PersonNameAddTemplate import PersonNameAddTemplate
+#from PersonNameTemplate import PersonNameTemplate
+#from PersonAffiliationTemplate import PersonAffiliationTemplate
 #extends EntityViewTemplate
 
 ## Overloaded by other pages to get the right url, used in personNames().
 #attr $page_url = "person/view"
 
 ## Main method for creating the person view page.
-#def viewPerson($transaction, $person, $addName)
+#def viewPerson($transaction, $person, $addName, $addAffil)
 <div class="person">
     $personInfo($person)
-    $personNames($person, $transaction, $addName)
+    #echo PersonAffiliationTemplate().view($person, $transaction, $addAffil, $page_url)
+    #echo PersonNameTemplate().view($person, $transaction, $addName, $page_url)
     $personAccounts($person)
 </div>
 $view_entity($person, $transaction)
@@ -54,19 +55,6 @@ $view_entity($person, $transaction)
         #set $dob = $person.get_birth_date().strftime("%Y-%m-%d")
         <div class="info"><em>$_("Date of birth"):</em> $dob</div>
         <div class="info"><em>$_("Description"):</em> $person.get_description()</div>
-        <div class="info"><em>$_("Affilitations"):</em>
-        #set $affils = $person.get_affiliations()
-        #if $affils
-            #for $affil in $affils
-                OU - $affil.get_ou().get_name()<br />
-                Affilation - $affil.get_affiliation().get_name()<br />
-                status - $affil.get_status().get_name()<br />
-                <br />
-            #end for
-        #else
-        No affiliations.
-        #end if
-        </div>
     </div>
     <div class="actions">
         #set $edit = $url("person/edit?id=%s" % $person.get_id())
@@ -78,82 +66,59 @@ $view_entity($person, $transaction)
 </div>
 #end def
 
-## List names for this person, and form for adding a name.
-#def personNames($person, $transaction, $addName)
-<div class="personnames">
-    <a name="names" />
-    #set $v = PersonNameViewTemplate()
-    #set $a = PersonNameAddTemplate()
-    $v.personNames($person)
-    #if $addName == "True" or $addName == True
-        $a.addForm($person, $transaction)
-    #else
-    #set $tmp_url = "%s?id=%i&addName=True#names" % ($page_url, $person.get_id())
-    <div class="actions">
-        <a href="$url(tmp_url)">$_("add a name")</a>
+## List accounts and groups those accounts belong to.
+#def personAccounts($person)
+#set $t = $AccountViewTemplate()
+
+#set $allaccounts = $person.get_accounts()
+#set $primary = $person.get_primary_account()
+#if $primary
+    #set $primary = $primary.get_name()
+#end if
+#set $person_id = $person.get_id()
+
+<div class="personaccounts">
+    <div class="subtitle">
+        <h3>$_("Accounts & Groups:")</h3>
     </div>
+    <form action="$url('person/accounts')" type="post">
+    #for $account in $allaccounts
+        #set $account_id = $account.get_id()
+        #set $account_name = $account.get_name()
+        <div class="personaccount">
+            <input type="checkbox" name="account_$account_id" />
+            <em>$_('Account'):</em> $_($account_name)
+            $object_link($account, "view", _class="actions")
+            $object_link($account, "edit", "edit", _class="actions")
+            $remember_link($account, _class="actions")
+            #if $account_name == $primary
+                (primary)
+            #end if
+        </div>
+        #for $group in $account.get_groups()
+        <div class="persongroup">
+            #set $group_id = $group.get_id()
+            #set $group_name = $group.get_name()
+            <input type="checkbox" name="group_$group_id" />
+            <em>$_('Group'):</em> $_($group_name)
+            $object_link($group, "view", _class="actions")
+            $object_link($group, "edit", "edit", _class="actions")
+            #set $leave = $url("person/leavegroup?id=%i&group=%i" % \
+                               ($person_id, $group_id))
+            <a href="$leave" class="actions">$_("leave group")</a>
+            $remember_link($group, _class="actions")
+        </div>
+        #end for
+    #end for
+    <div>
+    #if $allaccounts
+        <input type="submit" value="$_('Delete')" name="delete" />
+        <input type="submit" value="$_('Remember')" name="remember" />
     #end if
+        <input type="hidden" value=$person_id name="owner" />
+        <input type="submit" value="$_('Add new account')" name="add" />
+    </div>
+    </form>
 </div>
 #end def
 
-## List accounts and groups those accounts belong to.
-#def personAccounts($person)
-#set $allaccounts = $person.get_accounts()
-#if 1
-    #set $t = $AccountViewTemplate()
-    #set $primary = $person.get_primary_account()
-    #if $primary
-        #set $primary = $primary.get_name()
-    #end if
-    #set $person_id = $person.get_id()
-    <div class="personaccounts">
-        <div class="subtitle">
-            <h3>$_("Accounts & Groups:")</h3>
-        </div>
-        <form action="$url('person/accounts')" type="post">
-            #for $account in $allaccounts
-                #set $account_id = $account.get_id()
-                #set $account_name = $account.get_name()
-            <div class="personaccount">
-                <input type="checkbox" name="account_$account_id" />
-                <em>$_('Account'):</em> $_($account_name)
-                #set $view = $url("account/view?id=%i" % $account_id)
-                #set $edit = $url("account/edit?id=%i" % $account_id)
-                <a href="$view" class="actions">$_("view")</a>
-                <a href="$edit" class="actions">$_("edit")</a>
-                $remember_link($account, _class="actions")
-                #if $account_name == $primary
-                    (primary)
-                #end if
-            </div>
-            #for $group in $account.get_groups()
-            <div class="persongroup">
-                #set $group_id = $group.get_id()
-                #set $group_name = $group.get_name()
-                <input type="checkbox" name="group_$group_id" />
-                <em>$_('Group'):</em> $_($group_name)
-                #set $view = $url("group/view?id=%i" % $group_id)
-                #set $edit = $url("group/edit?id=%i" % $group_id)
-                #set $leave = $url("person/leavegroup?id=%i&group=%i" % \
-                                ($person_id, $group_id))
-                <a href="$view" class="actions">$_("view")</a>
-                <a href="$edit" class="actions">$_("edit")</a>
-                <a href="$leave" class="actions">$_("leave group")</a>
-                $remember_link($group, _class="actions")
-            </div>
-            #end for
-            #end for
-            <div>
-                ##<center>
-                #if $allaccounts
-                    <input type="submit" value="$_('Delete')" name="delete" />
-                    <input type="submit" value="$_('Remember')" name="remember" />
-                #end if
-                    <input type="hidden" value=$person_id name="owner" />
-                    <input type="submit" value="$_('Add new account')" name="add" />
-                ##</center>
-            </div>
-        </form>
-    </div>
-#end if
-#end def

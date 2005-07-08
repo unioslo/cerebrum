@@ -1,0 +1,82 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
+#extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## List names for this person, and form for adding a name.
+#def view($person, $transaction, $addName, $page)
+<div class="personnames">
+    <a name="names" />
+    $personNames($person)
+    #if $addName == "True" or $addName == True
+        $addForm($person, $transaction)
+    #else
+    #set $tmp_url = "%s?id=%i&addName=True#names" % ($page, $person.get_id())
+    <div class="actions">
+        <a href="$url(tmp_url)">$_("add a name")</a>
+    </div>
+    #end if
+</div>
+#end def
+
+## Lists all names for a person, with the sourcesystem if set.
+#def personNames($person)
+    #set $person_names = $person.get_names()
+    <h2>$_("Names:")</h2>
+    #for $name in $person_names
+    #set $ss = $name.get_source_system()
+    #if not $ss.get_name() == "Cached"
+    <div class="name">
+        #set $name_variant = $name.get_name_variant()
+        #set $ss_name = $ss and $ss.get_name() or ""
+        #set $delete = $url('person/remove_name?id=%i&variant=%s&ss=%s') % (
+                 $person.get_id(), $name_variant.get_description(), $ss_name)
+        <div class="actions">
+            <em>$name_variant.get_description():</em> $name.get_name()
+            <a href="$delete">$_("delete")</a>
+        </div>
+        #if $ss
+        <div><em>$_("Source system"):</em> $ss.get_name() ($ss.get_description())</div>
+        #end if
+    </div>
+    #end if
+    #end for
+#end def
+
+## Creates a form for adding a name to a person.
+#def addForm($entity, $transaction)
+<form action="$url('person/add_name')" type="post">
+    #set $name_types = $transaction.get_name_type_searcher().search()
+    #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
+    <h2>$_("Add a name"):</h2>
+    <input type="hidden" name="id" value="$entity.get_id()" />
+    $form_widgets.input("name", "Name")
+    $form_widgets.generate_loption("name_type", "Name type", $name_types)
+    <div class="actions">
+        <input type="submit" value="$_('Add')" />
+        #set $tmp_url = "person/view?id=%s#names" % ($entity.get_id())
+        <a href="$url($tmp_url)">$_("Cancel")</a>
+    </div>
+</form>
+#end def
+

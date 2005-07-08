@@ -22,7 +22,7 @@
 #from NoteViewTemplate import NoteViewTemplate
 #from NoteAddTemplate import NoteAddTemplate
 #from QuarantineViewTemplate import QuarantineViewTemplate
-#from SpreadViewTemplate import SpreadViewTemplate
+#from SpreadTemplate import SpreadTemplate
 #from ExternalIdTemplate import ExternalIdTemplate
 #from ExternalIdAddTemplate import ExternalIdAddTemplate
 #extends InitTemplate
@@ -41,7 +41,7 @@
 ## Shows the spreads the entity has.
 #def spreads($entity, $transaction)
 <div class="personnames">
-    #set $s = SpreadViewTemplate()
+    #set $s = SpreadTemplate()
     #set $type = $entity.get_type()
     #set $spreads= []
     #for $spread in $transaction.get_spread_searcher().search()

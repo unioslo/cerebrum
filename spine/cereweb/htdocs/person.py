@@ -161,26 +161,24 @@ def _get_person(req, transaction, id):
         queue_message(req, str(e), error=True)
         redirect(req, url("person"), temporary=True)
 
-def view(req, transaction, id, addName=False):
+def view(req, transaction, id, addName=False, addAffil=False):
     """Creates a page with a view of the person given by id.
 
     If addName is True or "True", the form for adding a name is shown.
+    If addAffil is True or "True", the form for adding an affiliation is shown.
     """
     person = _get_person(req, transaction, id)
     page = Main(req)
     page.title = _("Person %s:" % _primary_name(person))
     page.setFocus("person/view", str(person.get_id()))
     view = PersonViewTemplate()
-    content = view.viewPerson(transaction, person, addName)
+    content = view.viewPerson(transaction, person, addName, addAffil)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
 
-def edit(req, transaction, id, addName=False):
-    """Creates a page with the form for editing a person.
-    
-    If addName is True or "True", the form for adding a name is shown.
-    """
+def edit(req, transaction, id):
+    """Creates a page with the form for editing a person."""
     person = _get_person(req, transaction, id)
     page = Main(req)
     page.title = _("Edit %s:" % _primary_name(person))
@@ -190,7 +188,7 @@ def edit(req, transaction, id, addName=False):
                transaction.get_gender_type_searcher().search()]
 
     edit = PersonEditTemplate()
-    content = edit.editPerson(person, addName, genders)
+    content = edit.editPerson(person, genders)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
@@ -230,11 +228,14 @@ def save(req, transaction, id, gender, birthdate, deceased, description=""):
     person.set_gender(transaction.get_gender_type(gender))
     person.set_birth_date(transaction.get_commands().strptime(birthdate, "%Y-%m-%d"))
     person.set_description(description)
+    a=person.get_deceased()
     person.set_deceased(deceased)
+    
+    b=person.get_deceased()
     
     redirect_object(req, person, seeOther=True)
     transaction.commit()
-    queue_message(req, _("Person successfully updated."))
+    queue_message(req, _("Person successfully updated. %s, %s, %s" % (a,b,deceased)))
 save = transaction_decorator(save)
 
 def make(req, transaction, name, gender, birthdate, description=""):
@@ -277,23 +278,17 @@ def add_name(req, transaction, id, name, name_type):
     queue_message(req, _("Name successfully added."))
 add_name = transaction_decorator(add_name)
 
-# remove_name ser ikke ut til å være støttet av cerebrum-core
-def remove_name(req, id, name, variant, ss):
+def remove_name(req, id, transaction, variant, ss):
     """Remove the name with the given values."""
-    server = req.session.get("active")
-    person = _get_person(req, id)
+    person = _get_person(req, transaction, id)
+    variant = transaction.get_name_variant_type(variant)
+    ss = transaction.get_source_system(ss)
 
-    searcher = server.get_person_name_searcher()
-    searcher.set_person(person)
-    searcher.set_name_variant(server.get_name_type(variant))
-    searcher.set_source_system(server.get_source_system(ss))
-    searcher.set_name_like(name)
-    name, = searcher.search()
-
-    person.remove_name(name)
+    person.remove_name(variant, ss)
 
     queue_message(req, _("Name successfully removed."))
     redirect_object(req, person, seeOther=True)
+remove_name = transaction_decorator(remove_name)
 
 def add_external_id(req, transaction, id, external_id, id_type):
     person = _get_person(req, transaction, id)
@@ -309,5 +304,41 @@ add_external_id = transaction_decorator(add_external_id)
 def accounts(req, owner, add=None, remember=None, delete=None):
     if add:
         redirect(req, url('account/create?owner=%s' % owner))
+
+def add_affil(req, transaction, id, status, ou, description=""):
+    person = _get_person(req, transaction, id)
+    ou = transaction.get_ou(int(ou))
+    status = transaction.get_person_affiliation_status_type(status)
+    ss = transaction.get_source_system("Manual")
+
+    affil = person.add_affiliation(ou, status, ss)
+    
+    if description:
+        affil.set_description(description)
+    
+    redirect_object(req, person, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Affiliation successfully added."))
+add_affil = transaction_decorator(add_affil)
+
+def remove_affil(req, transaction, id, ou, affil, ss):
+    person = _get_person(req, transaction, id)
+    ou = transaction.get_ou(int(ou))
+    ss = transaction.get_source_system(ss)
+    affil = transaction.get_person_affiliation_type(affil)
+    
+    searcher = transaction.get_person_affiliation_searcher()
+    searcher.set_person(person)
+    searcher.set_ou(ou)
+    searcher.set_source_system(ss)
+    searcher.set_affiliation(affil)
+    
+    affiliation, = searcher.search()
+    affiliation.delete()
+    
+    redirect_object(req, person, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Affiliation successfully removed."))
+remove_affil = transaction_decorator(remove_affil)
 
 # arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6
