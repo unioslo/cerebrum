@@ -827,7 +827,7 @@ class EVU(FSObject):
         SELECT etterutdkurskode, kurstidsangivelsekode,
           TO_CHAR(dato_fra, 'YYYY-MM-DD') as dato_fra,
           TO_CHAR(dato_til, 'YYYY-MM-DD') as dato_til
-        FROM etterutdkurs 
+        FROM fs.etterutdkurs 
         WHERE etterutdkurskode = :code
         """
         return self.db.query(query, {"code" : code})
