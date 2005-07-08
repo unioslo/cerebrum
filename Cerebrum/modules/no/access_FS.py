@@ -319,7 +319,7 @@ class Student(FSObject):
              e.personnr = p.personnr"""
         # NB! Oracle driver does not like :foo repeated multiple times :-(
         # That is why we interpolate variables into the query directly.
-        if month < 6:
+        if self.mndnr < 6:
             time_part = """
                         AND e.arstall >= %(self.year)d
                         AND e.manednr >= %(self.mndnr)d
