@@ -43,12 +43,15 @@ class PersonAffiliation(DatabaseClass):
     ]
     slots = [
         DatabaseAttr('status', table, PersonAffiliationStatusType, write=True),
+        DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('last_date', table, Date),
+        DatabaseAttr('deleted_date', table, Date),
     ]
 
     method_slots = [
-        Method('delete', None, write=True)
+        Method('delete', None, write=True),
+        Method('marked_for_deletion', bool),
     ]
 
     db_attr_aliases = {
@@ -73,8 +76,13 @@ class PersonAffiliation(DatabaseClass):
         person.delete_affiliation(self.get_ou().get_id(), self.get_affiliation().get_id(), self.get_source_system().get_id())
         person.write_db()
 
-        self._delete()
-        
+    def marked_for_deletion(self):
+        """Checks if the affiliation deleted_date is set."""
+        if self.get_deleted_date() is not None:
+            return True
+        else:
+            return False
+
 registry.register_class(PersonAffiliation)
 
 def add_affiliation(self, ou, affiliation_status, source_system):
