@@ -68,6 +68,12 @@ def set_name(self, name, name_type, source_system):
 
 Person.register_method(Method('set_name', None, args=[('name', str), ('name_type', NameType), ('source_system', SourceSystem)], write=True), set_name)
 
+def remove_name(self, name_type, source_system):
+    obj = self._get_cerebrum_obj()
+    obj._delete_name(source_system.get_id(), name_type.get_id())
+
+Person.register_method(Method('remove_name', None, args=[("name_type", NameType), ('source_system', SourceSystem)], write=True), remove_name)
+
 def get_cached_full_name(self):
     cached = SourceSystem(name='Cached')
     full = NameType(name='FULL')

@@ -281,13 +281,14 @@ add_name = transaction_decorator(add_name)
 def remove_name(req, id, transaction, variant, ss):
     """Remove the name with the given values."""
     person = _get_person(req, transaction, id)
-    variant = transaction.get_name_variant_type(variant)
+    variant = transaction.get_name_type(variant)
     ss = transaction.get_source_system(ss)
 
     person.remove_name(variant, ss)
 
-    queue_message(req, _("Name successfully removed."))
     redirect_object(req, person, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Name successfully removed."))
 remove_name = transaction_decorator(remove_name)
 
 def add_external_id(req, transaction, id, external_id, id_type):

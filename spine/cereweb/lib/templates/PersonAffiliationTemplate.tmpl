@@ -49,7 +49,7 @@
     <div class="name">
         <em>Affiliation:</em> $affil_type.get_name()
         #if $affil.marked_for_deletion()
-            <font color="red">MARKED FOR DELETION</font>
+            &nbsp;<font color="red">(Marked for deletion)</font>
         #else
             #set $args = "id=%s&ou=%s&affil=%s&ss=%s" % (
                             $person.get_id(), $ou.get_id(),
