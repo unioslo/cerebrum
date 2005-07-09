@@ -197,3 +197,4 @@ def delete(req, transaction, id):
     queue_message(req, _("Deletion of OU not yet implemented on the server."), error=True)
 delete = transaction_decorator(delete)
 
+# arch-tag: 6a071cd0-f0bc-11d9-90c5-0c57c7893102
