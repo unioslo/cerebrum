@@ -306,14 +306,11 @@ posix_demote = transaction_decorator(posix_demote)
 
 def delete(req, transaction, id):
     account = transaction.get_account(int(id))
-    #account.delete()
-    #redirect(req, url("index"), seeOther=True)
-    #transaction.commit()
-    #queue_message(req, _("Account successfully deleted."))
-    queue_message(req, _("Error. Not implemented correctly on the server yet."),
-                  error=True)
-    redirect_object(req, account, seeOther=True)
+    account.delete()
     
+    redirect(req, url("account"), seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Account successfully deleted."))
 delete = transaction_decorator(delete)
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

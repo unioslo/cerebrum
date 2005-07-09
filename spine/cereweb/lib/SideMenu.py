@@ -42,6 +42,7 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.makePerson()
         self.makeAccount()
         self.makeGroup()
+        self.makeOU()
         #self.makeRoles()
         #self.makeSpread()
         self.makeOptions()
@@ -69,6 +70,14 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.group.addItem("create", "Create", "group/create")
         self.group.addItem("view", "View", "group/view?id=%s")
         self.group.addItem("edit", "Edit", "group/edit?id=%s")
+
+    def makeOU(self):
+        self.ou = self.addItem("ou", "OU", "ou")
+        self.ou.addItem("search", "Search", "ou")
+        self.ou.addItem("list", "List", "ou/list")
+        self.ou.addItem("create", "Create", "ou/create")
+        self.ou.addItem("view", "View", "ou/view?id=%s")
+        self.ou.addItem("edit", "Edit", "ou/edit?id=%s")
 
     def makeRoles(self):
         self.group = self.addItem("roles", "Roles", "roles")

@@ -291,7 +291,14 @@ def posix_demote(req, transaction, id):
     queue_message(req, _("Group successfully demoted."))
 posix_demote = transaction_decorator(posix_demote)
 
-def delete(req, id):
-    pass
+def delete(req, transaction, id):
+    """Delete the group from the server."""
+    group = transaction.get_group(int(id))
+    group.delete()
+
+    redirect(req, url("group"), seeOther=True)
+    transaction.commit()
+    queue_message(req, "Group successfully deleted.")
+delete = transaction_decorator(delete)
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

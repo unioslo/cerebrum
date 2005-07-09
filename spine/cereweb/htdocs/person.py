@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
+import sets
 import forgetHTML as html
 from gettext import gettext as _
-import sets
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
 from Cereweb.utils import transaction_decorator, object_link
@@ -114,13 +113,10 @@ def search(req, name="", accountname="", birthdate="", spread="", transaction=No
             accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]
             accounts = ', '.join(accounts[:3]) + (len(accounts) == 4 and '...' or '')
 
-            view = url("person/view?id=%i" % person.get_id())
-            edit = url("person/edit?id=%i" % person.get_id())
-            link = html.Anchor(_(_primary_name(person)), href=view)
-            view = str(html.Anchor(_('view') , href=view, _class="actions"))
-            edit = str(html.Anchor(_('edit') , href=edit, _class="actions"))
+            view = str(object_link(person, text="view", _class="actions"))
+            edit = str(object_link(person, text="edit", method="edit", _class="actions"))
             remb = str(remember_link(person, _class="actions"))
-            table.add(link, date, accounts, view+edit+remb)
+            table.add(object_link(person), date, accounts, view+edit+remb)
     
         if persons:
             result.append(table)
@@ -193,7 +189,7 @@ def edit(req, transaction, id):
     return page
 edit = transaction_decorator(edit)
 
-def create(req, transaction, gender="", birthdate=""):
+def create(req, transaction, name="", gender="", birthdate="", description=""):
     """Creates a page with the form for creating a person."""
     page = Main(req)
     page.title = _("Create a new person:")
@@ -204,8 +200,10 @@ def create(req, transaction, gender="", birthdate=""):
     
     # Store given create parameters in create-form
     values = {}
+    values['name'] = name
     values['birthdate'] = birthdate
     values['gender'] = gender
+    values['description'] = description
 
     genders = [(g.get_name(), g.get_description()) for g in 
                transaction.get_gender_type_searcher().search()]
@@ -242,8 +240,8 @@ def make(req, transaction, name, gender, birthdate, description=""):
     """Create a new person with the given values."""
     birthdate = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
     gender = transaction.get_gender_type(gender)
-    
     source_system = transaction.get_source_system('Manual')
+    
     person = transaction.get_commands().create_person(
                birthdate, gender, name, source_system)
 

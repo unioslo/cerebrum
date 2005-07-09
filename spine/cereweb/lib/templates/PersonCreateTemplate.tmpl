@@ -24,9 +24,7 @@
 #attr $form_widgets = FormWidgets()
 
 #attr $formvalues = {}
-#attr $help = ["* Birthnumber: 11 digits",
-               "* Date of birth: YYYY-MM-DD",
-               "* Others: not sure yet.."]
+#attr $help = ["* Date of birth: YYYY-MM-DD"]
 
 ## Url to go to when the form for creating the person is submittet.
 #def getAction
@@ -39,7 +37,7 @@
     <form action="$getAction()" method="POST">
         <div class="createform">
             #set $fv = $formvalues
-            $form_widgets.input("name", "Full name *", $fv.get("name", ""))
+            $form_widgets.input("name", "Full name", $fv.get("name", ""))
             $form_widgets.generate_loption("gender", "Gender",
                                            $genders, $fv.get("gender", ""))
             $form_widgets.input("birthdate", "Birthdate *", $fv.get("birthdate", ""))

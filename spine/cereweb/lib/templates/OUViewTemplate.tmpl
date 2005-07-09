@@ -1,0 +1,59 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.utils import url, object_link
+#from Cereweb.WorkList import remember_link
+#extends EntityViewTemplate
+
+## Overloaded by other pages to get the right url.
+#attr $page_url = "ou/view"
+
+## Main method for creating the ou view page.
+#def viewOU($transaction, $ou)
+<div class="ou">
+    $ouInfo($ou)
+    ## TODO: Add view of children and such here
+</div>
+$view_entity($ou, $transaction)
+#end def
+
+## View information about OU.
+#def ouInfo($ou)
+<div class="viewinfo">
+    <div class="subtitle">
+        <h3>$_("General organization info"):</h3>
+    </div>
+    <div>
+        <div class="info"><em>$_("Name"):</em> $ou.get_name()</div>
+        <div class="info"><em>$_("Acronym"):</em> $ou.get_acronym()</div>
+        <div class="info"><em>$_("Short name"):</em> $ou.get_short_name()</div>
+        <div class="info"><em>$_("Display name"):</em> $ou.get_display_name()</div>
+        <div class="info"><em>$_("Sort name"):</em> $ou.get_sort_name()</div>
+        <div class="info"><em>$_("Stedkode"):</em> $ou.get_stedkode()</div>
+        <div class="info"><em>$_("Catalogue mark"):</em> $ou.get_katalog_merke()</div>
+    </div>
+    <div class="actions">
+        #set $edit = $url("ou/edit?id=%s" % $ou.get_id())
+        #set $delete = $url("ou/delete?id=%s" % $ou.get_id())
+        <a href="$edit">$_("edit ou")</a>
+        <a href="$delete">$_("delete ou")</a>
+        $remember_link($ou)
+    </div>
+</div>
+#end def
+
