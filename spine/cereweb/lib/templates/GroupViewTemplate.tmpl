@@ -115,13 +115,6 @@ $members.sort()
             <dt>$_("Expire date")</dt>
             <dd>$expire_date</dd>
         #end if
-
-        ##set $spreads=', '.join($group.spreads)    
-        ##if $spreads
-        ##    <dt>$_("Spreads")</dt>
-        ##    <dd>$spreads</dd>
-        ##end if
-
     </dl>
     <div class="actions">
         #set $edit = $url("group/edit?id=%i" % $group.get_id())
@@ -130,7 +123,7 @@ $members.sort()
             #set $posix = $url("group/posix_demote?id=%i" % $group.get_id())
             <a href="$posix">$_("Demote from Posix")</a>
         #else
-            #set $posix = $url("group/edit?id=%i&promote=posix" % $group.get_id())
+            #set $posix = $url("group/posix_promote?id=%" % $group.get_id())
             <a href="$posix">$_("Promote to Posix")</a>
         #end if
         #set $delete = $url("group/delete?id=%i" % $group.get_id())

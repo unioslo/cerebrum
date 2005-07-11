@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -63,7 +63,4 @@ def printe(number):
     a = sci_exp.sciShort(number)
     return '%0.3f%s' % a
 
-
-        
-    
 # arch-tag: 7148933d-7c8c-49e9-8e11-cbd378454029

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -218,16 +218,13 @@ def remove_member(req, transaction, groupid, memberid, operation):
     transaction.commit()
 remove_member = transaction_decorator(remove_member)
 
-def edit(req, transaction, id, promote=False):
+def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
     group = _get_group(req, transaction, id)
     page = Main(req)
     page.title = _("Edit %s:" % group.get_name())
     page.setFocus("group/edit", str(group.get_id()))
 
-    if promote == "posix":
-        group.promote_posix()
-    
     edit = GroupEditTemplate()
     content = edit.editGroup(group)
     page.content = lambda: content
@@ -282,6 +279,14 @@ def make(req, transaction, name, expire="", description=""):
     redirect_object(req, group, seeOther=True)
     transaction.commit()
 make = transaction_decorator(make)
+
+def posix_promote(req, transaction, id):
+    group = transaction.get_group(int(id))
+    group.promote_posix()
+    redirect_object(req, group, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Group successfully promoted."))
+posix_promote = transaction_decorator(posix_promote)
 
 def posix_demote(req, transaction, id):
     group = transaction.get_group(int(id))

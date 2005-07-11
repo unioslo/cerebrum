@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,6 +23,11 @@ from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
 from Cereweb.utils import transaction_decorator, object_link
+
+def view(req, transaction, id):
+    entity = transaction.get_entity(int(id))
+    redirect_object(req, entity, seeOther=True)
+view = transaction_decorator(view)
 
 def add_external_id(req, transaction, id, external_id, id_type):
     entity = transaction.get_entity(int(id))
