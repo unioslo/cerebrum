@@ -618,8 +618,7 @@ class Factory(object):
 
 
     def get_logger(name = None):
-        """
-        Return THE cerebrum logger.
+        """Return THE cerebrum logger.
 
         Although this method does very little now, we should keep our
         options open for the future.
@@ -627,7 +626,7 @@ class Factory(object):
         from Cerebrum.modules import cerelog
 
         return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE_NEW, name)
-    # end get_logger
+
     get_logger = staticmethod(get_logger)
     
 
@@ -761,20 +760,18 @@ class SimilarSizeWriter(AtomicFileWriter):
         change_percentage = 100 * (float(new)/old) - 100
         if abs(change_percentage) > self.__percentage:
             raise RuntimeError, \
-                  "File size changed more than %d%%: %d -> %d (%+.1f)" % (
-                self.__percentage, old, new, change_percentage)
+                  "%s: File size changed more than %d%%: %d -> %d (%+.1f)" % \
+                  (self._name, self.__percentage, old, new, change_percentage)
 
 
 class MinimumSizeWriter(AtomicFileWriter):
-    """
-    This file writer would fail, if the new file size is less than a certain
-    number of bytes. All other file size changes are permitted, regardless
-    of the original file's size.
+    """This file writer would fail, if the new file size is less than
+    a certain number of bytes. All other file size changes are
+    permitted, regardless of the original file's size.
     """
 
     def set_minimum_size_limit(self, bytes):
         self.__minimum_size = bytes
-    # end set_minimum_size_limit
 
     def validate_output(self):
         super(MinimumSizeWriter, self).validate_output()
@@ -782,11 +779,8 @@ class MinimumSizeWriter(AtomicFileWriter):
         new_size = os.path.getsize(self._tmpname)
         if new_size < self.__minimum_size:
             raise RuntimeError, \
-                  "File is too small: current: %d, minimum allowed: %d" % (
-                  new_size, self.__minimum_size )
-        # fi
-    # end validate_output
-# end MinimumSizeWriter
+                  "%s: File is too small: current: %d, minimum allowed: %d" % \
+                  (self._name, new_size, self.__minimum_size)
 
 
 class RecursiveDict(dict):
@@ -796,19 +790,21 @@ class RecursiveDict(dict):
         # Make sure our __setitem__ is called.
         for (key, value) in values.items():
             self[key] = value
+
     def update(self, other):
-        """D.update(E) -> None. Update D from E recursive.
-           Any dicts that exists in both D and E are updated recursive
-           instead of being replaced.
-           Note that items that are UserDicts are not updated recursive.
-           """
+        """D.update(E) -> None. Update D from E recursively.  Any
+        dicts that exists in both D and E are updated (merged)
+        recursively instead of being replaced. Note that items that
+        are UserDicts are not updated recursively.
+        """
         for (key, value) in other.items():
             if (key in self and 
                 isinstance(self[key], RecursiveDict) and 
                 isinstance(value, dict)):
                 self[key].update(value)
             else:
-                self[key] = value    
+                self[key] = value
+
     def __setitem__(self, key, value):
             if isinstance(value, dict):
                 # Wrap it, make sure it follows our rules
