@@ -123,7 +123,7 @@ $members.sort()
             #set $posix = $url("group/posix_demote?id=%i" % $group.get_id())
             <a href="$posix">$_("Demote from Posix")</a>
         #else
-            #set $posix = $url("group/posix_promote?id=%" % $group.get_id())
+            #set $posix = $url("group/posix_promote?id=%i" % $group.get_id())
             <a href="$posix">$_("Promote to Posix")</a>
         #end if
         #set $delete = $url("group/delete?id=%i" % $group.get_id())
