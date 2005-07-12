@@ -60,7 +60,7 @@ def create_ou(self, name, institusjon, fakultet, institutt, avdeling):
     ou.populate(name, fakultet, institutt, avdeling, institusjon)
     try:
         ou.write_db()
-    except Cerebrum.Database.OperationalError, e:
+    except Cerebrum.Database.IntegrityError, e:
         raise DatabaseError('Could not create OU \'%s\', another OU with the same primary key probably exists already.' % name)
     spine_ou = OU(ou.entity_id, write_locker=self.get_writelock_holder())
     return spine_ou
