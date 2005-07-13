@@ -28,6 +28,7 @@ from TransactionTest import *
 from LockingTest import *
 from CreateDeleteTest import *
 from OUTest import *
+from PosixTest import *
 from AutoTest import *
 
 if __name__ == '__main__':
