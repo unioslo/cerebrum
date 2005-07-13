@@ -106,6 +106,17 @@ def get_groups(self):
 
 Entity.register_method(Method('get_groups', [Group]), get_groups)
 
+def get_direct_groups(self):
+    groups = sets.Set(get_groups(self))
+    searcher = registry.GroupMemberSearcher()
+    searcher.set_member(self)
+    union = registry.GroupMemberOperationType(name="union")
+    searcher.set_operation(union)
+    groups.intersection_update([i.get_group() for i in searcher.search()])
+    return list(groups)
+
+Entity.register_method(Method('get_direct_groups', [Group]), get_direct_groups)
+
 def get_members(self):
     """
     Return a flattened list of all entities in this group and its subgroups.
@@ -124,7 +135,10 @@ def get_members(self):
                 get(member)
     get(self)
 
-    return list(_get_members(self, group_members))
+    members = list(_get_members(self, group_members))
+    members.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
+    return members
+
 
 Group.register_method(Method('get_members', [Entity]), get_members)
 
@@ -135,11 +149,11 @@ def add_member(self, entity, operation):
 
 Group.register_method(Method('add_member', None, args=[('entity', Entity), ('operation', GroupMemberOperationType)], write=True), add_member)
 
-def remove_group_member(self, group_member):
+def remove_member(self, group_member):
     obj = self._get_cerebrum_obj()
     obj.remove_member(group_member.get_member().get_id(), group_member.get_operation().get_id())
     obj.write_db()
 
-Group.register_method(Method('remove_group_member', None, args=[('group_member', GroupMember)], write=True), remove_group_member)
+Group.register_method(Method('remove_member', None, args=[('group_member', GroupMember)], write=True), remove_member)
 
 # arch-tag: 62cc34ca-6553-4fcc-bed2-70c0d7dcf6e9
