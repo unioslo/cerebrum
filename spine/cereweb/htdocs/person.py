@@ -300,9 +300,36 @@ def add_external_id(req, transaction, id, external_id, id_type):
     queue_message(req, _("External id successfully added."))
 add_external_id = transaction_decorator(add_external_id)
 
-def accounts(req, owner, add=None, remember=None, delete=None):
+def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
     if add:
         redirect(req, url('account/create?owner=%s' % owner))
+
+    elif delete:
+        operation = transaction.get_group_member_operation_type("union")
+        for arg, value in checkboxes.items():
+            if arg.startswith("account_"):
+                id = arg.replace("account_", "")
+                account = transaction.get_account(int(id))
+                date = transaction.get_commands().get_date_now()
+                account.set_expire_date(date)
+                queue_message(req, _("Expired account %s.") % account.get_name())
+            elif arg.startswith("member_"):
+                member_id, group_id = arg.split("_")[1:3]
+                member = transaction.get_account(int(member_id))
+                group = transaction.get_group(int(group_id))
+                group_member = transaction.get_group_member(group, 
+                            operation, member, member.get_type())
+                group.remove_member(group_member)
+                queue_message(req, _("Removed %s from group %s") % 
+                        (member.get_name(), group.get_name()))
+        person = _get_person(req, transaction, owner)
+        redirect_object(req, person, seeOther=True)
+        transaction.commit()              
+    else:
+        raise "I don't know what you want to do"
+accounts = transaction_decorator(accounts)
+                
+                
 
 def add_affil(req, transaction, id, status, ou, description=""):
     person = _get_person(req, transaction, id)

@@ -194,30 +194,13 @@ def view(req, transaction, id):
     return page
 view = transaction_decorator(view)
 
-def edit(req, transaction, id, promote=False):
+def edit(req, transaction, id):
     """Creates a page with the form for editing an account."""
     account = transaction.get_account(int(id))
     page = Main(req)
     page.title = ""
     page.setFocus("account/edit")
 
-    # promote account to posix
-    if promote == "posix":
-        primary_group = None
-        for group in account.get_groups():
-            if group.is_posix():
-                primary_group = group
-                break
-        
-        if primary_group:
-            searcher = transaction.get_posix_shell_searcher()
-            shell = searcher.search()[0]
-            account.promote_posix(primary_group, shell)
-        else:
-            queue_message(req, _("Account is not member of any posix-groups, and cannot be promoted to posix-user."), error=True)
-            redirect_object(req, account, seeOther=True)
-            #TODO: maybe we should rather create the posix-group
-            
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()
     if account.get_expire_date():
@@ -296,6 +279,28 @@ def save(req, transaction, id, name, expire_date="", uid="",
         queue_message(req, _("Account successfully updated."))
 save = transaction_decorator(save)
 
+def posix_promote(req, transaction, id):
+    account = transaction.get_account(int(id))
+    primary_group = None
+    for group in account.get_groups():
+        if group.is_posix():
+            primary_group = group
+            break
+    
+    if primary_group:
+        searcher = transaction.get_posix_shell_searcher()
+        shell = searcher.search()[0]
+        account.promote_posix(primary_group, shell)
+        redirect_object(req, account, seeOther=True)
+        transaction.commit()
+        queue_message(req, _("Account successfully promoted."))
+    else:
+        #TODO: maybe we should rather create the posix-group
+        msg = "Account is not member of any posix-groups, and cannot be promoted."
+        queue_message(req, _(msg), error=True)
+        redirect_object(req, account, seeOther=True)
+posix_promote = transaction_decorator(posix_promote)
+
 def posix_demote(req, transaction, id):
     account = transaction.get_account(int(id))
     account.demote_posix()
@@ -312,5 +317,22 @@ def delete(req, transaction, id):
     transaction.commit()
     queue_message(req, _("Account successfully deleted."))
 delete = transaction_decorator(delete)
+
+def leave(req, transaction, account_id, **checkboxes):
+    operation = transaction.get_group_member_operation_type("union")
+    for arg, value in checkboxes.items():
+        if arg.startswith("member_"):
+            member_id, group_id = arg.split("_")[1:3]
+            member = transaction.get_account(int(member_id))
+            group = transaction.get_group(int(group_id))
+            group_member = transaction.get_group_member(group, 
+                        operation, member, member.get_type())
+            group.remove_member(group_member)
+            queue_message(req, _("Removed %s from group %s") % 
+                    (member.get_name(), group.get_name()))
+    account = transaction.get_account(int(account_id))
+    redirect_object(req, account, seeOther=True)
+    transaction.commit()
+leave = transaction_decorator(leave)    
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

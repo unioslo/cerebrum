@@ -188,13 +188,11 @@ save = transaction_decorator(save)
 
 def delete(req, transaction, id):
     ou = transaction.get_ou(int(id))
-    #ou.delete()
+    ou.delete()
 
-    #redirect_url(req, "ou", seeOther=True)
-    #transaction.commit()
-    #queue_message(req, _("Organization Unit successfully deleted."))
-    redirect_object(req, ou, seeOther=True)
-    queue_message(req, _("Deletion of OU not yet implemented on the server."), error=True)
+    redirect(req, url("ou"), seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Organization Unit successfully deleted."))
 delete = transaction_decorator(delete)
 
 # arch-tag: 6a071cd0-f0bc-11d9-90c5-0c57c7893102

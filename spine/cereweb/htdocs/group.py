@@ -211,7 +211,7 @@ def remove_member(req, transaction, groupid, memberid, operation):
     operation = transaction.get_group_member_operation_type(operation)
 
     group_member = transaction.get_group_member(group, operation, member, member.get_type())
-    group.remove_group_member(group_member)
+    group.remove_member(group_member)
 
     queue_message(req, _("%s removed from group %s") % (object_link(member), group))
     redirect_object(req, group, seeOther=True)
