@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sets
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
@@ -41,7 +42,7 @@ def index(req):
 def list(req):
     return search(req, *req.session.get('ou_lastsearch', ()))
 
-def search(req, name="", acronym="", transaction=None):
+def search(req, name="", acronym="", short="", spread="", transaction=None):
     req.session['ou_lastsearch'] = (name,)
     page = Main(req)
     page.title = _("Search for OU(s):")
@@ -53,27 +54,46 @@ def search(req, name="", acronym="", transaction=None):
     values = {}
     values['name'] = name
     values['acronym'] = acronym
+    values['short'] = short
+    values['spread'] = spread
     form = OUSearchTemplate(searchList=[{'formvalues': values}])
 
-    if name or acronym:
+    if name or acronym or short or spread:
         searcher = transaction.get_ou_searcher()
         if name:
             searcher.set_name_like(name)
         if acronym:
             searcher.set_acronym_like(acronym)
-        ous = searcher.search()
+        if short:
+            searcher.set_short_name_like(short)
+            
+        if spread:
+            ous = sets.Set()
+            spreadsearcher = transaction.get_spread_searcher()
+            spreadsearcher.set_name_like(spread)
+            for spread in spreadsearcher.search():
+                s = transaction.get_entity_spread_searcher()
+                s.set_spread(spread)
+                s.mark_entity()
+                searcher.set_intersections([s])
+
+                ous.update(searcher.search())
+            
+        else:
+            ous = searcher.search()
     
         # Print results
         result = html.Division(_class="searchresult")
         header = html.Header(_("Organisation Unit search results:"), level=3)
         result.append(html.Division(header, _class="subtitle"))
         table = html.SimpleTable(header="row", _class="results")
-        table.add(_("Name"), _("Acronym"), _("Actions"))
+        table.add(_("Name"), _("Acronym"), _("Short name"), _("Actions"))
         for ou in ous:
+            link = object_link(ou, text=_get_display_name(ou))
             view = str(object_link(ou, text="view", _class="actions"))
             edit = str(object_link(ou, text="edit", method="edit", _class="actions"))
             remb = str(remember_link(ou, _class="actions"))
-            table.add(object_link(ou), ou.get_acronym(), view+edit+remb)
+            table.add(link, ou.get_acronym(), ou.get_short_name(), view+edit+remb)
         
         if ous:
             result.append(table)
@@ -96,7 +116,7 @@ search = transaction_decorator(search)
 def view(req, transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main(req)
-    page.title = _("OU %s:" % ou.get_name())
+    page.title = _("OU %s:" % _get_display_name(ou))
     page.setFocus("ou/view", str(ou.get_id()))
     content = OUViewTemplate().viewOU(transaction, ou)
     page.content = lambda: content
@@ -194,5 +214,12 @@ def delete(req, transaction, id):
     transaction.commit()
     queue_message(req, _("Organization Unit successfully deleted."))
 delete = transaction_decorator(delete)
+
+def _get_display_name(ou):
+    display_name = ou.get_display_name()
+    if display_name:
+        return display_name
+    else:
+        return ou.get_name()
 
 # arch-tag: 6a071cd0-f0bc-11d9-90c5-0c57c7893102
