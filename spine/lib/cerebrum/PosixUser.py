@@ -82,12 +82,11 @@ Account.search_class.build_methods()
 def is_posix(self):
     """Check if a account has been promoted to posix.
     """
-    account_search = registry.AccountSearcher()
-    account_search.set_id(self.get_id())
-    account_search.set_posix_uid_exists(True)
-    where = 'account_info.account_id = posix_user.account_id'
-    result = account_search.search(sql_where=where)
-    return result and True or False
+    try:
+        self.get_posix_uid()
+    except NotFoundError, e:
+        return False
+    return True
 
 Account.register_method(Method('is_posix', bool), is_posix)
 

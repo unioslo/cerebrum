@@ -20,6 +20,7 @@
 
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
+from SpineLib.SpineExceptions import NotFoundError
 
 from Group import Group
 
@@ -37,12 +38,11 @@ Group.build_search_class()
 def is_posix(self):
     """Check if a group has been promoted to posix.
     """
-    group_search = registry.GroupSearcher()
-    group_search.set_id(self.get_id())
-    group_search.set_posix_gid_exists(True)
-    where = 'group_info.group_id = posix_group.group_id'
-    result = group_search.search(sql_where=where)
-    return result and True or False
+    try:    
+        self.get_posix_gid()
+    except NotFoundError, e:
+        return False
+    return True
 
 Group.register_method(Method('is_posix', bool), is_posix)
 
