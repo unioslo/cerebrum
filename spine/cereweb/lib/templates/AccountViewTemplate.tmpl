@@ -19,11 +19,28 @@
 #extends EntityViewTemplate
 #from Cereweb.utils import url, object_link, view_date
 #from Cereweb.WorkList import remember_link
+#from GroupViewTemplate import GroupViewTemplate
+
+#attr $list_groups = GroupViewTemplate().list_groups
 
 ## Main method for creating the view of accounts.
 #def viewAccount($transaction, $account)
     $viewAccountInfo($account)
+    $groups($account)
     $view_entity($account, $transaction)
+#end def
+
+#def groups($account)
+    <div class="accountgroups">
+    <form action="$url('account/leave')" type="post">
+        <div class="subtitle">
+            <h3>$_("Groups:")</h3>
+        </div>
+        $list_groups($account)
+        <input type="hidden" name="account_id" value="$account.get_id()" />
+        <input type="submit" value="$_('Leave group(s)')" />
+    </form>
+    </div>
 #end def
 
 ## Shows info about the account.
@@ -64,10 +81,10 @@
     #set link3 = $url("account/delete?id=%s" % $account.get_id())
     <a href="$link1">$_("Edit")</a>
     #if $account.is_posix()
-        #set link2 = $url("account/posix_demote?id=%s&" % $account.get_id())
+        #set link2 = $url("account/posix_demote?id=%s" % $account.get_id())
         <a href="$link2">$_("Demote from Posix")</a>
     #else
-        #set link2 = $url("account/edit?id=%s&promote=posix" % $account.get_id())
+        #set link2 = $url("account/posix_promote?id=%s" % $account.get_id())
         <a href="$link2">$_("Promote to Posix")</a>
     #end if
     <a href="$link3">$_("Remove")</a>

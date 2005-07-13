@@ -70,13 +70,10 @@ $derivedMembers($group)
 #set $table = $TableView("type", "name")
 #for $member in $members
 $table.add($member.get_member_type().get_name(), $object_link($member.get_member()), 
-           id=$member.get_member().get_id(), groupid=$group.get_id(), operation=$operation)
+           id=$member.get_member().get_id(), groupid=$group.get_id(), 
+           operation=$operation, member=$member.get_member())
 #end for
 $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("blupp=%s"))
-<input type="submit" value="Remember checked" />
-<input type="submit" value="Remove checked" />
-<input type="submit" value="Check all" />
-<input type="submit" value="Uncheck all" />
 </div>
 #end def
 
@@ -84,9 +81,9 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 <h3>$_("Derived members")</h3>
 <p>
 #set members=$group.get_members()
-$members.sort()
 #for $account in $members
-    $object_link($account)
+    $object_link($account) 
+    &nbsp;
 #end for
 </p>
 
@@ -140,3 +137,23 @@ $members.sort()
 </div>
 #end def
 
+#def list_groups($account)
+    #set $direct_groups = $account.get_direct_groups()
+    #for $group in $account.get_groups()
+        <div class="group">
+            #if $group in $direct_groups
+                #set $disabled = ""
+                #set $header = "Group"
+            #else
+                #set $disabled = 'disabled="disabled" '
+                #set $header = "Indirect group"
+            #end if
+            #set $name = "member_%s_%s" % ($account.get_id(), $group.get_id())
+            <input type="checkbox" name="$name" $disabled/>
+            <em>$_($header):</em> $group.get_name()
+            $object_link($group, "view", _class="actions")
+            $object_link($group, "edit", "edit", _class="actions")
+            $remember_link($group, _class="actions")
+        </div>
+    #end for
+#end def

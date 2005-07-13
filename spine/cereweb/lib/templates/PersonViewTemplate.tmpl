@@ -21,7 +21,10 @@
 #from AccountViewTemplate import AccountViewTemplate
 #from PersonNameTemplate import PersonNameTemplate
 #from PersonAffiliationTemplate import PersonAffiliationTemplate
+#from GroupViewTemplate import GroupViewTemplate
 #extends EntityViewTemplate
+
+#attr $list_groups = GroupViewTemplate().list_groups
 
 ## Overloaded by other pages to get the right url, used in personNames().
 #attr $page_url = "person/view"
@@ -95,27 +98,13 @@ $view_entity($person, $transaction)
                 (primary)
             #end if
         </div>
-        #for $group in $account.get_groups()
-        <div class="persongroup">
-            #set $group_id = $group.get_id()
-            #set $group_name = $group.get_name()
-            <input type="checkbox" name="group_$group_id" />
-            <em>$_('Group'):</em> $_($group_name)
-            $object_link($group, "view", _class="actions")
-            $object_link($group, "edit", "edit", _class="actions")
-            #set $leave = $url("person/leavegroup?id=%i&group=%i" % \
-                               ($person_id, $group_id))
-            <a href="$leave" class="actions">$_("leave group")</a>
-            $remember_link($group, _class="actions")
-        </div>
-        #end for
+        $list_groups($account)
     #end for
     <div>
     #if $allaccounts
         <input type="submit" value="$_('Delete')" name="delete" />
-        <input type="submit" value="$_('Remember')" name="remember" />
     #end if
-        <input type="hidden" value=$person_id name="owner" />
+        <input type="hidden" value="$person_id" name="owner" />
         <input type="submit" value="$_('Add new account')" name="add" />
     </div>
     </form>
