@@ -103,36 +103,38 @@ def search(req, name="", expire_date="", create_date="", spread="", description=
             entitysearch.set_intersections(intersections)
             accounts = entitysearch.search()
    
+        result = html.Division(_class="searchresult")
+        header = html.Header(_("Account search results:"), level=3)
+        result.append(html.Division(header, _class="subtitle"))
+    
+        table = html.SimpleTable(header="row", _class="results")
+        table.add(_("Name"), _("Owner"), _("Create date"),
+                  _("Expire date"), _("Actions"))
+
+        for account in accounts:
+            link = object_link(account)
+            owner = object_link(account.get_owner())
+            cdate = account.get_create_date().strftime("%Y-%m-%d")
+            edate = account.get_expire_date()
+            edate = edate and edate.strftime("%Y-%m-%d") or ''
+            view = object_link(account, text="view", _class="actions")
+            edit = object_link(account, text="edit", method="edit",  _class="actions")
+            remb = remember_link(account, _class="actions")
+            table.add(link, owner, cdate, edate, str(view)+str(edit)+str(remb))
+
         if accounts:
-            result = html.Division()
-            result.append(html.Header(_("Account search results:"), level=2))
-        
-            table = html.SimpleTable(header="row")
-            table.add(_("Name"), _("Owner"), _("Create date"),
-                      _("Expire date"), _("Description"))
-
-            for account in accounts:
-                link = url("account/view?id=%s" % account.get_id())
-                link = html.Anchor(account.get_name(), href=link)
-                owner = object_link(account.get_owner())
-                cdate = account.get_create_date().strftime("%Y-%m-%d")
-                edate = account.get_expire_date()
-                if edate:
-                    edate = edate.strftime("%Y-%m-%d")
-                else:
-                    edate = ''
-                table.add(link, owner, cdate, edate, account.get_description())
-
             result.append(table)
-            result.append(html.Header(_("Search for other account(s):"), level=2))
-            result.append(accountsearch.form())
-            page.content = result.output
         else:
-            page.add_message(_("Sorry, no account(s) found matching " \
-                               "the given criteria."))
-            page.content = lambda: accountsearch.form()
+            error = "Sorry, no account(s) found matching the given criteria."
+            result.append(html.Division(_(error), _class="searcherror"))
+
+        result = html.Division(result)
+        header = html.Header(_("Search for other account(s):"), level=3)
+        result.append(html.Division(header, _class="subtitle"))
+        result.append(accountsearch.form())
+        page.content = result.output
     else:
-        page.content = lambda: accountsearch.form()
+        page.content = accountsearch.form
 
     return page
 search = transaction_decorator(search)
