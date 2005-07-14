@@ -57,6 +57,7 @@
                 $input("gecos", "Gecos")
                 $generate_option("shell", "Shell", $shells)
             #end if
+            $input("description", "Description")
             <input type="hidden" name="id" value="$account.get_id()" />
         </div>
         $form_widgets.showHelp($help)

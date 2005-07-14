@@ -18,7 +18,10 @@
 
 #from Cereweb.InitTemplate import InitTemplate
 #from Cereweb.utils import url, object_link
+#from FormWidgets import FormWidgets
 #extends InitTemplate
+
+#attr $form_widgets=FormWidgets()
 
 
 #def input($label, $name, $value, $type="text", $text="")
@@ -26,10 +29,11 @@
     <input type="$type" name="$name" id="$name" value="$value">$text</input><br />
 #end def
 
-#def radio($label, $name, $alts, $default)
+#def radio($label, $name, $alts, $default=None, $other=None)
     <label for="$name">$_($label):</label>
+    <div class="radio">
     #for $alt in $alts
-        <br>
+        <br />
         #if $default == $alt
             <input type="radio" name="$name" value="$alt" CHECKED>
         #else
@@ -38,17 +42,32 @@
         $alt
         </input>
     #end for
+    #if $other
+        <br />
+        <input type="radio" name="$name" value="$other">
+            <input type="text" name="$other" value="" />
+        </input>
+    #end if
     <br>
+    </div>
 #end def
 
 
-#def form($owner, $name, $expire_date, $alts)
+#def form($owner, $name, $expire_date, $alts, $transaction)
 <div class="create">
     <form action="make" method="POST">
         <div class="createform">
             $input("Owner", "owner", $owner.get_id(), "hidden", object_link($owner))
-            $radio("Username", "name", $alts, $name)
+            $radio("Username", "name", $alts, $name, "_other")
             $input("Expire date", "expire_date", $expire_date)
+            #if $owner.get_type().get_name() != 'person'
+                #set $ac_type_searcher = $transaction.get_account_type_searcher()    
+                #set $ac_types = [($t.get_name(), $t.get_description) 
+                                  for $t in $ac_type_searcher.search()]
+                $form_widgets.generate_loption("np_type", "Non-personal account type",
+                                                $ac_types)
+            #end if
+
         </div>
         <div>
             <center>

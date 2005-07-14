@@ -20,75 +20,112 @@
 #from Cereweb.utils import url, object_link, view_date
 #from Cereweb.WorkList import remember_link
 #from GroupViewTemplate import GroupViewTemplate
+#from FormWidgets import FormWidgets
 
+#attr $form_widgets = FormWidgets()
 #attr $list_groups = GroupViewTemplate().list_groups
 
 ## Main method for creating the view of accounts.
 #def viewAccount($transaction, $account)
+<div class="account">
     $viewAccountInfo($account)
     $groups($account)
+    $join_group($account, $transaction)
     $view_entity($account, $transaction)
+</div>
 #end def
 
 #def groups($account)
     <div class="accountgroups">
-    <form action="$url('account/leave')" type="post">
+    <form action="$url('account/groups')" type="post">
         <div class="subtitle">
             <h3>$_("Groups:")</h3>
         </div>
         $list_groups($account)
         <input type="hidden" name="account_id" value="$account.get_id()" />
-        <input type="submit" value="$_('Leave group(s)')" />
+        <input type="submit" name="leave" value="$_('Leave group(s)')" />
+        <input type="submit" name="create" value="$_('Create a group')" />
     </form>
     </div>
 #end def
 
 ## Shows info about the account.
 #def viewAccountInfo($account)
-<h2>$_("Account") $account.get_name():</h2>
-<div class="accountinfo">
-    <dl>
-        <dt>$_("Date created")</dt>
-        <dd>$view_date($account.get_create_date())</dd>
+<div class="viewinfo">
+    <div class="subtitle">
+        <h3>$_('General accountinfo')</h3>
+    </div>
+    <div>
+        <div class="info">
+            <em>$_('Name'):</em> $account.get_name()
+        </div>
+        <div class="info">
+            <em>$_('Owned by'):</em> $object_link($account.get_owner())
+        </div>
+        <div class="info">
+            <em>$_('Expire date'):</em> $view_date($account.get_expire_date())
+        </div>
+        <div class="info">
+            <em>$_('Date created'):</em> $view_date($account.get_create_date())
+        </div>
+        <div class="info">
+            <em>$_('Created by'):</em> $object_link($account.get_creator())
+        </div>
+        
+        #if $account.is_posix()
+            <div class="info">
+                <em>$_('UID'):</em> $account.get_posix_uid()
+            </div>
+            <div class="info">
+                <em>$_('Primary group'):</em> $object_link($account.get_primary_group())
+            </div>
+            <div class="info">
+                <em>$_('Gecos'):</em> $account.get_gecos()
+            </div>
+            <div class="info">
+                <em>$_('Shell'):</em> $account.get_shell().get_name()
+            </div>
+        #end if
 
-        <dt>$_("Expire date")</dt>
-        <dd>$view_date($account.get_expire_date())</dd>
-
-        <dt>$_("Created by")</dt>
-        <dd>$object_link($account.get_creator())</dd>
-
-        <dt>$_("Owned by")</dt>
-        <dd>$object_link($account.get_owner())</dd>
-
-#if $account.is_posix()
-        <dt>$_("UID")</dt>
-        <dd>$account.get_posix_uid()</dd>
-
-        <dt>$_("Primary group")</dt>
-        <dd>$object_link($account.get_primary_group())</dd>
-
-        <dt>$_("Gecos")</dt>
-        <dd>$account.get_gecos()</dd>
-
-        <dt>$_("Shell")</dt>
-        <dd>$account.get_shell().get_name()</dd>
-#end if
-
-    </dl>
+        <div class="info">
+            <em>$_('Description'):</em> $account.get_description()
+        </div>
+    </div>
+    <div class="actions">
+        #set link1 = $url("account/edit?id=%s" % $account.get_id())
+        #set link3 = $url("account/delete?id=%s" % $account.get_id())
+        <a href="$link1">$_("Edit")</a>
+        #if $account.is_posix()
+            #set link2 = $url("account/posix_demote?id=%s" % $account.get_id())
+            <a href="$link2">$_("Demote from Posix")</a>
+        #else
+            #set link2 = $url("account/posix_promote?id=%s" % $account.get_id())
+            <a href="$link2">$_("Promote to Posix")</a>
+        #end if
+        <a href="$link3">$_("Remove")</a>
+        $remember_link($account)
+    </div>
 </div>
-<div class="actions">
-    #set link1 = $url("account/edit?id=%s" % $account.get_id())
-    #set link3 = $url("account/delete?id=%s" % $account.get_id())
-    <a href="$link1">$_("Edit")</a>
-    #if $account.is_posix()
-        #set link2 = $url("account/posix_demote?id=%s" % $account.get_id())
-        <a href="$link2">$_("Demote from Posix")</a>
-    #else
-        #set link2 = $url("account/posix_promote?id=%s" % $account.get_id())
-        <a href="$link2">$_("Promote to Posix")</a>
-    #end if
-    <a href="$link3">$_("Remove")</a>
-    $remember_link($account)
+#end def
+
+## Creates a box where you can join the account to a group.
+#def join_group($account, $transactions)
+
+#set $searcher = $transactions.get_group_member_operation_type_searcher()
+#set $operations = [(i.get_name(),i.get_description()) 
+                                for i in $searcher.search()]
+
+<div class="join_group">
+<form action="$url('account/join_group')" method="POST">
+    <h3>$_("Join group")</h3>
+    <label for="group_name">$_("Group name"):</label>
+    <input type="text" name="group_name"/>
+    <br />
+    <label for="operation">$_("Operation"):</label>
+    $form_widgets.generate_option("operation", $operations, "union")
+    <input type="hidden" name="account" value="$account.get_id()" />
+    <input type="submit" value="$_("Join group")"/>
+</form>
 </div>
 #end def
 

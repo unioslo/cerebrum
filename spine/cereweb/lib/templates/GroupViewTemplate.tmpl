@@ -24,10 +24,12 @@
 
 
 #def viewGroup($transaction, $group)
+<div class="group">
     $groupInfo($group)
     $groupMembers($group)
     $add_member($group)
     $view_entity($group, $transaction)
+<div>
 #end def
 
 
@@ -91,28 +93,38 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 
 
 #def groupInfo(group)
-<div class="info">
-    <dl>
-        <dt>$_("Name")</dt>
-        <dd>$group.get_name()</dd>
-
+<div class="viewinfo">
+    <div class="subtitle">
+        <h3>$_('General groupinfo'):</h3>
+    </div>
+    <div>
+        <div class="info">
+            <em>$_("Name"):</em> $group.get_name()
+        </div>
         #if $group.is_posix()
-            <dt>$_("Gid")</dt>
-            <dd>$group.get_posix_gid()</dd>
+            <div class="info">
+                <em>$_("Gid"):</em> $group.get_posix_gid()
+            </div>
         #end if
-
-        #if $group.get_description()
-            <dt>$_("Description")</dt>
-            <dd>$group.get_description()</dd>
-        #end if
-
-
-        #if $group.get_expire_date()
-            #set $expire_date = $group.get_expire_date().strftime("%Y-%m-%d")
-            <dt>$_("Expire date")</dt>
-            <dd>$expire_date</dd>
-        #end if
-    </dl>
+        <div class="info">
+            #set $created = $group.get_create_date().strftime("%Y-%m-%d")
+            <em>$_("Created"):</em> $created
+        </div>
+        <div class="info">
+            #if $group.get_expire_date()
+                #set $expire_date = $group.get_expire_date().strftime("%Y-%m-%d")
+            #else
+                #set $expire_date = '&nbsp;'
+            #end if
+            <em>$_("Expire date"):</em> $expire_date
+        </div>
+        <div class="info">
+            <em>$_("Visibility"):</em> $group.get_visibility().get_description()
+        </div>
+        <div class="info">
+            <em>$_("Description"):</em> $group.get_description()
+        </div>
+    </div>
     <div class="actions">
         #set $edit = $url("group/edit?id=%i" % $group.get_id())
         <a href="$edit">$_("Edit")</a>
@@ -126,6 +138,8 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
         #set $delete = $url("group/delete?id=%i" % $group.get_id())
         <a href="$delete">$_("Remove")</a>
         $remember_link($group)
+        #set $create_acc = $url("account/create?owner=%i" % $group.get_id())
+        <a href="$create_acc">$_("Create group account")</a>
     </div>
 </div>
 #end def
