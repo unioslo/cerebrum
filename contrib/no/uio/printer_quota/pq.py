@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -235,6 +235,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             self.pq_data['has_quota'] == 'F'):
             return ok
         if self.pq_data['has_blocked_quota'] == 'T':
+            self.log('INFO', 'check_quota: %s is blocked' % self.username)
             return no
         pageunits = float(pageunits)
         if pageunits <= 0:
@@ -243,6 +244,8 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                 (1/printer_quota.PAGE_COST)*self.pq_data['kroner']
         if quota >= pageunits:
             return ok+", quota=%f" % (quota)
+        self.log('INFO', 'check_quota: %s insufficient quota: %d' %
+                 (self.username, quota))
         return no
 
     def subtract_quota(self, printer, pageunits, job_data):
