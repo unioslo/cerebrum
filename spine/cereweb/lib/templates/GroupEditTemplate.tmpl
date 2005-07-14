@@ -20,73 +20,60 @@
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
 ## List of strings wich describes the form.
 #attr $help = ["* Expire date: YYYY-MM-DD"] 
 
 ## Creates the content on the group edit page.
-#def editGroup($group)
+#def editGroup($transaction, $group)
 <div class="group">
-    $form($group)
-    ##$posixgroup($group)
+    $form($group, $transaction)
 </div>
 #end def
 
 ## Action to go to when the form is submitted.
 #def getAction
-$url("group/save")#slurp
-#end def
-
-## Creates input and labes with given values.
-#def input($name, $label, $value="")
-    <label for='$name'>$label:</label>
-    <input type='text' name='$name' id='$name' value='$value' /><br />
-#end def
-
-## Creates a box with info about the form, from the attribute help.
-#def showHelp($lines)
-#if $lines
-    <div class="help">
-    #for $line in $lines
-        <div class="extra">
-            $_($line)
-        </div>
-    #end for
-    </div>
-#end if
+    #return $url("group/save")
 #end def
 
 ## Creates the form for editing a groups main info.
-#def form($group)
+#def form($group, $tr)
+            
+#set $visis = [(i.get_name(), i.get_description()) for i in 
+                $tr.get_group_visibility_type_searcher().search()]
+
 <div class="edit">
     <div class="subtitle">
         <h3>$_("General groupinfo"):</h3>
     </div>
     <form action="$getAction()" method="POST">
         <div class="editform">
-            $input("name", "Name", $group.get_name())
+           $form_widgets.input("name", "Name", $group.get_name())
             #if $group.is_posix()
-            $input("gid", "Gid", $group.get_posix_gid())
+                $form_widgets.input("gid", "Gid", $group.get_posix_gid())
             #end if
+            
             <label for="description">$_('Description'):</label>
             <textarea rows="3" cols="40" name="description">$group.get_description()</textarea>
             <br />
+            
+            #set $visi = $group.get_visibility().get_name()
+            $form_widgets.generate_loption("visi", "Visibility", $visis, $visi)
+            
             #set $date = $group.get_expire_date()
             #set $date = $date and $date.strftime("%Y-%m-%d") or ""
-            $input("expire", "Expire date *", $date)
+            $form_widgets.input("expire", "Expire date *", $date)
             <input type="hidden" name="id" value="$group.get_id()" />
         </div>
-        $showHelp($help)
+        $form_widgets.showHelp($help)
         <div>
             <center>
                 <input type="submit" value="Save" />&nbsp;
-                <!--
-                <input type="submit" name="delete" value="Delete" />&nbsp;
-                <input type="submit" name="remember" value="Remember" />&nbsp;
-                -->
             </center>
         </div>
     </form>
 </div>
 #end def
-
 

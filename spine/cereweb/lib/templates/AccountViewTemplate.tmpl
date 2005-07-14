@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from Cereweb.utils import url, object_link, view_date
+#from Cereweb.utils import url, object_link
 #from Cereweb.WorkList import remember_link
 #from GroupViewTemplate import GroupViewTemplate
 #from FormWidgets import FormWidgets
@@ -63,10 +63,15 @@
             <em>$_('Owned by'):</em> $object_link($account.get_owner())
         </div>
         <div class="info">
-            <em>$_('Expire date'):</em> $view_date($account.get_expire_date())
+            #if $account.get_expire_date()
+                #set $expire_date = $account.get_expire_date().strftime("%Y-%m-%d")
+            #else
+                #set $expire_date = ''
+            #end if
+            <em>$_('Expire date'):</em> $expire_date
         </div>
         <div class="info">
-            <em>$_('Date created'):</em> $view_date($account.get_create_date())
+            <em>$_('Date created'):</em> $account.get_create_date().strftime("%Y-%m-%d")
         </div>
         <div class="info">
             <em>$_('Created by'):</em> $object_link($account.get_creator())
@@ -116,16 +121,14 @@
                                 for i in $searcher.search()]
 
 <div class="join_group">
-<form action="$url('account/join_group')" method="POST">
-    <h3>$_("Join group")</h3>
-    <label for="group_name">$_("Group name"):</label>
-    <input type="text" name="group_name"/>
-    <br />
-    <label for="operation">$_("Operation"):</label>
-    $form_widgets.generate_option("operation", $operations, "union")
-    <input type="hidden" name="account" value="$account.get_id()" />
-    <input type="submit" value="$_("Join group")"/>
-</form>
+    <form action="$url('account/join_group')" method="POST">
+        <h3>$_("Join group"):</h3>
+        $form_widgets.input("group_name", "Group name")
+        <label for="operation">$_("Operation"):</label>
+        $form_widgets.generate_option("operation", $operations, "union")
+        <input type="hidden" name="account" value="$account.get_id()" />
+        <input type="submit" value="$_("Join group")"/>
+    </form>
 </div>
 #end def
 

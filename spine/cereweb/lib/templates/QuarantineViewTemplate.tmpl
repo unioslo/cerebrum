@@ -43,8 +43,8 @@
     #set $qtype = $quarantine.get_type().get_name()
     #set $editurl = $url('quarantine/edit?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
     #set $removeurl = $url('quarantine/remove?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
-    #set $edit = "<a href='%s'>[%s]</a>" % ($editurl, $_("Edit"))
-    #set $remove= "<a href='%s'>[%s]</a>" % ($removeurl, $_("Remove"))
+    #set $edit = "<a href='%s' class='actions'>%s</a>" % ($editurl, $_("Edit"))
+    #set $remove= "<a href='%s' class='actions'>%s</a>" % ($removeurl, $_("Remove"))
     $table.add($qtype, $start, $end, $disable_until,
                $object_link($quarantine.get_creator()), $quarantine.get_description(),
                $edit, $remove)
@@ -81,9 +81,10 @@ $table.html(type=$_("Type"),
 ###end for
 ##</table>
 #end if
-#set $addurl = $url('quarantine/add?entity_id=%s' % $entity_id)
+
+    #set $addurl = $url('quarantine/add?entity_id=%s' % $entity_id)
     <div>
-        <a href="$addurl">[Add new quarantine]</a>
+        <a href="$addurl" class="actions">Add new quarantine</a>
     </div>    
 </div>
 

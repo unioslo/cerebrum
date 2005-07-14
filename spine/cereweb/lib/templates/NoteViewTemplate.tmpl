@@ -33,8 +33,10 @@
             <em>Creator: $object_link($creator)</em>&nbsp;
             <a href="$delete" class="actions">$_("delete")</a>
         </div>
-        <div>$note.get_subject()</div>
-        <div>$note.get_description().strip()</div>
+        <div><b>$note.get_subject()</b></div>
+        #set $description = $note.get_description().strip()
+        #set $description = $description.replace('\n', '<br />')
+        <div>$description</div>
   </div>
 #end for
 #end if

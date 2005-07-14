@@ -23,18 +23,15 @@
 #attr $form_widgets = FormWidgets()
 
 #def add_member_box($action, $member_types, $operations)
-<div class="add_member">
-<form action="$action" method="POST">
-    <h2>$_("Add Member")</h2>
-    <div id="add_member_name">
-        <label for="name">$_("Name")</label>
-        <input type="text" value="" name="name" />
-        <label for="type">$_("Type")</label>
-        $form_widgets.generate_option("type", $member_types)
-    </div>
-    <label for="operation">$_("Operations")</label>
-    $form_widgets.generate_option("operation", $operations)
-    <input type="submit" value="$_("Add")"/>
-</form>
+<div class="group_add_member">
+    <form action="$action" method="POST">
+        <h3>$_("Add Member"):</h3>
+        <label for="name">$_("Name"):</label>
+        <input type="text" name="name" />
+        $form_widgets.generate_loption("type", "Type", $member_types)
+        <label for="operation">$_("Operations")</label>
+        $form_widgets.generate_option("operation", $operations)
+        <input type="submit" value="$_("Add")"/>
+    </form>
 </div>
 #end def

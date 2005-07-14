@@ -114,7 +114,7 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
             #if $group.get_expire_date()
                 #set $expire_date = $group.get_expire_date().strftime("%Y-%m-%d")
             #else
-                #set $expire_date = '&nbsp;'
+                #set $expire_date = ''
             #end if
             <em>$_("Expire date"):</em> $expire_date
         </div>
@@ -152,22 +152,36 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 #end def
 
 #def list_groups($account)
+    #set $primary_group = ''
+    #if $account.is_posix()
+        #set $primary_group = $account.get_primary_group().get_name()
+    #end if
+
     #set $direct_groups = $account.get_direct_groups()
     #for $group in $account.get_groups()
         <div class="group">
-            #if $group in $direct_groups
-                #set $disabled = ""
-                #set $header = "Group"
-            #else
+            #set $group_name = $group.get_name()
+            #set $disabled = ""
+            #set $header = "Group"
+            #if $group not in $direct_groups
                 #set $disabled = 'disabled="disabled" '
                 #set $header = "Indirect group"
+            #elif $group_name == $primary_group
+                #set $disabled = 'disabled="disabled" '
             #end if
+            
             #set $name = "member_%s_%s" % ($account.get_id(), $group.get_id())
             <input type="checkbox" name="$name" $disabled/>
-            <em>$_($header):</em> $group.get_name()
+            <em>$_($header):</em> $group_name
             $object_link($group, "view", _class="actions")
             $object_link($group, "edit", "edit", _class="actions")
             $remember_link($group, _class="actions")
+            #if $group_name == $primary_group
+                <span class="extra">(primary)</span>
+            #end if
+            #if $group.is_posix()
+                <span class="extra">(posix)</span>
+            #end if
         </div>
     #end for
 #end def

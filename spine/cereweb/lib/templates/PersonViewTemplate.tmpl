@@ -55,9 +55,18 @@ $view_entity($person, $transaction)
         <div class="info">
             <em>$_("Gender"):</em> $person.get_gender().get_description()
         </div>
-        #set $dob = $person.get_birth_date().strftime("%Y-%m-%d")
-        <div class="info"><em>$_("Date of birth"):</em> $dob</div>
-        <div class="info"><em>$_("Description"):</em> $person.get_description()</div>
+        <div class="info">
+            <em>$_("Date of birth"):</em> $person.get_birth_date().strftime("%Y-%m-%d")
+        </div>
+## Spine doesnt really support primary_account, so why show it when we cant set it?
+##        <div class="info">
+##            #set $primary = $person.get_primary_account()
+##            #set $primary = $primary and $primary.get_name() or ''
+##            <em>$_("Primary account"):</em> $primary
+##        </div>
+        <div class="info">
+            <em>$_("Description"):</em> $person.get_description()
+        </div>
     </div>
     <div class="actions">
         #set $edit = $url("person/edit?id=%s" % $person.get_id())
@@ -95,7 +104,10 @@ $view_entity($person, $transaction)
             $object_link($account, "edit", "edit", _class="actions")
             $remember_link($account, _class="actions")
             #if $account_name == $primary
-                (primary)
+                <span class="extra">(primary)</span>
+            #end if
+            #if $account.is_posix()
+                <span class="extra">(posix)</span>
             #end if
         </div>
         $list_groups($account)
