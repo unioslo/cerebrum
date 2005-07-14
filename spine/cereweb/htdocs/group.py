@@ -112,11 +112,9 @@ def search(req, name="", desc="", spread="", gid="",
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Group name"), _("Description"), _("Actions"))
         for group in groups:
-            view = url("group/view?id=%i" % group.get_id())
-            edit = url("group/edit?id=%i" % group.get_id())
-            view = html.Anchor(_('view'), href=view, _class="actions").output()
-            edit = html.Anchor(_('edit'), href=edit, _class="actions").output()
-            remb = remember_link(group, _class="actions").output()
+            view = str(object_link(group, text='view', _class='actions'))
+            edit = str(object_link(group, text='edit', method='edit', _class='actions'))
+            remb = str(remember_link(group, _class="actions"))
             table.add(object_link(group), group.get_description(), view+edit+remb)
 
         if groups:
@@ -227,7 +225,7 @@ def edit(req, transaction, id):
     page.setFocus("group/edit", str(group.get_id()))
 
     edit = GroupEditTemplate()
-    content = edit.editGroup(group)
+    content = edit.editGroup(transaction, group)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
@@ -242,7 +240,7 @@ def create(req, name="", expire="", description=""):
     page.content = lambda :content
     return page
 
-def save(req, transaction, id, name, expire="", description="", gid=None):
+def save(req, transaction, id, name, expire="", description="", visi="", gid=None):
     """Save the changes to the server."""
     group = _get_group(req, transaction, id)
     c = transaction.get_commands()
@@ -256,6 +254,10 @@ def save(req, transaction, id, name, expire="", description="", gid=None):
 
     if gid is not None and group.is_posix():
         group.set_posix_gid(int(gid))
+
+    if visi:
+        visibility = transaction.get_group_visibility_type(visi)
+        group.set_visibility(visibility)
 
     group.set_name(name)
     group.set_description(description)

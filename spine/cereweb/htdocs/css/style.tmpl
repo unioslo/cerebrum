@@ -342,13 +342,6 @@ div.quarantines td {
 }
 
 ## List of accounts on view person page.
-div.personaccounts {
-}
-
-div.personaccount {
-    border-bottom: #eef 2px dotted;
-}
-
 div.personaccounts div.group {
     margin-left: 2em;
 }
@@ -419,6 +412,29 @@ div.accounts input, div.accountcreate input {
     padding: 0;
 }
 
+div.join_group h3 {
+    font-size: 110%;
+    margin-bottom: 0.1em;
+}
+
+div.join_group input, div.join_group select {
+    font-size: 90%;
+}
+
+div.personaccount span.extra, div.group span.extra {
+    font-size: 90%;
+    color: gray;
+}
+
+div.group_add_member h3 {
+    font-size: 110%;
+    margin-bottom: 0.1em;
+}
+
+div.group_add_member input, div.group_add_member select {
+    font-size: 90%;
+}
+
 ## Actions is links wich perfom action on something, for instance
 ## [delete] on notes. Or [edit] on the view person page.
 div.actions a, div.account a, a.actions {
@@ -433,12 +449,12 @@ div.actions a:visited, div.account a:visited, a.actions:visited {
     color: blue;
 }
 
-div.actions a:before, div.account a:before, a.actions:before {
-##    content: "[";
+div.actions a:before, a.actions:before {
+    content: "[";
 }
  
-div.actions a:after, div.account a:after, a.actions:after {
-##    content: "]";
+div.actions a:after, a.actions:after {
+    content: "]";
 }
 
 ## Historylog is placed on the far right on the bottom "frame".
