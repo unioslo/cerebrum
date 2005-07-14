@@ -288,11 +288,13 @@ def write_fnrupdate_info(outfile):
 
 
 def write_betalt_papir_info(outfile):
-    """Lager fil med informasjon om alle som har betalt papirpenger"""
+    """Lager fil med informasjon om alle som enten har fritak fra å
+    betale kopiavgift eller har betalt kopiavgiften"""
+    
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(fs.betaling.list_betalt_papiravgift())
+    cols, dta = _ext_cols(fs.betaling.list_ok_kopiavgift())
     for t in dta:
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'betalt') + "\n")
