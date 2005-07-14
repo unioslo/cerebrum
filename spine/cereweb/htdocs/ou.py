@@ -43,7 +43,7 @@ def list(req):
     return search(req, *req.session.get('ou_lastsearch', ()))
 
 def search(req, name="", acronym="", short="", spread="", transaction=None):
-    req.session['ou_lastsearch'] = (name,)
+    req.session['ou_lastsearch'] = (name, acronym, short, spread)
     page = Main(req)
     page.title = _("Search for OU(s):")
     page.setFocus("ou/search")

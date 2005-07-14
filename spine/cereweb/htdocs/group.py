@@ -25,6 +25,7 @@ from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect_object, redirect
 from Cereweb.utils import object_link, transaction_decorator
+from Cereweb.WorkList import remember_link
 from Cereweb.templates.GroupSearchTemplate import GroupSearchTemplate
 from Cereweb.templates.GroupViewTemplate import GroupViewTemplate
 from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
@@ -104,7 +105,7 @@ def search(req, name="", desc="", spread="", gid="",
         else:
             groups = searcher.search()
 
-        # Print results
+        # Print search results
         result = html.Division(_class="searchresult")
         header = html.Header(_("Group search results:"), level=3)
         result.append(html.Division(header, _class="subtitle"))
@@ -113,10 +114,10 @@ def search(req, name="", desc="", spread="", gid="",
         for group in groups:
             view = url("group/view?id=%i" % group.get_id())
             edit = url("group/edit?id=%i" % group.get_id())
-            link = html.Anchor(group.get_name(), href=view)
-            view = html.Anchor(_('view'), href=view, _class="actions")
-            edit = html.Anchor(_('edit'), href=edit, _class="actions")
-            table.add(link, group.get_description(), str(view)+str(edit))
+            view = html.Anchor(_('view'), href=view, _class="actions").output()
+            edit = html.Anchor(_('edit'), href=edit, _class="actions").output()
+            remb = remember_link(group, _class="actions").output()
+            table.add(object_link(group), group.get_description(), view+edit+remb)
 
         if groups:
             result.append(table)
@@ -188,7 +189,7 @@ def add_member(req, transaction, id, name, type, operation):
         entity = entityName.get_entity()
     except:
         queue_message(req, _("Could not add non-existing member %s %s") %
-                         (type, name), error=True)       
+                         (type, name), error=True)
         redirect_object(req, group, seeOther=True)
         return
 
@@ -249,13 +250,14 @@ def save(req, transaction, id, name, expire="", description="", gid=None):
     if expire:
         expire = c.strptime(expire, "%Y-%m-%d")
     else:
-        expire = c.get_date_none()
+        if group.get_expire_date():
+            expire = c.get_date_none()
+            group.set_expire_date(expire)
 
     if gid is not None and group.is_posix():
         group.set_posix_gid(int(gid))
 
     group.set_name(name)
-    group.set_expire_date(expire)
     group.set_description(description)
     
     redirect_object(req, group, seeOther=True)
@@ -281,7 +283,7 @@ def make(req, transaction, name, expire="", description=""):
 make = transaction_decorator(make)
 
 def posix_promote(req, transaction, id):
-    group = transaction.get_group(int(id))
+    group = _get_group(req, transaction, id)
     group.promote_posix()
     redirect_object(req, group, seeOther=True)
     transaction.commit()
@@ -289,7 +291,7 @@ def posix_promote(req, transaction, id):
 posix_promote = transaction_decorator(posix_promote)
 
 def posix_demote(req, transaction, id):
-    group = transaction.get_group(int(id))
+    group = _get_group(req, transaction, id)
     group.demote_posix()
     redirect_object(req, group, seeOther=True)
     transaction.commit()
@@ -298,7 +300,7 @@ posix_demote = transaction_decorator(posix_demote)
 
 def delete(req, transaction, id):
     """Delete the group from the server."""
-    group = transaction.get_group(int(id))
+    group = _get_group(req, transaction, id)
     group.delete()
 
     redirect(req, url("group"), seeOther=True)

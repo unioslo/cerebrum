@@ -42,7 +42,7 @@ def index(req):
     return page
 
 def list(req):
-    return search(*req.session.get('account_lastsearch', ()))
+    return search(req, *req.session.get('account_lastsearch', ()))
 
 def search(req, name="", expire_date="", create_date="", spread="", description="", transaction=None):
     req.session['account_lastsearch'] = (name, expire_date, create_date, spread, description)
@@ -102,7 +102,8 @@ def search(req, name="", expire_date="", create_date="", spread="", description=
         else:
             entitysearch.set_intersections(intersections)
             accounts = entitysearch.search()
-   
+  
+        # Print search results
         result = html.Division(_class="searchresult")
         header = html.Header(_("Account search results:"), level=3)
         result.append(html.Division(header, _class="subtitle"))
@@ -155,29 +156,35 @@ def create(req, transaction, owner, name="", expire_date=""):
         else:
             first, last = full_name[0], full_name[-1]
     else:
-        first = "fisk"
-        last = "frosk"
+        first = ""
+        last = owner.get_name()
 
     alts = transaction.get_commands().suggest_usernames(first, last)
 
     if not name:
         name = alts[0]
     
-    content = create.form(owner, name, expire_date, alts)
+    content = create.form(owner, name, expire_date, alts, transaction)
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
 
-def make(req, transaction, owner, name, expire_date=""):
+def make(req, transaction, owner, name, expire_date="", np_type=None,
+         _other=None):
     commands = transaction.get_commands()
 
     owner = transaction.get_entity(int(owner))
+    if name == "_other":
+        name = _other
     if not expire_date:
         expire_date = commands.get_date_none()
     else:
         expire_date = commands.strptime(expire_date, "%Y-%m-%d")
-
-    account = commands.create_account(name, owner, expire_date)
+    if np_type:
+        np_type = transaction.get_account_type(np_type)
+        account = commands.create_np_account(name, owner, np_type, expire_date)
+    else:    
+        account = commands.create_account(name, owner, expire_date)
     redirect_object(req, account)
     transaction.commit()
 make = transaction_decorator(make)
@@ -189,6 +196,7 @@ def view(req, transaction, id):
     page = Main(req)
     page.title = ""
     account = transaction.get_account(int(id))
+    page.title = _("Account %s:") % account.get_name()
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
     content = view.viewAccount(transaction, account)
@@ -230,7 +238,7 @@ def edit(req, transaction, id):
 edit = transaction_decorator(edit)
 
 def save(req, transaction, id, name, expire_date="", uid="",
-         primary_group="", gecos="", shell=None):
+         primary_group="", gecos="", shell=None, description=""):
     account = transaction.get_account(int(id))
     c = transaction.get_commands()
     error_msgs = []
@@ -252,6 +260,7 @@ def save(req, transaction, id, name, expire_date="", uid="",
         
     account.set_name(name)
     account.set_expire_date(expire_date)
+    account.set_description(description)
 
     if account.is_posix():
         if uid:
@@ -312,6 +321,7 @@ def posix_demote(req, transaction, id):
 posix_demote = transaction_decorator(posix_demote)
 
 def delete(req, transaction, id):
+    """Delete account in the database."""
     account = transaction.get_account(int(id))
     account.delete()
     
@@ -320,21 +330,59 @@ def delete(req, transaction, id):
     queue_message(req, _("Account successfully deleted."))
 delete = transaction_decorator(delete)
 
-def leave(req, transaction, account_id, **checkboxes):
-    operation = transaction.get_group_member_operation_type("union")
-    for arg, value in checkboxes.items():
-        if arg.startswith("member_"):
-            member_id, group_id = arg.split("_")[1:3]
-            member = transaction.get_account(int(member_id))
-            group = transaction.get_group(int(group_id))
-            group_member = transaction.get_group_member(group, 
-                        operation, member, member.get_type())
-            group.remove_member(group_member)
-            queue_message(req, _("Removed %s from group %s") % 
-                    (member.get_name(), group.get_name()))
-    account = transaction.get_account(int(account_id))
+def groups(req, transaction, account_id, leave=False, create=False, **checkboxes):
+    """Performs action on groups this account is member of.
+    
+    If leave is true: removes 'account_id' from group checked in 'checkboxes'.
+    If crate is true: redirects to the create group page.
+    Only one should be true at the same time.
+    """
+    if create:
+        redirect(req, url('group/create'))
+
+    elif leave:
+        operation = transaction.get_group_member_operation_type("union")
+        for arg, value in checkboxes.items():
+            if arg.startswith("member_"):
+                member_id, group_id = arg.split("_")[1:3]
+                member = transaction.get_account(int(member_id))
+                group = transaction.get_group(int(group_id))
+                group_member = transaction.get_group_member(group, 
+                            operation, member, member.get_type())
+                group.remove_member(group_member)
+                queue_message(req, _("Removed %s from group %s") % 
+                        (member.get_name(), group.get_name()))
+        account = transaction.get_account(int(account_id))
+        redirect_object(req, account, seeOther=True)
+        transaction.commit()
+        
+    else:
+        raise "I dont know what you want to do"
+groups = transaction_decorator(groups)
+
+def join_group(req, transaction, account, group_name, operation):
+    """Join account into group with name 'group'."""
+    account = transaction.get_account(int(account))
+    operation = transaction.get_group_member_operation_type(operation)
+
+    # find the group with the name group.
+    searcher = transaction.get_entity_name_searcher()
+    searcher.set_name(group_name)
+    searcher.set_value_domain(transaction.get_value_domain('group_names'))
+    try:
+        group, = searcher.search()
+        group = group.get_entity()
+        assert group.get_type().get_name() == 'group'
+    except:
+        queue_message(req, _("Group %s not found.") % group_name, error=True)
+        redirect_object(req, account, seeOther=True)
+        return
+    
+    group.add_member(account, operation)
+    
     redirect_object(req, account, seeOther=True)
     transaction.commit()
-leave = transaction_decorator(leave)    
+    queue_message(req, _("Joined account into group %s successfully") % group_name)
+join_group = transaction_decorator(join_group)
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

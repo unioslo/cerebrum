@@ -289,17 +289,6 @@ def remove_name(req, id, transaction, variant, ss):
     queue_message(req, _("Name successfully removed."))
 remove_name = transaction_decorator(remove_name)
 
-def add_external_id(req, transaction, id, external_id, id_type):
-    person = _get_person(req, transaction, id)
-    source_system = transaction.get_source_system('Manual')
-    type = transaction.get_person_external_id_type(id_type)
-    person.add_external_id(external_id, type, source_system)
-
-    redirect_object(req, person, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("External id successfully added."))
-add_external_id = transaction_decorator(add_external_id)
-
 def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
     if add:
         redirect(req, url('account/create?owner=%s' % owner))
@@ -325,12 +314,11 @@ def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
         person = _get_person(req, transaction, owner)
         redirect_object(req, person, seeOther=True)
         transaction.commit()              
+        
     else:
         raise "I don't know what you want to do"
 accounts = transaction_decorator(accounts)
                 
-                
-
 def add_affil(req, transaction, id, status, ou, description=""):
     person = _get_person(req, transaction, id)
     ou = transaction.get_ou(int(ou))
