@@ -1303,6 +1303,7 @@ category:code;
 CREATE TABLE person_aff_status_code
 (
   affiliation	NUMERIC(6,0)
+                NOT NULL
 		CONSTRAINT person_aff_status_affiliation
 		  REFERENCES person_affiliation_code(code),
   status	NUMERIC(6,0),
@@ -1311,9 +1312,11 @@ CREATE TABLE person_aff_status_code
   description	CHAR VARYING(512)
 		NOT NULL,
   CONSTRAINT person_aff_status_code_pk
-    PRIMARY KEY (affiliation, status),
+    PRIMARY KEY (status),
   CONSTRAINT person_aff_status_codestr_u
-    UNIQUE (affiliation, status_str)
+    UNIQUE (affiliation, status_str),
+  CONSTRAINT person_aff_status_code_a_s_u
+    UNIQUE (affiliation, status)
 );
 category:code/Oracle;
 GRANT SELECT ON person_aff_status_code TO read_code;
