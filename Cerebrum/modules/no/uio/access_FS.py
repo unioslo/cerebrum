@@ -461,7 +461,11 @@ class UiOBetaling(access_FS.FSObject):
     def list_kopiavgift_fritak(self):  # GetStudFritattKopiavg
         """Lister fødselsnummer på de som er fritatt fra å måtte
         betale kopiavgift jmf den ordningen som ble innført høsten
-        2004."""
+        2004.  Kun de som har registerkort med betformkode lik:
+          * 'FRITATT' - Dette er innreisende utenlandsstudenter
+          * 'EKSTERN' - Dette er studenter som har betalt ved andre
+                        samskipnader
+        """
 
         qry ="""
         SELECT DISTINCT r.fodselsdato, r.personnr
@@ -495,21 +499,9 @@ class UiOBetaling(access_FS.FSObject):
               frk.status_betalt = 'J' %s""" % where
         return self.db.query(qry)
     
-    ################################################
-    # Papirpenger
-    # Skal avvikles i løpet av sommeren 2004
-    # Todo: er denne kommentaren riktig? 
-    ################################################
-
-    def list_betalt_papiravgift(self):  # GetStudBetPapir
-        """Lister ut fødselsnummer til alle de som har betalt en eller
-        annen form for papirpenger. Vi henter inn de studentene som
-        har fritak for betaling av semesteravgift da det er blitt
-        bestemt at disse heller ikke skal betale papiravgift dette
-        semesteret.  Dette er imidlertid litt problematisk siden det
-        finnes flere typer studenter med slik fritak uten at man har
-        full oversikt over alle studentgrupper som omfattes av
-        dette"""
+    def list_ok_kopiavgift(self):  # GetStudBetPapir
+        """Lister ut fødselsnummer til alle de som har betalt
+        kopiavgiften eller har fritak fra å betale denne avgiften."""
 
         qry = """
         SELECT DISTINCT r.fodselsdato, r.personnr
@@ -517,35 +509,25 @@ class UiOBetaling(access_FS.FSObject):
              fs.fakturareskontro frk,
              fs.registerkort r
         WHERE
-        r.TERMINKODE = :semester and  r.arstall = :year and
-        r.regformkode in ('STUDWEB','MANUELL') and
-        r.fodselsdato = frk.fodselsdato and
-        r.personnr = frk.personnr and
+        r.TERMINKODE = :semester AND
+        r.arstall = :year AND
+        r.regformkode in ('STUDWEB','MANUELL') AND
+        r.fodselsdato = frk.fodselsdato AND
+        r.personnr = frk.personnr AND
         frk.status_betalt = 'J' AND
         frk.terminkode = r.terminkode AND
         frk.arstall = r.arstall AND
-        frk.fakturastatuskode ='OPPGJORT' and
+        frk.fakturastatuskode ='OPPGJORT' AND
         fkd.fakturanr = frk.fakturanr AND
-        fkd.fakturadetaljtypekode IN ('PAPIRAVG', 'KOPIAVG')"""
+        fkd.fakturadetaljtypekode = 'KOPIAVG'"""
 	qry += """ UNION
         SELECT DISTINCT r.fodselsdato, r.personnr
         FROM fs.registerkort r
         WHERE
-        r.TERMINKODE = :semester and r.arstall = :year AND
-        r.betformkode='FRITATT'"""
+        r.TERMINKODE = :semester AND
+        r.arstall = :year AND
+        r.betformkode IN ('FRITATT', 'EKSTERN')"""
 
-#Ved senere anledning (når studierettstatuskoder som skal brukes er bekreftet
-# skal denne delen av søket også taes i bruk
-#	qry += """ UNION
-#	SELECT DISTINCT st.fodselsdato, st.personnr
-#	FROM fs.studierett st
-#	WHERE
-#	st.status_privatist='N' AND
-#	NVL(st.dato_gyldig_til,SYSDATE) >= sysdate AND
-#	st.studierettstatkode IN ('ERASMUS','NORDPLUS',
-#       'SOKRATES','NORAD','FULBRIGHT','KULTURAVT') """	
-        return self.db.query(qry, {'semester': self.semester,
-                                   'year': self.year})
 
 class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
