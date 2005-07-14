@@ -62,7 +62,9 @@ def object_link(object, text=None, method="view", _class=None):
             text = tmp and tmp or object.get_name()
         else:
             text = str(object)
-    return forgetHTML.Anchor(text, href=url, _class=_class)
+#    return forgetHTML.Anchor(text, href=url, _class=_class)
+    _class = _class and ' class="%s"' % _class or ''
+    return '<a href="%s"%s>%s</a>' % (url, _class, text)
 
 def redirect(req, url, temporary=False, seeOther=False):
     """
@@ -131,8 +133,5 @@ def transaction_decorator(method):
             except:
                 pass
     return transaction_decorator
-
-def view_date(date):
-    return date and date.strftime("%Y-%m-%d") or '-'
 
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

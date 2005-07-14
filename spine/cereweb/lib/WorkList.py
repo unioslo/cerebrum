@@ -36,10 +36,8 @@ def remember_url(object):
             if name.get_name_variant().get_name() == "FULL":
                 name_str = name.get_name()
                 break
-            
         if not name_str:
             name_str = 'Not available'
-    
     else:
         name_str = object.get_name()
 
@@ -55,9 +53,11 @@ def remember_url(object):
     js_url = "javascript:worklist_remember(%i, '%s', '%s');" % (id, type, name_str)
     return js_url
 
-def remember_link(object, **vargs):
-    return html.Anchor("remember", href=remember_url(object),
-                       id="wrkElement%i" % object.get_id(), **vargs)
+def remember_link(object, _class=None):
+    url = remember_url(object)
+    id = 'wrkElement%i' % object.get_id()
+    _class = _class and ' class="%s"' % _class or ''
+    return '<a href="%s" id="%s" %s>%s</a>' % (url, id, _class, 'remember')
 
 def select_selected():
     return ""
