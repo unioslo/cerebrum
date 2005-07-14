@@ -34,3 +34,6 @@ category:pre;
 ALTER TABLE person_affiliation_source ADD CONSTRAINT person_aff_src_status FOREIGN KEY (affiliation, status) REFERENCES person_aff_status_code(affiliation, status);
 category:pre;
 ALTER TABLE person_aff_status_code ALTER COLUMN affiliation SET NOT NULL;
+
+/* arch-tag: 7fcd8634-f47d-11d9-87eb-9eb4b7962a4b
+   (do not change this comment) */
