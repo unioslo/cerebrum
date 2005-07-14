@@ -81,11 +81,11 @@ registry.register_class(Account)
 
 def create_account(self, name, owner, expire_date):
     """
-    Creates a new account.
-    \\param name The name of the account.
-    \\param owner The entity that owns the account.
-    \\param expire_date The date on which the account will expire.
-    \\return The created Account object.
+    Create a new account.
+    \\param name Name of the account.
+    \\param owner Entity that owns the account, usually a Person.
+    \\param expire_date Date on which the account will expire.
+    \\return Created Account object.
     """
     db = self.get_database()
     new_id = Account._create(db, name, owner.get_type().get_id(), owner.get_id(), None, db.change_by, expire_date._value)
@@ -93,6 +93,27 @@ def create_account(self, name, owner, expire_date):
 
 args = [('name', str), ('owner', Entity), ('expire_date', Date)]
 Commands.register_method(Method('create_account', Account, args=args, write=True), create_account)
+
+
+def create_np_account(self, name, owner, np_type, expire_date):
+    """
+    Create a new non-personal account.
+    \\param name Name of the account.
+    \\param owner Entity that owns the account, usually a Group.
+    \\param np_type Non-personal AccountType
+    \\param expire_date Date on which the account will expire.
+    \\return Created Account object.
+    """
+    db = self.get_database()
+    new_id = Account._create(db, name, owner.get_type().get_id(), 
+                             owner.get_id(), np_type.get_id(), 
+                             db.change_by, expire_date._value)
+    return Account(new_id, write_locker=self.get_writelock_holder())
+
+args = [('name', str), ('owner', Entity), ('np_type', AccountType), 
+        ('expire_date', Date)]
+Commands.register_method(Method('create_np_account', Account, args=args, 
+                         write=True), create_np_account)
 
 def get_account_by_name(name):
     """
