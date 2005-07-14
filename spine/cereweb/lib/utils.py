@@ -53,10 +53,13 @@ def object_link(object, text=None, method="view", _class=None):
     url = object_url(object, method)   
     if text is None:
         type = object.get_type().get_name()
-        if type in ('group', 'account', 'ou'):
+        if type in ('group', 'account'):
             text = object.get_name()
         elif type == 'person':
             text = object.get_cached_full_name()
+        elif type == 'ou':
+            tmp = object.get_display_name()
+            text = tmp and tmp or object.get_name()
         else:
             text = str(object)
     return forgetHTML.Anchor(text, href=url, _class=_class)
