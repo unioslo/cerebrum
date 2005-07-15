@@ -50,7 +50,7 @@ class Disk(Entity):
     }
 
     cerebrum_class = Factory.get('Disk')
-    entity_type = EntityType(name='disk')
+    entity_type = 'disk'
 
 registry.register_class(Disk)
 
@@ -58,7 +58,7 @@ def create(self, host, path, description):
     db = self.get_database()
     new_id = Disk._create(db, host.get_id(), path, description)
     
-    return Disk(new_id, write_locker=self.get_writelock_holder())
+    return Disk(db, new_id)
 
 args = [('host', Host), ('path', str), ('description', str)]
 Commands.register_method(Method('create_disk', Disk, args=args, write=True), create)

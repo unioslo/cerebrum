@@ -70,13 +70,13 @@ class OU(Entity):
     db_attr_aliases[table] = {
         'id': 'ou_id'
     }
-    entity_type = EntityType(name='ou')
+    entity_type = name='ou'
     cerebrum_class = Factory.get('OU')
 
 registry.register_class(OU)
 
 #def get_structure_mappings(self, perspective):
-#    s = registry.OUStructureSearcher()
+#    s = registry.OUStructureSearcher(self.get_database())
 #    s.set_perspective(perspective)
 #    return s.search()
 #
@@ -94,7 +94,7 @@ def get_parent(self, perspective):
     \\see OUPerspectiveType
     \\see OUStructure
     """
-    s = registry.OUStructureSearcher()
+    s = registry.OUStructureSearcher(self.get_database())
     s.set_ou(self)
     s.set_perspective(perspective)
     results = s.search()
@@ -115,7 +115,7 @@ def get_children(self, perspective):
     \\see OUPerspectiveType
     \\see OUStructure
     """
-    s = registry.OUStructureSearcher()
+    s = registry.OUStructureSearcher(self.get_database())
     s.set_parent(self)
     s.set_perspective(perspective)
     return [i.get_ou() for i in s.search()]
@@ -236,8 +236,7 @@ def create_ou(self, name):
     ou = Factory.get('OU')(db)
     ou.populate(name)
     ou.write_db()
-    spine_ou = OU(ou.entity_id, write_locker=self.get_writelock_holder())
-    return spine_ou
+    return OU(db, ou.entity_id)
 
 Commands.register_method(Method('create_ou', OU, args=[('name', str)], write=True), create_ou)
 

@@ -53,18 +53,19 @@ class EntityContactInfo(DatabaseClass):
 registry.register_class(EntityContactInfo)
 
 def get_contact_info(self):
-    s = registry.EntityContactInfoSearcher(self)
+    s = registry.EntityContactInfoSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
 
 Entity.register_method(Method('get_contact_info', [EntityContactInfo]), get_contact_info)
 
 def add_contact_info(self, info, description, preference, contact_type, source_system):
-    entity = Cerebrum.Entity.EntityContactInfo(self.get_database())
+    db = self.get_database()
+    entity = Cerebrum.Entity.EntityContactInfo(db)
     entity.find(self.get_id())
     entity.add_contact_info(source_system.get_id(), contact_type.get_id(), info, preference, description)
     entity.write_db()
-    return EntityContactInfo(Entity(entity.entity_id, writelock=self.get_writelock_holder()), source_system, contact_type, preference, writelock=self.get_writelock_holder())
+    return EntityContactInfo(db, Entity(db, entity.entity_id), source_system, contact_type, preference)
 
 Entity.register_method(Method('add_contact_info', EntityContactInfo, args=[('info', str),
     ('description', str), ('preference', int), ('contact_type', ContactInfoType),

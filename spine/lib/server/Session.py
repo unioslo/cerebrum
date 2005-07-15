@@ -112,7 +112,7 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
 
     def new_transaction(self):
         self.reset_timeout()
-        transaction = CerebrumHandler(self, self.client, self.counter.next())
+        transaction = CerebrumHandler(self, self.client.get_id(), self.counter.next())
         corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
         self._transactions[transaction] = corba_obj
         return corba_obj

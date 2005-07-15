@@ -33,10 +33,6 @@ def create_mark_method(name, method_name, optional=False, attr=None):
     """
 
     def dump(self):
-        holder = self.get_writelock_holder()
-        for obj in self._objects:
-            obj.lock_for_reading(holder)
-
         for struct, obj in zip(self.structs, self._objects):
             if optional:
                 struct['%s_exists' % name] = True
@@ -128,10 +124,8 @@ def create_get_dumper(dumper_class):
 def create_generic_dumper(dumper_class, name, method_name, optional=False):
     m = Method(name, dumper_class, write=True)
     def get_dumper(self):
-        holder = self.get_writelock_holder()
         objects = Set()
         for i in self._objects:
-#            i.lock_for_reading(holder)
             if optional:
                 try:
                     value = getattr(i, method_name)()

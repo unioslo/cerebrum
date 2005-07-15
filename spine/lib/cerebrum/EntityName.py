@@ -53,7 +53,7 @@ class EntityName(DatabaseClass):
 registry.register_class(EntityName)
 
 def get_entity_name(self, value_domain):
-    s = registry.EntityNameSearcher((self, value_domain))
+    s = registry.EntityNameSearcher(self.get_database())
     s.set_entity(self)
     s.set_value_domain(self)
     result = s.search()

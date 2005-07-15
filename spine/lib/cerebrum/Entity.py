@@ -69,7 +69,7 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
         # get the correct class for this entity
         entity_type = obj.get_type()
         for entity_class in Entity.builder_children:
-            if entity_class.entity_type is entity_type:
+            if entity_class.entity_type == entity_type.get_name():
                 break
         else:
             entity_class = Entity

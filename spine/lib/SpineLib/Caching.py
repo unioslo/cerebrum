@@ -64,7 +64,7 @@ class Caching(object):
         self.__deleted = False
 
         if cache is not None:
-            self.cache_self()
+            self.cache[key] = self
 
         return self 
 
@@ -81,20 +81,6 @@ class Caching(object):
     def get_minimum_lifetime(self):
         # FIXME: where should we put this default variable?
         return 10
-
-    def cache_self(self):
-        key = self.__class__, self.get_primary_key()
-
-        self.cache[key] = self
-
-        minimum_lifetime = self.get_minimum_lifetime()
-
-        if minimum_lifetime:
-            def holder(): # this will make sure a reference to self exists as long as holder exists
-                self
-
-#            scheduler = Scheduler.get_scheduler()
-#            scheduler.addTimer(minimum_lifetime, holder)
 
     def invalidate(self):
         """ 

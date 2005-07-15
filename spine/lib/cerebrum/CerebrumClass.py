@@ -19,9 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.Builder import Attribute
-from SpineLib.SpineClass import SpineClass
 from SpineLib.SpineExceptions import ServerProgrammingError
-from SpineLib.DatabaseClass import DatabaseAttr, ConvertableAttribute
+from SpineLib.DatabaseClass import DatabaseTransactionClass, DatabaseAttr, ConvertableAttribute
 
 __all__ = ['CerebrumAttr', 'CerebrumDbAttr', 'CerebrumClass']
 
@@ -62,7 +61,7 @@ class CerebrumDbAttr(CerebrumAttr, DatabaseAttr):
     CerebrumDbClass.
     """
 
-class CerebrumClass(SpineClass):
+class CerebrumClass(DatabaseTransactionClass):
     """Mixin class which adds support for cerebrum.
 
     This class adds support for working directly against cerebrum, and
@@ -102,7 +101,7 @@ class CerebrumClass(SpineClass):
         for attr in self._cerebrum_load_attributes:
             if not hasattr(self, attr.get_name_private()):
                 value = getattr(obj, self._get_cerebrum_name(attr))
-                setattr(self, attr.get_name_private(), attr.convert_from(value))
+                setattr(self, attr.get_name_private(), attr.convert_from(self.get_database(), value))
 
     def _save_cerebrum_attributes(self):
         """Stores 'attributes' in cerebrum."""

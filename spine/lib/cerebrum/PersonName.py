@@ -47,7 +47,7 @@ class PersonName(DatabaseClass):
 registry.register_class(PersonName)
 
 def get_names(self):
-    s = registry.PersonNameSearcher(self)
+    s = registry.PersonNameSearcher(self.get_database())
     s.set_person(self)
     return s.search()
 
@@ -75,12 +75,10 @@ def remove_name(self, name_type, source_system):
 Person.register_method(Method('remove_name', None, args=[("name_type", NameType), ('source_system', SourceSystem)], write=True), remove_name)
 
 def get_cached_full_name(self):
-    cached = SourceSystem(name='Cached')
-    full = NameType(name='FULL')
-    transaction = None
-    if self.is_writelocked():
-        transaction = self.get_writelock_holder()
-    return PersonName(self, full, cached, write_locker=transaction).get_name()
+    db = self.get_database()
+    cached = SourceSystem(db, name='Cached')
+    full = NameType(db, name='FULL')
+    return PersonName(db, self, full, cached).get_name()
 
 Person.register_method(Method('get_cached_full_name', str, exceptions=[NotFoundError]), get_cached_full_name)
 

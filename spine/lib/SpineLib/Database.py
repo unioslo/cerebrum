@@ -38,6 +38,9 @@ class SpineDatabase(Database):
         else:
             self.cl_init(change_by=entity_id)
 
+        # i hope this is the correct way to do it
+        self.execute('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
+
     def lock(self):
         self._lock.acquire()
 
@@ -45,14 +48,5 @@ class SpineDatabase(Database):
         self.rollback_log() # just in case
         self.rollback() # will this break the database?
         self._lock.release()
-
-db = None
-
-def get_database():
-    global db
-
-    if db is None:
-        db = SpineDatabase()
-    return db
 
 # arch-tag: 3a36a882-0fd8-4a9c-9889-9540095f93e3

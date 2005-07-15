@@ -46,7 +46,7 @@ class EntitySpread(DatabaseClass):
 registry.register_class(EntitySpread)
 
 def get_spreads(self):
-    s = registry.EntitySpreadSearcher(self)
+    s = registry.EntitySpreadSearcher(self.get_database())
     s.set_entity(self)
     return [i.get_spread() for i in s.search()]
 

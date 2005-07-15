@@ -22,6 +22,7 @@ import mx.DateTime
 
 from SpineLib.Builder import Builder, Attribute, Method
 from SpineLib.Transaction import Transaction
+from SpineLib.DatabaseClass import DatabaseTransactionClass
 from SpineLib.SpineExceptions import DatabaseError
 
 from Entity import Entity
@@ -33,7 +34,7 @@ registry = Registry.get_registry()
 
 class CerebrumHandler(Transaction, Builder):
     primary = [
-        Attribute('client', Entity),
+        Attribute('client_id', int),
         Attribute('id', int)
     ]
     slots = [
@@ -92,10 +93,19 @@ for name, cls in registry.map.items():
     if issubclass(cls, CodeType):
         def blipp(cls):
             def get_method(self, name):
-                return cls(name=name)
+                return cls(self.get_database(), name=name)
             return get_method
         m = blipp(cls)
         args = [('name', str)]
+    elif issubclass(cls, DatabaseTransactionClass):
+        def blipp(cls):
+            def get_method(self, *args, **vargs):
+                return cls(self.get_database(), *args, **vargs)
+            return get_method
+        m = blipp(cls)
+        args = []
+        for i in cls.primary:
+            args.append((i.name, i.data_type))
     else:
         m = cls
         args = []

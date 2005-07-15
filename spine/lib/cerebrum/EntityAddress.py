@@ -57,18 +57,19 @@ class EntityAddress(DatabaseClass):
 registry.register_class(EntityAddress)
 
 def get_addresses(self):
-    s = registry.EntityAddressSearcher(self)
+    s = registry.EntityAddressSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
 
 Entity.register_method(Method('get_addresses', [EntityAddress]), get_addresses)
 
 def create_address(self, address_type, source_system):
-    cerebrum_entity = Cerebrum.Entity.EntityAddress(self.get_database())
+    db = self.get_database()
+    cerebrum_entity = Cerebrum.Entity.EntityAddress(db)
     cerebrum_entity.find(self.get_id())
     cerebrum_entity.populate_address(source_system.get_id(), address_type.get_id())
     cerebrum_entity.write_db()
-    return EntityAddress(self, source_system, address_type, write_locker=self.get_writelock_holder())
+    return EntityAddress(db, self, source_system, address_type)
 
 Entity.register_method(Method('create_address', EntityAddress, args=[('address_type', AddressType), ('source_system', SourceSystem)], write=True), create_address)
 

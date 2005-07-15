@@ -44,7 +44,7 @@ def ct(value):
         return 'F'
 
 # Convert deceased into boolean from a string.
-def cf(value):
+def cf(db, value):
     if value == 'T':
         return True
     else:
@@ -68,7 +68,7 @@ class Person(Entity):
     }
     cerebrum_attr_aliases = {}
     cerebrum_class = Factory.get('Person')
-    entity_type = EntityType(name='person')
+    entity_type = 'person'
 
     def get_primary_account(self):
         account_id = self._get_cerebrum_obj().get_primary_account()
@@ -82,11 +82,9 @@ def create(self, birthdate, gender, full_name, source_system):
     db = self.get_database()
     new_id = Person._create(db, birthdate.strftime('%Y-%m-%d'), gender.get_id(), None, 'F')
 
-    transaction = self.get_writelock_holder()
-    person = Person(new_id, write_locker=transaction)
-    transaction.add_ref(person)
+    person = Person(db, new_id)
 
-    full = NameType(name='FULL')
+    full = NameType(db, name='FULL')
     person.set_name(full_name, full, source_system)
 
     return person

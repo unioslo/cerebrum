@@ -32,6 +32,7 @@ import Session
 import SessionHandler
 
 from Cerebrum.spine.Account import get_account_by_name
+from Cerebrum.spine.SpineLib import Database
 
 # The major version number of the Spine server
 SPINE_MAJOR_VERSION = 0
@@ -49,6 +50,10 @@ class SpineImpl(SpineCore__POA.Spine):
 
     def __init__(self):
         self.sessions = {}
+        self.db = Database.SpineDatabase()
+
+    def get_database(self):
+        return self.db
 
     def get_idl(self):
         return Session.idl_source
@@ -71,6 +76,7 @@ class SpineImpl(SpineCore__POA.Spine):
         """
         # We will always throw the same exception in here. This is important!
         exception = SpineCore.Spine.LoginError('Wrong username or password')
+        exception = Exception('fisk')
 
         # Check username
         for char in ['*','?']:
@@ -78,8 +84,10 @@ class SpineImpl(SpineCore__POA.Spine):
                 raise exception
 
         try:
-           account = get_account_by_name(username)
+           account = get_account_by_name(self, username)
         except:
+            import traceback
+            traceback.print_exc()
             raise exception
 
         # Check password

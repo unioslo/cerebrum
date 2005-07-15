@@ -27,9 +27,9 @@ registry = Registry.get_registry()
 __all__ = ['CodeType']
 a = id
 class CodeType(DatabaseClass):
-    def __new__(cls, id=None, name=None, **args):
+    def __new__(cls, db, id=None, name=None, **args):
         if id is None and name is not None:
-            s = cls.search_class()
+            s = cls.search_class(db)
             s.set_name(name)
             results = s.search()
             if not len(results):
@@ -38,12 +38,12 @@ class CodeType(DatabaseClass):
                 raise TooManyMatchesError('Multiple matches for %s(%s)' % (cls.__name__, name))
             return results[0]
         else:
-            return super(CodeType, cls).__new__(cls, id=id, name=name, **args)
+            return super(CodeType, cls).__new__(cls, db, id=id, name=name, **args)
 
-    def create_primary_key(cls, id=None, name=None, **args):
+    def create_primary_key(cls, db, id=None, name=None, **args):
         assert type(id) in (int, long)
 
-        return super(CodeType, cls).create_primary_key(id, name, **args)
+        return super(CodeType, cls).create_primary_key(db, id, name, **args)
 
     create_primary_key = classmethod(create_primary_key)
 

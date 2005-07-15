@@ -107,7 +107,7 @@ def get_last_changelog_id(self):
 Commands.register_method(Method('get_last_changelog_id', int), get_last_changelog_id)
 
 def get_history(self):
-    s = registry.ChangeLogSearcher()
+    s = registry.ChangeLogSearcher(self.get_database())
     s.set_subject(self)
     result = s.search()
     result.sort(lambda a, b: cmp(a.get_id(), b.get_id()))

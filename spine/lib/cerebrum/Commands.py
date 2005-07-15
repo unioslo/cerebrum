@@ -19,13 +19,16 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-from SpineLib.SpineClass import SpineClass
+from SpineLib.DatabaseClass import DatabaseTransactionClass
+from SpineLib.Caching import Caching
+from SpineLib.Builder import Builder
+
 from SpineLib import Registry
 registry = Registry.get_registry()
 
 __all__ = ['Commands']
 
-class Commands(SpineClass):
+class Commands(DatabaseTransactionClass, Builder):
     """Collection of 'static' methods.
 
     This is the main class for 'static' methods in the cerebrum core
@@ -36,9 +39,6 @@ class Commands(SpineClass):
     This class should not implement methods specific to other classes,
     instead use Registry.get_registry().register_method().
     """
-
-    def __new__(self, *args, **vargs):
-        return SpineClass.__new__(self, cache=None)
 
 registry.register_class(Commands)
 

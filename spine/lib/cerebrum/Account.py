@@ -75,7 +75,7 @@ class Account(Entity):
     cerebrum_attr_aliases = {'name':'account_name'}
     cerebrum_class = Factory.get('Account')
 
-    entity_type = EntityType(name='account')
+    entity_type = 'account'
 
 registry.register_class(Account)
 
@@ -89,7 +89,7 @@ def create_account(self, name, owner, expire_date):
     """
     db = self.get_database()
     new_id = Account._create(db, name, owner.get_type().get_id(), owner.get_id(), None, db.change_by, expire_date._value)
-    return Account(new_id, write_locker=self.get_writelock_holder())
+    return Account(db, new_id)
 
 args = [('name', str), ('owner', Entity), ('expire_date', Date)]
 Commands.register_method(Method('create_account', Account, args=args, write=True), create_account)
@@ -108,28 +108,30 @@ def create_np_account(self, name, owner, np_type, expire_date):
     new_id = Account._create(db, name, owner.get_type().get_id(), 
                              owner.get_id(), np_type.get_id(), 
                              db.change_by, expire_date._value)
-    return Account(new_id, write_locker=self.get_writelock_holder())
+    return Account(db, new_id)
 
 args = [('name', str), ('owner', Entity), ('np_type', AccountType), 
         ('expire_date', Date)]
 Commands.register_method(Method('create_np_account', Account, args=args, 
                          write=True), create_np_account)
 
-def get_account_by_name(name):
+def get_account_by_name(self, name):
     """
     Get an account by name.
     \\param name The name of the account to get.
     \\return The Account object with the given name.
     """
 
-    s = registry.EntityNameSearcher()
-    s.set_value_domain(registry.ValueDomain(name='account_names'))
+    db = self.get_database()
+
+    s = registry.EntityNameSearcher(db)
+    s.set_value_domain(registry.ValueDomain(db, name='account_names'))
     s.set_name(name)
 
     account, = s.search()
     return account.get_entity()
 
-Commands.register_method(Method('get_account_by_name', Account, args=[('name', str)]), lambda self, name: get_account_by_name(name))
+Commands.register_method(Method('get_account_by_name', Account, args=[('name', str)]), get_account_by_name)
 
 def get_accounts(self):
     """
@@ -140,7 +142,7 @@ def get_accounts(self):
     \\see Account
     """
 
-    s = registry.AccountSearcher()
+    s = registry.AccountSearcher(self.get_database())
     s.set_owner(self)
     return s.search()
 

@@ -74,7 +74,7 @@ class EntityQuarantine(DatabaseClass):
 registry.register_class(EntityQuarantine)
 
 def get_quarantines(self):
-    s = registry.EntityQuarantineSearcher(self)
+    s = registry.EntityQuarantineSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
 

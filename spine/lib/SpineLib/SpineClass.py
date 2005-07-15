@@ -56,6 +56,7 @@ class SpineClass(Builder, Caching, Locking):
 
         If a client has a writelock, the transaction-cursor is returned.
         """
+        assert 0
         if self.is_writelocked():
             return self.get_writelock_holder().get_database() # The lockholder has get_database()
         else:

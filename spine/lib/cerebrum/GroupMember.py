@@ -50,17 +50,15 @@ class GroupMember(DatabaseClass):
 registry.register_class(GroupMember)
 
 def get_group_members(self):
-    s = registry.GroupMemberSearcher((self, 'get_group_members'))
+    s = registry.GroupMemberSearcher(self.get_database())
     s.set_group(self)
     return s.search()
 
 Group.register_method(Method('get_group_members', [GroupMember]), get_group_members)
 
-UnionType = GroupMemberOperationType(name='union')
-IntersectionType = GroupMemberOperationType(name='intersection')
-DifferenceType = GroupMemberOperationType(name='difference')
-
-GroupType = EntityType(name='group')
+UnionType = 'union'
+IntersectionType = 'intersection'
+DifferenceType = 'difference'
 
 def _get_members(group, group_members):
     unions = sets.Set()
@@ -68,16 +66,16 @@ def _get_members(group, group_members):
     differences = sets.Set()
 
     for entity, operation in group_members[group]:
-        if entity.get_type() is GroupType:
+        if entity.get_type().get_name() is Group.entity_type:
             members = get_members(entity)
         else:
             members = sets.Set([entity])
 
-        if operation is UnionType:
+        if operation.get_name() == UnionType:
             unions.update(members)
-        elif operation is IntersectionType:
+        elif operation.get_name() == IntersectionType:
             intersects.update(members)
-        elif operation is DifferenceType:
+        elif operation.get_name() == DifferenceType:
             differences.update(members)
 
     if intersects:
@@ -92,7 +90,7 @@ def _get_members(group, group_members):
 def get_groups(self):
     group_members = {}
     def get(entity):
-        s = registry.GroupMemberSearcher(('get_groups', entity))
+        s = registry.GroupMemberSearcher(self.get_database())
         s.set_member(entity)
         for i in s.search():
             group = i.get_group()
@@ -108,9 +106,9 @@ Entity.register_method(Method('get_groups', [Group]), get_groups)
 
 def get_direct_groups(self):
     groups = sets.Set(get_groups(self))
-    searcher = registry.GroupMemberSearcher()
+    searcher = registry.GroupMemberSearcher(self.get_database())
     searcher.set_member(self)
-    union = registry.GroupMemberOperationType(name="union")
+    union = registry.GroupMemberOperationType(self.get_database(), name="union")
     searcher.set_operation(union)
     groups.intersection_update([i.get_group() for i in searcher.search()])
     return list(groups)
@@ -131,7 +129,7 @@ def get_members(self):
             member = i.get_member()
             group_members[group].append((member, i.get_operation()))
 
-            if member.get_type() is GroupType:
+            if member.get_type().get_name() == Group.entity_type:
                 get(member)
     get(self)
 

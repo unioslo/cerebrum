@@ -35,6 +35,7 @@ from Cerebrum.spine.SpineLib.Builder import Method
 from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
 from Cerebrum.spine.SpineLib.Locking import Locking
 from Cerebrum.spine.SpineLib.Caching import Caching
+from Cerebrum.spine.SpineLib.DatabaseClass import DatabaseTransactionClass
 from Cerebrum.spine.SpineLib.SearchClass import SearchClass
 from Cerebrum.spine.SpineLib.SpineExceptions import AccessDeniedError, ServerProgrammingError, TransactionError
 from Cerebrum.spine.SpineLib.Transaction import Transaction
@@ -241,25 +242,24 @@ def _create_corba_method(method):
                         # The transaction will get a AllreadyLockedError when it tries
                         # to lock_for_reading/lock_for_writing later on.
                         pass
-                else:
-                    assert 0 # possible to delete, but has no locking?
-
+                if isinstance(self.spine_object, DatabaseTransactionClass):
+                    raise Communication.CORBA.OBJECT_NOT_EXIST
 
             # Check for lost locks (raises an exception if a lost lock is found)
             transaction.check_lost_locks()
 
             # Authorization
-            operator = transaction.get_client()
-            class_name = self.spine_class.__name__
-            operation_name = '%s.%s' % (class_name, method.name)
-            try:
-                operation_type = AuthOperationType(name=operation_name)
-            except Exception, e:
-                # If we get here, then there is no operation type defined for the given 
-                # set of operations. In that case, we raise and exception telling that
-                # the type is missing, and aborting the call.
-                # FIXME: Raise NotFoundError (Spine exception)
-                operation_type = None
+#            operator = transaction.get_client()
+#            class_name = self.spine_class.__name__
+#            operation_name = '%s.%s' % (class_name, method.name)
+#            try:
+#                operation_type = AuthOperationType(name=operation_name)
+#            except Exception, e:
+#                # If we get here, then there is no operation type defined for the given 
+#                # set of operations. In that case, we raise and exception telling that
+#                # the type is missing, and aborting the call.
+#                # FIXME: Raise NotFoundError (Spine exception)
+#                operation_type = None
 
 
             # FIXME: bruk isinstance eller issubclass

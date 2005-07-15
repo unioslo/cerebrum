@@ -51,7 +51,7 @@ class AccountAuthentication(DatabaseClass):
 registry.register_class(AccountAuthentication)
 
 def get_authentications(self):
-    s = registry.AccountAuthenticationSearcher(self)
+    s = registry.AccountAuthenticationSearcher(self.get_database())
     s.set_account(self)
 
     return s.search()

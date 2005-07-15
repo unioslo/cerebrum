@@ -116,12 +116,13 @@ class Searchable(object):
 
     def build_search_class(cls):
         from SearchClass import SearchClass
-        from DatabaseClass import DatabaseClass, DatabaseAttr
+        from DatabaseClass import DatabaseTransactionClass, DatabaseClass, DatabaseAttr
 
         search_class_name = '%sSearcher' % cls.__name__
         if not hasattr(cls, 'search_class') or search_class_name != cls.search_class.__name__:
         
-            exec 'class %s(SearchClass):\n\tpass\ncls.search_class = %s\n' % ( 
+            # FIXME: mixin of DatabaseTransactionClass is a hack
+            exec 'class %s(DatabaseTransactionClass, SearchClass):\n\tpass\ncls.search_class = %s\n' % ( 
                 search_class_name, search_class_name)
 
         search_class = cls.search_class

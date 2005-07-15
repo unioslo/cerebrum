@@ -51,7 +51,7 @@ class EntityExternalId(DatabaseClass):
 registry.register_class(EntityExternalId)
 
 def get_external_ids(self):
-    s = registry.EntityExternalIdSearcher()
+    s = registry.EntityExternalIdSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
 

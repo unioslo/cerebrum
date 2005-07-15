@@ -26,7 +26,8 @@ from Cerebrum.extlib import sets
 from Builder import Attribute
 from Searchable import Searchable
 from Dumpable import Dumpable
-from SpineClass import SpineClass
+from Builder import Builder
+from Caching import Caching
 from SpineExceptions import DatabaseError, NotFoundError
 
 __all__ = [
@@ -43,19 +44,23 @@ class ConvertableAttribute(object):
     """
     
     def convert_to(self, value):
-        if isinstance(value, SpineClass):
+        if isinstance(value, Caching):
             key = value.get_primary_key()
             assert len(key) == 1
             return key[0]
         else:
             return value
 
-    def convert_from(self, value):
+    def convert_from(self, db, value):
         if value is None:
             return None
         # Depends on the db-driver, should be done in a cleaner way.
         if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
             value = int(value)
+        # Inject db-object if data_type is a DatabaseTransactionClass
+        if issubclass(self.data_type, DatabaseTransactionClass):
+            return self.data_type(db, value)
+
         return self.data_type(value)
 
 class DatabaseAttr(Attribute, ConvertableAttribute):
@@ -105,7 +110,23 @@ def get_real_name(map, attr, table=None):
     else:
         return attr.name
 
-class DatabaseClass(SpineClass, Searchable, Dumpable):
+class DatabaseTransactionClass(Builder, Caching):
+    def __init__(self, db, *args, **vargs):
+        self._database = db
+        return super(DatabaseTransactionClass, self).__init__(*args, **vargs)
+
+    def get_database(self):
+        return self._database
+
+    def create_primary_key(self, db, *args, **vargs):
+        return (db, ) + super(DatabaseTransactionClass, self).create_primary_key(*args, **vargs)
+    create_primary_key = classmethod(create_primary_key)
+
+    def get_primary_key(self):
+        key = super(DatabaseTransactionClass, self).get_primary_key()
+        return key[1:]
+
+class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
     """Mixin class which adds support for the database.
 
     This class adds support for working directly against the database,
@@ -194,7 +215,7 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
 
         for i in attributes:
             value = row[i.name]
-            value = i.convert_from(value)
+            value = i.convert_from(self.get_database(), value)
             setattr(self, i.get_name_private(), value)
 
     def _save_all_db(self):
@@ -418,8 +439,9 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 return sql, values
 
             # Build objects from the query result, and return them in a list.
+            db = self.get_database()
             try:
-                rows = self.get_database().query(sql, values)
+                rows = db.query(sql, values)
             except Cerebrum.Errors.DatabaseConnectionError, e:
                 raise DatabaseError('Connection to the database failed', str(e), sql)
             except Cerebrum.Errors.DatabaseException, e:
@@ -432,8 +454,8 @@ class DatabaseClass(SpineClass, Searchable, Dumpable):
                 tmp = {}
                 for attr in attrs:
                     value = row[attr.name]
-                    tmp[attr.name] = attr.convert_from(value)
-                objects.append(cls(**tmp))
+                    tmp[attr.name] = attr.convert_from(db, value)
+                objects.append(cls(db, **tmp))
 
             return objects
         return search

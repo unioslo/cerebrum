@@ -58,25 +58,21 @@ class Group(Entity):
     cerebrum_attr_aliases = {'name':'group_name'}
     cerebrum_class = Factory.get('Group')
 
-    entity_type = EntityType(name='group')
+    entity_type = 'group'
 
 registry.register_class(Group)
 
 def create(self, name):
     db = self.get_database()
-    new_id = Group._create(db, db.change_by, GroupVisibilityType(name='A').get_id(), name)
-
-    transaction = self.get_writelock_holder()
-    group = Group(new_id, write_locker=transaction)
-    transaction.add_ref(group)
-
-    return group
+    new_id = Group._create(db, db.change_by, GroupVisibilityType(db, name='A').get_id(), name)
+    return Group(db, new_id)
 
 Commands.register_method(Method('create_group', Group, args=[('name', str)], write=True), create)
 
 def get_group_by_name(name):
-    s = registry.EntityNameSearcher()
-    s.set_value_domain(registry.ValueDomain(name='group_names'))
+    db = self.get_database()
+    s = registry.EntityNameSearcher(db)
+    s.set_value_domain(registry.ValueDomain(db, name='group_names'))
     s.set_name(name)
 
     group, = s.search()

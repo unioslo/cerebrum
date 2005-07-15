@@ -63,7 +63,6 @@ class PersonAffiliation(DatabaseClass):
 
     def set_status(self, status):
         person = self.get_person()
-        person.lock_for_writing(self.get_writelock_holder())
         obj = person._get_cerebrum_obj()
         obj.add_affiliation(self.get_ou().get_id(), self.get_affiliation().get_id(), self.get_source_system().get_id(), status.get_id())
         obj.write_db()
@@ -91,12 +90,12 @@ def add_affiliation(self, ou, affiliation_status, source_system):
     person.find(self.get_id())
     person.add_affiliation(ou.get_id(), affiliation_status.get_affiliation().get_id(), source_system.get_id(), affiliation_status.get_id())
     person.write_db()
-    return PersonAffiliation(self, ou, affiliation_status.get_affiliation(), source_system, write_locker=self.get_writelock_holder())
+    return PersonAffiliation(db, self, ou, affiliation_status.get_affiliation(), source_system)
 
 Person.register_method(Method('add_affiliation', PersonAffiliation, args=[('ou', OU), ('affiliation_status', PersonAffiliationStatusType), ('source_system', SourceSystem)], write=True), add_affiliation)
 
 def get_affiliations(self):
-    s = registry.PersonAffiliationSearcher()
+    s = registry.PersonAffiliationSearcher(self.get_database())
     s.set_person(self)
     return s.search()
 

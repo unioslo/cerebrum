@@ -18,8 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Attribute, Method
-from SpineLib.SpineClass import SpineClass
+from SpineLib.Builder import Builder, Attribute, Method
+from SpineLib.DatabaseClass import DatabaseTransactionClass
 from SpineLib.DumpClass import Struct
 
 from SpineLib import Registry
@@ -27,7 +27,7 @@ registry = Registry.get_registry()
 
 from Types import Spread
 
-class AccountView(SpineClass):
+class AccountView(Builder):
     slots = [
         Attribute('entity_id', int),
         Attribute('entity_name', str),
@@ -45,9 +45,6 @@ class AccountView(SpineClass):
         Attribute('fullname', str)
     ]
     method_slots = []
-
-    def __new__(self, *args, **vargs):
-        return SpineClass.__new__(self, cache=None, *args, **vargs)
 
 registry.register_class(AccountView)
 
@@ -80,7 +77,7 @@ FROM entity_info ei
 
 '''
 
-class AccountViewSearcher(SpineClass):
+class AccountViewSearcher(DatabaseTransactionClass):
     primary = [
         Attribute('spread', Spread, write=True)
     ]
@@ -89,9 +86,6 @@ class AccountViewSearcher(SpineClass):
     method_slots = [
         Method('search', [Struct(AccountView)], write=True)
     ]
-
-    def __new__(self, *args, **vargs):
-        return SpineClass.__new__(self, cache=None, *args, **vargs)
 
     def search(self):
         db = self.get_database()

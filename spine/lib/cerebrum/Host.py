@@ -47,14 +47,14 @@ class Host(Entity):
     }
 
     cerebrum_class = Factory.get('Host')
-    entity_type = EntityType(name='host')
+    entity_type = 'host'
 
 registry.register_class(Host)
 
 def create(self, name, description):
     db = self.get_database()
     new_id = Host._create(db, name, description)
-    return Host(new_id, write_locker=self.get_writelock_holder())
+    return Host(db, new_id)
     
 args = [('name', str), ('description', str)]
 Commands.register_method(Method('create_host', Host, args=args, write=True), create)

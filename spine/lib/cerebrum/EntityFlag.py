@@ -45,7 +45,7 @@ class EntityFlag(DatabaseClass):
 registry.register_class(EntityFlag)
 
 def get_flags(self):
-    s = registry.EntityFlagSearcher(self)
+    s = registry.EntityFlagSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
 
