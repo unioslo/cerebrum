@@ -19,20 +19,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Spine
-import SpineIDL.Errors as SpineErrors
-import config
 import unittest
 import sys
 from sets import Set
 import popen2
-import errors
+
 try:
     from os import wait
 except ImportError:
     # on win32 :/
     def wait():
         return 0
+
+import Spine
+import SpineIDL.Errors as SpineErrors
+import SpineCore
+
+import config
+import errors
+
 
 def fixOmniORB():
     """Workaround for bugs in omniorb
@@ -137,19 +142,20 @@ class Sync:
                   if filter(my._is_equivalent, open_transactions)]
         return self._transactions              
 
-    def _connect(self):    
+    def _connect(self, user=None, password=None):    
         """Connect and login to Spine"""
         try:
             self.spine = Spine.connect()
         except SpineErrors.ServerError:
             raise errors.ServerError, "Could not connect to Spine"    
-        user = config.sync.get("spine", "login")
-        password = config.sync.get("spine", "password")
+        if user is None:    
+            user = config.sync.get("spine", "login")
+        if password is None:    
+            password = config.sync.get("spine", "password")
 
         try:
             self._handler = self.spine.login(user, password)
-        #except SpineErrors.LoginError, e:
-        except Exception, e:
+        except SpineCore.Spine.LoginError, e:
             raise errors.LoginError, "Spine user %s" % user
    
     def _transaction(self):
@@ -190,20 +196,20 @@ class Sync:
     def get_accounts(self):
         """Get all accounts from Spine. Returns a list of Account objects."""
         t = self._connection
-        spread = "NIS_user@ifi"
-        spread = t.get_spread(spread)
 
         # create a search
         account_search = t.get_account_searcher()
+        intersections = []
 
-        entity_spread_search = t.get_entity_spread_searcher()
-        entity_spread_search.set_spread(spread)
-        entity_spread_search.mark_entity()
-        intersections = [entity_spread_search]
-
+        #spread = "NIS_user@ifi"
+        #spread = t.get_spread(spread)
+        #entity_spread_search = t.get_entity_spread_searcher()
+        #entity_spread_search.set_spread(spread)
+        #entity_spread_search.mark_entity()
+        #intersections.append(entity_spread_search)
+       
         if self._changes:
             intersections.append(self._changes)
-
         account_search.set_intersections(intersections)
 
         # create a dumper and mark what we want to dump
@@ -465,8 +471,21 @@ class TestConnect(unittest.TestCase):
     def testReConnect(self):
         sync = Sync()
         sync._connect()
+
+    def testLoginSpecified(self):
+        sync = Sync()
+        user = config.sync.get("spine", "login")
+        password = config.sync.get("spine", "password")
+        sync._connect(user=user, password=password)
+
+    def testLoginFails(self):
+        sync = Sync()
+        self.assertRaises(errors.LoginError, sync._connect, password="fail")
+        self.assertRaises(errors.LoginError, sync._connect, user="fail")
+        self.assertRaises(errors.LoginError, sync._connect,
+                          user="fail", password="fail")
     
-class TestAPHandler(unittest.TestCase):
+class TestTransactionCreation(unittest.TestCase):
     def setUp(self):
         self.sync = Sync()    
 
@@ -518,12 +537,12 @@ class TestSync(unittest.TestCase):
         t = self.s._transaction()
         self.s._rollback()
         # If the t is rolled back, we shouldn't be able to roll back
-        # again
-        self.assertRaises(SpineErrors.TransactionError, t.rollback)
+        # again (OBJECT_NOT_EXIST_NoMatch)
+        self.assertRaises(Exception, t.rollback)
     
     def testGetAccounts(self):
         accounts = self.s.get_accounts()
-        assert accounts
+        self.assert_(accounts)
         # We can assume that bootstrap_account exists for now 
         has_bootstrap = [a for a in accounts if a.name == 'bootstrap_account']
         assert has_bootstrap
@@ -537,16 +556,16 @@ class TestSync(unittest.TestCase):
 
         # Test for a known POSIX account
         # FIXME: Should have a predefined (or inserted)
-        # Posix account instead of relying on stain being present
-        stains = [a for a in accounts if a.name == "stain"]
-        assert stains
-        stain = stains[0]
-        assert stain.posix_uid > 0
+        posix_users = [a for a in accounts 
+                              if a.name != "bootstrap_account"]
+        assert posix_users
+        posix_user = posix_users[0]
+        assert posix_user.posix_uid > 0
         # Should not be group name, group object, etc.. just gid 
-        assert type(stain.primary_group.posix_gid) == int
-        assert stain.primary_group.posix_gid > 0
+        assert type(posix_user.primary_group.posix_gid) == int
+        assert posix_user.primary_group.posix_gid > 0
         # HEHEHE 
-        self.assertEqual(stain.shell, "/local/gnu/bin/bash")
+        self.assertEqual(posix_user.shell, "/local/gnu/bin/bash")
 
     def testGetGroups(self):
         groups = self.s.get_groups()
@@ -556,33 +575,22 @@ class TestSync(unittest.TestCase):
         assert has_bootstrap
         bootstrap = has_bootstrap[0]
         assert "bootstrap_account" in bootstrap.membernames
-        # Not a POSIX group
-        assert not bootstrap.posix_gid
-        # Only member should be bootstrap_account 
-        members = bootstrap.get_members 
-        self.assertEqual(len(members), 1)
-        self.assertEqual(members[0].name, "bootstrap_account")
-        # FIXME: Should test a posix group 
    
     def testGetPersons(self):
+        # Assumes populate.py or some other import has been run
         persons = self.s._get_persons()
         assert persons
-        soilands = [p for p in persons if p.full_name=="Stian Soiland"]
-        assert soilands   # There's no other default person we can rely on..
-        soiland = soilands[0]
-        self.assertEqual(soiland.type, "person")
+        person = persons[0]
+        self.assertEqual(person.type, "person")
         # Can we trust the export ID to be on this format?
-        self.assertEqual(soiland.name, "exp-%s" % soiland.id)
-        # FIXME: Could contain more names
-        self.assertEqual(soiland.names, { 'FULL': "Stian Soiland" })
-        # FIXME: Should be 1979-02-15   =) 
-        self.assertEqual(soiland.birth_date, "1971-02-01")
-        # FIXME: Should be "M"  =)
-        self.assertEqual(soiland.gender, "M")
+        self.assertEqual(person.name, "exp-%s" % person.id)
+        self.assertEqual(Set(person.names), 
+                         Set(("FULL", "FIRST", "LAST"))) 
+        self.assert_(person.birth_date)
+        self.assert_(person.gender in "MF")
         # at least for now.. 
-        self.assertEqual(soiland.deceased, False)
-        # FIXME: Should be "stain" and "soiland" in soiland.users
-        self.assertEqual(soiland.users, ["cxx"])
+        self.assertEqual(person.deceased, False)
+        self.assertEqual(len(person.users), 1)
 
 if __name__ == "__main__":
     unittest.main()
