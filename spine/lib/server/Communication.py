@@ -26,7 +26,6 @@ import cereconf
 class Communication(object):
     def __init__(self):
         if cereconf.SPINE_USE_SSL:
-            from omniORB import sslTP
             self._init_ssl()
         else:
             self._init_plain()
@@ -34,6 +33,7 @@ class Communication(object):
         self.rootPOA = self.orb.resolve_initial_references("RootPOA")
 
     def _init_ssl(self):
+        from omniORB import sslTP
         sslTP.certificate_authority_file(cereconf.SSL_CA_FILE)
         sslTP.key_file(cereconf.SSL_KEY_FILE)
         sslTP.key_file_password(cereconf.SSL_KEY_FILE_PASSWORD)
