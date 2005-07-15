@@ -59,7 +59,7 @@ def get_name_first(g):
 def get_name_last():
     return name_2[random.randrange(len(name_2))].capitalize()
 
-t=Spine.connect().login("admin", "password").new_transaction()
+t=Spine.connect().login("bootstrap_account", "blapp").new_transaction()
 comm=t.get_commands()
 accountnamevaluedomain=t.get_value_domain("account_names")
 sourcesystem=t.get_source_system('Manual') #it's not
@@ -67,7 +67,7 @@ lastnametype=t.get_name_type("LAST")
 firstnametype=t.get_name_type("FIRST")
 fullnametype=t.get_name_type("FULL")
 bashshell=t.get_posix_shell("bash")
-usersgroup=comm.get_group_by_name("users")
+usersgroup=comm.get_group_by_name("bootstrap_group")
 unionoperation=t.get_group_member_operation_type("union")
 
 def create_random():
@@ -84,7 +84,8 @@ def create_random():
    #a.promote_ad(loginscript, homedir)
    a.add_spread(t.get_spread("NIS_user@uio"))
    a.add_spread(t.get_spread("AD_account"))
-   g=comm.create_group(names[0])
+   # Prefix group names with "g"
+   g=comm.create_group("g" + names[0])
    g.promote_posix()
    #g.promote_ad()
    g.add_member(a, unionoperation)
