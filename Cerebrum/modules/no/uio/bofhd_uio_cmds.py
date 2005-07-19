@@ -2782,6 +2782,8 @@ class BofhdExtension(object):
                 pg.delete()
             except CerebrumError:
                 pass   # Not a PosixGroup
+        self._remove_auth_target("group", grp.entity_id)
+        self._remove_auth_role(grp.entity_id)
         grp.delete()
         return "OK, deleted group '%s'" % groupname
 
@@ -3253,6 +3255,7 @@ class BofhdExtension(object):
             account.set_homedir(
                 current_id=ah['homedir_id'], disk_id=None,
                 home='%s/%s' % (row['path'], account.account_name))
+        self._remove_auth_target("disk", disk.disk_id)
         try:
             disk.delete()
         except self.db.DatabaseError, m:
@@ -3278,11 +3281,46 @@ class BofhdExtension(object):
     def misc_hrem(self, operator, hostname):
         self.ba.can_remove_host(operator.get_entity_id())
         host = self._get_host(hostname)
+        self._remove_auth_target("host", host.host_id)
         try:
             host.delete()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK, %s deleted" % hostname
+
+    def _remove_auth_target(self, target_type, target_id):
+        """This function should be used whenever a potential target
+        for authorisation is deleted.
+        """
+        ar = BofhdAuthRole(self.db)
+        aot = BofhdAuthOpTarget(self.db)
+        for r in aot.list(entity_id=target_id, target_type=target_type):
+            aot.clear()
+            aot.find(r['op_target_id'])
+            # We remove all auth_role entries first so that there
+            # are no references to this op_target_id, just in case
+            # someone adds a foreign key constraint later.
+            for role in ar.list(op_target_id = r["op_target_id"]):
+                ar.revoke_auth(role['entity_id'], role['op_set_id'],
+                               r['op_target_id'])
+            aot.delete()
+
+    def _remove_auth_role(self, entity_id):
+        """This function should be used whenever a potentially
+        authorised entity is deleted.
+        """
+        ar = BofhdAuthRole(self.db)
+        aot = BofhdAuthOpTarget(self.db)
+        for r in ar.list(entity_id):
+            ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
+            # Also remove targets if this was the last reference from
+            # auth_role.
+            remaining = ar.list(op_target_id=r['op_target_id'])
+            if len(remaining) == 0:
+                aot.clear()
+                aot.find(r['op_target_id'])
+                aot.delete()
+
 
     # misc list_passwords
     def misc_list_passwords_prompt_func(self, session, *args):
