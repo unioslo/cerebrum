@@ -345,7 +345,7 @@ class mark_update(auto_super):
       given as first arg.
 
     ``__slots__``:
-      Iff a class has an explicit definition of ``__slots__``, this
+      If a class has an explicit definition of ``__slots__``, this
       metaclass will add names from ``__write_attr__`` and
       ``__read_attr__`` to the class's slots.  Classes without any
       explicit ``__slots__`` are not affected by this.
