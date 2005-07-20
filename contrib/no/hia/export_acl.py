@@ -54,22 +54,24 @@ def _cache_id_types():
 
     for cerebrum_constant, xml_name in (
         (const.EntityExternalId("NO_BIRTHNO"), "FNR"),
-        (const.EntityExternalId("HiA_SAP_EMP#"), "HIA-SAP"),
+        (const.EntityExternalId("HiA_SAP_EMP#"), "EMPLNO"),
         (const.EntityExternalId("NO_STUDNO"), "STUDNO"),
         (const.PersonName("FIRST"), "given name"),
         (const.PersonName("LAST"), "family name")):
         _id_type_cache[int(cerebrum_constant)] = xml_name
     # od
 
-    for kind, grouptype, reltype in (
-        ("affiliation", "affgroup", "affrelation"),
-        ("kull", "kullgroup", "kullrelation"),
-        ("ue", "uegroup", "uerelation")):
-        _id_type_cache[kind] = { "groupidtype" : grouptype,
-                                 "relationtype" : reltype }
+    # These will be populated later
+    _id_type_cache["kull"] = dict()
+    _id_type_cache["affiliation"] = dict()
+    _id_type_cache["ue"] = dict()
+
+    for id, xml_name in (("work", "work title"),
+                         ("uname", "primary account"),
+                         ("email", "primary e-mail address")):
+        _id_type_cache[id] = xml_name
     # od
 # end _cache
-
 
 def get_person_id_type(cerebrum_constant):
     if int(cerebrum_constant) not in _id_type_cache:
@@ -77,17 +79,55 @@ def get_person_id_type(cerebrum_constant):
     return _id_type_cache.get(int(cerebrum_constant), "")
 # end _get_person_id_type
 
+def get_name_type(name_type):
+    """Maps a name type (partnametype) to a type in XML"""
+    return _id_type_cache[name_type]
+# end get_name_type
+
+def get_kull_relation_type(sko):
+    """Return an XML relationtype, suitable for KULL representation."""
+
+    return _id_type_cache["kull"][sko]
+# end get_kull_relation_type
+
+def register_kull_relation_type(sko):
+    """Register a kull relation for a given sko."""
+
+    _id_type_cache["kull"][sko] = "kull " + sko
+# end register_kull_relation_type
+
+def get_affiliation_relation_type(ou_id):
+    """Return an XML relationtype, suitable for affiliation representation."""
+
+    return _id_type_cache["affiliation"][ou_id]
+# end get_affiliation_relation_type
+
+def register_affiliation_relation_type(ou_id, sko):
+    """Register an affiliation relation for a given OU."""
+
+    _id_type_cache["affiliation"][ou_id] = "affiliation " + sko
+# end register_affiliation_relation_type
+
+def get_ue_relation_type(sko):
+    """Return an XML relationtype, suitable for UE representation."""
+
+    return _id_type_cache["ue"][sko]
+# end get_ue_relation_type
+
+def register_ue_relation_type(sko):
+    """Register an affiliation relation for a given OU."""
+
+    _id_type_cache["ue"][sko] = "undervisningsenhet " + sko
+# end register_ue_relation_type
 
 def get_group_id_type(kind):
     """Maps a group id kind to a type in XML"""
-    return _id_type_cache[kind]["groupidtype"]
+    return { "affiliation" : "affgroup",
+             "kull"        : "kullgroup",
+             "ue"          : "uegroup" }[kind]
 # end get_group_id_type
 
 
-def get_relation_type(kind):
-    """Maps a relation kind to a type in XML"""
-    return _id_type_cache[kind]["relationtype"]
-# end get_relation_type
 
 
 
@@ -124,6 +164,11 @@ def make_id(*rest):
 # end make_id
 
 
+def make_sko(institusjon, fakultet, institutt, avdeling):
+    return "-".join([str(x) for x in (institusjon, fakultet,
+                                      institutt, avdeling)])
+# end make_sko
+
 
 def output_elem(writer, elem, elemdata, attributes = {}):
     if elemdata or attributes:
@@ -134,7 +179,10 @@ def output_elem(writer, elem, elemdata, attributes = {}):
 
 
 def output_properties(writer):
-    """Write a (semi)fixed header for our XML document."""
+    """Write a (semi)fixed header for our XML document.
+
+    All types, that we use later in the XML file, must be declared here.
+    """
 
     writer.startElement("properties")
 
@@ -155,11 +203,12 @@ def output_properties(writer):
         output_elem(writer, "groupidtype", get_group_id_type(c))
     # od
 
-    for c in ("affiliation", "kull", "ue"):
-        output_elem(writer, "relationtype", get_relation_type(c),
-                    { "subject" : "Group",
-                      "object"  : "Person" })
+    for c in ("work", "uname", "email"):
+        output_elem(writer, "partnametype", get_name_type(c))
     # od
+
+    output_OU_types(writer)
+
     writer.endElement("types")
 
     writer.endElement("properties")
@@ -167,9 +216,150 @@ def output_properties(writer):
 
 
 
+#
+# These attribute sets are used several times throughout the script. 
+_kull_db_attributes = ("institusjonsnr_studieansv",
+                       "faknr_studieansv",
+                       "instituttnr_studieansv",
+                       "gruppenr_studieansv")
+_ue_db_attributes = ("institusjonsnr",
+                     "faknr_kontroll",
+                     "instituttnr_kontroll",
+                     "gruppenr_kontroll")
+
+def output_OU_types(writer):
+    """Output all OUs used in various relations.
+
+    This is actually a hack -- as the XML schema does not allow N-ary
+    relations, we need to find a workaround for this. We need to represent
+    three-way relations in this export and can thus 'bake' one of the parts
+    of a relation into the relationtype XML attribute. This approach will
+    *obviously* fail in the general case, as:
+
+    * A general N-ary relation cannot be represented
+    * Even a ternary relation will be ugly, if all three participating parts
+      are quite numerous.
+
+    However, right here it will work. In all cases below, we use OU id for
+    the relationtype.
+    """
+
+    logger.info("Outputting OU types")
+
+    db = Factory.get("Database")()
+    OU = Factory.get("OU")(db)
+    person = Factory.get("Person")(db)
+    fs = FS(Database.connect(user="cerebrum", service="FSHIA.uio.no",
+                          DB_driver="DCOracle2"))
+
+    logger.info("Building OU -> sko cache")
+    #
+    # Build ou_id -> sko cache
+    #
+    ouid2sko = dict()
+    for item in OU.list_all():
+        id = int(item["ou_id"])
+        if id in ouid2sko:
+            continue
+        # fi
+
+        try:
+            OU.clear()
+            OU.find(id)
+        except Errors.NotFoundError:
+            logger.warn("OU id %s suddently disappeared", id)
+            continue
+        # yrt
+
+        ouid2sko[id] = tuple([str(x) for x in
+                              (OU.institusjon, OU.fakultet, OU.institutt,
+                               OU.avdeling)])
+    # od
+
+    #
+    # Step 1 -- affiliations.
+    logger.info("Processing all affiliations")
+    ou_cache = dict()
+    for row in person.list_affiliations(fetchall = False):
+        id = int(row["ou_id"])
+        if id not in ouid2sko:
+            continue
+        if id in ou_cache:
+            continue
+
+        register_affiliation_relation_type(id, make_sko(*ouid2sko[id]))
+        output_elem(writer, "relationtype",
+                    get_affiliation_relation_type(id), 
+                    { "object" : "Person", "subject" : "Group" })
+        ou_cache[id] = 1
+    # od
+
+    #
+    # Step 2 -- kull.
+    logger.info("Processing all kull")
+    _OU_helper(fs.info.list_kull, _kull_db_attributes,
+               register_kull_relation_type, get_kull_relation_type,
+               writer)
+
+    #
+    # Step 3 -- UE
+    logger.info("Processing all UE")
+    _OU_helper(fs.undervisning.list_undervisningenheter, _ue_db_attributes,
+               register_ue_relation_type, get_ue_relation_type,
+               writer)
+# end output_OU_types
+
+
+
+def _OU_helper(getter, attribute_list, register, lookup, writer):
+    """Internal function to help output_OU_types.
+
+    getter -- function to fetch the data from the database
+    attribute_list -- which attributes to select from db_rows
+    register -- how to register new IDs
+    lookup   -- how to look them up
+    writer   -- XML helper instance.
+    """
+
+    cache = dict()
+    for row in getter():
+        id = make_sko(*[row[x] for x in attribute_list])
+        if id in cache:
+            continue
+        # fi
+
+        register(id)
+        output_elem(writer, "relationtype", lookup(id),
+                    { "object" : "Person", "subject" : "Group" })
+        cache[id] = 1
+    # od
+# end _OU_helper
+
+
+
+def get_primary_account(person, account):
+    acc_id = person.get_primary_account()
+    try:
+        account.clear()
+        account.find(acc_id)
+        return account.account_name
+    except Errors.NotFoundError:
+        logger.warn("No account for person with internal id %s",
+                    person.entity_id)
+    # yrt
+
+    return None
+# end get_primary_account
+
+
+
 def output_people(writer):
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
+    account = Factory.get("Account")(db)
+
+    logger.info("Caching email/account information")
+    uname2mail = account.getdict_uname2mailaddr()
 
     logger.info("Generating <person>-elements")
     # cache for mapping person_id's to external IDs
@@ -190,8 +380,7 @@ def output_people(writer):
         # (s)he has a name.
         name_collection = list()
         for xmlid, cereid in (("given", const.PersonName("FIRST")),
-                              ("family", const.PersonName("LAST")),
-                              ("other", const.PersonName("WORKTITLE"))):
+                              ("family", const.PersonName("LAST"))):
             name = person_get_item(person.get_name, cereid)
             if name:
                 name_collection.append((xmlid, name))
@@ -203,7 +392,7 @@ def output_people(writer):
             # Don't make it a warn() -- there are too damn many
             logger.debug("Person id %s has no names and will be ignored", id)
             continue
-        # fi    
+        # fi
 
         writer.startElement("person")
 
@@ -232,6 +421,20 @@ def output_people(writer):
         for xmlid, value in name_collection:
             output_elem(writer, xmlid, value)
         # od    
+
+        # 
+        # Work title, user name and e-mail...
+        primary_uname = get_primary_account(person, account)
+        for value, name_type in ((person_get_item(person.get_name,
+                                                  const.PersonName("WORKTITLE")),
+                                  "work"),
+                                 (primary_uname, "uname"),
+                                 (uname2mail.get(primary_uname), "email")):
+            if value:
+                output_elem(writer, "partname", value,
+                            { "partnametype" : get_name_type(name_type) })
+        # od
+
         writer.endElement("n")
         writer.endElement("name")
                         
@@ -259,23 +462,28 @@ def prepare_affiliations(writer):
 
     logger.info("Generating <group>-elements for affiliations")
     affiliation_cache = dict()
+    affgroup_cache = dict()
     
     for row in person.list_affiliations(fetchall = False):
-        internal_id = int(row["affiliation"]), int(row["status"])
+        internal_id = (int(row["affiliation"]),
+                       int(row["status"]),
+                       int(row["ou_id"]))
         if internal_id in affiliation_cache:
             continue
         # fi
+        affiliation_cache[internal_id] = 1
 
-        # NB! The code is based on status uniqueness (it is indeed the case,
-        # but it is not (yet) enforced in the DB schema (patch pending from
-        # NTNU)). 
+        group_id = int(row["affiliation"]), int(row["status"])
+        if group_id in affgroup_cache:
+            continue
+        # fi
+        affgroup_cache[group_id] = 1
+
         name_for_humans = ("Affiliation status %s" %
                            const.PersonAffStatus(row["status"]))
-        affiliation_cache[internal_id] = const.PersonAffStatus(row["status"])
-
         writer.startElement("group")
         output_elem(writer, "description", name_for_humans)
-        xml_id = make_id(*internal_id)
+        xml_id = make_id(*group_id)
         output_elem(writer, "groupid", xml_id,
                     {"groupidtype" : get_group_id_type("affiliation")})
         writer.endElement("group")
@@ -315,7 +523,8 @@ def prepare_kull(writer):
 
         xml_id = make_id(*internal_id)
         name_for_humans = "Studiekull %s" % row["studiekullnavn"]
-        kull_cache[internal_id] = name_for_humans
+        sko = make_sko(*[row[x] for x in _kull_db_attributes])
+        kull_cache[internal_id] = sko
 
         writer.startElement("group")
         output_elem(writer, "description", name_for_humans)
@@ -354,7 +563,8 @@ def prepare_ue(writer):
 
         xml_id = make_id(*id)
         name_for_humans = "Undervisningsenhet %s" % xml_id
-        ue_cache[id] = name_for_humans
+        sko = make_sko(*[row[x] for x in _ue_db_attributes])
+        ue_cache[id] = sko
 
         writer.startElement("group")
         output_elem(writer, "description", name_for_humans)
@@ -399,36 +609,23 @@ def fnr_to_external_id(fnr, person, person_info):
 
 
 
-def output_relations(writer, person_info, affiliation_info,
-                     kull_info, ue_info):
-    """Output all information about affiliations, kull and UE.
+def output_kull_relations(writer, person, person_info, kull_info, fs):
+    """Output all relations representing KULL."""
 
-    We have already listed all people and defined all the necessary
-    groups. Now we simply output the membership information represented as
-    <relation>s.
-    """
-    db = Factory.get("Database")()
-    person = Factory.get("Person")(db)
-    db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
-                          DB_driver="DCOracle2")
-    fs = FS(db)
-
-    #
-    # Output all kull-related information
-    #
     logger.debug("Writing all kull <relation>s")
-    for internal_id in kull_info:
-
+    
+    for internal_id, sko in kull_info.items():
+        # All students have the same OU within the same kull
         writer.startElement("relation", {"relationtype" :
-                                         get_relation_type("kull")})
+                                         get_kull_relation_type(sko)})
         writer.startElement("subject")
         xml_id = make_id(*internal_id)
         output_elem(writer, "groupid", xml_id,
                     {"groupidtype" : get_group_id_type("kull")})
         writer.endElement("subject")
 
-        studieprogram_kode, terminkode, arstall = internal_id
         writer.startElement("object")
+        studieprogram_kode, terminkode, arstall = internal_id
         for row in fs.undervisning.list_studenter_kull(studieprogram_kode,
                                                        terminkode,
                                                        arstall):
@@ -444,24 +641,32 @@ def output_relations(writer, person_info, affiliation_info,
         writer.endElement("object")
         writer.endElement("relation")
     # od
-    logger.debug("Done with all kull <relation>s")
 
-    #
-    # Output all affiliations...
-    #
-    logger.debug("Writing all affiliation <relation>s")
-    for internal_id, human_name in affiliation_info.items():
-        writer.startElement("relation", {"relationtype" :
-                                         get_relation_type("affiliation")})
+    logger.debug("Done with all kull <relation>s")
+# end output_kull_relations
+
+
+
+def output_affiliation_relations(writer, person, person_info,
+                                 affiliation_info):
+    """Output all relations representing affiliations."""
+
+    logger.debug("Writing all affiliation <relation>s")    
+
+    for (aff, status, ou_id), human_name in affiliation_info.items():
+        writer.startElement("relation",
+                            {"relationtype" :
+                             get_affiliation_relation_type(ou_id)})
         writer.startElement("subject")
-        xml_id = make_id(*internal_id)
+        xml_id = make_id(aff, status)
         output_elem(writer, "groupid", xml_id,
                     {"groupidtype" : get_group_id_type("affiliation")})
         writer.endElement("subject")
 
         writer.startElement("object")
-        for row in person.list_affiliations(affiliation = internal_id[0],
-                                            status = internal_id[1]):
+        for row in person.list_affiliations(affiliation = aff,
+                                            status = status,
+                                            ou_id = ou_id):
             person_id = int(row["person_id"])
             if person_id not in person_info:
                 logger.warn("person_id %s has affiliation %s but not present "
@@ -473,18 +678,24 @@ def output_relations(writer, person_info, affiliation_info,
             output_elem(writer, "personid", person_external_id,
                         {"personidtype" : get_person_id_type(id_type)})
         # od
+
         writer.endElement("object")
         writer.endElement("relation")
     # od
-    logger.debug("Done with all affiliation <relation>s")
 
-    #
-    # Output all undervisningsenheter
-    #
+    logger.debug("Done with all affiliation <relation>s")
+# end output_affiliation_relations
+
+
+
+def output_ue_relations(writer, person, person_info, ue_info, fs):
+    """Output all relations representing UE."""
+
     logger.debug("Writing all UE <relation>s")
-    for internal_id, human_name in ue_info.items():
+
+    for internal_id, sko in ue_info.items():
         writer.startElement("relation", {"relationtype" :
-                                         get_relation_type("ue")})
+                                         get_ue_relation_type(sko)})
         writer.startElement("subject")
         xml_id = make_id(*internal_id)
         output_elem(writer, "groupid", xml_id,
@@ -518,6 +729,32 @@ def output_relations(writer, person_info, affiliation_info,
         writer.endElement("relation")
     # od
     logger.debug("Done with all UE <relation>s")
+
+
+# end output_ue_relations
+
+
+
+def output_relations(writer, person_info, affiliation_info,
+                     kull_info, ue_info):
+    """Output all information about affiliations, kull and UE.
+
+    We have already listed all people and defined all the necessary
+    groups. Now we simply output the membership information represented as
+    <relation>s.
+    """
+    db = Factory.get("Database")()
+    person = Factory.get("Person")(db)
+    db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
+                          DB_driver="DCOracle2")
+    fs = FS(db)
+
+    # output_kull_relations(writer, person, person_info, kull_info, fs)
+
+    output_affiliation_relations(writer, person, person_info,
+                                 affiliation_info)
+
+    output_ue_relations(writer, person, person_info, ue_info, fs)
 # end output_relations
 
 
@@ -530,6 +767,14 @@ def generate_report(writer):
     output_properties(writer)
     
     person_info = output_people(writer)
+    f = open("foobar.info", "w")
+    f.write("{")
+    for k, value in person_info.items():
+        f.write("%d : (%d, '%s'),\n" % (k, value[0], value[1]))
+    # od
+    f.write("}")
+
+    # person_info = eval(open("foobar.info", "r").read())
 
     affiliation_info = prepare_affiliations(writer)
 
