@@ -3255,7 +3255,7 @@ class BofhdExtension(object):
             account.set_homedir(
                 current_id=ah['homedir_id'], disk_id=None,
                 home='%s/%s' % (row['path'], account.account_name))
-        self._remove_auth_target("disk", disk.disk_id)
+        self._remove_auth_target("disk", disk.entity_id)
         try:
             disk.delete()
         except self.db.DatabaseError, m:
