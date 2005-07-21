@@ -27,3 +27,27 @@ import Spine
 username = Spine.conf.get('login', 'username')
 password = Spine.conf.get('login', 'password')
 spine = Spine.connect()
+
+class SpineObjectTest(unittest.TestCase):
+    """
+    Super class for all tests that involve a single object.
+
+    To use the test class, you must overload the createObject and deleteObject
+    methods, which will be called before and after each test, respectively.
+    """
+
+    def setUp(self):
+        self.session = spine.login(username, password)
+        self.tr = self.session.new_transaction()
+        self.createObject()
+
+    def tearDown(self):
+        self.deleteObject()
+        self.tr.commit()
+        self.session.logout()
+
+    def createObject(self):
+        raise RuntimeError('Subclass does not implement the createObject method.')
+
+    def deleteObject(self):
+        raise RuntimeError('Subclass does not implement the deleteObject method.')

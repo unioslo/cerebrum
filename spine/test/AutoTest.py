@@ -27,9 +27,16 @@ from TestBase import *
 __all__ = []
 
 untestable_classes = ['get_account_view_searcher']
-untestable_methods = [('get_ou_searcher', 'get_parent'), ('get_ou_searcher', 'get_children'), 
-        ('get_ou_searcher', 'get_entity_name'), ('get_person_searcher', 'get_entity_name'), 
-        ('get_group_searcher', 'get_entity_name'), ('get_account_searcher', 'get_entity_name')]
+untestable_methods = [
+    ('get_ou_searcher', 'get_parent'), 
+    ('get_ou_searcher', 'get_children'), 
+    ('get_ou_searcher', 'get_entity_name'),
+    ('get_person_searcher', 'get_entity_name'), 
+    ('get_person_searcher', 'get_email_domain'),
+    ('get_group_searcher', 'get_entity_name'),
+    ('get_account_searcher', 'get_entity_name'), 
+    ('get_email_domain_searcher', 'get_persons'), 
+]
 
 log = cStringIO.StringIO()
 

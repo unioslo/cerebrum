@@ -65,6 +65,7 @@ import Auth
 #import EntityFlag
 import Request
 import Stedkode
+import Email
 
 # Cereweb
 import Cereweb

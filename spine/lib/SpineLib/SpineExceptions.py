@@ -43,6 +43,15 @@ class ReadOnlyAttributeError(SpineException):
 class DatabaseError(SpineException):
     """Raised if an error occurs with the database."""
 
+class CreationError(DatabaseError):
+    """Raised if creation of an object fails."""
+
+class DeletionError(DatabaseError):
+    """Raised if deletion of an object fails."""
+
+class AlreadyExistsError(DatabaseError):
+    """Raised if a unique constraint is violated in the database."""
+
 class TransactionError(SpineException):
     """Raised if the error is related to a transaction."""
 

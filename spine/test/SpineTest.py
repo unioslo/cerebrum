@@ -25,10 +25,11 @@ import unittest
 from CommunicationTest import *
 from SessionTest import *
 from TransactionTest import *
-from LockingTest import *
+#from LockingTest import *
 from CreateDeleteTest import *
 from OUTest import *
 from PosixTest import *
+from EmailTest import *
 from AutoTest import *
 
 if __name__ == '__main__':

@@ -56,7 +56,6 @@ for name, table in [('AccountType', 'account_code'),
                     ('NameType', 'person_name_code'),
                     ('AuthenticationType', 'authentication_code'),
                     ('Spread', 'spread_code'),
-#                    ('Flag', 'flag_code'),
                     ('GroupMemberOperationType', 'group_membership_op_code'),
                     ('GroupVisibilityType', 'group_visibility_code'),
                     ('QuarantineType', 'quarantine_code'),
@@ -65,7 +64,14 @@ for name, table in [('AccountType', 'account_code'),
                     ('HomeStatus', 'home_status_code'),
                     ('PersonAffiliationType', 'person_affiliation_code'),
                     ('ValueDomain', 'value_domain_code'),
-                    ('LanguageType', 'language_code')]:
+                    ('LanguageType', 'language_code'),
+                    ('EmailTargetType', 'email_target_code'),
+                    ('EmailDomainCategory', 'email_domain_cat_code'),
+                    ('EmailSpamAction', 'email_spam_action_code'),
+                    ('EmailServerType', 'email_server_type_code'),
+                    ('EmailVirusFound', 'email_virus_found_code'),
+                    ('EmailVirusRemoved', 'email_virus_removed_code'),
+                   ]:
 
     exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)
 
@@ -87,6 +93,9 @@ for name, table in [('AccountType', 'account_code'),
 
     registry.register_class(cls)
     __all__.append(name)
+
+# Add entity type slot to Spread
+Spread.slots.append(DatabaseAttr('entity_type', 'spread_code', EntityType))
 
 table = 'entity_external_id_code'
 class EntityExternalIdType(CodeType):
@@ -131,6 +140,26 @@ class PersonAffiliationStatusType(CodeType):
 registry.register_class(PersonAffiliationStatusType)
 __all__.append(PersonAffiliationStatusType)
 
-Spread.slots.append(DatabaseAttr('entity_type', 'spread_code', EntityType))
+table = 'email_spam_level_code'
+class EmailSpamLevel(CodeType):
+    primary = [
+        DatabaseAttr('id', table, int),
+    ]
+    slots = [
+        DatabaseAttr('level', table, int),
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('description', table, str)
+    ]
+    method_slots = []
+    db_attr_aliases = {
+        table:{
+            'id':'code',
+            'name':'code_str',
+        }
+    }
+
+registry.register_class(EmailSpamLevel)
+__all__.append(EmailSpamLevel)
+
 
 # arch-tag: 965b1b0a-4526-4189-b507-2459e1ed646d
