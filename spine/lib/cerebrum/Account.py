@@ -21,6 +21,7 @@
 from Cerebrum.Utils import Factory
 from SpineLib.Builder import Method, Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
+from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 
 from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
@@ -128,8 +129,12 @@ def get_account_by_name(self, name):
     s.set_value_domain(registry.ValueDomain(db, name='account_names'))
     s.set_name(name)
 
-    account, = s.search()
-    return account.get_entity()
+    accounts = s.search()
+    if len(accounts) == 0:
+        raise NotFoundError('There are no accounts with the name %s' % name)
+    elif len(accounts) > 1:
+        raise TooManyMatchesError('There are several accounts with the name %s' % name)
+    return accounts[0].get_entity()
 
 Commands.register_method(Method('get_account_by_name', Account, args=[('name', str)]), get_account_by_name)
 
