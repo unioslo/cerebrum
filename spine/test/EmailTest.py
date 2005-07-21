@@ -235,3 +235,5 @@ class EmailDomainCategorizationTest(SpineObjectTest):
 
 if __name__ == '__main__':
     unittest.main()
+
+# arch-tag: be0a2548-f9ef-11d9-9269-e389b52d4108

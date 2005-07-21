@@ -601,3 +601,5 @@ def aff_set_email_domain(self, domain):
         obj.populate_email_domain(domain.get_id(), affiliation.get_id())
     obj.write_db()
 PersonAffiliation.register_method(Method('set_email_domain', None, args=[('domain', EmailDomain)], write=True), aff_set_email_domain)
+
+# arch-tag: bd478dc6-f9ef-11d9-905c-b1284ed93a3d
