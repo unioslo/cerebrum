@@ -4603,7 +4603,7 @@ class BofhdExtension(object):
 	if y < 1800:
 	    raise CerebrumError, "Too long ago: %s" % date
         try:
-            return self.db.Date(y, m, d)
+            return DateTime.Date(y, m, d)
         except:
             raise CerebrumError, "Illegal date: %s" % date
 
