@@ -71,7 +71,17 @@ class CreateDeleteTest(unittest.TestCase):
         tr.rollback()
 
     def testOU(self):
-        assert 0 # FIXME: someone implement it
+        assert 0 # FIXME: Implement delete() in Cerebrum for stedkode first
+        tr = self.session.new_transaction()
+        name = 'unittest%s' % id(tr)
+        c = tr.get_commands()
+        try:
+            ou = c.create_ou(name)
+        except TypeError:
+                ou = c.create_ou(name, 1, 1, 1, 1) # For the stedkode mixin
+        assert name == ou.get_name()
+        ou.delete()
+        self.assertRaises(CORBA.OBJECT_NOT_EXIST, ou.get_name)
 
     def __create_host(self, transaction):
         name = 'unittest%s' % id(self)
