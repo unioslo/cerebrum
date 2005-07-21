@@ -161,12 +161,6 @@ def create_set_method(attr):
             self.updated.add(attr)
     return set
 
-def create_readonly_set_method(attr):
-    """Returns a method which will raise an exception if called."""
-    def readonly_set(self, *args, **vargs):
-        raise ReadOnlyAttributeError('attribute %s is read only' % attr.name)
-    return readonly_set
-
 class Builder(object):
     """Core class for Spine for providing building functionality.
     
@@ -297,11 +291,8 @@ class Builder(object):
         if get is None:
             get = create_lazy_get_method(attribute)
 
-        if set is None:
-            if attribute.write:
+        if set is None and attribute.write:
                 set = create_set_method(attribute)
-            else:
-                set = create_readonly_set_method(attribute)
 
         def quick_register(var, method):
             if method is not None: # no use setting the method to None
@@ -312,7 +303,8 @@ class Builder(object):
         quick_register(var_load, load)
         quick_register(var_save, save)
         quick_register(var_get, get)
-        quick_register(var_set, set)
+        if attribute.write:
+            quick_register(var_set, set)
 
         if register:
             cls.slots.append(attribute)

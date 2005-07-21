@@ -156,6 +156,8 @@ def convert_from_corba(obj, data_type):
         return obj
     elif type(data_type) == list:
         return [convert_from_corba(i, data_type[0]) for i in obj]
+    elif obj is None:
+        return None
     elif data_type in class_cache:
         corba_class = class_cache[data_type]
         com = Communication.get_communication()
@@ -239,10 +241,10 @@ def _create_corba_method(method):
                     else:
                         # We do nothing. The object is marked for deletion
                         # but has not yet been committed, so it might yet be undeleted.
-                        # The transaction will get a AllreadyLockedError when it tries
+                        # The transaction will get an AlreadyLockedError when it tries
                         # to lock_for_reading/lock_for_writing later on.
                         pass
-                if isinstance(self.spine_object, DatabaseTransactionClass):
+                elif isinstance(self.spine_object, DatabaseTransactionClass):
                     raise Communication.CORBA.OBJECT_NOT_EXIST
 
             # Check for lost locks (raises an exception if a lost lock is found)
@@ -275,7 +277,6 @@ def _create_corba_method(method):
                 # FIXME: Raise NotFoundError (Spine exception)
 #                pass
 # (FIXME)
-
             # Lock the object if it should be locked
             if isinstance(self.spine_object, Locking):
                 if method.write:
@@ -558,9 +559,9 @@ def _create_idl_interface(cls, error_module="", docs=False):
 
             for attr in i.slots:
                 parent_slots_names.add(attr.get_name_get())
-                parent_slots_names.add(attr.get_name_set())
+                if attr.write:
+                    parent_slots_names.add(attr.get_name_set())
             for method in i.method_slots:
-                parent_slots_names.add(method.name)
                 parent_slots_names.add(method.name)
 
     txt += ' {\n'
@@ -578,7 +579,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
         if attr in parent_slots:
             continue
         checkName(attr.get_name_get())
-        checkName(attr.get_name_set())
+        if attr.write:
+            checkName(attr.get_name_set())
         if not hasattr(cls, attr.get_name_get()) or (attr.write and not hasattr(cls, 
                 attr.get_name_set())):
             msg = 'Class %s has no method %s, check declaration of %s.slots.'
