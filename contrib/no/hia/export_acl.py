@@ -158,10 +158,11 @@ def person_get_item(getter, item_variant):
 
 
 def make_id(*rest):
-    """Make an ID out of a sequence"""
+    """Make an ID out of a sequence."""
 
     return ":".join([str(x) for x in rest])
 # end make_id
+
 
 
 def make_sko(institusjon, fakultet, institutt, avdeling):
@@ -170,7 +171,13 @@ def make_sko(institusjon, fakultet, institutt, avdeling):
 # end make_sko
 
 
+
 def output_elem(writer, elem, elemdata, attributes = {}):
+    """Small helper function for XML writing.
+
+    if-test happens quite often.
+    """
+    
     if elemdata or attributes:
         writer.dataElement(elem, elemdata, attributes)
     # fi
@@ -232,13 +239,13 @@ def output_OU_types(writer):
 
     This is actually a hack -- as the XML schema does not allow N-ary
     relations, we need to find a workaround for this. We need to represent
-    three-way relations in this export and can thus 'bake' one of the parts
-    of a relation into the relationtype XML attribute. This approach will
-    *obviously* fail in the general case, as:
+    three/four-way relations in this export and can thus 'bake' one of the
+    parts of a relation into the relationtype XML attribute. This approach
+    will *obviously* fail in the general case, as:
 
     * A general N-ary relation cannot be represented
     * Even a ternary relation will be ugly, if all three participating parts
-      are quite numerous.
+      are quite numerous (we will have a lot of *type elements).
 
     However, right here it will work. In all cases below, we use OU id for
     the relationtype.
@@ -253,9 +260,6 @@ def output_OU_types(writer):
                           DB_driver="DCOracle2"))
 
     logger.info("Building OU -> sko cache")
-    #
-    # Build ou_id -> sko cache
-    #
     ouid2sko = dict()
     for item in OU.list_all():
         id = int(item["ou_id"])
@@ -318,7 +322,7 @@ def _OU_helper(getter, attribute_list, register, lookup, writer):
     attribute_list -- which attributes to select from db_rows
     register -- how to register new IDs
     lookup   -- how to look them up
-    writer   -- XML helper instance.
+    writer   -- XML writer instance.
     """
 
     cache = dict()
@@ -354,6 +358,12 @@ def get_primary_account(person, account):
 
 
 def output_people(writer):
+    """Output (some) XML elements describing people.
+
+    The relationships of those people (affiliations, kull, UE) will be dealt
+    with elsewhere.
+    """
+    
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
     account = Factory.get("Account")(db)
@@ -387,8 +397,7 @@ def output_people(writer):
             # fi
         # od    
 
-        if (not ("given" in [x[0] for x in name_collection]) and 
-            not ("family" in [x[0] for x in name_collection])):
+        if not name_collection:
             # Don't make it a warn() -- there are too damn many
             logger.debug("Person id %s has no names and will be ignored", id)
             continue
@@ -461,6 +470,12 @@ def prepare_affiliations(writer):
     person = Factory.get("Person")(db)
 
     logger.info("Generating <group>-elements for affiliations")
+
+    # This is a bit awkward -- an affiliation for a person has 4 components:
+    # person, OU, affiliation and status. So, given (OU, affiliation, status)
+    # we can look for a list of people with that particular affiliation.
+    # However, we generate <group> elements for affiliation/status tuples
+    # only, and thus we need two separate caches.
     affiliation_cache = dict()
     affgroup_cache = dict()
     
@@ -543,7 +558,7 @@ def prepare_kull(writer):
 def prepare_ue(writer):
     """Prepare all undervisningsenhet-related information.
 
-    The procedure is the same as for affiliations.
+    The procedure is the same as for affiliations/kull.
     """
 
     db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
@@ -615,7 +630,8 @@ def output_kull_relations(writer, person, person_info, kull_info, fs):
     logger.debug("Writing all kull <relation>s")
     
     for internal_id, sko in kull_info.items():
-        # All students have the same OU within the same kull
+        # All students have the same OU within the same kull. 'relationtype'
+        # attribute will contain this information.
         writer.startElement("relation", {"relationtype" :
                                          get_kull_relation_type(sko)})
         writer.startElement("subject")
@@ -719,6 +735,7 @@ def output_ue_relations(writer, person, person_info, ue_info, fs):
             fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
             id_type, peid = fnr_to_external_id(fnr, person, person_info)
             if id_type is None:
+                # FIXME: A warning here?
                 continue
             # fi
 
@@ -749,7 +766,7 @@ def output_relations(writer, person_info, affiliation_info,
                           DB_driver="DCOracle2")
     fs = FS(db)
 
-    # output_kull_relations(writer, person, person_info, kull_info, fs)
+    output_kull_relations(writer, person, person_info, kull_info, fs)
 
     output_affiliation_relations(writer, person, person_info,
                                  affiliation_info)
@@ -767,13 +784,15 @@ def generate_report(writer):
     output_properties(writer)
     
     person_info = output_people(writer)
-    f = open("foobar.info", "w")
-    f.write("{")
-    for k, value in person_info.items():
-        f.write("%d : (%d, '%s'),\n" % (k, value[0], value[1]))
-    # od
-    f.write("}")
 
+    # This is for testing purposes only -- generating the list of all people
+    # takes too long; it's much faster to eval a data structure from file.
+    # f = open("foobar.info", "w")
+    # f.write("{")
+    # for k, value in person_info.items():
+    #     f.write("%d : (%d, '%s'),\n" % (k, value[0], value[1]))
+    # # od
+    # f.write("}")
     # person_info = eval(open("foobar.info", "r").read())
 
     affiliation_info = prepare_affiliations(writer)
