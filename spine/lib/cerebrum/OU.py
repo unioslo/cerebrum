@@ -25,6 +25,7 @@ from SpineLib.Builder import Attribute, Method
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import DatabaseError
 from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
+from SpineLib.SpineExceptions import NotFoundError
 
 from SpineLib import Registry
 
@@ -88,6 +89,10 @@ def get_parent(self, perspective):
     Fetches the parent of the OU object from the given perspective. The
     perspective concept allows you to have multiple hierarchies of OUs,
     representing the organizational structure from different perspectives.
+
+    If this OU is a root of a perspective, None is returned.
+
+    If this OU is not in the perspective, NotFoundError is raised.
     
     \\param perspective The perspective from which the parent should be looked up.
     \\return The parent of this OU from the given perspective.
@@ -98,29 +103,36 @@ def get_parent(self, perspective):
     s.set_ou(self)
     s.set_perspective(perspective)
     results = s.search()
-    if len(s.search()) > 1:
-        raise DatabaseError('More than one parent for %s in perspective %s' % (self, perspective))
+    if not results:
+        raise NotFoundError("OU %s not in perspective %s" % (self, perspective))
+    # Note, this can be None for root OUs
     return s.search()[0].get_parent()
 
 OU.register_method(Method('get_parent', OU, args=[('perspective', OUPerspectiveType)],
-    exceptions=[DatabaseError]), get_parent)
+    exceptions=[NotFoundError]), get_parent)
 
 def get_children(self, perspective):
     """
     Fetches a list of the OUs which are childrens of this OU from the given
     perspective.
+
+    If this OU is not in the perspective, NotFoundError is raised.
     
     \\param perspective The perspective from which the children should be looked up.
     \\return A list of the children of this OU from the given perspective.
     \\see OUPerspectiveType
     \\see OUStructure
     """
+    # raise NotFoundError if this OU is not in perspective at all 
+    self.get_parent(perspective)
     s = registry.OUStructureSearcher(self.get_database())
     s.set_parent(self)
     s.set_perspective(perspective)
     return [i.get_ou() for i in s.search()]
 
-OU.register_method(Method('get_children', [OU], args=[('perspective', OUPerspectiveType)]), get_children)
+OU.register_method(Method('get_children', [OU], 
+        args=[('perspective', OUPerspectiveType)], exceptions=[NotFoundError]), 
+    get_children)
 
 def get_names(self):
     """
@@ -239,5 +251,26 @@ def create_ou(self, name):
     return OU(db, ou.entity_id)
 
 Commands.register_method(Method('create_ou', OU, args=[('name', str)], write=True), create_ou)
+
+
+def get_roots(self):
+    """Find the roots of a the OU perspective.
+
+    Note that a perspective might have several roots if it contains
+    several, seperate trees. 
+
+    \\return List of OU objects that are roots of perspective.
+    """
+
+    db = self.get_database()
+    ou = Factory.get('OU')(db)
+    results = []
+    for (ou_id,parent) in ou.get_structure_mappings(self.get_id()):
+        if parent == None:
+            results.append(OU(db, ou_id))
+    return results          
+OUPerspectiveType.register_method(Method('get_roots', [OU], args=[], write=True), get_roots)
+
+
 
 # arch-tag: ec070b27-28c8-4b51-b1cd-85d14b5e28e4

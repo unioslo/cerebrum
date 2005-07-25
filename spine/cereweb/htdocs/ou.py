@@ -27,8 +27,9 @@ from Cereweb.utils import transaction_decorator, object_link
 from Cereweb.WorkList import remember_link
 from Cereweb.templates.OUSearchTemplate import OUSearchTemplate
 from Cereweb.templates.OUCreateTemplate import OUCreateTemplate
-from Cereweb.templates.OUViewTemplate import OUViewTemplate
+from Cereweb.templates.OUTreeTemplate import OUTreeTemplate
 from Cereweb.templates.OUEditTemplate import OUEditTemplate
+from Cereweb.templates.OUViewTemplate import OUViewTemplate
 
 
 def index(req):
@@ -41,6 +42,20 @@ def index(req):
 
 def list(req):
     return search(req, *req.session.get('ou_lastsearch', ()))
+
+def tree(req, transaction, perspective=None):
+    page = Main(req)
+    tree_template = OUTreeTemplate()
+    if not perspective:
+        content = tree_template.selectPerspective(transaction)
+    else:
+        perspective = transaction.get_ou_perspective_type(perspective)
+        content = tree_template.viewTree(transaction, perspective)
+    page.content = lambda: content
+    return page
+
+tree = transaction_decorator(tree)
+
 
 def search(req, name="", acronym="", short="", spread="", transaction=None):
     req.session['ou_lastsearch'] = (name, acronym, short, spread)

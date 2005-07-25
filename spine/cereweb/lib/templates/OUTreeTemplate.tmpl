@@ -1,0 +1,65 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.utils import url, object_link
+#from Cereweb.WorkList import remember_link
+#extends EntityViewTemplate
+
+## Overloaded by other pages to get the right url.
+#attr $page_url = "ou/tree"
+
+#def selectPerspective($transaction)
+   <h2>Select perspective for OU view</h2> 
+#set $perspectives = $transaction.get_ou_perspective_type_searcher().search()
+    <form>
+        <label for="perspective">Perspective:</label>
+        <select name="perspective">
+        #for $perspective in $perspectives
+            <option value="$perspective.get_name()">
+                $perspective.get_description()
+            </option>    
+        #end for    
+        </select>
+        <input type="submit" value="View tree" />
+    </form>
+#end def
+
+## Main method for creating the ou view page.
+#def viewTree($transaction, $perspective)
+<div class="tree">
+    #set title = $_("OU tree view of perspective %s") % $perspective.get_name()
+    <h2>$title</h2>
+
+    ## find root FIXME: Should not be this stupid
+    #set $roots = $perspective.get_roots()
+    #for $root in $roots 
+        $subtree($transaction, $perspective, $root)
+    #end for
+</div>
+#end def
+
+#def subtree($transaction, $perspective, $ou)
+    <div class="tree">
+        $object_link($ou)
+        #for $child in $ou.get_children($perspective)
+            $subtree($transaction, $perspective, $child)
+        #end for    
+    </div>
+#end def
+
+

@@ -75,6 +75,7 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.ou = self.addItem("ou", "OU", "ou")
         self.ou.addItem("search", "Search", "ou")
         self.ou.addItem("list", "List", "ou/list")
+        self.ou.addItem("tree", "Tree", "ou/tree")
         self.ou.addItem("create", "Create", "ou/create")
         self.ou.addItem("view", "View", "ou/view?id=%s")
         self.ou.addItem("edit", "Edit", "ou/edit?id=%s")
