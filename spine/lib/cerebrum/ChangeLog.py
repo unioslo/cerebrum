@@ -93,7 +93,12 @@ class ChangeLog(DatabaseClass):
         if params:
             args.update(cPickle.loads(params))
 
-        msg = self.get_type().get_message() % args
+        msg = self.get_type().get_message() 
+        try:
+            msg = msg % args
+        except KeyError, e:
+            print "Could not %-ify msg", msg, "with args", args, "error:", e
+            pass    
         if type(msg) is unicode:
             msg = repr(msg)
         self._message = msg
