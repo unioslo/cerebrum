@@ -333,6 +333,13 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE perspective=:perspective""", {'perspective': int(perspective)})
 
     def root(self):
+        # FIXME: Doesn't check perspective. Documentation should also
+        # make it clear that a perspective can have more than one root.
+        #
+        # Is this to be tought of as a method or class method? Even
+        # though a perspective can have many roots, any given OU will
+        # only have one root inside a perspective, if the OU is at all
+        # represented in that perspective.
         return self.query("""
         SELECT ou_id
         FROM [:table schema=cerebrum name=ou_structure]
