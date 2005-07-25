@@ -4620,9 +4620,8 @@ class BofhdExtension(object):
                 map = [(("%-8s %s", "Num", "Affiliation"), None)]
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
-                    name = "%s/%s@%s" % (
-                        self.num2const[int(aff['affiliation'])],
-                        self.num2const[int(aff['status'])],
+                    name = "%s@%s" % (
+                        self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
                     map.append((("%s", name),
                                 {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
@@ -4652,9 +4651,9 @@ class BofhdExtension(object):
             if not group_owner:
                 try:
                     person = self._get_person("entity_id", owner_id)
-                    # TODO: this requires that cereconf.DEFAULT_GECOS_NAME is name_full.  fix
-                    full = person.get_name(self.const.system_cached, self.const.name_full)
-                    fname, lname = full.split(" ", 1)
+                    fname, lname = [
+                        person.get_name(self.const.system_cached, v)
+                        for v in (self.const.name_first, self.const.name_last) ]
                     sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
                     if sugg:
                         ret['default'] = sugg[0]
