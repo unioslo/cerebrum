@@ -22,8 +22,6 @@ from threading import RLock
 from Cerebrum.Utils import Factory
 Database = Factory.get('Database')
 
-__all__ = ['get_database']
-
 class SpineDatabase(Database):
     """This class extends the commit() method of the Cerebrum database
     to include locking. Using this scheme, only one transaction can
