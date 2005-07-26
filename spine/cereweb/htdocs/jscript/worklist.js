@@ -18,7 +18,7 @@
 // Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-//var webroot = "";  // Should be set by includer
+var webroot = "";  // Should be overriden by includer
 
 /* addLoadEvent by Simon Willisons blog on sitepoint.com */
 function addLoadEvent(func) {
