@@ -166,8 +166,9 @@ def suggest_usernames(self, first_name, last_name):
     \\see Person
     """
 
-    account = Factory.get('Account')(self.get_database())
-    return account.suggest_unames(registry.ValueDomain(name='account_names').get_id(), first_name, last_name)
+    db = self.get_database()
+    account = Factory.get('Account')(db)
+    return account.suggest_unames(registry.ValueDomain(db, name='account_names').get_id(), first_name, last_name)
 
 Commands.register_method(Method('suggest_usernames', [str], args=[('first_name', str), ('last_name', str)]), suggest_usernames)
 
