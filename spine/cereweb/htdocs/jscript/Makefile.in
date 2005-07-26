@@ -23,7 +23,6 @@ install: $(sources)
 
 clean:
 	rm -f *~ 
-	rm -f $(backups)
 
 distclean: clean
 	rm -f Makefile
