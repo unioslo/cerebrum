@@ -33,7 +33,7 @@
 #end def
 
 
-#def groupMembers(group)
+#def groupMembers($group)
     #set $allmembers = $group.get_group_members()
     #if $allmembers
     <div class="members">
@@ -65,18 +65,23 @@ $derivedMembers($group)
 
 
 #def memberList($operation, $members, $group)
-#set $operations = {'union': $_('Union'), 'intersection': $_('Intersection'), 'difference': $_('Difference')}
-#set $headers = {'type': $_("Type"), 'name': $_("Name")}
-<div class="memberlist">
-<h3>$operations[$operation]</h3>
-#set $table = $TableView("type", "name")
-#for $member in $members
-$table.add($member.get_member_type().get_name(), $object_link($member.get_member()), 
-           id=$member.get_member().get_id(), groupid=$group.get_id(), 
-           operation=$operation, member=$member.get_member())
-#end for
-$MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("blupp=%s"))
-</div>
+    #set $operations = {'union': $_('Union'), 'intersection': $_('Intersection'),
+                        'difference': $_('Difference')}
+    #set $headers = {'type': $_("Type"), 'name': $_("Name")}
+    <div class="memberlist">
+        <h3>$operations[$operation]</h3>
+        #set $table = $TableView("type", "name")
+        #for $member in $members
+            $table.add($member.get_member_type().get_name(), 
+                       $object_link($member.get_member()), 
+                       id=$member.get_member().get_id(),
+                       groupid=$group.get_id(), 
+                       operation=$operation,
+                       member=$member.get_member())
+        #end for
+        $MemberTableTemplate().sorted_table($table, $headers, 
+                                $url("blapp=%s"), $url("blupp=%s"))
+    </div>
 #end def
 
 #def derivedMembers($group)
@@ -92,7 +97,7 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 #end def
 
 
-#def groupInfo(group)
+#def groupInfo($group)
 <div class="viewinfo">
     <div class="subtitle">
         <h3>$_('General groupinfo'):</h3>
@@ -145,7 +150,7 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
 #end def
 
 
-#def add_member(group)
+#def add_member($group)
 <div class="add_member">
     Add a member (.. to be inserted by template user)
 </div>
@@ -185,3 +190,4 @@ $MemberTableTemplate().sorted_table($table, $headers, $url("blapp=%s"), $url("bl
         </div>
     #end for
 #end def
+

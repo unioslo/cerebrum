@@ -21,14 +21,13 @@
 #from Cereweb.WorkList import remember_link
 
 #def afterColumns($rowdata)
-#set $id = $rowdata.get("id")
-#set $groupid = $rowdata.get("groupid")
-#set $operation = $rowdata.get("operation")
-#set $remember = $remember_link($rowdata.get("member"), _class="actions")
-#set $removeurl = $url('group/remove_member?memberid=%s&amp;groupid=%s' 
-                       '&amp;operation=%s' % ($id, $groupid, $operation))
-  ##<td><input type="checkbox" name="member" value="$id" /></td>
-  <td>&nbsp;</td>
-  <td><a href="$removeurl" class="actions">remove</a></td>
-  <td>$remember</td>
+    #set $id = $rowdata.get("id")
+    #set $groupid = $rowdata.get("groupid")
+    #set $operation = $rowdata.get("operation")
+    #set $remember = $remember_link($rowdata.get("member"), _class="actions")
+    #set $removeurl = $url('group/remove_member?memberid=%s&amp;groupid=%s' 
+                           '&amp;operation=%s' % ($id, $groupid, $operation))
+    <td><a href="$removeurl" class="actions">remove</a></td>
+    <td>$remember</td>
 #end def
+
