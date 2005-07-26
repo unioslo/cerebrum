@@ -10,25 +10,19 @@ libdir = @libdir@
 webroot = @webroot@
 jsdir = $(webroot)/jscript
 
-sources = $(wildcard *.tmpl)
-javascripts = $(patsubst %.tmpl,%.js, $(sources))
-backups = $(patsubst %.js,%.js_bak, $(javascripts))
+sources = $(wildcard *.js)
 
 .PHONY: all install clean distclean print
 
 all: $(javascripts)
 
-$(javascripts): %.js: %.tmpl 
-	$(CHEETAH) fill --oext js $<
-
-install: $(javascripts)
+install: $(sources)
 	$(INSTALL) -d $(DESTDIR)/$(jsdir)
-	$(INSTALL) -v -m 644 $(javascripts) $(DESTDIR)/$(jsdir)
+	$(INSTALL) -v -m 644 $(sources) $(DESTDIR)/$(jsdir)
 	$(INSTALL) -v -m 644 htaccess $(DESTDIR)/$(jsdir)/.htaccess
 
 clean:
 	rm -f *~ 
-	rm -f $(javascripts)
 	rm -f $(backups)
 
 distclean: clean
