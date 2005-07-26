@@ -22,16 +22,14 @@ import forgetHTML as html
 from utils import url
 from templates.WorkListTemplate import WorkListTemplate
 
-def remember_url(object):
+def remember_args(object):
     import SpineIDL
     
     id = object.get_id()
     type = object.get_type().get_name()
     
-    #create a string representing the object to the user
-    name_str = None
-    
     if type == 'person':
+        name_str = None
         for name in object.get_names():
             if name.get_name_variant().get_name() == "FULL":
                 name_str = name.get_name()
@@ -41,63 +39,56 @@ def remember_url(object):
     else:
         name_str = object.get_name()
 
-    name_str = "%s: %s" % (type.capitalize(), name_str)
-    
-    #store the obj in the session
-    #if not req.session.has_key('worklist'):
-    #    req.session['worklist'] = {}
-
-    #req.session['worklist'][id] = (type, name_str)
-    
-    #return the code to call the method to remember the object
-    js_url = "javascript:worklist_remember(%i, '%s', '%s');" % (id, type, name_str)
-    return js_url
+    return id, type, name_str, "%s: %s" % (type.capitalize(), name_str)
 
 def remember_link(object, _class=None):
-    url = remember_url(object)
-    id = 'wrkElement%i' % object.get_id()
+    id, type, spam, name = remember_args(object)
+    url = "javascript:WL_remember(%i, '%s', '%s');" % (id, type, name)
+    id = 'WL_link_%i' % id
     _class = _class and ' class="%s"' % _class or ''
     return '<a href="%s" id="%s" %s>%s</a>' % (url, id, _class, 'remember')
 
-def select_selected():
-    return ""
+class WorkListElement:
+    
+    def __init__(self, id=None, cls=None, name=None, object=None):
+        if object:
+            id, cls, name, display_name = remember_args(object)
+        elif id and cls and name:
+            display_name = "%s: %s" % (cls.capitalize(), name)
+        else:
+            raise AttributError, "Either set object or id, cls, name"
 
-def forget_selected():
-    return "javascript:worklist_forget();"
+        self.id = id
+        self.cls = cls
+        self.name = name
+        self.display_name = display_name
 
-def all():
-    return "javascript:worklist_select_all();"
+    def __repr__(self):
+        return "WorklistElement: %s" % self.display_name
 
-def none():
-    return "javascript:worklist_select_none();"
-
-def invert():
-    return "javascript:worklist_invert_selected();"
-
-
-# subclass Division to be included in a division..
 class WorkList(html.Division):
-
+    
     def __init__(self, req):
         if 'remembered' not in req.session:
             req.session['remembered'] = []
-        if 'selected' not in req.session:
-            req.session['selected'] = []
         self.remembered = req.session['remembered']
-        self.selected = req.session['selected']
 
-    def addEntity(self, id):
-        self.remembered.append(id)
+    def add(self, element):
+        self.remembered.append(element)
+
+    def remove(self, id=None, element=None):
+        if element is None:
+            element, = [i for i in self.remembered if i.id == id]
+        self.remembered.remove(element)
 
     def output(self):
         template = WorkListTemplate()
         objects = []
-        for type, view, key in self.remembered:
-            objects.append( (key, view) )
-        selected = [str(object) for object in self.selected]
+        for elm in self.remembered:
+            objects.append((elm.id, elm.display_name))
         buttons = self.getButtons()
         actions = self.getActions()
-        return template.worklist(objects, buttons, actions, selected)
+        return template.worklist(objects, buttons, actions)
 
     def getButtons(self):
         """Returns a list with all buttons for the worklist.
@@ -107,14 +98,12 @@ class WorkList(html.Division):
         side of the work list.
         """
         buttons = []
-        buttons.append(("select", "Select", select_selected()))
-        buttons.append(("forget", "Forget", forget_selected()))
-        buttons.append(("all", "All", all()))
-        buttons.append(("none", "None", none()))
-        buttons.append(("invert", "Invert", invert()))
+        buttons.append(("all", "All"))
+        buttons.append(("none", "None"))
+        buttons.append(("invert", "Invert"))
+        buttons.append(("forget", "Forget"))
         return buttons
         
-
     def getActions(self):
         """Actions should return the links for the selected object.
 
