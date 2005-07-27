@@ -243,7 +243,13 @@ def write_misc_info(outfile, tag, func_name):
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(eval("fs.%s" % func_name)())
+    # It's still not foolproof, but hopefully much more sane than simply
+    # eval'ing.
+    components = func_name.split(".")
+    next = fs
+    for c in components:
+        next = getattr(next, c)
+    cols, dta = _ext_cols(next())
     for t in dta:
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
