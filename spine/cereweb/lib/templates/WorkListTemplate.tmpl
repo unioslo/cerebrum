@@ -26,33 +26,42 @@
 
 #def worklist($objects, $buttons, $actions)
 <div class="worklist">
-    <h2>$_("Work list"):</h2>
-    <form name="worklistForm" action="#" method="POST">
-        <div class="buttons">
-            #for $key, $label in $buttons
+    <h2>$_("Worklist"):</h2>
+    <form name="worklistForm" action="" method="POST">
+        <span class="buttons">
+        #for $key, $label in $buttons
             <input type="button" class="workbutton" name="$key" id="WL_$key" value="$label" />
             <br />
-            #end for
-        </div>
-        <div class="list">
+        #end for
+        </span>
+        <span class="list">
             <select multiple="multiple" size="6" id="WL_select">
-                #if not $objects
+            #if not $objects
                 <option>-Remembered objects-</option>
-                #end if
-                #for $key, $label in $objects
+            #end if
+            #for $key, $label in $objects
                 <option id="$key" value="$key">
                     $label
                 </option>
-                #end for
+            #end for
             </select>
-        </div>
-        <div class="actions" id="WL_actions" style="">
-            Blipp--blapp
-        </div>
-        <div class="errors" id="WL_errors" style="display:none;">
-            <font color="red">Worklist error:</font><br />
-            <span id="WL_errorlist"></span>
-        </div>
+        </span>
+        <span class="actions">
+            ## Javascripts will hide this division and replace it
+            ## with shortcuts for the selected items in the worklist.
+            <div class="wl_action" id="WL_actions" style="">
+                Select an element in the worklist to view available shortcuts.<br />
+                If you select several a very clever script will give
+                you the interesting shortcuts.
+            </div>
+
+            ## Hidden untill a javascript-error appers which will add
+            ## a error to the span, and show the division.
+            <div class="wl_errors" id="WL_errors" style="display:none;">
+                <h3>Worklist error:</h3>
+                <span id="WL_errorlist"></span>
+            </div>
+        </span>
     </form>
 </div>
 #end def
