@@ -29,6 +29,7 @@ conf.read(('client.conf.template', 'client.conf'))
 sync = ConfigParser.ConfigParser()
 sync.read(('sync.conf.template', 'sync.conf'))
 
+# FIXME: Document or remove these super ugly hacks. 
 def apply_quarantine(obj, typestr):
     for q in obj.get_quarantines:
         try:
