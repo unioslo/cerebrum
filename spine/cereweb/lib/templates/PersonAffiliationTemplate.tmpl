@@ -26,7 +26,7 @@
 ## List affils for this person, and form for adding an affil.
 #def view($person, $transaction, $addAffil, $page)
 <div class="personnames">
-    <a name="affils" />
+    <a name="affils" class="noaction"></a>
     <h2>$_("Affiliations"):</h2>
     $personAffiliations($person)
     #if $addAffil == "True" or $addAffil == True

@@ -26,7 +26,7 @@
 ## List names for this person, and form for adding a name.
 #def view($person, $transaction, $addName, $page)
 <div class="personnames">
-    <a name="names" />
+    <a name="names" class="noaction"></a>
     $personNames($person)
     #if $addName == "True" or $addName == True
         $addForm($person, $transaction)
