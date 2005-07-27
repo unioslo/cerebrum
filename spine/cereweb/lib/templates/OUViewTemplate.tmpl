@@ -46,7 +46,9 @@ $view_entity($ou, $transaction)
         <div class="info"><em>$_("Display name"):</em> $ou.get_display_name()</div>
         <div class="info"><em>$_("Sort name"):</em> $ou.get_sort_name()</div>
         <div class="info"><em>$_("Stedkode"):</em> $ou.get_stedkode()</div>
-        <div class="info"><em>$_("Catalogue mark"):</em> $ou.get_katalog_merke()</div>
+        <div class="info"><em>$_("Catalogue mark"):</em>
+            #echo $ou.get_katalog_merke() and True or False
+        </div>
     </div>
     <div class="actions">
         #set $edit = $url("ou/edit?id=%s" % $ou.get_id())

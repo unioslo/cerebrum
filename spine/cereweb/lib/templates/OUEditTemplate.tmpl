@@ -56,7 +56,8 @@
             $form_widgets.input("faculty", "Faculty", $ou.get_fakultet())
             $form_widgets.input("institute", "Institute", $ou.get_institutt())
             $form_widgets.input("department", "Department", $ou.get_avdeling())
-            $form_widgets.input("catalogue_mark", "Catalogue mark", $ou.get_katalog_merke())
+            $form_widgets.boolWidget("catalogue_mark", "Catalogue mark",
+                                     $ou.get_katalog_merke())
             <input type="hidden" name="id" value="$ou.get_id()" />
         </div>
         $form_widgets.showHelp($help)
