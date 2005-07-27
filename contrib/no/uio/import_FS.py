@@ -76,7 +76,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
                              institusjon=institusjon)
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
-            logger.warn("bad stedkode: %s", key)
+            logger.warn("Cannot find an OU in Cerebrum with stedkode: %s", key)
             ou_cache[key] = None
     return ou_cache[key]
 
