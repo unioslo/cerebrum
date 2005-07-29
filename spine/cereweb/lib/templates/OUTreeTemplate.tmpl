@@ -19,39 +19,43 @@
 #from Cereweb.utils import url, object_link
 #from Cereweb.WorkList import remember_link
 #extends EntityViewTemplate
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
 
 ## Overloaded by other pages to get the right url.
 #attr $page_url = "ou/tree"
+#attr title = "OU tree view"
 
-#def selectPerspective($transaction)
-   <h2>Select perspective for OU view</h2> 
-#set $perspectives = $transaction.get_ou_perspective_type_searcher().search()
-    <form>
-        <label for="perspective">Perspective:</label>
-        <select name="perspective">
-        #for $perspective in $perspectives
-            <option value="$perspective.get_name()">
-                $perspective.get_description()
-            </option>    
-        #end for    
-        </select>
-        <input type="submit" value="View tree" />
-    </form>
-#end def
-
-## Main method for creating the ou view page.
-#def viewTree($transaction, $perspective)
+## Main method for creating the ou tree page.
+#def viewTree($transaction, $perspective=None)
 <div class="tree">
-    #set title = $_("OU tree view of perspective %s") % $perspective.get_name()
-    <h2>$title</h2>
 
-    ## find root FIXME: Should not be this stupid
+    <form>
+        #set $perspectives = $transaction.get_ou_perspective_type_searcher()
+        $form_widgets.code_selector("perspective", 
+                       $_("Perspective"),
+                       $perspectives, $perspective)
+        <input type="submit" value="View perspective tree" />
+    </form>
+    #if not $perspective
+        ## Just select the first one! 
+        ## (will non-elegantly fail if no perspectives exist)
+        ## FIXME: Give nice error if no perspectives defined
+        #set $perspective = $perspectives.search()[0]
+    #end if 
+    
+    #set title = ($_("OU tree view of perspective %s") % 
+                  $perspective.get_name())
+    ## find roots of perspective and show them
     #set $roots = $perspective.get_roots()
     #for $root in $roots 
         $subtree($transaction, $perspective, $root)
     #end for
 </div>
 #end def
+
+
 
 #def subtree($transaction, $perspective, $ou)
     <div class="tree">
@@ -61,5 +65,6 @@
         #end for    
     </div>
 #end def
+
 
 

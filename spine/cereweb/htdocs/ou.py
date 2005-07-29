@@ -47,10 +47,12 @@ def tree(req, transaction, perspective=None):
     page = Main(req)
     tree_template = OUTreeTemplate()
     if not perspective:
-        content = tree_template.selectPerspective(transaction)
-    else:
+        perspective = req.session.get("ou_perspective", None)
+    else:    
+        req.session["ou_perspective"] = perspective    
+    if perspective:
         perspective = transaction.get_ou_perspective_type(perspective)
-        content = tree_template.viewTree(transaction, perspective)
+    content = tree_template.viewTree(transaction, perspective)
     page.content = lambda: content
     return page
 
@@ -143,7 +145,7 @@ def edit(req, transaction, id):
     page = Main(req)
     page.title = _("OU %s:" % ou.get_name())
     page.setFocus("ou/edit", str(ou.get_id()))
-    content = OUEditTemplate().form(ou)
+    content = OUEditTemplate().form(transaction, ou)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
@@ -207,17 +209,34 @@ def save(req, transaction, id, name, **vargs):
         mark = vargs.get("catalogue_mark")
         ou.set_katalog_merke(mark and True or False)
    
-    args = vargs.keys()
-    if "countrycode" in args:
-        ou.set_landkode(int(vargs["countrycode"]))
-    if "institution" in args:
-        ou.set_institusjon(int(vargs["institution"]))
-    if "faculty" in args:
-        ou.set_fakultet(int(vargs["faculty"]))
-    if "institute" in args:
-        ou.set_institutt(int(vargs["institute"]))
-    if "department" in args:
-        ou.set_avdeling(int(vargs["department"]))
+    stedkode_map = {
+        'countrycode': ou.set_landkode,
+        'institution': ou.set_institusjon,
+        'faculty': ou.set_fakultet,
+        'institute': ou.set_institutt,
+        'department': ou.set_avdeling
+    }
+        
+    parents = {}
+    for (key, value) in vargs.items():
+        if key in stedkode_map:
+            stedkode_map[key](int(value))
+        elif key.startswith("parent_"):
+            parent = key.replace("parent_", "")
+            if value.isdigit():
+                # Could also be "root" and "not_in"
+                value = int(value)
+            parents[parent] = value
+    
+    for (perspective, parent) in parents.items():
+        perspective = transaction.get_ou_perspective_type(perspective)            
+        if parent == "root":
+            ou.set_parent(None, perspective)
+        elif parent == "not_in":
+            ou.unset_parent(perspective)
+        else:
+            parent = transaction.get_ou(parent)     
+            ou.set_parent(parent, perspective)
    
     redirect_object(req, ou, seeOther=True)
     transaction.commit()

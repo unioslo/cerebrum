@@ -19,6 +19,7 @@
 #from Cereweb.utils import url, object_link
 #from Cereweb.WorkList import remember_link
 #extends EntityViewTemplate
+#from Cereweb.SpineIDL.Errors import NotFoundError
 
 ## Overloaded by other pages to get the right url.
 #attr $page_url = "ou/view"
@@ -68,11 +69,11 @@ $view_entity($ou, $transaction)
         #set $parent = $ou.get_parent($perspective)
     ## FIXME: Only catch NotFoundError, but without importing
     ## SpineIDL.Errors here
-    ##except NotFoundError
-    #except
+    #except NotFoundError
+    ##except
     #else
+        <h4>Parent in perspective $perspective.get_name()</h4>
         #if $parent
-            <h4>Parent in perspective $perspective.get_name()</h4>
             <div>$object_link($parent)</div>
         #else
             <div>(Root of perspective)</div>
@@ -84,15 +85,15 @@ $view_entity($ou, $transaction)
         #set $children = $ou.get_children($perspective)
     ## FIXME: Only catch NotFoundError, but without importing
     ## SpineIDL.Errors here
-    ##except NotFoundError
-    #except
+    #except NotFoundError
+    ##except
     #else
         #if $children
             <h4>Children in perspective $perspective.get_name()</h4>
+            #for $child in $children
+                <div>$object_link($child)</div>
+            #end for
         #end if     
-        #for $child in $children
-            <div>$object_link($child)</div>
-        #end for
     #end try
 #end for
 

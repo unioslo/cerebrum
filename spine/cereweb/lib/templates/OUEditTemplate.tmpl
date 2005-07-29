@@ -16,9 +16,12 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#from types import StringTypes
 #from Cereweb.utils import url
 #from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.SpineIDL.Errors import NotFoundError
 #extends InitTemplate
+
 
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
@@ -39,7 +42,7 @@
 #end def
 
 ## Creates the form for editing the main person info.
-#def form($ou)
+#def form($transaction, $ou)
 <div class="edit">
     <div class="subtitle">
         <h3>$_("General organization info"):</h3>
@@ -60,6 +63,7 @@
                                      $ou.get_katalog_merke())
             <input type="hidden" name="id" value="$ou.get_id()" />
         </div>
+        $edit_perspectives($transaction, $ou)
         $form_widgets.showHelp($help)
         <div>
             <center>
@@ -70,3 +74,110 @@
 </div>
 #end def
 
+#def edit_perspectives($transaction, $ou)
+    <div class="subtitle">
+        <h3>$_("OU perspectives")</h3>
+    </div>    
+        #set $extras = [ ("not_in", $_("(Not in perspective)")),
+                         ("root", $_("(Root node)")) ]
+        #set $perspectives = $transaction.get_ou_perspective_type_searcher()
+        #for $perspective in $perspectives.search()
+            #try
+                #set $parent=$ou.get_parent($perspective)    
+            #except NotFoundError
+                #set $parent="not_in"
+            #else
+                #if $parent is None
+                    #set $parent="root"
+                #end if
+            #end try    
+            
+            $select_ou($perspective, "parent_" + $perspective.get_name(),
+                       $_("Parent in %s:") % $perspective.get_name(),
+                       $parent, $ou, $extras) 
+        #end for
+#end def
+
+## Displays a select box for choosing an
+## OU in a given perspective.
+## --selected  ou_id or OU instance of current selection
+## --disabled  ou_id or OU instance of OU to be disabled 
+##             (Note that all this OUs children will also 
+##             be disabled)
+## --extras    List of tuples of constant choices to be
+##             appended at the top of the list. For 
+##             instance:
+##              [ ("not_in", "Not in perspective"),
+##                ("root", "Root node") ]
+##             The first part of the tuple is the value for
+##             the <option>, while the last part is the 
+##             displayed text for the option
+
+#def select_ou($perspective, $name, $label=None, $selected=None,
+               $disabled=None, 
+               $extras=())
+    
+    #if $selected is not None and not isinstance($selected, StringTypes):
+        #set $selected = $selected.get_id()
+    #end if
+    #if $disabled is not None and not isinstance($disabled, StringTypes):
+        #set $disabled = $disabled.get_id()
+    #end if
+
+    ## Internal recursive function for printing an OU options
+    ## and all it's children
+
+    #def ou_options($ou, $perspective, $indent="", $selected=None, $disable=None)
+        #set $name=$ou.get_id()
+        #set $descr=$ou.get_name()
+        #set $attribs=''
+        #if $selected==$name
+            #set $attribs += " selected='selected'"
+        #end if    
+        #if $disable==$name
+            #set $attribs += " disabled='disabled'"
+        #end if
+        <option$attribs value="$name">
+            $indent $descr
+        </option>
+        #for $child in $ou.get_children($perspective)
+            #if $disable==$name
+                ## All kids are disabled too
+                #set dis=$child.get_id()
+            #else
+                #set dis=$disable
+            #end if
+            $ou_options($child, $perspective, $indent+"--", $selected, $dis)
+        #end for
+        
+    #end def
+    #if $label
+        <label for="$name">
+            $label
+        </label>
+    #end if
+    <select name="$name">
+
+    ## First the extra options
+    #for $name,$descr in $extras
+        #set attribs=''
+        #if $selected==$name
+            #set $attribs += " selected='selected'"
+        #end if    
+        #if $disabled==$name
+            #set $attribs += " disabled='disabled'"
+        #end if
+        <option$attribs value="$name">
+            $descr
+        </option>
+    #end for
+    
+    ## Then recurse all roots
+    #for $root in $perspective.get_roots()
+        $ou_options($root, $perspective, selected=$selected, disable=$disabled)
+    #end for
+    </select>
+    #if $label
+        <br />
+    #end if    
+#end def
