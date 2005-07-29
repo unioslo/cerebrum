@@ -187,7 +187,9 @@ def _set_parent(self, parent, perspective, forced_create):
     # Set the parent of the OU
     ou.find(self.get_id())
     # TODO: Catch SQL exception and rethrow a more proper exception
-    ou.set_parent(perspective.get_id(), parent.get_id())
+    if parent is not None:
+        parent = parent.get_id()
+    ou.set_parent(perspective.get_id(), parent)
     ou.write_db()
 
 def set_parent(self, parent, perspective):
@@ -198,8 +200,11 @@ def set_parent(self, parent, perspective):
     automated creation of a None parent for the supplied parent by calling
     set_parent_forced_create() instead.
 
+    The OU can be set as a root in a perspective by supplying None as
+    the parent.
+
     \\param parent The OU to set as this OUs parent. The supplied OU must
-    already have a parent.
+    already have a parent, or be None to set the OU as a root.
     \\param perspective The perspective from which to set the parent.
     """
     _set_parent(self, parent, perspective, False)
