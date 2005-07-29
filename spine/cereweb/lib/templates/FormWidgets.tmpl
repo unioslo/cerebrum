@@ -18,6 +18,7 @@
 
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
+#from types import StringTypes
 
 ## Creates a drop-down option list where 'selected' is preselected.
 #def generate_option($name, $types, $selected=None)
@@ -38,6 +39,24 @@
     $generate_option($name, $types, $selected)
     <br />  
 #end def
+
+## Generate a drop-down list for selecting a Cerebrum code
+## Example (choosing perspective):
+## 
+## #set $perspective_searcher = $transaction.get_ou_perspective_type_searcher()
+## $code_selector("p", "perspectives", $perspective_searcher)
+## 
+## $selected can be either a code object or code string
+
+#def code_selector($name, $label, $searcher, $selected=None)
+    #set codes = [($c.get_name(), $c.get_description()) 
+                  for $c in $searcher.search()]
+    #if $selected is not None and not isinstance($selected, StringTypes)
+        ## Must be a code instance, get the code name
+        #set $selected = $selected.get_name()
+    #end if
+    $generate_loption($name, $label, $codes, $selected)                 
+#end def    
 
 ## Creates inputs and labels from given arguments.
 #def input($name, $label, $value="")
