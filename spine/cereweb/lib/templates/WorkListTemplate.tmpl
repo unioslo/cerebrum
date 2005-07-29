@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#from Cereweb.utils import url
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 
@@ -24,7 +25,7 @@
 ## action. Any keys in the list selected will be marked
 ## selected by default in the worklist.
 
-#def worklist($objects, $buttons, $actions)
+#def worklist($objects, $selected, $actions, $buttons)
 <div class="worklist">
     <h2>$_("Worklist"):</h2>
     <form name="worklistForm" action="" method="POST">
@@ -40,29 +41,111 @@
                 <option>-Remembered objects-</option>
             #end if
             #for $key, $label in $objects
-                <option id="$key" value="$key">
+                #set $tag = ""
+                #if $key in $selected
+                    #set $tag = 'selected="selected"'
+                #end if
+                <option value="$key" $tag>
                     $label
                 </option>
             #end for
             </select>
         </span>
-        <span class="actions">
+        <span class="actions" id="WL_actions">
             ## Javascripts will hide this division and replace it
             ## with shortcuts for the selected items in the worklist.
-            <div class="wl_action" id="WL_actions" style="">
-                Select an element in the worklist to view available shortcuts.<br />
-                If you select several a very clever script will give
-                you the interesting shortcuts.
+            <div class="wl_action" id="WL_action_info" style="">
+                <div class="content" style="border-top: 1px dotted black;">
+                    Select an element in the worklist to view
+                    available shortcuts.<br />
+                    If you select several a very clever script will give
+                    you the interesting shortcuts.
+                </div>
             </div>
+
+            ## Actions for diffrent classes
+            $DefaultAction()
+            $PersonAction()
+            $GroupAction()
+            $OUAction()
+            $AccountAction()
 
             ## Hidden untill a javascript-error appers which will add
             ## a error to the span, and show the division.
             <div class="wl_errors" id="WL_errors" style="display:none;">
                 <h3>Worklist error:</h3>
-                <span id="WL_errorlist"></span>
             </div>
+
+            ## Generated actions for diffrent ids
+            #for $html in $actions
+                $html
+            #end for
         </span>
     </form>
 </div>
+#end def
+
+### Action templates:
+### When the user selects an object in the worklist, an appropiate
+### action for the selected class of the object is shown.
+
+## All actions should extend the ActionTemplate with a block if
+## needed. Javascript will replace the variables for the specific
+## object selected in the worklist. Current variables available is:
+## {{class}}, {{name}}, {{id}}.
+#def ActionTemplate($cls, $block="", $name="{{class}} {{name}}")
+    #set $view_url = $url("%s/view" % $cls)
+    #set $edit_url = $url("%s/edit" % $cls)
+    #set $delete_url = $url("%s/delete" % $cls)
+    <div class="wl_action" id="WL_action_$cls" style="display:none;">
+        <div class="header">$name:</div>
+        <div class="content">
+            <div class="links">
+                <a href="$view_url?id={{id}}">View</a>,&nbsp;
+                <a href="$edit_url?id={{id}}">Edit</a>,&nbsp;
+                <a href="$delete_url?id={{id}}">Delete</a>,&nbsp;
+                $action_remember_link("Forget")
+            </div>
+            $block
+        </div>
+    </div>
+#end def
+
+#def action_remember_link($text="Remember")
+    #set $args = "{{id}}, '{{class}}', '{{name}}'"
+    <a href="javascript:WL_remember($args);" id="WL_link_{{id}}">$text</a>
+#end def
+
+#def DefaultAction
+    <div class="wl_action" id="WL_action_default" style="display:none;">
+        <div class="header">{{name}}:</div>
+        <div class="content">
+            No actions found for this class: {{class}}
+        </div>
+    </div>
+#end def
+
+#def PersonAction
+    #def PersonBox
+        <a href="$url('account/search')?owner={{id}}">View all accounts</a>
+        <br />
+        <a href="$url('account/create')?owner={{id}}">Create new account</a>
+    #end def
+    $ActionTemplate("person", $PersonBox, "{{name}}")
+#end def
+
+#def GroupAction
+    #def GroupBox
+        <a href="$url('account/create')?owner={{id}}">Create new account</a>
+    #end def
+    $ActionTemplate("group", $GroupBox)
+#end def
+
+#def OUAction
+    $ActionTemplate("ou", name="{{name}}")
+#end def
+
+#def AccountAction
+    $ActionTemplate("account")
 #end def
 

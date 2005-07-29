@@ -26,9 +26,9 @@ def remember_args(object):
     import SpineIDL
     
     id = object.get_id()
-    type = object.get_type().get_name()
+    type = object.get_type().get_name().capitalize()
     
-    if type == 'person':
+    if type == 'Person':
         name_str = None
         for name in object.get_names():
             if name.get_name_variant().get_name() == "FULL":
@@ -39,14 +39,14 @@ def remember_args(object):
     else:
         name_str = object.get_name()
 
-    return id, type, name_str, "%s: %s" % (type.capitalize(), name_str)
+    return id, type, name_str, "%s: %s" % (type, name_str)
 
-def remember_link(object, _class=None):
-    id, type, spam, name = remember_args(object)
+def remember_link(object, text='remember', _class=None):
+    id, type, name, display_name = remember_args(object)
     url = "javascript:WL_remember(%i, '%s', '%s');" % (id, type, name)
     id = 'WL_link_%i' % id
     _class = _class and ' class="%s"' % _class or ''
-    return '<a href="%s" id="%s" %s>%s</a>' % (url, id, _class, 'remember')
+    return '<a href="%s" id="%s" %s>%s</a>' % (url, id, _class, text)
 
 class WorkListElement:
     
@@ -54,7 +54,8 @@ class WorkListElement:
         if object:
             id, cls, name, display_name = remember_args(object)
         elif id and cls and name:
-            display_name = "%s: %s" % (cls.capitalize(), name)
+            cls = cls.capitalize()
+            display_name = "%s: %s" % (cls, name)
         else:
             raise AttributError, "Either set object or id, cls, name"
 
@@ -69,10 +70,16 @@ class WorkListElement:
 class WorkList(html.Division):
     
     def __init__(self, req):
-        if 'remembered' not in req.session:
-            req.session['remembered'] = []
-        self.remembered = req.session['remembered']
-
+        if 'wl_remembered' not in req.session:
+            req.session['wl_remembered'] = []
+        if 'wl_selected' not in req.session:
+            req.session['wl_selected'] = []
+        if 'wl_actions' not in req.session:
+            req.session['wl_actions'] = []
+        self.remembered = req.session['wl_remembered']
+        self.selected = req.session['wl_selected']
+        self.actions = req.session['wl_actions']
+        
     def add(self, element):
         self.remembered.append(element)
 
@@ -83,12 +90,11 @@ class WorkList(html.Division):
 
     def output(self):
         template = WorkListTemplate()
-        objects = []
-        for elm in self.remembered:
-            objects.append((elm.id, elm.display_name))
+        objects = [(i.id, i.display_name) for i in self.remembered]
+        selected = [i.id for i in self.selected]
+        actions = [i for i in self.actions]
         buttons = self.getButtons()
-        actions = self.getActions()
-        return template.worklist(objects, buttons, actions)
+        return template.worklist(objects, selected, actions, buttons)
 
     def getButtons(self):
         """Returns a list with all buttons for the worklist.
@@ -104,13 +110,4 @@ class WorkList(html.Division):
         buttons.append(("forget", "Forget"))
         return buttons
         
-    def getActions(self):
-        """Actions should return the links for the selected object.
-
-        Should return list of list with link and label for each action.
-        """
-        actions = []
-        actions.append(("view", "View"))
-        return actions
- 
 # arch-tag: 3b1978e7-aca9-4641-ad12-1e7361a158d9

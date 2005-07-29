@@ -23,10 +23,10 @@ from Cereweb.WorkList import WorkListElement
 
 def add(req, id, cls, name):
     """Adds an element to the list of remembered objects."""
-    if 'remembered' not in req.session:
-        req.session['remembered'] = []
+    if 'wl_remembered' not in req.session:
+        req.session['wl_remembered'] = []
     elm = WorkListElement(int(id), cls, name)
-    req.session['remembered'].append(elm)
+    req.session['wl_remembered'].append(elm)
 
     page = html.SimpleDocument("Worklist: Element added")
     msg = "Element added to worklist: %s, %s: %s" % (id, cls, name)
@@ -51,10 +51,33 @@ def remove(req, id=None, ids=None):
     page.body.append(html.Division(msg))
     return page
 
+def selected(req, ids=None, action=""):
+    """Updates the list over selected elements."""
+    if ids is None:
+        selected = req.session['wl_selected'] = []
+    else:
+        if 'wl_remembered' not in req.session:
+            req.session['wl_remembered'] = []
+
+        remembered = req.session['wl_remembered']
+        updated = [int(i) for i in ids.split(",") if i]
+        selected = [i for i in remembered if i.id in updated]
+        req.session['wl_selected'] = selected
+    
+        if action:
+            if 'wl_actions' not in req.session:
+                req.session['wl_actions'] = []
+            req.session['wl_actions'].append(action)
+    
+    page = html.SimpleDocument("Worklist: selected elements updated")
+    msg = "Selected element(s) updated: %s" % selected
+    page.body.append(html.Division(msg))
+    return page
+
 def _remove(session, id):
-    if 'remembered' in session:
-        elm = [i for i in session['remembered'] if i.id == id]
+    if 'wl_remembered' in session:
+        elm = [i for i in session['wl_remembered'] if i.id == id]
         if elm:
-            session['remembered'].remove(elm[0])
+            session['wl_remembered'].remove(elm[0])
 
 # arch-tag: b7928902-fdf6-11d9-87e0-419999ff18a5

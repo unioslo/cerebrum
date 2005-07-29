@@ -35,6 +35,7 @@ div.worklist {
     vertical-align: top;
     border-top: 2px solid #9ab;
     border-left: 2px solid #9ab;
+    height: 100%;
 }
 
 div.worklist h2 {
@@ -73,16 +74,34 @@ div.worklist span.actions {
     display: table-cell; /* For firefox and Opera */ 
     display: inline-block; /* For Opera and ie */ 
     vertical-align: top; /* For ie */
-    
-    width: 200px;
-    background: #9ac;
-    border: 1px dashed black;
-    padding: 0.4em;
     margin: 0px 0px 0px 4px;
 }
 
-div.worklist span.actions div.errors h3 {
-    font-color: red;
+div.worklist span.actions div.wl_errors h3 {
+    color: red;
+}
+
+div.worklist span.actions div.wl_action {
+    width: 200px;
+    background: #9ac;
+}
+
+div.worklist span.actions div.wl_action div.header {
+    font-weight: bold;
+    font-size: 100%;
+    padding: 2px;
+    border: 1px solid black;
+}
+
+div.worklist span.actions div.wl_action div.links {
+    font-size: 80%;
+}
+
+div.worklist span.actions div.wl_action div.content {
+    font-size: 90%;
+    padding: 4px;
+    border: 1px dotted black;
+    border-top: 0px;
 }
 
 ## ActivityLog

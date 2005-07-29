@@ -44,8 +44,10 @@ def index(req):
 def list(req):
     return search(req, *req.session.get('account_lastsearch', ()))
 
-def search(req, name="", expire_date="", create_date="", spread="", description="", transaction=None):
-    req.session['account_lastsearch'] = (name, expire_date, create_date, spread, description)
+def search(req, owner="", name="", expire_date="", create_date="",
+           spread="", description="", transaction=None):
+    req.session['account_lastsearch'] = (owner, name, expire_date,
+                                         create_date, spread, description)
     page = Main(req)
     page.title = _("Account search:")
     page.setFocus("account/list")
@@ -59,13 +61,16 @@ def search(req, name="", expire_date="", create_date="", spread="", description=
     accountsearch = AccountSearchTemplate(
                        searchList=[{'formvalues': formvalues}])
 
-    if name or expire_date or create_date or spread or description:
+    if owner or name or expire_date or create_date or spread or description:
         server = transaction
 
         entitysearch = server.get_entity_searcher()
         search = server.get_account_searcher()
         intersections = [search,]
         
+        if owner:
+            owner = transaction.get_entity(int(owner))
+            search.set_owner(owner)
 
         if name:
             namesearcher = server.get_entity_name_searcher()
