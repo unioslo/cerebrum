@@ -63,7 +63,9 @@ class Account(Entity):
         CerebrumDbAttr('description', table, str, write=True),
         CerebrumAttr('name', str, write=True)
     ]
+    
     method_slots = Entity.method_slots + [
+        Method('is_expired', bool)
     ]
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
@@ -77,6 +79,10 @@ class Account(Entity):
     cerebrum_class = Factory.get('Account')
 
     entity_type = 'account'
+
+    def is_expired(self):
+        obj = self._get_cerebrum_obj()
+        return obj.is_expired()
 
 registry.register_class(Account)
 

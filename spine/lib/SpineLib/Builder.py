@@ -232,11 +232,18 @@ class Builder(object):
                 saved.add(save_method)
         self.updated.clear()
 
-    def reset(self):
-        """Reset all changed write attributes."""
+    def reset(self, write_only=True):
+        """Reset all changed attributes.
+        
+        Use write_only=False to reset attributes who are not writeable.
+        Usefull for methods which alters the values the attributes represent
+        without going through the usual Spine-API-methods.
+        """
         loaded = sets.Set()
         for attr in self.slots:
-            if attr not in self.primary and attr.write:
+            if attr not in self.primary:
+                if write_only and not attr.write:
+                    continue
                 if hasattr(self, attr.get_name_private()):
                     delattr(self, attr.get_name_private())
         self.updated.clear()
