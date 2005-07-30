@@ -122,3 +122,4 @@ class HomeDirectoryTest(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
+# arch-tag: 0e056fe6-00a6-11da-8066-8182e2884fde
