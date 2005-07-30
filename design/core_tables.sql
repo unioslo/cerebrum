@@ -844,7 +844,7 @@ CREATE TABLE account_home
     PRIMARY KEY (account_id, spread),
   CONSTRAINT account_home_homedir
     FOREIGN KEY(account_id, homedir_id) REFERENCES 
-    homedir(homedir_id, account_id)
+    homedir(account_id, homedir_id)
 );
 category:main/Oracle;
 GRANT SELECT ON account_home TO read_account;

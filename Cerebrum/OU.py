@@ -343,7 +343,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         return self.query("""
         SELECT ou_id
         FROM [:table schema=cerebrum name=ou_structure]
-        WHERE parent_id ISNULL""")
+        WHERE parent_id IS NULL""")
 
     def search(self, spread=None, name=None, acronym=None,
                short_name=None, display_name=None, sort_name=None):
