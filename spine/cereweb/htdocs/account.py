@@ -201,7 +201,6 @@ def view(req, transaction, id, addHome=False):
     page = Main(req)
     page.title = ""
     account = transaction.get_account(int(id))
-    account.get_homes()
     page.title = _("Account %s:") % account.get_name()
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
