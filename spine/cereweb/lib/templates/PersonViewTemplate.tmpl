@@ -31,7 +31,7 @@
 
 ## Main method for creating the person view page.
 #def viewPerson($transaction, $person, $addName, $addAffil)
-<div class="person">
+<div>
     $personInfo($person)
     #echo PersonAffiliationTemplate().view($person, $transaction, $addAffil, $page_url)
     #echo PersonNameTemplate().view($person, $transaction, $addName, $page_url)

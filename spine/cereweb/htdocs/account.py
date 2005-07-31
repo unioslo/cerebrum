@@ -195,16 +195,17 @@ def make(req, transaction, owner, name, expire_date="", np_type=None,
 make = transaction_decorator(make)
 
 
-def view(req, transaction, id):
+def view(req, transaction, id, addHome=False):
     """Creates a page with a view of the account given by id, returns
        a Main-template"""
     page = Main(req)
     page.title = ""
     account = transaction.get_account(int(id))
+    account.get_homes()
     page.title = _("Account %s:") % account.get_name()
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
-    content = view.viewAccount(transaction, account)
+    content = view.viewAccount(transaction, account, addHome)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
@@ -389,5 +390,35 @@ def join_group(req, transaction, account, group_name, operation):
     transaction.commit()
     queue_message(req, _("Joined account into group %s successfully") % group_name)
 join_group = transaction_decorator(join_group)
+
+def set_home(req, transaction, id, spread, home="", disk=""):
+    account = transaction.get_account(int(id))
+    spread = transaction.get_spread(spread)
+    
+    if home:
+        disk = None
+    elif disk:
+        home = ""
+        disk = transaction.get_disk(int(disk))
+    else:
+        queue_message(req, _("Either set home or disk"), error=True)
+        redirect_object(req, account, seeOther=True)
+        return
+    
+    account.set_homedir(spread, home, disk)
+    redirect_object(req, account, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Home directory set successfully."))
+set_home = transaction_decorator(set_home)
+
+def remove_home(req, transaction, id, spread):
+    account = transaction.get_account(int(id))
+    spread = transaction.get_spread(spread)
+    account.remove_homedir(spread)
+    
+    redirect_object(req, account, seeOther=True)
+    transaction.commit()
+    queue_message(req, _("Home directory successfully removed."))
+remove_home = transaction_decorator(remove_home)
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

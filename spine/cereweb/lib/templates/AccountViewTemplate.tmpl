@@ -20,15 +20,17 @@
 #from Cereweb.utils import url, object_link
 #from Cereweb.WorkList import remember_link
 #from GroupViewTemplate import GroupViewTemplate
+#from HomeDirectoryTemplate import HomeDirectoryTemplate
 #from FormWidgets import FormWidgets
 
 #attr $form_widgets = FormWidgets()
 #attr $list_groups = GroupViewTemplate().list_groups
 
 ## Main method for creating the view of accounts.
-#def viewAccount($transaction, $account)
-<div class="account">
+#def viewAccount($transaction, $account, $addHome)
+<div>
     $viewAccountInfo($account)
+    #echo HomeDirectoryTemplate().view($account, $transaction, $addHome)
     $groups($account)
     $join_group($account, $transaction)
     $view_entity($account, $transaction)

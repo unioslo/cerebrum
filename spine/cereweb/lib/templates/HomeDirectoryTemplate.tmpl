@@ -1,0 +1,78 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.InitTemplate import InitTemplate
+#from Cereweb.utils import url
+#extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## List homedirs for this account, and form for adding a homedir.
+#def view($account, $transaction, $addHome=False)
+<div class="personnames">
+    <a name="homedir" class="noaction"></a>
+    $homedirs($account)
+    #if $addHome == "True" or $addHome == True
+        $addForm($account, $transaction)
+    #else
+    <div class="actions">
+        #set $tmp_url = "account/view?id=%i&addHome=True" % $account.get_id()
+        <a href="$url(tmp_url)#homedir">$_("Set home directory")</a>
+    </div>
+    #end if
+</div>
+#end def
+
+## List homedirs for account.
+#def homedirs($account)
+    <h2>$_("Home Directories"):</h2>
+    #for $home in $account.get_homes()
+    <div class="name">
+        #set $remove = $url('account/remove_home?id=%s&spread=%s' %
+                    ($account.get_id(), $home.get_spread().get_name()))
+        <em>Spread:</em> $home.get_spread().get_name()
+        <a href="$remove" class="actions">$_("remove")</a><br />
+        <em>Home directory:</em> $home.get_homedir().get_path()
+    </div>
+    #end for
+#end def
+
+## Creates a form for adding a homedir to an account.
+#def addForm($entity, $tr)
+<form action="$url('account/set_home')" type="post">
+    <h2>$_("Set home directory"):</h2>
+    <input type="hidden" name="id" value="$entity.get_id()" />
+
+    #set $spreads = [($i.get_name(), $i.get_name())
+                     for $i in $entity.get_spreads()]
+    #set $disks = $tr.get_disk_searcher().search()
+    #set $disks = [("", " ")] + [($i.get_id(), "%s:%s" % 
+        ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
+    
+    $form_widgets.generate_loption("spread", "Spread", $spreads)
+    $form_widgets.input("home", "Home")
+    $form_widgets.generate_loption("disk", "Disk", $disks)
+    <div class="actions">
+        <input type="submit" value="$_('Set')" />
+        #set $tmp_url = "account/view?id=%s" % $entity.get_id()
+        <a href="$url($tmp_url)#homedir">$_("Cancel")</a>
+    </div>
+</form>
+#end def
+
