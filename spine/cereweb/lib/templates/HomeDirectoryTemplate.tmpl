@@ -46,9 +46,10 @@
     <div class="name">
         #set $remove = $url('account/remove_home?id=%s&spread=%s' %
                     ($account.get_id(), $home.get_spread().get_name()))
-        <em>Spread:</em> $home.get_spread().get_name()
+        <em>$_("Spread"):</em> $home.get_spread().get_name()
         <a href="$remove" class="actions">$_("remove")</a><br />
-        <em>Home directory:</em> $home.get_homedir().get_path()
+        <em>$_("Home directory"):</em> $home.get_homedir().get_path()<br />
+        <em>$_("Status"):</em> $home.get_homedir().get_status().get_description()
     </div>
     #end for
 #end def
