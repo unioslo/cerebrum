@@ -19,4 +19,4 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # arch-tag: 912b449c-84a5-4da3-9ee4-4e664ffe68f0
-PAGE_COST = 0.30
+PAGE_COST = 0.40
