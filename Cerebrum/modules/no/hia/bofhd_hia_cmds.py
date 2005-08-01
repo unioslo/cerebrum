@@ -3346,7 +3346,7 @@ class BofhdExtension(object):
         qtype = int(self._get_constant(qtype, "No such quarantine"))
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
         entity.disable_entity_quarantine(qtype, date)
-        return "OK"
+        return "Ok, quarantine disabled untill %s." % date
 
     # quarantine list
     all_commands['quarantine_list'] = Command(
@@ -3424,7 +3424,7 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         for r in cereconf.HOME_SPREADS:
             if spread == r:
-                return "Please use the command 'user home_create' to assign an extra homedir to the user!"
+                return "Please use the command 'user home_create' to assign a homedir to the user."
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         try:
@@ -3757,9 +3757,10 @@ class BofhdExtension(object):
             else:
                 raise CerebrumError, "Invalid disk"
 	self.ba.can_create_user(operator.get_entity_id(), account)
-	if (self._get_constant(spread, "No such spread") not in \
-	    [self.const.spread_nis_user, self.const.spread_ans_nis_user,
-	     self.const.spread_hia_novell_user, self.const.spread_hia_ad_account]):
+        from Cerebrum.modules.PosixUser import PosixUser
+        if not isinstance(account, PosixUser) and spread in cereconf.POSIX_SPREAD_CODES:
+            return "This user is not a posix user. Please use 'user promote_posix' first."
+        if self._get_constant(spread, "No such spread") not in cereconf.HOME_SPREADS:
 	    raise CerebrumError, "Cannot assign home in a non-home spread!"
 	if account.has_spread(self._get_constant(spread)):
 	    try:
