@@ -3757,15 +3757,20 @@ class BofhdExtension(object):
             else:
                 raise CerebrumError, "Invalid disk"
 	self.ba.can_create_user(operator.get_entity_id(), account)
-        from Cerebrum.modules.PosixUser import PosixUser
-        if not isinstance(account, PosixUser) and spread in cereconf.POSIX_SPREAD_CODES:
-            return "This user is not a posix user. Please use 'user promote_posix' first."
-        if self._get_constant(spread, "No such spread") not in cereconf.HOME_SPREADS:
+        is_posix = False
+        try:
+            self._get_account(accountname, actype="PosixUser")
+            is_posix = True
+        except CerebrumError:
+            pass
+        if not is_posix:
+            raise CerebrumError("This user is not a posix user. Please use 'user promote_posix' first.")
+        if spread not in cereconf.HOME_SPREADS:
 	    raise CerebrumError, "Cannot assign home in a non-home spread!"
-	if account.has_spread(self._get_constant(spread)):
+        if account.has_spread(int(self._get_constant(spread, "No such spread"))):
 	    try:
-		account.get_home(self._get_constant(spread))
-		raise CerebrumError, "User already has a home in spread %s, use user move" % spread
+                if account.get_home(int(self._get_constant(spread, "No such spread"))):
+                    return "User already has a home in spread %s, use user move" % spread
 	    except:
                 homedir_id = account.set_homedir(disk_id=disk_id, home=home,
                                                  status=self.const.home_status_not_created)
@@ -3775,8 +3780,8 @@ class BofhdExtension(object):
 	    homedir_id = account.set_homedir(disk_id=disk_id, home=home,
                                              status=self.const.home_status_not_created)
         account.set_home(int(self._get_constant(spread)), homedir_id)
-	account.write_db()
-	return "Home updated for %s in spread %s" % (accountname, spread)
+        account.write_db()
+        return "Home made for %s in spread %s" % (accountname, spread)
 	    
     # user delete
     all_commands['user_delete'] = Command(
@@ -4032,11 +4037,11 @@ class BofhdExtension(object):
 	
     # user promote_posix
     all_commands['user_promote_posix'] = Command(
-        ('user', 'promote_posix'), AccountName(), Spread(), GroupName(),
+        ('user', 'promote_posix'), AccountName(), GroupName(),
         PosixShell(default="bash"), DiskId(),
         perm_filter='can_create_user')
-    def user_promote_posix(self, operator, accountname, spread,
-                           dfg=None, shell=None, home=None):
+    def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
+                          home=None):
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -4046,26 +4051,29 @@ class BofhdExtension(object):
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        spread = int(self._get_constant(spread, "No such spread"))
         pu = PosixUser.PosixUser(self.db)
         uid = pu.get_free_uid()
         group = self._get_group(dfg, grtype='PosixGroup')
         shell = self._get_shell(shell)
-        disk_id, home = self._get_disk_or_home(home)
-        if home is not None:
-            if home[0] == ':':
-                home = home[1:]
-            else:
-                raise CerebrumError, "Invalid disk"
-        person = self._get_person("entity_id", account.owner_id)
+        if not home:
+            raise CerebrumError("home cannot be empty")
+        elif home[0] != ':':  # Hardcoded path
+            disk_id, home = self._get_disk(home)[1:3]
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("only superusers may use hardcoded path")
+            disk_id, home = None, home[1:]
+        if account.owner_type == self.const.entity_person:
+            person = self._get_person("entity_id", account.owner_id)
+        else:
+            person = None
+        spread = 'account@nis'
         self.ba.can_create_user(operator.get_entity_id(), person, disk_id)
         pu.populate(uid, group.entity_id, None, shell, parent=account)
-        homedir_nis_id = pu.set_homedir(disk_id=disk_id, home=home,
-                                        status=self.const.home_status_not_created)
-        pu.set_home(self.const.spread_nis_user, homedir_nis_id)
         pu.write_db()
-        return "Ok, promoted %s to posix" % accountname
-
+        self.user_home_create(operator, accountname, spread, disk_id)
+        return "OK, promoted %s to posix user" % accountname
+    
     # user posix_delete
     all_commands['user_demote_posix'] = Command(
         ('user', 'demote_posix'), AccountName(), perm_filter='can_create_user')
