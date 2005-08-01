@@ -433,6 +433,8 @@ class _PersonAffStatusCode(_CerebrumCode):
 
     def _get_status(self):
         return self.str
+    status_str = property(_get_status, None, None,
+                          "The 'status_str' field of this code value.")
 
     def insert(self):
         self.sql.execute("""
