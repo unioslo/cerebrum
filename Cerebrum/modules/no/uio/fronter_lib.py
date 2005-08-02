@@ -29,8 +29,8 @@ from Cerebrum.extlib import xmlprinter
 
 # TODO: This file should not have UiO hardcoded data in it
 SYDRadmins = ['baardj', 'frankjs', 'jazz', 'werner']
-DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'jonar', 'helgeu',
-             'kaugedal', 'rinos', 'monahst']
+DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'jonar',
+             'kaugedal', 'rinos', 'monahst', 'skoch']
 FronterDotComAdmins = ['aleksap', 'oscarh']
 AllAdmins = SYDRadmins + DMLadmins
 host_config = {
