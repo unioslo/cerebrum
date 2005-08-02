@@ -627,28 +627,46 @@ def process_kurs2enhet():
     # process_single_enhet_id.  Recheck that the reduction is correct.
     # It should be possible to move more code to that subroutine.
     for kurs_id in fronter.kurs2enhet.keys():
-        type = kurs_id.split(":")[0].lower()
-        if type == fronter.EMNE_PREFIX.lower():
+        ktype = kurs_id.split(":")[0].lower()
+        if ktype == fronter.EMNE_PREFIX.lower():
             enhet_sorted = fronter.kurs2enhet[kurs_id][:]
             enhet_sorted.sort(fronter._date_sort)
             # Bruk eldste enhet som $enh_id
             enh_id = enhet_sorted[0]
             enhet = enh_id.split(":", 1)[1]
-            struct_id = enh_id.upper()	# Default, for korridorer som
-                                        # ikke finnes i CF.
-            if old_group.has_key("STRUCTURE/Enhet:%s" % kurs_id):
-                # Struktur-ID må forbli uforandret i hele kursets levetid,
-                # slik at innhold lagt inn i eksisterende rom blir værende
-                # der.
-                #
-                # Så, dersom det allerede finnes en
-                # "STRUCTURE/Enhet"-korridor for denne kurs-IDen i
-                # ClassFronter, kan vi plukke eksisterende $struct_id
-                # derfra.
-                CFid = old_group["STRUCTURE/Enhet:%s" % kurs_id]['CFid']
-                # Stripp vekk "STRUCTURE/Enhet:" fra starten for å få
-                # eksisterende $struct_id.
-                struct_id = CFid.split(":", 1)[1]
+
+            # For å ta høyde for at noen flersemesterkurs allerede
+            # hadde eksportert enkelte av sine undervisningsenheter
+            # til ClassFronter uten at elementene fikk ID som
+            # samsvarte med kursets oppstartssemester, fikk kurs med
+            # oppstart før høsten 2005 dannet struct_id ut fra den
+            # eldste undervisningsenheten i samme kurs som allerede
+            # var lagt inn i Fronter.  Det var altså ikke nødvendigvis
+            # en "terminnr==1"-enhet som ble til struct_id.
+            #
+            # For kurs som starter høsten 2005 eller senere, derimot,
+            # blir struct_id dannet direkte fra kurs_id, slik at alle
+            # struct_id-er samsvarer med "terminnr==1"-enheten.
+            #
+            termkode, arstall = kurs_id.split(":")[-2:]
+            arstall = int(arstall)
+            if (arstall == 2005 and termkode == 'høst') or arstall > 2005:
+                struct_id = kurs_id.upper() + ":1"
+            else:
+                struct_id = enh_id.upper()
+                if old_group.has_key("STRUCTURE/Enhet:%s" % kurs_id):
+                    # Struktur-ID må forbli uforandret i hele kursets
+                    # levetid, slik at innhold lagt inn i eksisterende
+                    # rom blir værende der.
+                    #
+                    # Så, dersom det allerede finnes en
+                    # "STRUCTURE/Enhet"-korridor for denne kurs-IDen i
+                    # ClassFronter, kan vi plukke eksisterende
+                    # $struct_id derfra.
+                    CFid = old_group["STRUCTURE/Enhet:%s" % kurs_id]['CFid']
+                    # Stripp vekk "STRUCTURE/Enhet:" fra starten for å
+                    # få eksisterende $struct_id.
+                    struct_id = CFid.split(":", 1)[1]
 
             Instnr, emnekode, versjon, termk, aar, termnr = enhet.split(":")
             # Opprett strukturnoder som tillater å ha rom direkte under
@@ -750,7 +768,7 @@ def process_kurs2enhet():
                                         emnekode, groups,
                                         enhet_node, undervisning_node,
                                         termin_suffix)
-        elif type == fronter.EVU_PREFIX.lower():
+        elif ktype == fronter.EVU_PREFIX.lower():
             # EVU-kurs er modellert helt uavhengig av semester-inndeling i
             # FS, slik at det alltid vil være nøyaktig en enhet-ID for
             # hver EVU-kurs-ID.  Det gjør en del ting nokså mye greiere...
@@ -809,7 +827,7 @@ def process_kurs2enhet():
                                         kurskode, groups,
                                         enhet_node, undervisning_node)
         else:
-            raise ValueError, "Unknown type <%s> for course <%s>" % (type, kurs_id)
+            raise ValueError, "Unknown type <%s> for course <%s>" % (ktype, kurs_id)
 
 def register_group_update(operation, id):
     """populerer %group_updates"""

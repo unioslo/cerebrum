@@ -479,10 +479,25 @@ class Fronter(object):
                 rest.insert(0, self.EMNE_PREFIX)
             
             if room_type == 'ROOM/Aktivitet':
-                aktkode = rest.pop()
-                room = ":".join((room_type, FronterUtils.UE2KursID(*rest), aktkode))
+                # Aktivitetsrom skal ha samme levetid som
+                # undervisningsenheten de er knyttet til, altså kun
+                # ett semester.  Dette gjelder også for
+                # flersemesterkurs -- disse skal få nye aktivitetsrom
+                # for hvert av semesterne kurset strekker seg over.
+                room = ri['room']
             else:
-                room = "%s:%s" % (room_type, FronterUtils.UE2KursID(*rest))
+                # For andre rom (Felles og Lærer) skal rommets ID
+                # baseres på det første semesteret i kurset.  Husk på
+                # at det kun er første delen av Rom-ID som kan ha
+                # mixed case; resten må være uppercase.
+                room = "%s:%s" % (room_type,
+                                  FronterUtils.UE2KursID(*rest).upper())
+                if rest[0] == self.EMNE_PREFIX:
+                    # Rom-ID skal, i motsetning til gruppe-ID, av
+                    # historiske årsaker inkludere et felt for
+                    # terminnr.  Grunnet tilbakeregningen gjort av
+                    # UE2KursID er dette alltid "1".
+                    room = room + ":1"
             rooms[room] = {'title': ri['title'],
                            'parent': ri['structid'],
                            'profile': ri['profile'],
