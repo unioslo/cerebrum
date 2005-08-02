@@ -107,9 +107,9 @@ def process_OUs(db):
 
         # FIXME: This is a hack for catching up OUs that share a SAP id. It
         # should be impossible, but it happens nonetheless. The exception
-        # thrown concerns violation of a unique constraint. Unfortunately, I
-        # do not see a database driver independent type to go in the except
-        # clause.
+        # thrown concerns violation of a unique constraint. The hack below
+        # should reduce the noise in the logs (at least until we change the
+        # database driver)
         try: 
             ou.write_db()
             # NB! We *must* commit after each write_db()
@@ -122,8 +122,14 @@ def process_OUs(db):
             # fi
             success += 1
         except:
-            logger.exception("Failed writing SAP id «%s-%s» to the database",
+            typ, value, tb = sys.exc_info()
+            if (str(value).find("duplicate key violates unique constraint")
+                != -1):
+                logger.error("Attempt to insert duplicate key «%s-%s»",
                              orgeh, gsber)
+            else:
+                logger.exception("Failed writing SAP id «%s-%s» to the db",
+                                 orgeh, gsber)
         else:
             logger.debug("[%10d] <=> [%15s] <=> [%12s]",
                          ou.entity_id, ou.get_SAP_id(),
