@@ -45,6 +45,7 @@ def list(req):
 
 def tree(req, transaction, perspective=None):
     page = Main(req)
+    page.setFocus("ou/tree")
     tree_template = OUTreeTemplate()
     if not perspective:
         perspective = req.session.get("ou_perspective", None)
