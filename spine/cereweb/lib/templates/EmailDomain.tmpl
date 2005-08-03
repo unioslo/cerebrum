@@ -1,0 +1,79 @@
+## Copyright 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.utils import url, object_link, object_url
+#from Cereweb.WorkList import remember_link
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
+#from Cereweb.SpineIDL.Errors import NotFoundError
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## Overloaded by other pages to get the right url.
+#attr $page_url = "email/domain"
+
+## Main method for creating the ou view page.
+#def list_domains($transaction)
+<div>
+
+#set $domains=$transaction.get_email_domain_searcher()
+#set $domains = $domains.search()
+$domains.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
+#for $domain in $domains
+    <div>$object_link($domain)</div>
+#end for
+
+</div>
+#end def
+
+#def view_domain($transaction, $domain)
+<div class="info">
+<em>$_("Description"):</em> $domain.get_description()
+</div>
+
+<h2>$_("Member of categories")</h2>
+#set $category=None
+#for $category in $domain.get_categories()
+    <div>$object_link($category) 
+    $object_link($domain, method="remove_from_category", 
+        text=$_("Remove from category"), 
+        _class="actions",
+        category=$category.get_name())
+    </div>
+#end for
+#if $category is None
+    <div>($_("Not a member of any categories"))</div>
+#end if    
+
+<form action="add_to_category" method="POST">
+  <input type="hidden" name="id" value="$domain.get_id()" />
+#set $categories = $transaction.get_email_domain_category_searcher()
+$form_widgets.code_selector("category", "Category", $categories)
+
+    <input type="submit" value="$_("Add")" />
+</form>
+#end def
+
+
+#def addresses($transaction, $domain)
+    #set $addresses = $transaction.get_email_address_searcher()
+    #for $address in $addresses,search()
+        $address.get_name()
+    #end for
+#end def
+
