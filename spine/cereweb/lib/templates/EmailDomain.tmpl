@@ -67,13 +67,19 @@ $form_widgets.code_selector("category", "Category", $categories)
 
     <input type="submit" value="$_("Add")" />
 </form>
+
+$list_addresses($transaction, $domain)
 #end def
 
-
-#def addresses($transaction, $domain)
-    #set $addresses = $transaction.get_email_address_searcher()
-    #for $address in $addresses,search()
-        $address.get_name()
+## List email addresses (targets) in domain
+#def list_addresses($transaction, $domain)
+    <h2>$_("Addresses in domain")</h2> 
+    #set $addrs = $transaction.get_email_address_searcher()
+    $addrs.set_domain($domain)   
+    #for $address in $addrs.search()
+        <div>
+        $object_link($address.get_target(), $address.full_address())
+        </div>
     #end for
 #end def
 

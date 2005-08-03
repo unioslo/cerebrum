@@ -1,0 +1,187 @@
+## Copyright 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.utils import object_url, object_link
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
+#from Cereweb.SpineIDL.Errors import NotFoundError
+#from Cereweb.utils import url
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+#def entity_email($transaction, $entity)
+<div class="entityemail">
+    <div class="subtitle">
+        <h3>$_("Email targets")</h3>
+    </div>
+
+    #set $target = None
+    #set $targets = $transaction.get_email_target_searcher()
+    $targets.set_entity($entity)
+    #for $target in $targets.search():
+        <div>
+        $object_link($target)
+        $object_link($target, $_("Delete"), "delete", _class="actions")
+        </div> 
+    #end for
+    
+    #if $target is None
+        $create_target($transaction, $entity) 
+    #end if    
+</div>
+#end def
+
+#def add_address($transaction, $target, $suggestion="")
+<form action="$url('emailtarget/add_address')" method="POST">
+    <input type="hidden" name="target" value="$target.get_id()" />
+    <label>$_("Add an email address:")</label><br />
+    <input name="local_part" value="$suggestion" /> @
+
+    #set $domains=$transaction.get_email_domain_searcher()
+    #set $domains = [(d.get_id(), d.get_name()) for d in $domains.search()]
+    $domains.sort(lambda x,y: cmp(x[1], y[1]))
+    $form_widgets.generate_option("domain", $domains)
+    <input type="submit" value="$_("Add")" />
+</form>
+#end def
+
+#def create_target($transaction, $entity=None)
+<form action="$url('emailtarget/create')" method="POST">
+    #if $entity is not None
+        <input type="hidden" name="entity" value="$entity.get_id()" />
+    #end if
+    $_("Create a new email target:")<br />
+#set $target_types=$transaction.get_email_target_type_searcher()
+    $form_widgets.code_selector("target_type", $_("Target type"), $target_types)
+    <input type="submit" value="$_("Add")" />
+</form>
+#end def
+
+#def edit_target($transaction, $target)
+<form action="$url('emailtarget/save')" method="POST">
+    <input type="hidden" name="id" value="$target.get_id()" />
+    <div> 
+    #set $target_types=$transaction.get_email_target_type_searcher()
+    $form_widgets.code_selector("target_type", $_("Target type"),
+                                $target_types, $target.get_type())
+    </div>
+
+    #set $entity = $target.get_entity()
+    <div>$_("Associated with entity"):
+    #if $entity is not None
+        $object_link($entity)
+    #else
+        <em>$_("No entity")</em> 
+    #end if
+    </div>
+
+    <div><label for="alias">$_("Alias"):</label>
+         <input name="alias" value="$target.get_alias()" /></div>
+    
+    <div><label for="using">$_("Using account"):</label>
+        #set $using = target.get_using() or ''
+        #set $using = $using and $using.get_name()
+         <input name="using" value="$using" /></div>
+    
+    <div> <input type="submit" value="$_("Save")" /></div>
+</form>
+#end def
+
+
+#def view_target($transaction, $target, $suggestion="")
+
+<div class="info">
+    <div class="subtitle">
+        <h3>$_("Email target info")</h3>
+    </div>
+
+    <div> 
+    <em>$_("Target type"):</em> 
+        $target.get_type().get_description()
+    </div>
+
+    #set $entity = $target.get_entity()
+    #if $entity is not None
+        <div><em>$_("Associated with") $_($entity.get_type().get_name()):</em>
+        $object_link($entity)
+        </div>
+    #end if
+
+    #set $alias = $target.get_alias()
+    #if $alias
+        <div><em>$_("Alias"):</em>
+            $alias 
+        </div>
+    #end if    
+    
+    #set $using = target.get_using()
+    #if $using
+         <div><em>$_("Using account"):</em>
+             $object_link($using)
+         </div>
+     #end if
+
+    <div> $object_link($target, $_("Edit"), "edit", _class="actions") </div>
+     
+</div>
+
+<div>
+    <div class="subtitle">
+        <h3>$_("Email addresses")</h3>
+    </div>
+#try    
+    #set primary = $target.get_primary_address()    
+#except NotFoundError    
+    #set primary = None
+#end try    
+
+<table>
+#for $addr in $target.get_addresses()
+    <tr>
+    #set $is_primary = $primary is not None and $primary == $addr
+    <td>
+    #if $is_primary
+        <strong>
+    #end if    
+    $addr.get_local_part()@$object_link($addr.get_domain())
+    #if $is_primary
+        </strong>
+    #end if    
+    </td>
+    <td>
+    #if $is_primary
+        $object_link($target, $_("Unset as primary"),
+                     method="set_primary", _class="actions")
+    #else
+        $object_link($target, $_("Set as primary"),
+                     method="set_primary", address=$addr.get_id(),
+                     _class="actions")
+    #end if
+    </td>
+    <td>
+        $object_link($target, $_("Remove address"),
+                     method="remove_address", address=$addr.get_id(),
+                     _class="actions")
+    </td>
+    </tr>
+#end for
+</table>
+<br />
+$add_address($transaction, $target, $suggestion)
+</div>
+#end def

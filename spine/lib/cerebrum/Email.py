@@ -29,6 +29,7 @@ from SpineLib import SpineExceptions
 from Entity import Entity
 from Types import EmailDomainCategory, EmailTargetType, PersonAffiliationType
 from Date import Date
+from Account import Account
 from Person import Person
 from PersonAffiliation import PersonAffiliation
 from Commands import Commands
@@ -201,7 +202,14 @@ class EmailTarget(DatabaseClass):
     mostly used in association with e-mail addresses.
 
     If the target is a POSIX account, the e-mail target must also contain the
-    UID. The target may also have an alias.
+    UID. 
+    
+    The target may also have an alias, but the interpretation of the
+    alias string is specific to each target type.
+
+    Some target types allow specifying a Posix UID to use for delivery 
+    or execution. The attribute using can be set to a posix enabled
+    Account for such cases.
 
     \\see EmailTargetType
     \\see EmailAddress
@@ -213,7 +221,8 @@ class EmailTarget(DatabaseClass):
         DatabaseAttr('type', table, EmailTargetType, write=True),
         DatabaseAttr('entity', table, Entity, write=True, exceptions=[SpineExceptions.AlreadyExistsError]),
         DatabaseAttr('alias', table, str, write=True),
-        DatabaseAttr('uid', table, int, write=True),
+        # FIXME: should be PosixUser
+        DatabaseAttr('using', table, Account, write=True), 
     ]
     method_slots = []
 
@@ -223,7 +232,7 @@ class EmailTarget(DatabaseClass):
             'type' : 'target_type',
             'entity' : 'entity_id',
             'alias' : 'alias_value',
-            'uid': 'using_uid',
+            'using': 'using_uid',
         }
     }
 
@@ -248,7 +257,7 @@ class EmailTarget(DatabaseClass):
                 NOTE: The entity must be either an account, a group or None.
 
         \\see Account
-        \\see Grouo
+        \\see Group
         """
         obj = Cerebrum.modules.Email.EmailTarget(self.get_database())
         obj.find(self.get_id())
@@ -358,6 +367,14 @@ def create_email_address(self, local_part, domain, target):
     return EmailAddress(self.get_database(), obj.email_addr_id)
 Commands.register_method(Method('create_email_address', EmailAddress, args=[('local_part', str), ('domain', EmailDomain), 
     ('target', EmailTarget)], write=True), create_email_address)
+
+  
+def full_address(self):
+    """
+    Return a string version of the email address, ie localpart@domain
+    """       
+    return "%s@%s" % (self.get_local_part(), self.get_domain().get_name())
+EmailAddress.register_method(Method('full_address', str), full_address)
 
 def get_addresses(self):
     """

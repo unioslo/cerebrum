@@ -21,13 +21,16 @@
 #from Cereweb.utils import url, object_link
 #from Cereweb.WorkList import remember_link
 #from MemberTableTemplate import MemberTableTemplate
+#from EmailTarget import EmailTarget
 
+#attr $email = EmailTarget()
 
 #def viewGroup($transaction, $group)
 <div>
     $groupInfo($group)
     $groupMembers($group)
     $add_member($group)
+    $email.entity_email($transaction, $group)
     $view_entity($group, $transaction)
 </div>
 #end def

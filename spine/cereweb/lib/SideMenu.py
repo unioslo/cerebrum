@@ -82,10 +82,15 @@ class SideMenu(FixUrlMixin, Menu.Menu):
     
     def makeEmail(self):    
         self.email = self.addItem("email", _("Email") ,"email")
-        domains = self.email.addItem("domain", _("Domain") ,"emaildomain")
-        domains.addItem("list", _("List"), "emaildomain/list")
-        domains.addItem("view", _("View"), "emaildomain/view?id=%s")
-        domains.addItem("edit", _("Edit"), "emaildomain/edit?id=%s")
+        domain = self.email.addItem("domain", _("Domain") ,"emaildomain")
+        domain.addItem("list", _("List"), "emaildomain/list")
+        domain.addItem("view", _("View"), "emaildomain/view?id=%s")
+        domain.addItem("edit", _("Edit"), "emaildomain/edit?id=%s")
+
+        target = self.email.addItem("target", _("Target"), "emailtarget")
+        target.addItem("view", _("View"), "emailtarget/view?id=%s")
+        target.addItem("edit", _("Edit"), "emailtarget/edit?id=%s")
+
 
     def makeRoles(self):
         self.roles = self.addItem("roles", _("Roles") ,"roles")

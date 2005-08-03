@@ -22,7 +22,9 @@
 #from GroupViewTemplate import GroupViewTemplate
 #from HomeDirectoryTemplate import HomeDirectoryTemplate
 #from FormWidgets import FormWidgets
+#from EmailTarget import EmailTarget
 
+#attr $email = EmailTarget()
 #attr $form_widgets = FormWidgets()
 #attr $list_groups = GroupViewTemplate().list_groups
 
@@ -30,9 +32,10 @@
 #def viewAccount($transaction, $account, $addHome)
 <div>
     $viewAccountInfo($account)
-    #echo HomeDirectoryTemplate().view($account, $transaction, $addHome)
+    $HomeDirectoryTemplate().view($account, $transaction, $addHome)
     $groups($account)
     $join_group($account, $transaction)
+    $email.entity_email($transaction, $account)
     $view_entity($account, $transaction)
 </div>
 #end def

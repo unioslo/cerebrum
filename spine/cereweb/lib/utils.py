@@ -23,6 +23,8 @@ import forgetHTML
 import Cereweb.config
 from Cerebrum.Errors import ProgrammingError
 import urllib
+from Cereweb.SpineIDL.Errors import NotFoundError
+
 
 WEBROOT = Cereweb.config.conf.get('cereweb', 'webroot')
 
@@ -93,12 +95,21 @@ def object_link(object, text=None, method="view", _class="", **params):
         elif type == 'ou':
             tmp = object.get_display_name()
             text = tmp and tmp or object.get_name()
+        elif type == "emailtarget":    
+            try:
+                primary = object.get_primary_address()
+            except NotFoundError:
+                text = "Email target of type '%s'" % object.get_type().get_name()
+            else:
+                text = primary.full_address() + " (%s)" % object.get_type().get_name()
         elif hasattr(object, "get_name"):
         # should also cover
         #elif type in ('group', 'account'):
             text = object.get_name()   
         else:
             text = str(object)
+            text.replace("<", "&lt;")
+            text.replace(">", "&gt;")
     if _class:
         _class = ' class="%s"' % _class
     return '<a href="%s"%s>%s</a>' % (url, _class, text)
