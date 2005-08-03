@@ -22,6 +22,7 @@ import time
 import forgetHTML
 import Cereweb.config
 from Cerebrum.Errors import ProgrammingError
+import urllib
 
 WEBROOT = Cereweb.config.conf.get('cereweb', 'webroot')
 
@@ -38,32 +39,68 @@ def url(path):
         path = 'Chandler.cgi' + '/' + path
     return WEBROOT + "/" + path
 
-def object_url(object, method="view"):
-    """Returns the full path to a page treating the object.
+def _spine_type(object):
+    """Return the type (string) of a Spine object.
+
+    If the Spine object is an instance of SpineEntity, the name of
+    get_type() is returned.  Else, the class name part of the the
+    Spine IDL repository ID is returned.  
+
+    For instance, _spine_type(some_account) -> "account" while
+    _spine_type(some_spine_email_domain) -> EmailDomain
+
+    
+    """
+    if object._is_a("IDL:SpineIDL/SpineEntity:1.0"):
+        return object.get_type().get_name()
+    else:
+        # split up "IDL:SpineIDL/SpineEntity:1.0"
+        idl_type = object._NP_RepositoryId.split(":", 3)[1]
+        spine_type = idl_type.split("/")[1]
+        # The Spine prefix is not important
+        name = spine_type.replace("Spine", "")
+        return name.lower()
+
+
+def object_url(object, method="view", **params):
+    """Return the full path to a page treating the object.
     
     Method could be "view" (the default), "edit" and other things.
-    """
-    type = object.get_type().get_name()
-    return url("%s/%s?id=%s" % (type, method, object.get_id()))
 
-def object_link(object, text=None, method="view", _class=None):
-    """Creates a HTML anchor (a href=..) for the object.
-       The text of the anchor will be str(object) - unless
-       the parameter text is given."""
-    url = object_url(object, method)   
+    Any additional keyword arguments will be appended to the query part.
+    """
+    type = _spine_type(object)
+    params["id"] = object.get_id()
+
+    # FIXME: urlencode will seperate with & - not &amp; or ?
+    return url("%s/%s?%s" % (type, method, urllib.urlencode(params)))
+
+
+def object_link(object, text=None, method="view", _class="", **params):
+    """Create a HTML anchor (a href=..) for the object.
+
+     The text of the anchor will be str(object) - unless
+     the parameter text is given.
+
+      Any additional keyword arguments will be appended to the query part.
+       
+       """
+    url = object_url(object, method, **params)
     if text is None:
-        type = object.get_type().get_name()
-        if type in ('group', 'account'):
-            text = object.get_name()
-        elif type == 'person':
+        type = _spine_type(object)
+        if type == 'person':
             text = object.get_cached_full_name()
         elif type == 'ou':
             tmp = object.get_display_name()
             text = tmp and tmp or object.get_name()
+        elif hasattr(object, "get_name"):
+        # should also cover
+        #elif type in ('group', 'account'):
+            text = object.get_name()   
         else:
             text = str(object)
-#    return forgetHTML.Anchor(text, href=url, _class=_class)
-    _class = _class and ' class="%s"' % _class or ''
+    if _class:
+        _class = ' class="%s"' % _class
     return '<a href="%s"%s>%s</a>' % (url, _class, text)
 
 def redirect(req, url, temporary=False, seeOther=False):
