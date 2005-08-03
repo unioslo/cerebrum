@@ -172,3 +172,4 @@ def remove_address(req, transaction, id, address):
     queue_message(req, msg)
 remove_address = transaction_decorator(remove_address)
 
+# arch-tag: 53b597b2-0472-11da-9196-788d6ec686ec
