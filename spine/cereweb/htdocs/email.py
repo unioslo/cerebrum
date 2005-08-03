@@ -31,3 +31,4 @@ def index(req):
     # Could also let people search by email address etc
     return redirect(req, url('emaildomain'))
 
+# arch-tag: b3739600-040d-11da-97b3-692f6b35af14
