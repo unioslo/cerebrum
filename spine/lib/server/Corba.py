@@ -37,7 +37,7 @@ from Cerebrum.spine.SpineLib.Locking import Locking
 from Cerebrum.spine.SpineLib.Caching import Caching
 from Cerebrum.spine.SpineLib.DatabaseClass import DatabaseTransactionClass
 from Cerebrum.spine.SpineLib.SearchClass import SearchClass
-from Cerebrum.spine.SpineLib.SpineExceptions import AccessDeniedError, ServerProgrammingError, TransactionError
+from Cerebrum.spine.SpineLib.SpineExceptions import AccessDeniedError, ServerProgrammingError, TransactionError, ObjectDeletedError
 from Cerebrum.spine.SpineLib.Transaction import Transaction
 from Cerebrum.spine.Auth import AuthOperationType
 
@@ -228,16 +228,14 @@ def _create_corba_method(method):
                 if isinstance(self.spine_object, Locking):
                     if self.spine_object.has_writelock(transaction):
                         # The transaction has already deleted the object.
-
-                        # FIXME: maybe find a better minor, or another exception?
                         # The client is really doing something stupid when it tries to
                         # access an object it has already deleted. 20050705 erikgors.
-                        raise Communication.CORBA.OBJECT_NOT_EXIST
+                        raise ObjectDeletedError
                     elif not self.spine_object.is_writelocked():
                         # This object has been deleted _and_ committed.
                         # The transaction might have gotten a reference
                         # from a search, and is now trying to access it.
-                        raise Communication.CORBA.OBJECT_NOT_EXIST
+                        raise ObjectDeletedError
                     else:
                         # We do nothing. The object is marked for deletion
                         # but has not yet been committed, so it might yet be undeleted.
@@ -245,7 +243,7 @@ def _create_corba_method(method):
                         # to lock_for_reading/lock_for_writing later on.
                         pass
                 elif isinstance(self.spine_object, DatabaseTransactionClass):
-                    raise Communication.CORBA.OBJECT_NOT_EXIST
+                    raise ObjectDeletedError
 
             # Check for lost locks (raises an exception if a lost lock is found)
             transaction.check_lost_locks()

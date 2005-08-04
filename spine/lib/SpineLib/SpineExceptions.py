@@ -32,42 +32,45 @@ class SpineException(Exception):
     """Base-class for all exceptions in spine."""
 
 class AccessDeniedError(SpineException):
-    """Raised if client dont have access to the method."""
+    """Client doesn't have access to the method."""
 
 class AlreadyLockedError(SpineException):
-    """Raised if a locking error occurs."""
+    """A locking error occurs."""
 
 class ReadOnlyAttributeError(SpineException):
-    """Raised if the attribute trying to be written is read-only."""
+    """The attribute trying to be written is read-only."""
 
 class DatabaseError(SpineException):
-    """Raised if an error occurs with the database."""
+    """An error occurs with the database."""
 
 class CreationError(DatabaseError):
-    """Raised if creation of an object fails."""
+    """Creation of an object fails."""
 
 class DeletionError(DatabaseError):
-    """Raised if deletion of an object fails."""
+    """Deletion of an object fails."""
 
 class AlreadyExistsError(DatabaseError):
-    """Raised if a unique constraint is violated in the database."""
+    """A unique constraint is violated in the database."""
 
 class TransactionError(SpineException):
-    """Raised if the error is related to a transaction."""
+    """The error is related to a transaction."""
 
 class ClientProgrammingError(SpineException):
-    """Raised when the client does something illegal."""
+    """The client did something illegal."""
 
 class ValueError(ClientProgrammingError):
-    """Raised when the client does something involving an invalid value."""
+    """The client does something involving an invalid value."""
+
+class ObjectDeletedError(ClientProgrammingError):
+    """Spine object referenced after deletion."""
 
 class ServerProgrammingError(SpineException):
-    """Raised when something illegal is done in the server-side code."""
+    """Something illegal is done in the server-side code."""
 
 class NotFoundError(SpineException):
-    """Raised when one or more objects are not found."""
+    """One or more objects are not found."""
 
 class TooManyMatchesError(SpineException):
-    """Raised when a search, find, get or something similar has too many matches."""
+    """when a search, find, get or something similar has too many matches."""
 
 # arch-tag: 7c3b53d8-649b-4dfc-8582-1664e52b6e0e

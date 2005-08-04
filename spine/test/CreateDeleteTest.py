@@ -21,7 +21,7 @@
 
 import unittest
 from TestBase import *
-from omniORB import CORBA
+
 
 class CreateDeleteTest(unittest.TestCase):
     """Tests create and delete for entity classes in Spine."""
@@ -37,7 +37,7 @@ class CreateDeleteTest(unittest.TestCase):
         group = tr.get_commands().create_group(name)
         assert name == group.get_name()
         group.delete()
-        self.assertRaises(CORBA.OBJECT_NOT_EXIST, group.get_name)
+        self.assertRaises(Spine.Errors.ObjectDeletedError, group.get_name)
 
         tr.rollback()
 
@@ -54,7 +54,7 @@ class CreateDeleteTest(unittest.TestCase):
         person, name = self.__create_person(tr)
         assert name == person.get_cached_full_name()
         person.delete()
-        self.assertRaises(CORBA.OBJECT_NOT_EXIST, person.get_cached_full_name)
+        self.assertRaises(Spine.Errors.ObjectDeletedError, person.get_cached_full_name)
 
         tr.rollback()
 
@@ -66,7 +66,7 @@ class CreateDeleteTest(unittest.TestCase):
         account = tr.get_commands().create_account(name, owner, expire_date)
         assert name == account.get_name()
         account.delete()
-        self.assertRaises(CORBA.OBJECT_NOT_EXIST, account.get_name)
+        self.assertRaises(Spine.Errors.ObjectDeletedError, account.get_name)
 
         tr.rollback()
 
@@ -81,7 +81,7 @@ class CreateDeleteTest(unittest.TestCase):
                 ou = c.create_ou(name, 1, 1, 1, 1) # For the stedkode mixin
         assert name == ou.get_name()
         ou.delete()
-        self.assertRaises(CORBA.OBJECT_NOT_EXIST, ou.get_name)
+        self.assertRaises(Spine.Errors.ObjectDeletedError, ou.get_name)
 
     def __create_host(self, transaction):
         name = 'unittest%s' % id(self)
@@ -94,7 +94,7 @@ class CreateDeleteTest(unittest.TestCase):
         assert host.get_name() == name
         assert host.get_description() == name
         host.delete()
-        self.assertRaises(CORBA.OBJECT_NOT_EXIST, host.get_name)
+        self.assertRaises(Spine.Errors.ObjectDeletedError, host.get_name)
 
         tr.rollback()
 

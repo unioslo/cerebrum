@@ -20,7 +20,7 @@
 
 from Cerebrum.extlib import sets
 import Cerebrum.Errors
-from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, NotFoundError, ReadOnlyAttributeError, ServerProgrammingError, TooManyMatchesError, TransactionError
+from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, NotFoundError, ReadOnlyAttributeError, ServerProgrammingError, TooManyMatchesError, TransactionError, ObjectDeletedError
 
 __all__ = ['Attribute', 'Method', 'Builder']
 
@@ -59,7 +59,8 @@ class Attribute(object):
         # Add the 'standard' exceptions to the attribute
         self.exceptions = exceptions + [
             AlreadyLockedError, DatabaseError, TransactionError, 
-            AccessDeniedError, ServerProgrammingError
+            AccessDeniedError, ServerProgrammingError,
+            ObjectDeletedError,
         ]
         if optional:
             self.exceptions.append(NotFoundError)
@@ -127,7 +128,8 @@ class Method(object):
         self.args = args
         self.exceptions = exceptions + [
             AlreadyLockedError, DatabaseError, TransactionError, 
-            AccessDeniedError, ServerProgrammingError
+            AccessDeniedError, ServerProgrammingError,
+            ObjectDeletedError
         ]
         self.write = write
         self.doc = None
