@@ -24,6 +24,9 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
+## Max addresses to view in emaildomain/view
+#attr $max_addresses = 20
+
 ## Overloaded by other pages to get the right url.
 #attr $page_url = "email/domain"
 
@@ -43,8 +46,12 @@ $domains.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
 
 #def view_domain($transaction, $domain)
 <div class="info">
+<em>$_("Domain name"):</em> $domain.get_name()
+</div>
+<div class="info">
 <em>$_("Description"):</em> $domain.get_description()
 </div>
+$object_link($domain, "Edit", "edit", _class="actions")
 
 <h2>$_("Member of categories")</h2>
 #set $category=None
@@ -60,7 +67,7 @@ $domains.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
     <div>($_("Not a member of any categories"))</div>
 #end if    
 
-<form action="add_to_category" method="POST">
+<form action="$url("emaildomain/add_to_category")" method="POST">
   <input type="hidden" name="id" value="$domain.get_id()" />
 #set $categories = $transaction.get_email_domain_category_searcher()
 $form_widgets.code_selector("category", "Category", $categories)
@@ -68,18 +75,55 @@ $form_widgets.code_selector("category", "Category", $categories)
     <input type="submit" value="$_("Add")" />
 </form>
 
-$list_addresses($transaction, $domain)
+$list_addresses($transaction, $domain, $max_addresses)
 #end def
 
 ## List email addresses (targets) in domain
-#def list_addresses($transaction, $domain)
+#def list_addresses($transaction, $domain, $limit="unlimited")
     <h2>$_("Addresses in domain")</h2> 
     #set $addrs = $transaction.get_email_address_searcher()
-    $addrs.set_domain($domain)   
-    #for $address in $addrs.search()
+    $addrs.set_domain($domain)
+    #for $count,$address in $enumerate($addrs.search())
+        #if $count+1 > $limit
+            <div>(..)</div>
+
+            <div>
+            $object_link($domain, $_("View all addresses"), 
+                         "addresses", _class="actions")
+            </div>
+            #break
+        #end if
         <div>
         $object_link($address.get_target(), $address.full_address())
         </div>
     #end for
+    <div>$_("To add new addresses to the domain, create a new email target. "
+            "For instance, find an account and create a new email target "
+            "attached to the account.")</div>
+#end def
+
+#def create_domain()
+    $edit_domain()
+#end def
+
+#def edit_domain($domain=None)
+<form action="$url("emaildomain/save")" method="POST">
+    #if $domain is not None
+        <input type="hidden" name="domain" value="$domain.get_id()" />
+    #end if
+    #set $name = $domain and $domain.get_name() or ""
+    <label for="name">$_("Domain name"):</label>
+    <input name="name" value="$name" /><br />
+
+    #set $description = $domain and $domain.get_description() or ""
+    <label for="description">$_("Description"):</label>
+    <input name="description" value="$description" /><br />
+
+    #if $domain is not None
+        <input type="submit" value="$_("Save")" />
+    #else
+        <input type="submit" value="$_("Create")" /><br />
+    #end if
+</form>
 #end def
 

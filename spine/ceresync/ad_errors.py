@@ -130,7 +130,7 @@ adsi_errors = (
 	(0x80072044L, "LDAP_REFERRAL_LIMIT_EXCEEDED", "ERROR_DS_REFERRAL_LIMIT_EXCEEDED", "Exceeded referral limit."),
 )
 
-# ADSI 2.0 has some seperate codes. I don't know what "2.0" is.
+# ADSI 2.0 has some separate codes. I don't know what "2.0" is.
 adsi20_errors = (
 	(0L, "LDAP_SUCCESS", "NO_ERROR", "Operation succeeded."),
 	(0x80070002L, "LDAP_NO_SUCH_OBJECT", "ERROR_FILE_NOT_FOUND", "Object does not exist."),

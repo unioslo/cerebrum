@@ -84,10 +84,13 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.email = self.addItem("email", _("Email") ,"email")
         domain = self.email.addItem("domain", _("Domain") ,"emaildomain")
         domain.addItem("list", _("List"), "emaildomain/list")
+        domain.addItem("create", _("Create"), "emaildomain/create")
         domain.addItem("view", _("View"), "emaildomain/view?id=%s")
+        domain.addItem("addresses", _("Addresses"), "emaildomain/addresses?id=%s")
         domain.addItem("edit", _("Edit"), "emaildomain/edit?id=%s")
 
         target = self.email.addItem("target", _("Target"), "emailtarget")
+        target.addItem("create", _("Create"), "emailtarget/create")
         target.addItem("view", _("View"), "emailtarget/view?id=%s")
         target.addItem("edit", _("Edit"), "emailtarget/edit?id=%s")
 

@@ -24,11 +24,17 @@ from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
 from Cereweb.utils import transaction_decorator, object_link
 from Cereweb.WorkList import remember_link
-from Cereweb.templates.EmailDomain import EmailDomain
+from Cereweb.templates.Email import Email
 
 
-def index(req):
-    # Could also let people search by email address etc
-    return redirect(req, url('emaildomain'))
+def index(req, transaction):
+    page = Main(req)
+    page.title = _("Email") 
+    page.setFocus("email")
+    template = Email()
+    content = template.index(transaction)
+    page.content = lambda: content
+    return page
+index = transaction_decorator(index)    
 
 # arch-tag: b3739600-040d-11da-97b3-692f6b35af14

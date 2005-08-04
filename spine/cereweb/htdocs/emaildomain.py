@@ -42,6 +42,26 @@ def view(req, transaction, id):
     return page
 view = transaction_decorator(view)
 
+def edit(req, transaction, id):
+    domain = transaction.get_email_domain(int(id))
+    page = Main(req)
+    page.title = _("Edit email domain %s") % domain.get_name()
+    page.setFocus("email/domain/edit", id)
+    template = EmailDomain()
+    content = template.edit_domain(domain)
+    page.content = lambda: content
+    return page
+edit = transaction_decorator(edit)
+
+def create(req):
+    page = Main(req)
+    page.title = _("Create email domain")
+    page.setFocus("email/domain/create")
+    template = EmailDomain()
+    content = template.create_domain()
+    page.content = lambda: content
+    return page
+
 def list(req, transaction):
     page = Main(req)
     page.title = _("Email domains")
@@ -51,6 +71,22 @@ def list(req, transaction):
     page.content = lambda: content
     return page
 list = transaction_decorator(list)
+
+def save(req, transaction, name, description="", domain=None):
+    if not domain:
+        cmd = transaction.get_commands()
+        domain = cmd.create_email_domain(name, description)
+        msg = _("Created email domain %s")
+    else:
+        domain = transaction.get_email_domain(int(domain))
+        domain.set_name(name)    
+        domain.set_description(description)    
+        msg = _("Saved email domain %s")
+    msg = msg % domain.get_name()
+    redirect_object(req, domain)
+    transaction.commit() 
+    queue_message(req, msg)
+save = transaction_decorator(save)
 
 def remove_from_category(req, transaction, id, category):
     domain = transaction.get_email_domain(int(id))
@@ -81,7 +117,7 @@ def addresses(req, transaction, id):
     page.title = _("Addresses in email domain %s") % domain.get_name()
     page.setFocus("email/domain/addresses", id)
     template = EmailDomain()
-    content = template.addresses(transaction, domain)
+    content = template.list_addresses(transaction, domain)
     page.content = lambda: content
     return page
 addresses = transaction_decorator(addresses)    

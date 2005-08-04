@@ -262,7 +262,7 @@ def get_roots(self):
     """Find the roots of a the OU perspective.
 
     Note that a perspective might have several roots if it contains
-    several, seperate trees. 
+    several, separate trees. 
 
     \\return List of OU objects that are roots of perspective.
     """

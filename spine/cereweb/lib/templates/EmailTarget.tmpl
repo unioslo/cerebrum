@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import object_url, object_link
+#from Cereweb.utils import url, object_url, object_link
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 #from Cereweb.SpineIDL.Errors import NotFoundError
@@ -60,8 +60,23 @@
 </form>
 #end def
 
+#def edit_address($transaction, $address)
+<form action="$url('emailtarget/save_address')" method="POST">
+    <input type="hidden" name="address" value="$address.get_id()" />
+    <label>$_("Edit email address:")</label><br />
+    <input name="local_part" value="$address.get_local_part()" /> @
+
+    #set $domains=$transaction.get_email_domain_searcher()
+    #set $domains = [(d.get_id(), d.get_name()) for d in $domains.search()]
+    $domains.sort(lambda x,y: cmp(x[1], y[1]))
+    $form_widgets.generate_option("domain", $domains,
+                                  $address.get_domain().get_id())
+    <input type="submit" value="$_("Save")" />
+</form>
+#end def
+
 #def create_target($transaction, $entity=None)
-<form action="$url('emailtarget/create')" method="POST">
+<form action="$url('emailtarget/creation')" method="POST">
     #if $entity is not None
         <input type="hidden" name="entity" value="$entity.get_id()" />
     #end if
@@ -164,6 +179,15 @@
     #end if    
     </td>
     <td>
+        $object_link($target, $_("Edit"), method="edit_address",
+                     address=$addr.get_id(), _class="actions")
+    </td>
+    <td>
+        $object_link($target, $_("Remove address"),
+                     method="remove_address", address=$addr.get_id(),
+                     _class="actions")
+    </td>
+    <td>
     #if $is_primary
         $object_link($target, $_("Unset as primary"),
                      method="set_primary", _class="actions")
@@ -173,15 +197,20 @@
                      _class="actions")
     #end if
     </td>
-    <td>
-        $object_link($target, $_("Remove address"),
-                     method="remove_address", address=$addr.get_id(),
-                     _class="actions")
-    </td>
     </tr>
 #end for
 </table>
 <br />
 $add_address($transaction, $target, $suggestion)
 </div>
+#end def
+
+
+#def find_email($address="")
+    <form action="$url("emailtarget/search")" method="POST">
+        <label for="address">$_("Find email target by email address:")</label>
+        <input name="address" value="$address" />
+        ## FIXME: Other ways to search up? For instance target type?
+        <input type="submit" value="$_("Search")" />
+    </form>
 #end def

@@ -13,7 +13,7 @@ last_change: /var/run/cerebrum/sync.last_change
 
 # Where to place generated files for file-sync
 [file]
-# Seperate file so you can join in your header stub
+# Separate file so you can join in your header stub
 passwd: /etc/passwd.cerebrum
 group: /etc/group.cerebrum
 shadow: /etc/shadow.cerebrum

@@ -74,7 +74,7 @@ def object_url(object, method="view", **params):
     type = _spine_type(object)
     params["id"] = object.get_id()
 
-    # FIXME: urlencode will seperate with & - not &amp; or ?
+    # FIXME: urlencode will separate with & - not &amp; or ?
     return url("%s/%s?%s" % (type, method, urllib.urlencode(params)))
 
 
