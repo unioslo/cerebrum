@@ -348,6 +348,25 @@ class EmailAddress(DatabaseClass):
 
 registry.register_class(EmailAddress)
 
+
+def find_email_address(self, address):        
+    """
+    Find an EmailAddress from the full address.
+    """
+    obj = Cerebrum.modules.Email.EmailAddress(self.get_database())
+    try:
+        obj.find_by_address(address)
+    except Cerebrum.Errors.NotFoundError:
+        return
+    except ValueError:
+        ## FIXME: what error to raise if caller forgot @ ? 
+        return
+    return EmailAddress(self.get_database(), obj.email_addr_id)
+Commands.register_method(Method('find_email_address', EmailAddress,
+                                args=[('address', str)]), 
+                         find_email_address) 
+
+
 def create_email_address(self, local_part, domain, target):
     """
     This function creates a new e-mail address.
@@ -373,6 +392,7 @@ def full_address(self):
     """
     Return a string version of the email address, ie localpart@domain
     """       
+    ## FIXME: Should be in Cerebrum object
     return "%s@%s" % (self.get_local_part(), self.get_domain().get_name())
 EmailAddress.register_method(Method('full_address', str), full_address)
 
