@@ -165,6 +165,8 @@ class DiskTool(object):
         elif isinstance(new_disk, DiskPool):
             new_disk = new_disk.disk_defs
         for d in new_disk:
+            if check_ok_to and not d.auto in ('auto', 'to'):
+                continue
             ret = _find_free_disk(d)
             if ret is not None:
                 return ret
