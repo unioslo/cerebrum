@@ -25,7 +25,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum import Disk
 from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
-from Cerebrum.modules.no.uio.AutoStud.DiskTool import DiskDef
+from Cerebrum.modules.no.uio.AutoStud import DiskTool
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -91,8 +91,7 @@ class Profile(object):
     def _get_potential_disks(self, disk_spread, only_to=False):
         """Determine all disks at the highest nivaakode, and make a
         list with (setting, [all profilenames with this setting]).
-        Will expand disk-pools"""
-        
+        """
         potential_disks = []
         tmp_nivaakode = None
 
@@ -118,11 +117,10 @@ class Profile(object):
                 tmp_nivaakode = n
             if n != tmp_nivaakode:  # This disk is at a lower nivåkode
                 break
-            if isinstance(d, DiskDef):
+            if isinstance(d, (DiskTool.DiskDef, DiskTool.DiskPool)):
                 _do_append(d)
-            else:               # disk pool
-                for d2 in d:
-                    _do_append({disk_spread: d2})
+            else:
+                self._logger.fatal("BUG: %s" % repr(d))
         return tmp_nivaakode, potential_disks
 
     def _solve_disk_match(self, disk_spread):
@@ -183,13 +181,22 @@ class Profile(object):
             matches.append(extra_match)  # in case we also match a div-disk
 
         # Check if user already is on a matching disk
+        tmp = []
         for d in matches:
+            if isinstance(d, DiskTool.DiskPool):
+                tmp.extend(
+                    [dd for dd in d.disk_defs if dd.auto in ('auto', 'to')])
+            else:
+                tmp.append(d)
+
+        for d in tmp:
             if d.path:
                 if d.path == current_disk:
                     return False
             else:
-                disk_path = self.pc.autostud.disks[int(current_disk)][0]
-                if d.prefix == disk_path[0:len(d.prefix)]:
+                disk = self.pc.autostud.disk_tool.get_cerebrum_disk_by_diskid(
+                    int(current_disk))
+                if d.prefix == disk.path[0:len(d.prefix)]:
                     return False
         return True
 
@@ -209,7 +216,8 @@ class Profile(object):
             self._logger.debug2("_check_move_ok not ok %s" % repr((current_disk, new_disk)))
             return current_disk
 
-        return self.pc.autostud.disk_tool.get_cerebrum_disk_from_diskdef(new_disk)
+        return self.pc.autostud.disk_tool.get_cerebrum_disk_from_diskdef(
+            new_disk, check_ok_to=True)
 
     def get_disk_kvote(self, disk_id):
         self._logger.debug2("Determine disk_quota (disk_id=%i)" % disk_id)

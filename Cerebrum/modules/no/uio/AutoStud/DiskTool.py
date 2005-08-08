@@ -23,6 +23,31 @@ class DiskDef(object):
                 "%s, auto=%s)") % (self.prefix, self.path, self.spreads,
                                    self.max, self.disk_kvote, self.auto)
 
+class DiskPool(object):
+    def __init__(self, name):
+        self.name = name
+        self.disk_defs = []
+        self.spreads = []
+        self.auto = None # contains "max" auto for all its disk_defs
+
+    def add_disk_def(self, ddef):
+        self.disk_defs.append(ddef)
+        self.spreads.extend(
+            [x for x in ddef.spreads if x not in self.spreads])
+        tmp = [d.auto for d in self.disk_defs]
+        if 'auto' in tmp:
+            self.auto = 'auto'
+        elif 'to' in tmp:
+            self.auto = 'to'
+        else:
+            # 'from' has no meaining in a disk_pool as
+            # get_diskdef_by_diskid won't return a pool
+            self.auto = None
+
+    def __repr__(self):
+        return "DiskPool(name=%s, spreads=%s, auto=%s, disk_defs=%s)" % (
+            self.name, self.spreads, self.auto, self.disk_defs)
+
 class CerebrumDisk(object):
     def __init__(self, disk_id, path, count):
         self.disk_id = disk_id
@@ -84,7 +109,8 @@ class DiskTool(object):
 
     def append_to_pool(self, name, prefix=None, path=None):
         tmp = self.get_diskdef_by_select(prefix=prefix, path=path)
-        self._disk_pools.setdefault(name, []).append(tmp)
+        dp = self._disk_pools.setdefault(name, DiskPool(name))
+        dp.add_disk_def(tmp)
 
     def add_disk_def(self, prefix=None, path=None, spreads=None, max=None,
                      disk_kvote=None, auto=None):
@@ -111,23 +137,37 @@ class DiskTool(object):
     def get_diskdef_by_diskid(self, disk_id):
         return self._disk_id2disk_def.get(int(disk_id), None)
 
-    def get_cerebrum_disk_from_diskdef(self, new_disk):
+    def get_cerebrum_disk_by_diskid(self, disk_id):
+        return self._cerebrum_disks[disk_id]
+    
+    def get_cerebrum_disk_from_diskdef(self, new_disk, check_ok_to=False):
         # avoid circular dependency while allowing use of
         # ProfileHandler.NoAvailableDisk
         from Cerebrum.modules.no.uio.AutoStud import ProfileHandler
-        if new_disk.path:
-            # TBD: Should we ignore max_on_disk when path is explisitly set?
-            return new_disk._cerebrum_disk.disk_id
+        def _find_free_disk(new_disk):
+            if new_disk.path:
+                # TBD: Should we ignore max_on_disk when path is explisitly set?
+                return new_disk._cerebrum_disk.disk_id
 
-        dest_pfix = new_disk.prefix
-        max_on_disk = new_disk.max
-        if max_on_disk == -1:
-            max_on_disk = 999999
-        for d in self._cerebrum_disks_order:
-            tmp_disk = self._cerebrum_disks[d]
-            if (dest_pfix == tmp_disk.path[0:len(dest_pfix)]
-                and tmp_disk.count < max_on_disk):
-                return d
+            dest_pfix = new_disk.prefix
+            max_on_disk = new_disk.max
+            if max_on_disk == -1:
+                max_on_disk = 999999
+            for d in self._cerebrum_disks_order:
+                tmp_disk = self._cerebrum_disks[d]
+                if (dest_pfix == tmp_disk.path[0:len(dest_pfix)]
+                    and tmp_disk.count < max_on_disk):
+                    return d
+            return None
+
+        if isinstance(new_disk, DiskDef):
+            new_disk = [new_disk]
+        elif isinstance(new_disk, DiskPool):
+            new_disk = new_disk.disk_defs
+        for d in new_disk:
+            ret = _find_free_disk(d)
+            if ret is not None:
+                return ret
         raise ProfileHandler.NoAvailableDisk,\
               "No disks with free space matches %s" % new_disk
 
