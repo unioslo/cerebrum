@@ -520,6 +520,11 @@ class Database(object):
     param_converter = None
     """The bind parameter converter class used by this driver class."""
 
+    # Not sure that this is the proper default, but as a quick hack it
+    # seems to work for us here in Norway.
+    encoding = 'ISO_8859_1'
+    """The default character set encoding to use."""
+
     def __init__(self, do_connect=True, *db_params, **db_kws):
         if self.__class__ is Database:
             #
@@ -859,12 +864,7 @@ class PgSQL(PostgreSQLBase):
     _db_mod = "pyPgSQL.PgSQL"
 
     def connect(self, user=None, password=None, service=None,
-                # Not sure that this is the proper default, but as a
-                # quick hack it seems to work for us here in Norway.
-                client_encoding='ISO_8859_1',
-                # This might not be the correct default for Cerebrum,
-                # but seems to work OK in the shorter term.
-                unicode_results=False):
+                client_encoding=None):
         call_args = vars()
         del call_args['self']
         cdata = self._connect_data
@@ -879,12 +879,15 @@ class PgSQL(PostgreSQLBase):
         cdata['real_user'] = user
         cdata['real_password'] = password
         cdata['real_service'] = service
+        if client_encoding is None:
+            client_encoding = self.encoding
+        else:
+            self.encoding = client_encoding
 
-        super(PgSQL, self).connect(user = user,
-                                   password = password,
-                                   database = service,
-                                   client_encoding = client_encoding,
-                                   unicode_results = unicode_results)
+        super(PgSQL, self).connect(user=user, password=password,
+                                   database=service,
+                                   client_encoding=client_encoding,
+                                   unicode_results=(client_encoding == 'UTF-8'))
 
         # Ensure that pyPgSQL and PostgreSQL client agrees on what
         # encoding to use.
@@ -934,7 +937,8 @@ class PsycoPG(PostgreSQLBase):
 
     _db_mod = 'psycopg'
 
-    def connect(self, user=None, password=None, service=None):
+    def connect(self, user=None, password=None, service=None,
+                client_encoding=None):
         call_args = vars()
         del call_args['self']
         cdata = self._connect_data
@@ -952,11 +956,14 @@ class PsycoPG(PostgreSQLBase):
         cdata['real_password'] = password
         cdata['real_service'] = service
         cdata['dsn_string'] = dsn_string
+        if client_encoding is None:
+            client_encoding = self.encoding
+        else:
+            self.encoding = client_encoding
 
         super(PsycoPG, self).connect(dsn_string)
         self._db.set_isolation_level(1)  # read-committed
-        self.execute("SET CLIENT_ENCODING TO '%s'" % 'ISO_8859_1')        
-        #self.execute("SET CLIENT_ENCODING TO '%s'" % 'UTF-8')
+        self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
         self.commit()
 
     def cursor(self):
@@ -968,16 +975,20 @@ class PsycoPGCursor(Cursor):
         for k in parameters:
             if type(parameters[k]) is DateTime.DateTimeType:
                 parameters[k] = self._db._db_mod.TimestampFromMx(parameters[k])
-            elif type(parameters[k]) is unicode:
+            elif (type(parameters[k]) is unicode and
+                  self._db.encoding != 'UTF-8'):
                 # pypgsql1 does not support unicode (only utf-8)
-                #parameters[k] = parameters[k].encode("utf-8")
                 parameters[k] = parameters[k].encode("iso8859-1")
+
         ret = super(PsycoPGCursor, self).execute(operation, parameters)
         if self.description is not None:
-            self._convert_cols = []
+            self._convert_cols = {}
             for n in range(len(self.description)):
                 if self.description[n][5] == 0:  # pos 5 = scale in DB-API spec
-                    self._convert_cols.append(n)
+                    self._convert_cols[n] = long
+                elif (self._db.encoding == 'UTF-8' and
+                      isinstance(self.description[n][1], Database.STRING)):
+                    self._convert_cols[n] = lambda x: x.decode('UTF-8')
         return ret
 
     def query(self, query, params=(), fetchall=True):
@@ -989,20 +1000,20 @@ class PsycoPGCursor(Cursor):
             query, params=params, fetchall=fetchall)
         if fetchall and self._convert_cols:
             for r in range(len(ret)):
-                for n in self._convert_cols:
+                for n, conv in self._convert_cols.items():
                     if ret[r][n] is not None:
-                        ret[r][n] = long(ret[r][n])
+                        ret[r][n] = conv(ret[r][n])
         return ret
 
     def wrap_row(self, row):
         """Return `row' wrapped in a db_row object."""
         ret = self._row_class(row)
-        for n in self._convert_cols:
+        for n, conv in self._convert_cols.items():
             if ret[n] is not None:
-                ret[n] = long(ret[n])
+                ret[n] = conv(ret[n])
         return ret
 
- 
+
 class OracleBase(Database):
     """Oracle database driver class."""
 
@@ -1041,7 +1052,7 @@ class DCOracle2(OracleBase):
     _db_mod = "DCOracle2"
 
     def connect(self, user=None, password=None, service=None,
-                client_encoding='american_america.we8iso8859p1'):
+                client_encoding=None):
         cdata = self._connect_data
         cdata.clear()
         cdata['arg_user'] = user
@@ -1055,7 +1066,17 @@ class DCOracle2(OracleBase):
             password = self._read_password(service, user)
         conn_str = '%s/%s@%s' % (user, password, service)
         cdata['conn_str'] = conn_str
-        os.environ['NLS_LANG'] = client_encoding
+        if client_encoding is None:
+            client_encoding = self.encoding
+        else:
+            self.encoding = client_encoding
+        
+        # The encoding names in Oracle don't look like PostgreSQL's,
+        # so we translate them into a single standard.
+        encoding_names = { 'ISO_8859_1': "american_america.we8iso8859p1",
+                           'UTF-8': "american_america.utf8" }
+        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
+                                                    client_encoding)
         #
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the
