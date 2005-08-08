@@ -232,18 +232,9 @@ class ProfileDefinition(object):
                 tmp.append(tmp2)
         self._settings["stedkode"] = tmp
         tmp = []
-        tmp_spreads = []
         for disk_attrs in self._settings.get("disk", []):
-            ddef = self.config.autostud.disk_tool.get_diskdef_by_select(
-                **disk_attrs)
-            new_spreads = [x for x in ddef.spreads if x not in tmp_spreads]
-            if new_spreads:
-                # We're only interested in the first disk for each
-                # single spread.  This allows a sub-profile to
-                # override the home in its super without interpreting
-                # the target as a 'div disk'
-                tmp_spreads.extend(new_spreads)
-                tmp.append(ddef)
+            tmp.append(self.config.autostud.disk_tool.
+                       get_diskdef_by_select(**disk_attrs))
         self._settings["disk"] = tmp
         tmp = []
         for q in self._settings.get("quarantine", []):
