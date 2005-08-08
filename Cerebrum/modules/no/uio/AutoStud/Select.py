@@ -325,6 +325,11 @@ class SelectTool(object):
                         tmp_profiles.append(profile_name)
                 
     def get_person_match(self, person_info, member_groups=None, person_affs=None):
+        """Returns a dict where each key is a configuration item, such
+        as 'disk' for <disk>, and the value is a list of the relevant
+        profiles for the specified person.  The profiles are sorted by
+        nivaakode.
+        """
         matches = []
         for mtype, sm in self.select_map_defs.items():
             tmp = sm.get_matches(person_info, member_groups=member_groups,

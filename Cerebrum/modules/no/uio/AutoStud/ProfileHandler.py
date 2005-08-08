@@ -89,8 +89,12 @@ class Profile(object):
         return True
 
     def _get_potential_disks(self, disk_spread, only_to=False):
-        """Determine all disks at the highest nivaakode, and make a
-        list with (setting, [all profilenames with this setting]).
+        """Determine all disks corresponding to the person's matching
+        profiles, pick the highest nivaakode, and return a tuple with
+        the nivaakode value and a list.  Each element in the list is a
+        tuple where the first element is the DiskDef or DiskPool, and
+        the second element is a list of matching profiles refering to
+        that disk.
         """
         potential_disks = []
         tmp_nivaakode = None
@@ -115,7 +119,10 @@ class Profile(object):
                 continue            # Incorrect spread for this disk
             if not tmp_nivaakode:
                 tmp_nivaakode = n
-            if n != tmp_nivaakode:  # This disk is at a lower nivåkode
+            if n != tmp_nivaakode:
+                # get_raw_match returns the profiles sorted by
+                # nivaakode, so this profile has a lower value.
+                assert n < tmp_nivaakode
                 break
             if isinstance(d, (DiskTool.DiskDef, DiskTool.DiskPool)):
                 _do_append(d)
@@ -311,8 +318,7 @@ class Profile(object):
             }
 
 class ProfileMatcher(object):
-    """Methods for determining which profiles matches a given
-    person."""
+    """Methods for determining which profiles match a given person."""
 
     def __init__(self, pc, student_info, logger, member_groups=None,
                  person_affs=None):
