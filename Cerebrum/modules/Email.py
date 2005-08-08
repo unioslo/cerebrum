@@ -316,19 +316,13 @@ class EmailDomain(EmailEntity):
     def get_domain_name(self):
         return self.email_domain_name
 
-    # TODO:
-    # - Rename the cereconf.LDAP['rewrite_email_domain'] configuration option.
-    # - Remove support for LDAP_REWRITE_EMAIL_DOMAIN after a while.
-    # - Document this thingie  
+    _rewrite_domain = cereconf.LDAP['rewrite_email_domain']
 
-    # Support both Cerebrum/default_config.py version 1.81 and older versions.
-    _rewrite_domain = getattr(cereconf, 'LDAP', {}).get('rewrite_email_domain')
-    if not _rewrite_domain:
-        _rewrite_domain = getattr(cereconf, 'LDAP_REWRITE_EMAIL_DOMAIN',
-                                  _rewrite_domain)
-
-    #FIXME: What is this? 
     def rewrite_special_domains(self, domain):
+        """There may exist domains with special meaning which aren't a
+        valid part of an e-mail address.  This function makes all
+        addresses valid.
+        """
         return self._rewrite_domain.get(domain, domain)
 
     def get_categories(self):
