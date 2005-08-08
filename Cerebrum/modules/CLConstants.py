@@ -50,15 +50,30 @@ class _ChangeTypeCode(_CerebrumCode):
     # helper classes for efficient conversion from entity_id to names
     # etc.
 
-    # TODO: accept numeric code value
+    # The constructor accepts the numeric code value, or a pair
+    # of strings (category, type) identifying the constant code.
     def __init__(self, category, type=None, msg_string=None, format=None):
-        super(_ChangeTypeCode, self).__init__(category)
-        self.category = category
-        self.type = type
-        self.int = None
+        if type is None:
+            if isinstance(category, int):
+                # Not the category, but the numeric code value
+                self.int = category
+            else:
+                raise TypeError, ("Must pass integer when initialising " +
+                                  "from code value")
+            self.category, self.type = self.sql.query_1(
+                """
+                SELECT category, type FROM %s
+                WHERE %s=:code
+                """ % (self._lookup_table, self._lookup_code_column),
+                {'code': self.int})
+        else:
+            self.category = category
+            self.type = type
+            self.int = None
         self.msg_string = msg_string
         self.format = format
-        
+        super(_ChangeTypeCode, self).__init__(category, type)
+
     def __str__(self):
         return "%s:%s" % (self.category, self.type)
 

@@ -542,6 +542,7 @@ class ConstantsBase(DatabaseAccessor):
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
         stats = {'total': 0, 'inserted': 0, 'updated': 0, 'deleted': 0}
+
         def insert(root, update, stats=stats):
             for cls in order[root].keys():
                 cls_code_count = 0
@@ -560,8 +561,8 @@ class ConstantsBase(DatabaseAccessor):
                 rows = self._db.query(
                     """SELECT * FROM %s""" % cls._lookup_table)
                 if cls_code_count <> len(rows):
-                    table_vals = [str(r['code_str']) for r in rows]
-                    code_vals = [str(x) for x in order[root][cls]]
+                    table_vals = [int(r[cls._lookup_code_column]) for r in rows]
+                    code_vals = [int(x) for x in order[root][cls]]
                     table_vals.sort()
                     code_vals.sort()
                     if delete:
@@ -582,6 +583,7 @@ class ConstantsBase(DatabaseAccessor):
                 if order.has_key(cls):
                     insert(cls, update)
             del order[root]
+            
         insert(None, update)
         if order:
             raise ValueError, "Some code values have circular dependencies."
