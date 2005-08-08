@@ -980,6 +980,10 @@ class PsycoPGCursor(Cursor):
                 # pypgsql1 does not support unicode (only utf-8)
                 parameters[k] = parameters[k].encode("iso8859-1")
 
+        def utf8_decode(s):
+            """A static method is slightly faster than a lambda."""
+            return s.decode('UTF-8')
+
         ret = super(PsycoPGCursor, self).execute(operation, parameters)
         if self.description is not None:
             self._convert_cols = {}
@@ -987,8 +991,8 @@ class PsycoPGCursor(Cursor):
                 if self.description[n][5] == 0:  # pos 5 = scale in DB-API spec
                     self._convert_cols[n] = long
                 elif (self._db.encoding == 'UTF-8' and
-                      isinstance(self.description[n][1], Database.STRING)):
-                    self._convert_cols[n] = lambda x: x.decode('UTF-8')
+                      self.description[n][1] == self._db.STRING):
+                    self._convert_cols[n] = utf8_decode
         return ret
 
     def query(self, query, params=(), fetchall=True):
