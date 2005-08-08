@@ -3423,7 +3423,8 @@ class BofhdExtension(object):
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
         for r in cereconf.HOME_SPREADS:
-            if spread == r:
+            sp = str(getattr(self.const, r))
+            if spread == sp:
                 return "Please use the command 'user home_create' to assign a homedir to the user."
         spread = int(self._get_constant(spread, "No such spread"))
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
@@ -3751,6 +3752,11 @@ class BofhdExtension(object):
 	account = self._get_account(accountname)
         disk_id, home = self._get_disk(disk)[1:3]
         homedir_id = None
+        home_spread = False
+        for s in cereconf.HOME_SPREADS:
+            if spread == str(getattr(self.const, s)):
+                home_spread = True
+                break
         if home is not None:
             if home[0] == ':':
                 home = home[1:]
@@ -3765,8 +3771,8 @@ class BofhdExtension(object):
             pass
         if not is_posix:
             raise CerebrumError("This user is not a posix user. Please use 'user promote_posix' first.")
-        if spread not in cereconf.HOME_SPREADS:
-	    raise CerebrumError, "Cannot assign home in a non-home spread!"
+        if not home_spread:
+            raise CerebrumError, "Cannot assign home in a non-home spread!"
         if account.has_spread(int(self._get_constant(spread, "No such spread"))):
 	    try:
                 if account.get_home(int(self._get_constant(spread, "No such spread"))):
