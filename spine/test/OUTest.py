@@ -22,31 +22,35 @@
 import unittest
 from TestBase import *
 
-class OUTest(unittest.TestCase):
+class OUTest(SpineObjectTest):
     """Tests the OU implementation in Spine."""
-    def setUp(self):
-        self.session = spine.login(username, password)
+    def __find_available_stedkode_institusjon(self):
+        s = self.tr.get_ou_searcher()
+        l = [ou.get_institusjon() for ou in s.search()]
+        i = 1
+        while i in l:
+            i += 1
+        return i
 
-    def tearDown(self):
-        self.session.logout()
-
-    def __createTwoOUs(self, transaction):
-        commands = transaction.get_commands()
-        ou_name = str(id(transaction))
+    def createObject(self):
+        self.institusjon = self.__find_available_stedkode_institusjon()
+        c = self.tr.get_commands()
         try:
-            commands.create_ou(ou_name, 1, 1, 1, 1)
+            self.ou = c.create_ou('Unit-test', self.institusjon, 1, 1, 1)
         except TypeError:
             raise Spine.Errors.DatabaseError # Stedkode mixin isn't loaded, we raise to make our test succeed
-        commands.create_ou(ou_name, 1, 1, 1, 1)
+
+
+    def deleteObject(self):
+        self.ou.delete()
 
     def testStedkodeUniqueConstraint(self):
         """Tests that the create_ou() method for the stedkode mixin correctly
         raises a DatabaseError when trying to create an OU which violates the
         unique constraint on stedkode."""
-        transaction = self.session.new_transaction()
-        self.assertRaises(Spine.Errors.DatabaseError, self.__createTwoOUs, transaction)
-        transaction.rollback()
-        
+        c = self.tr.get_commands()
+        self.assertRaises(Spine.Errors.AlreadyExistsError, c.create_ou,
+                'Unit-test', self.institusjon, 1, 1, 1)
 
 if __name__ == '__main__':
     unittest.main()
