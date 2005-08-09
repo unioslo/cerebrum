@@ -22,6 +22,7 @@ import Cerebrum.Entity
 
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.SpineExceptions import NotFoundError
 
 from Entity import Entity
 from Types import SourceSystem, AddressType
@@ -62,6 +63,17 @@ def get_addresses(self):
     return s.search()
 
 Entity.register_method(Method('get_addresses', [EntityAddress]), get_addresses)
+
+def get_address(self, address_type, source_system):
+    db = self.get_database()
+    s = registry.EntityAddressSearcher(db)
+    s.set_address_type(address_type)
+    s.set_source_system(source_system)
+    result = s.search()
+    if not result:
+        raise NotFoundError('No address exists for the given source system.')
+    return result[0]
+Entity.register_method(Method('get_address', EntityAddress, args=[('address_type', AddressType), ('source_system', SourceSystem)], exceptions=[NotFoundError]), get_addresses)
 
 def create_address(self, address_type, source_system):
     db = self.get_database()
