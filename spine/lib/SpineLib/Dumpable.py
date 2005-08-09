@@ -118,7 +118,7 @@ class Dumpable(object):
 
 def create_get_dumper(dumper_class):
     def get_dumper(self):
-        return dumper_class(self.search())
+        return dumper_class(self.get_database(), self.search())
     return get_dumper
 
 def create_generic_dumper(dumper_class, name, method_name, optional=False):

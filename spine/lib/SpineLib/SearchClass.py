@@ -23,7 +23,7 @@ from __future__ import generators
 
 from Cerebrum.extlib import sets
 
-from SpineClass import SpineClass
+from DatabaseClass import DatabaseTransactionClass
 from Builder import Attribute, Method
 from SpineExceptions import ClientProgrammingError
 
@@ -35,7 +35,7 @@ def create_id_iterator(start=0):
         yield start
         start += 1
 
-class SearchClass(SpineClass):
+class SearchClass(DatabaseTransactionClass):
     """Base class for all searchclasses.
 
     Implements the search-method which finds the attributes which have
@@ -50,8 +50,7 @@ class SearchClass(SpineClass):
     search_id_iterator = create_id_iterator()
 
     def __init__(self, search_id=None):
-        if SpineClass.__init__(self):
-            return
+        super(SearchClass, self).__init__(search_id)
         self._unions = sets.Set()
         self.mark = None
 
@@ -62,8 +61,8 @@ class SearchClass(SpineClass):
         self.updated.clear()
 
     def create_primary_key(cls, search_id=None):
-        if search_id is None:
-            search_id = cls.search_id_iterator.next()
+        #if search_id is None:
+        search_id = cls.search_id_iterator.next()
 
         return (search_id, )
 
