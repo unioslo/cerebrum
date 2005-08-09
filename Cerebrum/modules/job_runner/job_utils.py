@@ -96,6 +96,18 @@ class Time(object):
                 return n, 0
         return min(list), 1
 
+    def delta_to_leave(self, t):
+        """Return a very rough estimate of the number of seconds until
+        we leave the time-period covered by this Time object"""
+        
+        hour, min, sec, wday = (time.localtime(t))[3:7]
+        if self.wday is not None and wday in self.wday:
+            return 3600*24 - (sec+min*60+hour*3600)
+        if self.hour is not None and hour in self.hour:
+            return (60-min)*60
+        if self.min is not None and min in self.min:
+            return 60 - sec
+
     def next_time(self, prev_time):
         """Return the number of seconds until next time after num"""
         hour, min, sec, wday = (time.localtime(prev_time+self.max_freq))[3:7]
@@ -543,25 +555,25 @@ class JobQueue(object):
             current_time = time.time()
         min_delta = 999999
         for job_name in jobs.keys():
-            delta = current_time - self._last_run[job_name]
-            if jobs[job_name].when is not None:
-                if append and job_name in self._run_queue:
-                    # Without this, a previously added job that has a
-                    # pre/post job with multi_ok=True would get the
-                    # pre/post job appended once each time
-                    # get_next_job_time was called.
-                    continue
+            next_delta = jobs[job_name].next_delta(self._last_run[job_name],
+                                                   current_time)
+            if next_delta is None:
+                continue
+            if append and job_name in self._run_queue:
+                # Without this, a previously added job that has a
+                # pre/post job with multi_ok=True would get the
+                # pre/post job appended once each time
+                # get_next_job_time was called.
+                continue
 
-                # TODO: vent med å legge inn jobbene, slik at de som
-                # har when=time kommer før de som har when=freq.                
-                n = jobs[job_name].when.next_delta(
-                    self._last_run[job_name], current_time)
-                if n <= 0:
-                    pre_len = len(queue)
-                    self.insert_job(queue, job_name)
-                    if pre_len == len(queue):
-                        continue     # no jobs was added
-                min_delta = min(n, min_delta)
+            # TODO: vent med å legge inn jobbene, slik at de som
+            # har when=time kommer før de som har when=freq.                
+            if next_delta <= 0:
+                pre_len = len(queue)
+                self.insert_job(queue, job_name)
+                if pre_len == len(queue):
+                    continue     # no jobs was added
+            min_delta = min(next_delta, min_delta)
         self.logger.debug("Delta=%i, a=%i/%i Queue: %s" % (
             min_delta, append, len(self._run_queue), str(queue)))
         self._run_queue = queue

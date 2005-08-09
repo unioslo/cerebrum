@@ -38,7 +38,7 @@ if debug_dryrun:
 
 class Action(object):
     def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None,
-                 multi_ok=0):
+                 notwhen=None, multi_ok=0):
         # TBD: Trenger vi engentlig post?  Dersom man setter en jobb
         # til å kjøre 1 sek etter en annen vil den automatisk havne
         # bakerst i ready_to_run køen, og man oppnår dermed det samme.
@@ -71,7 +71,8 @@ class Action(object):
         self.post = post or []
         self.multi_ok = multi_ok
         self.last_exit_msg = None
-
+        self.notwhen = notwhen
+        
     def copy_runtime_params(self, other):
         """When reloading the configuration, we must preserve some
         runtime params when we alter the all_jobs dict"""
@@ -83,6 +84,20 @@ class Action(object):
             return None
         return "%s %s" % (self.call.cmd, " ".join(
             ["'%s'" % p for p in self.call.params]))
+
+    def next_delta(self, last_run, current_time):
+        """Return estimated number of seconds to next time the Action
+        is allowed to run.  Jobs should only be ran if the returned
+        value is negative."""
+        
+        delta = current_time - last_run
+        if self.when is not None:
+            if self.notwhen is not None:
+                leave_at = self.notwhen.time.delta_to_leave(current_time)
+                if leave_at > 0:
+                    return leave_at
+            n = self.when.next_delta(last_run, current_time)
+            return n
 
 class CallableAction(object):
     """Abstract class representing the call parameter to Action"""
@@ -254,5 +269,22 @@ class AssertRunning(System):
             self.logger.debug("%s already running" % self.id)
             return 0
         return 1
+
+def _test_time():
+    from Cerebrum.modules.job_runner.job_utils import When, Time
+    ac =  Action(call = System("echo yes"),
+                 max_freq = 5*60,
+                 when = When(freq = 5*60),
+                 notwhen = When(time=Time(hour=[4])))
+    last_run = time.mktime(time.strptime('2005-3:58', '%Y-%H:%M'))
+    print ac.next_delta(last_run,
+                        last_run + 60*8)
+    print ac.next_delta(last_run,
+                        last_run + 60*60)
+    print ac.next_delta(last_run,
+                        last_run + 60*65)
+
+if __name__ == '__main__':
+    _test_time()
 
 # arch-tag: 37d161cf-d977-4e15-8ef1-53c64dba60d1
