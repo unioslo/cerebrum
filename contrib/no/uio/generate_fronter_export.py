@@ -520,6 +520,11 @@ def make_profile(enhet_id, aktkode):
     returnerer vi None.
     """
 
+    # Revert the UNDFORMKODE -> profile selection logic for now
+    # (2005-08), as the owner of the ClassFronter system isn't ready
+    # for it yet.
+    return fronter._accessFronter.GetProfileId("UiOstdrom2003")
+
     undformkode2cfname = {
         "FOR"     : "UiOforelesning",
         "GR"      : "UiOgruppe",
