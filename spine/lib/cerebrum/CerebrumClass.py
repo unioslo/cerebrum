@@ -78,10 +78,14 @@ class CerebrumClass(DatabaseTransactionClass):
         """
         db = self.get_database()
         obj = self.cerebrum_class(db)
-        id = self.get_id()
+        pk = []
+        for attr in self.primary:
+            if not hasattr(self, attr.get_name_private()):
+                raise ServerProgrammingError('Attribute %s is not set, cannot get all primary attributes.' % attr.name)
+            pk.append(getattr(self, attr.get_name_private()))
         if not hasattr(obj, 'find'):
             raise ServerProgrammingError("Cerebrum class %s has no find() method" % obj.__class__)
-        obj.find(id)
+        obj.find(*pk)
         return obj
     
     def _get_cerebrum_name(self, attr):
