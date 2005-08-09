@@ -18,14 +18,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Errors
 from Cerebrum.Utils import Factory
-import Cerebrum.Database
 
 from CerebrumClass import CerebrumDbAttr
 from Commands import Commands
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
-from SpineLib.SpineExceptions import DatabaseError
+from SpineLib.SpineExceptions import AlreadyExistsError
 
 from OU import OU
 
@@ -65,6 +65,8 @@ def pad_with_zeros(num, length):
 
 def get_stedkode(self):
     obj = self._get_cerebrum_obj()
+    if not hasattr(obj, 'landkode'):
+        raise NotFoundError('OU has no stedkode attributes.')
     return pad_with_zeros(obj.landkode, 3) + pad_with_zeros(obj.institusjon, 5) + \
         pad_with_zeros(obj.fakultet, 2) + pad_with_zeros(obj.institutt, 2) + \
         pad_with_zeros(obj.avdeling, 2)
@@ -72,16 +74,17 @@ def get_stedkode(self):
 def create_ou(self, name, institusjon, fakultet, institutt, avdeling):
     db = self.get_database()
     ou = Factory.get('OU')(db)
-    ou.populate(name, fakultet, institutt, avdeling, institusjon)
     try:
+        ou.find_stedkode(fakultet, institutt, avdeling, institusjon)
+        raise AlreadyExistsError('Could not create OU \'%s\', another OU with the same stedkode already exists.' % name)
+    except Cerebrum.Errors.NotFoundError:
+        ou.populate(name, fakultet, institutt, avdeling, institusjon)
         ou.write_db()
-    except Cerebrum.Database.IntegrityError, e:
-        raise DatabaseError('Could not create OU \'%s\', another OU with the same primary key probably exists already.' % name)
     return OU(db, ou.entity_id)
 
 # Overwrite the OU create method to take additional arguments
 Commands.register_method(Method('create_ou', OU, args=[('name', str), ('institusjon', int), ('fakultet', int),
-    ('institutt', int), ('avdeling', int)], write=True), create_ou, overwrite=True)
+    ('institutt', int), ('avdeling', int)], write=True, exceptions=[AlreadyExistsError]), create_ou, overwrite=True)
 
 OU.register_method(Method('get_stedkode', str, args=[]), get_stedkode)
 
