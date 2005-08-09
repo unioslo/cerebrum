@@ -126,7 +126,10 @@ def convert_to_corba(obj, transaction, data_type):
         return struct(**vargs)
 
     elif type(data_type) == list:
-        return [convert_to_corba(i, transaction, data_type[0]) for i in obj]
+        try:
+            return [convert_to_corba(i, transaction, data_type[0]) for i in obj]
+        except TypeError:
+            raise ServerProgrammingError('Unable to convert object %s to CORBA; object is not a list.' % (obj.__class__.__name__))
 
     elif data_type in class_cache:
         # corba casting
@@ -324,7 +327,7 @@ def _create_corba_method(method):
                 traceback.print_exc()
                 name = getattr(e, '__class__', str(e))
                 exception_string = "Unknown error '%s':\n%s\n%s" % (
-                                    name, str(e.args), 
+                                    name, hasattr(e, 'args') and str(e.args) or '', 
                                     ''.join(traceback.format_exception(sys.exc_type, 
                                         sys.exc_value,
                                         sys.exc_traceback)))
