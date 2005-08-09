@@ -222,9 +222,11 @@ class Profile(object):
             current_disk, new_disk, disk_spread):
             self._logger.debug2("_check_move_ok not ok %s" % repr((current_disk, new_disk)))
             return current_disk
-
-        return self.pc.autostud.disk_tool.get_cerebrum_disk_from_diskdef(
-            new_disk, check_ok_to=True)
+        ret = new_disk.get_cerebrum_disk(check_ok_to=True)
+        if ret is None:
+            raise ProfileHandler.NoAvailableDisk,\
+                  "No disks with free space matches %s" % new_disk
+        return ret.disk_id
 
     def get_disk_kvote(self, disk_id):
         self._logger.debug2("Determine disk_quota (disk_id=%i)" % disk_id)
