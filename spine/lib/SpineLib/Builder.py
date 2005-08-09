@@ -261,7 +261,10 @@ class Builder(object):
 
         key = []
         for i in names:
-            key.append(vargs[i])
+            try:
+                key.append(vargs[i])
+            except KeyError:
+                raise ServerProgrammingError('Argument %s missing during construction of primary key. Did you forget to pass an argument or a reference to the database?' % i)
         return tuple(key)
 
     create_primary_key = classmethod(create_primary_key)
