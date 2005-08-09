@@ -22,6 +22,7 @@ import mx.DateTime
 
 from SpineLib.SpineClass import SpineClass
 from SpineLib.Builder import Attribute, Method
+from SpineLib import SpineExceptions
 from SpineLib import Registry
 
 from Commands import Commands
@@ -107,7 +108,10 @@ def strptime(self, datestr, formatstr):
     
     Returns a Date-object reflecting the parsed date and time.
     """
-    return Date(mx.DateTime.strptime(datestr, formatstr))
+    try:
+        return Date(mx.DateTime.strptime(datestr, formatstr))
+    except mx.DateTime.Error:
+        raise SpineExceptions.ValueError('Parse error when reading date from string.')
 
 def get_date_none(self):
         return Date(None)
@@ -124,7 +128,7 @@ datetime_args = [('year', int), ('month', int), ('day', int),
 Commands.register_method(Method('get_datetime', Date, args=datetime_args), get_datetime)
 
 strptime_args = [("datestr", str), ("formatstr", str)]
-Commands.register_method(Method('strptime', Date, args=strptime_args), strptime)
+Commands.register_method(Method('strptime', Date, args=strptime_args, exceptions=[SpineExceptions.ValueError]), strptime)
 
 Commands.register_method(Method('get_date_none', Date), get_date_none)
 
