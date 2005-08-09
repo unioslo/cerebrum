@@ -76,8 +76,6 @@ class SpineImpl(SpineCore__POA.Spine):
         """
         # We will always throw the same exception in here. This is important!
         exception = SpineCore.Spine.LoginError('Wrong username or password')
-        exception = Exception('fisk')
-
         # Check username
         for char in ['*','?']:
             if char in username or char in password:
