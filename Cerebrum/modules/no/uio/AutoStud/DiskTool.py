@@ -28,7 +28,7 @@ class DiskSorters(object):
     def _resort_disk_count(self):
         self._disk_count_order.sort(self._disk_sort_by_count)
         
-    def post_filter_search_res(self, order, max=999999, by='name'):
+    def post_filter_search_res(self, order, orderby, max=999999):
         """Do not allow results with more than max users on disk.  Try
         to avoid using disks with 0 users when ordering by count."""
         
@@ -37,20 +37,24 @@ class DiskSorters(object):
                 cd = self._disks[disk_id]
                 if cd.count >= max:
                     continue
-                if by == 'name':
+                if orderby == 'name':
                     return cd
                 if not allow_count0 and cd.count == 0:
                     continue
                 return cd
         
 class DiskDef(DiskSorters):
-    def __init__(self, disk_tool, prefix=None, path=None,
-                 spreads=None, max=None, disk_kvote=None, auto=None):
+    def __init__(self, disk_tool, prefix=None, path=None, spreads=None,
+                 max=None, disk_kvote=None, auto=None, orderby=None):
         self._disk_tool = disk_tool
         self.prefix = prefix
         self.path = path
         self.spreads = spreads
         self.max = int(max)
+        if orderby is None:
+            self.orderby = 'name'
+        else:
+            self.orderby = orderby
         if self.max == -1:        # inifinive
             self.max = 999999
         if disk_kvote is not None:
@@ -63,11 +67,11 @@ class DiskDef(DiskSorters):
         self._disk_count_order = self._disks.keys()
         self._resort_disk_count()
 
-
     def __repr__(self):
         return ("DiskDef(prefix=%s, path=%s, spreads=%s, max=%s, disk_kvote="
-                "%s, auto=%s)") % (self.prefix, self.path, self.spreads,
-                                   self.max, self.disk_kvote, self.auto)
+                "%s, auto=%s, orderby=%s)") % (
+            self.prefix, self.path, self.spreads, self.max,
+            self.disk_kvote, self.auto, self.orderby)
 
     def _find_cerebrum_disks(self):
         ret = {}
@@ -78,26 +82,31 @@ class DiskDef(DiskSorters):
                 ret[cd.disk_id] = cd
         return ret
 
-    def get_cerebrum_disk(self, by='name', check_ok_to=False):
+    def get_cerebrum_disk(self, check_ok_to=False, _orderby=None):
+        if _orderby is None:       # Used when called from DiskPool
+            _orderby = self.orderby
         if check_ok_to and not self.auto in ('auto', 'to'):
             return
         if self.path:
             # we ignore max_on_disk when path is explisitly set
             return self._disks.values()[0]
-        if by=='name':
+        if _orderby =='name':
             order = self._disk_name_order
-        elif by == 'count':
+        elif _orderby == 'count':
             order = self._disk_count_order
-        return self.post_filter_search_res(order, max=self.max, by=by)
-
+        return self.post_filter_search_res(order, _orderby, max=self.max)
 
 class DiskPool(DiskSorters):
-    def __init__(self, disk_tool, name):
+    def __init__(self, disk_tool, name, orderby=None):
         self._disk_tool = disk_tool
         self.name = name
         self.disk_defs = []
         self.spreads = []
         self.auto = None # contains "max" auto for all its disk_defs
+        if orderby is None:
+            self.orderby = 'name'
+        else:
+            self.orderby = orderby
 
     def post_process(self):
         """Call once you have finished calling add_disk_def"""
@@ -127,23 +136,25 @@ class DiskPool(DiskSorters):
             # get_diskdef_by_diskid won't return a pool
             self.auto = None
 
-    def get_cerebrum_disk(self, by='name', check_ok_to=False):
+    def get_cerebrum_disk(self, check_ok_to=False):
         # Find best disk for all disk_defs
         tmp = []
         for dd in self.disk_defs:
-            cd = dd.get_cerebrum_disk(by=by, check_ok_to=check_ok_to)
+            cd = dd.get_cerebrum_disk(check_ok_to=check_ok_to,
+                                      _orderby=self.orderby)
             if cd is not None:
                 tmp.append(cd.disk_id)
         # Resort results
-        if by == 'name':
+        if self.orderby == 'name':
             tmp.sort(self._disk_sort_by_name)
         else:
             tmp.sort(self._disk_sort_by_count)
-        return self.post_filter_search_res(tmp, by=by)
+        return self.post_filter_search_res(tmp, self.orderby)
 
     def __repr__(self):
-        return "DiskPool(name=%s, spreads=%s, auto=%s, disk_defs=%s)" % (
-            self.name, self.spreads, self.auto, self.disk_defs)
+        return ("DiskPool(name=%s, spreads=%s, auto=%s, orderby=%s, "
+                "disk_defs=%s)") % (self.name, self.spreads, self.auto,
+                                    self.orderby, self.disk_defs)
 
 class CerebrumDisk(object):
     def __init__(self, disk_id, path, count):
@@ -187,14 +198,15 @@ class DiskTool(object):
         for dp in self._disk_pools.values():
             dp.post_process()
                 
-    def append_to_pool(self, name, prefix=None, path=None):
+    def append_to_pool(self, name, orderby=None, prefix=None, path=None):
         tmp = self.get_diskdef_by_select(prefix=prefix, path=path)
-        dp = self._disk_pools.setdefault(name, DiskPool(self, name))
+        dp = self._disk_pools.setdefault(name, DiskPool(self, name, orderby))
         dp.add_disk_def(tmp)
 
     def add_disk_def(self, prefix=None, path=None, spreads=None, max=None,
-                     disk_kvote=None, auto=None):
-        disk = DiskDef(self, prefix, path, spreads, max, disk_kvote, auto)
+                     disk_kvote=None, auto=None, orderby=None):
+        disk = DiskDef(self, prefix, path, spreads, max, disk_kvote, auto,
+                       orderby)
         if prefix:
             self._disk_def_by['prefix'][prefix] = disk
         else:

@@ -375,6 +375,8 @@ class StudconfigParser(object):
                     'max', elem_stack[-1][-1]['default_max'])
                 attrs['auto'] = attrs.get(
                     'auto', elem_stack[-1][-1].get('default_auto', None))
+                attrs['orderby'] = attrs.get(
+                    'orderby', elem_stack[-1][-1].get('default_orderby', None))
                 if not attrs['auto'] :
                     self._config.add_error(
                         "Missing auto attribute for %s" % repr(attrs))
@@ -396,7 +398,8 @@ class StudconfigParser(object):
                 for ename2, attrs2, children2 in children:
                     if ename2 == 'disk':
                         self._config.autostud.disk_tool.append_to_pool(
-                            attrs['name'], **attrs2)
+                            attrs['name'], orderby=attrs.get('orderby', None),
+                            **attrs2)
                         
     def got_gruppe_oversikt(self, dta, elem_stack):
         for ename, attrs, children in dta:
