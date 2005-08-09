@@ -93,6 +93,7 @@ class DiskDef(DiskSorters):
         if _orderby =='name':
             order = self._disk_name_order
         elif _orderby == 'count':
+            self._resort_disk_count()
             order = self._disk_count_order
         return self.post_filter_search_res(order, _orderby, max=self.max)
 
@@ -148,6 +149,7 @@ class DiskPool(DiskSorters):
         if self.orderby == 'name':
             tmp.sort(self._disk_sort_by_name)
         else:
+            self._resort_disk_count()
             tmp.sort(self._disk_sort_by_count)
         return self.post_filter_search_res(tmp, self.orderby)
 
