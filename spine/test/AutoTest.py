@@ -31,10 +31,14 @@ untestable_methods = [
     ('get_ou_searcher', 'get_parent'), 
     ('get_ou_searcher', 'get_children'), 
     ('get_ou_searcher', 'get_entity_name'),
+    ('get_ou_searcher', 'get_external_id'),
     ('get_person_searcher', 'get_entity_name'), 
     ('get_person_searcher', 'get_email_domain'),
+    ('get_person_searcher', 'get_external_id'),
     ('get_group_searcher', 'get_entity_name'),
+    ('get_group_searcher', 'get_external_id'),
     ('get_account_searcher', 'get_entity_name'), 
+    ('get_account_searcher', 'get_external_id'),
     ('get_email_domain_searcher', 'get_persons'), 
 ]
 
