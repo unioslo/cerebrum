@@ -980,8 +980,10 @@ class PsycoPGCursor(Cursor):
                 # pypgsql1 does not support unicode (only utf-8)
                 parameters[k] = parameters[k].encode("iso8859-1")
 
+        # A static method is slightly faster than a lambda.
         def utf8_decode(s):
-            """A static method is slightly faster than a lambda."""
+            """Converts a str containing UTF-8 octet sequences into
+            unicode objects."""
             return s.decode('UTF-8')
 
         ret = super(PsycoPGCursor, self).execute(operation, parameters)
