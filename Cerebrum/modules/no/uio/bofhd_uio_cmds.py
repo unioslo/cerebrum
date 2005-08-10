@@ -702,6 +702,8 @@ class BofhdExtension(object):
                          self.const.email_target_deleted):
             raise CerebrumError, ("Can't remove e-mail address from target "+
                                   "type %s") % self.num2const[ttype]
+        if address.count('@') != 1:
+            raise CerebrumError, "Malformed e-mail address (%s)" % address
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_address(address)
