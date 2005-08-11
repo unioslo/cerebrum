@@ -623,9 +623,10 @@ class JobQueue(object):
                 dump(k, indent + 2)
             for k in jobs[name].post or ():
                 dump(k, indent + 2)
-
-        for k, v in jobs.items():
-            if v.when is None:
+        keys = jobs.keys()
+        keys.sort()
+        for k in keys:
+            if jobs[k].when is None:
                 continue
             dump(k, 0)
         print "Never run: \n%s" % "\n".join(
