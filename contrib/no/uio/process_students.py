@@ -71,7 +71,7 @@ posix_spreads = [int(const.Spread(_s)) for _s in cereconf.POSIX_SPREAD_CODES]
 skip_lpr = True       # Must explicitly tell that we want lpr
 create_users = move_users = dryrun = update_accounts = False
 with_quarantines = False
-remove_groupmembers = True
+remove_groupmembers = False
 ou_perspective = None
 workdir = None
 only_dump_to = None
@@ -256,6 +256,9 @@ class AccountUtil(object):
         if remove_groupmembers:
             for g in already_member.keys():
                 if autostud.pc.group_defs.get(g, {}).get('auto', None) == 'auto':
+                    if accounts[account_id].get_gid() == g:
+                        logger.warn("Can't remove %i from its dfg %i" % (
+                            account_id, g))
                     group_obj.clear()
                     group_obj.find(g)
                     group_obj.remove_member(account_id, const.group_memberop_union)
@@ -482,7 +485,7 @@ class BuildAccounts(object):
             if max_errors < 0:
                 raise
             trace = "".join(traceback.format_exception(
-                sys.exc_type, sys.exc_value, sys.last_traceback))
+                sys.exc_type, sys.exc_value, sys.exc_info()[2]))
             logger.error("Unexpected error: %s" % trace)
             db.rollback()
     _process_students_callback=staticmethod(_process_students_callback)
@@ -842,7 +845,7 @@ def get_existing_accounts():
             if is_account_spread:
                 tmp = tmp_ac.get(int(row['entity_id']), None)
             else:
-                tmp = persons.get(
+                tmp = tmp_persons.get(
                     pid2fnr.get(int(row['entity_id']), None), None)
             if tmp is not None:
                 tmp.append_spread(spread_id)
@@ -862,7 +865,7 @@ def get_existing_accounts():
             if tmp is not None:
                 tmp.append_group(group_id)
         for row in group_obj.list_members(member_type=const.entity_person)[0]:
-            tmp = persons.get(int(row[1]), None)    # Col 1 is member_id
+            tmp = tmp_persons.get(int(row[1]), None)    # Col 1 is member_id
             if tmp is not None:
                 tmp.append_group(group_id)
     # Affiliations
@@ -872,7 +875,7 @@ def get_existing_accounts():
         if tmp is not None:
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
-    for ac_id, tmp in accounts.items():
+    for ac_id, tmp in tmp_ac.items():
         fnr = tmp_ac[ac_id].get_fnr()
         if tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
@@ -881,10 +884,11 @@ def get_existing_accounts():
         else:
             tmp_persons[fnr].append_other_ac(ac_id)
 
-    logger.info(" found %i persons and %i accounts" % (len(persons), len(accounts)))
+    logger.info(" found %i persons and %i accounts" % (
+        len(tmp_persons), len(tmp_ac)))
     #logger.debug("Persons: \n"+"\n".join([str(y) for y in persons.items()]))
     #logger.debug("Accounts: \n"+"\n".join([str(y) for y in accounts.items()]))
-    return persons, accounts
+    return tmp_persons, tmp_ac
 
 def make_letters(data_file=None, type=None, range=None):
     if data_file is not None:  # Load info on letters to print from file
