@@ -88,7 +88,7 @@ class AccountUtil(object):
             # This can happen if the person has no first name and no
             # authoritative system has set an explicit name_first variant.
             first_name = ""
-        if not persons[fnr]['affs']:
+        if not persons[fnr].get_affiliations():
             logger.error("The person %s has no student affiliations" % fnr)
             return None
         try:
@@ -116,15 +116,7 @@ class AccountUtil(object):
         for spread in profile.get_spreads():
             if int(spread) in posix_spreads:
                 as_posix = True
-        accounts[int(account.entity_id)] = {'owner': fnr,
-                                            'expire_date': None,
-                                            'groups': [],
-                                            'spreads':[],
-                                            'affs': [],
-                                            'home': {},
-                                            'gid': None,
-                                            'quarantines': [],
-                                            'disk_kvote': {}}
+        accounts[int(account.entity_id)] = ExistingAccount(fnr, None)
         AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
         return account.entity_id
     create_user=staticmethod(create_user)
@@ -136,9 +128,9 @@ class AccountUtil(object):
 
         changes = []
         remove_idx = 1     # Do not remove last account affiliation
-        account_ous = [ou for aff, ou in accounts[account_id]['affs']
+        account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
                        if aff == const.affiliation_student]
-        for aff, ou, status in persons[fnr]['affs']:
+        for aff, ou, status in persons[fnr].get_affiliations():
             assert aff == const.affiliation_student
             if not ou in account_ous:
                 changes.append(('set_ac_type', (ou, const.affiliation_student)))
@@ -157,7 +149,7 @@ class AccountUtil(object):
         else:
             user = account_obj
         user.clear()
-        if changes[0][0] == 'dfg' and accounts[account_id]['gid'] is None:
+        if changes[0][0] == 'dfg' and accounts[account_id].get_gid() is None:
             uid = user.get_free_uid()
             shell = default_shell
             account_obj.clear()
@@ -166,7 +158,7 @@ class AccountUtil(object):
                           parent=account_obj, expire_date=default_expire_date)
             user.write_db()
             logger.debug("Used dfg2: "+str(changes[0][1]))
-            accounts[account_id]['groups'].append(changes[0][1])
+            accounts[account_id].append_group(changes[0][1])
             del(changes[0])
         else:
             user.find(account_id)
@@ -175,7 +167,7 @@ class AccountUtil(object):
             if c_id == 'dfg':
                 user.gid_id = dta
                 logger.debug("Used dfg: "+str(dta))
-                accounts[account_id]['groups'].append(dta)
+                accounts[account_id].append_group(dta)
             elif c_id == 'expire':
                 user.expire_date = dta
             elif c_id == 'disk':
@@ -185,7 +177,7 @@ class AccountUtil(object):
                     homedir_id = user.set_homedir(
                         disk_id=new_disk, status=const.home_status_not_created)
                     user.set_home(disk_spread, homedir_id)
-                    accounts[account_id]['home'][disk_spread] = (new_disk, homedir_id)
+                    accounts[account_id].set_home(disk_spread, new_disk, homedir_id)
                 else:
                     br = BofhdRequests(db, const)
                     # TBD: Is it correct to set requestee_id=None?
@@ -215,7 +207,10 @@ class AccountUtil(object):
                 user.add_entity_quarantine(
                     dta[0], default_creator_id, 'automatic', start_at)
             elif c_id == 'disk_kvote':
-                disk_quota_obj.set_quota(dta[0], quota=int(dta[1]))
+                disk_id, homedir_id, quota, spread = dta
+                if homedir_id is None:    # homedir was added in this run
+                    homedir_id = accounts[account_id].get_home(spread)[1]
+                disk_quota_obj.set_quota(homedir_id, quota=int(quota))
             else:
                 raise ValueError, "Unknown change: %s" % c_id
         tmp = user.write_db()
@@ -225,7 +220,7 @@ class AccountUtil(object):
     def _update_group_memberships(account_id, profile):
         changes = []       # Changes is only used for debug output
         already_member = {}
-        for group_id in accounts[account_id]['groups']:
+        for group_id in accounts[account_id].get_groups():
             already_member[group_id] = True
 
         logger.debug("%i already in %s" % (account_id, repr(already_member)))
@@ -258,10 +253,10 @@ class AccountUtil(object):
         if as_posix:
             gid = profile.get_dfg()
             # we no longer want to change the default-group
-            if (ac['gid'] is None): # or ac['gid'] != gid):
+            if (ac.get_gid() is None): # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
 
-        if ac['expire_date'] != default_expire_date:
+        if ac.get_expire_date() != default_expire_date:
             changes.append(('expire', default_expire_date))
 
         # Set/change homedir
@@ -270,12 +265,12 @@ class AccountUtil(object):
         # quarantine scope='student_disk' should affect all users with
         # home on a student-disk, or that doesn't have a home at all
         may_be_quarantined = False
-        if not ac['home']:
+        if not ac.has_homes():
             may_be_quarantined = True
         for s in autostud.disk_tool.get_known_spreads():
-            tmp = ac['home'].get(s, None)
-            if (tmp and
-                autostud.disk_tool.get_diskdef_by_diskid(tmp[0])):
+            disk_id, homedir_id = ac.get_home(s)
+            if (disk_id and
+                autostud.disk_tool.get_diskdef_by_diskid(disk_id)):
                 may_be_quarantined = True
 
         current_disk_id = None
@@ -283,7 +278,7 @@ class AccountUtil(object):
             if not disk_spread in user_spreads:
                 # The disk-spread in disk-defs was not one of the users spread
                 continue 
-            current_disk_id = ac['home'].get(disk_spread, [None])[0]
+            current_disk_id, notused = ac.get_home(disk_spread)
             if keep_account_home[fnr] and (move_users or current_disk_id is None):
                 try:
                     new_disk = profile.get_disk(disk_spread, current_disk_id)
@@ -293,19 +288,18 @@ class AccountUtil(object):
                     autostud.disk_tool.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
                     current_disk_id = new_disk
-                    # TODO: disk_kvote setting krever at homedir_id er kjent
-                    # ac['home'][disk_spread] = (new_disk, None)
+                    ac.set_home(disk_spread, new_disk, None)
 
         if autostud.disk_tool.using_disk_kvote:
-            for spread, (disk_id, homedir_id) in accounts[
-                account_id]['home'].items():
+            for spread in accounts[account_id].get_home_spreads():
+                disk_id, homedir_id = accounts[account_id].get_home(spread)
                 if not autostud.disk_tool.get_diskdef_by_diskid(disk_id):
                     # Setter kun kvote på student-disker
                     continue
                 quota = profile.get_disk_kvote(disk_id)
-                if ac['disk_kvote'].get(homedir_id, None) != quota:
-                    changes.append(('disk_kvote', (homedir_id, quota)))
-                    ac['disk_kvote'][homedir_id] = quota
+                if (ac.get_disk_kvote(homedir_id) != quota):
+                    changes.append(('disk_kvote', (disk_id, homedir_id, quota, spread)))
+                    ac.set_disk_kvote(homedir_id, quota)
 
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
@@ -314,19 +308,19 @@ class AccountUtil(object):
             if q['scope'] == 'student_disk' and not may_be_quarantined:
                 continue
             tmp.append(int(q['quarantine']))
-            if with_quarantines and not int(q['quarantine']) in ac['quarantines']:
+            if with_quarantines and not int(q['quarantine']) in ac.get_quarantines():
                 changes.append(('add_quarantine', (q['quarantine'], q['start_at'])))
 
         # Remove auto quarantines
         for q in (const.quarantine_auto_inaktiv,
                   const.quarantine_auto_emailonly):
-            if (int(q) in ac['quarantines'] and
+            if (int(q) in ac.get_quarantines() and
                 int(q) not in tmp):
                 changes.append(("remove_autostud_quarantine", q))
 
         # Populate spreads
-        has_acount_spreads = ac['spreads']
-        has_person_spreads = persons[fnr]['spreads']
+        has_acount_spreads = ac.get_spreads()
+        has_person_spreads = persons[fnr].get_spreads()
         for spread in profile.get_spreads():
             if spread.entity_type == const.entity_account:
                 if not int(spread) in has_acount_spreads:
@@ -367,7 +361,7 @@ class RecalcQuota(object):
             groups = []
             try:
                 profile = autostud.get_profile(
-                    person_info, member_groups=persons[fnr]['groups'])
+                    person_info, member_groups=persons[fnr].get_groups())
                 quota = profile.get_pquota()
             except AutoStud.ProfileHandler.NoMatchingQuotaSettings, msg:
                 logger.warn("Error for %s: %s" %  (fnr, msg))
@@ -488,8 +482,8 @@ class BuildAccounts(object):
             logger.set_indent(0)
             return
         try:
-            profile = autostud.get_profile(person_info, member_groups=persons[fnr]['groups'],
-                                           person_affs=persons[fnr]['affs'])
+            profile = autostud.get_profile(person_info, member_groups=persons[fnr].get_groups(),
+                                           person_affs=persons[fnr].get_affiliations())
             logger.debug(profile.matcher.debug_dump())
         except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
             logger.warn("No matching profile error for %s: %s" %  (fnr, msg))
@@ -512,24 +506,24 @@ class BuildAccounts(object):
             if pinfo is None:
                 logger.warn("Unknown person %s" % fnr)
                 return
-            if (create_users and not pinfo['stud_ac'] and
+            if (create_users and not pinfo.has_student_ac() and
                 profile.get_build()['action']):
-                if pinfo['other_ac']:
+                if pinfo.has_other_ac():
                     logger.debug("Has active non-student account, skipping")
                     return
-                elif pinfo['reserved_ac']:  # has a reserved account
-                    logger.debug("using reserved: %s" % pinfo['reserved_ac'])
+                elif pinfo.has_reserved_ac():  # has a reserved account
+                    logger.debug("using reserved: %s" % pinfo.get_best_reserved_ac())
                     BuildAccounts._update_persons_accounts(
-                        profile, fnr, [ pinfo['reserved_ac'][0] ])
+                        profile, fnr, [ pinfo.get_best_reserved_ac()])
                 else:
                     account_id = AccountUtil.create_user(fnr, profile)
                     if account_id is None:
                         logger.set_indent(0)
                         return
                 # students.setdefault(fnr, {})[account_id] = []
-            elif update_accounts and pinfo['stud_ac']:
+            elif update_accounts and pinfo.has_student_ac():
                 BuildAccounts._update_persons_accounts(
-                    profile, fnr, pinfo['stud_ac'])
+                    profile, fnr, pinfo.get_student_ac())
         except AutoStud.ProfileHandler.NoAvailableDisk, msg:
             logger.error("  Error for %s: %s" % (fnr, msg))
         logger.set_indent(0)
@@ -580,7 +574,7 @@ class BuildAccounts(object):
         logger.info("process_unprocessed_students")
 
         for fnr, pinfo in persons.items(): 
-            if not pinfo['stud_ac']:
+            if not pinfo.has_student_ac():
                 continue
             if not processed_students.has_key(fnr):
                 d, p = fodselsnr.del_fnr(fnr)
@@ -588,6 +582,133 @@ class BuildAccounts(object):
                     'fodselsdato': d,
                     'personnr': p})
     _process_unprocessed_students=staticmethod(_process_unprocessed_students)
+
+class ExistingAccount(object):
+    def __init__(self, fnr, expire_date):
+        self._affs = []
+        self._disk_kvote = {}
+        self._expire_date =  expire_date
+        self._fnr = fnr
+        self._gid = None
+        self._groups = []
+        self._home = {}
+        self._quarantines = []
+        self._reserved = False
+        self._spreads = []
+
+    def append_affiliation(self, affiliation, ou_id):
+        self._affs.append((affiliation, ou_id))
+
+    def get_affiliations(self):
+        return self._affs
+
+    def has_affiliation(self, aff_cand):
+        return aff_cand in [aff for aff, ou in self._affs]
+
+    def get_disk_kvote(self, homedir_id):
+        return self._disk_kvote.get(homedir_id, None)
+
+    def set_disk_kvote(self, homedir_id, quota):
+        self._disk_kvote[homedir_id] = quota
+
+    def get_expire_date(self):
+        return self._expire_date
+
+    def get_fnr(self):
+        return self._fnr
+
+    def get_gid(self):
+        return self._gid
+
+    def set_gid(self, gid):
+        self._gid = gid
+
+    def append_group(self, group_id):
+        self._groups.append(group_id)
+
+    def get_groups(self):
+        return self._groups
+
+    def get_home(self, spread):
+        return self._home.get(spread, (None, None))
+
+    def get_home_spreads(self):
+        return self._home.keys()
+
+    def has_homes(self):
+        return len(self._home) > 0
+
+    def set_home(self, spread, disk_id, homedir_id):
+        self._home[spread] = (disk_id, homedir_id)
+
+    def append_quarantine(self, q):
+        self._quarantines.append(q)
+
+    def get_quarantines(self):
+        return self._quarantines
+    
+    def is_reserved(self):
+        return self._reserved
+
+    def set_reserved(self, cond):
+        self._reserved = True
+
+    def append_spread(self, spread):
+        self._spreads.append(spread)
+
+    def get_spreads(self):
+        return self._spreads
+ 
+class ExistingPerson(object):
+    def __init__(self):
+        self._affs = []
+        self._groups = []
+        self._other_ac = []
+        self._reserved_ac = []
+        self._spreads = []
+        self._stud_ac = []
+
+    def append_affiliation(self, affiliation, ou_id, status):
+        self._affs.append((affiliation, ou_id, status))
+
+    def get_affiliations(self):
+        return self._affs
+
+    def append_group(self, group_id):
+        self._groups.append(group_id)
+
+    def get_groups(self):
+        return self._groups
+
+    def append_other_ac(self, account_id):
+        self._other_ac.append(account_id)
+
+    def has_other_ac(self):
+        return len(self._other_ac) > 0
+
+    def append_reserved_ac(self, account_id):
+        self._reserved_ac.append(account_id)
+
+    def get_best_reserved_ac(self):
+        return self._reserved_ac[0]
+
+    def has_reserved_ac(self):
+        return len(self._reserved_ac) > 0
+
+    def append_spread(self, spread):
+        self._spreads.append(spread)
+
+    def get_spreads(self):
+        return self._spreads
+
+    def append_stud_ac(self, account_id):
+        self._stud_ac.append(account_id)
+
+    def get_student_ac(self):
+        return self._stud_ac
+
+    def has_student_ac(self):
+        return len(self._stud_ac) > 0
 
 def start_process_students(recalc_pq=False, update_create=False):
     global autostud, accounts, persons
@@ -647,9 +768,7 @@ def get_existing_accounts():
         if (row['source_system'] == int(const.system_fs) or
             (not pid2fnr.has_key(int(row['entity_id'])))):
             pid2fnr[int(row['entity_id'])] = row['external_id']
-            persons[row['external_id']] = {
-                'affs': [], 'stud_ac': [], 'other_ac': [], 'reserved_ac': [], 'spreads': [],
-                'groups': []}
+            persons[row['external_id']] = ExistingPerson()
 
     for row in person_obj.list_affiliations(
         source_system=const.system_fs,
@@ -657,8 +776,8 @@ def get_existing_accounts():
         fetchall=False):
         tmp = pid2fnr.get(int(row['person_id']), None)
         if tmp is not None:
-            persons[tmp]['affs'].append(
-                (int(row['affiliation']), int(row['ou_id']), int(row['status'])))
+            persons[tmp].append_affiliation(
+                int(row['affiliation']), int(row['ou_id']), int(row['status']))
 
     #
     # Hent ut info om eksisterende og reserverte konti
@@ -668,38 +787,29 @@ def get_existing_accounts():
     for row in account_obj.list(fetchall=False):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
             continue
-        accounts[int(row['account_id'])] = {
-            'owner': pid2fnr[int(row['owner_id'])],
-            'expire_date': row['expire_date'],
-            'spreads': [],
-            'gid': None,
-            'reserved': False,
-            'home': {},
-            'groups': [],
-            'affs': [],
-            'quarantines': [],
-            'disk_kvote': {}}
+        accounts[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
+                                                           row['expire_date'])
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None:
-            tmp['gid'] = int(row['gid'])
+            tmp.set_gid(int(row['gid']))
     # Reserved users
     for row in account_obj.list_reserved_users(fetchall=False):
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None:
-            tmp['reserved'] = True
+            tmp.set_reserved(True)
     # quarantines
     for row in account_obj.list_entity_quarantines(
         entity_types=const.entity_account):
         tmp = accounts.get(int(row['entity_id']), None)
         if tmp is not None:
-            tmp['quarantines'].append(int(row['quarantine_type']))
+            tmp.append_quarantine(int(row['quarantine_type']))
     # Disk kvote
     for row in disk_quota_obj.list_quotas():
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None:
-            tmp['disk_kvote'][int(row['homedir_id'])] = row['quota']
+            tmp.set_disk_kvote(int(row['homedir_id']), row['quota'])
     # Spreads
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
@@ -717,13 +827,13 @@ def get_existing_accounts():
                 tmp = persons.get(
                     pid2fnr.get(int(row['entity_id']), None), None)
             if tmp is not None:
-                tmp['spreads'].append(spread_id)
+                tmp.append_spread(spread_id)
     # Account homes
     for row in account_obj.list_account_home():
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None and row['disk_id']:
-            tmp['home'][int(row['home_spread'])] = (
-                int(row['disk_id']), int(row['homedir_id']))
+            tmp.set_home(int(row['home_spread']), int(row['disk_id']),
+                         int(row['homedir_id']))
             
     # Group memberships (TODO: currently only handles union members)
     for group_id in autostud.pc.group_defs.keys():
@@ -732,26 +842,26 @@ def get_existing_accounts():
         for row in group_obj.list_members(member_type=const.entity_account)[0]:
             tmp = accounts.get(int(row[1]), None)    # Col 1 is member_id
             if tmp is not None:
-                tmp['groups'].append(group_id)
+                tmp.append_group(group_id)
         for row in group_obj.list_members(member_type=const.entity_person)[0]:
             tmp = persons.get(int(row[1]), None)    # Col 1 is member_id
             if tmp is not None:
-                tmp['groups'].append(group_id)
+                tmp.append_group(group_id)
     # Affiliations
     for row in account_obj.list_accounts_by_type(
         affiliation=const.affiliation_student, fetchall=False):
         tmp = accounts.get(int(row['account_id']), None)
         if tmp is not None:
-            tmp['affs'].append([ int(row['affiliation']) , int(row['ou_id'])])
+            tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
     for ac_id, tmp in accounts.items():
-        if tmp['reserved']:
-            persons[ accounts[ac_id]['owner'] ]['reserved_ac'].append(ac_id)
+        if tmp.is_reserved():
+            persons[ accounts[ac_id].get_fnr() ].append_reserved_ac(ac_id)
             
-        elif int(const.affiliation_student) in [aff for aff, ou in tmp['affs']]:
-            persons[ accounts[ac_id]['owner'] ]['stud_ac'].append(ac_id)
+        elif tmp.has_affiliation(int(const.affiliation_student)):
+            persons[ accounts[ac_id].get_fnr() ].append_stud_ac(ac_id)
         else:
-            persons[ accounts[ac_id]['owner'] ]['other_ac'].append(ac_id)
+            persons[ accounts[ac_id].get_fnr() ].append_other_ac(ac_id)
 
     logger.info(" found %i persons and %i accounts" % (len(persons), len(accounts)))
     #logger.debug("Persons: \n"+"\n".join([str(y) for y in persons.items()]))
