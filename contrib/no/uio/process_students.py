@@ -113,13 +113,13 @@ class AccountUtil(object):
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
-	for spread in profile.get_spreads():
-	    if int(spread) in posix_spreads:
-		as_posix = True
+        for spread in profile.get_spreads():
+            if int(spread) in posix_spreads:
+                as_posix = True
         accounts[int(account.entity_id)] = {'owner': fnr,
                                             'expire_date': None,
                                             'groups': [],
-					    'spreads':[],
+                                            'spreads':[],
                                             'affs': [],
                                             'home': {},
                                             'gid': None,
@@ -548,7 +548,7 @@ class BuildAccounts(object):
         
         as_posix = False
         for spread in profile.get_spreads():  # TBD: Is this check sufficient?
-	    if int(spread) in posix_spreads:
+            if int(spread) in posix_spreads:
                 as_posix = True
         for account_id in account_ids:
             AccountUtil.update_account(account_id, fnr, profile, as_posix)
@@ -782,13 +782,13 @@ def make_letters(data_file=None, type=None, range=None):
             continue
         tpl = {}
         address = None
-	for source, kind in ((const.system_fs, const.address_post),
-			     (const.system_fs, const.address_post_private)):
+        for source, kind in ((const.system_fs, const.address_post),
+                             (const.system_fs, const.address_post_private)):
             address = person.get_entity_address(source=source,
-						    type=kind)
+                                                    type=kind)
             if address:
-		break
-	if not address:
+                break
+        if not address:
             logger.warn("Could not find authoritative address for %s" % account_id)
             continue
         address = address[0]
