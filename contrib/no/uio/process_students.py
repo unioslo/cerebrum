@@ -64,7 +64,27 @@ disk_quota_obj = DiskQuota.DiskQuota(db)
 
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
-posix_spreads = [int(const.Spread(s)) for s in cereconf.POSIX_SPREAD_CODES]
+posix_spreads = [int(const.Spread(_s)) for _s in cereconf.POSIX_SPREAD_CODES]
+
+# global Command-line alterable variables.  Defined here to make
+# pychecker happy
+skip_lpr = True       # Must explicitly tell that we want lpr
+create_users = move_users = dryrun = update_accounts = False
+with_quarantines = False
+remove_groupmembers = True
+ou_perspective = None
+workdir = None
+only_dump_to = None
+paper_money_file = None         # Default: don't check for paid paper money
+student_info_file = None
+studconfig_file = None
+studieprogs_file = None
+emne_info_file = None
+fast_test = False
+
+# Other globals (to make pychecker happy)
+autostud = logger = accounts = persons = None
+default_creator_id = default_expire_date = default_shell = None
 
 class AccountUtil(object):
     """Collection of methods that operate on a single account to make
@@ -282,13 +302,13 @@ class AccountUtil(object):
             if keep_account_home[fnr] and (move_users or current_disk_id is None):
                 try:
                     new_disk = profile.get_disk(disk_spread, current_disk_id)
-                except AutoStud.ProfileHandler.NoAvailableDisk, msg:
+                except AutoStud.ProfileHandler.NoAvailableDisk:
                     raise
                 if current_disk_id != new_disk:
                     autostud.disk_tool.notify_used_disk(old=current_disk_id, new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread, new_disk)))
                     current_disk_id = new_disk
-                    ac.set_home(disk_spread, new_disk, None)
+                    ac.set_home(disk_spread, new_disk, ac.get_home(disk_spread)[1])
 
         if autostud.disk_tool.using_disk_kvote:
             for spread in accounts[account_id].get_home_spreads():
@@ -355,10 +375,8 @@ class RecalcQuota(object):
         logger.set_indent(3)
         logger.debug(logger.pformat(_filter_person_info(person_info)))
         pq = PrinterQuotas.PrinterQuotas(db)
-        group = Factory.get('Group')(db)
 
-        for account_id in students.get(fnr, {}).keys():
-            groups = []
+        for account_id in persons.get(fnr, {}).keys():
             try:
                 profile = autostud.get_profile(
                     person_info, member_groups=persons[fnr].get_groups())
@@ -464,7 +482,7 @@ class BuildAccounts(object):
             if max_errors < 0:
                 raise
             trace = "".join(traceback.format_exception(
-                sys.exc_type, sys.exc_value, sys.exc_traceback))
+                sys.exc_type, sys.exc_value, sys.last_traceback))
             logger.error("Unexpected error: %s" % trace)
             db.rollback()
     _process_students_callback=staticmethod(_process_students_callback)
@@ -514,7 +532,7 @@ class BuildAccounts(object):
                 elif pinfo.has_reserved_ac():  # has a reserved account
                     logger.debug("using reserved: %s" % pinfo.get_best_reserved_ac())
                     BuildAccounts._update_persons_accounts(
-                        profile, fnr, [ pinfo.get_best_reserved_ac()])
+                        profile, fnr, [pinfo.get_best_reserved_ac()])
                 else:
                     account_id = AccountUtil.create_user(fnr, profile)
                     if account_id is None:
@@ -651,7 +669,7 @@ class ExistingAccount(object):
         return self._reserved
 
     def set_reserved(self, cond):
-        self._reserved = True
+        self._reserved = cond
 
     def append_spread(self, spread):
         self._spreads.append(spread)
@@ -756,7 +774,7 @@ def get_existing_accounts():
                                'expire_date': expire_date,
                                'home': {spread: (disk_id, homedir_id)}}}
     """
-    persons = {}
+    tmp_persons = {}
 
     logger.info("In get_existing_accounts")
     if fast_test:
@@ -768,7 +786,7 @@ def get_existing_accounts():
         if (row['source_system'] == int(const.system_fs) or
             (not pid2fnr.has_key(int(row['entity_id'])))):
             pid2fnr[int(row['entity_id'])] = row['external_id']
-            persons[row['external_id']] = ExistingPerson()
+            tmp_persons[row['external_id']] = ExistingPerson()
 
     for row in person_obj.list_affiliations(
         source_system=const.system_fs,
@@ -776,38 +794,38 @@ def get_existing_accounts():
         fetchall=False):
         tmp = pid2fnr.get(int(row['person_id']), None)
         if tmp is not None:
-            persons[tmp].append_affiliation(
+            tmp_persons[tmp].append_affiliation(
                 int(row['affiliation']), int(row['ou_id']), int(row['status']))
 
     #
     # Hent ut info om eksisterende og reserverte konti
     #
     logger.info("Listing accounts...")
-    accounts = {}
+    tmp_ac = {}
     for row in account_obj.list(fetchall=False):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
             continue
-        accounts[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
+        tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
                                                            row['expire_date'])
     # PosixGid
     for row in posix_user_obj.list_posix_users():
-        tmp = accounts.get(int(row['account_id']), None)
+        tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
             tmp.set_gid(int(row['gid']))
     # Reserved users
     for row in account_obj.list_reserved_users(fetchall=False):
-        tmp = accounts.get(int(row['account_id']), None)
+        tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
             tmp.set_reserved(True)
     # quarantines
     for row in account_obj.list_entity_quarantines(
         entity_types=const.entity_account):
-        tmp = accounts.get(int(row['entity_id']), None)
+        tmp = tmp_ac.get(int(row['entity_id']), None)
         if tmp is not None:
             tmp.append_quarantine(int(row['quarantine_type']))
     # Disk kvote
     for row in disk_quota_obj.list_quotas():
-        tmp = accounts.get(int(row['account_id']), None)
+        tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
             tmp.set_disk_kvote(int(row['homedir_id']), row['quota'])
     # Spreads
@@ -822,7 +840,7 @@ def get_existing_accounts():
             continue
         for row in account_obj.list_all_with_spread(spread_id):
             if is_account_spread:
-                tmp = accounts.get(int(row['entity_id']), None)
+                tmp = tmp_ac.get(int(row['entity_id']), None)
             else:
                 tmp = persons.get(
                     pid2fnr.get(int(row['entity_id']), None), None)
@@ -830,7 +848,7 @@ def get_existing_accounts():
                 tmp.append_spread(spread_id)
     # Account homes
     for row in account_obj.list_account_home():
-        tmp = accounts.get(int(row['account_id']), None)
+        tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None and row['disk_id']:
             tmp.set_home(int(row['home_spread']), int(row['disk_id']),
                          int(row['homedir_id']))
@@ -840,7 +858,7 @@ def get_existing_accounts():
         group_obj.clear()
         group_obj.find(group_id)
         for row in group_obj.list_members(member_type=const.entity_account)[0]:
-            tmp = accounts.get(int(row[1]), None)    # Col 1 is member_id
+            tmp = tmp_ac.get(int(row[1]), None)    # Col 1 is member_id
             if tmp is not None:
                 tmp.append_group(group_id)
         for row in group_obj.list_members(member_type=const.entity_person)[0]:
@@ -850,18 +868,18 @@ def get_existing_accounts():
     # Affiliations
     for row in account_obj.list_accounts_by_type(
         affiliation=const.affiliation_student, fetchall=False):
-        tmp = accounts.get(int(row['account_id']), None)
+        tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
     for ac_id, tmp in accounts.items():
+        fnr = tmp_ac[ac_id].get_fnr()
         if tmp.is_reserved():
-            persons[ accounts[ac_id].get_fnr() ].append_reserved_ac(ac_id)
-            
+            tmp_persons[fnr].append_reserved_ac(ac_id)
         elif tmp.has_affiliation(int(const.affiliation_student)):
-            persons[ accounts[ac_id].get_fnr() ].append_stud_ac(ac_id)
+            tmp_persons[fnr].append_stud_ac(ac_id)
         else:
-            persons[ accounts[ac_id].get_fnr() ].append_other_ac(ac_id)
+            tmp_persons[fnr].append_other_ac(ac_id)
 
     logger.info(" found %i persons and %i accounts" % (len(persons), len(accounts)))
     #logger.debug("Persons: \n"+"\n".join([str(y) for y in persons.items()]))
@@ -1010,7 +1028,7 @@ def _filter_person_info(person_info):
     """Makes debugging easier by removing some of the irrelevant
     person-information."""
     ret = {}
-    filter = {
+    _filter = {
         'opptak': ['studieprogramkode', 'studierettstatkode'],
         'privatist_emne': ['emnekode'],
         'privatist_studieprogram': ['studieprogramkode'],
@@ -1022,11 +1040,11 @@ def _filter_person_info(person_info):
     for info_type in person_info.keys():
         if info_type in ('fodselsdato', 'personnr'):
             continue
-        for f in filter:
+        for f in _filter:
             if info_type == f:
                 for dta in person_info[info_type]:
                     ret.setdefault(info_type, []).append(
-                        dict([(k, dta[k]) for k in filter[info_type]]))
+                        dict([(k, dta[k]) for k in _filter[info_type]]))
         if not ret.has_key(info_type):
             ret[info_type] = person_info[info_type]
     return ret
@@ -1105,15 +1123,9 @@ def main():
            dryrun, emne_info_file, move_users, remove_groupmembers, \
            workdir, paper_money_file, ou_perspective, with_quarantines
 
-    skip_lpr = True       # Must explicitly tell that we want lpr
-    update_accounts = create_users = recalc_pq = dryrun = move_users = False
-    remove_groupmembers = validate = with_quarantines = False
-    ou_perspective = None
-    fast_test = False
-    workdir = None
-    range = None
-    only_dump_to = None
-    paper_money_file = None         # Default: don't check for paid paper money
+    recalc_pq = False
+    validate = False
+    _range = None
     to_stdout = False
     log_level = AutoStud.Util.ProgressReporter.DEBUG
     non_callback_fname = None
@@ -1165,9 +1177,9 @@ def main():
         elif opt in ('--workdir',):
             workdir = val
         elif opt in ('--type',):
-            type = val
+            _type = val
         elif opt in ('--reprint',):
-            range = val
+            _range = val
             to_stdout = True
         else:
             usage("Unimplemented option: " + opt)
@@ -1189,8 +1201,8 @@ def main():
     if validate:
         validate_config()
         sys.exit(0)
-    if range is not None:
-        make_letters("letters.info", type=type, range=val)
+    if _range is not None:
+        make_letters("letters.info", type=_type, range=_range)
         return
 
     if not (recalc_pq or update_accounts or create_users or
