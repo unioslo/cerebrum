@@ -574,11 +574,12 @@ class ConstantsBase(DatabaseAccessor):
                         raise RuntimeError, \
                               ("Number of %s code attributes (%d)"
                                " differs from number of %s rows (%d)\n"
-                               "In table: %s\nIn class def:%s\n") % (
-                            cls.__name__, cls_code_count,
-                            cls._lookup_table, len(rows),
-                            ",".join(table_vals),
-                            ",".join(code_vals))
+                               "In table: %s\n"
+                               "In class: %s\n") % \
+                              (cls.__name__, cls_code_count,
+                               cls._lookup_table, len(rows),
+                               ",".join([str(x) for x in table_vals]),
+                               ",".join([str(x) for x in code_vals]))
                 del order[root][cls]
                 if order.has_key(cls):
                     insert(cls, update)
