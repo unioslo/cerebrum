@@ -56,7 +56,7 @@ def continue_prompt(message):
         print "aborting"
         sys.exit(1)
 
-def get_db_vesion():
+def get_db_version():
     meta = Metainfo.Metainfo(db)
     version = "pre-0.9.2"
     try:
@@ -70,7 +70,7 @@ def get_db_vesion():
     return version
 
 def assert_db_version(wanted):
-    if wanted <> get_db_vesion():
+    if wanted <> get_db_version():
         print "your database is %s, not %s, aborting" % (version, wanted)
         sys.exit(1)
 
@@ -334,7 +334,7 @@ def init():
 
 def show_migration_info():
     init()
-    print "Your current db-vesion is:", get_db_vesion()
+    print "Your current db-version is:", get_db_version()
     
     meta = Metainfo.Metainfo(db)
     print "Additional modules with metainfo:"
