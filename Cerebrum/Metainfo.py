@@ -37,6 +37,12 @@ class Metainfo(object):
         WHERE name=:name""", {'name': name})
         return pickle.loads(value)
 
+    def list(self):
+        return [(row['name'], pickle.loads(row['value']))
+                for row in self.db.query("""
+        SELECT name, value
+        FROM [:table schema=cerebrum name=cerebrum_metainfo]""")]
+
     def set_metainfo(self, name, value):
         value = pickle.dumps(value)
         try:
