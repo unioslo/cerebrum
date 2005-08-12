@@ -195,6 +195,45 @@ class JobRunner(object):
         self._should_quit = True
         self.wake_runner_signal()
 
+    def process_queue(self, queue, num_running, force=False):
+        completed_nowait_job = False
+        delta = None
+        for job_name in queue:
+            job_ref = self.job_queue.get_known_job(job_name)
+            if not force:
+                if self.queue_paused:
+                    delta = max_sleep
+                    break
+                if (job_ref.call and job_ref.call.wait and
+                    num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
+                    # This is a minor optimalization that may be
+                    # skipped.  Hopefully it makes the log easier to
+                    # read
+                    continue
+                if self.job_queue.has_queued_prerequisite(job_name):
+                    logger.debug2("has queued prereq: %s" % job_name)
+                    continue
+                logger.debug2("  ready: %s" % job_name)
+
+            if job_ref.call is not None:
+                logger.debug("  exec: %s, # running_jobs=%i" % (
+                    job_name, len(self.job_queue.get_running_jobs())))
+                if (not force and job_ref.call.wait and
+                    num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
+                    logger.debug("  too many paralell jobs (%s/%i)" % (
+                        job_name, num_running))
+                    continue
+                if job_ref.call.setup():
+                    child_pid = job_ref.call.execute()
+                    self.job_queue.job_started(job_name, child_pid, force=force)
+                    if job_ref.call.wait:
+                        num_running += 1
+            # Mark jobs that we should not wait for as completed
+            if (job_ref.call is None or not job_ref.call.wait):
+                self.job_queue.job_done(job_name, None, force=force)
+                completed_nowait_job = True
+        return delta, completed_nowait_job, num_running
+
     def run_job_loop(self):
         self.jobs_has_completed = False
 
@@ -207,6 +246,10 @@ class JobRunner(object):
             #
             # TBD: This could in theory lead to starvation.  Is that a
             # relevant issue?
+
+            # Run forced jobs
+            tmp_queue = self.job_queue.get_forced_run_queue()
+            self.process_queue(tmp_queue, -1, force=True)
 
             if not self.job_queue.get_run_queue():
                 delta = self.job_queue.get_next_job_time()
@@ -221,41 +264,11 @@ class JobRunner(object):
                     num_running += 1
             logger.debug("Queue: %s" % self.job_queue.get_run_queue())
             tmp_queue = self.job_queue.get_run_queue()[:]   # loop modifies list
-            completed_nowait_job = False
-            for job_name in tmp_queue:
-                if self.queue_paused:
-                    delta = max_sleep
-                    break
-                job_ref = self.job_queue.get_known_job(job_name)
-                if (job_ref.call and job_ref.call.wait and
-                    num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
-                    # This is a minor optimalization that may be
-                    # skipped.  Hopefully it makes the log easier to
-                    # read
-                    continue
-                if self.job_queue.has_queued_prerequisite(job_name):
-                    logger.debug2("has queued prereq: %s" % job_name)
-                    continue
-                logger.debug2("  ready: %s" % job_name)
-                
-                if job_ref.call is not None:
-                    logger.debug("  exec: %s, # running_jobs=%i" % (
-                        job_name, len(self.job_queue.get_running_jobs())))
-                    if (job_ref.call.wait and
-                        num_running >= cereconf.JOB_RUNNER_MAX_PARALELL_JOBS):
-                        logger.debug("  too many paralell jobs (%s/%i)" % (
-                            job_name, num_running))
-                        continue
-                    if job_ref.call.setup():
-                        child_pid = job_ref.call.execute()
-                        self.job_queue.job_started(job_name, child_pid)
-                        if job_ref.call.wait:
-                            num_running += 1
-                # Mark jobs that we should not wait for as completed
-                if (job_ref.call is None or not job_ref.call.wait):
-                    self.job_queue.job_done(job_name, None)
-                    completed_nowait_job = True
-
+            tmp_delta, completed_nowait_job, num_running = self.process_queue(
+                tmp_queue, num_running)
+            if tmp_delta is not None:
+                delta = tmp_delta
+            
             # now sleep for delta seconds, or until XXX wakes us
             # because a job has completed
             # TODO: We have a race-condition here if SIGCHLD is

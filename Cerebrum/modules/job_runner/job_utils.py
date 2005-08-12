@@ -241,7 +241,7 @@ class SocketHandling(object):
                     if not job_runner.job_queue.get_known_jobs().has_key(jobname):
                         self.send_response(conn, 'Unknown job %s' % jobname)
                     else:
-                        job_runner.job_queue.get_run_queue().insert(0, jobname)
+                        job_runner.job_queue.get_forced_run_queue().append(jobname)
                         self.send_response(conn, 'Added %s to head of queue' % jobname)
                         job_runner.wake_runner_signal()
                     break
@@ -415,6 +415,7 @@ class JobQueue(object):
         self.db_qh = DbQueueHandler(db, logger)
         self._debug_time=debug_time
         self.reload_scheduled_jobs()
+        self._forced_run_queue = []
         
     def reload_scheduled_jobs(self):
         reload(self._scheduled_jobs)
@@ -502,13 +503,16 @@ class JobQueue(object):
                            self._known_jobs[x[0]].call or None),
                   'started': self._started_at[x[0]]} for x in self._running_jobs ]
 
-    def job_started(self, job_name, pid):
+    def job_started(self, job_name, pid, force=False):
         self._running_jobs.append((job_name, pid))
         self._started_at[job_name] = time.time()
-        self._run_queue.remove(job_name)
+        if force:
+            self._forced_run_queue.remove(job_name)
+        else:
+            self._run_queue.remove(job_name)
         self.logger.debug("Started [%s]" % job_name)
 
-    def job_done(self, job_name, pid):
+    def job_done(self, job_name, pid, force=False):
         if pid is not None:
             self._running_jobs.remove((job_name, pid))
 
@@ -518,7 +522,10 @@ class JobQueue(object):
             self.logger.debug("Completed [%s/%i] after %f seconds" % (
                 job_name,  pid or -1, self._last_duration[job_name]))
         else:
-            self._run_queue.remove(job_name)
+            if force:
+                self._forced_run_queue.remove(job_name)
+            else:
+                self._run_queue.remove(job_name)
             self.logger.debug("Completed [%s/%i] (start not set)" % (
                 job_name,  pid or -1))
         if not (self._known_jobs.has_key(job_name)):   # due to reload of config
@@ -534,6 +541,9 @@ class JobQueue(object):
             # Don't update last_run as this would delay an attempt to
             # restart the job.
             pass
+
+    def get_forced_run_queue(self):
+        return self._forced_run_queue
 
     def get_run_queue(self):
         return self._run_queue
