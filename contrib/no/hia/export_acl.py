@@ -195,9 +195,25 @@ def output_properties():
     output_elem("target", "aksesskontrol")
     output_elem("timestamp", time.strftime("%Y-%m-%dT%H:%M:%S"))
 
-    #
-    # All ID types used must be declared first.
+    # All ID types used must be declared first. The types are to be declared
+    # in a certain order!
     xmlwriter.startElement("types")
+
+    for c in ("uname", "email"):
+        output_elem("contacttype", get_contact_type(c),
+                    { "subject" : "Person" })
+    # od
+
+    output_elem("orgidtype", "institusjonsnummer")
+
+    output_elem("orgnametype", "name")
+
+    # We identify OUs by their sko (fak, inst, avd)
+    output_elem("ouidtype", "sko")
+
+    # We output plain names
+    output_elem("ounametype", "name")
+
     for c in (const.EntityExternalId("NO_BIRTHNO"),
               const.EntityExternalId("HiA_SAP_EMP#"),
               const.EntityExternalId("NO_STUDNO")):
@@ -208,20 +224,9 @@ def output_properties():
         output_elem("partnametype", get_name_type(c))
     # od
 
-    for c in ("uname", "email"):
-        output_elem("contacttype", get_contact_type(c))
-    # od
-
     for c in ("kull", "ue", "pay"):
         output_elem("groupidtype", get_group_id_type(c))
     # od
-
-    # OU / Organisation
-    output_elem("orgidtype", "institusjonsnummer")
-    # We output plain names
-    output_elem("ounametype", "name")
-    # We identify OUs by their sko
-    output_elem("ouidtype", "sko")
 
     # We have to split N-ary relationships with N > 2:
     # kull == (ou, people, kull)
@@ -230,20 +235,20 @@ def output_properties():
     #    == (uegroup + (uegroup + org/ou) + (uegroup + people))
     for prefix in ("kull", "ue"):
         output_elem("relationtype", prefix + "-ou",
-                    { "subject" : "org", "object"  : "group" })
+                    { "subject" : "Organization", "object" : "Group" })
         output_elem("relationtype", prefix + "-people",
-                    { "subject" : "group", "object"  : "person" })
+                    { "subject" : "Group", "object"  : "Person" })
     # od
 
     # Students who paid semavgift
-    output_elem("relatiotype", "paid-people",
-                {"subject" : "group", "object" : "person" })
+    output_elem("relationtype", "paid-people",
+                { "subject" : "Group", "object" : "Person" })
 
     # Affiliations are a bit more tricky. We make a new relationtype for each
     # aff/status pair.
     for aff, status in get_all_affiliations():
         output_elem("relationtype", get_affiliation_type(aff, status),
-                    { "subject" : "org", "object" : "person" })
+                    { "subject" : "Organization", "object" : "Person" })
     # od
     
     xmlwriter.endElement("types")
@@ -315,7 +320,6 @@ def output_people():
         # fi
 
         xmlwriter.startElement("person")
-
         #
         # Output all IDs
         for i in (const.EntityExternalId("NO_STUDNO"),
@@ -341,7 +345,9 @@ def output_people():
         if full_name:
             output_elem("fn", full_name)
         else:
-            logger.warn("No full name for %s", id)
+            # Schema does not allow missing full names
+            logger.warn("No full name for %s. Skipping", id)
+            continue
         # fi
         
         xmlwriter.startElement("n")
@@ -358,6 +364,9 @@ def output_people():
         # fi
         xmlwriter.endElement("n")
         xmlwriter.endElement("name")
+
+        # ISO-style. 
+        output_elem("birthdate", person.birth_date.date)
         
         primary_uname = get_primary_account(person, account)
         for value, contact_type in ((primary_uname, "uname"),
@@ -462,8 +471,8 @@ def output_affiliations(person_info):
         </org>
       </subject>
       <object>
-        <person ...>...</person>
-        <person ...>...</person>
+        <personid ...>...</personid>
+        <personid ...>...</personid>
         ...
       </object>
     </relation>
@@ -522,9 +531,9 @@ def prepare_kull():
         kull_cache[internal_id] = sko
 
         xmlwriter.startElement("group")
-        output_elem("description", name_for_humans)
         output_elem("groupid", xml_id,
                     {"groupidtype" : get_group_id_type("kull")})
+        output_elem("description", name_for_humans)
         xmlwriter.endElement("group")
     # od
 
@@ -564,9 +573,9 @@ def prepare_ue():
         ue_cache[id] = sko
 
         xmlwriter.startElement("group")
-        output_elem("description", name_for_humans)
         output_elem("groupid", xml_id, 
                     {"groupidtype" : get_group_id_type("ue")})
+        output_elem("description", name_for_humans)
         xmlwriter.endElement("group")
     # od
 
@@ -734,9 +743,9 @@ def prepare_pay():
     """Output a group for all students who paid semavgift."""
 
     xmlwriter.startElement("group")
-    output_elem("description", "Studenter som har betalt semavgift")
     output_elem("groupid", "paid-group",
                 {"groupidtype" : get_group_id_type("pay")})
+    output_elem("description", "Studenter som har betalt semavgift")
     xmlwriter.endElement("group")
 # end prepare_pay
     
@@ -814,7 +823,8 @@ def output_all_OUs():
     output_elem("orgid", str(cereconf.DEFAULT_INSTITUSJONSNR),
                 { "orgidtype" : "institusjonsnummer" })
     output_elem("orgname", "Høyskolen i Agder",
-                { "lang" : "no" })
+                { "lang"        : "no",
+                  "orgnametype" : "name" })
     output_elem("realm", "hia.no")
 
     # Now, output all OUs
@@ -836,10 +846,11 @@ def output_all_OUs():
         output_elem("ouname", ou.name,
                     { "ounametype" : "name",
                       "lang"       : "no" })
-        parent_id = ou_id2parent_sko(ou)
-        if parent_id:
-            output_elem("parentid", parent_id, { "ouidtype" : "sko" })
-        # fi
+        # TBD: Do we need parent_id?
+        # parent_id = ou_id2parent_sko(ou)
+        # if parent_id:
+        #     output_elem("parentid", parent_id, { "ouidtype" : "sko" })
+        # # fi
         xmlwriter.endElement("ou")
     # od
 
