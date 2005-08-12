@@ -95,7 +95,8 @@ class DiskQuota(DatabaseAccessor):
                     del new_values[col]
             if not new_values:
                 return
-            # The above filter removes an important value, so we reinsert it.
+            # homedir_id never changes, so it was removed by the above
+            # code, but it is needed in the SQL bind dict.
             new_values['homedir_id'] = int(homedir_id)
             self.execute("""
                 UPDATE [:table schema=cerebrum name=disk_quota]
