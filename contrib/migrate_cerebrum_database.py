@@ -56,7 +56,7 @@ def continue_prompt(message):
         print "aborting"
         sys.exit(1)
 
-def assert_db_version(wanted):
+def get_db_vesion():
     meta = Metainfo.Metainfo(db)
     version = "pre-0.9.2"
     try:
@@ -67,7 +67,10 @@ def assert_db_version(wanted):
         # Not sure how to trap the PgSQL OperationalError
         if str(e.__class__).find("OperationalError") == -1:
             raise
-    if wanted <> version:
+    return version
+
+def assert_db_version(wanted):
+    if wanted <> get_db_vesion():
         print "your database is %s, not %s, aborting" % (version, wanted)
         sys.exit(1)
 
@@ -329,13 +332,25 @@ def init():
             str2const[str(tmp)] = tmp
             num2const[int(tmp)] = tmp
 
+def show_migration_info():
+    init()
+    print "Your current db-vesion is:", get_db_vesion()
+    
+    meta = Metainfo.Metainfo(db)
+    print "Additional modules with metainfo:"
+    mod_prefix = "sqlmodule_"
+    for name, value in meta.list():
+        if name.startswith(mod_prefix):
+            print "  %-20s %s" % (name[len(mod_prefix):], value)
+    print "Migration targets:\n ", "\n  ".join(versions)
+    
 def main():
     global makedb_path, design_path
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'r',
                                    ['help', 'releases', 'from=', 'to=',
                                     'makedb-path=', 'design-path=',
-                                    'no-changelog'])
+                                    'no-changelog', 'info'])
     except getopt.GetoptError:
         usage(1)
 
@@ -357,6 +372,9 @@ def main():
             from_rel = val
         elif opt in ('--to',):
             to_rel = val
+        elif opt in ('--info',):
+            show_migration_info()
+            sys.exit(0)
         else:
             usage()
     if (not (from_rel or to_rel)) or (not (makedb_path and design_path)):
@@ -390,11 +408,16 @@ def usage(exitcode=0):
     --makedb-path: directory where makedb.py is
     --design-path: directory where the sql files are
     --no-changelog: don't log the changes to the changelog
+    --info: show info about installation, and available migration targets
     
     If --from is omitted, all migrations up to --to is performed.  If
     --to is omitted, all migrations from --from is performed.
 
     --makedb-path and --design-path are mandatory
+
+    Example:
+      migrate_cerebrum_database.py --from rel_0_9_4 --makedb-path \\
+        ~/src/cerebrum --design-path ~/src/cerebrum/design
     """
     sys.exit(exitcode)
 
