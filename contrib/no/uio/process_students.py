@@ -548,7 +548,7 @@ class BuildAccounts(object):
         
         as_posix = False
         for spread in profile.get_spreads():  # TBD: Is this check sufficient?
-            if str(spread).startswith('NIS'):
+	    if int(spread) in posix_spreads:
                 as_posix = True
         for account_id in account_ids:
             AccountUtil.update_account(account_id, fnr, profile, as_posix)
