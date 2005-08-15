@@ -3123,6 +3123,7 @@ class BofhdExtension(object):
         for row in group.list_groups_with_entity(account.entity_id):
             grp = self._get_group(row['group_id'], idtype="id")
             ret.append({'memberop': str(self.num2const[int(row['operation'])]),
+                        'entity_id': grp.entity_id,
                         'group': grp.group_name,
                         'spreads': ",".join(["%s" % self.num2const[int(a['spread'])]
                                              for a in grp.get_spread()])})
@@ -4132,7 +4133,8 @@ class BofhdExtension(object):
                                          getattr(self.const,
                                                  cereconf.DEFAULT_GECOS_NAME)),
                  'export_id': person.export_id,
-                 'birth': person.birth_date}]
+                 'birth': person.birth_date,
+                 'entity_id': person.entity_id}]
         affiliations = []
         sources = []
         for row in person.get_affiliations():
@@ -5224,7 +5226,11 @@ class BofhdExtension(object):
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
         pu = PosixUser.PosixUser(self.db)
-        uid = pu.get_free_uid()
+        old_uid = self._lookup_old_uid(account.entity_id)
+        if old_uid is None:
+            uid = pu.get_free_uid()
+        else:
+            uid = old_uid
         group = self._get_group(dfg, grtype='PosixGroup')
         shell = self._get_shell(shell)
         if not home:
@@ -5247,7 +5253,11 @@ class BofhdExtension(object):
             status=self.const.home_status_not_created)
         pu.set_home(self.const.spread_uio_nis_user,
                     homedir_id)
-        return "OK, promoted %s to posix user" % accountname
+        if old_uid is None:
+            tmp = ', new uid=%i' % uid
+        else:
+            tmp = ', reused old uid=%i' % old_uid
+        return "OK, promoted %s to posix user%s" % (accountname, tmp)
 
     # user posix_delete
     all_commands['user_demote_posix'] = Command(
@@ -5905,5 +5915,12 @@ class BofhdExtension(object):
                     msg += ", " + f
         by = row['change_program'] or self._get_entity_name(None, row['change_by'])
         return "%s [%s]: %s" % (row['tstamp'], by, msg)
+
+    def _lookup_old_uid(self, account_id):
+        uid = None
+        for r in self.db.get_log_events(
+            0, subject_entity=account_id, types=[self.const.posix_demote]):
+            uid = pickle.loads(r['change_params'])['uid']
+        return uid
 
 # arch-tag: 98930b8a-4170-453a-a5db-34177f3ac40f
