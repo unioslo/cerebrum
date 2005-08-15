@@ -156,6 +156,8 @@ class AccountUtil(object):
                 changes.append(('set_ac_type', (ou, const.affiliation_student)))
             else:
                 account_ous.remove(ou)
+                # The account has at least one valid affiliation, so
+                # we can delete everything left in account_ous.
                 remove_idx = 0
 
         for ou in account_ous[remove_idx:]:
@@ -881,6 +883,18 @@ def get_existing_accounts():
             tmp_persons[fnr].append_reserved_ac(ac_id)
         elif tmp.has_affiliation(int(const.affiliation_student)):
             tmp_persons[fnr].append_stud_ac(ac_id)
+        elif tmp_persons[fnr].get_affiliations():
+            # get_affiliations() only returns STUDENT affiliations.
+            # Accounts on student disks are handled as if they were
+            # students if the person has at least one STUDENT
+            # affiliation.  The STUDENT affiliation(s) will be added
+            # later during this run.
+            for spread, home in tmp.get_home():
+                if autostud.disk_tool.get_diskdef_by_diskid(home[0]):
+                    tmp_persons[fnr].append_stud_ac(ac_id)
+                    break
+            else:
+                tmp_persons[fnr].append_other_ac(ac_id)
         else:
             tmp_persons[fnr].append_other_ac(ac_id)
 
@@ -1089,8 +1103,12 @@ def list_noncallback_users(fname):
     """Dump accounts on student-disk that did not get a callback
     resulting in update_account."""
 
+    # TODO: --dryrun currently makes this file useless, since it
+    # implies doing no updates, and therefore the file will contain
+    # _every_ student.
     if dryrun:
         fname += ".dryrun"
+
     logger.info("Dumping noncallback users to %s" % fname)
     f = SimilarSizeWriter(fname, 'w')
     f.set_size_change_limit(10)
@@ -1204,6 +1222,7 @@ def main():
     bootstrap()
     if validate:
         validate_config()
+        print "The configuration was successfully validated."
         sys.exit(0)
     if _range is not None:
         make_letters("letters.info", type=_type, range=_range)
