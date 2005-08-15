@@ -811,9 +811,11 @@ def move_student_callback(person_info):
                     continue
                 if d_spread in spreads:
                     try:
-                        current_disk_id = account.get_home(d_spread)['disk_id']
+                        ah = account.get_home(d_spread)
+                        homedir_id = ah['homedir_id']
+                        current_disk_id = ah['disk_id']
                     except Errors.NotFoundError:
-                        current_disk_id = None
+                        homedir_id, current_disk_id = None, None
                     if autostud.disk_tool.get_diskdef_by_diskid(int(current_disk_id)):
                         logger.debug("Already on a student disk")
                         br.delete_request(request_id=request_id)
@@ -827,8 +829,22 @@ def move_student_callback(person_info):
                     try:
                         new_disk = profile.get_disk(d_spread, current_disk_id,
                                                     do_check_move_ok=False)
-                        if new_disk != current_disk_id:
-                            disks.append((new_disk, d_spread))
+                        if new_disk == current_disk_id:
+                            continue
+                        disks.append((new_disk, d_spread))
+                        if (autostud.disk_tool.using_disk_kvote and
+                            homedir_id is not None):
+                            # Delay import as non-uio people may use this script
+                            from Cerebrum.modules.no.uio import DiskQuota
+                            
+                            disk_quota_obj = DiskQuota.DiskQuota(db)
+                            try:
+                                cur_quota = disk_quota_obj.get_quota(homedir_id)
+                            except Errors.NotFoundError:
+                                cur_quota = None
+                            quota = profile.get_disk_kvote(new_disk)
+                            if cur_quota is None or cur_quota['quota'] != int(quota):
+                                disk_quota_obj.set_quota(homedir_id, quota=int(quota))
                     except AutostudError, msg:
                         # Will end up on pending (since we only use one spread)
                         logger.debug("Error getting disk: %s" % msg)
