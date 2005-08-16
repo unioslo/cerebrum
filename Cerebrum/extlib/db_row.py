@@ -518,25 +518,26 @@ except ImportError:
       except AttributeError:
         pass
       
-      # Log the use of the deprecated interface.  We try to avoid
-      # logging duplicates, but this technique will probably only
-      # quiesce loops.
-      
-      myclass = self.__class__
+      # Log the use of the deprecated interface, but try to avoid
+      # duplicate messages.  This instance's class is a synthesized
+      # class and will be different for each SQL query, so state
+      # stored in it won't be very persistent.  We therefore cheat and
+      # use __mro__ to find the parent class, which happens to be
+      # more static.
+      myclass = self.__class__.__mro__[1]
       try:
         myclass.__deprecated_usage
       except AttributeError:
         myclass.__deprecated_usage = {}
-      new_occurence = False
-      log_message = "Backtrace"
       import inspect
-      for f in inspect.getouterframes(inspect.currentframe())[1:]:
-        line = "%s:%s (function %s)" % f[1:4]
-        log_message += " => " + line
-        if line not in myclass.__deprecated_usage:
-          new_occurence = True
-          myclass.__deprecated_usage[line] = True
-      if new_occurence:
+      frames = inspect.getouterframes(inspect.currentframe())[1:]
+      # the key is filename:lineno:function
+      occurence = "%s:%s:%s" % frames[0][1:4]
+      if occurence not in myclass.__deprecated_usage:
+        myclass.__deprecated_usage[occurence] = True
+        log_message = "Backtrace"
+        for f in frames:
+          log_message += " => " + "%s:%s (function %s)" % f[1:4]
         import cerebrum_path
         from Cerebrum.Utils import Factory
         logger = Factory.get_logger()
