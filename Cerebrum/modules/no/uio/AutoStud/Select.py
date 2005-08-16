@@ -255,8 +255,8 @@ class SelectMapPersonAffiliation(SelectMapSuper):
         matches = []
         if not person_affs:
             return matches
-        for p_aff in ([(x['affiliation'], x['status']) for x in person_affs] +
-                      [x['affiliation'] for x in person_affs]):
+        for p_aff in ([(x[1], x[2]) for x in person_affs] +  # ou, aff, status
+                      [x[1] for x in person_affs]):
             if self._select_map.has_key(p_aff):
                 self._append_match(matches, self._select_map[p_aff])
         return matches

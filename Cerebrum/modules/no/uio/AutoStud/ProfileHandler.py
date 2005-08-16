@@ -56,7 +56,7 @@ class Profile(object):
         
         self.matcher = ProfileMatcher(pc, student_info, logger,
                                       member_groups=member_groups,
-                                      person_affs=None)
+                                      person_affs=person_affs)
 
     def get_disk_spreads(self):
         tmp = {}

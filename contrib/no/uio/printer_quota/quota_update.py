@@ -234,7 +234,8 @@ def recalc_quota_callback(person_info):
     quota=None
     try:
         profile = autostud.get_profile(person_info,
-                                       member_groups=person_id_member.get(person_id, []))
+                                       member_groups=person_id_member.get(person_id, []),
+                                       person_affs=person_id_affs.get(person_id, []))
         quota = profile.get_pquota(as_list=True)
     except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
         # A common situation, so we won't log it
@@ -242,7 +243,6 @@ def recalc_quota_callback(person_info):
     except Errors.NotFoundError, msg:
         logger.warn("(person) not found error for %s: %s" %  (person_id, msg))
         profile = None
-    
     # Blokker de som ikke har betalt/ikke har kopiavgift-fritak
     if (require_kopipenger and
         not har_betalt.get(person_id, False) and
@@ -356,6 +356,7 @@ def get_students():
             ret.append(pid)
 
     logger.debug("person.list_affiliations -> %i quota_victims" % len(ret))
+    logger.debug("Victims: %s" % ret)
     return ret
 
 def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_file):
@@ -445,6 +446,21 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
     logger.debug("memberships: persons:%i, p_m=%i, a_m=%i" % (
         len(person_id_member), count[1], count[0]))
 
+    # Fetch any affiliations used as select criteria
+    person_id_affs = {}
+    for sm in autostud.pc.select_tool.select_map_defs.values():
+        if not isinstance(sm, AutoStud.Select.SelectMapPersonAffiliation):
+            continue
+        for aff_attrs in sm._select_map.keys():
+            affiliation = aff_attrs[0]
+            for row in person.list_affiliations(
+                affiliation=affiliation, include_deleted=False,
+                fetchall=False):
+                person_id_affs.setdefault(int(row['person_id']), []).append(
+                    (int(row['ou_id']),
+                     int(row['affiliation']),
+                     int(row['status'])))
+
     # fritak fra selve kopiavgiften (1.2.3 og 1.2.4)
     kopiavgift_fritak = {}
     for row in GeneralDataParser(fritak_kopiavg_file, "betfritak"):
@@ -482,13 +498,13 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
         if quota_victim.has_key(pid):
             n += 1
     logger.debug("%i av disse har betaling_fritak" % n)
-    return fnr2pid, quota_victim, person_id_member, kopiavgift_fritak, \
-           har_betalt, free_this_term, betaling_fritak
+    return (fnr2pid, quota_victim, person_id_member, person_id_affs,
+            kopiavgift_fritak, har_betalt, free_this_term, betaling_fritak)
 
 def auto_stud(studconfig_file, student_info_file, studieprogs_file,
               emne_info_file, drgrad_file, fritak_kopiavg_file,
               betalt_papir_file, lt_person_file, ou_perspective=None):
-    global fnr2pid, quota_victims, person_id_member, \
+    global fnr2pid, quota_victims, person_id_member, person_id_affs, \
            kopiavgift_fritak, har_betalt, free_this_term, autostud, betaling_fritak
     logger.debug("Preparing AutoStud framework")
     autostud = AutoStud.AutoStud(db, logger, debug=False,
@@ -499,8 +515,9 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
 
     # Finne alle personer som skal behandles, deres gruppemedlemskap
     # og evt. fritak fra kopiavgift
-    (fnr2pid, quota_victims, person_id_member, kopiavgift_fritak,
-     har_betalt, free_this_term, betaling_fritak) = fetch_data(
+    (fnr2pid, quota_victims, person_id_member, person_id_affs,
+     kopiavgift_fritak, har_betalt, free_this_term, betaling_fritak) = \
+     fetch_data(
         drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_file)
     logger.debug2("Victims: %s" % quota_victims)
     # Start call-backs via autostud modulen med vanlig
@@ -585,7 +602,7 @@ def main():
     # logging framework.  Then we can also move the extra opts for loop up
     workdir=None
     to_stdout=False
-    log_level = AutoStud.Util.ProgressReporter.DEBUG
+    log_level = AutoStud.Util.ProgressReporter.DEBUG + 10
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
                                    time.strftime("%Y-%m-%d", time.localtime()),
