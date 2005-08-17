@@ -201,7 +201,7 @@ def output_properties():
 
     for c in ("uname", "email"):
         output_elem("contacttype", get_contact_type(c),
-                    { "subject" : "Person" })
+                    { "subject" : "person" })
     # od
 
     output_elem("orgidtype", "institusjonsnummer")
@@ -235,20 +235,20 @@ def output_properties():
     #    == (uegroup + (uegroup + org/ou) + (uegroup + people))
     for prefix in ("kull", "ue"):
         output_elem("relationtype", prefix + "-ou",
-                    { "subject" : "Organization", "object" : "Group" })
+                    { "subject" : "organization", "object" : "group" })
         output_elem("relationtype", prefix + "-people",
-                    { "subject" : "Group", "object"  : "Person" })
+                    { "subject" : "group", "object"  : "person" })
     # od
 
     # Students who paid semavgift
     output_elem("relationtype", "paid-people",
-                { "subject" : "Group", "object" : "Person" })
+                { "subject" : "group", "object" : "person" })
 
     # Affiliations are a bit more tricky. We make a new relationtype for each
     # aff/status pair.
     for aff, status in get_all_affiliations():
         output_elem("relationtype", get_affiliation_type(aff, status),
-                    { "subject" : "Organization", "object" : "Person" })
+                    { "subject" : "organization", "object" : "person" })
     # od
     
     xmlwriter.endElement("types")
@@ -303,55 +303,54 @@ def output_people():
         # yrt
 
         # We have to delay outputting person information, until we know that
-        # (s)he has a name.
+        # (s)he has a number of attributes.
         name_collection = list()
-        for xmlid, cereid in (("given", const.PersonName("FIRST")),
-                              ("family", const.PersonName("LAST"))):
+        for xmlid, cereid in (("fn", const.PersonName("FULL")),
+                              ("family", const.PersonName("LAST")),
+                              ("given", const.PersonName("FIRST"))):
             name = person_get_item(person.get_name, cereid)
             if name:
                 name_collection.append((xmlid, name))
             # fi
-        # od    
+        # od
 
-        if not name_collection:
+        id_collection = list()
+        for cereid in (const.EntityExternalId("NO_STUDNO"),
+                       const.EntityExternalId("HiA_SAP_EMP#"),
+                       const.EntityExternalId("NO_BIRTHNO"),):
+            value = person_get_item(person.get_external_id, cereid)
+            if value:
+                id_collection.append((cereid, value["external_id"]))
+            # fi
+        # od
+
+        if ((not name_collection) or
+            (name_collection[0][0] != "fn") or
+            (not id_collection)):
             # Don't make it a warn() -- there are too damn many
-            logger.debug("Person id %s has no names and will be ignored", id)
+            logger.debug("Person id %s lacks some attirbutes. Skipped", id)
             continue
         # fi
 
         xmlwriter.startElement("person")
         #
         # Output all IDs
-        for i in (const.EntityExternalId("NO_STUDNO"),
-                  const.EntityExternalId("HiA_SAP_EMP#"),
-                  const.EntityExternalId("NO_BIRTHNO"),):
-            value = person_get_item(person.get_external_id, i)
-            if not value:
-                continue
-            else:
-                # We need some (any, actually) ID for identifying the person
-                # later for <relation>s
-                value = value["external_id"]
-                person_info[int(id)] = (i, value)
-            # fi
+        for i in id_collection:
+            # We need some (any, actually) ID for identifying the person
+            # later for <relation>s
+            id_type, value = i
+            person_info[int(id)] = (id_type, value)
             output_elem("personid", value,
-                        { "personidtype" : get_person_id_type(i) })
+                        { "personidtype" : get_person_id_type(id_type) })
         # od
 
         #
         # Output all the names
         xmlwriter.startElement("name")
-        full_name = person_get_item(person.get_name, const.PersonName("FULL"))
-        if full_name:
-            output_elem("fn", full_name)
-        else:
-            # Schema does not allow missing full names
-            logger.warn("No full name for %s. Skipping", id)
-            continue
-        # fi
+        output_elem(*(name_collection[0]))
         
         xmlwriter.startElement("n")
-        for xmlid, value in name_collection:
+        for xmlid, value in name_collection[1:]:
             output_elem(xmlid, value)
         # od    
 
@@ -615,6 +614,32 @@ def fnr_to_external_id(fnr, person, person_info):
 
 
 
+def remap_fnrs(sequence, person, person_info):
+    """Remap fnrs in sequence to fnrs that exist in Cerebrum.
+
+    We cannot publish fnr from FS in the xml, as there is no guarantee that
+    Cerebrum has these fnrs. The id translation goes like this: we locate
+    the person in Cerebrum using the supplied fnr and look him/her up in
+    person_info. The id from person_info will be the one used to identify
+    the individual.
+    """
+
+    result = list()
+    for row in sequence:
+        fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
+        id_type, peid = fnr_to_external_id(fnr, person, person_info)
+        if id_type is None:
+            logger.debug("Missing external ID in Cerebrum for FS fnr %s",
+                         fnr)
+            continue
+        # fi
+
+        result.append((id_type, peid))
+    # od
+# end remap_fnr
+        
+
+
 def output_kull_relations(kull_info, person_info, fs):
     """Output all relations representing KULL.
 
@@ -627,6 +652,19 @@ def output_kull_relations(kull_info, person_info, fs):
     
     for internal_id, sko in kull_info.items():
         xml_id = make_id(*internal_id)
+
+        studieprogram_kode, terminkode, arstall = internal_id
+        students = remap_fnrs(fs.undervisning.list_studenter_kull(
+                                  studieprogram_kode,
+                                  terminkode,
+                                  arstall),
+                              person, person_info)
+        if not students:
+            logger.warn("No students for kull %s. No groups will be generated",
+                        internal_id)
+            continue
+        # fi
+
         # 
         # Output a relation linking kull and OU:
         xmlwriter.startElement("relation", {"relationtype" : "kull-ou"})
@@ -650,18 +688,8 @@ def output_kull_relations(kull_info, person_info, fs):
         # All students have the same OU within the same kull. 'relationtype'
         # attribute will contain this information.
         xmlwriter.startElement("object")
-        studieprogram_kode, terminkode, arstall = internal_id
-        for row in fs.undervisning.list_studenter_kull(studieprogram_kode,
-                                                       terminkode,
-                                                       arstall):
-            fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
-            id_type, peid = fnr_to_external_id(fnr, person, person_info)
-            if id_type is None:
-                logger.debug("Missing external ID in Cerebrum for FS fnr %s",
-                             fnr)
-                continue
-            # fi
-
+        for item in students:
+            id_type, peid = item
             output_elem("personid", peid, 
                         {"personidtype" : get_person_id_type(id_type)})
         # od
@@ -687,6 +715,22 @@ def output_ue_relations(ue_info, person_info, fs):
     for internal_id, sko in ue_info.items():
         xml_id = make_id(*internal_id)
 
+        instnr, emnekode, versjon, termk, aar, termnr = internal_id
+        parameters = { "institusjonsnr" : instnr,
+                       "emnekode" : emnekode,
+                       "versjonskode" : versjon,
+                       "terminkode" : termk,
+                       "arstall" : aar,
+                       "terminnr" : termnr }
+        students = remap_fnrs(
+            fs.undervisning.list_studenter_underv_enhet(**parameters),
+            person, person_info)
+        if not students:
+            logger.warn("No students for UE %s. No groups will be generated",
+                        internal_id)
+            continue
+        # fi
+
         #
         # Output a relation linking UE and OU:
         xmlwriter.startElement("relation", {"relationtype" : "ue-ou"})
@@ -707,27 +751,8 @@ def output_ue_relations(ue_info, person_info, fs):
                     {"groupidtype" : get_group_id_type("ue")})
         xmlwriter.endElement("subject")
         xmlwriter.startElement("object")
-        instnr, emnekode, versjon, termk, aar, termnr = internal_id
-        parameters = { "institusjonsnr" : instnr,
-                       "emnekode" : emnekode,
-                       "versjonskode" : versjon,
-                       "terminkode" : termk,
-                       "arstall" : aar,
-                       "terminnr" : termnr }
-        for row in fs.undervisning.list_studenter_underv_enhet(**parameters):
-            # We cannot publish fnr from FS in the xml, as there is no
-            # guarantee that Cerebrum has these fnrs. The id translation goes
-            # like this: we locate the person in Cerebrum using the supplied
-            # fnr and look him/her up in person_info. The id from person_info
-            # will be the one used to identify the individual.
-            fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
-            id_type, peid = fnr_to_external_id(fnr, person, person_info)
-            if id_type is None:
-                logger.debug("Missing external ID in Cerebrum for FS fnr %s",
-                             fnr)
-                continue
-            # fi
-
+        for item in students:
+            id_type, peid = item
             output_elem("personid", peid,
                         {"personidtype" : get_person_id_type(id_type)})
         # od
@@ -819,7 +844,7 @@ def output_all_OUs():
     # Fill up the cache for later usage.
     _cache_ou2sko(ou)
 
-    xmlwriter.startElement("organisation")
+    xmlwriter.startElement("organization")
     output_elem("orgid", str(cereconf.DEFAULT_INSTITUSJONSNR),
                 { "orgidtype" : "institusjonsnummer" })
     output_elem("orgname", "Høyskolen i Agder",
@@ -854,7 +879,7 @@ def output_all_OUs():
         xmlwriter.endElement("ou")
     # od
 
-    xmlwriter.endElement("organisation")
+    xmlwriter.endElement("organization")
 # end output_all_OUs
 
 
