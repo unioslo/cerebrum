@@ -256,10 +256,12 @@ The currently defined id-types are:
         # Everyone can access quota-status for anyone
         ppq_info = self.bu.get_pquota_status(
             self.bu.find_person(person_id))
+        import math
         return {
             'has_quota': ppq_info['has_quota'],
             'has_blocked_quota': ppq_info['has_blocked_quota'],
-            'paid_quota': int(1/printer_quota.PAGE_COST * float(ppq_info['kroner'])),
+            'paid_quota': int(math.floor(1/printer_quota.PAGE_COST *
+                                         float(ppq_info['kroner']))),
             'kroner': ppq_info['kroner'],
             'free_quota': ppq_info['free_quota'],
             'accum_quota': ppq_info['accum_quota']
