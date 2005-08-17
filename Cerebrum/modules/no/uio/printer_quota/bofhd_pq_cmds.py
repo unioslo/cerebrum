@@ -289,12 +289,12 @@ The currently defined id-types are:
         ret = []
         ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
         for row in ppq.get_history(person_id=person_id, tstamp=when):
-            t = dict([(k, row[k]) for k in row._keys()])
+            t = row.fields.copy()
             t['transaction_type'] = self.tt_mapping[int(t['transaction_type'])]
             if t['update_by']:
                 t['update_by'] = self.bu.get_uname(int(t['update_by']))
             ret.append(t)
-        
+
         return ret
         
     all_commands['pquota_history'] = None
