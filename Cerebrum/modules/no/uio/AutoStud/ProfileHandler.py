@@ -224,7 +224,7 @@ class Profile(object):
             return current_disk
         ret = new_disk.get_cerebrum_disk(check_ok_to=True)
         if ret is None:
-            raise ProfileHandler.NoAvailableDisk,\
+            raise NoAvailableDisk,\
                   "No disks with free space matches %s" % new_disk
         return ret.disk_id
 
