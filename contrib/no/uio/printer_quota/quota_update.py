@@ -602,7 +602,7 @@ def main():
     # logging framework.  Then we can also move the extra opts for loop up
     workdir=None
     to_stdout=False
-    log_level = AutoStud.Util.ProgressReporter.DEBUG + 10
+    log_level = AutoStud.Util.ProgressReporter.DEBUG
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
                                    time.strftime("%Y-%m-%d", time.localtime()),
