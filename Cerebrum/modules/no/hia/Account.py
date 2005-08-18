@@ -64,7 +64,7 @@ class AccountHiAMixin(Account.Account):
         try:
             est.find(et.email_target_id)
         except Errors.NotFoundError:
-            if self.get_account_types():
+            if self.get_account_types() or self.owner_type == self.const.entity_group:
                 est = self._update_email_server()
             else:
                 # do not set email_server_target until account_type is registered
