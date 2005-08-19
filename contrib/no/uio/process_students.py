@@ -499,6 +499,10 @@ class BuildAccounts(object):
         logger.debug("Callback for %s" % fnr)
 
         logger.set_indent(3)
+        pinfo = persons.get(fnr, None)
+        if pinfo is None:
+            logger.warn("Unknown person %s" % fnr)
+            return
         logger.debug(logger.pformat(_filter_person_info(person_info)))
         if not persons.has_key(fnr):
             logger.warn("(person) not found error for %s" % fnr)
@@ -512,7 +516,14 @@ class BuildAccounts(object):
             logger.warn("No matching profile error for %s: %s" %  (fnr, msg))
             logger.set_indent(0)
             return
-        
+        except AutoStud.ProfileHandler.NoAvailableDisk, msg:
+            # pretend that the account was processed so that
+            # list_noncallback_users doesn't include the user(s).
+            # While this is only somewhat correct behaviour, the
+            # NoAvailableDisk situation should be resolved switftly.
+            for account_id in pinfo.get_student_ac():
+                processed_accounts[account_id] = True
+            raise
         processed_students[fnr] = 1
         keep_account_home[fnr] = profile.get_build()['home']
         if fast_test:
@@ -524,10 +535,6 @@ class BuildAccounts(object):
             _debug_dump_profile_match(profile, fnr)
             if dryrun:
                 logger.set_indent(0)
-                return
-            pinfo = persons.get(fnr, None)
-            if pinfo is None:
-                logger.warn("Unknown person %s" % fnr)
                 return
             if (create_users and not pinfo.has_student_ac() and
                 profile.get_build()['action']):
