@@ -13,30 +13,17 @@ from Cerebrum.modules.bofhd import errors
 
 class DNSError(errors.CerebrumError):
     """A DNSError is thrown when an operation is illegal for DNS"""
-    # TODO: It is a bit unfortunate to use a bofhd exception class
-    # here.  The purpose is to make bofh recognize this as a
-    # user-error
     pass
 
-class Helper(DatabaseAccessor):
-    """``Helper.Helper(DatabaseAccessor)`` defines a number of methods
-    that tries to assert that data in the zone-file will be legal.
-
-    The API should use these methods to assert that new data does not
-    break consistency like additional records for something that is a
-    CNAME.
-
-    TODO: that is easier said than done, as we don't really know from
-    the DnsOwner class what type of data is being registered."""
-
-    def __init__(self, database, default_zone):
-        super(Helper, self).__init__(database)
-        self.default_zone = default_zone
+class Validator(object):
+    def __init__(self, db, default_zone):
+        self._db = db
+        self._default_zone = default_zone
 
     def qualify_hostname(self, name):
         """Convert dns names to fully qualified by appending default domain"""
         if not name[-1] == '.':
-            postfix = self.default_zone.postfix
+            postfix = self._default_zone.postfix
             if name.endswith(postfix[:-1]):
                 return name+"."
             else:
@@ -121,6 +108,11 @@ class Helper(DatabaseAccessor):
             ret.append(dns.CNAME_TARGET)
         return ret
 
+class Updater(object):
+    def __init__(self, db):
+        self._validator = Validator(db, None)
+        self._db = db
+
     def remove_arecord(self, a_record_id, try_dns_remove=False):
         """Remove an a-record identified by a_record_id.  Will also
         remove the entry in ip_number if it is no longer refered by
@@ -133,7 +125,7 @@ class Helper(DatabaseAccessor):
         dns_owner_id = arecord.dns_owner_id
         arecord._delete()
 
-        refs = self.get_referers(ip_number_id=ipnumber.ip_number_id)
+        refs = self._validator.get_referers(ip_number_id=ipnumber.ip_number_id)
         if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
             # IP no longer used
             ipnumber.delete()
@@ -144,7 +136,7 @@ class Helper(DatabaseAccessor):
         # a_record.
         # TODO: This check should be somewhere that makes it is easier
         # to always enforce this constraint.
-        refs = self.get_referers(dns_owner_id=dns_owner_id)
+        refs = self._validator.get_referers(dns_owner_id=dns_owner_id)
         if ((dns.HOST_INFO in refs or dns.CNAME_TARGET in refs or
              dns.SRV_TARGET in refs)
             and not dns.A_RECORD in refs):
@@ -152,7 +144,7 @@ class Helper(DatabaseAccessor):
                 "A-record is used as target, or has a host_info entry")
 
         if try_dns_remove:
-            self.remove_dns_owner(self, dns_owner_id)
+            self.remove_dns_owner(dns_owner_id)
 
     def remove_host_info(self, dns_owner_id, try_dns_remove=False):
         hi = HostInfo.HostInfo(self._db)
@@ -162,7 +154,7 @@ class Helper(DatabaseAccessor):
             return              # No deletion needed
         hi._delete()
         if try_dns_remove:
-            self.remove_dns_owner(self, dns.entity_id)
+            self.remove_dns_owner(dns.entity_id)
 
     def remove_cname(self, dns_owner_id, try_dns_remove=False):
         c = CNameRecord.CNameRecord(self._db)
@@ -172,10 +164,10 @@ class Helper(DatabaseAccessor):
             return              # No deletion needed
         c._delete()
         if try_dns_remove:
-            self.remove_dns_owner(self, dns.entity_id)
+            self.remove_dns_owner(dns.entity_id)
 
     def remove_dns_owner(self, dns_owner_id):
-        refs = self.get_referers(dns_owner_id=dns_owner_id)
+        refs = self._validator.get_referers(dns_owner_id=dns_owner_id)
         if refs:
             raise DNSError("dns_owner still refered in %s" % str(refs))
         dns_owner = DnsOwner.DnsOwner(self._db)
@@ -211,16 +203,30 @@ class Helper(DatabaseAccessor):
         else:
             ipnumber.update_reverse_override(ip_number_id, dest_host)
 
-        refs = self.get_referers(ip_number_id=ipnumber.ip_number_id)
+        refs = self._validator.get_referers(ip_number_id=ipnumber.ip_number_id)
         if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
             # IP no longer used
             ipnumber.delete()
 
         if rows:
-            refs = self.get_referers(dns_owner_id=rows[0]['dns_owner_id'])
+            refs = self._validator.get_referers(dns_owner_id=rows[0]['dns_owner_id'])
             if not refs:
                 dns_owner = DnsOwner.DnsOwner(self._db)
                 dns_owner.find(rows[0]['dns_owner_id'])
                 dns_owner.delete()
 
-# arch-tag: f3000618-d5a9-49ff-a553-8cab7895939d
+
+## class Helper(DatabaseAccessor):
+##     """``Helper.Helper(DatabaseAccessor)`` defines a number of methods
+##     that tries to assert that data in the zone-file will be legal.
+
+##     The API should use these methods to assert that new data does not
+##     break consistency like additional records for something that is a
+##     CNAME.
+
+##     TODO: that is easier said than done, as we don't really know from
+##     the DnsOwner class what type of data is being registered."""
+
+##     def __init__(self, database, default_zone):
+##         super(Helper, self).__init__(database)
+##         self.default_zone = default_zone

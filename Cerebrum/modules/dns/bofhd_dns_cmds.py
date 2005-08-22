@@ -14,6 +14,7 @@ from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
+from Cerebrum.modules.dns import Utils
 from Cerebrum.modules import dns
 
 def format_day(field):
@@ -118,6 +119,8 @@ class BofhdExtension(object):
         self.const = Factory.get('Constants')(self.db)
         self.default_zone = self.const.DnsZone(default_zone)
         self.mb_utils = DnsBofhdUtils(server, self.default_zone)
+        self.dns_parser = Utils.DnsParser(server.db, self.default_zone)
+        self._find = Utils.Find(server.db, self.default_zone)
 
     def get_help_strings(self):
         group_help = {
@@ -299,7 +302,7 @@ class BofhdExtension(object):
     all_commands['host_comment'] = Command(
         ("host", "comment"), HostName(), Comment())
     def host_comment(self, operator, host_name, comment):
-        owner_id = self.mb_utils.find_target_by_parsing(
+        owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         operation = self.mb_utils.alter_entity_note(
             owner_id, self.const.note_type_comment, comment)
@@ -310,7 +313,7 @@ class BofhdExtension(object):
     all_commands['host_contact'] = Command(
         ("host", "contact"), HostName(), Contact())
     def host_contact(self, operator, name, contact):
-        owner_id = self.mb_utils.find_target_by_parsing(name, dns.DNS_OWNER)
+        owner_id = self._find.find_target_by_parsing(name, dns.DNS_OWNER)
         operation = self.mb_utils.alter_entity_note(
             owner_id, self.const.note_type_contact, contact)
         return "OK, %s contact for %s" % (operation, name)
@@ -335,7 +338,7 @@ class BofhdExtension(object):
         ("host", "hinfo_set"), HostName(), Hinfo())
     def host_hinfo_set(self, operator, host_name, hinfo):
         hinfo = self._map_hinfo_code(hinfo)
-        owner_id = self.mb_utils.find_target_by_parsing(
+        owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         host = HostInfo.HostInfo(self.db)
         host.find_by_dns_owner_id(owner_id)
@@ -363,7 +366,7 @@ class BofhdExtension(object):
                              ("SRV: %s %i %i %i %s %s", ('srv_owner', 'srv_pri',
                                           'srv_weight', 'srv_port',
                                           'srv_ttl', 'srv_target')),
-                             ("Zone: %22s", ('zone',))]))
+                             ("%-22s %%s" % 'Zone:', ('zone',))]))
     def host_info(self, operator, host_id):
         # TODO: fikse formateringen av output fra denne komandoen
 
@@ -371,7 +374,7 @@ class BofhdExtension(object):
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
             # When host_id is an IP, we only return A-records
-            owner_id = self.mb_utils.find_target_by_parsing(
+            owner_id = self._find.find_target_by_parsing(
                 host_id, dns.IP_NUMBER)
             ret = []
             for a in arecord.list_ext(ip_number_id=owner_id):
@@ -379,7 +382,7 @@ class BofhdExtension(object):
                         'a_comment': ''})
             return ret
 
-        owner_id = self.mb_utils.find_target_by_parsing(
+        owner_id = self._find.find_target_by_parsing(
             host_id, dns.DNS_OWNER)
         dns_owner = DnsOwner.DnsOwner(self.db)
         dns_owner.find(owner_id)
@@ -484,7 +487,7 @@ class BofhdExtension(object):
     all_commands['host_mx_add'] = Command(
         ("host", "mx_add"), MXSet(), Priority(), HostName())
     def host_mx_add(self, operator, mx_set, priority, host_name):
-        host_ref = self.mb_utils.find_target_by_parsing(
+        host_ref = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         self.mb_utils.mx_set_add(mx_set, priority, host_ref)
         return "OK, added %s to mx_set %s" % (host_name, mx_set)
@@ -493,7 +496,7 @@ class BofhdExtension(object):
     all_commands['host_mx_del'] = Command(
         ("host", "mx_del"), MXSet(), HostName())
     def host_mx_del(self, operator, mx_set, target_host_name):
-        host_ref = self.mb_utils.find_target_by_parsing(
+        host_ref = self._find.find_target_by_parsing(
             target_host_name, dns.DNS_OWNER)
         self.mb_utils.mx_set_del(mx_set, host_ref)
         return "OK, deleted %s from mx_set %s" % (target_host_name, mx_set)
@@ -514,7 +517,7 @@ class BofhdExtension(object):
     all_commands['host_mx_set'] = Command(
         ("host", "mx_set"), HostName(), MXSet())
     def host_mx_set(self, operator, name, mx_set):
-        owner_id = self.mb_utils.find_target_by_parsing(
+        owner_id = self._find.find_target_by_parsing(
             name, dns.DNS_OWNER)
         dns_owner = DnsOwner.DnsOwner(self.db)
         dns_owner.find(owner_id)
@@ -560,7 +563,7 @@ class BofhdExtension(object):
         HostId(help_ref='new_host_id_or_clear'), Force(optional=True))
     def host_revmap_override(self, operator, ip_host_id, dest_host, force=False):
         force = self.mb_utils.parse_force(force)
-        ip_owner_id = self.mb_utils.find_target_by_parsing(
+        ip_owner_id = self._find.find_target_by_parsing(
             ip_host_id, dns.IP_NUMBER)
         operation = self.mb_utils.register_revmap_override(
             ip_owner_id, dest_host, force)
@@ -573,7 +576,7 @@ class BofhdExtension(object):
         Port(), HostName())
     def host_srv_add(self, operator, service_name, priority,
                    weight, port, target_name):
-        target_id = self.mb_utils.find_target_by_parsing(
+        target_id = self._find.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
         self.mb_utils.alter_srv_record(
             'add', service_name, int(priority), int(weight),
@@ -586,7 +589,7 @@ class BofhdExtension(object):
         Port(), HostName())
     def host_srv_del(self, operator, service_name, priority,
                    weight, port, target_name , ttl=None):
-        target_id = self.mb_utils.find_target_by_parsing(
+        target_id = self._find.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
         if ttl:
             ttl = int(ttl)
@@ -600,7 +603,7 @@ class BofhdExtension(object):
     all_commands['host_ttl_set'] = Command(
         ("host", "ttl_set"), HostName(), TTL())
     def host_ttl_set(self, operator, host_name, ttl):
-        owner_id = self.mb_utils.find_target_by_parsing(
+        owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         if ttl:
             ttl = int(ttl)
@@ -614,7 +617,7 @@ class BofhdExtension(object):
     all_commands['host_txt_set'] = Command(
         ("host", "txt_set"), HostName(), TXT())
     def host_txt_set(self, operator, host_name, txt):
-        owner_id = self.mb_utils.find_target_by_parsing(
+        owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         operation = self.mb_utils.alter_general_dns_record(
             owner_id, int(self.const.field_type_txt), txt)

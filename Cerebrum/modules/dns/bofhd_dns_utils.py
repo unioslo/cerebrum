@@ -1,8 +1,5 @@
 # -*- coding: iso-8859-1 -*-
 
-import re
-import struct
-import socket
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -14,266 +11,14 @@ from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
-from Cerebrum.modules.dns import Helper
+from Cerebrum.modules.dns import IntegrityHelper
+from Cerebrum.modules.dns import Utils
 from Cerebrum.modules import dns
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.modules.bofhd.errors import CerebrumError
 
-class IPUtils(object):
-    """Methods for playing with IP-numbers"""
-    
-    def __init__(self, server):
-        super(IPUtils, self).__init__(server)
-        # http://dager.uio.no/nett-doc/vlanibruk.txt
-        self._parse_netdef("/cerebrum/etc/cerebrum/vlanibruk.txt")
-        self.db = server.db
-
-    def netmask_to_intrep(netmask):
-        return pow(2L, 32) - pow(2L, 32-netmask)
-    netmask_to_intrep = staticmethod(netmask_to_intrep)
-
-    def _parse_netdef(self, fname):
-        f = file(fname)
-        ip_re = re.compile(r'\s+(\d+\.\d+\.\d+\.\d+)/(\d+)\s+')
-        self.subnets = {}
-        for line in f.readlines():
-            match = ip_re.search(line)
-            if match:
-                net, mask = match.group(1), int(match.group(2))
-                self.subnets[net] = (mask, ) + \
-                                    self._ip_range_by_netmask(net, mask)
-
-    def _ip_range_by_netmask(self, subnet, netmask):
-        tmp = struct.unpack('!L', socket.inet_aton(subnet))[0]
-        start = tmp & IPUtils.netmask_to_intrep(netmask)
-        stop  =  tmp | (pow(2L, 32) - 1 - IPUtils.netmask_to_intrep(netmask))
-        return start, stop
-
-    def _find_subnet(self, subnet):
-        """Translate the user-entered subnet to the key in
-        self.subnets"""
-        if len(subnet.split(".")) == 3:
-            subnet += ".0"
-        numeric_ip = struct.unpack('!L', socket.inet_aton(subnet))[0]
-        for net, (mask, start, stop) in self.subnets.items():
-            if numeric_ip >= start and numeric_ip <= stop:
-                return net
-        raise Helper.DNSError, "%s is not in any known subnet" % subnet
-
-    def _find_available_ip(self, subnet):
-        """Returns all ips that are not reserved or taken on the given
-        subnet in ascending order."""
-
-        subnet = self._find_subnet(subnet)
-        mask, start, stop = self.subnets[subnet]
-        #start, stop = self._ip_range_by_netmask(subnet, mask)
-        
-        #print "start: ", socket.inet_ntoa(struct.pack('!L', start))
-        #print "stop: ", socket.inet_ntoa(struct.pack('!L', stop))
-
-        if mask == 23:
-            reserved = ([0] +            # (Possible) broadcast address
-                        range(1,9+1) +     # Reserved for routers (and servers)
-                        range(101,120+1) + # Reserved for nett-drift
-                        range(255,257+1)+  # $subnet.255, $subnet+1.0 and $subnet+1.1
-                        [511])             # $subnet+1.255
-        else:
-            # TODO: Hvilke nummer i øvrige nettmasker skal man ligge unna?
-            reserved = [0]
-        self._ip_number.clear()
-        taken = {}
-        for row in self._ip_number.find_in_range(start, stop):
-            taken[long(row['ipnr'])] = int(row['ip_number_id'])
-        ret = []
-        for n in range(0, (stop-start)+1):
-            if not taken.has_key(long(start+n)) and n not in reserved:
-                ret.append(n+start)
-        return ret
-
-class DnsParser(object):
-    """Map user-entered data to dnss datatypes/database-ids"""
-    # Must be used as a mix-in for DnsBofhdUtils, should not be
-    # instantiated directly
-
-    def parse_subnet_or_ip(self, ip_id):
-        """Parse ip_id either as a subnet, or as an IP-number.
-
-        Return: (subnet, a_ip)
-          - subnet is None if unknown
-          - a_ip is only set if the user requested a spesific IP
-        
-        A request for a subnet is identified by a trailing /, or an IP
-        with < 4 octets.  Example::
-
-          129.240.200    -> adress on 129.240.200.0/23 
-          129.240.200.0/ -> adress on 129.240.200.0/23 
-          129.240.200.0  -> explicit IP
-        """
-
-        tmp = ip_id.split("/")
-        ip_id = tmp[0]
-        if (not ip_id[0].isdigit()) and len(tmp) > 1:  # Support ulrik.uio.no./
-            try:
-                self._arecord.clear()
-                self._arecord.find_by_name(self.mr_helper.qualify_hostname(ip_id))
-                self._ip_number.clear()
-                self._ip_number.find(self._arecord.ip_number_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, "Could not find %s" % ip_id
-            ip_id = self._ip_number.a_ip
-
-        full_ip = len(ip_id.split(".")) == 4
-        if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
-            full_ip = False
-        try:
-            subnet = self._find_subnet(ip_id)
-        except Helper.DNSError:
-            subnet = None
-        return subnet, full_ip and ip_id or None
-
-    def parse_force(self, string):
-        if string and string[0] in ('Y', 'y'):
-            return True
-        return False
-
-    def parse_hostname_repeat(self, name):
-        """Handles names like pcusit[01..30]"""
-        
-        m = re.search(r'(.*)\[(\d+)\.\.(\d+)]', name)
-        if not m:
-            return [name]
-        ret = []
-        fill = str(len(m.group(2)))      # Leading zeroes
-        for n in range(int(m.group(2)), int(m.group(3))+1):
-            ret.append(("%s%0"+fill+"i") % (m.group(1), n))
-        return ret
-
-    def find_target_by_parsing(self, host_id, target_type):
-        """Find a target with given host_id of the specified
-        target_type.  Legal target_types ad IP_NUMBER and DNS_OWNER.
-        Host_id may be given in a number of ways, one can lookup IP_NUMBER
-        by both hostname (A record) and ip or id:ip_number_id etc.
-
-        Returns dns_owner_id or ip_number_id depending on target_type.
-        """
-
-        # TODO: handle idtype:id syntax
-        
-        tmp = host_id.split(".")
-        if tmp[-1].isdigit():
-            # It is an IP-number
-            self._ip_number.clear()
-            try:
-                self._ip_number.find_by_ip(host_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, "Could not find ip-number: %s" % host_id
-            if target_type == dns.IP_NUMBER:
-                return self._ip_number.ip_number_id
-
-            self._arecord.clear()
-            try:
-                self._arecord.find_by_ip(self._ip_number.ip_number_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, "Could not find name for ip-number: %s" % host_id
-            except Errors.TooManyRowsError:
-                raise CerebrumError, "Not unique name for ip-number: %s" % host_id
-            return self._arecord.dns_owner_id
-
-        host_id = self.mr_helper.qualify_hostname(host_id)
-        self._dns_owner.clear()
-        try:
-            self._dns_owner.find_by_name(host_id)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find dns-owner: %s" % host_id
-        if target_type == dns.DNS_OWNER:
-            return self._dns_owner.entity_id
-
-        self._arecord.clear()
-        try:
-            self._arecord.find_by_dns_owner_id(self._dns_owner.entity_id)
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find ip-number for name: %s" % host_id
-        except Errors.TooManyRowsError:
-            raise CerebrumError, "Not ip-number for name: %s" % host_id
-        return self._arecord.ip_number_id
-
-    def find_mx_set(self, name):
-        self._mx_set.clear()
-        try:
-            self._mx_set.find_by_name(name)
-        except Errors.NotFoundError:
-            raise CerebrumError, "No mx-set with name %s" % name
-        return self._mx_set
-
-    def find_target_type(self, owner_id, target_ip=None):
-        """Find a target and its type by prefering hosts above
-        a-records"""
-
-        self._host.clear()
-        try:
-            self._host.find_by_dns_owner_id(self._dns_owner.entity_id)
-            return self._host, self._host.entity_id
-        except Errors.NotFoundError:
-            pass
-
-        self._cname.clear()
-        try:
-            self._cname.find_by_cname_owner_id(self._dns_owner.entity_id)
-            return self._cname, self._cname.entity_id
-        except Errors.NotFoundError:
-            pass
-
-        self._arecord.clear()
-        try:
-            if target_ip:
-                raise NotImplemented
-            else:
-                self._arecord.find_by_dns_owner_id(owner_id)
-            return self._arecord, self._arecord.entity_id
-        except Errors.NotFoundError:
-            pass
-        except Errors.TooManyRowsError:
-            raise CerebrumError, "Not unique a-record: %s" % owner_id
-
-    def find_free_ip(self, subnet):
-        """Returns the first free IP on the subnet"""
-        a_ip = self._find_available_ip(subnet)
-        if not a_ip:
-            raise ValueError, "No available ip on that subnet"
-        return [socket.inet_ntoa(struct.pack('!L', t)) for t in a_ip]
-
-    def find_ip(self, a_ip):
-        self._ip_number.clear()
-        try:
-            self._ip_number.find_by_ip(a_ip)
-            return self._ip_number.ip_number_id
-        except Errors.NotFoundError:
-            return None
-
-    def find_a_record(self, host_name, ip=None):
-        owner_id = self.find_target_by_parsing(
-            host_name, dns.DNS_OWNER)
-        ar = ARecord.ARecord(self.db)
-        if ip:
-            a_ip = ip
-            ip = self.find_target_by_parsing(
-                ip, dns.IP_NUMBER)
-            try:
-                ar.find_by_owner_and_ip(ip, owner_id)
-            except Errors.NotFoundError:
-                raise CerebrumError(
-                    "No A-record with name=%s and ip=%s" % (host_name, a_ip))
-        else:
-            try:
-                ar.find_by_dns_owner_id(owner_id)
-            except Errors.ErrorsNotFoundError:
-                raise CerebrumError("No A-record with name=%s" % host_name)
-            except Errors.TooManyRowsError:
-                raise CerebrumError("Multiple A-records with name=%s" % host_name)
-        return ar.entity_id
-
-class DnsBofhdUtils(IPUtils, DnsParser):
+class DnsBofhdUtils(object):
     # A number of utility methods used by
     # bofhd_dns_cmds.BofhdExtension.
 
@@ -285,7 +30,6 @@ class DnsBofhdUtils(IPUtils, DnsParser):
     
 
     def __init__(self, server, default_zone):
-        super(DnsBofhdUtils, self).__init__(server)
         self.server = server
         self.logger = server.logger
         self.db = server.db
@@ -296,16 +40,18 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         self._dns_owner = DnsOwner.DnsOwner(self.db)
         self._ip_number = IPNumber.IPNumber(self.db)
         self._cname = CNameRecord.CNameRecord(self.db)
-        self.mr_helper = Helper.Helper(self.db, default_zone)
+        self._validator = IntegrityHelper.Validator(server.db, default_zone)
+        self._update_helper = IntegrityHelper.Updater(server.db)
         self._mx_set = DnsOwner.MXSet(self.db)
         self.default_zone = default_zone
+        self._find = Utils.Find(server.db, default_zone)
 
     def ip_rename(self, name_type, old_id, new_id):
         """Performs an ip-rename by directly updating dns_owner or
         ip_number.  new_id cannot already exist."""
 
         if name_type == dns.IP_NUMBER:
-            old_ref = self.find_target_by_parsing(old_id, dns.IP_NUMBER)
+            old_ref = self._find.find_target_by_parsing(old_id, dns.IP_NUMBER)
             self._ip_number.clear()
             try:
                 self._ip_number.find_by_ip(new_id)
@@ -317,10 +63,10 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             self._ip_number.a_ip = new_id
             self._ip_number.write_db()
         else:
-            old_ref = self.find_target_by_parsing(old_id, dns.DNS_OWNER)
-            new_id = self.mr_helper.qualify_hostname(new_id)
+            old_ref = self._find.find_target_by_parsing(old_id, dns.DNS_OWNER)
+            new_id = self._validator.qualify_hostname(new_id)
             # Check if the name is in use, or is illegal
-            self.mr_helper.dns_reg_owner_ok(new_id, dns.CNAME_OWNER)
+            self._validator.dns_reg_owner_ok(new_id, dns.CNAME_OWNER)
             self._dns_owner.clear()
             self._dns_owner.find(old_ref)
             self._dns_owner.name = new_id
@@ -328,7 +74,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
 
     def ip_free(self, name_type, id, force):
         if name_type == dns.IP_NUMBER:
-            ip_id = self.find_target_by_parsing(id, dns.IP_NUMBER)
+            ip_id = self._find.find_target_by_parsing(id, dns.IP_NUMBER)
             self._ip_number.clear()
             self._ip_number.find(ip_id)
             try:
@@ -336,17 +82,17 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             except Database.DatabaseError, m:
                 raise CerebrumError, "Database violation: %s" % m
         else:
-            owner_id = self.find_target_by_parsing(
+            owner_id = self._find.find_target_by_parsing(
                 id, dns.DNS_OWNER)
 
-            refs = self.mr_helper.get_referers(dns_owner_id=owner_id)
+            refs = self._validator.get_referers(dns_owner_id=owner_id)
             if not force and (
                 refs.count(dns.A_RECORD) > 1 or
                 dns.GENERAL_DNS_RECORD in refs):
                 raise CerebrumError(
                     "Multiple records would be deleted, must force")
             try:
-                self.mr_helper.full_remove_dns_owner(owner_id)
+                self._update_helper.full_remove_dns_owner(owner_id)
             except Database.DatabaseError, m:
                 raise CerebrumError, "Database violation: %s" % m
 
@@ -357,8 +103,8 @@ class DnsBofhdUtils(IPUtils, DnsParser):
     #
 
     def alloc_host(self, name, hinfo, mx_set, comment, contact):
-        name = self.mr_helper.qualify_hostname(name)
-        dns_owner_ref, same_type = self.mr_helper.dns_reg_owner_ok(
+        name = self._validator.qualify_hostname(name)
+        dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             name, dns.HOST_INFO)
 
         self._dns_owner.clear()
@@ -375,12 +121,12 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             self._host.add_entity_note(self.const.note_type_contact, contact)
 
     def alloc_cname(self, cname_name, target_name, force):
-        cname_name = self.mr_helper.qualify_hostname(cname_name)
-        dns_owner_ref, same_type = self.mr_helper.dns_reg_owner_ok(
+        cname_name = self._validator.qualify_hostname(cname_name)
+        dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             cname_name, dns.CNAME_OWNER)
         dns_owner_ref = self.alloc_dns_owner(cname_name)
         try:
-            target_ref = self.find_target_by_parsing(
+            target_ref = self._find.find_target_by_parsing(
                 target_name, dns.DNS_OWNER)
         except CerebrumError:
             if not force:
@@ -393,7 +139,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         return self._cname.entity_id
 
     def alter_entity_note(self, owner_id, note_type, dta):
-        obj_ref, obj_id = self.find_target_type(owner_id)
+        obj_ref, obj_id = self._find.find_target_type(owner_id)
         if not dta:
             obj_ref.delete_entity_note(note_type)
             return "removed"
@@ -454,7 +200,7 @@ class DnsBofhdUtils(IPUtils, DnsParser):
 
     def alter_srv_record(self, operation, service_name, pri,
                          weight, port, target, ttl=None):
-        service_name = self.mr_helper.qualify_hostname(service_name)
+        service_name = self._validator.qualify_hostname(service_name)
         # TBD: should we assert that target is of a given type?
         self._dns_owner.clear()
         try:
@@ -561,19 +307,19 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         return self._arecord.entity_id
 
     def alloc_arecord(self, host_name, subnet, ip, force):
-        host_name = self.mr_helper.qualify_hostname(host_name)
+        host_name = self._validator.qualify_hostname(host_name)
         # Check for existing record with same name
-        dns_owner_ref, same_type = self.mr_helper.dns_reg_owner_ok(
+        dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             host_name, dns.A_RECORD)
         if dns_owner_ref and same_type and not force:
             raise CerebrumError, "name already in use, must force"
 
         # Check or get free IP
         if not ip:
-            ip = self.find_free_ip(subnet)[0]
+            ip = self._find.find_free_ip(subnet)[0]
             ip_ref = None
         else:
-            ip_ref = self.find_ip(ip)
+            ip_ref = self._find.find_ip(ip)
             if ip_ref and not force:
                 raise CerebrumError, "IP already in use, must force"
 
@@ -586,14 +332,14 @@ class DnsBofhdUtils(IPUtils, DnsParser):
         return ip
 
     def remove_arecord(self, a_record_id):
-        self.mr_helper.remove_arecord(a_record_id)
+        self._update_helper.remove_arecord(a_record_id)
 
     def register_revmap_override(self, ip_host_id, dest_host, force):
         # TODO: clear up empty dest_host
         self._ip_number.clear()
         self._ip_number.find(ip_host_id)
         if not dest_host:
-            self.mr_helper.update_reverse_override(ip_host_id)
+            self._update_helper.update_reverse_override(ip_host_id)
             return "deleted"
         self._dns_owner.clear()
         try:
@@ -605,28 +351,10 @@ class DnsBofhdUtils(IPUtils, DnsParser):
             self._dns_owner.write_db()
         if self._ip_number.list_override(
             ip_number_id=self._ip_number.ip_number_id):
-            self.mr_helper.update_reverse_override(
+            self._update_helper.update_reverse_override(
                 self._ip_number.ip_number_id, self._dns_owner.entity_id)
             return "updated"
         else:
             self._ip_number.add_reverse_override(
                 self._ip_number.ip_number_id, self._dns_owner.entity_id)
             return "added"
-
-
-
-if __name__ == '__main__':
-    class foo(object):
-        pass
-
-    tmp = foo()
-    tmp.db = Factory.get('Database')()
-    tmp.logger =Factory.get_logger('console')
-    mu = DnsBofhdUtils(tmp)
-    #print mu.get_free_ip("129.240.186")
-    for n in ('129.240.186', '129.240.2.3',
-              '129.240.254.148', '129.240.254.163'):
-        print "%s->%s" % (n, mu._find_subnet(n))
-    tmp.db.commit()
-
-# arch-tag: f085073a-5cde-4aea-8c92-295fd81dc8b2
