@@ -34,7 +34,7 @@ from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
 
 # run migrate_* in this order
-versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5')
+versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5', 'rel_0_9_6')
 
 def makedb(release, stage, insert_codes=True):
     print "Running Makedb(%s, %s)..." % (release, stage)
@@ -314,6 +314,17 @@ def migrate_to_rel_0_9_5():
     print "Migration to 0.9.5 completed successfully"
     db.commit()
 
+def migrate_to_rel_0_9_6():
+    """Migrate from 0.9.5 database to the 0.9.6 database schema."""
+    assert_db_version("0.9.5")
+    makedb('0_9_6', 'pre')
+    db.commit()
+    # This database change doesn't require any smarts.
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,6))
+    print "Migration to 0.9.6 completed successfully"
+    db.commit()
 
 
 def init():
