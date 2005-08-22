@@ -13,6 +13,13 @@ new_db() {
 
 }
 
+build_maps() {
+    time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/129.240.head -m 129.240.0.0/16 -r data/129.240.new
+    time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/uio.no.static_head --head /cerebrum/etc/cerebrum/dns/uio.no.head -Z uio -b data/uio.no.new
+    time ./contrib/dns/generate_nismaps.py --group_spread NIS_mng@uio --user_spread NIS_user@uio -n data/netgroup.host.new || true
+    time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/129.240.head -m 158.36.184.0/24 -r data/158.36.184.new
+}
+
 migrate_uio() {
     # nukes existing dns data, end re-imports them
     ./makedb.py --drop design/mod_dns.sql || true
@@ -28,15 +35,15 @@ migrate_uio() {
     # 129.240 : etter NS linjene
 
     if [ ! -e data/129.240.orig.cmp ]; then
-	./contrib/dns/strip4cmp.py -i data/129.240.orig -o data/129.240.orig.cmp -r
-	./contrib/dns/strip4cmp.py -i data/uio.no.orig -o data/uio.no.orig.cmp -z
+	./contrib/dns/strip4cmp.py -Z uio -i data/129.240.orig -o data/129.240.orig.cmp -r
+	./contrib/dns/strip4cmp.py -Z uio -i data/uio.no.orig -o data/uio.no.orig.cmp -z
     fi
 
-    time ./contrib/dns/import_dns.py -Z uio -z data/uio.no.orig -r data/129.240.orig -h data/hosts.orig -i
+    time ./contrib/dns/import_dns.py -Z uio -z data/uio.no.orig -h data/hosts.orig -i
+    time ./contrib/dns/import_dns.py -r data/129.240.orig -r data/158.36.184.orig -r data/158.36.191.orig
     time ./contrib/dns/import_dns.py -Z uio --netgroups data/netgroup.host.orig -n
-    time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/129.240.head -r data/129.240.new
-    time ./contrib/dns/build_zone.py --head /cerebrum/etc/cerebrum/dns/uio.no.static_head --head /cerebrum/etc/cerebrum/dns/uio.no.head -b data/uio.no.new
-    time ./contrib/dns/generate_nismaps.py --group_spread NIS_mng@uio --user_spread NIS_user@uio -n data/netgroup.host.new || true
+
+    build_maps
     ./contrib/dns/strip4cmp.py -Z uio -i data/129.240.new -o data/129.240.new.cmp -r
     ./contrib/dns/strip4cmp.py -Z uio -i data/uio.no.new -o data/uio.no.new.cmp -z
 
@@ -45,10 +52,12 @@ migrate_uio() {
 }
 
 fetch_src_files() {
-    scp nissen:/site/bind9/pz/uio.no nissen:/site/bind9/pz/129.240 .
+    set -e
+    mkdir tmpdns
+    cd tmpdns
+    scp nissen:/site/bind9/pz/{uio.no,129.240,158.36.191,158.36.184} .
     scp cerebellum:/cerebrum/yp/src/hosts cerebellum:/cerebrum/yp/src/netgroup.host .
-    tar czf uio-zone-`date '+%Y-%m-%d'`.tgz uio.no 129.240 netgroup.host hosts
-    rm -f uio.no 129.240 netgroup.host hosts
+    tar czf uio-zone-`date '+%Y-%m-%d'`.tgz *
 }
 
 case "$1" in
