@@ -129,6 +129,13 @@ class HostInfo(EntityNote, Entity):
         SELECT host_id, dns_owner_id, ttl, hinfo
         FROM [:table schema=cerebrum name=dns_host_info]""")
 
+    def list_ext(self, dns_owner_id=None):
+        return self.query("""
+        SELECT host_id, dns_owner_id, ttl, hinfo
+        FROM [:table schema=cerebrum name=dns_host_info]
+        WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': dns_owner_id})
+ 
+
     def _delete(self):
         """Deletion in host_info should be done through the DnsHelper
         class to avoid leaving entries in dns_owner that has no FKs to

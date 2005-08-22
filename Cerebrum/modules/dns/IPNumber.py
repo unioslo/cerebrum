@@ -120,10 +120,18 @@ class IPNumber(DatabaseAccessor):
             'start': start,
             'stop': stop})
 
-    def list(self):
+    def list(self, start=None, stop=None):
+        where = []
+        if start is not None:
+            where.append("ipnr >= :start")
+        if stop is not None:
+            where.append("ipnr <= :stop")
+        if where:
+            where = "WHERE " + " AND ".join(where)
         return self.query("""
         SELECT ip_number_id, a_ip, ipnr, aaaa_ip
-        FROM [:table schema=cerebrum name=dns_ip_number]""")
+        FROM [:table schema=cerebrum name=dns_ip_number]
+        %s""" % where, {'start': start, 'stop': stop})
 
     def delete(self):
         self.execute("""
@@ -161,10 +169,16 @@ class IPNumber(DatabaseAccessor):
         SET dns_owner_id=:dns_owner_id
         WHERE ip_number_id=:ip_number_id""", locals())
 
-    def list_override(self, ip_number_id=None):
-        where = ''
+    def list_override(self, ip_number_id=None, start=None, stop=None):
+        where = []
         if ip_number_id:
-            where = "AND ovr.ip_number_id=:ip_number_id"
+            where.append("ovr.ip_number_id=:ip_number_id")
+        if start is not None:
+            where.append("dip.ipnr >= :start")
+        if stop is not None:
+            where.append("dip.ipnr <= :stop")
+        if where:
+            where = "AND " + " AND ".join(where)
         return self.query("""
         SELECT ovr.ip_number_id, ovr.dns_owner_id, dip.a_ip, dip.ipnr,
                en.entity_name AS name
@@ -173,6 +187,8 @@ class IPNumber(DatabaseAccessor):
                ovr.ip_number_id=dip.ip_number_id %s)
              LEFT JOIN [:table schema=cerebrum name=entity_name] en ON
                ovr.dns_owner_id=en.entity_id
-        """ % where, {'ip_number_id': ip_number_id})
+        """ % where, {'ip_number_id': ip_number_id,
+                      'start': start, 'stop': stop})
+
 
 # arch-tag: 8f5892d4-5af8-45a7-acc1-92e91250cbf3
