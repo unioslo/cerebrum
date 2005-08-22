@@ -11,11 +11,7 @@ from Cerebrum.modules.dns import IntegrityHelper
 from Cerebrum.modules import dns
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
-
-class SubNetDef(object):
-    def __init__(self, net, mask):
-        self.net = net
-        self.mask = mask
+import cereconf_dns
 
 class IPCalc(object):
     """Methods for playing with IP-numbers"""
@@ -126,7 +122,11 @@ class Find(object):
         self._host = HostInfo.HostInfo(db)
         self._cname = CNameRecord.CNameRecord(db)
         self._validator = IntegrityHelper.Validator(db, default_zone)
-        self.subnets = [] # TODO: From cereconf
+        self.subnets = {}
+        ic = IPCalc()
+        for sub_def in cereconf_dns.all_nets:
+            start, stop = ic.ip_range_by_netmask(sub_def.net, sub_def.mask)
+            self.subnets[sub_def.net] = (sub_def.mask, start, stop)
 
     def find_target_by_parsing(self, host_id, target_type):
         """Find a target with given host_id of the specified

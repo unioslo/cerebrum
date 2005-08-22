@@ -1,5 +1,10 @@
 # -*- coding: iso-8859-1 -*-
 
+class SubNetDef(object):
+    def __init__(self, net, mask):
+        self.net = net
+        self.mask = mask
+
 IP_NUMBER = 'IPNumber'
 DNS_OWNER='DnsOwner'
 REV_IP_NUMBER = 'IPNumber_rev'

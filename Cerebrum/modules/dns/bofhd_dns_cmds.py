@@ -6,8 +6,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Utils
 from Cerebrum import Errors
 #from Cerebrum.modules import Host
-from Cerebrum.modules.bofhd.cmd_param import Parameter
-from Cerebrum.modules.bofhd.cmd_param import Command,FormatSuggestion
+from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName,GroupOperation
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import DnsOwner
@@ -16,6 +15,7 @@ from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
 from Cerebrum.modules import dns
+from Cerebrum.modules.bofhd.auth import BofhdAuth
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -100,6 +100,7 @@ def int_or_none_as_str(val):
     return None
 
 class BofhdExtension(object):
+    Group_class = Factory.get('Group')
     all_commands = {}
 
     legal_hinfo = (
@@ -121,10 +122,12 @@ class BofhdExtension(object):
         self.mb_utils = DnsBofhdUtils(server, self.default_zone)
         self.dns_parser = Utils.DnsParser(server.db, self.default_zone)
         self._find = Utils.Find(server.db, self.default_zone)
+        self.ba = BofhdAuth(self.db)
 
     def get_help_strings(self):
         group_help = {
             'host': "Commands for administrating IP numbers",
+            'group': "Group commands",
             }
 
         # The texts in command_help are automatically line-wrapped, and should
@@ -153,9 +156,19 @@ class BofhdExtension(object):
             'host_ttl_set': 'Set TTL for en DNS-owner',
             'host_txt_set': 'sette TXT',
             },
+            'group': {
+            'group_hadd': 'legg maskin til en nettgruppe',
+            'group_hrem': 'fjern maskin fra en nettgruppe'
+            }
             }
         
         arg_help = {
+            'group_name_dest':
+            ['gname', 'Enter the destination group'],
+            'group_operation':
+            ['op', 'Enter group operation',
+             """Three values are legal: union, intersection and difference.
+             Normally only union is used."""],
             'ip_number':
             ['ip', 'Enter IP numner',
              'Enter the IP number for this operation'],
@@ -231,14 +244,43 @@ class BofhdExtension(object):
 #    def _alloc_arecord(self, host_name, subnet, ip, force):
 #        return self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
 
+    # group hadd
+    all_commands['group_hadd'] = Command(
+        ("group", "hadd"), HostName(),
+        GroupName(help_ref="group_name_dest"),
+        GroupOperation(optional=True), perm_filter='can_alter_group')
+    def group_hadd(self, operator, src_name, dest_group,
+                  group_operator=None):
+        dest_group = self._get_group(dest_group)
+        owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
+        if operator:
+            self.ba.can_alter_group(operator.get_entity_id(), dest_group)
+        dest_group.add_member(owner_id, self.const.entity_dns_owner,
+                              self._get_group_opcode(group_operator))
+        return "OK, added %s to %s" % (src_name, dest_group.group_name)
+
+    # group hrem
+    all_commands['group_hrem'] = Command(
+        ("group", "hrem"), HostName(),
+        GroupName(help_ref="group_name_dest"),
+        GroupOperation(optional=True), perm_filter='can_alter_group')
+    def group_hrem(self, operator, src_name, dest_group, group_operator=None):
+        dest_group = self._get_group(dest_group)
+        owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
+        if operator:
+            self.ba.can_alter_group(operator.get_entity_id(), dest_group)
+        dest_group.remove_member(owner_id,
+                                 self._get_group_opcode(group_operator))
+        return "OK, removed %s from %s" % (src_name, dest_group.group_name)
+
     # host a_add
     all_commands['host_a_add'] = Command(
         ("host", "a_add"), HostName(), SubNetOrIP(),
         Force(optional=True))
     # TBD: Comment/contact?
     def host_a_add(self, operator, host_name, subnet_or_ip, force=False):
-        force = self.mb_utils.parse_force(force)
-        subnet, ip = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
+        force = self.dns_parser.parse_force(force)
+        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
         if subnet is None and ip is None:
             raise CerebrumError, "Unknown subnet and incomplete ip"
         if subnet is None and not force:
@@ -250,7 +292,7 @@ class BofhdExtension(object):
     all_commands['host_a_rem'] = Command(
         ("host", "a_rem"), HostName(), Ip(optional=True))
     def host_a_rem(self, operator, host_name, ip=None):
-        a_record_id = self.mb_utils.find_a_record(host_name, ip)
+        a_record_id = self._find.find_a_record(host_name, ip)
         self.mb_utils.remove_arecord(a_record_id)
         return "OK"
 
@@ -262,9 +304,9 @@ class BofhdExtension(object):
                             hdr="%-30s %s" % ('name', 'ip')))
     def host_alloc(self, operator, hostname, subnet_or_ip, hinfo,
                  comment, contact, force=False):
-        force = self.mb_utils.parse_force(force)
-        hostnames = self.mb_utils.parse_hostname_repeat(hostname)
-        subnet, ip = self.mb_utils.parse_subnet_or_ip(subnet_or_ip)
+        force = self.dns_parser.parse_force(force)
+        hostnames = self.dns_parser.parse_hostname_repeat(hostname)
+        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
         if subnet is None and ip is None:
             raise CerebrumError, "Unknown subnet and incomplete ip"
         if subnet is None and not force:
@@ -275,11 +317,11 @@ class BofhdExtension(object):
             raise CerebrumError, "Contact is mandatory"
         hinfo = self._map_hinfo_code(hinfo)
         if not ip:
-            free_ip_numbers = self.mb_utils.find_free_ip(subnet)
+            free_ip_numbers = self._find.find_free_ip(subnet)
         else:
             free_ip_numbers = [ ip ]
         # If user don't want mx_set, it must be removed with "ip mx_set"
-        mx_set=self.mb_utils.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
+        mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
         ret = []
         for name in hostnames:
             ip = self.mb_utils.alloc_arecord(
@@ -294,7 +336,7 @@ class BofhdExtension(object):
         ("host", "cname_add"), HostName(help_ref="host_name_alias"),
         HostName(help_ref="host_name_exist"), Force(optional=True))
     def host_cname_add(self, operator, cname_name, target_name, force=False):
-        force = self.mb_utils.parse_force(force)
+        force = self.dns_parser.parse_force(force)
         self.mb_utils.alloc_cname(cname_name, target_name, force)
         return "OK, cname registered for %s" % target_name
 
@@ -323,7 +365,7 @@ class BofhdExtension(object):
     all_commands['host_free'] = Command(
         ("host", "free"), HostId(), Force(optional=True))
     def host_free(self, operator, host_id, force=False):
-        force = self.mb_utils.parse_force(force)
+        force = self.dns_parser.parse_force(force)
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
             # Freeing an ip-number
@@ -477,9 +519,9 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%s", ('ip',), hdr="Ip"))
     def host_list_free(self, operator, subnet):
         # TODO: Skal det være mulig å få listet ut ledige reserved IP?
-        subnet, ip = self.mb_utils.parse_subnet_or_ip(subnet)
+        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet)
         ret = []
-        for ip in self.mb_utils.find_free_ip(subnet):
+        for ip in self._find.find_free_ip(subnet):
             ret.append({'ip': ip})
         return ret
 
@@ -521,7 +563,7 @@ class BofhdExtension(object):
             name, dns.DNS_OWNER)
         dns_owner = DnsOwner.DnsOwner(self.db)
         dns_owner.find(owner_id)
-        dns_owner.mx_set_id = self.mb_utils.find_mx_set(mx_set).mx_set_id
+        dns_owner.mx_set_id = self._find.find_mx_set(mx_set).mx_set_id
         dns_owner.write_db()
         return "OK, mx set for %s" % name
 
@@ -533,7 +575,7 @@ class BofhdExtension(object):
                             hdr="%-20s %-12s %-10s %s" % (
         'MX-set', 'TTL', 'Priority', 'Target')))
     def host_mx_show(self, operator, mx_set):
-        m = self.mb_utils.find_mx_set(mx_set)
+        m = self._find.find_mx_set(mx_set)
         ret = []
         for row in m.list_mx_sets(mx_set_id=m.mx_set_id):
             ret.append({'mx_set': m.name,
@@ -562,7 +604,7 @@ class BofhdExtension(object):
         ("host", "revmap_override"), HostId(),
         HostId(help_ref='new_host_id_or_clear'), Force(optional=True))
     def host_revmap_override(self, operator, ip_host_id, dest_host, force=False):
-        force = self.mb_utils.parse_force(force)
+        force = self.dns_parser.parse_force(force)
         ip_owner_id = self._find.find_target_by_parsing(
             ip_host_id, dns.IP_NUMBER)
         operation = self.mb_utils.register_revmap_override(
@@ -625,6 +667,40 @@ class BofhdExtension(object):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
+
+    # TODO: dette er cut&paste fra bofhd_uio_cmds.  Unødvendig
+    def _get_group(self, id, idtype=None, grtype="Group"):
+        if grtype == "Group":
+            group = self.Group_class(self.db)
+        elif grtype == "PosixGroup":
+            group = PosixGroup.PosixGroup(self.db)
+        try:
+            group.clear()
+            if idtype is None:
+                if id.count(':'):
+                    idtype, id = id.split(':', 1)
+                else:
+                    idtype='name'
+            if idtype == 'name':
+                group.find_by_name(id)
+            elif idtype == 'id':
+                group.find(id)
+            else:
+                raise CerebrumError, "unknown idtype: '%s'" % idtype
+        except Errors.NotFoundError:
+            raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
+        return group
+
+    def _get_group_opcode(self, operator):
+        if operator is None:
+            return self.const.group_memberop_union
+        if operator == 'union':
+            return self.const.group_memberop_union
+        if operator == 'intersection':
+            return self.const.group_memberop_intersection
+        if operator == 'difference':
+            return self.const.group_memberop_difference
+        raise CerebrumError("unknown group opcode: '%s'" % operator)
 
 if __name__ == '__main__':
     pass

@@ -65,7 +65,7 @@ def clear_db():
         
 ##         db.execute("delete from %s" % tab)
 #    db.execute("delete from entity_name where value_domain=:vd", {'vd': int(co.dns_owner_namespace)})
-#    db.commit()
+    db.commit()
 
 
 def test_ttl(id):

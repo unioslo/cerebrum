@@ -105,7 +105,7 @@ class Netgroups(object):
     def _ng_machine_filter(self, name):
         if len(name.split(".")) > 2:
             return name + "."
-        return name + self.default_zone.postfix
+        return name + self._default_zone.postfix
 
     def _import_netgroups(self):
         netgroups = self._parse_netgroups()
@@ -282,11 +282,12 @@ class ForwardMap(object):
                 if len(dta['TXT']) > 1:
                     logger.warn("Multiple TXT records for %s" % name)
                 ttl, txt_val = dta['TXT'][0]
-                if host.name == name:
-                    dnsowner.add_general_dns_record(
-                        host.dns_owner_id, co.field_type_txt, ttl, txt_val)
-                else:
-                    logger.warn("TXT for %s which is not a host (hinfo)" % name)
+                owner_type, owner_id = self._lookup.get_dns_owner(name, make=False)
+                dnsowner.add_general_dns_record(
+                    owner_id, co.field_type_txt, ttl, txt_val)
+                if owner_id != host.dns_owner_id:
+                    logger.warn("TXT for %s which is not a host (hinfo: %s)" % (
+                        name, host.name))
                 del dta['TXT']
             del dta['A']
 
@@ -375,12 +376,12 @@ class ForwardMap(object):
                 for row in owner_obj.list_ext(**{owner_key: owner_id}):
                     owner_obj.clear()
                     owner_obj.find(row[id_key])
-                    logger.debug("Look for %i" % row[id_key])
+                    logger.debug2("Look for %i" % row[id_key])
                     if dta.has_key('contact'):
-                        logger.debug("ADD contact: %s / %s" % (owner_id, row[id_key]))
+                        logger.debug2("ADD contact: %s / %s" % (owner_id, row[id_key]))
                         owner_obj.add_entity_note(co.note_type_contact, dta['contact'])
                     if dta.has_key('comment'):
-                        logger.debug("ADD comment: %s / %s" % (owner_id, row[id_key]))
+                        logger.debug2("ADD comment: %s / %s" % (owner_id, row[id_key]))
                         owner_obj.add_entity_note(co.note_type_comment, dta['comment'])
                 if dta.has_key('contact'):
                     del dta['contact']
@@ -608,7 +609,7 @@ class Lookup(object):
                 dnsowner.write_db()
             self._dns_owners[name] = (_type or 'dns_owner', int(dnsowner.entity_id))
         found_type, found_id = self._dns_owners[name]
-        logger.debug("get_dns_owner(%s, %s) -> %i" % (name, _type, found_id))
+        logger.debug2("get_dns_owner(%s, %s) -> %i" % (name, _type, found_id))
         if _type is None or _type == found_type:
             return mt[found_type], found_id
         raise ValueError, "Found type: %s, expected %s" % (_type, found_type)
