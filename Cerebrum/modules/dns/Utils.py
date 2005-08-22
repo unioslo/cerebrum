@@ -293,3 +293,5 @@ class Find(object):
             except Errors.TooManyRowsError:
                 raise CerebrumError("Multiple A-records with name=%s" % host_name)
         return ar.entity_id
+
+# arch-tag: 48677ab8-12e8-11da-9116-393d26bedebb
