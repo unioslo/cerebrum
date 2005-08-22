@@ -259,10 +259,10 @@ def generate_group(filename, group_spread, user_spread):
     for row in posix_group.search(spread=group_spread):
         posix_group.clear()
         try:
-            posix_group.find(row.group_id)
+            posix_group.find(row['group_id'])
         except Errors.NotFoundError:
-            logger.warn("Group %s, spread %s has no GID"%(
-                row.group_id,group_spread))
+            logger.warn("Group %s, spread %s has no GID" %
+                        (row['group_id'], group_spread))
             continue
         # Group.get_members will flatten the member set, but returns
         # only a list of entity ids; we remove all ids with no
