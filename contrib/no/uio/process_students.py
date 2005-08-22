@@ -896,8 +896,9 @@ def get_existing_accounts():
             # students if the person has at least one STUDENT
             # affiliation.  The STUDENT affiliation(s) will be added
             # later during this run.
-            for spread, home in tmp.get_home():
-                if autostud.disk_tool.get_diskdef_by_diskid(home[0]):
+            for s in tmp.get_home_spreads():
+                disk_id = tmp.get_home(s)[0]
+                if autostud.disk_tool.get_diskdef_by_diskid(disk_id):
                     tmp_persons[fnr].append_stud_ac(ac_id)
                     break
             else:
