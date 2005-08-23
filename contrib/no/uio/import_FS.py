@@ -24,6 +24,7 @@ import os
 import sys
 import getopt
 import time
+import mx
 
 import xml.sax
 
@@ -56,7 +57,7 @@ aff_status_pri_order = [int(x) for x in (  # Most significant first
     co.affiliation_status_student_aktiv,
     co.affiliation_status_student_evu,
     co.affiliation_status_student_privatist,
-    co.affiliation_status_student_permisjon,
+#    co.affiliation_status_student_permisjon,
     co.affiliation_status_student_opptak,
     co.affiliation_status_student_alumni,
     co.affiliation_status_student_tilbud,
@@ -197,15 +198,15 @@ def _load_cere_aff():
     fs_aff = {}
     person = Factory.get("Person")(db)
     for row in person.list_affiliations(source_system=co.system_fs):
-	k = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
+        k = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
         fs_aff[str(k)] = True
     return(fs_aff)
 
 def rem_old_aff():
     person = Factory.get("Person")(db)
     for k,v in old_aff.items():
-	if v:
-	    ent_id,ou,affi = k.split(':')
+        if v:
+            ent_id,ou,affi = k.split(':')
             person.clear()
             person.find(int(ent_id))
             person.delete_affiliation(ou, affi, co.system_fs)
@@ -264,12 +265,12 @@ def process_person_callback(person_info):
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
-	p = x[0]
+        p = x[0]
         if isinstance(p, str):
             continue
         # Get name
         if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne',
-			'privatist_studieprogram', 'alumni'):
+                        'privatist_studieprogram', 'alumni'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
@@ -281,30 +282,30 @@ def process_person_callback(person_info):
                                  affiliations, _get_sko(p, 'faknr',
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
         elif dta_type in ('opptak', ):
-	    for row in x:
-		subtype = co.affiliation_status_student_opptak
-		if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
-		    subtype = co.affiliation_status_student_aktiv
-		elif row['studierettstatkode'] == 'EVU':
-		    subtype = co.affiliation_status_student_evu
-		elif row['studierettstatkode'] == 'PRIVATIST':
-		    subtype = co.affiliation_status_student_privatist
-		elif row['studierettstatkode'] == 'FULLFØRT':
-		    subtype = co.affiliation_status_student_alumni
+            for row in x:
+                subtype = co.affiliation_status_student_opptak
+                if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+                    subtype = co.affiliation_status_student_aktiv
+                elif row['studierettstatkode'] == 'EVU':
+                    subtype = co.affiliation_status_student_evu
+                elif row['studierettstatkode'] == 'PRIVATIST':
+                    subtype = co.affiliation_status_student_privatist
+                elif row['studierettstatkode'] == 'FULLFØRT':
+                    subtype = co.affiliation_status_student_alumni
                 elif int(row['studienivakode']) >= 980:
                     subtype = co.affiliation_status_student_drgrad
-		_process_affiliation(co.affiliation_student, subtype,
+                _process_affiliation(co.affiliation_student, subtype,
                                      affiliations, studieprog2sko[row['studieprogramkode']])
-	elif dta_type in ('privatist_studieprogram',):
-	    _process_affiliation(co.affiliation_student,
-				 co.affiliation_status_student_privatist,
-				 affiliations, studieprog2sko[p['studieprogramkode']])
+        elif dta_type in ('privatist_studieprogram',):
+            _process_affiliation(co.affiliation_student,
+                                 co.affiliation_status_student_privatist,
+                                 affiliations, studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('perm',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('tilbud',):
-	    for row in x:
+            for row in x:
                 _process_affiliation(co.affiliation_student,
                                      co.affiliation_status_student_tilbud,
                                      affiliations, studieprog2sko[row['studieprogramkode']])
@@ -316,7 +317,7 @@ def process_person_callback(person_info):
             
     if etternavn is None:
         logger.debug("Ikke noe navn på %s" % fnr)
-	no_name += 1 
+        no_name += 1 
         return
 
     # TODO: If the person already exist and has conflicting data from
@@ -327,7 +328,7 @@ def process_person_callback(person_info):
     if fnr2person_id.has_key(fnr):
         new_person.find(fnr2person_id[fnr])
 
-    new_person.populate(db.Date(year, mon, day), gender)
+    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
 
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)
@@ -357,10 +358,10 @@ def process_person_callback(person_info):
     for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
-	if include_delete:
-	    key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
-	    if old_aff.has_key(key_a):
-	    	old_aff[key_a] = False
+        if include_delete:
+            key_a = "%s:%s:%s" % (new_person.entity_id,ou,int(aff))
+            if old_aff.has_key(key_a):
+                old_aff[key_a] = False
 
     op2 = new_person.write_db()
     if op is None and op2 is None:
@@ -426,8 +427,8 @@ def main():
             studieprogramfile = val
         elif opt in ('-g', '--generate-groups'):
             gen_groups = True
-	elif opt in ('-d', '--include-delete'):
-	    include_delete = True
+        elif opt in ('-d', '--include-delete'):
+            include_delete = True
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
@@ -436,14 +437,14 @@ def main():
 
     group = Factory.get('Group')(db)
     try:
-	group.find_by_name(group_name)
+        group.find_by_name(group_name)
     except Errors.NotFoundError:
-	group.clear()
-	ac = Factory.get('Account')(db)
-	ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-	group.populate(ac.entity_id, co.group_visibility_internal,
+        group.clear()
+        ac = Factory.get('Account')(db)
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        group.populate(ac.entity_id, co.group_visibility_internal,
                        group_name, group_desc)
-	group.write_db()
+        group.write_db()
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
@@ -455,7 +456,7 @@ def main():
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
     if include_delete:
-	old_aff = _load_cere_aff()
+        old_aff = _load_cere_aff()
     fnr2person_id = {}
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
         if co.system_fs == p['source_system']:
@@ -464,7 +465,7 @@ def main():
             fnr2person_id[p['external_id']] = p['entity_id']
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     if include_delete:
-	rem_old_aff()
+        rem_old_aff()
     db.commit()
     logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
