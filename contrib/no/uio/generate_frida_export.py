@@ -530,9 +530,9 @@ def process_person_frida_information(db_person, db_ou, constants):
 
     # We are interested only in "active" records 
     now = time.strftime("%Y%m%d")
-    employments = map(lambda db_row: db_row._dict(),
+    employments = map(lambda db_row: db_row.dict(),
                       db_person.get_tilsetting(now))
-    guests = map(lambda db_row: db_row._dict(),
+    guests = map(lambda db_row: db_row.dict(),
                  db_person.get_gjest(now))
 
     logger.debug("Fetched %d employments and %d guests from db",

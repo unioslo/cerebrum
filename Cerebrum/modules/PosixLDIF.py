@@ -275,13 +275,13 @@ class PosixLDIF(object):
         self.posgrp = PosixGroup.PosixGroup(self.db)
         self.fgrp_dn = LDIFutils.ldapconf('FILEGROUP', 'dn')
 
-    def filegroup_object(self,row):
+    def filegroup_object(self, row):
         """Create the group-entry attributes"""
         self.posgrp.clear()
-        self.posgrp.find(row.group_id)
+        self.posgrp.find(row['group_id'])
         gname = LDIFutils.iso2utf(self.posgrp.group_name)
         if not self.id2uname.has_key(int(row.group_id)):
-            self.id2uname[int(row.group_id)] = gname
+            self.id2uname[int(row['group_id'])] = gname
         members = []
         entry = {'objectClass': ('top', 'posixGroup'),
                  'cn':          (gname,),
@@ -341,14 +341,15 @@ class PosixLDIF(object):
         """Generate netgroup objects."""
         self._gmemb = {}
         self.grp.clear()
-        self.grp.find(row.group_id)
+        group_id = int(row['group_id'])
+        self.grp.find(group_id)
         netgrp_name = LDIFutils.iso2utf(self.grp.group_name)
         entry = {'objectClass':       ('top', 'nisNetGroup'),
                  'cn':                (netgrp_name,),
                  'nisNetgroupTriple': [],
                  'memberNisNetgroup': []}
-        if not self.id2uname.has_key(int(row.group_id)):
-            self.id2uname[int(row.group_id)] = netgrp_name
+        if not self.id2uname.has_key(group_id):
+            self.id2uname[group_id] = netgrp_name
         if self.grp.description:
             entry['description'] = (
                 latin1_to_iso646_60(self.grp.description).rstrip(),)

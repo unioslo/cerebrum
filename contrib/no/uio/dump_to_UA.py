@@ -71,27 +71,16 @@ def locate_fnr(person, const):
     Return PERSON's fnr
     """
 
-    fnr = None
     # Force LT to be the first source system to be tried
     systems = [const.system_lt]
     systems.extend([getattr(const, name)
                     for name in cereconf.SYSTEM_LOOKUP_ORDER])
     for system in systems:
-        try:
-            fnr = person.get_external_id(system, const.externalid_fodselsnr)
-
-            # FIXME: are this test *and* try-catch both necessary?
-            if not fnr:
-                continue
-            # fi
-            fnr = str(fnr[0].external_id)
-            break
-        except Cerebrum.Errors.NotFoundError:
-            pass
-        # yrt
+        for fnr in person.get_external_id(system, const.externalid_fodselsnr):
+            return str(fnr['external_id'])
     # od
 
-    return fnr
+    return None
 # end locate_fnr
 
 
@@ -245,12 +234,12 @@ def leave_covered(person, db_row):
     total = 0
 
     now = time.strftime("%Y%m%d")
-    for db_row in person.get_permisjon(now, db_row.tilsettings_id):
-        if db_row.andel:
-            total += int(db_row.andel)
+    for db_row in person.get_permisjon(now, db_row['tilsettings_id']):
+        if db_row['andel']:
+            total += int(db_row['andel'])
         else:
             logger.debug("%s %s does not have andel",
-                         person.entity_id, db_row.tilsettings_id)
+                         person.entity_id, db_row['tilsettings_id'])
         # fi
     # od
 
@@ -280,13 +269,13 @@ def process_employee(person, ou, const, db_row, stream):
 
     stedkode = locate_stedkode(ou, db_row.ou_id)
     startdato = ""
-    if db_row.dato_fra:
-        startdato = db_row.dato_fra.strftime("%d.%m.%Y")
+    if db_row['dato_fra']:
+        startdato = db_row['dato_fra'].strftime("%d.%m.%Y")
     # fi
 
     sluttdato = ""
-    if db_row.dato_til:
-        sluttdato = db_row.dato_til.strftime("%d.%m.%Y")
+    if db_row['dato_til']:
+        sluttdato = db_row['dato_til'].strftime("%d.%m.%Y")
     # fi
 
     # systemnr == 2 for employees
@@ -349,7 +338,7 @@ def generate_output(stream, do_employees, do_students):
         logger.debug("Processing all employee records")
         
         for db_row in person.list_tilsetting():
-            person_id = db_row.person_id
+            person_id = db_row['person_id']
 
             try:
                 person.clear()
