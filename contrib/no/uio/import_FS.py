@@ -48,6 +48,21 @@ ou_adr_cache = {}
 gen_groups = False
 no_name = 0 # count persons for which we do not have any name data from FS
 
+db = Factory.get('Database')()
+db.cl_init(change_program='import_FS')
+co = Factory.get('Constants')(db)
+
+aff_status_pri_order = [int(x) for x in (  # Most significant first
+    co.affiliation_status_student_drgrad,
+    co.affiliation_status_student_aktiv,
+    co.affiliation_status_student_opptak,
+    co.affiliation_status_student_evu,
+    co.affiliation_status_student_privatist,
+    co.affiliation_status_student_alumni,
+    co.affiliation_status_student_tilbud)]
+aff_status_pri_order = dict([(aff_status_pri_order[i], i)
+                              for i in range(len(aff_status_pri_order))] )
+
 """Importerer personer fra FS iht. fs_import.txt."""
 
 def _add_res(entity_id):
@@ -194,6 +209,21 @@ def rem_old_aff():
             person.find(int(ent_id))
             person.delete_affiliation(ou, affi, co.system_fs)
 
+def filter_affiliations(affiliations):
+    """The affiliation list with cols (ou, affiliation, status) may
+    contain multiple status values for the same (ou, affiliation)
+    combination, while the db-schema only allows one.  Return a list
+    where duplicates are removed, preserving the most important
+    status.  """
+    
+    affiliations.sort(lambda x,y: aff_status_pri_order.get(int(y[2]), 99) -
+                      aff_status_pri_order.get(int(x[2]), 99))
+    
+    ret = {}
+    for ou, aff, aff_status in affiliations:
+        ret[(ou, aff)] = aff_status
+    return [(ou, aff, aff_status) for (ou, aff), aff_status in ret.items()]
+
 def process_person_callback(person_info):
     """Called when we have fetched all data on a person from the xml
     file.  Updates/inserts name, address and affiliation
@@ -323,7 +353,7 @@ def process_person_callback(person_info):
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
     op = new_person.write_db()
-    for a in affiliations:
+    for a in filter_affiliations(affiliations):
         ou, aff, aff_status = a
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
 	if include_delete:
@@ -375,9 +405,8 @@ def process_person_callback(person_info):
 
 
 def main():
-    global verbose, ou, db, co, logger, fnr2person_id, gen_groups, group, \
-							old_aff, include_delete, \
-							no_name
+    global verbose, ou, logger, fnr2person_id, gen_groups, group
+    global old_aff, include_delete, no_name
     verbose = 0
     include_delete = False
     logger = Factory.get_logger("cronjob")
@@ -402,10 +431,7 @@ def main():
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
     logger.info("Started")
-    db = Factory.get('Database')()
-    db.cl_init(change_program='import_FS')
     ou = Factory.get('OU')(db)
-    co = Factory.get('Constants')(db)
 
     group = Factory.get('Group')(db)
     try:
