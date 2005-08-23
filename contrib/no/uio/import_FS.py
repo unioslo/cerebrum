@@ -51,15 +51,17 @@ no_name = 0 # count persons for which we do not have any name data from FS
 db = Factory.get('Database')()
 db.cl_init(change_program='import_FS')
 co = Factory.get('Constants')(db)
-
+drgrad, aktiv, evu, privatist, permisjon, opptak, alumni, tilbud, søker
 aff_status_pri_order = [int(x) for x in (  # Most significant first
     co.affiliation_status_student_drgrad,
     co.affiliation_status_student_aktiv,
-    co.affiliation_status_student_opptak,
     co.affiliation_status_student_evu,
     co.affiliation_status_student_privatist,
+    co.affiliation_status_student_permisjon,
+    co.affiliation_status_student_opptak,
     co.affiliation_status_student_alumni,
-    co.affiliation_status_student_tilbud)]
+    co.affiliation_status_student_tilbud,
+    co.affiliation_status_student_soker)]
 aff_status_pri_order = dict([(aff_status_pri_order[i], i)
                               for i in range(len(aff_status_pri_order))] )
 
