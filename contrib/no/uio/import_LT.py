@@ -24,6 +24,7 @@ import os
 import sys
 import getopt
 import time
+import mx
 
 import xml.sax
 
@@ -348,7 +349,7 @@ def process_person(person):
         person.get('etternavn', ' ').isspace()):
         logger.warn("Ikke noe navn for %s" % fnr)
         return
-    new_person.populate(db.Date(year, mon, day), gender)
+    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
     new_person.affect_names(const.system_lt, const.name_first, const.name_last,
 						const.name_personal_title)
     new_person.affect_external_id(const.system_lt, const.externalid_fodselsnr)
