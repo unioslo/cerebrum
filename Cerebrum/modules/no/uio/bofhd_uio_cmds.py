@@ -2962,7 +2962,8 @@ class BofhdExtension(object):
     # group personal <uname>+
     all_commands['group_personal'] = Command(
         ("group", "personal"), AccountName(repeat=True),
-        fs=FormatSuggestion("Group created, posix gid: %i\n"+
+        fs=FormatSuggestion("Personal group created and made primary, "+
+                            "POSIX gid: %i\n"+
                             "The user may have to restart bofh to access the "+
                             "'group add' command", ("group_id",)),
         perm_filter='can_create_personal_group')
@@ -3001,7 +3002,10 @@ class BofhdExtension(object):
         role.grant_auth(acc.entity_id, op_set.op_set_id, op_target.op_target_id)
         # 4. make user a member of his personal group
         self._group_add(None, uname, uname, type="account")
-        # 5. add spreads corresponding to its owning user
+        # 5. make this group the primary group
+        acc.gid_id = grp.entity_id
+        acc.write_db()
+        # 6. add spreads corresponding to its owning user
         self.__spread_sync_group(acc, group)
         return {'group_id': int(pg.posix_gid)}
 
@@ -4082,13 +4086,7 @@ class BofhdExtension(object):
             # We potentially get multiple rows for a person when
             # s/he has more than one source system or affiliation.
             col = 'entity_id'
-            # If we ever upgrade to a newer version of db_row.py, we
-            # can remove this "detect if we're working with a dict or
-            # a db_row" hack, as newer db_row versions have a proper
-            # .has_key() method.
-            row_has_key = getattr(row, 'has_key',
-                                  getattr(row, '_has_key'))
-            if not row_has_key(col):
+            if not row.has_key(col):
                 col = 'person_id'
             if row[col] in seen:
                 continue
