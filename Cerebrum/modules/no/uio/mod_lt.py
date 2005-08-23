@@ -787,8 +787,8 @@ class PersonLTMixin(Person.Person):
         # First, fetch all the old information
         current_employment = {}
         for item in self.get_tilsetting():
-            # coerse db_row to a dictionary
-            d = item._dict()
+            # coerce db_row to a dictionary
+            d = item.dict()
             key = self._make_tilsetting_key(item["tilsettings_id"])
             current_employment[key] = d
         # od
@@ -850,7 +850,7 @@ class PersonLTMixin(Person.Person):
 
         current_bilag = {}
         for item in self.get_bilag():
-            d = item._dict()
+            d = item.dict()
             key = self._make_bilag_key(item["ou_id"])
             # FIXME: what if 'dato' field in Cerebrum is more recent than
             # the one being populated in?
@@ -899,7 +899,7 @@ class PersonLTMixin(Person.Person):
 
         current = {}
         for item in self.get_permisjon():
-            d = item._dict()
+            d = item.dict()
             key = self._make_permisjon_key(d["tilsettings_id"],
                                            d["permisjonskode"],
                                            d["dato_fra"], d["dato_til"],
@@ -956,7 +956,7 @@ class PersonLTMixin(Person.Person):
 
         current_guest = dict()
         for item in self.get_gjest():
-            d = item._dict()
+            d = item.dict()
             key = self._make_gjest_key(item["ou_id"], item["dato_fra"])
             current_guest[key] = d
         # od
@@ -1003,7 +1003,7 @@ class PersonLTMixin(Person.Person):
 
         current_state = dict()
         for item in self.get_rolle():
-            d = item._dict()
+            d = item.dict()
             key = self._make_rolle_key(item["ou_id"], item["rollekode"]) 
             current_state[key] = d
         # od
