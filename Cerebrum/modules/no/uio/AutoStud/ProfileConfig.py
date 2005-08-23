@@ -24,6 +24,7 @@ translating it to an internal datastructure"""
 import sys
 import xml.sax
 import pprint
+from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 from Cerebrum.modules.no.uio.AutoStud.Util import LookupHelper
 from Cerebrum.modules.no.uio.AutoStud.Select import SelectTool
 from Cerebrum.modules.no.uio.AutoStud import DiskTool
@@ -244,84 +245,6 @@ class ProfileDefinition(object):
         self._settings["quarantine"] = tmp  
         for m in lookup_helper.get_lookup_errors():
             self.config.add_error(m)
-
-class GeneralXMLParser(xml.sax.ContentHandler):
-    """This is a general SAX-based XML parser capable of generating
-    callbacks once requested information has been parsed.  The cfg
-    constructor parameter has the format::
-
-      cfg = ((['tag1, 'tag1_1'], got_tag1_1_callback))
-
-    Once parsing of tag1_1 has been completed, the callback function
-    is called with the arguments dta, elem_stack.  elem_stack contains
-    a list of (entity_name, attrs_dict) tuples up to the root XML
-    node.  dta contains a list of (entity_name, attrs_dict, children)
-    tuples inside the requested tag.  children has the same format as
-    dta, thus if one use something like cfg = ((['root_tag'], cb)),
-    the dta in the callback would contain a parsed tree of the entire
-    XML file.
-
-    The parser is only suitable for XML files that does not contain
-    text parts outside the tags.
-    """
-
-    def __init__(self, cfg, xml_file):
-        self._elementstack = []
-        self.top_elementstack = []
-        self.cfg = cfg
-        self._in_dta = None
-
-        parser = xml.sax.make_parser()
-        parser.setContentHandler(self)
-        # Don't resolve external entities
-        try:
-            parser.setFeature(xml.sax.handler.feature_external_ges, 0)
-        except xml.sax._exceptions.SAXNotRecognizedException:
-            # Older API versions don't try to handle external entities
-            pass
-        parser.parse(xml_file)
-
-    def startElement(self, ename, attrs):
-        tmp = {}
-        for k in attrs.keys():
-            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
-        ename = ename.encode('iso8859-1')
-        self._elementstack.append(ename)
-        if not self._in_dta:
-            self.top_elementstack.append((ename, tmp))
-            for loc, cb in self.cfg:
-                if loc == self._elementstack:
-                    self._in_dta = loc
-                    self._cb = cb
-                    self._start_pos = []
-                    self._tmp_pos = self._start_pos
-                    self._child_stack = [self._start_pos]
-                    break
-        else:
-            children = []
-            self._child_stack.append(children)
-            self._tmp_pos.append((ename, tmp, children))
-            self._tmp_pos = children
-
-    def endElement(self, ename):
-        if self._in_dta == self._elementstack:
-            self._cb(self._start_pos, self.top_elementstack)
-            self._in_dta = None
-            self.top_elementstack.pop()
-        elif not self._in_dta:
-            self.top_elementstack.pop()
-        else:
-            self._child_stack.pop()
-            if self._child_stack:
-                self._tmp_pos = self._child_stack[-1]
-
-        self._elementstack.pop()
-
-    def dump_tree(dta, lvl=0):
-        for ename, attrs, children in dta:
-            print "%s%s %s" % (" " * lvl * 2, ename, attrs)
-            GeneralXMLParser.dump_tree(children, lvl+1)
-    dump_tree = staticmethod(dump_tree)
 
 class StudconfigParser(object):
     """
