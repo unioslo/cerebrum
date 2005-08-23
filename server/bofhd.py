@@ -378,6 +378,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         try:
             account.find_by_name(uname)
         except Errors.NotFoundError:
+            if isinstance(uname, unicode):
+                uname = uname.encode('utf-8')
             logger.info("Failed login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
             raise CerebrumError, "Unknown username or password"
