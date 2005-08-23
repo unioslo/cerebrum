@@ -33,12 +33,11 @@ from Cerebrum.modules.EmailLDAP import EmailLDAP
 class EmailLDAPUiOMixin(EmailLDAP):
     """Methods specific for UiO."""
 
-    __write_attr__ = ('home2spool', 'local_uio_domain')
+    __write_attr__ = ('local_uio_domain',)
 
     def __init__(self, db):
         self.__super.__init__(db)
         self.local_uio_domain = {}
-        self.home2spool = {}
 
     spam_act2dig = {'noaction':   '0',
                     'spamfolder': '1',
@@ -61,36 +60,19 @@ class EmailLDAPUiOMixin(EmailLDAP):
         if self.targ2server_id.has_key(target):
             type, name = self.serv_id2server[int(self.targ2server_id[target])]
             if type == self.const.email_server_type_nfsmbox:
-                # If no path; do not verify.
-                if path:
-                    r = re.search(r'^(/[^/]+)(/[^/]+)/', path)
-                if (not path) or (r.group(1) in ("/local", "/ifi")):
-                    maildrop = self.maildrop
-                else:
-                    if r:
-                        path = "%s%s" % (r.group(1),r.group(2))
-                    if self.home2spool.has_key(path):
-                        maildrop = self.home2spool[path]
-                    else:
-                        raise RuntimeError, \
-                              "No '%s' in home2spool. Error in DNS" % path
-                sinfo += "spoolInfo: home=%s maildrop=%s/%s\n" % (
-                    home, maildrop, uname)
+                # FIXME: we really want to log this
+                # self.logger.warn("%s is not on Cyrus, but %s" % (uname, name))
+                False # Python needs a statement here.
             elif type == self.const.email_server_type_cyrus:
                 sinfo += "IMAPserver: %s\n" % name
         return sinfo
-    
+
 
     def _build_addr(self, local_part, domain):
         domain = self._translate_domains.get(domain, domain)
         return '@'.join((local_part, domain))
 
     
-    def read_server(self, spread):
-        self.__super.read_server(spread)
-        self.make_home2spool(spread)
-        
-  
     def list_machines(self, spread):
         disk = Factory.get('Disk')(self._db)
         res = []
@@ -160,135 +142,5 @@ class EmailLDAPUiOMixin(EmailLDAP):
                     'mail-mx2', 'mail-mx3']:
             self.local_uio_domain[dom] = prim
 
-
-    def make_home2spool(self, spread):
-        spoolhost = {}
-        cname_cache = {}
-        curdom, lowpri, primary = "", "", ""
-        no_uio = r'\.uio\.no'
-    
-        # Define domains in zone uio.no whose primary MX is one of our
-        # mail servers as "local domains".
-        cmd = "/local/bin/host -t mx -l uio.no. nissen.uio.no"
-        out = os.popen(cmd)
-        res = out.readlines()
-        err = out.close()
-        if err:
-            raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
-
-        pat = r'^(\S+) mail is handled by (\d+) (\S+)\.\n$'
-        for line in res:
-            m = re.search(pat, line)
-            if m:
-                dom = string.lower(m.group(1))
-                pri = int(m.group(2))
-                mx = string.lower(m.group(3))
-                dom = re.sub(no_uio, '', dom)
-                mx = re.sub(no_uio, '', mx)
-                if not curdom:
-                    curdom = dom
-                if curdom and curdom != dom:
-                    self._validate_primary(curdom, primary, self.local_uio_domain)
-                    curdom = dom
-                    lowpri, primary = "", ""
-                if (not lowpri) or (pri < lowpri):
-                    lowpri, primary = pri, mx
-                if int(pri) == 33:
-                    spoolhost[dom] = mx
-                    
-        if curdom and primary:
-            self._validate_primary(curdom, primary, self.local_uio_domain)
-
-        # We have now defined all "proper" local domains (i.e. ones that
-        # have explicit MX records).  We also want to accept mail for any
-        # CNAME in the uio.no zone pointing to any of these local domains.
-
-        cmd = "/local/bin/host -t cname -l uio.no. nissen.uio.no"
-        out = os.popen(cmd)
-        res = out.readlines()
-        err = out.close()
-        if err:
-            raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
-
-        pat = r'^(\S+) is an alias for (\S+)\.\n$'
-        for line in res:
-            m = re.search(pat, line)
-            if m:
-                alias, real = string.lower(m.group(1)), string.lower(m.group(2))
-                alias = re.sub(no_uio, '', alias)
-                real = re.sub(no_uio, '', real)
-                if self.local_uio_domain.has_key(real):
-                    self.local_uio_domain[alias] = self.local_uio_domain[real]
-                if spoolhost.has_key(real):
-                    spoolhost[alias] = spoolhost[real]
-
-        # Define domains in zone ifi.uio.no whose primary MX is one of our
-        # mail servers as "local domains".  Cache CNAMEs at the same time.
-
-        # NB: ifi-kode tatt vekk. DNS-parsing er noe herk siden det ikke stemmer
-        #     med hva ifi har av hjemmeområder.
-
-
-        #no_uio_ifi = r'\.ifi\.uio\.no'
-        #cmd = "/local/bin/dig @bestemor.ifi.uio.no ifi.uio.no. axfr"
-        #out = os.popen(cmd)
-        #res = out.readlines()
-        #err = out.close()
-        #if err:
-        #    raise RuntimeError, '%s: failed with exit code %d' % (cmd, err)
-
-        #pat = r'^(\S+)\.\s+\d+\s+IN\s+MX\s+(\d+)\s+(\S+)\.'
-        #pat2 = r'^(\S+)\.\s+\d+\s+IN\s+CNAME\s+(\S+)\.'
-        #for line in res:
-        #    m = re.search(pat, line)
-        #    if m:
-        #        dom = string.lower(m.group(1))
-        #        pri = int(m.group(2))
-        #        mx = string.lower(m.group(3))
-        #        dom = re.sub(no_uio_ifi, '', dom)
-        #        mx = re.sub(no_uio, '', mx)
-        #        if not curdom:
-        #            curdom = dom
-        #        if curdom and curdom != dom:
-        #            self._validate_primary(curdom, primary, self.local_uio_domain)
-        #            curdom = dom
-        #            lowpri, primary = "", ""
-        #        if (not lowpri) or (pri < lowpri):
-        #            lowpri, primary = pri, mx
-        #        if pri == 33:
-        #            spoolhost[dom] = mx
-        #    else:
-        #        m = re.search(pat2, line)
-        #        if m:
-        #            alias = string.lower(m.group(1))
-        #            real = string.lower(m.group(2))
-        #            alias = re.sub(no_uio, '', alias)
-        #            real = re.sub(no_uio, '', real)
-        #            cname_cache[alias] = real
-
-        #if curdom and primary:
-        #    self._validate_primary(curdom, primary, self.local_uio_domain)
-
-        # Define CNAMEs for domains whose primary MX is one of our mail
-        # servers as "local domains".
-
-        for alias in cname_cache.keys():
-            real = cname_cache[alias]
-            if self.local_uio_domain.has_key(real):
-                self.local_uio_domain[alias] = self.local_uio_domain[real]
-            if spoolhost.has_key(real):
-                spoolhost[alias] = spoolhost[real]
-
-        for faculty, host in self.list_machines(spread):
-            host = string.lower(host)
-            if host == '*':
-                continue
-            elif not spoolhost.has_key(host):
-                continue
-            if spoolhost[host] == "ulrik":
-                self.home2spool["/%s/%s" % (faculty, host)] = self.maildrop
-                continue
-            self.home2spool["/%s/%s" % (faculty, host)] = "/%s/%s/mail" % (
-                faculty, spoolhost[host])
 
 # arch-tag: 7bb4c2b7-8112-4bd0-85dd-0112db222638
