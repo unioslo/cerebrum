@@ -1449,6 +1449,7 @@ class AccountEmailMixin(Account.Account):
                 ea.find(row['address_id'])
                 ea.email_addr_expire_date = expire_date
                 ea.write_db()
+        if target_type == self.const.email_target_deleted:
             return
         # Until a user's email target is associated with an email
         # server, the mail system won't know where to deliver mail for
