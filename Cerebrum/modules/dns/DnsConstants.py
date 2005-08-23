@@ -1,6 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 from Cerebrum import DatabaseAccessor
 from Cerebrum import Constants
+from Cerebrum.modules.CLConstants import _ChangeTypeCode
 
 class _FieldTypeCode(Constants._CerebrumCode):
     "Mappings stored in the field_type_code table"
@@ -64,5 +65,59 @@ class Constants(Constants.Constants):
     other_zone = _DnsZoneCode("other", None)
     DnsZone = _DnsZoneCode
 
+    # ChangeLog constants
+    a_record_add = _ChangeTypeCode(
+        'host', 'a_rec_add', 'add a-record %(subject)s -> %(dest)s')
+    a_record_del = _ChangeTypeCode(
+        'host', 'a_rec_del', 'del a-record %(subject)s -> %(dest)s')
+    a_record_update = _ChangeTypeCode(
+        'host', 'a_rec_upd', 'update a-record %(subject)s -> %(dest)s')
+    cname_add = _ChangeTypeCode(
+        'host', 'cname_add', 'add cname %(subject)s -> %(dest)s')
+    cname_del = _ChangeTypeCode(
+        'host', 'cname_del', 'del cname %(subject)s -> %(dest)s')
+    cname_update = _ChangeTypeCode(
+        'host', 'cname_upd', 'update cname %(subject)s -> %(dest)s')
+    dns_owner_add = _ChangeTypeCode(
+        'host', 'dns_owner_add', 'add dns-owner %(subject)s')
+    dns_owner_update = _ChangeTypeCode(
+        'host', 'dns_owner_upd', 'update dns-owner %(subject)s')
+    dns_owner_del = _ChangeTypeCode(
+        'host', 'dns_owner_del','del dns-owner %(subject)s')
+    general_dns_record_add = _ChangeTypeCode(
+        'host', 'gen_dns_rec_add', 'add record for %(subject)s',
+        ('%(int:field_type)s=%(string:data)s',))
+    general_dns_record_del = _ChangeTypeCode(
+        'host', 'gen_dns_rec_del', 'del record for %(subject)s',
+        ('type=%(int:field_type)s',))
+    general_dns_record_update = _ChangeTypeCode(
+        'host', 'gen_dns_rec_upd', 'update record for %(subject)s',
+        ('%(int:field_type)s=%(string:data)s',))
+    host_info_add = _ChangeTypeCode(
+        'host', 'host_info_add', 'add %(subject)s',
+        ('hinfo=%(string:hinfo)s',))
+    host_info_update = _ChangeTypeCode(
+        'host', 'host_info_upd', 'update %(subject)s',
+        ('hinfo=%(string:hinfo)s',))
+    host_info_del = _ChangeTypeCode(
+        'host', 'host_info_del', 'del %(subject)s')
+    ip_number_add = _ChangeTypeCode(
+        'host', 'ip_number_add', 'add %(subject)s',
+        ('a_ip=%(string:a_ip)s',))
+    ip_number_update = _ChangeTypeCode(
+        'host', 'ip_number_upd', 'update %(subject)s',
+        ('a_ip=%(string:a_ip)s',))
+    ip_number_del = _ChangeTypeCode(
+        'host', 'ip_number_del', 'del %(subject)s')
+    rev_override_add = _ChangeTypeCode(
+        'host', 'rev_ovr_add', 'add rev-override %(subject)s -> %(dest)s')
+    rev_override_del = _ChangeTypeCode(
+        'host', 'rev_ovr_del', 'del rev-override for %(subject)s')
+    rev_override_update = _ChangeTypeCode(
+        'host', 'rev_ovr_upd', 'update rev-override %(subject)s -> %(dest)s')
+    srv_record_add = _ChangeTypeCode(
+        'host', 'srv_rec_add', 'add srv-record %(subject)s -> %(dest)s')
+    srv_record_del = _ChangeTypeCode(
+        'host', 'srv_rec_del', 'del srv-record %(subject)s -> %(dest)s')
 
 # arch-tag: 05900130-fb6f-4186-97d0-ded361bdfd88

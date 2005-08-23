@@ -14,8 +14,10 @@ from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
+from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExcension
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -100,6 +102,7 @@ def int_or_none_as_str(val):
     return None
 
 class BofhdExtension(object):
+    Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
     all_commands = {}
 
@@ -113,6 +116,17 @@ class BofhdExtension(object):
         ("other", "OTHER\tOTHER"),
         )
 
+    def __new__(cls, *arg, **karg):
+        # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
+        # into seperate classes.
+        for func in ('_format_changelog_entry', '_format_from_cl',
+                     '_get_entity_name', '_get_account', '_get_group',
+                     '_get_group_opcode'):
+            setattr(cls, func, UiOBofhdExcension.__dict__.get(
+            func))
+        x = object.__new__(cls)
+        return x
+
     def __init__(self, server, default_zone='uio'):
         self.server = server
         self.logger = server.logger
@@ -123,6 +137,16 @@ class BofhdExtension(object):
         self.dns_parser = Utils.DnsParser(server.db, self.default_zone)
         self._find = Utils.Find(server.db, self.default_zone)
         self.ba = BofhdAuth(self.db)
+
+        # From uio
+        self.num2const = {}
+        #self.str2const = {}
+        for c in dir(self.const):
+            tmp = getattr(self.const, c)
+            if isinstance(tmp, _CerebrumCode):
+                self.num2const[int(tmp)] = tmp
+                #self.str2const[str(tmp)] = tmp
+
 
     def get_help_strings(self):
         group_help = {
@@ -543,6 +567,17 @@ class BofhdExtension(object):
         self.mb_utils.mx_set_del(mx_set, host_ref)
         return "OK, deleted %s from mx_set %s" % (target_host_name, mx_set)
 
+    # host history
+    all_commands['host_history'] = Command(
+        ("host", "history"), HostName(),
+        perm_filter='can_show_history')
+    def host_history(self, operator, host_name):
+        host_ref = self._find.find_target_by_parsing(host_name, dns.DNS_OWNER)
+        ret = []
+        for r in self.db.get_log_events(0, subject_entity=host_ref):
+            ret.append(self._format_changelog_entry(r))
+        return "\n".join(ret)
+
     # host mx_list
     all_commands['host_mx_list'] = Command(
         ("host", "mx_list"), 
@@ -667,40 +702,6 @@ class BofhdExtension(object):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
-
-    # TODO: dette er cut&paste fra bofhd_uio_cmds.  Unødvendig
-    def _get_group(self, id, idtype=None, grtype="Group"):
-        if grtype == "Group":
-            group = self.Group_class(self.db)
-        elif grtype == "PosixGroup":
-            group = PosixGroup.PosixGroup(self.db)
-        try:
-            group.clear()
-            if idtype is None:
-                if id.count(':'):
-                    idtype, id = id.split(':', 1)
-                else:
-                    idtype='name'
-            if idtype == 'name':
-                group.find_by_name(id)
-            elif idtype == 'id':
-                group.find(id)
-            else:
-                raise CerebrumError, "unknown idtype: '%s'" % idtype
-        except Errors.NotFoundError:
-            raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
-        return group
-
-    def _get_group_opcode(self, operator):
-        if operator is None:
-            return self.const.group_memberop_union
-        if operator == 'union':
-            return self.const.group_memberop_union
-        if operator == 'intersection':
-            return self.const.group_memberop_intersection
-        if operator == 'difference':
-            return self.const.group_memberop_difference
-        raise CerebrumError("unknown group opcode: '%s'" % operator)
 
 if __name__ == '__main__':
     pass

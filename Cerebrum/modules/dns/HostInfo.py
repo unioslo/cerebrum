@@ -79,6 +79,8 @@ class HostInfo(EntityNote, Entity):
                 'tcols': ", ".join([x[0] for x in cols]),
                 'binds': ", ".join([x[1] for x in cols])},
                          binds)
+            self._db.log_change(self.entity_id, self.const.host_info_add, None,
+                                change_params={'hinfo': self.hinfo})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=dns_host_info]
@@ -86,6 +88,8 @@ class HostInfo(EntityNote, Entity):
             WHERE host_id=:e_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])},
                          binds)
+            self._db.log_change(self.entity_id, self.const.host_info_update, None,
+                                change_params={'hinfo': self.hinfo})
         del self.__in_db
         
         self.__in_db = True
@@ -143,6 +147,7 @@ class HostInfo(EntityNote, Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_host_info]
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
+        self._db.log_change(self.entity_id, self.const.host_info_del, None)
         self.delete_entity_note()
         self.__super.delete()
 
