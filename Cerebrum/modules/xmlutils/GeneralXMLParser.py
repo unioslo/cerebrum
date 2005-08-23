@@ -108,3 +108,5 @@ class GeneralXMLParser(xml.sax.ContentHandler):
             print "%s%s %s" % (" " * lvl * 2, ename, attrs)
             GeneralXMLParser.dump_tree(children, lvl+1)
     dump_tree = staticmethod(dump_tree)
+
+# arch-tag: 3d2da2f0-1426-11da-9bc0-cce5dd64a994
