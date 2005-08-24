@@ -515,7 +515,7 @@ class LT(object):
             db_row = argument
         # fi
 
-        return list(db_row.fields.keys())
+        return list(db_row.keys())
     # end get_column_names
     
 
