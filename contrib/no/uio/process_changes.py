@@ -102,7 +102,7 @@ class MakeUser(EvtHandler):
 
     def notify_account_home_added(self, evt, params):
         if params.get('spread', 0) == int(self.home_spread):
-            logger.debug("Creating entity_id=%s" % (evt.subject_entity))
+            logger.debug("Creating entity_id=%s" % (evt.fields.subject_entity))
             try:
                 if self._make_user(evt['subject_entity']):
                     status = const.home_status_on_disk
@@ -251,7 +251,7 @@ def process_changelog(evt_key, classes):
     ei = CLHandler.CLHandler(Factory.get('Database')())
     for evt in ei.get_events(evt_key, evt_id2call_back.keys()):
         ok = []
-        for call_back in evt_id2call_back[int(evt.change_type_id)]:
+        for call_back in evt_id2call_back[int(evt.fields.change_type_id)]:
             if evt['change_params']:
                 params = pickle.loads(evt['change_params'])
             else:

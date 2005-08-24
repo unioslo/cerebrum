@@ -287,7 +287,7 @@ def import_org_units(sources):
 
     existing_ou_mappings = {}
     for node in ou.get_structure_mappings(perspective):
-        existing_ou_mappings[int(node.ou_id)] = node.parent_id
+        existing_ou_mappings[int(node.fields.ou_id)] = node.fields.parent_id
 
     # Now populate ou_structure
     logger.info("Populate ou_structure")

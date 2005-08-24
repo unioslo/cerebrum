@@ -278,10 +278,10 @@ class PosixLDIF(object):
     def filegroup_object(self, row):
         """Create the group-entry attributes"""
         self.posgrp.clear()
-        self.posgrp.find(row['group_id'])
+        self.posgrp.find(row.fields.group_id)
         gname = LDIFutils.iso2utf(self.posgrp.group_name)
-        if not self.id2uname.has_key(int(row.group_id)):
-            self.id2uname[int(row['group_id'])] = gname
+        if not self.id2uname.has_key(int(row.fields.group_id)):
+            self.id2uname[int(row.fields.group_id)] = gname
         members = []
         entry = {'objectClass': ('top', 'posixGroup'),
                  'cn':          (gname,),
