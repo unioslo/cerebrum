@@ -3522,8 +3522,12 @@ class BofhdExtension(object):
             elif op in (self.const.bofh_move_give,):
                 dest = self._get_entity_name(self.const.entity_group,
                                              r['destination_id'])
+            if r['requestee_id'] is None:
+                requestee = ''
+            else:
+                requestee = self._get_entity_name(self.const.entity_account, r['requestee_id'])
             ret.append({'when': r['run_at'],
-                        'requestee': self._get_entity_name(self.const.entity_account, r['requestee_id']),
+                        'requestee': requestee,
                         'op': str(op),
                         'entity': self._get_entity_name(self.const.entity_account, r['entity_id']),
                         'destination': dest,
