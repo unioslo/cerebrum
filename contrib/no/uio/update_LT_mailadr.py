@@ -74,8 +74,10 @@ def attempt_commit(lt):
 
 
 def make_key(db_row):
-    return "%02d%02d%02d%05d" % (db_row.fodtdag, db_row.fodtmnd,
-                                    db_row.fodtar, db_row.personnr)
+    return "%02d%02d%02d%05d" % (db_row.fields.fodtdag,
+                                 db_row.fields.fodtmnd,
+                                 db_row.fields.fodtar,
+                                 db_row.fields.personnr)
 # end make_key
 
 
@@ -107,7 +109,7 @@ def synchronize_attribute(cerebrum_lookup,
     lt2attr = dict()
     for row in lt_lookup():
         fnr = make_key(row)
-        lt2attr[fnr] = row.kommnrverdi
+        lt2attr[fnr] = row.fields.kommnrverdi
     # od
     logger.debug("Done fetching information from LT")
 

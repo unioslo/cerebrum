@@ -148,7 +148,7 @@ def get_person_info(outfile):
 
         # Since LT.Permisjon(key, tilsnr) is the PK, this assignment will
         # never overwrite any information
-        pkey = str(p.tilsnr)
+        pkey = str(p.fields.tilsnr)
         if not persondta[key]["permisjon"].has_key(pkey):
             persondta[key]["permisjon"][pkey] = []
         # fi
@@ -285,9 +285,9 @@ def output_leaves( tilsetting, permisjoner ):
 
     accumulator = []
 
-    key = str(tilsetting.tilsnr)
+    key = str(tilsetting.fields.tilsnr)
     for permisjon in permisjoner.get(key, []):
-        result = [ (x, getattr(permisjon, x)) for x in
+        result = [ (x, getattr(permisjon.fields, x)) for x in
                    [ "permarsakkode", "dato_fra", "dato_til",
                      "prosent_permisjon", "lonstatuskode" ] ]
         accumulator.append( result )

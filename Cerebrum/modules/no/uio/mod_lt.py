@@ -1055,7 +1055,7 @@ class PersonLTMixin(Person.Person):
         if current_reservation:
             current_state["reservert"] = {
                 "person_id" : self.entity_id,
-                "reservert" : current_reservation[0].reservert
+                "reservert" : current_reservation[0].fields.reservert
                 }
         # fi
 

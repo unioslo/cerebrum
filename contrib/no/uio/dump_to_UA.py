@@ -234,17 +234,17 @@ def leave_covered(person, db_row):
     total = 0
 
     now = time.strftime("%Y%m%d")
-    for db_row in person.get_permisjon(now, db_row['tilsettings_id']):
-        if db_row['andel']:
-            total += int(db_row['andel'])
+    for row in person.get_permisjon(now, db_row.fields.tilsettings_id):
+        if row.fields.andel:
+            total += int(row.fields.andel)
         else:
             logger.debug("%s %s does not have andel",
-                         person.entity_id, db_row['tilsettings_id'])
+                         person.entity_id, row.fields.tilsettings_id)
         # fi
     # od
 
     logger.debug1("%s %s has andel == %d",
-                  person.entity_id, db_row.tilsettings_id, total)
+                  person.entity_id, db_row.fields.tilsettings_id, total)
     return total >= 100
 # end leave_covered
 
@@ -263,11 +263,11 @@ def process_employee(person, ou, const, db_row, stream):
 
     if leave_covered(person, db_row):
         logger.debug("%s has tilsetting %s which has >= 100%% coverage",
-                     person.entity_id, db_row.tilsettings_id)
+                     person.entity_id, db_row.fields.tilsettings_id)
         return
     # fi
 
-    stedkode = locate_stedkode(ou, db_row.ou_id)
+    stedkode = locate_stedkode(ou, db_row.fields.ou_id)
     startdato = ""
     if db_row['dato_fra']:
         startdato = db_row['dato_fra'].strftime("%d.%m.%Y")
@@ -306,7 +306,7 @@ def process_student(person, ou, const, db_row, stream):
         return
     # fi
     
-    stedkode = locate_stedkode(ou, db_row.ou_id)
+    stedkode = locate_stedkode(ou, db_row.fields.ou_id)
 
     # systemnr == 1 for students
     stream.write(prepare_entry(fnr = fnr,
@@ -359,7 +359,7 @@ def generate_output(stream, do_employees, do_students):
         for db_row in person.list_affiliations(
                         source_system = const.system_fs,
                         affiliation = int(const.affiliation_student)):
-            person_id = db_row.person_id
+            person_id = db_row.fields.person_id
             
             try:
                 person.clear()

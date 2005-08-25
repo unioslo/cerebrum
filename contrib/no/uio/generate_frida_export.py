@@ -101,9 +101,10 @@ def output_contact_element(writer, contact_entity, type, element, constants):
 
     sequence = contact_entity.get_contact_info(source = constants.system_lt,
                                                type = type)
-    sequence.sort(lambda x, y: cmp(x.contact_pref, y.contact_pref))
+    sequence.sort(lambda x, y: cmp(x.fields.contact_pref,
+                                   y.fields.contact_pref))
     value = ""
-    if sequence: value = sequence[0].contact_value
+    if sequence: value = sequence[0].fields.contact_value
 
     output_element(writer, value, element)
 # end output_contact_element
@@ -493,7 +494,7 @@ def construct_person_attributes(writer, db_person, constants):
     # This *cannot* fail or return more than one entry
     row = db_person.get_external_id(constants.system_lt,
                                     constants.externalid_fodselsnr)[0]
-    attributes["fnr"] = str(row.external_id)
+    attributes["fnr"] = str(row.fields.external_id)
 
     result = db_person.get_reservert()
     if result:
