@@ -182,7 +182,7 @@ class BofhdExtension(object):
             },
             'group': {
             'group_hadd': 'add machine to a netgroup',
-            'group_host': 'list groups where host is a member'
+            'group_host': 'list groups where host is a member',
             'group_hrem': 'remove machine from a netgroup'
             }
             }

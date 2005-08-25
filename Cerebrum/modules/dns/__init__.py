@@ -1,4 +1,5 @@
 # -*- coding: iso-8859-1 -*-
+from Cerebrum.modules.dns.IPUtils import IPCalc
 
 class SubNetDef(object):
     def __init__(self, net, mask, reserve=None):
@@ -9,18 +10,11 @@ class SubNetDef(object):
         self.net = net
         self.mask = mask
         self.__reserve = reserve
-        #self.reserved = self._calc_reserved(reserve)
-
-    def get_reserved(self):
-        if not hasattr(self, '_reserved'):
-            self._reserved = self._calc_reserved(self.__reserve)
-        return self._reserved
-    reserved = property(get_reserved, None, None)
+        self.reserved = self._calc_reserved(reserve)
+        ic = IPCalc()
+        self.start, self.stop = ic.ip_range_by_netmask(self.net, self.mask)
 
     def _calc_reserved(self, reserve):
-        # TBD: This avois circular import, but a better fix might be
-        # to split Utils into multiple files.
-        from Cerebrum.modules.dns.Utils import IPCalc
         ic = IPCalc()
         if reserve is not None:
             return [ic.ip_to_long(n) for n in reserve]

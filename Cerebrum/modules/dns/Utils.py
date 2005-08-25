@@ -1,6 +1,4 @@
 # -*- coding: iso-8859-1 -*-
-import struct
-import socket
 import re
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import HostInfo
@@ -8,42 +6,11 @@ from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import IntegrityHelper
+from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
 import cereconf_dns
 from Cerebrum.modules import dns
-
-class IPCalc(object):
-    """Methods for playing with IP-numbers"""
-
-    def netmask_to_intrep(netmask):
-        return pow(2L, 32) - pow(2L, 32-netmask)
-    netmask_to_intrep = staticmethod(netmask_to_intrep)
-
-    def ip_to_long(ip):
-        return struct.unpack('!L', socket.inet_aton(ip))[0]
-    ip_to_long = staticmethod(ip_to_long)
-
-    def long_to_ip(n):
-        return socket.inet_ntoa(struct.pack('!L', n))
-    long_to_ip = staticmethod(long_to_ip)
-    
-    def _parse_netdef(self, fname):
-        f = file(fname)
-        ip_re = re.compile(r'\s+(\d+\.\d+\.\d+\.\d+)/(\d+)\s+')
-        self.subnets = {}
-        for line in f.readlines():
-            match = ip_re.search(line)
-            if match:
-                net, mask = match.group(1), int(match.group(2))
-                self.subnets[net] = (mask, ) + \
-                                    self.ip_range_by_netmask(net, mask)
-
-    def ip_range_by_netmask(self, subnet, netmask):
-        tmp = struct.unpack('!L', socket.inet_aton(subnet))[0]
-        start = tmp & IPCalc.netmask_to_intrep(netmask)
-        stop  =  tmp | (pow(2L, 32) - 1 - IPCalc.netmask_to_intrep(netmask))
-        return start, stop
 
 class DnsParser(object):
     """Map user-entered data to dns datatypes/database-ids"""
@@ -90,7 +57,7 @@ class DnsParser(object):
             full_ip = False
         try:
             ipc = Find(self._db, None)
-            subnet = ipc._find_subnet(ip_id)
+            subnet = ipc._find_subnet(ip_id).net
         except IntegrityHelper.DNSError:
             subnet = None
         return subnet, full_ip and ip_id or None
@@ -126,7 +93,7 @@ class Find(object):
         ic = IPCalc()
         for sub_def in cereconf_dns.all_nets:
             start, stop = ic.ip_range_by_netmask(sub_def.net, sub_def.mask)
-            self.subnets[sub_def.net] = (sub_def.mask, start, stop)
+            self.subnets[sub_def.net] = sub_def
 
     def find_target_by_parsing(self, host_id, target_type):
         """Find a target with given host_id of the specified
@@ -217,37 +184,38 @@ class Find(object):
 
     def find_free_ip(self, subnet):
         """Returns the first free IP on the subnet"""
-        a_ip = self._find_available_ip(subnet)
+        subnet_def = self._find_subnet(subnet)
+        a_ip = self._find_available_ip(subnet_def)
         if not a_ip:
             raise ValueError, "No available ip on that subnet"
-        return [socket.inet_ntoa(struct.pack('!L', t)) for t in a_ip]
+        return [IPCalc.long_to_ip(t) for t in a_ip]
 
     def _find_subnet(self, subnet):
         """Translate the user-entered subnet to the key in
         self.subnets"""
         if len(subnet.split(".")) == 3:
             subnet += ".0"
-        numeric_ip = struct.unpack('!L', socket.inet_aton(subnet))[0]
-        for net, (mask, start, stop) in self.subnets.items():
-            if numeric_ip >= start and numeric_ip <= stop:
-                return net
+        numeric_ip = IPCalc.ip_to_long(subnet)
+        for net, subnet_def in self.subnets.items():
+            if numeric_ip >= subnet_def.start and numeric_ip <= subnet_def.stop:
+                print "REROT: ", repr(net)
+                return subnet_def
         raise IntegrityHelper.DNSError, "%s is not in any known subnet" % subnet
 
-    def _find_available_ip(self, subnet):
+    def _find_available_ip(self, subnet_def):
         """Returns all ips that are not reserved or taken on the given
         subnet in ascending order."""
 
-        subnet = self._find_subnet(subnet)
-        mask, start, stop = self.subnets[subnet]
         ip_number = IPNumber.IPNumber(self._db)
         ip_number.clear()
         taken = {}
-        for row in ip_number.find_in_range(start, stop):
+        for row in ip_number.find_in_range(subnet_def.start, subnet_def.stop):
             taken[long(row['ipnr'])] = int(row['ip_number_id'])
         ret = []
-        for n in range(0, (stop-start)+1):
-            if not taken.has_key(long(start+n)) and n not in subnet.reserved:
-                ret.append(n+start)
+        for n in range(0, (subnet_def.stop-subnet_def.start)+1):
+            if (not taken.has_key(long(subnet_def.start+n)) and
+                n not in subnet_def.reserved):
+                ret.append(n+subnet_def.start)
         return ret
 
     def find_ip(self, a_ip):
