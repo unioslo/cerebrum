@@ -508,25 +508,25 @@ class UiOBetaling(access_FS.FSObject):
         FROM fs.fakturareskontrodetalj fkd,
              fs.fakturareskontro frk,
              fs.registerkort r
-        WHERE
-        r.TERMINKODE = :semester AND
-        r.arstall = :year AND
-        r.regformkode in ('STUDWEB','MANUELL') AND
-        r.fodselsdato = frk.fodselsdato AND
-        r.personnr = frk.personnr AND
-        frk.status_betalt = 'J' AND
-        frk.terminkode = r.terminkode AND
-        frk.arstall = r.arstall AND
-        frk.fakturastatuskode ='OPPGJORT' AND
-        fkd.fakturanr = frk.fakturanr AND
-        fkd.fakturadetaljtypekode = 'KOPIAVG'"""
-	qry += """ UNION
+        WHERE r.TERMINKODE = :semester AND
+              r.arstall = :year AND
+              r.regformkode in ('STUDWEB','MANUELL') AND
+              r.fodselsdato = frk.fodselsdato AND
+              r.personnr = frk.personnr AND
+              frk.status_betalt = 'J' AND
+              frk.terminkode = r.terminkode AND
+              frk.arstall = r.arstall AND
+              frk.fakturastatuskode ='OPPGJORT' AND
+              fkd.fakturanr = frk.fakturanr AND
+              fkd.fakturadetaljtypekode = 'KOPIAVG'
+        UNION
         SELECT DISTINCT r.fodselsdato, r.personnr
         FROM fs.registerkort r
-        WHERE
-        r.TERMINKODE = :semester AND
-        r.arstall = :year AND
-        r.betformkode IN ('FRITATT', 'EKSTERN')"""
+        WHERE r.TERMINKODE = :semester AND
+              r.arstall = :year AND
+              r.betformkode IN ('FRITATT', 'EKSTERN')"""
+        return self.db.query(qry, {'semester': self.semester,
+                                   'year': self.year})
 
 
 class FS(access_FS.FS):
