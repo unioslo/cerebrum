@@ -280,13 +280,13 @@ class StudconfigParser(object):
         GeneralXMLParser(cfg, cfg_file)
 
     def got_default_values(self, dta, elem_stack):
-        for ename, attrs, children in dta:
+        for ename, txt, attrs, children in dta:
             for a in attrs:
                 self._config.default_values['%s_%s' % (ename, a)] = attrs[a]
 
     def got_disk_oversikt(self, dta, elem_stack):
         tmp_disk_spreads = []
-        for ename, attrs, children in dta:
+        for ename, txt, attrs, children in dta:
             if ename == 'disk_spread':
                 s = int(self._config.lookup_helper.get_spread(attrs['kode']))
                 tmp_disk_spreads.append(s)
@@ -316,16 +316,16 @@ class StudconfigParser(object):
                     "Unexpected tag %s in disk_oversikt" % ename)
 
     def got_disk_pool(self, dta, elem_stack):
-        for ename, attrs, children in dta:
+        for ename, txt, attrs, children in dta:
             if ename == 'pool':
-                for ename2, attrs2, children2 in children:
+                for ename2, txt2, attrs2, children2 in children:
                     if ename2 == 'disk':
                         self._config.autostud.disk_tool.append_to_pool(
                             attrs['name'], orderby=attrs.get('orderby', None),
                             **attrs2)
                         
     def got_gruppe_oversikt(self, dta, elem_stack):
-        for ename, attrs, children in dta:
+        for ename, txt, attrs, children in dta:
             if ename == 'gruppedef':
                 self._legal_groups[attrs['navn']] = 1
                 self._config.group_defs[attrs['navn']] = {
@@ -336,7 +336,7 @@ class StudconfigParser(object):
                     "Unexpected tag %s in gruppe_oversikt" % ename)
     
     def got_spread_oversikt(self, dta, elem_stack):
-        for ename, attrs, children in dta:
+        for ename, txt, attrs, children in dta:
             if ename == 'spreaddef':
                 self._config.required_spread_order.append(
                     self._config.lookup_helper.get_spread(attrs['kode']))
@@ -350,7 +350,7 @@ class StudconfigParser(object):
             self._config, elem_stack[-1][-1]['navn'], self._config._logger,
             super=elem_stack[-1][-1].get('super', None))
 
-        for ename, attrs, children in dta:
+        for ename, txt, attrs, children in dta:
             if ename in self.profil_settings:
                 if ename == 'gruppe' and not self._legal_groups.has_key(
                     attrs['navn']):
@@ -368,7 +368,7 @@ class StudconfigParser(object):
                             attrs[k] = int(v)
                 in_profil.add_setting(ename, attrs)
             elif ename == 'select':
-                for ename2, attrs2, children2 in children:
+                for ename2, txt2, attrs2, children2 in children:
                     if not ename2 in SelectTool.select_map_defs:
                         self._config.add_error(
                             "Unexpected tag '%s', attr=%s in %s" % (
