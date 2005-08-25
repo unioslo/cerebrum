@@ -8,10 +8,10 @@ from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import IntegrityHelper
-from Cerebrum.modules import dns
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
 import cereconf_dns
+from Cerebrum.modules import dns
 
 class IPCalc(object):
     """Methods for playing with IP-numbers"""
@@ -239,20 +239,6 @@ class Find(object):
 
         subnet = self._find_subnet(subnet)
         mask, start, stop = self.subnets[subnet]
-        #start, stop = self._ip_range_by_netmask(subnet, mask)
-        
-        #print "start: ", socket.inet_ntoa(struct.pack('!L', start))
-        #print "stop: ", socket.inet_ntoa(struct.pack('!L', stop))
-
-        if mask == 23:
-            reserved = ([0] +            # (Possible) broadcast address
-                        range(1,9+1) +     # Reserved for routers (and servers)
-                        range(101,120+1) + # Reserved for nett-drift
-                        range(255,257+1)+  # $subnet.255, $subnet+1.0 and $subnet+1.1
-                        [511])             # $subnet+1.255
-        else:
-            # TODO: Hvilke nummer i øvrige nettmasker skal man ligge unna?
-            reserved = [0]
         ip_number = IPNumber.IPNumber(self._db)
         ip_number.clear()
         taken = {}
@@ -260,7 +246,7 @@ class Find(object):
             taken[long(row['ipnr'])] = int(row['ip_number_id'])
         ret = []
         for n in range(0, (stop-start)+1):
-            if not taken.has_key(long(start+n)) and n not in reserved:
+            if not taken.has_key(long(start+n)) and n not in subnet.reserved:
                 ret.append(n+start)
         return ret
 
