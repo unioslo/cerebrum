@@ -292,7 +292,7 @@ class Help(object):
             for k in gh.keys():
                 self.group_help[k] = gh[k]
             for k in ch.keys():
-                self.command_help[k] = ch[k]
+                self.command_help.setdefault(k, {}).update(ch[k])
             for k in ah.keys():
                 self.arg_help[k] = ah[k]
 
