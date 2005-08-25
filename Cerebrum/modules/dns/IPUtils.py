@@ -33,3 +33,5 @@ class IPCalc(object):
         start = tmp & IPCalc.netmask_to_intrep(netmask)
         stop  =  tmp | (pow(2L, 32) - 1 - IPCalc.netmask_to_intrep(netmask))
         return start, stop
+
+# arch-tag: b6968cee-155f-11da-9d2c-cbda6ba4b016
