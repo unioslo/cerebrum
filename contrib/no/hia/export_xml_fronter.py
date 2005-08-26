@@ -176,7 +176,8 @@ def load_acc2name():
             'FAMILY': names[int(const.name_last)],
             'EMAIL': email,
             'USERACCESS': 2,
-            'PASSWORD': 5,
+            # HiA har bedt om denne eksplisitt
+            'PASSWORD': 'ldap1',
             'EMAILCLIENT': 1}
     return ret
 
@@ -561,11 +562,12 @@ def main():
     # Spytt ut PERSON-elementene.
     for user in acc2names.itervalues():
         fxml.user_to_XML(user['NAME'],
-                         # Forhåpentligvis gjør "STATUS_UPDATE" at
-                         # brukeren ikke får satt passord lik
-                         # brukernavn, i motsetning til hva som skjer
-                         # med "STATUS_ADD".
-                         fronter_lib.Fronter.STATUS_UPDATE,
+                         # Som påpekt av HiA i en e-post til cerebrum-hia
+                         # (<messsage-id:430C4970.2030709@fronter.com), skal
+                         # vi bruke STATUS_ADD (autentiseringsrutinene har
+                         # endret seg og nå *skal* man levere dumpen med
+                         # recstatus=1).
+                         fronter_lib.Fronter.STATUS_ADD,
                          user)
 
     # Registrer en del semi-statiske strukturnoder.
