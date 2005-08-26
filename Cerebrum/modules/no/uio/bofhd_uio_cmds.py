@@ -3003,7 +3003,7 @@ class BofhdExtension(object):
         # 4. make user a member of his personal group
         self._group_add(None, uname, uname, type="account")
         # 5. make this group the primary group
-        acc.gid_id = grp.entity_id
+        acc.gid_id = group.entity_id
         acc.write_db()
         # 6. add spreads corresponding to its owning user
         self.__spread_sync_group(acc, group)
