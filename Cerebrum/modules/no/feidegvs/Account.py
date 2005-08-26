@@ -189,3 +189,5 @@ class AccountFeideGvsMixin(Account.Account):
             ph = PasswordHistory.PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
+
+# arch-tag: 1d947ef8-15c7-11da-8378-c95d5955533b
