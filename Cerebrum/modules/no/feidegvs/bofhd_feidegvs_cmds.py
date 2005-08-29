@@ -2834,4 +2834,3 @@ class BofhdExtension(object):
         by = row['change_program'] or self._get_entity_name(None, row['change_by'])
         return "%s [%s]: %s" % (row['tstamp'], by, msg)
 
-# arch-tag: 98930b8a-4170-453a-a5db-34177f3ac40f
