@@ -725,7 +725,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
         # NB! outer joins are not necessary here. Not displaying FNRs with
         # missing accounts is quite alright.
-        # Losely speaking -- we select a non-expired account having the
+        # Loosely speaking -- we select a non-expired account having the
         # smallest priority among the non-expired accounts.
         for row in self.query("""
             SELECT
@@ -733,7 +733,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             FROM
               [:table schema=cerebrum name=entity_external_id] eei,
               [:table schema=cerebrum name=account_type] at,
-              [:table schema=cerebrum name=account_info] ai,
               [:table schema=cerebrum name=entity_name] en
             WHERE
               -- make sure the external id is of the right kind
@@ -742,10 +741,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               eei.entity_type = [:get_constant name=entity_person] AND
               -- ... and the external id belongs to the account owner
               eei.entity_id = at.person_id AND
-              -- ... and the account info is for the right account
-              ai.account_id = at.account_id AND
-              -- ... and the account is NOT expired
-              (ai.expire_date IS NULL OR ai.expire_date > [:now]) AND
               -- ... and the priority is the smallest among non-expired
               -- ... accounts for the same person
               at.priority = (SELECT
