@@ -703,6 +703,8 @@ class CommonConstants(ConstantsBase):
         'on_disk', 'Currently on disk')
     home_status_archived = _AccountHomeStatusCode(
         'archived', 'Has been archived')
+    home_status_pending_restore = _AccountHomeStatusCode(
+        'pending_restore', 'Pending restore')
 
 class Constants(CoreConstants, CommonConstants):
 
