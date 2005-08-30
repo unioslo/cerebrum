@@ -328,7 +328,7 @@ def output_people():
             (name_collection[0][0] != "fn") or
             (not id_collection)):
             # Don't make it a warn() -- there are too damn many
-            logger.debug("Person id %s lacks some attirbutes. Skipped", id)
+            logger.debug("Person id %s lacks some attributes. Skipped", id)
             continue
         # fi
 
@@ -935,7 +935,7 @@ def generate_report():
 
 def main():
     global logger, const, cerebrum_db, xmlwriter
-    logger = Factory.get_logger()
+    logger = Factory.get_logger("cronjob")
     logger.info("generating a new XML for export_ACL")
 
     cerebrum_db = Factory.get("Database")()
