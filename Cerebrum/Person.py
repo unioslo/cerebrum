@@ -725,23 +725,40 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
         # NB! outer joins are not necessary here. Not displaying FNRs with
         # missing accounts is quite alright.
+        # Losely speaking -- we select a non-expired account having the
+        # smallest priority among the non-expired accounts.
         for row in self.query("""
             SELECT
               DISTINCT eei.external_id, en.entity_name
             FROM
               [:table schema=cerebrum name=entity_external_id] eei,
               [:table schema=cerebrum name=account_type] at,
+              [:table schema=cerebrum name=account_info] ai,
               [:table schema=cerebrum name=entity_name] en
             WHERE
+              -- make sure the external id is of the right kind
               eei.id_type = :id_type AND
+              -- ... and it applies to a person 
               eei.entity_type = [:get_constant name=entity_person] AND
+              -- ... and the external id belongs to the account owner
               eei.entity_id = at.person_id AND
+              -- ... and the account info is for the right account
+              ai.account_id = at.account_id AND
+              -- ... and the account is NOT expired
+              (ai.expire_date IS NULL OR ai.expire_date > [:now]) AND
+              -- ... and the priority is the smallest among non-expired
+              -- ... accounts for the same person
               at.priority = (SELECT
                                min(at2.priority)
                              FROM
-                               [:table schema=cerebrum name=account_type] at2
+                               [:table schema=cerebrum name=account_type] at2,
+                               [:table schema=cerebrum name=account_info] ai2
                              WHERE
-                               at2.person_id = eei.entity_id) AND
+                               at2.person_id = eei.entity_id AND
+                               at2.account_id = ai2.account_id AND
+                               (ai2.expire_date IS NULL OR
+                                ai2.expire_date > [:now])) AND
+              -- ... and finally to find the name of the account
               at.account_id = en.entity_id
             """, {"id_type" : int(id_type)}):
             result[row["external_id"]] = row["entity_name"]
