@@ -100,6 +100,8 @@ class Constants(Constants.Constants):
     bofh_delete_user = _BofhdRequestOpCode('br_delete_user', 'Delete user')
     bofh_quarantine_refresh = _BofhdRequestOpCode('br_quara_refresh',
                                                   'Refresh quarantine')
+    bofh_homedir_restore = _BofhdRequestOpCode('br_homedir_rest',
+                                               'Restore users homedir')
     
     # br_email_move stays in queue until delivery has stopped.
     # generate_mail_ldif.py will set the mailPause attribute based on
@@ -121,6 +123,8 @@ class Constants(Constants.Constants):
                                             'Set e-mail hard quota')
     bofh_email_convert = _BofhdRequestOpCode('br_email_convert',
                                              'Convert user mail config')
+    bofh_email_restore = _BofhdRequestOpCode('br_email_restore',
+                                             'Restore users mail from backup')
     # entity_id is address_id of the official name of the mailing list
     # destination_id is address_id of the admin address
     bofh_mailman_create = _BofhdRequestOpCode('br_mm_create',
@@ -192,6 +196,12 @@ class BofhdRequests(object):
             int(c.bofh_mailman_remove):  [ c.bofh_mailman_create,
                                            c.bofh_mailman_add_admin ],
             int(c.bofh_quarantine_refresh): None,
+            int(c.bofh_email_restore): [c.bofh_email_create,
+                                        c.bofh_email_hquota],
+            int(c.bofh_homedir_restore): [c.bofh_move_user,
+                                          c.bofh_move_user_now,
+                                          c.bofh_move_student,
+                                          c.bofh_delete_user]
             }[int(op)]
 
         if conflicts is None:
