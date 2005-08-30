@@ -27,6 +27,7 @@ name when constructing a Group object."""
 
 import mx
 
+import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import Entity, EntityName, EntityQuarantine
@@ -326,13 +327,16 @@ class Group(EntityQuarantine, EntityName, Entity):
             # at UiO, there are no entities with two names.
             
             extcols += ", entity_name"
+            tmp = []
+            for enitity_type_code_str, namespace_code_str in \
+                    cereconf.ENTITY_TYPE_NAMESPACE.items():
+                tmp.append("(en.value_domain = %i AND gm.member_type = %i)" % (
+                    self.const.ValueDomain(namespace_code_str),
+                    self.const.EntityType(enitity_type_code_str)))
             extfrom += """
             JOIN [:table schema=cerebrum name=entity_name] en
               ON (gm.member_id = en.entity_id AND
-                  ((en.value_domain = :group_dom AND
-                    gm.member_type = :entity_group) OR
-                   (en.value_domain = :account_dom AND
-                    gm.member_type = :entity_account)))"""
+                  (%s))""" % (" OR ".join(tmp))
         if filter_expired:
             extfrom += """
             LEFT JOIN [:table schema=cerebrum name=account_info] ai
