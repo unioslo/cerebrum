@@ -53,7 +53,7 @@ def _ext_cols(db_rows):
     # TBD: One might consider letting xmlify_dbrow handle this
     cols = None
     if db_rows:
-        cols = list(db_rows[0]._keys())
+        cols = list(db_rows[0].keys())
     return cols, db_rows
 
 def write_hia_person_info(outfile):
