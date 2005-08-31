@@ -205,30 +205,6 @@ class HiAEVU(access_FS.EVU):
     
 
 class FS(access_FS.FS):
-    # The _get_termin_aar and _get_next_term_aar methods are slightly
-    # changed in order to make the spring term at HiA last a while longer
-    # They  should be removed on 2005-08-01
-    def _get_termin_aar(self, only_current=0):
-        if self.mndnr <= 7:
-            # Months January - June == Spring semester
-            current = "(r.terminkode = 'VÅR' AND r.arstall=%s)\n" % self.year;
-            if only_current or self.mndnr >= 3 or (self.mndnr == 2 and self.dday > 15):
-                return current
-            return "(%s OR (r.terminkode = 'HØST' AND r.arstall=%d))\n" % (
-                current, self.year-1)
-        # Months July - December == Autumn semester
-        current = "(r.terminkode = 'HØST' AND r.arstall=%d)\n" % self.year
-        if only_current or self.mndnr >= 10 or (self.mndnr == 9 and self.dday > 15):
-            return current
-        return "(%s OR (r.terminkode = 'VÅR' AND r.arstall=%d))\n" % (current, self.year)
-
-    def _get_next_termin_aar(self):
-        """henter neste semesters terminkode og årstal."""
-        if self.mndnr <= 7:
-            next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % self.year
-        else:
-            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (self.year + 1)
-        return next
 
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
@@ -242,12 +218,6 @@ class FS(access_FS.FS):
         self.student = HiAStudent(self.db)
         self.undervisning = HiAUndervisning(self.db)
 
-        # The following two lines are a part of a hack introduced in order
-        # to make the spring term at HiA last a while longer.
-        # The hack is supposed to be removed 2005-08-01.
-        self.undervisning._get_termin_aar = self._get_termin_aar
-        self.undervisning._get_next_termin_aar = self._get_next_termin_aar
-        
         self.evu = HiAEVU(self.db)
         
 # arch-tag: 57960926-bfc8-429c-858e-b76f8b0ca6c4
