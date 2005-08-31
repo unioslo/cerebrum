@@ -10,21 +10,17 @@
 * NIS
 ** Bygge maskinnettgrupper i tillegg til brukernettgrupper
 
-  Description: Dette er egentlig 'mreg' fase 1.  Det meste her er
-               skrevet jmf RF, men ikke noe er sjekket inn eller
-               testet.  Inneholdet kan beskrives av runefro.
+  Description: Dette er modulen mod_dns
 
   Dependencies:
   Assigned to: runefro
   Due date:
-  Priority: 4 (Innebærer at mreg er på plass)
-  Status: Det er restartet en aktivitet for å få etablert noe i løpet
-          av ikke alt for lang tid.  Aktiviteten ledes av Petter
-          Reinholdsen.
+  Priority: 4 
+  Status: Under arbeid
 
 ** Rekursive grupper
 
-  Description: File- og nettgrupper må ta hensyn til subgrupper (både
+  Description: Fil- og nettgrupper må ta hensyn til subgrupper (både
                union, snitt og differanse).  Tar hensyn til
                union-medlemmer i dag, men snitt og differanse er ikke
                implementert.
@@ -47,11 +43,14 @@
                bruker er med i flere enn 16 grupper som er kjent i det
                NIS som det eksporteres til, hvordan velger vi da ut de
                16 brukeren får?
+	       The check in UiO's mixin for Group isn't sufficient to stop users from
+	       joining more than 16 groups. Neither is this patch, but it does warn the
+	       operator about what's happening most of the time, hopefully.
   Dependencies:
-  Assigned to:
+  Assigned to: kjetilho
   Resources:
   Cost:
-  Status:
+  Status: 
   Due date:
   Priority: 3
 *** Implementere løsning
@@ -73,7 +72,7 @@
   Due date:
   Priority: 4
 ** Personnavnoverstyring 
-  Description: Hvorfor trenger vi dette? 
+  Description: Hvorfor trenger vi dette? Indeed, why?
 
                Typisk for bruk der personer har offisielle navn (fra
                folkeregistrert) som de ikke ønsker brukt til daglig.
@@ -151,7 +150,7 @@
   Assigned to: fredrivo
   Resources: runefro
   Cost: 16t
-  Status: har opplegg klart, men må testes på nytt
+  Status: satt i produksjon?
   Due date:
   Priority: 2
 ** Skrive om AD-servicen
@@ -188,9 +187,9 @@
   Description:
   Dependencies:
   Assigned to: fredrivo
-  Resources: pcadm, mraaum
+  Resources: 
   Cost: (lite)
-  Status: Er testet på dummy. Testmiljø for windows er i ferd med å bli etablert
+  Status: ?
   Due date: 
   Priority: 2
 ** Fjerne krav om å oppbevare klartekstpassord i Cerebrum
@@ -226,7 +225,7 @@
   Assigned to: hbf
   Resources: mathiasm, baardj
   Cost:
-  Status: egentlig en sak for katalogdrift
+  Status: started
   Due date: 2005-01-15
   Priority: 1.5
 ** Hvordan representerer vi Feide-ID i Cerebrum?
@@ -281,7 +280,7 @@
   Assigned to: hmeland
   Resources: jazz, kjetilho, baardj
   Cost:
-  Status:
+  Status: Specifications started by baardj (uiocerebrum)
   Due date:
   Priority: 3
 ** Rene Epost-brukere
@@ -333,9 +332,7 @@
   Cost: 2t
   Due date: 2005-01-15
   Priority: 1.1
-  Status: Vi får en ny FSDemo i morgen 26/1, scriptet blir kjørt i
-          test mot denne i noen dager før vi går i prod (tentativt
-          31/1).
+  Status: Done
 
 ** Synkronisere steddata fra HR til FS via Cerebrum
   Description: Ved UiO er HR autoritativ for OU-informasjon, og FS er
@@ -349,7 +346,7 @@
   Cost:
   Status: Efter samtaler med SFA er det klart at de ikke ønsker en
           slik synkronisering.  Ønsket er moderert til kun å få en
-          mail om forskjellene.
+          mail om forskjellene. TBD: make sure SFA gets the email, too.
   Due date:
   Priority: 3
 
@@ -399,7 +396,7 @@
   Assigned to:
   Resources:
   Cost:
-  Status:
+  Status: Done
   Due date:
   Priority: 1
 
@@ -414,7 +411,7 @@
   Assigned to:
   Resources:
   Cost:
-  Status:
+  Status: Done
   Due date:
   Priority: 1
 
@@ -437,7 +434,7 @@
                bygget automatisk vedlikeholdte grupper rundt dette.
   Dependencies:
   Assigned to:
-  Resources:
+  Resources: specifications to be made by baardj
   Cost:
   Status:
   Due date:
@@ -505,17 +502,6 @@
 *** Spesifikasjon av automatiske grupper
   Description: Vi ønsker automatiske grupper for studieprogrammer og
                -retninger på lik linje med kull og klasser.
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority: 2
-
-*** Import av data inn i Cerebrum
-  Description: Utvide import-skriptene for FS til å hente
-               kull-informasjon etc. inn i Cerebrum
   Dependencies:
   Assigned to:
   Resources:
@@ -630,10 +616,10 @@
    Description: Avvikling av Platon og strukturering av studentservere:
 		endring av DTD til studconfig
   Dependencies:
-  Assigned to: 
-  Resources: 
+  Assigned to: runefro 
+  Resources: jazz, baardj
   Cost:
-  Status: DTD-endring gjort
+  Status: Done
   Due date:
   Priority: 2
 
@@ -647,7 +633,7 @@
   Assigned to: runefro
   Resources: jazz
   Cost:
-  Status:
+  Status: 
   Due date:
   Priority: 2
 
@@ -656,10 +642,10 @@
                brukere (brukeres hjemområde) må gjennomgås slik at den
                kan kjøre uten alt for store innslag av manuelt arbeid.
   Dependencies:
-  Assigned to: jazz
+  Assigned to: rogerha
   Resources: runefro
   Cost:
-  Status:
+  Status: spec done, awaiting implementation
   Due date:
   Priority: 2
 
@@ -682,10 +668,10 @@
                også tas stilling til om det gamle hjemmeområdet og
                e-posten hans skal hentes tilbake fra backup.
   Dependencies: 9.4
-  Assigned to: 
+  Assigned to: runefro
   Resources: 
   Cost:
-  Status:
+  Status: spec done
   Due date:
   Priority: 2.2
 
@@ -717,7 +703,7 @@
   Status:
   Due date:
   Priority: 3
-*** Automagi i setting av expire_date for tilsatte som slutter
+*** Automagi i setting av expire_date for tilsatte som slutter (bør innunder slettede brukere)
 *** Automatisk oppdaterte grupper i for sted og type tilsetting
 *** Automatisk tildeling av brukernavn for ny-tilsatte (ikke home,
     mail (?), kun kjent i katalogen).
@@ -863,7 +849,7 @@
   Assigned to:
   Resources:
   Cost:
-  Status:
+  Status: awaiting acceptance from TA
   Due date:
   Priority: 4
 
@@ -893,7 +879,7 @@
   Resources:
   Cost:
   Status:
-  Due date: 2005-02-01
+  Due date: 
   Priority: 1
 
 ** Eksport av kull/klasser/studieretninger til ClassFronter
@@ -957,7 +943,7 @@
   Resources: Frank S
   Cost: 10 t
   Status: 
-  Due date: 2005-01-15
+  Due date: 
   Priority: 1
 
 ** Valg av verktøyliste/rominnredning for Cf-rom i FS 
@@ -995,7 +981,7 @@
   Assigned to: 
   Resources:
   Cost: 40 t
-  Status: 
+  Status: DML changed their minds after the work was done. Pending.
   Due date: 2005-08-01
   Priority: 3
 
@@ -1014,7 +1000,7 @@
   Resources: 
   Cost: 
   Status: 
-  Due date: 2005-01-15
+  Due date: 
   Priority: 3
 
 ** Korridor/rom for Studieprogram
@@ -1068,7 +1054,7 @@
   Assigned to: igorr
   Resources: baardj, hmeland
   Cost:
-  Status: 
+  Status: Done
   Due date:
   Priority: 2
 
@@ -1168,10 +1154,10 @@
 ** Restore av bruker
   Description: Hvordan gjenopplives en slettet bruker?
   Dependencies:
-  Assigned to: Bård
-  Resources: (Jazz), Rune
+  Assigned to: runefro
+  Resources: 
   Cost:
-  Status: mangler doc, noen av disse bør inn i bofh
+  Status: specifications made
   Due date:
   Priority: 2.1
 *** Gjenoppliving av Cerebrum-database-data for bruker
@@ -1261,7 +1247,7 @@
   Assigned to: hmeland
   Resources: 
   Cost: 
-  Status: Påbegynnes over nyttår
+  Status: 
   Due date: 
   Priority: 1.2
 
@@ -1337,7 +1323,7 @@
   Assigned to: Igor
   Resources: Harald, Rune, Kjetil/Mathias
   Cost:
-  Status: i test
+  Status: i prod?
   Due date: 
   Priority: 1.5
 
@@ -1347,7 +1333,7 @@
                hvilket autoritativt system de kommer fra.  Hvilke
                skjemaer trenger vi, hvor rike skal de være, må vi lage
                helt nye...
-               Denne er todelt: Bård Enterprise og IMS. Se IMS-punkt.
+               Denne er todelt: ABC Enterprise og IMS. Se IMS-punkt.
   Dependencies:
   Assigned to: mathiasm
   Resources: baardj, runefro
@@ -1364,12 +1350,12 @@
 	       bør slike "fremmed-elementer" oppbevares?  I
 	       Cerebrum-databasen eller som fil?
   Dependencies:
-  Assigned to:
-  Resources:
+  Assigned to: baardj
+  Resources: runefro, igorr
   Cost:
   Status:
   Due date:
-  Priority: 4
+  Priority: 2
 
 ** Automatikk for håndtering av expire_dates
   Description: Når en konto får satt expire_date, må det finnes
@@ -1378,10 +1364,10 @@
 	       Andre ting som har expire_date må også håndteres.
                Alias: rydd&vask av gamle data.
   Dependencies:
-  Assigned to: Rune 
-  Resources:  Bård
+  Assigned to: rogerha
+  Resources: runefro
   Cost:
-  Status: Bård skal utrede intensjonen, og hva som må ryddes i før det påbegynnes.
+  Status: specification made
   Due date:
   Priority: 1.3
 
@@ -1395,7 +1381,7 @@
   Assigned to: Rune
   Resources:
   Cost:
-  Status: Diskutert på møte, dokument skal skrives.
+  Status: Done
   Due date:
   Priority: 1.3
 
@@ -1404,8 +1390,8 @@
   Description: Gå gjennom eksisterende kode, og forsikre seg om at den
                håndterer expire_dates som beskrevet i dokumentasjonen.
   Dependencies: Dokumentere expire_dates
-  Assigned to:
-  Resources:
+  Assigned to: rogerha
+  Resources: runefro
   Cost:
   Status:
   Due date:
@@ -1420,7 +1406,7 @@
   Assigned to: igorr
   Resources:
   Cost:
-  Status:
+  Status: Done
   Due date:
   Priority: 1.5
 
@@ -1437,6 +1423,14 @@
 
 ** Få på plass webgrensesnitt for flere tjenester (ønsket er også
    infoside som it-personell kan få opp.
+  Description: 
+  Dependencies: 
+  Assigned to: runefro
+  Resources: christfs
+  Cost: 
+  Status: first edition is out
+  Due date: 
+  Priority: 2 
 
 *** Lage liste over hvilke tjenester som trengs
   Description: Først bør man ha møte og kanskje spørre en termvak/lukevakt/it-ansvarlig
@@ -1460,7 +1454,7 @@
 
 ** BOFH-forbedringer, f.eks. alias.
   Description: Hvilke andre ting enn "alias"-eksempelet omfattes av
-	       dette punktet?
+	       dette punktet? Needs specification
   Dependencies:
   Assigned to:
   Resources:
@@ -1469,7 +1463,7 @@
   Due date:
   Priority: 4
 
-** BOFH: Tilbakemeldinger for lite spesifikke
+*** BOFH: Tilbakemeldinger for lite spesifikke
   Description: Når noe går bra, bør det returneres *hva* som gikk bra,
 	       og ikke bare "OK".  Tilsvarende når noe går galt.
   Dependencies:
@@ -1485,7 +1479,7 @@
 	       Disse delene bør derfor splittes ut i andre bofh-moduler.
   Dependencies:
   Assigned to: kjetilho
-  Resources: jazz
+  Resources: runefro, jazz
   Cost:
   Status:
   Due date:
@@ -1497,17 +1491,6 @@
 
 	       Hvordan dette punktet løses avhenger i stor grad av om
 	       bofhd skrives om til å operere via metaserver eller ei.
-  Dependencies:
-  Assigned to:
-  Resources:
-  Cost:
-  Status:
-  Due date:
-  Priority: 3
-
-** Stabilitet
-  Description: ??? (Er ikke lenger sikker på hvilken stabilitet det
-               er snakk om)
   Dependencies:
   Assigned to:
   Resources:
@@ -1555,9 +1538,9 @@
 	       sammen denne med process_changes?
   Dependencies:
   Assigned to: mathiasm
-  Resources: runefro
+  Resources: jazz, runefro
   Cost:
-  Status:
+  Status: started
   Due date:
   Priority: 2
 
@@ -1640,7 +1623,7 @@
   Assigned to: runefro
   Resources: kjetilho, hmeland
   Cost:
-  Status: er i testdrift
+  Status: Done
   Due date:
   Priority: 2
 
@@ -1652,18 +1635,17 @@
   Assigned to:
   Resources:
   Cost:
-  Status:
+  Status: must be specified or deleted
   Due date:
   Priority: 3
 
 ** UiO: Sentralbordets nye opplegg - hva er det?
-  Description: UiOs nye sentralbord-støttesystem skal ha data fra HR,
-	       men vi vet for lite om detaljer.
+  Description: UiOs nye sentralbord-støttesystem skal ha data fra HR
   Dependencies:
   Assigned to: mraaum
-  Resources: Roger, Bård, kjetilo
+  Resources: Bård, henrikb, asbjorn 
   Cost:
-  Status: venter på ansettelse, trenger møte
+  Status: specification started, awaiting meeting with IA/OPA
   Due date:
   Priority:
 
@@ -1673,7 +1655,7 @@
   Assigned to: baardj
   Resources: KGM, Sven Erik, Bjørn, Arne, Christine
   Cost:
-  Status:
+  Status: specification needed or will be considered done
   Due date:
   Priority: 2
 
@@ -1731,8 +1713,8 @@
   Assigned to: runefro
   Resources: runefro, jazz, baardj
   Cost:
-  Status:
-  Due date: 2005-08-01
+  Status: Done
+  Due date: 
   Priority: 1.8
 
 ** Sletting av gamle utskriftsdata
@@ -1740,10 +1722,10 @@
                utskriftsjobber i 6 månader.  Da dette er betydelige
                mengder data, bør dette fjernes så snart vi kan.
   Dependencies:
-  Assigned to:
+  Assigned to: runefro
   Resources:
   Cost:
-  Status:
+  Status: script written, but not in production
   Due date:
   Priority: 3
 
