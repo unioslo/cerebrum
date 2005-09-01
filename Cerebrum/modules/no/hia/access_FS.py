@@ -74,17 +74,6 @@ class HiAStudent(access_FS.Student):
           %s """ % (self._is_alive(), self._is_alive(), self._get_termin_aar(only_current=1))
         return self.db.query(qry)
 
-    def list_betalt_semesteravgift(self):
-        """Hent informasjon om semesterregistrering og betaling"""
-        qry = """
-        SELECT DISTINCT
-               fodselsdato, personnr
-        FROM fs.registerkort r
-        WHERE (status_bet_ok = 'J' OR betformkode = 'FRITATT') AND
-              %s""" % self._get_termin_aar(only_current=1)
-        return self.db.query(qry)
-    # end list_betalt_semesteravgift
-
 
 class HiAUndervisning(access_FS.Undervisning):
     def list_undervisningenheter(self, sem="current"):
