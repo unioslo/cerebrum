@@ -119,6 +119,9 @@ command_help = {
         "Migrate users from old to new e-mail service",
     "email_move":
         "Move a user's e-mail to another server",
+    "email_primary_address":
+        "Changes the primary address for the e-mail target to the specified "\
+        "value",
     "email_quota":
         "Change a user's storage quota for e-mail",
     "email_spam_action":

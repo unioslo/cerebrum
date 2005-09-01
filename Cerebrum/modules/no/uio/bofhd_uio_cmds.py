@@ -947,7 +947,7 @@ class BofhdExtension(object):
         #
         ("Account:          %s\nMail server:      %s (%s)",
          ("account", "server", "server_type")),
-        ("Default address:  %s",
+        ("Primary address:  %s",
          ("def_addr", )),
         # We use valid_addr_1 and (multiple) valid_addr to enable
         # programs to get the information reasonably easily, while
@@ -1317,11 +1317,11 @@ class BofhdExtension(object):
         else:
             forw = ef.get_forward()
             if forw:
-                data.append({'fw_addr_1': forw[0].forward_to,
-                             'fw_enable_1': self._onoff(forw[0].enable)})
+                data.append({'fw_addr_1': forw[0]['forward_to'],
+                             'fw_enable_1': self._onoff(forw[0]['enable'])})
             for idx in range(1, len(forw)):
-                data.append({'fw_addr': forw[idx].forward_to,
-                             'fw_enable': self._onoff(forw[idx].enable)})
+                data.append({'fw_addr': forw[idx]['forward_to'],
+                             'fw_enable': self._onoff(forw[idx]['enable'])})
         return data
 
     # email create_archive <list-address>
@@ -1361,6 +1361,26 @@ class BofhdExtension(object):
         return ("OK, now run ssh www 'mkdir -p %s; chown www %s; chmod o= %s'" %
                 (archive_dir, archive_dir, archive_dir))
 
+    # email primary_address <address>
+    all_commands['email_primary_address'] = Command(
+        ("email", "primary_address"),
+        EmailAddress(),
+        fs=FormatSuggestion([("New primary address: '%s'", ("address", ))]),
+        perm_filter="is_postmaster")
+    def email_primary_address(self, operator, addr):
+        self.ba.is_postmaster(operator.get_entity_id())
+        et, ea = self.__get_email_target_and_address(addr)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            epat.find(et.email_target_id)
+        except Errors.NotFoundError:
+            epat.populate(ea.email_addr_id, parent=et)
+        else:
+            if epat.email_primaddr_id == ea.email_addr_id:
+                return "No change: '%s'" % addr
+            epat.email_primaddr_id = ea.email_addr_id
+        epat.write_db()
+        return {'address': addr}
 
     # email delete_archive <address>
     all_commands['email_delete_archive'] = Command(
@@ -2406,32 +2426,42 @@ class BofhdExtension(object):
 
     # (email virus)
 
+    def __get_email_target_and_address(self, address):
+        
+        """Returns a tuple consisting of the email target associated
+        with address and the address object.  If there is no at-sign
+        in address, assume it is an account name and return primary
+        address.  Raises CerebrumError if address is unknown.
+        """
+        et = Email.EmailTarget(self.db)
+        if address.count('@') == 0:
+            acc = self.Account_class(self.db)
+            try:
+                acc.find_by_name(address)
+                address = acc.get_primary_mailaddress()
+            except Errors.NotFoundError:
+                raise CerebrumError, ("No such address: '%s'" % address)
+        elif address.count('@') > 1:
+            raise CerebrumError, "Malformed e-mail address (%s)" % address
+
+        try:
+            ea = Email.EmailAddress(self.db)
+            ea.find_by_address(address)
+            et.find(ea.email_addr_target_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "No such address: '%s'" % address
+        return et, ea
+
     def __get_email_target_and_account(self, address):
         """Returns a tuple consisting of the email target associated
         with address and the account if the target type is user.  If
         there is no at-sign in address, assume it is an account name.
         Raises CerebrumError if address is unknown."""
-        et = Email.EmailTarget(self.db)
+        et, ea = self.__get_email_target_and_address(address)
         acc = None
-        if address.count('@') > 1:
-            raise CerebrumError, "Malformed e-mail address (%s)" % address
-        elif address.count('@') == 1:
-            try:
-                ea = Email.EmailAddress(self.db)
-                ea.find_by_address(address)
-                et.find(ea.email_addr_target_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, "No such address: '%s'" % address
-            if et.email_target_type in (self.const.email_target_account,
-                                        self.const.email_target_deleted):
-                acc = self._get_account(et.email_target_entity_id, idtype='id')
-        else:
-            acc = self._get_account(address)
-            try:
-                et.find_by_entity(acc.entity_id)
-            except Errors.NotFoundError:
-                raise CerebrumError, ("Account '%s' has no email target" %
-                                      address)
+        if et.email_target_type in (self.const.email_target_account,
+                                    self.const.email_target_deleted):
+            acc = self._get_account(et.email_target_entity_id, idtype='id')
         return et, acc
     
     def __get_address(self, etarget):
@@ -2962,16 +2992,16 @@ class BofhdExtension(object):
     # group personal <uname>+
     all_commands['group_personal'] = Command(
         ("group", "personal"), AccountName(repeat=True),
-        fs=FormatSuggestion("Personal group created and made primary, "+
-                            "POSIX gid: %i\n"+
-                            "The user may have to restart bofh to access the "+
-                            "'group add' command", ("group_id",)),
+        fs=FormatSuggestion(
+        "Personal group created and made primary, POSIX gid: %i\n"+
+        "The user may have to wait a minute, then restart bofh to access\n"+
+        "the 'group add' command", ("group_id",)),
         perm_filter='can_create_personal_group')
     def group_personal(self, operator, uname):
         """This is a separate command for convenience and consistency.
         A personal group is always a PosixGroup, and has the same
         spreads as the user."""
-        acc = self._get_account(uname)
+        acc = self._get_account(uname, actype="PosixUser")
         op = operator.get_entity_id()
         self.ba.can_create_personal_group(op, acc)
         # 1. Create group
