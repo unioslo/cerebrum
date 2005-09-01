@@ -308,7 +308,18 @@ class Student(FSObject):
               AND %s
         """ % self._is_alive()
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
-    
+
+    def list_betalt_semesteravgift(self):
+        """Hent informasjon om semesterregistrering og betaling"""
+        qry = """
+        SELECT DISTINCT
+        r.fodselsdato, r.personnr
+        FROM fs.registerkort r
+        WHERE (status_bet_ok = 'J' OR betformkode = 'FRITATT') AND
+        %s""" % self._get_termin_aar(only_current=1)
+        return self.db.query(qry)
+    # end list_betalt_semesteravgift
+
     def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
         """Hent informasjon om alle som er registrert på EMNEKODE"""
         query = """
@@ -835,8 +846,8 @@ class EVU(FSObject):
     def list_kurs_deltakere(self, kurskode, tid):  # GetEvuKursPameldte
         """List everyone registered for a given course"""
         query = """
-        SELECT fodselsdato, personnr,
-          fornavn, etternavn
+        SELECT p.fodselsdato, p.personnr,
+          p.fornavn, p.etternavn
         FROM fs.person p, fs.etterutdkurs e,
           fs.kursdeltakelse kd, fs.deltaker d
         WHERE e.etterutdkurskode like :kurskode AND
