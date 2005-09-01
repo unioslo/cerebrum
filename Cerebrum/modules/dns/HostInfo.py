@@ -8,14 +8,12 @@
 #import string
 #import struct
 
-from Cerebrum.modules.dns.EntityNote import EntityNote
 from Cerebrum.Entity import Entity
 
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
-
-class HostInfo(EntityNote, Entity):
-    """``HostInfo(EntityNote, Entity)`` is used to store information
+class HostInfo(Entity):
+    """``HostInfo(Entity)`` is used to store information
     about machines in the dns_host_info table.  It uses the standard
     Cerebrum populate logic for handling updates.
     """
@@ -148,7 +146,6 @@ class HostInfo(EntityNote, Entity):
         DELETE FROM [:table schema=cerebrum name=dns_host_info]
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
         self._db.log_change(self.entity_id, self.const.host_info_del, None)
-        self.delete_entity_note()
         self.__super.delete()
 
 # arch-tag: f414513c-94a4-433f-942c-6b80222098c2

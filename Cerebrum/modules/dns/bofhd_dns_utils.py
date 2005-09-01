@@ -116,9 +116,11 @@ class DnsBofhdUtils(object):
         self._host.populate(dns_owner_ref, hinfo)
         self._host.write_db()
         if comment:
-            self._host.add_entity_note(self.const.note_type_comment, comment)
+            self._dns_owner.add_entity_note(self.const.note_type_comment,
+                                            comment)
         if contact:
-            self._host.add_entity_note(self.const.note_type_contact, contact)
+            self._dns_owner.add_entity_note(self.const.note_type_contact,
+                                            contact)
 
     def alloc_cname(self, cname_name, target_name, force):
         cname_name = self._validator.qualify_hostname(cname_name)
@@ -139,17 +141,19 @@ class DnsBofhdUtils(object):
         return self._cname.entity_id
 
     def alter_entity_note(self, owner_id, note_type, dta):
-        obj_ref, obj_id = self._find.find_target_type(owner_id)
+        #obj_ref, obj_id = self._find.find_target_type(owner_id)
+        self._dns_owner.clear()
+        self._dns_owner.find(owner_id)
         if not dta:
-            obj_ref.delete_entity_note(note_type)
+            self._dns_owner.delete_entity_note(note_type)
             return "removed"
 
         try:
-            obj_ref.get_entity_note(note_type)
+            self._dns_owner.get_entity_note(note_type)
         except Errors.NotFoundError:
-            obj_ref.add_entity_note(note_type, dta)
+            self._dns_owner.add_entity_note(note_type, dta)
             return "added"
-        obj_ref.update_entity_note(note_type, dta)
+        self._dns_owner.update_entity_note(note_type, dta)
         return "updated"
 
     #

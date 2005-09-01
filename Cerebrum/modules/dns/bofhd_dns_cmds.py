@@ -444,27 +444,28 @@ class BofhdExtension(object):
     # host info
     all_commands['host_info'] = Command(
         ("host", "info"), HostId(),
-        fs=FormatSuggestion([("  %-20s %s %s",
-                              ('name', 'ip', 'a_comment'), "%-22s IP" % 'A-records'),
-                             ("  %-20s %s", ('rev_ip', 'rev_name'), "Rev-map override:"),
-                             ("%-22s %s" % ("Name:", "%s"),
-                              ('dns_owner', )),
-                             ("%-22s %s\n%-22s %s\n%-22s %s" % (
-        'Hinfo:', 'os=%s cpu=%s',
-        ' ', 'contact=%s', ' ', 'owner=%s'),
-                              ('hinfo.os', 'hinfo.cpu',
-                               'host_contact', 'host_comment')),
-                             ("%-22s %s" % ("MX-set:", "%s"), ('mx_set',)),
-                             ("%-22s %s" % ("TXT:", "%s"), ('txt', )),
-                             ("%-22s %s" % ('Cname:', '%s -> %s %s'),
-                              ('cname', 'cname_target', 'cname_comment')),
-                             ("SRV: %s %i %i %i %s %s", ('srv_owner', 'srv_pri',
-                                          'srv_weight', 'srv_port',
-                                          'srv_ttl', 'srv_target')),
-                             ("%-22s %%s" % 'Zone:', ('zone',))]))
+        fs=FormatSuggestion([
+        # Name line
+        ("%-22s %%s\n%-22s contact=%%s\n%-22s owner=%%s" % (
+        "Name:", ' ', ' '), ('dns_owner', 'contact', 'comment')),
+        # A-records
+        ("  %-20s %s", ('name', 'ip'), "%-22s IP" % 'A-records'),
+        # Hinfo line
+        ("%-22s %s" % ('Hinfo:', 'os=%s cpu=%s'), ('hinfo.os', 'hinfo.cpu')),
+        # MX
+        ("%-22s %s" % ("MX-set:", "%s"), ('mx_set',)),
+        # TXT
+        ("%-22s %s" % ("TXT:", "%s"), ('txt', )),
+        # Cnames
+        ("%-22s %s" % ('Cname:', '%s -> %s'), ('cname', 'cname_target')),
+        # SRV
+        ("SRV: %s %i %i %i %s %s",
+         ('srv_owner', 'srv_pri', 'srv_weight', 'srv_port','srv_ttl',
+          'srv_target')),
+        # Rev-map
+        ("  %-20s %s", ('rev_ip', 'rev_name'), "Rev-map override:"),
+        ]))
     def host_info(self, operator, host_id):
-        # TODO: fikse formateringen av output fra denne komandoen
-
         arecord = ARecord.ARecord(self.db)
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
@@ -473,8 +474,7 @@ class BofhdExtension(object):
                 host_id, dns.IP_NUMBER)
             ret = []
             for a in arecord.list_ext(ip_number_id=owner_id):
-                ret.append({'ip': a['a_ip'], 'name': a['name'],
-                        'a_comment': ''})
+                ret.append({'ip': a['a_ip'], 'name': a['name']})
             return ret
 
         owner_id = self._find.find_target_by_parsing(
@@ -482,33 +482,23 @@ class BofhdExtension(object):
         dns_owner = DnsOwner.DnsOwner(self.db)
         dns_owner.find(owner_id)
 
-        # TOOD: Bedre måte å vise contact + comment for A-records,
-        # hosts og cnames
+        tmp = {'dns_owner': dns_owner.name}
+        for key, note_type in (('comment', self.const.note_type_comment),
+                               ('contact', self.const.note_type_contact)):
+            try:
+                tmp[key] = dns_owner.get_entity_note(note_type)
+            except Errors.NotFoundError:
+                tmp[key] = None
+        ret = [tmp]
 
         # HINFO records
-        ret = []
         ret.append({'zone': str(self.const.DnsZone(dns_owner.zone))})
         try:
-            ret.append({'dns_owner': dns_owner.name})
-            
             host = HostInfo.HostInfo(self.db)
             host.find_by_dns_owner_id(owner_id)
             hinfo_os, hinfo_cpu = host.hinfo.split("\t", 2)
             ret.append({'hinfo.os': hinfo_os,
-                        'hinfo.cpu': hinfo_cpu,
-                        'host_comment': None,
-                        'host_contact': None})
-            try:
-                ret[-1]['host_comment'] = host.get_entity_note(
-                    self.const.note_type_comment, host.entity_id)
-            except Errors.NotFoundError:
-                pass
-            try:
-                ret[-1]['host_contact'] = host.get_entity_note(
-                    self.const.note_type_contact, host.entity_id)
-            except Errors.NotFoundError:
-                pass
-
+                        'hinfo.cpu': hinfo_cpu})
         except Errors.NotFoundError:  # not found
             pass
 
@@ -522,12 +512,7 @@ class BofhdExtension(object):
         # A records
         for a in arecord.list_ext(dns_owner_id=owner_id):
             forward_ips.append((a['a_ip'], a['ip_number_id']))
-            ret.append({'ip': a['a_ip'], 'name': a['name'], 'a_comment': ''})
-            try:
-                ret[-1]['a_comment'] = "(%s)" % arecord.get_entity_note(
-                    self.const.note_type_comment, a['a_record_id'])
-            except Errors.NotFoundError: 
-                pass
+            ret.append({'ip': a['a_ip'], 'name': a['name']})
 
         ip_ref = IPNumber.IPNumber(self.db)
         for a_ip, ip_id in forward_ips:
@@ -545,13 +530,7 @@ class BofhdExtension(object):
         tmp.extend(cname.list_ext(cname_owner=owner_id))
         for c in tmp:
             row = ({'cname': c['name'],
-                    'cname_target': c['target_name'],
-                    'cname_comment': ''})
-            try:
-                row['cname_comment'] = "(%s)" % cname.get_entity_note(
-                    self.const.note_type_comment, c['cname_id'])
-            except Errors.NotFoundError:  # not found
-                pass
+                    'cname_target': c['target_name']})
             ret.append(row)
 
         # SRV records dersom dette er target/owner for en srv record

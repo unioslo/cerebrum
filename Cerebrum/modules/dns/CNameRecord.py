@@ -1,11 +1,10 @@
 # -*- coding: iso-8859-1 -*-
 
 from Cerebrum.Entity import Entity
-from Cerebrum.modules.dns.EntityNote import EntityNote
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
-class CNameRecord(EntityNote, Entity):
-    """``CNameRecord.CNameRecord(EntityNote, Entity)`` is used to
+class CNameRecord(Entity):
+    """``CNameRecord.CNameRecord(Entity)`` is used to
     store information about CName-records in the dns_cname_record
     table.  It uses the standard Cerebrum populate logic for handling
     updates.
@@ -141,7 +140,6 @@ class CNameRecord(EntityNote, Entity):
         WHERE cname_id=:e_id""", {'e_id': self.entity_id})
         self._db.log_change(self.cname_owner_id, self.const.cname_del,
                             self.target_owner_id)
-        self.delete_entity_note()
         self.__super.delete()
 
 # arch-tag: 1f20a221-a237-420b-b4b3-2e12be8a06ce

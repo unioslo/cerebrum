@@ -5,7 +5,9 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity, EntityName
 from Cerebrum import Errors
 from Cerebrum.modules import dns
+from Cerebrum.modules.dns import EntityNote
 from Cerebrum.modules.dns.DnsConstants import _DnsZoneCode
+from Cerebrum import Group
 
 class MXSet(DatabaseAccessor):
     """``DnsOwner.MXSet(DatabaseAccessor)`` handles the dns_mx_set and
@@ -208,7 +210,7 @@ class GeneralDnsRecord(object):
         FROM [:table schema=cerebrum name=dns_general_dns_record] %s""" % where,
                           locals())
 
-class DnsOwner(GeneralDnsRecord, EntityName, Entity):
+class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
     """``DnsOwner(GeneralDnsRecord, Entity)`` primarily updates the
     DnsOwner table using the standard Cerebrum populate framework.
 
@@ -315,6 +317,12 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity):
         for r in self.list_srv_records(owner_id=self.entity_id):
             self.delete_srv_record(
                 r['service_owner_id'], r['pri'], r['weight'], r['port'])
+        g = Group.Group(self._db)
+        for row in list_groups_with_entity(self.entity_id):
+            g.clear()
+            g.find(row['group_id'])
+            g.remove_member(self.entity_id, row['operation'])
+        self.delete_entity_note()
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_owner]
         WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': self.entity_id})

@@ -1,10 +1,9 @@
 # -*- coding: iso-8859-1 -*-
 from Cerebrum.Entity import Entity
-from Cerebrum.modules.dns.EntityNote import EntityNote
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
-class ARecord(EntityNote, Entity):
-    """``ARecord(EntityNote, Entity)`` is used to store information
+class ARecord(Entity):
+    """``ARecord(Entity)`` is used to store information
     about A-records in the dns_a_record table.  It uses the standard
     Cerebrum populate logic for handling updates.
 
@@ -136,15 +135,14 @@ class ARecord(EntityNote, Entity):
         self.__updated = []
 
     def _delete(self):
-        """Deletion of a-records should be done through the MregHelper
-        class to avoid leaving entries in ip_number that has no FKs to
-        it"""
+        """Deletion of a-records should be done through the
+        IntegrityHelper to avoid leaving entries in ip_number that has
+        no FKs to it"""
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_a_record]
         WHERE a_record_id=:e_id""", {'e_id': self.entity_id})
         self._db.log_change(self.dns_owner_id, self.const.a_record_del,
                             self.ip_number_id)
-        self.delete_entity_note()
         self.__super.delete()
 
     def list_ext(self, ip_number_id=None, dns_owner_id=None, start=None, stop=None):

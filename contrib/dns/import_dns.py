@@ -22,7 +22,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program='import_dns')
 co = Factory.get('Constants')(db)
 sys.argv.extend(["--logger-level", "DEBUG"])
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 ipnumber = IPNumber.IPNumber(db)
 arecord = ARecord.ARecord(db)
 cname = CNameRecord.CNameRecord(db)
@@ -163,19 +163,19 @@ class Netgroups(object):
         db.commit()
 
 class ForwardMap(object):
-    def __init__(self, fname, default_zone):
+    def __init__(self, fname, default_zone, header_end):
         self._a_ip_name_unique = {}
         self._mx_targets = {}
         self._lookup = Lookup(default_zone)
-        self._prepare_parse_zone_file(fname)
+        self._prepare_parse_zone_file(fname, header_end)
 
-    def _prepare_parse_zone_file(self, fname):
+    def _prepare_parse_zone_file(self, fname, header_end):
         logger.info("parse_zone_file(%s)" % fname)
         self.f = file(fname)
         while 1:
             line = self.f.readline()
             if not line: break
-            if re.search(header_splitter, line): break
+            if re.search(header_end, line): break
 
         self.r_linecomment = re.compile('^\s*;')
         self.r_contact = re.compile(';\s*(\S+):\s*contact\s*(\S+)')
@@ -351,7 +351,8 @@ class ForwardMap(object):
             cname.clear()
             cname.populate(cname_owner_id, target_owner_id, cname_ttl)
             cname.write_db()
-            logger.debug("Make CNAME for '%s', owner=%i, ety_id=%i" % (name, cname_owner_id, cname.entity_id))
+            logger.debug("Make CNAME for '%s', owner=%i, ety_id=%i" % (
+                name, cname_owner_id, cname.entity_id))
             del dta['CNAME']
         if dta.has_key('SRV'):
             owner_type, owner_id = self._lookup.get_dns_owner(name)
@@ -362,31 +363,17 @@ class ForwardMap(object):
                                         ttl, target_owner_id)
             del dta['SRV']
         if dta.has_key('contact') or dta.has_key('comment'):
-            owner_obj, owner_id = self._lookup.get_dns_owner(name)
-            if not isinstance(owner_obj, (
-                ARecord.ARecord, CNameRecord.CNameRecord, HostInfo.HostInfo)):
-                logger.warn("What type is %s: %s ?" % (name, str(dta)))
-            else:
-                if isinstance(owner_obj, CNameRecord.CNameRecord):
-                    owner_key, id_key = 'cname_owner', 'cname_id'
-                elif isinstance(owner_obj, ARecord.ARecord):
-                    owner_key, id_key = 'dns_owner_id', 'a_record_id'
-                else:
-                    owner_key, id_key = 'dns_owner_id', 'host_id'
-                for row in owner_obj.list_ext(**{owner_key: owner_id}):
-                    owner_obj.clear()
-                    owner_obj.find(row[id_key])
-                    logger.debug2("Look for %i" % row[id_key])
-                    if dta.has_key('contact'):
-                        logger.debug2("ADD contact: %s / %s" % (owner_id, row[id_key]))
-                        owner_obj.add_entity_note(co.note_type_contact, dta['contact'])
-                    if dta.has_key('comment'):
-                        logger.debug2("ADD comment: %s / %s" % (owner_id, row[id_key]))
-                        owner_obj.add_entity_note(co.note_type_comment, dta['comment'])
-                if dta.has_key('contact'):
-                    del dta['contact']
-                if dta.has_key('comment'):
-                    del dta['comment']
+            owner_type, owner_id = self._lookup.get_dns_owner(name)
+            if dta.has_key('contact'):
+                logger.debug2("ADD contact: %s " % owner_id)
+                dnsowner.add_entity_note(co.note_type_contact, dta['contact'],
+                                         entity_id=owner_id)
+                del dta['contact']
+            if dta.has_key('comment'):
+                logger.debug2("ADD comment: %s " % owner_id)
+                dnsowner.add_entity_note(co.note_type_comment, dta['comment'],
+                                         entity_id=owner_id)
+                del dta['comment']
 
     def records_to_db(self):
         logger.info("records_to_db()")
@@ -407,7 +394,8 @@ class ForwardMap(object):
                     logger.debug2("%s -> %s" % (name, str(self.recs[name])))
                     self._pass_two(name, self.recs[name])
                     for y in self.recs[name]:
-                        logger.warn("Unexpected rest (for %s): %s" % (name, str(self.recs[name])))
+                        logger.warn("Unexpected rest (for %s): %s" % (
+                            name, str(self.recs[name])))
         db.commit()
     #    db.rollback()
 
@@ -419,16 +407,13 @@ class RevMap(object):
     def _prepare_parse_revmap(self, fname):
         logger.info("parse_revmap(%s)" % fname)
         self.f = file(fname)
-        while 1:
-            line = self.f.readline()
-            if not line: break
-            if re.search(header_splitter, line): break
         self.r_linecomment = re.compile('^\s*;')
         self.r_blank = re.compile(r'^\s*$')
         self.r_origin = re.compile(
             r'^\$ORIGIN\s+(\d+\.\d+\.\d+)\.IN-ADDR.arpa.', re.IGNORECASE)
         
     def next_revmap(self):
+        in_head=True
         while 1:
             line = self.f.readline()
             if not line: break
@@ -445,6 +430,11 @@ class RevMap(object):
                 logger.debug2("Origin: %s" % self.origin)
                 continue
             lparts = line.split()
+            if in_head:
+                if lparts[1] == 'PTR':
+                    in_head=False
+                else:
+                    continue
             if len(lparts) != 3:
                 logger.warn("huh: %s" % line)
                 continue
@@ -453,6 +443,9 @@ class RevMap(object):
                 continue
             if lparts[2][-1] != '.':
                 logger.warn("Bad postfix: %s" % lparts[2])
+                continue
+            if not lparts[0].isdigit():
+                logger.warn("Wierd ptr: %s" % repr(lparts))
                 continue
             return "%s.%s" % (self.origin, lparts[0]), lparts[2]
         return None, None
@@ -472,7 +465,9 @@ class RevMap(object):
                 min_ip = Utils.IPCalc.ip_to_long(ip)
             if max_ip is None or Utils.IPCalc.ip_to_long(ip) > max_ip:
                 max_ip = Utils.IPCalc.ip_to_long(ip)
-
+        if min_ip is None:
+            logger.error("No IP-numbers in file?")
+            return
         logger.debug("Min-ip=%s, max-ip=%s" % (
             Utils.IPCalc.long_to_ip(min_ip), Utils.IPCalc.long_to_ip(max_ip)))
         default_revmap = {}
@@ -515,7 +510,7 @@ class RevMap(object):
         set_rev_map = {}
         for ip in rev.keys():
             name = rev[ip][0]
-            owner_obj, owner_id = self._lookup.get_dns_owner(
+            owner_type, owner_id = self._lookup.get_dns_owner(
                 name, try_lookup=True)
             ip_ref = self._lookup.get_ip(ip, try_lookup=True)
             ipnumber.add_reverse_override(ip_ref, owner_id)
@@ -650,6 +645,7 @@ def usage(exitcode=0):
     -i | --import: start import of the above mentioned files
     --netgroups filename: filename with netgroups
     -n : start netgroup import
+    -H header_end : regexp that identifies end of header part of forward map
 
     Note that the part before the header_splitter will not be imported
     from the zone file or the reverse map.  That is because this part
@@ -663,7 +659,7 @@ def usage(exitcode=0):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ch:z:r:inZ:', [
+        opts, args = getopt.getopt(sys.argv[1:], 'ch:z:r:inZ:H:', [
             'help', 'clear', 'zone=', 'reverse=', 'import',
             'hosts=', 'netgroups=', 'zone-def='])
     except getopt.GetoptError:
@@ -672,7 +668,7 @@ def main():
         usage(1)
 
     global parser, zone
-    zone = hosts_file = None
+    zone = hosts_file = header_end = None
     logger.debug("opts: %s" % str(opts))
     for opt, val in opts:
         if opt in ('--help', ):
@@ -691,10 +687,14 @@ def main():
             hosts_file = val
         elif opt in ('--netgroups',):
             netgroup_file = val
+        elif opt in ('-H',):
+            header_end = val
         elif opt in ('--import', '-i'):
             if zone is None:
                 raise ValueError("-Z is required")
-            forward = ForwardMap(zone_file, zone)
+            if header_end is None:
+                raise ValueError("-H is required")
+            forward = ForwardMap(zone_file, zone, header_end)
             forward.process_zone_file()
             if hosts_file:
                 h = Hosts(hosts_file, zone)
