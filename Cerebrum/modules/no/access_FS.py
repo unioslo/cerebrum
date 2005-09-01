@@ -837,8 +837,8 @@ class EVU(FSObject):
         query = """
         SELECT fodselsdato, personnr,
           fornavn, etternavn
-        FROM person p, etterutdkurs e,
-          kursdeltakelse kd, deltaker d
+        FROM fs.person p, fs.etterutdkurs e,
+          fs.kursdeltakelse kd, fs.deltaker d
         WHERE e.etterutdkurskode like :kurskode AND
           e.kurstidsangivelsekode like :tid AND
           e.etterutdkurskode = kd.etterutdkurskode AND
