@@ -149,7 +149,7 @@ class AccountType(object):
                               primary_only=False, person_spread=None,
                               fetchall=True):
         """Return information about the matching accounts."""
-        join = extra = order = ""
+        join = extra = ""
         if affiliation is not None:
             extra += " AND at.affiliation=:affiliation"
             # To use 'affiliation' as a bind param, it might need
@@ -166,13 +166,6 @@ class AccountType(object):
             extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         if account_id:
             extra += " AND ai.account_id=:account_id"
-        if primary_only:
-            extra += """ AND at.priority = (
-                  SELECT MIN(priority)
-                  FROM [:table schema=cerebrum name=account_type] at2
-                  WHERE at2.person_id = at.person_id)"""
-        else:
-            order = ", at.priority"
         if person_spread is not None:
             if isinstance(person_spread, (list, tuple)):
                 person_spread = "IN (%s)" % \
@@ -182,7 +175,7 @@ class AccountType(object):
             join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
                     " ON es.entity_id = at.person_id" \
                     " AND es.spread " + person_spread
-        return self.query("""
+        rows = self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
         FROM [:table schema=cerebrum name=account_type] at,
@@ -194,12 +187,22 @@ class AccountType(object):
               at.affiliation=pas.affiliation AND
               ai.account_id=at.account_id
               %s
-        ORDER BY at.person_id%s""" % (join, extra, order),
+        ORDER BY at.person_id, at.priority""" % (join, extra),
                           {'ou_id': ou_id,
                            'affiliation': affiliation,
                            'status': status,
                            'account_id' : account_id,
                            'person_id': person_id}, fetchall = fetchall)
+        if primary_only:
+            ret = []
+            prev = None
+            for row in rows:
+                person_id = int(row['person_id'])
+                if person_id != prev:
+                    ret.append(row)
+                    prev = person_id
+            return ret
+        return rows
     # end list_accounts_by_type
 
 
