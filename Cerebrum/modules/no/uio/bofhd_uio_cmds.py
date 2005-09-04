@@ -4876,6 +4876,9 @@ class BofhdExtension(object):
         account = self._get_account(accountname, actype="PosixUser")
         # Set gecos to NULL if user requests a whitespace-only string.
         self.ba.can_set_gecos(operator.get_entity_id(), account)
+        # TBD: Should we allow 8-bit characters?
+        if isinstance(gecos, unicode):
+            raise CerebrumError, "GECOS can only contain US-ASCII."
         account.gecos = gecos.strip() or None
         account.write_db()
         # TBD: As the 'gecos' attribute lives in class PosixUser,
