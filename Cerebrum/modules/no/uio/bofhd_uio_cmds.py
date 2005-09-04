@@ -4528,12 +4528,43 @@ class BofhdExtension(object):
         arguments may be passed as Entity objects.  If group is None,
         the group with the same name as account is modified, if it
         exists."""
+        
+        if account.np_type or account.owner_type == self.const.entity_group:
+            return
+
         if group is None:
             name = account.get_name(self.const.account_namespace)
             try:
                 group = self._get_group(name)
             except CerebrumError:
                 return
+
+        # FIXME: Identifying personal groups is not a very precise
+        # process.  One alternative would be to use the description:
+        #
+        # if not group.description.startswith('Personal file group for '):
+        #     return
+        #
+        # The alternative is to use the bofhd_auth tables to see if
+        # the account has the 'Group-owner' op_set for this group, and
+        # this is implemented below.
+
+        op_set = BofhdAuthOpSet(self.db)
+        op_set.find_by_name('Group-owner')
+
+        baot = BofhdAuthOpTarget(self.db)
+        targets = baot.list(entity_id=group.entity_id)
+        if len(targets) == 0:
+            return
+        bar = BofhdAuthRole(self.db)
+        is_moderator = False
+        for auth in bar.list(op_target_id=targets[0]['op_target_id']):
+            if (auth['entity_id'] == account.entity_id and
+                auth['op_set_id'] == op_set.op_set_id):
+                is_moderator = True
+        if not is_moderator:
+            return
+
         mapping = { int(self.const.spread_uio_nis_user):
                     int(self.const.spread_uio_nis_fg),
                     int(self.const.spread_uio_ad_account):
