@@ -701,7 +701,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         return self.query("""
         SELECT ai.account_id, en.entity_name, hd.home,
                ah.spread AS home_spread, d.path, hd.homedir_id,
-               hd.status, ai.expire_date, d.disk_id
+               hd.status, ai.expire_date, ai.create_date, d.disk_id
         FROM %s
         WHERE %s""" % (tables, where), {
             'home_spread': int(home_spread or 0),
