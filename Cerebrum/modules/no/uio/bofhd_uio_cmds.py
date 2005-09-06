@@ -4974,12 +4974,17 @@ class BofhdExtension(object):
                 ret['disk_quota'] = dq_row['quota']
                 if dq_row['quota'] is not None:
                     ret['disk_quota'] = str(dq_row['quota'])
-                if dq_row['override_expiration']:
+                # Only display recent quotas
+                days_left = ((dq_row['override_expiration'] or DateTime.Epoch) -
+                             DateTime.now()).days
+                if days_left > -30:
                     ret['dq_override'] = dq_row['override_quota']
                     if dq_row['override_quota'] is not None:
                         ret['dq_override'] = str(dq_row['override_quota'])
                     ret['dq_expire'] = dq_row['override_expiration']
                     ret['dq_why'] = dq_row['description']
+                    if days_left < 0:
+                        ret['dq_why'] += " [INACTIVE]"
             except Errors.NotFoundError:
                 pass
 
