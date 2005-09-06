@@ -214,7 +214,7 @@ class Find(object):
         ret = []
         for n in range(0, (subnet_def.stop-subnet_def.start)+1):
             if (not taken.has_key(long(subnet_def.start+n)) and
-                n not in subnet_def.reserved):
+                n+subnet_def.start not in subnet_def.reserved):
                 ret.append(n+subnet_def.start)
         return ret
 
