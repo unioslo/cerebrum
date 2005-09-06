@@ -5399,7 +5399,9 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
             ret.append(group.group_name)
-        return ret_tuple and ret or ret[0]
+        if ret_tuple:
+            return ret
+        return ret[0]
 
     def __user_restore_check_changelog(self, account):
         """Find group memberships etc. from changelog.  Returns a
@@ -5438,9 +5440,19 @@ class BofhdExtension(object):
         containing a dict of all choices if the command is complete"""
         all_args = list(args[:])
         if not all_args:
+            return {'prompt': "Enter owner id",
+                    'help_ref': "user_create_person_id"}
+        owner_id = all_args.pop(0)
+        if not all_args:
             return {'prompt': "Enter account name",
                     'help_ref': "account_name"}
         account = self._get_account(all_args.pop(0))
+        if owner_id.startswith('group:'):
+            owner_id = self._get_group(owner_id.split(":")[1]).entity_id
+        else:
+            owner_id = self._get_person("entity_id", owner_id).entity_id
+        if owner_id != account.owner_id:
+            raise CerebrumError("Owner id and account does not match!")
         if not account.is_expired():
             raise CerebrumError, "Cannot resore an account that isn't expired"
         if account.owner_type == self.const.entity_person:
@@ -5448,7 +5460,7 @@ class BofhdExtension(object):
             name = person.get_name(self.const.system_cached,
                                    getattr(self.const,
                                            cereconf.DEFAULT_GECOS_NAME))
-            extra_msg = "Restoring '%s', belonging to '%s' (born %s)\n" % (
+            extra_msg = "\nRestoring '%s', belonging to '%s' (born %s)\n" % (
                 account.account_name, name,
                 person.birth_date.strftime('%Y-%m-%d'))
         else:
@@ -5456,13 +5468,13 @@ class BofhdExtension(object):
             extra_msg = "Restoring '%s', belonging to group: '%s'\n" % (
                 grp.group_name)
         extra_msg += ('NOTE: Please assert that the above line is correct '
-                      'before proceeding!\n')
+                      'before proceeding!\n\n')
         choices = {'account': account}
         old_uid, old_gid, old_spreads, old_groups, perm_groups = \
                  self.__user_restore_check_changelog(account)
         # Spreads
         if not all_args:
-            return {'prompt': "%sSpreads (comma separated)" % extra_msg,
+            return {'prompt': "%sSpreads" % extra_msg,
                     'default': ','.join(
                 ["%s" % self.const.Spread(x) for x in old_spreads])}
         choices['spreads'] = all_args.pop(0)
@@ -5473,8 +5485,8 @@ class BofhdExtension(object):
                    'default': ','.join(["%s" % x for x in old_groups])}
             if perm_groups:
                 ret['prompt'] = (
-                    'NOTE: Membership to the following permission group(s) '
-                    'will NOT be restored: %s\n%s' % (",".join(perm_groups),
+                    '\nNOTE: Membership to the following permission group(s) '
+                    'will NOT be restored: %s\n\n%s' % (",".join(perm_groups),
                                                       ret['prompt']))
             return ret
         choices['groups'] = all_args.pop(0)
@@ -5595,7 +5607,7 @@ class BofhdExtension(object):
                            pu.entity_id, disk_id)
             n_req += 1
         return ("'%s' restored.  See 'user info' for details. "
-                "Added %i restore request(s).") % (account.account_name,
+                "Added %i jobs to restore queue.") % (account.account_name,
                                                    n_req)
 
     # user set_disk_status
