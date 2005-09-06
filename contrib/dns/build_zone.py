@@ -256,10 +256,10 @@ class ReverseMap(object):
             self.ip_numbers[int(row['ip_number_id'])] = row
 
         for row in ARecord.ARecord(db).list_ext(start=start, stop=stop):
-            self.a_records[int(row['ip_number_id'])] = row
+            self.a_records.setdefault(int(row['ip_number_id']), []).append(row)
 
         for row in IPNumber.IPNumber(db).list_override(start=start, stop=stop):
-            self.override_ip[row['ip_number_id']] = row
+            self.override_ip.setdefault(int(row['ip_number_id']), []).append(row)
         logger.debug("_get_reverse_data -> %i, %i, %i" % (
             len(self.ip_numbers), len(self.a_records), len(self.override_ip)))
 
@@ -276,22 +276,12 @@ class ReverseMap(object):
         order.sort(lambda x,y: int(self.ip_numbers[x]['ipnr'] - self.ip_numbers[y]['ipnr']))
         this_net = 'z'
         for ip_id in order:
-            hostname = None
             if self.override_ip.has_key(ip_id):
-                if self.override_ip[ip_id]['name'] is None:
-                    logger.debug("explicitly no reverse for %i" % ip_id)
-                    continue
-                if not self.a_records.has_key(ip_id):
-                    # TODO: probably wanto to lookup the dns-owner
-                    logger.debug("rev-map override w/no a-record %i" % ip_id)
-                hostname = str(self.override_ip[ip_id]['name'])
+                tmp = self.override_ip[ip_id]
             elif self.a_records.has_key(ip_id):
-                hostname = self.a_records[ip_id]['name']
+                tmp = self.a_records[ip_id]
             else:
                 logger.warn("dangling ip-number %i" % ip_id)
-                continue
-            if hostname is None:
-                logger.error("Hostname not set for %i" % ip_id)
                 continue
             a_ip = self.ip_numbers[ip_id]['a_ip']
             if not a_ip.startswith(this_net):
@@ -301,9 +291,10 @@ class ReverseMap(object):
                     f.write(line)
                     self.__prev_origin = line  # avoid dupl. $ORIGIN in /24 net
             a_ip = a_ip[a_ip.rfind(".")+1:]
-            line = "%s\tPTR\t%s\n" % (a_ip, hostname)
-            f.write(line)
-        # TODO: add rest of overrides
+            for row in tmp:
+                if row['name'] is not None:
+                    line = "%s\tPTR\t%s\n" % (a_ip, row['name'])
+                    f.write(line)
         f.close()
         if f.replaced_file:
             self.zu.write_file_with_serial(fname+".status", fname, heads)

@@ -141,7 +141,6 @@ class DnsBofhdUtils(object):
         return self._cname.entity_id
 
     def alter_entity_note(self, owner_id, note_type, dta):
-        #obj_ref, obj_id = self._find.find_target_type(owner_id)
         self._dns_owner.clear()
         self._dns_owner.find(owner_id)
         if not dta:
@@ -305,9 +304,16 @@ class DnsBofhdUtils(object):
     #
 
     def _alloc_arecord(self, owner_id, ip_id):
+        old_a_records = self._arecord.list_ext(ip_number_id=ip_id)
         self._arecord.clear()
         self._arecord.populate(owner_id, ip_id)
         self._arecord.write_db()
+
+        # If we now have two A-records for the same IP, register an
+        # override for the previous ip.
+        if len(old_a_records) == 1:
+            self._ip_number.add_reverse_override(
+                ip_id, old_a_records[0]['dns_owner_id'])
         return self._arecord.entity_id
 
     def alloc_arecord(self, host_name, subnet, ip, force):
@@ -336,31 +342,27 @@ class DnsBofhdUtils(object):
         return ip
 
     def remove_arecord(self, a_record_id):
+        # TBD: do we need to look at revmap_override?
         self._update_helper.remove_arecord(a_record_id)
 
-    def register_revmap_override(self, ip_host_id, dest_host, force):
-        # TODO: clear up empty dest_host
-        self._ip_number.clear()
-        self._ip_number.find(ip_host_id)
-        if not dest_host:
-            self._update_helper.update_reverse_override(ip_host_id)
-            return "deleted"
-        self._dns_owner.clear()
-        try:
-            self._dns_owner.find_by_name(dest_host)
-        except Errors.NotFoundError:
-            if not force:
-                raise CerebrumError, "Target does not exist, must force"
-            self._dns_owner.populate(dest_host)
-            self._dns_owner.write_db()
-        if self._ip_number.list_override(
-            ip_number_id=self._ip_number.ip_number_id):
-            self._update_helper.update_reverse_override(
-                self._ip_number.ip_number_id, self._dns_owner.entity_id)
-            return "updated"
+    def add_revmap_override(self, ip_host_id, dest_host, force):
+        if dest_host:
+            self._dns_owner.clear()
+            try:
+                self._dns_owner.find_by_name(dest_host)
+            except Errors.NotFoundError:
+                if not force:
+                    raise CerebrumError, "Target does not exist, must force"
+                self._dns_owner.populate(dest_host)
+                self._dns_owner.write_db()
+            dest_host = self._dns_owner.entity_id
         else:
-            self._ip_number.add_reverse_override(
-                self._ip_number.ip_number_id, self._dns_owner.entity_id)
-            return "added"
+            dest_host = None
+        self._update_helper.add_reverse_override(
+            ip_host_id, dest_host)
+
+    def remove_revmap_override(self, ip_host_id, dest_host_id):
+        self._update_helper.remove_reverse_override(
+            ip_host_id, dest_host_id)
 
 # arch-tag: 48c70550-12e8-11da-887a-7c4bc003c8ee

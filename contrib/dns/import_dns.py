@@ -483,12 +483,15 @@ class RevMap(object):
                 ipnumber.add_reverse_override(ip_ref, None)
 
         # Remove all entries with normal rev-maps
-        for ip in rev.keys():   
+        for ip in rev.keys():
             if len(rev[ip]) > 1:
-                # This is illegal
-                logger.error("rev file has multiple reverse for %s, using "
-                             "default reversemap" % ip)
-                del rev[ip]
+                logger.warn("rev file has multiple reverse for %s" % ip)
+                # Check if all A -> IP has rev: IP -> A
+                rev[ip].sort()
+                tmp = [df['name'] for df in default_revmap[ip]]
+                tmp.sort()
+                if rev[ip] == tmp:
+                    del rev[ip]
                 continue
             if not default_revmap.has_key(ip):
                 logger.warn("rev-map for missing A-record %s (%s)" % (
@@ -509,11 +512,11 @@ class RevMap(object):
         # De som er igjen i rev setter revmap eskplisitt
         set_rev_map = {}
         for ip in rev.keys():
-            name = rev[ip][0]
-            owner_type, owner_id = self._lookup.get_dns_owner(
-                name, try_lookup=True)
             ip_ref = self._lookup.get_ip(ip, try_lookup=True)
-            ipnumber.add_reverse_override(ip_ref, owner_id)
+            for name in rev[ip]:
+                owner_type, owner_id = self._lookup.get_dns_owner(
+                    name, try_lookup=True)
+                ipnumber.add_reverse_override(ip_ref, owner_id)
         db.commit()        
 
 class Hosts(object):

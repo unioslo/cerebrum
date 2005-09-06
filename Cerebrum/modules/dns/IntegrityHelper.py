@@ -188,47 +188,28 @@ class Updater(object):
         # rev-map override må brukeren rydde i selv, da vi ikke vet
         #   hva som er rett.
 
-
-    def update_reverse_override(self, ip_number_id, dest_host=None):
-        """Remove (if dest_host=None)/update reverse-map override for
-        ip_number_id.  Will remove dns_owner and ip_number entries if
-        they are no longer in use."""
-
+    def add_reverse_override(self, ip_number_id, dest_host):
+        # TODO: Only allow one None/ip
         ipnumber = IPNumber.IPNumber(self._db)
-        ipnumber.find(ip_number_id)
-        rows = ipnumber.list_override(ip_number_id=ip_number_id)
+        ipnumber.add_reverse_override(ip_number_id, dest_host)
 
-        if not dest_host:
-            ipnumber.delete_reverse_override()
-        else:
-            ipnumber.update_reverse_override(ip_number_id, dest_host)
+    def remove_reverse_override(self, ip_number_id, dest_host):
+        """Remove reverse-map override for ip_number_id.  Will remove
+        dns_owner and ip_number entries if they are no longer in
+        use."""
+        ipnumber = IPNumber.IPNumber(self._db)
+        ipnumber.delete_reverse_override(ip_number_id, dest_host)
 
-        refs = self._validator.get_referers(ip_number_id=ipnumber.ip_number_id)
+        refs = self._validator.get_referers(ip_number_id=ip_number_id)
         if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
             # IP no longer used
             ipnumber.delete()
 
-        if rows:
-            refs = self._validator.get_referers(dns_owner_id=rows[0]['dns_owner_id'])
+        if dest_host is not None:
+            refs = self._validator.get_referers(dns_owner_id=dest_host)
             if not refs:
                 dns_owner = DnsOwner.DnsOwner(self._db)
-                dns_owner.find(rows[0]['dns_owner_id'])
+                dns_owner.find(dest_host)
                 dns_owner.delete()
-
-
-## class Helper(DatabaseAccessor):
-##     """``Helper.Helper(DatabaseAccessor)`` defines a number of methods
-##     that tries to assert that data in the zone-file will be legal.
-
-##     The API should use these methods to assert that new data does not
-##     break consistency like additional records for something that is a
-##     CNAME.
-
-##     TODO: that is easier said than done, as we don't really know from
-##     the DnsOwner class what type of data is being registered."""
-
-##     def __init__(self, database, default_zone):
-##         super(Helper, self).__init__(database)
-##         self.default_zone = default_zone
 
 # arch-tag: 4805ae64-12e8-11da-84aa-8318af99ae66

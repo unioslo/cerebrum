@@ -318,7 +318,7 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
             self.delete_srv_record(
                 r['service_owner_id'], r['pri'], r['weight'], r['port'])
         g = Group.Group(self._db)
-        for row in list_groups_with_entity(self.entity_id):
+        for row in g.list_groups_with_entity(self.entity_id):
             g.clear()
             g.find(row['group_id'])
             g.remove_member(self.entity_id, row['operation'])

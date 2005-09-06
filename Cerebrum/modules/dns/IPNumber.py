@@ -164,13 +164,17 @@ class IPNumber(DatabaseAccessor):
                      binds)
         self._db.log_change(self.ip_number_id, self.const.ip_number_add, dns_owner_id)
 
-    def delete_reverse_override(self, ip_number_id=None):
-        if not ip_number_id:
-            ip_number_id = self.ip_number_id
+    def delete_reverse_override(self, ip_number_id, dns_owner_id):
+        if not dns_owner_id:
+            where = "dns_owner_id IS NULL"
+        else:
+            where = "dns_owner_id=:dns_owner_id"
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_override_reversemap]
-        WHERE ip_number_id=:ip_number_id""", locals())
-        self._db.log_change(self.ip_number_id, self.const.ip_number_del, None)
+        WHERE ip_number_id=:ip_number_id AND %s""" % where,
+                            locals())
+        self._db.log_change(self.ip_number_id, self.const.ip_number_del,
+                            dns_owner_id)
 
     def update_reverse_override(self, ip_number_id, dns_owner_id):
         self.execute("""

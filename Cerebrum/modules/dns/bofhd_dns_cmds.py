@@ -386,6 +386,18 @@ class BofhdExtension(object):
         self.mb_utils.alloc_cname(cname_name, target_name, force)
         return "OK, cname registered for %s" % target_name
 
+    # host cname_remove
+    all_commands['host_cname_remove'] = Command(
+        ("host", "cname_remove"), HostName(help_ref="host_name_alias"))
+    def host_cname_remove(self, operator, cname_name):
+        owner_id = self._find.find_target_by_parsing(
+            cname_name, dns.DNS_OWNER)
+        obj_ref, obj_id = self._find.find_target_type(owner_id)
+        if not isinstance (obj_ref, CNameRecord.CNameRecord):
+            raise CerebrumError("No such cname")
+        self.mb_utils.ip_free(dns.DNS_OWNER, cname_name, False)
+        return "OK, cname %s completly removed" % cname_name
+
     # host comment
     all_commands['host_comment'] = Command(
         ("host", "comment"), HostName(), Comment())
@@ -417,7 +429,14 @@ class BofhdExtension(object):
             # Freeing an ip-number
             self.mb_utils.ip_free(dns.IP_NUMBER, host_id, force)
             return "OK, IP-number %s completly removed" % host_id
-
+        try:
+            owner_id = self._find.find_target_by_parsing(
+                host_id, dns.DNS_OWNER)
+            obj_ref, obj_id = self._find.find_target_type(owner_id)
+            if isinstance (obj_ref, CNameRecord.CNameRecord):
+                raise CerebrumError("Use 'host cname_remove' to remove cnames")
+        except Errors.NotFoundError:
+            pass
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
         return "OK, DNS-owner %s completly removed" % host_id
 
@@ -446,7 +465,7 @@ class BofhdExtension(object):
         ("host", "info"), HostId(),
         fs=FormatSuggestion([
         # Name line
-        ("%-22s %%s\n%-22s contact=%%s\n%-22s owner=%%s" % (
+        ("%-22s %%s\n%-22s contact=%%s\n%-22s comment=%%s" % (
         "Name:", ' ', ' '), ('dns_owner', 'contact', 'comment')),
         # A-records
         ("  %-20s %s", ('name', 'ip'), "%-22s IP" % 'A-records'),
@@ -475,6 +494,17 @@ class BofhdExtension(object):
             ret = []
             for a in arecord.list_ext(ip_number_id=owner_id):
                 ret.append({'ip': a['a_ip'], 'name': a['name']})
+            return ret
+        if host_id.startswith('ptr:'):
+            owner_id = self._find.find_target_by_parsing(
+                host_id[4:], dns.IP_NUMBER)
+            ip = IPNumber.IPNumber(self.db)
+            ret = []
+            for row in ip.list_override(ip_number_id=owner_id):
+                ret.append({'rev_ip': row['a_ip'],
+                            'rev_name': row['name']})
+            if not ret:
+                return "using default PTR from A-record"
             return ret
 
         owner_id = self._find.find_target_by_parsing(
@@ -638,18 +668,33 @@ class BofhdExtension(object):
         self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
         return "OK, dns-owner %s renamed to %s" % (old_id, new_id)
 
-    # host ptr_set
-    all_commands['host_ptr_set'] = Command(
-        ("host", "ptr_set"), HostId(),
-        HostId(help_ref='new_host_id_or_clear'), Force(optional=True))
-    def host_ptr_set(self, operator, ip_host_id, dest_host, force=False):
+    # host ptr_add
+    all_commands['host_ptr_add'] = Command(
+        ("host", "ptr_add"), HostId(), HostName(), Force(optional=True))
+    def host_ptr_add(self, operator, ip_host_id, dest_host, force=False):
         force = self.dns_parser.parse_force(force)
         ip_owner_id = self._find.find_target_by_parsing(
             ip_host_id, dns.IP_NUMBER)
-        operation = self.mb_utils.register_revmap_override(
+        self.mb_utils.add_revmap_override(
             ip_owner_id, dest_host, force)
+        return "OK, added reversemap override for %s -> %s" % (
+            ip_host_id, dest_host)
 
-        return "OK, %s reversemap override for %s" % (operation, ip_host_id)
+    # host ptr_remove
+    all_commands['host_ptr_remove'] = Command(
+        ("host", "ptr_remove"), HostId(), HostName())
+    def host_ptr_remove(self, operator, ip_host_id, dest_host, force=False):
+        force = self.dns_parser.parse_force(force)
+        ip_owner_id = self._find.find_target_by_parsing(
+            ip_host_id, dns.IP_NUMBER)
+        if dest_host:
+            dest_owner_id = self._find.find_target_by_parsing(
+                dest_host, dns.DNS_OWNER)
+        else:
+            dest_owner_id = None
+        self.mb_utils.remove_revmap_override(ip_owner_id, dest_owner_id)
+        return "OK, removed reversemap override for %s -> %s" % (
+            ip_host_id, dest_host)
         
     # host srv_add
     all_commands['host_srv_add'] = Command(

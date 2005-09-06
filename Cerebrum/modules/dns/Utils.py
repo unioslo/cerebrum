@@ -158,14 +158,14 @@ class Find(object):
 
         self._host.clear()
         try:
-            self._host.find_by_dns_owner_id(self._dns_owner.entity_id)
+            self._host.find_by_dns_owner_id(owner_id)
             return self._host, self._host.entity_id
         except Errors.NotFoundError:
             pass
 
         self._cname.clear()
         try:
-            self._cname.find_by_cname_owner_id(self._dns_owner.entity_id)
+            self._cname.find_by_cname_owner_id(owner_id)
             return self._cname, self._cname.entity_id
         except Errors.NotFoundError:
             pass

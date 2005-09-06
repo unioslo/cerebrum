@@ -329,7 +329,18 @@ entry.  The ``dns_override_reversemap`` table can be used to override
 this reversemap with another value.  It has the following columns::
 
   ip_number_id    FK to ip_number
-  dns_owner_id    FK to dns_owner (NULL if ip should not have an entry)
+  dns_owner_id    FK to dns_owner
+
+Variants:
+
+  - Default: all A-records has a corresponding PTR record.  No entries
+    in this table.
+  - Only spesific A-records has a revmap:
+    a_record:(A -> IP) reverse:(IP -> A)
+  - No revmap: 
+    a_record(A -> IP) reverse(:IP -> NULL)
+  - revmap for something with no A-record: 
+    reverse:(IP -> A)
 */
 
 category:main;
@@ -339,9 +350,10 @@ CREATE TABLE dns_override_reversemap (
                   REFERENCES dns_ip_number(ip_number_id),
   dns_owner_id  NUMERIC(12,0)
                   CONSTRAINT override_reversemap_owner_fk 
-                  REFERENCES dns_owner(dns_owner_id),
-  CONSTRAINT override_reversemap_unique UNIQUE (ip_number_id)
+                  REFERENCES dns_owner(dns_owner_id)
 );
+category:main;
+CREATE INDEX dns_over_revmap_ip_idx ON dns_override_reversemap(ip_number_id);
 
 /*	dns_srv_record
 
