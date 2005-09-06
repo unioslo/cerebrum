@@ -220,9 +220,8 @@ class BofhdExtension(object):
              'Enter the service name for this operation'],
             'subnet_or_ip':
             ['subnet_or_ip', 'Enter subnet or ip',
-             'Enter subnet or ip for this operation.  IP-numbers must '
-             'be marked as such by prepending a final dot, otherwise it '
-             'will be interpreted as a subnet.  You may skip the 129.240 part'],
+             'Enter subnet or ip for this operation.  129.240.x.y = IP. '
+             '129.240.x or 129.240.x.y/ indicates a subnet.'],
             'hinfo':
             ['hinfo', 'Enter HINFO code',
              'Legal values are: \n%s' % "\n".join(

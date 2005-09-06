@@ -1,5 +1,5 @@
 ======================
-Mreg - design
+Dnsinfo - design
 ======================
 
 .. contents:: Contents
@@ -48,7 +48,7 @@ Figure: The database schema
 Validation etc.
 ---------------------------------
 
-Mreg tries to maintain a set of rules to preserve the integrity of the
+Dnsinfo tries to maintain a set of rules to preserve the integrity of the
 zone file.  The database schema preserves some constraints, such as
 preventing deletion of data that other data poins to, or having
 duplicate entries.  Other constraints are, however too complex to be
@@ -188,14 +188,26 @@ DnsConstants
 .. sysinclude:: %(ext_pydoc)sDnsConstants.py %(template)s --class_doc Constants
 
 
-Helper.DNSError
-~~~~~~~~~~~~~~~
-.. sysinclude:: %(ext_pydoc)sHelper.py %(template)s --class_doc DNSError
+IntegrityHelper.DNSError
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. sysinclude:: %(ext_pydoc)sIntegrityHelper.py %(template)s --class_doc DNSError
 
+IntegrityHelper.Validator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. sysinclude:: %(ext_pydoc)sIntegrityHelper.py %(template)s --class_doc Validator
 
-Helper.Helper
-~~~~~~~~~~~~~~~
-.. sysinclude:: %(ext_pydoc)sHelper.py %(template)s --class_doc Helper
+IntegrityHelper.Updater
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. sysinclude:: %(ext_pydoc)sIntegrityHelper.py %(template)s --class_doc Updater
+
+Utils.DnsParser
+~~~~~~~~~~~~~~~~~~~
+.. sysinclude:: %(ext_pydoc)sUtils.py %(template)s --class_doc DnsParser
+
+Utils.Find
+~~~~~~~~~~~~~~~~~~~
+.. sysinclude:: %(ext_pydoc)sUtils.py %(template)s --class_doc Find
+
 
 
 Distributed files
@@ -220,9 +232,11 @@ API:
     handles dns_owner, mx_set, mx_set_members, general_ttl_record, srv_record
   Cerebrum/modules/dns/EntityNote.py
     handles entity_note.  Should perhaps be moved into Cerebrum-core
-  Cerebrum/modules/dns/Helper.py
+  Cerebrum/modules/dns/IntegrityHelper.py
     various helper methods used by the API and bofhd to assert that we
     don't violate DNS schema etc.
+  Cerebrum/modules/dns/Utils.py
+    additional utilities
   Cerebrum/modules/dns/HostInfo.py
     handles dns_host_info
   Cerebrum/modules/dns/IPNumber.py
@@ -263,7 +277,7 @@ Do we need comments/contact info other places?
     What are "reserved names"?  Usernames?
   - nothing can have something that is a CNAME as a target, and if
     something is a CNAME, it cannot be anything else.
-  - an entry in mreg_host_info must have atleast one corresponding
+  - an entry in dns_host_info must have atleast one corresponding
     a_record entry.
 
 
@@ -278,26 +292,21 @@ Do we need comments/contact info other places?
   deletion?
 
 
-  Foreign data
-  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  The zone suffix (.uio.no.) is not registered for each row in
-  dns_owner.
-
   Deletion/update of dns_owner/ip_number
   #---------------------------------------
   The following commands are relevant here:
 
-  1. ip rename  NAME
-  2. ip rename  IP
-  3. ip free    NAME
-  4. ip free    IP
-  5. ip a_rem   NAME
-  6. ip a_rem   IP
+  1. host rename  NAME
+  2. host rename  IP
+  3. host free    NAME
+  4. host free    IP
+  5. host a_rem   NAME
+  6. host a_rem   IP
 
-  ip rename/free is interpreted as operating on dns_owner or ip_number
+  host rename/free is interpreted as operating on dns_owner or ip_number
   depending on wheter a NAME or IP was entered.
 
-  ip rename
+  host rename
   #~~~~~~~~~~~~~~
   Will update dns_owner or ip_number directly.  If target already
   exists: 
@@ -309,7 +318,7 @@ Do we need comments/contact info other places?
   - must check if new dns_owner is a CNAME or something else that
     violates the zone-file.
 
-  ip free
+  host remove
   #~~~~~~~~~~~~~~
   If argument is an ip_number, this ip_number will be removed from the
   ip_number table (provided that it won't break any FK constraints).
@@ -317,28 +326,28 @@ Do we need comments/contact info other places?
   If argument is a dns_owner, it will remove data with indicated
   dns_owner_id from:
 
-  - a_record
-  - mreg_host_info
-  - cname_record
-  - general_ttl_record
-  - entity_note
-  - srv_record
-  - override_reversemap
+  - dns_a_record
+  - dns_host_info
+  - dns_cname_record
+  - dns_general_ttl_record
+  - dns_entity_note
+  - dns_srv_record
+  - dns_override_reversemap
 
-  Force must be used if "ip info" would return anything more than one
+  Force must be used if "host info" would return anything more than one
   HINFO record + one A record.
 
   Will throw an exception if the deleted entry is a target of any of
   the above mentioned records, or used in a mx_set.
 
-  ip a_rem
+  host a_rem
   #~~~~~~~~~~~~~~
 
   Will delete the a_record + corresponding ip_number and/or dns_owner
   entry.  Will throw an exception if:
 
-  - it is the only a_record for a mreg_host_info entry
-  - if the a_record was used as a target (see 'ip free')
+  - it is the only a_record for a dns_host_info entry
+  - if the a_record was used as a target (see 'host remove')
 
   
 ..
