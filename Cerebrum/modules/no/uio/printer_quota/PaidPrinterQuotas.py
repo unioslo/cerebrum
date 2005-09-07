@@ -146,7 +146,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
                 pageunits -= delta
             if pageunits and old_accum > 0:
                 delta = min(old_accum, pageunits)
-                pageunits_free = -delta
+                pageunits_accum = -delta
                 pageunits -= delta
             if pageunits:
                 pageunits_paid = -pageunits
