@@ -3461,12 +3461,15 @@ class BofhdExtension(object):
                     th.make_barcode(account.entity_id, mapping['barcode'])
                 except IOError, msg:
                     raise CerebrumError(msg)
-            if account.owner_type != self.const.entity_person:
-                raise CerebrumError("Currently only personal users supported. "
-                                    "Use the 'to screen' option")
-            person = self._get_person('entity_id', account.owner_id)
-            fullname = person.get_name(self.const.system_cached, self.const.name_full)
-            mapping['fullname'] =  fullname
+            if account.owner_type == self.const.entity_group:
+                grp = self._get_group(account.owner_id, idtype='id')
+                mapping['group'] = grp.group_name
+            elif account.owner_type == self.const.entity_person:    
+                person = self._get_person('entity_id', account.owner_id)
+                fullname = person.get_name(self.const.system_cached, self.const.name_full)
+                mapping['fullname'] =  fullname
+            else:
+                raise CerebrumError("Unsupported owner type. Please use the 'to screen' option")
             if tpl_lang.endswith("letter"):
                 address = None
                 for source, kind in ((self.const.system_lt, self.const.address_post),
