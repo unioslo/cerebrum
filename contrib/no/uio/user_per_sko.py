@@ -66,9 +66,9 @@ def make_ou_to_stedkode_map(db):
     result = dict()
     
     for row in ou.get_stedkoder():
-        result[int(row.ou_id)] = (int(row.fakultet),
-                                  int(row.institutt),
-                                  int(row.avdeling))
+        result[int(row["ou_id"])] = (int(row["fakultet"]),
+                                     int(row["institutt"]),
+                                     int(row["avdeling"]))
     # od
 
     logger.debug("%d ou -> stedkode mappings", len(result))
@@ -88,12 +88,12 @@ def make_ou_to_parent_map(perspective, db):
 
     for item in ou.get_structure_mappings(perspective):
         if item.parent_id is not None:
-            parent_id = int(item.parent_id)
+            parent_id = int(item["parent_id"])
         else:
             parent_id = None
         # fi
             
-        result[ int(item.ou_id) ] = parent_id
+        result[int(item["ou_id"])] = parent_id
     # od
 
     logger.debug("%d ou -> parent mappings", len(result))
@@ -133,6 +133,11 @@ def locate_ou(ou_id, ou2parent, ou2stedkode, level):
             return __undef_ou
         # fi
 
+        if tmp not in ou2stedkode:
+            logger.warn("Cannot locate sko for ou_id %s. Assuming undef", tmp)
+            return __undef_ou
+        # fi
+
         tmp_sko = ou2stedkode[ tmp ]
         # extract the right part of the sko
         if tmp_sko[3-level:] == (0,)*level:
@@ -140,7 +145,7 @@ def locate_ou(ou_id, ou2parent, ou2stedkode, level):
         # fi
         
         # ... or continue with parent
-        tmp = ou2parent[ tmp ]
+        tmp = ou2parent.get( tmp )
     # od
 # end locate_ou
 
@@ -235,17 +240,19 @@ def make_empty_statistics(level, db):
     statistics[ __undef_ou ] = { "name" : "undef" }
 
     for row in sko:
-        ou_sko = (int(row.fakultet), int(row.institutt), int(row.avdeling))
+        ou_sko = (int(row["fakultet"]),
+                  int(row["institutt"]),
+                  int(row["avdeling"]))
         ou.clear()
-        ou.find(row.ou_id)
+        ou.find(row["ou_id"])
 
         acronyms = ou.get_acronyms()
         if acronyms:
-            ou_name = acronyms[0].acronym
+            ou_name = acronyms[0]["acronym"]
         else:
             names = ou.get_names()
             if names:
-                ou_name = names[0].name
+                ou_name = names[0]["name"]
             else:
                 ou_name = "N/A"
             # fi
@@ -394,7 +401,7 @@ def generate_people_statistics(perspective, empty_statistics, level, db):
             logger.debug("Next %d (%d) rows", limit, row_count)
         # fi
 
-        id = int(row.person_id)
+        id = int(row["person_id"])
         if id in processed:
             continue
         else:
@@ -408,20 +415,20 @@ def generate_people_statistics(perspective, empty_statistics, level, db):
             continue
         # fi
         
-        affiliations.sort(lambda x, y: cmp(order[x.affiliation],
-                                           order[y.affiliation])
-                                    or cmp(order.get(x.status, 0),
-                                           order.get(y.status, 0)))
+        affiliations.sort(lambda x, y: cmp(order[x["affiliation"]],
+                                           order[y["affiliation"]])
+                                    or cmp(order.get(x["status"], 0),
+                                           order.get(y["status"], 0)))
         aff = affiliations[0]
-        ou_result = locate_ou(aff.ou_id, ou2parent, ou2stedkode, level)
+        ou_result = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, level)
 
         # a&s (ansatt og student) has a special rule
-        affs = [ x.affiliation for x in affiliations ]
+        affs = [ x["affiliation"] for x in affiliations ]
         if (const.affiliation_student in affs and
             const.affiliation_ansatt in affs):
             affiliation_name = "a&s"
         else:
-            affiliation_name = order[aff.affiliation]["name"]
+            affiliation_name = order[aff["affiliation"]]["name"]
         # fi
 
         statistics[ou_result][affiliation_name] += 1
@@ -467,13 +474,13 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
             logger.debug("Next %d (%d) rows", limit, row_count)
         # fi
 
-        if int(row.account_id) in processed:
+        if int(row["account_id"]) in processed:
             continue
         else:
-            processed.add(int(row.account_id))
+            processed.add(int(row["account_id"]))
         # fi
 
-        affiliations = account.list_accounts_by_type(account_id=row.account_id,
+        affiliations = account.list_accounts_by_type(account_id=row["account_id"],
                                                      filter_expired = True,
                                                      fetchall = True)
         # Affiliations have already been ordered according to priority. Just
