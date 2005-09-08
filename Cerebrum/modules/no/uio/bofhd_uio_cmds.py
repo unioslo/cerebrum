@@ -5040,7 +5040,7 @@ class BofhdExtension(object):
         keys.sort()
         for k in keys:
             for tpl in cereconf.BOFHD_TEMPLATES[k]:
-                tpls.append("%s:%s.%s (%s)" % (k, tpl[0], tpl[1], tpl[2]))
+                tpls.append("%s" % (tpl[2]))
                 if num is not None and n == int(num):
                     return (k, tpl[0], tpl[1])
                 n += 1
