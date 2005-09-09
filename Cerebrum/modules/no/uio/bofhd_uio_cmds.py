@@ -5576,6 +5576,12 @@ class BofhdExtension(object):
             # TODO: permissions?
             pu.add_spread(s)        
         # Add homedir entry.  We prefer to reuse the old one if it exists
+        if not args['old_homedir_bool'].startswith('y'):
+            # Trigger homedir creation in process_changes.py
+            # TBD: a bofhd_request would be cleaner?
+            for row in pu.get_homes():
+                pu.clear_home(row['spread'])
+
         disk_id, home = self._get_disk(args['disk'])[1:3]
         homes = account.get_homes()
         kwargs = {'disk_id': disk_id, 'home': home,
