@@ -5417,8 +5417,8 @@ class BofhdExtension(object):
         old_perm_groups).  Note that perm_groups are not in old_groups"""
         
         old_uid, old_gid = None, None
-        old_spreads = []
-        old_groups = []
+        old_spreads = {}
+        old_groups = {}
         delete_date = account.expire_date.strftime('%Y-%m-%d')
         for row in self.db.get_log_events(subject_entity=account.entity_id,
                                           types=[self.const.posix_demote,
@@ -5430,17 +5430,17 @@ class BofhdExtension(object):
                 old_uid, old_gid = change_params['uid'], change_params['gid']
             elif row['tstamp'].strftime('%Y-%m-%d') == delete_date:
                 if row['change_type_id'] == int(self.const.spread_del):
-                    old_spreads.append(change_params['spread'])
+                    old_spreads[change_params['spread']] = 1
                 elif row['change_type_id'] == int(self.const.group_rem):
-                    old_groups.append(int(row['dest_entity']))
+                    old_groups[int(row['dest_entity'])] = 1
         ar = BofhdAuthRole(self.db)
         perm_groups = {}
-        for row in ar.list(entity_ids=old_groups):
+        for row in ar.list(entity_ids=old_groups.keys()):
            perm_groups[int(row['entity_id'])] = 1
         for k in perm_groups.keys():
-            old_groups.remove(k)
-        return (old_uid, self.__group_ids2name(old_gid), old_spreads,
-                self.__group_ids2name(old_groups),
+            del old_groups[k]
+        return (old_uid, self.__group_ids2name(old_gid), old_spreads.keys(),
+                self.__group_ids2name(old_groups.keys()),
                 self.__group_ids2name(perm_groups.keys()))
 
     def _user_restore_helper(self, session, *args):
@@ -5581,11 +5581,13 @@ class BofhdExtension(object):
             # TBD: a bofhd_request would be cleaner?
             for row in pu.get_homes():
                 pu.clear_home(row['spread'])
-
+            kwargs = {'status': self.const.home_status_not_created}
+        else:
+            kwargs = {'status': self.const.home_status_pending_restore}
         disk_id, home = self._get_disk(args['disk'])[1:3]
         homes = account.get_homes()
-        kwargs = {'disk_id': disk_id, 'home': home,
-                  'status': self.const.home_status_pending_restore}
+        kwargs.update({'disk_id': disk_id, 'home': home})
+
         if homes:
             homedir_id = kwargs['current_id'] = homes[0]['homedir_id']
             pu.set_homedir(**kwargs)
