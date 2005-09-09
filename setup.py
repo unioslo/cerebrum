@@ -250,6 +250,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/modules/no/feidegvs',
                    'Cerebrum/modules/no/hia',
                    'Cerebrum/modules/templates',
+                   'Cerebrum/modules/xmlutils',
                    'Cerebrum/client',
                    ],
 
