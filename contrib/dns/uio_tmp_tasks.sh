@@ -31,26 +31,26 @@ def new_db():
     cmd = ["./makedb.py"]
     for mod in ('bofhd_tables', 'bofhd_auth', 'mod_posix_user',
                 'mod_changelog', 'mod_stedkode', 'mod_email',
-                'mod_lt', 'mod_printer_quota', 'mod_dns'):
+                'mod_lt', 'mod_printer_quota', 'mod_dns', 'mod_job_runner'):
         cmd.append("--extra-file=design/%s.sql" % mod)
     run(" ".join(cmd))
 
-def build_maps():
+def build_maps(tgt_dir):
     bz = './contrib/dns/build_zone.py'
     cfg_dir = '/cerebrum/etc/cerebrum/dns'
     
-    run("%s --head %s/uio.no.static_head --head %s/uio.no.head -Z uio -b data/new/uio.no" % (bz, cfg_dir, cfg_dir))
+    run("%s --head %s/uio.no.static_head --head %s/uio.no.head -Z uio -b %s/uio.no" % (bz, cfg_dir, cfg_dir, tgt_dir))
     # Revmaps
-    run("%s --head %s/129.240.head -m 129.240.0.0/16 -r data/new/129.240" % (bz, cfg_dir))
+    run("%s --head %s/129.240.head -m 129.240.0.0/16 -r %s/129.240" % (bz, cfg_dir, tgt_dir))
     cmd = [bz, '--head', '%s/revmap-default.head' % cfg_dir]
     for rev in revmaps:
         if rev != '129.240':
-            cmd.extend(['-m', '%s.0/24' % os.path.basename(rev), '-r', 'data/new/%s' % rev])
+            cmd.extend(['-m', '%s.0/24' % os.path.basename(rev), '-r', '%s/%s' % (tgt_dir, rev)])
     run(" ".join(cmd))
     # Netgroups
-    run("./contrib/dns/generate_nismaps.py --group_spread NIS_mng@uio --user_spread NIS_user@uio -n data/new/netgroup.host || true")
+    run("./contrib/dns/generate_nismaps.py --group_spread NIS_mng@uio --user_spread NIS_user@uio -n %s/netgroup.host || true" % tgt_dir)
     # hosts file
-    run("%s -Z uio --hosts data/new/hosts" % bz)
+    run("%s -Z uio --hosts %s/hosts" % (bz, tgt_dir))
     
 def migrate_uio():
     # nukes existing dns data, end re-imports them
@@ -66,29 +66,29 @@ def migrate_uio():
     run("%s" % " ".join(cmd))
     run("./contrib/dns/import_dns.py -Z uio --netgroups data/src/netgroup.host -n")
 
-def do_diff():
+def do_diff(src_dir, tgt_dir):
     cmd = ["./contrib/dns/strip4cmp.py -Z uio"]
     lines = []
     for rev in revmaps:
         added = False
-        for t in ('src', 'new'):
-            orig = 'data/%s/%s' % (t, rev)
+        for t in (src_dir, tgt_dir):
+            orig = '%s/%s' % (t, rev)
             if not os.path.exists('%s.cmp' % orig):
                 cmd.append("-i %s -o %s.cmp -r" % (orig, orig))
                 added = True
-        lines.append("diff -u data/src/%s.cmp data/new/%s.cmp\n" % (rev, rev))
+        lines.append("diff -u %s/%s.cmp %s/%s.cmp\n" % (src_dir, rev, tgt_dir, rev))
     if len(cmd) > 1:
         run(" ".join(cmd))
         print "".join(lines)
 
     cmd = ["./contrib/dns/strip4cmp.py -Z uio"]
-    for t in ('src', 'new'):
-        if not os.path.exists('data/%s/uio.no.cmp' % t):
-            cmd.append("-i data/%s/uio.no -o data/%s/uio.no.cmp -z" % (t, t))
+    for t in (src_dir, tgt_dir):
+        if not os.path.exists('%s/uio.no.cmp' % t):
+            cmd.append("-i %s/uio.no -o %s/uio.no.cmp -z" % (t, t))
 
     if len(cmd) > 1:
         run(" ".join(cmd))
-        print "diff -u data/src/uio.no.cmp data/new/uio.no.cmp"
+        print "diff -u %s/uio.no.cmp %s/uio.no.cmp" % (src_dir, tgt_dir)
 
 def fetch_src_files():
     print ("mkdir tmpdns\n"
@@ -100,6 +100,8 @@ def fetch_src_files():
            "scp cerebellum:/cerebrum/yp/src/hosts cerebellum:/cerebrum/yp/src/netgroup.host .\n"
            "tar czf uio-zone-`date '+%Y-%m-%d'`.tgz *\n")
 
+tgt_dir = '/cerebrum/dumps/dns'
+src_dir ='data/src' 
 if len(sys.argv) != 2:
     print "Usage: old_and_large.sh --migrate | --fetch | --new-db | --build | --diff"
     sys.exit(1)
@@ -110,8 +112,8 @@ elif sys.argv[1] == '--new-db':
 elif sys.argv[1] == '--fetch':
     fetch_src_files()
 elif sys.argv[1] == '--build':
-    build_maps()
+    build_maps(tgt_dir)
 elif sys.argv[1] == '--diff':
-    do_diff()
+    do_diff(src_dir, tgt_dir)
 
 # arch-tag: dfc54693-f7c1-4c6a-b97c-a0f3450b3696
