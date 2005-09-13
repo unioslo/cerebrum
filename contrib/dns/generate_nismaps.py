@@ -374,13 +374,13 @@ def main():
     global e_o_f
     global max_group_memberships
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:s:m:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:s:m:Z:',
                                    ['debug', 'help', 'eof', 'group=',
                                     'passwd=', 'group_spread=',
                                     'user_spread=', 'netgroup=',
                                     'max_memberships=', 'shadow=',
                                     'mnetgroup=', 'zone='])
-    except getopt.GetoptError:
+    except getopt.GetoptError, msg:
         usage(1)
 
     user_spread = group_spread = None
@@ -416,7 +416,7 @@ def main():
             ngu.generate_netgroup(val)
         elif opt in ('--group_spread',):
             group_spread = map_spread(val)
-        elif opt in ('--zone',):
+        elif opt in ('-Z', '--zone',):
             zone = val
         elif opt in ('--max_memberships',):
             max_group_memberships = val
@@ -455,7 +455,7 @@ def usage(exitcode=0):
       Write netgroup map to outfile
     -m | --mnetgroup outfile
       Write netgroup.host map to outfile
-    -z dns zone postfix (example: .uio.no.)
+    -Z | --zone dns zone postfix (example: .uio.no.)
 
    User options:
     --user_spread value
