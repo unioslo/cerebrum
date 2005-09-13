@@ -357,12 +357,13 @@ def usage(exitcode=0):
       be repeated.  One line must end with '\d+ ; Serialnumber'
       required for -b/-r
     --hosts filename: write new hosts file to filename
+    -R : resets head list
     """
     sys.exit(exitcode)
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'b:hr:Z:m:', [
+        opts, args = getopt.getopt(sys.argv[1:], 'b:hr:Z:m:R', [
             'help', 'build=', 'reverse=', 'hosts=', 'head=', 'zone=', 'mask='])
     except getopt.GetoptError:
         usage(1)
@@ -391,6 +392,8 @@ def main():
         elif opt in ('--hosts', ):
             hf = HostsFile(zone)
             hf.generate_hosts_file(val)
+        elif opt in ('-R'):
+            heads = []
 
 if __name__ == '__main__':
     main()
