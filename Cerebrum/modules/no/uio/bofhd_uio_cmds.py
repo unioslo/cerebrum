@@ -814,8 +814,8 @@ class BofhdExtension(object):
         matches = []
         prim = acc.get_primary_mailaddress()
 
+        found = False
         if addr == 'local':
-            found = False
             for a in self.__get_valid_email_addrs(fw):
                 if self._forward_exists(fw, a):
                     found = True
