@@ -158,21 +158,21 @@ class BofhdExtension(object):
         # not contain \n
         command_help = {
             'host': {
-            'host_a_add': 'legg til en a-record',
-            'host_a_remove': 'fjern en a-record',
+            'host_a_add': 'Legg til en a-record',
+            'host_a_remove': 'Fjern en a-record',
             'host_add': 'Registrerer ip-addresse for en ny maskin',
-            'host_cname_add': 'registrer et cname',
+            'host_cname_add': 'Registrer et cname',
             'host_comment': 'Sette kommentar for en gitt maskin',
             'host_contact': 'Oppgi contact for gitt maskin',
             'host_remove': 'Sletter data for oppgitt hosnavn/ip-nr',
-            'host_hinfo_list': 'list lovlige hinfo verdier',
-            'host_hinfo_set': 'sette hinfo',
+            'host_hinfo_list': 'List lovlige hinfo verdier',
+            'host_hinfo_set': 'Sette hinfo',
             'host_info': 'Lister data for gitt hostnavn/ip-addresse eller cname',
-            'host_unused_list': 'list ledige ipnr',
-            'host_mx_add': 'legg ny entry til et MX set',
-            'host_mx_remove': 'fjern entry fra et MX set',
-            'host_mx_set': 'sette MX',
-            'host_mx_show': 'Vid definisjonen av et MX set',
+            'host_unused_list': 'List ledige ipnr',
+            'host_mx_set': 'Sette MX for host_name til en gitt MX definisjon',
+            'host_mxdef_add': 'Utvid en MX definisjon med ny maskin',
+            'host_mxdef_remove': 'Fjern maskin fra en MX definisjon',
+            'host_mxdef_show': 'Vis innhold i en MX definisjon',
             'host_rename': 'Forande et IP-nr/navn til et annet IP-nr/navn.',
             'host_ptr_set': 'Registrer/slett override på reversemap',
             'host_srv_add': 'Opprette en SRV record',
@@ -227,7 +227,7 @@ class BofhdExtension(object):
              'Legal values are: \n%s' % "\n".join(
             [" - %-8s -> %s" % (t[0], t[1]) for t in BofhdExtension.legal_hinfo])],
             'mx_set':
-            ['mx_set', 'Enter mx_set',
+            ['mxdef', 'Enter name of mxdef',
              'Use "host list_mx_set" to get a list of legal values'],
             'contact':
             ['contact', 'Enter contact',
@@ -586,19 +586,19 @@ class BofhdExtension(object):
             ret.append({'ip': ip})
         return ret
 
-    # host mx_add
-    all_commands['host_mx_add'] = Command(
-        ("host", "mx_add"), MXSet(), Priority(), HostName())
-    def host_mx_add(self, operator, mx_set, priority, host_name):
+    # host mxdef_add
+    all_commands['host_mxdef_add'] = Command(
+        ("host", "mxdef_add"), MXSet(), Priority(), HostName())
+    def host_mxdef_add(self, operator, mx_set, priority, host_name):
         host_ref = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         self.mb_utils.mx_set_add(mx_set, priority, host_ref)
         return "OK, added %s to mx_set %s" % (host_name, mx_set)
 
-    # host mx_remove
-    all_commands['host_mx_remove'] = Command(
-        ("host", "mx_remove"), MXSet(), HostName())
-    def host_mx_remove(self, operator, mx_set, target_host_name):
+    # host mxdef_remove
+    all_commands['host_mxdef_remove'] = Command(
+        ("host", "mxdef_remove"), MXSet(), HostName())
+    def host_mxdef_remove(self, operator, mx_set, target_host_name):
         host_ref = self._find.find_target_by_parsing(
             target_host_name, dns.DNS_OWNER)
         self.mb_utils.mx_set_del(mx_set, host_ref)
@@ -621,20 +621,17 @@ class BofhdExtension(object):
     def host_mx_set(self, operator, name, mx_set):
         owner_id = self._find.find_target_by_parsing(
             name, dns.DNS_OWNER)
-        dns_owner = DnsOwner.DnsOwner(self.db)
-        dns_owner.find(owner_id)
-        dns_owner.mx_set_id = self._find.find_mx_set(mx_set).mx_set_id
-        dns_owner.write_db()
+        self.mb_utils.mx_set_set(owner_id, mx_set)
         return "OK, mx set for %s" % name
 
-    # host mx_show
-    all_commands['host_mx_show'] = Command(
-        ("host", "mx_show"), MXSet(optional=True),
+    # host mxdef_show
+    all_commands['host_mxdef_show'] = Command(
+        ("host", "mxdef_show"), MXSet(optional=True),
         fs=FormatSuggestion("%-20s %-12s %-10i %s",
                             ('mx_set', 'ttl', 'pri', 'target'),
                             hdr="%-20s %-12s %-10s %s" % (
         'MX-set', 'TTL', 'Priority', 'Target')))
-    def host_mx_show(self, operator, mx_set=None):
+    def host_mxdef_show(self, operator, mx_set=None):
         m = DnsOwner.MXSet(self.db)
         if mx_set is None:
             mx_set = [row['name'] for row in m.list()]
