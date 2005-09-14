@@ -47,12 +47,12 @@ class ZoneUtils(object):
             return name[:-len(self._zone.postfix)]
         return name
 
-    def write_file_with_serial(self, dta_file, fname, heads):
+    def write_file_with_serial(self, dta_file, fname, heads, data_dir):
       # Avoid updating serial if file was not changed
       f = Utils.SimilarSizeWriter(fname, "w")
       f.set_size_change_limit(10)
       f.write(header_splitter)
-      serial_file, serial = self.__write_heads(fname, f, heads)
+      serial_file, serial = self.__write_heads(fname, f, heads, data_dir)
       f.write(extra_splitter)
       fin = file(dta_file)
       for line in fin:
@@ -82,10 +82,10 @@ class ZoneUtils(object):
         fout.write("%s" % serial)
         fout.close()
 
-    def __write_heads(self, fname, f, heads):
+    def __write_heads(self, fname, f, heads, data_dir):
         # Write headers, optionally writing serialnumber
         re_serial = re.compile(r'(\d+)\s*;\s*Serialnumber')
-        serial_file = "%s.serial" % fname
+        serial_file = os.path.join(data_dir, os.path.basename(fname)+".serial")
         serial = self.__new_serial(serial_file)
         first = True
         for h in heads:
@@ -155,8 +155,9 @@ class ForwardMap(object):
             self.srv_records.setdefault(
                 int(row['service_owner_id']), []).append(row) 
 
-    def generate_zone_file(self, fname, heads):
-        f = Utils.SimilarSizeWriter(fname+".status", "w")
+    def generate_zone_file(self, fname, heads, data_dir):
+        status_fname = os.path.join(data_dir, os.path.basename(fname)+".status")
+        f = Utils.SimilarSizeWriter(status_fname, "w")
         f.set_size_change_limit(10)
 
         order = self.a_records.keys()
@@ -233,7 +234,7 @@ class ForwardMap(object):
                 f.write(line)
         f.close()
         if f.replaced_file:
-            self.zu.write_file_with_serial(fname+".status", fname, heads)
+            self.zu.write_file_with_serial(status_fname, fname, heads, data_dir)
 
 class ReverseMap(object):
     def __init__(self, mask):
@@ -268,8 +269,9 @@ class ReverseMap(object):
         tmp.reverse()
         return '$ORIGIN %s.IN-ADDR.ARPA.\n' % ".".join(tmp)
 
-    def generate_reverse_file(self, fname, heads):
-        f = Utils.SimilarSizeWriter(fname+".status", "w")
+    def generate_reverse_file(self, fname, heads, data_dir):
+        status_fname = os.path.join(data_dir, os.path.basename(fname)+".status")
+        f = Utils.SimilarSizeWriter(status_fname, "w")
         f.set_size_change_limit(10)
 
         order = self.ip_numbers.keys()
@@ -297,7 +299,7 @@ class ReverseMap(object):
                     f.write(line)
         f.close()
         if f.replaced_file:
-            self.zu.write_file_with_serial(fname+".status", fname, heads)
+            self.zu.write_file_with_serial(status_fname, fname, heads, data_dir)
 
 class HostsFile(object):
     def __init__(self, zone):
@@ -353,6 +355,8 @@ def usage(exitcode=0):
     -m | --mask net/mask: use with -r to specify iprange
     -b | --build filename: write new zonefile to filename
     -r | --reverse filename: write new reverse map to filename
+    -d | --dir dir: store .status/.serial files in this dir (default:
+      same dir as filename)
     --head filename: header for the static part of the zone-file.  May
       be repeated.  One line must end with '\d+ ; Serialnumber'
       required for -b/-r
@@ -363,12 +367,14 @@ def usage(exitcode=0):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'b:hr:Z:m:R', [
-            'help', 'build=', 'reverse=', 'hosts=', 'head=', 'zone=', 'mask='])
+        opts, args = getopt.getopt(sys.argv[1:], 'b:hr:Z:m:Rd:', [
+            'help', 'build=', 'reverse=', 'hosts=', 'head=', 'zone=', 'mask=',
+            'dir='])
     except getopt.GetoptError:
         usage(1)
 
     heads = []
+    data_dir = None
     for opt, val in opts:
         if opt in ('--help', '-h'):
             usage()
@@ -379,16 +385,24 @@ def main():
             int(zone) # Triggers error if missing
         elif opt in ('--mask', '-m'):
             mask = val
+        elif opt in ('--dir', '-d'):
+            data_dir = val
         elif opt in ('--build', '-b'):
             if not heads:
                 usage(1)
             fm = ForwardMap(zone)
-            fm.generate_zone_file(val, heads)
+            if data_dir:
+                fm.generate_zone_file(val, heads, data_dir)
+            else:
+                fm.generate_zone_file(val, heads, os.path.dirname(val))
         elif opt in ('--reverse', '-r'):
             if not (heads and mask):
                 usage(1)
             rm = ReverseMap(mask)
-            rm.generate_reverse_file(val, heads)
+            if data_dir:
+                rm.generate_reverse_file(val, heads, data_dir)
+            else:
+                rm.generate_reverse_file(val, heads, os.path.dirname(val))
         elif opt in ('--hosts', ):
             hf = HostsFile(zone)
             hf.generate_hosts_file(val)
