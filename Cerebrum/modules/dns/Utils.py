@@ -5,7 +5,7 @@ from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
-from Cerebrum.modules.dns import IntegrityHelper
+from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
@@ -17,13 +17,13 @@ class DnsParser(object):
 
     def __init__(self, db, default_zone):
         self._db = db
-        self._validator = IntegrityHelper.Validator(db, default_zone)
         self._arecord = ARecord.ARecord(self._db)
         self._ip_number = IPNumber.IPNumber(self._db)
         self._dns_owner = DnsOwner.DnsOwner(self._db)
         self._mx_set = DnsOwner.MXSet(self._db)
         self._host = HostInfo.HostInfo(self._db)
         self._cname = CNameRecord.CNameRecord(self._db)
+        self._default_zone = default_zone
 
     def parse_subnet_or_ip(self, ip_id):
         """Parse ip_id either as a subnet, or as an IP-number.
@@ -45,7 +45,7 @@ class DnsParser(object):
         if (not ip_id[0].isdigit()) and len(tmp) > 1:  # Support ulrik.uio.no./
             try:
                 self._arecord.clear()
-                self._arecord.find_by_name(self._validator.qualify_hostname(ip_id))
+                self._arecord.find_by_name(self.qualify_hostname(ip_id))
                 self._ip_number.clear()
                 self._ip_number.find(self._arecord.ip_number_id)
             except Errors.NotFoundError:
@@ -58,7 +58,7 @@ class DnsParser(object):
         try:
             ipc = Find(self._db, None)
             subnet = ipc._find_subnet(ip_id).net
-        except IntegrityHelper.DNSError:
+        except DNSError:
             subnet = None
         return subnet, full_ip and ip_id or None
 
@@ -79,6 +79,16 @@ class DnsParser(object):
             ret.append(("%s%0"+fill+"i") % (m.group(1), n))
         return ret
 
+    def qualify_hostname(self, name):
+        """Convert dns names to fully qualified by appending default domain"""
+        if not name[-1] == '.':
+            postfix = self._default_zone.postfix
+            if name.endswith(postfix[:-1]):
+                return name+"."
+            else:
+                return name+postfix
+        return name
+
 class Find(object):
     def __init__(self, db, default_zone):
         self._db = db
@@ -88,16 +98,77 @@ class Find(object):
         self._mx_set = DnsOwner.MXSet(db)
         self._host = HostInfo.HostInfo(db)
         self._cname = CNameRecord.CNameRecord(db)
-        self._validator = IntegrityHelper.Validator(db, default_zone)
+        self._dns_parser = DnsParser(db, default_zone)
         self.subnets = {}
         ic = IPCalc()
         for sub_def in cereconf_dns.all_nets:
             start, stop = ic.ip_range_by_netmask(sub_def.net, sub_def.mask)
             self.subnets[sub_def.net] = sub_def
 
+
+    def find_dns_owners(self, dns_owner_id, only_type=True):
+        """Return information about entries using this dns_owner.  If
+        only_type=True, returns a list of owner_type.  Otherwise
+        returns a list of (owner_type, owner_id) tuples"""
+        
+        ret = []
+        arecord = ARecord.ARecord(self._db)
+        for row in arecord.list_ext(dns_owner_id=dns_owner_id):
+            ret.append((dns.A_RECORD, row['a_record_id']))
+        hi = HostInfo.HostInfo(self._db)
+        try:
+            hi.find_by_dns_owner_id(dns_owner_id)
+            ret.append((dns.HOST_INFO, hi.entity_id))
+        except Errors.NotFoundError:
+            pass
+        dns_owner = DnsOwner.DnsOwner(self._db)
+        for row in dns_owner.list_srv_records(owner_id=dns_owner_id):
+            ret.append((dns.SRV_OWNER, row['service_owner_id']))
+        for row in dns_owner.list_general_dns_records(dns_owner_id=dns_owner_id):
+            ret.append((dns.GENERAL_DNS_RECORD, row['dns_owner_id']))
+        cn = CNameRecord.CNameRecord(self._db)
+        for row in cn.list_ext(cname_owner=dns_owner_id):
+            ret.append((dns.CNAME_OWNER, row['cname_id']))
+        if only_type:
+            return [x[0] for x in ret]
+        return ret
+
+    def find_referers(self, ip_number_id=None, dns_owner_id=None, only_type=True):
+        """Return information about registrations that point to this
+        ip-number/dns-owner. If only_type=True, returns a list of
+        owner_type.  Otherwise returns a list of (owner_type,
+        owner_id) tuples"""
+
+        # Not including entity-note
+        assert not (ip_number_id and dns_owner_id)
+        ret = []
+
+        if ip_number_id:
+            ipnumber = IPNumber.IPNumber(self._db)
+            for row in ipnumber.list_override(ip_number_id=ip_number_id):
+                ret.append((dns.REV_IP_NUMBER, row['ip_number_id']))
+            arecord = ARecord.ARecord(self._db)
+            for row in arecord.list_ext(ip_number_id=ip_number_id):
+                ret.append((dns.A_RECORD, row['a_record_id']))
+            if only_type:
+                return [x[0] for x in ret]
+            return ret
+        mx = DnsOwner.MXSet(self._db)
+        for row in mx.list_mx_sets(target_id=dns_owner_id):
+            ret.append((dns.MX_SET, row['mx_set_id']))
+        dns_owner = DnsOwner.DnsOwner(self._db)
+        for row in dns_owner.list_srv_records(target_owner_id=dns_owner_id):
+            ret.append((dns.SRV_TARGET, row['service_owner_id']))
+        cn = CNameRecord.CNameRecord(self._db)
+        for row in cn.list_ext(target_owner=dns_owner_id):
+            ret.append((dns.CNAME_TARGET, row['cname_id']))
+        if only_type:
+            return [x[0] for x in ret]
+        return ret
+
     def find_target_by_parsing(self, host_id, target_type):
         """Find a target with given host_id of the specified
-        target_type.  Legal target_types ad IP_NUMBER and DNS_OWNER.
+        target_type.  Legal target_types are IP_NUMBER and DNS_OWNER.
         Host_id may be given in a number of ways, one can lookup IP_NUMBER
         by both hostname (A record) and ip or id:ip_number_id etc.
 
@@ -126,15 +197,15 @@ class Find(object):
                 raise CerebrumError, "Not unique name for ip-number: %s" % host_id
             return self._arecord.dns_owner_id
 
-        host_id = self._validator.qualify_hostname(host_id)
+        host_id = self._dns_parser.qualify_hostname(host_id)
         self._dns_owner.clear()
         try:
             self._dns_owner.find_by_name(host_id)
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find dns-owner: %s" % host_id
+        
         if target_type == dns.DNS_OWNER:
             return self._dns_owner.entity_id
-
         self._arecord.clear()
         try:
             self._arecord.find_by_dns_owner_id(self._dns_owner.entity_id)
@@ -180,6 +251,7 @@ class Find(object):
         except Errors.NotFoundError:
             pass
         except Errors.TooManyRowsError:
+            raise asdflkasdjf
             raise CerebrumError, "Not unique a-record: %s" % owner_id
 
     def find_free_ip(self, subnet):
@@ -198,9 +270,8 @@ class Find(object):
         numeric_ip = IPCalc.ip_to_long(subnet)
         for net, subnet_def in self.subnets.items():
             if numeric_ip >= subnet_def.start and numeric_ip <= subnet_def.stop:
-                print "REROT: ", repr(net)
                 return subnet_def
-        raise IntegrityHelper.DNSError, "%s is not in any known subnet" % subnet
+        raise DNSError, "%s is not in any known subnet" % subnet
 
     def _find_available_ip(self, subnet_def):
         """Returns all ips that are not reserved or taken on the given

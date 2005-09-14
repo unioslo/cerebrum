@@ -45,6 +45,7 @@ class DnsBofhdUtils(object):
         self._mx_set = DnsOwner.MXSet(self.db)
         self.default_zone = default_zone
         self._find = Utils.Find(server.db, default_zone)
+        self._parser = Utils.DnsParser(server.db, default_zone)
 
     def ip_rename(self, name_type, old_id, new_id):
         """Performs an ip-rename by directly updating dns_owner or
@@ -64,7 +65,7 @@ class DnsBofhdUtils(object):
             self._ip_number.write_db()
         else:
             old_ref = self._find.find_target_by_parsing(old_id, dns.DNS_OWNER)
-            new_id = self._validator.qualify_hostname(new_id)
+            new_id = self._parser.qualify_hostname(new_id)
             # Check if the name is in use, or is illegal
             self._validator.dns_reg_owner_ok(new_id, dns.CNAME_OWNER)
             self._dns_owner.clear()
@@ -73,37 +74,28 @@ class DnsBofhdUtils(object):
             self._dns_owner.write_db()
 
     def ip_free(self, name_type, id, force):
-        if name_type == dns.IP_NUMBER:
-            ip_id = self._find.find_target_by_parsing(id, dns.IP_NUMBER)
-            self._ip_number.clear()
-            self._ip_number.find(ip_id)
-            try:
-                self._ip_number.delete()
-            except Database.DatabaseError, m:
-                raise CerebrumError, "Database violation: %s" % m
-        else:
+        if name_type == dns.DNS_OWNER:
             owner_id = self._find.find_target_by_parsing(
                 id, dns.DNS_OWNER)
 
-            refs = self._validator.get_referers(dns_owner_id=owner_id)
+            # krev force hvis maskinen har cname.  Returner info om slettet cname.
+            refs = self._find.find_dns_owners(dns_owner_id=owner_id)
             if not force and (
                 refs.count(dns.A_RECORD) > 1 or
                 dns.GENERAL_DNS_RECORD in refs):
                 raise CerebrumError(
-                    "Multiple records would be deleted, must force")
+                    "Multiple records would be deleted, must force (y)")
             try:
                 self._update_helper.full_remove_dns_owner(owner_id)
             except Database.DatabaseError, m:
                 raise CerebrumError, "Database violation: %s" % m
-
-            #raise NotImplementedError
 
     #
     # host, cname, entity-note
     #
 
     def alloc_host(self, name, hinfo, mx_set, comment, contact):
-        name = self._validator.qualify_hostname(name)
+        name = self._parser.qualify_hostname(name)
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             name, dns.HOST_INFO)
 
@@ -123,7 +115,7 @@ class DnsBofhdUtils(object):
                                             contact)
 
     def alloc_cname(self, cname_name, target_name, force):
-        cname_name = self._validator.qualify_hostname(cname_name)
+        cname_name = self._parser.qualify_hostname(cname_name)
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             cname_name, dns.CNAME_OWNER)
         dns_owner_ref = self.alloc_dns_owner(cname_name)
@@ -132,7 +124,7 @@ class DnsBofhdUtils(object):
                 target_name, dns.DNS_OWNER)
         except CerebrumError:
             if not force:
-                raise CerebrumError, "Target does not exist, must force"
+                raise CerebrumError, "Target does not exist, must force (y)"
             target_ref = self.alloc_dns_owner(target_name)
         
         self._cname.clear()
@@ -203,7 +195,7 @@ class DnsBofhdUtils(object):
 
     def alter_srv_record(self, operation, service_name, pri,
                          weight, port, target, ttl=None):
-        service_name = self._validator.qualify_hostname(service_name)
+        service_name = self._parser.qualify_hostname(service_name)
         # TBD: should we assert that target is of a given type?
         self._dns_owner.clear()
         try:
@@ -223,6 +215,7 @@ class DnsBofhdUtils(object):
                 target)
 
     def mx_set_add(self, mx_set, priority, target_id, ttl=None):
+        self._validator.legal_mx_target(target_id)
         if ttl:
             ttl = int(ttl)
         else:
@@ -248,6 +241,16 @@ class DnsBofhdUtils(object):
         if not self._mx_set.list_mx_sets(mx_set_id=self._mx_set.mx_set_id):
             self._mx_set.delete()
 
+    def mx_set_set(self, owner_id, mx_set):
+        dns_owner = DnsOwner.DnsOwner(self.db)
+        dns_owner.find(owner_id)
+        self._validator.dns_reg_owner_ok(dns_owner.name, dns.MX_SET)
+        if mx_set == '':
+            dns_owner.mx_set_id = None
+        else:
+            dns_owner.mx_set_id = self._find.find_mx_set(mx_set).mx_set_id
+        dns_owner.write_db()
+        
 
     def set_ttl(self, owner_id, ttl):
         """Set TTL entries for this dns_owner"""
@@ -317,12 +320,14 @@ class DnsBofhdUtils(object):
         return self._arecord.entity_id
 
     def alloc_arecord(self, host_name, subnet, ip, force):
-        host_name = self._validator.qualify_hostname(host_name)
+        host_name = self._parser.qualify_hostname(host_name)
         # Check for existing record with same name
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             host_name, dns.A_RECORD)
         if dns_owner_ref and same_type and not force:
-            raise CerebrumError, "name already in use, must force"
+            owner_types = self._find.find_dns_owners(dns_owner_ref)
+            if [x for x in owner_types if x != dns.A_RECORD]:
+                raise CerebrumError, "name already in use, must force (y)"
 
         # Check or get free IP
         if not ip:
@@ -331,7 +336,7 @@ class DnsBofhdUtils(object):
         else:
             ip_ref = self._find.find_ip(ip)
             if ip_ref and not force:
-                raise CerebrumError, "IP already in use, must force"
+                raise CerebrumError, "IP already in use, must force (y)"
 
         # Register dns_owner and/or ip_number
         if not ip_ref:
@@ -352,7 +357,7 @@ class DnsBofhdUtils(object):
                 self._dns_owner.find_by_name(dest_host)
             except Errors.NotFoundError:
                 if not force:
-                    raise CerebrumError, "Target does not exist, must force"
+                    raise CerebrumError, "Target does not exist, must force (y)"
                 self._dns_owner.populate(dest_host)
                 self._dns_owner.write_db()
             dest_host = self._dns_owner.entity_id

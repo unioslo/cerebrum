@@ -128,13 +128,13 @@ class MXSet(DatabaseAccessor):
 
     def del_mx_set_member(self, target_id):
         return self.execute("""
-        DELETE FROM [:table schema=cerebrum name=mx_set_member]
+        DELETE FROM [:table schema=cerebrum name=dns_mx_set_member]
         WHERE mx_set_id=:mx_set_id AND target_id=:target_id""", {
             'mx_set_id': self.mx_set_id, 'target_id': target_id})
 
     def update_mx_set_member(self, ttl, pri, target_id):
         return self.execute("""
-        UPDATE [:table schema=cerebrum name=mx_set_member]
+        UPDATE [:table schema=cerebrum name=dns_mx_set_member]
         SET ttl=:ttl, pri=:pri
         WHERE mx_set_id=:mx_set_id AND target_id=:target_id""", {
             'mx_set_id': self.mx_set_id, 'target_id': target_id,
@@ -142,7 +142,7 @@ class MXSet(DatabaseAccessor):
 
     def delete(self):
         return self.execute("""
-        DELETE FROM [:table schema=cerebrum name=mx_set]
+        DELETE FROM [:table schema=cerebrum name=dns_mx_set]
         WHERE mx_set_id=:mx_set_id""", {
             'mx_set_id': self.mx_set_id})
         

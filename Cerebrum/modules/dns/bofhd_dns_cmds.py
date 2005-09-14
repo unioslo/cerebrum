@@ -12,6 +12,7 @@ from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
 from Cerebrum.Constants import _CerebrumCode
@@ -426,13 +427,18 @@ class BofhdExtension(object):
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
             # Freeing an ip-number
-            self.mb_utils.ip_free(dns.IP_NUMBER, host_id, force)
-            return "OK, IP-number %s completly removed" % host_id
+            owner_id = self._find.find_target_by_parsing(host_id, dns.IP_NUMBER)
+            arecord = ARecord.ARecord(self.db)
+            names = dict([(a['name'], True)
+                          for a in arecord.list_ext(ip_number_id=owner_id)])
+            if len(names) > 1:
+                raise CerebrumError, "IP matches multiple names"
+            owner_id = names.keys()[0]
         try:
             owner_id = self._find.find_target_by_parsing(
                 host_id, dns.DNS_OWNER)
-            obj_ref, obj_id = self._find.find_target_type(owner_id)
-            if isinstance (obj_ref, CNameRecord.CNameRecord):
+            owners =  self._find.find_dns_owners(owner_id)
+            if dns.CNAME_OWNER in owners:
                 raise CerebrumError("Use 'host cname_remove' to remove cnames")
         except Errors.NotFoundError:
             pass
@@ -539,9 +545,13 @@ class BofhdExtension(object):
 
         forward_ips = []
         # A records
+        tmp = []
         for a in arecord.list_ext(dns_owner_id=owner_id):
             forward_ips.append((a['a_ip'], a['ip_number_id']))
-            ret.append({'ip': a['a_ip'], 'name': a['name']})
+            tmp.append({'ip': a['a_ip'], 'name': a['name']})
+        tmp.sort(lambda x, y: cmp(IPCalc.ip_to_long(x['ip']),
+                                  IPCalc.ip_to_long(y['ip'])))
+        ret.extend(tmp)
 
         ip_ref = IPNumber.IPNumber(self.db)
         for a_ip, ip_id in forward_ips:
@@ -662,7 +672,11 @@ class BofhdExtension(object):
                 old_id, new_id)
         # Rename by dns-owner
         self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
-        return "OK, dns-owner %s renamed to %s" % (old_id, new_id)
+        arecord = ARecord.ARecord(self.db)
+        owner_id = self._find.find_target_by_parsing(new_id, dns.DNS_OWNER)
+        ips = [row['a_ip'] for row in arecord.list_ext(dns_owner_id=owner_id)]
+        return "OK, dns-owner %s renamed to %s (IP: %s)" % (
+            old_id, new_id, ", ".join(ips))
 
     # host ptr_add
     all_commands['host_ptr_add'] = Command(
