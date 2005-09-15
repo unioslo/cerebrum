@@ -50,6 +50,7 @@ cache holding data:
 """
 
 import time
+from threading import Lock
 
 class Cache(dict):
     """Constructor class for cache instances."""
@@ -66,21 +67,46 @@ class Cache(dict):
 class cache_base(Cache):
     """Minimal base class of 'cache' types."""
     def __init__(self, mixins=(), **kwargs):
+        self._lock=Lock()
         dict.__init__(self)
+        # if self._lock.acquire is called when we already have the
+        # lock, a deadlock occours.  A number of mix-ins for
+        # __setitem__ calls __delitem__.  These mixins must set
+        # self._dont_lock=True to prevent __delitem__ from trying to
+        # aquire the lock.
+        self._dont_lock = False
         self.registry = []
         for cls in mixins:
             if hasattr(cls, 'setup'):
                 cls.setup(self, **kwargs)
 
     def __setitem__(self, key, value):
-        if not dict.has_key(self, key):
-            self.registry.insert(0, key)
-        return super(cache_base, self).__setitem__(key, value)
+        self._lock.acquire()
+        try:
+            if not dict.has_key(self, key):
+                self.registry.insert(0, key)
+            return super(cache_base, self).__setitem__(key, value)
+        finally:
+            self._lock.release()
 
     def __delitem__(self, key):
-        ret = super(cache_base, self).__delitem__(key)
-        self.registry.remove(key)
-        return ret
+        if not self._dont_lock:
+            self._lock.acquire()
+        did_lock = not self._dont_lock
+        try:
+            ret = super(cache_base, self).__delitem__(key)
+            self.registry.remove(key)
+            return ret
+        finally:
+            if did_lock:
+                self._lock.release()
+
+    def __getitem__(self, key):
+        self._lock.acquire()
+        try:
+            return super(cache_base, self).__getitem__(key)
+        finally:
+            self._lock.release()
 
 # Invariants:
 #  * self.registry must contain a single entry for `key` immediately
@@ -116,7 +142,9 @@ class cache_slots(Cache):
         ret = super(cache_slots, self).__setitem__(key, value)
         while len(self.registry) > self.size:
             stale_key = self.registry[-1]
+            self._dont_lock = True
             self.__delitem__(stale_key)
+            self._dont_lock = False
         return ret
 
 class cache_timeout(Cache):
@@ -131,15 +159,19 @@ class cache_timeout(Cache):
         self.timestamps[key] = time.time()
         return ret
 
-    def __delitem__(self, key):
+    def __delitem__(self, key, **kwargs):
+        self._dont_lock = True
         ret = super(cache_timeout, self).__delitem__(key)
+        self._dont_lock = False
         del self.timestamps[key]
         return ret
 
     def __getitem__(self, key):
         val = super(cache_timeout, self).__getitem__(key)
         if time.time() - self.timestamps[key] >= self.timeout:
+            self._dont_lock = True
             self.__delitem__(key)
+            self._dont_lock = False
             raise KeyError, "Timed out"
         return val
 
