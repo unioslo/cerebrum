@@ -95,10 +95,10 @@ class BofhdExtension(object):
         self.server = server
         self.logger = server.logger
         self.db = server.db
-        self.person = Utils.Factory.get('Person')(self.db)
-        self.const = self.person.const
+        person = Utils.Factory.get('Person')(self.db)
+        self.const = person.const
         self.name_codes = {}
-        for t in self.person.list_person_name_codes():
+        for t in person.list_person_name_codes():
             self.name_codes[int(t['code'])] = t['description']
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # TODO: str2const is not guaranteed to be unique (OK for now, though)
@@ -4022,7 +4022,7 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown affiliation type (%s)" % affiliation
         self.ba.can_create_person(operator.get_entity_id(), ou, aff)
-        person = self.person
+        person = Utils.Factory.get('Person')(self.db)
         person.clear()
         # TBD: The current implementation of ._parse_date() should
         # handle None input just fine; if that implementation is
@@ -4086,7 +4086,7 @@ class BofhdExtension(object):
             person = self._get_person(*self._map_person_id(value))
             matches = [{'person_id': person.entity_id}]
         else:
-            person = self.person
+            person = Utils.Factory.get('Person')(self.db)
             person.clear()
             if search_type == 'name':
                 if len(value.strip()) < 2:
@@ -5948,7 +5948,7 @@ class BofhdExtension(object):
         if arg.isdigit() and len(arg) > 10:  # finn personer fra fnr
             arg = 'fnr:%s' % arg
         ret = []
-        person = self.person
+        person = Utils.Factory.get('Person')(self.db)
         person.clear()
         if arg.find(":") != -1:
             idtype, id = arg.split(":")
@@ -5985,7 +5985,7 @@ class BofhdExtension(object):
         return ret
     
     def _get_person(self, idtype, id):
-        person = self.person
+        person = Utils.Factory.get('Person')(self.db)
         person.clear()
         try:
             if str(idtype) == 'account_name':
