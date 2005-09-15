@@ -5435,10 +5435,11 @@ class BofhdExtension(object):
                     old_groups[int(row['dest_entity'])] = 1
         ar = BofhdAuthRole(self.db)
         perm_groups = {}
-        for row in ar.list(entity_ids=old_groups.keys()):
-           perm_groups[int(row['entity_id'])] = 1
-        for k in perm_groups.keys():
-            del old_groups[k]
+        if old_groups:
+            for row in ar.list(entity_ids=old_groups.keys()):
+               perm_groups[int(row['entity_id'])] = 1
+            for k in perm_groups.keys():
+                del old_groups[k]
         return (old_uid, self.__group_ids2name(old_gid), old_spreads.keys(),
                 self.__group_ids2name(old_groups.keys()),
                 self.__group_ids2name(perm_groups.keys()))
@@ -5458,7 +5459,10 @@ class BofhdExtension(object):
         if owner_id.startswith('group:'):
             owner_id = self._get_group(owner_id.split(":")[1]).entity_id
         else:
-            owner_id = self._get_person("entity_id", owner_id).entity_id
+            id_type, id = self._map_person_id(owner_id)
+            if id_type not in ('entity_id', self.const.externalid_fodselsnr):
+                raise CerebrumError, "Must specify fnr or entity_id"
+            owner_id = self._get_person(id_type, id).entity_id
         if owner_id != account.owner_id:
             raise CerebrumError("Owner id and account does not match!")
         if not account.is_expired():
@@ -5468,9 +5472,12 @@ class BofhdExtension(object):
             name = person.get_name(self.const.system_cached,
                                    getattr(self.const,
                                            cereconf.DEFAULT_GECOS_NAME))
+            if person.birth_date:
+                bd = person.birth_date.strftime('%Y-%m-%d')
+            else:
+                bd = '<not set>'
             extra_msg = "\nRestoring '%s', belonging to '%s' (born %s)\n" % (
-                account.account_name, name,
-                person.birth_date.strftime('%Y-%m-%d'))
+                account.account_name, name, bd)
         else:
             grp = self._get_group(account.owner_id, idtype='id')
             extra_msg = "Restoring '%s', belonging to group: '%s'\n" % (
@@ -5553,30 +5560,37 @@ class BofhdExtension(object):
         args = self._user_restore_helper(operator, *args)['choices']
         account = args['account']
         days_since_deletion = (DateTime.now() - account.expire_date).days
-        pu = PosixUser.PosixUser(self.db)
-        try:
-            pu.find(account.entity_id)
-            raise CerebrumError("Trying to restore someone who already is a PosixUser")
-        except Errors.NotFoundError:
-            pu.clear()
-        old_uid, old_gid, old_spreads, old_groups, perm_groups = \
-                 self.__user_restore_check_changelog(account)
+        if args.has_key('dfg'):
+            pu = PosixUser.PosixUser(self.db)
+            try:
+                pu.find(account.entity_id)
+                raise CerebrumError("Trying to restore someone who already is a PosixUser")
+            except Errors.NotFoundError:
+                pu.clear()
+            old_uid, old_gid, old_spreads, old_groups, perm_groups = \
+                     self.__user_restore_check_changelog(account)
 
-        # Must own group is delete +14 days ago, or the user wasn't
-        # previously member of the group
-        group = self._get_group(args['dfg'], grtype='PosixGroup')
-        if days_since_deletion > 14 or args['dfg'] not in old_groups:
-            self.ba.can_alter_group(operator.get_entity_id(), group.entity_id)
-        pu.populate(old_uid, group.entity_id, None,
-                    self.const.posix_shell_bash, parent=account)
-        pu.expire_date = None
-        pu.write_db()
+            # Must own group is delete +14 days ago, or the user wasn't
+            # previously member of the group
+            group = self._get_group(args['dfg'], grtype='PosixGroup')
+            if days_since_deletion > 14 or args['dfg'] not in old_groups:
+                self.ba.can_alter_group(operator.get_entity_id(), group.entity_id)
+            pu.populate(old_uid, group.entity_id, None,
+                        self.const.posix_shell_bash, parent=account)
+            pu.expire_date = None
+            pu.write_db()
+        else:
+            pu = account
+            old_uid, old_gid, old_spreads, old_groups, perm_groups = \
+                     self.__user_restore_check_changelog(account)
+
         # Spreads
-        for s in [self._get_constant(x) for x in args['spreads'].split(",")]:
-            # TODO: permissions?
-            pu.add_spread(s)        
+        if args['spreads']:
+            for s in [self._get_constant(x) for x in args['spreads'].split(",")]:
+                # TODO: permissions?
+                pu.add_spread(s)        
         # Add homedir entry.  We prefer to reuse the old one if it exists
-        if not args['old_homedir_bool'].startswith('y'):
+        if not args.get('old_homedir_bool', 'n').startswith('y'):
             # Trigger homedir creation in process_changes.py
             # TBD: a bofhd_request would be cleaner?
             for row in pu.get_homes():
@@ -5584,36 +5598,38 @@ class BofhdExtension(object):
             kwargs = {'status': self.const.home_status_not_created}
         else:
             kwargs = {'status': self.const.home_status_pending_restore}
-        disk_id, home = self._get_disk(args['disk'])[1:3]
-        homes = account.get_homes()
-        kwargs.update({'disk_id': disk_id, 'home': home})
+        if isinstance(pu, PosixUser.PosixUser):
+            disk_id, home = self._get_disk(args['disk'])[1:3]
+            homes = account.get_homes()
+            kwargs.update({'disk_id': disk_id, 'home': home})
 
-        if homes:
-            homedir_id = kwargs['current_id'] = homes[0]['homedir_id']
-            pu.set_homedir(**kwargs)
-        else:
-            homedir_id = pu.set_homedir(**kwargs)
-        for s in ([getattr(self.const, x) for x in cereconf.HOME_SPREADS]):
-            if str(s) in args['spreads'].split(","):
-                pu.set_home(s, homedir_id)
+            if homes:
+                homedir_id = kwargs['current_id'] = homes[0]['homedir_id']
+                pu.set_homedir(**kwargs)
+            else:
+                homedir_id = pu.set_homedir(**kwargs)
+            for s in ([getattr(self.const, x) for x in cereconf.HOME_SPREADS]):
+                if str(s) in args['spreads'].split(","):
+                    pu.set_home(s, homedir_id)
         # Groups
-        for g in args['groups'].split(","):
-            if g == args['dfg']:
-                continue  # already processed
-            group = self._get_group('name:%s' % g)
-            if days_since_deletion > 14 or g.encode('iso8859-1') not in old_groups:
-                self.ba.can_alter_group(operator.get_entity_id(),
-                                        group.entity_id)
-            group.add_member(pu.entity_id, pu.entity_type,
-                             self.const.group_memberop_union)
+        if args['groups']:
+            for g in args['groups'].split(","):
+                if g == args.get('dfg', None):
+                    continue  # already processed
+                group = self._get_group('name:%s' % g)
+                if days_since_deletion > 14 or g.encode('iso8859-1') not in old_groups:
+                    self.ba.can_alter_group(operator.get_entity_id(),
+                                            group.entity_id)
+                group.add_member(pu.entity_id, pu.entity_type,
+                                 self.const.group_memberop_union)
         br = BofhdRequests(self.db, self.const)
         n_req = 0
-        if args['old_homedir_bool'].startswith('y'):
+        if args.get('old_homedir_bool', 'n').startswith('y'):
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_homedir_restore,
                            pu.entity_id, disk_id)
             n_req += 1
-        if args['old_mailbox_bool'].startswith('y'):
+        if args.get('old_mailbox_bool', 'n').startswith('y'):
             for anti_action in br.get_conflicts(self.const.bofh_email_restore):
                 for r in br.get_requests(entity_id=pu.entity_id,
                                          operation=anti_action):
