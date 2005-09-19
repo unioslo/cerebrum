@@ -579,8 +579,12 @@ def main():
     register_group('Manuell', manuell_node_id, root_node_id,
                    allow_room=True)
 
+    auto_node_id = "STRUCTURE:%s:automatisk" % \
+                   cereconf.INSTITUTION_DOMAIN_NAME
+    register_group("Automatisk", auto_node_id, root_node_id)
+
     emner_id = 'STRUCTURE:%s:fs:emner' % cereconf.INSTITUTION_DOMAIN_NAME
-    register_group('Emner', emner_id, root_node_id)
+    register_group('Emner', emner_id, auto_node_id)
 
     this_sem, next_sem = get_semester()
     emner_this_sem_id = emner_id + ':%s:%s' % tuple(this_sem)
@@ -610,17 +614,17 @@ def main():
             register_group(title, node_id, sem_node_id)
 
     brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME
-    register_group('Brukere', brukere_id, root_node_id)
+    register_group('Brukere', brukere_id, auto_node_id)
 
     fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
                    cereconf.INSTITUTION_DOMAIN_NAME
-    register_group('Fellesrom', fellesrom_id, root_node_id)
+    register_group('Fellesrom', fellesrom_id, auto_node_id)
 
     # Registrer statiske EVU-strukturnoder.
     # Ting blir litt enklere, hvis vi drar med oss institusjonsnummeret
     evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME,
                                               cereconf.DEFAULT_INSTITUSJONSNR)
-    register_group('EVU', evu_node_id, root_node_id)
+    register_group('EVU', evu_node_id, auto_node_id)
     for (suffix,
          title,
          allow_room) in (("kursrom", "EVU kursrom", True),
