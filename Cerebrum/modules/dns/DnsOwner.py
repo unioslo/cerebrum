@@ -389,6 +389,13 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
             'owner_id': owner_id,
             'target_owner_id': target_owner_id} )
 
-    # We don't support update_srv_record as the PK is too wide.
+    # We don't support a general update_srv_record as the PK is too wide.
+    def update_srv_record_ttl(self, owner_id, ttl):
+        return self.execute("""
+        UPDATE [:table schema=cerebrum name=dns_srv_record]
+        SET ttl=:ttl
+        WHERE service_owner_id=:owner_id""", {
+            'owner_id': owner_id, 'ttl': ttl})
+     
 
 # arch-tag: 5956ec5e-b6e7-4747-9188-233ed7a8007a
