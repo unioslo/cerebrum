@@ -27,7 +27,7 @@ class Validator(object):
           - same_type: boolean set to true if a record of the same type exists."""
 
         dns_owner = DnsOwner.DnsOwner(self._db)
-        self.legal_dns_owner_name(name)
+        self.legal_dns_owner_name(name, record_type)
         try:
             dns_owner.find_by_name(name)
         except Errors.NotFoundError:
@@ -49,11 +49,15 @@ class Validator(object):
                 return dns_owner.entity_id, True
         return dns_owner.entity_id, False
 
-    def legal_dns_owner_name(self, name):
+    def legal_dns_owner_name(self, name, record_type):
+        if record_type == dns.SRV_OWNER:
+            rexp = re.compile(r'^[0-9_]*[a-zA-Z]+[a-zA-Z\-0-9]*$')
+        else:
+            rexp = re.compile(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*$')
         if not name.endswith('.'):
             raise DNSError, "Name not fully qualified"
         for n in name[:-1].split("."):
-            if not re.search(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*$', n):
+            if not rexp.search(n):
                 raise DNSError, "Illegal name: '%s'" % name
 
     def legal_mx_target(self, target_id):
@@ -136,6 +140,11 @@ class Updater(object):
         for row in arecord.list_ext(dns_owner_id=dns_owner_id):
             self.remove_arecord(row['a_record_id'])
         self.remove_cname(dns_owner_id)
+        dns_owner = DnsOwner.DnsOwner(self._db)
+        for row in dns_owner.list_general_dns_records(
+            dns_owner_id=dns_owner_id):
+            dns_owner.delete_general_dns_record(dns_owner_id,
+                                                row['field_type'])
         self.remove_dns_owner(dns_owner_id)
 
         # rev-map override må brukeren rydde i selv, da vi ikke vet
