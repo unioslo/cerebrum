@@ -118,7 +118,9 @@ class ForwardMap(object):
         self.owner_id2mx_set = {}
         self.dnsowner2txt_record = {}
         self.srv_records = {}
+        logger.debug("Getting zone data")
         self._get_zone_data()
+        logger.debug("done getting zone data")
         
     def _get_zone_data(self):
         # ARecord has key=a_record_id
@@ -127,35 +129,44 @@ class ForwardMap(object):
         # entity2txt, entity2note has_key=entity_id
         for row in ARecord.ARecord(db).list_ext():
             self.a_records[int(row['a_record_id'])] = row
+        logger.debug("... arecords")
 
         for row in HostInfo.HostInfo(db).list():
             # Unique constraint on dns_owner_id
             self.hosts[int(row['dns_owner_id'])] = row
 
+        logger.debug("... hosts")
         for row in CNameRecord.CNameRecord(db).list_ext():
             # TBD:  skal vi ha unique constraint på dns_owner?
             self.cnames.setdefault(int(row['target_owner_id']), []).append(row)
+        logger.debug("... cnames")
 
         # From mix-in classes
         for row in DnsOwner.MXSet(db).list_mx_sets():
             self.mx_sets.setdefault(int(row['mx_set_id']), []
                                     ).append(row)
 
+        logger.debug("... mx_sets")
         for row in DnsOwner.DnsOwner(db).list():
             self.owner_id2mx_set[int(row['dns_owner_id'])] = int(
                 row['mx_set_id'] or 0)
 
+        logger.debug("... mx_set owners")
+
         for row in DnsOwner.DnsOwner(db).list_general_dns_records(
             field_type=co.field_type_txt):
             self.dnsowner2txt_record[int(row['dns_owner_id'])] = row
+        logger.debug("... txt reocrds")
 
         for row in DnsOwner.DnsOwner(db).list_srv_records():
             # We want them listed in the same place
             # TODO: while doing that, we want it below the first target_owner_id
             self.srv_records.setdefault(
                 int(row['service_owner_id']), []).append(row) 
+        logger.debug("... srv records")
 
     def generate_zone_file(self, fname, heads, data_dir):
+        logger.debug("Generating zone file")
         status_fname = os.path.join(data_dir, os.path.basename(fname)+".status")
         f = Utils.SimilarSizeWriter(status_fname, "w")
         f.set_size_change_limit(10)
@@ -168,7 +179,7 @@ class ForwardMap(object):
         shown_owner = {}
         prev_name = None
         for a_id in order:
-            logger.debug2("A: %s" % a_id)
+            #logger.debug2("A: %s" % a_id)
             line = ''
             a_ref = self.a_records[a_id]
             name = self.zu.trim_name(a_ref['name'])
@@ -185,7 +196,7 @@ class ForwardMap(object):
                 f.write(line)
                 continue
             shown_owner[dns_owner_id] = True
-            logger.debug2("A: %s, owner=%s" % (a_id, dns_owner_id))
+            #logger.debug2("A: %s, owner=%s" % (a_id, dns_owner_id))
             if self.hosts.has_key(dns_owner_id):
                 line += "\t%s\tHINFO\t%s\n" % (
                     self.hosts[dns_owner_id]['ttl'] or '',
@@ -209,6 +220,7 @@ class ForwardMap(object):
                 prev_name = ''
             f.write(line)
         f.write('; End of a-record owned entries\n')
+        logger.debug("Check remaining data")
         for row in DnsOwner.DnsOwner(db).list():
             line = ''
             # Check for any remaining data.  Should only be srv_records
@@ -235,6 +247,7 @@ class ForwardMap(object):
         f.close()
         if f.replaced_file:
             self.zu.write_file_with_serial(status_fname, fname, heads, data_dir)
+        logger.debug("zone file completed")
 
 class ReverseMap(object):
     def __init__(self, mask):
