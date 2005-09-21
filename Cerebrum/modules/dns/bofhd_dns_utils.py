@@ -2,6 +2,7 @@
 
 import cereconf
 
+import re
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns.HostInfo import HostInfo
 #from Cerebrum.modules.dns. import 
@@ -13,6 +14,7 @@ from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import IntegrityHelper
 from Cerebrum.modules.dns import Utils
+from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules import dns
 from Cerebrum import Errors
 from Cerebrum import Database
@@ -133,6 +135,12 @@ class DnsBofhdUtils(object):
         return self._cname.entity_id
 
     def alter_entity_note(self, owner_id, note_type, dta):
+        dta = dta.strip()
+        if note_type == self.const.note_type_contact:
+            mail_ok_re = re.compile(
+                r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$') 
+            if dta and not mail_ok_re.match(dta):
+                raise DNSError("'%s' does not look like an e-mail address" % dta)
         self._dns_owner.clear()
         self._dns_owner.find(owner_id)
         if not dta:
@@ -196,6 +204,9 @@ class DnsBofhdUtils(object):
     def alter_srv_record(self, operation, service_name, pri,
                          weight, port, target, ttl=None):
         service_name = self._parser.qualify_hostname(service_name)
+        if operation != 'del':
+            dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
+                service_name, dns.SRV_OWNER)
         # TBD: should we assert that target is of a given type?
         self._dns_owner.clear()
         try:
@@ -207,7 +218,7 @@ class DnsBofhdUtils(object):
                     target)
         except Errors.NotFoundError:
             if operation == 'add':
-                self.alloc_dns_owner(self, service_name)
+                self.alloc_dns_owner(service_name)
 
         if operation == 'add':
             self._dns_owner.add_srv_record(
@@ -280,9 +291,9 @@ class DnsBofhdUtils(object):
             host.ttl = ttl
             host.write_db()
 
-        for row in dns_owner.list_dns_records(dns_owner_id=owner_id):
-            dns_owner.update_dns_record(owner_id, row['field_type'],
-                                        ttl, row['data'])
+        for row in dns_owner.list_general_dns_records(dns_owner_id=owner_id):
+            dns_owner.update_general_dns_record(owner_id, row['field_type'],
+                                                ttl, row['data'])
 
         mx_set = DnsOwner.MXSet(self.db)
         for row in mx_set.list_mx_sets(target_id=owner_id):
@@ -297,9 +308,7 @@ class DnsBofhdUtils(object):
             cname.write_db()
 
         for row in dns_owner.list_srv_records(owner_id=owner_id):
-            dns_owner.update_srv_record(owner_id, row['pri'], row['weight'],
-                                        row['port'], ttl,
-                                        row['target_owner_id'])
+            dns_owner.update_srv_record_ttl(owner_id, ttl)
 
 
     #
@@ -352,15 +361,16 @@ class DnsBofhdUtils(object):
 
     def add_revmap_override(self, ip_host_id, dest_host, force):
         if dest_host:
+            dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
+            dest_host, dns.A_RECORD)
             self._dns_owner.clear()
             try:
                 self._dns_owner.find_by_name(dest_host)
+                dest_host = self._dns_owner.entity_id
             except Errors.NotFoundError:
                 if not force:
                     raise CerebrumError, "Target does not exist, must force (y)"
-                self._dns_owner.populate(dest_host)
-                self._dns_owner.write_db()
-            dest_host = self._dns_owner.entity_id
+                dest_host  = self.alloc_dns_owner(host_name)
         else:
             dest_host = None
         self._update_helper.add_reverse_override(
