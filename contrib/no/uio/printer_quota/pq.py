@@ -219,6 +219,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
                      self.formatException(sys.exc_info()))
         self.log('DEBUG', 'Total execution time: %s' % (time() - start))
         signal.alarm(0)
+        self.db.close()
             
     def check_quota(self, printer, pageunits):
         # check_quota() - Given a username (username from HELO), and a positive
