@@ -329,6 +329,8 @@ class BofhdExtension(object):
             raise CerebrumError, "Unknown subnet and incomplete ip"
         if subnet is None and not force:
             raise CerebrumError, "Unknown subnet.  Must force"
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         ip = self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
         return "OK, ip=%s" % ip
 
@@ -337,17 +339,19 @@ class BofhdExtension(object):
         ("host", "a_remove"), HostName(), Ip(optional=True))
     def host_a_remove(self, operator, host_name, ip=None):
         a_record_id = self._find.find_a_record(host_name, ip)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.remove_arecord(a_record_id)
         return "OK"
 
     # host alloc
     all_commands['host_add'] = Command(
         ("host", "add"), HostNameRepeat(), SubNetOrIP(), Hinfo(),
-        Comment(), Contact(), Force(optional=True),
+        Contact(), Comment(), Force(optional=True),
         fs=FormatSuggestion("%-30s %s", ('name', 'ip'),
                             hdr="%-30s %s" % ('name', 'ip')))
     def host_add(self, operator, hostname, subnet_or_ip, hinfo,
-                 comment, contact, force=False):
+                 contact, comment, force=False):
         force = self.dns_parser.parse_force(force)
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
         subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
@@ -357,9 +361,9 @@ class BofhdExtension(object):
             raise CerebrumError, "Unknown subnet.  Must force"
         if ip and len(hostnames) > 1:
             raise CerebrumError, "Explicit IP and multiple hostnames"
-        if not len(contact.strip()) > 3:
-            raise CerebrumError, "Contact is mandatory"
         hinfo = self._map_hinfo_code(hinfo)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         if not ip:
             free_ip_numbers = self._find.find_free_ip(subnet)
         else:
@@ -382,6 +386,8 @@ class BofhdExtension(object):
         ("host", "cname_add"), HostName(help_ref="host_name_alias"),
         HostName(help_ref="host_name_exist"), Force(optional=True))
     def host_cname_add(self, operator, cname_name, target_name, force=False):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         force = self.dns_parser.parse_force(force)
         self.mb_utils.alloc_cname(cname_name, target_name, force)
         return "OK, cname registered for %s" % target_name
@@ -395,6 +401,8 @@ class BofhdExtension(object):
         obj_ref, obj_id = self._find.find_target_type(owner_id)
         if not isinstance (obj_ref, CNameRecord.CNameRecord):
             raise CerebrumError("No such cname")
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.ip_free(dns.DNS_OWNER, cname_name, False)
         return "OK, cname %s completly removed" % cname_name
 
@@ -404,6 +412,8 @@ class BofhdExtension(object):
     def host_comment(self, operator, host_name, comment):
         owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         operation = self.mb_utils.alter_entity_note(
             owner_id, self.const.note_type_comment, comment)
         return "OK, %s comment for %s" % (operation, host_name)
@@ -414,6 +424,8 @@ class BofhdExtension(object):
         ("host", "contact"), HostName(), Contact())
     def host_contact(self, operator, name, contact):
         owner_id = self._find.find_target_by_parsing(name, dns.DNS_OWNER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         operation = self.mb_utils.alter_entity_note(
             owner_id, self.const.note_type_contact, contact)
         return "OK, %s contact for %s" % (operation, name)
@@ -442,6 +454,8 @@ class BofhdExtension(object):
                 raise CerebrumError("Use 'host cname_remove' to remove cnames")
         except Errors.NotFoundError:
             pass
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
         return "OK, DNS-owner %s completly removed" % host_id
 
@@ -602,6 +616,8 @@ class BofhdExtension(object):
     def host_mxdef_add(self, operator, mx_set, priority, host_name):
         host_ref = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.mx_set_add(mx_set, priority, host_ref)
         return "OK, added %s to mx_set %s" % (host_name, mx_set)
 
@@ -611,6 +627,8 @@ class BofhdExtension(object):
     def host_mxdef_remove(self, operator, mx_set, target_host_name):
         host_ref = self._find.find_target_by_parsing(
             target_host_name, dns.DNS_OWNER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.mx_set_del(mx_set, host_ref)
         return "OK, deleted %s from mx_set %s" % (target_host_name, mx_set)
 
@@ -631,6 +649,8 @@ class BofhdExtension(object):
     def host_mx_set(self, operator, name, mx_set):
         owner_id = self._find.find_target_by_parsing(
             name, dns.DNS_OWNER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.mx_set_set(owner_id, mx_set)
         return "OK, mx set for %s" % name
 
@@ -665,6 +685,8 @@ class BofhdExtension(object):
     def host_rename(self, operator, old_id, new_id):
         tmp = new_id.split(".")
 
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         # Rename by IP-number
         if new_id.find(":") == -1 and tmp[-1].isdigit():
             self.mb_utils.ip_rename(dns.IP_NUMBER, old_id, new_id)
@@ -685,6 +707,8 @@ class BofhdExtension(object):
         force = self.dns_parser.parse_force(force)
         ip_owner_id = self._find.find_target_by_parsing(
             ip_host_id, dns.IP_NUMBER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.add_revmap_override(
             ip_owner_id, dest_host, force)
         return "OK, added reversemap override for %s -> %s" % (
@@ -702,6 +726,8 @@ class BofhdExtension(object):
                 dest_host, dns.DNS_OWNER)
         else:
             dest_owner_id = None
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.remove_revmap_override(ip_owner_id, dest_owner_id)
         return "OK, removed reversemap override for %s -> %s" % (
             ip_host_id, dest_host)
@@ -714,6 +740,8 @@ class BofhdExtension(object):
                    weight, port, target_name):
         target_id = self._find.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.alter_srv_record(
             'add', service_name, int(priority), int(weight),
             int(port), target_id)
@@ -721,14 +749,14 @@ class BofhdExtension(object):
 
     # host srv_remove
     all_commands['host_srv_remove'] = Command(
-        ("host", "srv_remove"), ServiceName(), TTL(), Priority(), Weight(),
+        ("host", "srv_remove"), ServiceName(), Priority(), Weight(),
         Port(), HostName())
     def host_srv_remove(self, operator, service_name, priority,
-                   weight, port, target_name , ttl=None):
+                   weight, port, target_name):
         target_id = self._find.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
-        if ttl:
-            ttl = int(ttl)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         self.mb_utils.alter_srv_record(
             'del', service_name, int(priority), int(weight),
             int(port), target_id)
@@ -745,6 +773,8 @@ class BofhdExtension(object):
             ttl = int(ttl)
         else:
             ttl = None
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         operation = self.mb_utils.set_ttl(
             owner_id, ttl)
         return "OK, set TTL record for %s to %s" % (host_name, ttl)
@@ -755,6 +785,8 @@ class BofhdExtension(object):
     def host_txt_set(self, operator, host_name, txt):
         owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         operation = self.mb_utils.alter_general_dns_record(
             owner_id, int(self.const.field_type_txt), txt)
         return "OK, %s TXT record for %s" % (operation, host_name)
