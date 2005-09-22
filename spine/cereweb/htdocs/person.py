@@ -30,6 +30,8 @@ from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
 from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
 from Cereweb.templates.PersonCreateTemplate import PersonCreateTemplate
 
+import Cereweb.config
+max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 def index(req):
     """Creates a page with the search for person form."""
@@ -103,11 +105,12 @@ def search(req, name="", accountname="", birthdate="", spread="", transaction=No
 
         # Print results
         result = html.Division(_class="searchresult")
-        header = html.Header(_("Person search results:"), level=3)
+        hits = len(persons)
+        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
         result.append(html.Division(header, _class="subtitle"))
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Name"), _("Date of birth"), _("Account(s)"), _("Actions"))
-        for person in persons:
+        for person in persons[:max_hits]:
             date = person.get_birth_date().strftime("%Y-%m-%d")
             date = html.TableCell(date, align="center")
             accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]

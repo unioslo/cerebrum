@@ -1,5 +1,6 @@
 [cereweb]
 webroot: /
+max_hits: 15
 
 [corba]
 url: http://localhost/spine.ior

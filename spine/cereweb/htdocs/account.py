@@ -32,6 +32,8 @@ from Cereweb.templates.AccountCreateTemplate import AccountCreateTemplate
 from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cereweb.WorkList import remember_link
 
+import Cereweb.config
+max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 def index(req):
     page = Main(req)
@@ -110,14 +112,15 @@ def search(req, owner="", name="", expire_date="", create_date="",
   
         # Print search results
         result = html.Division(_class="searchresult")
-        header = html.Header(_("Account search results:"), level=3)
+        hits = len(accounts)
+        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
         result.append(html.Division(header, _class="subtitle"))
     
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Name"), _("Owner"), _("Create date"),
                   _("Expire date"), _("Actions"))
 
-        for account in accounts:
+        for account in accounts[:max_hits]:
             link = object_link(account)
             owner = object_link(account.get_owner())
             cdate = account.get_create_date().strftime("%Y-%m-%d")

@@ -32,6 +32,9 @@ from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
 from Cereweb.templates.GroupEditTemplate import GroupEditTemplate
 from Cereweb.templates.GroupCreateTemplate import GroupCreateTemplate
 
+import Cereweb.config
+max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+
 operations = {
     'union':'Union',
     'intersection':'Intersection',
@@ -107,11 +110,13 @@ def search(req, name="", desc="", spread="", gid="",
 
         # Print search results
         result = html.Division(_class="searchresult")
-        header = html.Header(_("Group search results:"), level=3)
+        hits = len(groups)
+        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
+
         result.append(html.Division(header, _class="subtitle"))
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Group name"), _("Description"), _("Actions"))
-        for group in groups:
+        for group in groups[:max_hits]:
             view = str(object_link(group, text='view', _class='actions'))
             edit = str(object_link(group, text='edit', method='edit', _class='actions'))
             remb = str(remember_link(group, _class="actions"))
