@@ -5,20 +5,29 @@ import sys
 import cgi
 import Cookie
 import traceback
-import cereweb_path
 
+import cereweb_path
+from Cereweb import Error
 from Cereweb.Session import Session
 from Cereweb.utils import url, redirect
 import forgetHTML as html
 
 class Req(object):
+    """Request class
+
+    Emulates the mod_python Request object
+    """
     def __init__(self):
+        self.headers_in = {'referer':os.environ.get('HTTP_REFERER', '')}
         self.headers_out = {}
         self.status = 200
 
+        # FIXME: er det kanskje req.the_request?
+        self.unparsed_uri = os.environ['REQUEST_URI']
+
 dirname = os.path.dirname(__file__)
 
-def cgi_main():
+def cgi_main(path):
     args = {}
     for key, value in cgi.parse().items():
         args[key] = type(value) == list and len(value) == 1 and value[0] or value
@@ -39,24 +48,35 @@ def cgi_main():
         except KeyError, e:
             id = None
 
-    path = os.environ.get('PATH_INFO', '')[1:]
-
-    if not path == 'login':
-        if id is None or req.session is None:
-            redirect(req, url("/login"))
-            path = 'redirected'
+    if not path:
+        path = os.environ.get('PATH_INFO', '')[1:]
 
     try:
+        if not path == 'login':
+            # check if client is logged in or not
+            if id is None or not req.session:
+                redirect(req, url('/login?redirect=%s' % req.unparsed_uri))
+#                raise Error.Redirected
+
+            # go to /index if client requested root
+            elif not path:
+                redirect(req, url("/index"))
+#                raise Error.Redirected
+
+
         doc = '<html><body>not found: %s</body></html>' % path
         if '/' in path:
             module, method = path.split('/', 1)
         else:
+            # defaults to example/index -> example.index(req, *args, **kargs)
             module, method = path, 'index'
 
-
-        if os.path.exists(os.path.join(dirname, '%s.py' % module)):
+        # Only allow importing of modules containing a-z A-Z
+        if module.isalpha() and os.path.exists(os.path.join(dirname, '%s.py' % module)):
             module = __import__(module)
 
+            # Only allow method calls containing a-z, A-Z and _
+            # First character must be a-z or A-Z
             if method[:1].isalpha() and method.replace('_', '').isalnum():
                 doc = getattr(module, method)(req, **args)
 
@@ -85,19 +105,17 @@ def cgi_main():
         print doc
 
     except Exception, e:
-        for key, value in req.headers_out.items():
-            print '%s: %s' % (key, value)
+        print 'Content-Type: text/html'
+        print 'Pragma: no-cache'
+        print 'Cache-Control: max-age=0'
         print
-        doc = html.SimpleDocument("Unexpected error")
-        doc.body.append(html.Paragraph(str(e), style="color: red;"))
-        doc.body.append(html.Paragraph("Path: %s; Args: %s;" % (path, args), style="color: red;"))
-        print doc
-        print '<pre>'
-        traceback.print_exc(file=sys.stdout)
-        print os.environ
-        print '</pre>'
+        print Error.handle(req, e)
 
 if __name__ == '__main__': # for cgi
-    cgi_main()
+    if sys.argv[1:2]:
+        path = sys.argv[1]
+    else:
+        path = None
+    cgi_main(path)
 
 # arch-tag: 203bd6c2-22de-4bf2-9d6f-f7c658e1fc55

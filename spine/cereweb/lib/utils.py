@@ -21,9 +21,9 @@
 import time
 import forgetHTML
 import Cereweb.config
-from Cerebrum.Errors import ProgrammingError
 import urllib
 from Cereweb.SpineIDL.Errors import NotFoundError
+import Error
 
 
 WEBROOT = Cereweb.config.conf.get('cereweb', 'webroot')
@@ -133,10 +133,10 @@ def redirect(req, url, temporary=False, seeOther=False):
     HTTP_SEE_OTHER = 303
     HTTP_TEMPORARY_REDIRECT = 307
     HTTP_MOVED_PERMANENTLY = 301
-    if temporary and seeOther:
-        raise ProgrammingError, \
-              "cannot set both temporary and seeOther"
-    elif seeOther:
+
+    assert not (temporary and seeOther) # cannot set both temporary and seeOther
+
+    if seeOther:
         status = HTTP_SEE_OTHER
     elif temporary:
         status = HTTP_TEMPORARY_REDIRECT
@@ -157,26 +157,36 @@ def redirect_object(req, object, method="view",
     redirect(req, url, temporary, seeOther)
 
 def queue_message(req, message, error=False):
-    """Queues a message for display next time a Main-page is showed.
-       If error is true, the message will be indicated as such."""
-    session = req.session
-    if not session.has_key("messages"):
-        session['messages'] = []
-    session['messages'].append((message, error))
+    """Queue a message
+    
+    The message will be displayed next time a Main-page is showed.
+    If error is true, the message will be indicated as such.
+    """
+
+    if 'messages' in session:
+        session['messages'] = [(message, error)]
+    else:
+        session['messages'].append((message, error))
 
 def no_cache(req):
     """Makes the current request non-cachable"""
     req.headers_out.add("Cache-Control:","no-cache")
     req.headers_out.add("Pragma:","no-cache")
 
+def new_transaction(req):
+    try:
+        return req.session['session'].new_transaction()
+    except Exception, e:
+        raise Error.SessionError, e
+
 def transaction_decorator(method):
     def transaction_decorator(req, *args, **vargs):
-        tr = req.session.get("session").new_transaction()
-        commited = False
+        tr = new_transaction(req)
         try:
             return method(req, transaction=tr, *args, **vargs)
         finally:
             try:
+                # FIXME: sjekk status på transaction?
                 tr.rollback()
             except:
                 pass

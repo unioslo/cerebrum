@@ -23,11 +23,11 @@ import time
 
 import forgetHTML as html
 
-from Cereweb.utils import url, redirect
+from Cereweb import utils
 from Cereweb.Session import Session
 import Cereweb.SpineClient
 
-def index(req, username="", password=""):
+def index(req, username='', password='', redirect='/index'):
     # Do this ourself since we are invoked by 
     # mod_python.publisher instead of Cerebrum.web.publisher
     error = username
@@ -52,7 +52,7 @@ def index(req, username="", password=""):
             req.session.save()
             
             #redirect to the main page and start using the cereweb.publisher.
-            redirect(req, url("/index"))
+            utils.redirect(req, utils.url("/index"))
 
     doc = html.SimpleDocument("Log in to Cerebrum")
     body = doc.body
