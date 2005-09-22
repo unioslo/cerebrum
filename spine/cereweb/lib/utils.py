@@ -163,10 +163,10 @@ def queue_message(req, message, error=False):
     If error is true, the message will be indicated as such.
     """
 
-    if 'messages' in session:
-        session['messages'] = [(message, error)]
+    if 'messages' not in req.session:
+        req.session['messages'] = [(message, error)]
     else:
-        session['messages'].append((message, error))
+        req.session['messages'].append((message, error))
 
 def no_cache(req):
     """Makes the current request non-cachable"""
