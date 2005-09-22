@@ -20,3 +20,5 @@ def handle(req, error):
 
     # fange python-greier som ImportError.
     return '<html><body><pre>%s</pre></html>' % error
+
+# arch-tag: 52b56f54-2b55-11da-97eb-80927010959a
