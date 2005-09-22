@@ -99,7 +99,8 @@ def cgi_main(path):
             # Only allow method calls containing a-z, A-Z and _
             # First character must be a-z or A-Z
             if method[:1].isalpha() and method.replace('_', '').isalnum():
-                doc = getattr(module, method)(req, **args)
+                if hasattr(module, method):
+                    doc = getattr(module, method)(req, **args)
 
         # convert doc to a string. This might fail. We want
         # to do this before we start to print headers
