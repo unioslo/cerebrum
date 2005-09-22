@@ -365,9 +365,16 @@ class BofhdExtension(object):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         if not ip:
-            free_ip_numbers = self._find.find_free_ip(subnet)
+            first = subnet_or_ip.split('/')[0]
+            if len(first.split('.')) == 4:
+                first = IPCalc.ip_to_long(first)
+            else:
+                first = None
+            free_ip_numbers = self._find.find_free_ip(subnet, first=first)
         else:
             free_ip_numbers = [ ip ]
+        if len(free_ip_numbers) < len(hostnames):
+            raise CerebrumError("Not enough free ips")
         # If user don't want mx_set, it must be removed with "ip mx_set"
         mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
         ret = []

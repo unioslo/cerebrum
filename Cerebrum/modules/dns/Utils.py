@@ -254,12 +254,14 @@ class Find(object):
             raise asdflkasdjf
             raise CerebrumError, "Not unique a-record: %s" % owner_id
 
-    def find_free_ip(self, subnet):
+    def find_free_ip(self, subnet, first=None):
         """Returns the first free IP on the subnet"""
         subnet_def = self._find_subnet(subnet)
         a_ip = self._find_available_ip(subnet_def)
         if not a_ip:
             raise ValueError, "No available ip on that subnet"
+        if first is not None:
+            a_ip = [i for i in a_ip if i >= first]
         return [IPCalc.long_to_ip(t) for t in a_ip]
 
     def _find_subnet(self, subnet):
