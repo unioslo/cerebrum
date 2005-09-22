@@ -46,6 +46,7 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         #self.makeRoles()
         #self.makeSpread()
         self.makeOptions()
+        self.makeLogout()
 
     def makeMain(self):
         self.main = self.addItem("main", _("Main") ,"index")
@@ -113,5 +114,8 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.options = self.addItem("options", _("Options") ,"options")
         self.options.addItem("view", _("View") ,"options/view")
         self.options.addItem("edit", _("Edit") ,"options/edit")
+
+    def makeLogout(self):
+        self.logout = self.addItem("logout", _("Logout") ,"logout")
 
 # arch-tag: 6af7ba3d-76dc-46e1-8327-1ed3e307e9e8

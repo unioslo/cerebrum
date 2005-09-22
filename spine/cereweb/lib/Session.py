@@ -42,4 +42,11 @@ class Session(dict):
         fd.close()
         os.rename(tmpname, self.filename)
 
+    def remove(self):
+        try:
+            self['session'].logout()
+        except:
+            pass
+        os.unlink(self.filename)
+
 # arch-tag: dbefe1f3-848c-4192-b0f1-75f5435b5887

@@ -26,6 +26,7 @@ import forgetHTML as html
 from Cereweb import utils
 from Cereweb.Session import Session
 import Cereweb.SpineClient
+from Cereweb.templates.Login import Login
 
 def index(req, username='', password='', redirect='/index'):
     # Do this ourself since we are invoked by 
@@ -54,15 +55,11 @@ def index(req, username='', password='', redirect='/index'):
             #redirect to the main page and start using the cereweb.publisher.
             utils.redirect(req, utils.url("/index"))
 
-    doc = html.SimpleDocument("Log in to Cerebrum")
-    body = doc.body
     if error:
-        body.append(html.Paragraph(error, style="color: red;"))
-    form = html.SimpleForm(method="POST")
-    body.append(form)
-    form.addText("username", "Username:", username)
-    form.addText("password", "Password:", password)
-    form.append(html.Submit("Login"))
-    return doc
+        messages = [error]
+    else:
+        messages = []
+
+    return Login().login(username, messages)
 
 # arch-tag: c1c42d44-1800-4608-b215-8a669cf10821
