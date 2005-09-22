@@ -62,6 +62,10 @@ class IPNumber(DatabaseAccessor):
         if is_new:
             self.ip_number_id = int(self.nextval('ip_number_id_seq'))
         if 'a_ip' in self.__updated:  # numeric ipnr can only be calculated
+            if (len(self.a_ip.split('.')) != 4 or 
+                [x for x in self.a_ip.split('.')
+                 if not x.isdigit() or not (int(x) >= 0 and int(x) <= 255)]):
+                raise self._db.IntegrityError, "Illegal IP: '%s'" % self.a_ip
             self.ipnr = struct.unpack(
                 '!L', socket.inet_aton(self.a_ip))[0]
 
