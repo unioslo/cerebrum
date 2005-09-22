@@ -92,9 +92,7 @@ class WorkList(html.Division):
         template = WorkListTemplate()
         objects = [(i.id, i.display_name) for i in self.remembered]
         selected = [i.id for i in self.selected]
-        actions = [i for i in self.actions]
-        buttons = self.getButtons()
-        return template.worklist(objects, selected, actions, buttons)
+        return template.worklist(objects, selected, self.getButtons())
 
     def getButtons(self):
         """Returns a list with all buttons for the worklist.

@@ -1,0 +1,61 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.utils import url
+
+#def error($title, $message, $referer, $traceback="")
+    <html>
+        <head>
+            <title>Cereweb error</title>
+            <link rel="stylesheet" type="text/css" href="$url('css/style.css')" />
+            <script language="JavaScript" src="$url('jscript/base.js')"></script>
+            <script language="JavaScript" src="$url('jscript/error.js')"></script>
+            <script language="JavaScript">
+                referer_url = "$referer";
+            </script>
+        </head>
+        <body>
+            <div class="errorpage">
+                <div class="title">
+                    Error: $title
+                </div>
+                <div class="message">
+                    <b>Error message:</b><br />
+                    $message
+                </div>
+                <div class="contact">
+                    <b>Contact information:</b><br />
+                    insert contant info here</br>
+                    <a href="mailto:orakel@ntnu.no?subject='Cereweb error'">orakel@ntnu.no</a>
+                </div>
+                <div class="bottom">
+                    <div class="actions">
+                        <b>Actions:</b>
+                        <a href="#" id="retry">retry</a>
+                        <a href="#" id="back">back</a>
+                        <a href="#" id="show_traceback">show traceback</a>
+                    </div>
+                    <div id="traceback" class="traceback" style="display:none;">
+                        <pre>$traceback</pre>
+                    </div>
+                </div>
+            </div>
+        </body>
+    </html>
+#end def
+

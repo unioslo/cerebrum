@@ -18,6 +18,12 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* TODO:
+    - opera: encoding-bug with øæå when sending request to add element
+    - firefox: innerHTML-bug with urls are encoded
+    - make clever actions when several are selected
+*/
+
 /* SETTINGS */
 
 // Used by httprequests to get the right url
@@ -27,9 +33,11 @@ var webroot = "";  // Should be overriden by includer
 var WL_max_elements = 20;
 
 // WL_worklist : ((id, class, name), ...)
+// Contains the information found in the worklist.
 var WL_worklist = new Array();
 
 // WL_actions : (((ids), action_name, action) ...)
+// Contains all actions created, not persistent.
 var WL_actions = new Array();
 
 // After the page is finished loading, run these methods.
@@ -38,92 +46,6 @@ addLoadEvent(WL_init_elements);
 addLoadEvent(WL_init_actions);
 
 /* END SETTINGS */
-
-/* addLoadEvent by Simon Willisons blog on sitepoint.com */
-function addLoadEvent(func) {
-    var oldonload = window.onload;
-    if (typeof window.onload != 'function') {
-        window.onload = func;
-    } else {
-        window.onload = function() {
-            oldonload();
-            func();
-        };
-    }
-}
-
-/* addEvent by Peter-Paul Kochs blog on quirksmode.org */
-function addEvent(obj, sType, fn){
-    if (obj.addEventListener){
-        obj.addEventListener(sType, fn, false);
-    } else if (obj.attachEvent) {
-        var r = obj.attachEvent('on'+sType, fn);
-    } else {
-        WL_error("EventHandler could not be attached.");
-    }
-}
-
-// Cross-browser-compatible method for creating xmlhttp-objects.
-function get_http_requester() {
-    var requester = null;
-    try {
-        requester = new XMLHttpRequest();
-    } catch (err) {
-        try {
-            requester = new ActiveXObject("Microsoft.XMLHTTP");
-        } catch (err) {
-            WL_error("Unable to create XMLHttpRequest-object.");
-        }
-    }
-    return requester
-}
-
-// Calls func if func is set and the http respons was successfull.
-function get_http_response(req, func) {
-    return function() {
-        if (req.readyState == 4) {
-            if (req.status != 200) {
-                WL_error("HttpRequest "+req.status+":\n"+req.responseText);
-            } else {
-                if (func) {
-                    func(req);
-                }
-            }
-        }
-    };
-}
-
-// method which compares the elements of 2 arrays to see if they are equal.
-function compareArrays(arr1, arr2) {
-    if (arr1.length != arr2.length) {
-        return false;
-    }
-    
-    var found = 0;
-    for (var i = 0; i < arr1.length; i++) {
-        for (var j = 0; j < arr2.length; j++) {
-            if (arr1[i] == arr2[j]) {
-                found++;
-                break;
-            }
-        }
-    }
-    
-    if (found == arr1.length) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-// Cross-browser method to set text on a Anchor DOM-object.
-function WL_set_link_text(obj, text) {
-    if (obj == null || obj.innerHTML == null) {
-        return;
-    }
-    
-    obj.replaceChild(document.createTextNode(text), obj.firstChild);
-}
 
 // Show errors to the user, in a inobtrusive way.
 function WL_error(msg) {
@@ -175,19 +97,14 @@ function WL_init_elements() {
     for (var i = 0; i < worklist.length; i++) {
         var id = WL_worklist[i][0];
         var link = document.getElementById('WL_link_'+id);
-        WL_set_link_text(link, "forget");
+        set_link_text(link, "forget");
     }
 }
 
-// Load already created actions into the WL_actions-variable
+// Call WL_view_actions() if any is selected.
 function WL_init_actions() {
-    // Fill WL_actions with the elements in WL_actions.
-    var actions = document.getElementById('WL_actions');
-    //TODO: for-løkke ++ dilldall
-
-    // Call WL_view_actions() if any is selected.
     var worklist = document.getElementById('WL_select');
-    for (var i = j = 0; i < worklist.length; i++) {
+    for (var i = 0; i < worklist.length; i++) {
         if (worklist[i].selected == 1) {
             WL_view_actions(true);
             break;
@@ -201,8 +118,7 @@ function WL_view_actions(update_only) {
     // find which elements are selected.
     var worklist = document.getElementById('WL_select');
     var selected = new Array();
-    var j = 0;
-    for (var i = 0; i < worklist.length; i++) {
+    for (var i = 0, j = 0; i < worklist.length; i++) {
         if (worklist[i].selected == 1) {
             if (worklist[i].text != "-Remembered objects-") {
                 selected[j++] = WL_worklist[i];
@@ -210,7 +126,23 @@ function WL_view_actions(update_only) {
         }
     }
   
-    // hide all actions in.
+    // inform the server about the selected elements.
+    var ids = Array(); // all ids of the selected options.
+    for (var i = 0; i < selected.length; i++) {
+        ids[i] = selected[i][0];
+    }
+    
+    var args = "?ids=" + ids;
+    var update_url = webroot + '/worklist/selected';
+    
+    if (update_only == null || update_only != true) {
+        var req = get_http_requester();
+        req.open("GET", update_url + args, true);
+        req.onreadystatechange = get_http_response(req, null, WL_error);
+        req.send(null);
+    }
+    
+    // hide all actions.
     var actions = document.getElementById('WL_actions');
     for (var i = 0; i < actions.childNodes.length; i++) {
         if (actions.childNodes[i].style) {
@@ -220,7 +152,7 @@ function WL_view_actions(update_only) {
   
     // create and show the action for the selected items.
     if (selected[0] != null) {
-        var action = WL_get_action(selected, update_only);
+        var action = WL_get_action(selected, ids, update_only);
         actions.appendChild(action);
     } else {
         var action = document.getElementById('WL_action_info');
@@ -229,70 +161,151 @@ function WL_view_actions(update_only) {
 }
 
 // Returns an action for the array with selected items.
-function WL_get_action(selected, update_only) {
+function WL_get_action(selected, ids) {
     // Check if the action for the selected items already exists.
     var action = null;
-    var sortFunc = function(a, b) { return a - b; };
-    var ids = Array(); // all ids of the selected options.
-    for (var i = 0; i < selected.length; i++) {
-        ids[i] = selected[i][0];
-    }
-    ids.sort(sortFunc);
-    
     for (var i = 0; i < WL_actions.length; i++) {
-        if (compareArrays(WL_actions[i][0],ids)) {
-            action = WL_actions[i][2];
-            break;
+        if (compareArrays(WL_actions[i][0], ids)) {
+            return WL_actions[i][2];
         }
     }
 
-    var args = "?ids=" + ids;
-    var update_url = webroot + '/worklist/selected';
-    
-    if (action == null) {
-        action = WL_create_action(selected, ids);
-        // TODO: add action.html to args.
-    }
-    
-    if (update_only == null || update_only != true) {
-        var req = get_http_requester();
-        req.open("GET", update_url + args, true);
-        req.onreadystatechange = get_http_response(req);
-        req.send(null);
-    }
-    return action;
+    return WL_create_action(selected, ids);
 }
 
 // Creates an action for the array with selected items.
 function WL_create_action(selected, ids) {
-    if (selected.length > 1) {
-        // Do something clever here
+    selected.sort(WL_action_sort);
+
+    var aid = WL_actions.length < 1 ? 0 : WL_actions[WL_actions.length-1][1]+1;
+    var action = null;
+    var id = selected[0][0];
+    var cls = selected[0][1];
+    var name = selected[0][2];
+  
+    if (selected.length == 1) {
+        action = WL_action_clone(cls, aid);
+    } else if (WL_action_pattern("person", null, selected)) {
+        action = WL_action_clone("person", aid);
+    } else if (WL_action_pattern("group", "account", selected)) {
+        action = WL_action_clone("group", aid);
+        
+        /*
+        var joins = document.createElement("div");
+        var leaves = document.createElement("div");
+        joins.appendChild(document.createTextNode("Join: "));
+        leaves.appendChild(document.createTextNode("Leave: "));
+        for (var i  = 1; i < selected.length; i++) {
+            joins.appendChild(WL_action_create_link(selected[i][0], selected[i][2]));
+            leaves.appendChild(WL_action_create_link(selected[i][0], selected[i][2]));
+        }
+        if (selected.length > 2) {
+            joins.appendChild(WL_action_create_link("", "All"));
+            leaves.appendChild(WL_action_create_link("", "All"));
+        }
+        
+        //WL_action_append_content(action, joins);
+        //WL_action_append_content(action, leaves);
+        */
+    } else {
+        name = "Error";
+        for (var i = 1; i < selected.length; i++) {
+            cls += ", "+selected[i][1];
+        }
+        action = WL_action_clone("default", aid);
     }
     
-    var cls = selected[0][1];
-    var action = document.getElementById('WL_action_'+cls.toLowerCase());
-    var id = WL_actions.length < 1 ? 0 : WL_actions[WL_actions.length-1][1]+1;
+    // Person + Accounts
+    //group + accounts
+    //ou + persons
+    //groups
+    // insert clever stuff here
+    
+    // replace the variables in the actionbox.
+    WL_action_replaceHTML(action, /\{\{id\}\}/g, id);
+    WL_action_replaceHTML(action, /\{\{class\}\}/g, cls);
+    WL_action_replaceHTML(action, /\{\{name\}\}/g, name);
+    
+    // add the new action to WL_actions
+    WL_actions[WL_actions.length] = new Array(ids, aid, action);
+    return action;
+}
 
+
+function WL_action_append_content(action, node) {
+    for (var i = 0; i < action.childNodes.length; i++) {
+        if (action.childNodes[i].cls == "content") {
+            action.childNodes[i].appendChild(node);
+            return;
+        }
+    }
+    action.appendChild(node);
+}
+
+
+function WL_action_create_link(url, name) {
+    var text = document.createTextNode(name);
+    var link = document.createElement("a");
+    link.appendChild(text);
+    link.href = url;
+    return link;
+}
+
+// Clones an action
+function WL_action_clone(name, action_id) {
+    var action = document.getElementById('WL_action_'+name.toLowerCase());
     if (action == null) {
         action = document.getElementById('WL_action_default');
     }
-
-    action = action.cloneNode(true);
-    action.id = "WL_action_"+id;
-    action.name = ids.toString();
-
-    // replace the variables in the actionbox.
-    //FIXME: doesnt work in firefox, since the urls in innerHTML is encoded.
-    regex_id = /\{\{id\}\}/g;
-    regex_class = /\{\{class\}\}/g;
-    regex_name = /\{\{name\}\}/g;
-    action.innerHTML = action.innerHTML.replace(regex_id, selected[0][0]);
-    action.innerHTML = action.innerHTML.replace(regex_class, cls);
-    action.innerHTML = action.innerHTML.replace(regex_name, selected[0][2]);
     
-    // add the new action to WL_actions
-    WL_actions[WL_actions.length] = new Array(ids, id, action);
-    return action;
+    var new_action = action.cloneNode(true);
+    new_action.id = "WL_action_"+action_id;
+    return new_action;
+}
+
+// Check if selected classes fits a pattern.
+function WL_action_pattern(first, rest, selected) {
+    if (selected[0][1].toLowerCase() != first) {
+        return false;
+    } else if (rest == null) {
+        if (selected[1][1].toLowerCase() != first) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    for (var i = 1; i < selected.length; i++) {
+        if (selected[i][1].toLowerCase() != rest) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Replaces the regex with value in the action.
+function WL_action_replaceHTML(action, regex, value) {
+    //FIXME: doesnt work in firefox, since the urls in innerHTML is encoded.
+    action.innerHTML = action.innerHTML.replace(regex, value);
+}
+
+// Sorts the list over selected items by importance.
+function WL_action_sort(a, b) {
+    // Importance: OU > Group > Person > Account > *
+    if (a[1].toLowerCase() == b[1].toLowerCase()) {
+        return 0; //a and b are equally important
+    }
+
+    var classes = new Array("ou", "person", "group", "account");
+    for (var i = 0; i < classes.length; i++) {
+        if (a[1].toLowerCase() == classes[i]) {
+            return -1; //a is less important
+        } else if (b[1].toLowerCase() == classes[i]) {
+            return 1; //b is less important
+        }
+    }
+
+    return 0; //neither a,b is in classes
 }
 
 // method to add an entity to the worklist.
@@ -308,7 +321,7 @@ function WL_remember(id, cls, name) {
             var req = get_http_requester();
             var remove_url = webroot + '/worklist/remove';
             req.open("GET", remove_url+"?id="+id, true);
-            req.onreadystatechange = get_http_response(req);
+            req.onreadystatechange = get_http_response(req, null, WL_error);
             req.send(null);
     
             return;
@@ -340,20 +353,20 @@ function WL_remember(id, cls, name) {
 
     // change the text on the element by id
     var link = document.getElementById('WL_link_'+id);
-    WL_set_link_text(link, "forget");
+    set_link_text(link, "forget");
 
     // tell the server that we have added an element.
     var requester = get_http_requester();
     var add_url = webroot + '/worklist/add';
     requester.open("GET", add_url+"?id="+id+"&cls="+cls+"&name="+name, true);
-    requester.onreadystatechange = get_http_response(requester);
+    requester.onreadystatechange = get_http_response(requester, null, WL_error);
     requester.send(null);
 }
 
 // method for removing an element from the worklist by position
 function WL_forget_by_pos(pos) {
     var worklist = document.getElementById('WL_select');
-    if (pos >= 0 && worklist[pos].text != "-Remembered objects-") {
+    if (pos >= 0) {
         // remove element from WL_worklist and worklist
         var id = WL_worklist[pos][0];
         var end_slice = WL_worklist.slice(pos+1, WL_worklist.length);
@@ -368,7 +381,7 @@ function WL_forget_by_pos(pos) {
 
         // change the text on the element by id
         var link = document.getElementById('WL_link_'+id)
-        WL_set_link_text(link, "remember");
+        set_link_text(link, "remember");
     }
 }
 
@@ -376,13 +389,12 @@ function WL_forget_by_pos(pos) {
 function WL_forget() {
     var worklist = document.getElementById('WL_select')
     var ids = new Array();
-    var j = 0;
-    for (var i = worklist.length-1; i >= 0; i--) {
+    for (var j = 0, i = worklist.length-1; i >= 0; i--) {
         if (worklist[i].selected == 1) {
             if (worklist[i].text != "-Remembered objects-") {
                 ids[j++] = worklist[i].value;
+                WL_forget_by_pos(i);
             }
-            WL_forget_by_pos(i);
         }
     }
     
@@ -390,7 +402,7 @@ function WL_forget() {
     var requester = get_http_requester();
     var remove_url = webroot + '/worklist/remove';
     requester.open("GET", remove_url+"?ids="+ids, true);
-    requester.onreadystatechange = get_http_response(requester);
+    requester.onreadystatechange = get_http_response(requester, null, WL_error);
     requester.send(null);
 }
 
@@ -424,5 +436,4 @@ function WL_invert() {
     
     WL_view_actions();
 }
-
 

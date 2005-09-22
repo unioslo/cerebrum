@@ -51,7 +51,7 @@ def remove(req, id=None, ids=None):
     page.body.append(html.Division(msg))
     return page
 
-def selected(req, ids=None, action=""):
+def selected(req, ids=None):
     """Updates the list over selected elements."""
     if ids is None:
         selected = req.session['wl_selected'] = []
@@ -63,11 +63,6 @@ def selected(req, ids=None, action=""):
         updated = [int(i) for i in ids.split(",") if i]
         selected = [i for i in remembered if i.id in updated]
         req.session['wl_selected'] = selected
-    
-        if action:
-            if 'wl_actions' not in req.session:
-                req.session['wl_actions'] = []
-            req.session['wl_actions'].append(action)
     
     page = html.SimpleDocument("Worklist: selected elements updated")
     msg = "Selected element(s) updated: %s" % selected

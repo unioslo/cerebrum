@@ -25,7 +25,7 @@
 ## action. Any keys in the list selected will be marked
 ## selected by default in the worklist.
 
-#def worklist($objects, $selected, $actions, $buttons)
+#def worklist($objects, $selected, $buttons)
 <div class="worklist">
     <h2>$_("Worklist"):</h2>
     <form name="worklistForm" action="" method="POST">
@@ -75,11 +75,6 @@
             <div class="wl_errors" id="WL_errors" style="display:none;">
                 <h3>Worklist error:</h3>
             </div>
-
-            ## Generated actions for diffrent ids
-            #for $html in $actions
-                $html
-            #end for
         </span>
     </form>
 </div>
@@ -120,7 +115,7 @@
     <div class="wl_action" id="WL_action_default" style="display:none;">
         <div class="header">{{name}}:</div>
         <div class="content">
-            No actions found for this class: {{class}}
+            No actions found for these classes: {{class}}
         </div>
     </div>
 #end def

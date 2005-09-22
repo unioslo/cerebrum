@@ -85,7 +85,7 @@ def cgi_main(path):
 #                raise Error.Redirected
 
 
-        doc = '<html><body>not found: %s</body></html>' % path
+        doc = None
         if '/' in path:
             module, method = path.split('/', 1)
         else:
@@ -103,7 +103,10 @@ def cgi_main(path):
 
         # convert doc to a string. This might fail. We want
         # to do this before we start to print headers
-        doc = str(doc)
+        if not doc:
+            raise Error.CustomError("Page not found", "The page '%s' was not found." % path)
+        else:
+            doc = str(doc)
 
         # old session. Save it
         if req.session:
