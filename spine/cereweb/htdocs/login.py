@@ -28,9 +28,7 @@ from Cereweb.Session import Session
 import Cereweb.SpineClient
 from Cereweb.templates.Login import Login
 
-def index(req, username='', password='', redirect='/index'):
-    # Do this ourself since we are invoked by 
-    # mod_python.publisher instead of Cerebrum.web.publisher
+def index(req, username='', password='', redirect=utils.url('/index')):
     error = username
     if username:
         error = "Login"
@@ -53,7 +51,7 @@ def index(req, username='', password='', redirect='/index'):
             req.session.save()
             
             #redirect to the main page and start using the cereweb.publisher.
-            utils.redirect(req, utils.url("/index"))
+            utils.redirect(req, redirect)
 
     if error:
         messages = [error]
