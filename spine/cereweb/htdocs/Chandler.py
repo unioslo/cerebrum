@@ -39,27 +39,41 @@ class Req(object):
     def __init__(self):
         self.headers_in = {'referer':os.environ.get('HTTP_REFERER', '')}
         self.headers_out = {}
+        self.content_type = 'text/html'
         self.status = 200
 
         # FIXME: er det kanskje req.the_request?
         self.unparsed_uri = os.environ['REQUEST_URI']
 
+    def write(self, txt):
+        if self.headers_out is not None:
+            # Print all headers
+            print 'Content-Type:', self.content_type
+            for key, value in self.headers_out.items():
+                print '%s: %s' % (key, value)
+            if self.status is not None:
+                print 'Status:', self.status
+            print
+            self.headers_out = None
+        sys.stdout.write(txt)
+
+
+
 dirname = os.path.dirname(__file__)
 
-def cgi_main(path):
+def cgi_main():
     args = {}
     for key, value in cgi.parse().items():
         args[key] = type(value) == list and len(value) == 1 and value[0] or value
-
     req = Req()
+
     req.session = None
-    req.headers_out['Content-Type'] = 'text/html'
-    req.headers_out['Pragma'] = 'no-cache'
-    req.headers_out['Cache-Control'] = 'max-age=0'
 
     c = Cookie.SimpleCookie()
     c.load(os.environ.get('HTTP_COOKIE', ''))
     id = c.get('cereweb_id')
+
+    path = os.environ.get('PATH_INFO', '')[1:]
 
     if id:
         try:
@@ -67,14 +81,56 @@ def cgi_main(path):
         except KeyError, e:
             id = None
 
-    if not path:
-        path = os.environ.get('PATH_INFO', '')[1:]
+    main(req, id, path, args)
+
+def handler(req):
+    req.content_type = 'text/html'
+    from mod_python import apache, util
+    from mod_python.Cookie import get_cookies, Cookie
+
+    page_cookies = get_cookies(req, Cookie)
+    id = page_cookies.get('cereweb_id')
+    req.session = None
+    if id:
+        try:
+            req.session = Session(id.value)
+        except KeyError, e:
+            id = None
+
+    fs = util.FieldStorage(req, keep_blank_values=1)
+
+    args = {}
+    for field in fs.list:
+        if field.filename:
+            val = File(field)
+        else:
+            val = field.value
+        if args.has_key(field.name):
+            j = args[field.name]
+            if type(j) == list:
+                j.append(val)
+            else:
+                args[field.name] = [j,val]
+        else:
+            args[field.name] = val
+
+    path = req.path_info[1:]
+            
+    main(req, id, path, args)
+    return apache.OK
+
+def main(req, id, path, args):
+    req.headers_out['Pragma'] = 'no-cache'
+    req.headers_out['Cache-Control'] = 'max-age=0'
 
     try:
         if not path == 'login':
             # check if client is logged in or not
             if id is None or not req.session:
-                redirect(req, url('/login?redirect=%s' % req.unparsed_uri))
+                if path:
+                    redirect(req, url('/login?redirect=%s' % req.unparsed_uri), temporary=True)
+                else:
+                    redirect(req, url('/login'), temporary=True)
                 path = 'redirected'
 #                raise Error.Redirected
 
@@ -117,30 +173,17 @@ def cgi_main(path):
         if id is None and req.session is not None:
             cookie = Cookie.SimpleCookie()
             cookie['cereweb_id'] = req.session.id
-            print cookie.output()
+            txt = cookie.output()
+            name, data = txt.split(':', 1)
+            req.headers_out[name.strip()] = data.strip()
 
-        # Print all headers
-        for key, value in req.headers_out.items():
-            print '%s: %s' % (key, value)
-        if req.status is not None:
-            print 'Status:', req.status
-        print
-
-        # Print document
-        print doc
+        # write document
+        req.write(doc)
 
     except Exception, e:
-        print 'Content-Type: text/html'
-        print 'Pragma: no-cache'
-        print 'Cache-Control: max-age=0'
-        print
-        print Error.handle(req, e)
+        req.write(Error.handle(req, e))
 
 if __name__ == '__main__': # for cgi
-    if sys.argv[1:2]:
-        path = sys.argv[1]
-    else:
-        path = None
-    cgi_main(path)
+    cgi_main()
 
 # arch-tag: 203bd6c2-22de-4bf2-9d6f-f7c658e1fc55

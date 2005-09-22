@@ -1,7 +1,6 @@
 Options +Indexes +ExecCGI
 #SetHandler mod_python
-#PythonHandler Cereweb.publisher
-#PythonDebug On
-#PythonInterpPerDirectory On
+PythonHandler Chandler
+PythonDebug On
+PythonInterpPerDirectory On
 DirectoryIndex Chandler.cgi
-#PythonCleanupHandler Cereweb.cleanup
