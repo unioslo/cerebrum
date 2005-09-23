@@ -149,7 +149,7 @@ class UiOStudent(access_FS.Student):
            em.emnekode=es.emnekode AND
            sps.status_privatist='N' AND 
            sps.studieprogramkode=sp.studieprogramkode AND
-           r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL','AUTOMATISK') AND
+           r.regformkode IN ('STUDWEB','MANUELL','AUTOMATISK') AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s """ %(self._get_termin_aar(only_current=1))
         return self.db.query(qry)
@@ -174,7 +174,7 @@ class UiOStudent(access_FS.Student):
            s.personnr=em.personnr AND
            sps.status_privatist='N' AND 
            sps.studieprogramkode=sp.studieprogramkode AND
-           r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL','AUTOMATISK') AND
+           r.regformkode IN ('STUDWEB','MANUELL','AUTOMATISK') AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s """ %(self._get_termin_aar(only_current=1))
         return self.db.query(qry)
@@ -203,7 +203,7 @@ class UiOStudent(access_FS.Student):
            spp.dato_bekreftet < SYSDATE AND
            spp.arstall_bekreft=%d AND
            spp.terminkode_bekreft='%s' AND
-           r.regformkode IN ('STUDWEB','DOKTORREG','MANUELL','AUTOMATISK') AND
+           r.regformkode IN ('STUDWEB','MANUELL','AUTOMATISK') AND
            %s """ %(self.year, self.semester, self._get_termin_aar(only_current=1))
         return self.db.query(qry)
 
