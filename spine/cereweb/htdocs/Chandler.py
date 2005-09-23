@@ -181,7 +181,7 @@ def main(req, id, path, args):
         req.write(doc)
 
     except Exception, e:
-        req.write(Error.handle(req, e))
+        req.write(Error.handle(req, e, path))
 
 if __name__ == '__main__': # for cgi
     cgi_main()

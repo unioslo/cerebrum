@@ -18,25 +18,21 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */ 
 
-// Where we came from, used to go back if wanted.
-var referer_url = ""; // Should be overriden by includer 
+// Show/Hide the error report form.
+function Err_show_report() {
+    var report = document.getElementById('report_div');
 
-addLoadEvent(Err_init_listeners);
-
-function Err_init_listeners() {
-    var traceback_link = document.getElementById('show_traceback');
-    var retry_link = document.getElementById('retry');
-    var back_link = document.getElementById('back');
-    
-    addEvent(traceback_link, 'click', Err_show_traceback);
-    addEvent(retry_link, 'click', Err_retry);
-    addEvent(back_link, 'click', Err_back);
+    if (report.style.display != "block") {
+        report.style.display = "block";
+    } else {
+        report.style.display = "none";
+    }
 }
 
 // Show/Hide the traceback block.
 function Err_show_traceback() {
     var link = document.getElementById('show_traceback');
-    var traceback = document.getElementById('traceback');
+    var traceback = document.getElementById('traceback_div');
 
     if (traceback.style.display != "block") {
         traceback.style.display = "block";
@@ -53,7 +49,8 @@ function Err_retry() {
 }
 
 // Redirects the users to where he came from.
+// Cleaner to use referer, but with mod_python its not so easy to get?
 function Err_back() {
-    window.location.href = referer_url;
+    history.go(-1);
 }
 

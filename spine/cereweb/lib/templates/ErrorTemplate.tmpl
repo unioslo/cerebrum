@@ -17,42 +17,78 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from Cereweb.utils import url
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
 
-#def error($title, $message, $referer, $traceback="")
+## Displays an error page.
+#def error($title, $message, $referer="", $path="", $traceback="", $report=True)
     <html>
         <head>
             <title>Cereweb error</title>
             <link rel="stylesheet" type="text/css" href="$url('css/style.css')" />
             <script language="JavaScript" src="$url('jscript/base.js')"></script>
             <script language="JavaScript" src="$url('jscript/error.js')"></script>
-            <script language="JavaScript">
-                referer_url = "$referer";
-            </script>
         </head>
         <body>
             <div class="errorpage">
                 <div class="title">
-                    Error: $title
+                    $_('Error'): $title
                 </div>
                 <div class="message">
-                    <b>Error message:</b><br />
+                    <b>$_('Error message'):</b><br />
                     $message
                 </div>
                 <div class="contact">
-                    <b>Contact information:</b><br />
+                    <b>$_('Contact information'):</b><br />
                     insert contant info here</br>
                     <a href="mailto:orakel@ntnu.no?subject='Cereweb error'">orakel@ntnu.no</a>
                 </div>
                 <div class="bottom">
                     <div class="actions">
-                        <b>Actions:</b>
-                        <a href="#" id="retry">retry</a>
-                        <a href="#" id="back">back</a>
-                        <a href="#" id="show_traceback">show traceback</a>
+                        <b>$_('Actions'):</b>
+                        <a href="javascript:Err_retry();" id="retry">retry</a>
+                        <a href="javascript:Err_back();" id="back">back</a>
+                        #if $report
+                        <a href="javascript:Err_show_report();" id="show_report">report</a>
+                        #end if
+                        #if $traceback
+                        <a href="javascript:Err_show_traceback();" id="show_traceback">show traceback</a>
+                        #end if
                     </div>
-                    <div id="traceback" class="traceback" style="display:none;">
+                    #if $report
+                    <div id="report_div" class="report" style="display:none;">
+                        <b>$_('Report the error'):</b><br />
+                        <form action="$url('error/report')" method="POST">
+                            #if $path
+                            $_('Path'): <a href="$url($path)">/$path</a><br />
+                            <input type="hidden" name="path" value="$path">
+                            #end if
+                            #if $referer
+                            $_('Referer path'): <a href="$url($referer)">/$referer</a><br />
+                            <input type="hidden" name="referer" value="$referer">
+                            #end if
+                            #if traceback
+                            <input type="hidden" name="traceback" value='$traceback.replace("'", '"')'>
+                            #end if
+                            <input type="hidden" name="title" value="$title">
+                            <input type="hidden" name="message" value="$message">
+                            <label for="name">$_('Your name'):</label><br />
+                            <input type="text" size="30" name="name"><br />
+                            <label for="explanation">$_('Explain how this error occured'):</label>
+                            <br />
+                            <textarea cols="40" rows="4" name="explanation"></textarea>
+                            <br />
+                            <input type="submit" value="$_('Save')" />&nbsp;
+                            <input type="reset" value="$_('Clear')" />
+                        </form>
+                    </div>
+                    #end if
+                    #if $traceback
+                    <div id="traceback_div" class="traceback" style="display:none;">
+                        <b>$_('Traceback'):</b><br />
                         <pre>$traceback</pre>
                     </div>
+                    #end if
                 </div>
             </div>
         </body>

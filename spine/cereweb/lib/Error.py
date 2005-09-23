@@ -1,6 +1,7 @@
 import os
 import sys
 import traceback
+from Cereweb import config
 from Cereweb.templates.ErrorTemplate import ErrorTemplate
 
 class SessionError(Exception):
@@ -22,7 +23,7 @@ class Redirected(Exception):
     pass # presentere en side for browsere som ikke støtter redirect?
 
 
-def handle(req, error):
+def handle(req, error, path=""):
     title, message, tracebk = None, None, None
     
     if isinstance(error, SessionError):
@@ -45,8 +46,12 @@ def handle(req, error):
     if tracebk is None:
         tracebk = "".join(traceback.format_exception(*sys.exc_info()))
 
-    referer = "" #FIXME: referer is found in headers in req
+    if not config.conf.getboolean('cereweb', 'error_traceback'):
+        tracebk = ""
     
-    return ErrorTemplate().error(title, message, referer, tracebk)
+    referer = "" #FIXME: referer is found in headers in req??
+    report = config.conf.getboolean('cereweb', 'error_reporting')
+    
+    return ErrorTemplate().error(title, message, referer, path, tracebk, report)
 
 # arch-tag: 52b56f54-2b55-11da-97eb-80927010959a
