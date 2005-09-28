@@ -86,7 +86,7 @@ class Constants(Constants.Constants):
         'Registrert i Kjernen med "timelønnet"')
 
     affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL', 'Tilknyttet enheter/instutusjoner som USIT har avtale med')
+        'MANUELL', 'Tilknyttet enheter/instutusjoner som NTNU har avtale med')
     affiliation_manuell_emeritus = _PersonAffStatusCode(
         affiliation_tilknyttet, 'emeritus', 'Pensjonert med emeritusforhold')
     affiliation_manuell_gjesteforsker = _PersonAffStatusCode(
@@ -191,10 +191,6 @@ class Constants(Constants.Constants):
     #quarantine_bdb = _QuarantineCode('BDB', 'Gammel BDB karantene /bin/sperret+/bin/true+/bin/false')
     #quarantine_badpw = _QuarantineCode('BDB_badpw', 'Gammel BDB karantene /bin/badpw')
 
-    email_domain_category_uio_globals = _EmailDomainCategoryCode(
-        'UIO_GLOBALS',
-        "All local_parts defined in domain 'UIO_GLOBALS' are treated"
-        " as overrides for all domains posessing this category.")
     email_spam_level_none = _EmailSpamLevelCode(
         'ingen', 9999, "No email will be filtered as spam")
     email_spam_level_medium = _EmailSpamLevelCode(
