@@ -33,4 +33,3 @@ def index(req):
     redirect(req, url("/login"))
     return 'you have been logged out!'
 
-# arch-tag: c1c42d44-1800-4608-b215-8a669cf10821
