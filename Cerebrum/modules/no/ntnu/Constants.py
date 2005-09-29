@@ -100,7 +100,7 @@ class Constants(Constants.Constants):
     affiliation_manuell_sit = _PersonAffStatusCode(
         affiliation_manuell, 'sit', 'SiT')
     affiliation_manuell_annen = _PersonAffStatusCode(
-        affiliation_manuell, 'annen tilknytning', 'Husk kommentar!')
+        affiliation_manuell, 'annen', 'Annen tilknytning (Husk kommentar)')
 
     affiliation_upersonlig = _PersonAffiliationCode(
         'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
