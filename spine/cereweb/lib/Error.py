@@ -46,12 +46,11 @@ def handle(req, error, path=""):
     if tracebk is None:
         tracebk = "".join(traceback.format_exception(*sys.exc_info()))
 
-    if not config.conf.getboolean('cereweb', 'error_traceback'):
+    if not config.conf.getboolean('error', 'allow_traceback'):
         tracebk = ""
     
-    referer = "" #FIXME: referer is found in headers in req??
-    report = config.conf.getboolean('cereweb', 'error_reporting')
+    report = config.conf.getboolean('error', 'allow_reporting')
     
-    return ErrorTemplate().error(title, message, referer, path, tracebk, report)
+    return ErrorTemplate().error(req, title, message, path, tracebk, report)
 
 # arch-tag: 52b56f54-2b55-11da-97eb-80927010959a

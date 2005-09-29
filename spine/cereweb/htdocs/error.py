@@ -27,8 +27,10 @@ def report(req, title, message, name="", path="",
            referer="", traceback="", explanation=""):
     """Saves an error report to disk."""
 
-    if config.conf.getboolean('cereweb', 'error_reporting'):
-        filename = '/tmp/cereweb_er_%s' % title[:15]
+    if config.conf.getboolean('error', 'allow_reporting'):
+        path = config.conf.get('error', 'report_dir')
+        filename = 'cereweb_er_%s' % title[:15]
+        filename = os.path.join(path, filename)
         args = ('Title: '+title, 'Message: '+message, 'Name: '+name,
                 'Path: '+path, 'Referer: '+referer,
                 'Explanation: '+explanation, 'Traceback: '+traceback, '--')
@@ -37,7 +39,7 @@ def report(req, title, message, name="", path="",
         fd.write("\n".join(args))
         fd.close()
         
-        queue_message(req, _('Error successfully reported. %s' % filename))
+        queue_message(req, _('Error successfully reported.'))
     else:
         queue_message(req, _('Reporting of errors are not allowed at this moment.'), error=True)
     

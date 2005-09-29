@@ -1,8 +1,6 @@
 [cereweb]
 webroot: /
 max_hits: 15
-error_reporting: true
-error_traceback: true
 
 [corba]
 url: http://localhost/spine.ior
@@ -15,3 +13,9 @@ password: client
 
 [idl]
 spine_core: SpineCore.idl
+
+[error]
+allow_traceback: true
+allow_reporting: true
+report_dir: /tmp/
+

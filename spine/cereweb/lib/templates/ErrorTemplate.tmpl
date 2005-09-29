@@ -21,7 +21,9 @@
 #extends InitTemplate
 
 ## Displays an error page.
-#def error($title, $message, $referer="", $path="", $traceback="", $report=True)
+#def error($req, $title, $message, $path="", $traceback="", $report=True)
+    #set $referer = ""
+    #set $user = $req.session.get('username')
     <html>
         <head>
             <title>Cereweb error</title>
@@ -59,6 +61,9 @@
                     <div id="report_div" class="report" style="display:none;">
                         <b>$_('Report the error'):</b><br />
                         <form action="$url('error/report')" method="POST">
+                            #if $user
+                            $_('Name'): <em>$user</em><br />
+                            #end if
                             #if $path
                             $_('Path'): <a href="$url($path)">/$path</a><br />
                             <input type="hidden" name="path" value="$path">
@@ -72,8 +77,7 @@
                             #end if
                             <input type="hidden" name="title" value="$title">
                             <input type="hidden" name="message" value="$message">
-                            <label for="name">$_('Your name'):</label><br />
-                            <input type="text" size="30" name="name"><br />
+                            <input type="hidden" name="name" value="$user">
                             <label for="explanation">$_('Explain how this error occured'):</label>
                             <br />
                             <textarea cols="40" rows="4" name="explanation"></textarea>
