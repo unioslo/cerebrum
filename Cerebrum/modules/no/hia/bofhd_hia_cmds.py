@@ -2431,10 +2431,6 @@ class BofhdExtension(object):
                     'help_ref': 'print_select_template'}
         arg = all_args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(arg)
-        #if not tpl_lang.endswith("letter"):
-        #    if not all_args:
-        #        return {'prompt': 'Oppgi skrivernavn'}
-        #    skriver = all_args.pop(0)
         if not all_args:
             n = 1
             map = [(("%8s %s", "uname", "operation"), None)]
@@ -2445,7 +2441,8 @@ class BofhdExtension(object):
                 raise CerebrumError, "no users"
             return {'prompt': 'Velg bruker(e)', 'last_arg': True,
                     'map': map, 'raw': True,
-                    'help_ref': 'print_select_range'}
+                    'help_ref': 'print_select_range',
+                    'default': str(n-1)}
 
     all_commands['misc_list_passwords'] = Command(
         ("misc", "list_passwords"), prompt_func=misc_list_passwords_prompt_func,
@@ -3508,9 +3505,10 @@ class BofhdExtension(object):
         perm_filter='can_add_affiliation')
     def user_affiliation_add(self, operator, accountname, ou, aff, aff_status):
         account = self._get_account(accountname)
-        person = self._get_person('entity_id', account.owner_id)
-        ou, aff, aff_status = self._person_affiliation_add_helper(
-            operator, person, ou, aff, aff_status)
+        if  account.owner_type == self.const.entity_person:
+            person = self._get_person('entity_id', account.owner_id)
+            ou, aff, aff_status = self._person_affiliation_add_helper(operator,
+                                                                      person, ou, aff, aff_status)
         self.ba.can_add_account_type(operator.get_entity_id(), account, ou, aff, aff_status)
         account.set_account_type(ou.entity_id, aff)
         account.write_db()
