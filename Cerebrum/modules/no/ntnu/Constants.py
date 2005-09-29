@@ -207,3 +207,4 @@ class Constants(Constants.Constants):
     email_spam_action_delete = _EmailSpamActionCode(
         'dropspam', "Messages classified as spam won't be delivered at all")
 
+# arch-tag: e25e35ae-30f6-11da-9180-bcf822108a14
