@@ -34,38 +34,35 @@ class Main(MainTemplate):
     def __init__(self, req):
         """Creates all parts of the page beside the content."""
         MainTemplate.__init__(self)
-        req.content_type="text/html" # With this content-type, זרו works! :)
+        req.content_type = "text/html" # With this content-type, זרו works! :)
         self.session = req.session
-        self.prepare_session(req)
+        self.prepare_page(req)
+        self.prepare_messages()
 
-    def prepare_session(self, req):
+    def prepare_page(self, req):
         """Makes sure parts of the page is created only once.
         
         Creates worklist, and activitylog.
-        Also prepares and displays any messages stored in the session.
         """
         self.menu = SideMenu()
         self.worklist = WorkList(req)
 #        self.activitylog = ActivityLog()
 
-        self.prepare_messages()
-    
     def prepare_messages(self):
-        """Displays and removes queued messages from the session qeue."""
-        self.messages = []
-        queued_messages = self.session.get("messages")
-        if not queued_messages:
-            return
-        for (message, error) in queued_messages:
-            self.add_message(message, error)
-        # We've moved them from the queue to be shown on the page
-        del self.session['messages']
+        """Prepares messages for display.
         
-    def add_message(self, message, error=False):
-        """Adds a message on top of page. If error is true, the 
-        message will be highlighted as an error"""
-        self.messages.append((message, error))
-
+        Displays and removes queued messages from the session queue.
+        Adds them to the list over old messages.
+        """
+        self.messages = self.session.get("messages", [])
+        if self.messages:
+            del self.session['messages']
+            
+        if 'old_messages' not in self.session:
+            self.session['old_messages'] = self.messages[:]
+        else:
+            self.session['old_messages'].extend(self.messages)
+        
     def setFocus(self, *args):
         """Wraps the setFocus-method on the menu."""
         self.menu.setFocus(*args)

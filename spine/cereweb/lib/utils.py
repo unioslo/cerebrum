@@ -81,12 +81,11 @@ def object_url(object, method="view", **params):
 def object_link(object, text=None, method="view", _class="", **params):
     """Create a HTML anchor (a href=..) for the object.
 
-     The text of the anchor will be str(object) - unless
-     the parameter text is given.
+    The text of the anchor will be str(object) - unless
+    the parameter text is given.
 
-      Any additional keyword arguments will be appended to the query part.
-       
-       """
+    Any additional keyword arguments will be appended to the query part.
+    """
     url = object_url(object, method, **params)
     if text is None:
         type = _spine_type(object)
@@ -162,14 +161,15 @@ def queue_message(req, message, error=False):
     The message will be displayed next time a Main-page is showed.
     If error is true, the message will be indicated as such.
     """
-
     if 'messages' not in req.session:
         req.session['messages'] = [(message, error)]
     else:
         req.session['messages'].append((message, error))
+    req.session.save() #FIXME: temporarly fixes that session isnt saved when redirect.
 
 def no_cache(req):
     """Makes the current request non-cachable"""
+    #FIXME: doesnt work through cgi, headers_out is a dict there.
     req.headers_out.add("Cache-Control:","no-cache")
     req.headers_out.add("Pragma:","no-cache")
 
