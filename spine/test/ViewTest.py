@@ -43,3 +43,5 @@ class ViewTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+# arch-tag: d6a10e36-31c2-11da-8244-9d48f41c04b3
