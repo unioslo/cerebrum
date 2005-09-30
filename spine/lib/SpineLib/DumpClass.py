@@ -18,14 +18,48 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from Builder import Builder, Attribute
 from DatabaseClass import DatabaseTransactionClass
 
 import Registry
 registry = Registry.get_registry()
 
+# FIXME: finne en bedre plass for Struct og/eller KeyValue?
 class Struct:
     def __init__(self, data_type):
         self.data_type = data_type
+
+class KeyValue(Builder):
+    slots = [
+        Attribute('key', str),
+        Attribute('value', str),
+        Attribute('int_value', int),
+        Attribute('float_value', float),
+        Attribute('is_none', bool)
+    ]
+
+    method_slots = []
+
+    def make(cls, key, value):
+        int_value = -1
+        float_value = -1.0
+        if type(value) in (int, long, float):
+            int_value = int(value)
+        if type(value) in (int, long, float):
+            float_value = float(value)
+        date_value = None # FIXME: dato!
+
+        return {
+            'key':key,
+            'value':str(value),
+            'int_value':int_value,
+            'float_value':float_value,
+            'is_none':value is None
+        }
+    make = classmethod(make)
+
+
+registry.register_class(KeyValue)
 
 class DumpClass(DatabaseTransactionClass):
     """Base class for all dumperclasses.

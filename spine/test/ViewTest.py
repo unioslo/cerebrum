@@ -17,60 +17,29 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
 
-import SpineLib.Dumpable
-import Types
+import unittest
+from TestBase import *
 
-## core
+class ViewTest(unittest.TestCase):
+    def testAccountView(self):
+        session = spine.login(username, password)
+        tr = session.new_transaction()
+        spread = tr.get_spread_searcher().search()[0]
+        view = tr.get_view()
+        view.set_spread(spread)
+        print view.account()
+        print view.account_quarantine()
+        print view.group()
+        print view.person()
+        print view.primary_user()
+        print view.ou()
 
-# Entity
-import Entity
-import EntityAddress
-import EntityContactInfo
-import EntityExternalId
-import EntityQuarantine
-import EntityName
-import EntitySpread
-
-# Group
-import Group
-import GroupMember
-
-# Person
-import Person
-import PersonName
-import PersonAffiliation
-
-# Account
-import Account
-import AccountAuthentication
-import AccountHome
-
-# OU
-import OUStructure
-import OUName
-import OU
-
-# Disk
-import Host
-import Disk
-
-# Modules
-import Note
-import PosixGroup
-import PosixUser
-import ChangeLog
-import Commands
-import Auth
-#import EntityFlag
-import Request
-import Stedkode
-import Email
-
-# Cereweb
-import Cereweb
-
-import View
+        for row in view.test():
+            for i in row:
+                print [i.key, i.value, i.int_value, i.is_none]
 
 
-# arch-tag: c7e1e253-6ca8-41f0-929e-dec949b76992
+if __name__ == '__main__':
+    unittest.main()
