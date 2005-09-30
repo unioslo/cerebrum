@@ -47,7 +47,7 @@ __all__ = ['convert_to_corba', 'convert_from_corba',
 class_cache = {}
 object_cache = {}
 
-corba_types = [int, str, bool, None]
+corba_types = [int, float, str, bool, None]
 corba_structs = {}
 
 object_cache_lock = threading.RLock()
@@ -170,11 +170,13 @@ def _convert_corba_types_to_none(data_type):
     """Returns the value for data_type which is most like None."""
     value = None
     if data_type is int:
-        value = 0
+        value = -1
     elif data_type is str:
         value = ""
     elif data_type is bool:
         value = False
+    elif data_type is float:
+        value = -1.0
     elif type(data_type) is list:
         value = []
     return value
@@ -354,6 +356,8 @@ def _get_idl_type_name(arg_t):
         data_type = 'void'
     elif arg_t == bool:
         data_type = 'boolean'
+    elif arg_t == float:
+        data_type = 'float'
     elif isinstance(arg_t, Struct):
         cls = arg_t.data_type
         data_type = cls.__name__ + 'Struct'
@@ -510,6 +514,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
             name = 'void'
         elif data_type == bool:
             name = 'boolean'
+        elif data_type == float:
+            name = 'float'
         elif isinstance(data_type, Struct):
             cls = data_type.data_type
             name = cls.__name__ + 'Struct'
