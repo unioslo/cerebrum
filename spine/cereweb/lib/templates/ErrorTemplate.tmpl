@@ -23,7 +23,11 @@
 ## Displays an error page.
 #def error($req, $title, $message, $path="", $traceback="", $report=True)
     #set $referer = ""
-    #set $user = $req.session.get('username')
+    #if not $req.session
+        #set $user = ''
+    #else
+        #set $user = $req.session.get('username')
+    #end if
     <html>
         <head>
             <title>Cereweb error</title>
