@@ -5951,28 +5951,31 @@ class BofhdExtension(object):
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
         if arg.find(":") != -1:
-            idtype, id = arg.split(":")
+            idtype, value = arg.split(":")
+            if not value:
+                raise CerebrumError, "Unable to parse person id %r" % arg
             if idtype == 'exp':
                 person.clear()
                 try:
-                    person.find_by_export_id(id)
+                    person.find_by_export_id(value)
                     ret.append({'person_id': person.entity_id})
                 except Errors.NotFoundError:
-                    raise CerebrumError, "Unkown person id"
+                    raise CerebrumError, "Unkown person id %r" % arg
             elif idtype == 'entity_id':
                 person.clear()
                 try:
-                    person.find(id)
+                    person.find(value)
                     ret.append({'person_id': person.entity_id})
                 except Errors.NotFoundError:
-                    raise CerebrumError, "Unkown person id"
+                    raise CerebrumError, "Unkown person id %r" % arg
             elif idtype == 'fnr':
                 for ss in [self.const.system_fs, self.const.system_lt,
                            self.const.system_manual, self.const.system_ureg]:
                     try:
                         person.clear()
-                        person.find_by_external_id(self.const.externalid_fodselsnr, id,
-                                                   source_system=ss)
+                        person.find_by_external_id(
+                            self.const.externalid_fodselsnr, value,
+                            source_system=ss)
                         ret.append({'person_id': person.entity_id})
                     except Errors.NotFoundError:
                         pass
@@ -5981,9 +5984,9 @@ class BofhdExtension(object):
             ret = person.find_persons_by_bdate(self._parse_date(arg))
 
         else:
-            raise CerebrumError, "Unable to parse person id"
+            raise CerebrumError, "Unable to parse person id %r" % arg
         return ret
-    
+
     def _get_person(self, idtype, id):
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
