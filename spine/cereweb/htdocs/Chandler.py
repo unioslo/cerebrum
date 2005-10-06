@@ -125,21 +125,18 @@ def main(req, id, path, args):
 
     try:
         if not path == 'login':
+            # go to /index if client requested root
+            if not path:
+                redirect(req, url("/index"))
+                path = 'redirected'
+
             # check if client is logged in or not
-            if id is None or not req.session:
+            elif id is None or not req.session:
                 if path:
                     redirect(req, url('/login?redirect=%s' % req.unparsed_uri), temporary=True)
                 else:
                     redirect(req, url('/login'), temporary=True)
                 path = 'redirected'
-#                raise Error.Redirected
-
-            # go to /index if client requested root
-            elif not path:
-                redirect(req, url("/index"))
-                path = 'redirected'
-#                raise Error.Redirected
-
 
         doc = None
         if '/' in path:
