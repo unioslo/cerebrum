@@ -1735,7 +1735,7 @@ class BofhdExtension(object):
             result['description'] = entity.description
             result['gender'] = self.num2str(entity.gender)
             # make boolean
-            result['deceased'] = entity.deceased == 'T'
+            result['deceased'] = entity.deceased_date
             names = []
             for name in entity.get_all_names():
                 source_system = self.num2str(name.source_system)
