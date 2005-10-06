@@ -30,3 +30,6 @@ ALTER TABLE person_info ADD CONSTRAINT deceased_date_chk
   CHECK (deceased_date <= [:now]);
 category:post;
 ALTER TABLE person_info DROP COLUMN deceased;
+
+/* arch-tag: 15840f8c-35ff-11da-982a-e6fabc13acbf
+   (do not change this comment) */
