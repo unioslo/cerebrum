@@ -69,7 +69,7 @@ def create(self, name):
 
 Commands.register_method(Method('create_group', Group, args=[('name', str)], write=True), create)
 
-def get_group_by_name(name):
+def get_group_by_name(self, name):
     db = self.get_database()
     s = registry.EntityNameSearcher(db)
     s.set_value_domain(registry.ValueDomain(db, name='group_names'))
@@ -78,6 +78,6 @@ def get_group_by_name(name):
     group, = s.search()
     return group.get_entity()
 
-Commands.register_method(Method('get_group_by_name', Group, args=[('name', str)]), lambda self, name: get_group_by_name(name))
+Commands.register_method(Method('get_group_by_name', Group, args=[('name', str)]), get_group_by_name)
 
 # arch-tag: 263241fc-0255-4c71-9494-dc13153ad781
