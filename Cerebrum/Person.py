@@ -35,7 +35,7 @@ class MissingSelfException(Exception): pass
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
              EntityQuarantine, Entity):
     __read_attr__ = ('__in_db', '_affil_source', '__affil_data')
-    __write_attr__ = ('birth_date', 'gender', 'description', 'deceased')
+    __write_attr__ = ('birth_date', 'gender', 'description', 'deceased_date')
 
     def clear(self):
         "Clear all attributes associating instance with a DB entity."
@@ -66,7 +66,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE person_id=:e_id""", {'e_id': self.entity_id})
         self.__super.delete()
 
-    def populate(self, birth_date, gender, description=None, deceased='F',
+    def populate(self, birth_date, gender, description=None, deceased_date=None,
                  parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
         if parent is not None:
@@ -86,7 +86,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self.birth_date = birth_date
         self.gender = gender
         self.description = description
-        self.deceased = deceased
+        self.deceased_date = deceased_date
 
     def __eq__(self, other):
         """Define == operator for Person objects."""
@@ -145,7 +145,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         identical = ((other.birth_date == self.birth_date) and
                      (other.gender == int(self.gender)) and
                      (other.description == self.description) and
-                     (other.deceased == self.deceased))
+                     (other.deceased_date == self.deceased_date))
         if cereconf.DEBUG_COMPARE:
             print "Person.__eq__ = %s" % identical
         return identical
@@ -167,27 +167,27 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 self.execute("""
                 INSERT INTO [:table schema=cerebrum name=person_info]
                   (entity_type, person_id, export_id, birth_date, gender,
-                   deceased, description)
+                   deceased_date, description)
                 VALUES
-                  (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased, :desc)""",
+                  (:e_type, :p_id, :exp_id, :b_date, :gender, :deceased_date, :desc)""",
                              {'e_type': int(self.const.entity_person),
                               'p_id': self.entity_id,
                               'exp_id': 'exp-'+str(self.entity_id),
                               'b_date': self.birth_date,
                               'gender': int(self.gender),
-                              'deceased': 'F',
+                              'deceased_date': self.deceased_date,
                               'desc': self.description})
                 self._db.log_change(self.entity_id, self.const.person_create, None)
             else:
                 self.execute("""
                 UPDATE [:table schema=cerebrum name=person_info]
                 SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
-                    deceased=:deceased, description=:desc
+                    deceased_date=:deceased_date, description=:desc
                 WHERE person_id=:p_id""",
                              {'exp_id': 'exp-'+str(self.entity_id),
                               'b_date': self.birth_date,
                               'gender': int(self.gender),
-                              'deceased': 'F',
+                              'deceased_date': self.deceased_date,
                               'desc': self.description,
                               'p_id': self.entity_id})
                 self._db.log_change(self.entity_id, self.const.person_update, None)
@@ -273,9 +273,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self.__updated = []
         return is_new
 
-    def new(self, birth_date, gender, description=None, deceased='F'):
+    def new(self, birth_date, gender, description=None, deceased_date=None):
         """Register a new person."""
-        self.populate(birth_date, gender, description, deceased)
+        self.populate(birth_date, gender, description, deceased_date)
         self.write_db()
         self.find(self.entity_id)
 
@@ -288,9 +288,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         """
         self.__super.find(person_id)
         (self.export_id, self.birth_date, self.gender,
-         self.deceased, self.description) = self.query_1(
+         self.deceased_date, self.description) = self.query_1(
             """SELECT export_id, birth_date, gender,
-                      deceased, description
+                      deceased_date, description
                FROM [:table schema=cerebrum name=person_info]
                WHERE person_id=:p_id""", {'p_id': person_id})
         try:
@@ -899,7 +899,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             where.append("LOWER(pi.description) LIKE :description")
         
         if exclude_deceased:
-            where.append("pi.deceased LIKE F")
+            where.append("pi.deceased_date IS NOT NULL")
 
         where_str = ""
         if where:
