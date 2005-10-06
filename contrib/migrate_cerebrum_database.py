@@ -34,7 +34,7 @@ from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
 
 # run migrate_* in this order
-versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5', 'rel_0_9_6')
+versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5', 'rel_0_9_6', 'rel_0_9_7')
 
 def makedb(release, stage, insert_codes=True):
     print "Running Makedb(%s, %s)..." % (release, stage)
@@ -326,7 +326,26 @@ def migrate_to_rel_0_9_6():
     print "Migration to 0.9.6 completed successfully"
     db.commit()
 
+def migrate_to_rel_0_9_7():
+    """Migrate from 0.9.6 database to the 0.9.7 database schema."""
+    assert_db_version("0.9.6")
+    makedb('0_9_7', 'pre')
+    
+    # deceased-field in person_info is being made into a date-field 
+    # replace any deceased = 'T' with now() 
+    db.execute("""
+    UPDATE [:table schema=cerebrum name=person_info]
+    SET deceased_date= [:now]
+    WHERE deceased = 'T'""")
 
+    db.commit()
+    makedb('0_9_7', 'post')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,7))
+    print "Migration to 0.9.7 completed successfully"
+    db.commit()
+                                            
 def init():
     global db, co, str2const, num2const
 
