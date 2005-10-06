@@ -1137,11 +1137,9 @@ CREATE TABLE person_info
 		NOT NULL
 		CONSTRAINT person_info_gender
 		  REFERENCES gender_code(code),
-  deceased	CHAR(1)
-		DEFAULT 'F'
-		NOT NULL
-		CONSTRAINT person_info_deceased_bool
-		  CHECK (deceased IN ('T', 'F')),
+  deceased_date DATE,
+                CONSTRAINT deceased_date_chk
+                  CHECK (deceased_date <= [:now]),
   description	CHAR VARYING(512),
   CONSTRAINT person_info_entity_id
     FOREIGN KEY (entity_type, person_id)
