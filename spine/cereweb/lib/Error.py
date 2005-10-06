@@ -40,7 +40,7 @@ def handle(req, error, path=""):
         tracebk = "No traceback"
         
     if title is None:
-        title = "Unknown exception!"
+        title = error.__class__.__name__
     if message is None:
         message = str(error)
     if tracebk is None:
