@@ -36,27 +36,13 @@ registry = Registry.get_registry()
 
 __all__ = ['Person']
 
-# Convert deceased to be inserted into db.
-def ct(value):
-    if value:
-        return 'T'
-    else:
-        return 'F'
-
-# Convert deceased into boolean from a string.
-def cf(db, value):
-    if value == 'T':
-        return True
-    else:
-        return False
-
 table = 'person_info'
 class Person(Entity):
     slots = Entity.slots + [
         CerebrumDbAttr('export_id', table, str, write=True),
         CerebrumDbAttr('birth_date', table, Date, write=True),
         CerebrumDbAttr('gender', table, GenderType, write=True),
-        CerebrumDbAttr('deceased', table, bool, convert_from=cf, convert_to=ct, write=True),
+        CerebrumDbAttr('deceased_date', table, Date, write=True),
         CerebrumDbAttr('description', table, str, write=True)
     ]
     method_slots = Entity.method_slots + [
@@ -80,7 +66,7 @@ registry.register_class(Person)
 
 def create(self, birthdate, gender, full_name, source_system):
     db = self.get_database()
-    new_id = Person._create(db, birthdate.strftime('%Y-%m-%d'), gender.get_id(), None, 'F')
+    new_id = Person._create(db, birthdate.strftime('%Y-%m-%d'), gender.get_id())
 
     person = Person(db, new_id)
 
