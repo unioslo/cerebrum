@@ -140,18 +140,9 @@ def search(req, name="", desc="", spread="", gid="",
     return page
 search = transaction_decorator(search)
 
-def _get_group(req, transaction, id):
-    """Returns a Group-object from the database with the specific id."""
-    try:
-        return transaction.get_group(int(id))
-    except Exception, e:
-        queue_message(req, _("Could not load group with id=%s" % id), error=True)
-        queue_message(req, str(e), error=True)
-        redirect(req, url("group"), temporary=True)
-
 def view(req, transaction, id):
     """Creates a page with the view of the group with the given by."""
-    group = _get_group(req, transaction, id)
+    group = transaction.get_group(int(id))
     page = Main(req)
     page.title = _("Group %s:" % group.get_name())
     page.setFocus("group/view", str(group.get_id()))
@@ -174,7 +165,7 @@ def _add_box(group):
     return template.add_member_box(action, member_types, ops)
 
 def add_member(req, transaction, id, name, type, operation):
-    group = _get_group(req, transaction, id)
+    group = transaction.get_group(int(id))
     try:
         operation = transaction.get_group_member_operation_type(operation)
     except:
@@ -210,7 +201,7 @@ def add_member(req, transaction, id, name, type, operation):
 add_member = transaction_decorator(add_member)
 
 def remove_member(req, transaction, groupid, memberid, operation):
-    group = _get_group(req, transaction, groupid)
+    group = transaction.get_group(int(id))
     member = transaction.get_entity(int(memberid))
     operation = transaction.get_group_member_operation_type(operation)
 
@@ -224,7 +215,7 @@ remove_member = transaction_decorator(remove_member)
 
 def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
-    group = _get_group(req, transaction, id)
+    group = transaction.get_group(int(id))
     page = Main(req)
     page.title = _("Edit %s:" % group.get_name())
     page.setFocus("group/edit", str(group.get_id()))
@@ -247,7 +238,7 @@ def create(req, name="", expire="", description=""):
 
 def save(req, transaction, id, name, expire="", description="", visi="", gid=None):
     """Save the changes to the server."""
-    group = _get_group(req, transaction, id)
+    group = transaction.get_group(int(id))
     c = transaction.get_commands()
     
     if expire:
@@ -290,7 +281,7 @@ def make(req, transaction, name, expire="", description=""):
 make = transaction_decorator(make)
 
 def posix_promote(req, transaction, id):
-    group = _get_group(req, transaction, id)
+    group = transaction.get_group(int(id))
     group.promote_posix()
     redirect_object(req, group, seeOther=True)
     transaction.commit()
@@ -298,7 +289,7 @@ def posix_promote(req, transaction, id):
 posix_promote = transaction_decorator(posix_promote)
 
 def posix_demote(req, transaction, id):
-    group = _get_group(req, transaction, id)
+    group = transaction.get_group(int(id))
     group.demote_posix()
     redirect_object(req, group, seeOther=True)
     transaction.commit()
@@ -307,7 +298,7 @@ posix_demote = transaction_decorator(posix_demote)
 
 def delete(req, transaction, id):
     """Delete the group from the server."""
-    group = _get_group(req, transaction, id)
+    group = transaction.get_group(int(id))
     group.delete()
 
     redirect(req, url("group"), seeOther=True)

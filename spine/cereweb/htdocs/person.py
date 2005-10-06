@@ -166,7 +166,7 @@ def view(req, transaction, id, addName=False, addAffil=False):
     If addName is True or "True", the form for adding a name is shown.
     If addAffil is True or "True", the form for adding an affiliation is shown.
     """
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
     page = Main(req)
     page.title = _("Person %s:" % _primary_name(person))
     page.setFocus("person/view", str(person.get_id()))
@@ -178,7 +178,7 @@ view = transaction_decorator(view)
 
 def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
     page = Main(req)
     page.title = _("Edit %s:" % _primary_name(person))
     page.setFocus("person/edit", str(person.get_id()))
@@ -219,7 +219,7 @@ create = transaction_decorator(create)
 
 def save(req, transaction, id, gender, birthdate, deceased, description=""):
     """Store the form for editing a person into the database."""
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
     
     if deceased == "True":
         deceased = True
@@ -258,7 +258,7 @@ make = transaction_decorator(make)
 
 def delete(req, transaction, id):
     """Delete the person from the server."""
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
     person.delete()
 
     redirect(req, url("person"), seeOther=True)
@@ -268,7 +268,7 @@ delete = transaction_decorator(delete)
 
 def add_name(req, transaction, id, name, name_type):
     """Add a new name to the person with the given id."""
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
 
     name_type = transaction.get_name_type(name_type)
     source_system = transaction.get_source_system('Manual')
@@ -281,7 +281,7 @@ add_name = transaction_decorator(add_name)
 
 def remove_name(req, id, transaction, variant, ss):
     """Remove the name with the given values."""
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
     variant = transaction.get_name_type(variant)
     ss = transaction.get_source_system(ss)
 
@@ -323,7 +323,7 @@ def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
 accounts = transaction_decorator(accounts)
                 
 def add_affil(req, transaction, id, status, ou, description=""):
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
     ou = transaction.get_ou(int(ou))
     status = transaction.get_person_affiliation_status_type(status)
     ss = transaction.get_source_system("Manual")
@@ -339,7 +339,7 @@ def add_affil(req, transaction, id, status, ou, description=""):
 add_affil = transaction_decorator(add_affil)
 
 def remove_affil(req, transaction, id, ou, affil, ss):
-    person = _get_person(req, transaction, id)
+    person = transaction.get_person(int(id))
     ou = transaction.get_ou(int(ou))
     ss = transaction.get_source_system(ss)
     affil = transaction.get_person_affiliation_type(affil)
