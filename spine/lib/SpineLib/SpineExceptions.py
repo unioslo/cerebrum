@@ -37,11 +37,13 @@ class AccessDeniedError(SpineException):
 class AlreadyLockedError(SpineException):
     """A locking error occurs."""
 
-class ReadOnlyAttributeError(SpineException):
-    """The attribute trying to be written is read-only."""
+#class DatabaseError(SpineException):
+#    """An error occurs with the database."""
 
-class DatabaseError(SpineException):
-    """An error occurs with the database."""
+class TransactionError(SpineException):
+    """The error is related to a transaction."""
+
+DatabaseError = TransactionError
 
 class CreationError(DatabaseError):
     """Creation of an object fails."""
@@ -51,9 +53,6 @@ class DeletionError(DatabaseError):
 
 class AlreadyExistsError(DatabaseError):
     """A unique constraint is violated in the database."""
-
-class TransactionError(SpineException):
-    """The error is related to a transaction."""
 
 class ClientProgrammingError(SpineException):
     """The client did something illegal."""

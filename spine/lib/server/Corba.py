@@ -497,7 +497,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
         else:
             if module:
                 module += '::'
-            spam = ['%s%s' % (module, i.__name__) for i in exceptions]
+            # FIXME: sets.Set(exceptions) er nødvendig for å unngå duplikater
+            spam = ['%s%s' % (module, i.__name__) for i in sets.Set(exceptions)]
             return '\n\t\traises(%s)' % ', '.join(spam)
 
     def get_type(data_type):
@@ -681,7 +682,7 @@ def create_idl_source(classes, module_name='Generated', docs=False):
     lines = []          # contains interface definitions for all classes.
     
     for cls in classes:
-        values = _create_idl_interface(cls, '%s::Errors' % module_name, docs)
+        values = _create_idl_interface(cls, 'Errors', docs)
         cls_headers, cls_exceptions, cls_txt = values
         for i in cls_headers:
             if i not in headers:

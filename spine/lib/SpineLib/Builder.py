@@ -20,7 +20,7 @@
 
 from Cerebrum.extlib import sets
 import Cerebrum.Errors
-from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, NotFoundError, ReadOnlyAttributeError, ServerProgrammingError, TooManyMatchesError, TransactionError, ObjectDeletedError
+from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, NotFoundError, ServerProgrammingError, TooManyMatchesError, TransactionError, ObjectDeletedError
 
 __all__ = ['Attribute', 'Method', 'Builder']
 
@@ -48,23 +48,24 @@ class Attribute(object):
         optional attributes have exists-comparisation in searchobjects.
         """
         if exceptions is None:
-            exceptions = []
+            self.exceptions = ()
+        else:
+            self.exceptions = tuple(exceptions)
         self.name = name
         assert type(data_type) != str
-        assert type(exceptions) is list
         assert write in (True, False)
         assert optional in (True, False)
 
         self.data_type = data_type
         # Add the 'standard' exceptions to the attribute
-        self.exceptions = exceptions + [
-            AlreadyLockedError, DatabaseError, TransactionError, 
-            AccessDeniedError, ServerProgrammingError,
-            ObjectDeletedError,
-        ]
+        # FIXME: AccessDeniedError, TransactionError
+        self.exceptions += (
+            DatabaseError, TransactionError, 
+            AccessDeniedError, ObjectDeletedError,
+            ServerProgrammingError
+        )
         if optional:
-            self.exceptions.append(NotFoundError)
-            self.exceptions.append(TooManyMatchesError)
+            self.exceptions += (NotFoundError, TooManyMatchesError)
         self.write = write
         self.optional = optional
 
@@ -117,20 +118,21 @@ class Method(object):
         if args is None:
             args = ()
         if exceptions is None:
-            exceptions = []
+            self.exceptions = []
+        else:
+            self.exceptions = tuple(exceptions)
         
         self.name = name
         assert type(data_type) != str
-        assert type(exceptions) is list
         assert write in (True, False)
 
         self.data_type = data_type
         self.args = args
-        self.exceptions = exceptions + [
-            AlreadyLockedError, DatabaseError, TransactionError, 
-            AccessDeniedError, ServerProgrammingError,
-            ObjectDeletedError
-        ]
+        self.exceptions += (
+            DatabaseError, TransactionError, 
+            AccessDeniedError, ObjectDeletedError,
+            ServerProgrammingError
+        )
         self.write = write
         self.doc = None
 
