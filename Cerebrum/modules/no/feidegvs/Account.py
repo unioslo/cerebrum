@@ -72,7 +72,16 @@ class AccountFeideGvsMixin(Account.Account):
             est.find(et.email_target_id)
         except Errors.NotFoundError:
             est = self._update_email_server()
-        # Figure out which domain(s) the user should have addresses
+        # Add a request for mailbox creation
+        et2 = Email.EmailTarget(self._db)
+        et2.clear()
+        try:
+            et2.find_by_email_target_attrs(entity_id = self.entity_id)
+            if et2.email_target_type != self.const.email_target_deleted: 
+                self._reg_bofhd_request()                         
+        except Errors.NotFoundError:
+            return
+        #Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
         primary_set = False
@@ -125,8 +134,8 @@ class AccountFeideGvsMixin(Account.Account):
                         epat.populate(ea.email_addr_id, parent = et)
                     epat.write_db()
                     primary_set = True
-        # Add a request for mailbox creation
-        self._reg_bofhd_request()             
+
+
 
     def _update_email_server(self):
         est = Email.EmailServerTarget(self._db)
