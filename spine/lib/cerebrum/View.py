@@ -31,15 +31,23 @@ from Date import Date
 # Account
 # FIXME: ad_account er fjernet her.
 account = '''
-SELECT en.entity_name, ei.entity_id, pu.posix_uid, pu.gecos,
-ps.code_str AS shellname, ps.shell, gn.entity_name AS groupname,
-pg.posix_gid, hd.home, hi.name as diskhost, di.path as diskpath,
-aa_md5.auth_data as passwd_md5, aa_des.auth_data as passwd_des,
-pn_full.name as fullname
-FROM entity_info ei
-  JOIN entity_name en ON (ei.entity_id = en.entity_id)
-  JOIN account_info ai ON (ei.entity_id = ai.account_id)
-  JOIN entity_spread es ON (ei.entity_id = es.entity_id)
+SELECT
+en.account_name AS name,
+pu.posix_uid,
+pu.gecos,
+ps.code_str AS shellname,
+ps.shell,
+gn.entity_name AS group_name,
+pg.posix_gid,
+hd.home,
+hi.name as disk_host,
+di.path as disk_path,
+aa_md5.auth_data as passwd_md5,
+aa_des.auth_data as passwd_des,
+pn_full.name as full_name
+FROM account_info ai
+  JOIN entity_name en ON (ai.account_id = en.entity_id)
+  JOIN entity_spread es ON (ai.account_id = es.entity_id)
   JOIN spread_code sc ON (es.spread = sc.code AND sc.code = :spread_id)
   LEFT JOIN account_home ah ON (ah.account_id = ai.account_id
         AND ah.spread = es.spread)
