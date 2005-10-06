@@ -181,7 +181,8 @@ class Constants(Constants.Constants):
 
 
 
-    #quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
+    quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
+    quarantine_remote = _QuarantineCode('remote', 'Oppringt og VPN')
     quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn på teppet til drift')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke skal logge inn')
