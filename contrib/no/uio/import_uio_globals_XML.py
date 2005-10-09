@@ -30,9 +30,8 @@ dom = Email.EmailDomain(db)
 
 def is_uio_domain(domain):
     domain = "." + domain
-    return (domain == '.UIO_HOST' or
-            (domain.endswith('.uio.no') and
-             not domain.endswith('.ifi.uio.no')))
+    return (domain.endswith('.uio.no') and
+            not domain.endswith('.ifi.uio.no'))
 
 def main():
     for row in dom.list_email_domains():

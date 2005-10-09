@@ -284,9 +284,7 @@ def list_users_for_fronter_export():  # TODO: rewrite this
 def get_new_users():  # ca 345-374
     # Hent info om brukere i cerebrum
     
-    fix_email = re.compile(r'\@UIO_HOST$')
     for user in list_users_for_fronter_export():
-        email = fix_email.sub('@ulrik.uio.no', user['email'])
 #	print user['fullname']
         # lagt inn denne testen fordi scriptet feilet uten, har en liten
         # følelse av det burde løses på en annen måte
@@ -295,7 +293,7 @@ def get_new_users():  # ca 345-374
         names = re.split('\s+', user['fullname'].strip())
         user_params = {'FAMILY': names.pop(),
                        'GIVEN': " ".join(names),
-                       'EMAIL': email,
+                       'EMAIL': user['email'],
                        'USERACCESS': 0,
                        'PASSWORD': 'unix:',
                        }
