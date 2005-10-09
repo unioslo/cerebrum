@@ -208,8 +208,19 @@ class BofhdExtension(object):
                             ("opset", "type", "name"),
                             hdr="%-16s %-9s %s" %
                             ("Operation set", "Type", "Name")))
-    def access_disk(self, operator, host):
-        return self._list_access("disk", host)
+    def access_disk(self, operator, path):
+        disk = self._get_disk(path)[0]
+        result = []
+        host = Utils.Factory.get('Host')(self.db)
+        try:
+            host.find(disk.host_id)
+            for r in self._list_access("host", host.name, empty_result=[]):
+                if r['attr'] == '' or re.search("/%s$" % r['attr'], path):
+                    result.append(r)
+        except Errors.NotFoundError:
+            pass
+        result.extend(self._list_access("disk", path, empty_result=[]))
+        return result or "None"
 
     # access group <group>
     all_commands['access_group'] = Command(
@@ -1765,7 +1776,7 @@ class BofhdExtension(object):
             admin_list = []
             for addr in admins.split(","):
                 if addr.count('@') == 0:
-                    admin_list.append(addr + "@UIO_HOST")
+                    admin_list.append(addr + "@ulrik.uio.no")
                 else:
                     admin_list.append(addr)
             ea.clear()
@@ -2032,6 +2043,14 @@ class BofhdExtension(object):
             ea.delete()
         return result
 
+    # email create_rt queue address [host]
+    # email delete_rt queue
+
+    # email add_rt_address queue address
+    # email remove_rt_address queue address
+    #   duplicates email {add,remove}_address.  not necessary until
+    #   someone other than postmaster needs this privelege.
+    
     # email migrate
     all_commands['email_migrate'] = Command(
         ("email", "migrate"),
@@ -2427,29 +2446,34 @@ class BofhdExtension(object):
     # (email virus)
 
     def __get_email_target_and_address(self, address):
-        
         """Returns a tuple consisting of the email target associated
         with address and the address object.  If there is no at-sign
         in address, assume it is an account name and return primary
         address.  Raises CerebrumError if address is unknown.
         """
         et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
         if address.count('@') == 0:
             acc = self.Account_class(self.db)
             try:
                 acc.find_by_name(address)
-                address = acc.get_primary_mailaddress()
+                # FIXME: We can't use Account.get_primary_mailaddress
+                # since it rewrites special domains.
+                et = Email.EmailTarget(self.db)
+                et.find_by_entity(acc.entity_id)
+                epa = Email.EmailPrimaryAddressTarget(self.db)
+                epa.find(et.email_target_id)
+                ea.find(epa.email_primaddr_id)
             except Errors.NotFoundError:
                 raise CerebrumError, ("No such address: '%s'" % address)
-        elif address.count('@') > 1:
+        elif address.count('@') == 1:
+            try:
+                ea.find_by_address(address)
+                et.find(ea.email_addr_target_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such address: '%s'" % address
+        else:
             raise CerebrumError, "Malformed e-mail address (%s)" % address
-
-        try:
-            ea = Email.EmailAddress(self.db)
-            ea.find_by_address(address)
-            et.find(ea.email_addr_target_id)
-        except Errors.NotFoundError:
-            raise CerebrumError, "No such address: '%s'" % address
         return et, ea
 
     def __get_email_target_and_account(self, address):
@@ -4095,11 +4119,8 @@ class BofhdExtension(object):
                 if '%' not in value and '_' not in value:
                     # Add wildcards to start and end of value.
                     value = '%' + value + '%'
-                if value <> value.lower():
-                    matches = person.find_persons_by_name(value,
-                                                          case_sensitive=True)
-                else:
-                    matches = person.find_persons_by_name(value)
+                matches = person.find_persons_by_name(value,
+                          case_sensitive=(value != value.lower()))
             elif search_type == 'fnr':
                 matches = person.list_external_ids(
                     id_type=self.const.externalid_fodselsnr,
@@ -5788,7 +5809,7 @@ class BofhdExtension(object):
             for at in ac_types:
                 ac2 = self._get_account(at['account_id'], idtype='id')
                 ret.setdefault('users', []).append(
-                    (ac2.account_name, '%s@UIO_HOST' % ac2.account_name,
+                    (ac2.account_name, '%s@ulrik.uio.no' % ac2.account_name,
                      at['priority'], at['ou_id'], "%s" % self.num2const[int(at['affiliation'])]))
             # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
             # å hente ikke-personlige konti?
