@@ -22,11 +22,12 @@ class SubNetDef(object):
         if self.mask < 22:
             raise ValueError, "Minimum netmask is 22"
         if self.mask == 22:
-            return range(start, start+16) + [stop]
+            return range(start, start+10) + [start+255, start+256] + \
+                   [start+255*2+1, start+255*2+2] + [stop]
         elif self.mask == 23:
-            return range(start, start+16) + [stop]
+            return range(start, start+10) + [start+255, start+256] +  [stop]
         elif self.mask == 24:
-            return range(start, start+16) + [stop]
+            return range(start, start+10) + [stop]
         elif self.mask == 25:
             return range(start, start+8) + [stop]
         elif self.mask == 26:
