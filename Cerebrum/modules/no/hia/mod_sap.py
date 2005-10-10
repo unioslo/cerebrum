@@ -258,8 +258,7 @@ class PersonSAPMixin(Person.Person):
         # First, fetch all the old information
         current_state = {}
         for item in self.get_tilsetting():
-            # coerse db_row to a dictionary
-            d = item._dict()
+            d = dict(item)
             key = self._make_tilsetting_key(item["ou_id"], item["funksjonstittel"])
             current_state[key] = d
         # od
@@ -373,7 +372,7 @@ class PersonSAPMixin(Person.Person):
 
         current_state = dict()
         for item in self.get_rolle():
-            d = item._dict()
+            d = dict(item)
             key = self._make_rolle_key(d["utvalg"])
             current_state[key] = d
         # od

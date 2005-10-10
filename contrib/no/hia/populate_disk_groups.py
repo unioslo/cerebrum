@@ -116,12 +116,12 @@ def get_host_disks():
     disk_d = {}
     dsk = Factory.get('Disk')(db)
     for disks in dsk.list(spread=u_spread):
-	if disks.count == 0:
+	if disks["count"] == 0:
 	    continue
-	if disk_d.has_key(int(disks.host_id)):
-            disk_d[int(disks.host_id)].append(int(disks.disk_id))
+	if disk_d.has_key(int(disks["host_id"])):
+            disk_d[int(disks["host_id"])].append(int(disks["disk_id"]))
 	else:
-            disk_d[int(disks.host_id)] = [int(disks.disk_id),]
+            disk_d[int(disks["host_id"])] = [int(disks["disk_id"]),]
     return(disk_d)
 
 def remove_memb_parent(group_id, op, member):
