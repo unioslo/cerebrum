@@ -42,7 +42,7 @@ class DnsParser(object):
 
         tmp = ip_id.split("/")
         ip_id = tmp[0]
-        if (not ip_id[0].isdigit()) and len(tmp) > 1:  # Support ulrik.uio.no./
+        if (not ip_id[0:3].isdigit()) and len(tmp) > 1:  # Support ulrik/
             try:
                 self._arecord.clear()
                 self._arecord.find_by_name(self.qualify_hostname(ip_id))
@@ -52,6 +52,8 @@ class DnsParser(object):
                 raise CerebrumError, "Could not find %s" % ip_id
             ip_id = self._ip_number.a_ip
 
+        if len(ip_id.split(".")) < 3:
+            raise CerebrumError, "'%s' does not look like a subnet" % ip_id
         full_ip = len(ip_id.split(".")) == 4
         if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
             full_ip = False
@@ -63,6 +65,8 @@ class DnsParser(object):
         return subnet, full_ip and ip_id or None
 
     def parse_force(self, string):
+        if string and not string[0] in ('Y', 'y', 'N', 'n'):
+            raise CerebrumError, "Force should be Y or N"
         if string and string[0] in ('Y', 'y'):
             return True
         return False
