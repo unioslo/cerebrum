@@ -612,6 +612,8 @@ class BofhdExtension(object):
     def host_unused_list(self, operator, subnet):
         # TODO: Skal det være mulig å få listet ut ledige reserved IP?
         subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet)
+        if subnet is None:
+            raise CerebrumError, "Unknown subnet, check cereconf_dns.py"
         ret = []
         for ip in self._find.find_free_ip(subnet):
             ret.append({'ip': ip})
