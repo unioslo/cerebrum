@@ -1113,6 +1113,11 @@ GRANT INSERT, UPDATE, DELETE ON gender_code TO change_code;
 		holder det med en felles konvensjon for hvordan IDen
 		ser ut?
 
+  'deceased_date' does not give the actual date when the person deceased, 
+		  it is the date when the appropriate source system
+                  first delivered this piece of information about a
+                  person  
+
   TODO: Må definere API for å flytte informasjon knyttet til en
 	person_id over til en annen.  Både kjernen og alle moduler må
 	støtte dette.
