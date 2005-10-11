@@ -25,9 +25,11 @@ import pickle
 import time
 import pprint
 import re
+from mx import DateTime
 
 import cerebrum_path
 import cereconf
+from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Constants import _SpreadCode
@@ -36,7 +38,11 @@ from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 
 Factory = Utils.Factory
 db = Factory.get('Database')()
+db.cl_init(change_program="db_clean")
 co = Factory.get('Constants')(db)
+account = Factory.get('Account')(db)
+group = Factory.get('Group')(db)
+person = Factory.get('Person')(db)
 
 # TODO: Should have a cereconf variable for /cerebrum/var/log
 
@@ -515,15 +521,537 @@ class CleanBofh(object):
     def run(self):
         self.merge_bofh_auth()
 
+class PersonAff(object):
+    def __init__(self, ou, aff, source_system, status, delete_age, last_age):
+        self.ou = int(ou)
+        self.aff = int(aff)
+        self.source_system = int(source_system)
+        self.status = int(status)
+        self.delete_age = delete_age
+        self.last_age = last_age
+
+    def __repr__(self):
+        return "%i/%i@%i, src=%i, del_age=%s, last_age=%s" % (
+            self.aff, self.status, self.ou, self.source_system,
+            self.delete_age, self.last_age)
+
+class UserAff(object):
+    def __init__(self, ou, aff, pri, person_id):
+        self.ou = int(ou)
+        self.aff = int(aff)
+        self.pri = int(pri)
+        self.person_id = int(person_id)
+
+    def __repr__(self):
+        return "%i@%i#%i, pid=%i" % (self.aff, self.ou, self.pri, self.person_id)
+    
+class CleanPersons(object):
+    def post_create(self, clean_users):
+        self._cu = clean_users
+        self.pid2affs = self.__get_pid2affs()
+        self.pid2aid = self.__get_pid2aid()
+        self.pid2age, self.pid2src_sys_age = self.__get_persons_age()
+        self.log_r = LogRemoved()
+    
+    def __get_pid2affs(self):
+        logger.debug("__get_pid2affs")
+        now = DateTime.now()
+        ret = {}
+        for row in person.list_affiliations(include_deleted=True):
+            if row['deleted_date']:
+                delete_age = (now - row['deleted_date']).days
+            else:
+                delete_age = -1
+            if row['last_date']:
+                last_age = (now - row['last_date']).days
+            else:
+                last_age = -1
+            ret.setdefault(int(row['person_id']), []).append(
+                PersonAff(row['ou_id'], row['affiliation'],
+                          row['source_system'], row['status'], delete_age,
+                          last_age))
+        return ret
+    
+    def __get_pid2aid(self):
+        logger.debug("__get_pid2aid")
+        ret = {}
+        for row in account.list(filter_expired=False):
+            if row['owner_type'] == int(co.entity_person):
+                ret.setdefault(int(row['owner_id']), []).append(
+                    int(row['account_id']))
+        return ret
+        
+    def __get_persons_age(self):
+        """Try to determine when person was last updated in days by
+        looking at person_affiliation_source.last_age and change_log.
+        Also try to figure out when we last got an update from a
+        spesific source_system"""
+        
+        logger.debug("__get_persons_age")
+        pid2age = {}
+        pid2src_sys_age = {}
+
+        src_systems = (int(co.system_lt), int(co.system_fs))
+        # Find age from person_affiliation_source
+        for row in person.list_persons():
+            pid = int(row['person_id'])
+            all_affs = [a for a in self.pid2affs.get(pid, [])]
+            if all_affs:
+                pid2age[pid] = min([a.last_age for a in all_affs])
+            else:
+                pid2age[pid] = None
+            pid2src_sys_age[pid] = {}
+            for s in src_systems:
+                tmp = [a for a in all_affs if a.source_system==s]
+                if tmp:
+                    pid2src_sys_age[pid][s] = min([a.last_age for a in tmp])
+
+        # For those not in person_affiliation_source, find age from
+        # change_log
+        for row in db.get_log_events(
+            types=[int(x) for x in (co.person_update, co.person_create)]):
+            eid = int(row['subject_entity'])
+            if not pid2age.has_key(eid):
+                continue
+            age = (now - row['tstamp']).days            
+            if pid2age[eid] is None or age < pid2age[eid]:
+                 pid2age[eid] = age
+        return pid2age, pid2src_sys_age
+
+    def __nuke_person(self, pid):
+        for row in group.list_groups_with_entity(pid):
+            group.clear()
+            group.find(row['group_id'])
+            self.log_r.remove_member(pid, row['operation'], row['group_id'])
+            group.remove_member(pid, row['operation'])
+        person.clear()
+        person.find(pid)
+        # TBD: Hvor mye skal vi logge om personen som slettes?
+        self.log_r.nuke_person(person)
+        person.delete()
+        db.commit()
+
+    def remove_old_persons(self):
+        logger.debug("remove_old_persons")
+        age_threshold = 365
+        for pid, age in self.pid2age.items():
+            if ((age is not None and age < age_threshold) or  # Ny nok
+                self.pid2aid.has_key(pid)):           # eller har en konto
+                #logger.debug("Keep %i: age=%s, %s" % (
+                #    pid, age, self.pid2aid.has_key(pid)))
+                continue
+            logger.debug("Nuking person_id=%i with age=%s" % (pid, age))
+            if not dryrun:
+                self.__nuke_person(pid)
+            if self.pid2affs.has_key(pid):
+                del(self.pid2affs[pid])
+
+    def remove_old_person_affiliations(self):
+
+        # TODO/TBD: If we end up removing all affiliations for a
+        # person that doesn't have an account, there is a fair chance
+        # that the person will be nuked on the next consequtive run.
+        # Is this intented?
+
+        logger.debug("remove_old_person_affiliations")
+        some_systems = [int(x) for x in (co.system_fs, co.system_lt,
+                                         co.system_manual)]
+        def has_other(p_aff, affs, match_type, src_systems):
+            for p in affs:
+                if p == p_aff or p.source_system not in src_systems:
+                    continue
+                if match_type == 'aff' and p.aff == p_aff.aff:
+                    return True
+                if (match_type == 'aff_ou' and p.aff == p_aff.aff and
+                    p.ou == p_aff.ou):
+                    return True
+            return False
+
+        fs_lt = (int(co.system_lt), int(co.system_fs))
+        # Vi venter med å sjekke account_type FK problemer til etter
+        # at vi har funnet det vi ønsker å slette.
+        for pid, affs in self.pid2affs.items():
+            affs = self.pid2affs[pid]
+            remove = []
+            # Remove UREG aff is person has affilation from another system
+            if [p for p in affs if p.source_system in some_systems]:
+                tmp = []
+                for p in affs:
+                    if p.source_system == int(co.system_ureg):
+                        remove.append(p)
+                    else:
+                        tmp.append(p)
+                affs = tmp
+                    
+            for p_aff in affs:
+                if p_aff.delete_age > 30:
+                    # en har deleted_date > 30 dage
+                    remove.append(p_aff)
+                    continue
+                if p_aff.aff == int(co.affiliation_manuell) and not [
+                    p2 for p2 in affs if p_aff != p2 and p_aff.ou == p2.ou]:
+                    # kaster ikke MANUELL@ou hvis vi ikke har noe annet mot samme ou
+                    continue
+                if int(p_aff.source_system) in fs_lt:
+                    # vi kaster FS/LT kun hvis deleted_date != None
+                    continue
+                if (p_aff.source_system == int(co.system_manual) and
+                    p_aff.last_age < 365 and
+                    not has_other(p_aff, affs, 'aff_ou', fs_lt)):
+                    # sletter manual først når samme aff+ou er kommet fra FS/LT
+                    continue
+                if p_aff.last_age > 180:
+                    remove.append(p_aff)
+                elif p_aff > 90:
+                    if has_other(p_aff, affs, 'aff', fs_lt):
+                        remove.append(p_aff)
+
+            all_ac_affs = {}
+            for aid in self.pid2aid.get(pid, []):
+                for ac_aff in self._cu.aid2affs.get(aid,[]):
+                    all_ac_affs[(ac_aff.ou, ac_aff.aff)] = True
+            all_ac_affs = all_ac_affs.keys()
+            if not remove:
+                continue
+            if not hasattr(person, 'entity_id') or person.entity_id != pid:
+                person.clear()
+                person.find(pid)
+            for aff in remove:
+                # Check if this would trigger a FK-violation
+                if (len([p for p in affs
+                         if aff.aff == p.aff and aff.ou == p.ou]) <= 1 and
+                    (aff.ou, aff.aff) in all_ac_affs):
+                    pass  # Would trigger FK-violation
+                else:
+                    log_rem.person_aff(pid, aff)
+                    if not dryrun:
+                        person.nuke_affiliation(aff.ou, aff.aff,
+                                                aff.source_system, aff.status)
+                    if aff in affs:  # Not in affs if it was from UREG
+                        affs.remove(aff)
+            if not dryrun:
+                db.commit()
+
+    def remove_old_fnr(self):
+        logger.debug("remove_old_fnr")
+        def do_fnr_filter(fnrs, src_systems):
+            return [
+                f for f in fnrs
+                if int(f['source_system']) in [int(s) for s in src_systems]]
+
+        ex = Entity.EntityExternalId(db)
+        pid2ext_ids = {}
+        for row in ex.list_external_ids(id_type=co.externalid_fodselsnr):
+            pid2ext_ids.setdefault(int(row['entity_id']), []).append(row)
+
+        remove = []
+        fs_lt = (int(co.system_lt), int(co.system_fs))
+        for pid, fnrs in pid2ext_ids.items():
+            fnrs_from_fs_lt = do_fnr_filter(fnrs, fs_lt)
+            systems = [int(row['source_system']) for row in fnrs]
+            if fnrs_from_fs_lt:
+                # kast alle fnr ikke fra FS/LT
+                for s in systems:
+                    if s not in (fs_lt):
+                        remove.append(fnrs[systems.index(s)])
+                fnrs = fnrs_from_fs_lt
+                if len(fnrs) == 2:
+                    # kast > 30 dager gamle fnr hvis et kildesystem er gammelt
+                    if self.pid2src_sys_age[pid].get(fs_lt[0], 1) > 30:
+                        remove.append(fnrs[0])
+                    elif self.pid2src_sys_age[pid].get(fs_lt[1], 1) > 30:
+                        remove.append(fnrs[1])
+
+            # Kast ureg hvis vi har manual
+            if len(do_fnr_filter(fnrs, (co.system_manual, co.system_ureg))) == 2:
+                remove.append(fnrs[systems.index(int(co.system_ureg))])
+        for row in remove:
+            log_rem.person_fnr(row['entity_id'], row['id_type'], row['source_system'])
+            person.clear()
+            person.find(row['entity_id'])
+            # TODO: why is _delete_external_id hidden?
+            person._delete_external_id(row['source_system'], row['id_type'])
+            db.commit()
+
+    def remove_old_navn(self):
+        logger.debug("remove_old_navn")
+        relevant_src_sys = [int(s) for s in (co.system_fs, co.system_lt,
+                                             co.system_ureg, co.system_manual)]
+        pid2names = {}
+        for row in person.list_person_name_codes():
+            # TODO: The API for person.list_persons_name is somewhat broken
+            for row2 in person.list_persons_name(name_type=row['code']):
+                if int(row2['source_system']) not in relevant_src_sys:
+                    continue
+                pid2names.setdefault(int(row2['person_id']), []).append(row2)
+        logger.debug("got %i names" % len(pid2names))
+        remove = []
+        fs_lt = (int(co.system_lt), int(co.system_fs))
+        for pid, names in pid2names.items():
+            systems = [int(row['source_system']) for row in names]
+            logger.debug("check_name pid=%s, sys=%s" % (pid, systems))
+            if int(co.system_ureg) in systems and [
+                s for s in systems if s in fs_lt]:
+                # Har FS/LT, kaster ureg
+                remove.append(names[systems.index(int(co.system_ureg))])
+
+            if len([s for s in systems if s in fs_lt]) == 2:
+                # kast > 30 dager gamle navn hvis et kildesystem er gammelt
+                if self.pid2src_sys_age[pid].get(fs_lt[0], 1) > 30:
+                    remove.append(names[systems.index(fs_lt[0])])
+                elif self.pid2src_sys_age[pid].get(fs_lt[1], 1) > 30:
+                    remove.append(names[systems.index(fs_lt[1])])
+        for row in remove:
+            log_rem.person_name(row['person_id'], row['name_variant'],
+                                row['source_system'])
+            person.clear()
+            person.find(row['person_id'])
+            # TODO: why is _delete_name hidden?
+            person._delete_name(row['source_system'], row['name_variant'])
+            db.commit()
+
+    def __remove_old_entity_data(self, list_func, type_col, relevant_src_sys):
+        # entity_address and entity_contact are very similar
+
+        logger.debug("__remove_old_entity_data")
+        relevant_src_sys = [int(s) for s in relevant_src_sys]
+
+        pid2entity_data = {}
+        for row in list_func():
+            if int(row['source_system']) not in relevant_src_sys:
+                continue
+            pid2entity_data.setdefault(int(row['entity_id']), []).append(row)
+        remove = []
+        fs_lt = (int(co.system_lt), int(co.system_fs))
+        for pid, data in pid2entity_data.items():
+            data_types = dict([(int(row[type_col]), 0) for row in data]).keys()
+            for dta_type in data_types:
+                # map src_sys+dta_type combo to index in data
+                system2dta = dict([(int(data[n]['source_system']), n)
+                                   for n in range(len(data))
+                                   if int(data[n][type_col]) == dta_type])
+                if system2dta.has_key(fs_lt[0]) and system2dta.has_key(fs_lt[1]):
+                    # kast > 30 dager gamle entries hvis et kildesystem er gammelt
+                    if self.pid2src_sys_age[pid].get(fs_lt[0], 1) > 30:
+                        remove.append(data[system2dta[fs_lt[0]]])
+                    elif self.pid2src_sys_age[pid].get(fs_lt[1], 1) > 30:
+                        remove.append(data[system2dta[fs_lt[1]]])
+
+            if [row for row in data if int(row['source_system']) in fs_lt]:
+                # Har FS/LT, kaster ureg
+                for row in data:
+                    if row['source_system'] == int(co.system_ureg):
+                        remove.append(row)
+        return remove
+
+    def remove_old_address(self):
+        logger.debug("remove_old_address")
+        ea = Entity.EntityAddress(db)
+        remove = self.__remove_old_entity_data(ea.list_entity_addresses,
+                                               'address_type', (
+            co.system_fs, co.system_lt, co.system_ureg, co.system_manual))
+        for row in remove:
+            log_rem.entity_address(
+                row['entity_id'], row['source_system'],
+                row['address_type'], row['address_text'],
+                row['p_o_box'], row['postal_number'], row['city'],
+                row['country'])
+            ea.clear()
+            ea.find(row['entity_id'])
+            ea.delete_entity_address(row['source_system'], row['address_type'])
+            db.commit()
+
+    def remove_old_contact(self):
+        logger.debug("remove_old_contact")
+        # TBD: Throw away co.system_folk_uio_no if user har no account?
+        ec = Entity.EntityContactInfo(db)
+        remove = self.__remove_old_entity_data(ec.list_contact_info,
+                                               'contact_type', (
+            co.system_fs, co.system_lt, co.system_ureg, co.system_manual))
+        for row in remove:
+            log_rem.entity_contact(
+                row['entity_id'], row['source_system'],
+                row['contact_type'], row['contact_pref'],
+                row['contact_value'], None) # row['description'])
+            ec.clear()
+            ec.find(row['entity_id'])
+            ec.delete_contact_info(row['source_system'], row['contact_type'],
+                                   row['contact_pref'])
+            db.commit()
+
+    def run(self):
+        logger.debug("Starting CleanPersons.run")
+        self.remove_old_persons()
+        self.remove_old_person_affiliations()
+        self.remove_old_fnr()
+        self.remove_old_navn()
+        self.remove_old_address()
+        self.remove_old_contact()
+
+class CleanUsers(object):
+    def __init__(self, cp):
+        self._cp = cp
+        self.aid2affs = self.__get_aid2affs()
+        
+    def __get_aid2affs(self):
+        ret = {}
+        for row in account.list_accounts_by_type(filter_expired=False):
+            ret.setdefault(int(row['account_id']), []).append(
+                UserAff(row['ou_id'], row['affiliation'],
+                        row['priority'], row['person_id']))
+        return ret
+
+    def remove_expired_affs(self):
+        age_threshold = 60   # Days
+        for aid, affs in self.aid2affs.items():
+            # Sjekk om affs er gyldige
+            paffs = self._cp.pid2affs[affs[0].person_id]
+            valid_paffs = [p for p in paffs
+                           if p.delete_age is None or p.delete_age < age_threshold]
+            valid_ac_affs = []
+            invalid_ac_affs = []
+            for ac_aff in affs:
+                if [p for p in valid_paffs
+                    if p.ou == ac_aff.ou and p.aff == ac_aff.ou]:
+                    valid_ac_affs.append(ac_aff)
+                else:
+                    invalid_ac_affs.append(ac_aff)
+
+            add_affs = []
+            remove_affs = []
+            # Iterate over all invalid affs and determine action
+            for ac_aff in invalid_ac_affs:
+                if [a for a in valid_ac_affs if a.aff == ac_aff.aff]:
+                    # has another account type of same affiliation, so
+                    # it's safe to remove this one
+                    pass
+                else:
+                    r = [p for p in valid_paffs if ac_aff.aff == p.aff]
+                    if r:
+                        # person had same affiliation for different
+                        # ou, give this account_type to user
+                        # TODO: should sort r
+                        add_affs.append(r[0])
+                    elif ac_aff.aff == co.affiliation_student and not [
+                        a for a in valid_ac_affs if a.aff == co.affiliation_student]:
+                        continue # Don't remove last student aff
+                remove_affs.append(ac_aff)
+            if not (add_affs or remove_affs):
+                continue
+            logger.debug("ac=%i, add=%s, remove=%s" % (aid, add_affs, remove_affs))
+
+            if not dryrun:
+                account.clear()
+                account.find(aid)
+                for a in add_affs:
+                    log_rem.set_ac_type(aid, a.ou, a.aff)
+                    account.set_account_type(a.ou, a.aff)
+                for r in remove_affs:
+                    log_rem.del_ac_type(aid, r.ou, r.aff)
+                    account.del_account_type(r.ou, r.aff)
+                db.commit()
+
+    def run(self):
+        logger.debug("Starting CleanUsers.run")
+        self.remove_expired_affs()
+        # We're lazy, so we re-fetch the mapping rather than keeping
+        # track of it in remove_expired_affs
+        self.aid2affs = self.__get_aid2affs()
+
+
+class CleanQuarantines(object):
+    def run(self):
+        logger.debug("Starting CleanQuarantines.run")
+        date_threshold = DateTime.now() - DateTime.DateTimeDelta(30)
+        eq = Entity.EntityQuarantine(db)
+        for row in eq.list_entity_quarantines():
+            if (row['end_date'] is not None and
+                row['end_date'] < date_threshold):
+                log_rem.del_entity_quarantine(
+                    row['entity_id'], row['quarantine_type'],
+                    row['creator_id'], row['description'],
+                    row['create_date'], row['start_date'],
+                    row['disable_until'], row['end_date'])
+                eq.clear()
+                eq.delete_entity_quarantine(row['quarantine_type'])
+        db.commit()
+
+class LogRemoved(object):
+    """We want to log all info that we throw away"""
+    # TODO: should use a separate logger
+    
+    def format_as_date(self, date):
+        if date is not None:
+            return date.strftime('%Y-%m-%d')
+        return None
+    
+    def remove_member(self, pid, operation, group_id):
+        logger.debug("remove member (%i, %i) from %i" % (
+            pid, operation, group_id))
+
+    def nuke_person(self, person):
+        logger.debug("person_remove pid=%i" % person.entity_id)
+
+    def person_aff(self, pid, aff):
+        logger.debug("aff_remove pid=%i, aff=%s" % (pid, aff))
+
+    def person_fnr(self, pid, id_type, source_system):
+        logger.debug("fnr_remove pid=%i, type=%i, src_sys=%i" % (
+            pid, id_type, source_system))
+
+    def person_name(self, pid, name_variant, source_system):
+        logger.debug("name_remove pid=%i, name_var=%i, src_sys=%i" % (
+            pid, name_variant, source_system))
+
+    def entity_address(self, entity_id, source_system, address_type,
+                       address_text, p_o_box, postal_number, city,
+                       country):
+        logger.debug("e_addr_remove eid=%i, src_sys=%i, adr_type=%i, at=%s, pb=%s, "
+                     "pn=%s, ci=%s, co=%s" % (
+            entity_id, source_system, address_type, address_text,
+            p_o_box, postal_number, city, format_as_int(country)))
+
+    def entity_contact(self, entity_id, source_system, contact_type,
+                       contact_pref, contact_value, description):
+        logger.debug("e_c_remove  eid=%i, src_sys=%i, c_type=%i, c_pref=%i, "
+                     "c_v=%s, desc=%s" % (
+            entity_id, source_system, contact_type, contact_pref,
+            contact_value, description))
+
+    def set_ac_type(self, account_id, ou, aff):
+        logger.debug("set_ac_type aid=%i, ou=%i, aff=%i" % (account_id, ou, aff))
+
+    def del_ac_type(self, account_id, ou, aff):
+        logger.debug("del_ac_type aid=%i, ou=%i, aff=%i" % (account_id, ou, aff))
+
+    def del_entity_quarantine(self, entity_id, quarantine_type,
+                              creator_id, description, create_date,
+                              start_date, disable_until, end_date):
+        logger.debug("del_eq eid=%i, qtype=%i, creator=%i,  desc=%s, create=%s, "
+                     "start=%s,disable=%s, end=%s" % (
+            entity_id, quarantine_type, creator_id, description,
+            self.format_as_date(create_date), self.format_as_date(start_date),
+            self.format_as_date(disable_until), self.format_as_date(end_date)))
+
+def run_expired_tasks():
+    clean_quarantines = CleanQuarantines()
+    clean_persons = CleanPersons()
+    clean_users = CleanUsers(clean_persons)
+    clean_persons.post_create(clean_users)
+
+    for clean in (clean_quarantines, clean_users, clean_persons):
+        clean.run()
+
 def main():
-    global dryrun
+    global dryrun, log_rem
     try:
         opts, args = getopt.getopt(
-            sys.argv[1:], '', ['help', 'dryrun', 'plain',
+            sys.argv[1:], '', ['help', 'dryrun', 'plain', 'expired',
                                'changelog', 'bofh', 'password-age='])
 
     except getopt.GetoptError:
         usage(1)
+    log_rem = LogRemoved()
     do_remove_bofh = do_remove_plain = do_process_log = dryrun = False
     clean_passwords = CleanPasswords(3600*24)
     for opt, val in opts:
@@ -539,6 +1067,8 @@ def main():
             do_process_log = True
         elif opt in ('--password-age',):
             clean_passwords.password_age = int(val)
+        elif opt in ('--expired',):
+            run_expired_tasks()
         else:
             usage()
 
@@ -557,6 +1087,8 @@ def usage(exitcode=0):
     --bofh : merge equal targets in auth_op_target
     --changelog : delete 'irrelevant' changelog entries
     --password-age seconds: delete passwords older than this (see --plain)
+    --expired: remove expired affiliations, person names, account_types,
+          quarantines etc.
     """
     sys.exit(exitcode)
 
