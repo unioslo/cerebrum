@@ -109,7 +109,7 @@ class BofhdExtension(object):
 
     legal_hinfo = (
         ("win", "IBM-PC\tWINDOWS"),
-        ("linux", "IBM_PC\tLINUX"),
+        ("linux", "IBM-PC\tLINUX"),
         ("printer", "PRINTER\tPRINTER"),
         ("unix", "UNIX\tUNIX"),
         ("nett", "NET\tNET"),
