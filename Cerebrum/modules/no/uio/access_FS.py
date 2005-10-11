@@ -174,7 +174,8 @@ class UiOStudent(access_FS.Student):
            em.emnekode=es.emnekode AND
            sps.status_privatist='N' AND 
            sps.studieprogramkode=sp.studieprogramkode AND
-           r.regformkode IN ('STUDWEB','MANUELL','AUTOMATISK') AND
+           r.status_reg_ok = 'J' AND
+           NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s """ %(self.extra,  self._get_termin_aar(only_current=1))
         return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
@@ -204,7 +205,8 @@ class UiOStudent(access_FS.Student):
            %s
            sps.status_privatist='N' AND 
            sps.studieprogramkode=sp.studieprogramkode AND
-           r.regformkode IN ('STUDWEB','MANUELL','AUTOMATISK') AND
+           r.status_reg_ok = 'J' AND
+           NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s """ %(self.extra, self._get_termin_aar(only_current=1))
         return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
@@ -238,7 +240,8 @@ class UiOStudent(access_FS.Student):
            spp.dato_bekreftet < SYSDATE AND
            spp.arstall_bekreft=%d AND
            spp.terminkode_bekreft='%s' AND
-           r.regformkode IN ('STUDWEB','MANUELL','AUTOMATISK') AND
+           r.status_reg_ok = 'J' AND
+           NVL(r.status_ugyldig, 'N') = 'N' AND
            %s """ %(self.extra, self.year, self.semester, self._get_termin_aar(only_current=1))
         return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
 
@@ -565,7 +568,8 @@ class UiOBetaling(access_FS.FSObject):
              fs.registerkort r
         WHERE r.TERMINKODE = :semester AND
               r.arstall = :year AND
-              r.regformkode in ('STUDWEB','MANUELL','AUTOMATISK') AND
+              r.status_reg_ok = 'J' AND
+              NVL(r.status_ugyldig, 'N') = 'N' AND
               r.fodselsdato = frk.fodselsdato AND
               r.personnr = frk.personnr AND
               %s
@@ -580,6 +584,8 @@ class UiOBetaling(access_FS.FSObject):
         FROM fs.registerkort r
         WHERE r.TERMINKODE = :semester AND
               r.arstall = :year AND
+              r.status_reg_ok = 'J' AND
+              NVL(r.status_ugyldig, 'N') = 'N' AND
               %s
               r.betformkode IN ('FRITATT', 'EKSTERN')""" % (self.extra, self.extra)
         return self.db.query(qry, {'fodselsdato': fodselsdato,
