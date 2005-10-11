@@ -237,12 +237,20 @@ class SocketHandling(object):
                     self.send_response(conn, 'OK')
                     break
                 elif data.startswith('RUNJOB '):
-                    jobname = data[7:]
+                    jobname, with_deps = data[7:].split()
+                    with_deps=int(with_deps)
                     if not job_runner.job_queue.get_known_jobs().has_key(jobname):
                         self.send_response(conn, 'Unknown job %s' % jobname)
                     else:
-                        job_runner.job_queue.get_forced_run_queue().append(jobname)
-                        self.send_response(conn, 'Added %s to head of queue' % jobname)
+                        if with_deps:
+                            job_runner.job_queue.insert_job(
+                                job_runner.job_queue._run_queue, jobname)
+                            self.send_response(
+                                conn, 'Added %s to queue with dependencies' % jobname)
+                        else:
+                            job_runner.job_queue.get_forced_run_queue().append(jobname)
+                            self.send_response(
+                                conn, 'Added %s to head of queue' % jobname)
                         job_runner.wake_runner_signal()
                     break
                 elif data.startswith('SHOWJOB '):
