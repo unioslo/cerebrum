@@ -144,7 +144,7 @@ class HiAEVU(access_FS.EVU):
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
         d = time.strftime("%Y-%m-%d", date)
         qry = """
-        SELECT e.etterutdkurskode, e.kurstidsangivelsekode,
+        SELECT DISTINCT e.etterutdkurskode, e.kurstidsangivelsekode,
           e.etterutdkursnavn, e.etterutdkursnavnkort, ee.emnekode,
           e.institusjonsnr_adm_ansvar, e.faknr_adm_ansvar,
           e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
