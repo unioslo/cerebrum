@@ -743,8 +743,21 @@ class AtomicFileWriter(object):
         return self.__file.write(data)
 
 class SimilarSizeWriter(AtomicFileWriter):
+    def __init__(self, *args, **kwargs):
+        super(SimilarSizeWriter, self).__init__(*args, **kwargs)
+        self.__percentage = self.__line_count = None
+
     def set_size_change_limit(self, percentage):
         self.__percentage = percentage
+
+    def set_line_count_change_limit(self, num):
+        self.__line_count = num
+
+    def __count_lines(self, fname):
+        count = 0
+        for line in open(fname):
+            count = count + 1
+        return count
 
     def validate_output(self):
         super(SimilarSizeWriter, self).validate_output()
@@ -757,12 +770,20 @@ class SimilarSizeWriter(AtomicFileWriter):
             # all.
             return
         new = os.path.getsize(self._tmpname)
-        change_percentage = 100 * (float(new)/old) - 100
-        if abs(change_percentage) > self.__percentage:
-            raise RuntimeError, \
-                  "%s: File size changed more than %d%%: %d -> %d (%+.1f)" % \
-                  (self._name, self.__percentage, old, new, change_percentage)
-
+        assert self.__percentage or self.__line_count
+        if self.__percentage:
+            change_percentage = 100 * (float(new)/old) - 100
+            if abs(change_percentage) > self.__percentage:
+                raise RuntimeError, \
+                      "%s: File size changed more than %d%%: %d -> %d (%+.1f)" % \
+                      (self._name, self.__percentage, old, new, change_percentage)
+        if self.__line_count:
+            old = self.__count_lines(self._name)
+            new = self.__count_lines(self._tmpname)
+            if abs(old - new) > self.__line_count:
+                raise RuntimeError, \
+                      "%s: File changed more than %d lines: %d -> %d (%i)" % \
+                      (self._name, self.__line_count, old, new, abs(old-new))
 
 class MinimumSizeWriter(AtomicFileWriter):
     """This file writer would fail, if the new file size is less than
