@@ -307,6 +307,7 @@ def usage(exitcode=0):
       --resume : resume from paused state
       --run jobname : adds jobname to the front of the run queue, ignoring
         dependencies
+      --with-deps : make --run honour dependencies
       --show-job name: show detailed information about a job
         """
 
@@ -317,11 +318,14 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['reload', 'quit', 'status', 'config=',
                                     'dump=', 'run=', 'pause', 'resume',
-                                    'show-job='])
+                                    'show-job=', 'with-deps'])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
-    alt_config = False
+    alt_config = with_deps = False
+    for opt, val in opts:
+        if opt == '--with-deps':
+            with_deps = True
     for opt, val in opts:
         if opt in('--reload', '--quit', '--status', '--run', '--pause',
                   '--resume', '--show-job'):
@@ -336,7 +340,7 @@ def main():
             elif opt == '--resume':
                 cmd = 'RESUME'
             elif opt == '--run':
-                cmd = 'RUNJOB %s' % val
+                cmd = 'RUNJOB %s %i' % (val, with_deps)
             elif opt == '--show-job':
                 cmd = 'SHOWJOB %s' % val
             sock = SocketHandling()
