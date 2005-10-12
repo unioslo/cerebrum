@@ -33,25 +33,28 @@ class UiOStudent(access_FS.Student):
         fremtidig opptak.  Disse kommer med 14 dager før dato for
         tildelt opptak.  Alle disse skal ha affiliation med status
         kode 'opptak' til stedskoden sp.faknr_studieansv +
-        sp.instituttnr_studieansv + sp.gruppenr_studieansv"""
+        sp.instituttnr_studieansv + sp.gruppenr_studieansv.
+        """
         return self._list_gyldigopptak(**kwargs) \
                + self._list_drgradsopptak(**kwargs) \
                +  self._list_gammelopptak_semreg(**kwargs)
-        
-    def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
-        """Alle med gyldig opptak tildelt for 2 år eller mindre siden samt alle
-        med opptak som blir gyldig om 14 dager"""
 
+    def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
+        """Alle med gyldig opptak tildelt for 2 år eller mindre siden
+        samt alle med opptak som blir gyldig om 14 dager.
+        """
+
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-                       
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
         qry = """
         SELECT DISTINCT
            s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-           p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+           p.adresseland_hjemsted, p.status_reserv_nettpubl,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod
@@ -66,22 +69,26 @@ class UiOStudent(access_FS.Student):
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist = 'N' AND
            sps.dato_studierett_tildelt < SYSDATE + 14 AND
-           sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')""" % (self.extra)
-        return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
-    
-    def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
-        """Alle drgradsstudenter med ikke utgått opptak til drgrads-studieprogram"""
+           sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
+           """ % extra
+        return self.db.query(qry, locals())
 
+    def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
+        """Alle drgradsstudenter med ikke utgått opptak til drgrads-
+        studieprogram.
+        """
+
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-                       
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
         qry = """
         SELECT DISTINCT
            s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-           p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+           p.adresseland_hjemsted, p.status_reserv_nettpubl,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod
@@ -96,16 +103,18 @@ class UiOStudent(access_FS.Student):
            NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
-           sp.studienivakode >= 980""" % (self.extra)
-        return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
-    
-    def _list_gammelopptak_semreg(self, fodselsdato=None, personnr=None):
-        """Alle med gyldig opptak som har hatt en forekomst i registerkort i løpet
-           av fjoråret"""
+           sp.studienivakode >= 980""" % extra
+        return self.db.query(qry, locals())
 
+    def _list_gammelopptak_semreg(self, fodselsdato=None, personnr=None):
+        """Alle med gyldig opptak som har hatt en forekomst i
+        registerkort i løpet av fjoråret.
+        """
+
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-                       
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
         qry = """
         SELECT DISTINCT
            s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
@@ -128,9 +137,9 @@ class UiOStudent(access_FS.Student):
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist = 'N' AND
-           r.arstall >= (%s - 1)""" % (self.extra, self.year)
-        return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
-    
+           r.arstall >= (%s - 1)""" % (extra, self.year)
+        return self.db.query(qry, locals())
+
     def list_aktiv(self, **kwargs):  # GetStudentAktiv_50
         """Hent fødselsnummer+studieprogram+studieretning+kull for
         alle aktive studenter.  Som aktive studenter regner vi alle
@@ -148,18 +157,21 @@ class UiOStudent(access_FS.Student):
                + self._list_aktiv_enkeltemne(**kwargs) \
                + self._list_aktiv_avlagteksamen(**kwargs) \
                + self._list_aktiv_utdplan(**kwargs)
-        
-    def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som i tillegg har en eksamensmelding i et
-           emne som kan inngå i et studieprogram som de har opptak til"""
 
+    def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
+        """Alle semesterregistrerte som i tillegg har en
+        eksamensmelding i et emne som kan inngå i et studieprogram som
+        de har opptak til.
+        """
+
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
 
         qry = """
         SELECT DISTINCT
            s.fodselsdato, s.personnr, sp.studieprogramkode,
-           sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull, 
+           sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            em.emnekode, em.versjonskode
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
            fs.registerkort r, fs.eksamensmelding em, fs.emne_i_studieprogram es
@@ -172,22 +184,24 @@ class UiOStudent(access_FS.Student):
            %s
            es.studieprogramkode=sp.studieprogramkode AND
            em.emnekode=es.emnekode AND
-           sps.status_privatist='N' AND 
+           sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
            r.status_reg_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           %s """ %(self.extra,  self._get_termin_aar(only_current=1))
-        return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
+           %s """ % (extra, self._get_termin_aar(only_current=1))
+        return self.db.query(qry, locals())
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte med gyldig opptak til studieprogrammet
-           'ENKELTEMNE' som har en gyldig eksamensmelding i et emne som
-           kan inngå i et vilkårlig studieprogram"""
+        """Alle semesterregistrerte med gyldig opptak til
+        studieprogrammet 'ENKELTEMNE' som har en gyldig eksamensmelding
+        i et emne som kan inngå i et vilkårlig studieprogram.
+        """
 
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-                        
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
         qry = """
         SELECT DISTINCT
            s.fodselsdato, s.personnr, sp.studieprogramkode,
@@ -203,21 +217,23 @@ class UiOStudent(access_FS.Student):
            s.fodselsdato=em.fodselsdato AND
            s.personnr=em.personnr AND
            %s
-           sps.status_privatist='N' AND 
+           sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
            r.status_reg_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           %s """ %(self.extra, self._get_termin_aar(only_current=1))
-        return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
+           %s """ % (extra, self._get_termin_aar(only_current=1))
+        return self.db.query(qry, locals())
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som i tillegg har bekreftet utdanningsplan
-           i inneværende semester"""
+        """Alle semesterregistrerte som i tillegg har bekreftet
+        utdanningsplan i inneværende semester.
+        """
 
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-                        
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
         qry = """
         SELECT DISTINCT
            s.fodselsdato, s.personnr, sp.studieprogramkode,
@@ -242,16 +258,19 @@ class UiOStudent(access_FS.Student):
            spp.terminkode_bekreft='%s' AND
            r.status_reg_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
-           %s """ %(self.extra, self.year, self.semester, self._get_termin_aar(only_current=1))
-        return self.db.query(qry, {'fodselsdato': fodselsdato, 'personnr': personnr})
+           %s """ % (extra, self.year, self.semester,
+                     self._get_termin_aar(only_current=1))
+        return self.db.query(qry, locals())
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som har avlagt eksamen i inneværende år
-           Ifølge STA er dette det riktige kravet. mulig at vi ønsker å mene
-           noe annet etterhvert"""
+        """Alle semesterregistrerte som har avlagt eksamen i inneværende
+        år.  Ifølge STA er dette det riktige kravet. mulig at vi ønsker
+        å mene noe annet etterhvert.
+        """
 
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "sps.fodselsdato=:fodselsdato AND sps.personnr=:personnr AND"
+            extra = "sps.fodselsdato=:fodselsdato AND sps.personnr=:personnr AND"
 
         qry = """
         SELECT DISTINCT
@@ -271,9 +290,9 @@ class UiOStudent(access_FS.Student):
            es.studieprogramkode=sps.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist='N' AND
-           %s """ %(self.year, self.extra, self._get_termin_aar(only_current=1))
-        return self.db.query(qry, {'fodselsdato': fodselsdato,
-                                   'personnr': personnr})
+           %s
+        """ % (self.year, extra, self._get_termin_aar(only_current=1))
+        return self.db.query(qry, locals())
 
     def list_privatist_emne(self, fodselsdato=None, personnr=None):  # GetStudentPrivatistEmne_50
         """Hent personer som er uekte privatister, dvs. som er
@@ -282,17 +301,19 @@ class UiOStudent(access_FS.Student):
 	som eier studieprogrammet de har opptak til.  Dette blir ikke
 	helt riktig efter som man kan ha opptak til studieprogramet
 	'ENKELTEMNE' som betyr at man kan være ordninær student selv
-	om man havner i denne gruppen som plukkes ut av dette søket"""
+	om man havner i denne gruppen som plukkes ut av dette søket.
+        """
 
+        extra = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-                        
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
 	qry = """
         SELECT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, p.status_reserv_nettpubl, 
+               p.adresseland_hjemsted, p.status_reserv_nettpubl,
                p.sprakkode_malform, p.kjonn, p.status_dod, em.emnekode
         FROM fs.student s, fs. person p, fs.registerkort r,
              fs.eksamensmelding em
@@ -312,22 +333,27 @@ class UiOStudent(access_FS.Student):
                      es.emnekode=em.emnekode AND
                      es.studieprogramkode = sps.studieprogramkode AND
                      NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= SYSDATE)
-      """ % (self.extra, self._get_termin_aar(only_current=1))
-        return self.db.query(qry, {'fodselsdato': fodselsdato,
-                                   'personnr': personnr})
-    
-    def list_privatist(self, fodselsdato=None, personnr=None): # GetStudentPrivatist_50
-        """Hent personer med privatist 'opptak' til et studieprogram
-        ved institusjonen og som enten har vært registrert siste året
-        eller har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de som
-        har fremtidig opptak.  Disse kommer med 14 dager før dato for
-        tildelt privatist 'opptak'.  Alle disse skal ha affiliation
-        med status kode 'privatist' til stedskoden sp.faknr_studieansv
-        + sp.instituttnr_studieansv + sp.gruppenr_studieansv"""
+        """ % (extra, self._get_termin_aar(only_current=1))
+        return self.db.query(qry, locals())
 
+    def list_privatist(self, fodselsdato=None, personnr=None): # GetStudentPrivatist_50
+        
+        """Hent personer med privatist 'opptak' til et studieprogram ved
+        institusjonen og som enten har vært registrert siste året eller
+        har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de
+        som har fremtidig opptak.  Disse kommer med 14 dager før dato
+        for tildelt privatist 'opptak'.  Alle disse skal ha affiliation
+        med status kode 'privatist' til stedskoden sp.faknr_studieansv +
+        sp.instituttnr_studieansv + sp.gruppenr_studieansv.
+        """
+
+        extra1 = extra2 = ""
         if fodselsdato and personnr:
-            self.extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-                        
+            # We can't use the same bind variable in two different SELECT
+            # expressions.
+            extra1 = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+            extra2 = "s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2 AND"
+
         qry = """
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -350,7 +376,7 @@ class UiOStudent(access_FS.Student):
                sps.dato_studierett_tildelt < SYSDATE + 14 AND
                sps.dato_studierett_tildelt >= to_date('2003-01-01',
                                                       'yyyy-mm-dd')
-       """ % (self.extra)
+       """ % extra1
         qry += """ UNION
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -374,15 +400,16 @@ class UiOStudent(access_FS.Student):
                NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
                sps.status_privatist = 'J' AND
                r.arstall >= (%s - 1)
-               """ % (self.extra, self.year)
+               """ % (extra2, self.year)
         return self.db.query(qry, {'fodselsdato': fodselsdato,
-                                   'personnr': personnr})
+                                   'fodselsdato2': fodselsdato,
+                                   'personnr': personnr,
+                                   'personnr2': personnr})
 
 
 class UiOPortal(access_FS.FSObject):
     def list_eksmeld(self):  # GetPortalInfo_50
-        """
-        Hent ut alle eksamensmeldinger i nåværende semester med all
+        """Hent ut alle eksamensmeldinger i nåværende semester med all
         interessant informasjon for portaldumpgenerering.
 
         SQL-spørringen er dyp magi. Spørsmål rettes til baardj.
@@ -391,7 +418,7 @@ class UiOPortal(access_FS.FSObject):
         #
         # NB! Det er ikke meningen at vanlige dødelige skal kunne forstå
         # denne SQL-spørringen. Lurer du på noe, plag baardj
-        # 
+        #
 
         # Velg ut studentens eksamensmeldinger for inneværende og
         # fremtidige semestre.  Søket sjekker at studenten har
@@ -534,13 +561,13 @@ class UiOBetaling(access_FS.FSObject):
         """Lister fødselsnummer, betalingsinformasjon og beløp for de
         innbetalinger som er gjordt gjennom studentweben for
         utskriftssystemet. """
-        
+
         if days_past is None:
             where = ""
         else:
             # Vi vet ikke om dato_betalt må være != null når status_betalt='J'
             where = " AND NVL(dato_betalt, [:now]) > [:now]-%i" % days_past
-            
+
         qry = """
         SELECT frk.fodselsdato, frk.personnr, frk.fakturanr, frk.dato_betalt,
                fkd.belop, fkd.detaljlopenr, frk.kidkode
@@ -553,14 +580,17 @@ class UiOBetaling(access_FS.FSObject):
               frk.status_betalt = 'J' %s""" % where
         return self.db.query(qry)
 
-    
+
     def list_ok_kopiavgift(self, fodselsdato=None, personnr=None):  # GetStudBetPapir
         """Lister ut fødselsnummer til alle de som har betalt
-        kopiavgiften eller har fritak fra å betale denne avgiften."""
+        kopiavgiften eller har fritak fra å betale denne avgiften.
+        """
 
+        extra1 = extra2 = ""
         if fodselsdato and personnr:
-            self.extra = "r.fodselsdato=:fodselsdato AND r.personnr=:personnr AND"
-            
+            extra1 = "r.fodselsdato=:fodselsdato AND r.personnr=:personnr AND"
+            extra2 = "r.fodselsdato=:fodselsdato2 AND r.personnr=:personnr2 AND"
+
         qry = """
         SELECT DISTINCT r.fodselsdato, r.personnr
         FROM fs.fakturareskontrodetalj fkd,
@@ -587,9 +617,11 @@ class UiOBetaling(access_FS.FSObject):
               r.status_reg_ok = 'J' AND
               NVL(r.status_ugyldig, 'N') = 'N' AND
               %s
-              r.betformkode IN ('FRITATT', 'EKSTERN')""" % (self.extra, self.extra)
+              r.betformkode IN ('FRITATT', 'EKSTERN')""" % (extra1, extra2)
         return self.db.query(qry, {'fodselsdato': fodselsdato,
+                                   'fodselsdato2': fodselsdato,
                                    'personnr': personnr,
+                                   'personnr2': personnr,
                                    'semester': self.semester,
                                    'year': self.year})
 
@@ -603,8 +635,7 @@ class FS(access_FS.FS):
         self.betaling = UiOBetaling(self.db)
 
     def list_dbfg_usernames(self, fetchall = False):
-        """
-        Get all usernames and return them as a sequence of db_rows.
+        """Get all usernames and return them as a sequence of db_rows.
 
         NB! This function does *not* return a 2-tuple. Only a sequence of
         all usernames (the column names can be obtains from db_row objects)
@@ -614,12 +645,10 @@ class FS(access_FS.FS):
         SELECT username as username
         FROM all_users
         """
-        return self.db.query(query, fetchall = fetchall)
+        return self.db.query(query, fetchall=fetchall)
 
     def list_dba_usernames(self, fetchall = False):
-        """
-        Get all usernames for internal statistics.
-        """
+        """Get all usernames for internal statistics."""
 
         query = """
         SELECT
@@ -630,7 +659,6 @@ class FS(access_FS.FS):
            default_tablespace = 'USERS' and account_status = 'OPEN'
         """
 
-        return self.db.query(query, fetchall = fetchall)
-    # end list_dba_usernames
-        
+        return self.db.query(query, fetchall=fetchall)
+
 # arch-tag: 22ae9ce8-a845-40b8-bc4d-dcb51a54ca2a
