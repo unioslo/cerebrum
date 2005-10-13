@@ -26,15 +26,14 @@
 
 package no.uio.jbofh;
 
-import java.util.Vector;
-import java.util.Enumeration;
-import java.util.Timer;
-import java.util.TimerTask;
-import org.gnu.readline.*;
-import java.io.EOFException;
-import org.apache.log4j.Category;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.Vector;
+
+import org.apache.log4j.Category;
+import org.gnu.readline.Readline;
 
 
 /**
@@ -91,20 +90,20 @@ public class CommandLine {
 
     /** Creates a new instance of CommandLine */
     public CommandLine(Category logger, JBofh jbofh, int warnDelay, int terminateDelay) {
-	this.jbofh = jbofh;
+        this.jbofh = jbofh;
         terminatorTask = new IdleTerminatorTask(60*1000, warnDelay, terminateDelay);
         timer = new Timer(false);
         timer.schedule(terminatorTask, 1000, 60*1000);
 
-	if(! (jbofh != null && jbofh.guiEnabled)) {
-	    Readline.initReadline("myapp");
-	    this.logger = logger;
-	    Runtime.getRuntime().addShutdownHook(new Thread() {
-		    public void run() {
-			Readline.cleanup();
-		    }
-		});
-	}
+        if(! (jbofh != null && jbofh.guiEnabled)) {
+            Readline.initReadline("myapp");
+            this.logger = logger;
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                    public void run() {
+                        Readline.cleanup();
+                    }
+                });
+        }
     }
 
     /**
@@ -121,7 +120,7 @@ public class CommandLine {
         
         char chars[] = (str+" ").toCharArray();
         Vector ret = new Vector();
-	Vector subCmd = null, curApp = ret;
+        Vector subCmd = null, curApp = ret;
         int i = 0, pstart = 0;
         Character quote = null;
         while(i < chars.length) {
@@ -129,7 +128,7 @@ public class CommandLine {
                 if(chars[i] == quote.charValue()) {                
                     if(i >= pstart) {      // We allow empty strings
                         curApp.add(new String(str.substring(pstart, i)));
-		    }
+                    }
                     pstart = i+1;
                     quote = null;
                 }                
@@ -140,72 +139,71 @@ public class CommandLine {
                 } else if(chars[i] == ' ' || chars[i] == '(' || chars[i] == ')') {                
                     if(i > pstart) {
                         curApp.add(new String(str.substring(pstart, i)));
-		    }
+                    }
                     pstart = i+1;
-		    if(chars[i] == ')') {
-			if(subCmd == null) 
-			    throw new ParseException(") with no (", i);
-			ret.add(curApp);
-			curApp = ret;
-			subCmd = null;
-		    } else if(chars[i] == '(') {
-			if(subCmd != null) 
-			    throw new ParseException("nested paranthesis detected", i);
-			subCmd = new Vector();
-			curApp = subCmd;
-		    }
+                    if(chars[i] == ')') {
+                        if(subCmd == null) 
+                            throw new ParseException(") with no (", i);
+                        ret.add(curApp);
+                        curApp = ret;
+                        subCmd = null;
+                    } else if(chars[i] == '(') {
+                        if(subCmd != null) 
+                            throw new ParseException("nested paranthesis detected", i);
+                        subCmd = new Vector();
+                        curApp = subCmd;
+                    }
                 }
             }
             i++;
         }
-	if(quote != null)
-	    throw new ParseException("Missing end-quote", i);
-	if(subCmd != null)
-	    throw new ParseException("Missing end )", i);
+        if(quote != null)
+            throw new ParseException("Missing end-quote", i);
+        if(subCmd != null)
+            throw new ParseException("Missing end )", i);
         return ret;
     }
 
     String promptArg(String prompt, boolean addHist) throws IOException {
-	if(jbofh.guiEnabled) {
+        if(jbofh.guiEnabled) {
             return jbofh.mainFrame.promptArg(prompt, addHist);
-	}
+        }
         while (true) {
-	    Vector oldHist = new Vector();
-	    // A readline thingy where methods were non-static would have helped a lot.
+            // A readline thingy where methods were non-static would have helped a lot.
             terminatorTask.startWaiting();
             String ret =  Readline.readline(prompt, addHist);
             terminatorTask.stopWaiting();
-	    if(ret == null) ret = "";
-	    return ret;
+            if(ret == null) ret = "";
+            return ret;
         }
     }
     
     Vector getSplittedCommand() throws IOException, ParseException {
-	return splitCommand(promptArg((String)jbofh.props.get("console_prompt"), true));
+        return splitCommand(promptArg((String)jbofh.props.get("console_prompt"), true));
     }
 
     public static void main(String[] args) {
         org.apache.log4j.PropertyConfigurator.configure("log4j.properties");
-	String tests[] = {
+        String tests[] = {
             "dette er en test",
-	    "en 'noe annerledes' test",
-	    "en (parantes test 'med quote' test) hest",
-	    "mer(test hei)du morn ",
-	    "en liten (test av) dette) her",
-	    "mer (enn du(skulle tro))",
+            "en 'noe annerledes' test",
+            "en (parantes test 'med quote' test) hest",
+            "mer(test hei)du morn ",
+            "en liten (test av) dette) her",
+            "mer (enn du(skulle tro))",
             "test empty \"\" quote"
-	};
+        };
         CommandLine cLine = new CommandLine(Category.getInstance(CommandLine.class), null, 0, 0);
-	for(int j = 0; j < tests.length; j++) {
-	    System.out.println("split: --------"+tests[j]+"-----------");
-	    try {
-		Vector v = cLine.splitCommand(tests[j]);
-		for(int i = 0; i < v.size(); i++)
-		    System.out.println(i+": '"+v.get(i)+"'");
-	    } catch (ParseException ex) {
-		System.out.println("got: "+ex);
-	    }
-	}	
+        for(int j = 0; j < tests.length; j++) {
+            System.out.println("split: --------"+tests[j]+"-----------");
+            try {
+                Vector v = cLine.splitCommand(tests[j]);
+                for(int i = 0; i < v.size(); i++)
+                    System.out.println(i+": '"+v.get(i)+"'");
+            } catch (ParseException ex) {
+                System.out.println("got: "+ex);
+            }
+        }       
     }
 }
 

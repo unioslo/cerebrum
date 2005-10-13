@@ -27,7 +27,7 @@ import java.io.IOException;
  * These methods are used by the gui, which is currently implemented
  * in swing.  By using this interface, it is possible to compile jbofh
  * when swing is not available.
-*/
+ */
 
 public interface JBofhFrame {
     java.awt.Frame frame = null;

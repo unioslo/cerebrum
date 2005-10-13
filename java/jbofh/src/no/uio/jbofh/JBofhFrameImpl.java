@@ -80,6 +80,8 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
     Hashtable menuItems = new Hashtable();
 
     class MyKeyAction extends AbstractAction {
+        private static final long serialVersionUID = 1L;
+
         public MyKeyAction(String name) {
             super(name);
         }
@@ -175,28 +177,28 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
     }
 
     void makeGUI() {
-	JPanel np = new JPanel();
-	JScrollPane sp = new JScrollPane(tfOutput = new JTextArea());
-	frame = new JFrame("JBofh");
-	
-	tfOutput.setEditable(false);
+        JPanel np = new JPanel();
+        JScrollPane sp = new JScrollPane(tfOutput = new JTextArea());
+        frame = new JFrame("JBofh");
+        
+        tfOutput.setEditable(false);
         tfOutput.setFont(new Font(""+jbofh.props.get("gui.font.name.outputwindow"),
-            Font.PLAIN, Integer.parseInt(""+jbofh.props.get("gui.font.size.outputwindow"))));
+                             Font.PLAIN, Integer.parseInt(""+jbofh.props.get("gui.font.size.outputwindow"))));
         np.setLayout(new GridBagLayout());
-	GridBagConstraints gbc = new GridBagConstraints();
-	gbc.anchor = GridBagConstraints.WEST;
-	np.add(lbPrompt = new JLabel(), gbc);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.anchor = GridBagConstraints.WEST;
+        np.add(lbPrompt = new JLabel(), gbc);
         gbc.fill = GridBagConstraints.HORIZONTAL;
-	gbc.gridwidth = GridBagConstraints.REMAINDER;
-	gbc.weightx = 1.0;
-	np.add(tfCmdLine = new JTextField(), gbc);
-	tfCmdLine.addActionListener(this);
-	frame.getContentPane().add(sp, BorderLayout.CENTER);
-	frame.getContentPane().add(np, BorderLayout.SOUTH);
+        gbc.gridwidth = GridBagConstraints.REMAINDER;
+        gbc.weightx = 1.0;
+        np.add(tfCmdLine = new JTextField(), gbc);
+        tfCmdLine.addActionListener(this);
+        frame.getContentPane().add(sp, BorderLayout.CENTER);
+        frame.getContentPane().add(np, BorderLayout.SOUTH);
 
         // We want control over some keys used on tfCmdLine
         tfCmdLine.setFocusTraversalKeysEnabled(false);
-        Keymap keymap = tfCmdLine.addKeymap("MyBindings", tfCmdLine.getKeymap());
+        Keymap keymap = JTextField.addKeymap("MyBindings", tfCmdLine.getKeymap());
         keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_TAB, 0), 
             new MyKeyAction("tab"));
         keymap.addActionForKeyStroke(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), 
@@ -222,12 +224,12 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
         tfOutput.addMouseListener(popupListener);
 
         frame.addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                System.exit(0);
-            }
-        });
-	frame.pack();
-	frame.setSize(new Dimension(700,400));
+                public void windowClosing(WindowEvent e) {
+                    System.exit(0);
+                }
+            });
+        frame.pack();
+        frame.setSize(new Dimension(700,400));
         frame.setVisible(true);
     }
 
@@ -298,7 +300,7 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
     public void actionPerformed(ActionEvent evt) {
         if(evt.getSource() == tfCmdLine) {
             releaseLock();
-	} else {
+        } else {
             String action = (String) menuItems.get(evt.getSource());
             if(action.equals("clear_screen")) {
                 tfOutput.setText("");
@@ -323,7 +325,7 @@ public class JBofhFrameImpl implements ActionListener, JBofhFrame {
                 JOptionPane.OK_CANCEL_OPTION);
             JDialog dialog = pane.createDialog(parent, prompt);
             pf.requestFocus();
-            dialog.show();
+            dialog.setVisible(true);
             dialog.dispose();
             Object value = pane.getValue();
             if(((Integer) value).intValue() == JOptionPane.OK_OPTION) 

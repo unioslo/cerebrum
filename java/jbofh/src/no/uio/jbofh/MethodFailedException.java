@@ -20,7 +20,6 @@
 
 package no.uio.jbofh;
 
-import java.io.*;
 
 /**
  * <code>MethodFailedException</code> is thrown when unable to execute
@@ -30,6 +29,7 @@ import java.io.*;
  */
 
 class MethodFailedException extends Exception {
+    private static final long serialVersionUID = 1L;
 }
 
 // arch-tag: f87d3518-d148-4ebe-89b3-6d1efdd49834

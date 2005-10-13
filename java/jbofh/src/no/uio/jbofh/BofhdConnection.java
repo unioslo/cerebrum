@@ -25,25 +25,25 @@
  */
 
 package no.uio.jbofh;
-import org.apache.xmlrpc.XmlRpcException;
-import org.apache.xmlrpc.XmlRpcClient;
-import org.apache.xmlrpc.XmlRpc;
-import org.apache.log4j.Category;
-import java.util.Arrays;
-import java.util.Vector;
-import java.util.Hashtable;
-import java.util.Enumeration;
-import java.util.Date;
-import java.io.*;
-
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Vector;
+
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
+import org.apache.log4j.Category;
+import org.apache.xmlrpc.XmlRpcClient;
+import org.apache.xmlrpc.XmlRpcException;
 
 /**
  * Specialized TrustManager called by the SSLSocket framework when
@@ -53,23 +53,23 @@ class InternalTrustManager implements X509TrustManager {
     static X509Certificate serverCert = null;
 
     InternalTrustManager() throws IOException, CertificateException {
-	readServerCert();
+        readServerCert();
     }
 
     private void readServerCert() throws IOException, CertificateException {
-	InputStream inStream = ResourceLocator.getResource(this, "/cacert.pem").openStream();
-	CertificateFactory cf = CertificateFactory.getInstance("X.509");
-	X509Certificate cert = (X509Certificate)cf.generateCertificate(inStream);
-	inStream.close();
-	serverCert = cert;
+        InputStream inStream = ResourceLocator.getResource(this, "/cacert.pem").openStream();
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        X509Certificate cert = (X509Certificate)cf.generateCertificate(inStream);
+        inStream.close();
+        serverCert = cert;
     }
 
     public void checkClientTrusted( X509Certificate[] cert, String str) {
-	// Not implemented (not called by framework for this client)
+        // Not implemented (not called by framework for this client)
     }
     
     public void checkServerTrusted( X509Certificate[] cert, String str) 
-	throws CertificateException {
+        throws CertificateException {
         Date date = new Date();
         if(cert == null || cert.length == 0)
             throw new IllegalArgumentException("null or zero-length certificate chain");
@@ -108,9 +108,9 @@ class InternalTrustManager implements X509TrustManager {
     }
     
     public X509Certificate[] getAcceptedIssuers() {
-	X509Certificate[] ret = new X509Certificate[1];
-	ret[0] = serverCert;
-	return ret;
+        X509Certificate[] ret = new X509Certificate[1];
+        ret[0] = serverCert;
+        return ret;
     }
 }
 
@@ -134,36 +134,36 @@ public class BofhdConnection {
     }
 
     void connect(String host_url, boolean use_int_trust) {
-	//XmlRpc.setDebug(true);
-	/*
-	  The SecurityTool overrides the default key_store and
-	  trust_store.  The latter is used by the client to validate
-	  the server certificate.
-	 */
-	/*  This works, but requiers server-cert on local filesystem:
-	SecurityTool st = new SecurityTool();
-	st.setTrustStore("jbofh.truststore");
-	try {
-	    st.setup();
-	} catch (Exception e) {
-	    System.out.println("Error setting SecurityTool: "+e);
-	    e.printStackTrace();
-	}
-	*/
-	if(use_int_trust && host_url.startsWith("https:")) {
-	    try {
-		InternalTrustManager tm = new InternalTrustManager();
-		TrustManager []tma = {tm};
-		SSLContext sc = SSLContext.getInstance("SSL");  // TLS?
-		sc.init(null,tma, null);
-		SSLSocketFactory sf1 = sc.getSocketFactory();
-		HttpsURLConnection.setDefaultSSLSocketFactory(sf1);	
-	    } catch (Exception e) {
-		System.out.println("Error setting up SSL cert handling: "+e);
-		e.printStackTrace();
-		System.exit(0);
-	    }
-	}
+        //XmlRpc.setDebug(true);
+        /*
+          The SecurityTool overrides the default key_store and
+          trust_store.  The latter is used by the client to validate
+          the server certificate.
+        */
+        /*  This works, but requiers server-cert on local filesystem:
+            SecurityTool st = new SecurityTool();
+            st.setTrustStore("jbofh.truststore");
+            try {
+            st.setup();
+            } catch (Exception e) {
+            System.out.println("Error setting SecurityTool: "+e);
+            e.printStackTrace();
+            }
+        */
+        if(use_int_trust && host_url.startsWith("https:")) {
+            try {
+                InternalTrustManager tm = new InternalTrustManager();
+                TrustManager []tma = {tm};
+                SSLContext sc = SSLContext.getInstance("SSL");  // TLS?
+                sc.init(null,tma, null);
+                SSLSocketFactory sf1 = sc.getSocketFactory();
+                HttpsURLConnection.setDefaultSSLSocketFactory(sf1);     
+            } catch (Exception e) {
+                System.out.println("Error setting up SSL cert handling: "+e);
+                e.printStackTrace();
+                System.exit(0);
+            }
+        }
         try {
             xmlrpc = new XmlRpcClient(host_url);
             // XmlRpc.setDebug(true);
@@ -215,14 +215,14 @@ public class BofhdConnection {
     }
 
     private String washSingleObject(String str) {
-	if(str.startsWith(":")) {
-	    str = str.substring(1);
-	    if(str.equals("None")) return "<not set>";
-	    if(! (str.substring(0,1).equals(":"))) {
-		System.err.println("Warning: unknown escape sequence: "+str);
-	    }
-	}
-	return str;
+        if(str.startsWith(":")) {
+            str = str.substring(1);
+            if(str.equals("None")) return "<not set>";
+            if(! (str.substring(0,1).equals(":"))) {
+                System.err.println("Warning: unknown escape sequence: "+str);
+            }
+        }
+        return str;
     }
 
     /**
@@ -233,24 +233,24 @@ public class BofhdConnection {
      * @return the washed object
      */
     Object washResponse(Object o) {
-	if(o instanceof Vector) {
-	    Vector ret = new Vector();
-	    for (Enumeration e = ((Vector) o).elements() ; e.hasMoreElements() ;) {
-		ret.add(washResponse(e.nextElement()));
-	    }
- 	    return ret;
-	} else if(o instanceof String) {
-	    return washSingleObject((String) o);
-	} else if(o instanceof Hashtable) {
-	    Hashtable ret = new Hashtable();
+        if(o instanceof Vector) {
+            Vector ret = new Vector();
+            for (Enumeration e = ((Vector) o).elements() ; e.hasMoreElements() ;) {
+                ret.add(washResponse(e.nextElement()));
+            }
+            return ret;
+        } else if(o instanceof String) {
+            return washSingleObject((String) o);
+        } else if(o instanceof Hashtable) {
+            Hashtable ret = new Hashtable();
             for (Enumeration e = ((Hashtable) o).keys (); e.hasMoreElements (); ) {
-		Object key = e.nextElement();
-		ret.put(key, washResponse(((Hashtable) o).get(key)));
-	    }
-	    return ret;
-	} else {
-	    return o;
-	}
+                Object key = e.nextElement();
+                ret.put(key, washResponse(((Hashtable) o).get(key)));
+            }
+            return ret;
+        } else {
+            return o;
+        }
     }
 
     Object sendRawCommand(String cmd, Vector args, int sessid_loc) throws BofhdException {
@@ -289,9 +289,9 @@ public class BofhdConnection {
                 for (int j = v.size()-1; j >= 0; j--) {
                     tmp = v.get(j);
                     if ((tmp instanceof String) && (((String) tmp).charAt(0) == ':')) {
-			tmp = ":"+((String) tmp);
-			v.setElementAt(tmp, j);
-		    }
+                        tmp = ":"+((String) tmp);
+                        v.setElementAt(tmp, j);
+                    }
                     checkSafeString((String) tmp);
                 }
             }
@@ -314,39 +314,39 @@ public class BofhdConnection {
             if(cmd.equals("login")) {
                 logger.debug("sendCommand("+cmd+", ********");
             } else if(cmd.equals("run_command")){
-		Vector cmdDef = (Vector) commands.get(args.get(1));
-		if(cmdDef.size() == 1 || (! (cmdDef.get(1) instanceof Vector))) {
-		    logger.debug("sendCommand("+cmd+", "+args);
-		} else {
-		    Vector protoArgs = (Vector) cmdDef.get(1);
-		    Vector logArgs = new Vector();
-		    logArgs.add(args.get(0));
-		    logArgs.add(args.get(1));
-		    int i = 2;
-		    for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) {
-			if(i >= args.size()) break;
-			Hashtable h = (Hashtable) e.nextElement();
-			String type = (String) h.get("type");
-			if (type != null && type.equals("accountPassword")) {
-			    logArgs.add("********");
-			} else {
-			    logArgs.add(args.get(i));
-			}
-			i++;
-		    }
-		    logger.debug("sendCommand("+cmd+", "+logArgs);
-		}
-	    } else {
-		logger.debug("sendCommand("+cmd+", "+args);
-	    }
+                Vector cmdDef = (Vector) commands.get(args.get(1));
+                if(cmdDef.size() == 1 || (! (cmdDef.get(1) instanceof Vector))) {
+                    logger.debug("sendCommand("+cmd+", "+args);
+                } else {
+                    Vector protoArgs = (Vector) cmdDef.get(1);
+                    Vector logArgs = new Vector();
+                    logArgs.add(args.get(0));
+                    logArgs.add(args.get(1));
+                    int i = 2;
+                    for (Enumeration e = protoArgs.elements() ; e.hasMoreElements() ;) {
+                        if(i >= args.size()) break;
+                        Hashtable h = (Hashtable) e.nextElement();
+                        String type = (String) h.get("type");
+                        if (type != null && type.equals("accountPassword")) {
+                            logArgs.add("********");
+                        } else {
+                            logArgs.add(args.get(i));
+                        }
+                        i++;
+                    }
+                    logger.debug("sendCommand("+cmd+", "+logArgs);
+                }
+            } else {
+                logger.debug("sendCommand("+cmd+", "+args);
+            }
             washCommandArgs(args);
-	    Object r = washResponse(xmlrpc.execute(cmd, args));
-	    logger.debug("<-"+r);
+            Object r = washResponse(xmlrpc.execute(cmd, args));
+            logger.debug("<-"+r);
             return r;
         } catch (XmlRpcException e) {
-	    logger.debug("exception-message: "+e.getMessage());
-	    String match = "Cerebrum.modules.bofhd.errors.";
-	    if(! gotRestart && 
+            logger.debug("exception-message: "+e.getMessage());
+            String match = "Cerebrum.modules.bofhd.errors.";
+            if(! gotRestart && 
                 e.getMessage().startsWith(match+"ServerRestartedError")) {
                 jbofh.initCommands();
                 return sendRawCommand(cmd, args, true, sessid_loc);
@@ -356,11 +356,13 @@ public class BofhdConnection {
                 if (sessid_loc != -1) args.set(sessid_loc, sessid);
                 return sendRawCommand(cmd, args, true, sessid_loc);
             } else if(e.getMessage().startsWith(match)) {
-		throw new BofhdException("Error: "+e.getMessage().substring(e.getMessage().indexOf(":")+1));
-	    } else {
-		logger.debug("err: code="+e.code, e);
-		throw new BofhdException("Error: "+e.getMessage());
-	    }
+                String msg = e.getMessage().substring(e.getMessage().indexOf(":")+1);
+                if(msg.startsWith("CerebrumError: ")) msg = msg.substring(msg.indexOf(":")+2);
+                throw new BofhdException("Error: "+msg);
+            } else {
+                logger.debug("err: code="+e.code, e);
+                throw new BofhdException("Error: "+e.getMessage());
+            }
         } catch (IOException e) {
             logger.error("IO", e);
             throw new BofhdException("Server error: "+e);

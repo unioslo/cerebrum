@@ -21,6 +21,8 @@
 package no.uio.jbofh;
 
 public class BofhdException extends Exception {
+    private static final long serialVersionUID = 1L;
+
     public BofhdException (String message) {
         super (message);
     }
