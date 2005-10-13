@@ -45,7 +45,7 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.makeEmail()
         #self.makeRoles()
         #self.makeSpread()
-        self.makeOptions()
+        #self.makeOptions()
         self.makeLogout()
 
     def makeMain(self):
