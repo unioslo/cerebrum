@@ -171,3 +171,4 @@ def delete(req, transaction, id):
     queue_message(req, "Host successfully deleted.")
 delete = transaction_decorator(delete)
 
+# arch-tag: 6d5f8060-3bf4-11da-96a8-c359dfc6e774

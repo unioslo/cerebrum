@@ -185,3 +185,4 @@ def delete(req, transaction, id):
     queue_message(req, "Disk successfully deleted.")
 delete = transaction_decorator(delete)
 
+# arch-tag: 6cf3413e-3bf4-11da-9d43-c8c980cc74d7
