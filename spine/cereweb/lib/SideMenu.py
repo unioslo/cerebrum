@@ -42,9 +42,9 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.makeAccount()
         self.makeGroup()
         self.makeOU()
+        self.makeHost()
+        self.makeDisk()
         self.makeEmail()
-        #self.makeRoles()
-        #self.makeSpread()
         #self.makeOptions()
         self.makeLogout()
 
@@ -81,6 +81,22 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.ou.addItem("view", _("View") ,"ou/view?id=%s")
         self.ou.addItem("edit", _("Edit") ,"ou/edit?id=%s")
     
+    def makeHost(self):
+        self.host = self.addItem("host", _("Host"), "host")
+        self.host.addItem("search", _("Search"), "host")
+        self.host.addItem("list", _("List"), "host/list")
+        self.host.addItem("create", _("Create"), "host/create")
+        self.host.addItem("view", _("View"), "host/view?id=%s")
+        self.host.addItem("edit", _("Edit"), "host/edit?id=%s")
+
+    def makeDisk(self):
+        self.disk = self.addItem("disk", _("Disk"), "disk")
+        self.disk.addItem("search", _("Search"), "disk")
+        self.disk.addItem("list", _("List"), "disk/list")
+        self.disk.addItem("create", _("Create"), "disk/create")
+        self.disk.addItem("view", _("View"), "disk/view?id=%s")
+        self.disk.addItem("edit", _("Edit"), "disk/edit?id=%s")
+        
     def makeEmail(self):    
         self.email = self.addItem("email", _("Email") ,"email")
         domain = self.email.addItem("domain", _("Domain") ,"emaildomain")
@@ -94,21 +110,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         target.addItem("create", _("Create"), "emailtarget/create")
         target.addItem("view", _("View"), "emailtarget/view?id=%s")
         target.addItem("edit", _("Edit"), "emailtarget/edit?id=%s")
-
-
-    def makeRoles(self):
-        self.roles = self.addItem("roles", _("Roles") ,"roles")
-        self.roles.addItem("search", _("Search") ,"roles/search")
-        self.roles.addItem("list", _("List") ,"roles/list")
-        self.roles.addItem("view", _("View") ,"roles/view?id=%s")
-        self.roles.addItem("edit", _("Edit") ,"roles/edit?id=%s")
-
-    def makeSpread(self):
-        self.spread = self.addItem("spread", _("Spread") ,"spread")
-        self.spread.addItem("search", _("Search") ,"spread/search")
-        self.spread.addItem("list", _("List") ,"spread/list")
-        self.spread.addItem("view", _("View") ,"spread/view?id=%s")
-        self.spread.addItem("edit", _("Edit") ,"spread/edit?id=%s")
 
     def makeOptions(self):
         self.options = self.addItem("options", _("Options") ,"options")

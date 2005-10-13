@@ -1,0 +1,62 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.utils import url
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## Lines with info about the form, used with the function showHelp().
+#attr $help = [""]
+
+## Creates the content on the host edit page.
+#def editHost($host)
+<div class="person">
+    $form($host)
+</div>
+#end def
+
+## Action to go to when the form is submitted.
+#def getAction
+    #return $url("host/save")
+#end def
+
+## Creates the form for editing the main host info.
+#def form($host)
+<div class="edit">
+    <div class="subtitle">
+        <h3>$_("General hostinfo"):</h3>
+    </div>
+    <form action="$getAction()" method="POST">
+        <div class="editform">
+            $form_widgets.input("name", "Name", $host.get_name())
+            $form_widgets.input("description", "Description", $host.get_description())
+            <input type="hidden" name="id" value="$host.get_id()" />
+        </div>
+        $form_widgets.showHelp($help)
+        <div>
+            <center>
+                <input type="submit" value="Save" />&nbsp;
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+

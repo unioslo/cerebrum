@@ -36,6 +36,8 @@ def remember_args(object):
                 break
         if not name_str:
             name_str = 'Not available'
+    elif type == 'Disk':
+        name_str = object.get_path()
     else:
         name_str = object.get_name()
 
