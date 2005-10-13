@@ -68,4 +68,16 @@ def authenticate(self, password):
 
 Account.register_method(Method('authenticate', bool, [('password', str)]), authenticate)
 
+def set_password(self, password):
+    """Set the accounts password.
+    
+    Updates all account_authentication entries with an
+    encrypted version of the plaintext password.
+    """
+    obj = self._get_cerebrum_obj()
+    obj.set_password(password)
+    obj.write_db()
+
+Account.register_method(Method('set_password', None, [('password', str)], write=True), set_password)
+
 # arch-tag: bf5c4d34-78c1-4874-83d3-8f2fc44c75d9

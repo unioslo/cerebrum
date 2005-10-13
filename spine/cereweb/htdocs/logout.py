@@ -18,14 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import md5
-import time
-
-import forgetHTML as html
-
 from Cereweb.utils import url, redirect
-from Cereweb.Session import Session
-import Cereweb.SpineClient
 
 def index(req):
     req.session.remove()

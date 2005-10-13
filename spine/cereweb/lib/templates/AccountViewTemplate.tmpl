@@ -33,11 +33,31 @@
 <div>
     $viewAccountInfo($account)
     $HomeDirectoryTemplate().view($account, $transaction, $addHome)
+    $password($account)
     $groups($account)
     $join_group($account, $transaction)
     $email.entity_email($transaction, $account)
     $view_entity($account, $transaction)
 </div>
+#end def
+
+#def password($account)
+    #set $auths = $account.get_authentications()
+    <div class="personnames">
+        <h2>$_("Passwords"):</h2>
+        $_('Current authentication types'):<br />
+        #for $auth in $auths
+        <div class="name">
+            <em>$auth.get_method().get_name()</em>
+        </div>
+        #end for
+        <form action="$url('account/set_password')" type="post">
+            $_('Set passwords'):<br />
+            <input type="hidden" name="id" value="$account.get_id()" />
+            <input type="password" name="password" />
+            <input type="submit" value="$_('Set')" />
+        </form>
+    </div>
 #end def
 
 #def groups($account)

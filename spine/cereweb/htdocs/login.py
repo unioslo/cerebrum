@@ -29,8 +29,8 @@ import Cereweb.SpineClient
 from Cereweb.templates.Login import Login
 
 def index(req, username='', password='', redirect=utils.url('/index')):
-    error = username
-    if username:
+    error = None
+    if username and password:
         error = "Login"
         try:
             spine = Cereweb.SpineClient.connect()
