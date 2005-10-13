@@ -33,7 +33,7 @@ def add_external_id(req, transaction, id, external_id, id_type):
     entity = transaction.get_entity(int(id))
     id_type = transaction.get_entity_external_id_type(id_type)
     source_system = transaction.get_source_system("Manual")
-    entity.add_external_id(external_id, id_type, source_system)
+    entity.set_external_id(external_id, id_type, source_system)
 
     #TODO: Redirect to where we actualy came from.
     redirect_object(req, entity, seeOther=True)

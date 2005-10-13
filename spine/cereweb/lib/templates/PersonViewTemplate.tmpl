@@ -47,9 +47,12 @@ $view_entity($person, $transaction)
         <h3>$_("General personinfo"):</h3>
     </div>
     <div>
-    #if $person.get_deceased()
+    #if $person.get_deceased_date()
         <div class="info">
             <strong class="deceased">$_("Person is deceased")</strong>
+        </div>
+        <div class="info">
+            <em>$_("Deceased date"):</em> $person.get_deceased_date().strftime("%Y-%m-%d")
         </div>
     #end if
         <div class="info">

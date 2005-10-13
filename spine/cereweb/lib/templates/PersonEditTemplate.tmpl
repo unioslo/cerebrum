@@ -24,7 +24,8 @@
 #attr $form_widgets = FormWidgets()
 
 ## Lines with info about the form, used with the function showHelp().
-#attr $help = ["* Birthdate: YYYY-MM-DD"]
+#attr $help = ["* Birthdate: YYYY-MM-DD",
+               "* Deceased date: YYYY-MM-DD"]
 
 ## Creates the content on the person edit page.
 #def editPerson($person, $genders)
@@ -51,7 +52,9 @@
             #set $date = $person.get_birth_date().strftime("%Y-%m-%d")
             $form_widgets.input("birthdate", "Birthdate *", $date)
             $form_widgets.input("description", "Description", $person.get_description())
-            $form_widgets.boolWidget("deceased", "Deceased", $person.get_deceased())
+            #set $deceased = $person.get_deceased_date()
+            #set $deceased = $deceased and $deceased.strftime("%Y-%m-%d") or ""
+            $form_widgets.input("deceased", "Deceased date *", $deceased)
             <input type="hidden" name="id" value="$person.get_id()" />
         </div>
         $form_widgets.showHelp($help)

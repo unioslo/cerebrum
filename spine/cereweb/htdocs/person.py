@@ -217,26 +217,24 @@ def create(req, transaction, name="", gender="", birthdate="", description=""):
     return page
 create = transaction_decorator(create)
 
-def save(req, transaction, id, gender, birthdate, deceased, description=""):
+def save(req, transaction, id, gender, birthdate, deceased="", description=""):
     """Store the form for editing a person into the database."""
     person = transaction.get_person(int(id))
-    
-    if deceased == "True":
-        deceased = True
-    else:
-        deceased = False
     
     person.set_gender(transaction.get_gender_type(gender))
     person.set_birth_date(transaction.get_commands().strptime(birthdate, "%Y-%m-%d"))
     person.set_description(description)
-    a=person.get_deceased()
-    person.set_deceased(deceased)
     
-    b=person.get_deceased()
+    if deceased:
+        deceased = transaction.get_commands().strptime(deceased, "%Y-%m-%d")
+    else:
+        deceased = transaction.get_commands().get_date_none()
+        
+    person.set_deceased_date(deceased)
     
     redirect_object(req, person, seeOther=True)
     transaction.commit()
-    queue_message(req, _("Person successfully updated. %s, %s, %s" % (a,b,deceased)))
+    queue_message(req, _("Person successfully updated."))
 save = transaction_decorator(save)
 
 def make(req, transaction, name, gender, birthdate, description=""):
