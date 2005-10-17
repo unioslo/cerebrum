@@ -25,9 +25,11 @@ class SubNetDef(object):
             return range(start, start+10) + [start+255, start+256] + \
                    [start+255*2+1, start+255*2+2] + [stop]
         elif self.mask == 23:
-            return range(start, start+10) + [start+255, start+256] +  [stop]
+            return range(start, start+10) + range(start+100, start+121) + \
+                   [start+255, start+256] +  [stop]
         elif self.mask == 24:
-            return range(start, start+10) + [stop]
+            return range(start, start+10) + range(start+100, start+121) + \
+                   [stop]
         elif self.mask == 25:
             return range(start, start+8) + [stop]
         elif self.mask == 26:
