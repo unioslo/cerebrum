@@ -788,19 +788,26 @@ class CleanPersons(object):
         remove = []
         fs_lt = (int(co.system_lt), int(co.system_fs))
         for pid, names in pid2names.items():
-            systems = [int(row['source_system']) for row in names]
+            systems = dict([(int(row['source_system']), 0)
+                            for row in names]).keys()
             logger.debug("check_name pid=%s, sys=%s" % (pid, systems))
+            remove_sys = []
             if int(co.system_ureg) in systems and [
                 s for s in systems if s in fs_lt]:
                 # Har FS/LT, kaster ureg
-                remove.append(names[systems.index(int(co.system_ureg))])
+                remove_sys.append(int(co.system_ureg))
 
             if len([s for s in systems if s in fs_lt]) == 2:
                 # kast > 30 dager gamle navn hvis et kildesystem er gammelt
                 if self.pid2src_sys_age[pid].get(fs_lt[0], 1) > 30:
-                    remove.append(names[systems.index(fs_lt[0])])
+                    remove_sys.append(fs_lt[0])
                 elif self.pid2src_sys_age[pid].get(fs_lt[1], 1) > 30:
-                    remove.append(names[systems.index(fs_lt[1])])
+                    remove_sys.append(fs_lt[1])
+            for s in remove_sys:
+                for row in names:
+                    if int(row['source_system']) == s:
+                        remove.append(row)
+                        
         for row in remove:
             log_rem.person_name(row['person_id'], row['name_variant'],
                                 row['source_system'])
@@ -912,7 +919,7 @@ class CleanUsers(object):
             invalid_ac_affs = []
             for ac_aff in affs:
                 if [p for p in valid_paffs
-                    if p.ou == ac_aff.ou and p.aff == ac_aff.ou]:
+                    if p.ou == ac_aff.ou and p.aff == ac_aff.aff]:
                     valid_ac_affs.append(ac_aff)
                 else:
                     invalid_ac_affs.append(ac_aff)
@@ -963,16 +970,27 @@ class CleanQuarantines(object):
     def run(self):
         logger.debug("Starting CleanQuarantines.run")
         date_threshold = DateTime.now() - DateTime.DateTimeDelta(30)
+        def filter_rows(rows):
+            ret = []
+            for row in rows:
+                if (row['end_date'] is not None and
+                    row['end_date'] < date_threshold):
+                    ret.append(row)
+            return ret
         eq = Entity.EntityQuarantine(db)
-        for row in eq.list_entity_quarantines():
-            if (row['end_date'] is not None and
-                row['end_date'] < date_threshold):
+        # We use a two-step aproach as list_entity_quarantines don't
+        # return enough data
+        entity_ids = dict([(int(row['entity_id']), None) for row in
+                           filter_rows(eq.list_entity_quarantines())])
+        for entity_id in entity_ids.keys():
+            eq.clear()
+            eq.find(entity_id)
+            for row in filter_rows(eq.get_entity_quarantine()):
                 log_rem.del_entity_quarantine(
                     row['entity_id'], row['quarantine_type'],
                     row['creator_id'], row['description'],
                     row['create_date'], row['start_date'],
                     row['disable_until'], row['end_date'])
-                eq.clear()
                 eq.delete_entity_quarantine(row['quarantine_type'])
         db.commit()
 
