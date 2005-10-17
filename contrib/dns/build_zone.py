@@ -122,7 +122,8 @@ class ForwardMap(object):
         logger.debug("Getting zone data")
         self._get_zone_data()
         logger.debug("done getting zone data")
-        
+        self.__lc_delta = lc_delta
+      
     def _get_zone_data(self):
         # ARecord has key=a_record_id
         # HostInfo, SrvRecord has key=dns_owner_id
@@ -170,7 +171,7 @@ class ForwardMap(object):
         logger.debug("Generating zone file")
         status_fname = os.path.join(data_dir, os.path.basename(fname)+".status")
         f = Utils.SimilarSizeWriter(status_fname, "w")
-        f.set_size_change_limit(10)
+        f.set_line_count_change_limit(self.__lc_delta)
 
         order = self.a_records.keys()
         order.sort(lambda x,y: int(self.a_records[x]['ipnr'] - self.a_records[y]['ipnr']))
@@ -266,6 +267,7 @@ class ReverseMap(object):
         self.__prev_origin = self.__net2origin(net)
         self.zu = ZoneUtils(None, self.__prev_origin,
                             lc_delta=lc_delta)
+        self.__lc_delta = lc_delta
     
     def _get_reverse_data(self, start, stop):
         for row in IPNumber.IPNumber(db).list(start=start, stop=stop):
@@ -287,7 +289,7 @@ class ReverseMap(object):
     def generate_reverse_file(self, fname, heads, data_dir):
         status_fname = os.path.join(data_dir, os.path.basename(fname)+".status")
         f = Utils.SimilarSizeWriter(status_fname, "w")
-        f.set_size_change_limit(10)
+        f.set_line_count_change_limit(self.__lc_delta)
 
         order = self.ip_numbers.keys()
         order.sort(lambda x,y: int(self.ip_numbers[x]['ipnr'] - self.ip_numbers[y]['ipnr']))
@@ -320,6 +322,7 @@ class HostsFile(object):
     def __init__(self, zone, lc_delta):
         self._zone = zone
         self.zu = ZoneUtils(zone, lc_delta=lc_delta)
+        self.__lc_delta = lc_delta
 
     def _exp_name(self, name):
         """Returns name name.uio.no or only FQDN if name is from
@@ -331,8 +334,8 @@ class HostsFile(object):
     
     def generate_hosts_file(self, fname):
         f = Utils.SimilarSizeWriter(fname, "w")
-        f.set_size_change_limit(10)
-        fm = ForwardMap(self._zone)
+        f.set_line_count_change_limit(self.__lc_delta)
+        fm = ForwardMap(self._zone, self.__lc_delta)
         order = fm.a_records.keys()
         order.sort(lambda x,y: int(fm.a_records[x]['ipnr'] - fm.a_records[y]['ipnr']))
 
