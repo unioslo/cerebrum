@@ -361,10 +361,50 @@ def populate_SAP_misc(person, fields, const):
     fo_kode_internal = int(SAPForretningsOmradeKode(fo_kode_external))
     person.populate_forretningsomrade(fo_kode_internal)
     logger.debug("Populated fo_kode for person_id %s with %s",
-                 person.entity_id, fo_kode_external)
-    
+                 person.entity_id, fo_kode_external)    
 # end populate_SAP_misc
 
+
+
+def add_person_to_group(group, person, fields, const):
+    """
+    Check if person should be visible in catalogs like LDAP or not. If
+    latter, add the person to a group specified in cereconf.    
+    """
+    
+    # Test if person should be visible in catalogs like LDAP
+    x = fields[36].strip()
+    if not x or x == 'Kan publiseres':
+        return
+    
+    # person should not be visible. Add person to group 
+    try:
+        group_name = cereconf.HIDDEN_PERSONS_GROUP
+        group.find_by_name(group_name)
+    except AttributeError::
+        logger.warn("Cannot add person to group. " +
+                    "Group name not set in cereconf.")
+        return
+    except Errors.NotFoundError:
+        logger.warn("Could not find group with name %s" % group_name)
+        return
+        
+    group_operator = const.group_memberop_union
+    if group.has_member(person.entity_id, person.entity_type, group_operator):
+        logger.info("Person %s is already member of group %s" % (
+            person.get_name(const.system_cached, const.name_full) , group_name))
+        return
+    try:
+        group.add_member(person.entity_id, person.entity_type, group_operator)
+    except:
+        logger.warn("Could not add person %s to group %s" % (
+            person.get_name(const.system_cached, const.name_full), group_name))
+        return
+
+    logger.info("OK, added %s to group %s" % (
+        person.get_name(const.system_cached, const.name_full), group_name))
+# end add_person_to_group
+    
 
 
 def process_people(filename, db):
@@ -376,6 +416,7 @@ def process_people(filename, db):
 
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")(db)
+    group = Factory.get("Group")(db)
 
     stream = open(filename, "r")
     for entry in stream:
@@ -404,8 +445,13 @@ def process_people(filename, db):
 
         populate_SAP_misc(person, fields, const)
 
+        # Some persons should be not be visible in catalogs like LDAP.
+        # Add them to a group specified in cereconf
+        add_person_to_group(group, person, fields, const)
+
         # Sync person object with the database
         person.write_db()
+
     # od  
 # end process_people
 
