@@ -218,7 +218,9 @@ class BofhdExtension(object):
              'Enter the host name for this operation'],
             'host_name_repeat':
             ['host_name_repeat', 'Enter host name(s)',
-             'Multiple hostnames may be entered like pcusit[01..30]'],
+             'To specify 20 names starting at pcusitN+1, where N is '
+             'the highest currently existing number, use pcusit#20.  To '
+             'get the names pcusit20 to pcusit30 use pcusit#20-30.'],
             'service_name':
             ['service_name', 'Enter service name',
              'Enter the service name for this operation'],

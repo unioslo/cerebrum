@@ -330,11 +330,17 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
         self.__super.delete()
 
     def list(self):
+        return self.search()
+
+    def search(self, name_like=None):
+        if name_like is not None:
+            where = "AND en.entity_name like :name_like"
         return self.query("""
         SELECT dns_owner_id, mx_set_id, en.entity_name AS name
         FROM [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
-        WHERE d.dns_owner_id=en.entity_id""")
+        WHERE d.dns_owner_id=en.entity_id %s""" % where,
+                          {'name_like': name_like})
 
     # TBD: Should we have the SRV methods in a separate class?  The
     # methods are currently not connected with the object in any way.

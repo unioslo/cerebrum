@@ -72,15 +72,48 @@ class DnsParser(object):
         return False
 
     def parse_hostname_repeat(self, name):
-        """Handles names like pcusit[01..30]"""
-        
-        m = re.search(r'(.*)\[(\d+)\.\.(\d+)]', name)
+        """Handles multiple hostnames with the same prefix and a
+        numeric suffix.  We have these variants:
+
+        - pcubit#20 = start at the highest existing pcubit+1 and
+          return the next 20 names.
+        - pcubit#20-30 = return the names pcubit20 .. pcubit30
+
+        Use multiple # to provide leading zeros.  We do not assert that the
+        specified name does not exist (relevant for the #\d-\d syntax).
+        """
+        def find_last_startnum(prefix):
+            ret = 0
+            like_str = '%s%%%s' % (prefix, self._default_zone.postfix)
+            re_num = re.compile(like_str.replace('%', '(\d+)'))
+            for row in self._dns_owner.search(name_like=like_str):
+                m = re_num.search(row['name'])
+                if m:
+                    if ret < int(m.group(1)):
+                        ret = int(m.group(1))
+            return ret
+
+        m = re.search(r'(.*?)(#+)(.*)', name)
         if not m:
             return [name]
         ret = []
-        fill = str(len(m.group(2)))      # Leading zeroes
-        for n in range(int(m.group(2)), int(m.group(3))+1):
-            ret.append(("%s%0"+fill+"i") % (m.group(1), n))
+        fill = str(len(m.group(2)))
+        if not m.group(3):
+            num = [1]
+        else:
+            try:
+                num = [int(x) for x in m.group(3).split('-')]
+            except ValueError, msg:
+                raise CerebrumError, "error parsing number: %s" % msg
+        if len(num) == 2:
+            for n in range(num[0], num[1]+1):
+                ret.append(("%s%0"+fill+"i") % (m.group(1), n))
+        else:
+            start = find_last_startnum(m.group(1)) + 1
+            for n in range(start, start+num[0]):
+                ret.append(("%s%0"+fill+"i") % (m.group(1), n))
+        if not ret:
+            raise CerebrumError, "'%s' gives no IPs" % name
         return ret
 
     def qualify_hostname(self, name):
@@ -181,6 +214,8 @@ class Find(object):
 
         # TODO: handle idtype:id syntax
         
+        if not host_id:
+            raise CerebrumError, "Expected hostname/ip, found empty string"
         tmp = host_id.split(".")
         if tmp[-1].isdigit():
             # It is an IP-number
@@ -206,7 +241,7 @@ class Find(object):
         try:
             self._dns_owner.find_by_name(host_id)
         except Errors.NotFoundError:
-            raise CerebrumError, "Could not find dns-owner: %s" % host_id
+            raise CerebrumError, "'%s' does not exist" % host_id
         
         if target_type == dns.DNS_OWNER:
             return self._dns_owner.entity_id
