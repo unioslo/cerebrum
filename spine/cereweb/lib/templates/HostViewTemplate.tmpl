@@ -1,0 +1,53 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from Cereweb.utils import url
+#from Cereweb.WorkList import remember_link
+#extends EntityViewTemplate
+
+## Main method for creating the host view page.
+#def viewHost($transaction, $host)
+<div>
+    $hostInfo($host)
+</div>
+$view_entity($host, $transaction)
+#end def
+
+## View information about host (name and description).
+#def hostInfo($host)
+<div class="viewinfo">
+    <div class="subtitle">
+        <h3>$_("General hostinfo"):</h3>
+    </div>
+    <div>
+        <div class="info">
+            <em>$_("Name"):</em> $host.get_name()
+        </div>
+        <div class="info">
+            <em>$_("Description"):</em> $host.get_description()
+        </div>
+    </div>
+    <div class="actions">
+        #set $id = $host.get_id()
+        <a href="$url('host/edit?id=%s' % $id)">$_("edit host")</a>
+        <a href="$url('host/delete?id=%s' % $id)">$_("delete host")</a>
+        $remember_link($host)
+    </div>
+</div>
+#end def
+
