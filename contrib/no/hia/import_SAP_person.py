@@ -381,7 +381,7 @@ def add_person_to_group(group, person, fields, const):
     try:
         group_name = cereconf.HIDDEN_PERSONS_GROUP
         group.find_by_name(group_name)
-    except AttributeError::
+    except AttributeError:
         logger.warn("Cannot add person to group. " +
                     "Group name not set in cereconf.")
         return
