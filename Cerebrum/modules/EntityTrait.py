@@ -141,3 +141,5 @@ class EntityTrait(Entity):
                target_id, date, numval, strval
         FROM [:table schema=cerebrum name=entity_trait]
         WHERE code=:code""", {'code': int(code)})
+
+# arch-tag: a834dc20-402d-11da-9b87-c30b16468bb4

@@ -110,3 +110,6 @@ CREATE TABLE entity_trait (
   CONSTRAINT entity_trait_code FOREIGN KEY (code, entity_type)
     REFERENCES entity_trait_code(code, entity_type)
 );
+
+/* arch-tag: a89ee3d6-402d-11da-918e-deb74c10f080
+   (do not change this comment) */
