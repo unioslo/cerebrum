@@ -3302,6 +3302,15 @@ class BofhdExtension(object):
         host = self._get_host(hostname)
         self.ba.can_remove_disk(operator.get_entity_id(), host)
         disk = self._get_disk(diskname, host_id=host.entity_id)[0]
+        # FIXME: We assume that all destination_ids are entities,
+        # which would ensure that the disk_id number can't represent a
+        # different kind of entity.  The database does not constrain
+        # this, however.
+        br = BofhdRequests(self.db, self.const)
+        if br.get_requests(destination_id=disk.entity_id):
+            raise CerebrumError, ("There are pending requests. Use "+
+                                  "'misc list_requests disk %s' to view "+
+                                  "them.") % diskname
         account = self.Account_class(self.db)
         for row in account.list_account_home(disk_id=disk.entity_id,
                                              filter_expired=False):
@@ -3591,6 +3600,7 @@ class BofhdExtension(object):
                         'args': r['state_data'],
                         'id': r['request_id']
                         })
+        ret.sort(lambda a,b: cmp(a['id'], b['id']))
         return ret
 
     all_commands['misc_cancel_request'] = Command(
