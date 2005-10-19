@@ -205,7 +205,7 @@ class LT(object):
         FROM
           lt.gjest
         WHERE
-          NVL(dato_til, SYSDATE) >= SYSDATE + 14
+          NVL(dato_til, SYSDATE) >= SYSDATE - 14
         """
 
         return self.db.query(qry)
