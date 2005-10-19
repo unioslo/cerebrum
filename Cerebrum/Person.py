@@ -300,12 +300,38 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         self.__in_db = True
         self.__updated = []
 
+    def list_persons_by_name(self, name, name_variant=None, source_system=None,
+                             return_name=False, case_sensitive=True):
+        """List persons and name with matching name.  A person may
+        occur more than once if return_name is True and he/she has
+        several matching names."""
+        if case_sensitive:
+            where = "name LIKE :name"
+        else:
+            name = name.lower()
+            where = "LOWER(name) LIKE :name"
+        if name_variant is not None:
+            name_variant = int(name_variant)
+            where += " AND name_variant = :name_variant"
+        if source_system is not None:
+            source_system = int(source_system)
+            where += " AND source_system = :source_system"
+        attrs = "person_id"
+        if return_name:
+            attrs += ", name"
+        return self.query("""
+        SELECT DISTINCT %s
+        FROM [:table schema=cerebrum name=person_name]
+        WHERE %s
+        ORDER BY person_id""" % (attrs, where), locals())
+
+    # FIXME: these find_* functions should be renamed list_*
     def find_persons_by_bdate(self, bdate):
         return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
         WHERE to_date(birth_date, 'YYYY-MM-DD')=:bdate""", locals())
 
-
+    # Obsolete, use list_persons_by_name instead.
     def find_persons_by_name(self, name, case_sensitive=True):
         if case_sensitive:
             where = "name LIKE :name"
