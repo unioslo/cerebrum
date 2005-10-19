@@ -4110,12 +4110,13 @@ class BofhdExtension(object):
         ("person", "find"), PersonSearchType(), SimpleString(),
         SimpleString(optional=True),
         fs=FormatSuggestion("%6i   %10s   %-12s  %s",
-                            ('id', format_day('birth'), 'export_id', 'name'),
+                            ('id', format_day('birth'), 'account', 'name'),
                             hdr="%6s   %10s   %-12s  %s" % \
-                            ('Id', 'Birth', 'Exp-id', 'Name')))
+                            ('Id', 'Birth', 'Account', 'Name')))
     def person_find(self, operator, search_type, value, filter=None):
         # TODO: Need API support for this
         matches = []
+        idcol = 'person_id'
         if search_type == 'person_id':
             person = self._get_person(*self._map_person_id(value))
             matches = [{'person_id': person.entity_id}]
@@ -4123,18 +4124,23 @@ class BofhdExtension(object):
             person = Utils.Factory.get('Person')(self.db)
             person.clear()
             if search_type == 'name':
-                if len(value.strip()) < 2:
+                if len(value.strip(" \t%_")) < 3:
                     raise CerebrumError, \
-                          "You have to specify at least two letters of the name"
+                          "You must specify at least three letters of the name"
                 if '%' not in value and '_' not in value:
                     # Add wildcards to start and end of value.
                     value = '%' + value + '%'
-                matches = person.find_persons_by_name(value,
-                          case_sensitive=(value != value.lower()))
+                matches = person.list_persons_by_name(
+                    value,
+                    name_variant=self.const.name_full,
+                    source_system=self.const.system_cached,
+                    return_name=True,
+                    case_sensitive=(value != value.lower()))
             elif search_type == 'fnr':
                 matches = person.list_external_ids(
                     id_type=self.const.externalid_fodselsnr,
                     external_id=value)
+                idcol = 'entity_id'
             elif search_type == 'date':
                 matches = person.find_persons_by_bdate(self._parse_date(value))
             elif search_type == 'stedkode':
@@ -4150,25 +4156,44 @@ class BofhdExtension(object):
                 raise CerebrumError, "Unknown search type (%s)" % search_type
         ret = []
         seen = {}
+        person = Utils.Factory.get('Person')(self.db)
+        acc = self.Account_class(self.db)
         for row in matches:
             # We potentially get multiple rows for a person when
             # s/he has more than one source system or affiliation.
-            col = 'entity_id'
-            if not row.has_key(col):
-                col = 'person_id'
-            if row[col] in seen:
+            p_id = row[idcol]
+            if p_id in seen:
                 continue
-            seen[row[col]] = True
-            person = self._get_person('entity_id', row[col])
-            pname = person.get_name(self.const.system_cached,
-                                    getattr(self.const,
-                                            cereconf.DEFAULT_GECOS_NAME))
+            seen[p_id] = True
+            person.clear()
+            person.find(p_id)
+            if row.has_key('name'):
+                pname = row['name']
+            else:
+                pname = person.get_name(self.const.system_cached,
+                                        getattr(self.const,
+                                                cereconf.DEFAULT_GECOS_NAME))
+
+            # Person.get_primary_account will not return expired
+            # users.  Account.get_account_types will return the
+            # primary account for the user, but it might be expired,
+            # so further filtering should be done if a "perfect"
+            # result is required.
+            accounts = acc.get_account_types(owner_id=p_id,
+                                             filter_expired=False)
+            if accounts:
+                acc.clear()
+                acc.find(accounts[0]['account_id'])
+                account_name = acc.account_name
+            else:
+                account_name = "<none>"
             # Ideally we'd fetch the authoritative last name, but
             # it's a lot of work.  We cheat and use the last word
             # of the name, which should work for 99.9% of the users.
-            ret.append({'id': row[col],
+            ret.append({'id': p_id,
                         'birth': person.birth_date,
                         'export_id': person.export_id,
+                        'account': account_name,
                         'name': pname,
                         'lastname': pname.split(" ")[-1] })
         ret.sort(lambda a,b: (cmp(a['lastname'], b['lastname']) or
