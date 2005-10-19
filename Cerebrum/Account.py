@@ -729,15 +729,19 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
           SELECT 'foo' FROM [:table schema=cerebrum name=entity_spread] es
           WHERE es.entity_id=ai.account_id)""")
 
-    def list_accounts_by_owner_id(self, owner_id, filter_expired=True):
-        """Return a list of account-ids, or None if none found"""
-        where = "owner_id = :o_id"
+    def list_accounts_by_owner_id(self, owner_id, owner_type=None,
+                                  filter_expired=True):
+        """Return a list of account-ids, or None if none found."""
+        if owner_type is None:
+            owner_type = self.const.entity_person
+        where = "owner_id = :o_id AND owner_type = :o_type"
         if filter_expired:
             where += " AND (expire_date IS NULL OR expire_date > [:now])"
         return self.query("""
             SELECT account_id
             FROM [:table schema=cerebrum name=account_info]
-            WHERE """ + where, {'o_id': owner_id})
+            WHERE """ + where, {'o_id': int(owner_id),
+                                'o_type': int(owner_type)})
 
     def list_account_authentication(self, auth_type=None, filter_expired=True):
         if auth_type == None:
