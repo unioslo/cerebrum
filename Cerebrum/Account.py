@@ -34,8 +34,7 @@ import re
 import mx
 
 from Cerebrum import Utils
-from Cerebrum.Entity import \
-     Entity, EntityName, EntityQuarantine
+from Cerebrum.Entity import EntityName, EntityQuarantine
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.Database import Errors
 import cereconf
@@ -345,7 +344,9 @@ class AccountHome(object):
         WHERE ah.homedir_id=ahd.homedir_id AND ah.account_id=:account_id""",
                             {'account_id': self.entity_id})
 
-class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
+Entity_class = Utils.Factory.get("Entity")
+class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
+              Entity_class):
 
     __read_attr__ = ('__in_db', '__plaintext_password'
                      # TODO: Get rid of these.
@@ -383,7 +384,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine, Entity):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity.populate(self, self.const.entity_account)
+            Entity_class.populate(self, self.const.entity_account)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.

@@ -22,10 +22,11 @@
 """
 
 import cereconf
-from Cerebrum.Entity import Entity
+from Cerebrum.Utils import Factory
 
+Entity_class = Factory.get("Entity")
 
-class Disk(Entity):
+class Disk(Entity_class):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('host_id', 'path', 'description')
 
@@ -40,7 +41,7 @@ class Disk(Entity):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity.populate(self, self.const.entity_disk)
+            Entity_class.populate(self, self.const.entity_disk)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.
@@ -228,7 +229,7 @@ class Disk(Entity):
             {'spread': spread, 'entity_type': int(self.const.entity_disk),
              'host_id': host_id, 'path': path, 'description': description})
         
-class Host(Entity):
+class Host(Entity_class):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'description')
 
@@ -243,7 +244,7 @@ class Host(Entity):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity.populate(self, self.const.entity_host)
+            Entity_class.populate(self, self.const.entity_host)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.

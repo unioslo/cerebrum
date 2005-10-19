@@ -30,7 +30,7 @@ import mx
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Entity import Entity, EntityName, EntityQuarantine
+from Cerebrum.Entity import EntityName, EntityQuarantine
 try:
     from sets import Set
 except ImportError:
@@ -38,8 +38,8 @@ except ImportError:
     # work fine in 2.2  
     from Cerebrum.extlib.sets import Set
 
-
-class Group(EntityQuarantine, EntityName, Entity):
+Entity_class = Utils.Factory.get("Entity")
+class Group(EntityQuarantine, EntityName, Entity_class):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',
@@ -59,7 +59,7 @@ class Group(EntityQuarantine, EntityName, Entity):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity.populate(self, self.const.entity_group)
+            Entity_class.populate(self, self.const.entity_group)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.
@@ -184,7 +184,7 @@ class Group(EntityQuarantine, EntityName, Entity):
             self._db.log_change(self.entity_id, self.const.group_destroy, None)
         # Class Group is a core class; when its delete() method is
         # called, the underlying Entity object is also removed.
-        Entity.delete(self)
+        Entity_class.delete(self)
 
 ## TBD: Do we really need __eq__ methods once all Entity subclass
 ## instances properly keep track of their __updated attributes?
@@ -244,7 +244,7 @@ class Group(EntityQuarantine, EntityName, Entity):
 
     def validate_member(self, member):
         """Raise ValueError iff ``member`` not of proper type."""
-        if isinstance(member, Entity):
+        if isinstance(member, Entity_class):
             return True
         raise ValueError
 

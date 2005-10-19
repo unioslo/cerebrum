@@ -85,6 +85,7 @@ INITIAL_ACCOUNTNAME_PASSWORD = "change_on_install"
 # The specification has the format [modulename/classname].  To use
 # multiple constant classes, list them
 
+CLASS_ENTITY = ['Cerebrum.Entity/Entity']
 CLASS_OU = ['Cerebrum.OU/OU']
 CLASS_PERSON = ['Cerebrum.Person/Person']
 CLASS_ACCOUNT = ['Cerebrum.Account/Account']

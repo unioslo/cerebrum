@@ -551,7 +551,8 @@ class Factory(object):
     }
 
     def get(comp):
-        components = {'OU': 'CLASS_OU',
+        components = {'Entity': 'CLASS_ENTITY',
+                      'OU': 'CLASS_OU',
                       'Person': 'CLASS_PERSON',
                       'Account': 'CLASS_ACCOUNT',
                       'Group': 'CLASS_GROUP',

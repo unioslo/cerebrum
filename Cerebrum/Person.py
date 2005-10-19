@@ -23,7 +23,7 @@
 
 import cereconf
 from Cerebrum.Entity import \
-     Entity, EntityContactInfo, EntityAddress, EntityQuarantine, \
+     EntityContactInfo, EntityAddress, EntityQuarantine, \
      EntityExternalId
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -31,9 +31,9 @@ from Cerebrum import Errors
 class MissingOtherException(Exception): pass
 class MissingSelfException(Exception): pass
 
-
+Entity_class = Utils.Factory.get("Entity")
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
-             EntityQuarantine, Entity):
+             EntityQuarantine, Entity_class):
     __read_attr__ = ('__in_db', '_affil_source', '__affil_data')
     __write_attr__ = ('birth_date', 'gender', 'description', 'deceased_date')
 
@@ -72,7 +72,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity.populate(self, self.const.entity_person)
+            Entity_class.populate(self, self.const.entity_person)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.

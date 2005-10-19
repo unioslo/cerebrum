@@ -25,12 +25,11 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import \
-     Entity, EntityContactInfo, EntityAddress, EntityQuarantine, \
-     EntityExternalId
+     EntityContactInfo, EntityAddress, EntityQuarantine, EntityExternalId
 
-
+Entity_class = Utils.Factory.get("Entity")
 class OU(EntityContactInfo, EntityExternalId, EntityAddress,
-         EntityQuarantine, Entity):
+         EntityQuarantine, Entity_class):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'acronym', 'short_name', 'display_name',
@@ -48,7 +47,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity.populate(self, self.const.entity_ou)
+            Entity_class.populate(self, self.const.entity_ou)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.
