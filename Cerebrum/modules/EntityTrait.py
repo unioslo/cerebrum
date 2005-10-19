@@ -88,6 +88,14 @@ class EntityTrait(Entity):
         del self.__traits[code]
 
 
+    def delete(self):
+        """To delete this entity we need to remove all traits first."""
+
+        for code in self.get_traits():
+            self.delete_trait(code)
+        self.__super.delete()
+
+
     def populate_trait(self, code, target_id=None, date=None, numval=None,
                        strval=None):
         """Adds or updates an entity trait."""
