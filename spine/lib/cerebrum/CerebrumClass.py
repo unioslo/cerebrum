@@ -103,7 +103,7 @@ class CerebrumClass(DatabaseTransactionClass):
         """Loads 'attributes' from cerebrum."""
         obj = self._get_cerebrum_obj()
         for attr in self.slots:
-            if not isinstance(attr, CerebrumAttr):
+            if getattr(self, attr.get_name_load()) != self._load_cerebrum_attributes:
                 continue
             if not hasattr(self, attr.get_name_private()):
                 value = getattr(obj, self._get_cerebrum_name(attr))
@@ -115,7 +115,7 @@ class CerebrumClass(DatabaseTransactionClass):
         for attr in self.slots:
             if attr not in self.updated:
                 continue
-            if not isinstance(attr, CerebrumAttr):
+            if getattr(self, attr.get_name_save()) != self._save_cerebrum_attributes:
                 continue
             value = getattr(self, attr.get_name_private())
             setattr(obj, self._get_cerebrum_name(attr), attr.convert_to(value))
