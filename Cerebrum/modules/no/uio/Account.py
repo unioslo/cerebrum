@@ -150,27 +150,31 @@ class AccountUiOMixin(Account.Account):
         if old_server is None \
            or (server_type == self.const.email_server_type_cyrus
                and not is_on_cyrus):
-            email_servs = []
-            for svr in es.list_email_server_ext():
-                if svr['server_type'] <> server_type:
-                    continue
-                if server_type == self.const.email_server_type_cyrus:
-                    if svr['name'].startswith("mail-sg"):
-                        # Old (VA) cluster; no longer in use.
-                        continue
-                    elif (svr['name'].startswith('cyrus')
-                          and svr['name'][5:].isdigit()):
-                        pkgnum = int(svr['name'][5:])
-                        if pkgnum < 1 or pkgnum > 12:
-                            # Only the first 12 ServiceGuard packages
-                            # of our Cyrus cluster are currently in
-                            # use.
-                            continue
-                # Unless explicitly skipped over by one of the if
-                # tests above, add this email server to our list of
-                # alternatives.
-                email_servs.append(svr['server_id'])
-            svr_id = random.choice(email_servs)
+
+            # We try to spread the usage across servers, but want a
+            # random component to the choice of server.  The choice is
+            # weighted, although the determination of weights happens
+            # externally to Cerebrum since it is a relatively
+            # expensive operation (can take several seconds).
+            # Typically the weight will vary with the amount of users
+            # already assigned, the disk space available or similar
+            # criteria.
+            #
+            # Servers MUST have a weight trait to be considered for
+            # allocation.
+
+            user_weight = {}
+            total_weight = 0
+            for row in es.list_traits(self.const.trait_email_server_weight):
+                total_weight += row['numval']
+                user_weight[row['entity_id']] = row['numval']
+
+            pick = random.randint(0, total_weight - 1)
+            for svr_id in user_weight:
+                pick -= user_weight[svr_id]
+                if pick <= 0:
+                    break
+
             if old_server is None:
                 try:
                     et = Email.EmailTarget(self._db)
