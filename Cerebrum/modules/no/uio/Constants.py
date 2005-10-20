@@ -30,6 +30,7 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.Email import \
      _EmailSpamLevelCode, _EmailSpamActionCode, _EmailDomainCategoryCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 class Constants(Constants.Constants):
 
@@ -356,5 +357,10 @@ automatically generated from FS.''')
         'spamfolder', "Deliver spam to a separate IMAP folder")
     email_spam_action_delete = _EmailSpamActionCode(
         'dropspam', "Messages classified as spam won't be delivered at all")
+
+    trait_email_server_weight = _EntityTraitCode(
+        'em_server_weight', Constants.Constants.entity_host,
+        """The relative weight of this server when assigning new users to
+        an e-mail server.""")
 
 # arch-tag: 2b7d46eb-fc77-4ce2-a691-0d49cbf3e597
