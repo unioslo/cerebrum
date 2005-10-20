@@ -912,6 +912,23 @@ class EmailQuota(EmailTarget):
         SELECT target_id, quota_soft, quota_hard
         FROM [:table schema=cerebrum name=email_quota]""")
 
+    def get_quota_stats_by_server(self, server):
+        """Return statistics about the quota handed out to account
+        targets.  If there are no targets on a server, the values will
+        be None."""
+        return self.query_1("""
+        SELECT SUM(eq.quota_hard) AS total_quota,
+               MIN(eq.quota_hard) AS min_quota,
+               MAX(eq.quota_hard) AS max_quota,
+               COUNT(*) AS total_accounts
+        FROM email_target_server ets
+          JOIN email_quota eq ON ets.target_id = eq.target_id
+          JOIN email_target et ON ets.target_id = et.target_id
+        WHERE ets.server_id = :server AND et.target_type = :t_type""",
+                          {'server': int(server),
+                           't_type': int(EmailConstants.email_target_account)
+                           })
+
 
 class EmailSpamFilter(EmailTarget):
     __read_attr__ = ('__in_db',)
@@ -1325,13 +1342,21 @@ class EmailServer(Host):
         self.__in_db = True
         self.__updated = []
 
-    def list_email_server_ext(self):
+    def list_email_server_ext(self, server_type=None):
+        """List all e-mail servers, optionally filtered by
+        server_type."""
+        
+        where = ""
+        if server_type is not None:
+            where = "WHERE s.server_type = %d" % server_type
         return self.query("""
         SELECT s.server_id, s.server_type, h.name
-        FROM [:table schema=cerebrum name=email_server] s,
-             [:table schema=cerebrum name=host_info] h
-        WHERE s.server_id = h.host_id
-        """, fetchall=False)
+        FROM [:table schema=cerebrum name=email_server] s
+        JOIN [:table schema=cerebrum name=host_info] h
+          ON s.server_id = h.host_id
+        %s
+        """ % where)
+
 
 class EmailServerTarget(EmailTarget):
     __read_attr__ = ('__in_db',)
