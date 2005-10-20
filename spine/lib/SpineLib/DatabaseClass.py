@@ -228,9 +228,11 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         for table, attributes in self._get_sql_tables().items():
             # only update tables with changed attributes
             changed_attributes = []
-            for i in self.updated:
-                if i in attributes and i in self._db_save_attributes:
+            for i in attributes:
+                if i in self.updated and i in self._db_save_attributes:
                     changed_attributes.append(i)
+                    self.updated.remove(i)
+                    
 
             if not changed_attributes:
                 continue

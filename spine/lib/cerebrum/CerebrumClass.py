@@ -102,7 +102,9 @@ class CerebrumClass(DatabaseTransactionClass):
     def _load_cerebrum_attributes(self):
         """Loads 'attributes' from cerebrum."""
         obj = self._get_cerebrum_obj()
-        for attr in self._cerebrum_load_attributes:
+        for attr in self.slots:
+            if not isinstance(attr, CerebrumAttr):
+                continue
             if not hasattr(self, attr.get_name_private()):
                 value = getattr(obj, self._get_cerebrum_name(attr))
                 setattr(self, attr.get_name_private(), attr.convert_from(self.get_database(), value))
@@ -110,11 +112,14 @@ class CerebrumClass(DatabaseTransactionClass):
     def _save_cerebrum_attributes(self):
         """Stores 'attributes' in cerebrum."""
         obj = self._get_cerebrum_obj()
-        for attr in self._cerebrum_save_attributes:
+        for attr in self.slots:
             if attr not in self.updated:
+                continue
+            if not isinstance(attr, CerebrumAttr):
                 continue
             value = getattr(self, attr.get_name_private())
             setattr(obj, self._get_cerebrum_name(attr), attr.convert_to(value))
+            self.updated.remove(attr)
         obj.write_db()
 
     def _delete_from_cerebrum(self):
@@ -137,10 +142,6 @@ class CerebrumClass(DatabaseTransactionClass):
     _create = classmethod(_create)
 
     def build_methods(cls):
-        if '_db_load_attributes' not in cls.__dict__:
-            cls._cerebrum_load_attributes = []
-            cls._cerebrum_save_attributes = []
-
         for attr in cls.slots:
             # We only care about CerebrumAttr's
             if not isinstance(attr, CerebrumAttr):
@@ -148,11 +149,9 @@ class CerebrumClass(DatabaseTransactionClass):
 
             # Only pure CerebrumAttrs gets a load methods
             if not isinstance(attr, DatabaseAttr) and not hasattr(cls, attr.get_name_load()):
-                cls._cerebrum_load_attributes.append(attr)
                 setattr(cls, attr.get_name_load(), cls._load_cerebrum_attributes)
             # Every writable CerebrumAttr gets save methods
             if attr.write and not hasattr(cls, attr.get_name_save()):
-                cls._cerebrum_save_attributes.append(attr)
                 setattr(cls, attr.get_name_save(), cls._save_cerebrum_attributes)
 
         super(CerebrumClass, cls).build_methods()

@@ -229,12 +229,12 @@ class Builder(object):
     def save(self):
         """Save all changed attributes."""
         saved = sets.Set()
-        for attr in self.updated:
+        for attr in list(self.updated):
             save_method = getattr(self, attr.get_name_save(), None)
             if save_method not in saved and save_method is not None:
                 save_method()
                 saved.add(save_method)
-        self.updated.clear()
+        assert not self.updated
 
     def reset(self, write_only=True):
         """Reset all changed attributes.
