@@ -424,13 +424,17 @@ def remove_home(req, transaction, id, spread):
     queue_message(req, _("Home directory successfully removed."))
 remove_home = transaction_decorator(remove_home)
 
-def set_password(req, transaction, id, password):
+def set_password(req, transaction, id, passwd1, passwd2):
     account = transaction.get_account(int(id))
-    account.set_password(password)
-    
-    redirect_object(req, account, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Password successfully set."))
+
+    if passwd1 != passwd2:
+        queue_message(req, _("Passwords does not match."), error=True)
+        redirect_object(req, account, seeOther=True)
+    else:
+        account.set_password(passwd1)
+        redirect_object(req, account, seeOther=True)
+        transaction.commit()
+        queue_message(req, _("Password successfully set."))
 set_password = transaction_decorator(set_password)
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

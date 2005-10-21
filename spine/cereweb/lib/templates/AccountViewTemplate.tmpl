@@ -45,16 +45,21 @@
     #set $auths = $account.get_authentications()
     <div class="personnames">
         <h2>$_("Passwords"):</h2>
+        #if $auths
         $_('Current authentication types'):<br />
         #for $auth in $auths
         <div class="name">
             <em>$auth.get_method().get_name()</em>
         </div>
         #end for
+        #else
+        $_('No authentications set currently.')<br />
+        #end if
         <form action="$url('account/set_password')" type="post">
             $_('Set passwords'):<br />
+            <input type="password" name="passwd1" /><br />
+            <input type="password" name="passwd2" /><br />
             <input type="hidden" name="id" value="$account.get_id()" />
-            <input type="password" name="password" />
             <input type="submit" value="$_('Set')" />
         </form>
     </div>
