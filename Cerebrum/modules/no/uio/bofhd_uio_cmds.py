@@ -1003,9 +1003,13 @@ class BofhdExtension(object):
          ("multi_forward_1",)),
         ("                  %s",
          ("multi_forward",)),
+        # target_type == file
+        ("File:             %s\n"+
+         "Save as:          %s",
+         ("file_name", "file_runas")),
         # target_type == pipe
         ("Command:          %s\n"+
-         "Run as:           %s\n",
+         "Run as:           %s",
          ("pipe_cmd", "pipe_runas")),
         # target_type == forward
         ("Address:          %s",
@@ -1052,6 +1056,8 @@ class BofhdExtension(object):
             ret += self._email_info_mailman(uname, et)
         elif ttype == self.const.email_target_multi:
             ret += self._email_info_multi(uname, et)
+        elif ttype == self.const.email_target_file:
+            ret += self._email_info_file(uname, et)
         elif ttype == self.const.email_target_pipe:
             ret += self._email_info_pipe(uname, et)
         elif ttype == self.const.email_target_forward:
@@ -1280,6 +1286,14 @@ class BofhdExtension(object):
                 for idx in range(1, len(fwds)):
                     ret.append({'multi_forward': fwds[idx]})
         return ret
+
+    def _email_info_file(self, addr, et):
+        account_name = "<not set>"
+        if et.email_target_using_uid:
+            acc = self._get_account(et.email_target_using_uid, idtype='id')
+            account_name = acc.account_name
+        return [{'file_name': et.get_alias(),
+                 'file_runas': account_name}]
 
     def _email_info_pipe(self, addr, et):
         acc = self._get_account(et.email_target_using_uid, idtype='id')
