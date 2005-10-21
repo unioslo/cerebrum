@@ -59,6 +59,7 @@ class Session:
         Method('get_transactions', [CerebrumHandler]),
         Method('get_encoding', str),
         Method('set_encoding', None, args=[('encoding', str)], exceptions=[NotFoundError]),
+        Method('get_timeout', int),
         Method('logout', None)
     ]
     builder_parents = ()
@@ -74,6 +75,9 @@ class Session:
         pass
 
     def set_encoding(self, encoding):
+        pass
+
+    def get_timeout(self):
         pass
 
     def logout(self):
@@ -127,6 +131,10 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
             raise SpineIDL.Errors.NotFoundError('Requested encoding %s is unknown.' % encoding)
         self._encoding = encoding
 
+    def get_timeout(self):
+        """Returns the time it takes for _a_ session to time out."""
+        return cereconf.SPINE_SESSION_TIMEOUT
+
     def get_transactions(self):
         self.reset_timeout()
         return self._transactions.values() # NOTE: Returns CORBA references
@@ -146,7 +154,7 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         assert transaction in self._transactions
         drop_associated_objects(transaction)
         del self._transactions[transaction]
-
+        
     def logout(self):
         handler = SessionHandler.get_handler()
         handler.remove(self)

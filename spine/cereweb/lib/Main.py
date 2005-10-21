@@ -67,4 +67,7 @@ class Main(MainTemplate):
         """Wraps the setFocus-method on the menu."""
         self.menu.setFocus(*args)
 
+    def get_timeout(self):
+        return self.session['timeout']
+
 # arch-tag: 3f246425-25b1-4e28-a969-3f04c31264c7

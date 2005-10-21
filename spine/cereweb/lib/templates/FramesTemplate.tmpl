@@ -45,15 +45,27 @@
 
 ## Messages, like errormessages and more..
 #def viewMessages
-<div class="messages">
-#for $message, $is_error in $messages
-    #set $error = $is_error and " error" or ""
-    <div class="message$error">
-        $message
+    <div class="messages">
+    #for $message, $is_error in $messages
+        #set $error = $is_error and " error" or ""
+        <div class="message$error">
+            $message
+        </div>
+    #end for
     </div>
-#end for
-</div>
 #end def
+
+## Time it takes to timeout the session, overloaded in lib/Main.py
+#def get_timeout
+    #return 3600
+#end def get_timeout
+
+## Warning given when session has timed out.
+#def session_warning
+    <div class="session_warning" id="session_warning" style="display:none;">
+        <b>Session warning:</b>
+    </div>
+#end def session_warning
 
 ## Content is overloaded by other pages to add the actual content on the page.
 #def content
@@ -82,15 +94,20 @@ $css("fixed_ie5.css")
 $css("default.css")
 $css("style.css")
 $jscript("base.js")
+$jscript("timeout.js")
 $jscript("worklist.js")
-<script language="JavaScript">
-    #set webroot=url("")
-    ## Set webroot for javascripts
-    webroot="$webroot";
-</script>
+    <script language="JavaScript">
+        ## Set webroot for javascript 'worklist.py'
+        #set webroot=url("")
+        webroot="$webroot";
+        ## Set timeout for javascript 'timeout.py'
+        #set timeout = $get_timeout()
+        timeout=$timeout;
+    </script>
 </head>
 <body>
     <div class="content">
+        $session_warning()
         #if $title
         <div class="title">
             <h1>$title</h1>
