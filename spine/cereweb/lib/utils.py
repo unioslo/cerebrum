@@ -167,12 +167,6 @@ def queue_message(req, message, error=False):
         req.session['messages'].append((message, error))
     req.session.save() #FIXME: temporarly fixes that session isnt saved when redirect.
 
-def no_cache(req):
-    """Makes the current request non-cachable"""
-    #FIXME: doesnt work through cgi, headers_out is a dict there.
-    req.headers_out.add("Cache-Control:","no-cache")
-    req.headers_out.add("Pragma:","no-cache")
-
 def strftime(date, format="%Y-%m-%d", default=''):
     """Returns a string for the date.
 
