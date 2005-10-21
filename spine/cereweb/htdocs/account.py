@@ -93,7 +93,7 @@ def search(req, owner="", name="", expire_date="", create_date="",
                 description = '*' + description
             if not description.endswith('*'):
                 description += '*'
-            search.set_description_like(date)
+            search.set_description_like(description)
 
         if spread:
             accounts = sets.Set()
