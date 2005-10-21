@@ -960,6 +960,8 @@ class BofhdExtension(object):
          ("account", "server", "server_type")),
         ("Primary address:  %s",
          ("def_addr", )),
+        ("Alias value:      %s",
+         ("alias_value", )),
         # We use valid_addr_1 and (multiple) valid_addr to enable
         # programs to get the information reasonably easily, while
         # still keeping the suggested output format pretty.
@@ -995,10 +997,6 @@ class BofhdExtension(object):
         ("                  %s",
          ("mailman_mailowner", )),
         # target_type == multi
-        ("Valid address:    %s",
-         ("multi_valid_addr_1",)),
-        ("                  %s",
-         ("multi_valid_addr",)),
         ("Forward to group: %s",
          ("multi_forward_gr",)),
         ("Expands to:       %s",
@@ -1007,20 +1005,11 @@ class BofhdExtension(object):
          ("multi_forward",)),
         # target_type == pipe
         ("Command:          %s\n"+
-         "Run as:           %s\n"+
-         "Address:          %s",
-         ("pipe_cmd", "pipe_runas", "pipe_addr_1")),
-        ("                  %s",
-         ("pipe_addr",)),
+         "Run as:           %s\n",
+         ("pipe_cmd", "pipe_runas")),
         # target_type == forward
         ("Address:          %s",
          ("fw_target",)),
-        # TODO: all these valid-addresses should share code and
-        # FormatSuggestion
-        ("Valid addresses:  %s",
-         ("fw_valid_1",)),
-        ("                  %s",
-         ("fw_valid",)),
         ("Forwarding:       %s (%s)",
          ("fw_addr_1", "fw_enable_1")),
         ("                  %s (%s)",
@@ -1051,6 +1040,14 @@ class BofhdExtension(object):
         else:
             ret.append({'def_addr': self.__get_address(epat)})
 
+        if ttype != self.const.email_target_Mailman:
+            # We want to split the valid addresses into three
+            # for Mailman, so there is special code for it there.
+            addrs = self.__get_valid_email_addrs(et) or ["<none>"]
+            ret.append({'valid_addr_1': addrs[0]})
+            for addr in addrs[1:]:
+                ret.append({"valid_addr": addr})
+
         if ttype == self.const.email_target_Mailman:
             ret += self._email_info_mailman(uname, et)
         elif ttype == self.const.email_target_multi:
@@ -1059,19 +1056,17 @@ class BofhdExtension(object):
             ret += self._email_info_pipe(uname, et)
         elif ttype == self.const.email_target_forward:
             ret += self._email_info_forward(uname, et)
-        elif ttype == self.const.email_target_account:
-            ret += self._email_info_account(operator, acc, et)
-        elif ttype == self.const.email_target_deleted:
-            ret += self._email_info_account(operator, acc, et)
+        elif (ttype == self.const.email_target_account or
+              ttype == self.const.email_target_deleted):
+            ret += self._email_info_account(operator, acc, et, addrs)
         else:
             raise CerebrumError, ("email info for target type %s isn't "
                                   "implemented") % ttype_name
         return ret
 
-    def _email_info_account(self, operator, acc, et):
+    def _email_info_account(self, operator, acc, et, addrs):
         self.ba.can_email_info(operator.get_entity_id(), acc)
-        addrs = self.__get_valid_email_addrs(et)
-        ret = self._email_info_basic(acc, et, addrs)
+        ret = self._email_info_basic(acc, et)
         try:
             self.ba.can_email_info_detail(operator.get_entity_id(), acc)
         except PermissionDenied:
@@ -1091,9 +1086,11 @@ class BofhdExtension(object):
             addrs.append(r['local_part'] + '@' + r['domain'])
         return addrs
 
-    def _email_info_basic(self, acc, et, addrs):
+    def _email_info_basic(self, acc, et):
         info = {}
         data = [ info ]
+        if et.email_target_alias:
+            info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
         est = Email.EmailServerTarget(self.db)
         try:
@@ -1107,12 +1104,6 @@ class BofhdExtension(object):
             info["server"] = es.name
             type = int(es.email_server_type)
             info["server_type"] = str(self.const.EmailServerType(type))
-        if addrs:
-            info["valid_addr_1"] = addrs[0]
-            for idx in range(1, len(addrs)):
-                data.append({"valid_addr": addrs[idx]})
-        else:
-            info["valid_addr_1"] = "<none>"
         return data
 
     def _email_info_spam(self, target):
@@ -1259,17 +1250,7 @@ class BofhdExtension(object):
 
     def _email_info_multi(self, addr, et):
         ret = []
-        # a multi target does not need a primary address target, but
-        # let's handle it just in case.
-        addr_list = []
-        for r in et.get_addresses():
-            addr_list.append("%(local_part)s@%(domain)s" % r)
-        addr_list.sort()
-        if addr_list:
-            ret.append({'multi_valid_addr_1': addr_list[0]})
-            for idx in range(1, len(addr_list)):
-                ret.append({'multi_valid_addr': addr_list[idx]})
-        if int(et.email_target_entity_type) <> int(self.const.entity_group):
+        if et.email_target_entity_type != self.const.entity_group:
             ret.append({'multi_forward_gr': 'ENTITY TYPE OF %d UNKNOWN' %
                         et.email_target_entity_id})
         else:
@@ -1302,21 +1283,12 @@ class BofhdExtension(object):
 
     def _email_info_pipe(self, addr, et):
         acc = self._get_account(et.email_target_using_uid, idtype='id')
-        addrs = self.__get_valid_email_addrs(et)
-        data = [{'pipe_addr_1': addrs[0],
-                 'pipe_cmd': et.get_alias(),
+        data = [{'pipe_cmd': et.get_alias(),
                  'pipe_runas': acc.account_name}]
-        for idx in range(1, len(addrs)):
-            data.append({'pipe_addr': addrs[idx]})
         return data
 
     def _email_info_forward(self, addr, et):
         data = []
-        addrs = self.__get_valid_email_addrs(et)
-        if addrs:
-            data.append({'fw_valid_1': addrs[0]})
-        for idx in range(1, len(addrs)):
-            data.append({'fw_valid': addrs[idx]})
         # et.email_target_alias isn't used for anything, it's often
         # a copy of one of the forward addresses, but that's just a
         # waste of bytes, really.
