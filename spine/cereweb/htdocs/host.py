@@ -36,7 +36,7 @@ max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 def index(req):
     """Creates a page with the search for hosts."""
     page = Main(req)
-    page.title = _("Search for host(s):")
+    page.title = _("Search for host(s)")
     page.setFocus("host/search")
     hostsearch = HostSearchTemplate()
     page.content = hostsearch.form
@@ -50,7 +50,7 @@ def search(req, name="", description="", transaction=None):
     """Creates a page with a list of hosts matching the given criterias."""
     req.session['host_lastsearch'] = (name, description)
     page = Main(req)
-    page.title = _("Search for hosts(s):")
+    page.title = _("Search for hosts(s)")
     page.setFocus("host/list")
     
     # Store given search parameters in search form
@@ -104,7 +104,7 @@ def view(req, transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
     page = Main(req)
-    page.title = _("Host %s:" % host.get_name())
+    page.title = _("Host %s" % host.get_name())
     page.setFocus("host/view", str(host.get_id()))
     view = HostViewTemplate()
     content = view.viewHost(transaction, host)
@@ -116,7 +116,7 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a host."""
     host = transaction.get_host(int(id))
     page = Main(req)
-    page.title = _("Edit %s:" % host.get_name())
+    page.title = _("Edit %s" % host.get_name())
     page.setFocus("host/edit", str(host.get_id()))
 
     edit = HostEditTemplate()
@@ -139,7 +139,7 @@ save = transaction_decorator(save)
 def create(req, transaction, name="", description=""):
     """Creates a page with the form for creating a host."""
     page = Main(req)
-    page.title = _("Create a new host:")
+    page.title = _("Create a new host")
     page.setFocus("host/create")
 
     # Store given create parameters in create-form

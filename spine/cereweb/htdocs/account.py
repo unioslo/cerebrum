@@ -37,7 +37,7 @@ max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 def index(req):
     page = Main(req)
-    page.title = _("Search for account(s):")
+    page.title = _("Search for account(s)")
     page.setFocus("account/search")
     accountsearch = AccountSearchTemplate()
     page.content = accountsearch.form
@@ -150,7 +150,7 @@ search = transaction_decorator(search)
 
 def create(req, transaction, owner, name="", expire_date=""):
     page = Main(req)
-    page.title = _("Create a new Account:")
+    page.title = _("Create a new Account")
     page.setFocus("account/create")
 
     create = AccountCreateTemplate()
@@ -195,6 +195,7 @@ def make(req, transaction, owner, name, expire_date="", np_type=None,
         account = commands.create_account(name, owner, expire_date)
     redirect_object(req, account)
     transaction.commit()
+    queue_message(req, _("Account successfully created."))
 make = transaction_decorator(make)
 
 
@@ -204,7 +205,7 @@ def view(req, transaction, id, addHome=False):
     page = Main(req)
     page.title = ""
     account = transaction.get_account(int(id))
-    page.title = _("Account %s:") % account.get_name()
+    page.title = _("Account %s") % account.get_name()
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
     content = view.viewAccount(transaction, account, addHome)

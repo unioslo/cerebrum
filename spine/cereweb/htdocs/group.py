@@ -43,7 +43,7 @@ operations = {
 def index(req):
     """Creates a page with the search for group form."""
     page = Main(req)
-    page.title = _("Search for group(s):")
+    page.title = _("Search for group(s)")
     page.setFocus("group/search")
     groupsearch = GroupSearchTemplate()
     page.content = groupsearch.form
@@ -58,7 +58,7 @@ def search(req, name="", desc="", spread="", gid="",
     """Creates a page with a list of groups matching the given criterias."""
     req.session['group_lastsearch'] = (name, desc, spread, gid, gid_end, gid_option)
     page = Main(req)
-    page.title = _("Search for group(s):")
+    page.title = _("Search for group(s)")
     page.setFocus("group/list")
     
     # Store given search parameters in search form
@@ -144,7 +144,7 @@ def view(req, transaction, id):
     """Creates a page with the view of the group with the given by."""
     group = transaction.get_group(int(id))
     page = Main(req)
-    page.title = _("Group %s:" % group.get_name())
+    page.title = _("Group %s" % group.get_name())
     page.setFocus("group/view", str(group.get_id()))
     view = GroupViewTemplate()
     view.add_member = lambda group:_add_box(group)
@@ -217,7 +217,7 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
     group = transaction.get_group(int(id))
     page = Main(req)
-    page.title = _("Edit %s:" % group.get_name())
+    page.title = _("Edit %s" % group.get_name())
     page.setFocus("group/edit", str(group.get_id()))
 
     edit = GroupEditTemplate()
@@ -229,7 +229,7 @@ edit = transaction_decorator(edit)
 def create(req, name="", expire="", description=""):
     """Creates a page with the form for creating a group."""
     page = Main(req)
-    page.title = _("Create a new group:")
+    page.title = _("Create a new group")
     page.setFocus("group/create")
     
     content = GroupCreateTemplate().form(name, expire, description)

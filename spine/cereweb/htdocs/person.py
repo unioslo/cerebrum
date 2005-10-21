@@ -36,7 +36,7 @@ max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 def index(req):
     """Creates a page with the search for person form."""
     page = Main(req)
-    page.title = _("Search for person(s):")
+    page.title = _("Search for person(s)")
     page.setFocus("person/search")
     personsearch = PersonSearchTemplate()
     page.content = personsearch.form
@@ -50,7 +50,7 @@ def search(req, name="", accountname="", birthdate="", spread="", transaction=No
     """Creates a page with a list of persons matching the given criterias."""
     req.session['person_lastsearch'] = (name, accountname, birthdate, spread)
     page = Main(req)
-    page.title = _("Search for person(s):")
+    page.title = _("Search for person(s)")
     page.setFocus("person/list")
     
     # Store given search parameters in search form
@@ -168,7 +168,7 @@ def view(req, transaction, id, addName=False, addAffil=False):
     """
     person = transaction.get_person(int(id))
     page = Main(req)
-    page.title = _("Person %s:" % _primary_name(person))
+    page.title = _("Person %s" % _primary_name(person))
     page.setFocus("person/view", str(person.get_id()))
     view = PersonViewTemplate()
     content = view.viewPerson(transaction, person, addName, addAffil)
@@ -180,7 +180,7 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
     person = transaction.get_person(int(id))
     page = Main(req)
-    page.title = _("Edit %s:" % _primary_name(person))
+    page.title = _("Edit %s" % _primary_name(person))
     page.setFocus("person/edit", str(person.get_id()))
 
     genders = [(g.get_name(), g.get_description()) for g in 
@@ -195,7 +195,7 @@ edit = transaction_decorator(edit)
 def create(req, transaction, name="", gender="", birthdate="", description=""):
     """Creates a page with the form for creating a person."""
     page = Main(req)
-    page.title = _("Create a new person:")
+    page.title = _("Create a new person")
     page.setFocus("person/create")
 
     genders = [(g.get_name(), g.get_description()) for g in 

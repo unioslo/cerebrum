@@ -49,6 +49,7 @@ def index(req, username='', password='', redirect=utils.url('/index')):
 
             req.session['session'] = session
             req.session['username'] = username
+            req.session['timeout'] = session.get_timeout()
             req.session.save()
             
             #redirect to the main page and start using the cereweb.publisher.

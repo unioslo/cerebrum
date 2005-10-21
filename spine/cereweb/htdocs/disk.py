@@ -36,7 +36,7 @@ max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 def index(req):
     """Creates a page with the search for disks."""
     page = Main(req)
-    page.title = _("Search for disk(s):")
+    page.title = _("Search for disk(s)")
     page.setFocus("disk/search")
     search = DiskSearchTemplate()
     page.content = search.form
@@ -50,7 +50,7 @@ def search(req, host="", path="", description="", transaction=None):
     """Creates a page with a list of disks matching the given criterias."""
     req.session['disk_lastsearch'] = (host, path, description)
     page = Main(req)
-    page.title = _("Search for disk(s):")
+    page.title = _("Search for disk(s)")
     page.setFocus("disk/list")
     
     # Store given search parameters in search form
@@ -112,7 +112,7 @@ def view(req, transaction, id):
     """Creates a page with a view of the disk given by id."""
     disk = transaction.get_disk(int(id))
     page = Main(req)
-    page.title = _("Disk %s:" % disk.get_path())
+    page.title = _("Disk %s" % disk.get_path())
     page.setFocus("disk/view", str(disk.get_id()))
     view = DiskViewTemplate()
     content = view.viewDisk(transaction, disk)
@@ -124,7 +124,7 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a disk."""
     disk = transaction.get_disk(int(id))
     page = Main(req)
-    page.title = _("Edit %s:" % disk.get_path())
+    page.title = _("Edit %s" % disk.get_path())
     page.setFocus("disk/edit", str(disk.get_id()))
 
     edit = DiskEditTemplate()
@@ -147,7 +147,7 @@ save = transaction_decorator(save)
 def create(req, transaction, host="", path="", description=""):
     """Creates a page with the form for creating a disk."""
     page = Main(req)
-    page.title = _("Create a new disk:")
+    page.title = _("Create a new disk")
     page.setFocus("disk/create")
 
     # Store given create parameters in create-form

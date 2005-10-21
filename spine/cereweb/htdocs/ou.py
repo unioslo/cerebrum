@@ -34,7 +34,7 @@ from Cereweb.templates.OUViewTemplate import OUViewTemplate
 
 def index(req):
     page = Main(req)
-    page.title = _("Search for OU(s):")
+    page.title = _("Search for OU(s)")
     page.setFocus("ou/search")
     ousearcher = OUSearchTemplate()
     page.content = ousearcher.form
@@ -63,7 +63,7 @@ tree = transaction_decorator(tree)
 def search(req, name="", acronym="", short="", spread="", transaction=None):
     req.session['ou_lastsearch'] = (name, acronym, short, spread)
     page = Main(req)
-    page.title = _("Search for OU(s):")
+    page.title = _("Search for OU(s)")
     page.setFocus("ou/search")
     ousearcher = OUSearchTemplate()
     page.content = ousearcher.form
@@ -134,7 +134,7 @@ search = transaction_decorator(search)
 def view(req, transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main(req)
-    page.title = _("OU %s:" % _get_display_name(ou))
+    page.title = _("OU %s" % _get_display_name(ou))
     page.setFocus("ou/view", str(ou.get_id()))
     content = OUViewTemplate().viewOU(transaction, ou)
     page.content = lambda: content
@@ -144,7 +144,7 @@ view = transaction_decorator(view)
 def edit(req, transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main(req)
-    page.title = _("OU %s:" % ou.get_name())
+    page.title = _("OU %s" % ou.get_name())
     page.setFocus("ou/edit", str(ou.get_id()))
     content = OUEditTemplate().form(transaction, ou)
     page.content = lambda: content
@@ -153,7 +153,7 @@ edit = transaction_decorator(edit)
 
 def create(req, transaction, **vargs):
     page = Main(req)
-    page.title = _("Create a new Organization Unit:")
+    page.title = _("Create a new Organization Unit")
     page.setFocus("ou/create")
 
     # Store given parameters for the create-form
