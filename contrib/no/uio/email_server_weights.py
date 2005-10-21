@@ -48,7 +48,7 @@ def usage(exitcode=64):
 import sys
 import getopt
 import re
-import cereconf
+import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.Email import EmailQuota, EmailServer
@@ -64,8 +64,6 @@ def main():
                                    ['help', 'dryrun',
                                     'server-type=', 'except='])
     except getopt.GetoptError:
-        usage()
-    if not opts:
         usage()
 
     server_type = except_re = dryrun = None
