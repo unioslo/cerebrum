@@ -173,6 +173,14 @@ def no_cache(req):
     req.headers_out.add("Cache-Control:","no-cache")
     req.headers_out.add("Pragma:","no-cache")
 
+def strftime(date, format="%Y-%m-%d", default=''):
+    """Returns a string for the date.
+
+    If date evaluates to true its formated with the 'format' string.
+    Else the value of default will be returned.
+    """
+    return date and date.strftime(format) or default
+
 def new_transaction(req):
     try:
         return req.session['session'].new_transaction()

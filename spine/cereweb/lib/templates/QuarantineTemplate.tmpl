@@ -19,69 +19,67 @@
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 #from Cereweb.utils import url
-#from Cereweb.utils import object_url, object_link
 
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-#attr $fields = []
 #attr $formvalues = {}
 
 #def quarantine_form($entity, $action, $types = None)
 <div class="quarantine">
 <form action="$url($action)" method="POST">
-    <h2>$_("Add new/edit quarantine for: ") <i>$object_link($entity)</i></h2>
-#set $why = $formvalues['why']
-#set $type = $formvalues['type']
-#set $start = $formvalues['start']
-#set $end = $formvalues['end']
-#set disable_until = $formvalues['disable_until']
-    <table cellpadding=3 linespacing=3>
+    #set $why = $formvalues.get('why')
+    #set $type = $formvalues.get('type')
+    #set $start = $formvalues.get('start')
+    #set $end = $formvalues.get('end')
+    #set $disable_until = $formvalues.get('disable_until')
+    <table cellpadding="3" linespacing="3">
         <tr>
-            <th align=right>Quarantine type:</th>
-            <td>
-#if $types:
-$form_widgets.generate_option("type", $types, $type)
-#else:
+            <th align="right">$_('Quarantine type'):</th>
+            <td colspan="2">
+            #if $types:
+                $form_widgets.generate_option("type", $types, $type)
+            #else:
                 $type
                 <input type=hidden name="type" value="$type" />
-#end if
+            #end if
             </td>
         </tr>
         <tr>
-            <th align=right>Description:</th>
-            <td colspan=2><textarea name="why" rows="5"
-                          cols="40">$why</textarea></td>
+            <th align="right" valign="top">$_('Description'):</th>
+            <td colspan="2">
+                <textarea name="why" rows="5" cols="40">$why</textarea>
+            </td>
         </tr>
         <tr>
-            <th align=right>Start date:</th>
-            <td><input type="text" name="start" value="$start"
-                       size="10" maxlength="10"></td>
+            <th align="right">$_('Start date'):</th>
+            <td>
+                <input type="text" name="start" value="$start" size="10" />
+            </td>
             <td><i>(Format: yyyy-mm-dd)</i></td>
         </tr>
         <tr>
-            <th align=right>End date:</th>
-            <td><input type="text" name="end" value="$end"
-                       size="10" maxlength="10"></td>
+            <th align="right">$_('End date'):</th>
+            <td>
+                <input type="text" name="end" value="$end" size="10" />
+            </td>
             <td><i>(Format: yyyy-mm-dd)</i></td>
         </tr>
         <tr>
-            <th align=right>Disable until:</th>
-            <td><input type="text" name="disable_until" value="$disable_until"
-                       size="10" maxlength="10"></td>
+            <th align="right">$_('Disable until'):</th>
+            <td>
+                <input type="text" name="disable_until" value="$disable_until" size="10" />
+            </td>
             <td><i>(Format: yyyy-mm-dd)</i></td>
         </tr>
-        <tr></tr>
         <tr>
-            <td></td>
-            <td><input type="submit" value="$_("Save")" name="submit" /></td>
+            <td colspan="3" align="center">
+                <input type="submit" value="$_('Save')" name="submit" />
+                <input type="submit" value="$_('Cancel')" name="submit" />
+            </td>
         </tr>
     </table>
-    <input type=hidden name="entity_id" value="$entity.get_id()" />
+    <input type=hidden name="entity" value="$entity.get_id()" />
 </form>
-<form action="$object_url($entity)" method="POST">
-  <input type="submit" value="$_('Cancel')"/>
-</form>
-    
 </div>
 #end def

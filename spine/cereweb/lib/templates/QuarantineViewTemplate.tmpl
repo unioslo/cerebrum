@@ -18,74 +18,44 @@
 
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
+#from Cereweb.utils import strftime
 #from Cereweb.TableView import TableView
 #from MemberTableTemplate import MemberTableTemplate
 #from SortedTableTemplate import SortedTableTemplate
 #from Cereweb.utils import url, object_link
 
 #def view_quarantines($entity)
-
-#set $entity_id = $entity.get_id()
-#set $quarantines = $entity.get_quarantines()
-
 <div class="quarantines">
-<h2>$_("Quarantines")</h2>
-#if quarantines
-#set $table=$TableView("type","start","end","disable_until","who","why", "edit", "remove")
+    <h2>$_("Quarantines")</h2>
+    #set $entity_id = $entity.get_id()
+    #set $quarantines = $entity.get_quarantines()
+    
+    #if quarantines
+        #set $table=$TableView("type","start","end","disable_until",
+                               "who","why", "edit", "remove")
 
-#for $quarantine in $quarantines
-    ## Get string values
-    #set $start = $quarantine.get_start_date().strftime("%Y-%m-%d")
-    #set $end = $quarantine.get_end_date()
-    #set $end = $end and $end.strftime("%Y-%m-%d") or ''
-    #set $disable_until = $quarantine.get_disable_until()
-    #set $disable_until = $disable_until and $disable_until.strftime("%Y-%m-%d") or ''
-    #set $qtype = $quarantine.get_type().get_name()
-    #set $editurl = $url('quarantine/edit?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
-    #set $removeurl = $url('quarantine/remove?entity_id=%s&amp;type=%s' % ($entity_id, $qtype))
-    #set $edit = "<a href='%s' class='actions'>%s</a>" % ($editurl, $_("Edit"))
-    #set $remove= "<a href='%s' class='actions'>%s</a>" % ($removeurl, $_("Remove"))
-    $table.add($qtype, $start, $end, $disable_until,
-               $object_link($quarantine.get_creator()), $quarantine.get_description(),
-               $edit, $remove)
-#end for
-
-## and output the table
-$table.html(type=$_("Type"),
-            start=$_("Start"),
-            end=$_("End"),
-            disable_until=$_("Disabled until"),
-            who=$_("Registered by"),
-            why=$_("Description"), edit="", remove="")
-                
-##<table>
-##    <tr>
-###for $column in $table.columns
-###set $header = $headers.get($column, "")
-##        <th>$header</th>
-###end for
-##    </tr>
-###for $row, $rowdata in $table.sorted(includeData=True)
-###
-##    <tr>
-###set $i = 0
-###for $col in $row
-##        <td>$col</td>
-###set $i +=1
-###end for
-##
-##
-##        <td><a href="$removeurl">[Remove] </a></td>
-##        <td><a href="$editurl">[Edit]</a></td>
-##    </tr>
-###end for
-##</table>
-#end if
-
-    #set $addurl = $url('quarantine/add?entity_id=%s' % $entity_id)
+        #for $quarantine in $quarantines
+            #set $start = $quarantine.get_start_date().strftime("%Y-%m-%d")
+            #set $end = $strftime($quarantine.get_end_date())
+            #set $disable_until = $strftime($quarantine.get_disable_until())
+            #set $type = $quarantine.get_type().get_name()
+            #set $edit = $url('quarantine/edit?entity=%s&type=%s' % ($entity_id, $type))
+            #set $edit = "<a href='%s' class='actions'>%s</a>" % ($edit, $_("Edit"))
+            #set $remove = $url('quarantine/remove?entity=%s&type=%s' % ($entity_id, $type))
+            #set $remove= "<a href='%s' class='actions'>%s</a>" % ($remove, $_("Remove"))
+            $table.add($type, $start, $end, $disable_until,
+                       $object_link($quarantine.get_creator()),
+                       $quarantine.get_description(), $edit, $remove)
+        #end for
+        
+        ## output the table
+        $table.html(type=$_("Type"), start=$_("Start"), end=$_("End"),
+                    disable_until=$_("Disabled until"), who=$_("Registered by"),
+                    why=$_("Description"), edit="", remove="")
+    #end if
+    #set $addurl = $url('quarantine/add?entity=%s' % $entity_id)
     <div>
         <a href="$addurl" class="actions">Add new quarantine</a>
-    </div>    
+    </div>
 </div>
-
 #end def
