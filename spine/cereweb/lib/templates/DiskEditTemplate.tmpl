@@ -41,9 +41,6 @@
 ## Creates the form for editing the main disk info.
 #def form($disk)
 <div class="edit">
-    <div class="subtitle">
-        <h3>$_("General diskinfo"):</h3>
-    </div>
     <form action="$getAction()" method="POST">
         <div class="editform">
             $form_widgets.input("path", "Path", $disk.get_path())
@@ -53,7 +50,8 @@
         $form_widgets.showHelp($help)
         <div>
             <center>
-                <input type="submit" value="Save" />&nbsp;
+                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
+                <input type="submit" value="$_('Cancel')" name="submit" />
             </center>
         </div>
     </form>

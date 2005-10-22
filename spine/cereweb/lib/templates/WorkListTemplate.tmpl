@@ -70,6 +70,7 @@
             $OUAction()
             $AccountAction()
             $HostAction()
+            $DiskAction()
 
             ## Hidden untill a javascript-error appers which will add
             ## a error to the span, and show the division.
@@ -147,4 +148,8 @@
 
 #def HostAction
     $ActionTemplate("host")
+#end def
+
+#def DiskAction
+    $ActionTemplate("disk")
 #end def

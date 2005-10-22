@@ -42,9 +42,6 @@
 ## Creates the form for editing the main person info.
 #def form($person, $genders)
 <div class="edit">
-    <div class="subtitle">
-        <h3>$_("General personinfo"):</h3>
-    </div>
     <form action="$getAction()" method="POST">
         <div class="editform">
             $form_widgets.generate_loption("gender",  "Gender",
@@ -60,7 +57,8 @@
         $form_widgets.showHelp($help)
         <div>
             <center>
-                <input type="submit" value="Save" />&nbsp;
+                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
+                <input type="submit" value="$_('Cancel')" name="submit" />
             </center>
         </div>
     </form>

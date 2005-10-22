@@ -78,10 +78,9 @@ def search(req, name="", description="", transaction=None):
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Name"), _("Description"), _("Actions"))
         for host in hosts[:max_hits]:
-            view = str(object_link(host, text="view", _class="actions"))
             edit = str(object_link(host, text="edit", method="edit", _class="actions"))
             remb = str(remember_link(host, _class="actions"))
-            table.add(object_link(host), host.get_description(), view+edit+remb)
+            table.add(object_link(host), host.get_description(), edit+remb)
     
         if hosts:
             result.append(table)
@@ -105,7 +104,7 @@ def view(req, transaction, id):
     host = transaction.get_host(int(id))
     page = Main(req)
     page.title = _("Host %s" % host.get_name())
-    page.setFocus("host/view", str(host.get_id()))
+    page.setFocus("host/view", id)
     view = HostViewTemplate()
     content = view.viewHost(transaction, host)
     page.content = lambda: content
@@ -116,8 +115,8 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a host."""
     host = transaction.get_host(int(id))
     page = Main(req)
-    page.title = _("Edit %s" % host.get_name())
-    page.setFocus("host/edit", str(host.get_id()))
+    page.title = _("Edit ") + object_link(host)
+    page.setFocus("host/edit", id)
 
     edit = HostEditTemplate()
     content = edit.editHost(host)
@@ -125,12 +124,16 @@ def edit(req, transaction, id):
     return page
 edit = transaction_decorator(edit)
 
-def save(req, transaction, id, name, description=""):
+def save(req, transaction, id, name, description="", submit=None):
     """Saves the information for the host."""
     host = transaction.get_host(int(id))
+
+    if submit == 'Cancel':
+        redirect_object(req, host, seeOther=True)
+        return
+    
     host.set_name(name)
     host.set_description(description)
-    
     redirect_object(req, host, seeOther=True)
     transaction.commit()
     queue_message(req, _("Host successfully updated."))

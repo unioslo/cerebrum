@@ -94,13 +94,15 @@ def object_link(object, text=None, method="view", _class="", **params):
         elif type == 'ou':
             tmp = object.get_display_name()
             text = tmp and tmp or object.get_name()
-        elif type == "emailtarget":    
+        elif type == 'emailtarget':    
             try:
                 primary = object.get_primary_address()
             except NotFoundError:
                 text = "Email target of type '%s'" % object.get_type().get_name()
             else:
                 text = primary.full_address() + " (%s)" % object.get_type().get_name()
+        elif type == 'disk':
+            text = object.get_path()
         elif hasattr(object, "get_name"):
         # should also cover
         #elif type in ('group', 'account'):

@@ -56,9 +56,7 @@ def tree(req, transaction, perspective=None):
     content = tree_template.viewTree(transaction, perspective)
     page.content = lambda: content
     return page
-
 tree = transaction_decorator(tree)
-
 
 def search(req, name="", acronym="", short="", spread="", transaction=None):
     req.session['ou_lastsearch'] = (name, acronym, short, spread)
@@ -108,10 +106,9 @@ def search(req, name="", acronym="", short="", spread="", transaction=None):
         table.add(_("Name"), _("Acronym"), _("Short name"), _("Actions"))
         for ou in ous:
             link = object_link(ou, text=_get_display_name(ou))
-            view = str(object_link(ou, text="view", _class="actions"))
             edit = str(object_link(ou, text="edit", method="edit", _class="actions"))
             remb = str(remember_link(ou, _class="actions"))
-            table.add(link, ou.get_acronym(), ou.get_short_name(), view+edit+remb)
+            table.add(link, ou.get_acronym(), ou.get_short_name(), edit+remb)
         
         if ous:
             result.append(table)
@@ -134,8 +131,8 @@ search = transaction_decorator(search)
 def view(req, transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main(req)
-    page.title = _("OU %s" % _get_display_name(ou))
-    page.setFocus("ou/view", str(ou.get_id()))
+    page.title = _("OU %s") % _get_display_name(ou)
+    page.setFocus("ou/view", id)
     content = OUViewTemplate().viewOU(transaction, ou)
     page.content = lambda: content
     return page
@@ -144,8 +141,8 @@ view = transaction_decorator(view)
 def edit(req, transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main(req)
-    page.title = _("OU %s" % ou.get_name())
-    page.setFocus("ou/edit", str(ou.get_id()))
+    page.title = _("OU ") + object_link(ou)
+    page.setFocus("ou/edit", id)
     content = OUEditTemplate().form(transaction, ou)
     page.content = lambda: content
     return page
@@ -197,8 +194,12 @@ def make(req, transaction, name, institution,
     queue_message(req, _("Organization Unit successfully created."))
 make = transaction_decorator(make)
 
-def save(req, transaction, id, name, **vargs):
+def save(req, transaction, id, name, submit=None, **vargs):
     ou = transaction.get_ou(int(id))
+
+    if submit == "Cancel":
+        redirect_object(req, ou, seeOther=True)
+        return
 
     ou.set_name(name)
     ou.set_acronym(vargs.get("acronym", ""))

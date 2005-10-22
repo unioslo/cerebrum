@@ -19,6 +19,7 @@
 ## Main template
 ## Gives a 'frames style' left menu and a bottom area
 
+#import re
 #from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
 #implements respond
@@ -67,6 +68,11 @@
     </div>
 #end def session_warning
 
+## Removes html from the title
+#def format_title($title)
+    #return re.sub('<[^!>](?:[^>]|\n)*>', '', $title)
+#end def format_title
+
 ## Content is overloaded by other pages to add the actual content on the page.
 #def content
 Her er mr. Content
@@ -86,7 +92,7 @@ Dette er bunnen
 <?xml version='1.0' ?>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"><html lang="en">
 <head>
-    <title>Cereweb $title</title>
+    <title>$format_title($title)</title>
 $css("fixed.css")
     <!--[if IE]>
 $css("fixed_ie5.css")

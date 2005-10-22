@@ -63,6 +63,8 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.account = self.addItem("account", _("Account") ,"account")
         self.account.addItem("search", _("Search") ,"account/search")
         self.account.addItem("list", _("List") ,"account/list")
+        self.account.addItem("view", _("View") ,"account/view?id=%s")
+        self.account.addItem("edit", _("Edit") ,"account/edit?id=%s")
 
     def makeGroup(self):    
         self.group = self.addItem("group", _("Group") ,"group")

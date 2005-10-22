@@ -86,7 +86,6 @@ def search(req, name="", accountname="", birthdate="", spread="", transaction=No
             searcher.mark_person()
             intersections.append(searcher)
 
-
         if spread:
             persons = sets.Set()
             spreadsearcher = transaction.get_spread_searcher()
@@ -116,10 +115,9 @@ def search(req, name="", accountname="", birthdate="", spread="", transaction=No
             accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]
             accounts = ', '.join(accounts[:3]) + (len(accounts) == 4 and '...' or '')
 
-            view = str(object_link(person, text="view", _class="actions"))
             edit = str(object_link(person, text="edit", method="edit", _class="actions"))
             remb = str(remember_link(person, _class="actions"))
-            table.add(object_link(person), date, accounts, view+edit+remb)
+            table.add(object_link(person), date, accounts, edit+remb)
     
         if persons:
             result.append(table)
@@ -169,7 +167,7 @@ def view(req, transaction, id, addName=False, addAffil=False):
     person = transaction.get_person(int(id))
     page = Main(req)
     page.title = _("Person %s" % _primary_name(person))
-    page.setFocus("person/view", str(person.get_id()))
+    page.setFocus("person/view", id)
     view = PersonViewTemplate()
     content = view.viewPerson(transaction, person, addName, addAffil)
     page.content = lambda: content
@@ -180,8 +178,8 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
     person = transaction.get_person(int(id))
     page = Main(req)
-    page.title = _("Edit %s" % _primary_name(person))
-    page.setFocus("person/edit", str(person.get_id()))
+    page.title = _("Edit ") + object_link(person)
+    page.setFocus("person/edit", id)
 
     genders = [(g.get_name(), g.get_description()) for g in 
                transaction.get_gender_type_searcher().search()]
@@ -192,7 +190,7 @@ def edit(req, transaction, id):
     return page
 edit = transaction_decorator(edit)
 
-def create(req, transaction, name="", gender="", birthdate="", description=""):
+def create(req, transaction):
     """Creates a page with the form for creating a person."""
     page = Main(req)
     page.title = _("Create a new person")
@@ -201,25 +199,23 @@ def create(req, transaction, name="", gender="", birthdate="", description=""):
     genders = [(g.get_name(), g.get_description()) for g in 
                transaction.get_gender_type_searcher().search()]
     
-    # Store given create parameters in create-form
-    values = {}
-    values['name'] = name
-    values['birthdate'] = birthdate
-    values['gender'] = gender
-    values['description'] = description
-
     genders = [(g.get_name(), g.get_description()) for g in 
                transaction.get_gender_type_searcher().search()]
     
-    create = PersonCreateTemplate(searchList=[{'formvalues': values}])
+    create = PersonCreateTemplate()
     content = create.form(genders)
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
 
-def save(req, transaction, id, gender, birthdate, deceased="", description=""):
+def save(req, transaction, id, gender, birthdate,
+         deceased="", description="", submit=None):
     """Store the form for editing a person into the database."""
     person = transaction.get_person(int(id))
+
+    if submit == "Cancel":
+        redirect_object(req, person, seeOther=True)
+        return
     
     person.set_gender(transaction.get_gender_type(gender))
     person.set_birth_date(transaction.get_commands().strptime(birthdate, "%Y-%m-%d"))

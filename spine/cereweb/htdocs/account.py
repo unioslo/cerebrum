@@ -51,7 +51,7 @@ def search(req, owner="", name="", expire_date="", create_date="",
     req.session['account_lastsearch'] = (owner, name, expire_date,
                                          create_date, spread, description)
     page = Main(req)
-    page.title = _("Account search:")
+    page.title = _("Account search")
     page.setFocus("account/list")
     # Store given search parameters in search form
     formvalues = {}
@@ -126,10 +126,9 @@ def search(req, owner="", name="", expire_date="", create_date="",
             cdate = account.get_create_date().strftime("%Y-%m-%d")
             edate = account.get_expire_date()
             edate = edate and edate.strftime("%Y-%m-%d") or ''
-            view = object_link(account, text="view", _class="actions")
             edit = object_link(account, text="edit", method="edit",  _class="actions")
             remb = remember_link(account, _class="actions")
-            table.add(link, owner, cdate, edate, str(view)+str(edit)+str(remb))
+            table.add(link, owner, cdate, edate, str(edit)+str(remb))
 
         if accounts:
             result.append(table)
@@ -202,9 +201,8 @@ make = transaction_decorator(make)
 def view(req, transaction, id, addHome=False):
     """Creates a page with a view of the account given by id, returns
        a Main-template"""
-    page = Main(req)
-    page.title = ""
     account = transaction.get_account(int(id))
+    page = Main(req)
     page.title = _("Account %s") % account.get_name()
     page.setFocus("account/view", id)
     view = AccountViewTemplate()
@@ -217,8 +215,8 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing an account."""
     account = transaction.get_account(int(id))
     page = Main(req)
-    page.title = ""
-    page.setFocus("account/edit")
+    page.title = _("Edit ") + object_link(account)
+    page.setFocus("account/edit", id)
 
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()
@@ -247,10 +245,14 @@ def edit(req, transaction, id):
 edit = transaction_decorator(edit)
 
 def save(req, transaction, id, name, expire_date="", uid="",
-         primary_group="", gecos="", shell=None, description=""):
+         primary_group="", gecos="", shell=None, description="", submit=None):
     account = transaction.get_account(int(id))
     c = transaction.get_commands()
     error_msgs = []
+
+    if submit == "Cancel":
+        redirect_object(req, account, seeOther=True)
+        return
 
     if expire_date:
         expire_date = c.strptime(expire_date, "%Y-%m-%d")

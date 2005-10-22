@@ -117,10 +117,9 @@ def search(req, name="", desc="", spread="", gid="",
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Group name"), _("Description"), _("Actions"))
         for group in groups[:max_hits]:
-            view = str(object_link(group, text='view', _class='actions'))
             edit = str(object_link(group, text='edit', method='edit', _class='actions'))
             remb = str(remember_link(group, _class="actions"))
-            table.add(object_link(group), group.get_description(), view+edit+remb)
+            table.add(object_link(group), group.get_description(), edit+remb)
 
         if groups:
             result.append(table)
@@ -145,7 +144,7 @@ def view(req, transaction, id):
     group = transaction.get_group(int(id))
     page = Main(req)
     page.title = _("Group %s" % group.get_name())
-    page.setFocus("group/view", str(group.get_id()))
+    page.setFocus("group/view", id)
     view = GroupViewTemplate()
     view.add_member = lambda group:_add_box(group)
     content = view.viewGroup(transaction, group)
@@ -217,8 +216,8 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a person."""
     group = transaction.get_group(int(id))
     page = Main(req)
-    page.title = _("Edit %s" % group.get_name())
-    page.setFocus("group/edit", str(group.get_id()))
+    page.title = _("Edit ") + object_link(group)
+    page.setFocus("group/edit", id)
 
     edit = GroupEditTemplate()
     content = edit.editGroup(transaction, group)
@@ -236,10 +235,15 @@ def create(req, name="", expire="", description=""):
     page.content = lambda :content
     return page
 
-def save(req, transaction, id, name, expire="", description="", visi="", gid=None):
+def save(req, transaction, id, name, expire="",
+         description="", visi="", gid=None, submit=None):
     """Save the changes to the server."""
     group = transaction.get_group(int(id))
     c = transaction.get_commands()
+    
+    if submit == 'Cancel':
+        redirect_object(req, group, seeOther=True)
+        return
     
     if expire:
         expire = c.strptime(expire, "%Y-%m-%d")

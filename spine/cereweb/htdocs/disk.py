@@ -86,10 +86,9 @@ def search(req, host="", path="", description="", transaction=None):
         table.add(_("Path"), _("Host"), _("Description"), _("Actions"))
         for disk in disks[:max_hits]:
             path = object_link(disk, text=disk.get_path())
-            view = str(object_link(disk, text="view", _class="actions"))
             edit = str(object_link(disk, text="edit", method="edit", _class="actions"))
             remb = str(remember_link(disk, _class="actions"))
-            table.add(path, object_link(disk.get_host()), disk.get_description(), view+edit+remb)
+            table.add(path, object_link(disk.get_host()), disk.get_description(), edit+remb)
     
         if disks:
             result.append(table)
@@ -113,7 +112,7 @@ def view(req, transaction, id):
     disk = transaction.get_disk(int(id))
     page = Main(req)
     page.title = _("Disk %s" % disk.get_path())
-    page.setFocus("disk/view", str(disk.get_id()))
+    page.setFocus("disk/view", id)
     view = DiskViewTemplate()
     content = view.viewDisk(transaction, disk)
     page.content = lambda: content
@@ -124,8 +123,8 @@ def edit(req, transaction, id):
     """Creates a page with the form for editing a disk."""
     disk = transaction.get_disk(int(id))
     page = Main(req)
-    page.title = _("Edit %s" % disk.get_path())
-    page.setFocus("disk/edit", str(disk.get_id()))
+    page.title = _("Edit ") + object_link(disk)
+    page.setFocus("disk/edit", id)
 
     edit = DiskEditTemplate()
     content = edit.editDisk(disk)
@@ -133,9 +132,14 @@ def edit(req, transaction, id):
     return page
 edit = transaction_decorator(edit)
 
-def save(req, transaction, id, path="", description=""):
+def save(req, transaction, id, path="", description="", submit=None):
     """Saves the information for the disk."""
     disk = transaction.get_disk(int(id))
+
+    if submit == 'Cancel':
+        redirect_object(req, disk, seeOther=True)
+        return
+    
     disk.set_path(path)
     disk.set_description(description)
     
