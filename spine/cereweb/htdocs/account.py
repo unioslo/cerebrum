@@ -177,7 +177,7 @@ def create(req, transaction, owner, name="", expire_date=""):
 create = transaction_decorator(create)
 
 def make(req, transaction, owner, name, expire_date="", np_type=None,
-         _other=None):
+         _other=None, join=False):
     commands = transaction.get_commands()
 
     owner = transaction.get_entity(int(owner))
@@ -190,8 +190,11 @@ def make(req, transaction, owner, name, expire_date="", np_type=None,
     if np_type:
         np_type = transaction.get_account_type(np_type)
         account = commands.create_np_account(name, owner, np_type, expire_date)
-    else:    
+    else:
         account = commands.create_account(name, owner, expire_date)
+    if join and owner.get_type().get_name() == "group":
+        operation = transaction.get_group_member_operation_type("union")
+        owner.add_member(account, operation)
     redirect_object(req, account)
     transaction.commit()
     queue_message(req, _("Account successfully created."))

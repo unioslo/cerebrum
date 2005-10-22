@@ -21,7 +21,7 @@
 #from FormWidgets import FormWidgets
 #extends InitTemplate
 
-#attr $form_widgets=FormWidgets()
+#attr $form_widgets = FormWidgets()
 
 
 #def input($label, $name, $value, $type="text", $text="")
@@ -55,23 +55,31 @@
 
 #def form($owner, $name, $expire_date, $alts, $transaction)
 <div class="create">
+    #set $type = $owner.get_type().get_name()
     <form action="make" method="POST">
         <div class="createform">
-            $input("Owner", "owner", $owner.get_id(), "hidden", object_link($owner))
+            $input("Owner", "owner", $owner.get_id(), "hidden", $object_link($owner))
             $radio("Username", "name", $alts, $name, "_other")
             $input("Expire date", "expire_date", $expire_date)
-            #if $owner.get_type().get_name() != 'person'
+            #if $type != 'person'
                 #set $ac_type_searcher = $transaction.get_account_type_searcher()    
                 #set $ac_types = [($t.get_name(), $t.get_description) 
                                   for $t in $ac_type_searcher.search()]
                 $form_widgets.generate_loption("np_type", "Non-personal account type",
                                                 $ac_types)
             #end if
+            #if $type == 'group'
+                <label for="join">$_('Join on creation'):</label>
+                <input type="checkbox" name="join" value="True" class="join">
+                    $object_link($owner)
+                </input><br />
+            #end if
 
         </div>
         <div>
             <center>
                 <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Reset')" />&nbsp;
             </center>
         </div>
     </form>
