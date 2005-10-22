@@ -77,9 +77,9 @@ def get_quarantine(self, type):
     s = registry.EntityQuarantineSearcher(self.get_database())
     s.set_type(type)
     s.set_entity(self)
-    return s.search()
+    return s.search()[0]
 
-Entity.register_method(Method('get_quarantine', [EntityQuarantine], args=[('type', QuarantineType)]), get_quarantine)
+Entity.register_method(Method('get_quarantine', EntityQuarantine, args=[('type', QuarantineType)]), get_quarantine)
 
 def get_quarantines(self):
     s = registry.EntityQuarantineSearcher(self.get_database())

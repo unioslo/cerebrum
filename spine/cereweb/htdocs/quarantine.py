@@ -29,7 +29,7 @@ def edit(req, transaction, entity, type):
     entity = transaction.get_entity(int(entity))
     q_type = transaction.get_quarantine_type(type)
 
-    quarantine, = entity.get_quarantine(q_type)
+    quarantine = entity.get_quarantine(q_type)
     formvalues = {}
     formvalues['type'] = type
     formvalues['why'] = quarantine.get_description()
@@ -56,7 +56,7 @@ def save(req, transaction, entity, type, why="",
         return
 
     q_type = transaction.get_quarantine_type(type)
-    quarantine, = entity.get_quarantine(q_type)
+    quarantine = entity.get_quarantine(q_type)
     c = transaction.get_commands()
     
     def strptime(date, default=''):
