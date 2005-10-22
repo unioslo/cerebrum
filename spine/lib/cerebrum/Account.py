@@ -60,7 +60,7 @@ class Account(Entity):
         CerebrumDbAttr('create_date', table, Date),
         CerebrumDbAttr('creator', table, Entity),
         CerebrumDbAttr('expire_date', table, Date, write=True),
-        CerebrumDbAttr('description', table, str, write=True),
+        DatabaseAttr('description', table, str, write=True),
         CerebrumAttr('name', str, write=True)
     ]
     
