@@ -174,4 +174,23 @@ def delete(req, transaction, id):
     queue_message(req, "Host successfully deleted.")
 delete = transaction_decorator(delete)
 
+def disks(req, transaction, host, add=None, delete=None, **checkboxes):
+    if add:
+        redirect(req, url('disk/create?host=%s' % host))
+        
+    elif delete:
+        host = transaction.get_host(int(host))
+        for arg, value in checkboxes.items():
+            disk = transaction.get_disk(int(arg))
+            p = disk.get_path()
+            disk.delete()
+            queue_message(req, _("Disk '%s' successfully deleted.") % p)
+        
+        redirect_object(req, host, seeOther=True)
+        transaction.commit()
+
+    else:
+        raise "I don't know what you want me to do"
+disks = transaction_decorator(disks)
+
 # arch-tag: 6d5f8060-3bf4-11da-96a8-c359dfc6e774

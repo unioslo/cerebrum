@@ -63,4 +63,11 @@ def create(self, host, path, description):
 args = [('host', Host), ('path', str), ('description', str)]
 Commands.register_method(Method('create_disk', Disk, args=args, write=True), create)
 
+def get_disks(self):
+    searcher = registry.DiskSearcher(self.get_database())
+    searcher.set_host(self)
+    return searcher.search()
+
+Host.register_method(Method('get_disks', [Disk], args=[]), get_disks)
+
 # arch-tag: 3c4a4e7b-88e8-4b38-83b4-8648146d94bf

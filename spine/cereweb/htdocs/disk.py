@@ -148,22 +148,17 @@ def save(req, transaction, id, path="", description="", submit=None):
     queue_message(req, _("Disk successfully updated."))
 save = transaction_decorator(save)
 
-def create(req, transaction, host="", path="", description=""):
+def create(req, transaction, host=""):
     """Creates a page with the form for creating a disk."""
     page = Main(req)
     page.title = _("Create a new disk")
     page.setFocus("disk/create")
 
-    # Store given create parameters in create-form
-    values = {}
-    values['host'] = host
-    values['path'] = path
-    values['description'] = description
-
     hosts = [(i.get_id(), i.get_name()) for i in
                     transaction.get_host_searcher().search()]
 
-    create = DiskCreateTemplate(searchList=[{'formvalues': values}])
+    create = DiskCreateTemplate()
+    create.formvalues = {'host': int(host)}
     content = create.form(hosts)
     page.content = lambda: content
     return page

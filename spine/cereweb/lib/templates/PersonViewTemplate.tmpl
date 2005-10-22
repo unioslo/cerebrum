@@ -94,7 +94,7 @@ $view_entity($person, $transaction)
 
 <div class="personaccounts">
     <div class="subtitle">
-        <h3>$_("Accounts & Groups")</h3>
+        <h3>$_("Accounts & Groups"):</h3>
     </div>
     <form action="$url('person/accounts')" type="post">
     #for $account in $allaccounts
@@ -117,7 +117,7 @@ $view_entity($person, $transaction)
     #end for
     <div>
     #if $allaccounts
-        <input type="submit" value="$_('Delete')" name="delete" />
+        <input type="submit" value="$_('Delete')" name="delete" />&nbsp;
     #end if
         <input type="hidden" value="$person_id" name="owner" />
         <input type="submit" value="$_('Add new account')" name="add" />

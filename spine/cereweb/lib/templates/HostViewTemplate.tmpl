@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url
+#from Cereweb.utils import url, object_link
 #from Cereweb.WorkList import remember_link
 #extends EntityViewTemplate
 
@@ -24,6 +24,7 @@
 #def viewHost($transaction, $host)
 <div>
     $hostInfo($host)
+    $disks($host)
 </div>
 $view_entity($host, $transaction)
 #end def
@@ -48,6 +49,33 @@ $view_entity($host, $transaction)
         <a href="$url('host/delete?id=%s' % $id)">$_("delete host")</a>
         $remember_link($host)
     </div>
+</div>
+#end def
+
+#def disks($host)
+<div class="hostdisks">
+    <div class="subtitle">
+        <h3>$_('Disks'):</h3>
+    </div>
+    <form action="$url('host/disks')" type="post">
+    #set $disks = $host.get_disks()
+    #for $disk in $disks
+        <div>
+            <input type="checkbox" name="$disk.get_id()" />
+            <em>$_('Path'):</em> $disk.get_path()
+            $object_link($disk, "view", _class="actions")
+            $object_link($disk, "edit", "edit", _class="actions")
+            $remember_link($disk, _class="actions")
+        </div>
+    #end for
+    <div>
+    #if $disks
+        <input type="submit" name="delete" value="$_('Delete disks')" />&nbsp;
+    #end if
+        <input type="submit" name="add" value="$_('Add a disk')" />
+        <input type="hidden" name="host" value="$host.get_id()" />
+    </div>
+    </form>
 </div>
 #end def
 
