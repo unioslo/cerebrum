@@ -46,21 +46,20 @@ def list(req):
     """Creates a page wich content is the last disk search performed."""
     return search(req, *req.session.get('disk_lastsearch', ()))
 
-def search(req, host="", path="", description="", transaction=None):
+def search(req, path="", description="", transaction=None):
     """Creates a page with a list of disks matching the given criterias."""
-    req.session['disk_lastsearch'] = (host, path, description)
+    req.session['disk_lastsearch'] = (path, description)
     page = Main(req)
     page.title = _("Search for disk(s)")
     page.setFocus("disk/list")
     
     # Store given search parameters in search form
     values = {}
-    values['host'] = host
     values['path'] = path
     values['description'] = description
     form = DiskSearchTemplate(searchList=[{'formvalues': values}])
     
-    if host or path or description:
+    if path or description:
         disksearcher = transaction.get_disk_searcher()
 
         if path:
@@ -68,12 +67,6 @@ def search(req, host="", path="", description="", transaction=None):
 
         if description:
             disksearcher.set_description_like(description)
-            
-        if host:
-            hostsearcher = transaction.get_host_searcher()
-            hostsearcher.set_name_like(host)
-            pass
-            #FIXME: fix this!!
             
         disks = disksearcher.search()
 
