@@ -18,33 +18,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, transaction_decorator
-from Cereweb.templates.FullHistoryLogTemplate import FullHistoryLogTemplate
-
-def index(req):
-    page = Main(req)
-    #page.menu.setFocus("group/search")
-    viewhistory = FullHistoryLogTemplate()
-    #page.content = viewhistory.form
-    return page
+from Cereweb.HistoryLog import view_history
+from Cereweb.utils import transaction_decorator, object_link
 
 def view(req, transaction, id):
-    """Creates a page with a view of the entire historylog
-       based on an entity"""
+    """Creates a page with the full historylog for an entity."""
+    entity = transaction.get_entity(int(id))
+    type = entity.get_type().get_name()
+    
     page = Main(req)
-    try:
-        entity = transaction.get_entity(int(id))
-        #entity.quarantines = entity.get_quarantines()
-        #entity.uri = req.unparsed_uri
-    except:
-        page.add_message(_("Could not load entity with id %s") % id)
-        return page
-
-    view = FullHistoryLogTemplate()
-    content = view.viewFullHistoryLog(entity)
+    page.title = type.capitalize() + ': ' + object_link(entity)
+    page.setFocus('%s/view' % type, id)
+    content = view_history(entity)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)

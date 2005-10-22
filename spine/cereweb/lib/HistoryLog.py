@@ -18,12 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 from Cereweb.TableView import TableView
 from Cereweb.utils import url
 from Cereweb.utils import object_link
-import types
-import cPickle
+from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 
 def view_history_short(entity):
     # Could use some other template for 'short' view 
@@ -61,9 +59,6 @@ def _history_tableview(events):
         type = change.get_type()
 
         icon = get_icon_by_change_type(type.get_type())
-        #server = req.session['server']
-        #ent = ClientAPI.fetch_object_by_id(server, change.change_by)
-        #who = ent.name            
         table.add(timestamp=change.get_timestamp().strftime("%Y-%m-%d"),
                   who=who,
                   category=type.get_category(),
@@ -85,5 +80,5 @@ def get_icon_by_change_type(changetype):
     }
     icon=icon_map.get(type, "blank.png")
     return icon
-            
+ 
 # arch-tag: c867b6bd-9a66-4967-9e41-fa88f669a641
