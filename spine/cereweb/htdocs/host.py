@@ -33,24 +33,21 @@ import Cereweb.config
 max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 def index(req):
-    """Creates a page with the search for hosts."""
-    page = Main(req)
-    page.title = _("Search for host(s)")
-    page.setFocus("host/search")
-    hostsearch = HostSearchTemplate()
-    page.content = hostsearch.form
-    return page
+    """Redirects to the page with search for hosts."""
+    return search(req)
 
-def list(req):
-    """Creates a page wich content is the last host search performed."""
-    return search(req, *req.session.get('host_lastsearch', ()))
-
-def search(req, name="", description="", transaction=None):
+def search(req, transaction, name="", description=""):
     """Creates a page with a list of hosts matching the given criterias."""
-    req.session['host_lastsearch'] = (name, description)
+    perform_search = False
+    if name or description:
+        perform_search = True
+        req.session['host_ls'] = (name, description)
+    elif 'host_ls' in req.session:
+        name, description = req.session['host_ls']
+        
     page = Main(req)
     page.title = _("Search for hosts(s)")
-    page.setFocus("host/list")
+    page.setFocus("host/search")
     
     # Store given search parameters in search form
     values = {}
@@ -58,7 +55,7 @@ def search(req, name="", description="", transaction=None):
     values['description'] = description
     form = HostSearchTemplate(searchList=[{'formvalues': values}])
     
-    if name or description:
+    if perform_search:
         searcher = transaction.get_host_searcher()
 
         if name:

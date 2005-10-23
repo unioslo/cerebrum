@@ -34,24 +34,21 @@ import Cereweb.config
 max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 def index(req):
-    """Creates a page with the search for person form."""
+    """Redirects to the search for person page."""
+    return search(req)
+
+def search(req, transaction, name="", accountname="", birthdate="", spread=""):
+    """Creates a page with a list of persons matching the given criterias."""
+    perform_search = False
+    if name or accountname or birthdate or spread:
+        perform_search = True
+        req.session['person_ls'] = (name, accountname, birthdate, spread)
+    elif 'person_ls' in req.session:
+        name, accountname, birthdate, spread = req.session.get('person_ls')
+    
     page = Main(req)
     page.title = _("Search for person(s)")
     page.setFocus("person/search")
-    personsearch = PersonSearchTemplate()
-    page.content = personsearch.form
-    return page
-
-def list(req):
-    """Creates a page wich content is the last search performed."""
-    return search(req, *req.session.get('person_lastsearch', ()))
-
-def search(req, name="", accountname="", birthdate="", spread="", transaction=None):
-    """Creates a page with a list of persons matching the given criterias."""
-    req.session['person_lastsearch'] = (name, accountname, birthdate, spread)
-    page = Main(req)
-    page.title = _("Search for person(s)")
-    page.setFocus("person/list")
     
     # Store given search parameters in search form
     values = {}
@@ -61,7 +58,7 @@ def search(req, name="", accountname="", birthdate="", spread="", transaction=No
     values['spread'] = spread
     form = PersonSearchTemplate(searchList=[{'formvalues': values}])
     
-    if name or accountname or birthdate or spread:
+    if perform_search:
         """
         Searches first through accountnames and birthdates,
         then perform an intersection with the result of a search

@@ -54,7 +54,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
     def makePerson(self):
         self.person = self.addItem("person", _("Person") ,"person")
         self.person.addItem("search", _("Search") ,"person/search")
-        self.person.addItem("list", _("List") ,"person/list")
         self.person.addItem("create", _("Create") ,"person/create")
         self.person.addItem("view", _("View") ,"person/view?id=%s")
         self.person.addItem("edit", _("Edit") ,"person/edit?id=%s")
@@ -62,14 +61,12 @@ class SideMenu(FixUrlMixin, Menu.Menu):
     def makeAccount(self):
         self.account = self.addItem("account", _("Account") ,"account")
         self.account.addItem("search", _("Search") ,"account/search")
-        self.account.addItem("list", _("List") ,"account/list")
         self.account.addItem("view", _("View") ,"account/view?id=%s")
         self.account.addItem("edit", _("Edit") ,"account/edit?id=%s")
 
     def makeGroup(self):    
         self.group = self.addItem("group", _("Group") ,"group")
         self.group.addItem("search", _("Search") ,"group")
-        self.group.addItem("list", _("List") ,"group/list")
         self.group.addItem("create", _("Create") ,"group/create")
         self.group.addItem("view", _("View") ,"group/view?id=%s")
         self.group.addItem("edit", _("Edit") ,"group/edit?id=%s")
@@ -77,7 +74,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
     def makeOU(self):
         self.ou = self.addItem("ou", _("OU") ,"ou")
         self.ou.addItem("search", _("Search") ,"ou")
-        self.ou.addItem("list", _("List") ,"ou/list")
         self.ou.addItem("tree", _("Tree") ,"ou/tree")
         self.ou.addItem("create", _("Create") ,"ou/create")
         self.ou.addItem("view", _("View") ,"ou/view?id=%s")
@@ -86,7 +82,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
     def makeHost(self):
         self.host = self.addItem("host", _("Host"), "host")
         self.host.addItem("search", _("Search"), "host")
-        self.host.addItem("list", _("List"), "host/list")
         self.host.addItem("create", _("Create"), "host/create")
         self.host.addItem("view", _("View"), "host/view?id=%s")
         self.host.addItem("edit", _("Edit"), "host/edit?id=%s")
@@ -94,7 +89,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
     def makeDisk(self):
         self.disk = self.addItem("disk", _("Disk"), "disk")
         self.disk.addItem("search", _("Search"), "disk")
-        self.disk.addItem("list", _("List"), "disk/list")
         self.disk.addItem("create", _("Create"), "disk/create")
         self.disk.addItem("view", _("View"), "disk/view?id=%s")
         self.disk.addItem("edit", _("Edit"), "disk/edit?id=%s")

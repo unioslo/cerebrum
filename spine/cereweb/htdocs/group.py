@@ -40,25 +40,24 @@ operations = {
     'difference':'Difference'}
 
 def index(req):
-    """Creates a page with the search for group form."""
+    """Redirects to the page with search for groups."""
+    return search(req)
+
+def search(req, transaction, name="", desc="",
+           spread="", gid="", gid_end="", gid_option=""):
+    """Creates a page with a list of groups matching the given criterias."""
+    perform_search = False
+    if name or desc or spread or gid:
+        perform_search = True
+        req.session['group_ls'] = (name, desc, spread,
+                                   gid, gid_end, gid_option)
+    elif 'group_ls' in req.session:
+        name, desc, spread = req.session['group_ls'][:3]
+        gid, gid_end, gid_option = req.session['group_ls'][3:]
+        
     page = Main(req)
     page.title = _("Search for group(s)")
     page.setFocus("group/search")
-    groupsearch = GroupSearchTemplate()
-    page.content = groupsearch.form
-    return page
-
-def list(req):
-    """Creates a page wich content is the last group-search performed."""
-    return search(req, *req.session.get('group_lastsearch', ()))
-
-def search(req, name="", desc="", spread="", gid="",
-           gid_end="", gid_option="", transaction=None):
-    """Creates a page with a list of groups matching the given criterias."""
-    req.session['group_lastsearch'] = (name, desc, spread, gid, gid_end, gid_option)
-    page = Main(req)
-    page.title = _("Search for group(s)")
-    page.setFocus("group/list")
     
     # Store given search parameters in search form
     values = {}
@@ -70,7 +69,7 @@ def search(req, name="", desc="", spread="", gid="",
     values['gid_option'] = gid_option
     form = GroupSearchTemplate(searchList=[{'formvalues': values}])
 
-    if name or desc or spread or gid:
+    if perform_search:
         server = transaction
         searcher = server.get_group_searcher()
         if name:

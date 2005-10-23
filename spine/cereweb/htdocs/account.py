@@ -35,23 +35,24 @@ import Cereweb.config
 max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 def index(req):
-    page = Main(req)
-    page.title = _("Search for account(s)")
-    page.setFocus("account/search")
-    accountsearch = AccountSearchTemplate()
-    page.content = accountsearch.form
-    return page
+    """Redirects to the page with search for accounts."""
+    return search(req)
 
-def list(req):
-    return search(req, *req.session.get('account_lastsearch', ()))
-
-def search(req, owner="", name="", expire_date="", create_date="",
-           spread="", description="", transaction=None):
-    req.session['account_lastsearch'] = (owner, name, expire_date,
-                                         create_date, spread, description)
+def search(req, transaction, owner="", name="", expire_date="",
+           create_date="", spread="", description=""):
+    perform_search = False
+    if owner or name or expire_date or create_date or spread or description:
+        perform_search = True
+        req.session['account_ls'] = (owner, name, expire_date,
+                                     create_date, spread, description)
+    elif 'account_ls' in req.session:
+        owner, name, expire_date = req.session['account_ls'][:3]
+        create_date, spread, description = req.session['account_ls'][3:]
+        
     page = Main(req)
     page.title = _("Account search")
-    page.setFocus("account/list")
+    page.setFocus("account/search")
+    
     # Store given search parameters in search form
     formvalues = {}
     formvalues['name'] = name
@@ -62,7 +63,7 @@ def search(req, owner="", name="", expire_date="", create_date="",
     accountsearch = AccountSearchTemplate(
                        searchList=[{'formvalues': formvalues}])
 
-    if owner or name or expire_date or create_date or spread or description:
+    if perform_search:
         server = transaction
 
         entitysearch = server.get_entity_searcher()

@@ -31,17 +31,8 @@ from Cereweb.templates.OUTreeTemplate import OUTreeTemplate
 from Cereweb.templates.OUEditTemplate import OUEditTemplate
 from Cereweb.templates.OUViewTemplate import OUViewTemplate
 
-
 def index(req):
-    page = Main(req)
-    page.title = _("Search for OU(s)")
-    page.setFocus("ou/search")
-    ousearcher = OUSearchTemplate()
-    page.content = ousearcher.form
-    return page
-
-def list(req):
-    return search(req, *req.session.get('ou_lastsearch', ()))
+    return search(req)
 
 def tree(req, transaction, perspective=None):
     page = Main(req)
@@ -58,8 +49,14 @@ def tree(req, transaction, perspective=None):
     return page
 tree = transaction_decorator(tree)
 
-def search(req, name="", acronym="", short="", spread="", transaction=None):
-    req.session['ou_lastsearch'] = (name, acronym, short, spread)
+def search(req, transaction, name="", acronym="", short="", spread=""):
+    perform_search = False
+    if name or acronym or short or spread:
+        perform_search = True
+        req.session['ou_ls'] = (name, acronym, short, spread)
+    elif 'ou_ls' in req.session:
+        name, acronym, short, spread = req.session['ou_ls']
+        
     page = Main(req)
     page.title = _("Search for OU(s)")
     page.setFocus("ou/search")
@@ -74,7 +71,7 @@ def search(req, name="", acronym="", short="", spread="", transaction=None):
     values['spread'] = spread
     form = OUSearchTemplate(searchList=[{'formvalues': values}])
 
-    if name or acronym or short or spread:
+    if perform_search:
         searcher = transaction.get_ou_searcher()
         if name:
             searcher.set_name_like(name)

@@ -33,24 +33,20 @@ import Cereweb.config
 max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 def index(req):
-    """Creates a page with the search for disks."""
+    return search(req)
+
+def search(req, transaction, path="", description=""):
+    """Creates a page with a list of disks matching the given criterias."""
+    perform_search = False
+    if path or description:
+        perform_search = True
+        req.session['disk_ls'] = (path, description)
+    elif 'disk_ls' in req.session:
+        path, description = req.session['disk_ls']
+    
     page = Main(req)
     page.title = _("Search for disk(s)")
     page.setFocus("disk/search")
-    search = DiskSearchTemplate()
-    page.content = search.form
-    return page
-
-def list(req):
-    """Creates a page wich content is the last disk search performed."""
-    return search(req, *req.session.get('disk_lastsearch', ()))
-
-def search(req, path="", description="", transaction=None):
-    """Creates a page with a list of disks matching the given criterias."""
-    req.session['disk_lastsearch'] = (path, description)
-    page = Main(req)
-    page.title = _("Search for disk(s)")
-    page.setFocus("disk/list")
     
     # Store given search parameters in search form
     values = {}
@@ -58,7 +54,7 @@ def search(req, path="", description="", transaction=None):
     values['description'] = description
     form = DiskSearchTemplate(searchList=[{'formvalues': values}])
     
-    if path or description:
+    if perform_search:
         disksearcher = transaction.get_disk_searcher()
 
         if path:
