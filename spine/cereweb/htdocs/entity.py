@@ -21,8 +21,7 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link
+from Cereweb.utils import redirect_object, transaction_decorator, commit
 
 def view(req, transaction, id):
     entity = transaction.get_entity(int(id))
@@ -36,9 +35,8 @@ def add_external_id(req, transaction, id, external_id, id_type):
     entity.set_external_id(external_id, id_type, source_system)
 
     #TODO: Redirect to where we actualy came from.
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("External id successfully added."))
+    msg = _("External id successfully added.")
+    commit(transaction, req, entity, msg=msg)
 add_external_id = transaction_decorator(add_external_id)
 
 def remove_external_id(req, transaction, id, external_id, id_type):
@@ -48,9 +46,8 @@ def remove_external_id(req, transaction, id, external_id, id_type):
     entity.remove_external_id(external_id, id_type, source_system)
 
     #TODO: Redirect to where we actualy came from.
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("External id successfully removed."))
+    msg = _("External id successfully removed.")
+    commit(transaction, req, entity, msg=msg)
 remove_external_id = transaction_decorator(remove_external_id)
 
 def add_spread(req, transaction, id, spread):
@@ -59,9 +56,8 @@ def add_spread(req, transaction, id, spread):
     entity.add_spread(spread)
 
     #TODO: Redirect to where we actualy came from.
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Spread successfully added."))
+    msg = _("Spread successfully added.")
+    commit(transaction, req, entity, msg=msg)
 add_spread = transaction_decorator(add_spread)
 
 def remove_spread(req, transaction, id, spread):
@@ -70,10 +66,8 @@ def remove_spread(req, transaction, id, spread):
     entity.delete_spread(spread)
 
     #TODO: Redirect to where we actualy came from.
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Spread successfully removed."))
+    msg = _("Spread successfully removed.")
+    commit(transaction, req, entity, msg=msg)
 remove_spread = transaction_decorator(remove_spread)
-
 
 # arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e

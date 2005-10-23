@@ -19,12 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sets
-
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect_object, redirect
-from Cereweb.utils import object_link, transaction_decorator
+from Cereweb.utils import url, queue_message, redirect_object, commit
+from Cereweb.utils import object_link, transaction_decorator, commit_url
 from Cereweb.WorkList import remember_link
 from Cereweb.templates.GroupSearchTemplate import GroupSearchTemplate
 from Cereweb.templates.GroupViewTemplate import GroupViewTemplate
@@ -165,51 +164,41 @@ def _add_box(group):
 
 def add_member(req, transaction, id, name, type, operation):
     group = transaction.get_group(int(id))
+    
     try:
-        operation = transaction.get_group_member_operation_type(operation)
+        op = transaction.get_group_member_operation_type(operation)
     except:
-        # Display an error-message on top of page.
-        queue_message(req, _("%s is not a valid operation.") % 
-                           operation, error=True)
+        queue_message(req, _("Invalid operation '%s'.") % operation, True)
         redirect_object(req, group, seeOther=True)
         return
     
+    search = transaction.get_entity_name_searcher()
+    search.set_name(name)
+    search.set_value_domain(transaction.get_value_domain(type + '_names'))
     try:
-        search = transaction.get_entity_name_searcher()
-        search.set_name(name)
-        search.set_value_domain(transaction.get_value_domain(type + '_names'))
-        entityName, = search.search()
-        entity = entityName.get_entity()
-    except:
-        queue_message(req, _("Could not add non-existing member %s %s") %
-                         (type, name), error=True)
+        entity_name, = search.search()
+    except ValueError, e:
+        queue_message(req, _("Could not find %s %s") % (type, name), True)
         redirect_object(req, group, seeOther=True)
         return
-
-    try:
-        group.add_member(entity, operation)
-    except:    
-        queue_message(req, _("Could not add member %s %s to group, "
-                      "already member?") % (type, name), error=True) 
-    # Display a message stating that entity is added as group-member
-    queue_message(req, (_("%s %s added as a member to group.") % 
-                        (type, name)))
-    redirect_object(req, group, seeOther=True)
-
-    transaction.commit()
+    
+    entity = entity_name.get_entity()
+    group.add_member(entity, op)
+    
+    msg = _("%s added as a member to group.") % object_link(entity)
+    commit(transaction, req, group, msg=msg)
 add_member = transaction_decorator(add_member)
 
 def remove_member(req, transaction, groupid, memberid, operation):
-    group = transaction.get_group(int(id))
+    group = transaction.get_group(int(groupid))
     member = transaction.get_entity(int(memberid))
     operation = transaction.get_group_member_operation_type(operation)
 
     group_member = transaction.get_group_member(group, operation, member, member.get_type())
     group.remove_member(group_member)
 
-    queue_message(req, _("%s removed from group %s") % (object_link(member), group))
-    redirect_object(req, group, seeOther=True)
-    transaction.commit()
+    msg = _("%s removed from group.") % object_link(member)
+    commit(transaction, req, group, msg=msg)
 remove_member = transaction_decorator(remove_member)
 
 def edit(req, transaction, id):
@@ -262,9 +251,7 @@ def save(req, transaction, id, name, expire="",
     group.set_name(name)
     group.set_description(description)
     
-    redirect_object(req, group, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Group successfully updated."))
+    commit(transaction, req, group, msg=_("Group successfully updated."))
 save = transaction_decorator(save)
 
 def make(req, transaction, name, expire="", description=""):
@@ -279,35 +266,29 @@ def make(req, transaction, name, expire="", description=""):
     if description:
         group.set_description(description)
     
-    queue_message(req, _("Group successfully created."))
-    redirect_object(req, group, seeOther=True)
-    transaction.commit()
+    commit(transaction, req, group, msg=_("Group successfully created."))
 make = transaction_decorator(make)
 
 def posix_promote(req, transaction, id):
     group = transaction.get_group(int(id))
     group.promote_posix()
-    redirect_object(req, group, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Group successfully promoted."))
+    msg = _("Group successfully promoted to posix.")
+    commit(transaction, req, group, msg=msg)
 posix_promote = transaction_decorator(posix_promote)
 
 def posix_demote(req, transaction, id):
     group = transaction.get_group(int(id))
     group.demote_posix()
-    redirect_object(req, group, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Group successfully demoted."))
+    msg = _("Group successfully demoted from posix.")
+    commit(transaction, req, group, msg=msg)
 posix_demote = transaction_decorator(posix_demote)
 
 def delete(req, transaction, id):
     """Delete the group from the server."""
     group = transaction.get_group(int(id))
+    msg = _("Group '%s' successfully deleted.") % group.get_name()
     group.delete()
-
-    redirect(req, url("group"), seeOther=True)
-    transaction.commit()
-    queue_message(req, "Group successfully deleted.")
+    commit_url(transaction, req, url("group/index"), msg=msg)
 delete = transaction_decorator(delete)
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

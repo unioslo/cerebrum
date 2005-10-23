@@ -18,18 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link
-from Cereweb.WorkList import remember_link
+from Cereweb.utils import transaction_decorator, commit
 from Cereweb.templates.EmailDomain import EmailDomain
 
 
 def index(req):
     # Could also let people search by email address etc
-    return redirect(req, url('emaildomain/list'))
+    return redirect(req, url('emaildomain/list'), seeOther=True)
 
 def view(req, transaction, id):
     domain = transaction.get_email_domain(int(id))
@@ -83,9 +81,7 @@ def save(req, transaction, name, description="", domain=None):
         domain.set_description(description)    
         msg = _("Saved email domain %s")
     msg = msg % domain.get_name()
-    redirect_object(req, domain)
-    transaction.commit() 
-    queue_message(req, msg)
+    commit(transaction, req, domain, msg=msg)
 save = transaction_decorator(save)
 
 def remove_from_category(req, transaction, id, category):
@@ -94,21 +90,16 @@ def remove_from_category(req, transaction, id, category):
     domain.remove_from_category(category)
     msg = _("Removed email domain %s from category %s")
     msg = msg % (domain.get_name(), category.get_name())
-    redirect_object(req, domain)
-    transaction.commit() 
-    queue_message(req, msg)
+    commit(transaction, req, domain, msg=msg)
 remove_from_category = transaction_decorator(remove_from_category)    
     
-
 def add_to_category(req, transaction, id, category):
     domain = transaction.get_email_domain(int(id))
     category = transaction.get_email_domain_category(category)
     domain.add_to_category(category)
     msg = _("Added email domain %s to category %s")
     msg = msg % (domain.get_name(), category.get_name())
-    redirect_object(req, domain)
-    transaction.commit() 
-    queue_message(req, msg)
+    commit(transaction, req, domain, msg=msg)
 add_to_category = transaction_decorator(add_to_category)    
 
 def addresses(req, transaction, id):

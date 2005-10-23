@@ -21,7 +21,8 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import redirect_object, queue_message, transaction_decorator
+from Cereweb.utils import transaction_decorator, commit
+from Cereweb.utils import redirect_object, queue_message
 from Cereweb.templates.NoteAddTemplate import NoteAddTemplate
 
 
@@ -42,11 +43,10 @@ def add(req, transaction, entity, subject="", description=""):
     entity = transaction.get_entity(int(entity))
     if not subject and not description:
         queue_message(req, _("Could not add blank note"), error=True)
+        redirect_object(req, entity, seeOther=True)
     else:
         entity.add_note(subject, description)
-        queue_message(req, _("Added note '%s'") % subject)
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
+        commit(transaction, req, entity, msg=_("Added note '%s'") % subject)
 add = transaction_decorator(add)
 
 def delete(req, transaction, entity, id):
@@ -54,8 +54,7 @@ def delete(req, transaction, entity, id):
     entity = transaction.get_entity(int(entity))
     note = transaction.get_note(int(id))
     entity.remove_note(note)
-    queue_message(req, _("Note deleted"))
-    redirect_object(req, entity, seeOther=True)
+    commit(transaction, req, entity, _("Note deleted"))
 delete = transaction_decorator(delete)
 
 # arch-tag: a346491e-4e47-42c1-8646-391b6375b69f

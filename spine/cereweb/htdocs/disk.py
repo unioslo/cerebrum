@@ -18,12 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link
+from Cereweb.utils import commit, commit_url, url, object_link
+from Cereweb.utils import transaction_decorator, redirect_object
 from Cereweb.WorkList import remember_link
 from Cereweb.templates.DiskSearchTemplate import DiskSearchTemplate
 from Cereweb.templates.DiskViewTemplate import DiskViewTemplate
@@ -136,9 +135,7 @@ def save(req, transaction, id, path="", description="", submit=None):
     disk.set_path(path)
     disk.set_description(description)
     
-    redirect_object(req, disk, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Disk successfully updated."))
+    commit(transaction, req, disk, msg=_("Disk successfully updated."))
 save = transaction_decorator(save)
 
 def create(req, transaction, host=""):
@@ -151,7 +148,8 @@ def create(req, transaction, host=""):
                     transaction.get_host_searcher().search()]
 
     create = DiskCreateTemplate()
-    create.formvalues = {'host': int(host)}
+    if host:
+        create.formvalues = {'host': int(host)}
     content = create.form(hosts)
     page.content = lambda: content
     return page
@@ -161,20 +159,15 @@ def make(req, transaction, host, path="", description=""):
     """Creates the host."""
     host = transaction.get_host(int(host))
     disk = transaction.get_commands().create_disk(host, path, description)
-    
-    redirect_object(req, disk, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Disk successfully created."))
+    commit(transaction, req, disk, msg=_("Disk successfully created."))
 make = transaction_decorator(make)
 
 def delete(req, transaction, id):
     """Delete the disk from the server."""
     disk = transaction.get_disk(int(id))
+    msg = _("Disk '%s' successfully deleted.") % disk.get_path()
     disk.delete()
-
-    redirect(req, url("disk"), seeOther=True)
-    transaction.commit()
-    queue_message(req, "Disk successfully deleted.")
+    commit_url(transaction, req, url("disk/index"), msg=msg)
 delete = transaction_decorator(delete)
 
 # arch-tag: 6cf3413e-3bf4-11da-9d43-c8c980cc74d7

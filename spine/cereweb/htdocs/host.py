@@ -18,12 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link
+from Cereweb.utils import commit, commit_url, queue_message, object_link
+from Cereweb.utils import url, transaction_decorator, redirect, redirect_object
 from Cereweb.WorkList import remember_link
 from Cereweb.templates.HostSearchTemplate import HostSearchTemplate
 from Cereweb.templates.HostViewTemplate import HostViewTemplate
@@ -134,9 +133,7 @@ def save(req, transaction, id, name, description="", submit=None):
     
     host.set_name(name)
     host.set_description(description)
-    redirect_object(req, host, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Host successfully updated."))
+    commit(transaction, req, host, msg=_("Host successfully updated."))
 save = transaction_decorator(save)
 
 def create(req, transaction, name="", description=""):
@@ -159,19 +156,15 @@ create = transaction_decorator(create)
 def make(req, transaction, name, description=""):
     """Creates the host."""
     host = transaction.get_commands().create_host(name, description)
-    redirect_object(req, host, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Host successfully created."))
+    commit(transaction, req, host, msg=_("Host successfully created."))
 make = transaction_decorator(make)
 
 def delete(req, transaction, id):
     """Delete the host from the server."""
     host = transaction.get_host(int(id))
+    msg = _("Host '%s' successfully deleted.") % host.get_name()
     host.delete()
-
-    redirect(req, url("host"), seeOther=True)
-    transaction.commit()
-    queue_message(req, "Host successfully deleted.")
+    commit_url(transaction, req, url("host/index"), msg=msg)
 delete = transaction_decorator(delete)
 
 def disks(req, transaction, host, add=None, delete=None, **checkboxes):
@@ -182,13 +175,15 @@ def disks(req, transaction, host, add=None, delete=None, **checkboxes):
         host = transaction.get_host(int(host))
         for arg, value in checkboxes.items():
             disk = transaction.get_disk(int(arg))
-            p = disk.get_path()
             disk.delete()
-            queue_message(req, _("Disk '%s' successfully deleted.") % p)
         
-        redirect_object(req, host, seeOther=True)
-        transaction.commit()
-
+        if len(checkboxes) > 0:
+            msg = _("Disk(s) successfully deleted.")
+            commit(transaction, req, host, msg=msg)
+        else:
+            msg = _("No disk(s) selected for deletion")
+            queue_message(req, msg, error=True, link=object_link(host))
+            redirect_object(req, host, seeOther=True)
     else:
         raise "I don't know what you want me to do"
 disks = transaction_decorator(disks)

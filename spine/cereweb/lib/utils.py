@@ -18,21 +18,21 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
-import forgetHTML
-import Cereweb.config
 import urllib
+import Cereweb.Error
+import Cereweb.config
 from Cereweb.SpineIDL.Errors import NotFoundError
-import Error
 
 
 WEBROOT = Cereweb.config.conf.get('cereweb', 'webroot')
 
 def url(path):
-    """Returns a full path for a path relative to the base installation.
-       Example:
-       url("group/search") could return "/group/search" for normal
-       installations, but /~stain/group/search for test installations.
+    """
+    Returns a full path for a path relative to the base installation.
+    
+    Example:
+    url("group/search") could return "/group/search" for normal
+    installations, but /~stain/group/search for test installations.
     """
     if path[:1] == '/':
         path = path[1:]
@@ -50,8 +50,6 @@ def _spine_type(object):
 
     For instance, _spine_type(some_account) -> "account" while
     _spine_type(some_spine_email_domain) -> EmailDomain
-
-    
     """
     if object._is_a("IDL:SpineIDL/SpineEntity:1.0"):
         return object.get_type().get_name()
@@ -68,7 +66,7 @@ def object_url(object, method="view", **params):
     """Return the full path to a page treating the object.
     
     Method could be "view" (the default), "edit" and other things.
-
+    
     Any additional keyword arguments will be appended to the query part.
     """
     type = _spine_type(object)
@@ -157,16 +155,23 @@ def redirect_object(req, object, method="view",
     url = object_url(object, method)                   
     redirect(req, url, temporary, seeOther)
 
-def queue_message(req, message, error=False):
-    """Queue a message
+def queue_message(req, message, error=False, link=''):
+    """Queue a message.
     
     The message will be displayed next time a Main-page is showed.
     If error is true, the message will be indicated as such.
+    Link is used in activitylog so the user knows which
+    object the action was on, should be a string linking to
+    the object.
     """
     if 'messages' not in req.session:
         req.session['messages'] = [(message, error)]
     else:
         req.session['messages'].append((message, error))
+    if 'al_messages' not in req.session:
+        req.session['al_messages'] = [(message, error, link)]
+    else:
+        req.session['al_messages'].append((message, error, link))
     req.session.save() #FIXME: temporarly fixes that session isnt saved when redirect.
 
 def strftime(date, format="%Y-%m-%d", default=''):
@@ -181,7 +186,7 @@ def new_transaction(req):
     try:
         return req.session['session'].new_transaction()
     except Exception, e:
-        raise Error.SessionError, e
+        raise Cereweb.Error.SessionError, e
 
 def transaction_decorator(method):
     def transaction_decorator(req, *args, **vargs):
@@ -195,5 +200,36 @@ def transaction_decorator(method):
             except:
                 pass
     return transaction_decorator
+
+def commit(transaction, req, object, method='view', msg='', error=''):
+    """Commits the transaction, then redirects.
+
+    If 'msg' is given, the message will be queued after the
+    transaction successfully commits. If the commit raises
+    an exception, and 'error' is given, it will be queued.
+    """
+    url, link = object_url(object, method), object_link(object)
+    commit_url(transaction, req, url, msg, error, link)
+
+def commit_url(transaction, req, url, msg='', error='', link=''):
+    """Commits the transaction, then redirects.
+
+    If 'msg' is given, the message will be queued after the
+    transaction successfully commits. If the commit raises
+    an exception, and 'error' is given, it will be queued.
+
+    The diffrence in this method versus commit(), is usefull
+    when your objected is deleted during the transaction.
+    """
+    try:
+        transaction.commit()
+    except:
+        if not errormsg:
+            raise
+        queue_message(req, error, error=True, link=link)
+    else:
+        if msg:
+            queue_message(req, msg, link=link)
+    redirect(req, url, seeOther=True)
 
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

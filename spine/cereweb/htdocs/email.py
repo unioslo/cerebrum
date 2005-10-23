@@ -18,12 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link
-from Cereweb.WorkList import remember_link
+from Cereweb.utils import transaction_decorator
 from Cereweb.templates.Email import Email
 
 

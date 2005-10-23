@@ -22,7 +22,7 @@ import sets
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect, redirect_object
+from Cereweb.utils import url, redirect_object, commit, commit_url
 from Cereweb.utils import transaction_decorator, object_link
 from Cereweb.WorkList import remember_link
 from Cereweb.templates.OUSearchTemplate import OUSearchTemplate
@@ -189,9 +189,8 @@ def make(req, transaction, name, institution,
     if sort_name:
         ou.set_sort_name(sort_name)
 
-    redirect_object(req, ou, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Organization Unit successfully created."))
+    msg = _("Organization Unit successfully created.")
+    commit(transaction, req, ou, msg=msg)
 make = transaction_decorator(make)
 
 def save(req, transaction, id, name, submit=None, **vargs):
@@ -240,18 +239,15 @@ def save(req, transaction, id, name, submit=None, **vargs):
             parent = transaction.get_ou(parent)     
             ou.set_parent(parent, perspective)
    
-    redirect_object(req, ou, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Organization Unit successfully modified."))
+    msg = _("Organization Unit successfully modified.")
+    commit(transaction, req, ou, msg=msg)
 save = transaction_decorator(save)
 
 def delete(req, transaction, id):
     ou = transaction.get_ou(int(id))
+    msg =_("OU '%s' successfully deleted.") % _get_display_name(ou)
     ou.delete()
-
-    redirect(req, url("ou"), seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Organization Unit successfully deleted."))
+    commit_url(transaction, req, url("ou/index"), msg=msg)
 delete = transaction_decorator(delete)
 
 def _get_display_name(ou):

@@ -18,21 +18,18 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link
-from Cereweb.WorkList import remember_link
+from Cereweb.utils import transaction_decorator, object_link, commit, commit_url
 from Cereweb.templates.EmailDomain import EmailDomain
 from Cereweb.templates.EmailTarget import EmailTarget
 from Cereweb.SpineIDL.Errors import NotFoundError
 
 
-
 def index(req):
     # Could also let people search by email address etc
-    return redirect(req, url('emailtarget/create'))
+    return redirect(req, url('emailtarget/create'), seeOther=True)
 
 def view(req, transaction, id):
     target = transaction.get_email_target(int(id))
@@ -41,9 +38,9 @@ def view(req, transaction, id):
     try:
         primary = target.get_primary_address()
     except NotFoundError:
-        pass    
+        pass
     else:
-        page.title += " " + primary.full_address()    
+        page.title += " " + primary.full_address()
     page.setFocus("email/target/view", id)
     template = EmailTarget()
 
@@ -57,7 +54,6 @@ def view(req, transaction, id):
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
-
 
 def edit(req, transaction, id):
     target = transaction.get_email_target(int(id))
@@ -88,23 +84,20 @@ create = transaction_decorator(create)
 
 def creation(req, transaction, target_type, entity=None):
     target_type = transaction.get_email_target_type(target_type)    
-    cmd = transaction.get_commands()
-    target = cmd.create_email_target(target_type)
-    msg = _("Created email target of type %s") % target_type.get_name()
-    queue_message(req, msg)
+    target = transaction.get_commads().create_email_target(target_type)
     if entity:
         entity = transaction.get_entity(int(entity))
         target.set_entity(entity) 
         if entity.get_type().get_name() == "account" and entity.is_posix():
             target.set_using(entity)
         queue_message(req, _("Set target entity to %s") % object_link(entity))
-    redirect_object(req, target)
-    transaction.commit() 
+        
+    msg = _("Created email target of type %s") % target_type.get_name()
+    commit(transaction, req, target, msg=msg)
 creation = transaction_decorator(creation)
 
 def save(req, transaction, id, target_type, using=None, alias=""):
     target_type = transaction.get_email_target_type(target_type)    
-    cmd = transaction.get_commands()
     target = transaction.get_email_target(int(id))
     if target.get_type() != target_type:
         target.set_type(target_type)
@@ -113,13 +106,12 @@ def save(req, transaction, id, target_type, using=None, alias=""):
         old_using = old_using.get_name()
     if old_using != using:
         if using is not None:
-            cmd = transaction.get_commands()
-            using = cmd.get_account_by_name(using)
+            using = transaction.get_commands().get_account_by_name(using)
         target.set_using(using)
     if target.get_alias() != alias:
         target.set_alias(alias)    
-    redirect_object(req, target)
-    transaction.commit() 
+    msg = _("Email target successfully updated.")
+    commit(transaction, req, target, msg=msg)
 save = transaction_decorator(save)
 
 def delete(req, transaction, id):
@@ -135,7 +127,6 @@ def delete(req, transaction, id):
     queue_message(req, msg)
 delete = transaction_decorator(delete)
 
-
 def add_address(req, transaction, local_part, domain, target):
     target = transaction.get_email_target(int(target))
     domain = transaction.get_email_domain(int(domain))
@@ -146,7 +137,6 @@ def add_address(req, transaction, local_part, domain, target):
     redirect_object(req, target)
     transaction.commit()
 add_address = transaction_decorator(add_address)    
-
 
 def set_primary(req, transaction, id, address=None):
     target = transaction.get_email_target(int(id))

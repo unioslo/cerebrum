@@ -21,7 +21,7 @@
 import mx.DateTime
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import queue_message, redirect_object, strftime
+from Cereweb.utils import redirect_object, strftime, commit
 from Cereweb.utils import object_link, transaction_decorator
 from Cereweb.templates.QuarantineTemplate import QuarantineTemplate
 
@@ -67,9 +67,8 @@ def save(req, transaction, entity, type, why="",
     quarantine.set_end_date(strptime(end, c.get_date_none()))
     quarantine.set_disable_until(strptime(disable_until, c.get_date_none()))
 
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Updated quarantine '%s' successfully." % type))
+    msg = _("Updated quarantine '%s' successfully.") % type
+    commit(transaction, req, entity, msg=msg)
 save = transaction_decorator(save) 
 
 def add(req, transaction, entity):
@@ -111,9 +110,9 @@ def make(req, transaction, entity, type, why="",
     date_dis = disable_until and c.strptime(disable_until, "%Y-%m-%d") or date_none
     
     entity.add_quarantine(q_type, why, date_start, date_end, date_dis)
-    queue_message(req, _("Added quarantine '%s' successfully") % type)
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
+    
+    msg = _("Added quarantine '%s' successfully") % type
+    commit(transaction, req, entity, msg=msg)
 make = transaction_decorator(make)
 
 def remove(req, transaction, entity, type):
@@ -122,9 +121,8 @@ def remove(req, transaction, entity, type):
     
     entity.remove_quarantine(q_type)
     
-    queue_message(req, _("Removed quarantine '%s' successfully.") % type)
-    redirect_object(req, entity, seeOther=True)
-    transaction.commit()
+    msg = _("Removed quarantine '%s' successfully.") % type
+    commit(transaction, req, entity, msg=msg)
 remove = transaction_decorator(remove)
 
 # arch-tag: fd438bb2-ecb9-480b-b833-e42484da0a39

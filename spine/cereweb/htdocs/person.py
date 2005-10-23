@@ -23,7 +23,7 @@ import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link
+from Cereweb.utils import transaction_decorator, object_link, commit, commit_url
 from Cereweb.WorkList import remember_link
 from Cereweb.templates.PersonSearchTemplate import PersonSearchTemplate
 from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
@@ -153,9 +153,7 @@ def _get_person(req, transaction, id):
     try:
         return transaction.get_person(int(id))
     except Exception, e:
-        queue_message(req, _("Could not load person with id=%s") % id,
-                      error=True)
-        queue_message(req, str(e), error=True)
+        queue_message(req, _("Could not find person with id=%s") % id, True)
         redirect(req, url("person"), temporary=True)
 
 def view(req, transaction, id, addName=False, addAffil=False):
@@ -228,9 +226,7 @@ def save(req, transaction, id, gender, birthdate,
         
     person.set_deceased_date(deceased)
     
-    redirect_object(req, person, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Person successfully updated."))
+    commit(transaction, req, person, msg=_("Person successfully updated."))
 save = transaction_decorator(save)
 
 def make(req, transaction, name, gender, birthdate, description=""):
@@ -245,19 +241,15 @@ def make(req, transaction, name, gender, birthdate, description=""):
     if description:
         person.set_description(description)
     
-    redirect_object(req, person, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Person successfully created."))
+    commit(transaction, req, person, msg=_("Person successfully created."))
 make = transaction_decorator(make)
 
 def delete(req, transaction, id):
     """Delete the person from the server."""
     person = transaction.get_person(int(id))
+    msg = _("Person '%s' successfully deleted.") % _primary_name(person)
     person.delete()
-
-    redirect(req, url("person"), seeOther=True)
-    transaction.commit()
-    queue_message(req, "Person successfully deleted.")
+    commit_url(transaction, req, url("person/index"), msg=msg)
 delete = transaction_decorator(delete)
 
 def add_name(req, transaction, id, name, name_type):
@@ -268,9 +260,7 @@ def add_name(req, transaction, id, name, name_type):
     source_system = transaction.get_source_system('Manual')
     person.set_name(name, name_type, source_system)
 
-    redirect_object(req, person, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Name successfully added."))
+    commit(transaction, req, person, msg=_("Name successfully added."))
 add_name = transaction_decorator(add_name)
 
 def remove_name(req, id, transaction, variant, ss):
@@ -281,24 +271,24 @@ def remove_name(req, id, transaction, variant, ss):
 
     person.remove_name(variant, ss)
 
-    redirect_object(req, person, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Name successfully removed."))
+    commit(transaction, req, person, msg=_("Name successfully removed."))
 remove_name = transaction_decorator(remove_name)
 
 def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
     if add:
-        redirect(req, url('account/create?owner=%s' % owner))
+        redirect(req, url('account/create?owner=%s' % owner), seeOther=True)
 
     elif delete:
+        person = _get_person(req, transaction, owner)
         operation = transaction.get_group_member_operation_type("union")
+        msgs = []
         for arg, value in checkboxes.items():
             if arg.startswith("account_"):
                 id = arg.replace("account_", "")
                 account = transaction.get_account(int(id))
                 date = transaction.get_commands().get_date_now()
                 account.set_expire_date(date)
-                queue_message(req, _("Expired account %s.") % account.get_name())
+                msgs.append(_("Expired account %s.") % account.get_name())
             elif arg.startswith("member_"):
                 member_id, group_id = arg.split("_")[1:3]
                 member = transaction.get_account(int(member_id))
@@ -306,11 +296,17 @@ def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
                 group_member = transaction.get_group_member(group, 
                             operation, member, member.get_type())
                 group.remove_member(group_member)
-                queue_message(req, _("Removed %s from group %s") % 
-                        (member.get_name(), group.get_name()))
-        person = _get_person(req, transaction, owner)
-        redirect_object(req, person, seeOther=True)
-        transaction.commit()              
+                msgs.append(_("Removed %s from group %s") % 
+                            (member.get_name(), group.get_name()))
+        if msgs:
+            olink = object_link(person)
+            for msg in msgs:
+                queue_message(req, msg, error=False, link=olink)
+            commit(transaction, req, person)
+        else:
+            msg = _("No changes done since no groups/accounts were selected.")
+            queue_message(req, msg, error=True)
+            redirect_object(req, person, temporary=True)
         
     else:
         raise "I don't know what you want to do"
@@ -327,9 +323,7 @@ def add_affil(req, transaction, id, status, ou, description=""):
     if description:
         affil.set_description(description)
     
-    redirect_object(req, person, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Affiliation successfully added."))
+    commit(transaction, req, person, msg=_("Affiliation successfully added."))
 add_affil = transaction_decorator(add_affil)
 
 def remove_affil(req, transaction, id, ou, affil, ss):
@@ -347,9 +341,7 @@ def remove_affil(req, transaction, id, ou, affil, ss):
     affiliation, = searcher.search()
     affiliation.delete()
     
-    redirect_object(req, person, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Affiliation successfully removed."))
+    commit(transaction, req, person, msg=_("Affiliation successfully removed."))
 remove_affil = transaction_decorator(remove_affil)
 
 # arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6

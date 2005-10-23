@@ -19,12 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sets
-
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, redirect, redirect_object, queue_message
-from Cereweb.utils import object_link, transaction_decorator
+from Cereweb.utils import object_link, transaction_decorator, commit, commit_url
 from Cereweb.templates.AccountSearchTemplate import AccountSearchTemplate
 from Cereweb.templates.AccountViewTemplate import AccountViewTemplate
 from Cereweb.templates.AccountEditTemplate import AccountEditTemplate
@@ -195,11 +194,8 @@ def make(req, transaction, owner, name, expire_date="", np_type=None,
     if join and owner.get_type().get_name() == "group":
         operation = transaction.get_group_member_operation_type("union")
         owner.add_member(account, operation)
-    redirect_object(req, account)
-    transaction.commit()
-    queue_message(req, _("Account successfully created."))
+    commit(transaction, req, account, msg=_("Account successfully created."))
 make = transaction_decorator(make)
-
 
 def view(req, transaction, id, addHome=False):
     """Creates a page with a view of the account given by id, returns
@@ -295,13 +291,12 @@ def save(req, transaction, id, name, expire_date="", uid="",
 
     if error_msgs:
         for msg in error_msgs:
-            queue_message(req, msg, error=True)
+            queue_message(req, msg, True, object_link(account))
         redirect_object(req, account, seeOther=True)
         transaction.rollback()
     else:
-        redirect_object(req, account, seeOther=True)
-        transaction.commit()
-        queue_message(req, _("Account successfully updated."))
+        msg = _("Account successfully updated.")
+        commit(transaction, req, account, msg=msg)
 save = transaction_decorator(save)
 
 def posix_promote(req, transaction, id):
@@ -316,32 +311,28 @@ def posix_promote(req, transaction, id):
         searcher = transaction.get_posix_shell_searcher()
         shell = searcher.search()[0]
         account.promote_posix(primary_group, shell)
-        redirect_object(req, account, seeOther=True)
-        transaction.commit()
-        queue_message(req, _("Account successfully promoted."))
+        msg = _("Account successfully promoted to posix.")
+        commit(transaction, req, account, msg=msg)
     else:
         #TODO: maybe we should rather create the posix-group
         msg = "Account is not member of any posix-groups, and cannot be promoted."
-        queue_message(req, _(msg), error=True)
+        queue_message(req, _(msg), True, object_link(account))
         redirect_object(req, account, seeOther=True)
 posix_promote = transaction_decorator(posix_promote)
 
 def posix_demote(req, transaction, id):
     account = transaction.get_account(int(id))
     account.demote_posix()
-    redirect_object(req, account, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Account successfully demoted."))
+    msg = _("Account successfully demoted from posix.")
+    commit(transaction, req, account, msg=msg)
 posix_demote = transaction_decorator(posix_demote)
 
 def delete(req, transaction, id):
     """Delete account in the database."""
     account = transaction.get_account(int(id))
+    msg = _("Account '%s' successfully deleted.") % account.get_name()
     account.delete()
-    
-    redirect(req, url("account"), seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Account successfully deleted."))
+    commit_url(transaction, req, url("account/index"), msg=msg)
 delete = transaction_decorator(delete)
 
 def groups(req, transaction, account_id, leave=False, create=False, **checkboxes):
@@ -352,10 +343,12 @@ def groups(req, transaction, account_id, leave=False, create=False, **checkboxes
     Only one should be true at the same time.
     """
     if create:
-        redirect(req, url('group/create'))
+        redirect(req, url('group/create'), seeOther=True)
 
     elif leave:
+        account = transaction.get_account(int(account_id))
         operation = transaction.get_group_member_operation_type("union")
+        count = 0
         for arg, value in checkboxes.items():
             if arg.startswith("member_"):
                 member_id, group_id = arg.split("_")[1:3]
@@ -364,11 +357,14 @@ def groups(req, transaction, account_id, leave=False, create=False, **checkboxes
                 group_member = transaction.get_group_member(group, 
                             operation, member, member.get_type())
                 group.remove_member(group_member)
-                queue_message(req, _("Removed %s from group %s") % 
-                        (member.get_name(), group.get_name()))
-        account = transaction.get_account(int(account_id))
-        redirect_object(req, account, seeOther=True)
-        transaction.commit()
+                count += 1
+                
+        if count > 0:
+            commit(transaction, req, account, msg=_("Left %s group(s).") % count)
+        else:
+            msg = _("Left no groups since none were selected.")
+            queue_message(req, msg, True, object_link(account))
+            redirect_object(req, account, seeOther=True)
         
     else:
         raise "I dont know what you want to do"
@@ -388,15 +384,15 @@ def join_group(req, transaction, account, group_name, operation):
         group = group.get_entity()
         assert group.get_type().get_name() == 'group'
     except:
-        queue_message(req, _("Group %s not found.") % group_name, error=True)
+        msg = _("Group '%s' not found") % group_name
+        queue_message(req, msg, True, object_link(account))
         redirect_object(req, account, seeOther=True)
         return
     
     group.add_member(account, operation)
     
-    redirect_object(req, account, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Joined account into group %s successfully") % group_name)
+    msg = _("Joined account into group %s successfully") % group_name
+    commit(transaction, req, account, msg=msg)
 join_group = transaction_decorator(join_group)
 
 def set_home(req, transaction, id, spread, home="", disk=""):
@@ -414,9 +410,9 @@ def set_home(req, transaction, id, spread, home="", disk=""):
         return
     
     account.set_homedir(spread, home, disk)
-    redirect_object(req, account, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Home directory set successfully."))
+    
+    msg = _("Home directory set successfully.")
+    commit(transaction, req, account, msg=msg)
 set_home = transaction_decorator(set_home)
 
 def remove_home(req, transaction, id, spread):
@@ -424,9 +420,8 @@ def remove_home(req, transaction, id, spread):
     spread = transaction.get_spread(spread)
     account.remove_homedir(spread)
     
-    redirect_object(req, account, seeOther=True)
-    transaction.commit()
-    queue_message(req, _("Home directory successfully removed."))
+    msg = _("Home directory successfully removed.")
+    commit(transaction, req, account, msg=msg)
 remove_home = transaction_decorator(remove_home)
 
 def set_password(req, transaction, id, passwd1, passwd2):
@@ -437,9 +432,7 @@ def set_password(req, transaction, id, passwd1, passwd2):
         redirect_object(req, account, seeOther=True)
     else:
         account.set_password(passwd1)
-        redirect_object(req, account, seeOther=True)
-        transaction.commit()
-        queue_message(req, _("Password successfully set."))
+        commit(transaction, req, account, msg=_("Password successfully set."))
 set_password = transaction_decorator(set_password)
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

@@ -112,6 +112,9 @@ $view_entity($person, $transaction)
             #if $account.is_posix()
                 <span class="extra">(posix)</span>
             #end if
+            #if $account.get_expire_date()
+                <span class="extra">(expired)</span>
+            #end if
         </div>
         $list_groups($account)
     #end for
