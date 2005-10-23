@@ -59,6 +59,7 @@ def search(req, transaction, name="", desc="",
     page.title = _("Search for group(s)")
     page.setFocus("group/search")
     page.add_jscript("search.js")
+    page.add_jscript("groupsearch.js")
     
     # Store given search parameters in search form
     values = {}

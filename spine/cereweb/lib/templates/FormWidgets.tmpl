@@ -22,7 +22,7 @@
 
 ## Creates a drop-down option list where 'selected' is preselected.
 #def generate_option($name, $types, $selected=None)
-    <select name="$name" >
+    <select name="$name" id="$name">
     #for $name, $desc in $types
         #set $is_selected = ""
         #if $selected==$name
