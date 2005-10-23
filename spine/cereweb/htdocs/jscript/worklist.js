@@ -27,7 +27,7 @@
 /* SETTINGS */
 
 // Used by httprequests to get the right url
-var webroot = "";  // Should be overriden by includer
+webroot = "";  // Should be overriden by includer
 
 // Max elements in the worklist.
 var WL_max_elements = 20;

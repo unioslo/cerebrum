@@ -52,6 +52,7 @@ def search(req, transaction, owner="", name="", expire_date="",
     page = Main(req)
     page.title = _("Account search")
     page.setFocus("account/search")
+    page.add_jscript("search.js")
     
     # Store given search parameters in search form
     formvalues = {}
@@ -106,6 +107,7 @@ def search(req, transaction, owner="", name="", expire_date="",
                 entitysearch.set_intersections(intersections + [searcher])
 
                 accounts.update(entitysearch.search())
+            accounts = list(accounts)
         else:
             entitysearch.set_intersections(intersections)
             accounts = entitysearch.search()

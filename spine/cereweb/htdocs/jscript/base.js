@@ -18,6 +18,9 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+// Used by httprequests to get the right url
+var webroot = "";  // Should be overriden by includer
+
 /* addLoadEvent by Simon Willisons blog on sitepoint.com */
 function addLoadEvent(func) {
     var oldonload = window.onload;

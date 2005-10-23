@@ -36,6 +36,7 @@ class Main(MainTemplate):
         MainTemplate.__init__(self)
         req.content_type = "text/html" # With this content-type, זרו works! :)
         self.session = req.session
+        self.jscripts = []
         self.prepare_page(req)
         self.prepare_messages()
 
@@ -66,6 +67,9 @@ class Main(MainTemplate):
     def setFocus(self, *args):
         """Wraps the setFocus-method on the menu."""
         self.menu.setFocus(*args)
+
+    def add_jscript(self, jscript):
+        self.jscripts.append(jscript)
 
     def get_timeout(self):
         return self.session['timeout']

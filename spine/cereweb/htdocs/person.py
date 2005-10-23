@@ -49,6 +49,7 @@ def search(req, transaction, name="", accountname="", birthdate="", spread=""):
     page = Main(req)
     page.title = _("Search for person(s)")
     page.setFocus("person/search")
+    page.add_jscript("search.js")
     
     # Store given search parameters in search form
     values = {}
@@ -94,6 +95,7 @@ def search(req, transaction, name="", accountname="", birthdate="", spread=""):
                 personsearcher.set_intersections(intersections + [searcher])
 
                 persons.update(personsearcher.search())
+            persons = list(persons)
 
         else:
             personsearcher.set_intersections(intersections)

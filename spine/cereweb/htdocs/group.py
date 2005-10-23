@@ -58,6 +58,7 @@ def search(req, transaction, name="", desc="",
     page = Main(req)
     page.title = _("Search for group(s)")
     page.setFocus("group/search")
+    page.add_jscript("search.js")
     
     # Store given search parameters in search form
     values = {}
@@ -103,6 +104,7 @@ def search(req, transaction, name="", desc="",
                 searcher.set_intersections([s])
 
                 groups.update(searcher.search())
+            groups = list(groups)
         else:
             groups = searcher.search()
 

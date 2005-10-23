@@ -48,6 +48,7 @@ def search(req, transaction, name="", description=""):
     page = Main(req)
     page.title = _("Search for hosts(s)")
     page.setFocus("host/search")
+    page.add_jscript("search.js")
     
     # Store given search parameters in search form
     values = {}

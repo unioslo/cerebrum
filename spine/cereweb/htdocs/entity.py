@@ -70,4 +70,16 @@ def remove_spread(req, transaction, id, spread):
     commit(transaction, req, entity, msg=msg)
 remove_spread = transaction_decorator(remove_spread)
 
+def clear_search(req, url):
+    """Resets the lastsearch for cls."""
+    cls = url.split('/')[-2] # seccond last part should be the class.
+    lastsearch = cls + '_ls'
+    if lastsearch in req.session:
+        del req.session[lastsearch]
+
+    page = html.SimpleDocument("Search reseted")
+    msg = "Search for class '%s' reseted." % cls
+    page.body.append(html.Division(msg))
+    return page
+
 # arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e

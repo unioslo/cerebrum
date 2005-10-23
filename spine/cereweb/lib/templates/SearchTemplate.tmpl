@@ -46,7 +46,7 @@
 ## Creates the form for searching.
 #def form($extra=None)
 <div class="search">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="POST" id="search_form">
         <div class="searchform">
             #for $name, $label in $fields
                 $input($name, $label)
@@ -71,7 +71,7 @@
         <div>
             <center>
                 <input type="submit" value="$_('Search')" />&nbsp;
-                <input type="reset" value="$_('Clear')" />
+                <input type="button" value="$_('Clear')" id="search_clear" />
             </center>
         </div>
     </form>

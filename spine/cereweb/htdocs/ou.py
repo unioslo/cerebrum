@@ -60,8 +60,7 @@ def search(req, transaction, name="", acronym="", short="", spread=""):
     page = Main(req)
     page.title = _("Search for OU(s)")
     page.setFocus("ou/search")
-    ousearcher = OUSearchTemplate()
-    page.content = ousearcher.form
+    page.add_jscript("search.js")
 
     # Store given search parameters in search form
     values = {}
@@ -92,6 +91,7 @@ def search(req, transaction, name="", acronym="", short="", spread=""):
 
                 ous.update(searcher.search())
             
+            ous = list(ous)
         else:
             ous = searcher.search()
     

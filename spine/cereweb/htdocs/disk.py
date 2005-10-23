@@ -47,6 +47,7 @@ def search(req, transaction, path="", description=""):
     page = Main(req)
     page.title = _("Search for disk(s)")
     page.setFocus("disk/search")
+    page.add_jscript("search.js")
     
     # Store given search parameters in search form
     values = {}
