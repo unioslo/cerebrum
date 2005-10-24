@@ -67,7 +67,7 @@ def _get_members(group, group_members):
 
     for entity, operation in group_members[group]:
         if entity.get_type().get_name() is Group.entity_type:
-            members = get_members(entity)
+            members = _get_members(entity, group_members)
         else:
             members = sets.Set([entity])
 
