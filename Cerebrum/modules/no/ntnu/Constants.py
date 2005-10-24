@@ -34,12 +34,31 @@ from Cerebrum.modules.Email import \
 class Constants(Constants.Constants):
 
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
-                                                 Constants.Constants.entity_person,
-                                                 'Norwegian birth number')
+        Constants.Constants.entity_person,
+        'Norwegian birth number')
+
+    externalid_bdb_person = _EntityExternalIdCode('BDB_PERSON_ID',
+        Constants.Constants.entity_person,
+        'BDBs internal ID for the person')
+    externalid_bdb_group = _EntityExternalIdCode('BDB_GROUP_ID',
+        Constants.Constants.entity_group,
+        'BDBs internal ID for the group')
+    externalid_bdb_account = _EntityExternalIdCode('BDB_ACCOUNT_ID',
+        Constants.Constants.entity_account,
+        'BDBs internal ID for the account')
+    externalid_bdb_institute = _EntityExternalIdCode('BDB_INSTITUTE_ID',
+        Constants.Constants.entity_ou,
+        'BDBs internal ID for the institute')
+    externalid_bdb_faculty = _EntityExternalIdCode('BDB_FACULTY_ID',
+        Constants.Constants.entity_ou,
+        'BDBs internal ID for the faculty')
 
     system_kjernen = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
-
     perspective_kjernen = _OUPerspectiveCode('Kjernen', 'Kjernen')
+    system_fs = _AuthoritativeSystemCode('FS', 'FS')
+    perspective_kjernen = _OUPerspectiveCode('FS', 'FS')
+    system_bdb = _AuthoritativeSystemCode('BDB', 'NTNUs old user database')
+    perspective_bdb = _OUPerspectiveCode('BDB', 'NTNUs old user database')
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
@@ -50,6 +69,8 @@ class Constants(Constants.Constants):
         "PGP encrypted password for offline use") # XXX use PGP-crypt?
     auth_type_pgp_win_ntnu_no =  _AuthenticationCode('PGP-win_ntnu_no',
         "PGP encrypted password for the system win_ntnu_no")
+    auth_type_blowfish =  _AuthenticationCode('Blowfish',
+        "Blowfish-encrypted password")
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Ansatt ved NTNU (i følge Kjernen)')
@@ -189,7 +210,7 @@ class Constants(Constants.Constants):
     quarantine_permisjon = _QuarantineCode('permisjon', 'Brukeren har permisjon')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
 
-    #quarantine_bdb = _QuarantineCode('BDB', 'Gammel BDB karantene /bin/sperret+/bin/true+/bin/false')
+    quarantine_bdb = _QuarantineCode('BDB', 'Gammel BDB-karantene /bin/sperret+/bin/true+/bin/false')
     #quarantine_badpw = _QuarantineCode('BDB_badpw', 'Gammel BDB karantene /bin/badpw')
 
     email_spam_level_none = _EmailSpamLevelCode(
