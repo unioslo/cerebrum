@@ -40,6 +40,13 @@ untestable_methods = [
     ('get_account_searcher', 'get_entity_name'), 
     ('get_account_searcher', 'get_external_id'),
     ('get_email_domain_searcher', 'get_persons'), 
+    ('get_group_searcher', 'get_address'),
+    ('get_person_searcher', 'get_address'),
+    ('get_account_searcher', 'get_address'),
+    ('get_group_searcher', 'get_quarantine'),
+    ('get_person_searcher', 'get_quarantine'),
+    ('get_account_searcher', 'get_quarantine'),
+    ('get_account_searcher', 'get_homedir'),
 ]
 
 log = cStringIO.StringIO()
@@ -85,7 +92,7 @@ def _create_testclass_base(cls_name):
         for obj in dumper.dump():
             for attr in dir(obj):
                 if not attr.startswith('_'):
-                    getattr(obj, attr) # just access them
+                    getattr(obj, attr) # just access them to see that it works
     testclass.testDump = testDump
 
     return testclass

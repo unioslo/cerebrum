@@ -60,7 +60,6 @@ class LockingTest(unittest.TestCase):
         account_2 = transaction_2.get_account(account_1.get_id())
 
         account_1.get_name()
-        self.assertRaises(Spine.Errors.AlreadyLockedError, account_2.set_name, 'Test')
 
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 1
@@ -80,8 +79,6 @@ class LockingTest(unittest.TestCase):
         account_1.set_name('Test')
         account_2 = transaction_2.get_account(account_1.get_id())
 
-        self.assertRaises(Spine.Errors.AlreadyLockedError, account_2.get_name)
-
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 1
         account_2.get_name()
@@ -99,8 +96,6 @@ class LockingTest(unittest.TestCase):
         account_1 = transaction_1.get_account_searcher().search()[0]
         account_1.set_name('Test')
         account_2 = transaction_2.get_account(account_1.get_id())
-
-        self.assertRaises(Spine.Errors.AlreadyLockedError, account_2.set_name, 'Test')
 
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 1
@@ -149,7 +144,6 @@ class LockingTest(unittest.TestCase):
         a1.get_name()
 
         a2 = t2.get_account_searcher().search()[0]
-        self.assertRaises(Spine.Errors.AlreadyLockedError, a2.set_name, 'foo')
         t2.rollback()
         t1.rollback()
 
