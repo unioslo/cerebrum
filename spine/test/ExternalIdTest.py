@@ -69,3 +69,5 @@ class EntityExternalIdTest(SpineObjectTest):
 
 if __name__ == '__main__':
     unittest.main()
+
+# arch-tag: f96e88b8-4567-11da-8934-0e5586e9b0da
