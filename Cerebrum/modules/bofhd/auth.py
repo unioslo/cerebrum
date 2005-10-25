@@ -1064,7 +1064,8 @@ class BofhdAuth(DatabaseAccessor):
             if (owner_acc.owner_id == account.owner_id and
                 owner_acc.owner_type == account.owner_type):
                 return True
-        return self._is_local_postmaster(operator, self.const.auth_email_delete,
+        return self._is_local_postmaster(operator,
+                                         self.const.auth_email_reassign,
                                          account, domain, query_run_any)
 
     def _is_local_postmaster(self, operator, operation, account=None,

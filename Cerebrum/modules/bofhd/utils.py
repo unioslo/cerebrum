@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -76,6 +76,8 @@ class Constants(Constants.Constants):
                                         "Create e-mail addresses")
     auth_email_delete = _AuthRoleOpCode('email_delete',
                                         "Delete e-mail addresses")
+    auth_email_reassign = _AuthRoleOpCode('email_reassign',
+                                          "Reassign e-mail addresses")
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
     # the CerebrumCode framework.  TODO: redefine the database table
