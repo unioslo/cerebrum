@@ -26,7 +26,7 @@ from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
 
-from Entity import Entity
+from Entity import Entity, account_namespace
 from Types import EntityType, AccountType
 from Date import Date
 from Commands import Commands
@@ -61,7 +61,7 @@ class Account(Entity):
         CerebrumDbAttr('creator', table, Entity),
         CerebrumDbAttr('expire_date', table, Date, write=True),
         DatabaseAttr('description', table, str, write=True),
-        CerebrumAttr('name', str, write=True)
+        CerebrumDbAttr('name', 'entity_name', str, write=True)
     ]
     
     method_slots = Entity.method_slots + [
@@ -74,6 +74,8 @@ class Account(Entity):
         'owner':'owner_id',
         'creator':'creator_id'
     }
+    db_constants = Entity.db_constants.copy()
+    db_constants['entity_name'] = {'value_domain':account_namespace}
 
     cerebrum_attr_aliases = {'name':'account_name'}
     cerebrum_class = Factory.get('Account')

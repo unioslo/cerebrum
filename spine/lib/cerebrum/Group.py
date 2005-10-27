@@ -25,7 +25,7 @@ from SpineLib.DatabaseClass import DatabaseAttr
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
 
-from Entity import Entity
+from Entity import Entity, group_namespace
 from Types import EntityType, GroupVisibilityType
 from Date import Date
 from Commands import Commands
@@ -44,7 +44,7 @@ class Group(Entity):
         CerebrumDbAttr('creator', table, Entity),
         CerebrumDbAttr('create_date', table, Date),
         CerebrumDbAttr('expire_date', table, Date, write=True),
-        CerebrumAttr('name', str, write=True)
+        CerebrumDbAttr('name', 'entity_name', str, write=True)
     ]
     method_slots = Entity.method_slots + [
     ]
@@ -54,6 +54,8 @@ class Group(Entity):
         'id':'group_id',
         'creator':'creator_id'
     }
+    db_constants = Entity.db_constants.copy()
+    db_constants['entity_name'] = {'value_domain':group_namespace}
 
     cerebrum_attr_aliases = {'name':'group_name'}
     cerebrum_class = Factory.get('Group')

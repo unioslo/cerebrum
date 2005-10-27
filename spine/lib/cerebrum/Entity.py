@@ -29,6 +29,19 @@ from EntityAuth import EntityAuth
 from SpineLib import Registry
 registry = Registry.get_registry()
 
+def init():
+    import Cerebrum.Utils
+    db = Cerebrum.Utils.Factory.get('Database')()
+
+    type_cache = {}
+    for key, value in db.query('SELECT entity_id, entity_type FROM entity_info'):
+        type_cache[int(key)] = int(value)
+
+    constants = Cerebrum.Utils.Factory.get('Constants')(db)
+
+    return type_cache, int(constants.group_namespace), int(constants.account_namespace)
+
+type_cache, group_namespace, account_namespace = init()
 
 __all__ = ['Entity']
 
@@ -47,6 +60,10 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
         'entity_info': {
             'id':'entity_id',
             'type':'entity_type'
+        },
+        'entity_name': {
+            'id':'entity_id',
+            'name':'entity_name'
         }
     }
 
@@ -65,6 +82,9 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
         # Check if obj is a fresh object
         if obj.__class__ is Entity:
             obj.__init__(*args, **vargs)
+
+        if not hasattr(obj, '_type') and obj.get_id() in type_cache:
+            obj._type = EntityType(obj.get_database(), id=type_cache[obj.get_id()])
 
         # get the correct class for this entity
         entity_type = obj.get_type()
