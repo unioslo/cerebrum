@@ -21,18 +21,27 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.templates.MotdViewTemplate import MotdViewTemplate
 from Cereweb.utils import transaction_decorator
+from Cereweb.templates.MotdViewTemplate import MotdViewTemplate
+from Cereweb.templates.ActivityLogTemplate import ActivityLogTemplate
 
 def index(req, transaction):
     page = Main(req)
     page.title = _("Welcome to Cereweb")
-    page.setFocus("main")
     motd = MotdViewTemplate()
     content = motd.viewMotds(transaction)
     page.content = lambda: content
 
     return page
 index = transaction_decorator(index)
+
+def full_activitylog(req):
+    messages = req.session.get('al_messages', [])
+    page = Main(req)
+    page.title = _("Activity log")
+    log = ActivityLogTemplate()
+    content = log.full_activitylog(messages[::-1])
+    page.content = lambda: content
+    return page
 
 # arch-tag: d11bf90a-f730-4568-9234-3fc494982911

@@ -33,13 +33,14 @@ $name {
 ## Main title on the all pages.
 div.title {
     overflow: visible;
-    border-bottom: 1px dashed gray;
+    border-bottom: 1px solid gray;
     margin-bottom: 0.5em;
     width: 500px;
 }
 
 div.title h1 {
     margin: 0.1em;
+    margin-bottom: 1px;
 }
 
 ## Smaller title, and fancier!
@@ -467,12 +468,12 @@ $shrink("div.historylog")
 
 div.historylog h2 {
     margin: 0;
-    padding: 0;
+    padding: 0 0 0 5px;
     background: #ad9;
     font-size: 100%;
 }
 
-div.historylog td, div.activitylog td, table.results td {
+div.historylog td, div.activitylog_full td, table.results td {
     border-bottom: 1px dotted #aaa;
 }
 

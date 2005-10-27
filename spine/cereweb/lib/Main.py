@@ -20,7 +20,7 @@
 
 from SideMenu import SideMenu
 from WorkList import WorkList
-#from ActivityLog import ActivityLog
+from ActivityLog import ActivityLog
 from templates.MainTemplate import MainTemplate
 
 class Main(MainTemplate):
@@ -47,7 +47,7 @@ class Main(MainTemplate):
         """
         self.menu = SideMenu()
         self.worklist = WorkList(req)
-#        self.activitylog = ActivityLog()
+        self.activitylog = ActivityLog(req)
 
     def prepare_messages(self):
         """Prepares messages for display.

@@ -36,6 +36,7 @@ def index(req):
 
 def tree(req, transaction, perspective=None):
     page = Main(req)
+    page.title = _("OU perspective tree")
     page.setFocus("ou/tree")
     tree_template = OUTreeTemplate()
     if not perspective:

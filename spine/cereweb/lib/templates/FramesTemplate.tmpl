@@ -93,7 +93,7 @@ Dette er bunnen
 <?xml version='1.0' ?>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"><html lang="en">
 <head>
-    <title>$format_title($title)</title>
+    <title>Cereweb $format_title($title)</title>
 $css("fixed.css")
     <!--[if IE]>
 $css("fixed_ie5.css")
@@ -116,7 +116,7 @@ $jscript($i)
     </script>
 </head>
 <body>
-    <div class="content">
+    <div class="page_content">
         $session_warning()
         #if $title
         <div class="title">
@@ -128,10 +128,13 @@ $jscript($i)
         #end if
         $content()
     </div>
-    <div class="menu">
+    <div class="page_menu">
+        <div class="menu_header">
+            <a href="$url('index')">Cereweb</a>
+        </div>
         $menu()
     </div>
-    <div class="bottom">
+    <div class="page_bottom">
         $bottom()
     </div>
 </body>

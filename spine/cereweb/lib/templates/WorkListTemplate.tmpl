@@ -27,7 +27,7 @@
 
 #def worklist($objects, $selected, $buttons)
 <div class="worklist">
-    <h2>$_("Worklist"):</h2>
+    <h2>$_("Worklist")</h2>
     <form name="worklistForm" action="" method="POST">
         <span class="buttons">
         #for $key, $label in $buttons
@@ -54,8 +54,8 @@
         <span class="actions" id="WL_actions">
             ## Javascripts will hide this division and replace it
             ## with shortcuts for the selected items in the worklist.
-            <div class="wl_action" id="WL_action_info" style="">
-                <div class="content" style="border-top: 1px dotted black;">
+            <div class="wl_action" id="WL_action_info">
+                <div class="content">
                     Select an element in the worklist to view
                     available shortcuts.<br />
                     If you select several a very clever script will give

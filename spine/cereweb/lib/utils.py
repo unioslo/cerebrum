@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import urllib
+import mx.DateTime
 import Cereweb.Error
 import Cereweb.config
 from Cereweb.SpineIDL.Errors import NotFoundError
@@ -164,14 +165,15 @@ def queue_message(req, message, error=False, link=''):
     object the action was on, should be a string linking to
     the object.
     """
+    timestamp = mx.DateTime.now()
     if 'messages' not in req.session:
         req.session['messages'] = [(message, error)]
     else:
         req.session['messages'].append((message, error))
     if 'al_messages' not in req.session:
-        req.session['al_messages'] = [(message, error, link)]
+        req.session['al_messages'] = [(message, error, link, timestamp)]
     else:
-        req.session['al_messages'].append((message, error, link))
+        req.session['al_messages'].append((message, error, link, timestamp))
     req.session.save() #FIXME: temporarly fixes that session isnt saved when redirect.
 
 def strftime(date, format="%Y-%m-%d", default=''):

@@ -16,13 +16,56 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cerebrum.web.InitTemplate import InitTemplate
+#from Cereweb.InitTemplate import InitTemplate
 #extends InitTemplate
+#from Cereweb.utils import url
+#from Cereweb.TableView import TableView
+#from SortedTableTemplate import SortedTableTemplate
 
-#def activitylog
+## Displays the 5 latest messages in the right side of the bottom frame.
+#def activitylog($messages)
 <div class="activitylog">
-    <h2>$_("Actvitylog"):</h2>
-    BLAGBALBLblaslblalogologlog...<br />
+    <h2>
+        <a href="$url('index/full_activitylog')">$_("Activity log")</a>
+    </h2>
+#if $messages
+    #for $msg, $error, $link, $time in $messages
+    <div class="amsg">
+        #if $link
+        $link : 
+        #end if
+        $msg
+        #if $error
+        (error)
+        #end if
+    </div>
+    #end for
+#else
+    <div class="amsg">You can see the 5 last messages here.</div>
+    <div class="amsg">Click on the header for all messages.</div>
+#end if
+</div>
+#end def
+
+## Displays all messages for this session.
+#def full_activitylog($messages)
+<div class="activitylog_full">
+#if $messages
+    #set $headers = {'time': $_('Timestamp'), 'object': $_('Object'),
+                     'message': $_('Message')}
+    #set $table = $TableView('time', 'object', 'message')
+    #for $msg, $error, $link, $time in $messages
+        #if $error
+            #set $msg += " (error)"
+        #end if
+        $table.add(time=$time.strftime("%a %H:%M"),
+                   object=$link, message=$msg)
+    #end for
+    $SortedTableTemplate().sorted_table($table, $headers,
+                            $url('sortpri=%s'), $url('sortby=%s'))
+#else
+    <div class="amsg">No messages exists for this session yet.</div>
+#end if
 </div>
 #end def
 

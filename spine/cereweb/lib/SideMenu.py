@@ -37,7 +37,6 @@ class MenuItem(FixUrlMixin, Menu.MenuItem):
 class SideMenu(FixUrlMixin, Menu.Menu):
     def __init__(self):
         Menu.Menu.__init__(self)
-        self.makeMain()
         self.makePerson()
         self.makeAccount()
         self.makeGroup()
@@ -47,9 +46,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.makeEmail()
         #self.makeOptions()
         self.makeLogout()
-
-    def makeMain(self):
-        self.main = self.addItem("main", _("Main") ,"index")
 
     def makePerson(self):
         self.person = self.addItem("person", _("Person") ,"person")

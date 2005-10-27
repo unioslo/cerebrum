@@ -38,83 +38,54 @@
  */
 
 ## Used to position the frames correctly, so they dont overlap eachother.
-#set $menuwidth = 8
-#set $bottomheight = 9.5
+#set $menuwidth = 7
+#set $bottomheight = 9
 
 body {
   margin: 0;
   background: white;
 }
 
-div.menu, div.bottom {
-  position: absolute;  
-  /*margin: 0;*/
-  background: white; 
+div.page_menu, div.page_bottom {
+  position: absolute;
+  background: white;
   /* If scrolling is needed: */
-  overflow: auto; 
+  overflow: hidden; 
 }
 
-div.menu {
+div.page_menu {
   /* Placed in the upper left corner */
-  top: 0;
-  left: 0;
-  /* Width of menu */
   width: ${menuwidth}em;
-  height: 100%;
-}
-
-div.menu div {
-  position: static; 
-  /*top: auto;
-  left: auto;*/
-  /* Width of menu */
-  width: auto;
   height: auto;
+  top: 0;
+  right: auto;
+  bottom: auto;
+  left: 0;
 }
 
-div.bottom {
+div.page_bottom {
   /* Placed in the lower left corner */
+  height: ${bottomheight}em;
+  width: 100%;
+  top: auto;
+  right: 0;
   bottom: 0;
   left: 0;
-  /* width: 100% is too wide.. use right: 0; although this shrinks
-     the thingie in IE.. avoid background color! */
-  right: 0;
-  /* Height of bottom part */
-  height: ${bottomheight}em;
-  width: 80%;
-  /* avoid collission with div.menu */
-  margin-left: ${menuwidth}em;
-}
-
-div.bottom div {
-  /* Placed in the lower left corner */
-  /*bottom: auto;*/
-  left: 0;
-  /*border: black thin solid;*/
-  /* width: 100% is too wide.. use right: 0; although this shrinks
-     the thingie in IE.. avoid background color! */
-  right: auto;
-  /* Height of bottom part */
-  height: auto;
-  /* avoid collission with div.menu */
-  /*margin-left: auto;*/
 }
 
 /* This trick is to fix something i IE 5 on Mac..  */
 @media screen {
-  body>div.menu,body>div.bottom {
+  body>div.page_menu, body>div.page_bottom {
     position: fixed;
   }
 }
 
-/* The actual text area, remember to update
- * the margins according to div.menu and div.bottom (+1em)
- */
+/* The actual content area. */
 #set $realpadding = 1
 #set $paddingleft = $menuwidth + $realpadding
 #set $paddingbottom = $bottomheight + $realpadding  
-div.content {
-  padding-top: 0em; 
+div.page_content {
+  padding-top: 0em;
   padding-right: ${realpadding}em; 
   padding-left: ${paddingleft}em; 
   padding-bottom: ${paddingbottom}em;

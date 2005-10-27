@@ -21,25 +21,26 @@
 ## Styles for the bottom frame, wich contains worklist, transactions and activitylog.
 ## IE doesnt support inline-block on divs, so I had to use spans instead, and then
 ## i had to use vertical-align: top, to make it look just like in opera.
-div.bottom h2, div.bottom h3 {
-    font-size: 80%;
+div.worklist h2, div.activitylog h2 {
+    font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
+    font-size: 90%;
     margin: 0;
-    padding: 0;
-    letter-spacing: 0.2em;
+    padding: 0 0 0 4px;
 }
 
 ## Styles for the worklist.
 div.worklist {
-    display: inline-block;
-    margin-right: 0.5em;
+    float: left;
     vertical-align: top;
-    border-top: 2px solid #9ab;
-    border-left: 2px solid #9ab;
-    height: 100%;
+    margin-left: 0.5em;
+    margin-right: 0.5em;
+    height: auto;
+    width: auto;
 }
 
 div.worklist h2 {
-    background: #9ab;
+    background: #66CCFF;
+    border: 1px solid #0066CC;
     margin-bottom: 4px;
 }
 
@@ -64,7 +65,7 @@ div.worklist span.buttons {
 }
 
 div.worklist span.buttons input {
-    width: 4em;
+    width: 4.5em;
     font-size: 80%;
     font-family: sans-serif;
     margin: 0px 5px 4px 5px;
@@ -74,59 +75,85 @@ div.worklist span.actions {
     display: table-cell; /* For firefox and Opera */ 
     display: inline-block; /* For Opera and ie */ 
     vertical-align: top; /* For ie */
-    margin: 0px 0px 0px 4px;
-}
-
-div.worklist span.actions div.wl_errors h3 {
-    color: red;
+    margin: 0 0 0 4px;
 }
 
 div.worklist span.actions div.wl_action {
-    width: 200px;
-    background: #9ac;
+    width: 180px;
 }
 
 div.worklist span.actions div.wl_action div.header {
+    border: 1px solid #0099FF;
+    font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
     font-weight: bold;
-    font-size: 100%;
+    font-size: 85%;
     padding: 2px;
-    border: 1px solid black;
-}
-
-div.worklist span.actions div.wl_action div.links {
-    font-size: 80%;
 }
 
 div.worklist span.actions div.wl_action div.content {
-    font-size: 90%;
+    font-size: 87%;
     padding: 4px;
-    border: 1px dotted black;
-    border-top: 0px;
 }
 
-## ActivityLog
+div.worklist span.actions div.wl_errors h3 { color: red; }
+
+## Styles for the Activity log.
 div.activitylog {
-    display: inline-block;
-    width: 19em;
     vertical-align: top;
+    margin-left: 0.5em;
+    margin-right: 0.5em;
     overflow: auto;
+    height: auto;
+    width: 350px;
+}
+
+div.activitylog_full {
+    float: left;
+    clear: right;
 }
 
 div.activitylog h2 {
-    background: #999;
+    background: #61EF76;
+    border: 1px solid #006600;
+    margin-bottom: 4px;
 }
 
-## Styles for the menu:
-div.menu a { top: 10px; left: 10px; }
-div.menu a { display: block; }
+div.activitylog div.amsg, div.activitylog_full div.amsg {
+    border-bottom: 1px dotted #006600;
+}
 
-div.menu a:link  {  color: black; text-decoration : none; }
-div.menu a:visited { color: black;  text-decoration : none; }
-div.menu a:hover { color: #999999; text-decoration : none; }
-div.menu a:active { text-decoration : none; }
+div.activitylog a:link {  color: black; }
+div.activitylog a:visited { color: black; }
+div.activitylog a:hover { color: gray; }
+div.activitylog h2 a:link { text-decoration: none; }
+div.activitylog h2 a:hover { text-decoration: none; }
+div.activitylog h2 a:visited { text-decoration: none; }
+
+## Styles for the menu:
+div.page_menu a { top: 10px; left: 10px; display: block; }
+div.page_menu a:link  {  color: black; text-decoration: none; }
+div.page_menu a:visited { color: black;  text-decoration: none; }
+div.page_menu a:hover { color: #999999; text-decoration: none; }
+div.page_menu a:active { text-decoration: none; }
 
 div.menu {
     border: none;
+}
+
+div.menu_header {
+    border: 1px solid gray;
+    text-align: center;
+    margin: 15px 0 0 8px;
+    padding: 5px;
+    font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
+    font-weight: bold;
+    font-size: 100%;
+}
+
+div.menulevel0 {
+    margin-left: 13px;
+    padding: 2px 0 5px 4px;
+    border-left: 1px dashed gray;
 }
 
 div.menulevel1 {
@@ -136,13 +163,13 @@ div.menulevel1 {
 div.menulevel2 {
     font-style: normal;
     font-weight: normal;
-    padding-left: 1.0em;
+    padding-left: 0.8em;
 }
 div.menulevel3 {
     font-style: normal;
     font-weight: normal;
     font-size: 95%;
-    padding-left: 1.5em;
+    padding-left: 1.0em;
 }
 
 div.menu .active {

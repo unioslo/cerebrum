@@ -21,7 +21,9 @@
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import redirect_object, transaction_decorator, commit
+from Cereweb.utils import transaction_decorator, commit
+from Cereweb.utils import redirect_object, object_link
+from Cereweb.HistoryLog import view_history
 
 def view(req, transaction, id):
     entity = transaction.get_entity(int(id))
@@ -81,5 +83,18 @@ def clear_search(req, url):
     msg = "Search for class '%s' reseted." % cls
     page.body.append(html.Division(msg))
     return page
+
+def full_historylog(req, transaction, id):
+    """Creates a page with the full historylog for an entity."""
+    entity = transaction.get_entity(int(id))
+    type = entity.get_type().get_name()
+
+    page = Main(req)
+    page.title = type.capitalize() + ': ' + object_link(entity)
+    page.setFocus('%s/view' % type, id)
+    content = view_history(entity)
+    page.content = lambda: content
+    return page
+full_historylog = transaction_decorator(full_historylog)
 
 # arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e
