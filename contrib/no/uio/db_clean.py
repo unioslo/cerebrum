@@ -230,6 +230,8 @@ class CleanChangeLog(object):
         {'columns': ('subject_entity', ),
          'change_params': ('q_type', ),
          'triggers': (co.quarantine_add, co.quarantine_mod, co.quarantine_del)},
+        {'columns': ('subject_entity', ),
+         'triggers': (co.quarantine_refresh,)},
         # Entity creation/deletion
         {'columns': ('subject_entity', ),
          'triggers': (co.entity_add, co.entity_del)},
