@@ -158,3 +158,5 @@ class Search:
         names = [self.searches[i] for i in searcher.get_search_objects()]
         for structs in zip(*[i.dump() for i in searcher.get_dumpers()]):
             yield dict(zip(names, structs))
+
+# arch-tag: 2f4948da-4732-11da-8c59-869c4ebe94a5
