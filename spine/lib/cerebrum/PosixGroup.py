@@ -39,7 +39,7 @@ def is_posix(self):
     """Check if a group has been promoted to posix.
     """
     try:    
-        self.get_posix_gid()
+        return self.get_posix_gid() is not None
     except NotFoundError, e:
         return False
     return True

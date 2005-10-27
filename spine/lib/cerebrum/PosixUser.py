@@ -83,7 +83,7 @@ def is_posix(self):
     """Check if a account has been promoted to posix.
     """
     try:
-        self.get_posix_uid()
+        return self.get_posix_uid() is not None
     except NotFoundError, e:
         return False
     return True
