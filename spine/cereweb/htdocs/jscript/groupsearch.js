@@ -18,6 +18,9 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+// Stores the gid_end while option is not range.
+var GS_gid_end_value = "";
+
 // Runs when the page is finished loading.
 addLoadEvent(GS_init_listeners);
 
@@ -37,9 +40,16 @@ function GS_option_changed() {
     var selected = gid_option.options[gid_option.selectedIndex];
 
     if (selected.value == "range") {
-        gid_end.disabled = false
+        if (gid_end.value == "") {
+            gid_end.value = GS_gid_end_value;
+        }
+        gid_end.disabled = false;
     } else {
-        gid_end.disabled = true
+        if (gid_end.disabled != true) {
+            GS_gid_end_value = gid_end.value;
+        }
+        gid_end.value = "";
+        gid_end.disabled = true;
     }
 }
 
