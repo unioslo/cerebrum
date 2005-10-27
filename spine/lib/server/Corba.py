@@ -104,13 +104,7 @@ def convert_to_corba(obj, transaction, data_type):
         struct = corba_structs[data_type]
 
         vargs = {}
-        if 'reference' in obj:
-            vargs['reference'] = convert_to_corba(obj['reference'], transaction, data_type)
-        else:
-            vargs['reference'] = None
-
-        methods = [i for i in data_type.method_slots if not i.write and not i.args]
-        for attr in data_type.slots + methods:
+        for attr in data_type.slots:
             if attr.name in obj:
                 value = convert_to_corba(obj[attr.name], transaction, attr.data_type)
                 if getattr(attr, 'optional', False):
@@ -521,17 +515,11 @@ def _create_idl_interface(cls, error_module="", docs=False):
             cls = data_type.data_type
             name = cls.__name__ + 'Struct'
             header = 'struct %s {\n' % name
-            header += '\t%s reference;\n' % get_type(cls)
 
             for attr in cls.slots:
                 header += '\t%s %s;\n' % (get_type(attr.data_type), attr.name)
                 if attr.optional:
                     header += '\tboolean %s_exists;\n' % attr.name
-
-            for method in cls.method_slots:
-                if method.write or method.args:
-                    continue
-                header += '\t%s %s;\n' % (get_type(method.data_type), method.name)
 
             header += '};'
 

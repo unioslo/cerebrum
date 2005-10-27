@@ -136,86 +136,90 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
     All SQL-calls in Spine/cerebrum should be implementet here.
     """
     
+    db_constants = {}
     db_attr_aliases = {}
     db_table_order = []
 
-    def __wrapped_execute(self, sql, keys):
-        """Wraps around the execute call on the database to catch exceptions
-        and rethrow proper Spine exceptions."""
-        db = self.get_database()
-        try:
-            return db.execute(sql, keys)
-        except Cerebrum.Errors.DatabaseConnectionError, e:
-            raise DatabaseError('Connection to the database failed', str(e), sql)
-        except Cerebrum.Errors.DatabaseException, e:
-            raise DatabaseError('Error during query', str(e), sql)
-        except Cerebrum.Database.DatabaseError, e:
-            raise DatabaseError('Error during query', str(e), sql)
+    def _get_sql(cls, alias=''):
+        if alias:
+            alias = '%s_' % alias
+        attributes = []
+        slots = []
+        joins = []
+        args = {}
 
-    def __wrapped_query(self, sql, keys):
-        """Wraps around the query call on the database to catch exceptions
-        and rethrow proper Spine exceptions."""
-        db = self.get_database()
-        try:
-            return db.query(sql, keys)
-        except Cerebrum.Errors.DatabaseConnectionError, e:
-            raise DatabaseError('Connection to the database failed', str(e), sql)
-        except Cerebrum.Errors.DatabaseException, e:
-            raise DatabaseError('Error during query', str(e), sql)
-        except Cerebrum.Database.DatabaseError, e:
-            raise DatabaseError('Error during query', str(e), sql)
+        # We assume every primary key is from the same table
+        primary = cls.primary[0].table
 
-    def __wrapped_query_1(self, sql, keys):
-        """Wraps around the query_1 call on the database to catch exceptions
-        and rethrow proper Spine exceptions."""
-        db = self.get_database()
-        try:
-            return db.query_1(sql, keys)
-        except Cerebrum.Errors.NotFoundError, e:
-            raise NotFoundError(*e.args)
-        except Cerebrum.Errors.TooManyRowsError, e:
-            raise TooManyMatchesError(*e.args)
-        except Cerebrum.Errors.DatabaseConnectionError, e:
-            raise DatabaseError('Connection to the database failed', str(e), sql)
-        except Cerebrum.Errors.DatabaseException, e:
-            raise DatabaseError('Error during query', str(e), sql)
-        except Cerebrum.Database.DatabaseError, e:
-            raise DatabaseError('Error during query', str(e), sql)
+        tables = {}
 
-    def _load_db_attributes(self, attributes=None):
+        for attr in cls.slots:
+            if not isinstance(attr, DatabaseAttr):
+                continue
+            optional = tables.get(attr.table, True)
+            tables[attr.table] = optional and attr.optional
+            real_name = cls._get_real_name(attr)
+
+            # example: alias1_entity_info.entity_id AS alias1__id
+            attributes.append('%s%s.%s AS %s%s' % (alias, attr.table, real_name, alias, attr.name))
+            slots.append(attr)
+
+        for table, optional in tables.items():
+            if table == primary:
+                continue
+            # example JOIN account_info alias1_account_info ON (alias1_entity_info.entity_id = alias1_account_info.entity_id)
+            preds = []
+            x = {}
+            x['how'] = optional and 'LEFT JOIN' or 'JOIN'
+            x['table'] = table
+            x['alias'] = alias
+            x['primary'] = primary
+            for attr in cls.primary:
+                x['name1'] = cls._get_real_name(attr)
+                x['name2'] = cls._get_real_name(attr, table)
+                preds.append('%(alias)s%(primary)s.%(name1)s = %(alias)s%(table)s.%(name2)s' % x)
+
+            # constants
+            for name, constant in cls.db_constants.get(table, {}).items():
+                x['name'] = name
+                preds.append('%(alias)s%(table)s.%(name)s = :%(alias)s%(name)s' % x)
+                args['%(alias)s%(name)s' % x] = constant
+            x['preds'] = ' AND '.join(preds)
+
+            joins.append('%(how)s %(table)s %(alias)s%(table)s ON (%(preds)s)' % x)
+
+        return slots, attributes, primary, joins, args
+
+    _get_sql = classmethod(_get_sql)
+    
+    def _load_all_db(self):
         """Load 'attributes' from the database.
 
         This method load attributes in 'attributes' from the database
         through one SQL call.
         """
-        if attributes is None:
-            attributes = self._db_load_attributes
-
-        tables = sets.Set([i.table for i in attributes])
-
-        sql = 'SELECT '
-        sql += ', '.join(['%s.%s AS %s' % (attr.table, self._get_real_name(attr), attr.name) for attr in attributes])
-        sql += ' FROM '
-        sql += ', '.join(tables)
-        sql += ' WHERE '
-
-        tmp = []
-        for table in tables:
-            tmp.append(' AND '.join(['%s.%s = :%s' % (table, self._get_real_name(attr, table), attr.name) for attr in self.primary]))
-        sql += ' AND '.join(tmp)
-
-        keys = {}
+        slots, attributes, table, joins, args = self._get_sql()
+        primary = []
         for i in self.primary:
-            keys[i.name] = i.convert_to(getattr(self, i.get_name_private()))
+            primary.append('%s.%s = :%s' % (i.table, self._get_real_name(i), i.name))
+            args[i.name] = i.convert_to(getattr(self, i.get_name_private()))
 
-        row = self.__wrapped_query_1(sql, keys)
+
+        sql = 'SELECT %s FROM %s %s WHERE %s' % (', '.join(attributes), table, ' '.join(joins), ' AND '.join(primary))
+
+        db = self.get_database()
+        row = db.query_1(sql, args)
         
         if len(attributes) == 1:
             row = {attributes[0].name:row}
 
-        for i in attributes:
+        for i in self.slots:
+            if i in self.primary:
+                continue
+            if not isinstance(i, DatabaseAttr):
+                continue
             value = row[i.name]
-            value = i.convert_from(self.get_database(), value)
+            value = i.convert_from(db, value)
             setattr(self, i.get_name_private(), value)
 
     def _save_all_db(self):
@@ -225,34 +229,34 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         been updated, and is a subclass of DatabaseAttr, through one
         SQL-call for each db-table.
         """
+        db = self.get_database()
         for table, attributes in self._get_sql_tables().items():
             # only update tables with changed attributes
             changed_attributes = []
             for i in attributes:
-                if i in self.updated and i in self._db_save_attributes:
-                    changed_attributes.append(i)
-                    self.updated.remove(i)
-                    
+                if i not in self.updated:
+                    continue
+                changed_attributes.append(i)
+                self.updated.remove(i)
 
             if not changed_attributes:
                 continue
 
-            sql = 'UPDATE %s SET %s' % (
-                table,
-                ', '.join(['%s=:%s' % (self._get_real_name(attr), attr.name) for attr in changed_attributes])
-            )
+            changed = []
+            for attr in changed_attributes:
+                changed.append('%s = :%s' % (self._get_real_name(attr), attr.name))
 
-            sql += ' WHERE '
-            tmp = []
+            keys = []
             for attr in self.primary:
-                tmp.append('%s.%s = :%s' % (table, self._get_real_name(attr, table), attr.name))
-            sql += ' AND '.join(tmp)
+                keys.append('%s.%s = :%s' % (table, self._get_real_name(attr, table), attr.name))
 
-            keys = {}
+            sql = 'UPDATE %s SET %s WHERE %s' % (table, ', '.join(changed), ' AND '.join(keys))
+
+            args = {}
             for i in self.primary + changed_attributes:
-                keys[i.name] = attr.convert_to(getattr(self, i.get_name_private()))
+                args[i.name] = attr.convert_to(getattr(self, i.get_name_private()))
 
-            self.__wrapped_execute(sql, keys)
+            db.execute(sql, args)
 
     def _delete_from_db(self):
         """Generic method for deleting this instance from the database.
@@ -261,7 +265,9 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         database which this instance fills. The reverse of db_table_order
         is used if set, and primary slots is used to create the where clause.
         """
-        table_order = self.db_table_order[:].reverse()
+        db = self.get_database()
+        table_order = self.db_table_order[:]
+        table_order.reverse()
 
         # Prepare primary keys for each table to delete from
         tables = {}
@@ -277,7 +283,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         for table in (table_order or tables.keys()):
             sql = "DELETE FROM %s WHERE " % table
             sql += " AND ".join(['%s = :%s' % (a, a) for a in tables[table].keys()])
-            self.__wrapped_execute(sql, tables[table])
+            db.execute(sql, tables[table])
 
     def _create(cls, db, *args, **vargs):
         """Generic method for creating instances in the database.
@@ -297,6 +303,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
 
         Notice the write_locker argument when returning the new object.
         """
+        db = self.get_database()
         map = cls.map_args(*args, **vargs)
         tables = cls._get_sql_tables()
 
@@ -306,7 +313,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
                 tmp[cls._get_real_name(attr, table)] = attr.convert_to(map[attr])
             sql = "INSERT INTO %s (%s) VALUES (:%s)" % (
                     table, ", ".join(tmp.keys()), ", :".join(tmp.keys()))
-            self.__wrapped_execute(sql, tmp)
+            db.execute(sql, tmp)
 
     _create = classmethod(_create)
 
@@ -334,7 +341,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         Used when creating a searchclass for class 'cls', to add a method
         which searches for instances of the class.
         """
-        def search(self, _sql_only=False, sql_where='', *args, **vargs):
+        def search(self, *args, **vargs):
             """Search for instances of the original class.
 
             Creates SQL query for finding instances of the original class
@@ -345,153 +352,22 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
             is used and wildcards are supported in the where clause. 'less'
             and 'more' gives '<' and '>' in the where clause.
             """
-            map = self.map_args(*args, **vargs) # Dict with Attribute: value
-
-            tables = []
-            attrs = []
-            for attr in cls.slots:
-                if not isinstance(attr, DatabaseAttr) or attr.optional:
-                    continue
-                if attr.table not in tables:
-                    tables.append(attr.table)
-                attrs.append(attr)
-            
-            def _get_real_name(*args, **vargs):
-                return get_real_name(self.db_attr_aliases, *args, **vargs)
-
-            unique_key = 's%s' % id(self)
-            
-            def convert_value(attr, value):
-                """Returns the where query for the attr & key.
-                
-                Prepares the value to be inserted into the query,
-                and returns the where clause for the query.
-                """
-                args = (attr.table, _get_real_name(attr), unique_key + attr.name)
-                value = attr.convert_to(value)
-                if getattr(attr, 'like', False):
-                    whr = 'LOWER(%s.%s) LIKE :%s' % args
-                    value = value.replace("*","%").replace("?", "_")
-                    value = value.lower()
-                elif getattr(attr, 'less', False):
-                    whr = '%s.%s < :%s' % args
-                elif getattr(attr, 'more', False):
-                    whr = '%s.%s > :%s' % args
-                elif getattr(attr, 'exists', False):
-                    if value:
-                        whr = '%s.%s is not :%s' % args
-                    else:
-                        whr = '%s.%s is :%s' % args
-                    value = None
-                else:
-                    whr = '%s.%s = :%s' % args
-                return (whr, value)
-        
-            # Prepare the where clause and values to supply with the sql query
-            where = []
-            if sql_where:
-                where.append(sql_where)
-            values = {}
-            for attr, value in map.items():
-                if not isinstance(attr, DatabaseAttr):
-                    raise Exception('unable to search with attribute %s' % attr)
-                whr, val = convert_value(attr, value)
-                where.append(whr)
-                values[unique_key + attr.name] = val
-
-                # Then we need to add it
-                if attr.optional:
-                    if attr.table not in tables:
-                        tables.append(attr.table)
-                    attrs.append(attr)
-
-            table = tables[0]
-            for i in cls.primary:
-                tmp = '%s.%s = %%s.%%s' % (table, _get_real_name(i, table))
-                for table in tables[1:]:
-                    where.append(tmp % (table, _get_real_name(i, table)))
-            
-            # Create sql query
-            sql = 'SELECT '
-
-            join = ''
-            for key, op in [('_intersections', 'INTERSECT'), ('_differences', 'EXCEPT'), ('_unions', 'UNION')]:
-                for s in getattr(self, key, ()):
-                    i, j = s.search(_sql_only=True)
-                    join += ' %s (%s)' % (op, i)
-                    values.update(j)
-
-            if join or _sql_only:
-                attrs = cls.primary
-
-            if self.mark and _sql_only:
-                sql += '%s.%s AS %s' % (self.mark.table, _get_real_name(self.mark), self.mark.name)
-            else:
-                sql += ', '.join(['%s.%s AS %s' % (attr.table, _get_real_name(attr),
-                                                   attr.name) for attr in attrs])
-            sql += ' FROM '
-            sql += ', '.join(tables)
-            if where:
-                sql += ' WHERE '
-                sql += ' AND '.join(where)
-
-            sql += join
-
-            if _sql_only:
-                return sql, values
-
-            # Build objects from the query result, and return them in a list.
-            db = self.get_database()
-            try:
-                rows = db.query(sql, values)
-            except Cerebrum.Errors.DatabaseConnectionError, e:
-                raise DatabaseError('Connection to the database failed', str(e), sql)
-            except Cerebrum.Errors.DatabaseException, e:
-                raise DatabaseError('Error during query', str(e), sql)
-            except Cerebrum.Database.DatabaseError, e:
-                raise DatabaseError('Error during query', str(e), sql)
-
-            objects = []
-            for row in rows:
-                tmp = {}
-                for attr in attrs:
-                    value = row[attr.name]
-                    tmp[attr.name] = attr.convert_from(db, value)
-                objects.append(cls(db, **tmp))
-
-            return objects
+            pass
         return search
     
     create_search_method = classmethod(create_search_method)
     
     def build_methods(cls):
         """Create get/set methods for slots."""
-        if '_db_load_attributes' not in cls.__dict__:
-            cls._db_load_attributes = []
-            cls._db_save_attributes = []
-
         for attr in cls.slots:
             if not isinstance(attr, DatabaseAttr):
                 continue
 
-            if attr.optional:
-                def create_load(attr):
-                    def load_db_attribute(self):
-                        self._load_db_attributes([attr])
-                    return load_db_attribute
-                load = create_load(attr)
-            else:
-                load = cls._load_db_attributes
-            save = cls._save_all_db
-
             if not hasattr(cls, attr.get_name_load()):
-                if not attr.optional:
-                    cls._db_load_attributes.append(attr)
-                setattr(cls, attr.get_name_load(), load)
+                setattr(cls, attr.get_name_load(), cls._load_all_db)
 
             if attr.write and not hasattr(cls, attr.get_name_save()):
-                cls._db_save_attributes.append(attr)
-                setattr(cls, attr.get_name_save(), save)
+                setattr(cls, attr.get_name_save(), cls._save_all_db)
 
         super(DatabaseClass, cls).build_methods()
         cls.build_search_class()

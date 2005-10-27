@@ -39,7 +39,7 @@ def create_get_method(attr):
     def get(self):
         # get the variable
         if not hasattr(self, attr.get_name_private()):
-            raise SpineExceptions.ServerProgrammingError('Attribute %s is not set.' % attr.name)
+            raise SpineExceptions.ClientProgrammingError('Attribute %s is not set.' % attr.name)
         return getattr(self, attr.get_name_private())
     return get
 
@@ -63,19 +63,6 @@ def create_new_attr(attr, **vargs):
         new_attr._old_name = new_attr.name
         new_attr.name += name
     return new_attr
-
-def create_mark_method(attr):
-    """Marks the attribute 'attr'.
-
-    Creates a method which marks the attribute for use when
-    merging searchbjects. If you whish to merge two searchobjects,
-    which returns diffrent types, you have to mark which attributes in
-    this searchobject should return.
-    """
-    method = Method('mark_' + attr.name, None, write=True)
-    def mark(self):
-        self.mark = attr
-    return method, mark
 
 def create_set_method(attr):
     """Set the 'value' for the 'attr'.
@@ -126,19 +113,14 @@ class Searchable(object):
                 search_class_name, search_class_name)
 
         search_class = cls.search_class
+        search_class.cls = cls
 
         search_class.slots = SearchClass.slots + []
         search_class.method_slots = SearchClass.method_slots + []
 
-        if issubclass(cls, DatabaseClass):
-            search_class.db_attr_aliases = cls.db_attr_aliases.copy()
-
         for attr in cls.slots + cls.search_slots:
-            # Mark-methods is used when merging search-objects.
-            if type(attr.data_type) == type(Searchable) and issubclass(attr.data_type, Searchable):
-                method, mark = create_mark_method(attr)
-                search_class.register_method(method, mark, overwrite=True)
-
+            if not isinstance(attr, DatabaseAttr):
+                continue
             new_attrs = []
 
             if getattr(attr, 'optional', False):
@@ -156,27 +138,12 @@ class Searchable(object):
             
             # Register original slots and new slots in the searchclass.
             for new_attr in new_attrs:
-                
-                # Make sure new slotnames are in the aliases map.
-                if hasattr(new_attr, '_old_name'):
-                    if isinstance(new_attr, DatabaseAttr) and issubclass(cls, DatabaseClass):
-                        tmp = new_attr._old_name
-                        if new_attr.table not in cls.db_attr_aliases.keys():
-                            search_class.db_attr_aliases[new_attr.table] = {}
-                        else:
-                            if tmp in cls.db_attr_aliases[new_attr.table].keys():
-                                tmp = cls.db_attr_aliases[new_attr.table][tmp]
-                        search_class.db_attr_aliases[new_attr.table][new_attr.name] = tmp
-                    del new_attr._old_name
-
+                new_attr.exceptions += (SpineExceptions.ClientProgrammingError, )
                 get = create_get_method(new_attr)
                 set = create_set_method(new_attr)
-                search_class.register_attribute(new_attr, get=get, set=set,
-                                                overwrite=True)
+                search_class.register_attribute(new_attr, get=get, set=set, overwrite=True)
 
-        search_class._search = cls.create_search_method()
-        assert search_class._search
-        search_class.method_slots.append(Method('search', [cls], write=True))
+        search_class.method_slots.append(Method('search', [cls], exceptions=[SpineExceptions.ClientProgrammingError]))
 
         cls.search_class = search_class
 

@@ -23,6 +23,7 @@ import copy
 from Builder import Method, Attribute
 
 from Cerebrum.extlib.sets import Set
+from SpineExceptions import ClientProgrammingError
 
 __all__ = ['Dumpable']
 
@@ -73,71 +74,43 @@ class Dumpable(object):
         dumper_class.primary = [Attribute('objects', [cls])]
         dumper_class.slots = DumpClass.slots + []
         dumper_class.method_slots = DumpClass.method_slots + []
-
-        # mark methods for attributes and methods
-        
-        for attr in cls.slots:
-            get = create_mark_method(attr.name, attr.get_name_get(), attr.optional, attr)
-            dumper_class.register_method(Method('mark_' + attr.name, None, write=True), get, overwrite=True)
-
-        for method in cls.method_slots:
-            if method.write or method.args:
-                continue
-            get = create_mark_method(method.name, method.name)
-            mark = copy.copy(method)
-            mark.name = 'mark_' + mark.name
-            mark.data_type = None
-            mark.write = True
-            dumper_class.register_method(mark, get, overwrite=True)
-
-        # dumper methods for attributes and methods
-        for attr in cls.slots:
-            if type(attr.data_type) == type(Dumpable) and issubclass(attr.data_type, Dumpable):
-                name = 'dump_%s' % attr.name
-                m, get_dump = create_generic_dumper(attr.data_type.dumper_class, name, attr.get_name_get(), attr.optional)
-                dumper_class.register_method(m, get_dump, overwrite=True)
-
-        for method in cls.method_slots:
-            if not method.write and not method.args and type(method.data_type) == type(Dumpable) and issubclass(method.data_type, Dumpable):
-                name = 'dump_%s' % method.name
-                m, get_dump = create_generic_dumper(method.data_type.dumper_class, name, method.name)
-                dumper_class.register_method(m, get_dump, overwrite=True)
+        dumper_class.cls = cls
 
         # make dump accessable from search classes
         def dump(self):
             return self.structs
-        m = Method('dump', [Struct(cls)], write=True)
+        m = Method('dump', [Struct(cls)], exceptions=[ClientProgrammingError])
         dumper_class.register_method(m, dump, overwrite=True)
 
         if issubclass(cls, Searchable):
-            get_dump = create_get_dumper(dumper_class)
-            m = Method('get_dumper', dumper_class, write=True)
-            cls.search_class.register_method(m, get_dump, overwrite=True)
+            get_dumpers = create_get_dumpers()
+            m = Method('get_dumpers', [DumpClass], exceptions=[ClientProgrammingError])
+            cls.search_class.register_method(m, get_dumpers, overwrite=True)
+
+            dump = create_dump(dumper_class)
+            m = Method('dump', [Struct(cls)], exceptions=[ClientProgrammingError])
+            cls.search_class.register_method(m, dump, overwrite=True)
 
     build_dumper_class = classmethod(build_dumper_class)
 
-def create_get_dumper(dumper_class):
-    def get_dumper(self):
-        return dumper_class(self.get_database(), self.search())
-    return get_dumper
+def create_get_dumpers():
+    def get_dumpers(self):
+        objs = []
+        data = []
+        for i in self.get_search_objects():
+            objs.append(i)
+            data.append([])
+        for rows in self.get_split_rows():
+            for i, row in enumerate(rows):
+                data[i].append(row)
 
-def create_generic_dumper(dumper_class, name, method_name, optional=False):
-    m = Method(name, dumper_class, write=True)
-    def get_dumper(self):
-        objects = Set()
-        for i in self._objects:
-            if optional:
-                try:
-                    value = getattr(i, method_name)()
-                except:
-                    continue
-            else:
-                value = getattr(i, method_name)()
-            objects.add(value)
+        return [obj.cls.dumper_class(data, obj.get_signature()) for obj, data in zip(objs, data)]
+    return get_dumpers
 
-        return dumper_class(objects)
-
-    return m, get_dumper
-
+def create_dump(dumper_class):
+    def dump(self):
+        dumper = dumper_class(self.get_rows(), self.get_signature())
+        return dumper.dump()
+    return dump
 
 # arch-tag: 94dead40-0291-4725-a4dd-a37303eec825
