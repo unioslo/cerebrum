@@ -78,7 +78,7 @@ def cgi_main():
     if id:
         try:
             req.session = Session(id.value)
-        except KeyError, e:
+        except:
             id = None
 
     main(req, id, path, args)

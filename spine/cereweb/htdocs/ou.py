@@ -31,6 +31,9 @@ from Cereweb.templates.OUTreeTemplate import OUTreeTemplate
 from Cereweb.templates.OUEditTemplate import OUEditTemplate
 from Cereweb.templates.OUViewTemplate import OUViewTemplate
 
+import Cereweb.config
+max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+
 def index(req):
     return search(req)
 
@@ -50,7 +53,8 @@ def tree(req, transaction, perspective=None):
     return page
 tree = transaction_decorator(tree)
 
-def search(req, transaction, name="", acronym="", short="", spread=""):
+def search(req, transaction, name="", acronym="", short="", spread="", offset=0):
+    offset = int(offset)
     perform_search = False
     if name or acronym or short or spread:
         perform_search = True
@@ -72,29 +76,30 @@ def search(req, transaction, name="", acronym="", short="", spread=""):
     form = OUSearchTemplate(searchList=[{'formvalues': values}])
 
     if perform_search:
-        searcher = transaction.get_ou_searcher()
+        search = transaction.get_ou_searcher()
+        search.set_search_limit(max_hits + 1, offset)
         if name:
-            searcher.set_name_like(name)
+            search.set_name_like(name)
         if acronym:
-            searcher.set_acronym_like(acronym)
+            search.set_acronym_like(acronym)
         if short:
-            searcher.set_short_name_like(short)
+            search.set_short_name_like(short)
             
         if spread:
-            ous = sets.Set()
-            spreadsearcher = transaction.get_spread_searcher()
-            spreadsearcher.set_name_like(spread)
-            for spread in spreadsearcher.search():
-                s = transaction.get_entity_spread_searcher()
-                s.set_spread(spread)
-                s.mark_entity()
-                searcher.set_intersections([s])
+            ou_type = transaction.get_entity_type('ou')
 
-                ous.update(searcher.search())
-            
-            ous = list(ous)
-        else:
-            ous = searcher.search()
+            searcher = transaction.get_entity_spread_searcher()
+            searcher.set_entity_type(ou_type)
+
+            spreadsearcher = transaction.get_spread_searcher()
+            spreadsearcher.set_entity_type(ou_type)
+            spreadsearcher.set_name_like(spread)
+
+            searcher.add_join('spread', spreadsearcher, '')
+            search.add_intersection('', searcher, 'entity')
+
+
+        ous = search.search()
     
         # Print results
         result = html.Division(_class="searchresult")

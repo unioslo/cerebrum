@@ -39,7 +39,8 @@ def index(req):
     return search(req)
 
 def search(req, transaction, owner="", name="", expire_date="",
-           create_date="", spread="", description=""):
+           create_date="", spread="", description="", offset=0):
+    offset = int(offset)
     perform_search = False
     if owner or name or expire_date or create_date or spread or description:
         perform_search = True
@@ -65,28 +66,22 @@ def search(req, transaction, owner="", name="", expire_date="",
                        searchList=[{'formvalues': formvalues}])
 
     if perform_search:
-        server = transaction
-
-        entitysearch = server.get_entity_searcher()
-        search = server.get_account_searcher()
-        intersections = [search,]
+        search = transaction.get_account_searcher()
+        search.set_search_limit(max_hits + 1, int(offset))
         
         if owner:
             owner = transaction.get_entity(int(owner))
             search.set_owner(owner)
 
         if name:
-            namesearcher = server.get_entity_name_searcher()
-            namesearcher.set_name_like(name)
-            namesearcher.mark_entity()
-            search.set_intersections([namesearcher])
+            search.set_name_like(name)
 
         if expire_date:
-            date = server.get_commands().strptime(expire_date, "%Y-%m-%d")
+            date = transaction.get_commands().strptime(expire_date, "%Y-%m-%d")
             search.set_expire_date(date)
 
         if create_date:
-            date = server.get_commands().strptime(create_date, "%Y-%m-%d")
+            date = transaction.get_commands().strptime(create_date, "%Y-%m-%d")
             search.set_create_date(date)
 
         if description:
@@ -97,25 +92,25 @@ def search(req, transaction, owner="", name="", expire_date="",
             search.set_description_like(description)
 
         if spread:
-            accounts = sets.Set()
-            spreadsearcher = server.get_spread_searcher()
-            spreadsearcher.set_name_like(spread)
-            for spread in spreadsearcher.search():
-                searcher = server.get_entity_spread_searcher()
-                searcher.set_spread(spread)
-                searcher.mark_entity()
-                entitysearch.set_intersections(intersections + [searcher])
+            account_type = transaction.get_entity_type('account')
 
-                accounts.update(entitysearch.search())
-            accounts = list(accounts)
-        else:
-            entitysearch.set_intersections(intersections)
-            accounts = entitysearch.search()
+            entityspread = transaction.get_entity_spread_searcher()
+            entityspread.set_entity_type(account_type)
+
+            spreadsearcher = transaction.get_spread_searcher()
+            spreadsearcher.set_entity_type(account_type)
+            spreadsearcher.set_name_like(spread)
+
+            entityspread.add_join('spread', spreadsearcher, '')
+            search.add_intersection('', entityspread, 'entity')
+
+        accounts = search.search()
   
         # Print search results
         result = html.Division(_class="searchresult")
-        hits = len(accounts)
-        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
+        hits = min(max_hits, len(accounts))
+        header = html.Header('Search results:', level=3)
+
         result.append(html.Division(header, _class="subtitle"))
     
         table = html.SimpleTable(header="row", _class="results")
@@ -156,7 +151,7 @@ def create(req, transaction, owner, name="", expire_date=""):
 
     create = AccountCreateTemplate()
 
-    owner = transaction.get_entity(int(owner))
+    owner = transaction.get_entity(owner)
     if owner.get_type().get_name() == 'person':
         full_name = owner.get_cached_full_name().split()
         if len(full_name) == 1:

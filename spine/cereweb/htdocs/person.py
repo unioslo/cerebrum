@@ -37,8 +37,9 @@ def index(req):
     """Redirects to the search for person page."""
     return search(req)
 
-def search(req, transaction, name="", accountname="", birthdate="", spread=""):
+def search(req, transaction, name="", accountname="", birthdate="", spread="", offset=0):
     """Creates a page with a list of persons matching the given criterias."""
+    offset = int(offset)
     perform_search = False
     if name or accountname or birthdate or spread:
         perform_search = True
@@ -60,51 +61,42 @@ def search(req, transaction, name="", accountname="", birthdate="", spread=""):
     form = PersonSearchTemplate(searchList=[{'formvalues': values}])
     
     if perform_search:
-        """
-        Searches first through accountnames and birthdates,
-        then perform an intersection with the result of a search
-        through all name_types for 'name'.
-        """
-        personsearcher = transaction.get_person_searcher()
-        intersections = []
+        search = transaction.get_person_searcher()
+        search.set_search_limit(max_hits + 1, offset)
 
         if accountname:
             searcher = transaction.get_account_searcher()
             searcher.set_name_like(accountname)
-            searcher.mark_owner()
-            intersections.append(searcher)
+            search.add_intersection('', searcher, 'owner')
             
         if birthdate:
             date = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
-            personsearcher.set_birth_date(date)
+            search.set_birth_date(date)
 
         if name:
             searcher = transaction.get_person_name_searcher()
             searcher.set_name_like(name)
-            searcher.mark_person()
-            intersections.append(searcher)
+            search.add_intersection('', searcher, 'person')
 
         if spread:
-            persons = sets.Set()
+            person_type = transaction.get_entity_type('person')
+
+            searcher = transaction.get_entity_spread_searcher()
+            searcher.set_entity_type(person_type)
+
             spreadsearcher = transaction.get_spread_searcher()
+            spreadsearcher.set_entity_type(person_type)
             spreadsearcher.set_name_like(spread)
-            for spread in spreadsearcher.search():
-                searcher = transaction.get_entity_spread_searcher()
-                searcher.set_spread(spread)
-                searcher.mark_entity()
-                personsearcher.set_intersections(intersections + [searcher])
 
-                persons.update(personsearcher.search())
-            persons = list(persons)
+            searcher.add_join('spread', spreadsearcher, '')
+            search.add_intersection('', searcher, 'entity')
 
-        else:
-            personsearcher.set_intersections(intersections)
-            persons = personsearcher.search()
+        persons = search.search()
 
         # Print results
         result = html.Division(_class="searchresult")
         hits = len(persons)
-        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
+        header = html.Header('Search results:', level=3)
         result.append(html.Division(header, _class="subtitle"))
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Name"), _("Date of birth"), _("Account(s)"), _("Actions"))

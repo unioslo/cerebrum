@@ -35,8 +35,9 @@ max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 def index(req):
     return search(req)
 
-def search(req, transaction, path="", description=""):
+def search(req, transaction, path="", description="", offset=0):
     """Creates a page with a list of disks matching the given criterias."""
+    offset = int(offset)
     perform_search = False
     if path or description:
         perform_search = True
@@ -57,6 +58,7 @@ def search(req, transaction, path="", description=""):
     
     if perform_search:
         disksearcher = transaction.get_disk_searcher()
+        disksearcher.set_search_limit(max_hits + 1, offset)
 
         if path:
             disksearcher.set_path_like(path)
@@ -69,7 +71,7 @@ def search(req, transaction, path="", description=""):
         # Print results
         result = html.Division(_class="searchresult")
         hits = len(disks)
-        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
+        header = html.Header('Search results:', level=3)
         result.append(html.Division(header, _class="subtitle"))
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Path"), _("Host"), _("Description"), _("Actions"))

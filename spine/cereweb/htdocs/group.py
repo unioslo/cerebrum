@@ -44,8 +44,9 @@ def index(req):
     return search(req)
 
 def search(req, transaction, name="", desc="",
-           spread="", gid="", gid_end="", gid_option=""):
+           spread="", gid="", gid_end="", gid_option="", offset=0):
     """Creates a page with a list of groups matching the given criterias."""
+    offset = int(offset)
     perform_search = False
     if name or desc or spread or gid:
         perform_search = True
@@ -72,47 +73,45 @@ def search(req, transaction, name="", desc="",
     form = GroupSearchTemplate(searchList=[{'formvalues': values}])
 
     if perform_search:
-        server = transaction
-        searcher = server.get_group_searcher()
+        search = transaction.get_group_searcher()
+        search.set_search_limit(max_hits + 1, offset)
         if name:
-            namesearcher = server.get_entity_name_searcher()
-            namesearcher.set_name_like(name)
-            namesearcher.mark_entity()
-            searcher.set_intersections([namesearcher])
+            search.set_name_like(name)
+
         if desc:
-            searcher.set_description_like(desc)
+            search.set_description_like(desc)
+
         if gid:
             if gid_option == "exact":
-                searcher.set_posix_gid(int(gid))
+                search.set_posix_gid(int(gid))
             elif gid_option == "above":
-                searcher.set_posix_gid_more_than(int(gid))
+                search.set_posix_gid_more_than(int(gid))
             elif gid_option == "below":
-                searcher.set_posix_gid_less_than(int(gid))
+                search.set_posix_gid_less_than(int(gid))
             elif gid_option == "range":
-                searcher.set_posix_gid_more_than(int(gid))
+                search.set_posix_gid_more_than(int(gid))
                 if gid_end:
-                    searcher.set_posix_gid_less_than(int(gid_end))
+                    search.set_posix_gid_less_than(int(gid_end))
                 
         if spread:
-            groups = sets.Set()
+            group_type = transaction.get_entity_type('group')
 
-            spreadsearcher = server.get_spread_searcher()
-            spreadsearcher.set_name_like(spread)
-            for spread in spreadsearcher.search():
-                s = server.get_entity_spread_searcher()
-                s.set_spread(spread)
-                s.mark_entity()
-                searcher.set_intersections([s])
+            searcher = transaction.get_entity_spread_searcher()
+            searcher.set_entity_type(group_type)
 
-                groups.update(searcher.search())
-            groups = list(groups)
-        else:
-            groups = searcher.search()
+            spreadsearcher = transaction.get_spread_searcher()
+            spreadsearcher.set_entity_type(group_type)
+            spreadsearcher.set_name_like(spread) 
+            
+            searcher.add_join('spread', spreadsearcher, '')
+            search.add_intersection('', searcher, 'entity')
+
+        groups = search.search()
 
         # Print search results
         result = html.Division(_class="searchresult")
         hits = len(groups)
-        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
+        header = html.Header('Search results:', level=3)
 
         result.append(html.Division(header, _class="subtitle"))
         table = html.SimpleTable(header="row", _class="results")

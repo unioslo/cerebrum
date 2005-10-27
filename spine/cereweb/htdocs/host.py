@@ -36,8 +36,9 @@ def index(req):
     """Redirects to the page with search for hosts."""
     return search(req)
 
-def search(req, transaction, name="", description=""):
+def search(req, transaction, name="", description="", offset=0):
     """Creates a page with a list of hosts matching the given criterias."""
+    offset = int(offset)
     perform_search = False
     if name or description:
         perform_search = True
@@ -58,6 +59,7 @@ def search(req, transaction, name="", description=""):
     
     if perform_search:
         searcher = transaction.get_host_searcher()
+        searcher.set_search_limit(max_hits + 1, offset)
 
         if name:
             searcher.set_name_like(name)
@@ -70,7 +72,7 @@ def search(req, transaction, name="", description=""):
         # Print results
         result = html.Division(_class="searchresult")
         hits = len(hosts)
-        header = html.Header('%s hits, showing 0-%s' % (hits, min(max_hits, hits)), level=3)
+        header = html.Header('Search results:', level=3)
         result.append(html.Division(header, _class="subtitle"))
         table = html.SimpleTable(header="row", _class="results")
         table.add(_("Name"), _("Description"), _("Actions"))
