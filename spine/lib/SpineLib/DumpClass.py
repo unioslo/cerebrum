@@ -20,6 +20,7 @@
 
 from Builder import Builder, Attribute
 from DatabaseClass import DatabaseTransactionClass
+from Date import Date
 
 import Registry
 registry = Registry.get_registry()
@@ -87,8 +88,11 @@ class DumpClass(Builder):
             s = {}
             if type(obj) == list:
                 for name, value in zip(signature, obj):
-                    if value is not None:
-                        s[name] = value
+                    if value is None:
+                        continue
+                    if isinstance(value, Date):
+                        value = str(value._value)
+                    s[name] = value
             else:
                 # FIXME: ubrukelig... vi må sørge for at det virkelig
                 # ligger data i objektene...

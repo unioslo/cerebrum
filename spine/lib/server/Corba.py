@@ -32,6 +32,7 @@ import Communication
 
 from Cerebrum.extlib import sets
 from Cerebrum.spine.SpineLib.Builder import Method
+from Cerebrum.spine.SpineLib.Date import Date
 from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
 from Cerebrum.spine.SpineLib.Locking import Locking
 from Cerebrum.spine.SpineLib.Caching import Caching
@@ -106,13 +107,19 @@ def convert_to_corba(obj, transaction, data_type):
         vargs = {}
         for attr in data_type.slots:
             if attr.name in obj:
-                value = convert_to_corba(obj[attr.name], transaction, attr.data_type)
+                if attr.data_type == Date:
+                    value = str(obj[attr.name])
+                else:
+                    value = convert_to_corba(obj[attr.name], transaction, attr.data_type)
                 if getattr(attr, 'optional', False):
                     vargs['%s_exists' % attr.name] = True
             else:
                 if getattr(attr, 'optional', False):
                     vargs['%s_exists' % attr.name] = False
-                value = _convert_corba_types_to_none(attr.data_type)
+                if attr.data_type == Date:
+                    value = ''
+                else:
+                    value = _convert_corba_types_to_none(attr.data_type)
                 if value is None and attr.data_type not in class_cache:
                     raise ServerProgrammingError("Can't convert attribute %s to None" % attr.name)
             vargs[attr.name] = value
@@ -123,6 +130,7 @@ def convert_to_corba(obj, transaction, data_type):
         try:
             return [convert_to_corba(i, transaction, data_type[0]) for i in obj]
         except TypeError:
+            traceback.print_exc()
             raise ServerProgrammingError('Unable to convert object %s to CORBA; object is not a list.' % (obj.__class__.__name__))
 
     elif data_type in class_cache:
@@ -517,7 +525,10 @@ def _create_idl_interface(cls, error_module="", docs=False):
             header = 'struct %s {\n' % name
 
             for attr in cls.slots:
-                header += '\t%s %s;\n' % (get_type(attr.data_type), attr.name)
+                data_type = attr.data_type
+                if data_type == Date:
+                    data_type = str
+                header += '\t%s %s;\n' % (get_type(data_type), attr.name)
                 if attr.optional:
                     header += '\tboolean %s_exists;\n' % attr.name
 
