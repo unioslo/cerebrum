@@ -56,11 +56,11 @@ class SpineDatabase(Database):
         try:
             return super(SpineDatabase, self).query(sql, keys)
         except Cerebrum.Errors.DatabaseConnectionError, e:
-            SpineExceptions.DatabaseError('Connection to the database failed', str(e), sql)
+            raise SpineExceptions.DatabaseError('Connection to the database failed', str(e), sql)
         except Cerebrum.Errors.DatabaseException, e:
-            SpineExceptions.DatabaseError('Error during query', str(e), sql)
+            raise SpineExceptions.DatabaseError('Error during query', str(e), sql)
         except Cerebrum.Database.DatabaseError, e:
-            SpineExceptions.DatabaseError('Error during query', str(e), sql)
+            raise SpineExceptions.DatabaseError('Error during query', str(e), sql)
 
     def execute(self, sql, keys={}):
         """Wraps around the execute call on the database to catch exceptions
@@ -68,11 +68,11 @@ class SpineDatabase(Database):
         try:
             return super(SpineDatabase, self).execute(sql, keys)
         except Cerebrum.Errors.DatabaseConnectionError, e:
-            SpineExceptions.DatabaseError('Connection to the database failed', str(e), sql)
+            raise SpineExceptions.DatabaseError('Connection to the database failed', str(e), sql)
         except Cerebrum.Errors.DatabaseException, e:
-            SpineExceptions.DatabaseError('Error during query', str(e), sql)
+            raise SpineExceptions.DatabaseError('Error during query', str(e), sql)
         except Cerebrum.Database.DatabaseError, e:
-            SpineExceptions.DatabaseError('Error during query', str(e), sql)
+            raise SpineExceptions.DatabaseError('Error during query', str(e), sql)
     
     def query_1(self, sql, keys={}):
         """Wraps around the query_1 call on the database to catch exceptions
