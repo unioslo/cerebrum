@@ -40,3 +40,5 @@ def get_persons(tr, const):
     persons.set_search_limit(100, 0)
 
     return search.dump(persons)
+
+# arch-tag: 905ae11c-47f8-11da-941a-0c642470d9b5

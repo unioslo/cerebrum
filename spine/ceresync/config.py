@@ -86,3 +86,5 @@ class UnixConstants(Constants):
 
         # self.passwd_files['smbpasswd'] = '%(username)s:%(uid)s:%(lmhash)s:%(nthash)s:%(nthome)s:%(ntshell)s\n'
         # self.passwd_files['aliases'] = '%(address)s: %(mod)s %(to)s\n'
+
+# arch-tag: 917620ca-47f8-11da-9bec-051db1a99478

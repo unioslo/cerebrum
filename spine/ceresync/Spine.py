@@ -28,3 +28,5 @@ import config
 
 def new_session():
     return SpineClient.SpineClient(config.url, config.use_ssl, config.ssl_ca_file, config.ssl_key_file, config.ssl_password, idl_path=config.idl_path).connect().login(config.username, config.password)
+
+# arch-tag: 9118fd96-47f8-11da-95bf-ecce98ae9def

@@ -51,3 +51,5 @@ def get_home(account):
         return account['homedir'].home
     elif account['homedir'].disk:
         return '%s/%s' % (account['disk'].path, account['account'].name)
+
+# arch-tag: 8f3cee88-47f8-11da-9e42-973abb4a50a5

@@ -90,3 +90,5 @@ def get_groups(tr, const):
         flat = list(sets.Set(get_flat(group['group'].name)))
         flat.sort()
         yield group, flat
+
+# arch-tag: 8ffdd04e-47f8-11da-8410-b65d5173994a

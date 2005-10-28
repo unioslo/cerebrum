@@ -92,3 +92,5 @@ if __name__ == '__main__':
             session.logout()
         except:
             pass
+
+# arch-tag: 91d40168-47f8-11da-9430-829735ca2622
