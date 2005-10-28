@@ -174,7 +174,7 @@ class SearchClass(DatabaseTransactionClass):
         alias = self._get_alias()
         for key, value in self.get_alive_slots().items():
             # FIXME: vi må fiske dette hacket... stygt! -erikgors
-            key_orig = key
+            key_alias = '%s%s' % (alias, key)
             operator = '='
             like = False
             if key.endswith('_like'):
@@ -193,19 +193,19 @@ class SearchClass(DatabaseTransactionClass):
             if key.endswith('_exists'):
                 key = key[:-len('_exists')]
                 if value:
-                    operator = 'is not'
+                    operator = 'IS NOT'
                 else:
-                    operator = 'is'
+                    operator = 'IS'
                 value = None
 
             attr = self.cls.get_attr(key)
             name = self.cls._get_real_name(attr)
             arg = '%s_%s' % (alias, name)
             if like:
-                where.append('UPPER(%s_%s.%s) LIKE :%s' % (alias, attr.table, name, key_orig))
+                where.append('UPPER(%s_%s.%s) LIKE :%s' % (alias, attr.table, name, key_alias))
             else:
-                where.append('%s_%s.%s %s :%s' % (alias, attr.table, name, operator, key_orig))
-            args[key_orig] = attr.convert_to(value)
+                where.append('%s_%s.%s %s :%s' % (alias, attr.table, name, operator, key_alias))
+            args[key_alias] = attr.convert_to(value)
 
         for how, obj, attr1, attr2 in self._operations:
             table = self.cls.primary[0].table
