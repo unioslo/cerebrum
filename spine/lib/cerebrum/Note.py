@@ -20,8 +20,8 @@
 
 from SpineLib.Builder import Attribute, Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.Date import Date
 
-from Date import Date
 from Entity import Entity
 
 from SpineLib import Registry

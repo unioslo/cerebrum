@@ -22,9 +22,9 @@ import mx.DateTime
 
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.Date import Date
 
 from Entity import Entity
-from Date import Date
 from Types import QuarantineType
 
 from SpineLib import Registry
@@ -44,8 +44,8 @@ class EntityQuarantine(DatabaseClass):
         DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('start_date', table, Date, write=True),
-        DatabaseAttr('end_date', table, Date, write=True),
-        DatabaseAttr('disable_until', table, Date, write=True)
+        DatabaseAttr('end_date', table, Date, write=True, optional=True),
+        DatabaseAttr('disable_until', table, Date, write=True, optional=True)
     ]
 
     method_slots = [

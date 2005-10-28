@@ -22,9 +22,9 @@ import cPickle
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.Builder import Method, Attribute
+from SpineLib.Date import Date
 
 from Entity import Entity
-from Date import Date
 from Commands import Commands
 
 from SpineLib import Registry

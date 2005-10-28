@@ -73,7 +73,7 @@ def create_set_method(attr):
     """
     if getattr(attr, 'exists', False):
         def set(self, value):
-            if not value:
+            if value is None:
                 raise SpineExceptions.ServerProgrammingError('Value %s is not allowed for this method' % value)
             orig = getattr(self, attr.get_name_private(), None)
             if orig is not value:
@@ -128,11 +128,13 @@ class Searchable(object):
                 new_attr.data_type = bool
                 new_attrs.append(new_attr)
 
+            from Date import Date
             if attr.data_type == str:
                 new_attrs.append(create_new_attr(attr, like=True))
-            elif attr.data_type == int:
+            elif attr.data_type in (int, Date):
                 new_attrs.append(create_new_attr(attr, less=True))
                 new_attrs.append(create_new_attr(attr, more=True))
+
             
             new_attrs.append(create_new_attr(attr))
             

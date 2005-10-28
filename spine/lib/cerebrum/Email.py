@@ -25,10 +25,10 @@ import Cerebrum.Errors
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
 from SpineLib import SpineExceptions
+from SpineLib.Date import Date
 
 from Entity import Entity
 from Types import EmailDomainCategory, EmailTargetType, PersonAffiliationType
-from Date import Date
 from Account import Account
 from Person import Person
 from PersonAffiliation import PersonAffiliation

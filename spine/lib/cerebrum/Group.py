@@ -21,13 +21,13 @@
 from Cerebrum.Utils import Factory
 from SpineLib.Builder import Method, Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
+from SpineLib.Date import Date
 
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
 
 from Entity import Entity, group_namespace
 from Types import EntityType, GroupVisibilityType
-from Date import Date
 from Commands import Commands
 
 from SpineLib import Registry

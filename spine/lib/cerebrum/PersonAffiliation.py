@@ -22,10 +22,10 @@ from Cerebrum.Utils import Factory
 
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib.Date import Date
 
 from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
 
-from Date import Date
 from OU import OU
 from Person import Person
 from Types import PersonAffiliationType, PersonAffiliationStatusType, SourceSystem

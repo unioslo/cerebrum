@@ -130,6 +130,7 @@ class SearchClass(DatabaseTransactionClass):
 
     def dump_rows(self):
         sql, args = self.search_sql()
+
         rows = []
         for row in self.get_database().query(sql, args):
             rows.append([str(i) for i in row])
@@ -173,6 +174,7 @@ class SearchClass(DatabaseTransactionClass):
         alias = self._get_alias()
         for key, value in self.get_alive_slots().items():
             # FIXME: vi må fiske dette hacket... stygt! -erikgors
+            key_orig = key
             operator = '='
             like = False
             if key.endswith('_like'):
@@ -200,10 +202,10 @@ class SearchClass(DatabaseTransactionClass):
             name = self.cls._get_real_name(attr)
             arg = '%s_%s' % (alias, name)
             if like:
-                where.append('UPPER(%s_%s.%s) LIKE :%s' % (alias, attr.table, name, arg))
+                where.append('UPPER(%s_%s.%s) LIKE :%s' % (alias, attr.table, name, key_orig))
             else:
-                where.append('%s_%s.%s %s :%s' % (alias, attr.table, name, operator, arg))
-            args[arg] = attr.convert_to(value)
+                where.append('%s_%s.%s %s :%s' % (alias, attr.table, name, operator, key_orig))
+            args[key_orig] = attr.convert_to(value)
 
         for how, obj, attr1, attr2 in self._operations:
             table = self.cls.primary[0].table
@@ -237,7 +239,7 @@ class SearchClass(DatabaseTransactionClass):
             where, args = obj._get_where()
             all_args.update(args)
             n1 = '%s_%s.%s' % (alias, table, obj.cls._get_real_name(attr1))
-            n2 = '%s_%s.%s' % (main_alias, main_table, self.cls._get_real_name(attr2))
+            n2 = '%s_%s.%s' % (main_alias, attr2.table, self.cls._get_real_name(attr2))
             where.append('%s = %s' % (n1, n2))
 
             sql = '%s %s %s_%s' % (how, table, alias, table)

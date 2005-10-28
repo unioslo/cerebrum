@@ -22,12 +22,12 @@ from Cerebrum.Utils import Factory
 
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.Builder import Method
-from CerebrumClass import CerebrumAttr, CerebrumDbAttr
+from SpineLib.Date import Date
 
+from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 
 from Entity import Entity
 from Account import Account
-from Date import Date
 from Types import EntityType, GenderType, NameType, SourceSystem
 from Commands import Commands
 

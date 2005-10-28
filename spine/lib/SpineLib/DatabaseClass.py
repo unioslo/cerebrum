@@ -44,7 +44,7 @@ class ConvertableAttribute(object):
     """
     
     def convert_to(self, value):
-        if isinstance(value, Caching):
+        if hasattr(value, 'get_primary_key'):
             key = value.get_primary_key()
             assert len(key) == 1
             return key[0]

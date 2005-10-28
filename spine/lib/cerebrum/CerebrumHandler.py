@@ -24,10 +24,11 @@ from SpineLib.Builder import Builder, Attribute, Method
 from SpineLib.Transaction import Transaction
 from SpineLib.DatabaseClass import DatabaseTransactionClass
 from SpineLib.SpineExceptions import NotFoundError
+from SpineLib.Date import Date
+
 
 from Entity import Entity
 from Types import CodeType
-from Date import Date
 
 from SpineLib import Registry
 registry = Registry.get_registry() 

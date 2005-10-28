@@ -25,7 +25,8 @@ from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Entity import Entity
 from Group import Group
-from Types import EntityType, GroupMemberOperationType
+from Types import EntityType, GroupMemberOperationType, Spread
+from Commands import Commands
 
 from SpineLib import Registry
 registry = Registry.get_registry()

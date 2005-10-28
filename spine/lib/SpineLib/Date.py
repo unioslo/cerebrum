@@ -20,18 +20,15 @@
 
 import mx.DateTime
 
-from SpineLib.SpineClass import SpineClass
-from SpineLib.Builder import Attribute, Method
-from SpineLib import SpineExceptions
-from SpineLib import Registry
+from Builder import Builder, Attribute, Method
+import SpineExceptions
 
-from Commands import Commands
-
+import Registry
 registry = Registry.get_registry()
 
 __all__ = ['Date']
 
-class Date(SpineClass):
+class Date(Builder):
     primary = []
     slots = [
         Attribute('format', str, write=True)
@@ -48,14 +45,12 @@ class Date(SpineClass):
         Method('to_string', str)
     ]
 
-    def create_primary_key(cls, value):
-        return (value, )
-
-    create_primary_key = classmethod(create_primary_key)
-
     def __init__(self, value, *args, **vargs):
+        super(Date, self).__init__(*args, **vargs)
         self._value = value
-        SpineClass.__init__(self, *args, **vargs)
+
+    def get_primary_key(self):
+        return (self._value, )
 
     def get_year(self):
         return self._value.year
@@ -89,47 +84,5 @@ class Date(SpineClass):
             return self.strftime(format)
 
 registry.register_class(Date)
-
-# Commands for clients to create Date-objects.
-
-def get_date_now(self):
-    return Date(mx.DateTime.now())
-
-def get_date(self, year, month, day):
-    date = Date(mx.DateTime.Date(year, month, day))
-    date.set_format("%Y-%m-%d")
-    return date
-
-def get_datetime(self, year, month, day, hour, minute, second):
-    return Date(mx.DateTime.DateTime(year, month, day, hour, minute, second))
-
-def strptime(self, datestr, formatstr):
-    """Get date from a string.
-    
-    Returns a Date-object reflecting the parsed date and time.
-    """
-    try:
-        return Date(mx.DateTime.strptime(datestr, formatstr))
-    except mx.DateTime.Error:
-        raise SpineExceptions.ValueError('Parse error when reading date from string.')
-
-def get_date_none(self):
-        return Date(None)
-
-# Registers the commands in the Commands-class
-
-Commands.register_method(Method('get_date_now', Date), get_date_now)
-
-date_args = [('year', int), ('month', int), ('day', int)]
-Commands.register_method(Method('get_date', Date, args=date_args), get_date)
-
-datetime_args = [('year', int), ('month', int), ('day', int),
-                 ('hour', int), ('minute', int), ('second', int)]
-Commands.register_method(Method('get_datetime', Date, args=datetime_args), get_datetime)
-
-strptime_args = [("datestr", str), ("formatstr", str)]
-Commands.register_method(Method('strptime', Date, args=strptime_args, exceptions=[SpineExceptions.ValueError]), strptime)
-
-Commands.register_method(Method('get_date_none', Date), get_date_none)
 
 # arch-tag: 57d51c14-a6c9-4913-a011-1f7222ad79b5

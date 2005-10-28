@@ -21,8 +21,9 @@
 from SpineLib.Builder import Method
 from SpineLib.SpineClass import SpineClass
 from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
+from SpineLib.Date import Date
+
 from Entity import Entity
-from Date import Date
 
 from SpineLib import Registry
 registry = Registry.get_registry()
