@@ -126,6 +126,7 @@ class SpineClient:
         print>>sys.stderr, '- downloading source'
         source = spine.get_idl()
         print>>sys.stderr, '- (%s bytes)' % len(source)
+        os.makedirs(config.idl_path)
         fd = open(self.idl_file, 'w')
         fd.write(source)
         fd.close()
