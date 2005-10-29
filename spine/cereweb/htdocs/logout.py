@@ -21,9 +21,10 @@
 from Cereweb.utils import url, redirect
 
 def index(req):
+    username = req.session.get('username', '')
     req.session.remove()
     req.session = None
-    redirect(req, url("/login"))
+    redirect(req, url("/login?username=%s" % username))
     return 'you have been logged out!'
 
 # arch-tag: e2e8a540-30f6-11da-9795-9d730725c444
