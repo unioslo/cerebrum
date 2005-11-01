@@ -124,7 +124,7 @@ class PPQUtil(object):
         ignore_transaction_type should be set if job is not a
         printjob."""
 
-        if str(page_units) != '':
+        if isinstance(page_units, basestring) and len(page_units) != 0:
             try:
                 page_units = int(page_units)
             except ValueError:
