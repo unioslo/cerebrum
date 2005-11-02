@@ -37,7 +37,6 @@ def get_persons(tr, const):
         persons.add_join('', entityspreads, 'entity')
 
     persons.order_by(last, 'name')
-    persons.set_search_limit(100, 0)
 
     return search.dump(persons)
 
