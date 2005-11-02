@@ -151,6 +151,8 @@ class PasswordChecker(DatabaseAccessor):
         one word starts with 4, and another with A, the search will
         take a loong time.  Call the routine multiple tipes to handle
         such cases."""
+        
+        words = [w for w in words if len(w) > 3]
         words.sort()
         # We'll iterate over several dictionaries.
         for fname in cereconf.PASSWORD_DICTIONARIES:
@@ -165,8 +167,9 @@ class PasswordChecker(DatabaseAccessor):
                     line = line.lower()
                 if dict_order:
                     line = re.sub(r'[^\w\s]', '', line)
-                if line in words:
-                    return 1
+                for word in words:
+                    if line.startswith(word):
+                        return 1
                 if line > words[-1]:
                     return 0
         return 0
@@ -246,14 +249,13 @@ class PasswordChecker(DatabaseAccessor):
 
     def _check_dict(self, passwd):
         """Check if the password, or simple variants of it is in the
-        dictionary"""
-        # TBD: should we skip any leading non-letters?
-        if re.search(r'^[a-zA-Z]', passwd):
-            passwd = passwd.lower()
+        dictionary."""
+
+        passwd = passwd.lower()
+        if re.search(r'^[a-z]', passwd):
             # Truncate common suffixes before searching dict.
 
             passwd = re.sub(r'\d+$', '', passwd)
-            passwd = re.sub(r'\(', '', passwd)
 
             check_for = []
             if passwd[-2:] in ('ed', 'er'):                
@@ -268,10 +270,14 @@ class PasswordChecker(DatabaseAccessor):
             check_for.append(passwd)
             if self._is_word_in_dict(check_for):
                 raise PasswordGoodEnoughException(msgs['dict_hit'])
-            nshort = string.translate(passwd,
-                                      string.maketrans('431!05$', 'aeiioss'))
-            if self._is_word_in_dict([nshort]):
+        else:
+            if self._is_word_in_dict([re.sub(r'^[^a-z]+', '', passwd)]):
                 raise PasswordGoodEnoughException(msgs['dict_hit'])
+
+        nshort = string.translate(passwd,
+                                  string.maketrans('431!05$', 'aeiioss'))
+        if self._is_word_in_dict([nshort]):
+            raise PasswordGoodEnoughException(msgs['dict_hit'])
 
     def _check_variation(self, passwd):
         # I'm not sure that the below is very smart.  If this rule
