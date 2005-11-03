@@ -1,4 +1,6 @@
 # -*- coding: iso-8859-1 -*-
+import cereconf
+
 from Cerebrum.modules.dns.IPUtils import IPCalc
 
 class SubNetDef(object):
@@ -15,31 +17,19 @@ class SubNetDef(object):
         self.start, self.stop = ic.ip_range_by_netmask(self.net, self.mask)
 
     def _calc_reserved(self, reserve):
+        """reserved ips are defined in cereconf as a list of numbers
+        relative to the first ip on the net """
         ic = IPCalc()
         if reserve is not None:
             return [ic.ip_to_long(n) for n in reserve]
         start, stop = ic.ip_range_by_netmask(self.net, self.mask)
-        if self.mask < 22:
-            raise ValueError, "Minimum netmask is 22"
-        if self.mask == 22:
-            return range(start, start+10) + [start+255, start+256] + \
-                   [start+255*2+1, start+255*2+2] + [stop]
-        elif self.mask == 23:
-            return range(start, start+10) + range(start+100, start+121) + \
-                   [start+255, start+256] +  [stop]
-        elif self.mask == 24:
-            return range(start, start+10) + range(start+100, start+121) + \
-                   [stop]
-        elif self.mask == 25:
-            return range(start, start+8) + [stop]
-        elif self.mask == 26:
-            return range(start, start+8) + [stop]
-        elif self.mask == 27:
-            return range(start, start+4) + [stop]
-        elif self.mask == 28:
-            return range(start, start+4) + [stop]
-        elif self.mask >= 29:  # entire net is reserved for such small nets
-            return range(start, stop+1)
+        by_mask = cereconf.DEFAULT_RESERVED_IP_BY_NETMASK
+        if self.mask < min(by_mask):
+            raise ValueError, "Minimum netmask is %i" % min(by_mask)
+        tmp_mask = self.mask
+        if tmp_mask > max(by_mask):
+            tmp_mask = max(by_mask)
+        return [n+start for n in by_mask[tmp_mask]]
 
 IP_NUMBER = 'IPNumber'
 DNS_OWNER='DnsOwner'

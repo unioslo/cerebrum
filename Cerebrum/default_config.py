@@ -548,4 +548,17 @@ LDAP_MAIL_DNS_EXTRA_A_HOSTS = ()
 LDAP_MAIL_DNS_DIG_CMD = "/usr/bin/dig %s. @%s. axfr"
 LDAP_MAIL_DNS_MAX_CHANGE = 10
 
+# DNS
+# reserved ip's by netmask.  The values are added to the first IP on the subnet
+DEFAULT_RESERVED_IP_BY_NETMASK = {
+    22: range(0, 10) + [255, 256] + [255*2+1, 255*2+2] + [2**(32-22)-1],
+    23: range(0, 10) + [255, 256] +  [2**(32-23)-1],
+    24: range(0, 10) + [2**(32-24)-1],
+    25: range(0, 8) + [2**(32-25)-1],
+    26: range(0, 8) + [2**(32-26)-1],
+    27: range(0, 4) + [2**(32-27)-1],
+    28: range(0, 4) + [2**(32-28)-1],
+    29: range(0, 2**(32-29)-1 + 1)  # Whole net for such small nets
+    }
+
 # arch-tag: 58fc16b3-e7ef-4304-b561-477ced8d6b96
