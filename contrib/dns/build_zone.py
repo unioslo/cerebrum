@@ -204,7 +204,7 @@ class ForwardMap(object):
                     self.hosts[dns_owner_id]['ttl'] or '',
                     self.hosts[dns_owner_id]['hinfo'])
             #logger.debug("own=%i %s" % (dns_owner_id, str(owner_id2mx_set[dns_owner_id])))
-            if self.owner_id2mx_set[dns_owner_id]:
+            if self.owner_id2mx_set.get(dns_owner_id, None):
                 for mx_info in self.mx_sets[self.owner_id2mx_set[dns_owner_id]]:
                     line += "\t%s\tMX\t%s\t%s\n" % (
                         mx_info['ttl'] or '', mx_info['pri'],
@@ -234,7 +234,7 @@ class ForwardMap(object):
                     s_ref['port'], self.zu.exp_name(s_ref['target_name']))
                 name = ''
             if not shown_owner.has_key(row['dns_owner_id']):
-                if self.owner_id2mx_set[int(row['dns_owner_id'])]:
+                if self.owner_id2mx_set.get(int(row['dns_owner_id']), None):
                     for mx_info in self.mx_sets[self.owner_id2mx_set[int(row['dns_owner_id'])]]:
                         line += "%s\t%s\tMX\t%s\t%s\n" % (
                             name, mx_info['ttl'] or '', mx_info['pri'],
