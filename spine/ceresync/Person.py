@@ -23,17 +23,17 @@ import SpineClient
 def get_persons(tr, const):
     search = SpineClient.Search(tr)
 
-    full = search.get_person_name_searcher('full_name', name_variant=const.full_name, source_system=const.source_system)
-    first = search.get_person_name_searcher('first_name', name_variant=const.first_name, source_system=const.source_system)
-    last = search.get_person_name_searcher('last_name', name_variant=const.last_name, source_system=const.source_system)
-    persons = search.get_person_searcher('person')
+    full = search.person_name('full_name', name_variant=const.full_name, source_system=const.source_system)
+    first = search.person_name('first_name', name_variant=const.first_name, source_system=const.source_system)
+    last = search.person_name('last_name', name_variant=const.last_name, source_system=const.source_system)
+    persons = search.person('person')
 
     persons.add_join('', full, 'person')
     persons.add_join('', first, 'person')
     persons.add_join('', last, 'person')
 
     if const.person_spread is not None:
-        entityspreads = search.get_entity_spread_searcher('spread', spread=const.person_spread, entity_type=const.person_type)
+        entityspreads = search.entity_spread('spread', spread=const.person_spread, entity_type=const.person_type)
         persons.add_join('', entityspreads, 'entity')
 
     persons.order_by(last, 'name')

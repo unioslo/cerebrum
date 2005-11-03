@@ -43,9 +43,9 @@ def get_groups(tr, const):
 
     # first we get all group-group relations
     search = SpineClient.Search(tr)
-    group = search.get_group_searcher('group')
-    member = search.get_group_searcher('member')
-    gm = search.get_group_member_searcher('gm')
+    group = search.group('group')
+    member = search.group('member')
+    gm = search.group_member('gm')
 
     gm.add_join('group', group, '')
     gm.add_join('member', member, '')
@@ -54,10 +54,10 @@ def get_groups(tr, const):
 
     # then all group-account relations where account is member of <spread>
     search = SpineClient.Search(tr)
-    group = search.get_group_searcher('group')
-    member = search.get_account_searcher('member')
-    gm = search.get_group_member_searcher('gm')
-    entityspreads = search.get_entity_spread_searcher('spread', spread=const.account_spread, entity_type=const.account_type)
+    group = search.group('group')
+    member = search.account('member')
+    gm = search.group_member('gm')
+    entityspreads = search.entity_spread('spread', spread=const.account_spread, entity_type=const.account_type)
 
     gm.add_join('group', group, '')
     gm.add_join('member', member, '')
@@ -80,10 +80,10 @@ def get_groups(tr, const):
 
     search = SpineClient.Search(tr)
 
-    groups = search.get_group_searcher('group')
+    groups = search.group('group')
 
     if const.group_spread is not None:
-        entityspreads = search.get_entity_spread_searcher('spread', spread=const.group_spread, entity_type=const.group_type)
+        entityspreads = search.entity_spread('spread', spread=const.group_spread, entity_type=const.group_type)
         groups.add_join('', entityspreads, 'entity')
 
     for group in search.dump(groups):

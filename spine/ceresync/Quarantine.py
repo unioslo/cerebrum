@@ -15,9 +15,9 @@ def get_quarantines(tr, const):
         if spread is None:
             continue
         search = SpineClient.Search(tr)
-        q = search.get_entity_quarantine_searcher('q', start_date_less_than=now)
-        s = search.get_entity_spread_searcher('spread', spread=spread, entity_type=spread.get_entity_type())
-        e = search.get_entity_searcher('entity')
+        q = search.entity_quarantine('q', start_date_less_than=now)
+        s = search.entity_spread('spread', spread=spread, entity_type=spread.get_entity_type())
+        e = search.entity('entity')
         q.add_join('entity', s, 'entity')
         q.add_join('entity', e, '')
 

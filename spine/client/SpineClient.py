@@ -126,7 +126,8 @@ class SpineClient:
         print>>sys.stderr, '- downloading source'
         source = spine.get_idl()
         print>>sys.stderr, '- (%s bytes)' % len(source)
-        os.makedirs(config.idl_path)
+        if not os.path.exists(config.idl_path):
+            os.makedirs(config.idl_path)
         fd = open(self.idl_file, 'w')
         fd.write(source)
         fd.close()
@@ -147,7 +148,7 @@ class Search:
 
     def __getattr__(self, name):
         def wrapped(alias, **args):
-            s = getattr(self.tr, name)()
+            s = getattr(self.tr, 'get_%s_searcher' % name)()
             self.searches[s] = alias
             for key, value in args.items():
                 getattr(s, 'set_%s' % key)(value)
