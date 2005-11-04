@@ -140,31 +140,37 @@ class DiskQuota(DatabaseAccessor):
         FROM [:table schema=cerebrum name=disk_quota]
         WHERE homedir_id=:homedir_id""", {'homedir_id': homedir_id})
 
-    def list_quotas(self, spread=None):
+    def list_quotas(self, spread=None, disk_id=None, all_users=False):
         """List quota and homedir information for all users that has
-        quota"""
+        quota."""
         where = ""
         if spread:
             where = " AND ah.spread=:spread"
             spread = int(spread)
+        if where:
+            where += " AND di.disk_id = :disk_id"
+        join = ("JOIN [:table schema=cerebrum name=disk_quota] dq"
+                "  ON dq.homedir_id = hi.homedir_id")
+        if all_users:
+            join = "LEFT " + join
         return self.query("""
         SELECT dq.homedir_id, ah.account_id, hi.home, en.entity_name, di.path,
                dq.quota, dq.override_quota, dq.override_expiration, ah.spread
-        FROM [:table schema=cerebrum name=disk_quota] dq,
-             [:table schema=cerebrum name=homedir] hi,
-             [:table schema=cerebrum name=disk_info] di,
+        FROM [:table schema=cerebrum name=disk_info] di,
              [:table schema=cerebrum name=account_home] ah,
              [:table schema=cerebrum name=account_info] ai,
-             [:table schema=cerebrum name=entity_name] en
-        WHERE dq.homedir_id=hi.homedir_id AND
-              hi.disk_id=di.disk_id AND
+             [:table schema=cerebrum name=entity_name] en,
+             [:table schema=cerebrum name=homedir] hi
+        %s
+        WHERE hi.disk_id=di.disk_id AND
               hi.homedir_id=ah.homedir_id AND
               ah.account_id=en.entity_id AND
               ai.account_id=en.entity_id AND
               en.value_domain=:value_domain AND
               (ai.expire_date IS NULL OR
-               ai.expire_date > [:now]) %s""" % where, {
-            'value_domain': int(self.co.account_namespace),
-            'spread': spread})
-    
+               ai.expire_date > [:now]) %s""" % (join, where),
+                          {'value_domain': int(self.co.account_namespace),
+                           'spread': spread,
+                           'disk_id': disk_id})
+
 # arch-tag: 4b6c5df8-8100-4fd3-b679-bc8224f5b0df

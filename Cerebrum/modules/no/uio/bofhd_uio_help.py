@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +20,10 @@
 
 group_help = {
     'access': "Access (authorisation) related commands",
+    'disk': "Disk related commands",
     'email': "E-mail commands",
     'group': "Group commands",
+    'host': "Host related commands",
     'misc': 'Miscellaneous commands',
     'person': 'Person related commands',
     'quarantine': 'Quarantine related commands',
@@ -65,6 +67,13 @@ command_help = {
     'access_user':
        "List who's authorised to operate on account <uname>",
     },
+    'disk': {
+    "disk_list":
+        "List the disks registered with a host.  A quota value in parenthesis "
+        "means it uses to the host's default disk quota.",
+    "disk_quota":
+        "Enable quotas on a disk, and set the default value",
+    },
     'email': {
     "email_add_address":
         "Add an alias address",
@@ -86,6 +95,8 @@ command_help = {
         "Remove link between OU and e-mail domain",
     "email_domain_configuration":
         "Configure settings for an e-mail domain",
+    "email_failure_message":
+        "Customise the failure message for a deleted account",
     "email_forward":
         "Turn e-mail forwarding for a user on/off",
     "email_add_forward":
@@ -157,6 +168,12 @@ command_help = {
     'group_set_visibility': 'Set visibility for a group',
     'group_user': 'List all groups an account is a member of',
     },
+    'host': {
+    'host_info':
+        "Show information about a host",
+    'host_disk_quota':
+        "Set the default disk quota for a host",
+    },
     "misc": {
     "misc_affiliations":
         "List all known affiliations",
@@ -171,7 +188,7 @@ command_help = {
     "misc_dadd":
         "Register a new disk",
     "misc_dls":
-        "List all registered disks for a given host",
+        "Use 'disk list' instead",
     "misc_drem":
         "Remove a disk",
     "misc_hadd":
@@ -294,8 +311,11 @@ affiliation status codes"""],
          "If the disk isn't registered in Cerebrum and never should be, "
          "enter the whole path verbatim, prepended by a colon.  Example:\n"
          "  :/usr/local/oracle"],
+    'disk_quota_set': ['size', 'Enter quota size',
+                       "Enter quota size in MiB, or 'none' to disable quota, "
+                       "or 'default' to use the host's default quota value."],
     'disk_quota_size': ['size', 'Enter quota size',
-                        'Enter quota size in MB, or -1 for unlimited quota'],
+                        'Enter quota size in MiB, or -1 for unlimited quota'],
     'disk_quota_expire_date': ['end_date', 'Enter end-date for override',
                                'Format is 2003-12-31'],
     'email_address':
@@ -310,6 +330,8 @@ affiliation status codes"""],
          " - uio_globals  direct Postmaster etc. to USIT"],
     'email_domain':
         ['domain', 'Enter e-mail domain'],
+    'email_failure_message':
+        ['message', 'Enter failure message'],
     'email_forward_action':
         ['action', 'Enter action',
          "Legal forward actions:\n - on\n - off\n - local"],

@@ -1095,7 +1095,8 @@ class BofhdExtension(object):
     def _email_info_basic(self, acc, et):
         info = {}
         data = [ info ]
-        if et.email_target_alias:
+        if (et.email_target_type != self.const.email_target_Mailman and
+            et.email_target_alias is not None):
             info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
         est = Email.EmailServerTarget(self.db)
@@ -1432,6 +1433,29 @@ class BofhdExtension(object):
         ea.populate(lp, ed.email_domain_id, et.email_target_id)
         ea.write_db()
         return "OK, created pipe address %s" % addr
+
+    # email failure_message <username> <message>
+    all_commands['email_failure_message'] = Command(
+        ("email", "failure_message"),
+        AccountName(help_ref="account_name"),
+        SimpleString(help_ref="email_failure_message"),
+        perm_filter="can_email_set_failure")
+    def email_failure_message(self, operator, uname, message):
+        et, acc = self.__get_email_target_and_account(uname)
+        if et.email_target_type != self.const.email_target_deleted:
+            raise CerebrumError, ("You can only set the failure message "
+                                  "for deleted users")
+        self.ba.can_email_set_failure(operator.get_entity_id(), acc)
+        if message.strip() == '':
+            message = None
+        else:
+            # It's not ideal that message contains the primary address
+            # rather than the actual address given to RCPT TO.
+            message = ":fail: %s: %s" % (acc.get_primary_mailaddress(),
+                                         message)
+        et.email_target_alias = message
+        et.write_db()
+        return "OK, updated %s" % uname
 
     # email edit_pipe_command <address> <command>
     all_commands['email_edit_pipe_command'] = Command(
@@ -3262,17 +3286,49 @@ class BofhdExtension(object):
             return "OK.  Warning: disk did not follow expected pattern."
         return "OK, added disk '%s' at %s" % (diskname, hostname)
 
+    # misc dls is deprecated, and can probably be removed without
+    # anyone complaining much.
     all_commands['misc_dls'] = Command(
         ("misc", "dls"), SimpleString(help_ref='string_host'),
         fs=FormatSuggestion("%-8i %-8i %s", ("disk_id", "host_id", "path",),
                             hdr="DiskId   HostId   Path"))
     def misc_dls(self, operator, hostname):
+        return self.disk_list(operator, hostname)
+
+    all_commands['disk_list'] = Command(
+        ("disk", "list"), SimpleString(help_ref='string_host'),
+        fs=FormatSuggestion("%-13s %11s  %s",
+                            ("hostname", "pretty_quota", "path",),
+                            hdr="Hostname    Default quota  Path"))
+    def disk_list(self, operator, hostname):
         host = self._get_host(hostname)
         disks = {}
         disk = Utils.Factory.get('Disk')(self.db)
+        hquota = host.get_trait(self.const.trait_host_disk_quota)
+        if hquota:
+            hquota = hquota['numval']
         for row in disk.list(host.host_id):
+            disk.clear()
+            disk.find(row['disk_id'])
+            dquota = disk.get_trait(self.const.trait_disk_quota)
+            if dquota is None:
+                def_quota = None
+                pretty_quota = '<none>'
+            else:
+                if dquota['numval'] is None:
+                    def_quota = hquota
+                    if hquota is None:
+                        pretty_quota = '(no default)'
+                    else:
+                        pretty_quota = '(%d MiB)' % def_quota
+                else:
+                    def_quota = dquota['numval']
+                    pretty_quota = '%d MiB' % def_quota
             disks[row['disk_id']] = {'disk_id': row['disk_id'],
                                      'host_id': row['host_id'],
+                                     'hostname': hostname,
+                                     'def_quota': def_quota,
+                                     'pretty_quota': pretty_quota,
                                      'path': row['path']}
         disklist = disks.keys()
         disklist.sort(lambda x, y: cmp(disks[x]['path'], disks[y]['path']))
@@ -3280,6 +3336,33 @@ class BofhdExtension(object):
         for d in disklist:
             ret.append(disks[d])
         return ret
+
+    all_commands['disk_quota'] = Command(
+        ("disk", "quota"), SimpleString(help_ref='string_host'), DiskId(),
+        SimpleString(help_ref='disk_quota_set'),
+        perm_filter='can_set_disk_default_quota')
+    def disk_quota(self, operator, hostname, diskname, quota):
+        host = self._get_host(hostname)
+        disk = self._get_disk(diskname, host_id=host.entity_id)[0]
+        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
+                                           host=host, disk=disk)
+        old = disk.get_trait(self.const.trait_disk_quota)
+        if quota.lower() == 'none':
+            if old:
+                disk.delete_trait(self.const.trait_disk_quota)
+            return "OK, no quotas on %s" % diskname
+        elif quota.lower() == 'default':
+            disk.populate_trait(self.const.trait_disk_quota,
+                                numval=None)
+            disk.write_db()
+            return "OK, using host default on %s" % diskname
+        elif quota.isdigit():
+            disk.populate_trait(self.const.trait_disk_quota,
+                                numval=int(quota))
+            disk.write_db()
+            return "OK, default quota on %s is %d" % (diskname, int(quota))
+        else:
+            raise CerebrumError, "Invalid quota value '%s'" % quota
 
     all_commands['misc_drem'] = Command(
         ("misc", "drem"), SimpleString(help_ref='string_host'), DiskId(),
@@ -3343,6 +3426,49 @@ class BofhdExtension(object):
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK, %s deleted" % hostname
+
+    all_commands['host_info'] = Command(
+        ("host", "info"), SimpleString(help_ref='string_host'),
+        fs=FormatSuggestion([
+        ("Hostname:           %s\n"
+         "Description:        %s",
+         ("hostname", "desc")),
+        ("Default disk quota: %d MiB",
+         ("def_disk_quota",))]))
+    def host_info(self, operator, hostname):
+        host = self._get_host(hostname)
+        ret = [{'hostname': hostname,
+                'desc': host.description}]
+        hquota = host.get_trait(self.const.trait_host_disk_quota)
+        if hquota and hquota['numval']:
+            ret.append({'def_disk_quota': hquota['numval']})
+        return ret
+
+    all_commands['host_disk_quota'] = Command(
+        ("host", "disk_quota"), SimpleString(help_ref='string_host'),
+        SimpleString(help_ref='disk_quota_set'),
+        perm_filter='can_set_disk_default_quota')
+    def host_disk_quota(self, operator, hostname, quota):
+        host = self._get_host(hostname)
+        self.ba.can_set_disk_default_quota(operator.get_entity_id(),
+                                           host=host)
+        old = host.get_trait(self.const.trait_host_disk_quota)
+        if (quota.lower() == 'none' or quota.lower() == 'default' or
+            (quota.isdigit() and int(quota) == 0)):
+            # "default" doesn't make much sense, but the help text
+            # says it's a valid value.
+            if old:
+                disk.delete_trait(self.const.trait_disk_quota)
+            return "OK, no default quota on %s" % hostname
+        elif quota.isdigit() and int(quota) > 0:
+            host.populate_trait(self.const.trait_host_disk_quota,
+                                numval=int(quota))
+            host.write_db()
+            return "OK, default quota on %s is %d" % (hostname, int(quota))
+        else:
+            raise CerebrumError, "Invalid quota value '%s'" % quota
+        pass
+
 
     def _remove_auth_target(self, target_type, target_id):
         """This function should be used whenever a potential target
@@ -5013,11 +5139,13 @@ class BofhdExtension(object):
         except PermissionDenied:
             can_see_quota = False
         if tmp['homedir_id'] and can_see_quota:
+            disk = Utils.Factory.get("Disk")(self.db)
+            disk.find(tmp['disk_id'])
+            def_quota = disk.get_default_quota()
             try:
                 dq = DiskQuota(self.db)
                 dq_row = dq.get_quota(tmp['homedir_id'])
-                ret['disk_quota'] = dq_row['quota']
-                if dq_row['quota'] is not None:
+                if not(dq_row['quota'] is None or def_quota is False):
                     ret['disk_quota'] = str(dq_row['quota'])
                 # Only display recent quotas
                 days_left = ((dq_row['override_expiration'] or DateTime.Epoch) -
@@ -5031,7 +5159,8 @@ class BofhdExtension(object):
                     if days_left < 0:
                         ret['dq_why'] += " [INACTIVE]"
             except Errors.NotFoundError:
-                pass
+                if def_quota:
+                    ret['disk_quota'] = "(%s)" % def_quota
 
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
@@ -5192,39 +5321,74 @@ class BofhdExtension(object):
         ("user", "move"), prompt_func=user_move_prompt_func,
         perm_filter='can_move_user')
     def user_move(self, operator, move_type, accountname, *args):
-        ifi_spread_warn = ""
-        ifi_spread = False
         account = self._get_account(accountname)
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
         br = BofhdRequests(self.db, self.const)
         spread = int(self.const.spread_uio_nis_user)
         if move_type in ("immediate", "batch", "nofile"):
-            disk_id = self._get_disk(args[0])[1]
+            message = ""
+            disk, disk_id = self._get_disk(args[0])[:2]
             if disk_id is None:
                 raise CerebrumError, "Bad destination disk"
             self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
+            
             for r in account.get_spread():
-                if r['spread'] == int(self.const.spread_ifi_nis_user):
-                    ifi_spread = True
-            if ifi_spread and not re.match(r'^/ifi/', args[0]):
-                ifi_spread_warn = "WARNING: moving user with a NIS_user@ifi-spread to a non-IFI disk.\n"
+                if (r['spread'] == self.const.spread_ifi_nis_user and
+                    not re.match(r'^/ifi/', args[0])):
+                    message += ("WARNING: moving user with %s-spread to "
+                                "a non-Ifi disk.\n" %
+                                self.const.spread_ifi_nis_user)
+                    break
+
+            # Let's check the disk quota settings.  We only give a an
+            # information message, the actual change happens when
+            # set_homedir is done.
+            default_dest_quota = disk.get_default_quota()
+            current_quota = None
+            dq = DiskQuota(self.db)
+            ah = account.get_home(spread)
+            try:
+                dq_row = dq.get_quota(ah['homedir_id'])
+            except Errors.NotFoundError:
+                pass
+            else:
+                current_quota = dq_row['quota']
+                if dq_row['quota'] is not None:
+                    current_quota = dq_row['quota']
+                days_left = ((dq_row['override_expiration'] or
+                              DateTime.Epoch) - DateTime.now()).days
+                if days_left > 0 and dq_row['override_quota'] is not None:
+                    current_quota = dq_row['override_quota']
+
+            if current_quota is None:
+                # this is OK
+                pass
+            elif default_dest_quota is False:
+                message += ("Destination disk has no quota, so the current "
+                            "quota (%d) will be cleared.\n" % current_quota)
+            elif current_quota <= default_dest_quota:
+                message += ("Current quota (%d) is smaller or equal to the "
+                            "default at destination (%d), so it will be "
+                            "removed.\n") % (current_quota, default_dest_quota)
+
             if move_type == "immediate":
                 br.add_request(operator.get_entity_id(), br.now,
                                self.const.bofh_move_user_now,
                                account.entity_id, disk_id, state_data=spread)
-                return ifi_spread_warn + "Command queued for immediate execution."
+                message += "Command queued for immediate execution."
             elif move_type == "batch":
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_user,
                                account.entity_id, disk_id, state_data=spread)
-                return ifi_spread_warn + "Move queued for execution at %s." % br.batch_time 
+                message += "Move queued for execution at %s." % br.batch_time 
             elif move_type == "nofile":
                 ah = account.get_home(spread)
                 account.set_homedir(current_id=ah['homedir_id'],
                                     disk_id=disk_id)
                 account.write_db()
-                return ifi_spread_warn + "User moved."
+                message += "User moved."
+            return message
         elif move_type in ("hard_nofile",):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hard_nofile")

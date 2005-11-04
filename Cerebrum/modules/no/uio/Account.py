@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,10 +23,12 @@ import random
 
 import re
 import cereconf
+from mx import DateTime
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory
 
@@ -333,5 +335,38 @@ class AccountUiOMixin(Account.Account):
     def enc_auth_type_md4_nt(self,plaintext,salt=None):
         import smbpasswd
         return smbpasswd.nthash(plaintext)
+
+    def set_homedir(self, *args, **kw):
+        """Remove quota information when the user is moved to a disk
+        without quotas or where the default quota is larger than his
+        existing explicit quota."""
+        
+        ret = self.__super.set_homedir(*args, **kw)
+        if not (isinstance(kw['current_id'], Account.NotSet) or
+                isinstance(kw['disk_id'], Account.NotSet)):
+            disk = Factory.get("Disk")(self._db)
+            disk.find(kw['disk_id'])
+            def_quota = disk.get_default_quota()
+            dq = DiskQuota(self._db)
+            try:
+                info = dq.get_quota(kw['current_id'])
+            except Errors.NotFoundError:
+                pass
+            else:
+                if def_quota is False:
+                    # No quota on new disk, so remove the quota information.
+                    dq.clear(kw['current_id'])
+                elif def_quota is None:
+                    # No default quota, so keep the quota information.
+                    pass
+                else:
+                    if (info['override_expiration'] and
+                        DateTime.now() < info['override_expiration']):
+                        old_quota = info['override_quota']
+                    else:
+                        old_quota = info['quota']
+                    if old_quota <= def_quota:
+                        dq.clear(kw['current_id'])
+        return ret
 
 # arch-tag: 7bc3f7a8-183f-45c7-8a8f-f2ffff5029c5
