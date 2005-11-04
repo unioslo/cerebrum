@@ -342,8 +342,7 @@ class AccountUiOMixin(Account.Account):
         existing explicit quota."""
         
         ret = self.__super.set_homedir(*args, **kw)
-        if not (isinstance(kw['current_id'], Account.NotSet) or
-                isinstance(kw['disk_id'], Account.NotSet)):
+        if kw.get('current_id') and kw.get('disk_id'):
             disk = Factory.get("Disk")(self._db)
             disk.find(kw['disk_id'])
             def_quota = disk.get_default_quota()
