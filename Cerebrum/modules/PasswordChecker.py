@@ -153,6 +153,8 @@ class PasswordChecker(DatabaseAccessor):
         such cases."""
         
         words = [w for w in words if len(w) > 3]
+        if len(words) == 0:
+            return 0
         words.sort()
         # We'll iterate over several dictionaries.
         for fname in cereconf.PASSWORD_DICTIONARIES:
