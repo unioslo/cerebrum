@@ -18,51 +18,46 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
 import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect, redirect_object
 from Cereweb.utils import transaction_decorator, object_link, commit, commit_url
 from Cereweb.WorkList import remember_link
+from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
+from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
 from Cereweb.templates.PersonSearchTemplate import PersonSearchTemplate
 from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
 from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
 from Cereweb.templates.PersonCreateTemplate import PersonCreateTemplate
 
 import Cereweb.config
-max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     """Redirects to the search for person page."""
     return search(req)
 
-def search(req, transaction, name="", accountname="", birthdate="", spread="", offset=0):
-    """Creates a page with a list of persons matching the given criterias."""
-    offset = int(offset)
-    perform_search = False
-    if name or accountname or birthdate or spread:
-        perform_search = True
-        req.session['person_ls'] = (name, accountname, birthdate, spread)
-    elif 'person_ls' in req.session:
-        name, accountname, birthdate, spread = req.session.get('person_ls')
-    
+def search(req, transaction, offset=0, **vargs):
+    """Search after hosts and displays result and/or searchform."""
+    #FIXME: orderby name
     page = Main(req)
     page.title = _("Search for person(s)")
     page.setFocus("person/search")
     page.add_jscript("search.js")
-    
-    # Store given search parameters in search form
-    values = {}
-    values['name'] = name
-    values['accountname'] = accountname
-    values['birthdate'] = birthdate
-    values['spread'] = spread
-    form = PersonSearchTemplate(searchList=[{'formvalues': values}])
-    
+
+    searchform = PersonSearchTemplate()
+    arguments = ['name', 'accountname', 'birthdate',
+                 'spread', 'orderby', 'orderby_dir']
+    values = get_arg_values(arguments, vargs)
+    perform_search = len([i for i in values if i != ""])
+
     if perform_search:
+        req.session['person_ls'] = values
+        name, accountname, birthdate, spread, orderby, orderby_dir = values
+
         search = transaction.get_person_searcher()
-        search.set_search_limit(max_hits + 1, offset)
+        setup_searcher([search], orderby, orderby_dir, offset)
 
         if accountname:
             searcher = transaction.get_account_searcher()
@@ -74,9 +69,9 @@ def search(req, transaction, name="", accountname="", birthdate="", spread="", o
             search.set_birth_date(date)
 
         if name:
-            searcher = transaction.get_person_name_searcher()
-            searcher.set_name_like(name)
-            search.add_intersection('', searcher, 'person')
+            name_searcher = transaction.get_person_name_searcher()
+            name_searcher.set_name_like(name)
+            search.add_intersection('', name_searcher, 'person')
 
         if spread:
             person_type = transaction.get_entity_type('person')
@@ -93,38 +88,27 @@ def search(req, transaction, name="", accountname="", birthdate="", spread="", o
 
         persons = search.search()
 
-        # Print results
-        result = html.Division(_class="searchresult")
-        hits = len(persons)
-        header = html.Header('Search results:', level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        table = html.SimpleTable(header="row", _class="results")
-        table.add(_("Name"), _("Date of birth"), _("Account(s)"), _("Actions"))
-        for person in persons[:max_hits]:
-            date = person.get_birth_date().strftime("%Y-%m-%d")
-            date = html.TableCell(date, align="center")
+        result = []
+        for person in persons[:display_hits]:
+            date = person.get_birth_date().strftime('%Y-%m-%d')
             accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]
             accounts = ', '.join(accounts[:3]) + (len(accounts) == 4 and '...' or '')
+            edit = object_link(person, text='edit', method='edit', _class='actions')
+            remb = remember_link(person, _class="actions")
+            result.append((object_link(person), date, accounts, str(edit)+str(remb)))
 
-            edit = str(object_link(person, text="edit", method="edit", _class="actions"))
-            remb = str(remember_link(person, _class="actions"))
-            table.add(object_link(person), date, accounts, edit+remb)
-    
-        if persons:
-            result.append(table)
-        else:
-            error = "Sorry, no person(s) found matching the given criteria!"
-            result.append(html.Division(_(error), _class="searcherror"))
+        headers = [('Name', ''), ('Date of birth', 'birth_date'),
+                   ('Account(s)', ''), ('Actions', '')]
+        table = SearchResultTemplate().view(result, headers, arguments,
+                    values, len(persons), offset, searchform, 'person/search')
 
-        result = html.Division(result)
-        header = html.Header(_("Search for other person(s):"), level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        result.append(form.form())
-        page.content = result.output
-        
+        page.content = lambda: table
     else:
-        page.content = form.form
-    
+        if 'person_ls' in req.session:
+            values = req.session['person_ls']
+            searchform.formvalues = get_form_values(arguments, values)
+        page.content = searchform.form
+
     return page
 search = transaction_decorator(search)
 

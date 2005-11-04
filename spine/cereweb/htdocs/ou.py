@@ -18,13 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
-import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, redirect_object, commit, commit_url
 from Cereweb.utils import transaction_decorator, object_link
 from Cereweb.WorkList import remember_link
+from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
+from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
 from Cereweb.templates.OUSearchTemplate import OUSearchTemplate
 from Cereweb.templates.OUCreateTemplate import OUCreateTemplate
 from Cereweb.templates.OUTreeTemplate import OUTreeTemplate
@@ -32,7 +32,7 @@ from Cereweb.templates.OUEditTemplate import OUEditTemplate
 from Cereweb.templates.OUViewTemplate import OUViewTemplate
 
 import Cereweb.config
-max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     return search(req)
@@ -53,31 +53,26 @@ def tree(req, transaction, perspective=None):
     return page
 tree = transaction_decorator(tree)
 
-def search(req, transaction, name="", acronym="", short="", spread="", offset=0):
-    offset = int(offset)
-    perform_search = False
-    if name or acronym or short or spread:
-        perform_search = True
-        req.session['ou_ls'] = (name, acronym, short, spread)
-    elif 'ou_ls' in req.session:
-        name, acronym, short, spread = req.session['ou_ls']
-        
+def search(req, transaction, offset=0, **vargs):
+    """Search for ous and displays result and/or searchform."""
     page = Main(req)
     page.title = _("Search for OU(s)")
     page.setFocus("ou/search")
     page.add_jscript("search.js")
-
-    # Store given search parameters in search form
-    values = {}
-    values['name'] = name
-    values['acronym'] = acronym
-    values['short'] = short
-    values['spread'] = spread
-    form = OUSearchTemplate(searchList=[{'formvalues': values}])
-
+    
+    searchform = OUSearchTemplate()
+    arguments = ['name', 'acronym', 'short', 
+                 'spread', 'orderby', 'orderby_dir']
+    values = get_arg_values(arguments, vargs)
+    perform_search = len([i for i in values if i != ""])
+                
     if perform_search:
+        req.session['ou_ls'] = values
+        name, acronym, short, spread, orderby, orderby_dir = values
+        
         search = transaction.get_ou_searcher()
-        search.set_search_limit(max_hits + 1, offset)
+        setup_searcher([search], orderby, orderby_dir, offset)
+        
         if name:
             search.set_name_like(name)
         if acronym:
@@ -98,36 +93,27 @@ def search(req, transaction, name="", acronym="", short="", spread="", offset=0)
             searcher.add_join('spread', spreadsearcher, '')
             search.add_intersection('', searcher, 'entity')
 
-
         ous = search.search()
     
-        # Print results
-        result = html.Division(_class="searchresult")
-        header = html.Header(_("Organisation Unit search results:"), level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        table = html.SimpleTable(header="row", _class="results")
-        table.add(_("Name"), _("Acronym"), _("Short name"), _("Actions"))
-        for ou in ous:
+        result = []
+        for ou in ous[:display_hits]:
             link = object_link(ou, text=_get_display_name(ou))
-            edit = str(object_link(ou, text="edit", method="edit", _class="actions"))
-            remb = str(remember_link(ou, _class="actions"))
-            table.add(link, ou.get_acronym(), ou.get_short_name(), edit+remb)
-        
-        if ous:
-            result.append(table)
-        else:
-            error = _("Sorry, no OU(s) found matching the given criteria!")
-            result.append(html.Division(error, _class="searcherror"))
-        
-        result = html.Division(result)
-        header = html.Header(_("Search for other OU(s):"), level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        result.append(form.form())
-        page.content = result.output
-    
+            edit = str(object_link(ou, text='edit', method='edit', _class='actions'))
+            remb = str(remember_link(ou, _class='actions'))
+            result.append((link, ou.get_acronym(), ou.get_short_name(), edit+remb))
+       
+        headers = [('Name', 'name'), ('Acronym', 'acronym'),
+                   ('Short name', 'short_name'), ('Actions', '')]
+        table = SearchResultTemplate().view(result, headers, arguments,
+                    values, len(ous), offset, searchform, 'ou/search')
+
+        page.content = lambda: table
     else:
-        page.content = form.form
-    
+        if 'ou_ls' in req.session:
+            values = req.session['ou_ls']
+            searchform.formvalues = get_form_values(arguments, values)
+        page.content = searchform.form
+
     return page
 search = transaction_decorator(search)
 

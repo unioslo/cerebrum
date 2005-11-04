@@ -18,13 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
-import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import url, queue_message, redirect_object, commit
 from Cereweb.utils import object_link, transaction_decorator, commit_url
 from Cereweb.WorkList import remember_link
+from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
+from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
 from Cereweb.templates.GroupSearchTemplate import GroupSearchTemplate
 from Cereweb.templates.GroupViewTemplate import GroupViewTemplate
 from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
@@ -32,7 +32,7 @@ from Cereweb.templates.GroupEditTemplate import GroupEditTemplate
 from Cereweb.templates.GroupCreateTemplate import GroupCreateTemplate
 
 import Cereweb.config
-max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 operations = {
     'union':'Union',
@@ -43,44 +43,32 @@ def index(req):
     """Redirects to the page with search for groups."""
     return search(req)
 
-def search(req, transaction, name="", desc="",
-           spread="", gid="", gid_end="", gid_option="", offset=0):
-    """Creates a page with a list of groups matching the given criterias."""
-    offset = int(offset)
-    perform_search = False
-    if name or desc or spread or gid:
-        perform_search = True
-        req.session['group_ls'] = (name, desc, spread,
-                                   gid, gid_end, gid_option)
-    elif 'group_ls' in req.session:
-        name, desc, spread = req.session['group_ls'][:3]
-        gid, gid_end, gid_option = req.session['group_ls'][3:]
-        
+def search(req, transaction, offset=0, **vargs):
+    """Search for groups and displays results and/or searchform."""
     page = Main(req)
     page.title = _("Search for group(s)")
     page.setFocus("group/search")
     page.add_jscript("search.js")
     page.add_jscript("groupsearch.js")
     
-    # Store given search parameters in search form
-    values = {}
-    values['name'] = name
-    values['desc'] = desc
-    values['spread'] = spread
-    values['gid'] = gid
-    values['gid_end'] = gid_end
-    values['gid_option'] = gid_option
-    form = GroupSearchTemplate(searchList=[{'formvalues': values}])
-
+    searchform = GroupSearchTemplate()
+    arguments = ['name', 'description', 'spread', 'gid', 
+                 'gid_end', 'gid_option', 'orderby', 'orderby_dir']
+    values = get_arg_values(arguments, vargs)
+    perform_search = len([i for i in values if i != ""])
+            
     if perform_search:
+        req.session['group_ls'] = values
+        (name, description, spread, gid, gid_end,
+                gid_option, orderby, orderby_dir) = values
+        
         search = transaction.get_group_searcher()
-        search.set_search_limit(max_hits + 1, offset)
+        setup_searcher([search], orderby, orderby_dir, offset)
+        
         if name:
             search.set_name_like(name)
-
-        if desc:
-            search.set_description_like(desc)
-
+        if description:
+            search.set_description_like(description)
         if gid:
             if gid_option == "exact":
                 search.set_posix_gid(int(gid))
@@ -108,33 +96,23 @@ def search(req, transaction, name="", desc="",
 
         groups = search.search()
 
-        # Print search results
-        result = html.Division(_class="searchresult")
-        hits = len(groups)
-        header = html.Header('Search results:', level=3)
-
-        result.append(html.Division(header, _class="subtitle"))
-        table = html.SimpleTable(header="row", _class="results")
-        table.add(_("Group name"), _("Description"), _("Actions"))
-        for group in groups[:max_hits]:
+        result = []
+        for group in groups[:display_hits]:
             edit = str(object_link(group, text='edit', method='edit', _class='actions'))
-            remb = str(remember_link(group, _class="actions"))
-            table.add(object_link(group), group.get_description(), edit+remb)
+            remb = str(remember_link(group, _class='actions'))
+            result.append((object_link(group), group.get_description(), edit+remb))
 
-        if groups:
-            result.append(table)
-        else:
-            error = "Sorry, no group(s) found matching the given criteria!"
-            result.append(html.Division(_(error), _class="searcherror"))
+        headers = [('Group name', 'name'), ('Description', 'description'),
+                   ('Actions', '')]
+        table = SearchResultTemplate().view(result, headers, arguments,
+                    values, len(groups), offset, searchform, 'group/search')
 
-        result = html.Division(result)
-        header = html.Header(_("Search for other group(s):"), level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        result.append(form.form())
-        page.content = result.output
-
+        page.content = lambda: table
     else:
-        page.content = form.form
+        if 'group_ls' in req.session:
+            values = req.session['group_ls']
+            searchform.formvalues = get_form_values(arguments, values)
+        page.content = searchform.form
 
     return page
 search = transaction_decorator(search)

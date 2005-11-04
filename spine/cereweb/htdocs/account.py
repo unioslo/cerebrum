@@ -18,61 +18,48 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sets
-import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
-from Cereweb.utils import url, redirect, redirect_object, queue_message
-from Cereweb.utils import object_link, transaction_decorator, commit, commit_url
+from Cereweb.utils import redirect, redirect_object, queue_message
+from Cereweb.utils import object_link, transaction_decorator
+from Cereweb.utils import strftime,  commit, commit_url, url
+from Cereweb.WorkList import remember_link
+from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
+from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
 from Cereweb.templates.AccountSearchTemplate import AccountSearchTemplate
 from Cereweb.templates.AccountViewTemplate import AccountViewTemplate
 from Cereweb.templates.AccountEditTemplate import AccountEditTemplate
 from Cereweb.templates.AccountCreateTemplate import AccountCreateTemplate
 from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
-from Cereweb.WorkList import remember_link
 
 import Cereweb.config
-max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     """Redirects to the page with search for accounts."""
     return search(req)
 
-def search(req, transaction, owner="", name="", expire_date="",
-           create_date="", spread="", description="", offset=0):
-    offset = int(offset)
-    perform_search = False
-    if owner or name or expire_date or create_date or spread or description:
-        perform_search = True
-        req.session['account_ls'] = (owner, name, expire_date,
-                                     create_date, spread, description)
-    elif 'account_ls' in req.session:
-        owner, name, expire_date = req.session['account_ls'][:3]
-        create_date, spread, description = req.session['account_ls'][3:]
-        
+def search(req, transaction, offset=0, **vargs):
+    """Search for accounts and display results and/or searchform.""" 
     page = Main(req)
     page.title = _("Account search")
     page.setFocus("account/search")
     page.add_jscript("search.js")
-    
-    # Store given search parameters in search form
-    formvalues = {}
-    formvalues['name'] = name
-    formvalues['spread'] = spread
-    formvalues['expire_date'] = expire_date
-    formvalues['create_date'] = create_date
-    formvalues['description'] = description
-    accountsearch = AccountSearchTemplate(
-                       searchList=[{'formvalues': formvalues}])
+
+    searchform = AccountSearchTemplate()
+    arguments = ['name', 'spread', 'create_date', 'expire_date',
+                 'description', 'orderby', 'orderby_dir']
+    values = get_arg_values(arguments, vargs)
+    perform_search = len([i for i in values if i != ""])
 
     if perform_search:
-        search = transaction.get_account_searcher()
-        search.set_search_limit(max_hits + 1, int(offset))
-        
-        if owner:
-            owner = transaction.get_entity(int(owner))
-            search.set_owner(owner)
+        req.session['account_ls'] = values
+        (name, spread, create_date, expire_date,
+         description, orderby, orderby_dir) = values
 
+        search = transaction.get_account_searcher()
+        setup_searcher([search], orderby, orderby_dir, offset)
+        
         if name:
             search.set_name_like(name)
 
@@ -106,40 +93,27 @@ def search(req, transaction, owner="", name="", expire_date="",
 
         accounts = search.search()
   
-        # Print search results
-        result = html.Division(_class="searchresult")
-        hits = min(max_hits, len(accounts))
-        header = html.Header('Search results:', level=3)
-
-        result.append(html.Division(header, _class="subtitle"))
-    
-        table = html.SimpleTable(header="row", _class="results")
-        table.add(_("Name"), _("Owner"), _("Create date"),
-                  _("Expire date"), _("Actions"))
-
-        for account in accounts[:max_hits]:
+        result = []
+        for account in accounts[:display_hits]:
             link = object_link(account)
             owner = object_link(account.get_owner())
-            cdate = account.get_create_date().strftime("%Y-%m-%d")
-            edate = account.get_expire_date()
-            edate = edate and edate.strftime("%Y-%m-%d") or ''
-            edit = object_link(account, text="edit", method="edit",  _class="actions")
-            remb = remember_link(account, _class="actions")
-            table.add(link, owner, cdate, edate, str(edit)+str(remb))
+            cdate = strftime(account.get_create_date())
+            edate = strftime(account.get_expire_date())
+            edit = object_link(account, text='edit', method='edit', _class='actions')
+            remb = remember_link(account, _class='actions')
+            result.append((link, owner, cdate, edate, str(edit)+str(remb)))
 
-        if accounts:
-            result.append(table)
-        else:
-            error = "Sorry, no account(s) found matching the given criteria."
-            result.append(html.Division(_(error), _class="searcherror"))
+        headers = [('Name', 'name'), ('Owner', ''), ('Create date', 'create_date'),
+                   ('Expire date', 'expire_date'), ('Actions', '')]
+        table = SearchResultTemplate().view(result, headers, arguments,
+                    values, len(accounts), offset, searchform, 'account/search')
 
-        result = html.Division(result)
-        header = html.Header(_("Search for other account(s):"), level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        result.append(accountsearch.form())
-        page.content = result.output
+        page.content = lambda: table
     else:
-        page.content = accountsearch.form
+        if 'account_ls' in req.session:
+            values = req.session['account_ls']
+            searchform.formvalues = get_form_values(arguments, values)
+        page.content = searchform.form
 
     return page
 search = transaction_decorator(search)

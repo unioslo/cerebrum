@@ -18,49 +18,44 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import forgetHTML as html
 from gettext import gettext as _
 from Cereweb.Main import Main
 from Cereweb.utils import commit, commit_url, queue_message, object_link
 from Cereweb.utils import url, transaction_decorator, redirect, redirect_object
 from Cereweb.WorkList import remember_link
+from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
+from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
 from Cereweb.templates.HostSearchTemplate import HostSearchTemplate
 from Cereweb.templates.HostViewTemplate import HostViewTemplate
 from Cereweb.templates.HostEditTemplate import HostEditTemplate
 from Cereweb.templates.HostCreateTemplate import HostCreateTemplate
 
 import Cereweb.config
-max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     """Redirects to the page with search for hosts."""
     return search(req)
 
-def search(req, transaction, name="", description="", offset=0):
-    """Creates a page with a list of hosts matching the given criterias."""
-    offset = int(offset)
-    perform_search = False
-    if name or description:
-        perform_search = True
-        req.session['host_ls'] = (name, description)
-    elif 'host_ls' in req.session:
-        name, description = req.session['host_ls']
-        
+def search(req, transaction, offset=0, **vargs):
+    """Search for hosts and displays result and/or searchform."""
     page = Main(req)
     page.title = _("Search for hosts(s)")
     page.setFocus("host/search")
     page.add_jscript("search.js")
     
-    # Store given search parameters in search form
-    values = {}
-    values['name'] = name
-    values['description'] = description
-    form = HostSearchTemplate(searchList=[{'formvalues': values}])
+    searchform = HostSearchTemplate()
+    arguments = ['name', 'description', 'orderby', 'orderby_dir']
+    values = get_arg_values(arguments, vargs)
+    perform_search = len([i for i in values if i != ""])
     
     if perform_search:
+        req.session['host_ls'] = values
+        name, description, orderby, orderby_dir = values
+        
         searcher = transaction.get_host_searcher()
-        searcher.set_search_limit(max_hits + 1, offset)
-
+        setup_searcher([searcher], orderby, orderby_dir, offset)
+        
         if name:
             searcher.set_name_like(name)
 
@@ -69,31 +64,24 @@ def search(req, transaction, name="", description="", offset=0):
             
         hosts = searcher.search()
 
-        # Print results
-        result = html.Division(_class="searchresult")
-        hits = len(hosts)
-        header = html.Header('Search results:', level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        table = html.SimpleTable(header="row", _class="results")
-        table.add(_("Name"), _("Description"), _("Actions"))
-        for host in hosts[:max_hits]:
-            edit = str(object_link(host, text="edit", method="edit", _class="actions"))
-            remb = str(remember_link(host, _class="actions"))
-            table.add(object_link(host), host.get_description(), edit+remb)
+        result = []
+        for host in hosts[:display_hits]:
+            edit = object_link(host, text='edit', method='edit', _class='actions')
+            remb = remember_link(host, _class='actions')
+            desc = host.get_description()
+            result.append((object_link(host), desc, str(edit) + str(remb)))
     
-        if hosts:
-            result.append(table)
-        else:
-            error = "Sorry, no host(s) found matching the given criteria!"
-            result.append(html.Division(_(error), _class="searcherror"))
-
-        result = html.Division(result)
-        header = html.Header(_("Search for other host(s):"), level=3)
-        result.append(html.Division(header, _class="subtitle"))
-        result.append(form.form())
-        page.content = result.output
+        headers = [('Name', 'name'), ('Description', 'description'),
+                   ('Actions', '')]
+        table = SearchResultTemplate().view(result, headers, arguments,
+                    values, len(hosts), offset, searchform, 'host/search')
+        
+        page.content = lambda: table
     else:
-        page.content = form.form
+        if 'host_ls' in req.session:
+            values = req.session['host_ls']
+            searchform.formvalues = get_form_values(arguments, values)
+        page.content = searchform.form
     
     return page
 search = transaction_decorator(search)
@@ -104,6 +92,7 @@ def view(req, transaction, id):
     page = Main(req)
     page.title = _("Host %s" % host.get_name())
     page.setFocus("host/view", id)
+    
     view = HostViewTemplate()
     content = view.viewHost(transaction, host)
     page.content = lambda: content

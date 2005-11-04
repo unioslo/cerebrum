@@ -41,8 +41,8 @@
     </div>
     #end for
 #else
-    <div class="amsg">You can see the 5 last messages here.</div>
-    <div class="amsg">Click on the header for all messages.</div>
+    <div class="amsg">$_('You can see the 5 last messages here.')</div>
+    <div class="amsg">$_('Click on the header to view all messages.')</div>
 #end if
 </div>
 #end def
@@ -64,7 +64,7 @@
     $SortedTableTemplate().sorted_table($table, $headers,
                             $url('sortpri=%s'), $url('sortby=%s'))
 #else
-    <div class="amsg">No messages exists for this session yet.</div>
+    <div class="amsg">$_('No messages exists for this session yet.')</div>
 #end if
 </div>
 #end def

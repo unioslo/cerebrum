@@ -34,13 +34,13 @@ $name {
 div.title {
     overflow: visible;
     border-bottom: 1px solid gray;
-    margin-bottom: 0.5em;
+    margin-bottom: 1em;
+    padding-left: 5px;
     width: 500px;
 }
 
 div.title h1 {
     margin: 0.1em;
-    margin-bottom: 1px;
 }
 
 ## Smaller title, and fancier!
@@ -58,40 +58,18 @@ div.subtitle h3 {
     margin: 0.1em;
 }
 
-## Dashed line over notes and quarantines on all view entities pages.
-div.entityview {
-    border-top: 1px dashed gray;
-    padding-top: 0.4em;
+## Styles for searchpages.
+div.searchtitle {
+    border-bottom: 1px solid gray;
+    padding-left: 10px;
+    margin-bottom: 0.5em;
+    width: 440px;
 }
 
-## Nice looking search page with simple css
-## copyed from www.quirksmode.org/css/form.html
-## new
-div.searchsection {
-    display: block;
-    width: 20em;
-    border: 1px solid black;
-    padding: 2px;
+div.searchtitle h3 {
+    margin: 0;
 }
 
-div.searchsection table {
-    border: none;
-    witdh: 100%;
-}
-
-div.searchsection th {
-    border-bottom: 1px dotted gray;
-}
-
-div.searchsection th.more {
-    text-decoration: none;
-}
-
-div.searchsection input:focus {
-    background: #ffe;
-}
-
-## old
 div.search {
     display: block;
     width: 23em;
@@ -126,11 +104,25 @@ div.search div.help {
 
 div.searchresult {
     empty-cells: show; 
+    margin-bottom: 0.5em;
 }
 
-.searcherror {
-    border: 1px dottet red;
+div.searchresult th a { color: black; text-decoration: none; }
+div.searchresult th a:hover { text-decoration: underline; }
+div.searchresult th a:visited { color: black; }
+div.searchresult th a.current { color: #06C; }
+
+div.searcherror {
+    margin-bottom: 0.5em;
 }
+
+div.search_range { padding-left: 1.5em; margin: 1px; font-size: 95%; }
+div.search_range a:link { color: blue; text-decoration: underline; }
+div.search_range a:visited { color: blue; }
+div.search_range a.current { color: black; text-decoration: none; }
+div.search_range a:hover { color: blue; text-decoration: none; }
+div.search_range a.first, div.search_range a.last { text-decoration: none; }
+div.search_range .first, div.search_range .last { font-size: 90%; }
 
 ## Styles for create pages, like create person etc..
 div.create {
@@ -274,7 +266,7 @@ div.personnames {
     margin-bottom: 1em;
     padding: 0.3em;
 }
-$shrink("div.personnames")
+##$shrink("div.personnames")
 
 div.personnames h2 {
     margin: 0;
