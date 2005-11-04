@@ -37,3 +37,5 @@ class DiskUiOMixin(Disk.Disk):
         if hquota is None or hquota['numval'] is None:
             return None
         return hquota['numval']
+
+# arch-tag: 710f555a-4d1f-11da-872e-f6b65c06a01e
