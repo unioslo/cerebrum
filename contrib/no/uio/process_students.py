@@ -1107,39 +1107,46 @@ def validate_config():
                       studieprogs_file=studieprogs_file,
                       emne_info_file=emne_info_file)
 
-def list_noncallback_users(fname):
-    """Dump accounts on student-disk that did not get a callback
+def process_noncallback_users(reset_diskquota=False):
+    """Process accounts on student-disk that did not get a callback
     resulting in update_account."""
 
-    # TODO: --dryrun currently makes this file useless, since it
-    # implies doing no updates, and therefore the file will contain
-    # _every_ student.
-    if dryrun:
-        fname += ".dryrun"
+    # TODO: --dryrun currently makes this useless, since it implies
+    # doing no updates, and therefore _every_ student is processed.
 
-    logger.info("Dumping noncallback users to %s" % fname)
-    f = SimilarSizeWriter(fname, 'w')
-    f.set_size_change_limit(10)
+    logger.info("Processing noncallback users")
     on_student_disk = {}
-    # TBD: This includes expired accounts, is that what we want?
-    for row in account_obj.list_account_home(filter_expired=False):
+    for row in account_obj.list_account_home():
         if autostud.disk_tool.get_diskdef_by_diskid(int(row['disk_id'])):
             on_student_disk[int(row['account_id'])] = True
 
     for ac_id in on_student_disk.keys():
         if processed_accounts.has_key(ac_id):
             continue
-        f.write("%i\n" % ac_id)
-    f.close()
+        if ac_id not in accounts:
+            # This will happen if the accounts owner has no registered
+            # fødselsnummer.
+            logger.info("Not in list of existing accounts: %d" % ac_id)
+            continue
+        if not reset_diskquota:
+            continue
+        for spread in accounts[ac_id].get_home_spreads():
+            disk_id, homedir_id = accounts[ac_id].get_home(spread)
+            if accounts[ac_id].get_disk_kvote(homedir_id):
+                logger.info("Clearing quota for %d" % ac_id)
+                disk_quota_obj.clear(homedir_id)
+    if not dryrun:
+        logger.debug("Commiting changes")
+        db.commit()
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:p:G:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:p:',
                                    ['debug', 'create-users', 'update-accounts',
                                     'student-info-file=', 'only-dump-results=',
                                     'studconfig-file=', 'fast-test', 'with-lpr',
                                     'workdir=', 'type=', 'reprint=',
-                                    'ou-perspective=',
+                                    'ou-perspective=', 'reset-diskquota',
                                     'emne-info-file=', 'move-users',
                                     'recalc-pq', 'studie-progs-file=',
                                     'paper-file=',
@@ -1158,7 +1165,7 @@ def main():
     _range = None
     to_stdout = False
     log_level = AutoStud.Util.ProgressReporter.DEBUG
-    non_callback_fname = None
+    reset_diskquota = False
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -1186,8 +1193,8 @@ def main():
             move_users = True
         elif opt in ('-C', '--studconfig-file'):
             studconfig_file = val
-        elif opt in ('-G',):
-            non_callback_fname = val
+        elif opt in ('--reset-diskquota',):
+            reset_diskquota = True
         elif opt in ('--fast-test',):  # Internal debug use ONLY!
             fast_test = True
         elif opt in ('--ou-perspective',):
@@ -1237,27 +1244,28 @@ def main():
         return
 
     if not (recalc_pq or update_accounts or create_users or
-            non_callback_fname):
+            reset_diskquota):
         usage("No action selected")
 
     start_process_students(recalc_pq=recalc_pq,
-                           update_create=(create_users or non_callback_fname))
-    if non_callback_fname:
-        list_noncallback_users(non_callback_fname)
-    
+                           update_create=(create_users or reset_diskquota))
+    if reset_diskquota:
+        process_noncallback_users(reset_diskquota=reset_diskquota)
+    logger.debug("all done")
+
 def usage(error=None):
     if error:
         print "Error:", error
     print """Usage: process_students.py
     Actions:
-      -c | --create-user : create new users
-      -u | --update-accounts : update existing accounts
-      --reprint range:  Re-print letters in case of paper-jam etc. (comma
-        separated)
-      --recalc-pq : recalculate printerquota settings (does not update
+      -c | --create-user: create new users
+      -u | --update-accounts: update existing accounts
+      --reprint range: re-print letters in case of paper-jam etc.
+        (comma separated)
+      --recalc-pq: recalculate printerquota settings (does not update
         quota).  Cannot be combined with -c/-u
-      -G file : Dump account_id for users on student disks that did not
-       get a callback.
+      --reset-diskquota: remove disk quota from users on student disks
+        that did not get a callback
 
     Input files:
       -s | --student-info-file file:

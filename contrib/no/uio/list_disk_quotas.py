@@ -1,5 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+#
+# Copyright 2005 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import getopt
 import sys
@@ -12,54 +30,99 @@ from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 
-def list_disk_quotas(fname, spread):
+
+def list_quotas(fname, hostname, diskname, spread):
     f = Utils.SimilarSizeWriter(fname, "w")
     f.set_size_change_limit(10)
+
+    disk = Factory.get("Disk")(db)
+    if diskname:
+        disk.find_by_path(diskname)
+        list_disk_quotas(f, disk.entity_id, spread)
+    elif hostname:
+        host = Factory.get("Host")(db)
+        host.find_by_name(hostname)
+        for row in disk.list(host_id=host.entity_id, spread=spread):
+            list_disk_quotas(f, row['disk_id'], spread)
+    else:
+        for row in disk.list_traits(co.trait_disk_quota):
+            list_disk_quotas(f, row['entity_id'], spread)
+
+    f.close()
+
+
+def list_disk_quotas(f, disk_id, spread):
+    disk = Factory.get("Disk")(db)
+    disk.find(disk_id)
+    default_quota = disk.get_default_quota()
+    if default_quota is False:
+        logger.debug("Skipping %s, no quotas on disk" % disk.path)
+        return
+
+    logger.debug("Listing quotas on %s" % disk.path)
+
+    if default_quota is None:
+        default_quota = '' # Unlimited
+        all_users=False
+    else:
+        all_users=True
+
     now = mx.DateTime.now()
     dq = DiskQuota(db)
-    for row in dq.list_quotas(spread=spread):
+    for row in dq.list_quotas(spread=spread, disk_id=disk.entity_id,
+                              all_users=all_users):
         quota = row['quota']
         if row['override_expiration'] and row['override_expiration'] > now:
             quota = row['override_quota']
         if quota is None:
-            quota = ''  # Unlimited
+            quota = default_quota
         if row['home']:
             home = row['home']
         else:
             home = "%s/%s" % (row['path'], row['entity_name'])
         f.write("%s:%s:%s\n" % (row['entity_name'], home, quota))
-    f.close()
+
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'lt:s:', ['help'])
-    except getopt.GetoptError:
-        usage(1)
+    global logger
+    logger = Factory.get_logger("cronjob")
 
-    fname = spread = None
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 't:s:h:d:', ['help'])
+    except getopt.GetoptError:
+        usage()
+
+    fname = spread = hostname = diskname = None
     for opt, val in opts:
         if opt in ('--help',):
-            usage()
+            usage(0)
         elif opt in ('-t',):
             fname = val
         elif opt in ('-s',):
-            spread = val
-        elif opt in ('-l',):
-            if fname is None or spread is None:
-                usage(2)
-            list_disk_quotas(fname, co.Spread(spread))
-    if not opts:
-        usage(1)
+            spread = co.Spread(val)
+            try:
+                int(spread)
+            except Errors.NotFoundError:
+                print "Unknown spread code:", val
+        elif opt in ('-d',):
+            diskname = val
+        elif opt in ('-h',):
+            hostname = val
 
-def usage(exitcode=0):
+    if not opts or (hostname and diskname) or fname is None or spread is None:
+        usage()
+
+    list_quotas(fname, hostname, diskname, spread)
+
+
+def usage(exitcode=64):
     print """Usage: [options]
 List disk quotas for all users.
 Options:
-    -t target_file  (required)
-    -s spread       (required)
-
-Operation modes (all required options must precede operation mode specifier):
-    -l: list disk quotas
+    -t OUTPUT-FILE  (required)
+    -s SPREAD       (required)
+    -h HOST         restrict listing to users on HOST
+    -d DISK         restrict listing to users on DISK (path)
 """
     sys.exit(exitcode)
 
