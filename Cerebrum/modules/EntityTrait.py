@@ -132,6 +132,14 @@ class EntityTrait(Entity):
         return self.__traits
 
 
+    def get_trait(self, trait):
+        """Return the trait value (as a dict), or None."""
+        traits = self.get_traits()
+        if traits is None:
+            return None
+        return traits.get(_EntityTraitCode(trait))
+
+
     def list_traits(self, code):
         """Returns all the occurences of a specified trait."""
 
