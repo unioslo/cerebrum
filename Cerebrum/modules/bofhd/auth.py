@@ -393,18 +393,33 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            x = self._has_operation_perm_somewhere(
-                operator, self.const.auth_disk_quota_set)
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_disk_quota_set)
         if forever:
-            self.is_account_owner(operator, self.const.auth_disk_quota_forver,
+            self.is_account_owner(operator, self.const.auth_disk_quota_forever,
                                   account)
         if unlimited:
             self.is_account_owner(operator, self.const.auth_disk_quota_unlimited,
                                   account)
         return self.is_account_owner(operator, self.const.auth_disk_quota_set,
                                      account)
+
+    def can_set_disk_default_quota(self, operator, host=None, disk=None,
+                                   query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_disk_def_quota_set)
+        if ((host is not None and self._query_target_permissions(
+            operator, self.const.auth_disk_def_quota_set,
+            self.const.auth_target_type_host, host.entity_id, None))
+            or
+            (disk is not None and self._query_target_permissions(
+            operator, self.const.auth_disk_def_quota_set,
+            self.const.auth_target_type_disk, disk.entity_id, None))):
+            return True
+        raise PermissionDenied("No access to disk")
 
     def can_show_disk_quota(self, operator, account=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -1004,6 +1019,20 @@ class BofhdAuth(DatabaseAccessor):
     def can_email_pipe_edit(self, operator, domain=None,
                                  query_run_any=False):
         return self.can_email_pipe_create(operator, domain, query_run_any)
+
+    def can_email_pipe_edit(self, operator, domain=None,
+                                 query_run_any=False):
+        return self.can_email_pipe_create(operator, domain, query_run_any)
+
+    def can_email_set_failure(self, operator, account=None,
+                              query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_postmaster(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")
 
     def can_email_domain_create(self, operator, query_run_any=False):
         if self.is_superuser(operator):
