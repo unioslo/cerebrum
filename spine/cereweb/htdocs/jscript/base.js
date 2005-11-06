@@ -102,10 +102,55 @@ function compareArrays(arr1, arr2) {
 
 // Cross-browser method to set text on a Anchor DOM-object.
 function set_link_text(obj, text) {
-    if (obj == null) {
-        return;
+    if (obj != null) {
+        obj.replaceChild(document.createTextNode(text), obj.firstChild);
     }
-    
-    obj.replaceChild(document.createTextNode(text), obj.firstChild);
+}
+
+
+/* Flip visibility */
+
+// Contains the diffrent divs and their links/buttons.
+var FV_elements = new Array();
+
+// Stores the old display-value for FV_elements.
+var FV_displays = new Array();
+
+// Register a division which should have its visibility flipped
+// when link and/or button is pressed.
+function FV_register(div, link, link_div, button, button_div) {
+    var i = FV_elements.length < 1 ? 0 : FV_elements.length;
+    FV_elements[i] = new Array(div, link_div, button_div, link, button);
+    FV_displays[i] = new Array('block', 'block', 'block');
+}
+
+// Initialize listeners on links and/or buttons in FV_elements.
+function FV_init_listeners() {
+    for (var i = 0; i < FV_elements.length; i++) {
+        var length = FV_elements[i].length;
+        for (var j = length - 2; j < length; j++) {
+            if (FV_elements[i][j] != null) {
+                element = document.getElementById(FV_elements[i][j]);
+                func = new Function("FV_flip("+i+");");
+                addEvent(element, 'click', func);
+            }
+        }
+    }
+}
+addLoadEvent(FV_init_listeners);
+
+// Flip the visibility (display-value) on the selected element.
+function FV_flip(elm) {
+    for (var i = 0; i < FV_elements[elm].length - 2; i++) {
+        if (FV_elements[elm][i] != null) {
+            element = document.getElementById(FV_elements[elm][i]);
+            if (element.style.display == 'none') {
+                element.style.display = FV_displays[elm][i];
+            } else {
+                FV_displays[elm][i] = element.style.display;
+                element.style.display = 'none';
+            }
+        }
+    }
 }
 
