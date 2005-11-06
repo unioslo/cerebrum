@@ -303,7 +303,6 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
 
         Notice the write_locker argument when returning the new object.
         """
-        db = self.get_database()
         map = cls.map_args(*args, **vargs)
         tables = cls._get_sql_tables()
 

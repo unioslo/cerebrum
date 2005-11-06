@@ -24,6 +24,7 @@ from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
 from SpineLib.Date import Date
 
 from Entity import Entity
+from Commands import Commands
 
 from SpineLib import Registry
 registry = Registry.get_registry()
@@ -77,47 +78,31 @@ class CerewebMotd(DatabaseClass):
     method_slots = [Method('delete', None, write=True)]
 
     def delete(self):
-        self._delete()
-        self.invalidate()
+        self._delete_from_db()
 
 registry.register_class(CerewebMotd)
 
-class CerewebCommands(SpineClass):
-    """Commands for creating new motd and options.
-
-    Class which holds method specific for cereweb.
+def create_cereweb_motd(self, subject, message):
+    """Create a new motd.
+    
+    Create a new Message-of-the-day.
     """
-    method_slots = [
-        Method('create_cereweb_motd', CerewebMotd, write=True,
-                    args=[('subject', str), ('message', str)]),
-        Method('create_cereweb_option', CerewebOption, write=True,
-                    args=[('entity', Entity), ('key', str), ('value', str)])
-    ]
+    db = self.get_database()
+    id = int(db.nextval('cereweb_seq'))
+    CerewebMotd._create(db, id, creator=db.change_by, subject=subject, message=message)
+    return CerewebMotd(db, id)
 
-    def __new__(self, *args, **vargs):
-        return SpineClass.__new__(self, cache=None)
+Commands.register_method(Method('create_cereweb_motd', CerewebMotd, write=True,
+            args=[('subject', str), ('message', str)]), create_cereweb_motd)
 
-    def create_cereweb_motd(self, subject, message):
-        """Create a new motd.
+def create_cereweb_option(self, entity, key, value):
+    """Create a new option.
 
-        Create a new Message-of-the-day.
-        """
-        db = self.get_database()
-        id = int(db.nextval('cereweb_seq'))
-        creator = self.get_writelock_holder().get_client()
-        CerewebMotd._create(db, id, creator=creator, subject=subject, message=message)
-        return CerewebMotd(id, write_locker=self.get_writelock_holder())
-
-    def create_cereweb_option(self, entity, key, value):
-        """Create a new option.
-
-        Create a new key:value option.
-        """
-        db = self.get_database()
-        id = int(db.nextval('cereweb_seq'))
-        CerewebOption._create(db, id, entity, key, value)
-        return CerewebOption(id, write_locker=self.get_writelock_holder())
-
-registry.register_class(CerewebCommands)
+    Create a new key:value option.
+    """
+    db = self.get_database()
+    id = int(db.nextval('cereweb_seq'))
+    CerewebOption._create(db, id, entity, key, value)
+    return CerewebOption(db, id)
 
 # arch-tag: f21ea724-a469-4ef8-87bf-1eae1493717c
