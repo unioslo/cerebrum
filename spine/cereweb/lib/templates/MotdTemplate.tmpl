@@ -40,7 +40,9 @@
             $message.replace('\n', '<br />')
             <br />
             <span class="by">-$_('by') $motd.get_creator().get_name()</span>
-            <span class="when">$strftime($motd.get_create_date())</span>
+            <span class="when">
+                $strftime($motd.get_create_date(), '%y-%m-%d  %H:%M')
+            </span>
         </div>
         $editMotd('index/edit_motd', $id, $subject, $message)
         <script language="JavaScript">
