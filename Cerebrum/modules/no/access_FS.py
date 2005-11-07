@@ -490,7 +490,8 @@ class Student(FSObject):
               NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
               sps.status_sperr_aut_oppd = 'N' AND
               sps.studieprogramkode = sp.studieprogramkode AND
-              sp.studienivakode >= 980"""
+              %s
+              sp.studienivakode >= 980""" % self._is_alive()
         return self.db.query(qry)
 
     def list_privatist(self):
