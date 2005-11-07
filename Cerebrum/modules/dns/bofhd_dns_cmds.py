@@ -18,7 +18,6 @@ from Cerebrum.modules.dns import Utils
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UiOBofhdExcension
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -120,11 +119,13 @@ class BofhdExtension(object):
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
         # into seperate classes.
+        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+             UiOBofhdExtension
+
         for func in ('_format_changelog_entry', '_format_from_cl',
                      '_get_entity_name', '_get_account', '_get_group',
                      '_get_group_opcode'):
-            setattr(cls, func, UiOBofhdExcension.__dict__.get(
-            func))
+            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
 
