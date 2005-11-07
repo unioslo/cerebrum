@@ -42,7 +42,8 @@ class CerewebOption(DatabaseClass):
     primary = [DatabaseAttr('id', option_table, int)]
     slots = [
         DatabaseAttr('entity', option_table, Entity),
-        DatabaseAttr('key', option_table, str, write=True),
+        DatabaseAttr('section', option_table, str),
+        DatabaseAttr('key', option_table, str),
         DatabaseAttr('value', option_table, str, write=True)
     ]
     db_attr_aliases = {
@@ -52,7 +53,6 @@ class CerewebOption(DatabaseClass):
 
     def delete(self):
         self._delete_from_db()
-        self._delete()
 
 registry.register_class(CerewebOption)
 
@@ -82,7 +82,7 @@ class CerewebMotd(DatabaseClass):
 
 registry.register_class(CerewebMotd)
 
-def create_cereweb_motd(self, subject, message):
+def create_motd(self, subject, message):
     """Create a new motd.
     
     Create a new Message-of-the-day.
@@ -93,16 +93,20 @@ def create_cereweb_motd(self, subject, message):
     return CerewebMotd(db, id)
 
 Commands.register_method(Method('create_cereweb_motd', CerewebMotd, write=True,
-            args=[('subject', str), ('message', str)]), create_cereweb_motd)
+            args=[('subject', str), ('message', str)]), create_motd)
 
-def create_cereweb_option(self, entity, key, value):
+def create_option(self, entity, section, key, value):
     """Create a new option.
 
     Create a new key:value option.
     """
     db = self.get_database()
     id = int(db.nextval('cereweb_seq'))
-    CerewebOption._create(db, id, entity, key, value)
+    CerewebOption._create(db, id, entity, section, key, value)
     return CerewebOption(db, id)
+
+Commands.register_method(Method('create_cereweb_option', CerewebOption,
+                         write=True, args=[('entity', Entity), ('section', str),
+                         ('key', str), ('value', str)]), create_option)
 
 # arch-tag: f21ea724-a469-4ef8-87bf-1eae1493717c

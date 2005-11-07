@@ -40,6 +40,8 @@ CREATE TABLE cereweb_option
                     NOT NULL
                     CONSTRAINT cereweb_option_entity_id
                         REFERENCES entity_info(entity_id),
+    section     CHAR VARYING(50)
+                    NOT NULL,
     key         CHAR VARYING(50)
                     NOT NULL,
     value       CHAR VARYING(1024)
