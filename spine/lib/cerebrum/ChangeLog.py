@@ -113,10 +113,9 @@ Commands.register_method(Method('get_last_changelog_id', int), get_last_changelo
 
 def get_history(self):
     s = registry.ChangeLogSearcher(self.get_database())
+    s.order_by_desc(s, 'timestamp')
     s.set_subject(self)
-    result = s.search()
-    result.sort(lambda a, b: cmp(a.get_id(), b.get_id()))
-    return result
+    return s.search()
 
 Entity.register_method(Method('get_history', [ChangeLog]), get_history)
 
