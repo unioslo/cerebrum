@@ -52,8 +52,6 @@ class Constants(Constants.Constants):
                                                 'Can set unlimited quota')
     auth_disk_quota_show = _AuthRoleOpCode('disk_quota_show',
                                            'Can see disk quota')
-    auth_disk_quota_default = _AuthRoleOpCode('disk_def_quota',
-                                              "Set default quota for a disk")
     auth_view_studentinfo = _AuthRoleOpCode('view_studinfo',
                                             'Can view student info')
     auth_alter_printerquota = _AuthRoleOpCode('alter_printerquo', 'desc')
