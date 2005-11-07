@@ -126,3 +126,4 @@ def restore_to_default(transaction, entity):
     for option in search.search():
         option.delete()
 
+# arch-tag: cd23c5b4-4f37-11da-8118-34958c2b9815

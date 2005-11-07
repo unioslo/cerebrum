@@ -85,3 +85,4 @@ def restore_defaults(req, transaction):
     redirect(req, url('options'), seeOther=True)
 restore_defaults = transaction_decorator(restore_defaults)
 
+# arch-tag: cc666fb4-4f37-11da-8022-96dbb4fc55eb
