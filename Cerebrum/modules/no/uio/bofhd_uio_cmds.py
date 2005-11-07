@@ -3427,18 +3427,56 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         return "OK, %s deleted" % hostname
 
+    # FIXME: This hack is needed until we have a proper architecture
+    # for bofhd which allows mixins.
+    from Cerebrum.modules.dns.bofhd_dns_cmds import BofhdExtension as Dns
+    # We know that the format suggestion in dns has no hdr, so we only
+    # copy str_vars.
     all_commands['host_info'] = Command(
         ("host", "info"), SimpleString(help_ref='string_host'),
-        fs=FormatSuggestion([
-        ("Hostname:           %s\n"
-         "Description:        %s",
-         ("hostname", "desc")),
-        ("Default disk quota: %d MiB",
-         ("def_disk_quota",))]))
+        fs=FormatSuggestion(Dns.all_commands['host_info'].get_fs()['str_vars'] +
+                            [("Hostname:           %s\n"
+                              "Description:        %s",
+                              ("hostname", "desc")),
+                             ("Default disk quota: %d MiB",
+                              ("def_disk_quota",))]))
     def host_info(self, operator, hostname):
-        host = self._get_host(hostname)
+        dns_err = dns_ex = None
+        ret = []
+        # More hacks follow.
+        try:
+            from Cerebrum.modules.dns.bofhd_dns_cmds \
+                 import BofhdExtension as DnsCmds
+            from Cerebrum.modules.dns import Utils as DnsUtils
+            zone = self.const.DnsZone("uio")
+            # Avoid Python's type checking.  The BofhdExtension this
+            # "self" is an instance of is different from the
+            # BofhdExtension host_info expects.  By using a function
+            # reference, it suffices that "self" we pass in supports
+            # the same API.
+            host_info = DnsCmds.__dict__.get('host_info')
+            # To support the API, we add some stuff to this object.
+            # Ugh.  Better hope this doesn't stomp on anything.
+            self._find = DnsUtils.Find(self.db, zone)
+            self.dns_parser = DnsUtils.DnsParser(self.db, zone)
+            ret = host_info(self, operator, hostname)
+        except CerebrumError, dns_err:
+            pass
+        except Exception, dns_ex:
+            # ImportError, missing constants, whatever.
+            pass
+
+        try:
+            host = self._get_host(hostname)
+        except CerebrumError, e:
+            # Return the most relevant error if nothing worked.
+            if dns_err or dns_ex:
+                raise dns_err or e
+            else:
+                return ret
+
         ret = [{'hostname': hostname,
-                'desc': host.description}]
+                'desc': host.description}] + ret
         hquota = host.get_trait(self.const.trait_host_disk_quota)
         if hquota and hquota['numval']:
             ret.append({'def_disk_quota': hquota['numval']})
