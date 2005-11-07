@@ -26,7 +26,7 @@ from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 def view_history_short(entity):
     # Could use some other template for 'short' view 
     template = HistoryLogTemplate()
-    events = entity.get_history()[-5:]
+    events = entity.get_history()[:5]
     table = _history_tableview(events)
     return template.viewHistoryLog(table, entity.get_id())
 

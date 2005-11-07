@@ -1,0 +1,13 @@
+[Main]
+Main_help: Main section of options
+Color: #FFFFFF
+Color_help: Contains the primary color for cereweb
+Use_it: False
+Use_it_type: boolean
+
+[Other]
+Other_help: Options for other stuff?
+Huh: jepp sånn kan det gå
+test: True
+test_type: checkbox
+test_help: Checkbox testing

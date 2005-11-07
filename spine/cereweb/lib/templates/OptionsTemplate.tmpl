@@ -1,0 +1,99 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from FormWidgets import FormWidgets
+#from Cereweb.utils import url
+#from Cereweb.InitTemplate import InitTemplate
+#extends InitTemplate
+
+#attr $form_widgets = FormWidgets()
+
+## Display form for setting options.
+#def options($options)
+<div class="options">
+    <form action="$url('options/save')" method="POST">
+    <table>
+    #for $section in $options.sections()
+        <tr>
+            <th colspan="3" align="left">
+                $section
+            </th>
+        </tr>
+        #if $options.has_option($section, $section+'_help')
+        <tr>
+            <td colspan="3" class="shelp" align="left">
+                - $options.get($section, $section+'_help')
+            </td>
+        </tr>
+        #end if
+        #for $key, $value in $options.items($section)
+            #if not $key.endswith('_help') and not $key.endswith('_type')
+            $create_option($options, $section, $key, $value)
+            #end if
+        #end for
+    #end for
+        <tr>
+            <td colspan="3" class="buttons" align="center">
+                <input type="submit" value="$_('Save options')" name="save" />&nbsp;
+                <input type="submit" value="$_('Restore defaults')" name="restore" />
+            </td>
+        </tr>
+    </table>
+    </form>
+</div>
+#end def
+
+## Create input-field for the option.
+#def create_option($options, $section, $key, $value)
+    #set $name = $section + '.' + $key
+    #set $label = $_($key.capitalize())
+    <tr>
+        <td>
+            <label for="$name">$label:</label>
+        </td>
+        <td>
+        #set $type = ""
+        #if $options.has_option($section, $key+'_type')
+            #set $type = $options.get($section, $key+'_type')
+        #end if
+        
+        #if $type == "boolean"
+            #set $value = $options.getboolean($section, $key)
+            #set $types = ((True, "True"), (False, "False"))
+            $form_widgets.generate_option($name, $types, $value)
+        #elif $type == "checkbox"
+            #if $options.getboolean($section, $key)
+                #set $value = ' checked="checked"'
+            #else
+                #set $value = ''
+            #end if
+            <input type="checkbox" name="$name"$value />
+        #elif $type == "int"
+            <input type="text" name="$name" value="$value" size="4" maxlength="10" />
+        #else
+            <input type="text" name="$name" value="$value" />
+        #end if
+        </td>
+        <td>
+        #if $options.has_option($section, $key+'_help')
+            <em>$options.get($section, $key+'_help')</em>
+        #end if
+        </td>
+    </tr>
+#end def
+

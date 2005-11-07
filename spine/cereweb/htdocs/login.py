@@ -21,11 +21,10 @@
 import md5
 import time
 
-import forgetHTML as html
-
+import Cereweb.SpineClient
 from Cereweb import utils
 from Cereweb.Session import Session
-import Cereweb.SpineClient
+from Cereweb.Options import Options
 from Cereweb.templates.Login import Login
 
 def index(req, username='', password='', redirect=utils.url('/index')):
@@ -50,6 +49,7 @@ def index(req, username='', password='', redirect=utils.url('/index')):
             req.session['session'] = session
             req.session['username'] = username
             req.session['timeout'] = session.get_timeout()
+            req.session['options'] = Options(session, username)
             req.session.save()
             
             #redirect to the main page and start using the cereweb.publisher.

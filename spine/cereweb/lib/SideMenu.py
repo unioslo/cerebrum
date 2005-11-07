@@ -44,7 +44,7 @@ class SideMenu(FixUrlMixin, Menu.Menu):
         self.makeHost()
         self.makeDisk()
         self.makeEmail()
-        #self.makeOptions()
+        self.makeOptions()
         self.makeLogout()
 
     def makePerson(self):
@@ -105,8 +105,6 @@ class SideMenu(FixUrlMixin, Menu.Menu):
 
     def makeOptions(self):
         self.options = self.addItem("options", _("Options") ,"options")
-        self.options.addItem("view", _("View") ,"options/view")
-        self.options.addItem("edit", _("Edit") ,"options/edit")
 
     def makeLogout(self):
         self.logout = self.addItem("logout", _("Logout") ,"logout")
