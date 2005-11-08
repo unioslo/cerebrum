@@ -48,6 +48,7 @@ delete_groups = 0
 debug = False
 passwords = {}
 
+
 def quick_user_sync():
 
     answer = cl.get_events('ad', (clco.group_add,
@@ -76,7 +77,7 @@ def quick_user_sync():
 	    except EOFError:
 		logger.warn('picle.load EOFError on change_id: %s' % ans['change_id'])
 		continue
-            if change_pw(ans['subject_entity'],change_params):
+            if change_pw(ans['subject_entity'],change_params,ans['change_program']):
 		cl.confirm_event(ans)
 	    else:
 		logger.warn('Failed changing password for %s ' % ans['subject_entity'])
@@ -461,7 +462,7 @@ def group_rem(account_name,group_name):
     return False
 
 
-def change_pw(account_id,pw_params):
+def change_pw(account_id,pw_params,change_prog):
 
     account.clear()
     account.find(account_id)
@@ -471,27 +472,43 @@ def change_pw(account_id,pw_params):
 	logger.debug('change_pw:Account %s is expired' % account_id)
 	return True
 
-    if account.has_spread(int(co.spread_uio_ad_account)):
-    	user = id_to_name(account_id,'user')
-    	if not user:
-	    logger.debug('change_pw:Could not resolve name: %s' % account_id)
-	    return False	
+    user = id_to_name(account_id,'user')
+    if not user:
+	logger.debug('change_pw:Could not resolve name: %s' % account_id)
+   	return False	
+        
+    sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, user))
+    ou_in_ad = sock.read()[0]
+        
+    if ou_in_ad[0:3] != '210':
 
-        sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, user))
-        ou_in_ad = sock.read()[0]
-        if ou_in_ad[0:3] != '210':
+	if account.has_spread(int(co.spread_uio_ad_account)):	
 	    # The change password entry in the changelog appear before 
 	    # add spread, we then build the user and set the pw.
-	    if build_user(account_id):	
-		return True
-
+            if build_user(account_id):	
+	        return True
+	elif change_prog == cereconf.AD_PW_EXCEPTION:
+	    # Password change by process_students. Create disabled account to keep password changes.    
+	    sock.send('NEWUSR&LDAP://OU=%s,%s&%s&%s\n' % ( cereconf.AD_PW_EXCEPTION_OU, cereconf.AD_LDAP, user, user))
+    	    if sock.read() == ['210 OK']:
+		logger.debug('change_pw:pw_exception account %s created' % user)	
+	    else:
+		logger.debug('change_pw:failed create pw_exception account %s' % user)
+		return False	
+		
 	if set_pw(account_id,pw_params,user):	
-            return True	
-	return False
-    else:
-	#Not AD-spread, That's OK, do nothing and return True.
-	logger.debug('change_pw:Account %s not AD-spread' % account_id)
-	return True
+	    #Created account, now change the password.
+	    return True	
+
+    else:	
+	#Account in AD, we change the password.
+	if set_pw(account_id,pw_params,user):	
+	    return True	
+	
+    #The account is not in AD, not created with process_students, and not AD_spread.
+    #That is OK, so we return true.	
+    logger.debug('change_pw:Account %s no change criteria kicked in.' % account_id)
+    return True
 
 
 
