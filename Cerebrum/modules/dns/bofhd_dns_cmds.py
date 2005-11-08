@@ -114,6 +114,7 @@ class BofhdExtension(object):
         ("nett", "NET\tNET"),
         ("mac", "MAC\tDARWIN"),
         ("other", "OTHER\tOTHER"),
+        ("dhcp", "DHCP\tDHCP"),
         )
 
     def __new__(cls, *arg, **karg):
@@ -526,17 +527,18 @@ class BofhdExtension(object):
             ret = []
             for a in arecord.list_ext(ip_number_id=owner_id):
                 ret.append({'ip': a['a_ip'], 'name': a['name']})
-            return ret
-        if host_id.startswith('ptr:'):
-            owner_id = self._find.find_target_by_parsing(
-                host_id[4:], dns.IP_NUMBER)
+
             ip = IPNumber.IPNumber(self.db)
-            ret = []
+            added_rev = False
             for row in ip.list_override(ip_number_id=owner_id):
                 ret.append({'rev_ip': row['a_ip'],
                             'rev_name': row['name']})
+                added_rev = True
             if not ret:
-                return "using default PTR from A-record"
+                self.logger.warn("Nothing known about '%s'?" % host_id)
+            if not added_rev:
+                ret.append({'rev_ip': host_id,
+                            'rev_name': "using default PTR from A-record"})
             return ret
 
         owner_id = self._find.find_target_by_parsing(
@@ -717,21 +719,18 @@ class BofhdExtension(object):
 
     # host ptr_add
     all_commands['host_ptr_add'] = Command(
-        ("host", "ptr_add"), HostId(), HostName(), Force(optional=True))
+        ("host", "ptr_add"), Ip(), HostName(), Force(optional=True))
     def host_ptr_add(self, operator, ip_host_id, dest_host, force=False):
         force = self.dns_parser.parse_force(force)
-        ip_owner_id = self._find.find_target_by_parsing(
-            ip_host_id, dns.IP_NUMBER)
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
-        self.mb_utils.add_revmap_override(
-            ip_owner_id, dest_host, force)
+        self.mb_utils.add_revmap_override(ip_host_id, dest_host, force)
         return "OK, added reversemap override for %s -> %s" % (
             ip_host_id, dest_host)
 
     # host ptr_remove
     all_commands['host_ptr_remove'] = Command(
-        ("host", "ptr_remove"), HostId(), HostName())
+        ("host", "ptr_remove"), Ip(), HostName())
     def host_ptr_remove(self, operator, ip_host_id, dest_host, force=False):
         force = self.dns_parser.parse_force(force)
         ip_owner_id = self._find.find_target_by_parsing(
