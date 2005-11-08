@@ -30,8 +30,6 @@ from Cereweb.templates.DiskViewTemplate import DiskViewTemplate
 from Cereweb.templates.DiskEditTemplate import DiskEditTemplate
 from Cereweb.templates.DiskCreateTemplate import DiskCreateTemplate
 
-import Cereweb.config
-display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     return search(req)
@@ -64,6 +62,7 @@ def search(req, transaction, offset=0, **vargs):
         disks = disksearcher.search()
 
         result = []
+        display_hits = req.session['options'].getint('search', 'display hits')
         for disk in disks[:display_hits]:
             path = object_link(disk, text=disk.get_path())
             host = object_link(disk.get_host())
@@ -74,12 +73,15 @@ def search(req, transaction, offset=0, **vargs):
 
         headers = [('Path', 'path'), ('Host', ''), 
                    ('Description', 'description'), ('Actions', '')]
-        table = SearchResultTemplate().view(result, headers, arguments,
-                    values, len(disks), offset, searchform, 'disk/search')
+
+        template = SearchResultTemplate()
+        table = template.view(result, headers, arguments, values,
+            len(disks), display_hits, offset, searchform, 'disk/search')
 
         page.content = lambda: table
     else:
-        if 'disk_ls' in req.session:
+        rmb_last = req.session['options'].getboolean('search', 'remember last')
+        if 'disk_ls' in req.session and rmb_last:
             values = req.session['disk_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form

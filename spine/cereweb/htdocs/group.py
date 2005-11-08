@@ -31,13 +31,11 @@ from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
 from Cereweb.templates.GroupEditTemplate import GroupEditTemplate
 from Cereweb.templates.GroupCreateTemplate import GroupCreateTemplate
 
-import Cereweb.config
-display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
-
 operations = {
     'union':'Union',
     'intersection':'Intersection',
-    'difference':'Difference'}
+    'difference':'Difference'
+}
 
 def index(req):
     """Redirects to the page with search for groups."""
@@ -97,6 +95,7 @@ def search(req, transaction, offset=0, **vargs):
         groups = search.search()
 
         result = []
+        display_hits = req.session['options'].getint('search', 'display hits')
         for group in groups[:display_hits]:
             edit = str(object_link(group, text='edit', method='edit', _class='actions'))
             remb = str(remember_link(group, _class='actions'))
@@ -104,12 +103,15 @@ def search(req, transaction, offset=0, **vargs):
 
         headers = [('Group name', 'name'), ('Description', 'description'),
                    ('Actions', '')]
-        table = SearchResultTemplate().view(result, headers, arguments,
-                    values, len(groups), offset, searchform, 'group/search')
+
+        template = SearchResultTemplate()
+        table = template.view(result, headers, arguments, values,
+            len(groups), display_hits, offset, searchform, 'group/search')
 
         page.content = lambda: table
     else:
-        if 'group_ls' in req.session:
+        rmb_last = req.session['options'].getboolean('search', 'remember last')
+        if 'group_ls' in req.session and rmb_last:
             values = req.session['group_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form

@@ -29,13 +29,15 @@
 #attr max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
 
 ## Number of hints to display in the searchresult.
-#attr display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
+#attr display_hits = 10
 
 
 ## Creates a table with the result from the search.
-#def view($result, $headers, $args, $values, $hits, $offset, $form, $page)
+#def view($result, $headers, $args, $values, $hits,
+          $display_hits, $offset, $form, $page)
 #if $result
 <div class="searchresult">
+    #set self.display_hits = $display_hits
     #set $offset = $int($offset)
     #set $hits = $hits + $offset
     #set $range = '%s-%s' % ($offset, $len($result) + $offset)

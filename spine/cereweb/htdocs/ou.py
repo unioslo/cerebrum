@@ -31,8 +31,6 @@ from Cereweb.templates.OUTreeTemplate import OUTreeTemplate
 from Cereweb.templates.OUEditTemplate import OUEditTemplate
 from Cereweb.templates.OUViewTemplate import OUViewTemplate
 
-import Cereweb.config
-display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     return search(req)
@@ -96,6 +94,7 @@ def search(req, transaction, offset=0, **vargs):
         ous = search.search()
     
         result = []
+        display_hits = req.session['options'].getint('search', 'display hits')
         for ou in ous[:display_hits]:
             link = object_link(ou, text=_get_display_name(ou))
             edit = str(object_link(ou, text='edit', method='edit', _class='actions'))
@@ -104,12 +103,15 @@ def search(req, transaction, offset=0, **vargs):
        
         headers = [('Name', 'name'), ('Acronym', 'acronym'),
                    ('Short name', 'short_name'), ('Actions', '')]
-        table = SearchResultTemplate().view(result, headers, arguments,
-                    values, len(ous), offset, searchform, 'ou/search')
+        
+        template = SearchResultTemplate()
+        table = template.view(result, headers, arguments, values,
+            len(ous), display_hits, offset, searchform, 'ou/search')
 
         page.content = lambda: table
     else:
-        if 'ou_ls' in req.session:
+        rmb_last = req.session['options'].getboolean('search', 'remember last')
+        if 'ou_ls' in req.session and rmb_last:
             values = req.session['ou_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form

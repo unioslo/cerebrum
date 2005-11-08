@@ -31,9 +31,6 @@ from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
 from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
 from Cereweb.templates.PersonCreateTemplate import PersonCreateTemplate
 
-import Cereweb.config
-display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
-
 def index(req):
     """Redirects to the search for person page."""
     return search(req)
@@ -89,6 +86,7 @@ def search(req, transaction, offset=0, **vargs):
         persons = search.search()
 
         result = []
+        display_hits = req.session['options'].getint('search', 'display hits')
         for person in persons[:display_hits]:
             date = person.get_birth_date().strftime('%Y-%m-%d')
             accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]
@@ -99,12 +97,15 @@ def search(req, transaction, offset=0, **vargs):
 
         headers = [('Name', ''), ('Date of birth', 'birth_date'),
                    ('Account(s)', ''), ('Actions', '')]
-        table = SearchResultTemplate().view(result, headers, arguments,
-                    values, len(persons), offset, searchform, 'person/search')
+
+        template = SearchResultTemplate()
+        table = template.view(result, headers, arguments, values,
+            len(persons), display_hits, offset, searchform, 'person/search')
 
         page.content = lambda: table
     else:
-        if 'person_ls' in req.session:
+        rmb_last = req.session['options'].getboolean('search', 'remember last')
+        if 'person_ls' in req.session and rmb_last:
             values = req.session['person_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form

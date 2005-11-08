@@ -32,8 +32,6 @@ from Cereweb.templates.AccountEditTemplate import AccountEditTemplate
 from Cereweb.templates.AccountCreateTemplate import AccountCreateTemplate
 from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
 
-import Cereweb.config
-display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     """Redirects to the page with search for accounts."""
@@ -94,6 +92,7 @@ def search(req, transaction, offset=0, **vargs):
         accounts = search.search()
   
         result = []
+        display_hits = req.session['options'].getint('search', 'display hits')
         for account in accounts[:display_hits]:
             link = object_link(account)
             owner = object_link(account.get_owner())
@@ -105,12 +104,15 @@ def search(req, transaction, offset=0, **vargs):
 
         headers = [('Name', 'name'), ('Owner', ''), ('Create date', 'create_date'),
                    ('Expire date', 'expire_date'), ('Actions', '')]
-        table = SearchResultTemplate().view(result, headers, arguments,
-                    values, len(accounts), offset, searchform, 'account/search')
+        
+        template = SearchResultTemplate()
+        table = template.view(result, headers, arguments, values,
+            len(accounts), display_hits, offset, searchform, 'account/search')
 
         page.content = lambda: table
     else:
-        if 'account_ls' in req.session:
+        rmb_last = req.session['options'].getboolean('search', 'remember last')
+        if 'account_ls' in req.session and rmb_last:
             values = req.session['account_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form

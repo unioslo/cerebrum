@@ -24,7 +24,6 @@ from Cereweb.utils import url
 
 import Cereweb.config
 max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
-display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def get_arg_values(args, vargs):
     """Returns a list containing the values sorted by attr.

@@ -31,7 +31,7 @@
     #for $section in $options.sections()
         <tr>
             <th colspan="3" align="left">
-                $section
+                $section.capitalize()
             </th>
         </tr>
         #if $options.has_option($section, $section+'_help')

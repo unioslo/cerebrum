@@ -30,8 +30,6 @@ from Cereweb.templates.HostViewTemplate import HostViewTemplate
 from Cereweb.templates.HostEditTemplate import HostEditTemplate
 from Cereweb.templates.HostCreateTemplate import HostCreateTemplate
 
-import Cereweb.config
-display_hits = Cereweb.config.conf.getint('cereweb', 'display_hits')
 
 def index(req):
     """Redirects to the page with search for hosts."""
@@ -65,6 +63,7 @@ def search(req, transaction, offset=0, **vargs):
         hosts = searcher.search()
 
         result = []
+        display_hits = req.session['options'].getint('search', 'display hits')
         for host in hosts[:display_hits]:
             edit = object_link(host, text='edit', method='edit', _class='actions')
             remb = remember_link(host, _class='actions')
@@ -73,12 +72,15 @@ def search(req, transaction, offset=0, **vargs):
     
         headers = [('Name', 'name'), ('Description', 'description'),
                    ('Actions', '')]
-        table = SearchResultTemplate().view(result, headers, arguments,
-                    values, len(hosts), offset, searchform, 'host/search')
+
+        template = SearchResultTemplate()
+        table = template.view(result, headers, arguments, values,
+            len(hosts), display_hits, offset, searchform, 'host/search')
         
         page.content = lambda: table
     else:
-        if 'host_ls' in req.session:
+        rmb_last = req.session['options'].getboolean('search', 'remember last')
+        if 'host_ls' in req.session and rmb_last:
             values = req.session['host_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form
