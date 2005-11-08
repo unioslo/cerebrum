@@ -138,7 +138,7 @@ class DnsBofhdUtils(object):
         dta = dta.strip()
         if note_type == self.const.note_type_contact:
             mail_ok_re = re.compile(
-                r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$') 
+                cereconf.DNS_EMAIL_REGEXP) 
             if dta and not mail_ok_re.match(dta):
                 raise DNSError("'%s' does not look like an e-mail address" % dta)
         self._dns_owner.clear()
@@ -369,12 +369,22 @@ class DnsBofhdUtils(object):
                 dest_host = self._dns_owner.entity_id
             except Errors.NotFoundError:
                 if not force:
-                    raise CerebrumError, "Target does not exist, must force (y)"
-                dest_host  = self.alloc_dns_owner(host_name)
+                    raise CerebrumError(
+                        "'%s' does not exist, must force (y)" % dest_host)
+                dest_host  = self.alloc_dns_owner(dest_host)
         else:
             dest_host = None
-        self._update_helper.add_reverse_override(
-            ip_host_id, dest_host)
+
+        try:
+            ip_owner_id = self._find.find_target_by_parsing(
+                ip_host_id, dns.IP_NUMBER)
+        except (Errors.NotFoundError, CerebrumError):
+            if not force:
+                raise CerebrumError(
+                    "IP '%s' does not exist, must force (y)" % ip_host_id)
+            ip_owner_id = self.alloc_ip(ip_host_id)
+            
+        self._update_helper.add_reverse_override(ip_owner_id, dest_host)
 
     def remove_revmap_override(self, ip_host_id, dest_host_id):
         self._update_helper.remove_reverse_override(
