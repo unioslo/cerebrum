@@ -160,6 +160,7 @@ class Updater(object):
         dns_owner and ip_number entries if they are no longer in
         use."""
         ipnumber = IPNumber.IPNumber(self._db)
+        ipnumber.find(ip_number_id)
         ipnumber.delete_reverse_override(ip_number_id, dest_host)
 
         refs = self._find.find_referers(ip_number_id=ip_number_id)
