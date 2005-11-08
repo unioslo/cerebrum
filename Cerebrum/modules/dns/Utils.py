@@ -236,12 +236,21 @@ class Find(object):
                 raise CerebrumError, "Not unique name for ip-number: %s" % host_id
             return self._arecord.dns_owner_id
 
+        failed = []
+        if host_id[-1] != '.':
+            self._dns_owner.clear()
+            try:
+                self._dns_owner.find_by_name(host_id+'.')
+                host_id = host_id+'.'
+            except Errors.NotFoundError:
+                failed.append(host_id+'.')
         host_id = self._dns_parser.qualify_hostname(host_id)
         self._dns_owner.clear()
         try:
             self._dns_owner.find_by_name(host_id)
         except Errors.NotFoundError:
-            raise CerebrumError, "'%s' does not exist" % host_id
+            failed.append(host_id)
+            raise CerebrumError, "'%s' does not exist" % "/".join(failed)
         
         if target_type == dns.DNS_OWNER:
             return self._dns_owner.entity_id
