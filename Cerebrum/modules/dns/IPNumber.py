@@ -144,6 +144,7 @@ class IPNumber(DatabaseAccessor):
         %s""" % where, {'start': start, 'stop': stop})
 
     def delete(self):
+        assert self.ip_number_id
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_ip_number]
         WHERE ip_number_id=:ip_number_id""", {'ip_number_id': self.ip_number_id})
