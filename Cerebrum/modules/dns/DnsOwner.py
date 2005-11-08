@@ -335,6 +335,8 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
     def search(self, name_like=None):
         if name_like is not None:
             where = "AND en.entity_name like :name_like"
+        else:
+            where = ""
         return self.query("""
         SELECT dns_owner_id, mx_set_id, en.entity_name AS name
         FROM [:table schema=cerebrum name=dns_owner] d,
