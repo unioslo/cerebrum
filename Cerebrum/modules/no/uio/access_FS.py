@@ -69,8 +69,9 @@ class UiOStudent(access_FS.Student):
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist = 'N' AND
            sps.dato_studierett_tildelt < SYSDATE + 14 AND
-           sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
-           """ % extra
+           sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd') AND
+           %s
+           """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
 
     def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
@@ -103,7 +104,8 @@ class UiOStudent(access_FS.Student):
            NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
-           sp.studienivakode >= 980""" % extra
+           sp.studienivakode >= 980 AND
+           %s""" % (extra, self._is_alive())
         return self.db.query(qry, locals())
 
     def _list_gammelopptak_semreg(self, fodselsdato=None, personnr=None):
@@ -137,7 +139,8 @@ class UiOStudent(access_FS.Student):
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist = 'N' AND
-           r.arstall >= (%s - 1)""" % (extra, self.year)
+           r.arstall >= (%s - 1) AND
+           %s""" % (extra, self.year, self._is_alive())
         return self.db.query(qry, locals())
 
     def list_aktiv(self, **kwargs):  # GetStudentAktiv_50
