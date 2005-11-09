@@ -1474,6 +1474,13 @@ class AccountEmailMixin(Account.Account):
                 ea.find(row['address_id'])
                 ea.email_addr_expire_date = expire_date
                 ea.write_db()
+        # Active accounts shouldn't have an alias value (it is used
+        # for failure messages)
+        if changed and target_type == self.const.email_target_account:
+            if et.email_target_alias is not None:
+                et.email_target_alias = None
+                et.write_db()
+
         if target_type == self.const.email_target_deleted:
             return
         # Until a user's email target is associated with an email
