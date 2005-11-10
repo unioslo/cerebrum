@@ -2848,9 +2848,22 @@ class BofhdExtension(object):
                 pg.delete()
             except CerebrumError:
                 pass   # Not a PosixGroup
+            except self.db.DatabaseError, msg:
+                if str(msg).find("posix_user_gid"):
+                    raise CerebrumError(
+                        "Posix users has group as primary group.  "+
+                        "Use 'group list %s'" % grp.group_name)
+                raise
         self._remove_auth_target("group", grp.entity_id)
         self._remove_auth_role(grp.entity_id)
-        grp.delete()
+        try:
+            grp.delete()
+        except self.db.DatabaseError, msg:
+            if str(msg).find("group_member_exists"):
+                raise CerebrumError(
+                    "Group is member of groups.  "+
+                    "Use 'group memberships group %s'" % grp.group_name)
+            raise
         return "OK, deleted group '%s'" % groupname
 
     # group remove
@@ -3179,16 +3192,17 @@ class BofhdExtension(object):
         grp.write_db()
         return "OK, set visibility for '%s'" % group
 
-    # group user
-    all_commands['group_user'] = Command(
-        ('group', 'user'), AccountName(), fs=FormatSuggestion(
+    # group memberships
+    all_commands['group_memberships'] = Command(
+        ('group', 'memberships'), EntityType(default="account"), Id(),
+        fs=FormatSuggestion(
         "%-9s %-18s %s", ("memberop", "group", "spreads"),
         hdr="%-9s %-18s %s" % ("Operation", "Group", "Spreads")))
-    def group_user(self, operator, accountname):
-        account = self._get_account(accountname)
+    def group_memberships(self, operator, entity_type, id):
+        entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
         ret = []
-        for row in group.list_groups_with_entity(account.entity_id):
+        for row in group.list_groups_with_entity(entity.entity_id):
             grp = self._get_group(row['group_id'], idtype="id")
             ret.append({'memberop': str(self.num2const[int(row['operation'])]),
                         'entity_id': grp.entity_id,
