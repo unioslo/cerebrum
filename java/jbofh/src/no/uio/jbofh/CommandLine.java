@@ -136,7 +136,7 @@ public class CommandLine {
                 if(chars[i] == '\'' || chars[i] == '"') {
                     pstart = i+1;
                     quote = new Character(chars[i]);
-                } else if(chars[i] == ' ' || chars[i] == '(' || chars[i] == ')') {                
+                } else if(chars[i] == ' ' || chars[i] == '\t' || chars[i] == '(' || chars[i] == ')') {                
                     if(i > pstart) {
                         curApp.add(new String(str.substring(pstart, i)));
                     }
