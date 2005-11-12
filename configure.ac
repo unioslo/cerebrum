@@ -74,8 +74,6 @@ AC_CONFIG_FILES([
     spine/cereweb/Makefile
     spine/cereweb/htdocs/Makefile
     spine/cereweb/htdocs/css/Makefile
-    spine/cereweb/htdocs/jscript/Makefile
-    spine/cereweb/htdocs/img/Makefile
     spine/cereweb/lib/Makefile
     spine/cereweb/lib/templates/Makefile
 	cerebrum_path.py
