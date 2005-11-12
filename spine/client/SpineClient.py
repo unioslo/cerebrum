@@ -24,7 +24,6 @@ import sys
 import urllib
 
 from omniORB import CORBA, sslTP, importIDL, importIDLString
-import config
 
 def fixOmniORB():
     """Workaround for bugs in omniorb
@@ -126,8 +125,8 @@ class SpineClient:
         print>>sys.stderr, '- downloading source'
         source = spine.get_idl()
         print>>sys.stderr, '- (%s bytes)' % len(source)
-        if not os.path.exists(config.idl_path):
-            os.makedirs(config.idl_path)
+        if not os.path.exists(self.idl_path):
+            os.makedirs(self.idl_path)
         fd = open(self.idl_file, 'w')
         fd.write(source)
         fd.close()
