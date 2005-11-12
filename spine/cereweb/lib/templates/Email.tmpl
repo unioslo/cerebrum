@@ -16,11 +16,11 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, object_link, object_url
-#from Cereweb.WorkList import remember_link
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
-#from Cereweb.SpineIDL.Errors import NotFoundError
+#from SpineIDL.Errors import NotFoundError
 
 #from EmailDomain import EmailDomain
 #attr $email_domain = EmailDomain()
@@ -29,7 +29,7 @@
 #attr $email_target = EmailTarget()
 
 ## Overloaded by other pages to get the right url.
-#attr $page_url = "email"
+#attr $page_url = "/email"
 
 ## Main method for creating the ou view page.
 #def index($transaction)

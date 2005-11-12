@@ -20,10 +20,9 @@
 
 import forgetHTML as html
 from gettext import gettext as _
-from Cereweb.utils import url
 
-import Cereweb.config
-max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+import config
+max_hits = config.conf.getint('cereweb', 'max_hits')
 
 def get_arg_values(args, vargs):
     """Returns a list containing the values sorted by attr.
@@ -95,7 +94,7 @@ def create_table_headers(headers, args, values, page):
     for that particular header and optionaly the name for the attribute
     it should be sorted after.
     """
-    link = url(page)
+    link = page
 
     new_headers = []
     for header, orderby in headers:

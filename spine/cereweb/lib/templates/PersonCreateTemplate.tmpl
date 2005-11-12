@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -28,7 +27,7 @@
 
 ## Url to go to when the form for creating the person is submittet.
 #def getAction
-    #return $url("person/make")
+    #return '/person/make'
 #end def
 
 ## The main method for creating the form for the person create page.
@@ -37,7 +36,8 @@
     <form action="$getAction()" method="POST">
         <div class="createform">
             #set $fv = $formvalues
-            $form_widgets.input("name", "Full name", $fv.get("name", ""))
+            $form_widgets.input("firstname", "First name", $fv.get("name", ""))
+            $form_widgets.input("lastname", "Last name", $fv.get("name", ""))
             $form_widgets.generate_loption("gender", "Gender",
                                            $genders, $fv.get("gender", ""))
             $form_widgets.input("birthdate", "Birthdate *", $fv.get("birthdate", ""))

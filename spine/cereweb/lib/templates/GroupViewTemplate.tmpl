@@ -17,9 +17,9 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from Cereweb.TableView import TableView
-#from Cereweb.utils import url, object_link
-#from Cereweb.WorkList import remember_link
+#from lib.TableView import TableView
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
 #from MemberTableTemplate import MemberTableTemplate
 #from EmailTarget import EmailTarget
 
@@ -82,8 +82,7 @@ $derivedMembers($group)
                        operation=$operation,
                        member=$member.get_member())
         #end for
-        $MemberTableTemplate().sorted_table($table, $headers, 
-                                $url("blapp=%s"), $url("blupp=%s"))
+        $MemberTableTemplate().sorted_table($table, $headers, 'blapp=%s', 'blupp=%s')
     </div>
 #end def
 
@@ -134,19 +133,19 @@ $derivedMembers($group)
         </div>
     </div>
     <div class="actions">
-        #set $edit = $url("group/edit?id=%i" % $group.get_id())
+        #set $edit = '/group/edit?id=%i' % $group.get_id()
         <a href="$edit">$_("Edit")</a>
         #if $group.is_posix()
-            #set $posix = $url("group/posix_demote?id=%i" % $group.get_id())
+            #set $posix = '/group/posix_demote?id=%i' % $group.get_id()
             <a href="$posix">$_("Demote from Posix")</a>
         #else
-            #set $posix = $url("group/posix_promote?id=%i" % $group.get_id())
+            #set $posix = '/group/posix_promote?id=%i' % $group.get_id()
             <a href="$posix">$_("Promote to Posix")</a>
         #end if
-        #set $delete = $url("group/delete?id=%i" % $group.get_id())
+        #set $delete = '/group/delete?id=%i' % $group.get_id()
         <a href="$delete">$_("Remove")</a>
         $remember_link($group)
-        #set $create_acc = $url("account/create?owner=%i" % $group.get_id())
+        #set $create_acc = 'account/create?owner=%i' % $group.get_id()
         <a href="$create_acc">$_("Create group account")</a>
     </div>
 </div>

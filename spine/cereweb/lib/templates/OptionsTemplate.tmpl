@@ -17,8 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from FormWidgets import FormWidgets
-#from Cereweb.utils import url
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #attr $form_widgets = FormWidgets()
@@ -26,7 +25,7 @@
 ## Display form for setting options.
 #def options($options)
 <div class="options">
-    <form action="$url('options/save')" method="POST">
+    <form action="/options/save" method="POST">
     <table>
     #for $section in $options.sections()
         <tr>

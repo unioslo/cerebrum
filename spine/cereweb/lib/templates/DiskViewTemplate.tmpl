@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, object_link
-#from Cereweb.WorkList import remember_link
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
 #extends EntityViewTemplate
 
 ## Main method for creating the disk view page.
@@ -47,8 +47,8 @@ $view_entity($disk, $transaction)
     </div>
     <div class="actions">
         #set $id = $disk.get_id()
-        <a href="$url('disk/edit?id=%s' % $id)">$_("edit disk")</a>
-        <a href="$url('disk/delete?id=%s' % $id)">$_("delete disk")</a>
+        <a href="'/disk/edit?id=%s' % $id">$_("edit disk")</a>
+        <a href="'/disk/delete?id=%s' % $id">$_("delete disk")</a>
         $remember_link($disk)
     </div>
 </div>

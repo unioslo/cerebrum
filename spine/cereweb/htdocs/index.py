@@ -18,15 +18,37 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 import forgetHTML as html
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import transaction_decorator, url, commit_url
-from Cereweb.templates.MotdTemplate import MotdTemplate
-from Cereweb.templates.ActivityLogTemplate import ActivityLogTemplate
 
-def index(req, transaction):
-    page = Main(req)
+from lib.Main import Main
+from lib.utils import transaction_decorator, commit_url
+from lib.templates.MotdTemplate import MotdTemplate
+from lib.templates.ActivityLogTemplate import ActivityLogTemplate
+
+from login import login, logout
+
+import account
+import disk
+import emaildomain
+import email
+import emailtarget
+import entity
+import error
+import group
+import host
+import note
+import options
+import ou
+import person
+import quarantine
+import worklist
+
+
+def index(transaction):
+    page = Main()
     page.title = _("Welcome to Cereweb")
     motd = MotdTemplate()
     
@@ -37,9 +59,10 @@ def index(req, transaction):
     page.content = lambda: content
     return page
 index = transaction_decorator(index)
+index.exposed = True
 
-def all_motds(req, transaction):
-    page = Main(req)
+def all_motds(transaction):
+    page = Main()
     page.title = _("Messages of the day")
     motd = MotdTemplate()
     
@@ -49,38 +72,45 @@ def all_motds(req, transaction):
     page.content = lambda: content
     return page
 all_motds = transaction_decorator(all_motds)
+all_motds.exposed = True
 
-def create_motd(req, transaction, subject, message):
+def create_motd(transaction, subject, message):
     """Create a new motd."""
     transaction.get_commands().create_cereweb_motd(subject, message)
     msg = _('Motd successfully created.')
-    commit_url(transaction, req, url('index'), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 create_motd = transaction_decorator(create_motd)
+create_motd.exposed = True
 
-def edit_motd(req, transaction, id, subject, message):
+def edit_motd(transaction, id, subject, message):
     """Delete and recreate the motd to the server."""
     motd = transaction.get_cereweb_motd(int(id))
     motd.delete()
     transaction.get_commands().create_cereweb_motd(subject, message)
     msg = _('Motd successfully updated.')
-    commit_url(transaction, req, url('index'), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 edit_motd = transaction_decorator(edit_motd)
+edit_motd.exposed = True
 
-def delete_motd(req, transaction, id):
+def delete_motd(transaction, id):
     """Delete the Motd from the server."""
     motd = transaction.get_cereweb_motd(int(id))
     msg = _("Motd '%s' successfully deleted.") % motd.get_subject()
     motd.delete()
-    commit_url(transaction, req, url('index'), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 delete_motd = transaction_decorator(delete_motd)
+delete_motd.exposed = True
 
-def full_activitylog(req):
-    messages = req.session.get('al_messages', [])
-    page = Main(req)
+def full_activitylog():
+    messages = cherrypy.session.get('al_messages', [])
+    page = Main()
     page.title = _("Activity log")
     log = ActivityLogTemplate()
     content = log.full_activitylog(messages[::-1])
     page.content = lambda: content
     return page
+full_activitylog.exposed = True
+
+__module__ = 'htdocs.index'
 
 # arch-tag: d11bf90a-f730-4568-9234-3fc494982911

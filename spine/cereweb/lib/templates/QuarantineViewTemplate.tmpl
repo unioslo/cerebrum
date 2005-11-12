@@ -16,13 +16,12 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
-#from Cereweb.utils import strftime
-#from Cereweb.TableView import TableView
+#from lib.utils import strftime, object_link
+#from lib.TableView import TableView
 #from MemberTableTemplate import MemberTableTemplate
 #from SortedTableTemplate import SortedTableTemplate
-#from Cereweb.utils import url, object_link
 
 #def view_quarantines($entity)
 <div class="quarantines">
@@ -39,10 +38,10 @@
             #set $end = $strftime($quarantine.get_end_date())
             #set $disable_until = $strftime($quarantine.get_disable_until())
             #set $type = $quarantine.get_type().get_name()
-            #set $edit = $url('quarantine/edit?entity=%s&type=%s' % ($entity_id, $type))
-            #set $edit = "<a href='%s' class='actions'>%s</a>" % ($edit, $_("Edit"))
-            #set $remove = $url('quarantine/remove?entity=%s&type=%s' % ($entity_id, $type))
-            #set $remove= "<a href='%s' class='actions'>%s</a>" % ($remove, $_("Remove"))
+            #set $edit = '/quarantine/edit?entity=%s&type=%s' % ($entity_id, $type)
+            #set $edit = '<a href="%s" class="actions">%s</a>' % ($edit, $_("Edit"))
+            #set $remove = '/quarantine/remove?entity=%s&type=%s' % ($entity_id, $type)
+            #set $remove= '<a href="%s" class="actions">%s</a>' % ($remove, $_("Remove"))
             $table.add($type, $start, $end, $disable_until,
                        $object_link($quarantine.get_creator()),
                        $quarantine.get_description(), $edit, $remove)
@@ -53,7 +52,7 @@
                     disable_until=$_("Disabled until"), who=$_("Registered by"),
                     why=$_("Description"), edit="", remove="")
     #end if
-    #set $addurl = $url('quarantine/add?entity=%s' % $entity_id)
+    #set $addurl = "/quarantine/add?entity=%s" % $entity_id
     <div>
         <a href="$addurl" class="actions">Add new quarantine</a>
     </div>

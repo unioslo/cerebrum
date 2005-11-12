@@ -18,19 +18,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 import forgetHTML as html
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import transaction_decorator, commit
-from Cereweb.utils import redirect_object, object_link
-from Cereweb.HistoryLog import view_history
+from lib.Main import Main
+from lib.utils import transaction_decorator, commit
+from lib.utils import redirect_object, object_link
+from lib.HistoryLog import view_history
 
-def view(req, transaction, id):
+def view(transaction, id):
     entity = transaction.get_entity(int(id))
-    redirect_object(req, entity, seeOther=True)
+    redirect_object(entity)
 view = transaction_decorator(view)
+view.exposed = True
 
-def add_external_id(req, transaction, id, external_id, id_type):
+def add_external_id(transaction, id, external_id, id_type):
     entity = transaction.get_entity(int(id))
     id_type = transaction.get_entity_external_id_type(id_type)
     source_system = transaction.get_source_system("Manual")
@@ -38,10 +41,11 @@ def add_external_id(req, transaction, id, external_id, id_type):
 
     #TODO: Redirect to where we actualy came from.
     msg = _("External id successfully added.")
-    commit(transaction, req, entity, msg=msg)
+    commit(transaction, entity, msg=msg)
 add_external_id = transaction_decorator(add_external_id)
+add_external_id.exposed = True
 
-def remove_external_id(req, transaction, id, external_id, id_type):
+def remove_external_id(transaction, id, external_id, id_type):
     entity = transaction.get_entity(int(id))
     id_type = transaction.get_entity_external_id_type(id_type)
     source_system = transaction.get_source_system("Manual")
@@ -49,52 +53,57 @@ def remove_external_id(req, transaction, id, external_id, id_type):
 
     #TODO: Redirect to where we actualy came from.
     msg = _("External id successfully removed.")
-    commit(transaction, req, entity, msg=msg)
+    commit(transaction, entity, msg=msg)
 remove_external_id = transaction_decorator(remove_external_id)
+remove_external_id.exposed = True
 
-def add_spread(req, transaction, id, spread):
+def add_spread(transaction, id, spread):
     entity = transaction.get_entity(int(id))
     spread = transaction.get_spread(spread)
     entity.add_spread(spread)
 
     #TODO: Redirect to where we actualy came from.
     msg = _("Spread successfully added.")
-    commit(transaction, req, entity, msg=msg)
+    commit(transaction, entity, msg=msg)
 add_spread = transaction_decorator(add_spread)
+add_spread.exposed = True
 
-def remove_spread(req, transaction, id, spread):
+def remove_spread(transaction, id, spread):
     entity = transaction.get_entity(int(id))
     spread = transaction.get_spread(spread)
     entity.delete_spread(spread)
 
     #TODO: Redirect to where we actualy came from.
     msg = _("Spread successfully removed.")
-    commit(transaction, req, entity, msg=msg)
+    commit(transaction, entity, msg=msg)
 remove_spread = transaction_decorator(remove_spread)
+remove_spread.exposed = True
 
-def clear_search(req, url):
+def clear_search(url):
     """Resets the lastsearch for cls."""
     cls = url.split('/')[-2] # seccond last part should be the class.
     lastsearch = cls + '_ls'
-    if lastsearch in req.session:
-        del req.session[lastsearch]
+    if lastsearch in cherrypy.session:
+        del cherrypy.session[lastsearch]
 
     page = html.SimpleDocument("Search reseted")
     msg = "Search for class '%s' reseted." % cls
     page.body.append(html.Division(msg))
     return page
+clear_search.exposed = True
 
-def full_historylog(req, transaction, id):
+def full_historylog(transaction, id):
     """Creates a page with the full historylog for an entity."""
     entity = transaction.get_entity(int(id))
     type = entity.get_type().get_name()
 
-    page = Main(req)
+    page = Main()
     page.title = type.capitalize() + ': ' + object_link(entity)
     page.setFocus('%s/view' % type, id)
     content = view_history(entity)
     page.content = lambda: content
     return page
 full_historylog = transaction_decorator(full_historylog)
+full_historylog.exposed = True
 
 # arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e

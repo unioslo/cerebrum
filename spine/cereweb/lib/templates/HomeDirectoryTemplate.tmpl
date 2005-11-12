@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -32,8 +31,8 @@
         $addForm($account, $transaction)
     #else
     <div class="actions">
-        #set $tmp_url = "account/view?id=%i&addHome=True" % $account.get_id()
-        <a href="$url(tmp_url)#homedir">$_("Set home directory")</a>
+        #set $tmp_url = "/account/view?id=%i&addHome=True" % $account.get_id()
+        <a href="$tmp_url#homedir">$_("Set home directory")</a>
     </div>
     #end if
 </div>
@@ -44,8 +43,8 @@
     <h2>$_("Home Directories"):</h2>
     #for $home in $account.get_homes()
     <div class="name">
-        #set $remove = $url('account/remove_home?id=%s&spread=%s' %
-                    ($account.get_id(), $home.get_spread().get_name()))
+        #set $remove = '/account/remove_home?id=%s&spread=%s' % (
+                    $account.get_id(), $home.get_spread().get_name())
         <em>$_("Spread"):</em> $home.get_spread().get_name()
         <a href="$remove" class="actions">$_("remove")</a><br />
         <em>$_("Home directory"):</em> $home.get_homedir().get_path()<br />
@@ -56,7 +55,7 @@
 
 ## Creates a form for adding a homedir to an account.
 #def addForm($entity, $tr)
-<form action="$url('account/set_home')" type="post">
+<form action="/account/set_home" type="post">
     <h2>$_("Set home directory"):</h2>
     <input type="hidden" name="id" value="$entity.get_id()" />
 
@@ -71,8 +70,8 @@
     $form_widgets.generate_loption("disk", "Disk", $disks)
     <div class="actions">
         <input type="submit" value="$_('Set')" />
-        #set $tmp_url = "account/view?id=%s" % $entity.get_id()
-        <a href="$url($tmp_url)#homedir">$_("Cancel")</a>
+        #set $tmp_url = '/account/view?id=%s' % $entity.get_id()
+        <a href="$tmp_url#homedir">$_("Cancel")</a>
     </div>
 </form>
 #end def

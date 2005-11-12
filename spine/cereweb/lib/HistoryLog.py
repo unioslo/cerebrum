@@ -18,10 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cereweb.TableView import TableView
-from Cereweb.utils import url
-from Cereweb.utils import object_link
-from Cereweb.templates.HistoryLogTemplate import HistoryLogTemplate
+from TableView import TableView
+from utils import object_link
+from templates.HistoryLogTemplate import HistoryLogTemplate
 
 def view_history_short(entity):
     # Could use some other template for 'short' view 
@@ -65,7 +64,7 @@ def _history_tableview(events):
                   # TODO: Should use hyperlinks on references 
 #                  message=change.message(object_wrapper), 
                   message=change.get_message(),
-                  icon='<img src=\"'+url("img/"+icon)+'\">') 
+                  icon='<img src=\"/img/%s\"' % icon) 
     return table        
         
 def get_icon_by_change_type(changetype):

@@ -17,8 +17,6 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends SearchTemplate
-#from Cereweb.utils import url
-
 
 #attr $fields = [ ("name", "Account name"),
                   ("spread", "Spread name"),
@@ -31,6 +29,6 @@
                "Expired date (YYYY-MM-DD, exact match)"]
 
 #def getAction
-$url("account/search")#slurp
+    #return '/account/search'
 #end def
 

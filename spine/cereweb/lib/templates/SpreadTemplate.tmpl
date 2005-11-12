@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -32,13 +31,14 @@
         <div class="actions">
             #set $name = $spread.get_name()
             $name - $spread.get_description() 
-            <a href="$url('entity/remove_spread?id=%s&spread=%s' % ($id, $name))">$_("Remove")</a>
+            <a href="/entity/remove_spread?id=$id&spread=$name">$_("Remove")</a>
         </div>
     </div>
     #end for
-    <form action="$url('entity/add_spread')" type="post">
+    <form action="/entity/add_spread" type="post">
         $form_widgets.generate_option("spread", $spreads_ids)
         <input type="hidden" name="id" value="$entity.get_id()" />
         <input type="submit" value="$_('Add')" />
     </form>
 #end def
+

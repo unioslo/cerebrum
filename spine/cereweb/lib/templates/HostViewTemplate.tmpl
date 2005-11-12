@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, object_link
-#from Cereweb.WorkList import remember_link
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
 #extends EntityViewTemplate
 
 ## Main method for creating the host view page.
@@ -45,8 +45,8 @@ $view_entity($host, $transaction)
     </div>
     <div class="actions">
         #set $id = $host.get_id()
-        <a href="$url('host/edit?id=%s' % $id)">$_("edit host")</a>
-        <a href="$url('host/delete?id=%s' % $id)">$_("delete host")</a>
+        <a href="/host/edit?id=$id">$_("edit host")</a>
+        <a href="/host/delete?id=$id">$_("delete host")</a>
         $remember_link($host)
     </div>
 </div>
@@ -57,7 +57,7 @@ $view_entity($host, $transaction)
     <div class="subtitle">
         <h3>$_('Disks'):</h3>
     </div>
-    <form action="$url('host/disks')" type="post">
+    <form action="/host/disks" type="post">
     #set $disks = $host.get_disks()
     #for $disk in $disks
         <div>

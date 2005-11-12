@@ -16,13 +16,13 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, object_link
-#from Cereweb.WorkList import remember_link
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
 #extends EntityViewTemplate
-#from Cereweb.SpineIDL.Errors import NotFoundError
+#from SpineIDL.Errors import NotFoundError
 
 ## Overloaded by other pages to get the right url.
-#attr $page_url = "ou/view"
+#attr $page_url = '/ou/view'
 
 ## Main method for creating the ou view page.
 #def viewOU($transaction, $ou)
@@ -52,10 +52,8 @@ $view_entity($ou, $transaction)
         </div>
     </div>
     <div class="actions">
-        #set $edit = $url("ou/edit?id=%s" % $ou.get_id())
-        #set $delete = $url("ou/delete?id=%s" % $ou.get_id())
-        <a href="$edit">$_("edit ou")</a>
-        <a href="$delete">$_("delete ou")</a>
+        <a href="/ou/edit?id=$ou.get_id()">$_("edit ou")</a>
+        <a href="/ou/delete?id=$ou.get_id()">$_("delete ou")</a>
         $remember_link($ou)
     </div>
 </div>

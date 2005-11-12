@@ -16,17 +16,16 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
-#from Cereweb.utils import url
-#from Cereweb.TableView import TableView
+#from lib.TableView import TableView
 #from SortedTableTemplate import SortedTableTemplate
 
 ## Displays the 5 latest messages in the right side of the bottom frame.
 #def activitylog($messages)
 <div class="activitylog">
     <h2>
-        <a href="$url('index/full_activitylog')">$_("Activity log")</a>
+        <a href="/full_activitylog">$_("Activity log")</a>
     </h2>
 #if $messages
     #for $msg, $error, $link, $time in $messages
@@ -61,8 +60,7 @@
         $table.add(time=$time.strftime("%a %H:%M"),
                    object=$link, message=$msg)
     #end for
-    $SortedTableTemplate().sorted_table($table, $headers,
-                            $url('sortpri=%s'), $url('sortby=%s'))
+    $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
 #else
     <div class="amsg">$_('No messages exists for this session yet.')</div>
 #end if

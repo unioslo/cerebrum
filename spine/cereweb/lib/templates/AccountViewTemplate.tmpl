@@ -17,8 +17,8 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from Cereweb.utils import url, object_link
-#from Cereweb.WorkList import remember_link
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
 #from GroupViewTemplate import GroupViewTemplate
 #from HomeDirectoryTemplate import HomeDirectoryTemplate
 #from FormWidgets import FormWidgets
@@ -55,7 +55,7 @@
         #else
         $_('No authentications set currently.')<br />
         #end if
-        <form action="$url('account/set_password')" type="post">
+        <form action="/account/set_password" type="post">
             $_('Set passwords'):<br />
             <input type="password" name="passwd1" /><br />
             <input type="password" name="passwd2" /><br />
@@ -67,7 +67,7 @@
 
 #def groups($account)
     <div class="accountgroups">
-    <form action="$url('account/groups')" type="post">
+    <form action="/account/groups" type="post">
         <div class="subtitle">
             <h3>$_("Groups:")</h3>
         </div>
@@ -81,6 +81,7 @@
 
 ## Shows info about the account.
 #def viewAccountInfo($account)
+#set $id = $account.get_id()
 <div class="viewinfo">
     <div class="subtitle">
         <h3>$_('General accountinfo')</h3>
@@ -127,14 +128,14 @@
         </div>
     </div>
     <div class="actions">
-        #set link1 = $url("account/edit?id=%s" % $account.get_id())
-        #set link3 = $url("account/delete?id=%s" % $account.get_id())
+        #set $link1 = '/account/edit?id=%s' % $id
+        #set $link3 = '/account/delete?id=%s' % $id
         <a href="$link1">$_("Edit")</a>
         #if $account.is_posix()
-            #set link2 = $url("account/posix_demote?id=%s" % $account.get_id())
+            #set $link2 = '/account/posix_demote?id=%s' % $id
             <a href="$link2">$_("Demote from Posix")</a>
         #else
-            #set link2 = $url("account/posix_promote?id=%s" % $account.get_id())
+            #set $link2 = '/account/posix_promote?id=%s' % $id
             <a href="$link2">$_("Promote to Posix")</a>
         #end if
         <a href="$link3">$_("Remove")</a>
@@ -151,7 +152,7 @@
                                 for i in $searcher.search()]
 
 <div class="join_group">
-    <form action="$url('account/join_group')" method="POST">
+    <form action="/account/join_group" method="POST">
         <h3>$_("Join group"):</h3>
         $form_widgets.input("group_name", "Group name")
         <label for="operation">$_("Operation"):</label>

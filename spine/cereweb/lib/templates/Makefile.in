@@ -7,14 +7,12 @@ CHEETAH = @CHEETAH@
 
 prefix = @prefix@
 libdir = @libdir@
-pythondir = @PYTHONDIR@/Cereweb
-templatedir = $(pythondir)/templates
 
 sources = $(wildcard *.tmpl)
 templates = $(patsubst %.tmpl,%.py, $(sources))
 backups = $(patsubst %.py,%.py_bak, $(templates))
 
-.PHONY: all install install-lib clean distclean print
+.PHONY: all clean distclean print
 .SUFFIXES: .tmpl .py
 
 all: $(templates)
@@ -31,17 +29,7 @@ print:
 	@echo --
 	@echo Going to $(templatedir)
 
-install: install-lib
-
-install-lib: $(templates)
-	$(INSTALL) -d $(DESTDIR)/$(templatedir)
-	$(INSTALL) -v -m 644 $(templates) $(DESTDIR)/$(templatedir)
-	touch $(DESTDIR)/$(templatedir)/__init__.py
-	chmod 644 $(DESTDIR)/$(templatedir)/__init__.py
-
-
 clean:
-	rm -f *~ 
 	rm -f $(templates)
 	rm -f $(backups)
 

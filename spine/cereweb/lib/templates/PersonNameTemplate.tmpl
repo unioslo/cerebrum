@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -31,9 +30,9 @@
     #if $addName == "True" or $addName == True
         $addForm($person, $transaction)
     #else
-    #set $tmp_url = "%s?id=%i&addName=True#names" % ($page, $person.get_id())
+    #set $tmp_url = "/%s?id=%i&addName=True#names" % ($page, $person.get_id())
     <div class="actions">
-        <a href="$url(tmp_url)">$_("add a name")</a>
+        <a href="$tmp_url">$_("add a name")</a>
     </div>
     #end if
 </div>
@@ -49,7 +48,7 @@
     <div class="name">
         #set $name_variant = $name.get_name_variant()
         #set $ss_name = $ss and $ss.get_name() or ""
-        #set $delete = $url('person/remove_name?id=%i&variant=%s&ss=%s') % (
+        #set $delete = '/person/remove_name?id=%i&variant=%s&ss=%s' % (
                  $person.get_id(), $name_variant.get_name(), $ss_name)
         <div class="actions">
             <em>$name_variant.get_description():</em> $name.get_name()
@@ -65,7 +64,7 @@
 
 ## Creates a form for adding a name to a person.
 #def addForm($entity, $transaction)
-<form action="$url('person/add_name')" type="post">
+<form action="/person/add_name" type="post">
     #set $name_types = $transaction.get_name_type_searcher().search()
     #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
     <h2>$_("Add a name"):</h2>
@@ -74,8 +73,8 @@
     $form_widgets.generate_loption("name_type", "Name type", $name_types)
     <div class="actions">
         <input type="submit" value="$_('Add')" />
-        #set $tmp_url = "person/view?id=%s#names" % ($entity.get_id())
-        <a href="$url($tmp_url)">$_("Cancel")</a>
+        #set $tmp_url = "/person/view?id=%s#names" % ($entity.get_id())
+        <a href="$tmp_url">$_("Cancel")</a>
     </div>
 </form>
 #end def

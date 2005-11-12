@@ -18,22 +18,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link, commit, commit_url
-from Cereweb.templates.EmailDomain import EmailDomain
-from Cereweb.templates.EmailTarget import EmailTarget
-from Cereweb.SpineIDL.Errors import NotFoundError
+from lib.Main import Main
+from lib.utils import queue_message, redirect, redirect_object
+from lib.utils import transaction_decorator, object_link, commit, commit_url
+from lib.templates.EmailDomain import EmailDomain
+from lib.templates.EmailTarget import EmailTarget
+from SpineIDL.Errors import NotFoundError
 
-
-def index(req):
-    # Could also let people search by email address etc
-    return redirect(req, url('emailtarget/create'), seeOther=True)
-
-def view(req, transaction, id):
+def view(transaction, id):
     target = transaction.get_email_target(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Email target") 
     try:
         primary = target.get_primary_address()
@@ -54,10 +51,11 @@ def view(req, transaction, id):
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
+view.exposed = True
 
-def edit(req, transaction, id):
+def edit(transaction, id):
     target = transaction.get_email_target(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Email target") 
     try:
         primary = target.get_primary_address()
@@ -71,9 +69,10 @@ def edit(req, transaction, id):
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
+edit.exposed = True
 
-def create(req, transaction):
-    page = Main(req)
+def create(transaction):
+    page = Main()
     page.title = _("Create email target") 
     page.setFocus("email/target/create")
     template = EmailTarget()
@@ -81,8 +80,10 @@ def create(req, transaction):
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
+create.exposed = True
+index = create
 
-def creation(req, transaction, target_type, entity=None):
+def creation(transaction, target_type, entity=None):
     target_type = transaction.get_email_target_type(target_type)    
     target = transaction.get_commads().create_email_target(target_type)
     if entity:
@@ -90,13 +91,14 @@ def creation(req, transaction, target_type, entity=None):
         target.set_entity(entity) 
         if entity.get_type().get_name() == "account" and entity.is_posix():
             target.set_using(entity)
-        queue_message(req, _("Set target entity to %s") % object_link(entity))
+        queue_message(_("Set target entity to %s") % object_link(entity))
         
     msg = _("Created email target of type %s") % target_type.get_name()
-    commit(transaction, req, target, msg=msg)
+    commit(transaction, target, msg=msg)
 creation = transaction_decorator(creation)
+creation.exposed = True
 
-def save(req, transaction, id, target_type, using=None, alias=""):
+def save(transaction, id, target_type, using=None, alias=""):
     target_type = transaction.get_email_target_type(target_type)    
     target = transaction.get_email_target(int(id))
     if target.get_type() != target_type:
@@ -111,48 +113,52 @@ def save(req, transaction, id, target_type, using=None, alias=""):
     if target.get_alias() != alias:
         target.set_alias(alias)    
     msg = _("Email target successfully updated.")
-    commit(transaction, req, target, msg=msg)
+    commit(transaction, target, msg=msg)
 save = transaction_decorator(save)
+save.exposed = True
 
-def delete(req, transaction, id):
+def delete(transaction, id):
     target = transaction.get_email_target(int(id))
     entity = target.get_entity()
     if entity:
-        redirect_object(req, entity)
+        redirect_object(entity)
     else:
-        redirect(req, url('/'))
+        redirect('/')
     target.delete()
     msg = _("Deleted email target")
     transaction.commit()
-    queue_message(req, msg)
+    queue_message(msg)
 delete = transaction_decorator(delete)
+delete.exposed = True
 
-def add_address(req, transaction, local_part, domain, target):
+def add_address(transaction, local_part, domain, target):
     target = transaction.get_email_target(int(target))
     domain = transaction.get_email_domain(int(domain))
     cmd = transaction.get_commands()
     addr = cmd.create_email_address(local_part, domain, target)
-    queue_message(req, _("Added email address %s") % addr.full_address())
-    _check_primary(req, target)
-    redirect_object(req, target)
+    queue_message(_("Added email address %s") % addr.full_address())
+    _check_primary(target)
+    redirect_object(target)
     transaction.commit()
 add_address = transaction_decorator(add_address)    
+add_address.exposed = True
 
-def set_primary(req, transaction, id, address=None):
+def set_primary(transaction, id, address=None):
     target = transaction.get_email_target(int(id))
     if address:
         address = transaction.get_email_address(int(address))
     # else: set to none, ie. unset primary    
     target.set_primary_address(address)    
     if address is None:
-        queue_message(req, _("Unset primary email address"))
+        queue_message(_("Unset primary email address"))
     else:    
-        queue_message(req, _("Set %s as primary email address") % address.full_address())
-    redirect_object(req, target)
+        queue_message(_("Set %s as primary email address") % address.full_address())
+    redirect_object(target)
     transaction.commit()
 set_primary = transaction_decorator(set_primary)        
+set_primary.exposed = True
 
-def _check_primary(req, target):
+def _check_primary(target):
     # FIXME: Is this a business rule?
     try:
         target.get_primary_address()
@@ -160,26 +166,27 @@ def _check_primary(req, target):
         rest = target.get_addresses()
         if len(rest) == 1:
             rest[0].set_as_primary()
-            queue_message(req, _("Set %s as primary address of target") % rest[0].full_address())
+            queue_message(_("Set %s as primary address of target") % rest[0].full_address())
         elif rest:
-            queue_message(req, _("You should select one of the remaining "
+            queue_message(_("You should select one of the remaining "
                                  "addresses as the new primary address."))
 
-def remove_address(req, transaction, id, address):
+def remove_address(transaction, id, address):
     target = transaction.get_email_target(int(id))
     address = transaction.get_email_address(int(address))
     msg = _("Removed address %s") % address.full_address()
-    queue_message(req, msg)
+    queue_message(msg)
     address.delete()
-    _check_primary(req, target)
-    redirect_object(req, target)
+    _check_primary(target)
+    redirect_object(target)
     transaction.commit()
 remove_address = transaction_decorator(remove_address)
+remove_address.exposed = True
 
-def edit_address(req, transaction, id, address):
+def edit_address(transaction, id, address):
     #target = transaction.get_email_target(int(id))
     address = transaction.get_email_address(int(address))
-    page = Main(req)
+    page = Main()
     page.title = _("Edit email address %s") % address.full_address() 
     page.setFocus("email/target/edit_address", id)
     template = EmailTarget()
@@ -187,29 +194,30 @@ def edit_address(req, transaction, id, address):
     page.content = lambda: content
     return page
 edit_address = transaction_decorator(edit_address)
+edit_address.exposed = True
 
-def save_address(req, transaction, address, local_part, domain):
+def save_address(transaction, address, local_part, domain):
     address = transaction.get_email_address(int(address))
     domain = transaction.get_email_domain(int(domain))
     address.set_local_part(local_part)
     address.set_domain(domain)
     msg = _("Saved address %s") % address.full_address()
-    redirect_object(req, address.get_target())
+    redirect_object(address.get_target())
     transaction.commit()
-    queue_message(req, msg)
+    queue_message(msg)
 save_address = transaction_decorator(save_address)
+save_address.exposed = True
 
-def search(req, transaction, address=""):
+def search(transaction, address=""):
     if address:
         cmd = transaction.get_commands()
         addr = cmd.find_email_address(address)        
         if addr:
-            redirect_object(req, addr.get_target())    
+            redirect_object(addr.get_target())    
             return
         else:
-            queue_message(req, 
-                         _("Could not find email address %s") % address)    
-    page = Main(req)
+            queue_message(_("Could not find email address %s") % address)    
+    page = Main()
     page.title = _("Search for email target") 
     #page.setFocus("email/target/search", id)
     template = EmailTarget()
@@ -217,5 +225,6 @@ def search(req, transaction, address=""):
     page.content = lambda: content
     return page
 search = transaction_decorator(search)
+search.exposed = True
 
 # arch-tag: 53b597b2-0472-11da-9196-788d6ec686ec

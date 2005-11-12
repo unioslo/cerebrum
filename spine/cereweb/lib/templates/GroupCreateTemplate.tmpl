@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -31,7 +30,7 @@
     <div class="subtitle">
         <h3>$_("General groupinfo"):</h3>
     </div>
-    <form action="make" method="POST">
+    <form action="/group/make" method="POST">
         <div class="createform">
             $form_widgets.input("name", "Name", $name)
             <label for="description">$_('Description'):</label>

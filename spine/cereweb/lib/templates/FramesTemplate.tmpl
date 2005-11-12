@@ -20,10 +20,9 @@
 ## Gives a 'frames style' left menu and a bottom area
 
 #import re
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #implements respond
-#from Cereweb.utils import url
 
 #attr $title = "Cereweb"
 #attr $messages = []
@@ -35,14 +34,12 @@
 
 ## Method for adding css files into the html page
 #def css($name)
-    #set $css = url("css/" + $name)
-    <link rel="stylesheet" type="text/css" href="$css" />
+    <link rel="stylesheet" type="text/css" href="/css/$name" />
 #end def
 
 ## Method for adding javascript files into the html page
 #def jscript($name)
-    #set $js = url("jscript/" + $name)
-    <script language="JavaScript" src="$js"></script>
+    <script language="JavaScript" src="/jscript/$name"></script>
 #end def
 
 ## Messages, like errormessages and more..
@@ -107,12 +104,8 @@ $jscript("worklist.js")
 $jscript($i)
 #end for
     <script language="JavaScript">
-        ## Set webroot for javascript 'worklist.py'
-        #set webroot=url("")
-        webroot="$webroot";
         ## Set timeout for javascript 'timeout.py'
-        #set timeout = $get_timeout()
-        timeout=$timeout;
+        timeout=$get_timeout();
     </script>
 </head>
 <body>
@@ -130,7 +123,7 @@ $jscript($i)
     </div>
     <div class="page_menu">
         <div class="menu_header">
-            <a href="$url('index')">Cereweb</a>
+            <a href="/index">Cereweb</a>
         </div>
         $menu()
     </div>

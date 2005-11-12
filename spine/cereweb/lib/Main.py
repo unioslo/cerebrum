@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 from SideMenu import SideMenu
 from WorkList import WorkList
 from ActivityLog import ActivityLog
@@ -31,23 +33,24 @@ class Main(MainTemplate):
     and from the MainTemplate, wich is a cheetah-template.
     """
     
-    def __init__(self, req):
+    def __init__(self):
         """Creates all parts of the page beside the content."""
+        cherrypy.response.headerMap['Pragma'] = 'no-cache'
+        cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
         MainTemplate.__init__(self)
-        req.content_type = "text/html" # With this content-type, זרו works! :)
-        self.session = req.session
+#        req.content_type = "text/html" # With this content-type, זרו works! :)
         self.jscripts = []
-        self.prepare_page(req)
+        self.prepare_page()
         self.prepare_messages()
 
-    def prepare_page(self, req):
+    def prepare_page(self):
         """Makes sure parts of the page is created only once.
         
         Creates worklist, and activitylog.
         """
         self.menu = SideMenu()
-        self.worklist = WorkList(req)
-        self.activitylog = ActivityLog(req)
+        self.worklist = WorkList()
+        self.activitylog = ActivityLog()
 
     def prepare_messages(self):
         """Prepares messages for display.
@@ -55,14 +58,14 @@ class Main(MainTemplate):
         Displays and removes queued messages from the session queue.
         Adds them to the list over old messages.
         """
-        self.messages = self.session.get("messages", [])
+        self.messages = cherrypy.session.get("messages", [])
         if self.messages:
-            del self.session['messages']
+            del cherrypy.session['messages']
             
-        if 'old_messages' not in self.session:
-            self.session['old_messages'] = self.messages[:]
+        if 'old_messages' not in cherrypy.session:
+            cherrypy.session['old_messages'] = self.messages[:]
         else:
-            self.session['old_messages'].extend(self.messages)
+            cherrypy.session['old_messages'].extend(self.messages)
         
     def setFocus(self, *args):
         """Wraps the setFocus-method on the menu."""
@@ -72,6 +75,9 @@ class Main(MainTemplate):
         self.jscripts.append(jscript)
 
     def get_timeout(self):
-        return self.session['timeout']
+        return cherrypy.session['timeout']
+
+    def __iter__(self):
+        return iter(str(self))
 
 # arch-tag: 3f246425-25b1-4e28-a969-3f04c31264c7

@@ -18,11 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 import os
 import sys
 import traceback
-from Cereweb import config
-from Cereweb.templates.ErrorTemplate import ErrorTemplate
+import config
+from templates.ErrorTemplate import ErrorTemplate
 
 class SessionError(Exception):
     """Indicates a problem with the connection
@@ -43,8 +45,12 @@ class Redirected(Exception):
     pass # presentere en side for browsere som ikke støtter redirect?
 
 
-def handle(req, error, path=""):
+def handle(error, path=""):
     title, message, tracebk = None, None, None
+
+    cherrypy.response.headerMap['Pragma'] = 'no-cache'
+    cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
+
     
     if isinstance(error, SessionError):
         title = "Session Error."
@@ -71,6 +77,6 @@ def handle(req, error, path=""):
     
     report = config.conf.getboolean('error', 'allow_reporting')
     
-    return ErrorTemplate().error(req, title, message, path, tracebk, report)
+    return ErrorTemplate().error(title, message, path, tracebk, report)
 
 # arch-tag: 52b56f54-2b55-11da-97eb-80927010959a

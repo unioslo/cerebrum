@@ -17,7 +17,6 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends SearchTemplate
-#from Cereweb.utils import url
 
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
@@ -29,13 +28,12 @@
 #attr $help = []
 
 #def getAction
-$url("group/search")#slurp
+    #return '/group/search'
 #end def
 
 
 ## Overrides SearchTemplate.form to add extra options.
 #def form
-    ##TODO: Add javascript to disable gid_end when range is not selected
     #block extra
         #set $style = "width: 3em; margin-right: 0.6em;"
         #set $options = (("exact","Exact"), ("above", "Above"), ("below", "Below"), ("range", "Range"))

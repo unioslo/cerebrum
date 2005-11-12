@@ -20,12 +20,12 @@
 
 import mx.DateTime
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import redirect_object, strftime, commit
-from Cereweb.utils import object_link, transaction_decorator
-from Cereweb.templates.QuarantineTemplate import QuarantineTemplate
+from lib.Main import Main
+from lib.utils import redirect_object, strftime, commit
+from lib.utils import object_link, transaction_decorator
+from lib.templates.QuarantineTemplate import QuarantineTemplate
 
-def edit(req, transaction, entity, type):
+def edit(transaction, entity, type):
     entity = transaction.get_entity(int(entity))
     q_type = transaction.get_quarantine_type(type)
 
@@ -37,7 +37,7 @@ def edit(req, transaction, entity, type):
     formvalues['end'] = strftime(quarantine.get_end_date())
     formvalues['disable_until'] = strftime(quarantine.get_disable_until())
     
-    page = Main(req)
+    page = Main()
     page.title = _("Edit quarantine %s on ") % type
     page.title += object_link(entity)
     edit = QuarantineTemplate()
@@ -46,13 +46,14 @@ def edit(req, transaction, entity, type):
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
+edit.exposed = True
 
-def save(req, transaction, entity, type, why="",
+def save(transaction, entity, type, why="",
          start="", end="", disable_until="", submit=None):
     entity = transaction.get_entity(int(entity))
     
     if submit == "Cancel":
-        redirect_object(req, entity, seeOther=True)
+        redirect_object(entity)
         return
 
     q_type = transaction.get_quarantine_type(type)
@@ -68,10 +69,11 @@ def save(req, transaction, entity, type, why="",
     quarantine.set_disable_until(strptime(disable_until, c.get_date_none()))
 
     msg = _("Updated quarantine '%s' successfully.") % type
-    commit(transaction, req, entity, msg=msg)
+    commit(transaction, entity, msg=msg)
 save = transaction_decorator(save) 
+save.exposed = True
 
-def add(req, transaction, entity):
+def add(transaction, entity):
     # FIXME: Should only present types appropriate for the
     # entity_type. (how could we know that?) 
     entity = transaction.get_entity(int(entity))
@@ -83,7 +85,7 @@ def add(req, transaction, entity):
     formvalues = {}
     formvalues['start'] = mx.DateTime.now().strftime("%Y-%m-%d")
     
-    page = Main(req)
+    page = Main()
     page.title = _("Add a new quarantine on ")
     page.title += object_link(entity)
     add = QuarantineTemplate()
@@ -92,13 +94,14 @@ def add(req, transaction, entity):
     page.content = lambda: content
     return page
 add = transaction_decorator(add)
+add.exposed = True
 
-def make(req, transaction, entity, type, why="",
+def make(transaction, entity, type, why="",
          start="", end="", disable_until="", submit=None):
     entity = transaction.get_entity(int(entity))
     
     if submit == "Cancel":
-        redirect_object(req, entity, seeOther=True)
+        redirect_object(entity)
         return
 
     q_type = transaction.get_quarantine_type(type)
@@ -112,17 +115,19 @@ def make(req, transaction, entity, type, why="",
     entity.add_quarantine(q_type, why, date_start, date_end, date_dis)
     
     msg = _("Added quarantine '%s' successfully") % type
-    commit(transaction, req, entity, msg=msg)
+    commit(transaction, entity, msg=msg)
 make = transaction_decorator(make)
+make.exposed = True
 
-def remove(req, transaction, entity, type):
+def remove(transaction, entity, type):
     entity = transaction.get_entity(int(entity))
     q_type = transaction.get_quarantine_type(type)
     
     entity.remove_quarantine(q_type)
     
     msg = _("Removed quarantine '%s' successfully.") % type
-    commit(transaction, req, entity, msg=msg)
+    commit(transaction, entity, msg=msg)
 remove = transaction_decorator(remove)
+remove.exposed = True
 
 # arch-tag: fd438bb2-ecb9-480b-b833-e42484da0a39

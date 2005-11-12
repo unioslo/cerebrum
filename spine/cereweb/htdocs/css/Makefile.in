@@ -14,7 +14,7 @@ sources = $(wildcard *.tmpl)
 stylesheets = $(patsubst %.tmpl,%.css, $(sources))
 backups = $(patsubst %.css,%.css_bak, $(stylesheets))
 
-.PHONY: all install clean distclean print
+.PHONY: all clean distclean print
 
 all: $(stylesheets)
 
@@ -29,11 +29,6 @@ print:
 	@echo $(stylesheets)
 	@echo --
 	@echo Going to $(templatedir)
-
-install: $(stylesheets)
-	$(INSTALL) -d $(DESTDIR)/$(cssdir)
-	$(INSTALL) -v -m 644 $(stylesheets) $(DESTDIR)/$(cssdir)
-	$(INSTALL) -v -m 644 htaccess $(DESTDIR)/$(cssdir)/.htaccess
 
 clean:
 	rm -f *~ 

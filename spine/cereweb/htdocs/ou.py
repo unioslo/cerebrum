@@ -18,42 +18,41 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import url, redirect_object, commit, commit_url
-from Cereweb.utils import transaction_decorator, object_link
-from Cereweb.WorkList import remember_link
-from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
-from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
-from Cereweb.templates.OUSearchTemplate import OUSearchTemplate
-from Cereweb.templates.OUCreateTemplate import OUCreateTemplate
-from Cereweb.templates.OUTreeTemplate import OUTreeTemplate
-from Cereweb.templates.OUEditTemplate import OUEditTemplate
-from Cereweb.templates.OUViewTemplate import OUViewTemplate
+from lib.Main import Main
+from lib.utils import redirect_object, commit, commit_url
+from lib.utils import transaction_decorator, object_link
+from lib.WorkList import remember_link
+from lib.Search import get_arg_values, get_form_values, setup_searcher
+from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.templates.OUSearchTemplate import OUSearchTemplate
+from lib.templates.OUCreateTemplate import OUCreateTemplate
+from lib.templates.OUTreeTemplate import OUTreeTemplate
+from lib.templates.OUEditTemplate import OUEditTemplate
+from lib.templates.OUViewTemplate import OUViewTemplate
 
-
-def index(req):
-    return search(req)
-
-def tree(req, transaction, perspective=None):
-    page = Main(req)
+def tree(transaction, perspective=None):
+    page = Main()
     page.title = _("OU perspective tree")
     page.setFocus("ou/tree")
     tree_template = OUTreeTemplate()
     if not perspective:
-        perspective = req.session.get("ou_perspective", None)
+        perspective = cherrypy.session.get("ou_perspective", None)
     else:    
-        req.session["ou_perspective"] = perspective    
+        cherrypy.session["ou_perspective"] = perspective    
     if perspective:
         perspective = transaction.get_ou_perspective_type(perspective)
     content = tree_template.viewTree(transaction, perspective)
     page.content = lambda: content
     return page
 tree = transaction_decorator(tree)
+tree.exposed = True
 
-def search(req, transaction, offset=0, **vargs):
+def search(transaction, offset=0, **vargs):
     """Search for ous and displays result and/or searchform."""
-    page = Main(req)
+    page = Main()
     page.title = _("Search for OU(s)")
     page.setFocus("ou/search")
     page.add_jscript("search.js")
@@ -65,7 +64,7 @@ def search(req, transaction, offset=0, **vargs):
     perform_search = len([i for i in values if i != ""])
                 
     if perform_search:
-        req.session['ou_ls'] = values
+        cherrypy.session['ou_ls'] = values
         name, acronym, short, spread, orderby, orderby_dir = values
         
         search = transaction.get_ou_searcher()
@@ -94,7 +93,7 @@ def search(req, transaction, offset=0, **vargs):
         ous = search.search()
     
         result = []
-        display_hits = req.session['options'].getint('search', 'display hits')
+        display_hits = cherrypy.session['options'].getint('search', 'display hits')
         for ou in ous[:display_hits]:
             link = object_link(ou, text=_get_display_name(ou))
             edit = str(object_link(ou, text='edit', method='edit', _class='actions'))
@@ -106,41 +105,45 @@ def search(req, transaction, offset=0, **vargs):
         
         template = SearchResultTemplate()
         table = template.view(result, headers, arguments, values,
-            len(ous), display_hits, offset, searchform, 'ou/search')
+            len(ous), display_hits, offset, searchform, 'search')
 
         page.content = lambda: table
     else:
-        rmb_last = req.session['options'].getboolean('search', 'remember last')
-        if 'ou_ls' in req.session and rmb_last:
-            values = req.session['ou_ls']
+        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
+        if 'ou_ls' in cherrypy.session and rmb_last:
+            values = cherrypy.session['ou_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form
 
     return page
 search = transaction_decorator(search)
+search.exposed = True
+index = search
 
-def view(req, transaction, id):
+def view(transaction, id):
     ou = transaction.get_ou(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("OU %s") % _get_display_name(ou)
     page.setFocus("ou/view", id)
     content = OUViewTemplate().viewOU(transaction, ou)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
+view.exposed = True
 
-def edit(req, transaction, id):
+def edit(transaction, id):
     ou = transaction.get_ou(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("OU ") + object_link(ou)
     page.setFocus("ou/edit", id)
     content = OUEditTemplate().form(transaction, ou)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
+edit.exposed = True
 
-def create(req, transaction, **vargs):
-    page = Main(req)
+def create(transaction, **vargs):
+    page = Main()
     page.title = _("Create a new Organization Unit")
     page.setFocus("ou/create")
 
@@ -156,8 +159,9 @@ def create(req, transaction, **vargs):
     
     return page
 create = transaction_decorator(create)
+create.exposed = True
 
-def make(req, transaction, name, institution,
+def make(transaction, name, institution,
          faculty, institute, department, **vargs):
     acronym = vargs.get("acronym", "")
     short_name = vargs.get("short_name", "")
@@ -181,14 +185,15 @@ def make(req, transaction, name, institution,
         ou.set_sort_name(sort_name)
 
     msg = _("Organization Unit successfully created.")
-    commit(transaction, req, ou, msg=msg)
+    commit(transaction, ou, msg=msg)
 make = transaction_decorator(make)
+make.exposed = True
 
-def save(req, transaction, id, name, submit=None, **vargs):
+def save(transaction, id, name, submit=None, **vargs):
     ou = transaction.get_ou(int(id))
 
     if submit == "Cancel":
-        redirect_object(req, ou, seeOther=True)
+        redirect_object(ou)
         return
 
     ou.set_name(name)
@@ -231,15 +236,17 @@ def save(req, transaction, id, name, submit=None, **vargs):
             ou.set_parent(parent, perspective)
    
     msg = _("Organization Unit successfully modified.")
-    commit(transaction, req, ou, msg=msg)
+    commit(transaction, ou, msg=msg)
 save = transaction_decorator(save)
+save.exposed = True
 
-def delete(req, transaction, id):
+def delete(transaction, id):
     ou = transaction.get_ou(int(id))
     msg =_("OU '%s' successfully deleted.") % _get_display_name(ou)
     ou.delete()
-    commit_url(transaction, req, url("ou/index"), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
+delete.exposed = True
 
 def _get_display_name(ou):
     display_name = ou.get_display_name()

@@ -17,8 +17,8 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from FormWidgets import FormWidgets
-#from Cereweb.utils import url, strftime
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.utils import strftime
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #attr $form_widgets = FormWidgets()
@@ -33,8 +33,7 @@
         <div class="motd" id="motd_$id">
             <div class="actions">
                 <a href="javascript:;" id="motd_edit_$id">$_('edit')</a><br />
-                #set $delete = $url('index/delete_motd')
-                <a href="$delete?id=$id">$_('delete')</a>
+                <a href="/delete_motd?id=$id">$_('delete')</a>
             </div>
             <div class="subject">$subject</div>
             $message.replace('\n', '<br />')
@@ -44,7 +43,7 @@
                 $strftime($motd.get_create_date(), '%y-%m-%d  %H:%M')
             </span>
         </div>
-        $editMotd('index/edit_motd', $id, $subject, $message)
+        $editMotd('/edit_motd', $id, $subject, $message)
         <script language="JavaScript">
             <!--
             FV_register('motd_edit_div_$id', 'motd_edit_$id',
@@ -52,10 +51,10 @@
             //-->
         </script>
     #end for
-    <a href="$url('index/all_motds')" class="actions">$_('View all messages')</a>
+    <a href="/all_motds" class="actions">$_('View all messages')</a>
     <a href="javascript:;" id="motd_create" class="actions">$_('Create a new message')</a>
     <br />
-    $editMotd('index/create_motd')
+    $editMotd('/create_motd')
     <script language="JavaScript">
         <!--
         FV_register('motd_edit_div', 'motd_create', 
@@ -68,7 +67,7 @@
 #def editMotd($action, $id="", $subject="", $message="")
 #set $tmp = $id and '_%i' % $id or ''
 <div class="motd_edit" id="motd_edit_div$tmp" style="display:none;">
-    <form action="$url($action)" method="POST">
+    <form action="$action" method="POST">
         <label for="subject">$_('Subject'):</label>
         <input type="text" name="subject" size="40" maxlength="65" value="$subject" />
         <br />

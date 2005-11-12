@@ -18,22 +18,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import forgetHTML as html
-from Cereweb.WorkList import WorkListElement
+import cherrypy
 
-def add(req, id, cls, name):
+import forgetHTML as html
+from lib.WorkList import WorkListElement
+
+def add(id, cls, name):
     """Adds an element to the list of remembered objects."""
-    if 'wl_remembered' not in req.session:
-        req.session['wl_remembered'] = []
+    if 'wl_remembered' not in cherrypy.session:
+        cherrypy.session['wl_remembered'] = []
     elm = WorkListElement(int(id), cls, name)
-    req.session['wl_remembered'].append(elm)
+    cherrypy.session['wl_remembered'].append(elm)
 
     page = html.SimpleDocument("Worklist: Element added")
     msg = "Element added to worklist: %s, %s: %s" % (id, cls, name)
     page.body.append(html.Division(msg))
-    return page
+    return str(page)
+add.exposed = True
 
-def remove(req, id=None, ids=None):
+def remove(id=None, ids=None):
     """Removes elements from the list of remembered objects."""
     if ids is None:
         ids = []
@@ -44,30 +47,32 @@ def remove(req, id=None, ids=None):
         ids.append(int(id))
 
     for id in ids:
-        _remove(req.session, id)
+        _remove(cherrypy.session, id)
         
     page = html.SimpleDocument("Worklist: Element(s) removed")
     msg = "Element(s) removed from worklist: %s" % ids
     page.body.append(html.Division(msg))
-    return page
+    return str(page)
+remove.exposed = True
 
-def selected(req, ids=None):
+def selected(ids=None):
     """Updates the list over selected elements."""
     if ids is None:
-        selected = req.session['wl_selected'] = []
+        selected = cherrypy.session['wl_selected'] = []
     else:
-        if 'wl_remembered' not in req.session:
-            req.session['wl_remembered'] = []
+        if 'wl_remembered' not in cherrypy.session:
+            cherrypy.session['wl_remembered'] = []
 
-        remembered = req.session['wl_remembered']
+        remembered = cherrypy.session['wl_remembered']
         updated = [int(i) for i in ids.split(",") if i]
         selected = [i for i in remembered if i.id in updated]
-        req.session['wl_selected'] = selected
+        cherrypy.session['wl_selected'] = selected
     
     page = html.SimpleDocument("Worklist: selected elements updated")
     msg = "Selected element(s) updated: %s" % selected
     page.body.append(html.Division(msg))
-    return page
+    return str(page)
+selected.exposed = True
 
 def _remove(session, id):
     if 'wl_remembered' in session:

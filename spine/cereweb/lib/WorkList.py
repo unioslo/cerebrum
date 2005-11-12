@@ -18,8 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 import forgetHTML as html
-from utils import url
 from templates.WorkListTemplate import WorkListTemplate
 
 def remember_args(object):
@@ -71,16 +72,16 @@ class WorkListElement:
 
 class WorkList(html.Division):
     
-    def __init__(self, req):
-        if 'wl_remembered' not in req.session:
-            req.session['wl_remembered'] = []
-        if 'wl_selected' not in req.session:
-            req.session['wl_selected'] = []
-        if 'wl_actions' not in req.session:
-            req.session['wl_actions'] = []
-        self.remembered = req.session['wl_remembered']
-        self.selected = req.session['wl_selected']
-        self.actions = req.session['wl_actions']
+    def __init__(self):
+        if 'wl_remembered' not in cherrypy.session:
+            cherrypy.session['wl_remembered'] = []
+        if 'wl_selected' not in cherrypy.session:
+            cherrypy.session['wl_selected'] = []
+        if 'wl_actions' not in cherrypy.session:
+            cherrypy.session['wl_actions'] = []
+        self.remembered = cherrypy.session['wl_remembered']
+        self.selected = cherrypy.session['wl_selected']
+        self.actions = cherrypy.session['wl_actions']
         
     def add(self, element):
         self.remembered.append(element)

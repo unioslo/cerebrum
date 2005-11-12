@@ -16,11 +16,12 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, object_link, object_url
-#from Cereweb.WorkList import remember_link
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
-#from Cereweb.SpineIDL.Errors import NotFoundError
+#from SpineIDL.Errors import NotFoundError
+
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
@@ -28,7 +29,7 @@
 #attr $max_addresses = 20
 
 ## Overloaded by other pages to get the right url.
-#attr $page_url = "email/domain"
+#attr $page_url = "/email/domain"
 
 ## Main method for creating the ou view page.
 #def list_domains($transaction)
@@ -67,7 +68,7 @@ $object_link($domain, "Edit", "edit", _class="actions")
     <div>($_("Not a member of any categories"))</div>
 #end if    
 
-<form action="$url("emaildomain/add_to_category")" method="POST">
+<form action="/emaildomain/add_to_category" method="POST">
   <input type="hidden" name="id" value="$domain.get_id()" />
 #set $categories = $transaction.get_email_domain_category_searcher()
 $form_widgets.code_selector("category", "Category", $categories)
@@ -107,7 +108,7 @@ $list_addresses($transaction, $domain, $max_addresses)
 #end def
 
 #def edit_domain($domain=None)
-<form action="$url("emaildomain/save")" method="POST">
+<form action="/emaildomain/save" method="POST">
     #if $domain is not None
         <input type="hidden" name="domain" value="$domain.get_id()" />
     #end if

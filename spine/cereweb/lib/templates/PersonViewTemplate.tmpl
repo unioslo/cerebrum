@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, object_link
-#from Cereweb.WorkList import remember_link
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
 #from AccountViewTemplate import AccountViewTemplate
 #from PersonNameTemplate import PersonNameTemplate
 #from PersonAffiliationTemplate import PersonAffiliationTemplate
@@ -27,7 +27,7 @@
 #attr $list_groups = GroupViewTemplate().list_groups
 
 ## Overloaded by other pages to get the right url, used in personNames().
-#attr $page_url = "person/view"
+#attr $page_url = "/person/view"
 
 ## Main method for creating the person view page.
 #def viewPerson($transaction, $person, $addName, $addAffil)
@@ -72,8 +72,8 @@ $view_entity($person, $transaction)
         </div>
     </div>
     <div class="actions">
-        #set $edit = $url("person/edit?id=%s" % $person.get_id())
-        #set $delete = $url("person/delete?id=%s" % $person.get_id())
+        #set $edit = "/person/edit?id=%s" % $person.get_id()
+        #set $delete = "/person/delete?id=%s" % $person.get_id()
         <a href="$edit">$_("edit person")</a>
         <a href="$delete">$_("delete person")</a>
         $remember_link($person)
@@ -96,7 +96,7 @@ $view_entity($person, $transaction)
     <div class="subtitle">
         <h3>$_("Accounts & Groups"):</h3>
     </div>
-    <form action="$url('person/accounts')" type="post">
+    <form action="/person/accounts" type="post">
     #for $account in $allaccounts
         #set $account_id = $account.get_id()
         #set $account_name = $account.get_name()

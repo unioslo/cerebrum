@@ -20,16 +20,16 @@
 
 import forgetHTML as html
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import transaction_decorator, commit
-from Cereweb.utils import redirect_object, queue_message
-from Cereweb.templates.NoteAddTemplate import NoteAddTemplate
+from lib.Main import Main
+from lib.utils import transaction_decorator, commit
+from lib.utils import redirect_object, queue_message
+from lib.templates.NoteAddTemplate import NoteAddTemplate
 
 
-def index(req, transaction, entity, subject="", description=""):
+def index(transaction, entity, subject="", description=""):
     """Shows the add-note-template."""
     entity = transaction.get_entity(int(entity))
-    page = Main(req)
+    page = Main()
     noteadd = NoteAddTemplate()
     index = html.Division()
     index.append(html.Header(_("Add note for entity '%s':") % entity.get_id(), level=2))
@@ -37,24 +37,27 @@ def index(req, transaction, entity, subject="", description=""):
     page.content = index.output
     return page
 index = transaction_decorator(index)
+index.exposed = True
 
-def add(req, transaction, entity, subject="", description=""):
+def add(transaction, entity, subject="", description=""):
     """Adds a note to some entity."""
     entity = transaction.get_entity(int(entity))
     if not subject and not description:
-        queue_message(req, _("Could not add blank note"), error=True)
-        redirect_object(req, entity, seeOther=True)
+        queue_message(_("Could not add blank note"), error=True)
+        redirect_object(entity)
     else:
         entity.add_note(subject, description)
-        commit(transaction, req, entity, msg=_("Added note '%s'") % subject)
+        commit(transaction, entity, msg=_("Added note '%s'") % subject)
 add = transaction_decorator(add)
+add.exposed = True
 
-def delete(req, transaction, entity, id):
+def delete(transaction, entity, id):
     """Removes a note."""
     entity = transaction.get_entity(int(entity))
     note = transaction.get_note(int(id))
     entity.remove_note(note)
-    commit(transaction, req, entity, _("Note deleted"))
+    commit(transaction, entity, _("Note deleted"))
 delete = transaction_decorator(delete)
+delete.exposed = True
 
 # arch-tag: a346491e-4e47-42c1-8646-391b6375b69f

@@ -16,11 +16,11 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url, object_url, object_link
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.utils import object_link
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
-#from Cereweb.SpineIDL.Errors import NotFoundError
-#from Cereweb.utils import url
+#from SpineIDL.Errors import NotFoundError
+
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
@@ -37,7 +37,7 @@
         <div>
         $object_link($target)
         $object_link($target, $_("Delete"), "delete", _class="actions")
-        </div> 
+        </div>
     #end for
     
     #if $target is None
@@ -47,7 +47,7 @@
 #end def
 
 #def add_address($transaction, $target, $suggestion="")
-<form action="$url('emailtarget/add_address')" method="POST">
+<form action="/emailtarget/add_address" method="POST">
     <input type="hidden" name="target" value="$target.get_id()" />
     <label>$_("Add an email address:")</label><br />
     <input name="local_part" value="$suggestion" /> @
@@ -61,7 +61,7 @@
 #end def
 
 #def edit_address($transaction, $address)
-<form action="$url('emailtarget/save_address')" method="POST">
+<form action="/emailtarget/save_address" method="POST">
     <input type="hidden" name="address" value="$address.get_id()" />
     <label>$_("Edit email address:")</label><br />
     <input name="local_part" value="$address.get_local_part()" /> @
@@ -76,7 +76,7 @@
 #end def
 
 #def create_target($transaction, $entity=None)
-<form action="$url('emailtarget/creation')" method="POST">
+<form action="/emailtarget/creation" method="POST">
     #if $entity is not None
         <input type="hidden" name="entity" value="$entity.get_id()" />
     #end if
@@ -88,7 +88,7 @@
 #end def
 
 #def edit_target($transaction, $target)
-<form action="$url('emailtarget/save')" method="POST">
+<form action="/emailtarget/save" method="POST">
     <input type="hidden" name="id" value="$target.get_id()" />
     <div> 
     #set $target_types=$transaction.get_email_target_type_searcher()
@@ -207,7 +207,7 @@ $add_address($transaction, $target, $suggestion)
 
 
 #def find_email($address="")
-    <form action="$url("emailtarget/search")" method="POST">
+    <form action="/emailtarget/search" method="POST">
         <label for="address">$_("Find email target by email address:")</label>
         <input name="address" value="$address" />
         ## FIXME: Other ways to search up? For instance target type?

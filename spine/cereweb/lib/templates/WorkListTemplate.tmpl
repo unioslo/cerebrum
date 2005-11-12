@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.utils import url
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 ## Creates a worklist based on the list of objects and actions. 
@@ -91,9 +90,9 @@
 ## object selected in the worklist. Current variables available is:
 ## {{class}}, {{name}}, {{id}}.
 #def ActionTemplate($cls, $block="", $name="{{class}} {{name}}")
-    #set $view_url = $url("%s/view" % $cls)
-    #set $edit_url = $url("%s/edit" % $cls)
-    #set $delete_url = $url("%s/delete" % $cls)
+    #set $view_url = '/%s/view' % $cls
+    #set $edit_url = '/%s/edit' % $cls
+    #set $delete_url = '/%s/delete' % $cls
     <div class="wl_action" id="WL_action_$cls" style="display:none;">
         <div class="header">$name:</div>
         <div class="content">
@@ -124,16 +123,16 @@
 
 #def PersonAction
     #def PersonBox
-        <a href="$url('account/search')?owner={{id}}">View all accounts</a>
+        <a href="/account/search?owner={{id}}">View all accounts</a>
         <br />
-        <a href="$url('account/create')?owner={{id}}">Create new account</a>
+        <a href="/account/create?owner={{id}}">Create new account</a>
     #end def
     $ActionTemplate("person", $PersonBox, "{{name}}")
 #end def
 
 #def GroupAction
     #def GroupBox
-        <a href="$url('account/create')?owner={{id}}">Create new account</a>
+        <a href="/account/create?owner={{id}}">Create new account</a>
     #end def
     $ActionTemplate("group", $GroupBox)
 #end def

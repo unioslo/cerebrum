@@ -18,18 +18,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect_object, commit
-from Cereweb.utils import object_link, transaction_decorator, commit_url
-from Cereweb.WorkList import remember_link
-from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
-from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
-from Cereweb.templates.GroupSearchTemplate import GroupSearchTemplate
-from Cereweb.templates.GroupViewTemplate import GroupViewTemplate
-from Cereweb.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
-from Cereweb.templates.GroupEditTemplate import GroupEditTemplate
-from Cereweb.templates.GroupCreateTemplate import GroupCreateTemplate
+from lib.Main import Main
+from lib.utils import queue_message, redirect_object, commit
+from lib.utils import object_link, transaction_decorator, commit_url
+from lib.WorkList import remember_link
+from lib.Search import get_arg_values, get_form_values, setup_searcher
+from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.templates.GroupSearchTemplate import GroupSearchTemplate
+from lib.templates.GroupViewTemplate import GroupViewTemplate
+from lib.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
+from lib.templates.GroupEditTemplate import GroupEditTemplate
+from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 
 operations = {
     'union':'Union',
@@ -37,13 +39,9 @@ operations = {
     'difference':'Difference'
 }
 
-def index(req):
-    """Redirects to the page with search for groups."""
-    return search(req)
-
-def search(req, transaction, offset=0, **vargs):
+def search(transaction, offset=0, **vargs):
     """Search for groups and displays results and/or searchform."""
-    page = Main(req)
+    page = Main()
     page.title = _("Search for group(s)")
     page.setFocus("group/search")
     page.add_jscript("search.js")
@@ -56,7 +54,7 @@ def search(req, transaction, offset=0, **vargs):
     perform_search = len([i for i in values if i != ""])
             
     if perform_search:
-        req.session['group_ls'] = values
+        cherrypy.session['group_ls'] = values
         (name, description, spread, gid, gid_end,
                 gid_option, orderby, orderby_dir) = values
         
@@ -95,7 +93,7 @@ def search(req, transaction, offset=0, **vargs):
         groups = search.search()
 
         result = []
-        display_hits = req.session['options'].getint('search', 'display hits')
+        display_hits = cherrypy.session['options'].getint('search', 'display hits')
         for group in groups[:display_hits]:
             edit = str(object_link(group, text='edit', method='edit', _class='actions'))
             remb = str(remember_link(group, _class='actions'))
@@ -106,23 +104,25 @@ def search(req, transaction, offset=0, **vargs):
 
         template = SearchResultTemplate()
         table = template.view(result, headers, arguments, values,
-            len(groups), display_hits, offset, searchform, 'group/search')
+            len(groups), display_hits, offset, searchform, 'search')
 
         page.content = lambda: table
     else:
-        rmb_last = req.session['options'].getboolean('search', 'remember last')
-        if 'group_ls' in req.session and rmb_last:
-            values = req.session['group_ls']
+        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
+        if 'group_ls' in cherrypy.session and rmb_last:
+            values = cherrypy.session['group_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form
 
     return page
 search = transaction_decorator(search)
+search.exposed = True
+index = search
 
-def view(req, transaction, id):
+def view(transaction, id):
     """Creates a page with the view of the group with the given by."""
     group = transaction.get_group(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Group %s" % group.get_name())
     page.setFocus("group/view", id)
     view = GroupViewTemplate()
@@ -131,6 +131,7 @@ def view(req, transaction, id):
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
+view.exposed = True
     
 def _add_box(group):
     ops = operations.items()
@@ -138,19 +139,19 @@ def _add_box(group):
     ops.reverse()
     member_types = [("account", _("Account")),
                     ("group", _("Group"))]
-    action = url("group/add_member?id=%s" % group.get_id())
+    action = 'add_member?id=%s' % group.get_id()
 
     template = GroupAddMemberTemplate()
     return template.add_member_box(action, member_types, ops)
 
-def add_member(req, transaction, id, name, type, operation):
+def add_member(transaction, id, name, type, operation):
     group = transaction.get_group(int(id))
     
     try:
         op = transaction.get_group_member_operation_type(operation)
     except:
-        queue_message(req, _("Invalid operation '%s'.") % operation, True)
-        redirect_object(req, group, seeOther=True)
+        queue_message(_("Invalid operation '%s'.") % operation, True)
+        redirect_object(group)
         return
     
     search = transaction.get_entity_name_searcher()
@@ -159,18 +160,19 @@ def add_member(req, transaction, id, name, type, operation):
     try:
         entity_name, = search.search()
     except ValueError, e:
-        queue_message(req, _("Could not find %s %s") % (type, name), True)
-        redirect_object(req, group, seeOther=True)
+        queue_message(_("Could not find %s %s") % (type, name), True)
+        redirect_object(group)
         return
     
     entity = entity_name.get_entity()
     group.add_member(entity, op)
     
     msg = _("%s added as a member to group.") % object_link(entity)
-    commit(transaction, req, group, msg=msg)
+    commit(transaction, group, msg=msg)
 add_member = transaction_decorator(add_member)
+add_member.exposed = True
 
-def remove_member(req, transaction, groupid, memberid, operation):
+def remove_member(transaction, groupid, memberid, operation):
     group = transaction.get_group(int(groupid))
     member = transaction.get_entity(int(memberid))
     operation = transaction.get_group_member_operation_type(operation)
@@ -179,13 +181,13 @@ def remove_member(req, transaction, groupid, memberid, operation):
     group.remove_member(group_member)
 
     msg = _("%s removed from group.") % object_link(member)
-    commit(transaction, req, group, msg=msg)
+    commit(transaction, group, msg=msg)
 remove_member = transaction_decorator(remove_member)
 
-def edit(req, transaction, id):
+def edit(transaction, id):
     """Creates a page with the form for editing a person."""
     group = transaction.get_group(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Edit ") + object_link(group)
     page.setFocus("group/edit", id)
 
@@ -194,25 +196,27 @@ def edit(req, transaction, id):
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
+edit.exposed = True
 
-def create(req, name="", expire="", description=""):
+def create(name="", expire="", description=""):
     """Creates a page with the form for creating a group."""
-    page = Main(req)
+    page = Main()
     page.title = _("Create a new group")
     page.setFocus("group/create")
     
     content = GroupCreateTemplate().form(name, expire, description)
     page.content = lambda :content
     return page
+create.exposed = True
 
-def save(req, transaction, id, name, expire="",
+def save(transaction, id, name, expire="",
          description="", visi="", gid=None, submit=None):
     """Save the changes to the server."""
     group = transaction.get_group(int(id))
     c = transaction.get_commands()
     
     if submit == 'Cancel':
-        redirect_object(req, group, seeOther=True)
+        redirect_object(group)
         return
     
     if expire:
@@ -232,10 +236,11 @@ def save(req, transaction, id, name, expire="",
     group.set_name(name)
     group.set_description(description)
     
-    commit(transaction, req, group, msg=_("Group successfully updated."))
+    commit(transaction, group, msg=_("Group successfully updated."))
 save = transaction_decorator(save)
+save.exposed = True
 
-def make(req, transaction, name, expire="", description=""):
+def make(transaction, name, expire="", description=""):
     """Performs the creation towards the server."""
     commands = transaction.get_commands()
     group = commands.create_group(name)
@@ -247,29 +252,33 @@ def make(req, transaction, name, expire="", description=""):
     if description:
         group.set_description(description)
     
-    commit(transaction, req, group, msg=_("Group successfully created."))
+    commit(transaction, group, msg=_("Group successfully created."))
 make = transaction_decorator(make)
+make.exposed = True
 
-def posix_promote(req, transaction, id):
+def posix_promote(transaction, id):
     group = transaction.get_group(int(id))
     group.promote_posix()
     msg = _("Group successfully promoted to posix.")
-    commit(transaction, req, group, msg=msg)
+    commit(transaction, group, msg=msg)
 posix_promote = transaction_decorator(posix_promote)
+posix_promote.exposed = True
 
-def posix_demote(req, transaction, id):
+def posix_demote(transaction, id):
     group = transaction.get_group(int(id))
     group.demote_posix()
     msg = _("Group successfully demoted from posix.")
-    commit(transaction, req, group, msg=msg)
+    commit(transaction, group, msg=msg)
 posix_demote = transaction_decorator(posix_demote)
+posix_demote.exposed = True
 
-def delete(req, transaction, id):
+def delete(transaction, id):
     """Delete the group from the server."""
     group = transaction.get_group(int(id))
     msg = _("Group '%s' successfully deleted.") % group.get_name()
     group.delete()
-    commit_url(transaction, req, url("group/index"), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
+delete.exposed = True
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

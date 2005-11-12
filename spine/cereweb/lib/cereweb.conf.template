@@ -2,17 +2,14 @@
 webroot: /
 max_hits: 200
 
-[corba]
-url: http://localhost/spine.ior
-use_ssl: false
+[SpineClient]
+url: http://localhost/~erikgors/spine.ior
+idl_path: tmp_idl
 
-[ssl]
+use_ssl: false
 ca_file: CA.crt
 key_file: client.pem
-password: client
-
-[idl]
-spine_core: SpineCore.idl
+key_password: client
 
 [error]
 allow_traceback: true

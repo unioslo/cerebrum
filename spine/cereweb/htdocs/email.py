@@ -19,13 +19,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import transaction_decorator
-from Cereweb.templates.Email import Email
+from lib.Main import Main
+from lib.utils import transaction_decorator
+from lib.templates.Email import Email
 
-
-def index(req, transaction):
-    page = Main(req)
+def index(transaction):
+    page = Main()
     page.title = _("Email") 
     page.setFocus("email")
     template = Email()
@@ -33,5 +32,6 @@ def index(req, transaction):
     page.content = lambda: content
     return page
 index = transaction_decorator(index)    
+index.exposed = True
 
 # arch-tag: b3739600-040d-11da-97b3-692f6b35af14

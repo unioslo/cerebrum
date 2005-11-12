@@ -18,26 +18,24 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import commit, commit_url, queue_message, object_link
-from Cereweb.utils import url, transaction_decorator, redirect, redirect_object
-from Cereweb.WorkList import remember_link
-from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
-from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
-from Cereweb.templates.HostSearchTemplate import HostSearchTemplate
-from Cereweb.templates.HostViewTemplate import HostViewTemplate
-from Cereweb.templates.HostEditTemplate import HostEditTemplate
-from Cereweb.templates.HostCreateTemplate import HostCreateTemplate
+from lib.Main import Main
+from lib.utils import commit, commit_url, queue_message, object_link
+from lib.utils import transaction_decorator, redirect, redirect_object
+from lib.WorkList import remember_link
+from lib.Search import get_arg_values, get_form_values, setup_searcher
+from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.templates.HostSearchTemplate import HostSearchTemplate
+from lib.templates.HostViewTemplate import HostViewTemplate
+from lib.templates.HostEditTemplate import HostEditTemplate
+from lib.templates.HostCreateTemplate import HostCreateTemplate
 
 
-def index(req):
-    """Redirects to the page with search for hosts."""
-    return search(req)
-
-def search(req, transaction, offset=0, **vargs):
+def search(transaction, offset=0, **vargs):
     """Search for hosts and displays result and/or searchform."""
-    page = Main(req)
+    page = Main()
     page.title = _("Search for hosts(s)")
     page.setFocus("host/search")
     page.add_jscript("search.js")
@@ -48,7 +46,7 @@ def search(req, transaction, offset=0, **vargs):
     perform_search = len([i for i in values if i != ""])
     
     if perform_search:
-        req.session['host_ls'] = values
+        cherrypy.session['host_ls'] = values
         name, description, orderby, orderby_dir = values
         
         searcher = transaction.get_host_searcher()
@@ -63,7 +61,7 @@ def search(req, transaction, offset=0, **vargs):
         hosts = searcher.search()
 
         result = []
-        display_hits = req.session['options'].getint('search', 'display hits')
+        display_hits = cherrypy.session['options'].getint('search', 'display hits')
         for host in hosts[:display_hits]:
             edit = object_link(host, text='edit', method='edit', _class='actions')
             remb = remember_link(host, _class='actions')
@@ -75,23 +73,25 @@ def search(req, transaction, offset=0, **vargs):
 
         template = SearchResultTemplate()
         table = template.view(result, headers, arguments, values,
-            len(hosts), display_hits, offset, searchform, 'host/search')
+            len(hosts), display_hits, offset, searchform, 'search')
         
         page.content = lambda: table
     else:
-        rmb_last = req.session['options'].getboolean('search', 'remember last')
-        if 'host_ls' in req.session and rmb_last:
-            values = req.session['host_ls']
+        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
+        if 'host_ls' in cherrypy.session and rmb_last:
+            values = cherrypy.session['host_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form
     
     return page
 search = transaction_decorator(search)
+search.exposed = True
+index = search
 
-def view(req, transaction, id):
+def view(transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Host %s" % host.get_name())
     page.setFocus("host/view", id)
     
@@ -100,11 +100,12 @@ def view(req, transaction, id):
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
+view.exposed = True
 
-def edit(req, transaction, id):
+def edit(transaction, id):
     """Creates a page with the form for editing a host."""
     host = transaction.get_host(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Edit ") + object_link(host)
     page.setFocus("host/edit", id)
 
@@ -113,23 +114,24 @@ def edit(req, transaction, id):
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
+edit.exposed = True
 
-def save(req, transaction, id, name, description="", submit=None):
+def save(transaction, id, name, description="", submit=None):
     """Saves the information for the host."""
     host = transaction.get_host(int(id))
 
     if submit == 'Cancel':
-        redirect_object(req, host, seeOther=True)
-        return
+        redirect_object(host)
     
     host.set_name(name)
     host.set_description(description)
-    commit(transaction, req, host, msg=_("Host successfully updated."))
+    commit(transaction, host, msg=_("Host successfully updated."))
 save = transaction_decorator(save)
+save.exposed = True
 
-def create(req, transaction, name="", description=""):
+def create(transaction, name="", description=""):
     """Creates a page with the form for creating a host."""
-    page = Main(req)
+    page = Main()
     page.title = _("Create a new host")
     page.setFocus("host/create")
 
@@ -143,24 +145,27 @@ def create(req, transaction, name="", description=""):
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
+create.exposed = True
 
-def make(req, transaction, name, description=""):
+def make(transaction, name, description=""):
     """Creates the host."""
     host = transaction.get_commands().create_host(name, description)
-    commit(transaction, req, host, msg=_("Host successfully created."))
+    commit(transaction, host, msg=_("Host successfully created."))
 make = transaction_decorator(make)
+make.exposed = True
 
-def delete(req, transaction, id):
+def delete(transaction, id):
     """Delete the host from the server."""
     host = transaction.get_host(int(id))
     msg = _("Host '%s' successfully deleted.") % host.get_name()
     host.delete()
-    commit_url(transaction, req, url("host/index"), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
+delete.exposed = True
 
-def disks(req, transaction, host, add=None, delete=None, **checkboxes):
+def disks(transaction, host, add=None, delete=None, **checkboxes):
     if add:
-        redirect(req, url('disk/create?host=%s' % host))
+        redirect('/disk/create?host=%s' % host)
         
     elif delete:
         host = transaction.get_host(int(host))
@@ -170,13 +175,14 @@ def disks(req, transaction, host, add=None, delete=None, **checkboxes):
         
         if len(checkboxes) > 0:
             msg = _("Disk(s) successfully deleted.")
-            commit(transaction, req, host, msg=msg)
+            commit(transaction, host, msg=msg)
         else:
             msg = _("No disk(s) selected for deletion")
-            queue_message(req, msg, error=True, link=object_link(host))
-            redirect_object(req, host, seeOther=True)
+            queue_message(msg, error=True, link=object_link(host))
+            redirect_object(host)
     else:
         raise "I don't know what you want me to do"
 disks = transaction_decorator(disks)
+disks.exposed = True
 
 # arch-tag: 6d5f8060-3bf4-11da-96a8-c359dfc6e774

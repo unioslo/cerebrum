@@ -17,16 +17,15 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends SortedTableTemplate
-#from Cereweb.utils import url
-#from Cereweb.WorkList import remember_link
+#from lib.WorkList import remember_link
 
 #def afterColumns($rowdata)
     #set $id = $rowdata.get("id")
     #set $groupid = $rowdata.get("groupid")
     #set $operation = $rowdata.get("operation")
     #set $remember = $remember_link($rowdata.get("member"), _class="actions")
-    #set $removeurl = $url('group/remove_member?memberid=%s&amp;groupid=%s' 
-                           '&amp;operation=%s' % ($id, $groupid, $operation))
+    #set $removeurl = '/group/remove_member?memberid=%s&groupid=%s&operation=%s' % (
+                            $id, $groupid, $operation)
     <td><a href="$removeurl" class="actions">remove</a></td>
     <td>$remember</td>
 #end def

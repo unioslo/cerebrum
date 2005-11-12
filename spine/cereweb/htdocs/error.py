@@ -20,10 +20,10 @@
 
 import os
 from gettext import gettext as _
-from Cereweb.utils import url, queue_message, redirect
-from Cereweb import config
+from lib.utils import queue_message, redirect
+from lib import config
 
-def report(req, title, message, name="", path="",
+def report(title, message, name="", path="",
            referer="", traceback="", explanation=""):
     """Saves an error report to disk."""
 
@@ -39,10 +39,11 @@ def report(req, title, message, name="", path="",
         fd.write("\n".join(args))
         fd.close()
         
-        queue_message(req, _('Error successfully reported.'))
+        queue_message(_('Error successfully reported.'))
     else:
-        queue_message(req, _('Reporting of errors are not allowed at this moment.'), error=True)
+        queue_message(_('Reporting of errors are not allowed at this moment.'), error=True)
     
-    redirect(req, url('index'), seeOther=True)
+    redirect('index')
+report.exposed = True
 
 # arch-tag: dc1e0ce4-2c4d-11da-948d-0ae10e01ecdf

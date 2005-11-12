@@ -18,16 +18,18 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 import forgetHTML as html
 from templates.ActivityLogTemplate import ActivityLogTemplate
 
 #subclass Division to be included in a division
 class ActivityLog(html.Division):
     
-    def __init__(self, req):
-        if 'al_messages' not in req.session:
-            req.session['al_messages'] = []
-        self.messages = req.session['al_messages']
+    def __init__(self):
+        if 'al_messages' not in cherrypy.session:
+            cherrypy.session['al_messages'] = []
+        self.messages = cherrypy.session['al_messages']
 
     def output(self):
         template = ActivityLogTemplate()

@@ -20,27 +20,7 @@
 
 import urllib
 import mx.DateTime
-import Cereweb.Error
-import Cereweb.config
-from Cereweb.SpineIDL.Errors import NotFoundError
-
-
-WEBROOT = Cereweb.config.conf.get('cereweb', 'webroot')
-
-def url(path):
-    """
-    Returns a full path for a path relative to the base installation.
-    
-    Example:
-    url("group/search") could return "/group/search" for normal
-    installations, but /~stain/group/search for test installations.
-    """
-    if path[:1] == '/':
-        path = path[1:]
-    if not (path.startswith('css') or path.endswith('png')
-            or path.endswith('js')):
-        path = 'Chandler.cgi' + '/' + path
-    return WEBROOT + "/" + path
+import cherrypy
 
 def _spine_type(object):
     """Return the type (string) of a Spine object.
@@ -74,7 +54,7 @@ def object_url(object, method="view", **params):
     params["id"] = object.get_id()
 
     # FIXME: urlencode will separate with & - not &amp; or ?
-    return url("%s/%s?%s" % (type, method, urllib.urlencode(params)))
+    return "/%s/%s?%s" % (type, method, urllib.urlencode(params))
 
 
 def object_link(object, text=None, method="view", _class="", **params):
@@ -94,6 +74,7 @@ def object_link(object, text=None, method="view", _class="", **params):
             tmp = object.get_display_name()
             text = tmp and tmp or object.get_name()
         elif type == 'emailtarget':    
+            from SpineIDL.Errors import NotFoundError
             try:
                 primary = object.get_primary_address()
             except NotFoundError:
@@ -114,49 +95,19 @@ def object_link(object, text=None, method="view", _class="", **params):
         _class = ' class="%s"' % _class
     return '<a href="%s"%s>%s</a>' % (url, _class, text)
 
-def redirect(req, url, temporary=False, seeOther=False):
-    """
-    Immediately redirects the request to the given url. If the
-    seeOther parameter is set, 303 See Other response is sent, if the
-    temporary parameter is set, the server issues a 307 Temporary
-    Redirect. Otherwise a 301 Moved Permanently response is issued.
+def redirect(url, status=None):
+    raise cherrypy.HTTPRedirect(url, status)
 
-    General use:
-        After a POST request you want to revert to the normal viewing:
-            seeOther=True
-        Some general style url, like entity/view?id=29, really should
-        mean somewhere else, ie. group/view?id=29:
-            the defaults (permanent redirect)
-        An error occured, and you want to go to some default page
-            temporary=True    
-    """
-    HTTP_SEE_OTHER = 303
-    HTTP_TEMPORARY_REDIRECT = 307
-    HTTP_MOVED_PERMANENTLY = 301
-
-    assert not (temporary and seeOther) # cannot set both temporary and seeOther
-
-    if seeOther:
-        status = HTTP_SEE_OTHER
-    elif temporary:
-        status = HTTP_TEMPORARY_REDIRECT
-    else:
-        status = HTTP_MOVED_PERMANENTLY
-
-    req.headers_out['Location'] = url
-    req.status = status
-    
-def redirect_object(req, object, method="view", 
-                    temporary=False, seeOther=False):
+def redirect_object(object, method="view", status=None):
     """Redirects to the given object. 
        This is shorthand for calling object_url and redirect 
        in succession. See the respecting methods for
        explanation of the parameters.
     """                 
-    url = object_url(object, method)                   
-    redirect(req, url, temporary, seeOther)
+    url = object_url(object, method)
+    raise cherrypy.HTTPRedirect(url, status)
 
-def queue_message(req, message, error=False, link=''):
+def queue_message(message, error=False, link=''):
     """Queue a message.
     
     The message will be displayed next time a Main-page is showed.
@@ -166,15 +117,14 @@ def queue_message(req, message, error=False, link=''):
     the object.
     """
     timestamp = mx.DateTime.now()
-    if 'messages' not in req.session:
-        req.session['messages'] = [(message, error)]
+    if 'messages' not in cherrypy.session:
+        cherrypy.session['messages'] = [(message, error)]
     else:
-        req.session['messages'].append((message, error))
-    if 'al_messages' not in req.session:
-        req.session['al_messages'] = [(message, error, link, timestamp)]
+        cherrypy.session['messages'].append((message, error))
+    if 'al_messages' not in cherrypy.session:
+        cherrypy.session['al_messages'] = [(message, error, link, timestamp)]
     else:
-        req.session['al_messages'].append((message, error, link, timestamp))
-    req.session.save() #FIXME: temporarly fixes that session isnt saved when redirect.
+        cherrypy.session['al_messages'].append((message, error, link, timestamp))
 
 def strftime(date, format="%Y-%m-%d", default=''):
     """Returns a string for the date.
@@ -184,17 +134,18 @@ def strftime(date, format="%Y-%m-%d", default=''):
     """
     return date and date.strftime(format) or default
 
-def new_transaction(req):
+def new_transaction():
     try:
-        return req.session['session'].new_transaction()
+        return cherrypy.session['session'].new_transaction()
     except Exception, e:
-        raise Cereweb.Error.SessionError, e
+        import Error
+        raise Error.SessionError, e
 
 def transaction_decorator(method):
-    def transaction_decorator(req, *args, **vargs):
-        tr = new_transaction(req)
+    def transaction_decorator(*args, **vargs):
+        tr = new_transaction()
         try:
-            return method(req, transaction=tr, *args, **vargs)
+            return method(transaction=tr, *args, **vargs)
         finally:
             try:
                 # FIXME: sjekk status på transaction?
@@ -203,7 +154,7 @@ def transaction_decorator(method):
                 pass
     return transaction_decorator
 
-def commit(transaction, req, object, method='view', msg='', error=''):
+def commit(transaction, object, method='view', msg='', error=''):
     """Commits the transaction, then redirects.
 
     If 'msg' is given, the message will be queued after the
@@ -211,9 +162,9 @@ def commit(transaction, req, object, method='view', msg='', error=''):
     an exception, and 'error' is given, it will be queued.
     """
     url, link = object_url(object, method), object_link(object)
-    commit_url(transaction, req, url, msg, error, link)
+    commit_url(transaction, url, msg, error, link)
 
-def commit_url(transaction, req, url, msg='', error='', link=''):
+def commit_url(transaction, url, msg='', error='', link=''):
     """Commits the transaction, then redirects.
 
     If 'msg' is given, the message will be queued after the
@@ -228,10 +179,10 @@ def commit_url(transaction, req, url, msg='', error='', link=''):
     except:
         if not errormsg:
             raise
-        queue_message(req, error, error=True, link=link)
+        queue_message(error, error=True, link=link)
     else:
         if msg:
-            queue_message(req, msg, link=link)
-    redirect(req, url, seeOther=True)
+            queue_message(msg, link=link)
+    raise cherrypy.HTTPRedirect(url)
 
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6

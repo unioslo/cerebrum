@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #def sorted_table($tableview, $headers, $change_sort_priority, $change_sort_order, $css_class=None)
@@ -47,8 +47,8 @@
 
 #for $column in $tableview.columns
 #set $header = $headers.get($column, "")
-#set $pri_link = $change_sort_priority % $column    
-#set $ord_link = $change_sort_order % column
+#set $pri_link = $change_sort_priority
+#set $ord_link = $change_sort_order
 #set $dir = $tableview.column_order($column)    
 <td>
         <a href='$pri_link'></a> 

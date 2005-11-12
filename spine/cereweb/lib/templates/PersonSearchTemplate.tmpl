@@ -17,7 +17,6 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends SearchTemplate
-#from Cereweb.utils import url
 
 #attr $fields = [("name", "Name"),
                  ("accountname", "Account name"),
@@ -28,6 +27,6 @@
                "A person may have several types of names, and therefor a search for a name will be testet on all the nametypes."]
 
 #def getAction
-$url("person/search")#slurp
+    #return '/person/search'
 #end def
 

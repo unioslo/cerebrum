@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url, object_link
+#from lib.InitTemplate import InitTemplate
+#from lib.utils import object_link
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -32,9 +32,9 @@
     #if $addAffil == "True" or $addAffil == True
         $addForm($person, $transaction, $page)
     #else
-    #set $tmp_url = "%s?id=%i&addAffil=True" % ($page, $person.get_id())
+    #set $tmp_url = "/%s?id=%i&addAffil=True" % ($page, $person.get_id())
     <div class="actions">
-        <a href="$url(tmp_url)#affils">$_("add an affiliation")</a>
+        <a href="$tmp_url#affils">$_("add an affiliation")</a>
     </div>
     #end if
 </div>
@@ -55,8 +55,7 @@
                             $person.get_id(), $ou.get_id(),
                             $affil_type.get_name(),
                             $affil.get_source_system().get_name())
-            #set $remove = $url("person/remove_affil?%s" % $args)
-            <a href="$remove" class="actions">$_("remove")</a>
+            <a href="/person/remove_affil?$args" class="actions">$_("remove")</a>
         #end if
         <br />
         <em>Status:</em> $status.get_name() ($status.get_description())
@@ -73,7 +72,7 @@
 
 ## Creates a form for adding a affiliation to a person.
 #def addForm($entity, $tr, $page)
-<form action="$url('person/add_affil')" type="post">
+<form action="/person/add_affil" type="post">
     <h2>$_("Add an affiliation")</h2>
     <input type="hidden" name="id" value="$entity.get_id()" />
     #set $searcher = $tr.get_person_affiliation_status_type_searcher()
@@ -89,10 +88,9 @@
     $form_widgets.input("description", "Description")
     <div class="actions">
         <input type="submit" value="$_('Add')" />
-        #set $tmp_url = "%s?id=%s#affils" % ($page, $entity.get_id())
-        <a href="$url($tmp_url)">$_("Cancel")</a>
+        #set $tmp_url = "/%s?id=%s#affils" % ($page, $entity.get_id())
+        <a href="$tmp_url">$_("Cancel")</a>
     </div>
 </form>
 #end def
-
 

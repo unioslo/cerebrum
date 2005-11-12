@@ -18,30 +18,33 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import transaction_decorator, commit_url
-from Cereweb.utils import redirect, queue_message, url
-from Cereweb.Options import Options, restore_to_default
-from Cereweb.templates.OptionsTemplate import OptionsTemplate
+import cherrypy
 
-def index(req, transaction):
+from gettext import gettext as _
+from lib.Main import Main
+from lib.utils import transaction_decorator, commit_url
+from lib.utils import redirect, queue_message
+from lib.Options import Options, restore_to_default
+from lib.templates.OptionsTemplate import OptionsTemplate
+
+def index(transaction):
     """Creates form for editing user-specific options for cereweb."""
-    page = Main(req)
+    page = Main()
     page.title = _('Options for cereweb')
     
     template = OptionsTemplate()
-    content = template.options(req.session['options'])
+    content = template.options(cherrypy.session['options'])
     page.content = lambda: content
     return page
 index = transaction_decorator(index)
+index.exposed = True
 
-def save(req, transaction, restore=None, **vargs):
+def save(transaction, restore=None, **vargs):
     """Save changes done to options."""
     if restore:
-        return restore_defaults(req)
+        return restore_defaults()
     
-    options = req.session['options']
+    options = cherrypy.session['options']
     
     # set checkboxes to False
     for section in options.sections():
@@ -68,21 +71,23 @@ def save(req, transaction, restore=None, **vargs):
     options.save()
     
     msg = _('Options saved successfully.')
-    commit_url(transaction, req, url('options'), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 save = transaction_decorator(save)
+save.exposed = True
 
-def restore_defaults(req, transaction):
+def restore_defaults(transaction):
     """Restore options to default values."""
-    user = req.session['options']._get_user(transaction)
+    user = cherrypy.session['options']._get_user(transaction)
     restore_to_default(transaction, user)
     transaction.commit()
 
-    session = req.session['session']
-    username = req.session['username']
-    req.session['options'] = Options(session, username)
+    session = cherrypy.session['session']
+    username = cherrypy.session['username']
+    cherrypy.session['options'] = Options(session, username)
     
-    queue_message(req, _('Options restored to defaults successfully.'))
-    redirect(req, url('options'), seeOther=True)
+    queue_message(_('Options restored to defaults successfully.'))
+    redirect('index')
 restore_defaults = transaction_decorator(restore_defaults)
+restore_defaults.exposed = True
 
 # arch-tag: cc666fb4-4f37-11da-8022-96dbb4fc55eb

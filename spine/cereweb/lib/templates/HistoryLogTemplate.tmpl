@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from lib.InitTemplate import InitTemplate
 #from SortedTableTemplate import SortedTableTemplate
 #extends InitTemplate
 
@@ -26,10 +25,9 @@
         'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
     <div class="historylog">
         <h2>History log</h2>
-        $SortedTableTemplate().sorted_table($table, $headers,
-                            $url("sortpri=%s"), $url("sortby=%s"))
+        $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
         <div class="actions">
-            <a href="$url('entity/full_historylog?id=%s' % $id)">View full history log</a>
+            <a href="/entity/full_historylog?id=$id">View full history log</a>
         </div>
     </div>
 #end def
@@ -39,8 +37,7 @@
         'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
     <div class="historylog">
         <h2>History log</h2>
-        $SortedTableTemplate().sorted_table($table, $headers,
-                            $url("sortpri=%s"), $url("sortby=%s"))
+        $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
     </div>
 #end def
 

@@ -17,16 +17,15 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #import forgetHTML
-#import Cereweb.config
-#from Cereweb.utils import url
-#from Cereweb.Search import get_form_values, get_link_arguments
-#from Cereweb.Search import create_table_headers
-#from Cereweb.InitTemplate import InitTemplate
+#import lib.config
+#from lib.Search import get_form_values, get_link_arguments
+#from lib.Search import create_table_headers
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 
 ## Maximum hits to ask for in a search.
-#attr max_hits = Cereweb.config.conf.getint('cereweb', 'max_hits')
+#attr max_hits = lib.config.conf.getint('cereweb', 'max_hits')
 
 ## Number of hints to display in the searchresult.
 #attr display_hits = 10
@@ -91,7 +90,7 @@
 ## Creates links to access search-result outside the search-range.
 #def range_menu($args, $values, $hits, $offset, $page)
 <div class="search_range">
-    #set $link = $url($page) + $get_link_arguments($args, $values)
+    #set $link = $page + $get_link_arguments($args, $values)
     
     #set $first = 0
     #set $last = $min($max_hits,$hits) - $display_hits

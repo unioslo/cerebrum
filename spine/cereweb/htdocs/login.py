@@ -20,40 +20,45 @@
 
 import md5
 import time
+import cherrypy
 
-import Cereweb.SpineClient
-from Cereweb import utils
-from Cereweb.Session import Session
-from Cereweb.Options import Options
-from Cereweb.templates.Login import Login
+from lib import utils
+from lib.Options import Options
+from lib.templates.Login import Login
+from lib import config
 
-def index(req, username='', password='', redirect=utils.url('/index')):
+import SpineClient
+
+url = config.conf.get('SpineClient', 'url')
+idl_path = config.conf.get('SpineClient', 'idl_path')
+use_ssl = config.conf.getboolean('SpineClient', 'use_ssl')
+ca_file = config.conf.get('SpineClient', 'ca_file')
+key_file = config.conf.get('SpineClient', 'key_file')
+key_password = config.conf.get('SpineClient', 'key_password')
+
+Spine = SpineClient.SpineClient(url, use_ssl, ca_file, key_file, key_password, idl_path)
+
+def login(username='', password='', redirect='/index'):
     error = None
     if username and password:
         error = "Login"
         try:
-            spine = Cereweb.SpineClient.connect()
+            spine = Spine.connect()
             session = spine.login(username, password)
         except Exception, e:
             error = str(e)
             error = error.replace("<", "")
             error = error.replace(">", "")
         else:
-            
-            if not req.session: # Create new session. Security & obscurity
-                id = md5.new('ce%sre%swe%sb' % (time.time(), username, password))
-                req.session = Session(id.hexdigest(), create=True)
-            else: # Reuse an old session, but clear it first.
-                req.session.clear()
+            cherrypy.session.clear()
 
-            req.session['session'] = session
-            req.session['username'] = username
-            req.session['timeout'] = session.get_timeout()
-            req.session['options'] = Options(session, username)
-            req.session.save()
+            cherrypy.session['session'] = session
+            cherrypy.session['username'] = username
+            cherrypy.session['timeout'] = session.get_timeout()
+            cherrypy.session['options'] = Options(session, username)
             
             #redirect to the main page and start using the cereweb.publisher.
-            utils.redirect(req, redirect)
+            utils.redirect(redirect)
 
     if error:
         messages = [error]
@@ -61,5 +66,13 @@ def index(req, username='', password='', redirect=utils.url('/index')):
         messages = []
 
     return Login().login(username, messages)
+login.exposed = True
+
+def logout():
+    username = cherrypy.session.get('username', '')
+    cherrypy.session.clear()
+    utils.redirect("/login?username=%s" % username)
+logout.exposed = True
+
 
 # arch-tag: c1c42d44-1800-4608-b215-8a669cf10821

@@ -16,8 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from Cereweb.InitTemplate import InitTemplate
-#from Cereweb.utils import url
+#from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -34,7 +33,7 @@
         #set $ss_desc = $id.get_source_system().get_description()
         #set $args = "id=%i&external_id=%s&id_type=%s" % ($entity.get_id(),
                             $external_id, $id.get_id_type().get_name())
-        #set $delete = $url('entity/remove_external_id?%s' % $args)
+        #set $delete = '/entity/remove_external_id?%s' % $args
         <div class="actions">
             <em>$type:</em> $external_id
             <a href="$delete" class="actions">$_("delete")</a>
@@ -42,7 +41,7 @@
         <div><em>$_("Source system"):</em> $ss_name ($ss_desc)</div>
     </div>
     #end for
-    <form action="$url('entity/add_external_id')" type="post">
+    <form action="/entity/add_external_id" type="post">
         <input type="hidden" name="id" value="$entity.get_id()" />
         <input type="input" size="20" name="external_id" />
         $form_widgets.generate_option("id_type", $id_types)

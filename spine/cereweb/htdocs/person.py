@@ -18,27 +18,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cherrypy
+
 import forgetHTML as html
 from gettext import gettext as _
-from Cereweb.Main import Main
-from Cereweb.utils import url, queue_message, redirect, redirect_object
-from Cereweb.utils import transaction_decorator, object_link, commit, commit_url
-from Cereweb.WorkList import remember_link
-from Cereweb.Search import get_arg_values, get_form_values, setup_searcher
-from Cereweb.templates.SearchResultTemplate import SearchResultTemplate
-from Cereweb.templates.PersonSearchTemplate import PersonSearchTemplate
-from Cereweb.templates.PersonViewTemplate import PersonViewTemplate
-from Cereweb.templates.PersonEditTemplate import PersonEditTemplate
-from Cereweb.templates.PersonCreateTemplate import PersonCreateTemplate
+from lib.Main import Main
+from lib.utils import queue_message, redirect, redirect_object
+from lib.utils import transaction_decorator, object_link, commit, commit_url
+from lib.WorkList import remember_link
+from lib.Search import get_arg_values, get_form_values, setup_searcher
+from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.templates.PersonSearchTemplate import PersonSearchTemplate
+from lib.templates.PersonViewTemplate import PersonViewTemplate
+from lib.templates.PersonEditTemplate import PersonEditTemplate
+from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
-def index(req):
-    """Redirects to the search for person page."""
-    return search(req)
-
-def search(req, transaction, offset=0, **vargs):
+def search(transaction, offset=0, **vargs):
     """Search after hosts and displays result and/or searchform."""
     #FIXME: orderby name
-    page = Main(req)
+    page = Main()
     page.title = _("Search for person(s)")
     page.setFocus("person/search")
     page.add_jscript("search.js")
@@ -50,7 +48,7 @@ def search(req, transaction, offset=0, **vargs):
     perform_search = len([i for i in values if i != ""])
 
     if perform_search:
-        req.session['person_ls'] = values
+        cherrypy.session['person_ls'] = values
         name, accountname, birthdate, spread, orderby, orderby_dir = values
 
         search = transaction.get_person_searcher()
@@ -86,7 +84,7 @@ def search(req, transaction, offset=0, **vargs):
         persons = search.search()
 
         result = []
-        display_hits = req.session['options'].getint('search', 'display hits')
+        display_hits = cherrypy.session['options'].getint('search', 'display hits')
         for person in persons[:display_hits]:
             date = person.get_birth_date().strftime('%Y-%m-%d')
             accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]
@@ -100,18 +98,20 @@ def search(req, transaction, offset=0, **vargs):
 
         template = SearchResultTemplate()
         table = template.view(result, headers, arguments, values,
-            len(persons), display_hits, offset, searchform, 'person/search')
+            len(persons), display_hits, offset, searchform, 'search')
 
         page.content = lambda: table
     else:
-        rmb_last = req.session['options'].getboolean('search', 'remember last')
-        if 'person_ls' in req.session and rmb_last:
-            values = req.session['person_ls']
+        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
+        if 'person_ls' in cherrypy.session and rmb_last:
+            values = cherrypy.session['person_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form
 
     return page
 search = transaction_decorator(search)
+search.exposed = True
+index = search
 
 def _primary_name(person):
     """Returns the primary display name for the person."""
@@ -124,22 +124,22 @@ def _primary_name(person):
             return names[type]
     return "unknown name"
 
-def _get_person(req, transaction, id):
+def _get_person(transaction, id):
     """Returns a Person-object from the database with the specific id."""
     try:
         return transaction.get_person(int(id))
     except Exception, e:
-        queue_message(req, _("Could not find person with id=%s") % id, True)
-        redirect(req, url("person"), temporary=True)
+        queue_message(_("Could not find person with id=%s") % id, True)
+        redirect('index')
 
-def view(req, transaction, id, addName=False, addAffil=False):
+def view(transaction, id, addName=False, addAffil=False):
     """Creates a page with a view of the person given by id.
 
     If addName is True or "True", the form for adding a name is shown.
     If addAffil is True or "True", the form for adding an affiliation is shown.
     """
     person = transaction.get_person(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Person %s" % _primary_name(person))
     page.setFocus("person/view", id)
     view = PersonViewTemplate()
@@ -147,11 +147,12 @@ def view(req, transaction, id, addName=False, addAffil=False):
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
+view.exposed = True
 
-def edit(req, transaction, id):
+def edit(transaction, id):
     """Creates a page with the form for editing a person."""
     person = transaction.get_person(int(id))
-    page = Main(req)
+    page = Main()
     page.title = _("Edit ") + object_link(person)
     page.setFocus("person/edit", id)
 
@@ -163,16 +164,14 @@ def edit(req, transaction, id):
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
+edit.exposed = True
 
-def create(req, transaction):
+def create(transaction):
     """Creates a page with the form for creating a person."""
-    page = Main(req)
+    page = Main()
     page.title = _("Create a new person")
     page.setFocus("person/create")
 
-    genders = [(g.get_name(), g.get_description()) for g in 
-               transaction.get_gender_type_searcher().search()]
-    
     genders = [(g.get_name(), g.get_description()) for g in 
                transaction.get_gender_type_searcher().search()]
     
@@ -181,14 +180,15 @@ def create(req, transaction):
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
+create.exposed = True
 
-def save(req, transaction, id, gender, birthdate,
+def save(transaction, id, gender, birthdate,
          deceased="", description="", submit=None):
     """Store the form for editing a person into the database."""
     person = transaction.get_person(int(id))
 
     if submit == "Cancel":
-        redirect_object(req, person, seeOther=True)
+        redirect_object(person)
         return
     
     person.set_gender(transaction.get_gender_type(gender))
@@ -202,33 +202,36 @@ def save(req, transaction, id, gender, birthdate,
         
     person.set_deceased_date(deceased)
     
-    commit(transaction, req, person, msg=_("Person successfully updated."))
+    commit(transaction, person, msg=_("Person successfully updated."))
 save = transaction_decorator(save)
+save.exposed = True
 
-def make(req, transaction, name, gender, birthdate, description=""):
+def make(transaction, firstname, lastname, gender, birthdate, description=""):
     """Create a new person with the given values."""
     birthdate = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
     gender = transaction.get_gender_type(gender)
     source_system = transaction.get_source_system('Manual')
     
     person = transaction.get_commands().create_person(
-               birthdate, gender, name, source_system)
+               birthdate, gender, firstname, lastname, source_system)
 
     if description:
         person.set_description(description)
     
-    commit(transaction, req, person, msg=_("Person successfully created."))
+    commit(transaction, person, msg=_("Person successfully created."))
 make = transaction_decorator(make)
+make.exposed = True
 
-def delete(req, transaction, id):
+def delete(transaction, id):
     """Delete the person from the server."""
     person = transaction.get_person(int(id))
     msg = _("Person '%s' successfully deleted.") % _primary_name(person)
     person.delete()
-    commit_url(transaction, req, url("person/index"), msg=msg)
+    commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
+delete.exposed = True
 
-def add_name(req, transaction, id, name, name_type):
+def add_name(transaction, id, name, name_type):
     """Add a new name to the person with the given id."""
     person = transaction.get_person(int(id))
 
@@ -236,10 +239,11 @@ def add_name(req, transaction, id, name, name_type):
     source_system = transaction.get_source_system('Manual')
     person.set_name(name, name_type, source_system)
 
-    commit(transaction, req, person, msg=_("Name successfully added."))
+    commit(transaction, person, msg=_("Name successfully added."))
 add_name = transaction_decorator(add_name)
+add_name.exposed = True
 
-def remove_name(req, id, transaction, variant, ss):
+def remove_name(id, transaction, variant, ss):
     """Remove the name with the given values."""
     person = transaction.get_person(int(id))
     variant = transaction.get_name_type(variant)
@@ -247,15 +251,16 @@ def remove_name(req, id, transaction, variant, ss):
 
     person.remove_name(variant, ss)
 
-    commit(transaction, req, person, msg=_("Name successfully removed."))
+    commit(transaction, person, msg=_("Name successfully removed."))
 remove_name = transaction_decorator(remove_name)
+remove_name.exposed = True
 
-def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
+def accounts(owner, transaction, add=None, delete=None, **checkboxes):
     if add:
-        redirect(req, url('account/create?owner=%s' % owner), seeOther=True)
+        redirect('/account/create?owner=%s' % owner)
 
     elif delete:
-        person = _get_person(req, transaction, owner)
+        person = _get_person(transaction, owner)
         operation = transaction.get_group_member_operation_type("union")
         msgs = []
         for arg, value in checkboxes.items():
@@ -277,18 +282,19 @@ def accounts(req, owner, transaction, add=None, delete=None, **checkboxes):
         if msgs:
             olink = object_link(person)
             for msg in msgs:
-                queue_message(req, msg, error=False, link=olink)
-            commit(transaction, req, person)
+                queue_message(msg, error=False, link=olink)
+            commit(transaction, person)
         else:
             msg = _("No changes done since no groups/accounts were selected.")
-            queue_message(req, msg, error=True)
-            redirect_object(req, person, temporary=True)
+            queue_message(msg, error=True)
+            redirect_object(person)
         
     else:
         raise "I don't know what you want to do"
 accounts = transaction_decorator(accounts)
+accounts.exposed = True
                 
-def add_affil(req, transaction, id, status, ou, description=""):
+def add_affil(transaction, id, status, ou, description=""):
     person = transaction.get_person(int(id))
     ou = transaction.get_ou(int(ou))
     status = transaction.get_person_affiliation_status_type(status)
@@ -299,10 +305,11 @@ def add_affil(req, transaction, id, status, ou, description=""):
     if description:
         affil.set_description(description)
     
-    commit(transaction, req, person, msg=_("Affiliation successfully added."))
+    commit(transaction, person, msg=_("Affiliation successfully added."))
 add_affil = transaction_decorator(add_affil)
+add_affil.exposed = True
 
-def remove_affil(req, transaction, id, ou, affil, ss):
+def remove_affil(transaction, id, ou, affil, ss):
     person = transaction.get_person(int(id))
     ou = transaction.get_ou(int(ou))
     ss = transaction.get_source_system(ss)
@@ -317,7 +324,8 @@ def remove_affil(req, transaction, id, ou, affil, ss):
     affiliation, = searcher.search()
     affiliation.delete()
     
-    commit(transaction, req, person, msg=_("Affiliation successfully removed."))
+    commit(transaction, person, msg=_("Affiliation successfully removed."))
 remove_affil = transaction_decorator(remove_affil)
+remove_affil.exposed = True
 
 # arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6

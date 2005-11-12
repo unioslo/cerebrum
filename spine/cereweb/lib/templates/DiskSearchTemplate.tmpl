@@ -17,7 +17,6 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends SearchTemplate
-#from Cereweb.utils import url
 
 #attr $fields = [("path", "Path"),
                  ("description", "Description")]
@@ -25,6 +24,6 @@
 #attr $help = [""]
 
 #def getAction
-$url("disk/search")#slurp
+    #return '/disk/search'
 #end def
 

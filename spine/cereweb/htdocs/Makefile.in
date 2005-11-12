@@ -1,46 +1,15 @@
 ##
 ## Makefile for htdocs/
 ##
-SHELL = @SHELL@
-INSTALL = @INSTALL@
 
-prefix = @prefix@
-libdir = @libdir@
-webroot = @webroot@
-
-sources = $(wildcard *.py *.js)
-
-.PHONY: all install install-lib clean distclean print
+.PHONY: all clean distclean
 
 all: 
 	$(MAKE) -C css $@
-	$(MAKE) -C jscript $@
-	$(MAKE) -C img $@
-
-print:
-	@echo Sources
-	@echo $(sources)
-
-install-lib:
-
-install: $(sources) htaccess
-	$(INSTALL) -d $(DESTDIR)/$(webroot)
-	$(INSTALL) -v -m 644 $(sources) $(DESTDIR)/$(webroot)
-	$(INSTALL) -v -m 755 Chandler.py $(DESTDIR)/$(webroot)/Chandler.cgi
-	$(INSTALL) -v -m 644 htaccess $(DESTDIR)/$(webroot)/.htaccess
-	$(MAKE) -C css $@
-	$(MAKE) -C jscript $@
-	$(MAKE) -C img $@
 
 clean:
-	rm -f *~ 
 	$(MAKE) -C css $@
-	$(MAKE) -C jscript $@
-	$(MAKE) -C img $@
 
 distclean: clean
 	rm -f Makefile
 	$(MAKE) -C css $@
-	$(MAKE) -C jscript $@
-	$(MAKE) -C img $@
-
