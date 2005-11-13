@@ -46,22 +46,20 @@ class Redirected(Exception):
     pass # presentere en side for browsere som ikke støtter redirect?
 
 
-def handle(error, path=""):
+def handle(error):
     title, message, tracebk = None, None, None
+    path = cherrypy.request.path
 
     cherrypy.response.headerMap['Pragma'] = 'no-cache'
     cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
-
     
     if isinstance(error, SessionError):
-        try:
-            cherrypy.session.get('session', None)
-        except AttributeError:
+        if path not in ('/', '/login'):
+            msg = "Your session has most likely timed out."
+            redirect('/login?redirect=%s&msg=%s' % (path, msg))
+        else:
             redirect('/login')
-            return
-        
-        title = "Session Error."
-        message = "Your session has most likely timed out."
+        return
     elif isinstance(error, Redirected):
         title = "Redirection error."
         message = "Your browser does not seem to support redirection."

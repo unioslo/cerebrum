@@ -38,7 +38,7 @@ key_password = config.conf.get('SpineClient', 'key_password')
 
 Spine = SpineClient.SpineClient(url, use_ssl, ca_file, key_file, key_password, idl_path)
 
-def login(username='', password='', redirect='/index'):
+def login(username='', password='', redirect='/index', msg=''):
     error = None
     if username and password:
         error = "Login"
@@ -60,10 +60,11 @@ def login(username='', password='', redirect='/index'):
             #redirect to the main page and start using the cereweb.publisher.
             utils.redirect(redirect)
 
+    messages = []
     if error:
-        messages = [error]
-    else:
-        messages = []
+        messages.append(error)
+    if msg:
+        messages.append(msg)
 
     return Login().login(username, messages)
 login.exposed = True
