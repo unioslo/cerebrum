@@ -128,17 +128,13 @@
         </div>
     </div>
     <div class="actions">
-        #set $link1 = '/account/edit?id=%s' % $id
-        #set $link3 = '/account/delete?id=%s' % $id
-        <a href="$link1">$_("Edit")</a>
+        <a href="/account/edit?id=$id">$_("Edit")</a>
         #if $account.is_posix()
-            #set $link2 = '/account/posix_demote?id=%s' % $id
-            <a href="$link2">$_("Demote from Posix")</a>
+            <a href="/account/posix_demote?id=$id">$_("Demote from Posix")</a>
         #else
-            #set $link2 = '/account/posix_promote?id=%s' % $id
-            <a href="$link2">$_("Promote to Posix")</a>
+            <a href="/account/posix_promote?id=$id">$_("Promote to Posix")</a>
         #end if
-        <a href="$link3">$_("Remove")</a>
+        <a href="/accont/delete?id=$id">$_("Remove")</a>
         $remember_link($account)
     </div>
 </div>

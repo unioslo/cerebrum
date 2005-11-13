@@ -72,10 +72,9 @@ $view_entity($person, $transaction)
         </div>
     </div>
     <div class="actions">
-        #set $edit = "/person/edit?id=%s" % $person.get_id()
-        #set $delete = "/person/delete?id=%s" % $person.get_id()
-        <a href="$edit">$_("edit person")</a>
-        <a href="$delete">$_("delete person")</a>
+        #set $id = $person.get_id()
+        <a href="/person/edit?id=$id">$_("edit person")</a>
+        <a href="/person/delete?id=$id">$_("delete person")</a>
         $remember_link($person)
     </div>
 </div>

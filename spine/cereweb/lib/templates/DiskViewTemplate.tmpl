@@ -47,8 +47,8 @@ $view_entity($disk, $transaction)
     </div>
     <div class="actions">
         #set $id = $disk.get_id()
-        <a href="'/disk/edit?id=%s' % $id">$_("edit disk")</a>
-        <a href="'/disk/delete?id=%s' % $id">$_("delete disk")</a>
+        <a href="/disk/edit?id=$id">$_("edit disk")</a>
+        <a href="/disk/delete?id=$id">$_("delete disk")</a>
         $remember_link($disk)
     </div>
 </div>

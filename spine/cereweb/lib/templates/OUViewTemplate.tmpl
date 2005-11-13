@@ -52,8 +52,9 @@ $view_entity($ou, $transaction)
         </div>
     </div>
     <div class="actions">
-        <a href="/ou/edit?id=$ou.get_id()">$_("edit ou")</a>
-        <a href="/ou/delete?id=$ou.get_id()">$_("delete ou")</a>
+        #set $id = $ou.get_id()
+        <a href="/ou/edit?id=$id">$_("edit ou")</a>
+        <a href="/ou/delete?id=$id">$_("delete ou")</a>
         $remember_link($ou)
     </div>
 </div>

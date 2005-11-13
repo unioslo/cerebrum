@@ -24,6 +24,7 @@ import os
 import sys
 import traceback
 import config
+from utils import redirect
 from templates.ErrorTemplate import ErrorTemplate
 
 class SessionError(Exception):
@@ -53,6 +54,12 @@ def handle(error, path=""):
 
     
     if isinstance(error, SessionError):
+        try:
+            cherrypy.session.get('session', None)
+        except AttributeError:
+            redirect('/login')
+            return
+        
         title = "Session Error."
         message = "Your session has most likely timed out."
     elif isinstance(error, Redirected):
