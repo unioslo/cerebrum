@@ -23,3 +23,5 @@ class PersonAffiliationStatus(DatabaseClass):
     }
 
 registry.register_class(PersonAffiliationStatus)
+
+# arch-tag: f049a00c-5524-11da-8986-57d9d05763c0
