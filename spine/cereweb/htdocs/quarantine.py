@@ -90,7 +90,7 @@ def add(transaction, entity):
     page.title += object_link(entity)
     add = QuarantineTemplate()
     add.formvalues = formvalues
-    content = add.quarantine_form(entity, "quarantine/make", types)
+    content = add.quarantine_form(entity, "make", types)
     page.content = lambda: content
     return page
 add = transaction_decorator(add)

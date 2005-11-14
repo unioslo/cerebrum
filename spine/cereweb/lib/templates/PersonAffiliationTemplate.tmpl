@@ -32,7 +32,7 @@
     #if $addAffil == "True" or $addAffil == True
         $addForm($person, $transaction, $page)
     #else
-    #set $tmp_url = "/%s?id=%i&addAffil=True" % ($page, $person.get_id())
+    #set $tmp_url = "%s?id=%i&addAffil=True" % ($page, $person.get_id())
     <div class="actions">
         <a href="$tmp_url#affils">$_("add an affiliation")</a>
     </div>
