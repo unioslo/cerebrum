@@ -56,7 +56,7 @@ def delete(transaction, entity, id):
     entity = transaction.get_entity(int(entity))
     note = transaction.get_note(int(id))
     entity.remove_note(note)
-    commit(transaction, entity, _("Note deleted"))
+    commit(transaction, entity, msg=_("Note deleted"))
 delete = transaction_decorator(delete)
 delete.exposed = True
 
