@@ -19,9 +19,14 @@ def _cpOnError():
     
 cherrypy.root._cpOnError = _cpOnError
 
+def readConf(file):
+    if os.path.exists(file):
+        cherrypy.config.update(file = file)
+
 if __name__ == '__main__':
-    file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'cherrypy.conf')
-    cherrypy.config.update(file = file)
+    path = os.path.dirname(os.path.realpath(__file__))
+    readConf(os.path.join(path, 'cherrypy.conf.template'))
+    readConf(os.path.join(path, 'cherrypy.conf'))
     cherrypy.server.start()
 
 # arch-tag: 298feaea-53a6-11da-9370-e22a2f127752

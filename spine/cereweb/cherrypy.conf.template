@@ -1,11 +1,11 @@
 [global]
 server.socketPort = 8080
-#server.socketHost = '129.241.56.42'
+server.socketHost = '0.0.0.0'
 server.threadPool = 10
 server.environment = 'production'
 server.showTracebacks = True
 sessionFilter.on = True
-#server.logToScreen = False
+server.logToScreen = True
 
 [/css]
 staticFilter.on = True
