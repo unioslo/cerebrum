@@ -119,27 +119,6 @@ class EntityExternalIdType(CodeType):
 registry.register_class(EntityExternalIdType)
 __all__.append(EntityExternalIdType)
 
-table = 'person_aff_status_code'
-class PersonAffiliationStatusType(CodeType):
-    primary = [
-        DatabaseAttr('id', table, int),
-    ]
-    slots = [
-        DatabaseAttr('affiliation', table, PersonAffiliationType),
-        DatabaseAttr('name', table, str),
-        DatabaseAttr('description', table, str)
-    ]
-    method_slots = []
-    db_attr_aliases = {
-        table : {
-            'id' : 'status',
-            'name' : 'status_str'
-        }
-    }
-
-registry.register_class(PersonAffiliationStatusType)
-__all__.append(PersonAffiliationStatusType)
-
 table = 'email_spam_level_code'
 class EmailSpamLevel(CodeType):
     primary = [

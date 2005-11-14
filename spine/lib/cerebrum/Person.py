@@ -64,18 +64,26 @@ class Person(Entity):
 
 registry.register_class(Person)
 
-def create(self, birthdate, gender, full_name, source_system):
+def create(self, birthdate, gender, first_name, last_name, source_system):
     db = self.get_database()
     new_id = Person._create(db, birthdate.strftime('%Y-%m-%d'), gender.get_id())
 
     person = Person(db, new_id)
 
+    first = NameType(db, name='FIRST')
+    last = NameType(db, name='LAST')
     full = NameType(db, name='FULL')
-    person.set_name(full_name, full, source_system)
+
+    obj = person._get_cerebrum_obj()
+    obj.affect_names(source_system.get_id(), first.get_id(), last.get_id(), full.get_id())
+    obj.populate_name(first.get_id(), first_name)
+    obj.populate_name(last.get_id(), last_name)
+    obj.populate_name(full.get_id(), first_name + ' ' + last_name)
+    obj.write_db()
 
     return person
 
 Commands.register_method(Method('create_person', Person, write=True,
-                         args=[('birthdate', Date), ('gender', GenderType), ('full_name', str), ('source_system', SourceSystem)]), create)
+                         args=[('birthdate', Date), ('gender', GenderType), ('first_name', str), ('last_name', str), ('source_system', SourceSystem)]), create)
 
 # arch-tag: 7b2aca28-7bca-4872-98e1-c45e08faadfc

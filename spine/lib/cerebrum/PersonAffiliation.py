@@ -28,7 +28,8 @@ from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
 
 from OU import OU
 from Person import Person
-from Types import PersonAffiliationType, PersonAffiliationStatusType, SourceSystem
+from Types import PersonAffiliationType, SourceSystem
+from PersonAffiliationStatus import PersonAffiliationStatus
 
 from SpineLib import Registry
 registry = Registry.get_registry()
@@ -42,7 +43,7 @@ class PersonAffiliation(DatabaseClass):
         DatabaseAttr('source_system', table, SourceSystem),
     ]
     slots = [
-        DatabaseAttr('status', table, PersonAffiliationStatusType, write=True),
+        DatabaseAttr('status', table, PersonAffiliationStatus, write=True),
         DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('last_date', table, Date),
@@ -92,7 +93,7 @@ def add_affiliation(self, ou, affiliation_status, source_system):
     person.write_db()
     return PersonAffiliation(db, self, ou, affiliation_status.get_affiliation(), source_system)
 
-Person.register_method(Method('add_affiliation', PersonAffiliation, args=[('ou', OU), ('affiliation_status', PersonAffiliationStatusType), ('source_system', SourceSystem)], write=True), add_affiliation)
+Person.register_method(Method('add_affiliation', PersonAffiliation, args=[('ou', OU), ('affiliation_status', PersonAffiliationStatus), ('source_system', SourceSystem)], write=True), add_affiliation)
 
 def get_affiliations(self):
     s = registry.PersonAffiliationSearcher(self.get_database())

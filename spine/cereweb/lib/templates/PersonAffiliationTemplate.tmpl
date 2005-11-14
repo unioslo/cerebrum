@@ -75,11 +75,11 @@
 <form action="/person/add_affil" type="post">
     <h2>$_("Add an affiliation")</h2>
     <input type="hidden" name="id" value="$entity.get_id()" />
-    #set $searcher = $tr.get_person_affiliation_status_type_searcher()
+    #set $searcher = $tr.get_person_affiliation_status_searcher()
     #set $status = []
     #for $i in $searcher.search()
         #set $affil = $i.get_affiliation().get_name()
-        $status.append(($i.get_name(), "%s - %s" % ($affil, $i.get_name())))
+        $status.append(($i.get_id(), "%s - %s" % ($affil, $i.get_name())))
     #end for
     #set $ous = $tr.get_ou_searcher().search()
     #set $ous = [(i.get_id(), i.get_name()) for i in $ous]

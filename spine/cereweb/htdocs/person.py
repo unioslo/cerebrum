@@ -297,7 +297,7 @@ accounts.exposed = True
 def add_affil(transaction, id, status, ou, description=""):
     person = transaction.get_person(int(id))
     ou = transaction.get_ou(int(ou))
-    status = transaction.get_person_affiliation_status_type(status)
+    status = transaction.get_person_affiliation_status(int(status))
     ss = transaction.get_source_system("Manual")
 
     affil = person.add_affiliation(ou, status, ss)
