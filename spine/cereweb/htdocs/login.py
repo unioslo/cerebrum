@@ -25,7 +25,7 @@ import cherrypy
 from lib import utils
 from lib.Options import Options
 from lib.templates.Login import Login
-from lib import config
+import config
 
 import SpineClient
 

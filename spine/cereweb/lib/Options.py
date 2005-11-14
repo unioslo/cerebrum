@@ -22,13 +22,7 @@ import os
 import ConfigParser
 from gettext import gettext as _
 
-path = os.path.dirname(__file__) or '.'
-template = os.path.join(path, 'options.conf.template')
-config = os.path.join(path, 'options.conf')
-
-default_options = ConfigParser.ConfigParser()
-default_options.read(template)
-default_options.read(config)
+import config
 
 class Options(ConfigParser.ConfigParser):
     """User-specific options for cereweb.
@@ -64,7 +58,7 @@ class Options(ConfigParser.ConfigParser):
         changes = []
         for s in self.sections():
             changes.extend([(s, k, v) for k, v in self.items(s)
-                            if default_options.get(s, k) != v])
+                            if config.default_options.get(s, k) != v])
         return changes
     
     def save(self):
@@ -103,8 +97,8 @@ class Options(ConfigParser.ConfigParser):
         Default options are stored on file, and options which differ from
         them are stored in the database.
         """
-        ConfigParser.ConfigParser.read(self, template)
-        ConfigParser.ConfigParser.read(self, config)
+        ConfigParser.ConfigParser.read(self, config.option_template)
+        ConfigParser.ConfigParser.read(self, config.option_config)
         
         tr = self.session.new_transaction()
         result = self._read_from_db(tr)

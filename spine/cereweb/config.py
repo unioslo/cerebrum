@@ -27,4 +27,11 @@ conf = ConfigParser.ConfigParser()
 conf.read(os.path.join(path, 'cereweb.conf.template'))
 conf.read(os.path.join(path, 'cereweb.conf'))
 
+option_template = os.path.join(path, 'options.conf.template')
+option_config = os.path.join(path, 'options.conf')
+
+default_options = ConfigParser.ConfigParser()
+default_options.read(option_template)
+default_options.read(option_config)
+
 # arch-tag: 4f424b2f-f6a7-4181-8917-4885cda8799b

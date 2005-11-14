@@ -21,7 +21,7 @@
 import os
 from gettext import gettext as _
 from lib.utils import queue_message, redirect
-from lib import config
+import config
 
 def report(title, message, name="", path="",
            referer="", traceback="", explanation=""):
