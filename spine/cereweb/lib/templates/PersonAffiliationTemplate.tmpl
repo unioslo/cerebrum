@@ -88,7 +88,7 @@
     $form_widgets.input("description", "Description")
     <div class="actions">
         <input type="submit" value="$_('Add')" />
-        #set $tmp_url = "/%s?id=%s#affils" % ($page, $entity.get_id())
+        #set $tmp_url = "%s?id=%s#affils" % ($page, $entity.get_id())
         <a href="$tmp_url">$_("Cancel")</a>
     </div>
 </form>

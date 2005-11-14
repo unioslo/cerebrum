@@ -50,9 +50,12 @@
 #set $pri_link = $change_sort_priority
 #set $ord_link = $change_sort_order
 #set $dir = $tableview.column_order($column)    
-<td>
-        <a href='$pri_link'></a> 
-        <a href='$ord_link'>$header</a></td>
+<th>
+## FIXME: make this work again
+##        <a href='$pri_link'></a> 
+##        <a href='$ord_link'>$header</a></th>
+        $header
+</th>
 #end for
     </tr>
 #for $row, $rowdata in $tableview.sorted(includeData=True)

@@ -35,7 +35,6 @@ from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
 def search(transaction, offset=0, **vargs):
     """Search after hosts and displays result and/or searchform."""
-    #FIXME: orderby name
     page = Main()
     page.title = _("Search for person(s)")
     page.setFocus("person/search")
@@ -43,16 +42,20 @@ def search(transaction, offset=0, **vargs):
 
     searchform = PersonSearchTemplate()
     arguments = ['name', 'accountname', 'birthdate',
-                 'spread', 'orderby', 'orderby_dir']
+                 'spread', 'ou', 'aff', 'orderby', 'orderby_dir']
     values = get_arg_values(arguments, vargs)
     perform_search = len([i for i in values if i != ""])
 
     if perform_search:
         cherrypy.session['person_ls'] = values
-        name, accountname, birthdate, spread, orderby, orderby_dir = values
+        name, accountname, birthdate, spread, ou, aff, orderby, orderby_dir = values
 
         search = transaction.get_person_searcher()
-        setup_searcher([search], orderby, orderby_dir, offset)
+        last_name = transaction.get_person_name_searcher()
+        last_name.set_name_variant(transaction.get_name_type('LAST'))
+        last_name.set_source_system(transaction.get_source_system('Cached'))
+        search.add_left_join('', last_name, 'person')
+        setup_searcher({'main':search, 'last_name':last_name}, orderby, orderby_dir, offset)
 
         if accountname:
             searcher = transaction.get_account_searcher()
@@ -81,20 +84,37 @@ def search(transaction, offset=0, **vargs):
             searcher.add_join('spread', spreadsearcher, '')
             search.add_intersection('', searcher, 'entity')
 
+        if ou:
+            ousearcher = transaction.get_ou_searcher()
+            ousearcher.set_name_like(ou)
+            searcher = transaction.get_person_affiliation_searcher()
+            searcher.add_join('ou', ousearcher, '')
+            search.add_intersection('', searcher, 'person')
+
+        if aff:
+            affsearcher = transaction.get_person_affiliation_type_searcher()
+            affsearcher.set_name_like(aff)
+            searcher = transaction.get_person_affiliation_searcher()
+            searcher.add_join('affiliation', affsearcher, '')
+            search.add_intersection('', searcher, 'person')
+
+
         persons = search.search()
 
         result = []
         display_hits = cherrypy.session['options'].getint('search', 'display hits')
         for person in persons[:display_hits]:
             date = person.get_birth_date().strftime('%Y-%m-%d')
-            accounts = [str(object_link(i)) for i in person.get_accounts()[:4]]
-            accounts = ', '.join(accounts[:3]) + (len(accounts) == 4 and '...' or '')
+            accounts = [str(object_link(i)) for i in person.get_accounts()[:3]]
+            accounts = ', '.join(accounts[:2]) + (len(accounts) == 3 and '...' or '')
+            affs = [str(object_link(i.get_ou())) for i in person.get_affiliations()[:3]]
+            affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
             edit = object_link(person, text='edit', method='edit', _class='actions')
             remb = remember_link(person, _class="actions")
-            result.append((object_link(person), date, accounts, str(edit)+str(remb)))
+            result.append((object_link(person), date, accounts, affs, str(edit)+str(remb)))
 
-        headers = [('Name', ''), ('Date of birth', 'birth_date'),
-                   ('Account(s)', ''), ('Actions', '')]
+        headers = [('Name', 'last_name.name'), ('Date of birth', 'birth_date'),
+                   ('Account(s)', ''), ('Affiliation(s)', ''), ('Actions', '')]
 
         template = SearchResultTemplate()
         table = template.view(result, headers, arguments, values,

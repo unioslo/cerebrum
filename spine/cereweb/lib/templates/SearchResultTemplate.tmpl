@@ -52,6 +52,9 @@
     <div class="searchtitle">
         <h3>$txt</h3>
     </div>
+    #if $show_range_menu
+        $range_menu($args, $values, $hits, $offset, $page)
+    #end if
     
     #set $table = $forgetHTML.SimpleTable(header='row', _class='results')
     $table.add(*$create_table_headers($headers, $args, $values, $page))

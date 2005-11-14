@@ -30,7 +30,7 @@
     #if $addName == "True" or $addName == True
         $addForm($person, $transaction)
     #else
-    #set $tmp_url = "/%s?id=%i&addName=True#names" % ($page, $person.get_id())
+    #set $tmp_url = "%s?id=%i&addName=True#names" % ($page, $person.get_id())
     <div class="actions">
         <a href="$tmp_url">$_("add a name")</a>
     </div>
