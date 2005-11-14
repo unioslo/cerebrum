@@ -70,6 +70,7 @@ def list(transaction):
     return page
 list = transaction_decorator(list)
 list.exposed = True
+index = list
 
 def save(transaction, name, description="", domain=None):
     if not domain:
@@ -117,6 +118,5 @@ def addresses(transaction, id):
     return page
 addresses = transaction_decorator(addresses)    
 addresses.exposed = True
-index = addresses
 
 # arch-tag: b3d7db60-040d-11da-8995-abe265f82cfd
