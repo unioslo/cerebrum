@@ -168,6 +168,8 @@ AD_GROUP_POSTFIX = '-gruppe'
 AD_HOME_DRIVE = 'M:'
 AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
+AD_PW_EXCEPTION = 'process_students'
+AD_PW_EXCEPTION_OU = 'cerebrum_pw_exception'
 
 # Novell eDirectory settings.
 NW_LDAPHOST = 'www.nldap.com'
