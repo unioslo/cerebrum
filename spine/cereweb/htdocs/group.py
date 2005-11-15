@@ -183,6 +183,7 @@ def remove_member(transaction, groupid, memberid, operation):
     msg = _("%s removed from group.") % object_link(member)
     commit(transaction, group, msg=msg)
 remove_member = transaction_decorator(remove_member)
+remove_member.exposed = True
 
 def edit(transaction, id):
     """Creates a page with the form for editing a person."""
