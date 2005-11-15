@@ -38,6 +38,12 @@ class Constants(Constants.Constants):
     BofhdRequestOp = _BofhdRequestOpCode
     AuthRoleOp = _AuthRoleOpCode
 
+    auth_grant_disk = _AuthRoleOpCode('grant_disk', 'grant access to disk')
+    auth_grant_group = _AuthRoleOpCode('grant_group', 'grant access to group')
+    auth_grant_host = _AuthRoleOpCode('grant_host', 'grant access to host')
+    auth_grant_maildomain = _AuthRoleOpCode('grant_maildom',
+                                            'grant access to mail domain')
+    auth_grant_ou = _AuthRoleOpCode('grant_ou', 'grant access to OU')
     auth_add_disk = _AuthRoleOpCode('add_disks', 'add userdisks to hosts')
     auth_create_host = _AuthRoleOpCode('create_host',
                                        'Can add hosts for userdisks')

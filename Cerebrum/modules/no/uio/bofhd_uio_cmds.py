@@ -363,7 +363,8 @@ class BofhdExtension(object):
 
     def _list_access(self, target_type, target_name=None, decode_attr=str,
                      empty_result="None"):
-        target_id, target_type = self._get_access_id(target_type, target_name)
+        target_id, target_type, target_auth = \
+                   self._get_access_id(target_type, target_name)
         ret = []
         ar = BofhdAuthRole(self.db)
         aos = BofhdAuthOpSet(self.db)
@@ -394,7 +395,7 @@ class BofhdExtension(object):
         EntityType(default='group', help_ref="auth_entity_type"),
         SimpleString(help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
-        perm_filter='is_superuser')
+        perm_filter='can_grant_access')
     def access_grant(self, operator, opset, group, entity_type, target_name,
                      attr=None):
         return self._manipulate_access(self._grant_auth, operator, opset,
@@ -408,7 +409,7 @@ class BofhdExtension(object):
         EntityType(default='group', help_ref="auth_entity_type"),
         SimpleString(help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
-        perm_filter='is_superuser')
+        perm_filter='can_grant_access')
     def access_revoke(self, operator, opset, group, entity_type, target_name,
                      attr=None):
         return self._manipulate_access(self._revoke_auth, operator, opset,
@@ -427,11 +428,16 @@ class BofhdExtension(object):
         _get_access_id_XXX and one _validate_access_XXX for each known
         target_type."""
         
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         opset = self._get_opset(opset)
         gr = self._get_group(group)
-        target_id, target_type = self._get_access_id(entity_type, target_name)
+        target_id, target_type, target_auth = \
+                   self._get_access_id(entity_type, target_name)
+        operator_id = operator.get_entity_id()
+        if target_auth is None and not self.ba.is_superuser(operator_id):
+            raise PermissionDenied("Currently limited to superusers")
+        else:
+            self.ba.can_grant_access(operator_id, target_auth,
+                                     target_type, target_id, opset)
         self._validate_access(entity_type, opset, attr)
         return change_func(gr.entity_id, opset, target_id, target_type, attr,
                            group, target_name)
@@ -450,7 +456,9 @@ class BofhdExtension(object):
         return self.__getattribute__(func_name)(opset, attr)
 
     def _get_access_id_disk(self, target_name):
-        return self._get_disk(target_name)[1], self.const.auth_target_type_disk
+        return (self._get_disk(target_name)[1],
+                self.const.auth_target_type_disk,
+                self.const.auth_grant_disk)
     def _validate_access_disk(self, opset, attr):
         # TODO: check if the opset is relevant for a disk
         if attr is not None:
@@ -458,7 +466,8 @@ class BofhdExtension(object):
 
     def _get_access_id_group(self, target_name):
         target = self._get_group(target_name)
-        return target.entity_id, self.const.auth_target_type_group
+        return (target.entity_id, self.const.auth_target_type_group,
+                self.const.auth_grant_group)
     def _validate_access_group(self, opset, attr):
         # TODO: check if the opset is relevant for a group
         if attr is not None:
@@ -467,14 +476,15 @@ class BofhdExtension(object):
     def _get_access_id_global_group(self, group):
         if group is not None and group <> "":
             raise CerebrumError, "Cannot set domain for global access"
-        return None, self.const.auth_target_type_global_group
+        return None, self.const.auth_target_type_global_group, None
     def _validate_access_global_group(self, opset, attr):
         if attr is not None:
             raise CerebrumError, "Can't specify attribute for global group"
 
     def _get_access_id_host(self, target_name):
         target = self._get_host(target_name)
-        return target.entity_id, self.const.auth_target_type_host
+        return (target.entity_id, self.const.auth_target_type_host,
+                self.const.auth_grant_host)
     def _validate_access_host(self, opset, attr):
         if attr is not None:
             if attr.count('/'):
@@ -488,7 +498,7 @@ class BofhdExtension(object):
     def _get_access_id_global_host(self, target_name):
         if target_name is not None and target_name <> "":
             raise CerebrumError, ("You can't specify a hostname")
-        return None, self.const.auth_target_type_global_host
+        return None, self.const.auth_target_type_global_host, None
     def _validate_access_global_host(self, opset, attr):
         if attr is not None:
             raise CerebrumError, ("You can't specify a pattern with "
@@ -496,7 +506,8 @@ class BofhdExtension(object):
 
     def _get_access_id_maildom(self, dom):
         ed = self._get_email_domain(dom)
-        return ed.email_domain_id, self.const.auth_target_type_maildomain
+        return (ed.email_domain_id, self.const.auth_target_type_maildomain,
+                self.const.auth_grant_maildomain)
     def _validate_access_maildom(self, opset, attr):
         if attr is not None:
             raise CerebrumError, ("No attribute with maildom.")
@@ -504,14 +515,15 @@ class BofhdExtension(object):
     def _get_access_id_global_maildom(self, dom):
         if dom is not None and dom <> '':
             raise CerebrumError, "Cannot set domain for global access"
-        return None, self.const.auth_target_type_global_maildomain
+        return None, self.const.auth_target_type_global_maildomain, None
     def _validate_access_global_maildom(self, opset, attr):
         if attr is not None:
             raise CerebrumError, ("No attribute with global maildom.")
 
     def _get_access_id_ou(self, ou):
         ou = self._get_ou(stedkode=ou)
-        return ou.entity_id, self.const.auth_target_type_ou
+        return (ou.entity_id, self.const.auth_target_type_ou,
+                self.const.auth_grant_ou)
     def _validate_access_ou(self, opset, attr):
         if attr is not None:
             try:
@@ -522,7 +534,7 @@ class BofhdExtension(object):
     def _get_access_id_global_ou(self, ou):
         if ou is not None and ou != '':
             raise CerebrumError, "Cannot set OU for global access"
-        return None, self.const.auth_target_type_global_ou
+        return None, self.const.auth_target_type_global_ou, None
     def _validate_access_global_ou(self, opset, attr):
         try:
             int(self.const.PersonAffiliation(attr))
