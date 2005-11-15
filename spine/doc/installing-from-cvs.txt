@@ -1,0 +1,135 @@
+=========================
+Installing Spine from CVS
+=========================
+
+This is a compact guide to installing Spine from CVS, written by Håvard
+Stranden <havard.stranden@ntnu.no>.
+
+Prerequisites
+=============
+
+The following prerequisites must be installed on the machine you want to install Spine on:
+* aclocal
+* autoconf
+* python >= 2.2
+* ant (for jbofh, should really be optional)
+* cheetah (for Cereweb, ignore if you do not want Cereweb)
+
+Installing Spine
+================
+Check out the source code for Cerebrum from Sourceforge::
+    cvs -d:ext:cvs.sf.net/cvsroot/cerebrum co cerebrum
+
+Build Cerebrum and Spine (and Cereweb, if desired)::
+    cd cerebrum
+    aclocal && autoconf
+    ./configure # -med --prefix=/hvor/du/vil
+    make
+    make install
+    cd spine
+    make
+    make install
+    # Optional Cereweb build
+    cd cereweb
+    make
+
+
+If your chosen prefix is not in the default Python path, and you are not root, you will need to do the following to make the installed Cerebrum applications run::
+        for i in $PREFIX/bin $PREFIX/sbin; do
+            cd $i
+            cat > cerebrum_path.py << EOF
+            import sys
+            sys.path.append('$PREFIX/lib/pythonX.Y/site-packages')
+            sys.path.append('$PREFIX/etc/cerebrum')
+            EOF
+            chmod 644 cerebrum_path.py
+        done
+
+Configuring Cerebrum and Spine::
+    cd $PREFIX
+    cat "username<TAB>password" > passwd-username@databasename
+    $EDITOR etc/cerebrum/cereconf.py
+
+    # Add the following parameters (some loose descriptions given below)
+    # Change $PREFIX to match your installation prefix where needed
+    # Also, change defaults where needed.
+
+    # Database driver
+    DATABASE_DRIVER = 'PostgreSQL'
+    # Database user name
+    CEREBRUM_DATABASE_CONNECT_DATA['user'] = 'username'
+    # Database name, change to match your database name
+    CEREBRUM_DATABASE_NAME = 'databasename'
+    # Database driver module
+    CLASS_DBDRIVER = ['Cerebrum.Database/PsycoPG'] # Can also be pyPgSql
+    DB_AUTH_DIR = '$PREFIX/etc/cerebrum'
+    # ChangeLog module
+    CLASS_CHANGELOG = ['Cerebrum.modules.ChangeLog/ChangeLog']
+    # Default constants classes, add and remove at will
+    CLASS_CONSTANTS = (
+        'Cerebrum.modules.no.ntnu.Constants/Constants',
+        'Cerebrum.modules.PosixUser/Constants',
+        'Cerebrum.modules.bofhd.utils/Constants',
+        'Cerebrum.modules.NoteConstants/NoteConstants',
+        'Cerebrum.modules.CLConstants/CLConstants' )
+    # The OU class to use (Stedkode is a norwegian OU-mixin, drop if not needed
+    CLASS_OU = ['Cerebrum.modules.no.Stedkode/Stedkode']
+    # Configuration file for logging from Cerebrum-core
+    LOGGING_CONFIGFILE_NEW = '$PREFIX/etc/cerebrum/logging.ini'
+    # Prioritized lookup order for system constants, used in various parts of Cerebrum core. Names map to system constants, prefixed with 'system_'
+    SYSTEM_LOOKUP_ORDER = ('system_bdb', 'system_fs', 'system_manual')
+    # Default institution number for Stedkode-mixin
+    DEFAULT_INSTITUSJONSNR=11
+    # Default OU number for Stedkode-mixin
+    DEFAULT_OU="111111"
+    # Webroot for Cereweb
+    WEBROOT="/var/www/cereweb/"
+
+    # Spine configuration
+
+    # Where to find IDL definitions, change the path below to match your setup
+    IDL_PATH='$PATH_TO_YOUR_CVS_CHECKOUT/cerebrum/spine/lib/server/idl'
+
+    # The IOR file for Spine. Must be readable for all clients. 
+    SPINE_IOR_FILE='/tmp/spine.ior' # IOR-fil for Spine, må være tilgjengelig for klienter
+
+    # The encoding of the Cerebrum database Spine is to use
+    SPINE_DATABASE_ENCODING='iso-8859-1'
+    # The default encoding for clients talking to Spine
+    SPINE_DEFAULT_CLIENT_ENCODING='iso-8859-1'
+
+    # The lock timeout check interval for Spine in seconds
+    SPINE_LOCK_CHECK_INTERVAL=10 
+    # The lock timeout for locks in Spine in seconds
+    SPINE_LOCK_TIMEOUT=1800 
+    # The session timeout check interval for Spine in seconds
+    SPINE_SESSION_CHECK_INTERVAL=10
+    # The session timeout for Spine in seconds
+    SPINE_SESSION_TIMEOUT=7200
+
+    # Spine SSL configuration
+    # Whether or not to use SSL
+    SPINE_USE_SSL=False
+    # Path to SSL certificates
+    SSL_DIR='$PREFIX/etc/cerebrum/ssl'
+    # The CA certificate
+    SSL_CA_FILE='$PREFIX/etc/cerebrum/ssl/CA.crt'
+    # The server certificate to be used by Spine
+    SSL_KEY_FILE='$PREFIX/etc/cerebrum/ssl/server.pem
+    # The server certificate password
+    SSL_KEY_FILE_PASSWORD='passord'
+
+Save and quit your editor.
+
+Congratulations! You have now installed Cerebrum and Spine. :)
+
+Running Spine
+=============
+
+To run Spine, do the following from a shell:
+    cd $PREFIX/sbin # Change $PREFIX to match your installation prefix
+    python spine.py
+
+Spine should now run if you set it up correctly. 
+
+Have fun!
