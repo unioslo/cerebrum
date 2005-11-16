@@ -16,3 +16,5 @@ for account in s.search():
     name = account.get_name()
     shell = account.get_shell().get_shell()
     print 'name: %-10s uid: %-5s shell: %s ' % (name, uid, shell)
+
+# arch-tag: e29c21b0-56ae-11da-864f-67ba8376f281

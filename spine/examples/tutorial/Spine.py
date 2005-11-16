@@ -18,3 +18,5 @@ def login():
 if __name__ == '__main__':
     version = connect().get_version()
     print 'Spine v%s.%s' % (version.major, version.minor)
+
+# arch-tag: e0e532e4-56ae-11da-8677-5089de056b48

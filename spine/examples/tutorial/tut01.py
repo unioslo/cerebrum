@@ -21,3 +21,5 @@ print 'path for tcsh:', tcsh.get_shell()
 ## or when the cls doesnt have any primary keys:
 # cmd = tr.get_commands()               # tut02.py
 # searcher = tr.get_group_searcher()    # tut03.py
+
+# arch-tag: e1656db0-56ae-11da-83f6-3daf45b44be9

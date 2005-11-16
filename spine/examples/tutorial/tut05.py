@@ -28,3 +28,5 @@ for i in search.dump(accounts):
     name = i['full_name'].name
     shell = i['shell'].shell
     print 'name: %-15s uname: %-10s uid: %-5s shell: %s ' % (name, username, uid, shell)
+
+# arch-tag: e3bea7ca-56ae-11da-950e-eea089a2b0cf
