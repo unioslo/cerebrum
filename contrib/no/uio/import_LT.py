@@ -209,6 +209,8 @@ def determine_affiliations(person):
 	    aff_stat = const.affiliation_tilknyttet_ekst_partner
 	elif g['gjestetypekode'] == 'EKST. KONS':
 	    aff_stat = const.affiliation_tilknyttet_ekst_partner
+        elif g['gjestetypekode'] == 'ASSOSIERT':
+            aff_stat = const.affiliation_tilknyttet_assosiert_person
 	elif (g['gjestetypekode'] == 'REGANSV' or g['gjestetypekode'] == 'REG-ANSV'):
 	    aff_stat = const.affiliation_tilknyttet_frida_reg
         elif (g['gjestetypekode'] == 'ST-POL FRI' or g['gjestetypekode'] =='ST-POL UTV'):
