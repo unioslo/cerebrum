@@ -49,6 +49,7 @@ class Redirected(Exception):
 def handle(error):
     title, message, tracebk = None, None, None
     path = cherrypy.request.path
+    referer = cherrypy.request.headerMap.get('Referer', '')
 
     cherrypy.response.headerMap['Pragma'] = 'no-cache'
     cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
@@ -82,6 +83,7 @@ def handle(error):
     
     report = config.conf.getboolean('error', 'allow_reporting')
     
-    return ErrorTemplate().error(title, message, path, tracebk, report)
+    template = ErrorTemplate()
+    return template.error(title, message, path, tracebk, referer, report)
 
 # arch-tag: 52b56f54-2b55-11da-97eb-80927010959a

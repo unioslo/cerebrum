@@ -22,8 +22,7 @@
 #extends InitTemplate
 
 ## Displays an error page.
-#def error($title, $message, $path="", $traceback="", $report=True)
-    #set $referer = ""
+#def error($title, $message, $path='', $traceback='', $referer='', $report=True)
     #set $user = ''
     ##FIXME: set $user = $cherrypy.session.get('username', '')
     <html>
@@ -72,11 +71,11 @@
                             $_('Name'): <em>$user</em><br />
                             #end if
                             #if $path
-                            $_('Path'): <a href="/$path">/$path</a><br />
+                            $_('Path'): <a href="$path">$path</a><br />
                             <input type="hidden" name="path" value="$path">
                             #end if
                             #if $referer
-                            $_('Referer path'): <a href="/$referer">/$referer</a><br />
+                            $_('Referer path'): <a href="$referer">$referer</a><br />
                             <input type="hidden" name="referer" value="$referer">
                             #end if
                             #if traceback
