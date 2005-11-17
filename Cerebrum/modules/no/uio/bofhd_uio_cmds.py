@@ -5213,7 +5213,7 @@ class BofhdExtension(object):
             can_see_quota = True
         except PermissionDenied:
             can_see_quota = False
-        if tmp['homedir_id'] and can_see_quota:
+        if tmp['disk_id'] and can_see_quota:
             disk = Utils.Factory.get("Disk")(self.db)
             disk.find(tmp['disk_id'])
             def_quota = disk.get_default_quota()
