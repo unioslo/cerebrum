@@ -104,6 +104,9 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_gjesteforsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'gjesteforsker',
         'Registrert i LT med gjestetypekode GJ-FORSKER')
+    affiliation_tilknyttet_assosiert_person = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'assosiert_person',
+        'Registrert i LT med gjestetypekode ASSOSIERT')
     affiliation_tilknyttet_frida_reg = _PersonAffStatusCode(
         affiliation_tilknyttet, 'frida_reg',
         'Registrert i LT med gjestetypekode REGANSV og REG-ANSV')
