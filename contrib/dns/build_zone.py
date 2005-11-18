@@ -6,6 +6,8 @@ import re
 import sys
 import time
 import getopt
+
+import cerebrum_path
 import cereconf
 
 from Cerebrum import Utils
