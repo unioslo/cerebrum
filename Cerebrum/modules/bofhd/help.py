@@ -245,7 +245,7 @@ _arg_help = {
 is a regular expression matching the last component of a disk path ('mn-l.*').
 For OU's, it is an affiliation ('STUDENT')."""],
     'auth_entity_type':
-        ['auth type', 'Authentication entity type',
+        ['auth_type', 'Authorisation entity type',
          'Possible values:\n'
          ' - disk\n - group\n - host\n - maildom\n - ou\n - spread'],
     'auth_target_entity':
@@ -269,7 +269,7 @@ For OU's, it is an affiliation ('STUDENT')."""],
         ['search_type', 'Enter group search type', 
          'This should be a hash, so just forget it'],
     'opset':
-        ['operation set', 'Enter name of operation set',
+        ['operation_set', 'Enter name of operation set',
          'Use "access list_opsets" to view a list of valid values'],
     'person_search_type':
         ['search_type', 'Enter person search type',
