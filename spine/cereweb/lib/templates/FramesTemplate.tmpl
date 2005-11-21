@@ -44,14 +44,14 @@
 
 ## Messages, like errormessages and more..
 #def viewMessages
+#if $messages
     <div class="messages">
-    #for $message, $is_error in $messages
+        #for $message, $is_error in $messages
         #set $error = $is_error and " error" or ""
-        <div class="message$error">
-            $message
-        </div>
-    #end for
+        <span class="message$error">$message</span><br />
+        #end for
     </div>
+#end if
 #end def
 
 ## Time it takes to timeout the session, overloaded in lib/Main.py
@@ -116,9 +116,7 @@ $jscript($i)
             <h1>$title</h1>
         </div>
         #end if
-        #if $messages
         $viewMessages()
-        #end if
         $content()
     </div>
     <div class="page_menu">

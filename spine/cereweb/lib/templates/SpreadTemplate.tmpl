@@ -22,23 +22,40 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-#def view_spreads($entity, $spreads_ids)
-    #set spreads = $entity.get_spreads()
-    #set id = $entity.get_id()
-    <h2>$_("Spreads:")</h2>
+#def view($entity)
+#set $spreads = $entity.get_spreads()
+#if $spreads
+#set $id = $entity.get_id()
+<div class="spreads">
+    <h3>$_('Spreads')</h3>
     #for $spread in $spreads
-    <div class="name">
-        <div class="actions">
-            #set $name = $spread.get_name()
-            $name - $spread.get_description() 
-            <a href="/entity/remove_spread?id=$id&spread=$name">$_("Remove")</a>
+    #set $name = $spread.get_name()
+    #set $delete = '/entity/remove_spread?id=%s&spread=%s' % ($id, $name)
+    <div class="spread">
+        <div class="actions_right">
+            <a href="$delete" class="actions">$_('remove')</a>
         </div>
+        $name - $spread.get_description() 
     </div>
     #end for
-    <form action="/entity/add_spread" type="post">
-        $form_widgets.generate_option("spread", $spreads_ids)
+</div>
+#end if
+#end def
+
+#def add($entity, $transaction)
+#set $type = $entity.get_type()
+#set $cspreads = $entity.get_spreads()
+#set $search = $transaction.get_spread_searcher().search()
+#set $spreads = [($s.get_name(), $s.get_name()) for $s in $search 
+                 if $type == $s.get_entity_type() and $s not in $cspreads]
+<div class="view_add" id="spread_form" style="display:none;">
+    <form action="/entity/add_spread" type="POST">
+        <h3>$_('Add a spread')</h3>
+        $form_widgets.generate_loption("spread", "Spread", $spreads)
         <input type="hidden" name="id" value="$entity.get_id()" />
-        <input type="submit" value="$_('Add')" />
+        <input type="submit" value="$_('Add')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="spread_cancel" />
     </form>
+</div>
 #end def
 

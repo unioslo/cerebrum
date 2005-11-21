@@ -20,12 +20,24 @@
 ## in Cerebrum.web.Main. This could all be moved into FramesTemplate, and we would
 ## avoid this nonsense file wich doesnt realy do anything.
 
+#import cherrypy
 #extends FramesTemplate 
 
 ## The bottom "frame" on the page, wich contains transactions, worklist and history.
 #def bottom
-    $worklist()
-    $activitylog()
+#set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
+#set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')
+    
+#if $wl or $al
+    <div class="bottom_div">
+    #if $wl
+        $worklist()
+    #end if
+    #if $al
+        $activitylog()
+    #end if
+    </div>
+#end if
 #end def bottom
 
 ## All the other methods (worklist, activitylog) is overloaded

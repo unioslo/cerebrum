@@ -18,26 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit
 from lib.utils import redirect_object, queue_message
-from lib.templates.NoteAddTemplate import NoteAddTemplate
-
-
-def index(transaction, entity, subject="", description=""):
-    """Shows the add-note-template."""
-    entity = transaction.get_entity(int(entity))
-    page = Main()
-    noteadd = NoteAddTemplate()
-    index = html.Division()
-    index.append(html.Header(_("Add note for entity '%s':") % entity.get_id(), level=2))
-    index.append(noteadd.addForm(entity))
-    page.content = index.output
-    return page
-index = transaction_decorator(index)
-index.exposed = True
 
 def add(transaction, entity, subject="", description=""):
     """Adds a note to some entity."""

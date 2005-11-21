@@ -32,7 +32,6 @@ from lib.templates.AccountSearchTemplate import AccountSearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
-from lib.templates.HistoryLogTemplate import HistoryLogTemplate
 
 def search(transaction, offset=0, **vargs):
     """Search for accounts and display results and/or searchform.""" 
@@ -126,7 +125,7 @@ def create(transaction, owner, name="", expire_date=""):
 
     create = AccountCreateTemplate()
 
-    owner = transaction.get_entity(owner)
+    owner = transaction.get_entity(int(owner))
     if owner.get_type().get_name() == 'person':
         full_name = owner.get_cached_full_name().split()
         if len(full_name) == 1:
@@ -172,15 +171,13 @@ def make(transaction, owner, name, expire_date="", np_type=None,
 make = transaction_decorator(make)
 make.exposed = True
 
-def view(transaction, id, addHome=False):
-    """Creates a page with a view of the account given by id, returns
-       a Main-template"""
+def view(transaction, id):
+    """Creates a page with a view of the account given by id."""
     account = transaction.get_account(int(id))
     page = Main()
     page.title = _("Account %s") % account.get_name()
     page.setFocus("account/view", id)
-    view = AccountViewTemplate()
-    content = view.viewAccount(transaction, account, addHome)
+    content = AccountViewTemplate().view(transaction, account)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
@@ -351,32 +348,6 @@ def groups(transaction, account_id, leave=False, create=False, **checkboxes):
         raise "I dont know what you want to do"
 groups = transaction_decorator(groups)
 groups.exposed = True
-
-def join_group(transaction, account, group_name, operation):
-    """Join account into group with name 'group'."""
-    account = transaction.get_account(int(account))
-    operation = transaction.get_group_member_operation_type(operation)
-
-    # find the group with the name group.
-    searcher = transaction.get_entity_name_searcher()
-    searcher.set_name(group_name)
-    searcher.set_value_domain(transaction.get_value_domain('group_names'))
-    try:
-        group, = searcher.search()
-        group = group.get_entity()
-        assert group.get_type().get_name() == 'group'
-    except:
-        msg = _("Group '%s' not found") % group_name
-        queue_message(msg, True, object_link(account))
-        redirect_object(account)
-        return
-    
-    group.add_member(account, operation)
-    
-    msg = _("Joined account into group %s successfully") % group_name
-    commit(transaction, account, msg=msg)
-join_group = transaction_decorator(join_group)
-join_group.exposed = True
 
 def set_home(transaction, id, spread, home="", disk=""):
     account = transaction.get_account(int(id))

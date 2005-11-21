@@ -24,8 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit, commit_url
-from lib.templates.EmailDomain import EmailDomain
-from lib.templates.EmailTarget import EmailTarget
+from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from SpineIDL.Errors import NotFoundError
 
 def view(transaction, id):
@@ -39,7 +38,6 @@ def view(transaction, id):
     else:
         page.title += " " + primary.full_address()
     page.setFocus("email/target/view", id)
-    template = EmailTarget()
 
     if not target.get_addresses() and target.get_entity():
         #FIXME: Should use Cerebrum methods to suggest email address    
@@ -47,6 +45,7 @@ def view(transaction, id):
     else:
         suggestion = ""   
     
+    template = EmailTargetTemplate()
     content = template.view_target(transaction, target, suggestion)
     page.content = lambda: content
     return page
@@ -64,24 +63,12 @@ def edit(transaction, id):
     else:
         page.title += " " + primary.full_address()    
     page.setFocus("email/target/edit", id)
-    template = EmailTarget()
+    template = EmailTargetTemplate()
     content = template.edit_target(transaction, target)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
 edit.exposed = True
-
-def create(transaction):
-    page = Main()
-    page.title = _("Create email target") 
-    page.setFocus("email/target/create")
-    template = EmailTarget()
-    content = template.create_target(transaction)
-    page.content = lambda: content
-    return page
-create = transaction_decorator(create)
-create.exposed = True
-index = create
 
 def creation(transaction, target_type, entity=None):
     target_type = transaction.get_email_target_type(target_type)    
@@ -189,7 +176,7 @@ def edit_address(transaction, id, address):
     page = Main()
     page.title = _("Edit email address %s") % address.full_address() 
     page.setFocus("email/target/edit_address", id)
-    template = EmailTarget()
+    template = EmailTargetTemplate()
     content = template.edit_address(transaction, address)
     page.content = lambda: content
     return page
@@ -219,12 +206,13 @@ def search(transaction, address=""):
             queue_message(_("Could not find email address %s") % address)    
     page = Main()
     page.title = _("Search for email target") 
-    #page.setFocus("email/target/search", id)
-    template = EmailTarget()
+    page.setFocus("email/target/search")
+    template = EmailTargetTemplate()
     content = template.find_email(address)
     page.content = lambda: content
     return page
 search = transaction_decorator(search)
 search.exposed = True
+index = search
 
 # arch-tag: 53b597b2-0472-11da-9196-788d6ec686ec

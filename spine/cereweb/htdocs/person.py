@@ -152,18 +152,13 @@ def _get_person(transaction, id):
         queue_message(_("Could not find person with id=%s") % id, True)
         redirect('index')
 
-def view(transaction, id, addName=False, addAffil=False):
-    """Creates a page with a view of the person given by id.
-
-    If addName is True or "True", the form for adding a name is shown.
-    If addAffil is True or "True", the form for adding an affiliation is shown.
-    """
+def view(transaction, id):
+    """Creates a page with a view of the person given by id."""
     person = transaction.get_person(int(id))
     page = Main()
     page.title = _("Person %s" % _primary_name(person))
     page.setFocus("person/view", id)
-    view = PersonViewTemplate()
-    content = view.viewPerson(transaction, person, addName, addAffil)
+    content = PersonViewTemplate().view(transaction, person)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)

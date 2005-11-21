@@ -20,7 +20,6 @@
 #from lib.WorkList import remember_link
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
-#from SpineIDL.Errors import NotFoundError
 
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
@@ -28,20 +27,22 @@
 ## Max addresses to view in emaildomain/view
 #attr $max_addresses = 20
 
-## Overloaded by other pages to get the right url.
-#attr $page_url = "/email/domain"
+#def create_domain()
+<div class="email_view">
+    <h2>$_('Create a new email domain')</h2>
+    $edit_domain()
+</div>
+#end def
 
-## Main method for creating the ou view page.
 #def list_domains($transaction)
-<div>
-
-#set $domains=$transaction.get_email_domain_searcher()
-#set $domains = $domains.search()
-$domains.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
-#for $domain in $domains
+<div class="email_view">
+    <h2>$_('Browse an email domain')</h2>
+    #set $domains=$transaction.get_email_domain_searcher()
+    #set $domains = $domains.search()
+    $domains.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
+    #for $domain in $domains
     <div>$object_link($domain)</div>
-#end for
-
+    #end for
 </div>
 #end def
 
@@ -103,10 +104,6 @@ $list_addresses($transaction, $domain, $max_addresses)
             "attached to the account.")</div>
 #end def
 
-#def create_domain()
-    $edit_domain()
-#end def
-
 #def edit_domain($domain=None)
 <form action="/emaildomain/save" method="POST">
     #if $domain is not None
@@ -123,7 +120,7 @@ $list_addresses($transaction, $domain, $max_addresses)
     #if $domain is not None
         <input type="submit" value="$_("Save")" />
     #else
-        <input type="submit" value="$_("Create")" /><br />
+        <input type="submit" value="$_("Create domain")" /><br />
     #end if
 </form>
 #end def

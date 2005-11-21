@@ -23,74 +23,64 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-## List affils for this person, and form for adding an affil.
-#def view($person, $transaction, $addAffil, $page)
-<div class="personnames">
-    <a name="affils" class="noaction"></a>
-    <h2>$_("Affiliations"):</h2>
-    $personAffiliations($person)
-    #if $addAffil == "True" or $addAffil == True
-        $addForm($person, $transaction, $page)
-    #else
-    #set $tmp_url = "%s?id=%i&addAffil=True" % ($page, $person.get_id())
-    <div class="actions">
-        <a href="$tmp_url#affils">$_("add an affiliation")</a>
-    </div>
-    #end if
-</div>
-#end def
 
-## List affiliations person has with OUs.
-#def personAffiliations($person)
-#for $affil in $person.get_affiliations()
+#def view($person)
+#set $affils = $person.get_affiliations()
+#if $affils
+<div class="affiliations">
+    <h3>$_('Affiliations')</h3>
+    #for $affil in $person.get_affiliations()
     #set $ou = $affil.get_ou()
     #set $affil_type = $affil.get_affiliation()
     #set $status = $affil.get_status()
-    <div class="name">
-        <em>Affiliation:</em> $affil_type.get_name()
-        #if $affil.marked_for_deletion()
-            &nbsp;<font color="red">(Marked for deletion)</font>
-        #else
+    #set $marked = $affil.marked_for_deletion()
+    <div class="affiliation">
+        #if not $marked
+        <div class="actions_right">
             #set $args = "id=%s&ou=%s&affil=%s&ss=%s" % (
                             $person.get_id(), $ou.get_id(),
                             $affil_type.get_name(),
                             $affil.get_source_system().get_name())
-            <a href="/person/remove_affil?$args" class="actions">$_("remove")</a>
+            <a href="remove_affil?$args" class="actions">$_('delete')</a>
+        </div>
+        #end if
+        <em>$_('Affiliation'):</em> $affil_type.get_name()
+        #if $affil.marked_for_deletion()
+            &nbsp;<font color="red">($_('Marked for deletion'))</font>
+        #else
         #end if
         <br />
-        <em>Status:</em> $status.get_name() ($status.get_description())
+        <em>$_('Status'):</em> $status.get_name() ($status.get_description())
         <br />
-        <em>OU:</em> $object_link($ou)
+        <em>$_('OU'):</em> $object_link($ou)
         #set $description = $affil.get_description()
         #if $description
-            <br />
-            <em>Description:</em> $description
+        <br />
+        <em>$_('Description'):</em> $description
         #end if
     </div>
-#end for
+    #end for
+</div>
+#end if
 #end def
 
-## Creates a form for adding a affiliation to a person.
-#def addForm($entity, $tr, $page)
-<form action="/person/add_affil" type="post">
-    <h2>$_("Add an affiliation")</h2>
-    <input type="hidden" name="id" value="$entity.get_id()" />
+#def add($person, $tr)
+<div class="view_add" id="affil_form" style="display:none;">
+<a name="affil" />
+<form action="add_affil" type="POST">
+    <h3>$_('Add an affiliation')</h3>
+    <input type="hidden" name="id" value="$person.get_id()" />
     #set $searcher = $tr.get_person_affiliation_status_searcher()
-    #set $status = []
-    #for $i in $searcher.search()
-        #set $affil = $i.get_affiliation().get_name()
-        $status.append(($i.get_id(), "%s - %s" % ($affil, $i.get_name())))
-    #end for
+    #set $status = [($i.get_affiliation().get_name(), $i.get_name())
+                        for $i in $searcher.search()]
     #set $ous = $tr.get_ou_searcher().search()
-    #set $ous = [(i.get_id(), i.get_name()) for i in $ous]
+    #set $ous = [($i.get_id(), $i.get_name()) for $i in $ous]
     $form_widgets.generate_loption("status", "Affiliation", $status)
     $form_widgets.generate_loption("ou", "Organization Unit", $ous)
     $form_widgets.input("description", "Description")
-    <div class="actions">
-        <input type="submit" value="$_('Add')" />
-        #set $tmp_url = "%s?id=%s#affils" % ($page, $entity.get_id())
-        <a href="$tmp_url">$_("Cancel")</a>
-    </div>
+    <input type="submit" value="$_('Add')" />&nbsp;
+    <input type="button" value="$_('Cancel')" id="affil_cancel" />
 </form>
+</div>
 #end def
 

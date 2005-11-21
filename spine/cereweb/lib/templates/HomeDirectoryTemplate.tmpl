@@ -22,41 +22,35 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-## List homedirs for this account, and form for adding a homedir.
-#def view($account, $transaction, $addHome=False)
-<div class="personnames">
-    <a name="homedir" class="noaction"></a>
-    $homedirs($account)
-    #if $addHome == "True" or $addHome == True
-        $addForm($account, $transaction)
-    #else
-    <div class="actions">
-        #set $tmp_url = "/account/view?id=%i&addHome=True" % $account.get_id()
-        <a href="$tmp_url#homedir">$_("Set home directory")</a>
-    </div>
-    #end if
-</div>
-#end def
-
-## List homedirs for account.
-#def homedirs($account)
-    <h2>$_("Home Directories"):</h2>
-    #for $home in $account.get_homes()
-    <div class="name">
-        #set $remove = '/account/remove_home?id=%s&spread=%s' % (
-                    $account.get_id(), $home.get_spread().get_name())
-        <em>$_("Spread"):</em> $home.get_spread().get_name()
-        <a href="$remove" class="actions">$_("remove")</a><br />
+#def view($account)
+#set $homes = $account.get_homes()
+#if $homes
+#set $id = $account.get_id()
+<div class="homedirs">
+    <h3>$_('Home Directories')</h3>
+    #for $home in $homes
+    <div class="homedir">
+    
+        #set $sname = $home.get_spread().get_name()
+        #set $remove = 'remove_home?id=%s&spread=%s' % ($id, $sname)
+        
+        <div class="actions_right">
+            <a href="$remove" class="actions">$_('remove')</a>
+        </div>
+        <em>$_("Spread"):</em> $sname<br />
         <em>$_("Home directory"):</em> $home.get_homedir().get_path()<br />
         <em>$_("Status"):</em> $home.get_homedir().get_status().get_description()
     </div>
     #end for
+</div>
+#end if
 #end def
 
-## Creates a form for adding a homedir to an account.
-#def addForm($entity, $tr)
-<form action="/account/set_home" type="post">
-    <h2>$_("Set home directory"):</h2>
+#def set($entity, $tr)
+<div class="view_add" id="home_form" style="display:none;">
+<form action="set_home" type="POST">
+    <a name="homedir" />
+    <h3>$_('Set home directory')</h3>
     <input type="hidden" name="id" value="$entity.get_id()" />
 
     #set $spreads = [($i.get_name(), $i.get_name())
@@ -68,11 +62,10 @@
     $form_widgets.generate_loption("spread", "Spread", $spreads)
     $form_widgets.input("home", "Home")
     $form_widgets.generate_loption("disk", "Disk", $disks)
-    <div class="actions">
-        <input type="submit" value="$_('Set')" />
-        #set $tmp_url = '/account/view?id=%s' % $entity.get_id()
-        <a href="$tmp_url#homedir">$_("Cancel")</a>
+    <input type="submit" value="$_('Set homedir')" />&nbsp;
+    <input type="button" value="$_('Cancel')" id="home_cancel" />
     </div>
 </form>
+</div>
 #end def
 

@@ -30,6 +30,45 @@ $name {
 }
 #end def
 
+## Creates a standard content-box for view-pages.
+#def view_box($name, $body_color, $header_color, $content_name='')
+$shrink($name)
+
+$name {
+    margin: 10px 10px 10px 0;
+    background: $body_color;
+    border: 1px solid $header_color;
+}
+
+$name h3 {
+    margin: 0;
+    padding: 0 5px 0 5px;
+    background: $header_color;
+    font-size: 105%;
+}
+#if $content_name
+
+$name $content_name {
+    border-bottom: 1px dashed $header_color;
+    padding: 2px;
+}
+#end if
+#end def
+
+## Creates a standard header-box for view-pages.
+#def view_header($name, $color, $border_color)
+$shrink($name)
+$name { margin: 10px 0 10px 0; }
+$name h3 {
+    margin: 0;
+    padding: 0 5px 0 5px;
+    background: $color;
+    border-top: 1px solid $border_color;
+    border-bottom: 1px solid $border_color;
+    font-size: 105%;
+}
+#end def
+
 ## Main title on the all pages.
 div.title {
     overflow: visible;
@@ -40,21 +79,6 @@ div.title {
 }
 
 div.title h1 {
-    margin: 0.1em;
-}
-
-## Smaller title, and fancier!
-div.subtitle {
-    text-align: center;
-    font-size: 80%;
-    background-color: #abc;
-    border-bottom: black 1px solid;
-    border-right: black 1px solid;
-    margin-bottom: 0.5em;
-    width: 440px;
-}
-
-div.subtitle h3 {
     margin: 0.1em;
 }
 
@@ -124,6 +148,58 @@ div.search_range a:hover { color: blue; text-decoration: none; }
 div.search_range a.first, div.search_range a.last { text-decoration: none; }
 div.search_range .first, div.search_range .last { font-size: 90%; }
 
+## Styles for view page, like person view etc..
+div.view_content {
+    width: 580px;
+}
+
+div.view_content div.view_actions {
+    float: right;
+    border-width: 1px 0 0 1px;
+    border-style: solid;
+    border-color: black;
+    padding: 0 0 10px 5px;
+    background: white;
+}
+
+div.view_content div.view_actions h4 {
+    margin: 5px 0 0 0;
+}
+
+div.actions_right {
+    padding-left: 5px;
+    float: right;
+}
+
+$shrink("div.view_info")
+
+div.view_content div.info {
+    white-space: normal;
+    padding: 0 0.5em 0 0.5em;
+    margin-bottom: 0.2em;
+    border-bottom: 1px dashed gray;
+}
+
+div.view_content div.info span.deceased {
+    font-weight: bold;
+    color: #f00;
+}
+
+## Box containing form for adding/setting items on view-pages.
+$shrink("div.view_add")
+
+div.view_add {
+    margin: 10px 10px 10px 0;
+}
+
+div.view_add h3 {
+    margin: 0px;
+}
+
+div.view_add input:focus, div.view_add textarea:focus {
+    background: #ffe;
+}
+
 ## Styles for create pages, like create person etc..
 div.create {
     display: block;
@@ -171,7 +247,6 @@ div.create div.help {
 }
 
 ## Styles for edit pages, like person edit etc..
-
 div.edit {
     display: block;
     width: 23em;
@@ -204,230 +279,102 @@ div.edit div.help {
     margin-bottom: 0.5em;
 }
 
-## The info part for view person, should be quite similar to all
-## other infoparts on entities, and other stuff, so will probably make
-## it more general, and use the same for all.
-div.viewinfo {
-    margin-bottom: 1em;
-}
-$shrink("div.viewinfo")
-
-div.info {
-    margin-bottom: 0.2em;
-    border-bottom: 1px dashed gray;
-}
-
-div.viewinfo .deceased {
-    font-weight: bold;
-    color: #f00;
-}
+div.edit h3 { margin: 0; }
 
 ## The yellow box for notes in entities.
-div.notes {
-    background: #ffc;
-    border: 1px solid #dda;
-    border-collapse: collapse;
-    margin-bottom: 1em;
-    padding: 0.3em;
-}
-$shrink("div.notes")
+$view_box("div.notes", "#ffc", "#dda", "div.note")
 
-div.notes h2 {
-    margin: 0;
-    padding: 0;
-    background: #dda;
-    font-size: 100%;
-    width: 100%;
+div.notes div.note div.note_desc {
+    white-space: normal;
 }
 
-div.notes input, div.notes textarea {
-    font-size: 80%;
-    font-family: sans-serif;
-}
-
-div.notes form h3 {
-    font-size: 100%;
-}
-
-div.notes label {
-    display: block;
-    font-size: 80%;
-}
-
-div.note {
-    border-bottom: 1px dashed #dda;
+div.notes span.date, div.quarantines span.date {
+    font-size: 85%;
 }
 
 ## The light blue box for list over names on the view person page.
-div.personnames {
-    background: #eff;
-    border: 1px solid #bdf;
-    border-collapse: collapse;
-    margin-bottom: 1em;
-    padding: 0.3em;
-}
-##$shrink("div.personnames")
+$view_box("div.personnames", "#eff", "#bdf", "div.name")
 
-div.personnames h2 {
-    margin: 0;
-    padding: 0;
-    background: #bdf;
-    font-size: 100%;
-    width: 100%;
-}
-
-div.personnames input, div.personnames select {
-    font-size: 80%;
-    font-family: sans-serif;
-}
-
-div.personnames form h3 {
-    font-size: 100%;
-}
-
-div.personnames label {
-    display: block;
-    font-size: 80%;
-}
-
-div.name {
-    border-bottom: 1px dashed #bdf;
-}
+## External identifiers on view of entities.
+$view_box("div.externalids", "#eff", "#bdf", "div.externalid")
 
 ## The light blue box for list over spreads on the view entity page.
-div.spreads {
-    background: #eff;
-    border: 1px solid #bdf;
-    border-collapse: collapse;
-    margin-bottom: 1em;
-    padding: 0.3em;
-}
-$shrink("div.personnames")
+$view_box("div.spreads", "#eff", "#bdf", "div.spread")
 
-div.spreads h2 {
+## The red box for quarantines on all view pages.
+$view_box("div.quarantines", "#cba", "#da9", "div.quarantine")
+
+div.quarantines div.quarantine div.quarantine_desc {
+    white-space: normal;
+}
+
+## Affiliations between person and organization units.
+$view_box("div.affiliations", "#eff", "#bdf", "div.affiliation")
+
+## List over an accounts passwords on the account view page.
+$view_box("div.passwords", "#eff", "#bdf", "div.password")
+
+## List over home directiries on the account view page.
+$view_box("div.homedirs", "#eff", "#bdf", "div.homedir")
+
+## List over email targets on the account and group view page.
+$view_box("div.emailtargets", "#eff", "#bdf", "div.emailtarget")
+
+## List over all members in a group.
+$view_header("div.memberlists", "#bdf", "#06C")
+$view_header("div.derivedmembers", "#bdf", "#06C")
+
+div.memberlists h4 { margin: 0; }
+div.derivedmembers { white-space: normal; }
+
+## Overview of the family of the OU.
+$view_header("div.oufamily", "#bdf", "#06C")
+
+div.oufamily h4 { margin: 0; }
+
+## Styles for OU-tree
+div.tree { margin-left: 2em; }
+
+## List over disk in a host on host view page.
+$view_header("div.hostdisks", "#bdf", "#06C")
+
+## List of accounts/groups on view person/account page.
+$view_header("div.personaccounts", "#bdf", "#06C")
+$view_header("div.accountgroups", "#bdf", "#06C")
+
+div.personaccounts div.group, div.personaccounts div.group {
+    margin-left: 1em;
+}
+
+div.personaccounts form, div.accountgroups form, div.hostdisks form {
     margin: 0;
-    padding: 0;
-    background: #bdf;
-    font-size: 100%;
-    width: 100%;
-}
-
-div.spread {
-    border-bottom: 1px dashed #bdf;
-}
-
-## The red box for quarantines on all pages wich views entities.
-div.quarantines {
-    background: #cba;
-    font-size: 80%;
-    float: right;
-}
-
-div.quarantines h2 {
-    margin: 0;
-    padding: 0;
-    background: #da9;
-    font-size: 125%;
-}
-
-div.quarantines td {
-    padding: 0.2em;
-}
-
-## List of accounts on view person page.
-div.personaccounts div.group {
-    margin-left: 2em;
 }
 
 div.personaccounts input, div.accountgroups input, div.hostdisks input {
     font-size: 80%;
-    margin-top: 0.1em;
-    margin-bottom: 0.1em;
+    margin-top: 2px;
 }
 
-## Listing of accounts both on the account view page, and all accounts
-## for a certain person on view person page.
-div.accounts {
-    background: #fff;
-    border: 1px solid #abc;
-    border-collapse: collapse;
-    margin-bottom: 1em;
-    padding: 0.3em;
-}
-$shrink("div.accounts")
-
-div.accounts h2 {
-    margin: 0;
-    padding: 0;
-    background: #abc;
-    font-size: 100%;
-}
-
-div.account {
-    font-size: 90%;
-    margin-top: 0.5em;
-    margin-bottom: 0.5em;
-    border-bottom: #eef 2px dotted;
-}
-$shrink("div.account")
-
-div.account h2 {
-    background: #eef;
-    font-size: 100%;
-    margin-bottom: 0;
-}
-
-div.accounts div.create {
-    font-size: 80%;
-    background: #cde;
-    padding-bottom: 0.5em;
-    margin-top: 0.5em;
-}
-$shrink("div.accounts div.create")
-
-div.accounts div.accountcreate h3 {
-    background: #abc;
-    margin: 0;
-    font-size: 100%;
-    padding-left: 1em;
-}
-
-div.accounts div.accountcreate form {
-    padding-left: 1em;
-    padding-right: 1em;
-}
-
-div.accounts div.accountcreate label {
-    display: block;
-}
-
-div.accounts input, div.accountcreate input {
-    font-size: 80%;
-    padding: 0;
-}
-
-div.join_group h3 {
-    font-size: 110%;
-    margin-bottom: 0.1em;
-}
-
-div.join_group input, div.join_group select {
-    font-size: 90%;
-}
-
-div.personaccount span.extra, div.group span.extra {
+div.personaccounts span.extra, div.accountgroups span.extra {
     font-size: 90%;
     color: gray;
 }
 
-div.group_add_member h3 {
-    font-size: 110%;
-    margin-bottom: 0.1em;
+## Historylog contains changelog for entities.
+$view_header("div.historylog", "#ad9", "#060")
+
+div.historylog h3 a { color: black; text-decoration: none; }
+div.historylog h3 a:hover { color: gray; }
+
+div.historylog td, div.activitylog_full td, table.results td, div.memberlists td {
+    border-bottom: 1px dotted #aaa;
+    padding: 1px 2px 1px 2px;
 }
 
-div.group_add_member input, div.group_add_member select {
-    font-size: 90%;
-}
+## Styles for email pages.
+div.email_view form { margin: 0; }
+div.email_view h2 { margin: 1em 0 0 0; }
+
 
 ## Actions is links wich perfom action on something, for instance
 ## [delete] on notes. Or [edit] on the view person page.
@@ -453,24 +400,6 @@ div.actions a:after, a.actions:after {
 
 div.actions a.noaction:before, div.actions a.noaction:after {
     content: "";
-}
-
-## Historylog is placed on the far right on the bottom "frame".
-$shrink("div.historylog")
-
-div.historylog h2 {
-    margin: 0;
-    padding: 0 0 0 5px;
-    background: #ad9;
-    font-size: 100%;
-}
-
-div.historylog td, div.activitylog_full td, table.results td {
-    border-bottom: 1px dotted #aaa;
-}
-
-div.tree {
-    margin-left: 2em;
 }
 
 ## Styles for the Error-pages.

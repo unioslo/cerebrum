@@ -17,144 +17,158 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from lib.utils import object_link
+#from lib.utils import object_link, strftime
 #from lib.WorkList import remember_link
 #from GroupViewTemplate import GroupViewTemplate
 #from HomeDirectoryTemplate import HomeDirectoryTemplate
+#from EmailTargetTemplate import EmailTargetTemplate
 #from FormWidgets import FormWidgets
-#from EmailTarget import EmailTarget
 
-#attr $email = EmailTarget()
+#attr $email_template = EmailTargetTemplate()
+#attr $homedir_template = HomeDirectoryTemplate()
 #attr $form_widgets = FormWidgets()
-#attr $list_groups = GroupViewTemplate().list_groups
+#attr $listGroups = GroupViewTemplate().listGroups
+#attr $joinGroup = GroupViewTemplate().joinGroup
 
 ## Main method for creating the view of accounts.
-#def viewAccount($transaction, $account, $addHome)
-<div>
-    $viewAccountInfo($account)
-    $HomeDirectoryTemplate().view($account, $transaction, $addHome)
-    $password($account)
-    $groups($account)
-    $join_group($account, $transaction)
-    $email.entity_email($transaction, $account)
-    $view_entity($account, $transaction)
-</div>
-#end def
-
-#def password($account)
-    #set $auths = $account.get_authentications()
-    <div class="personnames">
-        <h2>$_("Passwords"):</h2>
-        #if $auths
-        $_('Current authentication types'):<br />
-        #for $auth in $auths
-        <div class="name">
-            <em>$auth.get_method().get_name()</em>
-        </div>
-        #end for
-        #else
-        $_('No authentications set currently.')<br />
-        #end if
-        <form action="/account/set_password" type="post">
-            $_('Set passwords'):<br />
-            <input type="password" name="passwd1" /><br />
-            <input type="password" name="passwd2" /><br />
-            <input type="hidden" name="id" value="$account.get_id()" />
-            <input type="submit" value="$_('Set')" />
-        </form>
-    </div>
-#end def
-
-#def groups($account)
-    <div class="accountgroups">
-    <form action="/account/groups" type="post">
-        <div class="subtitle">
-            <h3>$_("Groups:")</h3>
-        </div>
-        $list_groups($account)
-        <input type="hidden" name="account_id" value="$account.get_id()" />
-        <input type="submit" name="leave" value="$_('Leave group(s)')" />
-        <input type="submit" name="create" value="$_('Create a group')" />
-    </form>
-    </div>
-#end def
-
-## Shows info about the account.
-#def viewAccountInfo($account)
+#def view($transaction, $account)
 #set $id = $account.get_id()
-<div class="viewinfo">
-    <div class="subtitle">
-        <h3>$_('General accountinfo')</h3>
-    </div>
-    <div>
-        <div class="info">
-            <em>$_('Name'):</em> $account.get_name()
-        </div>
-        <div class="info">
-            <em>$_('Owned by'):</em> $object_link($account.get_owner())
-        </div>
-        <div class="info">
-            #if $account.get_expire_date()
-                #set $expire_date = $account.get_expire_date().strftime("%Y-%m-%d")
-            #else
-                #set $expire_date = ''
-            #end if
-            <em>$_('Expire date'):</em> $expire_date
-        </div>
-        <div class="info">
-            <em>$_('Date created'):</em> $account.get_create_date().strftime("%Y-%m-%d")
-        </div>
-        <div class="info">
-            <em>$_('Created by'):</em> $object_link($account.get_creator())
-        </div>
-        
-        #if $account.is_posix()
-            <div class="info">
-                <em>$_('UID'):</em> $account.get_posix_uid()
-            </div>
-            <div class="info">
-                <em>$_('Primary group'):</em> $object_link($account.get_primary_group())
-            </div>
-            <div class="info">
-                <em>$_('Gecos'):</em> $account.get_gecos()
-            </div>
-            <div class="info">
-                <em>$_('Shell'):</em> $account.get_shell().get_name()
-            </div>
-        #end if
+<div class="view_content">
 
-        <div class="info">
-            <em>$_('Description'):</em> $account.get_description()
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_("edit info")</a><br />
+            <a href="delete?id=$id">$_("delete account")</a><br />
+            #if $account.is_posix()
+            <a href="posix_demote?id=$id">$_("demote from posix")</a><br />
+            #else
+            <a href="posix_promote?id=$id">$_("promote to posix")</a><br />
+            #end if
+            <a href="#password" id="pass_set">$_('set password')</a><br />
+            <a href="#homedir" id="home_set">$_('set home directory')</a><br />
+            <a href="#group" id="group_join">$_('join group')</a><br />
+            <a href="#email" id="email_add">$_('add email target')</a><br />
+            <a href="#spread" id="spread_add">$_('add spread')</a><br />
+            <a href="#note" id="note_add">$_('add note')</a><br />
+            <a href="/quarantine/add?entity=$id">$_('add quarantine')</a><br />
+            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+            <br />
+            $remember_link($account)<br />
         </div>
     </div>
-    <div class="actions">
-        <a href="/account/edit?id=$id">$_("Edit")</a>
-        #if $account.is_posix()
-            <a href="/account/posix_demote?id=$id">$_("Demote from Posix")</a>
-        #else
-            <a href="/account/posix_promote?id=$id">$_("Promote to Posix")</a>
-        #end if
-        <a href="/accont/delete?id=$id">$_("Remove")</a>
-        $remember_link($account)
+
+    ## Content
+    $viewInfo($account)
+    $viewQuarantines($account)
+    $addNote($account)
+    $viewNotes($account)
+    $homedir_template.set($account, $transaction)
+    $homedir_template.view($account)
+    $setPassword($account)
+    $viewPasswords($account)
+    $email_template.set($account, $transaction)
+    $email_template.view($account, $transaction)
+    $addSpread($account, $transaction)
+    $viewSpreads($account)
+    $joinGroup($account, transaction=$transaction)
+    $viewGroups($account)
+    $viewHistoryLog($account)
+
+    ## Register divs and links to flip visibility.
+    <script language="JavaScript">
+        <!--
+        FV_register('pass_form', 'pass_set', null, 'pass_cancel');
+        FV_register('home_form', 'home_set', null, 'home_cancel');
+        FV_register('email_form', 'email_add', null, 'email_cancel');
+        FV_register('group_form', 'group_join', null, 'group_cancel');
+        FV_register('spread_form', 'spread_add', null, 'spread_cancel');
+        FV_register('note_form', 'note_add', null, 'note_cancel');
+        //-->
+    </script>
+</div>
+#end def
+
+#def viewInfo($account)
+<div class="view_info">
+    <div class="info">
+        <em>$_('Name'):</em> $account.get_name()
+    </div>
+    <div class="info">
+        <em>$_('Owned by'):</em> $object_link($account.get_owner())
+    </div>
+    <div class="info">
+        <em>$_('Expire date'):</em> $strftime($account.get_expire_date())
+    </div>
+    <div class="info">
+        <em>$_('Date created'):</em> $strftime($account.get_create_date())
+    </div>
+    <div class="info">
+        <em>$_('Created by'):</em> $object_link($account.get_creator())
+    </div>
+    
+    #if $account.is_posix()
+    <div class="info">
+        <em>$_('UID'):</em> $account.get_posix_uid()
+    </div>
+    <div class="info">
+        <em>$_('Primary group'):</em> $object_link($account.get_primary_group())
+    </div>
+    <div class="info">
+        <em>$_('Gecos'):</em> $account.get_gecos()
+    </div>
+    <div class="info">
+        <em>$_('Shell'):</em> $account.get_shell().get_name()
+    </div>
+    #end if
+
+    <div class="info">
+        <em>$_('Description'):</em> $account.get_description()
     </div>
 </div>
 #end def
 
-## Creates a box where you can join the account to a group.
-#def join_group($account, $transactions)
+#def viewPasswords($account)
+#set $auths = $account.get_authentications()
+#if $auths
+<div class="passwords">
+    <h3>$_('Current authentication types')</h3>
+    #for $auth in $auths
+    <div class="password">
+        $auth.get_method().get_name()
+    </div>
+    #end for
+</div>
+#end if
+#end def
 
-#set $searcher = $transactions.get_group_member_operation_type_searcher()
-#set $operations = [(i.get_name(),i.get_description()) 
-                                for i in $searcher.search()]
+#def setPassword($account)
+<div class="view_add" id="pass_form" style="display:none;">
+    <form action="set_password" type="POST">
+        <a name="password" />
+        <h3>$_('Set password')</h3>
+        <input type="hidden" name="id" value="$account.get_id()" />
+        $form_widgets.input('passwd1', 'Password')
+        $form_widgets.input('passwd2', 'Retype password')
+        <input type="submit" value="$_('Set password')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="pass_cancel" />
+    </form>
+</div>
+#end def
 
-<div class="join_group">
-    <form action="/account/join_group" method="POST">
-        <h3>$_("Join group"):</h3>
-        $form_widgets.input("group_name", "Group name")
-        <label for="operation">$_("Operation"):</label>
-        $form_widgets.generate_option("operation", $operations, "union")
-        <input type="hidden" name="account" value="$account.get_id()" />
-        <input type="submit" value="$_("Join group")"/>
+#def viewGroups($account)
+<div class="accountgroups">
+    <h3>$_('Groups')</h3>
+    <form action="groups" type="POST">
+        <input type="hidden" name="account_id" value="$account.get_id()" />
+        $listGroups($account)
+        #if not $account.get_groups()
+        $_('Account is not member of any groups')<br />
+        #else
+        <input type="submit" name="leave" value="$_('Leave group(s)')" />&nbsp;
+        #end if
+        <input type="submit" name="create" value="$_('Create a group')" />
     </form>
 </div>
 #end def

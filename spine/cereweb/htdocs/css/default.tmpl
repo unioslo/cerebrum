@@ -21,6 +21,11 @@
 ## Styles for the bottom frame, wich contains worklist, transactions and activitylog.
 ## IE doesnt support inline-block on divs, so I had to use spans instead, and then
 ## i had to use vertical-align: top, to make it look just like in opera.
+div.bottom_div {
+    background: white;
+    height: 100%;
+}
+
 div.worklist h2, div.activitylog h2 {
     font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
     font-size: 90%;
@@ -110,6 +115,7 @@ div.activitylog {
 div.activitylog_full {
     float: left;
     clear: right;
+    empty-cells: show;
 }
 
 div.activitylog h2 {
@@ -177,12 +183,16 @@ div.menu .active {
 }
 
 ## Styles for messages and errors
-div.messages {
-    border: black 1px dashed;
+div.messages { margin-bottom: 5px; }
+
+div.messages span.message {
+    font-weight: bold;
+    color: green;
 }
 
-div.error {
-    background: #f66;
+div.messages span.error {
+    font-weight: 1200;
+    color: red;
     padding: 0.3em;
 }
 

@@ -22,60 +22,47 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-## List names for this person, and form for adding a name.
-#def view($person, $transaction, $addName, $page)
+#def view($person)
+#set $names = $person.get_names()
+#if $names
 <div class="personnames">
-    <a name="names" class="noaction"></a>
-    $personNames($person)
-    #if $addName == "True" or $addName == True
-        $addForm($person, $transaction)
-    #else
-    #set $tmp_url = "%s?id=%i&addName=True#names" % ($page, $person.get_id())
-    <div class="actions">
-        <a href="$tmp_url">$_("add a name")</a>
-    </div>
-    #end if
-</div>
-#end def
-
-## Lists all names for a person, with the sourcesystem if set.
-#def personNames($person)
-    #set $person_names = $person.get_names()
-    <h2>$_("Names:")</h2>
-    #for $name in $person_names
+    <h3>$_('Names')</h3>
+    #for $name in $names
     #set $ss = $name.get_source_system()
-    #if not $ss.get_name() == "Cached"
+    #if not $ss.get_name() == 'Cached'
     <div class="name">
         #set $name_variant = $name.get_name_variant()
-        #set $ss_name = $ss and $ss.get_name() or ""
-        #set $delete = '/person/remove_name?id=%i&variant=%s&ss=%s' % (
+        #set $ss_name = $ss and $ss.get_name() or ''
+        <div class="actions_right">
+            #set $delete = 'remove_name?id=%i&variant=%s&ss=%s' % (
                  $person.get_id(), $name_variant.get_name(), $ss_name)
-        <div class="actions">
-            <em>$name_variant.get_description():</em> $name.get_name()
-            <a href="$delete">$_("delete")</a>
+            <a href="$delete" class="actions">$_('delete')</a>
         </div>
+        <em>$name_variant.get_description():</em> $name.get_name()
         #if $ss
-        <div><em>$_("Source system"):</em> $ss.get_name() ($ss.get_description())</div>
+        <br />
+        <em>$_("Source system"):</em> $ss.get_name() ($ss.get_description())
         #end if
     </div>
     #end if
-    #end for
+#end for
+</div>
+#end if
 #end def
 
-## Creates a form for adding a name to a person.
-#def addForm($entity, $transaction)
-<form action="/person/add_name" type="post">
+#def set($person, $transaction)
+<div class="view_add" id="name_form" style="display:none;">
+<a name="name" />
+<form action="add_name" type="POST">
     #set $name_types = $transaction.get_name_type_searcher().search()
     #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
-    <h2>$_("Add a name"):</h2>
-    <input type="hidden" name="id" value="$entity.get_id()" />
+    <h3>$_('Set a name')</h3>
+    <input type="hidden" name="id" value="$person.get_id()" />
     $form_widgets.input("name", "Name")
     $form_widgets.generate_loption("name_type", "Name type", $name_types)
-    <div class="actions">
-        <input type="submit" value="$_('Add')" />
-        #set $tmp_url = "/person/view?id=%s#names" % ($entity.get_id())
-        <a href="$tmp_url">$_("Cancel")</a>
-    </div>
+    <input type="submit" value="$_('Set name')" />
+    <input type="button" value="$_('Cancel')" id="name_cancel" />
 </form>
+</div>
 #end def
 

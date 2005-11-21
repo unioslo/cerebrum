@@ -21,25 +21,17 @@
 #from SpineIDL.Errors import NotFoundError
 #extends InitTemplate
 
-
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
 ## Lines with info about the form, used with the function showHelp().
 #attr $help = []
 
-## Action to go to when the form is submitted.
-#def getAction
-    #return '/ou/save'
-#end def
-
 ## Creates the form for editing the main person info.
 #def form($transaction, $ou)
 <div class="edit">
-    <div class="subtitle">
-        <h3>$_("General organization info"):</h3>
-    </div>
-    <form action="$getAction()" method="POST">
+    <h3>$_('General organization info')</h3>
+    <form action="save" method="POST">
         <div class="editform">
             $form_widgets.input("name", "Name", $ou.get_name())
             $form_widgets.input("acronym", "Acronym", $ou.get_acronym())
@@ -68,9 +60,7 @@
 #end def
 
 #def edit_perspectives($transaction, $ou)
-    <div class="subtitle">
-        <h3>$_("OU perspectives")</h3>
-    </div>    
+        <h3>$_('OU perspectives')</h3>
         #set $extras = [ ("not_in", $_("(Not in perspective)")),
                          ("root", $_("(Root node)")) ]
         #set $perspectives = $transaction.get_ou_perspective_type_searcher()
@@ -174,3 +164,4 @@
         <br />
     #end if    
 #end def
+

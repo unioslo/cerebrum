@@ -1,0 +1,62 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.InitTemplate import InitTemplate
+#from lib.utils import object_link, strftime
+#extends InitTemplate
+
+#def view($entity)
+#set $notes = $entity.get_notes()
+#if $notes
+<div class="notes">
+    <h3>$_('Notes')</h3>
+    #for $note in $notes
+    #set $delete = '/note/delete?id=%s&entity=%s' % ($note.get_id(), $entity.get_id())
+    #set $description = $note.get_description().strip()
+    #set $description = $description.replace('\n', '<br />')
+    <div class="note">
+        <div class="actions_right">
+            <a href="$delete" class="actions">$_('delete')</a>
+        </div>
+        <strong>$note.get_subject()</strong>&nbsp;
+        <em>-$_('by')  $object_link($note.get_creator())</em>&nbsp;
+        <span class="date">$strftime($note.get_create_date())</span>
+        <br />
+        <div class="note_desc">$description</div>
+    </div>
+    #end for
+</div>
+#end if
+#end def
+
+#def add($entity)
+<div class="view_add" id="note_form" style="display:none;">
+<a name="note" />
+<form action="/note/add" type="post">
+    <h3>$_('Add a note')</h3>
+    <input type="hidden" name="entity" value="$entity.get_id()" />
+    <label for="subject">$_('Subject'):</label>
+    <input type="text" size="40" name="subject" /><br />
+    <label for="description">$_('Optional details'):</label><br />
+    <textarea cols="40" rows="4" name="description"></textarea><br />
+    <input type="submit" value="$_('Add')" />&nbsp;
+    <input type="button" value="$_('Cancel')" id="note_cancel" />
+</form>
+</div>
+#end def
+

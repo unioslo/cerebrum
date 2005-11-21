@@ -27,10 +27,7 @@
 ## Creates the form for creating a new group.
 #def form($name, $expire, $description)
 <div class="create">
-    <div class="subtitle">
-        <h3>$_("General groupinfo"):</h3>
-    </div>
-    <form action="/group/make" method="POST">
+    <form action="make" method="POST">
         <div class="createform">
             $form_widgets.input("name", "Name", $name)
             <label for="description">$_('Description'):</label>

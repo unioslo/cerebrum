@@ -38,7 +38,7 @@ def edit(transaction, entity, type):
     formvalues['disable_until'] = strftime(quarantine.get_disable_until())
     
     page = Main()
-    page.title = _("Edit quarantine %s on ") % type
+    page.title = _('Edit quarantine for ')
     page.title += object_link(entity)
     edit = QuarantineTemplate()
     edit.formvalues = formvalues
@@ -86,7 +86,7 @@ def add(transaction, entity):
     formvalues['start'] = mx.DateTime.now().strftime("%Y-%m-%d")
     
     page = Main()
-    page.title = _("Add a new quarantine on ")
+    page.title = _("Add quarantine on ")
     page.title += object_link(entity)
     add = QuarantineTemplate()
     add.formvalues = formvalues

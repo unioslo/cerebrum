@@ -17,148 +17,202 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from lib.TableView import TableView
-#from lib.utils import object_link
+#from lib.utils import object_link, strftime
 #from lib.WorkList import remember_link
-#from MemberTableTemplate import MemberTableTemplate
-#from EmailTarget import EmailTarget
+#from FormWidgets import FormWidgets
+#from EmailTargetTemplate import EmailTargetTemplate
 
-#attr $email = EmailTarget()
+#attr $form_widgets = FormWidgets()
+#attr $email_template = EmailTargetTemplate()
 
-#def viewGroup($transaction, $group)
-<div>
-    $groupInfo($group)
-    $groupMembers($group)
-    $add_member($group)
-    $email.entity_email($transaction, $group)
-    $view_entity($group, $transaction)
+#def view($transaction, $group)
+#set $id = $group.get_id()
+#set $searcher = $transaction.get_group_member_operation_type_searcher()
+#set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
+<div class="view_content">
+
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_("edit info")</a><br />
+            <a href="delete?id=$id">$_("delete group")</a><br />
+            #if $group.is_posix()
+            <a href="posix_demote?id=$id">$_("demote from posix")</a><br />
+            #else
+            <a href="posix_promote?id=$id">$_("promote to posix")</a><br />
+            #end if
+            <a href="#member" id="member_add">$_('add member')</a><br />
+            <a href="#group" id="group_join">$_('join group')</a><br />
+            <a href="/account/create?owner=$id">$_('create group account')</a>
+            <br />
+            <a href="#email" id="email_add">$_('add email target')</a><br />
+            <a href="#spread" id="spread_add">$_('add spread')</a><br />
+            <a href="#note" id="note_add">$_('add note')</a><br />
+            <a href="/quarantine/add?entity=$id">$_('add quarantine')</a><br />
+            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+            <br />
+            $remember_link($group)<br />
+        </div>
+    </div>
+
+    ## Content
+    $viewInfo($group)
+    $viewQuarantines($group)
+    $addNote($group)
+    $viewNotes($group)
+    $email_template.set($group, $transaction)
+    $email_template.view($group, $transaction)
+    $addSpread($group, $transaction)
+    $viewSpreads($group)
+    $joinGroup($group, $ops)
+    $addMember($group, $ops)
+    $viewMembers($group, $ops)
+    $derivedMembers($group)
+    $viewHistoryLog($group)
+
+    ## Register divs and links to flip visibility.
+    <script language="JavaScript">
+        <!--
+        FV_register('member_form', 'member_add', null, 'member_cancel');
+        FV_register('group_form', 'group_join', null, 'group_cancel');
+        FV_register('email_form', 'email_add', null, 'email_cancel');
+        FV_register('spread_form', 'spread_add', null, 'spread_cancel');
+        FV_register('note_form', 'note_add', null, 'note_cancel');
+        //-->
+    </script>
 </div>
 #end def
 
+#def viewInfo($group)
+<div class="view_info">
+    <div class="info">
+        <em>$_('Name'):</em> $group.get_name()
+    </div>
 
-#def groupMembers($group)
-    #set $allmembers = $group.get_group_members()
-    #if $allmembers
-    <div class="members">
-        <h2>$_("Members")</h2>
-<%
-# Split memberships by operation type
-memberSets = {}
-for member in allmembers:
-    operation = member.get_operation().get_name()
-    # fetch (and possibly create) a list to contain members
-    members = memberSets.setdefault(operation, [])
-    members.append(member)
-    
-## FIXME Dont hardcode operations
-for operation in ('union', 'intersection', 'difference'):
-    members = memberSets.get(operation)
-    if not members:
-        # skip empty members
-        continue
-    write(self.memberList(operation, members, group))
-%>
-
-     
-$derivedMembers($group)
-
+    #if $group.is_posix()
+    <div class="info">
+        <em>$_('Gid'):</em> $group.get_posix_gid()
     </div>
     #end if
+
+    <div class="info">
+        <em>$_('Created'):</em> $strftime($group.get_create_date())
+    </div>
+    <div class="info">
+        <em>$_('Expire date'):</em> $strftime($group.get_expire_date())
+    </div>
+    <div class="info">
+        <em>$_('Visibility'):</em> $group.get_visibility().get_description()
+    </div>
+    <div class="info">
+        <em>$_('Description'):</em> $group.get_description()
+    </div>
+</div>
 #end def
 
+#def addMember($group, $ops)
+#set $types = (('account', 'Account'), ('group', 'Group'))
+<div class="view_add" id="member_form" style="display:none;">
+    <a name="member" />
+    <h3>$_('Add member')</h3>
+    <form action="add_member" method="POST">
+        <input type="hidden" name="id" value="$group.get_id()" />
+        $form_widgets.input('name', 'Member name')
+        $form_widgets.generate_loption('type', 'Member type', $types, 'account')
+        $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
+        <input type="submit" value="$_('Add member')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="member_cancel" />
+    </form>
+</div>
+#end def
 
-#def memberList($operation, $members, $group)
-    #set $operations = {'union': $_('Union'), 'intersection': $_('Intersection'),
-                        'difference': $_('Difference')}
-    #set $headers = {'type': $_("Type"), 'name': $_("Name")}
-    <div class="memberlist">
-        <h3>$operations[$operation]</h3>
-        #set $table = $TableView("type", "name")
-        #for $member in $members
-            $table.add($member.get_member_type().get_name(), 
-                       $object_link($member.get_member()), 
-                       id=$member.get_member().get_id(),
-                       groupid=$group.get_id(), 
-                       operation=$operation,
-                       member=$member.get_member())
+#def joinGroup($entity, $ops=None, $transaction=None)
+#assert $ops is not None or $transaction is not None
+#if $ops is None
+#set $searcher = $transaction.get_group_member_operation_type_searcher()
+#set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
+#end if
+<div class="view_add" id="group_form" style="display:none;">
+    <a name="group" />
+    <h3>$_('Join group')</h3>
+    <form action="/group/join_group" method="POST">
+        <input type="hidden" name="entity" value="$entity.get_id()" />
+        $form_widgets.input('name', 'Group name')
+        $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
+        <input type="submit" value="$_('Join group')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="group_cancel" />
+    </form>
+</div>
+#end def
+
+#def viewMembers($group, $ops)
+#set $members = $group.get_group_members()
+#if $members
+<div class="memberlists">
+    <h3>$_('Members')</h3>
+
+    ## Split member by operation
+    #set $memberSets = {}
+    #for $key, $tmp in $ops
+        #set $memberSets[$key] = []
+    #end for
+    #for $member in $members
+        #set $op = $member.get_operation().get_name()
+        #set $type = $member.get_member_type().get_name()
+        $memberSets[$op].append(($type, $member.get_member()))
+    #end for
+
+    ## List members
+    #for $op, $name in $ops
+    #set $op_members = $memberSets[$op]
+    #if $op_members
+    <h4>$name:</h4>
+    <table>
+        <tr>
+            <th>$_('Type')</th>
+            <th>$_('Member')</th>
+            <th>$_('Member owner')</th>
+        </tr>
+        #for $type, $member in $op_members
+        <tr>
+            <td>
+                $type.capitalize()
+            </td>
+            <td>
+                $object_link($member)
+            </td>
+            <td>
+                #if $type == 'account'
+                $object_link($member.get_owner())
+                #else
+                &nbsp;
+                #end if
+            </td>
+        </tr>
         #end for
-        $MemberTableTemplate().sorted_table($table, $headers, 'blapp=%s', 'blupp=%s')
-    </div>
+    </table>
+    #end if
+    #end for
+</div>
+#end if
 #end def
 
 #def derivedMembers($group)
-<h3>$_("Derived members")</h3>
-<p>
-#set members=$group.get_members()
-#for $account in $members
-    $object_link($account) 
-    &nbsp;
-#end for
-</p>
-
-#end def
-
-
-#def groupInfo($group)
-<div class="viewinfo">
-    <div class="subtitle">
-        <h3>$_('General groupinfo'):</h3>
-    </div>
-    <div>
-        <div class="info">
-            <em>$_("Name"):</em> $group.get_name()
-        </div>
-        #if $group.is_posix()
-            <div class="info">
-                <em>$_("Gid"):</em> $group.get_posix_gid()
-            </div>
-        #end if
-        <div class="info">
-            #set $created = $group.get_create_date().strftime("%Y-%m-%d")
-            <em>$_("Created"):</em> $created
-        </div>
-        <div class="info">
-            #if $group.get_expire_date()
-                #set $expire_date = $group.get_expire_date().strftime("%Y-%m-%d")
-            #else
-                #set $expire_date = ''
-            #end if
-            <em>$_("Expire date"):</em> $expire_date
-        </div>
-        <div class="info">
-            <em>$_("Visibility"):</em> $group.get_visibility().get_description()
-        </div>
-        <div class="info">
-            <em>$_("Description"):</em> $group.get_description()
-        </div>
-    </div>
-    <div class="actions">
-        #set $edit = '/group/edit?id=%i' % $group.get_id()
-        <a href="$edit">$_("Edit")</a>
-        #if $group.is_posix()
-            #set $posix = '/group/posix_demote?id=%i' % $group.get_id()
-            <a href="$posix">$_("Demote from Posix")</a>
-        #else
-            #set $posix = '/group/posix_promote?id=%i' % $group.get_id()
-            <a href="$posix">$_("Promote to Posix")</a>
-        #end if
-        #set $delete = '/group/delete?id=%i' % $group.get_id()
-        <a href="$delete">$_("Remove")</a>
-        $remember_link($group)
-        #set $create_acc = 'account/create?owner=%i' % $group.get_id()
-        <a href="$create_acc">$_("Create group account")</a>
-    </div>
+#set $members = $group.get_members()
+#if $members
+<div class="derivedmembers">
+    <h3>$_('Derived members')</h3>
+    #for $account in $members
+        $object_link($account) 
+        &nbsp;
+    #end for
 </div>
+#end if
 #end def
 
-
-#def add_member($group)
-<div class="add_member">
-    Add a member (.. to be inserted by template user)
-</div>
-#end def
-
-#def list_groups($account)
+## Used by person and account view-templates to display groups an account has.
+#def listGroups($account)
     #set $primary_group = ''
     #if $account.is_posix()
         #set $primary_group = $account.get_primary_group().get_name()

@@ -18,18 +18,26 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator
-from lib.templates.Email import Email
+from lib.templates.EmailTargetTemplate import EmailTargetTemplate
+from lib.templates.EmailDomainTemplate import EmailDomainTemplate
 
 def index(transaction):
     page = Main()
-    page.title = _("Email") 
-    page.setFocus("email")
-    template = Email()
-    content = template.index(transaction)
-    page.content = lambda: content
+    page.title = _('Email') 
+    page.setFocus('email')
+    target_template = EmailTargetTemplate()
+    domain_template = EmailDomainTemplate()
+    
+    content = html.Division()
+    content.append(target_template.find_email())
+    content.append(target_template.create_target(transaction))
+    content.append(domain_template.create_domain())
+    content.append(domain_template.list_domains(transaction))
+    page.content = content.output
     return page
 index = transaction_decorator(index)    
 index.exposed = True

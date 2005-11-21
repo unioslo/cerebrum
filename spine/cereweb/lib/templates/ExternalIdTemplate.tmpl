@@ -22,11 +22,13 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-#def externalIds($entity, $id_types)
-    #set $ids = $entity.get_external_ids()
-    <h2>$_("External identifiers:")</h2>
+#def view($entity)
+#set $ids = $entity.get_external_ids()
+#if $ids
+<div class="externalids">
+    <h3>$_('External identifiers')</h3>
     #for $id in $ids
-    <div class="name">
+    <div class="externalid">
         #set $external_id = $id.get_external_id()
         #set $type = $id.get_id_type().get_description()
         #set $ss_name = $id.get_source_system().get_name()
@@ -34,18 +36,32 @@
         #set $args = "id=%i&external_id=%s&id_type=%s" % ($entity.get_id(),
                             $external_id, $id.get_id_type().get_name())
         #set $delete = '/entity/remove_external_id?%s' % $args
-        <div class="actions">
-            <em>$type:</em> $external_id
-            <a href="$delete" class="actions">$_("delete")</a>
+        <div class="actions_right">
+            <a href="$delete" class="actions">$_('delete')</a>
         </div>
-        <div><em>$_("Source system"):</em> $ss_name ($ss_desc)</div>
+        <em>$id.get_id_type().get_description():</em> $external_id
+        <br />
+        <em>$_('Source system'):</em> $ss_name ($ss_desc)
     </div>
     #end for
-    <form action="/entity/add_external_id" type="post">
+</div>
+#end if
+#end def
+
+#def set($entity, $transaction)
+<div class="view_add" id="extid_form" style="display:none;">
+    <a name="extid" />
+    <form action="/entity/add_external_id" type="POST">
+        #set $searcher = $transaction.get_entity_external_id_type_searcher()
+        #set $id_types = [($type.get_name(), $type.get_description()) 
+                                        for $type in $searcher.search()]
+        <h3>$_('Set external identifier')</h3>
         <input type="hidden" name="id" value="$entity.get_id()" />
-        <input type="input" size="20" name="external_id" />
-        $form_widgets.generate_option("id_type", $id_types)
-        <input type="submit" value="$_('Set')" />
+        $form_widgets.input("external_id", "External identifier")
+        $form_widgets.generate_loption("id_type", "Type", $id_types)
+        <input type="submit" value="$_('Set')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="extid_cancel" />
     </form>
+</div>
 #end def
 

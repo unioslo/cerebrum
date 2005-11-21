@@ -18,73 +18,41 @@
 
 #from lib.InitTemplate import InitTemplate
 #from lib import HistoryLog
-#from NoteViewTemplate import NoteViewTemplate
-#from NoteAddTemplate import NoteAddTemplate
-#from QuarantineViewTemplate import QuarantineViewTemplate
-#from SpreadTemplate import SpreadTemplate
+#from NoteTemplate import NoteTemplate
+#from QuarantineTemplate import QuarantineTemplate
 #from ExternalIdTemplate import ExternalIdTemplate
+#from SpreadTemplate import SpreadTemplate
 #extends InitTemplate
 
-## Main method for creating a view of the entity.
-#def view_entity($entity, $transaction)
-<div class="entityview">
-    $spreads($entity, $transaction)
-    $externalIds($entity, $transaction)
-    $quarantines($entity)
-    $notes($entity)
-    $history($entity)
-</div>
+#def viewNotes($entity)
+    #return $NoteTemplate().view($entity)
 #end def
 
-## Shows the spreads the entity has.
-#def spreads($entity, $transaction)
-    #set $type = $entity.get_type()
-    #set $spreads= []
-    #for $spread in $transaction.get_spread_searcher().search()
-        #if $type == $spread.get_entity_type()
-            $spreads.append(($spread.get_name(), $spread.get_name()))
-        #end if
-    #end for
-    #if $spreads
-    <div class="personnames">
-        #set $s = SpreadTemplate()
-        $s.view_spreads($entity, $spreads)
-    </div>
-    #end if
+#def addNote($entity)
+    #return $NoteTemplate().add($entity)
 #end def
 
-## Shows the history of the entity.
-#def history($entity)
-    $HistoryLog.view_history_short($entity)
+#def viewQuarantines($entity)
+    #return $QuarantineTemplate().view($entity)
 #end def
 
-## Shows all quarantines on the object, and the form for creating a new.
-## Not ready yet..
-#def quarantines($entity)
-    #set q = QuarantineViewTemplate()
-    $q.view_quarantines($entity)
+#def viewExternalIds($entity)
+    #return $ExternalIdTemplate().view($entity)
 #end def
 
-## Shows all notes the entity has, and form for creating a new note.
-#def notes($entity)
-<div class="notes">
-    #set t = NoteViewTemplate()
-    $t.viewNotes($entity)
-    #set t = NoteAddTemplate()
-    $t.addForm($entity)
-</div>
+#def setExternalId($entity, $transaction)
+    #return $ExternalIdTemplate().set($entity, $transaction)
 #end def
 
-## List external ids for this entity, and form for adding more.
-#def externalIds($entity, $transaction)
-<div class="personnames">
-    #set $v = ExternalIdTemplate()
-    #set $searcher = $transaction.get_entity_external_id_type_searcher()
-    #set $id_types = []
-    #for $type in $searcher.search()
-        $id_types.append(($type.get_name(), $type.get_description()))
-    #end for
-    $v.externalIds($entity, $id_types)
-</div>
+#def viewHistoryLog($entity)
+    #return $HistoryLog.view_history_short($entity)
+#end def
+
+#def viewSpreads($entity)
+    #return $SpreadTemplate().view($entity)
+#end def
+
+#def addSpread($entity, $transaction)
+    #return $SpreadTemplate().add($entity, $transaction)
 #end def
 

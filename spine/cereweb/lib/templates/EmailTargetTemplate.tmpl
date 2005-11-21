@@ -24,6 +24,66 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
+#def set($entity, $transaction)
+#set $target_types=$transaction.get_email_target_type_searcher()
+<div class="view_add" id="email_form" style="display:none;">
+    <a name="email" />
+    <h3>$_('Create a new email target')</h3>
+    <form action="/emailtarget/creation" method="POST">
+        <input type="hidden" name="entity" value="$entity.get_id()" />
+        $form_widgets.code_selector('target_type', 'Target type', $target_types)
+        <input type="submit" value="$_('Add')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="email_cancel" />
+    </form>
+</div>
+#end def
+
+#def view($entity, $transaction)
+#set $searcher = $transaction.get_email_target_searcher()
+$searcher.set_entity($entity)
+#set $targets = $searcher.search()
+#if $targets
+<div class="emailtargets">
+    <h3>$_('Email targets')</h3>
+    #for $target in $targets:
+    <div class="emailtarget">
+        <div class="actions_right">
+            $object_link($target, $_('Delete'), 'delete', _class='actions')
+        </div>
+        $object_link($target)
+    </div>
+    #end for
+</div>
+#end if
+#end def
+
+#def create_target($transaction, $entity=None)
+#set $target_types=$transaction.get_email_target_type_searcher()
+<div class="email_view">
+    <h2>$_('Create a new email target')</h2>
+    <form action="/emailtarget/creation" method="POST">
+        #if $entity is not None
+        <input type="hidden" name="entity" value="$entity.get_id()" />
+        #end if
+        $form_widgets.code_selector("target_type", $_("Target type"), $target_types)
+        <input type="submit" value="$_('Add target')" />
+    </form>
+</div>
+#end def
+
+#def find_email($address="")
+<div class="email_view">
+    <h2>$_('Find email target by address')</h2>
+    <form action="/emailtarget/search" method="POST">
+        <label for="address">$_('Enter an email address:')</label>
+        <br />
+        <input name="address" value="$address" />
+        ## FIXME: Other ways to search up? For instance target type?
+        <input type="submit" value="$_('Search')" />
+    </form>
+</div>
+#end def
+
 #def entity_email($transaction, $entity)
 <div class="entityemail">
     <div class="subtitle">
@@ -72,18 +132,6 @@
     $form_widgets.generate_option("domain", $domains,
                                   $address.get_domain().get_id())
     <input type="submit" value="$_("Save")" />
-</form>
-#end def
-
-#def create_target($transaction, $entity=None)
-<form action="/emailtarget/creation" method="POST">
-    #if $entity is not None
-        <input type="hidden" name="entity" value="$entity.get_id()" />
-    #end if
-    $_("Create a new email target:")<br />
-#set $target_types=$transaction.get_email_target_type_searcher()
-    $form_widgets.code_selector("target_type", $_("Target type"), $target_types)
-    <input type="submit" value="$_("Add")" />
 </form>
 #end def
 
@@ -205,12 +253,3 @@ $add_address($transaction, $target, $suggestion)
 </div>
 #end def
 
-
-#def find_email($address="")
-    <form action="/emailtarget/search" method="POST">
-        <label for="address">$_("Find email target by email address:")</label>
-        <input name="address" value="$address" />
-        ## FIXME: Other ways to search up? For instance target type?
-        <input type="submit" value="$_("Search")" />
-    </form>
-#end def

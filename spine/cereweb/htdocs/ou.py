@@ -125,7 +125,7 @@ def view(transaction, id):
     page = Main()
     page.title = _("OU %s") % _get_display_name(ou)
     page.setFocus("ou/view", id)
-    content = OUViewTemplate().viewOU(transaction, ou)
+    content = OUViewTemplate().view(transaction, ou)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)

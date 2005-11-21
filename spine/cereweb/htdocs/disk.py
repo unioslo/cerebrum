@@ -94,10 +94,9 @@ def view(transaction, id):
     """Creates a page with a view of the disk given by id."""
     disk = transaction.get_disk(int(id))
     page = Main()
-    page.title = _("Disk %s" % disk.get_path())
-    page.setFocus("disk/view", id)
-    view = DiskViewTemplate()
-    content = view.viewDisk(transaction, disk)
+    page.title = _('Disk %s') % disk.get_path()
+    page.setFocus('disk/view', id)
+    content = DiskViewTemplate().view(transaction, disk)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)

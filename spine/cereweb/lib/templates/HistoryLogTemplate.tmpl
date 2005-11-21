@@ -24,11 +24,8 @@
     #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"),
         'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
     <div class="historylog">
-        <h2>History log</h2>
+        <h3><a href="/entity/full_historylog?id=$id">$_('History log')</a></h3>
         $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
-        <div class="actions">
-            <a href="/entity/full_historylog?id=$id">View full history log</a>
-        </div>
     </div>
 #end def
 
@@ -36,7 +33,7 @@
     #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"),
         'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
     <div class="historylog">
-        <h2>History log</h2>
+        <h3>$_('History log')</h3>
         $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
     </div>
 #end def

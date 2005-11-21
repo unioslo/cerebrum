@@ -92,11 +92,9 @@ def view(transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
     page = Main()
-    page.title = _("Host %s" % host.get_name())
-    page.setFocus("host/view", id)
-    
-    view = HostViewTemplate()
-    content = view.viewHost(transaction, host)
+    page.title = _('Host %s') % host.get_name()
+    page.setFocus('host/view', id)
+    content = HostViewTemplate().view(transaction, host)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)

@@ -29,15 +29,9 @@ from lib.Search import get_arg_values, get_form_values, setup_searcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
-from lib.templates.GroupAddMemberTemplate import GroupAddMemberTemplate
 from lib.templates.GroupEditTemplate import GroupEditTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 
-operations = {
-    'union':'Union',
-    'intersection':'Intersection',
-    'difference':'Difference'
-}
 
 def search(transaction, offset=0, **vargs):
     """Search for groups and displays results and/or searchform."""
@@ -123,27 +117,14 @@ def view(transaction, id):
     """Creates a page with the view of the group with the given by."""
     group = transaction.get_group(int(id))
     page = Main()
-    page.title = _("Group %s" % group.get_name())
-    page.setFocus("group/view", id)
-    view = GroupViewTemplate()
-    view.add_member = lambda group:_add_box(group)
-    content = view.viewGroup(transaction, group)
+    page.title = _('Group %s') % group.get_name()
+    page.setFocus('group/view', id)
+    content = GroupViewTemplate().view(transaction, group)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
 view.exposed = True
     
-def _add_box(group):
-    ops = operations.items()
-    ops.sort()
-    ops.reverse()
-    member_types = [("account", _("Account")),
-                    ("group", _("Group"))]
-    action = 'add_member?id=%s' % group.get_id()
-
-    template = GroupAddMemberTemplate()
-    return template.add_member_box(action, member_types, ops)
-
 def add_member(transaction, id, name, type, operation):
     group = transaction.get_group(int(id))
     
@@ -281,5 +262,31 @@ def delete(transaction, id):
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
 delete.exposed = True
+
+def join_group(transaction, entity, name, operation):
+    """Join entity into group with name 'group'."""
+    entity = transaction.get_entity(int(entity))
+    operation = transaction.get_group_member_operation_type(operation)
+
+    # find the group by name.
+    searcher = transaction.get_entity_name_searcher()
+    searcher.set_name(name)
+    searcher.set_value_domain(transaction.get_value_domain('group_names'))
+    try:
+        group, = searcher.search()
+        group = group.get_entity()
+        assert group.get_type().get_name() == 'group'
+    except:
+        msg = _("Group '%s' not found") % name
+        queue_message(msg, True, object_link(entity))
+        redirect_object(entity)
+        return
+
+    group.add_member(entity, operation)
+
+    msg = _('Joined group %s successfully') % name
+    commit(transaction, entity, msg=msg)
+join_group = transaction_decorator(join_group)
+join_group.exposed = True
 
 # arch-tag: d14543c1-a7d9-4c46-8938-c22c94278c34

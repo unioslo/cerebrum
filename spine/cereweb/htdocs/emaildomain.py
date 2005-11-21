@@ -24,14 +24,14 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, commit
-from lib.templates.EmailDomain import EmailDomain
+from lib.templates.EmailDomainTemplate import EmailDomainTemplate
 
 def view(transaction, id):
     domain = transaction.get_email_domain(int(id))
     page = Main()
     page.title = _("Email domain %s") % domain.get_name()
     page.setFocus("email/domain/view", id)
-    template = EmailDomain()
+    template = EmailDomainTemplate()
     content = template.view_domain(transaction, domain)
     page.content = lambda: content
     return page
@@ -43,7 +43,7 @@ def edit(transaction, id):
     page = Main()
     page.title = _("Edit email domain %s") % domain.get_name()
     page.setFocus("email/domain/edit", id)
-    template = EmailDomain()
+    template = EmailDomainTemplate()
     content = template.edit_domain(domain)
     page.content = lambda: content
     return page
@@ -54,7 +54,7 @@ def create():
     page = Main()
     page.title = _("Create email domain")
     page.setFocus("email/domain/create")
-    template = EmailDomain()
+    template = EmailDomainTemplate()
     content = template.create_domain()
     page.content = lambda: content
     return page
@@ -64,7 +64,7 @@ def list(transaction):
     page = Main()
     page.title = _("Email domains")
     page.setFocus("email/domain/list")
-    template = EmailDomain()
+    template = EmailDomainTemplate()
     content = template.list_domains(transaction)
     page.content = lambda: content
     return page
@@ -112,7 +112,7 @@ def addresses(transaction, id):
     page = Main()
     page.title = _("Addresses in email domain %s") % domain.get_name()
     page.setFocus("email/domain/addresses", id)
-    template = EmailDomain()
+    template = EmailDomainTemplate()
     content = template.list_addresses(transaction, domain)
     page.content = lambda: content
     return page

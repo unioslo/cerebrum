@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#from lib.utils import strftime, object_link
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
@@ -23,6 +24,49 @@
 #attr $form_widgets = FormWidgets()
 
 #attr $formvalues = {}
+
+
+#def view($entity)
+#set $quarantines = $entity.get_quarantines()
+#if $quarantines
+#set $id = $entity.get_id()
+<div class="quarantines">
+    <h3>$_('Quarantines')</h3>
+    #for $q in $quarantines
+    <div class="quarantine">
+        #set $type = $q.get_type().get_name()
+        #set $edit = '/quarantine/edit?entity=%s&type=%s' % ($id, $type)
+        #set $remove = '/quarantine/remove?entity=%s&type=%s' % ($id, $type)
+        #set $description = $q.get_description().replace('\n', '<br />')
+                
+        <div class="actions_right">
+            <a href="$edit" class="actions">$_('edit')</a>
+            <a href="$remove" class="actions">$_('delete')</a>
+        </div>
+        <strong>$q.get_type().get_description()</strong>&nbsp;
+        <em>-$_('by')</em> $object_link($q.get_creator())&nbsp;
+        <span class="date">$strftime($q.get_create_date())</span>
+        <div class="quarantine_desc">$description.strip()</div>
+        
+        #set $end = $q.get_end_date()
+        #set $until = $q.get_disable_until()
+        
+        <em>$_('Start'):</em>
+        <span class="date"> $strftime($q.get_start_date())</span>
+        #if $end
+        <em> $_('End'):</em>
+        <span class="date"> $strftime($end)</span>
+        #end if
+        #if $until
+        <em> $_('Disable until'):</em>
+        <span class="date"> $strftime($until)</span>
+        #end if
+    </div>
+    #end for
+</div>
+#end if
+#end def
+
 
 #def quarantine_form($entity, $action, $types = None)
 <div class="quarantine">
@@ -82,3 +126,4 @@
 </form>
 </div>
 #end def
+

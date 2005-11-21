@@ -90,7 +90,7 @@ class SideMenu(Menu.Menu):
         domain.addItem("edit", _("Edit"), "/emaildomain/edit?id=%s")
 
         target = self.email.addItem("target", _("Target"), "/emailtarget")
-        target.addItem("create", _("Create"), "/emailtarget/create")
+        target.addItem("search", _("Search"), "/emailtarget/search")
         target.addItem("view", _("View"), "/emailtarget/view?id=%s")
         target.addItem("edit", _("Edit"), "/emailtarget/edit?id=%s")
 

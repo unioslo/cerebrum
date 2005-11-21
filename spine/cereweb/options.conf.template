@@ -6,6 +6,13 @@ remember last: True
 remember last_type: checkbox
 remember last_help: Remember last search input?
 
+[layout]
+layout_help: Settings which affect the layout of your cereweb.
+display worklist: True
+display worklist_type: checkbox
+display activitylog: True
+display activitylog_type: checkbox
+
 [main]
 main_help: Settings in this section has no use yet.
 color: #FFFFFF
