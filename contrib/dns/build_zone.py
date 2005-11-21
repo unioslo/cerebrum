@@ -321,6 +321,7 @@ class ReverseMap(object):
             self.zu.write_file_with_serial(status_fname, fname, heads, data_dir)
 
 class HostsFile(object):
+    MAX_LINE_LENGTH = 1000
     def __init__(self, zone, lc_delta):
         self._zone = zone
         self.zu = ZoneUtils(zone, lc_delta=lc_delta)
@@ -334,12 +335,17 @@ class HostsFile(object):
             return "%s %s" % (trimmed, name[:-1])
         return name[:-1]
     
-    def generate_hosts_file(self, fname):
+    def generate_hosts_file(self, fname, with_comments=False):
         f = Utils.SimilarSizeWriter(fname, "w")
         f.set_line_count_change_limit(self.__lc_delta)
         fm = ForwardMap(self._zone, self.__lc_delta)
         order = fm.a_records.keys()
         order.sort(lambda x,y: int(fm.a_records[x]['ipnr'] - fm.a_records[y]['ipnr']))
+
+        entity_id2comment = {}
+        if with_comments:
+            for row in DnsOwner.DnsOwner(db).list_entity_note(co.note_type_comment):
+                entity_id2comment[int(row['entity_id'])] = ' # %s' % row['data']
 
         # If multiple A-records have the same name with different IP, the
         # dns_owner data is only shown for the first IP.
@@ -349,7 +355,8 @@ class HostsFile(object):
             line = ''
             a_ref = fm.a_records[a_id]
 
-            line = '%s\t%s' % (a_ref['a_ip'], self._exp_name(a_ref['name']))
+            prefix = '%s\t%s' % (a_ref['a_ip'], self._exp_name(a_ref['name']))
+            line = ''
             names = [ ]
 
             dns_owner_id = int(a_ref['dns_owner_id'])
@@ -361,10 +368,30 @@ class HostsFile(object):
             for c_ref in fm.cnames.get(dns_owner_id, []):
                 names.append(c_ref['name'])
 
-            # TODO:  Should lines be wrapped?
             line += " " + " ".join([self._exp_name(n) for n in names])
-            f.write(line+"\n")
+            line += entity_id2comment.get(int(a_ref['dns_owner_id']), '')
+
+            f.write(self._wrap_line(prefix, line))
         f.close()
+
+    def _wrap_line(self, prefix, line):
+        delim = ' '
+        ret = ''
+        maxlen = HostsFile.MAX_LINE_LENGTH - (len(prefix) + 1)
+        if len(line) > maxlen:
+            idx = line.find(' #')
+            if idx != -1:
+                line = line[:idx]
+        while len(line) > maxlen:
+            maxlen = HostsFile.MAX_LINE_LENGTH - (len(prefix) + 1)
+            if len(line) <= maxlen:
+                pos = 0
+            else:
+                pos = line.index(delim, len(line) - maxlen)
+            ret += "%s%s%s\n" % (prefix, ' ', line[pos+1:])
+            line = line[:pos]
+        return ret + "%s%s%s\n" % (prefix, ' ', line)
+
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -390,13 +417,14 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'b:hr:Z:m:Rd:C:', [
             'help', 'build=', 'reverse=', 'hosts=', 'head=', 'zone=', 'mask=',
-            'dir='])
+            'dir=', 'comments'])
     except getopt.GetoptError:
         usage(1)
 
     heads = []
     data_dir = None
     lc_delta = 100
+    with_comments = False
     for opt, val in opts:
         if opt in ('--help', '-h'):
             usage()
@@ -411,6 +439,8 @@ def main():
             data_dir = val
         elif opt in ('-C',):
             lc_delta = int(val)
+        elif opt in ('--comments',):
+            with_comments = True
         elif opt in ('--build', '-b'):
             if not heads:
                 usage(1)
@@ -429,7 +459,7 @@ def main():
                 rm.generate_reverse_file(val, heads, os.path.dirname(val))
         elif opt in ('--hosts', ):
             hf = HostsFile(zone, lc_delta)
-            hf.generate_hosts_file(val)
+            hf.generate_hosts_file(val, with_comments=with_comments)
         elif opt in ('-R'):
             heads = []
 
