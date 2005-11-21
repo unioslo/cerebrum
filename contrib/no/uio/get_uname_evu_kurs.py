@@ -44,8 +44,8 @@ import time
 
 def fetch_primary_uname(row, person, account, constants):
 
-    birth_date = str(row.fodselsdato).zfill(6)
-    no_ssn = birth_date + str(row.personnr).zfill(5)
+    birth_date = str(row['fodselsdato']).zfill(6)
+    no_ssn = birth_date + str(row['personnr']).zfill(5)
     sources = map(lambda x: getattr( constants, x ),
                   cereconf.SYSTEM_LOOKUP_ORDER)
     sources.append(None)
@@ -89,10 +89,10 @@ def main():
     for row in fs.evu.list_kurs_deltakere(evukode, tidskode):
         uname = fetch_primary_uname(row, person, account, constants)
         
-        print "%06d %05d %-20s%-30s --> %-10s" % (row.fodselsdato,
-                                                  row.personnr,
-                                                  row.etternavn,
-                                                  row.fornavn,
+        print "%06d %05d %-20s%-30s --> %-10s" % (row['fodselsdato'],
+                                                  row['personnr'],
+                                                  row['etternavn'],
+                                                  row['fornavn'],
                                                   uname)
     # od
 # end main
