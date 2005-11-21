@@ -50,12 +50,20 @@ based on ranges of ips easier.
 */
 category:main;
 CREATE TABLE dns_ip_number (
+  entity_type	NUMERIC(6,0)
+		DEFAULT [:get_constant name=entity_dns_ip_number]
+		NOT NULL
+		CONSTRAINT group_info_entity_type_chk
+		  CHECK (entity_type = [:get_constant name=entity_dns_ip_number]),
   ip_number_id  NUMERIC(12,0)
                   CONSTRAINT ip_number_pk PRIMARY KEY,
   a_ip          CHAR VARYING(30) NOT NULL
                 CONSTRAINT ip_number_a_ip_u UNIQUE,
   aaaa_ip       CHAR VARYING(30),
-  ipnr          NUMERIC(14,0) NOT NULL
+  ipnr          NUMERIC(14,0) NOT NULL,
+  CONSTRAINT dns_ip_number_entity_id
+    FOREIGN KEY (entity_type, ip_number_id)
+    REFERENCES entity_info(entity_type, entity_id)
 );
 
 /*	dns_zone

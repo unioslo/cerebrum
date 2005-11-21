@@ -225,11 +225,11 @@ class Find(object):
             except Errors.NotFoundError:
                 raise CerebrumError, "Could not find ip-number: %s" % host_id
             if target_type == dns.IP_NUMBER:
-                return self._ip_number.ip_number_id
+                return self._ip_number.entity_id
 
             self._arecord.clear()
             try:
-                self._arecord.find_by_ip(self._ip_number.ip_number_id)
+                self._arecord.find_by_ip(self._ip_number.entity_id)
             except Errors.NotFoundError:
                 raise CerebrumError, "Could not find name for ip-number: %s" % host_id
             except Errors.TooManyRowsError:
@@ -343,7 +343,7 @@ class Find(object):
         self._ip_number.clear()
         try:
             self._ip_number.find_by_ip(a_ip)
-            return self._ip_number.ip_number_id
+            return self._ip_number.entity_id
         except Errors.NotFoundError:
             return None
 

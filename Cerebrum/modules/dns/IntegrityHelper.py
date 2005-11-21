@@ -83,7 +83,7 @@ class Updater(object):
         dns_owner_id = arecord.dns_owner_id
         arecord._delete()
 
-        refs = self._find.find_referers(ip_number_id=ipnumber.ip_number_id)
+        refs = self._find.find_referers(ip_number_id=ipnumber.entity_id)
         if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
             # IP no longer used
             ipnumber.delete()

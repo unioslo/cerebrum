@@ -578,7 +578,7 @@ class Lookup(object):
             else:
                 ipnumber.populate(a_ip)
                 ipnumber.write_db()
-            self._ip_cache[a_ip] = int(ipnumber.ip_number_id)
+            self._ip_cache[a_ip] = int(ipnumber.entity_id)
         return self._ip_cache[a_ip]
 
     def get_dns_owner(self, name, _type=None, try_lookup=False, make=True):

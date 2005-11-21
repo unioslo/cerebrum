@@ -169,7 +169,7 @@ class DnsBofhdUtils(object):
             pass
         self._ip_number.populate(a_ip)
         self._ip_number.write_db()
-        return self._ip_number.ip_number_id
+        return self._ip_number.entity_id
 
     #
     # dns-owners, general_dns_records and mx-sets, srv_records

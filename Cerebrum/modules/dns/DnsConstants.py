@@ -47,6 +47,9 @@ class Constants(Constants.Constants):
     entity_dns_owner = Constants._EntityTypeCode(
         'dns_owner',
         'dns_owner - see table "cerebrum.dns_owner" and friends.')
+    entity_dns_ip_number = Constants._EntityTypeCode(
+        'dns_ip_number',
+        'dns_ip_number - see table "cerebrum.dns_ip_number" and friends.')
     dns_owner_namespace = Constants._ValueDomainCode('dns_owner_ns',
                                                      'Domain for dns_owners')
 

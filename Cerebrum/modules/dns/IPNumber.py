@@ -3,40 +3,29 @@
 import struct
 import socket
 
+from Cerebrum import Entity
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Utils
 
-class IPNumber(DatabaseAccessor):
+class IPNumber(Entity.Entity):
     """``IPNumber.IPNumber(DatabaseAccessor)`` primarely updates the
     dns_ip_number table.  It also has methods for handling the
     reverse-map entries in dns_override_reversemap.  It uses the
     standard Cerebrum populate logic for handling updates."""
 
-    __metaclass__ = Utils.mark_update
-
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('ip_number_id', 'a_ip', 'ipnr', 'aaaa_ip')
-    dontclear = ('const',)
-
-    def __init__(self, database):
-        super(IPNumber, self).__init__(database)
-        self.clear()
-        self.const = Utils.Factory.get('Constants')(database)
-
-    def clear_class(self, cls):
-        for attr in cls.__read_attr__:
-            if hasattr(self, attr):
-                if attr not in getattr(cls, 'dontclear', ()):
-                    delattr(self, attr)
-        for attr in cls.__write_attr__:
-            if attr not in getattr(cls, 'dontclear', ()):
-                setattr(self, attr, None)
+    __write_attr__ = ('a_ip', 'ipnr', 'aaaa_ip')
 
     def clear(self):
+        self.__super.clear()
         self.clear_class(IPNumber)
         self.__updated = []
 
-    def populate(self, a_ip, aaaa_ip=None):
+    def populate(self, a_ip, aaaa_ip=None, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity.Entity.populate(self, self.const.entity_dns_ip_number)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
@@ -53,14 +42,14 @@ class IPNumber(DatabaseAccessor):
         if (self.a_ip != other.a_ip or
             self.aaaa_ip != other.aaaa_ip):
             return False
-        return True
+        return self.__super.__eq__(other)
 
     def write_db(self):
+        self.__super.write_db()
         if not self.__updated:
             return
         is_new = not self.__in_db
-        if is_new:
-            self.ip_number_id = int(self.nextval('ip_number_id_seq'))
+
         if 'a_ip' in self.__updated:  # numeric ipnr can only be calculated
             if (len(self.a_ip.split('.')) != 4 or 
                 [x for x in self.a_ip.split('.')
@@ -73,7 +62,7 @@ class IPNumber(DatabaseAccessor):
                 ('a_ip', ':a_ip'),
                 ('aaaa_ip', ':aaaa_ip'),
                 ('ipnr', ':ipnr')]
-        binds = {'ip_number_id': self.ip_number_id,
+        binds = {'ip_number_id': self.entity_id,
                  'a_ip': self.a_ip,
                  'aaaa_ip': self.aaaa_ip,
                  'ipnr': self.ipnr}
@@ -84,7 +73,7 @@ class IPNumber(DatabaseAccessor):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                          binds)
-            self._db.log_change(self.ip_number_id, self.const.ip_number_add,
+            self._db.log_change(self.entity_id, self.const.ip_number_add,
                                 None, change_params={'a_ip': self.a_ip})
         else:
             self.execute("""
@@ -92,7 +81,7 @@ class IPNumber(DatabaseAccessor):
             SET %(defs)s
             WHERE ip_number_id=:ip_number_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])}, binds)
-            self._db.log_change(self.ip_number_id, self.const.ip_number_add,
+            self._db.log_change(self.entity_id, self.const.ip_number_add,
                                 None, change_params={'a_ip': self.a_ip})
         del self.__in_db
         
@@ -101,10 +90,11 @@ class IPNumber(DatabaseAccessor):
         return is_new
 
     def find(self, ip_number_id):
+        self.__super.find(ip_number_id)
 
-        (self.ip_number_id, self.a_ip, self.aaaa_ip, self.ipnr
+        (self.a_ip, self.aaaa_ip, self.ipnr
          ) = self.query_1("""
-        SELECT ip_number_id, a_ip, ipnr, aaaa_ip
+        SELECT a_ip, ipnr, aaaa_ip
         FROM [:table schema=cerebrum name=dns_ip_number]
         WHERE ip_number_id=:ip_number_id""", {'ip_number_id' : ip_number_id})
         #self.hostname = self.get_name(self.const.hostname_namespace)
@@ -144,11 +134,12 @@ class IPNumber(DatabaseAccessor):
         %s""" % where, {'start': start, 'stop': stop})
 
     def delete(self):
-        assert self.ip_number_id
+        assert self.entity_id
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_ip_number]
-        WHERE ip_number_id=:ip_number_id""", {'ip_number_id': self.ip_number_id})
-        self._db.log_change(self.ip_number_id, self.const.ip_number_add, None)
+        WHERE ip_number_id=:ip_number_id""", {'ip_number_id': self.entity_id})
+        self._db.log_change(self.entity_id, self.const.ip_number_add, None)
+        self.__super.delete()
 
     # Now that the actual IP is no longer stored in the a_record
     # table, one might argue that the below methods should be moved to
@@ -167,7 +158,7 @@ class IPNumber(DatabaseAccessor):
         VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                  'binds': ", ".join([x[1] for x in cols])},
                      binds)
-        self._db.log_change(self.ip_number_id, self.const.ip_number_add, dns_owner_id)
+        self._db.log_change(self.entity_id, self.const.ip_number_add, dns_owner_id)
 
     def delete_reverse_override(self, ip_number_id, dns_owner_id):
         if not dns_owner_id:
@@ -178,7 +169,7 @@ class IPNumber(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=dns_override_reversemap]
         WHERE ip_number_id=:ip_number_id AND %s""" % where,
                             locals())
-        self._db.log_change(self.ip_number_id, self.const.ip_number_del,
+        self._db.log_change(self.entity_id, self.const.ip_number_del,
                             dns_owner_id)
 
     def update_reverse_override(self, ip_number_id, dns_owner_id):
@@ -186,7 +177,7 @@ class IPNumber(DatabaseAccessor):
         UPDATE [:table schema=cerebrum name=dns_override_reversemap]
         SET dns_owner_id=:dns_owner_id
         WHERE ip_number_id=:ip_number_id""", locals())
-        self._db.log_change(self.ip_number_id, self.const.ip_number_update, dns_owner_id)
+        self._db.log_change(self.entity_id, self.const.ip_number_update, dns_owner_id)
 
     def list_override(self, ip_number_id=None, start=None, stop=None):
         where = []
