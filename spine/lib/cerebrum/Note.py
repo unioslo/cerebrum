@@ -75,6 +75,7 @@ Entity.register_method(Method('remove_note', None, args=[('note', Note)], write=
 def get_notes(self):
     s = registry.NoteSearcher(self.get_database())
     s.set_entity(self)
+    s.order_by_desc(s, 'create_date')
     return s.search()
 
 Entity.register_method(Method('get_notes', [Note]), get_notes)
