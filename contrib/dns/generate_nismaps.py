@@ -352,8 +352,8 @@ class MachineNetGroup(NISGroupUtil):
         super(MachineNetGroup, self).__init__(
             co.dns_owner_namespace, co.entity_dns_owner,
             group_spread, member_spread, tmp_group_prefix='m')
-        self.zone = zone
-        self.len_zone = len(zone)
+        self.zone = zone.postfix
+        self.len_zone = len(zone.postfix)
 
     def _format_members(self, group_members, user_members, group_name):
         return " ".join(
@@ -417,7 +417,7 @@ def main():
         elif opt in ('--group_spread',):
             group_spread = map_spread(val)
         elif opt in ('-Z', '--zone',):
-            zone = val
+            zone = co.DnsZone(val)
         elif opt in ('--max_memberships',):
             max_group_memberships = val
         elif opt in ('--user_spread',):
