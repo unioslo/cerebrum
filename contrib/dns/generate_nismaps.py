@@ -354,6 +354,7 @@ class MachineNetGroup(NISGroupUtil):
             group_spread, member_spread, tmp_group_prefix='m')
         self.zone = zone.postfix
         self.len_zone = len(zone.postfix)
+        self._num_map = {}
 
     def _format_members(self, group_members, user_members, group_name):
         return " ".join(
@@ -361,6 +362,15 @@ class MachineNetGroup(NISGroupUtil):
              " ".join(["(%s,-,)" % m[:-self.len_zone] for m in user_members
                        if m.endswith(self.zone)]),
              " ".join(["(%s,-,)" % m[:-1] for m in user_members])))
+
+    def _make_tmp_name(self, group_name):
+        n = self._num_map.get(group_name, 0)
+        while True:
+            n += 1
+            tmp_gname = "%s-%02x" % (group_name, n)
+            if not self._exported_groups.has_key(tmp_gname):
+                self._num_map[group_name] = n
+                return tmp_gname
 
 def map_spread(id):
     try:
