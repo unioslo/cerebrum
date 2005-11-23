@@ -149,7 +149,7 @@ class FronterUtils(object):
     def UE2KursID(type, *rest):
         """Lag ureg2000-spesifikk "kurs-ID" av primærnøkkelen til en
         undervisningsenhet eller et EVU-kurs.  Denne kurs-IDen forblir
-        uforandret så lenge kurset pågår; den endres altså ikke bår man
+        uforandret så lenge kurset pågår; den endres altså ikke når man
         f.eks. kommer til et nytt semester.
 
         Første argument angir hvilken type FS-entitet de resterende
@@ -223,7 +223,8 @@ class Fronter(object):
 
     def __init__(self, fronterHost, db, const, fs_db, logger=None):
         self._fronterHost = fronterHost
-        self._fs = FS(fs_db)
+        if fs_db is not None:
+            self._fs = FS(fs_db)
         self.db = db
         self.const = const
         self.logger = logger
@@ -233,10 +234,11 @@ class Fronter(object):
         self.spread = host_config[fronterHost].get('spread', None)
         self.supergroups = self.GetSuperGroupnames()
         self.logger.debug("Fronter: len(self.supergroups)=%i" % len(self.supergroups))
-        fronter_db = Database.connect(user='fronter',
-                                      service=self.DBinst,
-                                      DB_driver='Oracle')
-        self._accessFronter = AccessFronter(fronter_db)
+        if fs_db is not None:
+            fronter_db = Database.connect(user='fronter',
+                                          service=self.DBinst,
+                                          DB_driver='Oracle')
+            self._accessFronter = AccessFronter(fronter_db)
         self.kurs2navn = {}
         self.kurs2enhet = {}
         self.enhet2sko = {}
@@ -573,7 +575,7 @@ class XMLWriter(object):   # TODO: Move to separate file
     def startTag(self, tag, attrs={}):
         a = {}
         for k in attrs.keys():   # saxutils don't like integers as values
-            a[k] = "%s" % attrs[k]
+            a[k] = str(attrs[k])
         self.gen.startElement(tag, a)
 
     def endTag(self, tag):
@@ -582,11 +584,14 @@ class XMLWriter(object):   # TODO: Move to separate file
     def emptyTag(self, tag, attrs={}):
         a = {}
         for k in attrs.keys():   # saxutils don't like integers as values
-            a[k] = "%s" % attrs[k]
+            a[k] = str(attrs[k])
         self.gen.emptyElement(tag, a)
 
     def dataElement(self, tag, data, attrs={}):
-        self.gen.dataElement(tag, data, attrs)
+        a = {}
+        for k in attrs.keys():
+            a[k] = str(attrs[k])
+        self.gen.dataElement(tag, data, a)
 
     def comment(self, data):  # TODO: implement
         self.gen.comment(data)
@@ -599,7 +604,7 @@ class XMLWriter(object):   # TODO: Move to separate file
 
 class FronterXML(object):
     def __init__(self, fname, cf_dir=None, debug_file=None, debug_level=None,
-                 fronter=None):
+                 fronter=None, include_password=True):
         self.xml = XMLWriter(fname)
         self.xml.startDocument(encoding='ISO-8859-1')
         self.rootEl = 'ENTERPRISE'
@@ -608,6 +613,7 @@ class FronterXML(object):
         self.debug_file = debug_file
         self.debug_level = debug_level
         self.fronter = fronter
+        self.include_password = include_password
         self.cf_id = self.fronter.DBinst.split(".")[0]
 
     def start_xml_file(self, kurs2enhet):
@@ -653,7 +659,8 @@ class FronterXML(object):
             self.xml.dataElement('EMAIL', data['EMAIL'])
             # Tror ikke vi skal ha noen ekstra <DATASOURCE> her.
             self.xml.startTag('EXTENSION')
-            self.xml.emptyTag('PASSWORD', data['PASSWORD'])
+            if self.include_password:
+                self.xml.emptyTag('PASSWORD', data['PASSWORD'])
             self.xml.emptyTag('EMAILCLIENT', {'clienttype': data['EMAILCLIENT']})
             self.xml.emptyTag('USERACCESS', {'accesstype': data['USERACCESS']})
             self.xml.endTag('EXTENSION')
