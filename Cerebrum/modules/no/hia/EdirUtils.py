@@ -176,3 +176,5 @@ class EDirUtils:
             (foo, ldap_attr) = ldap_object[0]
             desc = ldap_attr['description']
         return desc
+
+# arch-tag: 5e6865d4-5cb2-11da-97b8-ad2f2be70968

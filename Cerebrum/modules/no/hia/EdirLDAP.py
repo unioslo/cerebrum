@@ -203,3 +203,5 @@ class LDAPConnection:
         else:
             self.__modify(self.__ldap_connection_handle, dn, attrs)
         return ok
+
+# arch-tag: 5da697b0-5cb2-11da-8d27-542eaf022ad8
