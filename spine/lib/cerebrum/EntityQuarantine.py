@@ -28,6 +28,7 @@ from Entity import Entity
 from Types import QuarantineType
 
 from SpineLib import Registry
+from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError, AlreadyExistsError
 registry = Registry.get_registry()
 
 __all__ = ['EntityQuarantine']
@@ -77,9 +78,14 @@ def get_quarantine(self, type):
     s = registry.EntityQuarantineSearcher(self.get_database())
     s.set_type(type)
     s.set_entity(self)
-    return s.search()[0]
+    result = s.search()
+    if not result:
+        raise NotFoundError('Entity has no quarantine of the given type.')
+    elif len(result) > 1:
+        raise TooManyMatchesError('Entity has more than one quarantine of the given type.')
+    return result[0]
 
-Entity.register_method(Method('get_quarantine', EntityQuarantine, args=[('type', QuarantineType)]), get_quarantine)
+Entity.register_method(Method('get_quarantine', EntityQuarantine, args=[('type', QuarantineType)], exceptions=[NotFoundError, TooManyMatchesError]), get_quarantine)
 
 def get_quarantines(self):
     s = registry.EntityQuarantineSearcher(self.get_database())
@@ -118,6 +124,9 @@ def add_quarantine(self, type, description, start, end, disable_until):
     db = self.get_database()
     obj = self._get_cerebrum_obj()
 
+    if obj.get_entity_quarantine(type.get_id()):
+        raise AlreadyExistsError("A quarantine of the type %s already exists, and there can only be one." % type.get_name())
+
     if start:
         start = start._value
     else:
@@ -132,7 +141,7 @@ def add_quarantine(self, type, description, start, end, disable_until):
     if disable_until:
         obj.disable_entity_quarantine(type.get_id(), disable_until)
 
-Entity.register_method(Method('add_quarantine', None, args=[('type', QuarantineType), ('description', str), ('start', Date), ('end', Date), ('disable_until', Date)], write=True), add_quarantine)
+Entity.register_method(Method('add_quarantine', None, args=[('type', QuarantineType), ('description', str), ('start', Date), ('end', Date), ('disable_until', Date)], exceptions=[AlreadyExistsError], write=True), add_quarantine)
 
 def remove_quarantine(self, type):
     db = self.get_database()

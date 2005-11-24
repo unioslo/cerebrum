@@ -27,6 +27,7 @@ from SpineLib.SpineExceptions import NotFoundError
 
 from Account import Account
 from Group import Group
+from Commands import Commands
 from Types import CodeType, GroupMemberOperationType
 
 from SpineLib import Registry
@@ -90,14 +91,18 @@ def is_posix(self):
 
 Account.register_method(Method('is_posix', bool), is_posix)
 
-def promote_posix(self, primary_group, shell):
+def get_free_uid(self):
+    p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
+    return p.get_free_uid()
+Commands.register_method(Method('get_free_uid', int, args=[]), get_free_uid)
+
+def promote_posix(self, posix_uid, primary_group, shell):
     obj = self._get_cerebrum_obj()
     p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
-    posix_uid = p.get_free_uid()
     p.populate(posix_uid, primary_group.get_id(), None, shell.get_id(), parent=obj)
     p.write_db()
 
-Account.register_method(Method('promote_posix', None, args=[('primary_group', Group), ('shell', PosixShell)], write=True), promote_posix)
+Account.register_method(Method('promote_posix', None, args=[('posix_uid', int), ('primary_group', Group), ('shell', PosixShell)], write=True), promote_posix)
 
 def demote_posix(self):
     """Demotes the PosixUser to a normal Account."""

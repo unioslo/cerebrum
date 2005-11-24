@@ -21,6 +21,8 @@
 
 import crypt
 
+from Cerebrum.Utils import Factory
+
 from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -58,6 +60,7 @@ def get_authentications(self):
 
 Account.register_method(Method('get_authentications', [AccountAuthentication]), get_authentications)
 
+
 def authenticate(self, password):
     # FIXME: pass på her altså. Det er mange forskjellige typer.
     for auth in get_authentications(self):
@@ -67,6 +70,16 @@ def authenticate(self, password):
     return False
 
 Account.register_method(Method('authenticate', bool, [('password', str)]), authenticate)
+
+def set_authentication(self, method, auth_data):
+    db = self.get_database()
+    obj = Factory.get("Account")(db)
+    obj.find(self.get_id())
+    obj.populate_authentication_type(method.get_id(), auth_data)
+    obj.write_db()
+
+Account.register_method(Method('set_authentication', None, [('method', AuthenticationType), ('auth_data', str)]), set_authentication)
+    
 
 def set_password(self, password):
     """Set the accounts password.
