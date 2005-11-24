@@ -20,12 +20,11 @@
 
 import Database
 from Caching import Caching
-from Locking import Locking
 from Builder import Builder
 
 __all__ = ['SpineClass']
 
-class SpineClass(Builder, Caching, Locking):
+class SpineClass(Builder, Caching):
     """Base class for Spine.
 
     This class adds support for caching and locking. All external
@@ -43,30 +42,10 @@ class SpineClass(Builder, Caching, Locking):
         Builder.__init__(self, *args, **vargs)
 
         # Caching will return a timestamp if this object is old
-        old = Caching.__init__(self)
-        if old:
-            if write_locker is not None:
-                self.lock_for_writing(write_locker)
-            return old
-
-        Locking.__init__(self, write_locker)
-
-    def get_database(self):
-        """Returns the database cursor.
-
-        If a client has a writelock, the transaction-cursor is returned.
-        """
-        assert 0
-        if self.is_writelocked():
-            return self.get_writelock_holder().get_database() # The lockholder has get_database()
-        else:
-            return Database.get_database()
+        return Caching.__init__(self)
 
     def save(self):
         """Save all changed attributes."""
-        # make sure there is a writelock
-        assert self.get_writelock_holder() is not None
-
         super(SpineClass, self).save()
 
     def __repr__(self):

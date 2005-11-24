@@ -89,7 +89,7 @@ class Transaction:
     def __invalidate(self):
         handler = LockHandler.get_handler()
         handler.remove_transaction(self)
-        self._refs = None
+        self._refs = Set()
         self._session.remove_transaction(self)
         self._session = None
         self._db = None
@@ -114,6 +114,7 @@ class Transaction:
             self.rollback()
             raise TransactionError('Failed to commit: %s' % e)
         self.__invalidate()
+    commit = serialized_decorator(commit, '_lost_locks_lock')
         
 
     def rollback(self):
@@ -139,6 +140,7 @@ class Transaction:
                         item._undelete()
                 item.unlock(self)
         self.__invalidate()
+    rollback = serialized_decorator(rollback, '_lost_locks_lock')
 
     def get_database(self):
         if self._db is None:
