@@ -332,9 +332,9 @@ def _create_corba_method(method):
                 name = getattr(e, '__class__', str(e))
                 exception_string = "Unknown error '%s':\n%s\n%s" % (
                                     name, hasattr(e, 'args') and str(e.args) or '', 
-                                    ''.join(traceback.format_exception(sys.exc_type, 
-                                        sys.exc_value,
-                                        sys.exc_traceback)))
+                                    ''.join(apply(
+                                        traceback.format_exception, 
+                                        sys.exc_info())))
                 raise SpineIDL.Errors.ServerProgrammingError(exception_string)
 
             if len(e.args) > 0:

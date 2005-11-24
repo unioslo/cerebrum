@@ -37,10 +37,10 @@ class Communication(object):
         sslTP.certificate_authority_file(cereconf.SSL_CA_FILE)
         sslTP.key_file(cereconf.SSL_KEY_FILE)
         sslTP.key_file_password(cereconf.SSL_KEY_FILE_PASSWORD)
-        self.orb = CORBA.ORB_init(['-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
+        self.orb = CORBA.ORB_init(['-ORBstrictIIOP', '0', '-ORBendPoint', 'giop:ssl::'], CORBA.ORB_ID)
 
     def _init_plain(self):
-        self.orb = CORBA.ORB_init([], CORBA.ORB_ID)
+        self.orb = CORBA.ORB_init(['-ORBstrictIIOP', '0'], CORBA.ORB_ID)
 
     def servant_to_reference(self, *objects):
         """Must be called on all objects that clients are to interact with."""
