@@ -562,5 +562,6 @@ DEFAULT_RESERVED_IP_BY_NETMASK = {
     28: range(0, 4) + [2**(32-28)-1],
     29: range(0, 2**(32-29)-1 + 1)  # Whole net for such small nets
     }
+DNS_EMAIL_REGEXP=r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$'
 
 # arch-tag: 58fc16b3-e7ef-4304-b561-477ced8d6b96
