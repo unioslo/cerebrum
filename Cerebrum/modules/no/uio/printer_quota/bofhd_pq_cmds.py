@@ -185,6 +185,8 @@ class BofhdExtension(object):
         # not contain \n
         command_help = {
             'pquota': {
+                 'pquota_info':
+                    'Returnerer info om skriverkvoten',           
                 'pquota_status':
                     'Returnerer status for skriverkvoten',
                 'jbofh_pquota_history':
@@ -244,19 +246,44 @@ The currently defined id-types are:
         self._cached_client_commands[int(account_id)] = commands
         return commands
 
+    # pquota info
+    all_commands['pquota_info'] = Command(
+        ("pquota", "info"), PersonId())
+    def pquota_info(self, operator, person_id):
+        ppq_info = self.bu.get_pquota_status(
+            self.bu.find_person(person_id))
+        has_quota = ppq_info['has_quota'] 
+        has_blocked_quota = ppq_info['has_blocked_quota']
+        import math
+        paid_quota = int(math.floor(1/printer_quota.PAGE_COST *
+                                    float(ppq_info['kroner'])))
+        total_available_quota = paid_quota + ppq_info['free_quota'] + ppq_info['accum_quota']
+        if has_quota == 'T':
+            if has_blocked_quota == 'T':
+                return "Quota blocked, missing semester registration or copy fee for the current term!"
+            if total_available_quota <= 0:
+                return "Quota status: no prints available\nPrint status: %d" % total_available_quota
+            return "Quota status: prints available \nPrint status: %d" % total_available_quota
+        else:
+            return "Person (%s) has unlimited printer quota." % person_id
+        
     # pquota status
     all_commands['pquota_status'] = Command(
         ("pquota", "status"), PersonId(),
-        fs=FormatSuggestion("Has quota Blocked   Paid(calc.)  Free AccFree Kroner\n"+
-                            "%-9s %-9s %-6i       %-4i %-7i %-6.2f ",
+        fs=FormatSuggestion("Has quota Blocked   Paid(calc.)  Free AccFree Kroner Total\n"+
+                            "%-9s %-9s %-6i       %-4i %-7i %-6.2f %-4i",
                             ('has_quota', 'has_blocked_quota',
                             'paid_quota', 'free_quota',
-                             'accum_quota', 'kroner')))
+                             'accum_quota', 'kroner', 'tot_available')))
     def pquota_status(self, operator, person_id):
         # Everyone can access quota-status for anyone
         ppq_info = self.bu.get_pquota_status(
             self.bu.find_person(person_id))
         import math
+        total = ppq_info['free_quota'] + \
+                ppq_info['accum_quota']+ \
+                int(math.floor(1/printer_quota.PAGE_COST *
+                               float(ppq_info['kroner'])))
         return {
             'has_quota': ppq_info['has_quota'],
             'has_blocked_quota': ppq_info['has_blocked_quota'],
@@ -264,7 +291,8 @@ The currently defined id-types are:
                                          float(ppq_info['kroner']))),
             'kroner': ppq_info['kroner'],
             'free_quota': ppq_info['free_quota'],
-            'accum_quota': ppq_info['accum_quota']
+            'accum_quota': ppq_info['accum_quota'],
+            'tot_available': total
             }
 
     # We provide two methods for history data, one for jbofh, and one
