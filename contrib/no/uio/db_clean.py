@@ -120,7 +120,7 @@ def format_as_int(i):
 class CleanChangeLog(object):
     AGE_FOREVER = -1
     default_age = 3600*24*185      # 6 months
-    minimum_age = 3600*24
+    minimum_age = 3600*24*6 + 3600*22
 
     # Sometimes we need to know where the users homedirectory was three
     # years ago so that we can restore files the user owned then.
