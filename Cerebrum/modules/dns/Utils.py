@@ -199,6 +199,9 @@ class Find(object):
         cn = CNameRecord.CNameRecord(self._db)
         for row in cn.list_ext(target_owner=dns_owner_id):
             ret.append((dns.CNAME_TARGET, row['cname_id']))
+        arecord = ARecord.ARecord(self._db)
+        for row in arecord.list_ext(dns_owner_id=dns_owner_id):
+            ret.append((dns.A_RECORD, row['a_record_id']))
         if only_type:
             return [x[0] for x in ret]
         return ret
