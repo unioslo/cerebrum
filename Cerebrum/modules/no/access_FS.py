@@ -831,7 +831,7 @@ class EVU(FSObject):
           status_aktiv, status_nettbasert_und
         FROM fs.etterutdkurs
         WHERE status_aktiv='J' AND
-          NVL(dato_til, SYSDATE) < (SYSDATE + 30)
+          NVL(dato_til, SYSDATE) >= (SYSDATE - 30)
         """
         return self.db.query(qry)
 
