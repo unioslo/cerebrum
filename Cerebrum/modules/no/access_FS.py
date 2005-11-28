@@ -800,9 +800,10 @@ class EVU(FSObject):
                p.status_reserv_nettpubl, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
-               k.etterutdkurskode, e.studieprogramkode,
-               e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
-               e.gruppenr_adm_ansvar, p.kjonn, p.status_dod
+               k.etterutdkurskode, k.kurstidsangivelsekode,
+               e.studieprogramkode, e.faknr_adm_ansvar,
+               e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
+               p.kjonn, p.status_dod
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
              fs.etterutdkurs e
         WHERE p.fodselsdato=d.fodselsdato AND
