@@ -11,6 +11,7 @@ from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import IntegrityHelper
 from Cerebrum.modules.dns import Utils
@@ -158,6 +159,23 @@ class DnsBofhdUtils(object):
     #
     # IP-numbers
     #
+
+    def get_relevant_ips(self, subnet_or_ip, force=False):
+        subnet, ip = self._parser.parse_subnet_or_ip(subnet_or_ip)
+        if subnet is None and ip is None:
+            raise CerebrumError, "Unknown subnet and incomplete ip"
+        if subnet is None and not force:
+            raise CerebrumError, "Unknown subnet.  Must force"
+        if not ip:
+            first = subnet_or_ip.split('/')[0]
+            if len(first.split('.')) == 4:
+                first = IPCalc.ip_to_long(first)
+            else:
+                first = None
+            free_ip_numbers = self._find.find_free_ip(subnet, first=first)
+        else:
+            free_ip_numbers = [ ip ]
+        return free_ip_numbers
 
     def alloc_ip(self, a_ip, force=False):
         """Allocates an IP-number.  force must be true to use IPs in a

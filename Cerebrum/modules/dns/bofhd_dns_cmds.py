@@ -367,11 +367,8 @@ class BofhdExtension(object):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
-        if subnet is None and ip is None:
-            raise CerebrumError, "Unknown subnet and incomplete ip"
-        if subnet is None and not force:
-            raise CerebrumError, "Unknown subnet.  Must force"
-        ip = self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
+        free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
+        ip = self.mb_utils.alloc_arecord(host_name, subnet, free_ip_numbers[0], force)
         return "OK, ip=%s" % ip
 
     # host a_remove
@@ -397,22 +394,8 @@ class BofhdExtension(object):
         force = self.dns_parser.parse_force(force)
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
         subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
-        if subnet is None and ip is None:
-            raise CerebrumError, "Unknown subnet and incomplete ip"
-        if subnet is None and not force:
-            raise CerebrumError, "Unknown subnet.  Must force"
-        if ip and len(hostnames) > 1:
-            raise CerebrumError, "Explicit IP and multiple hostnames"
         hinfo = self._map_hinfo_code(hinfo)
-        if not ip:
-            first = subnet_or_ip.split('/')[0]
-            if len(first.split('.')) == 4:
-                first = IPCalc.ip_to_long(first)
-            else:
-                first = None
-            free_ip_numbers = self._find.find_free_ip(subnet, first=first)
-        else:
-            free_ip_numbers = [ ip ]
+        free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
         if len(free_ip_numbers) < len(hostnames):
             raise CerebrumError("Not enough free ips")
         # If user don't want mx_set, it must be removed with "ip mx_set"
@@ -595,7 +578,7 @@ class BofhdExtension(object):
         try:
             host = HostInfo.HostInfo(self.db)
             host.find_by_dns_owner_id(owner_id)
-            hinfo_os, hinfo_cpu = host.hinfo.split("\t", 2)
+            hinfo_cpu, hinfo_os = host.hinfo.split("\t", 2)
             ret.append({'hinfo.os': hinfo_os,
                         'hinfo.cpu': hinfo_cpu})
         except Errors.NotFoundError:  # not found
@@ -733,13 +716,15 @@ class BofhdExtension(object):
 
     # host rename
     all_commands['host_rename'] = Command(
-        ("host", "rename"), HostId(), HostId(),
+        ("host", "rename"), HostId(), HostId(), Force(optional=True),
         perm_filter='is_dns_superuser')
-    def host_rename(self, operator, old_id, new_id):
+    def host_rename(self, operator, old_id, new_id, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         tmp = new_id.split(".")
         # Rename by IP-number
-        if new_id.find(":") == -1 and tmp[-1].isdigit():
+        if new_id.find(":") == -1 and (tmp[-1][-1] == '/' or tmp[-1].isdigit()):
+            free_ip_numbers = self.mb_utils.get_relevant_ips(new_id, force)
+            new_id = free_ip_numbers[0]
             self.mb_utils.ip_rename(dns.IP_NUMBER, old_id, new_id)
             return "OK, ip-number %s renamed to %s" % (
                 old_id, new_id)
