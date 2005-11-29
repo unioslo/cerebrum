@@ -32,9 +32,9 @@ version=1.0;
  */
 
 category:drop;
-DROP TABLE entity_trait_code;
-category:drop;
 DROP TABLE entity_trait;
+category:drop;
+DROP TABLE entity_trait_code;
 
 /*
  * entity_trait_code
