@@ -18,18 +18,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cerebrum_path
+import cereconf
+
 import ldap
+import ldap.modlist
+
+from Cerebrum.Utils import Factory
 
 class LDAPConnection:
 
-    def __init__(self, host=None, port=None,
+    def __init__(self, db, host=None, port=None,
                  binddn=None, password=None,
-                 scope= 'SUB', db):
+                 scope='SUB'):
 
 	self.__db = db
         self.__host = host or cereconf.NW_LDAPHOST
         self.__port = port or cereconf.NW_LDAPPORT
         self.__binddn = binddn or cereconf.NW_ADMINUSER
+        self.__logger = Factory.get_logger("cronjob")
 
 	if not password:
 	    user = cereconf.NW_ADMINUSER.split(',')[:1][0]
@@ -53,12 +60,12 @@ class LDAPConnection:
     def __connect(self, host, binddn, password, port, crypted=True):
         """Try to establish a (per default encrypted) connection
            to a given host."""
+        handle = False
         try:
             ldap.set_option(ldap.OPT_PROTOCOL_VERSION, ldap.VERSION3)
         except ldap.LDAPError:
-            logger.error("Protocol version LDAPv3 not supported, aborting connect")
+            self.__logger.error("Protocol version LDAPv3 not supported, aborting connect")
             return False
-
         if crypted:  
             try:
                 if cereconf.TLS_CACERT_FILE is not None:
@@ -69,156 +76,116 @@ class LDAPConnection:
                         ldap.set_option(ldap.OPT_X_TLS_CACERTDIR,
                                         cereconf.TLS_CACERT_DIR)
             except ldap.LDAPError:
-                logger.error("Could not find appropriate certificate, can't start encrypted connection!")
+                self.__logger.error("Could not find appropriate certificate, can't start encrypted connection!")
                 return False
         try:
             handle = ldap.open(host)
-        except ldap.LDAPError:
-            logger.error( "Could not create ldap handler (ldap.open) for %s" % host)
+        except ldap.LDAPError, e:
+            self.__logger.error("Could not create ldap handler (ldap.open) for %s" % (host, str(e)))
             return False
-
         if crypted:
             try:
                 handle.start_tls_s()
-                logger.info("TLS connection established to %s" % host)
-            except ldap.LDAPError:
-                logger.error("Could not open TLS-connection to %s" % host)
+                self.__logger.info("TLS connection established to %s" % host)
+            except ldap.LDAPError, e:
+                self.__logger.error("Could not open TLS-connection to %s (%s)" % (host, str(e)))
                 return False
         else:
-            logger.info("Trying to establish unencrypted connection to %s" % host)
+            self.__logger.info("Trying to establish unencrypted connection to %s" % host)
         try:
             handle.simple_bind_s(binddn,password)
-            logger.debug("Successfully binded '%s' to '%s'" % (binddn, host))
+            self.__logger.debug("Successfully binded %s to %s" % (binddn, host))
         except ldap.LDAPError:
-            logger.error("Could not bind '%s' to '%s'." % (binddn, host))
+            self.__logger.error("Could not bind %s to %s." % (binddn, host))
             return False
         return handle
-        
-    
+
     def __unbind(self):
-        """Close connection to a host"
+        """Close connection to a host"""
 	self.__ldap_connection_handle.unbind()
 	self.__ldap_connection_handle = None
 
-    # TBD:
-    #
-    # skal vi gjøre forsøk på å utføre connect i disse metodene?
-    # jeg liker ideen med å gjøre eksplisitt connect og unbind, men
-    # det er ikke sikkert på at det er optimalt...
-    
     def __search(self, basedn, filter, scope=ldap.SCOPE_SUBTREE, attrs=None):
-        if not self.__ldap_connection_handle:
-            self.__connect(self.__host, self.__binddn, self.__password, self.__port)
         return self.__ldap_connection_handle.search_s(basedn, scope, filter, attrlist=attrs)
-    
+
     def __create(self, dn, attrs):
-        if not self.__ldap_connection_handle:
-            self.__connect(self.__host, self.__binddn, self.__password, self.__port)
-        self.__ldap_connection_handle.add_s(dn, attrs)
-        return True
-        
+        return self.__ldap_connection_handle.add_s(dn, attrs)
+
     def __delete(self, dn):
-        if not self.__ldap_connection_handle:
-            self.__connect(self.__host, self.__binddn, self.__password, self.__port)
-        self.__ldap_connection_handle.delete_s(dn)
-        return True
-    
+        return self.__ldap_connection_handle.delete_s(dn)
+
     def __modify(self, dn, attrs):
-        if not self.__ldap_connection_handle:
-            self.__connect(self.__host, self.__binddn, self.__password, self.__port)
-        self.__ldap_connection_handle.modify_s(dn, attrs)
-        return True
-    
-        # Mange av metodene under bruker False og None om hverandre.
-        # Folk koder ofte "if <kall inn i API>"og dette vil feile
-        # hvis handle ikke er opprettet(litt rart kanskje?) og sikkert
-        # hvis kallet i ldap returnerer None eller False.
+        return self.__ldap_connection_handle.modify_s(dn, attrs)
+
+    def _make_modlist(self, modtype, attrdict):
+        attrlist = []
+        if modtype == 'add':
+            ldap_mod = ldap.MOD_ADD
+        elif modtype == 'replace':
+            ldap_mod = ldap.MOD_REPLACE
+        elif modtype == 'delete':
+            ldap_mod = ldap.MOD_DELETE
+        else:
+            self.__logger.warn("No such modify type (%s)!" % modtype)
+            return None
+        for kind, value in attrdict.iteritems():
+            attrlist.append((ldap_mod, kind, value))
+        return attrlist
 
     def close_connection(self):
         if self.__ldap_connection_handle:
             self.__unbind()
-            logger.info("Closed connection to %s" % self.__host())
+            self.__logger.info("Closed connection to %s" % self.__host)
 
-    def _make_filter(object_dn):
-        return 
-    # Object level
-    
     def ldap_get_objects(self, basedn, filter, attrlist=None):
-        ldap_object = None
         try:
             ldap_object = self.__search(basedn, filter, self.__scope, attrlist)
+            return ldap_object
         except ldap.LDAPError, e:
-            logger.warn("Could not find object %s (%s)" % (basedn, str(e))
-        return ldap_object
-            
-    def ldap_add_object(object_dn, attrlist):
-        for kind, value in attrs:
-            if kind == 'userPassword':
-                attrlist[kind] = 'xxxxxxxx'
+            self.__logger.warn("Could not find object %s (%s)" % (filter, str(e)))
+            return False
+
+    def ldap_add_object(self, dn, attrdict):
+        attrs = ldap.modlist.addModlist(attrdict)
         try:
-            self.__create(self.__ldap_connection_handle, dn, attrs)
+            self.__create(dn, attrs)
+            self.__logger.debug("Added new object %s." % dn)
         except ldap.LDAPError, e:
-            logger.warn("Could not add object %s (%s)." % (object_dn, str(e))
-            
+            self.__logger.warn("Could not add object %s (%s)." % (dn, str(e)))
+
     def ldap_delete_object(self, dn):
         try:
-            self.__delete(self.__ldap_connection_handle, dn)
+            self.__delete(dn)
+            self.__logger.debug("Deleted object %s." % dn)
         except ldap.LDAPError, e:
-            logger.warn("Could not delete object %s (%s)." % (object_dn, str(e))
+            self.__logger.warn("Could not delete object %s (%s)." % (dn,
+                                                                     str(e)))
 
-    def ldap_rename_object(self, olddn, newdn, del_olddn=True ):
+    def ldap_modify_object(self, dn, modtype, attrdict):
+        attrs = self._make_modlist(modtype, attrdict)
+        try:
+            self.__modify(dn, attrs)
+            self.__logger.warn("Successfully modified object %s (%s)." % (dn,
+                                                                          attrs))
+        except ldap.LDAPError, e:
+            self.__logger.warn("Could not modify object %s (%s)." % (dn,
+                                                                     str(e)))
+
+
+    # This method is currently not in use, but it might be usefull at some
+    # point
+    def ldap_rename_object(self, olddn, newdn, del_olddn=True):
         if del_olddn:
             try:
-                self.__rename(self.__ldap_connection_handle, olddn, newdn)
+                self.__rename(olddn, newdn)
             except ldap.LDAPError, e:
-                logger.warn("Could not rename object %s (%s)." % (object_dn, str(e))
+                self.__logger.warn("Could not rename object %s (%s)." % (dn,
+                                                                         str(e)))
         else:
             try:
-                self.__rename(self.__ldap_connection_handle, olddn, newdn, 0)
+                self.__rename(olddn, newdn, 0)
             except ldap.LDAPError, e:
-                logger.warn("Could not rename object %s (%s)." % (object_dn, str(e))
-                
-    def ldap_modify_object(self, dn, attrs):
-        try:
-            self.__modify(self.__ldap_connection_handle, dn, attrs)
-        except ldap.LDAPError, e:
-            logger.warn("Could not modify object %s (%s)." % (object_dn, str(e))
-            
-    # Attribute level
-    def ldap_add_attributes(self, object_dn, attrs):
-        attrlist = []
-        try:
-            for kind, value in attrs:
-                attrslist.append((ldap.MOD_ADD, type, value))
-            self.__modify(self.__ldap_connection_handle, dn, attrlist)
-        except ldap.LDAPError, e:
-            logger.warn("Could not add attr %s for %s." % (object_dn,
-                                                           attr_str,
-                                                           str(e)))
+                self.__logger.warn("Could not rename object %s (%s)." % (dn,
+                                                                          str(e)))
 
-    def ldap_modify_attributes(self, object_dn, attrs):
-        attrlist = []
-        for kind, value in attrs:
-            if kind == 'userPassword':
-                attrs[kind] = 'xxxxxxxx'           
-            attrlist.append((ldap.MOD_REPLACE, kind, value))
-        attr_str = string.join(attrlist.values(),', ')
-        try:
-            self.__modify(self.__ldap_connection_handle, object_dn, attrlist)
-        except ldap.LDAPError, e:
-            logger.warn("Could not modify object %s with %s (%s)." % (object_dn,
-                                                                      attr_str,
-                                                                      str(e)))
-    
-    def ldap_object_del_attributes(object_dn, attrs):
-        attrlist = []
-        for kind, value in attrs:
-            attrlist.append((ldap.MOD_DELETE, kind, value))
-        attr_str = string.join(attrlist.values(),', ')
-        try:
-            self.__modify(self.__ldap_connection_handle, object_dn, attrlist)
-        except ldap.LDAPError, e:
-            logger.warn("Could not delete attr %s for %s (%s)." % (attr_str,
-                                                                   object_dn,
-                                                                   str(e)))
 # arch-tag: 5da697b0-5cb2-11da-8d27-542eaf022ad8
