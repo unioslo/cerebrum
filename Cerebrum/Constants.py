@@ -195,13 +195,14 @@ class _CerebrumCode(DatabaseAccessor):
             # driver module is being used.
             or hasattr(other, '__int__')):
             return self.__int__() == other.__int__()
-        # We want to allow the reflexive comparison (other.__eq__) a
-        # chance at this, too.  Hopefully NotImplementedError (as
-        # opposed to TypeError) is the correct way to indicate that.
-        raise NotImplementedError, "Don't know how to compare %s to %s" % \
-              (repr(type(self).__name__), repr(other))
+        # This allows reflexive comparison (other.__eq__)
+        return NotImplemented
 
-    def __ne__(self, other): return not self.__eq__(other)
+    def __ne__(self, other):
+        equal = self.__eq__(other)
+        if equal is NotImplemented:
+            return NotImplemented
+        return not equal
 
     def _pre_insert_check(self):
         try:
