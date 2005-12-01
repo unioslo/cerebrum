@@ -362,6 +362,11 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("No access to group")
         
+    def is_group_member(self, operator, groupname):
+        if operator in self._get_group_members(groupname):
+            return True
+        return False
+
     def is_account_owner(self, operator, operation, entity, operation_attr=None):
         """See if operator has access to entity.  entity can be either
         a Person or Account object.  First check if operator is
@@ -917,6 +922,23 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("No access to %s" % target_type)
 
+    def can_request_guests(self, operator, groupname=None, query_run_any=False):
+        if query_run_any: 
+            return True
+        if self.is_superuser(operator): 
+            return True
+        if self.is_group_member(operator, groupname):
+            return True
+        raise PermissionDenied("Can't request guest accounts")
+        
+    def can_release_guests(self, operator, guest=None, query_run_any=False):
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        if self._is_owner_of_nonpersonal_account(operator, guest):
+            return True
+        raise PermissionDenied("Can't release guest accounts")
 
     # TODO: the can_email_xxx functions do not belong in core Cerebrum
 
