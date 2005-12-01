@@ -643,19 +643,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         FROM [:table schema=cerebrum name=account_info] ai %s""" % where,
                           fetchall = fetchall)
 
-    def list_guest_accounts(self, owner_type=None, owner_id=None):
-        """List guest accounts, optionally filtering the results on
-        owner_type and owner_id."""
-
-        if owner_type and id:
-            where = "owner_id = :o_id AND owner_type = :o_type"            
-
-        return self.query("""
-        SELECT ai.account_id
-        FROM '[:table schema=cerebrum name=account_info] ai'
-        WHERE """ + where, {'o_id': int(owner_id),
-                                'o_type': int(owner_type)})
-
     def list_account_home(self, home_spread=None, account_spread=None,
                           disk_id=None, host_id=None, include_nohome=False,
                           filter_expired=True):
