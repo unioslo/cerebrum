@@ -812,8 +812,10 @@ def register_supergroups():
         # til noe); oppretter derfor en dummy-gruppe som kun har den
         # /egentlige/ All_users-gruppa som medlem.
         sg_id = "All_users_supergroup"
-        register_group("Alle brukere", sg_id, root_struct_id, False, False)
-        register_group("Alle brukere (STOR)", 'All_users', sg_id, False, True)
+        register_group("Alle brukere", sg_id, root_struct_id,
+                       allow_room=False, allow_contact=False)
+        register_group("Alle brukere (STOR)", 'All_users', sg_id,
+                       allow_room=False, allow_contact=True)
 
     for sgname in fronter.supergroups:
         # $sgname er på nivå 2 == Kurs-ID-gruppe.  Det er på dette nivået
@@ -829,7 +831,8 @@ def register_supergroups():
 	    # som følge av eksporten.
             group = get_group(group_id)
             register_group(group.description, group.group_name,
-                           group_struct_id, False, True)
+                           group_struct_id, allow_room=False,
+                           allow_contact=True)
             #
             # All groups should have "View Contacts"-rights on
             # themselves.
@@ -859,7 +862,6 @@ def register_room(title, room_id, parent_id, profile_name=None):
     new_rooms[room_id] = {
         'title': title,
         'parent': parent_id,
-        'CFid': room_id,
         'profile': fronter.profile(profile_name)}
 
 
@@ -867,19 +869,10 @@ new_group = {}
 def register_group(title, group_id, parent_id,
                    allow_room=False, allow_contact=False):
     """Adds info in new_group about group."""
-    CF_id = group_id
-    if re.search(r'^STRUCTURE/(Enhet|Studentkorridor):', group_id):
-        rest = group_id.split(":")
-        corr_type = rest.pop(0)
-
-        if not rest[0] in (fronter.EMNE_PREFIX, fronter.EVU_PREFIX):
-            rest.insert(0, fronter.EMNE_PREFIX)
-        group_id = "%s:%s" % (corr_type, UE2KursID(*rest))
     new_group[group_id] = {'title': title,
                            'parent': parent_id,
                            'allow_room': allow_room,
                            'allow_contact': allow_contact,
-                           'CFid': CF_id,
                            }
 
 
@@ -1105,9 +1098,9 @@ def process_kurs2enhet():
             if multi_enhet:
                 tittel += ", " + ", ".join(multi_enhet)
 
-            register_group(tittel, enhet_node, sko_node, 1)
+            register_group(tittel, enhet_node, sko_node, allow_room=True)
             register_group("%s - Undervisningsrom" % emnekode.upper(),
-                           undervisning_node, enhet_node, 1);
+                           undervisning_node, enhet_node, allow_room=True);
 
             # Alle eksporterte kurs skal i alle fall ha ett fellesrom og
             # ett lærerrom.
@@ -1179,9 +1172,9 @@ def process_kurs2enhet():
                 tittel = "%s - %s, %s" % (kurskode.upper(),
                                           fronter.kurs2navn[kurs_id],
                                           tidskode.upper())
-                register_group(tittel, enhet_node, sko_node, 1)
+                register_group(tittel, enhet_node, sko_node, allow_room=True)
                 register_group("%s  - Undervisningsrom" % kurskode.upper(),
-                               undervisning_node, enhet_node, 1)
+                               undervisning_node, enhet_node, allow_room=True)
                 enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
                 new_acl.setdefault(undervisning_node, {})[enhans] = {
