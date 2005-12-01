@@ -255,3 +255,5 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
         return group
+
+# arch-tag: bddd54d2-6272-11da-906d-7a8b01ac279a
