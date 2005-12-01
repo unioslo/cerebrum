@@ -378,4 +378,10 @@ automatically generated from FS.''')
         "numval contains the default quota.  If it is NULL, the default "
         "quota value is taken from the host_disk_quota trait.")
 
+    # End_date trait for GuestUsers module.
+    trait_guest_end_date = _EntityTraitCode(
+        'end_date', Constants.Constants.entity_account,
+        "The end date for a requested guest user. Stored in date.")
+
+    
 # arch-tag: 2b7d46eb-fc77-4ce2-a691-0d49cbf3e597
