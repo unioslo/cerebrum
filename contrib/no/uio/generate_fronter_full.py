@@ -35,7 +35,6 @@ from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
-from Cerebrum.modules.no import access_FS
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.fronter_lib import XMLWriter
 
@@ -266,7 +265,7 @@ class Fronter(object):
                 akt_id = ":".join((enhet_id, akt["aktivitetkode"])).lower()
 ##                 self.logger.debug("read_kurs_data: enhet_id=%s", enhet_id)
                 self.enhet2akt.setdefault(enhet_id, []).append(
-                [akt['aktivitetkode'], akt['aktivitetsnavn']])
+                    (akt['aktivitetkode'], akt['aktivitetsnavn']))
                 self.akt2undform[akt_id] = akt["undformkode"]
 
         for evu in self._fs.evu.list_kurs():
@@ -291,7 +290,7 @@ class Fronter(object):
                     akt_id = ":".join((enhet_id,
                                        akt["aktivitetskode"])).lower()
                     self.enhet2akt.setdefault(enhet_id, []).append(
-                        (akt['etterutdkurskode'], akt['aktivitetsnavn']))
+                        (akt['aktivitetskode'], akt['aktivitetsnavn']))
                     self.akt2undform[akt_id] = akt["undformkode"]
         self.logger.debug("read_kurs_data: len(self.kurs2enhet)=%i",
                           len(self.kurs2enhet))
@@ -407,6 +406,7 @@ class FronterXML(object):
         self.xml.startTag('grouptype')
         self.xml.dataElement('scheme', 'FronterStructure1.0')
         allow_room = data.get('allow_room', 0)
+        allow_contact = data.get('allow_contact', 0)
         # Convert booleans allow_room and allow_contact to bits
         allow_room = allow_room and 1 or 0
         allow_contact = allow_contact and 2 or 0
