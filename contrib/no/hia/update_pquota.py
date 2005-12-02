@@ -23,15 +23,8 @@
 This file is a HiA-specific extension of Cerebrum. The purpose of this
 script is to keep track of printer quota updates for students at HiA.
 The actual accounting is done in eDir.
-
-- finn fram alle som har betalt semavg (STATUS_BET_OK='J' + STATUS_BET_OK='FRITATT')
-- sjekk blant disse om sem_quota_up er oppdatert for inneværende semester
-  (1. januar, 1. juli)
-- finn fram alle account.accountBalance fra eDir for de sem_quota_up ikke
-  er oppdatert for inneværende semester
-- sett sem_quota_up til now()
-- sett account.accountBalance = old + NW_PR_QUOTA
 """
+
 import cerebrum_path
 import cereconf
 
@@ -40,8 +33,7 @@ import sys
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
-#from Cerebrum.modules.no.hia.printerquotas import PQuota
-from Cerebrum.modules.no.hia import PQuota
+from Cerebrum.modules.no.hia.printerquotas import PQuota
 from Cerebrum.modules.no.hia import EdirUtils
 from Cerebrum.modules.no.hia import EdirLDAP
 from Cerebrum.modules.no.access_FS import FS
