@@ -40,8 +40,8 @@ class LDAPConnection:
 
 	if not password:
 	    user = cereconf.NW_ADMINUSER.split(',')[:1][0]
-	    self.__password = self.db._read_password(cereconf.NW_LDAPHOST,
-                                                     user)
+	    self.__password = self.__db._read_password(cereconf.NW_LDAPHOST,
+                                                       user)
 	else:
 	    self.__password = password
             
