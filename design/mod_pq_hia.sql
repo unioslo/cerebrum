@@ -36,3 +36,6 @@ CREATE TABLE pquota_status (
  year_quota_updated  NUMERIC(4),
  total_quota         NUMERIC(12) 
 );
+
+/* arch-tag: b23d55d6-6309-11da-9db5-5597e07c1c42
+   (do not change this comment) */
