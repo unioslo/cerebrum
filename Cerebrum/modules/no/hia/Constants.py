@@ -87,6 +87,17 @@ class Constants(Constants.Constants):
 ##     affiliation_status_student_opptak = _PersonAffStatusCode(
 ##         affiliation_student, 'opptak', 'Student, opptak')
 
+## AFFILIATIONS FOR ASSOSIERTE PERSONER
+    affiliation_tilknyttet = _PersonAffiliationCode(
+        'TILKNYTTET',
+        ('Personer tilknyttet HiA og registrert i SAP med utvalgte stillingskoder'))
+    affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'pensjonist',
+        'Personer registrert i SAP som pensjonister')
+    affiliation_status_tilknyttet_timelonnet = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'timelonnet',
+        'Personer registrert i SAP som timelønnet')
+
 ## AFFILIATIONS FOR ANDRE
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL',
