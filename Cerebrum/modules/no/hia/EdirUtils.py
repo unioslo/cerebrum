@@ -29,125 +29,115 @@ from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import QuarantineHandler
 from Cerebrum.extlib import logging
-from Cerebrum.modules.no.hia import NWLdap
+from Cerebrum.modules.no.hia import EdirLDAP
 
 
-class EDirUtils:
+class EdirUtils:
+    
+    def __init__(self, db, ldap_handle):
+        self.__db = db
+        self.__ldap_handle = ldap_handle #EdirLDAP.LDAPConnection(self.__db)
+        self.__logger = Factory.get_logger('cronjob')
+        self.__pq_attrlist = ['accountBalance', 'allowUnlimitedCredit']
 
-    def __init__(self, db):
-        self.db = db
-        self.constants = Factory.get('Constants')(self.db)
-        self.ldap_handle = NWLdap.LDAPConnection(self.db)
-        self.logger = Factory.get_logger('cronjob')(self.db)
-
-    def add_ldap_object(object_dn, attrlist):
-        for kind, value in attrs:
-	    if kind == 'userPassword':
-		attrlist[kind] = 'xxxxxxxx'
-        try:
-            self.ldap_handle.create_object(object_dn, attrlist)
-        except ldap.LDAPError:
-            logger.warn("Could not add object %s." % object_dn)
-
-    def delete_ldap_object(object_dn):
-        try:
-            self.ldap_handle.delete_object(object_dn)
-        except ldap.LDAPError:
-            logger.warn("Could not delete %s." % object_dn)
-
-    def attr_add_ldap_object(object_dn, attrlist):
-        attr_str = string.join(attrlist.values(),', ')
-        try:
-            self.ldap_handle.add_attributes(object_dn, attrlist)
-        except ldap.LDAPError:
-            logger.warn("Could not add attr %s for %s." % (object_dn,
-                                                           attr_str))
-            
-    def attr_del_ldap_object(object_dn, attrlist):
-        attr_str = string.join(attrlist.values(),', ')
-        try:
-            self.ldap_handle.delete_attributes(object_dn, attrlist)
-        except ldap.LDAPError:
-            logger.warn("Could not delete attr %s for %s." % (attr_str, object_dn))
-
-    def attr_mod_ldap_object(object_dn, attrlist):
-        for kind, value in attrlist:
-            if kind == 'userPassword':
-                attrlist[kind] = 'xxxxxxxx'
-        attr_str = string.join(attrlist.values(),', ')
-        try:
-            self.ldap_handle.modify_attributes(object_dn, attrlist)
-        except ldap.LDAPError:
-            logger.warn("Could not modify object %s with %s." % (object_dn,
-                                                                 attr_str))
-
-    def person_set_name(account_name, name_first, name_last, name_full):
-
+    def get_pq_balance(self, account_name):
+        ldap_object = self._find_object(account_name, 
+                                        self.__pq_attrlist,
+                                        'objectClass=inetOrgPerson')
+        if ldap_object:
+            (ldap_object_dn, ldap_attr) = ldap_object[0]
+            for k in ldap_attr.keys():
+                if k == 'allowUnlimitedCredit':
+                    if ldap_attr['allowUnlimitedCredit'] == True:
+                        return False
+                elif k == 'accountBalance':
+                    return ldap_attr['accountBalance']
+                else:
+                    logger.warn('No printer quota info for %s.' % account_name)
+        
+    def set_pq_balance(self, account_name, pquota=cereconf.NW_PR_QUOTA):
+        attrs = {}
         ldap_object = self._find_object(account_name,
-                                        object_class='person')
+                                        object_class='objectClass=inetOrgPerson')
+        if ldap_object:
+            (ldap_object_dn, ldap_attr) = ldap_object[0]
+            if 'accountBalance' in ldap_attr.keys():
+                pquota = int(ldap_attr['accountBalance'][0]) + pquota
+                attrs['accountBalance'] = [pquota]
+                attrs['allowUnlimitedCredit'] = ['False']
+                self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
+            else:
+                self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'add', attrs)
+            logger.info("Updated quota for %s, new quota is %s" % (account_name,
+                                                                   pquota))
 
-        attrs = {'givenName':name_first,
-                 'sn':name_last,
-                 'fullName':name_full}
+    def get_all_pq_info(self):
+        pq_info = []
+        search_str = 'objectClass=inetOrgPerson'
+        ldap_objects = self.__ldap_handle.ldap_get_objects(cereconf.NW_LDAP_ROOT,
+                                                           search_str, self.__pq_attrlist)
+        i = 0
+        while i < len(ldap_objects):
+            (ldap_object_dn, ldap_attrs) = ldap_objects[i]
+            i = i + 1
+            if not ldap_attrs:
+                pq_info.append('No quota information for %s!' % ldap_object_dn)
+                continue
+            for k in ldap_attrs.keys():
+                if k == 'allowUnlimitedCredit':
+                    if ldap_attrs[k] == True:
+                        pq_info.append('Unlimited printer quota for %s' % ldap_object_dn)
+                if k == 'accountBalance':
+                    pq_info.append('Limited quota for %s, current balance %s'% (ldap_object_dn,
+                                                                                ldap_attrs[k]))
+        return pq_info
+            
 
+    def _find_object(self, object_name, attrlist, object_class):
+        if object_class in ['objectClass=inetOrgPerson', 'objectclass=group']:
+            search_str = "(&(cn=%s)(%s))" % (object_name, object_class)
+        else:
+            self.__logger.error("No such object class %s" % object_class)
+            return None
+
+        ldap_object = self.__ldap_handle.ldap_get_objects(cereconf.NW_LDAP_ROOT,
+                                                          search_str, attrlist)
+        return ldap_object
+
+    def person_set_name(object_name, object_class='objectClass=inetOrgPerson',
+                        attrs={'givenName':name_first,
+                               'sn':name_last,
+                               'fullName':name_full}):
+        
+        ldap_object = self._find_object(account_name,
+                                        object_class)
         if ldap_object:
             (ldap_user, ldap_attrs) = ldap_object[0]
             for k, v in attrs.iteritems():
                 ldap_update = [((k, [v]))]
-                if a in ldap_attrs.keys():
-                    self.attr_mod_ldap_object(ldap_user, ldap_update)
+                if k in ldap_attrs.keys():
+                    self.__ldap_handle.ldap_object_mod_attr(ldap_user, ldap_update)
                 else:
-                    self.attr_add_ldap_object(ldap_user, ldap_update)
+                    self.__ldap_handle.ldap_object_add_attr(ldap_user, ldap_update)
+            logger.info("Modified name for %s, new name is %s" % (object_name,
+                                                                  attrs['fullName'])
         else:
-            return
+            logger.info("No such object %s, can't update name!" %s % object_name)
 
-    def _find_object(object_name, object_class=None, attrlist=None):
-        tmp_str = ""
-        if object_class == 'person':
-            tmp_str = "(objectClass=inetOrgPerson)"
-        elif object_class == 'group':
-            tmp_str = "(objectclass=group)"
-        else:
-            self.logger.error("No such object class %s" % object_class)
-            return None
-        search_str = "(&(cn=%s)%s)" % (object_name, tmp_str)
-        ldap_object = self.ldap_handle.get_objects(cereconf.NW_LDAP_ROOT,
-                                                   search_str, attrlist)
-        return ldap_object
-    
-    def get_pq_balance(account_name):
-        ldap_object = self._find_object(account_name,
-                                        object_class='person',
-                                        attrlist = ['accountBalance',
-                                                    'allowUnlimitedCredit'])
-        if ldap_object:
-            (ldap_user, ldap_attr) = ldap_object[0]
-            if ldap_attr['allowUnlimitedCredit'] == True:
-                return False
-            else:
-                return ldap_attr['accountBalance'][0]
-        
-    def set_pq_info(account_name, pquota=cereconf.NW_PR_QUOTA):
-        ldap_object = self._find_object(account_name,
-                                        object_class='person')
-        if ldap_object:
-            (ldap_object_dn, ldap_attr) = ldap_object[0]
-            if 'accountBalance' in ldap_attr.keys():
-                tot = int(ldap_attr['accountBalance'][0]) + pquota
-                self.attr_mod_ldap_object(ldap_object_dn, [('accountBalance',
-                                                            tot)])
-            else:
-                self.attr_mod_ldap_object(ldap_object_dn, [('accountBalance',
-                                                            pquota)])
-                
-    def set_description(object_name, object_class='person', description):
+
+    ## FIXME: These method will not work right now as I made som changes
+    ##        to ldap_object-methods. 
+    def set_description(self, object_name, object_class='objectClass=inetOrgPerson', description):
         desc = []
+        attrs = {}
         ldap_object = self._find_object(object_name,
+                                        ['description']
                                         object_class)
 
-        if ldap_object:
-            desc = self.get_description(object_name, object_class)
+        (ldap_object_dn, ldap_attrs) = ldap_object[0]
 
+        desc = ldap_attrs
+        
         if len(desc) <= 4:
             desc.append(description)
         else:
@@ -156,25 +146,7 @@ class EDirUtils:
             desc.insert(temp, 0)
             desc.append(description)
 
-        (ldap_object_dn, attrs) = ldap_object[0]
-        self.attr_mod_ldap_object(ldap_object_dn, [('description',
-                                                    desc)])
-        
-    def get_description(object_name, object_class='person'):
-        desc = []
-        
-        if object_class == 'person':
-            ldap_object = self._find_object(object_name,
-                                            object_class='person',
-                                            attrlist=['decription',])
-        elif object_class == 'group':
-            ldap_object = self._find_object(object_name,
-                                            object_class='group',
-                                            attrlist=['decription',])
-
-        if ldap_object:
-            (foo, ldap_attr) = ldap_object[0]
-            desc = ldap_attr['description']
-        return desc
+        attrs['description'] = string.join(desc,';')
+        self.__ldap_handle.ldap_modify_object(ldap_object_dn, attrs)
 
 # arch-tag: 5e6865d4-5cb2-11da-97b8-ad2f2be70968
