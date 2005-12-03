@@ -187,7 +187,9 @@ NW_GROUP_POSTFIX = '-gruppe'
 NW_PASSWORD_EXPIRE = 'FALSE'
 NW_CAN_CHANGE_PW = 'FALSE'
 NW_GROUP_SPREAD = ('spread_novell_group',)
-
+# Printer quota variables
+NW_INITIALQUOTA = 0
+NW_FREEQUOTA = 0
 
 # Notes-spesifikke variable.
 NOTES_SERVER_HOST = 'devel01.uio.no'
