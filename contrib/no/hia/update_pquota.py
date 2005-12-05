@@ -53,6 +53,9 @@ def check_paid_semfee():
             person.find_by_external_id(const.externalid_fodselsnr, fnr,
                                        source_system=const.system_fs,
                                        entity_type=const.entity_person)
+            for row in person.get_affiliations():
+                if row['affiliation'] == int(const.affiliation_ansatt):
+                    continue
             paid_semfee.append(int(person.entity_id))
         except Errors.NotFoundError:
             logger.error('No such person (%s)' % fnr)
@@ -65,7 +68,7 @@ def update_quota(update, ldap_handle, pq, edir_ut, noup):
         try:
             pq.find(int(k))
         except Errors.NotFoundError:
-            pq.insert_new_quota(int(k))            
+            pq.insert_new_quota(int(k))
         logger.debug('Setting new quota (%s)' % update[k])
 
         pq.update_free_quota(int(k))
