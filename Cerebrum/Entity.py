@@ -833,13 +833,10 @@ class EntityExternalId(Entity):
 
     def list_external_ids(self, source_system=None, id_type=None,
                           external_id=None, entity_type=None):
-        if entity_type == None:
-            if self.entity_type == None:
-                entity_type = self.const.entity_person
-            else:
-                entity_type = self.entity_type
-        cols = {}
-        cols['entity_type'] = int(entity_type)
+        cols = {}       
+        if entity_type or (entity_type == None and
+                           self.entity_type is not None):
+            cols['entity_type'] = int(entity_type)
         if source_system is not None:
             cols['source_system'] = int(source_system)
         if id_type is not None:
