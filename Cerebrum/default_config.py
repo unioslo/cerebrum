@@ -197,6 +197,11 @@ NOTES_SERVER_PORT = 2000
 NOTES_PASSWORD = 'test\n'
 NOTES_DEFAULT_OU = 'andre'
 
+#UA spesific variables
+UA_FTP_HOST = 'uaftp.uio.no'
+UA_FTP_UNAME = 'uname'
+UA_FTP_PWD = 'pwd'
+
 # You should set this variable to the location of your logging ini file
 LOGGING_CONFIGFILE = None
 
