@@ -524,7 +524,9 @@ def main():
               os.path.join(output_directory, "uadata.old"))
 
     if distribute:
-        ftpput("heimdall.ua.uio.no", "ltimport", "nOureg289337",
+        ftpput(cereconf.UA_FTP_HOST,
+               cereconf.UA_FTP_UNAME,
+               cereconf.UA_FTP_PWD,
                output_directory, diff_file, "ua-lt")
     # fi
 # end main
