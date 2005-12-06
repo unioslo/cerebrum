@@ -58,6 +58,7 @@ import os
 import ftplib
 
 import Cerebrum
+from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib.sets import Set
@@ -329,7 +330,6 @@ def generate_output(stream, do_employees, do_students):
     # the students.
     # 
 
-    db = Factory.get("Database")()
     person = Factory.get("Person")(db)
     ou = Factory.get("OU")(db)
     const = Factory.get("Constants")(db)
@@ -476,8 +476,9 @@ def main():
     """
     Start method for this script. 
     """
-    global logger
+    global logger, db
 
+    db = Factory.get("Database")()
     logger = Factory.get_logger("cronjob")
     logger.info("Generating UA dump")
     
@@ -524,9 +525,10 @@ def main():
               os.path.join(output_directory, "uadata.old"))
 
     if distribute:
+        passwd = db._read_password(cereconf.UA_FTP_HOST, cereconf.UA_FTP_UNAME)
         ftpput(cereconf.UA_FTP_HOST,
                cereconf.UA_FTP_UNAME,
-               cereconf.UA_FTP_PWD,
+               passwd,
                output_directory, diff_file, "ua-lt")
     # fi
 # end main
