@@ -834,9 +834,10 @@ class EntityExternalId(Entity):
     def list_external_ids(self, source_system=None, id_type=None,
                           external_id=None, entity_type=None):
         cols = {}       
-        if entity_type or (entity_type == None and
-                           self.entity_type is not None):
+        if entity_type:
             cols['entity_type'] = int(entity_type)
+        elif self.entity_type:
+             cols['entity_type'] = int(self.entity_type)
         if source_system is not None:
             cols['source_system'] = int(source_system)
         if id_type is not None:
@@ -853,14 +854,12 @@ class EntityExternalId(Entity):
    
     def find_by_external_id(self, id_type, external_id, source_system=None,
                              entity_type=None):
-        if entity_type == None:
-            if self.entity_type == None:
-                entity_type = self.const.entity_person
-            else:
-                entity_type = self.entity_type
         binds = {'id_type': int(id_type),
-                 'ext_id': external_id,
-                 'entity_type': int(entity_type) }
+                 'ext_id': external_id}
+        if entity_type:
+            binds['entity_type'] = entity_type
+        elif self.entity_type:
+            binds['entity_type'] = self.const.entity_person
         where = ""
         if source_system is not None:
             binds['src'] = int(source_system)
