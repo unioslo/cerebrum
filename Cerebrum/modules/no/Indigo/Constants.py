@@ -108,6 +108,5 @@ class Constants(Constants.Constants):
 ## Account_type codes
 
     account_test = _AccountCode('test', 'Testkonto')
-    account_pvare = _AccountCode('programvare','Kurskonto')
 
 # arch-tag: 82109000-67f8-11da-8454-871df49a59c9
