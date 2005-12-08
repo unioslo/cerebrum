@@ -170,3 +170,4 @@ class AccountIndigoMixin(Account.Account):
         return pgp_encrypt(plaintext, cereconf.PGPID)
 
     
+# arch-tag: 8cb3e208-683b-11da-9894-685d088a346a
