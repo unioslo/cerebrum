@@ -17,3 +17,5 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+# arch-tag: f75bd56a-6800-11da-95aa-0b89e053f92c
