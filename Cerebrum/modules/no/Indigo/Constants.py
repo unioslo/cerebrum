@@ -51,6 +51,9 @@ class Constants(Constants.Constants):
 ##     externalid_skolenr = _EntityExternalIdCode('SKOLENR',
 ##                                                Constants.Constants.entity_ou,
 ##                                                'Skolenummer')
+    externalid_fodselsnr = _EntityExternalIdCode('NO_SSN',
+                                              Constants.Constants.entity_person,
+                                              '11-sifret norsk fødselsnummer.')
     externalid_elevnr = _EntityExternalIdCode('ELEVNR',
                                                Constants.Constants.entity_person,
                                               'Unik elevnummer fra SAS.')
