@@ -47,9 +47,9 @@ class Constants(Constants.Constants):
                                              Constants.Constants.entity_ou,
                                              'Organisasjonsnummer (fra SAS)')
 ## Disse kodene er det foreløpig usikkert om skal brukes
-##     externalid_ouid = _EntityExternalIdCode('OUID',
-##                                             Constants.Constants.entity_ou,
-##                                             'Organisasjonens unike identifikator')
+     externalid_ouid = _EntityExternalIdCode('OUID',
+                                             Constants.Constants.entity_ou,
+                                             'Organisasjonens unike identifikator')
 ##     externalid_vigonr = _EntityExternalIdCode('VIGONR',
 ##                                               Constants.Constants.entity_ou,
 ##                                               'VIGO-nummer')
