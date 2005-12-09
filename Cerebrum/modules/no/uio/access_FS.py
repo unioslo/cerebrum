@@ -104,7 +104,7 @@ class UiOStudent(access_FS.Student):
            NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
-           sp.studienivakode >= 980 AND
+           sp.studienivakode >= 900 AND
            %s""" % (extra, self._is_alive())
         return self.db.query(qry, locals())
 
