@@ -24,9 +24,13 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,\
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode, \
                                _AccountCode, \
-                               _AuthenticationCode
+                               _AuthenticationCode, \
+                               _OUPerspectiveCode
 
 class Constants(Constants.Constants):
+
+## Org. hierarchy perspective
+    perspective_ekstens = _OUPerspectiveCode('Ekstens', 'Ekstens')
 
 ## Authoritative system codes
     system_sats = _AuthoritativeSystemCode('SATS',
@@ -36,7 +40,8 @@ class Constants(Constants.Constants):
     system_tpsys = _AuthoritativeSystemCode('TPSYS',
                                             'Personopplysninger hentet fra skolesystemet TPSYS')
     system_migrate =_AuthoritativeSystemCode('MIGRATE',
-                                            'Personopplysninger hentet fra tidligere brukte systemer') 
+                                            'Personopplysninger hentet fra tidligere brukte systemer')
+    
 ## External ID codes
     externalid_orgnr = _EntityExternalIdCode('ORGNR',
                                              Constants.Constants.entity_ou,
@@ -48,9 +53,9 @@ class Constants(Constants.Constants):
 ##     externalid_vigonr = _EntityExternalIdCode('VIGONR',
 ##                                               Constants.Constants.entity_ou,
 ##                                               'VIGO-nummer')
-##     externalid_skolenr = _EntityExternalIdCode('SKOLENR',
-##                                                Constants.Constants.entity_ou,
-##                                                'Skolenummer')
+    externalid_skolenr = _EntityExternalIdCode('SKOLENR',
+                                               Constants.Constants.entity_ou,
+                                               'Skolenummer')
     externalid_fodselsnr = _EntityExternalIdCode('NO_SSN',
                                               Constants.Constants.entity_person,
                                               '11-sifret norsk fødselsnummer.')
