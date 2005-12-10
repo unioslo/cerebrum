@@ -210,3 +210,5 @@ class Object2Cerebrum(object):
         self._person.add_affiliation(self._ou.entity_id, affiliation,
                                      self.source_system, status)
         return self._person.write_db()
+
+# arch-tag: fda7302c-6995-11da-943c-1c905588559b

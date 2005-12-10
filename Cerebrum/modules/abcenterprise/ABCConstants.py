@@ -56,3 +56,4 @@ class ABCConstants(Constants.Constants):
     affiliation_status_elev_ektiv = _PersonAffStatusCode(
         affiliation_elev, 'aktiv', 'En aktiv elev')
     
+# arch-tag: faf711ee-6995-11da-8ca7-a305f61092a7

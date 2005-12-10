@@ -151,3 +151,5 @@ class DataAddress(object):
                                     self.postcode, self.city,
                                     self.country))
         return result
+
+# arch-tag: fb615900-6995-11da-9b5c-329d892ac5ab

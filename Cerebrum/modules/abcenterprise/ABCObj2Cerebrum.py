@@ -220,3 +220,5 @@ class ABCObj2Cerebrum(object):
     def close(self):
         """Close whatever you need to close and finish your business."""
         self._o2c.commit()
+
+# arch-tag: fc250d64-6995-11da-8e2e-62c416f986a0

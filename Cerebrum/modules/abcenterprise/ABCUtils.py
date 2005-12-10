@@ -127,3 +127,5 @@ class ABCTypes(object):
         except KeyError:
             raise ABCTypesError, "wrong name type: %s" % type
     get_name_type = staticmethod(get_name_type)
+
+# arch-tag: fc851628-6995-11da-98cb-38262c77ee84

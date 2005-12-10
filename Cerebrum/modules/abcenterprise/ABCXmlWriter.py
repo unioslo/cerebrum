@@ -101,3 +101,5 @@ class ABCXMLWriter(object):
     def end_parse(self):        
         self.xp.endDocument()
         self.fd.close()
+
+# arch-tag: fd46160c-6995-11da-8e5b-5798cf4a24b9
