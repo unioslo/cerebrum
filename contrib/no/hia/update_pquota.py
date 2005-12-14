@@ -208,6 +208,6 @@ def main():
         logger.info('Pquota-processing done, rolling back all changes.')
 
 if __name__ == '__main__':
-        main()
+    main()
     
 # arch-tag: b19d3b32-6309-11da-8bdf-07d796d0d800
