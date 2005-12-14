@@ -39,6 +39,18 @@ from Cerebrum.modules.no.hia import EdirLDAP
 from Cerebrum.modules.no.access_FS import FS
 from Cerebrum import Errors
 
+def _er_ansatt(person):
+    for row in person.get_affiliations():
+        if row['affiliation'] in [int(const.affiliation_ansatt),
+                                  int(const.affiliation_tilknyttet)]:
+            return True
+        elif row['affiliation'] == int(const.affiliation_manuell):
+            if row['status'] <> int(const.affiliation_status_manuell_gjest_student):
+                return False
+            else:
+                return True
+    return False
+
 def check_paid_semfee():
     paid_semfee = []
     fs_db = Database.connect(user='cerebrum', service='FSHIA.uio.no',
@@ -49,17 +61,17 @@ def check_paid_semfee():
     for row in temp:
         fnr = '%06d%05d' % (row['fodselsdato'], row['personnr'])
         person.clear()
+        ansatt = False
         try:
             person.find_by_external_id(const.externalid_fodselsnr, fnr,
                                        source_system=const.system_fs,
                                        entity_type=const.entity_person)
-            for row in person.get_affiliations():
-                if row['affiliation'] == int(const.affiliation_ansatt):
-                    continue
-            paid_semfee.append(int(person.entity_id))
         except Errors.NotFoundError:
             logger.error('No such person (%s)' % fnr)
             continue
+        ansatt = _er_ansatt(person)
+        if not ansatt:
+            paid_semfee.append(int(person.entity_id))
     return paid_semfee
 
 def update_quota(update, ldap_handle, pq, edir_ut, noup):
@@ -75,40 +87,42 @@ def update_quota(update, ldap_handle, pq, edir_ut, noup):
         logger.debug('Updating free quota for %s' % update[k])        
         pq_bal = edir_ut.get_pq_balance(update[k])
         if pq_bal:
-            total = int(pq_bal[0]) + int(cereconf.NW_PR_QUOTA)
+            total = int(pq_bal[0]) + int(cereconf.NW_FREEQUOTA)
             logger.info('Updating total quota for %s, new total %d (old total = %d)' % (update[k],
                                                                                         total,
                                                                                         int(pq_bal[0])))
             pq.update_total(int(k), total)
             if noup:
-                logger.info('Should update edir with new total %d for %s.' % (total,
+                logger.debug('Should update edir with new total %d for %s.' % (total,
                                                                               update[k]))
             else:
-                edir_ut.set_pq_balance(ldap_handle, account_name)
+                edir_ut.set_pq_balance(ldap_handle, update[k])
 
 def need_to_update(paid_sem, updated):
+    logger.debug("In need-to-update")
     account = Factory.get('Account')(db)
     update = {}
-
     for i in paid_sem:
         if not i in updated:
             try:
                 person.clear()
                 person.find(i)
             except Errors.NotFoundError:
-                logger.warn('No such person (%s)!' % i)
+                logger.error('No such person (%s)!' % i)
             try:
                 acc_id = person.get_primary_account()
+                logger.debug("Account found %s" % acc_id)
             except Errors.NotFoundError:
-                logger.warn('Could not find primary account for %s!' % i)
+                logger.error('Could not find primary account for %s!' % i)
                 continue
             try:
                 account.clear()
                 account.find(acc_id)
             except Errors.NotFoundError:
-                logger.warn('Could not find account with account_id == %s!' % acc_id)
+                logger.error('Could not find account with account_id == %s!' % acc_id)
                 continue
             update[i] = account.account_name
+    logger.debug("Done with need-to-update")
     return update
 
 def make_info_log(edir_util):
@@ -127,6 +141,7 @@ def main():
     global db, logger, const, person
 
     temp = {}
+    updated = []
     db = Factory.get('Database')()
     db.cl_init(change_program='update_pquota')
     
@@ -173,13 +188,16 @@ def main():
     paid = check_paid_semfee()
     
     logger.info('Checking for update quota.')
-    updated = pq.list_updated()
+    for i in pq.list_updated():
+        updated.append(int(i['person_id']))
     logger.info('Making need-to-update dict.')
     temp = need_to_update(paid, updated)
 
-    logger.info('Starting quota updates.')    
-    update_quota(temp, ldap_handle, pq, edir_util, dryrun)
-
+    if len(temp.keys()) <> 0:
+        logger.info('Starting quota updates.')    
+        update_quota(temp, ldap_handle, pq, edir_util, dryrun)
+    else:
+        logger.info('Nothing to do, disconnecting from eDir')
     ldap_handle.close_connection()
     
     if not dryrun:
