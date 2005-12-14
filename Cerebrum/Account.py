@@ -812,7 +812,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         lname = self.simplify_name(lname, alt=1)
         lname = lname.replace('-', '').replace(' ', '')
 
-        initials = [n[0] for n in re.split(r'[ -]', fname)]
+        initials = [n[0] for n in filter(None, re.split(r'[ -]+', fname))]
         
         # firstinit is set to the initials of the first two names if
         # the person has three or more first names, so firstinit and
@@ -828,7 +828,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # called "Geir-Ove Johnsen Hansen" generally prefer "geirove"
         # to just "geir".
 
-        fname = fname.replace('-', '').split(" ")[0][0:maxlen]
+        fname = fname.replace('-', '').strip().split(" ")[0][0:maxlen]
 
         # For people with many (more than three) names, we prefer to
         # use all initials.
