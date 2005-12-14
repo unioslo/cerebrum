@@ -72,7 +72,7 @@ class EdirUtils:
                 if path <> ldap_attr[home]:
                     desc = "Cerebrum: user moved %s" % self.date
                     self.set_description(account_name, self.c_person, desc)
-                    logger.info("Account ndsHomeDirectory changed for %s" % account_name
+                    logger.info("Account ndsHomeDirectory changed for %s" % account_name)
 
 ## QUARANTINE: set/remove quarantine
     def account_set_quarantine(self, account_name, q_type):
