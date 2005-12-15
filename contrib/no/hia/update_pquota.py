@@ -40,15 +40,15 @@ from Cerebrum.modules.no.access_FS import FS
 from Cerebrum import Errors
 
 def _er_ansatt(person):
+    affs = {}
     for row in person.get_affiliations():
-        if row['affiliation'] in [int(const.affiliation_ansatt),
-                                  int(const.affiliation_tilknyttet)]:
-            return True
-        elif row['affiliation'] == int(const.affiliation_manuell):
-            if row['status'] <> int(const.affiliation_status_manuell_gjest_student):
-                return False
-            else:
-                return True
+        affs[row['affiliation']] = row['status']
+    if (int(const.affiliation_ansatt) in affs.keys() \
+        or int(const.affiliation_tilknyttet in affs.keys()) \
+        or (int(const.affiliation_manuell) in affs.keys() \
+            and affs[int(const.affiliation_manuell)] <> \
+            int(const.affiliation_status_manuell_gjest_student))):
+        return True
     return False
 
 def check_paid_semfee():
