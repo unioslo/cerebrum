@@ -217,7 +217,9 @@ class Constants(Constants.Constants):
     spread_hia_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
         'group included in Active Directory')   
-
+    spread_hia_ezpublish = _SpreadCode(
+        'group@ezpublish', Constants.Constants.entity_group,
+        'Groups used by EZPublish')
     spread_hia_fronter = _SpreadCode(
         'group@fronter', Constants.Constants.entity_group,
         ('Group representing a course that should be exported to'
