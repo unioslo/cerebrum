@@ -39,12 +39,12 @@ def import_hinfo(fname):
         n_lines += 1
         line = line.strip()
         if not ok_line.match(line):
-            logger.warn("Ignoring '%s'" % line)
+            logger.info("Ignoring '%s'" % line)
             continue
         hostname, new_hinfo1, new_hinfo2 = line.split(None, 2)
         new_hinfo = "%s\t%s" % (new_hinfo1, new_hinfo2)
         if not name2info.has_key(hostname):
-            logger.warn("unknown host '%s'" % hostname)
+            logger.info("unknown host '%s'" % hostname)
             n_unknown += 1
             continue
         old_hinfo, dns_owner_id = name2info.get(hostname)
