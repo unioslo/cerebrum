@@ -767,6 +767,8 @@ def get_new_users():
                        }
 
         if 'All_users' in fronter.export:
+            new_groupmembers.setdefault('All_users',
+                                        {})[user['uname']] = 1
             user_params['USERACCESS'] = 'allowlogin'
 
         if user['uname'] in fronter.admins:
