@@ -18,14 +18,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _AuthoritativeSystemCode,\
+from Cerebrum.Constants import _AuthoritativeSystemCode, \
                                _EntityExternalIdCode, \
                                _SpreadCode, \
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode, \
                                _AccountCode, \
                                _AuthenticationCode, \
-                               _OUPerspectiveCode
+                               _OUPerspectiveCode, \
+                               _ContactInfoCode
 
 class Constants(Constants.Constants):
 
@@ -65,27 +66,31 @@ class Constants(Constants.Constants):
     externalid_ansattnr = _EntityExternalIdCode('ANSATTNR',
                                                 Constants.Constants.entity_person,
                                                 'Unik ansattnummer fra SAS')
+    externalid_userid = _EntityExternalIdCode('USERID',
+                                                 Constants.Constants.entity_person,
+                                                 'Bruker ID')
+
 
 ## Spread codes
     ## AD
     spread_ad_acc = _SpreadCode('account@ad', Constants.Constants.entity_account,
                                 'Brukeren kan logge inn på Windows PC-er.')
-    spread_ad_grp = _SpreadCode('group@ad', Constants.Constants.entity_account,
+    spread_ad_grp = _SpreadCode('group@ad', Constants.Constants.entity_group,
                                 'Gruppen brukes av Active Directory.')
     ## LMS
     spread_lms_acc = _SpreadCode('account@lms', Constants.Constants.entity_account,
                                  'Brukeren kan logge inn på LMS (f.eks. Classfronter).')
-    spread_lms_grp = _SpreadCode('group@lms', Constants.Constants.entity_account,
+    spread_lms_grp = _SpreadCode('group@lms', Constants.Constants.entity_group,
                                  'Gruppen brukes av LMS-et.')
     ## OID
     spread_oid_acc = _SpreadCode('account@oid', Constants.Constants.entity_account,
                                  'Brukeren kan logge inn på webportalen (OCS).')
-    spread_oid_grp = _SpreadCode('group@oid', Constants.Constants.entity_account,
+    spread_oid_grp = _SpreadCode('group@oid', Constants.Constants.entity_group,
                                  'Gruppen brukes av webportalen (OCS).')
     ## LDAP
     spread_ldap_per = _SpreadCode('person@ldap', Constants.Constants.entity_person,
                                   'Brukeren kan benytte seg av FEIDE-innlogging.')
-    spread_ldap_grp = _SpreadCode('group@ldap', Constants.Constants.entity_person,
+    spread_ldap_grp = _SpreadCode('group@ldap', Constants.Constants.entity_group,
                                   'Gruppen brukes i LDAP.')
     
 ## Affiliation codes
@@ -116,5 +121,9 @@ class Constants(Constants.Constants):
 ## Account_type codes
 
     account_test = _AccountCode('test', 'Testkonto')
+
+## Contact_types
+
+    contact_job_mobile = _ContactInfoCode('JOBMOBILE', 'JOBMOBILE')
 
 # arch-tag: 82109000-67f8-11da-8454-871df49a59c9
