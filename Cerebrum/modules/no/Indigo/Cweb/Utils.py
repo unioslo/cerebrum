@@ -40,3 +40,5 @@ class HTMLUtil(object):
 
     def form2items(self, form):
         return [(k, form[k]) for k in form.keys()]
+
+# arch-tag: d07a2380-7155-11da-954b-12215614942d

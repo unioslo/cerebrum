@@ -142,3 +142,5 @@ class StateClass(object):
 
     def __del__(self):
         self._db.close()
+
+# arch-tag: cff66e82-7155-11da-9ee9-5d37e06dce4b

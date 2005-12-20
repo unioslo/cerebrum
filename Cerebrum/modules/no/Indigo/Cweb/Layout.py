@@ -142,3 +142,4 @@ class PersonTemplate(SubTemplate):
 class GroupTemplate(SubTemplate):
     hdr = os.path.join('macro', 'group_frame')
 
+# arch-tag: cf3d3cfa-7155-11da-9945-71c67cf3c1a7

@@ -123,3 +123,4 @@ class Controller(object):
             self.logger.error("Caught unexpected error: ", exc_info=1)
             self.html_util.error("caught some error (%s), logged a message" % e)
 
+# arch-tag: ce3f527a-7155-11da-985c-65eb434993a3

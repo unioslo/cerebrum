@@ -195,3 +195,5 @@ class MiscCommands(VirtualCommands):
         tpl = PersonTemplate(self.state, 'list_new_entities')
         return tpl.show({'changes': changes,
                          'days': days})
+
+# arch-tag: cdd634ac-7155-11da-8a75-c6a0738f99aa

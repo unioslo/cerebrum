@@ -21,3 +21,5 @@ def make_logger(): # TBD: use cgi.py's logger?
 if __name__ == '__main__':
     c = Controller.Controller(make_logger())
     c.process_request()
+
+# arch-tag: d2ac908e-7155-11da-96f0-bb5b91364575

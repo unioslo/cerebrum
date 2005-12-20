@@ -218,3 +218,5 @@ class BofhdExtension(object):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
+
+# arch-tag: d1ad56e6-7155-11da-87dd-ea237fa9df60

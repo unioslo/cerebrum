@@ -298,3 +298,4 @@ class CerebrumProxy(object):
                 'aff_sted_desc': m.group(4)}
         return ret
                    
+# arch-tag: ccc8df24-7155-11da-90e8-d1d0823776a7
