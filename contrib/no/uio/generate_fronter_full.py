@@ -292,6 +292,20 @@ class Fronter(object):
                     self.enhet2akt.setdefault(enhet_id, []).append(
                         (akt['aktivitetskode'], akt['aktivitetsnavn']))
                     self.akt2undform[akt_id] = akt["undformkode"]
+
+        # Luk ut gamle kursgrupper som fortsatt har fronter-spread fra
+        # self.supergroups.
+        for kurs_id in kurs.iterkeys():
+            if not self.kurs2enhet.has_key(kurs_id):
+                logger.info("Kurs %s har spread %s, men ikke aktive data i FS",
+                            kurs_id, self.spread)
+                supergroups = [
+                    x for x in self.supergroups
+                    if (kurs_id != ":".join(x.split(':')[3:]).lower())]
+                logger.info("Fjerner %d innslag fra self.supergroups.",
+                            len(self.supergroups) - len(supergroups))
+                self.supergroups = supergroups
+
         self.logger.debug("read_kurs_data: len(self.kurs2enhet)=%i",
                           len(self.kurs2enhet))
 
