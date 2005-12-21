@@ -40,7 +40,7 @@ CREATE TABLE country_alias
 		CONSTRAINT country_alias_country_code
 		  REFERENCES country_code(code)
 );
-categrory:drop;
+category:drop;
 DROP TABLE country_alias;
 
 /* arch-tag: 9003ab69-5434-43ea-a534-3a3fa932df8a
