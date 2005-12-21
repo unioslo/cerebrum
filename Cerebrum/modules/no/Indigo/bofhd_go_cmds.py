@@ -34,8 +34,8 @@ class BofhdExtension(object):
     all_commands = {}
 
     copy_commands = (
-        'user_info', '_get_account', '_get_ou', '_format_ou_name', '_get_person',
-        '_get_disk', '_get_group', 'person_info', '_map_person_id',
+        '_get_account', '_get_ou', '_format_ou_name', '_get_person',
+        '_get_disk', '_get_group', '_map_person_id',
         'person_accounts', '_get_entity', 'group_user',
         'group_memberships', 'person_find', 'group_search',
         '_get_boolean', 'group_info', '_entity_info', 'num2str',
@@ -131,6 +131,54 @@ class BofhdExtension(object):
     def get_default_email(self, operator, entity_id):
         account = self._get_account(entity_id)
         return account.get_primary_mailaddress()
+
+    all_commands['user_info'] = None
+    def user_info(self, operator, entity_id):
+        account = self._get_account(entity_id)
+        return {'entity_id': account.entity_id,
+                'owner_id': account.owner_id,
+                'owner_type': account.owner_type}
+
+    all_commands['person_info'] = None
+    def person_info(self, operator, person_id):
+        try:
+            person = self._get_person(*self._map_person_id(person_id))
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+        data = [{'name': person.get_name(self.const.system_cached,
+                                         getattr(self.const,
+                                                 cereconf.DEFAULT_GECOS_NAME)),
+                 'export_id': person.export_id,
+                 'birth': person.birth_date,
+                 'entity_id': person.entity_id}]
+        affiliations = []
+        sources = []
+#        for row in person.get_affiliations():
+#            ou = self._get_ou(ou_id=row['ou_id'])
+#            affiliations.append("%s@%s" % (
+#                self.const.PersonAffStatus(row['status']),
+#                self._format_ou_name(ou)))
+#            sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
+        if affiliations:
+            data[0]['affiliation_1'] = affiliations[0]
+            data[0]['source_system_1'] = sources[0]
+        else:
+            data[0]['affiliation_1'] = "<none>"
+            data[0]['source_system_1'] = "<nowhere>"
+        for i in range(1, len(affiliations)):
+            data.append({'affiliation': affiliations[i],
+                         'source_system': sources[i]})
+        account = self.Account_class(self.db)
+        account_ids = [int(r['account_id'])
+                       for r in account.list_accounts_by_owner_id(person.entity_id)]
+        if (self.ba.is_superuser(operator.get_entity_id()) or
+            operator.get_entity_id() in account_ids):
+            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+                data.append({'fnr': row['external_id'],
+                             'fnr_src': str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
+        return data
+
 
     all_commands['user_create'] = None
     def user_create(self, operator, uname, owner_id):
