@@ -3323,6 +3323,58 @@ class BofhdExtension(object):
             return "OK.  Warning: disk did not follow expected pattern."
         return "OK, added disk '%s' at %s" % (diskname, hostname)
 
+
+    all_commands['misc_samba_mount'] = Command(
+        ("misc", "samba_mount"), DiskId(),DiskId())
+    def misc_samba_mount(self, operator, hostname, mountname):
+	from Cerebrum.modules import MountHost
+	mount_host = MountHost.MountHost(self.db) 	
+	
+	if hostname == 'delete':
+	    try:
+	        host = self._get_host(mountname)
+            	mount_host.find(host.entity_id)
+		mount_host.delete_mount()
+		return "Deleted %s from mount_host" % host.name		
+
+            except Errors.NotFoundError:	               
+		raise CerebrumError, "Unknown mount_host: %s" % host.name
+
+	elif hostname == 'list':
+	    if mountname == 'all': 	
+     	    	ename = Entity.EntityName(self.db)
+	    	list_all = "%-16s%-16s\n" % ("host_name", "mount_name")
+	    	for line in mount_host.list_all():
+		    m_host_name = self._get_host(int(line['mount_host_id']))
+		    list_all = "%s%-16s%-16s\n" % (list_all, 
+		  		m_host_name.name, line['mount_name'])	    
+	    	return list_all	
+	    else:
+		host = self._get_host(mountname)
+	    	try:
+            	    mount_host.find(host.entity_id)
+            	    return "%s -> %s" % (mountname, mount_host.mount_name)
+                except Errors.NotFoundError:	               
+		    raise CerebrumError, "Unknown mount_host: %s" % host.name
+            	    
+	else:
+	    host = self._get_host(hostname)
+	    m_host = self._get_host(mountname)
+	    print "host:%s m_host:%s" % (host,m_host)
+	    try:
+            	mount_host.find(host.entity_id)
+            	mount_host.mount_name = m_host.name 	
+		mount_host.host_id = m_host.entity_id
+
+            except Errors.NotFoundError:	               
+            	mount_host.populate(host.entity_id, 
+				m_host.entity_id, m_host.name)
+
+            mount_host.write_db()
+            return "Updated samba mountpoint: %s on %s" % (m_host.name,
+			host.name)
+
+
     # misc dls is deprecated, and can probably be removed without
     # anyone complaining much.
     all_commands['misc_dls'] = Command(
