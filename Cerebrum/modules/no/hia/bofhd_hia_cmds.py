@@ -3800,10 +3800,8 @@ class BofhdExtension(object):
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
                        account.entity_id, None,
-                       state_data=int(self.const.spread_uio_nis_user))
-        return "User %s queued for deletion immediately" % account.account_name
-
-        # raise NotImplementedError, "Feel free to implement this function"
+                       state_data=None)
+        return "User %s queued for deletion at 20:00" % account.account_name
 
     # user gecos
     all_commands['user_gecos'] = Command(
