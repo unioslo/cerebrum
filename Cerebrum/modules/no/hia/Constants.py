@@ -49,6 +49,12 @@ class Constants(Constants.Constants):
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
     system_pbx = _AuthoritativeSystemCode('PBX', 'PBX')
+    # TBD: system_override should probably reside in
+    # Cerebrum/Constants.py...
+    # this system will primarily be used to override unwanted names
+    # fetched for student registry or HR-system
+    system_override = _AuthoritativeSystemCode('Override',
+                                               'Override information fetched from proper authoritative systems')
     system_manual =  _AuthoritativeSystemCode('MANUELL',
                                               'Manually added information')
 
