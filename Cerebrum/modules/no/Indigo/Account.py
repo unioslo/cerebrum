@@ -20,6 +20,7 @@
 """"""
 
 import random
+import string
 
 import re
 import cereconf
@@ -38,7 +39,7 @@ class AccountIndigoMixin(Account.Account):
     the policies as stated by the Indigo-project.
 
     """
-    def make_passwd(self, uname):
+     def make_passwd(self, uname):
         pot = string.ascii_letters + string.digits
         count = 0
         pwd = []
@@ -53,7 +54,6 @@ class AccountIndigoMixin(Account.Account):
                 count += 1
             random.shuffle(pwd)
             return string.join(pwd,'')
-
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
