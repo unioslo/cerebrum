@@ -100,6 +100,7 @@ def main():
 
     for k, v in groups_and_members.iteritems():
         stream.write(k + ':' + v)
+        stream.write('\n')
     stream.close()
     logger.info("All done.")
 
