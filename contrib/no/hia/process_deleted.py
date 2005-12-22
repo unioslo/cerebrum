@@ -125,7 +125,7 @@ def process_delete_requests():
                 if est:
                     es = Email.EmailServer(db)
                     es.find(est.email_server_id)
-                    del_file.append('EMAIL:' + account.account.name + ':' + es.name)
+                    del_file.append('EMAIL:' + account.account_name + ':' + es.name)
                 account.delete_spread(row['spread'])
 
             ## Account is valid in nis@hia, remove account@nis spread, register nis-home delete
@@ -230,7 +230,7 @@ def main():
     del_list = []
     date = "%d-%d-%d" % time.localtime()[:3]
     outfile_dir = '/cerebrum/dumps/Delete/'
-    outfile = outfile_dir + str(date) + '-slettes.dat'
+    outfile = outfile_dir + str(date) + '-' + str(os.getpid()) + '-slettes.dat'
     max_requests = 999999
     start_time = time.time()
 
