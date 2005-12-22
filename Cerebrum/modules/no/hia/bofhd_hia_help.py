@@ -185,6 +185,9 @@ arg_help = {
     'account_name_src':
         ['uname', 'Enter source accountname',
          'You should enter the name of the source account for this operation'],
+    'source_system':
+        ['source_system', 'Enter source system',
+         'The name of the source system, i.e. system_fs/system_lt etc.'],
     'account_password':
         ['password', 'Enter password'],
     'affiliation':
