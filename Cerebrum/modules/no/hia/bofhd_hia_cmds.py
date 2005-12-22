@@ -23,6 +23,7 @@
 import re
 import sys
 import time
+import string
 import os
 import email.Generator, email.Message
 import cyruslib
@@ -3772,9 +3773,29 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
+
+        self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)
+
         return {'uid': uid}
 
-    
+    def _meld_inn_i_server_gruppe(self, acc_id, operator):
+        # fikser innmelding i edir-servergrupper _midlertidig_. skal fikses i nye edir-sync
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.clear()
+        acc.find(acc_id)
+        acc_stuff= acc.get_home(self.const.spread_hia_novell_user)
+        disk_id = acc_stuff['disk_id']
+        disk = Utils.Factory.get('Disk')(self.db)
+        disk.clear()
+        disk.find(disk_id)
+        tmp = string.split(disk.path, '/')
+        print tmp[1]
+        grp_name = 'server-' + str(tmp[1])
+        grp = Utils.Factory.get("Group")(self.db)
+        grp.clear()
+        grp.find_by_name(grp_name)
+        grp.add_member(acc.entity_id, self.const.entity_account, self.const.group_memberop_union)
+   
     # user home_create (set extra home per spread for a given account)
     all_commands['user_home_create'] = Command(
 	("user", "home_create"), AccountName(), Spread(), DiskId(), perm_filter='can_create_user')
