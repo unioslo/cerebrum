@@ -49,10 +49,10 @@ class AccountIndigoMixin(Account.Account):
             pot = string.ascii_letters + string.digits
             r = ''
             while len(r) < 8:
-                while count_digits <= 2:
+                while count <= 2:
                     tmp = pot[random.randint(0, len(pot)-1)]
                     if ascii.isdigit(tmp):
-                        count_digits += 1
+                        count += 1
                     r += tmp
         return r
 
