@@ -3133,22 +3133,29 @@ class BofhdExtension(object):
 
     #person set name
     all_commands['person_set_name'] = Command(
-	("person", "set_name"),PersonId(help_ref="person_id_other"),
+	("person", "set_name"), PersonId(help_ref="person_id_other"),
 	PersonName(help_ref="person_name_first"),
 	PersonName(help_ref="person_name_last"),
+        SourceSystem(optional=True, help_ref="source_system"),
 	fs=FormatSuggestion("Name altered for: %i",
 			    ("person_id",)),
 	perm_filter='is_superuser')
-    def person_set_name(self, operator, person_id, person_name_first, person_name_last):
+    def person_set_name(self, operator, person_id, person_name_first, person_name_last, source_system=None):
         person = self._get_person(*self._map_person_id(person_id))
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
 
-	for a in person.get_affiliations():
-	    if ((int(a['source_system']) in
-		 [int(self.const.system_fs), int(self.const.system_sap)]) and person.get_all_names()):
-		 raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
-	person.affect_names(self.const.system_manual, self.const.name_first, self.const.name_last)
+        if source_system and not source_system in cereconf.SYSTEM_LOOKUP_ORDER:
+            raise CerebrumError("No such source system")
+
+        if not source_system:
+            source_system = 'system_manual'
+            for a in person.get_affiliations():
+                if ((int(a['source_system']) in
+                     [int(self.const.system_fs), int(self.const.system_sap)]) and person.get_all_names()):
+                    raise CerebrumError, "You can't alter name of a person registered in an authorative source system!"
+        ss = getattr(self.const, source_system)
+	person.affect_names(ss, self.const.name_first, self.const.name_last)
 	person.populate_name(self.const.name_first,
 			     person_name_first.encode('iso8859-1'))
 	person.populate_name(self.const.name_last,
@@ -3158,6 +3165,31 @@ class BofhdExtension(object):
 	except self.db.DatabaseError, m:
 	    raise CerebrumError, "Database error: %s" % m
 	return {'person_id': person.entity_id}
+
+    # person clear_name
+    all_commands['person_clear_name'] = Command(
+	("person", "clear_name"),PersonId(help_ref="person_id_other"),
+	SourceSystem(help_ref="source_system", optional=True),
+	fs=FormatSuggestion("Name removed for: %i",
+        ("person_id",)),
+	perm_filter='is_superuser')
+    def person_clear_name(self, operator, person_id, source_system=None):
+        person = self._get_person(*self._map_person_id(person_id))
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        if source_system and not source_system in cereconf.SYSTEM_LOOKUP_ORDER:
+            raise CerebrumError("No such source system")
+        for x in [self.const.name_first, self.const.name_last]:
+            try:
+                person.get_name(getattr(self.const, source_system), x)
+            except Errors.NotFoundError:
+                raise CerebrumError("No name registered from %s" % source_system)
+            try:
+                person._delete_name(getattr(self.const, source_system), x)
+                person._update_cached_names()
+            except:
+                raise CerebrumError("Could not delete name from %s", source_system)
+        return "Removed name from %s for %s" % (source_system, person_id)
 
     # person student_info
     all_commands['person_student_info'] = Command(
