@@ -188,10 +188,10 @@ class CerebrumProxy(object):
             etype='user', entity_id=entity_id, name=uname)
         new_user = self.run_command('user_info', search)
         new_affs = []
-        for a in new_user['affiliations'].split(",\n"):
-            tmp = self._parse_aff(a)
-            if tmp:
-                new_affs.append(tmp)
+#        for a in new_user['affiliations'].split(",\n"):
+#            tmp = self._parse_aff(a)
+#            if tmp:
+#                new_affs.append(tmp)
         new_user['affiliations'] = new_affs
         return new_user
 
