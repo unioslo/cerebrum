@@ -276,6 +276,24 @@ class CleanChangeLog(object):
          'triggers': (co.homedir_add, co.homedir_update)}
         ])
 
+    if hasattr(co, 'a_record_add'):
+        # dnsinfo changes
+        keep_togglers.extend([
+             {'columns': ('subject_entity', ),
+              'triggers': (co.a_record_add, co.a_record_del, co.a_record_update)},
+             {'columns': ('subject_entity', ),
+              'triggers': (co.host_info_add, co.host_info_del, co.host_info_update)},
+             {'columns': ('subject_entity', ),
+              'triggers': (co.ip_number_add, co.ip_number_del, co.ip_number_update, )},
+             {'columns': ('subject_entity', ),
+              'triggers': (co.srv_record_add, co.srv_record_del)},
+             {'columns': ('subject_entity', ),
+              'triggers': (co.cname_add, co.cname_del, co.cname_update)},
+             {'columns': ('subject_entity', ),
+              'triggers': (co.dns_owner_add, co.dns_owner_update, co.dns_owner_del)},
+             {'columns': ('subject_entity', ),
+              'triggers': (co.general_dns_record_add, co.general_dns_record_update)}])
+
     def process_log(self):
         if 0:
             for c in db.get_changetypes():
