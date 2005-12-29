@@ -109,7 +109,7 @@ class CNameRecord(Entity):
         WHERE cname_owner_id=:cname_owner_id""", {'cname_owner_id': cname_owner_id})
         self.find(cname_id)
 
-    def list_ext(self, target_owner=None, cname_owner=None):
+    def list_ext(self, target_owner=None, cname_owner=None, zone=None):
         where = ['c.cname_owner_id=d_own.dns_owner_id',
                  'c.target_owner_id=d_tgt.dns_owner_id',
                  'c.cname_owner_id=en_own.entity_id',
@@ -118,6 +118,9 @@ class CNameRecord(Entity):
             where.append("c.target_owner_id=:target_owner_id")
         if cname_owner:
             where.append("c.cname_owner_id=:cname_owner_id")            
+        if zone is not None:
+            where.append("d_own.zone_id=:zone")
+            zone = int(zone)
         where = " AND ".join(where)
         return self.query("""
         SELECT c.cname_id, c.cname_owner_id, c.ttl, c.target_owner_id,
@@ -129,7 +132,8 @@ class CNameRecord(Entity):
              [:table schema=cerebrum name=entity_name] en_tgt
         WHERE %s""" % where, {
                'target_owner_id': target_owner,
-               'cname_owner_id': cname_owner} )
+               'cname_owner_id': cname_owner,
+               'zone': zone} )
 
     def _delete(self):
         """Deletion in cname_record should be done through the DnsHelper

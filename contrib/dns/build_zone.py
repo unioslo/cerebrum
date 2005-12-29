@@ -122,25 +122,25 @@ class ForwardMap(object):
         self.dnsowner2txt_record = {}
         self.srv_records = {}
         logger.debug("Getting zone data")
-        self._get_zone_data()
+        self._get_zone_data(zone)
         logger.debug("done getting zone data")
         self.__lc_delta = lc_delta
       
-    def _get_zone_data(self):
+    def _get_zone_data(self, zone):
         # ARecord has key=a_record_id
         # HostInfo, SrvRecord has key=dns_owner_id
         # CnameRecords key=target_owner_id
         # entity2txt, entity2note has_key=entity_id
-        for row in ARecord.ARecord(db).list_ext():
+        for row in ARecord.ARecord(db).list_ext(zone=zone):
             self.a_records[int(row['a_record_id'])] = row
         logger.debug("... arecords")
 
-        for row in HostInfo.HostInfo(db).list():
+        for row in HostInfo.HostInfo(db).list(zone=zone):
             # Unique constraint on dns_owner_id
             self.hosts[int(row['dns_owner_id'])] = row
 
         logger.debug("... hosts")
-        for row in CNameRecord.CNameRecord(db).list_ext():
+        for row in CNameRecord.CNameRecord(db).list_ext(zone=zone):
             # TBD:  skal vi ha unique constraint på dns_owner?
             self.cnames.setdefault(int(row['target_owner_id']), []).append(row)
         logger.debug("... cnames")
@@ -151,18 +151,18 @@ class ForwardMap(object):
                                     ).append(row)
 
         logger.debug("... mx_sets")
-        for row in DnsOwner.DnsOwner(db).list():
+        for row in DnsOwner.DnsOwner(db).list(zone=zone):
             self.owner_id2mx_set[int(row['dns_owner_id'])] = int(
                 row['mx_set_id'] or 0)
 
         logger.debug("... mx_set owners")
 
         for row in DnsOwner.DnsOwner(db).list_general_dns_records(
-            field_type=co.field_type_txt):
+            field_type=co.field_type_txt, zone=zone):
             self.dnsowner2txt_record[int(row['dns_owner_id'])] = row
         logger.debug("... txt reocrds")
 
-        for row in DnsOwner.DnsOwner(db).list_srv_records():
+        for row in DnsOwner.DnsOwner(db).list_srv_records(zone=zone):
             # We want them listed in the same place
             # TODO: while doing that, we want it below the first target_owner_id
             self.srv_records.setdefault(

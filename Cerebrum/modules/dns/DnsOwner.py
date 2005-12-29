@@ -194,21 +194,22 @@ class GeneralDnsRecord(object):
                             None, change_params={'field_type': int(field_type),
                                                  'data': data})
 
-    def list_general_dns_records(self, field_type=None, dns_owner_id=None):
-        where = []
+    def list_general_dns_records(self, field_type=None, dns_owner_id=None, zone=None):
+        where = ['d.dns_owner_id=gdns.dns_owner_id']
         if field_type is not None:
             field_type = int(field_type)
             where.append("field_type=:field_type")
         if dns_owner_id is not None:
             where.append("dns_owner_id=:dns_owner_id")
-        if where:
-            where = "WHERE "+" AND ".join(where)
-        else:
-            where = ""
+        if zone is not None:
+            where.append("d.zone_id=:zone")
+            zone = int(zone)
+        where = " AND ".join(where)
         return self.query("""
-        SELECT dns_owner_id, field_type, ttl, data
-        FROM [:table schema=cerebrum name=dns_general_dns_record] %s""" % where,
-                          locals())
+        SELECT gdns.dns_owner_id, field_type, ttl, data
+        FROM [:table schema=cerebrum name=dns_general_dns_record] gdns,
+             [:table schema=cerebrum name=dns_owner] d
+        WHERE %s""" % where, locals())
 
 class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
     """``DnsOwner(GeneralDnsRecord, Entity)`` primarily updates the
@@ -329,20 +330,24 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
         self._db.log_change(self.entity_id, self.const.dns_owner_del, None)
         self.__super.delete()
 
-    def list(self):
-        return self.search()
+    def list(self, zone=None):
+        return self.search(zone=zone)
 
-    def search(self, name_like=None):
+    def search(self, name_like=None, zone=None):
+        where = ['d.dns_owner_id=en.entity_id']
         if name_like is not None:
-            where = "AND en.entity_name like :name_like"
-        else:
-            where = ""
+            where = "en.entity_name like :name_like"
+        if zone is not None:
+            where.append("d.zone_id=:zone")
+            zone = int(zone)
+        where = " AND ".join(where)
         return self.query("""
         SELECT dns_owner_id, mx_set_id, en.entity_name AS name
         FROM [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
-        WHERE d.dns_owner_id=en.entity_id %s""" % where,
-                          {'name_like': name_like})
+        WHERE %s""" % where, {
+            'name_like': name_like,
+            'zone': zone})
 
     # TBD: Should we have the SRV methods in a separate class?  The
     # methods are currently not connected with the object in any way.
@@ -374,7 +379,7 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
         self._db.log_change(service_owner_id, self.const.srv_record_del,
                             target_owner_id)
 
-    def list_srv_records(self, owner_id=None, target_owner_id=None):
+    def list_srv_records(self, owner_id=None, target_owner_id=None, zone=None):
         where = ['srv.target_owner_id=d_tgt.dns_owner_id',
                  'srv.service_owner_id=d_own.dns_owner_id',
                  'srv.target_owner_id=en_tgt.entity_id',
@@ -383,6 +388,9 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
             where.append("service_owner_id=:owner_id")
         if target_owner_id is not None:
             where.append("target_owner_id=:target_owner_id")
+        if zone is not None:
+            where.append("d_own.zone_id=:zone")
+            zone = int(zone)
         where = " AND ".join(where)
         return self.query("""
         SELECT service_owner_id, pri, weight, port, ttl,
@@ -395,7 +403,8 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
              [:table schema=cerebrum name=entity_name] en_tgt
         WHERE %s""" % where, {
             'owner_id': owner_id,
-            'target_owner_id': target_owner_id} )
+            'target_owner_id': target_owner_id,
+            'zone': zone} )
 
     # We don't support a general update_srv_record as the PK is too wide.
     def update_srv_record_ttl(self, owner_id, ttl):

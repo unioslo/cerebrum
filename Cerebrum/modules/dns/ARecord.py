@@ -145,7 +145,7 @@ class ARecord(Entity):
                             self.ip_number_id)
         self.__super.delete()
 
-    def list_ext(self, ip_number_id=None, dns_owner_id=None, start=None, stop=None):
+    def list_ext(self, ip_number_id=None, dns_owner_id=None, start=None, stop=None, zone=None):
         where = ['a.dns_owner_id=d.dns_owner_id',
                  'a.ip_number_id=i.ip_number_id',
                  'd.dns_owner_id=en.entity_id']
@@ -157,6 +157,9 @@ class ARecord(Entity):
             where.append("i.ipnr >= :start")
         if stop is not None:
             where.append("i.ipnr <= :stop")
+        if zone is not None:
+            where.append("d.zone_id=:zone")
+            zone = int(zone)
         where = " AND ".join(where)
         return self.query("""
         SELECT a.a_record_id, a.ip_number_id, i.a_ip, i.ipnr, a.ttl,
@@ -168,6 +171,7 @@ class ARecord(Entity):
         WHERE %s """ % where, {
             'ip_number_id': ip_number_id,
             'dns_owner_id': dns_owner_id,
-            'start': start, 'stop': stop} )
+            'start': start, 'stop': stop,
+            'zone': zone} )
 
 # arch-tag: 655bcc55-d41d-4e27-9c21-18993232895e

@@ -126,10 +126,17 @@ class HostInfo(Entity):
         WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': dns_owner_id})
         self.find(host_id)
 
-    def list(self):
+    def list(self, zone=None):
+        where = ['hi.dns_owner_id=d.dns_owner_id']
+        if zone is not None:
+            where.append("d.zone_id=:zone")
+            zone = int(zone)
+        where = " AND ".join(where)
         return self.query("""
-        SELECT host_id, dns_owner_id, ttl, hinfo
-        FROM [:table schema=cerebrum name=dns_host_info]""")
+        SELECT host_id, hi.dns_owner_id, ttl, hinfo
+        FROM [:table schema=cerebrum name=dns_host_info] hi,
+             [:table schema=cerebrum name=dns_owner] d
+        WHERE %s""" % where, {'zone': zone})
 
     def list_ext(self, dns_owner_id=None):
         return self.query("""
