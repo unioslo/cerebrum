@@ -80,7 +80,7 @@ class ChangeLog(object):
 
     def get_log_events(self, start_id=0, max_id=None, types=None,
                        subject_entity=None, dest_entity=None,
-                       any_entity=None, change_by=None):
+                       any_entity=None, change_by=None, sdate=None):
         if any_entity and (dest_entity or subject_entity):
             raise self.ProgrammingError, "any_entity is mutually exclusive with dest_entity or subject_entity"
         where = ["change_id >= :start_id"]
@@ -104,6 +104,9 @@ class ChangeLog(object):
         if types is not None:
             where.append("change_type_id IN("+", ".join(
                 ["%i" % x for x in types])+")")
+        if sdate is not None:
+            where.append("tstamp > :sdate")
+            bind['sdate'] = sdate
         where = "WHERE (" + ") AND (".join(where) + ")"
         return self.query("""
         SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
