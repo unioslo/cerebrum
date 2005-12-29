@@ -233,6 +233,9 @@ PRINT_BARCODE=None
 # Used for sending e-mail
 SMTP_HOST='localhost'
 
+# Logdir for Cweb app.
+CWEB_LOG_DIR='.' 
+
 # Logdir for AutoStud jobs
 AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write access
 # Socket used to query the job-runner server, should not be writeable by untrusted users
