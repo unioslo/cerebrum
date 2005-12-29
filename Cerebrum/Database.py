@@ -987,10 +987,12 @@ class PsycoPGCursor(Cursor):
             return s.decode('UTF-8')
 
         ret = super(PsycoPGCursor, self).execute(operation, parameters)
+        self._convert_cols = {}
         if self.description is not None:
-            self._convert_cols = {}
             for n in range(len(self.description)):
-                if self.description[n][5] == 0:  # pos 5 = scale in DB-API spec
+                if (self.description[n][1] == self._db.NUMBER and
+                    self.description[n][5] <= 0):  # pos 5 = scale in DB-API spec
+
                     self._convert_cols[n] = long
                 elif (self._db.encoding == 'UTF-8' and
                       self.description[n][1] == self._db.STRING):
