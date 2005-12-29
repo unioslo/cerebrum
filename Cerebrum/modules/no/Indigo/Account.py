@@ -27,8 +27,9 @@ import cereconf
 from mx import DateTime
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
+from Cerebrum.modules import Email
+from Cerebrum.Utils import Factory
 
 class AccountIndigoMixin(Account.Account):
     """Account mixin class providing functionality specific to Indigo.
@@ -39,11 +40,30 @@ class AccountIndigoMixin(Account.Account):
     the policies as stated by the Indigo-project.
 
     """
+    def is_employee(self, uname):
+        db = Factory.get('Database')()
+        person = Factory.get('Person')(db)
+        account = Factory.get('Account')(db)
+        account.clear()
+        try:
+            account.find_by_name(uname)
+        except Errors.NotFoundError:
+            return False
+        person.clear()
+        try:
+            person.find(account.owner_id)
+        except Errors.NotFoundError:
+            return False
+        for r in person.get_affiliations():
+            if r['affiliation'] == self.const.affiliation_ansatt:
+                return True
+        return False
+    
     def make_passwd(self, uname):
         pot = string.ascii_letters + string.digits
         count = 0
         pwd = []
-        if self.is_employee():
+        if self.is_employee(uname):
             self.__super.make_password(uname)
         else:
             while count < 2:
@@ -52,7 +72,7 @@ class AccountIndigoMixin(Account.Account):
             while count < 8:
                 pwd.append(string.ascii_letters[random.randint(0, len(string.ascii_letters)-1)])
                 count += 1
-                random.shuffle(pwd)
+        random.shuffle(pwd)
         return string.join(pwd,'')
 
     def update_email_addresses(self, set_primary = False):
@@ -167,12 +187,6 @@ class AccountIndigoMixin(Account.Account):
             ph = PasswordHistory.PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
-
-    def is_employee(self):
-        for r in self.get_account_types():
-            if r['affiliation'] == self.const.affiliation_ansatt:
-                return True
-        return False
 
     def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
         return pgp_encrypt(plaintext, cereconf.PGPID)
