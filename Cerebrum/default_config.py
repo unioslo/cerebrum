@@ -235,6 +235,8 @@ SMTP_HOST='localhost'
 
 # Logdir for Cweb app.
 CWEB_LOG_DIR='.' 
+# Templates for Cweb app
+CWEB_TPL_DIR='.'
 
 # Logdir for AutoStud jobs
 AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write access
