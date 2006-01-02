@@ -56,6 +56,7 @@ CREATE_USER_SCRIPT= '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
 ARCHIVE_MAIL_SCRIPT = '/cerebrum/sbin/archivemail'
+DIST_NOTESID_SCRIPT = '/cerebrum/sbin/dist_NotesID.pl'
 LEGAL_BATCH_MOVE_TIMES = '20:00-08:00'
 MAILMAN_SCRIPT = None
 CONVERT_MAILCONFIG_SCRIPT = None
