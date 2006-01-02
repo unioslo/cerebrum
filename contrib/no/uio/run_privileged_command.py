@@ -49,6 +49,8 @@ commands = {
     'mailman': [cereconf.MAILMAN_SCRIPT, 3],
     # operation
     'clean_rmuser': [cereconf.CLEAN_RMUSER_SCRIPT, 1],
+    # dist Notes ID files
+    'dist_NotesID': [cereconf.DIST_NOTESID_SCRIPT, 4],
     }
 
 def usage(exitcode=0):
