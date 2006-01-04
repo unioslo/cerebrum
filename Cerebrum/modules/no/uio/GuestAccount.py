@@ -27,58 +27,55 @@ temporary users.
 """
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-#from Cerebrum import Utils
 
 db = Factory.get('Database')()
+db.cl_init(change_program="GuestAccount")
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)    
 prs = Factory.get('Person')(db)    
 grp = Factory.get('Group')(db)    
 logger = Factory.get_logger()
 
-
-MIN_LENGTH = 5
 VALID_GUEST_ACCOUNT_NAMES = ['guest%s' % str(i).zfill(3)
                              for i in range(1,cereconf.NR_GUEST_USERS+1)]
+
 
 class GuestAccountException(Exception):
     """General exception for GuestAccount"""
     pass
 
 
-def request_guest_users(nr, end_date, owner_type, owner):
+def request_guest_users(nr, end_date, owner_type, owner_id):
     """Allocate nr number of guest users until manually released or
     until end_date. If the function fails because there are not enough
     guest users available raise GuestAccountException."""
 
-
     if nr > nr_available_accounts():
-        raise GuestAccountException("Not enough guest accounts available. Use 'user guests_status' to find the nr of available guests.")
+        raise GuestAccountException("Not enough available guest users.\nUse 'user guests_status' to find the nr of available guests.")
     
-    return ['guest001', 'guest002'] # test
-
     ret = []
     failed = []
     for start, end in _find_subsets(nr):
-        print "start %d, end %d" % (start, end)
         for i in range(start, end+1):
-            guest = 'guest%s' % str(i).zfill(3)
+            guest = VALID_GUEST_ACCOUNT_NAMES[i]
             try:
-                _alloc_guest(guest, end_date, owner_type, owner)
+                _alloc_guest(guest, end_date, owner_type, owner_id)
                 ret.append(guest)            
             except (GuestAccountException, Errors.NotFoundError):
                 failed.append(guest)
-    # FIXME, vil jeg gjøre det slik?
+
+    # If for some reason there is a partial failure, should we try to
+    # fix it? If LITA wants to require 50 guests, but _alloc_guest
+    # only succeeds in 49 of the cases it makes little sense to give
+    # up. Discuss and fix.
     if failed:
-        raise GuestAccountException("Failed to alloc %d guest accounts" % len(failed))
+        raise GuestAccountException("Failed to alloc %d guest users" % len(failed))
     return ret
 
 
-# FIXME, karantene-bruken er utestet. Kan brekke...
 def release_guest(guest, operator_id):
     """ Release a guest account
 
@@ -86,14 +83,25 @@ def release_guest(guest, operator_id):
     mark it as released. If it already is released ignore this
     action and log a warning."""
 
-    return  # Test
+    if _is_free(guest):
+        raise GuestAccountException("Guest user %s is already available." % guest)
+        
     ac.clear()
     ac.find_by_name(guest)
-    # Set quarantine again
+    # Set normal quarantine again to mark that the account is free
+    # Only way to do this is to delete disabled quarantine and set new
+    # quarantine. It would be useful with another way to do this.    
     today = DateTime.today()
+    ac.delete_entity_quarantine(co.quarantine_generell) 
     ac.add_entity_quarantine(co.quarantine_generell, operator_id,
                              "Released guest user.", today.date) 
-    # Hva med owner, owner_type?
+    # Delete trait to mark that account has no temporay owner
+    old = ac.get_trait(co.trait_guest_owner)
+    if old:
+        ac.delete_trait(co.trait_guest_owner)
+    else:
+        logger.warn("Tried to delete owner trait for %s, but guest account "\
+                    "has no owner trait. Suspicious!" % guest)
 
 
 def get_guest(guestname):
@@ -101,58 +109,74 @@ def get_guest(guestname):
     ac.find_by_name(guestname)
     return ac
 
-# FIXME, lag ferdig list_guest_accounts
-def list_guest_users(entity_type, owner):
-    return "Not finished"
-    ac.clear()
-    return ac.list_guest_accounts(owner_id=owner.entity_id)
-    
 
+# TBD, efficiency improvements can be done...
+def list_guest_users(entity_type, owner_id):
+    ret = []
+    ac.clear()
+    for row in ac.list_traits(co.trait_guest_owner):
+        if int(owner_id) == int(row[3]):
+            ac.clear()
+            ac.find(row[0])
+            ret.append(ac.account_name)
+
+    return ret
+
+# TBD, efficiency improvements can be done...
 def nr_available_accounts():
     """ Find nr of available guest accounts. """
 
-    return 400 # Test
     ret = 0
     for account_id, uname in ac.search(name="guest???"):
         ac.clear()
         if uname in VALID_GUEST_ACCOUNT_NAMES:
             ac.find(account_id)
-            if ac.get_entity_quarantine(type=co.quarantine_generell):
-                # Qurantine set, account is available. Er dette nok?
+            if ac.get_entity_quarantine(type=co.quarantine_generell, only_active=True):
+                # Qurantine set, account is available. 
                 ret += 1
     return ret
 
 
-    
-# Utility functions
+# TBD, efficiency improvements can be done...
+def _is_free(uname):
+    ac.clear()
+    if uname in VALID_GUEST_ACCOUNT_NAMES:
+        try:
+            ac.find_by_name(uname)
+            if ac.get_entity_quarantine(type=co.quarantine_generell, only_active=True):
+                # Qurantine is set, account is available. 
+                return True
+        except:
+            return False
+    return False
 
 
 # FIXME: passord,
-def _alloc_guest(guest, end_date, owner_type, owner):
+def _alloc_guest(guest, end_date, owner_type, owner_id):
     """ Allocate a guest account.
 
     Make sure that the guest account requested actually exists and is
-    available. If so set owner_type and owner. To mark the account as
-    taken, disable quarantine until end_date"""
+    available. If so set owner trait and mark the account as taken by
+    disabling quarantine until end_date"""
 
+    logger.debug("Try to alloc %s" % guest)
+    ac.clear()
     ac.find_by_name(guest)
-    if not ac.get_entity_quarantine(type=co.quarantine_generell):
+    if not ac.get_entity_quarantine(type=co.quarantine_generell, only_active=True):
         # This user should have been available...
         raise GuestAccountException("Couldn't alloc guest %s. Already taken." % guest)
     # OK, disable quarantine
-    ac.disable_entity_quarantine(co.quarantine_generell, end_date)
+    logger.debug("Disable quarantine for %s" % guest)
+    ac.disable_entity_quarantine(int(co.quarantine_generell), end_date)
     # Set end_date trait
-    ac.populate_trait(self.const.trait_guest_end_date, date=end_date)
-
-    ac.owner_type = owner_type
-    ac.owner_id = owner.entity_id
-    ac.write_db() # Riktig?
+    logger.debug("populate trait for %s" % guest)
+    ac.populate_trait(co.trait_guest_owner, target_id=owner_id)
+    ac.write_db()
     # Passord...
     
 
 def _find_available_subsets():
-    """Return all available subsets with length > MIN_LENGTH.
-       Subsets are sorted after increasing length.
+    """Return all available subsets sorted after increasing length.
     """
     first = None   # First element of a possible subset
     last = 0       # runs until last available spot of a subset
@@ -161,22 +185,21 @@ def _find_available_subsets():
     i = 0
     while i < len(VALID_GUEST_ACCOUNT_NAMES):
         if _is_free(VALID_GUEST_ACCOUNT_NAMES[i]):
-            print "Free"
+            logger.debug("%s is free" % VALID_GUEST_ACCOUNT_NAMES[i])
             if first is None:
                 first = i
             last = i
         else:
+            logger.debug("%s is taken." % VALID_GUEST_ACCOUNT_NAMES[i])
             if not first is None:
                 length = last - first + 1
-                if length >= MIN_LENGTH:
-                    tmp[(first, last)] = length
+                tmp[(first, last)] = length
             first = None
         i += 1
     # Get the last subset
     if not first is None:
         length = last - first + 1
-        if length >= MIN_LENGTH:
-            tmp[(first, last)] = length
+        tmp[(first, last)] = length
 
     # Sort the subsets, the shortest first
     keys = _sort_by_value(tmp)
@@ -194,9 +217,7 @@ def _find_nr_of_subsets(las, n):
         if len(las) < abs(i):  # Enough available subsets? 
             break
         x += las[i][0]
-    if not x >= n:
-        # Argh! Not enough available subsets of length > MIN_LENGTH. 
-        return None
+
     return abs(i)
 
 
@@ -209,19 +230,12 @@ def _find_best_subset_fit(las, nr_of_slots_requested, nr_subsets):
     #  else:
     #      pick next subset in las and check with that
 
-    # NB! Algoritmen er kanskje litt "utrygg". Den vil kun virke om
-    # nr_of_slots_requested <= antall ledige slots i las (List of
-    # Available subsets) og nr_subsets >= 1. Hvis dette ikke er testet
-    # før denne funskjonen kalles kan det fort gå til helvete. 
-
     # get length, start- and end-position of shortest subset in las
     slen, start, end = las.pop(0) 
     
     if nr_subsets == 1:              
         if nr_of_slots_requested <= slen:
             return start, start+nr_of_slots_requested-1
-        # If this test fails the loop will be skipped and the else
-        # branch below  will run.
 
     l = slen
     i = 1
@@ -236,8 +250,8 @@ def _find_best_subset_fit(las, nr_of_slots_requested, nr_subsets):
     if use_shortest:
         return (start, end), _find_best_subset_fit(las, nr_of_slots_requested-slen,
                                                   nr_subsets-1)
-    else:
-        return _find_best_subset_fit(las, nr_of_slots_requested, nr_subsets)
+    # Try again, this time without the shortest interval
+    return _find_best_subset_fit(las, nr_of_slots_requested, nr_subsets)
 
 
 def _find_subsets(nr_of_slots_requested):
@@ -246,28 +260,9 @@ def _find_subsets(nr_of_slots_requested):
     """
     las = _find_available_subsets()
     nr_subsets = _find_nr_of_subsets(las, nr_of_slots_requested)
-    # If nr_subsets is None, then the total number of free slots in
-    # las isn't enough. The only solution is to use all the available
-    # slots until nr_of_slots_requested slots are allocated.    
-    if not nr_subsets:
-        MIN_LENGTH = 1
-        return _find_subsets(nr_of_slots_requested)
 
     return _flatten(_find_best_subset_fit(las, nr_of_slots_requested, nr_subsets))
 
-
-# FIXME, burde ha en cache eller noe...
-def _is_free(uname):
-    ac.clear()
-    if uname in VALID_GUEST_ACCOUNT_NAMES:
-        try:
-            ac.find_by_name(uname)
-            if ac.get_entity_quarantine(type=co.quarantine_generell):
-                # Qurantine set, account is available. Er dette nok?
-                return True
-        except:
-            return False
-    return False
  
 def _sort_by_value(d):
     """ Returns the keys of dictionary d sorted by their values """
@@ -295,3 +290,4 @@ def _flatten(tup):
     return res
 
 # arch-tag: bd3d80d8-6272-11da-9a93-7a2e47a48ea3
+
