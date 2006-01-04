@@ -23,7 +23,6 @@ import os
 import time
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Cache
 from Cerebrum import Errors
@@ -34,6 +33,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.no.uio import GuestAccount
     
+
 class SimpleLogger(object):
     # Unfortunately we cannot user Factory.get_logger due to the
     # singleton behaviour of cerelog.get_logger().  Once this is
@@ -65,6 +65,7 @@ class SimpleLogger(object):
 
     def critical(self, msg, **kwargs):
         self.show_msg("CRITICAL", msg, **kwargs)
+
 
 class BofhdExtension(object):
     all_commands = {}
@@ -98,9 +99,11 @@ class BofhdExtension(object):
         return (group_help, command_help,
                 arg_help)
 
+
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
     
+
     def get_commands(self, account_id):
         try:
             return self._cached_client_commands[int(account_id)]
@@ -128,6 +131,7 @@ class BofhdExtension(object):
                 return True
         return False
         
+
     def user_request_guest_prompt_func(self, session, *args):
         all_args = list(args[:])
         if not all_args:
@@ -159,6 +163,7 @@ class BofhdExtension(object):
         owner = all_args.pop(0)
         return {'last_arg': True}
 
+
     # user request_guest <nr> <end-date> <entity_name>
     all_commands['user_request_guest'] = Command(
         ('user', 'request_guest'), prompt_func=user_request_guest_prompt_func,
@@ -170,30 +175,28 @@ class BofhdExtension(object):
             self.ba.can_request_guests(operator.get_entity_id(), groupname, query_run_any=True)
             owner = self._get_group(groupname)
         except Errors.NotFoundError:
-            raise CerebrumError("No group wit name %s" % groupname)
-        entity_type = self.const.entity_group
+            raise CerebrumError("No group with name %s" % groupname)
         try:
             # FIXME, passwords
             user_list = GuestAccount.request_guest_users(int(nr), end_date,
-                                                         entity_type, owner)
-            ret = "OK, reserved guest users:\n%s\n" % '\n'.join(user_list)
-            # Mer enn 3 brukere, skriv intervall. Pass på om ikke consecutive
+                                                         self.const.entity_group,
+                                                         owner.entity_id)
+            ret = "OK, reserved guest users:\n%s\n" % self._pretty_print(user_list)
             ret += "Please use misc list_passwords to print or view the passwords."
             return ret
         except GuestAccount.GuestAccountException, e:
-            print str(e)
-            raise CerebrumError("Could not allocate temporary_users. %s" % str(e))
+            raise CerebrumError(str(e))
         
     
     # user release_guest [<guest> || <range>]+
     all_commands['user_release_guest'] = Command(
         ('user', 'release_guest'))              # FIXME, hva skal vi sette her?
     def user_release_guest(self, operator, *args):
-        guests = []
+        guests = []        
         if not args:
-            # Dette er kanskje ikke måten å gjøre det på...
+            # FIXME, We should really prompt here...
             return "Usage: user release_guest [<guest> || <range>]+"
-        # Hver arg er enten en guest account eller intervall 
+        # Each arg should be an guest account name or an interval 
         for arg in args:
             if '..' in arg:
                 first, last = arg.split('..')
@@ -204,19 +207,27 @@ class BofhdExtension(object):
             else:
                 guests.append(arg)
 
+        # TBD: hvis man forsøker å release et intervall, la oss si
+        # guest001-guest020, og det bare er noen av disse man faktisk
+        # eier, la oss si guest001-guest010, vil frigjøringen av de 10
+        # første gå bra, mens så vil kommandoen feile. Altså en delvis
+        # suksess. Ikke helt heldig.
+        # Ny kommentar: Siden ting går i dass blir vel ikke endringen
+        # commitet til db, slik at ingen release blir utført. Tror
+        # jeg...        
         for guest in guests:
             # Fjern query_run_any=True når ting er klart
             try:
                 self.ba.can_release_guests(operator.get_entity_id(),
-                                           GuestAccount.get_guest(guest), query_run_any=True)
+                                           GuestAccount.get_guest(guest),
+                                           query_run_any=True)
                 GuestAccount.release_guest(guest, operator.get_entity_id())
             except Errors.NotFoundError:
-                raise CerebrumError("Could not find guest account with user name %s" % guest)
-            except GuestAccount.GuestAccountException:
-                raise CerebrumError("Could not release guest users.")
+                raise CerebrumError("Could not find guest user with name %s" % guest)
+            except GuestAccount.GuestAccountException, e:
+                raise CerebrumError("Could not release guest users. %s" % str(e))
 
-        # FIXME, utskrift
-        return "OK, released guests:\n%s" % '\n'.join(guests)
+        return "OK, released guests:\n%s" % self._pretty_print(guests)
 
                     
     # user guests <owner>
@@ -224,17 +235,20 @@ class BofhdExtension(object):
         ('user', 'guests'), GroupName())
     def user_guests(self, operator, groupname): 
         owner = self._get_group(groupname)
-        entity_type = self.const.entity_group 
         try:
-            return GuestAccount.list_guest_users(entity_type, owner)
-        except GuestAccount.GuestAccountException:
+            tmp = GuestAccount.list_guest_users(self.const.entity_group,
+                                                owner.entity_id)
+        except:
             raise CerebrumError("Could not list guest users.")
-    
+
+        return "The following guest users is owned by %s:\n%s" % (
+            groupname, self._pretty_print(tmp))
+
 
     all_commands['user_guests_status'] = Command(
         ('user', 'guests_status'))
     def user_guests_status(self, operator):
-        return "%d guest accounts available." % GuestAccount.nr_available_accounts()
+        return "%d guest users available." % GuestAccount.nr_available_accounts()
 
 
     def _get_group(self, id, idtype=None, grtype="Group"):
@@ -255,5 +269,32 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
         return group
+
+
+    def _pretty_print(self, guestlist):
+        """Return a pretty string of the names in guestlist. If the
+        list contains more than 2 consecutive names they should be
+        written as an interval."""
+    
+        intervals = []
+        int2name = {}
+    
+        guestlist.sort()    # sort the list before looking for ranges.
+        for name in guestlist:
+            nr = int(name[-3:])
+            int2name[nr] = name
+            if intervals and nr - intervals[-1][1] == 1:
+                intervals[-1][1] = nr
+            else:
+                intervals.append([nr, nr])
+    
+        ret = []
+        for i,j in intervals:
+            if i == j:
+                ret.append(int2name[i])
+            else:
+                ret.append('%s - %s' % (int2name[i], int2name[j]))
+    
+        return '\n'.join(ret)
 
 # arch-tag: bddd54d2-6272-11da-906d-7a8b01ac279a
