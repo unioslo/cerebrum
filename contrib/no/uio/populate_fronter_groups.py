@@ -96,6 +96,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, latin1_wash
 from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
@@ -884,6 +885,29 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     # Remove any spreads the group has
     for row in gr.get_spread():
         gr.delete_spread(row['spread'])
+    # Remove any references to the group as an authorization target.
+    aot = BofhdAuthOpTarget(db)
+    ar = BofhdAuthRole(db)
+    for r in aot.list(entity_id=gr.entity_id, target_type="group"):
+        aot.clear()
+        aot.find(r['op_target_id'])
+        # We remove all auth_role entries first so that there are no
+        # references to this op_target_id, just in case someone adds a
+        # foreign key constraint later.
+        for role in ar.list(op_target_id = r["op_target_id"]):
+            ar.revoke_auth(role['entity_id'], role['op_set_id'],
+                           r['op_target_id'])
+        aot.delete()
+    # Remove any authorization roles the group posesses.
+    for r in ar.list(entity_ids=[gr.entity_id]):
+        ar.revoke_auth(gr.entity_id, r['op_set_id'], r['op_target_id'])
+        # Also remove targets if this was the last reference from
+        # auth_role.
+        remaining = ar.list(op_target_id=r['op_target_id'])
+        if len(remaining) == 0:
+            aot.clear()
+            aot.find(r['op_target_id'])
+            aot.delete()
     # Delete the parent group (which implicitly removes all membership
     # entries representing direct members of the parent group)
     gr.delete()
