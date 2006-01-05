@@ -269,6 +269,20 @@ class AccountUtil(object):
     _update_group_memberships=staticmethod(_update_group_memberships)
 
     def update_account(account_id, fnr, profile, as_posix):
+
+        def _dont_downgrade_account():
+            """Return True if this is the time of year when accounts
+            shouldn't be downgraded."""
+
+            # We reuse the definition of the free period for printer
+            # quotas.
+            from Cerebrum.modules.no.uio.printer_quota.PPQUtil \
+                 import is_free_period
+            import time
+
+            year, month, mday = time.localtime()[0:3]
+            return is_free_period(year, month, mday)
+
         # First fill 'changes' with all needed modifications.  We will
         # only lookup databaseobjects if changes is non-empty.
         logger.info2(" UPDATE:%s" % account_id)
@@ -322,8 +336,12 @@ class AccountUtil(object):
                     # Setter kun kvote på student-disker
                     continue
                 quota = profile.get_disk_kvote(disk_id)
-                if (ac.get_disk_kvote(homedir_id) != quota):
-                    changes.append(('disk_kvote', (disk_id, homedir_id, quota, spread)))
+                if (ac.get_disk_kvote(homedir_id) > quota and
+                    _dont_downgrade_account()):
+                    continue
+                if ac.get_disk_kvote(homedir_id) != quota:
+                    changes.append(('disk_kvote',
+                                    (disk_id, homedir_id, quota, spread)))
                     ac.set_disk_kvote(homedir_id, quota)
 
         # TBD: Is it OK to ignore date on existing quarantines when
