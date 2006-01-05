@@ -278,9 +278,8 @@ class AccountUtil(object):
             # quotas.
             from Cerebrum.modules.no.uio.printer_quota.PPQUtil \
                  import is_free_period
-            import time
 
-            year, month, mday = time.localtime()[0:3]
+            year, month, mday = localtime()[0:3]
             return is_free_period(year, month, mday)
 
         # First fill 'changes' with all needed modifications.  We will
