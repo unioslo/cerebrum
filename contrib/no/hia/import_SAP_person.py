@@ -250,9 +250,17 @@ def populate_names(person, fields, const):
     """
 
     # List of names, with respective indices for values from FIELDS
-    name_types = ((const.name_first, 6),
-                  (const.name_middle, 7),
-                  (const.name_last, 8),
+    # TBD: name_middle name variant is not used by update_cached_names.
+    #      this means that none of the registered middle names are
+    #      visible in export systems (LDAP and such).
+    #      until correct (according to norwegian laws) use of middle
+    #      names has been determined the we will simply join first name
+    #      and middle name and update name_first name variant with
+    #      the result
+    #    old code:
+    #    name_types = ((const.name_first, 6),
+    #                  (const.name_middle, 7),
+    name_types = ((const.name_last, 8),
                   (const.name_initials, 3),
                   (const.name_work_title, 28))
     
@@ -268,6 +276,12 @@ def populate_names(person, fields, const):
         person.populate_name(name_type, value)
         logger.debug("Populated name type %s with «%s»", name_type, value)
     # od
+    
+    # set name_first = name_first + name_middle
+    fname = string.strip(fields[6]) + ' ' + string.strip(fields[7])
+    person.affect_names(const.system_sap, const.name_first)
+    person.populate_name(const.name_first, fname)
+    
 # end populate_names
     
 
