@@ -4598,8 +4598,8 @@ class BofhdExtension(object):
                         'studierettstatkode': row['studierettstatkode'],
                         'studentstatkode': row['studentstatkode'],
 			'studieretningkode': row['studieretningkode'],
-                        'dato_tildelt': DateTime.DateTimeFromTicks(row['dato_studierett_tildelt']),
-                        'dato_gyldig_til': DateTime.DateTimeFromTicks(row['dato_studierett_gyldig_til']),
+                        'dato_tildelt': self._convert_ticks_to_timestamp(row['dato_studierett_tildelt']),
+                        'dato_gyldig_til': self._convert_ticks_to_timestamp(row['dato_studierett_gyldig_til']),
                         'privatist': row['status_privatist']})
 
         for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
@@ -4609,19 +4609,19 @@ class BofhdExtension(object):
                     programmer.append(row2['studieprogramkode'])
             ret.append({'ekskode': row['emnekode'],
                         'programmer': ",".join(programmer),
-                        'dato': DateTime.DateTimeFromTicks(row['dato_opprettet'])})
+                        'dato': self._convert_ticks_to_timestamp(row['dato_opprettet'])})
                       
         for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
             ret.append({'studieprogramkode': row['studieprogramkode'],
                         'terminkode_bekreft': row['terminkode_bekreft'],
                         'arstall_bekreft': row['arstall_bekreft'],
-                        'dato_bekreftet': DateTime.DateTimeFromTicks(row['dato_bekreftet'])})
+                        'dato_bekreftet': self._convert_ticks_to_timestamp(row['dato_bekreftet'])})
 
         for row in fs.student.get_semreg(fodselsdato, pnum):
             ret.append({'regformkode': row['regformkode'],
                         'betformkode': row['betformkode'],
-                        'dato_betaling': DateTime.DateTimeFromTicks(row['dato_betaling']),
-                        'dato_regform_endret': DateTime.DateTimeFromTicks(row['dato_regform_endret'])})
+                        'dato_betaling': self._convert_ticks_to_timestamp(row['dato_betaling']),
+                        'dato_regform_endret': self._convert_ticks_to_timestamp(row['dato_regform_endret'])})
         db.close()
         return ret
 
@@ -6576,6 +6576,11 @@ class BofhdExtension(object):
                     msg += ", " + f
         by = row['change_program'] or self._get_entity_name(None, row['change_by'])
         return "%s [%s]: %s" % (row['tstamp'], by, msg)
+
+    def _convert_ticks_to_timestamp(ticks):
+        if ticks is None:
+            return None
+        return DateTime.DateTimeFromTicks(ticks)
 
     def _lookup_old_uid(self, account_id):
         uid = None
