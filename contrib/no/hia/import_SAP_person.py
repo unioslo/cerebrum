@@ -278,7 +278,11 @@ def populate_names(person, fields, const):
     # od
     
     # set name_first = name_first + name_middle
-    fname = string.strip(fields[6]) + ' ' + string.strip(fields[7])
+    mname = string.strip(fields[7])
+    if mname:
+        fname = string.strip(fields[6]) + ' ' + mname
+    else:
+        fname = string.strip(fields[6])
     person.affect_names(const.system_sap, const.name_first)
     person.populate_name(const.name_first, fname)
     
