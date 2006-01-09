@@ -19,9 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sys
+import getopt
+
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import SimilarSizeWriter
 from Cerebrum.Constants import _PersonAffStatusCode
 
 def get_account_info():
@@ -54,7 +58,7 @@ def process_users(affiliation, file):
         id = row['account_id']
         if not (a_id2auth.has_key(id) and a_id2auth[id][0]):
             # No username
-            print "No username found for '%s'" % id
+            logger.warning("No username found for '%s'" % id)
             continue
         uname = a_id2auth[id][0]
         if a_id2auth[id][1] is not None:
@@ -63,18 +67,18 @@ def process_users(affiliation, file):
             pwd = "*notfound"
         first = last = None
         if not a_id2owner.has_key(id):
-            print "No owner-ID and type for '%s'" % id
+            logger.warning("No owner-ID and type for '%s'" % id)
             continue
         if a_id2owner[id][0] == int(co.entity_person):
             p_names = p_id2name[a_id2owner[id][1]]
             if not (p_names.get(int(co.name_first)) or \
                     p_names.get(int(co.name_last))):
-                print "Names not found for '%s'" % id
+                logger.warning("Names not found for '%s'" % id)
                 continue
             first = p_names[int(co.name_first)]
             last = p_names[int(co.name_last)]
         else:
-            print "Wrong owner-type for '%s'" % id
+            logger.warning("Wrong owner-type for '%s'" % id)
             continue
         # Skip duplicates
         if known_dns.has_key(uname):
@@ -127,47 +131,64 @@ def process_groups(spread, file):
                 if a_id2auth.has_key(a_id):
                     txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % a_id2auth[a_id][0]]
                 else:
-                    print "No username found for: %s" % a_id
+                    logger.warning("No username found for: %s" % a_id)
                     continue
             else:
-                print "Member not account: %s" % a_id
+                logger.warning("Member not account: %s" % a_id)
                 continue
         txt += ["\n"]
         file.write('\n'.join(txt))
         
 
 def main():
-    global db, co, ac, p
+    global db, co, ac, p, logger
+
+    logger = Factory.get_logger("cronjob")
+    
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
     p = Factory.get('Person')(db)
 
+    path = "/cerebrum/dumps/OID"
+    
+    options, rest = getopt.getopt(sys.argv[1:],
+                                  "p:",
+                                  ["path=",])
+    for option, value in options:
+        if option in ("-p", "--path"):
+            path = value
+
     # Load dicts with misc info.
     get_account_info()
 
     # Dump info about users with co.affiliation_ansatt
-    f = open("ans_user_oid.ldif", 'w')
+    f = SimilarSizeWriter("%s/ans_user_oid.ldif" % path, "w")
+    f.set_size_change_limit(10)
     users = process_users(co.affiliation_ansatt, f)
     f.close()
 
     # Make a group out of these users
-    f = open("ans_group_oid.ldif", 'w')
+    f = SimilarSizeWriter("%s/ans_group_oid.ldif" % path, "w")
+    f.set_size_change_limit(10)
     process_prof_group("ANSATTE", users, f)
     f.close()
 
-    # Dump info about users with co.affiliation_elev    
-    f = open("elev_user_oid.ldif", 'w')
+    # Dump info about users with co.affiliation_elev 
+    f = SimilarSizeWriter("%s/elev_user_oid.ldif" % path, "w")
+    f.set_size_change_limit(10)
     users = process_users(co.affiliation_elev, f)
     f.close()
     
     # Make a group out of these users
-    f = open("elev_group_oid.ldif", 'w')
+    f = SimilarSizeWriter("%s/elev_group_oid.ldif" % path, "w")
+    f.set_size_change_limit(10)
     process_prof_group("ELEVER", users, f)
     f.close()
             
     # Make and populate groups with spread spread_oid_grp
-    f = open("group_oid.ldif", 'w')
+    f = SimilarSizeWriter("%s/group_oid.ldif" % path, "w")
+    f.set_size_change_limit(10)
     process_groups(co.spread_oid_grp, f)
     f.close()
     
