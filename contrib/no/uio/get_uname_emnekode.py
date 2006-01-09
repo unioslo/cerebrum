@@ -61,7 +61,8 @@ def fetch_primary_uname(row, person, account, constants):
             person.clear()
             person.find_by_external_id(constants.externalid_fodselsnr,
                                        no_ssn,
-                                       source_system = source)
+                                       source_system = source,
+                                    entity_type = int(constants.entity_person))
             account_id = person.get_primary_account()
             if not account_id:
                 return "No account"

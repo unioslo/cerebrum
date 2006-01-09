@@ -324,7 +324,7 @@ class Student(FSObject):
         """Hent informasjon om alle som er registrert på EMNEKODE"""
         query = """
         SELECT p.fodselsdato, p.personnr, p.fornavn, p.etternavn
-        FROM person p, eksamensmelding e
+        FROM fs.person p, fs.eksamensmelding e
         WHERE e.emnekode = :emnekode AND
              e.fodselsdato = p.fodselsdato AND
              e.personnr = p.personnr"""
@@ -332,15 +332,15 @@ class Student(FSObject):
         # That is why we interpolate variables into the query directly.
         if self.mndnr < 6:
             time_part = """
-                        AND e.arstall >= %(self.year)d
-                        AND e.manednr >= %(self.mndnr)d
-                        """ % locals()
+                        AND e.arstall >= %(year)d
+                        AND e.manednr >= %(mndnr)d
+                        """ % vars(self)
         else:
             time_part = """
-                        AND ((e.arstall = %(self.year)d AND
-                              e.manednr >= %(self.mndnr)d) OR
-                             (e.arstall > %(self.year)d))
-                        """ % locals()
+                        AND ((e.arstall = %(year)d AND
+                              e.manednr >= %(mndnr)d) OR
+                             (e.arstall > %(year)d))
+                        """ % vars(selv)
         return self.db.query(query + time_part, {"emnekode" : emnekode})
 
     def get_student_kull(self, fnr, pnr):
