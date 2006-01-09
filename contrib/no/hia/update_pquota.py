@@ -92,11 +92,11 @@ def update_quota(update, ldap_handle, pq, edir_ut, noup):
                                                                                         total,
                                                                                         int(pq_bal[0])))
             pq.update_total(int(k), total)
-            if noup:
-                logger.debug('Should update edir with new total %d for %s.' % (total,
-                                                                              update[k]))
-            else:
-                edir_ut.set_pq_balance(ldap_handle, update[k])
+        if noup:
+            logger.debug('Should update edir with new total %d for %s.' % (total,
+                                                                           update[k]))
+        else:
+            edir_ut.set_pq_balance(update[k])
 
 def need_to_update(paid_sem, updated):
     logger.debug("In need-to-update")

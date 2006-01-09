@@ -71,7 +71,7 @@ class EdirUtils:
             if home in ldap_attr.keys():
                 if path <> ldap_attr[home]:
                     desc = "Cerebrum: user moved %s" % self.date
-                    self.set_description(account_name, self.c_person, desc)
+                    self.object_set_description(account_name, self.c_person, desc)
                     logger.info("Account ndsHomeDirectory changed for %s" % account_name)
 
 ## QUARANTINE: set/remove quarantine
@@ -89,7 +89,7 @@ class EdirUtils:
             self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
 
         desc = 'Cerebrum: set quarantine %s (%s)' % (q_type, self.date)
-        self.set_description(account_name, self.c_person, desc)
+        self.object_set_description(account_name, self.c_person, desc)
                 
     def account_remove_quarantine(self, account_name, q_type):
         """Set loginDisabled attribute to False. Used when a
@@ -106,7 +106,7 @@ class EdirUtils:
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
 
         desc = 'Cerebrum: remove quarantine %s (%s)' % (q_type, self.date) 
-        self.set_description(account_name, self.c_person, desc)
+        self.object_set_description(account_name, self.c_person, desc)
 
 ## PRINTER QUOTA: get quota info, set accountBalance, get all available quota info
     def get_pq_balance(self, account_name):
@@ -127,7 +127,7 @@ class EdirUtils:
                 else:
                     self.logger.warn('No printer quota info for %s.' % account_name)
 
-    def set_pq_balance(self, account_name, pquota=cereconf.NW_PR_QUOTA):
+    def set_pq_balance(self, account_name, pquota=cereconf.NW_FREEQUOTA):
         """Set value of attribute 'accountBalance' for account_name.
            Also set attr 'allowUnlimitedCredit' to False. This method
            is used only when the account has been found to be a student
@@ -140,7 +140,7 @@ class EdirUtils:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             if 'accountBalance' in ldap_attr.keys():
                 pquota = int(ldap_attr['accountBalance'][0]) + pquota
-                attrs['accountBalance'] = [pquota]
+                attrs['accountBalance'] = [str(pquota)]
                 attrs['allowUnlimitedCredit'] = ['False']
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
             else:
@@ -148,7 +148,7 @@ class EdirUtils:
             self.logger.info("Updated quota for %s, new quota is %s" % (account_name,
                                                                    pquota))
             desc = "Cerebrum: update_quota (%s)" % self.date
-            self.set_description(account_name, self.c_person, desc)
+            self.object_set_description(account_name, self.c_person, desc)
 
     def get_all_pq_info(self):
         """Return available quota info on all user objects in eDir."""
@@ -192,7 +192,7 @@ class EdirUtils:
             self.logger.info("Modified name for %s, new name is %s" % (object_name,
                                                                        attrs['fullName']))
             desc = "Cerebrum: new name (%s)" % self.date
-            self.set_description(object_name, self.c_person, desc)
+            self.object_set_description(object_name, self.c_person, desc)
                 
         else:
             self.logger.info("No such object %s, can't update name!" %s % object_name)
