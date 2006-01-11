@@ -19,8 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
-import os
-import time
 from mx import DateTime
 
 import cereconf
@@ -30,57 +28,26 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.no.uio import bofhd_uio_help
-from Cerebrum.modules.no.uio import GuestAccount
+#from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.no.uio import bofhd_guestaccounts_utils
     
-
-class SimpleLogger(object):
-    # Unfortunately we cannot user Factory.get_logger due to the
-    # singleton behaviour of cerelog.get_logger().  Once this is
-    # fixed, this class can be removed.
-    def __init__(self, fname):
-        self.stream = open(
-            os.path.join(cereconf.AUTOADMIN_LOG_DIR, fname), 'a+')
-        
-    def show_msg(self, lvl, msg, exc_info=None):
-        self.stream.write("%s %s [%i] %s\n" % (
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-            lvl, os.getpid(), msg))
-        self.stream.flush()
-
-    def debug2(self, msg, **kwargs):
-        self.show_msg("DEBUG2", msg, **kwargs)
-    
-    def debug(self, msg, **kwargs):
-        self.show_msg("DEBUG", msg, **kwargs)
-
-    def info(self, msg, **kwargs):
-        self.show_msg("INFO", msg, **kwargs)
-
-    def error(self, msg, **kwargs):
-        self.show_msg("ERROR", msg, **kwargs)
-
-    def fatal(self, msg, **kwargs):
-        self.show_msg("FATAL", msg, **kwargs)
-
-    def critical(self, msg, **kwargs):
-        self.show_msg("CRITICAL", msg, **kwargs)
-
 
 class BofhdExtension(object):
     all_commands = {}
 
     def __init__(self, server):
         self.server = server
-        self.logger = SimpleLogger('guest_bofhd.log')
         self.db = server.db
         self.const = Factory.get('Constants')(self.db)
+        self.bgu = bofhd_guestaccounts_utils.BofhdUtils(server)
         self.ba = BofhdAuth(self.db)
         self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
                                                            Cache.cache_slots,
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60*30)
+
+
     def get_help_strings(self):
         group_help = {}
 
@@ -178,13 +145,13 @@ class BofhdExtension(object):
             raise CerebrumError("No group with name %s" % groupname)
         try:
             # FIXME, passwords
-            user_list = GuestAccount.request_guest_users(int(nr), end_date,
+            user_list = self.bgu.request_guest_users(int(nr), end_date,
                                                          self.const.entity_group,
                                                          owner.entity_id)
             ret = "OK, reserved guest users:\n%s\n" % self._pretty_print(user_list)
             ret += "Please use misc list_passwords to print or view the passwords."
             return ret
-        except GuestAccount.GuestAccountException, e:
+        except bofhd_guestaccounts_utils.GuestAccountException, e:
             raise CerebrumError(str(e))
         
     
@@ -219,12 +186,13 @@ class BofhdExtension(object):
             # Fjern query_run_any=True når ting er klart
             try:
                 self.ba.can_release_guests(operator.get_entity_id(),
-                                           GuestAccount.get_guest(guest),
+                                           self.bgu.get_guest(guest),
                                            query_run_any=True)
-                GuestAccount.release_guest(guest, operator.get_entity_id())
+                self.bgu.release_guest(guest, operator.get_entity_id())
             except Errors.NotFoundError:
                 raise CerebrumError("Could not find guest user with name %s" % guest)
-            except GuestAccount.GuestAccountException, e:
+            # Feil her...
+            except bofhd_guestaccounts_utils.GuestAccountException, e:
                 raise CerebrumError("Could not release guest users. %s" % str(e))
 
         return "OK, released guests:\n%s" % self._pretty_print(guests)
@@ -236,7 +204,7 @@ class BofhdExtension(object):
     def user_guests(self, operator, groupname): 
         owner = self._get_group(groupname)
         try:
-            tmp = GuestAccount.list_guest_users(self.const.entity_group,
+            tmp = self.bgu.list_guest_users(self.const.entity_group,
                                                 owner.entity_id)
         except:
             raise CerebrumError("Could not list guest users.")
@@ -248,7 +216,7 @@ class BofhdExtension(object):
     all_commands['user_guests_status'] = Command(
         ('user', 'guests_status'))
     def user_guests_status(self, operator):
-        return "%d guest users available." % GuestAccount.nr_available_accounts()
+        return "%d guest users available." % self.bgu.nr_available_accounts()
 
 
     def _get_group(self, id, idtype=None, grtype="Group"):
