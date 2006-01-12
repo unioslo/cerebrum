@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -49,7 +49,9 @@ class OrgLDIF(object):
                                       Factory.get_logger(...))
     org_ldif.generate_org_object(file object)
     org_ldif.generate_ou(file object)
-    org_ldif.generate_person(person file obj, alias file, use_mail_module)."""
+    org_ldif.generate_person(person file obj, alias file, use_mail_module)
+    # Preparing to look up eduPersonAffiliation for another program:
+    org_ldif.init_eduPersonAffiliation_lookup()"""
 
     __metaclass__ = auto_super
 
@@ -290,35 +292,48 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
 
     def init_person_dump(self, use_mail_module):
         # Set variables for the person dump.
+        self.init_person_basic()
+        self.init_person_selections()
+        self.init_person_affiliations()
+        self.init_person_names()
+        self.init_person_titles()
+        self.init_person_addresses()
+        self.init_person_aliases()
+        self.init_account_info()
+        self.init_account_mail(use_mail_module)
+        if not hasattr(self, 'attr2id2contacts'): self.init_attr2id2contacts()
+
+    def init_eduPersonAffiliation_lookup(self):
+        # Used to look up eduPersonAffiliation for another program
+        self.init_person_basic()
+        self.init_person_selections(affiliation_only=True)
+        if self.person_spread is not None:
+            raise NotImplementedError("LDAP_PERSON['spread'] not supported")
+        self.init_person_affiliations()
+
+    def init_person_basic(self):
+        # Set variables to dump or extract some person info
         self.person = Factory.get('Person')(self.db)
         if self.person_dn != (self.ou_dn or self.org_dn):
             self.person_parent_dn = self.person_dn
         else:
             self.person_parent_dn = None
-        if not hasattr(self, 'attr2id2contacts'): self.init_attr2id2contacts()
-        self.init_person_selections()
-        self.init_person_affiliations()
-        self.init_person_names()
-        self.init_person_titles()
-        self.init_account_info()
-        self.init_account_mail(use_mail_module)
-        self.init_person_addresses()
-        self.init_person_aliases()
         self.visible_person_attrs = ldapconf('PERSON', 'attrs_visible', {})
 
-    def init_person_selections(self):
+    def init_person_selections(self, affiliation_only=False):
         # Set self.person_spread and self.*_selector, which select
         # which persons to print, affiliations to consider, and
         # eduPersonAffiliation values for the relevant affiliations.
         self.person_spread = map_spreads(cereconf.LDAP_PERSON.get('spread'))
         self.person_aff_selector     = self.internal_selector(
             bool, cereconf.LDAP_PERSON['affiliation_selector'])
-        self.visible_person_selector = self.internal_selector(
-            bool, cereconf.LDAP_PERSON['visible_selector'])
-        self.contact_selector        = self.internal_selector(
-            bool, cereconf.LDAP_PERSON['contact_selector'])
         self.eduPersonAff_selector   = self.internal_selector(
             list, ldapconf('PERSON','eduPersonAffiliation_selector',utf8=list))
+        if not affiliation_only:
+            self.visible_person_selector = self.internal_selector(
+                bool, cereconf.LDAP_PERSON['visible_selector'])
+            self.contact_selector        = self.internal_selector(
+                bool, cereconf.LDAP_PERSON['contact_selector'])
 
     def init_person_affiliations(self):
         # Set self.affiliations = dict {person_id: [(aff, status, ou_id), ...]}
