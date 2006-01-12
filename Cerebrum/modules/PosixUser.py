@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -223,7 +223,7 @@ class PosixUser(Account_class):
             ewhere = "WHERE ai.expire_date IS NULL OR ai.expire_date > [:now]"
         return self.query("""
         SELECT ai.account_id, posix_uid, shell, gecos, entity_name, 
-          aa.auth_data, pg.posix_gid, pn.name %s
+          aa.auth_data, pg.posix_gid, pn.name %s, ai.owner_id
         FROM
           [:table schema=cerebrum name=posix_user] pu
           %s
