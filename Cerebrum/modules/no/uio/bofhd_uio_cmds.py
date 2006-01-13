@@ -6577,7 +6577,7 @@ class BofhdExtension(object):
         by = row['change_program'] or self._get_entity_name(None, row['change_by'])
         return "%s [%s]: %s" % (row['tstamp'], by, msg)
 
-    def _convert_ticks_to_timestamp(ticks):
+    def _convert_ticks_to_timestamp(self, ticks):
         if ticks is None:
             return None
         return DateTime.DateTimeFromTicks(ticks)
