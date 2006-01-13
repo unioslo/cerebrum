@@ -19,7 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
 import getopt
 import sys
 import os
@@ -34,7 +33,13 @@ from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
 
 # run migrate_* in this order
-versions = ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5', 'rel_0_9_6', 'rel_0_9_7')
+targets = {
+    'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
+             'rel_0_9_6', 'rel_0_9_7'),
+    }
+
+# Global variables
+makedb_path = design_path = db = co = str2const = num2const = None
 
 def makedb(release, stage, insert_codes=True):
     print "Running Makedb(%s, %s)..." % (release, stage)
@@ -69,10 +74,13 @@ def get_db_version():
             raise
     return version
 
+
 def assert_db_version(wanted):
-    if wanted <> get_db_version():
-        print "your database is %s, not %s, aborting" % (version, wanted)
+    version = get_db_version()
+    if wanted <> version:
+        print "Your database is %s, not %s, aborting" % (version, wanted)
         sys.exit(1)
+
 
 def migrate_to_rel_0_9_2():
     """Migrate a pre 0.9.2 (the first version) database to the 0.9.2
@@ -372,25 +380,40 @@ def show_migration_info():
     for name, value in meta.list():
         if name.startswith(mod_prefix):
             print "  %-20s %s" % (name[len(mod_prefix):], value)
-    print "Migration targets:\n ", "\n  ".join(versions)
-    
+    print "Migration targets:"
+    fmt = "  %30s    %30s"
+    print fmt % ("Component", "Version")
+    print fmt % ("---------", "-------")
+    for component, versions in targets.items():
+        for v in versions:
+            print fmt % (component, v)
+
+
 def main():
     global makedb_path, design_path
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'r',
                                    ['help', 'releases', 'from=', 'to=',
                                     'makedb-path=', 'design-path=',
+                                    'component=',
                                     'no-changelog', 'info'])
     except getopt.GetoptError:
         usage(1)
 
     from_rel = to_rel = None
     makedb_path = design_path = None
+    component = 'core'
     for opt, val in opts:
         if opt in ('--help',):
             usage()
+        elif opt in ('--component',):
+            if val in targets:
+                component = val
+            else:
+                print "Invalid component '%s'.  Valid components are:" % val
+                print "\n".join(targets.keys())
         elif opt in ('-r', '--releases',):
-            print "\n".join(versions)
+            print "\n".join(targets.get(component, []))
             sys.exit()
         elif opt in ('--makedb-path',):
             makedb_path = val
@@ -416,7 +439,7 @@ def main():
     started = False
     if not from_rel:
         started = True
-    for v in versions:
+    for v in targets[component]:
         print v, from_rel, started
         if not started:
             if from_rel == v:   # from is not inclusive
