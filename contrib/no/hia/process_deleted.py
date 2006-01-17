@@ -175,10 +175,11 @@ def process_delete_requests():
                                                       password=passwd, scope='sub')
                 search_str = '(&(cn=%s)(%s))' % (account.account_name, 'objectClass=inetOrgPerson')
                 ldap_objects = ldap_handle.ldap_get_objects(cereconf.NW_LDAP_ROOT, search_str)
-                (ldap_object_dn, ldap_attrs) = ldap_objects[0]
-                ldap_handle.ldap_delete_object(ldap_object_dn)
+                if ldap_objects:
+                    (ldap_object_dn, ldap_attrs) = ldap_objects[0]
+                    ldap_handle.ldap_delete_object(ldap_object_dn)
+                    ldap_handle.close_connection()
                 account.delete_spread(row['spread'])
-                ldap_handle.close_connection()
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
