@@ -348,6 +348,11 @@ class BofhdAuth(DatabaseAccessor):
                                               self.const.auth_email_create,
                                               self.const.auth_target_type_global_maildomain,
                                               None, None)
+    
+    def is_studit(self, operator, query_run_any=False):
+        if operator in self._get_group_members(cereconf.BOFHD_STUDADM_GROUP):
+            return True
+        return False
 
     def is_group_owner(self, operator, operation, entity, operation_attr=None):
         if self._query_target_permissions(operator, operation,
@@ -529,6 +534,10 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
+        # this is a hack
+        else:
+            if self._no_account_home(operator, entity):
+                return True
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      entity)
 
@@ -542,6 +551,9 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
+        else:
+            if self._no_account_home(operator, entity):
+                return True
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      entity)
 
@@ -555,6 +567,10 @@ class BofhdAuth(DatabaseAccessor):
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
+        # this is a hack
+        else:
+            if self._no_account_home(operator, entity):
+                return True       
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      entity)
 
@@ -840,6 +856,26 @@ class BofhdAuth(DatabaseAccessor):
                                             self._get_disk(dest_disk),
                                             account.entity_id)
 
+    # hack (fix for users with no registered home at UiO)
+    def _no_account_home(self, operator, account=None):
+        spreads = [int(r['spread']) for r in account.get_spread()]
+        a_type = [int(r['affiliation']) for r in account.get_account_types()]
+        home_spread = False
+        for s in ([int(getattr(self.const, x)) for x in cereconf.HOME_SPREADS]):
+            if s in spreads:
+                home_spread = True
+        is_stud = False
+        try:
+            aff_stud = int(self.const.affiliation_student)
+        except AttributeError, e:
+            return False
+        for a in a_type:
+            if a == aff_stud:
+                is_stud = True
+        if self.is_studit(operator) and not home_spread and is_stud:
+            return True
+    # end hack
+    
     def can_set_password(self, operator, account=None,
                          query_run_any=False):
         if self.is_superuser(operator):
@@ -847,6 +883,8 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return True
         if operator == account.entity_id:
+            return True
+        if self._no_account_home(operator, account):
             return True
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      account)
@@ -873,12 +911,15 @@ class BofhdAuth(DatabaseAccessor):
     def can_show_history(self, operator, entity=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        # use 
         if query_run_any:
             return (self._has_operation_perm_somewhere(operator,
                                self.const.auth_create_user) or
                     self._has_operation_perm_somewhere(operator,
                                self.const.auth_view_history))
         if entity.entity_type == self.const.entity_account:
+            if self._no_account_home(operator, entity):
+                return True
             try:
                 return self.is_account_owner(operator,
                                              self.const.auth_create_user,
