@@ -1384,6 +1384,7 @@ class BofhdExtension(object):
         try:
             epat.find(et.email_target_id)
         except Errors.NotFoundError:
+            epat.clear()
             epat.populate(ea.email_addr_id, parent=et)
         else:
             if epat.email_primaddr_id == ea.email_addr_id:
@@ -5025,7 +5026,9 @@ class BofhdExtension(object):
                 except ValueError:
                     pass    # Failed to generate a default username
             return ret
-        raise CerebrumError, "Client called prompt func with too many arguments"
+        if len(all_args) == 1:
+            return {'last_arg': True}
+        raise CerebrumError, "Too many arguments"
 
     def user_create_prompt_func(self, session, *args):
         return self._user_create_prompt_func_helper('PosixUser', session, *args)
