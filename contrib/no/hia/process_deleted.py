@@ -104,8 +104,11 @@ def process_delete_requests():
 
         # check for posix attrs
         posix_user.clear()
-        posix_user.find(r['entity_id'])
-    
+        try:
+            posix_user.find(r['entity_id'])
+        except Errors.NotFoundError:
+            posix_user = None
+
         ## Deal with all the systems that account data is exported to 
         spreads = account.get_spread()
 
