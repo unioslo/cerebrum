@@ -344,6 +344,11 @@ class BofhdAuth(DatabaseAccessor):
         # Rather than require an operation as an argument, we pick a
         # suitable value which all postmasters ought to have.
         # auth_email_create seems appropriate.
+        if self.is_superuser(operator, query_run_any):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_email_create)
         return self._query_target_permissions(operator,
                                               self.const.auth_email_create,
                                               self.const.auth_target_type_global_maildomain,
