@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003, 2005 University of Oslo, Norway
+# Copyright 2002-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -409,6 +409,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         self._auth_info[int(type)] = value
         self.__updated.append('password')
 
+    def wants_auth_type(self, method):
+        """Returns True if this authentication type should be stored
+        for this account."""
+        return True
+
     def set_password(self, plaintext):
         """Updates all account_authentication entries with an encrypted
         version of the plaintext password.  The methods to be used
@@ -420,9 +425,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             method_const = getattr(self.const, method)
             if not method_const in self._acc_affect_auth_types:
                 self._acc_affect_auth_types.append(method_const)
+            if not self.wants_auth_type(method_const):
+                # affect_auth_types is set above, so existing entries
+                # which are unwanted for this account will be removed.
+                continue
             enc = getattr(self, "enc_%s" % method)
             enc = enc(plaintext)
-            self.populate_authentication_type(getattr(self.const, method), enc)
+            self.populate_authentication_type(method_const, enc)
         self.__plaintext_password = plaintext
 
     def enc_auth_type_md5_crypt(self, plaintext, salt=None):
@@ -794,10 +803,16 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         goal = 15       # We may return more than this
         maxlen -= len(suffix)
         potuname = ()
-        if lname.strip() == "":
+
+        lastname = self.simplify_name(lname, alt=1)
+        if lastname == "":
             raise ValueError,\
                   "Must supply last name, got '%s', '%s'" % (fname, lname)
-        if fname.strip() == "":
+
+        fname = self.simplify_name(fname, alt=1)
+        lname = lastname
+
+        if fname == "":
             # This is a person with no first name.  We "fool" the
             # algorithm below by switching the names around.  This
             # will always lead to suggesting names with numerals added
@@ -805,15 +820,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # a name of length 8 or more.  (assuming maxlen=8)
             fname = lname
             lname = ""
-            
+
         # We ignore hyphens in the last name, but extract the
         # initials from the first name(s).
-        fname = self.simplify_name(fname, alt=1)
-        lname = self.simplify_name(lname, alt=1)
         lname = lname.replace('-', '').replace(' ', '')
+        initials = [n[0] for n in re.split(r'[ -]', fname)]
 
-        initials = [n[0] for n in filter(None, re.split(r'[ -]+', fname))]
-        
         # firstinit is set to the initials of the first two names if
         # the person has three or more first names, so firstinit and
         # initial never overlap.
@@ -828,7 +840,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # called "Geir-Ove Johnsen Hansen" generally prefer "geirove"
         # to just "geir".
 
-        fname = fname.replace('-', '').strip().split(" ")[0][0:maxlen]
+        fname = fname.replace('-', '').split(" ")[0][0:maxlen]
 
         # For people with many (more than three) names, we prefer to
         # use all initials.
@@ -959,7 +971,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 xlate = dict(zip(xlate.keys(), map(str.lower, xlate.values())))
             self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
 
-        return xlate_subst(xlate_match, s.translate(tr)).strip()
+        xlated = xlate_subst(xlate_match, s.translate(tr))
+        
+        # normalise whitespace and hyphens: only ordinary SPC, only
+        # one of them between words, and none leading or trailing.
+        xlated = re.sub(r'\s+', " ", xlated)
+        xlated = re.sub(r' ?-+ ?', "-", xlated).strip(" -")
+        return xlated
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
                filter_expired=True):
