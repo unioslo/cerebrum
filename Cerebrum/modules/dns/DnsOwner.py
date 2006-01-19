@@ -200,13 +200,13 @@ class GeneralDnsRecord(object):
             field_type = int(field_type)
             where.append("field_type=:field_type")
         if dns_owner_id is not None:
-            where.append("dns_owner_id=:dns_owner_id")
+            where.append("gdns.dns_owner_id=:dns_owner_id")
         if zone is not None:
             where.append("d.zone_id=:zone")
             zone = int(zone)
         where = " AND ".join(where)
         return self.query("""
-        SELECT gdns.dns_owner_id, field_type, ttl, data
+        SELECT gdns.dns_owner_id, gdns.field_type, gdns.ttl, gdns.data
         FROM [:table schema=cerebrum name=dns_general_dns_record] gdns,
              [:table schema=cerebrum name=dns_owner] d
         WHERE %s""" % where, locals())
