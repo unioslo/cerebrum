@@ -22,6 +22,7 @@
 import socket
 import re
 import time
+import os
 
 import cerebrum_path
 import cereconf
@@ -29,17 +30,16 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum import QuarantineHandler
-from Cerebrum.modules import MountHost
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
-moho = MountHost.MountHost(db)
 disk = Factory.get('Disk')(db)
 host = Factory.get('Host')(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = Factory.get('OU')(db)
+logger = Factory.get_logger("console")
 
 
 class SocketCom(object):
@@ -47,23 +47,34 @@ class SocketCom(object):
 
     p = re.compile('210 OK')
     s = re.compile('(&pass&.+)&|(&pass&.+)\n')
+    pid = 0
     
     def __init__(self):
         self.connect()
 
         
-    def connect(self):    
+    def connect(self):
+
+        if cereconf.AD_STUNNEL:
+            try:
+                self.pid = os.spawnlp(os.P_NOWAIT, 'stunnel', 'stunnel', cereconf.AD_STUNNEL_CONF)
+                logger.debug("Starting stunnel, with pid %i" % self.pid)
+                #Need to sleep for a second so stunnel can initialize.
+                time.sleep(1)
+            except:
+                logger.warning("Failed to start stunnel, errorcode %i" % self.pid)
+        
         try:
 	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	    self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
-            logger(">>%s" % self.sockobj.recv(8192))
-	    logger("<<Authenticating")
+            logger.debug(">>%s" % self.sockobj.recv(8192))
+	    logger.debug("<<Authenticating")
 	    self.sockobj.send(cereconf.AD_PASSWORD)
-	    logger(">>%s" % self.read(out=0))
+	    logger.debug(">>%s" % self.read(out=0))
         except:
-	    logger("failed connecting to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
-            raise 
-
+	    logger.warning("failed connecting to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
+            raise
+        
 
     def send(self, message,out=0):
 	self.sockobj.send(message)
@@ -120,19 +131,20 @@ class SocketCom(object):
 
 
     def close(self):
-        print 'INFO: Finished, ending session', now()
         self.sockobj.send("QUIT\n")
         self.sockobj.close()
-
+        
+        #Closing stunnel.
+        if cereconf.AD_STUNNEL:
+            #stunnel starts itself a new process, this usually have one
+            #higher pid than the spawned process.
+            os.kill(self.pid+1, 9)
 
 
 def now():
     return time.ctime(time.time())
 
-def logger(text):
-    print text, "\n"
-
-#Shared procedures for adsync and adquicksync.
+#Shared procedures for adfullsync and adquicksync.
 
 def get_user_info(account_id, account_name):
 
@@ -147,7 +159,7 @@ def get_user_info(account_id, account_name):
         person.find(person_id)
         full_name = person.get_name(int(co.system_cached), int(co.name_full)) 
         if not full_name:
-            print "WARNING: getting persons name failed, account.owner_id:",person_id
+            logger.debug("getting persons name failed, account.owner_id:",person_id)
     except Errors.NotFoundError:        
         #This account is missing a person_id.
         full_name = account.account_name
@@ -175,7 +187,7 @@ def chk_quarantine(account_id):
 	    return True
     except KeyError:        
 	pass
-#        logger.info("No QUARANTINE_RULE for id:%s" % account_id)    
+#        logger.debug("No QUARANTINE_RULE for id:%s" % account_id)    
     
     return False
 
@@ -235,17 +247,14 @@ def find_home_dir(account_id, account_name):
         account.find(account_id)
         disk.clear()
         disk.find(account.disk_id)
-        try:
-	    moho.clear()	
-	    moho.find(disk.host_id)	
-	    home_srv = moho.mount_name			
-	except Errors.NotFoundError:
-	    host.clear()
-            host.find(disk.host_id)
-            home_srv = host.name
+
+        host.clear()
+        host.find(disk.host_id)
+        home_srv = host.name
+
 	return "\\\\%s\\%s" % (home_srv,account_name)
     except Errors.NotFoundError:
-        logger("Failure finding the disk of account %s" % account_id)
+        logger.debug("Failure finding the disk of account %s" % account_id)
         
 
 def find_login_script(account):
