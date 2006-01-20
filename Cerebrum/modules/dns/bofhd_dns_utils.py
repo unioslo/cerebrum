@@ -374,7 +374,8 @@ class DnsBofhdUtils(object):
         return ip
 
     def remove_arecord(self, a_record_id):
-        # TBD: do we need to look at revmap_override?
+        # If this IP is in override_reversemap, the helper will
+        # update that too as needed.        
         self._update_helper.remove_arecord(a_record_id)
 
     def add_revmap_override(self, ip_host_id, dest_host, force):

@@ -1,4 +1,22 @@
 # -*- coding: iso-8859-1 -*-
+# Copyright 2005-2006 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import re
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -73,9 +91,9 @@ class Updater(object):
 
     def remove_arecord(self, a_record_id, try_dns_remove=False):
         """Remove an a-record identified by a_record_id.  Will also
-        remove the entry in ip_number if it is no longer refered by
-        other tables"""
-        
+        update override_revmap and remove the entry in ip_number if it
+        is no longer refered by other tables."""
+
         arecord = ARecord.ARecord(self._db)
         arecord.find(a_record_id)
         ipnumber = IPNumber.IPNumber(self._db)
@@ -87,6 +105,9 @@ class Updater(object):
         if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
             # IP no longer used
             ipnumber.delete()
+
+        if dns.REV_IP_NUMBER in refs:
+            self._update_override(ipnumber.entity_id, dns_owner_id)
 
         # Assert that any cname/srv targets still point to atleast one
         # a-record.  Assert that host_info has atleast one associated
@@ -174,5 +195,35 @@ class Updater(object):
                 dns_owner = DnsOwner.DnsOwner(self._db)
                 dns_owner.find(dest_host)
                 dns_owner.delete()
+
+    def _update_override(self, ip_number_id, dns_owner_id):
+        """Handles the updating of the override_reversemap when an
+        ARecord is removed."""
+
+        owners = []
+        ipnumber = IPNumber.IPNumber(self._db)
+        for row in ipnumber.list_override(ip_number_id=ip_number_id):
+            if dns_owner_id == row['dns_owner_id']:
+                # Always remove the reverse which corresponds to the
+                # ARecord which is being removed.
+                ipnumber.delete_reverse_override(ip_number_id, dns_owner_id)
+            else:
+                owners.append(row['dns_owner_id'])
+
+        if len(owners) != 1:
+            return
+
+        # The single entry left is redundant if there is only one
+        # ARecord referring to the IP.
+
+        ar = ARecord.ARecord(self._db)
+        rows = ar.list_ext(ip_number_id=ip_number_id)
+        if len(rows) > 1:
+            return
+        if len(rows) == 0:
+            raise DNSError("stray (ip %d, dns %d) in reverse_override" %
+                           (ip_number_id, owners[0]))
+        if rows[0]['dns_owner_id'] == owners[0]:
+            ipnumber.delete_reverse_override(ip_number_id, owners[0])
 
 # arch-tag: 4805ae64-12e8-11da-84aa-8318af99ae66
