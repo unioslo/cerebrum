@@ -32,6 +32,15 @@ import string
 import new
 import popen2
 
+class NotSet(object):
+    """This class is really a singleton object.  It should be used as
+    the default value of keyword arguments which need to distinguish
+    between the caller specifying None and not specifying it at
+    all."""
+
+    def __init__(cls):
+        raise NotImplementedError, "NotSet should not be instantiated"
+
 def dyn_import(name):
     """Dynamically import python module ``name``."""
     mod = __import__(name)
