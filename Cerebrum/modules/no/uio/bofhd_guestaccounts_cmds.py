@@ -27,8 +27,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory 
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-#from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.no.uio import bofhd_guestaccounts_utils
     
 
@@ -62,9 +62,13 @@ class BofhdExtension(object):
             }
             }
 
-        arg_help = {}
-        return (group_help, command_help,
-                arg_help)
+        arg_help = {
+            'release_type': ['release_type', 'Enter release type',
+                             """Enter either a guest user name or a range of names.
+E.g. guest007 or guest010-guest040."""],
+            'guest_owner_group' : ['guest_owner_group', 'Enter name of owner group']
+            }
+        return (group_help, command_help, arg_help)
 
 
     def get_format_suggestion(self, cmd):
@@ -112,8 +116,8 @@ class BofhdExtension(object):
                 return {'prompt': 'How many guest users?', 'default': '1'}        
         # Date checking
         today = DateTime.today()
-        default_date = today + DateTime.RelativeDateTime(weeks=cereconf.GUESTS_DEFAULT_PERIOD)
-        max_date = today + DateTime.RelativeDateTime(months=cereconf.GUESTS_MAX_PERIOD)
+        default_date = today + DateTime.RelativeDateTime(days=cereconf.GUESTS_DEFAULT_PERIOD)
+        max_date = today + DateTime.RelativeDateTime(days=cereconf.GUESTS_MAX_PERIOD)
         if not all_args:
             return {'prompt': 'Enter end date',
                     'default': default_date.date}
@@ -144,10 +148,10 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError("No group with name %s" % groupname)
         try:
-            # FIXME, passwords
             user_list = self.bgu.request_guest_users(int(nr), end_date,
                                                          self.const.entity_group,
                                                          owner.entity_id)
+            # TBD, make passwords available 
             ret = "OK, reserved guest users:\n%s\n" % self._pretty_print(user_list)
             ret += "Please use misc list_passwords to print or view the passwords."
             return ret
@@ -157,16 +161,15 @@ class BofhdExtension(object):
     
     # user release_guest [<guest> || <range>]+
     all_commands['user_release_guest'] = Command(
-        ('user', 'release_guest'))              # FIXME, hva skal vi sette her?
+        ('user', 'release_guest'), SimpleString(help_ref='release_type'))              
     def user_release_guest(self, operator, *args):
         guests = []        
         if not args:
-            # FIXME, We should really prompt here...
-            return "Usage: user release_guest [<guest> || <range>]+"
+            raise CerebrumError("Usage: user release_guest [<guest> || <range>]+")
         # Each arg should be an guest account name or an interval 
         for arg in args:
-            if '..' in arg:
-                first, last = arg.split('..')
+            if '-' in arg:
+                first, last = arg.split('-')
                 first = int(first[5:])
                 last = int(last[5:])
                 for i in range(first, last+1):
@@ -174,38 +177,34 @@ class BofhdExtension(object):
             else:
                 guests.append(arg)
 
-        # TBD: hvis man forsøker å release et intervall, la oss si
-        # guest001-guest020, og det bare er noen av disse man faktisk
-        # eier, la oss si guest001-guest010, vil frigjøringen av de 10
-        # første gå bra, mens så vil kommandoen feile. Altså en delvis
-        # suksess. Ikke helt heldig.
-        # Ny kommentar: Siden ting går i dass blir vel ikke endringen
-        # commitet til db, slik at ingen release blir utført. Tror
-        # jeg...        
         for guest in guests:
             # Fjern query_run_any=True når ting er klart
             try:
+                owner_id = self.bgu.get_owner(guest)
+                owner_group = self._get_group(owner_id, idtype='id')
                 self.ba.can_release_guests(operator.get_entity_id(),
-                                           self.bgu.get_guest(guest),
+                                           owner_group.get_name(self.const.group_namespace),
                                            query_run_any=True)
                 self.bgu.release_guest(guest, operator.get_entity_id())
+                # When a account is released set new password
+                # self.bgu.set_password(guest)
             except Errors.NotFoundError:
                 raise CerebrumError("Could not find guest user with name %s" % guest)
-            # Feil her...
+            except PermissionDenied:
+                raise CerebrumError("No permission to release guest user %s" % guest)
             except bofhd_guestaccounts_utils.GuestAccountException, e:
-                raise CerebrumError("Could not release guest users. %s" % str(e))
+                raise CerebrumError("Could not release guest user. %s" % str(e))
 
         return "OK, released guests:\n%s" % self._pretty_print(guests)
 
                     
     # user guests <owner>
     all_commands['user_guests'] = Command(
-        ('user', 'guests'), GroupName())
+        ('user', 'guests'), GroupName(help_ref="guest_owner_group"))
     def user_guests(self, operator, groupname): 
         owner = self._get_group(groupname)
         try:
-            tmp = self.bgu.list_guest_users(self.const.entity_group,
-                                                owner.entity_id)
+            tmp = self.bgu.list_guest_users(owner.entity_id)
         except:
             raise CerebrumError("Could not list guest users.")
 
