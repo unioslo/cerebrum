@@ -358,7 +358,9 @@ CREATE TABLE dns_override_reversemap (
                   REFERENCES dns_ip_number(ip_number_id),
   dns_owner_id  NUMERIC(12,0)
                   CONSTRAINT override_reversemap_owner_fk 
-                  REFERENCES dns_owner(dns_owner_id)
+                  REFERENCES dns_owner(dns_owner_id),
+  CONSTRAINT dns_override_reversemap_u
+    UNIQUE (ip_number_id, dns_owner_id)
 );
 category:main;
 CREATE INDEX dns_over_revmap_ip_idx ON dns_override_reversemap(ip_number_id);
