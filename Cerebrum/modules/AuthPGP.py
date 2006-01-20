@@ -67,17 +67,12 @@ for (system, pgpkey) in cereconf.AUTH_PGP.items():
     # Generate a method that uses this PGP key
     def generate_method(name, pgpkey):
         """Closure for storing name/key"""
-        methodname = "enc_" + name
         def method(self, plaintext, salt=None):
             """PGP encryption for system %s""" % system
             return pgp_encrypt(plaintext, pgpkey)
-        try:   
-            method.func_name = methodname
-        except TypeError:
-            pass # Only works in python >= 2.4    
         return method
     method = generate_method(name, pgpkey)
     # Add to our mixin so set_password() will find the method 
-    setattr(Account, method.func_name, method)
-        
+    setattr(Account, "enc_" + name, method)
+
 # arch-tag: 6ad76a99-2280-4a12-b04d-cf1b8ea40629
