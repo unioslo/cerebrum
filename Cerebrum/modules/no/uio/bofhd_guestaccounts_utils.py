@@ -25,8 +25,7 @@ The module contains functionality for handling guests and other
 temporary users.
 
 """
-import os
-import time
+
 from mx import DateTime
 
 import cereconf
@@ -35,38 +34,6 @@ from Cerebrum.Utils import Factory
 
 VALID_GUEST_ACCOUNT_NAMES = ['guest%s' % str(i).zfill(3)
                              for i in range(1,cereconf.NR_GUEST_USERS+1)]
-
-class SimpleLogger(object):
-    # Unfortunately we cannot user Factory.get_logger due to the
-    # singleton behaviour of cerelog.get_logger().  Once this is
-    # fixed, this class can be removed.
-    def __init__(self, fname):
-        self.stream = open(
-            os.path.join(cereconf.AUTOADMIN_LOG_DIR, fname), 'a+')
-        
-    def show_msg(self, lvl, msg, exc_info=None):
-        self.stream.write("%s %s [%i] %s\n" % (
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-            lvl, os.getpid(), msg))
-        self.stream.flush()
-
-    def debug2(self, msg, **kwargs):
-        self.show_msg("DEBUG2", msg, **kwargs)
-    
-    def debug(self, msg, **kwargs):
-        self.show_msg("DEBUG", msg, **kwargs)
-
-    def info(self, msg, **kwargs):
-        self.show_msg("INFO", msg, **kwargs)
-
-    def error(self, msg, **kwargs):
-        self.show_msg("ERROR", msg, **kwargs)
-
-    def fatal(self, msg, **kwargs):
-        self.show_msg("FATAL", msg, **kwargs)
-
-    def critical(self, msg, **kwargs):
-        self.show_msg("CRITICAL", msg, **kwargs)
 
 
 class GuestAccountException(Exception):
@@ -79,10 +46,7 @@ class BofhdUtils(object):
         self.server = server
         self.db = server.db
         self.co = Factory.get('Constants')(self.db)
-        self.ac = Factory.get('Account')(self.db)    
-        #self.prs = Factory.get('Person')(self.db)    
-        #self.grp = Factory.get('Group')(self.db)    
-        self.logger = SimpleLogger('pq_bofhd.log')
+        self.logger = server.logger
 
 
     def request_guest_users(self, nr, end_date, owner_type, owner_id):
@@ -94,7 +58,6 @@ class BofhdUtils(object):
             raise GuestAccountException("Not enough available guest users.\nUse 'user guests_status' to find the number of available guests.")
 
         ret = []
-        failed = []
         for start, end in self._find_subsets(nr):
             for i in range(start, end+1):
                 guest = VALID_GUEST_ACCOUNT_NAMES[i]
@@ -102,15 +65,8 @@ class BofhdUtils(object):
                     self._alloc_guest(guest, end_date, owner_type, owner_id)
                     ret.append(guest)            
                 except (GuestAccountException, Errors.NotFoundError):
-                    failed.append(guest)
-
-        # If for some reason there is a partial failure, should we try to
-        # fix it? If LITA wants to require 50 guests, but _alloc_guest
-        # only succeeds in 49 of the cases it makes little sense to give
-        # up. Discuss and fix.
-        if failed:
-            raise GuestAccountException("Failed to alloc %d guest users" %
-                                        len(failed))
+                    # If one alloc fails the request fails. 
+                    raise GuestAccountException("Could not allocate guests")
         return ret
 
 
@@ -122,77 +78,79 @@ class BofhdUtils(object):
         action and log a warning."""
 
         if self._is_free(guest):
-            raise GuestAccountException("Guest user %s is already available." %
-                                        guest)
+            raise GuestAccountException("%s is already available." % guest)
 
-        self.ac.clear()
-        self.ac.find_by_name(guest)
+        ac = Factory.get('Account')(self.db)    
+        ac.clear()
+        ac.find_by_name(guest)
         # Set normal quarantine again to mark that the account is free
         # Only way to do this is to delete disabled quarantine and set new
         # quarantine. It would be useful with another way to do this.    
         today = DateTime.today()
-        self.ac.delete_entity_quarantine(self.co.quarantine_generell) 
-        self.ac.add_entity_quarantine(self.co.quarantine_generell, operator_id,
+        ac.delete_entity_quarantine(self.co.quarantine_generell) 
+        ac.add_entity_quarantine(self.co.quarantine_generell, operator_id,
                                       "Released guest user.", today.date) 
-        # Delete trait to mark that account has no temporay owner
-        old = self.ac.get_trait(self.co.trait_guest_owner)
-        if old:
-            self.ac.delete_trait(self.co.trait_guest_owner)
-        else:
-            self.logger.warn("Tried to delete owner trait for %s, but guest "\
-                             "account has no owner trait. Suspicious!" % guest)
+        self.logger.debug("Quarantine reset for %s." % guest)
+        ac.populate_trait(self.co.trait_guest_owner, target_id=None)
+        self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
+        ac.write_db()
 
 
-    def get_guest(self, guestname):
-        self.ac.clear()
-        self.ac.find_by_name(guestname)
-        return self.ac
+    def get_owner(self, guestname):
+        "Check that guestname is a guest account and that it has an owner."
+        ac = Factory.get('Account')(self.db)    
+        ac.clear()
+        ac.find_by_name(guestname)
+        owner = ac.get_trait(self.co.trait_guest_owner)
+        if not owner:
+            raise Errors.NotFoundError("Not a guest account.")
+        if not owner['target_id']:
+            raise GuestAccountException("Already available.")
+        return int(owner['target_id'])
 
 
-    # TBD, efficiency improvements can be done...
-    def list_guest_users(self, entity_type, owner_id):
+    def list_guest_users(self, owner_id):
+        "List guest users owned by group with id=owner_id."
+        ac = Factory.get('Account')(self.db)
         ret = []
-        self.ac.clear()
-        for row in self.ac.list_traits(self.co.trait_guest_owner):
-            if int(owner_id) == int(row[3]):
-                self.ac.clear()
-                self.ac.find(row[0])
-                ret.append(self.ac.account_name)
-
+        ac.clear()
+        for row in ac.list_traits(self.co.trait_guest_owner):
+            if row['target_id'] and int(owner_id) == int(row['target_id']):
+                ac.clear()
+                ac.find(row['entity_id'])
+                ret.append(ac.account_name)
         return ret
 
-    # TBD, efficiency improvements can be done...
+
     def nr_available_accounts(self):
         """ Find nr of available guest accounts. """
+        return len(self._available_guests())
 
-        ret = 0
-        for account_id, uname in self.ac.search(name="guest???"):
-            self.ac.clear()
-            if uname in VALID_GUEST_ACCOUNT_NAMES:
-                self.ac.find(account_id)
-                if self.ac.get_entity_quarantine(type=self.co.quarantine_generell,
-                                                 only_active=True):
-                    # Qurantine set, account is available. 
-                    ret += 1
+
+    def _available_guests(self):
+        """ Return the available guest accounts names """
+        ac = Factory.get('Account')(self.db)    
+        ret = []
+
+        for row in ac.list_traits(self.co.trait_guest_owner):
+            ac.clear()
+            ac.find(row['entity_id'])
+            if ac.get_entity_quarantine(type=self.co.quarantine_generell,
+                                        only_active=True):
+                ret.append(ac.account_name)            
         return ret
 
 
-    # TBD, efficiency improvements can be done...
     def _is_free(self, uname):
-        self.ac.clear()
-        if uname in VALID_GUEST_ACCOUNT_NAMES:
-            try:
-                self.ac.find_by_name(uname)
-                if self.ac.get_entity_quarantine(type=self.co.quarantine_generell,
-                                                 only_active=True):
-                    # Qurantine is set, account is available. 
-                    return True
-            except:
-                return False
+        ac = Factory.get('Account')(self.db)    
+        ac.clear()
+        ac.find_by_name(uname)            
+        if ac.get_entity_quarantine(type=self.co.quarantine_generell,
+                                    only_active=True):
+            return True
         return False
 
 
-# FIXME: passord,
     def _alloc_guest(self, guest, end_date, owner_type, owner_id):
         """ Allocate a guest account.
 
@@ -200,26 +158,27 @@ class BofhdUtils(object):
         available. If so set owner trait and mark the account as taken by
         disabling quarantine until end_date"""
 
+        ac = Factory.get('Account')(self.db)    
         self.logger.debug("Try to alloc %s" % guest)
-        self.ac.clear()
-        self.ac.find_by_name(guest)
-        if not self.ac.get_entity_quarantine(type=self.co.quarantine_generell,
-                                             only_active=True):
-            # This user should have been available...
-            raise GuestAccountException("Guest user %s not available. " % guest)
-        # OK, disable quarantine
+        ac.clear()
+        ac.find_by_name(guest)
+        if not ac.get_entity_quarantine(type=self.co.quarantine_generell,
+                                        only_active=True):
+            raise GuestAccountException("Guest user %s not available." % guest)
+        # OK, disable quarantine until end_date
         self.logger.debug("Disable quarantine for %s" % guest)
-        self.ac.disable_entity_quarantine(int(self.co.quarantine_generell),
-                                          end_date)
-        # Set end_date trait
-        self.logger.debug("populate trait for %s" % guest)
-        self.ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id)
-        self.ac.write_db()
+        ac.disable_entity_quarantine(int(self.co.quarantine_generell),
+                                     end_date)
+        # Set owner trait
+        self.logger.debug("Set owner_id in owner_trait for %s" % guest)
+        ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id)
+        ac.write_db()
         # Passord...
 
 
     def _find_available_subsets(self):
-        """Return all available subsets sorted after increasing length.
+        """Return all available subsets sorted after increasing length
+        as tuples on the form (len, start, stop).
         """
         first = None   # First element of a possible subset
         last = 0       # runs until last available spot of a subset
