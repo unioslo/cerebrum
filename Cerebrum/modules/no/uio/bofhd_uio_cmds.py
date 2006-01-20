@@ -3525,10 +3525,10 @@ class BofhdExtension(object):
     all_commands['host_info'] = Command(
         ("host", "info"), SimpleString(help_ref='string_host'),
         fs=FormatSuggestion(Dns.all_commands['host_info'].get_fs()['str_vars'] +
-                            [("Hostname:           %s\n"
-                              "Description:        %s",
+                            [("Hostname:              %s\n"
+                              "Description:           %s",
                               ("hostname", "desc")),
-                             ("Default disk quota: %d MiB",
+                             ("Default disk quota:    %d MiB",
                               ("def_disk_quota",))]))
     def host_info(self, operator, hostname):
         dns_err = dns_ex = None
@@ -3552,6 +3552,11 @@ class BofhdExtension(object):
             ret = host_info(self, operator, hostname)
         except CerebrumError, dns_err:
             pass
+        except self.db.ProgrammingError:
+            # This will cause all further database access to fail, so
+            # it's no use to proceed.  We don't reraise CerebrumError
+            # since that would hide the backtrace from the log.
+            raise
         except Exception, dns_ex:
             # ImportError, missing constants, whatever.
             pass
@@ -6521,6 +6526,8 @@ class BofhdExtension(object):
                 return disk.path
             except Errors.NotFoundError:
                 return "deleted_disk:%s" % val
+        elif format == 'entity':
+            return self._get_entity_name(None, int(val))
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
@@ -6540,6 +6547,8 @@ class BofhdExtension(object):
             return str(self.num2const[int(val)])
         elif format == 'string':
             return str(val)
+        elif format == 'trait':
+            return str(self.num2const[int(val)])
         elif format == 'value_domain':
             return str(self.num2const[int(val)])
         else:
