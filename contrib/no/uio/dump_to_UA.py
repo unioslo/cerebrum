@@ -85,6 +85,27 @@ def locate_fnr(person, const):
 # end locate_fnr
 
 
+def fnr2names(person, const, fnr):
+    """Locate person's first and last names from a given fnr."""
+
+    # Force LT to be the first source system to be tried
+    systems = [const.system_lt]
+    systems.extend([getattr(const, name)
+                    for name in cereconf.SYSTEM_LOOKUP_ORDER])
+    for system in systems:
+        try:
+            person.clear()
+            person.find_by_external_id(const.externalid_fodselsnr,
+                                       fnr, system)
+            return locate_names(person, const)
+        except Errors.NotFoundError:
+            pass
+        # yrt
+    # od
+
+    return None, None
+# end locate_person_id
+
 
 def locate_names(person, const):
     """
@@ -339,7 +360,7 @@ def generate_output(stream, do_employees, do_students):
         
         for db_row in person.list_tilsetting():
             person_id = db_row['person_id']
-
+            
             try:
                 person.clear()
                 person.find(person_id)
@@ -382,7 +403,7 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
     try:
         oldfile = open(os.path.join(dirname, oldfile), "r")
         line = oldfile.readline()
-        line.rstrip()
+        line = line.rstrip()
     except IOError:
         logger.warn("Warning, old file did not exist, assuming first run ever")
         os.link(os.path.join(dirname, newfile),
@@ -397,43 +418,59 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
         old_dict[key] = value
         
         line = oldfile.readline()        
-        line.rstrip()
+        line = line.rstrip()
     # od
     oldfile.close()
 
     out = AtomicFileWriter(os.path.join(dirname, outfile), 'w')
     newin = open(os.path.join(dirname, newfile))
-    
-    newline = newin.readline()        
-    newline.rstrip()           
-    while newline:
+
+    for newline in newin:
+        newline = newline.rstrip()           
         pnr = newline[0:12]
-        dta = newline[13:]
+        data = newline[13:]
         if pnr in old_dict:
-            if dta not in old_dict[pnr]:
-                #Some change, want to update with new values.
-                out.write(newline)
+            if data not in old_dict[pnr]:
+                # Some change, want to update with new values.
+                out.write(newline + "\n")
             else:
-                old_dict[pnr].remove(dta)
+                old_dict[pnr].remove(data)
             # fi
             
-            # If nothing else if left, delete the key from the dictionary
+            # If nothing else is left, delete the key from the dictionary
             if not old_dict[pnr]:
                 del old_dict[pnr]
             # fi
         else:
-            out.write(newline)
+            # completely new entry, output unconditionally
+            out.write(newline + "\n")
         # fi
-        newline = newin.readline()
-        newline.rstrip()
     # od
 
+    # Now, there is one problem left: we cannot output the old data blindly,
+    # as people's names might have changed. So, we force *every* old record to
+    # the current names in Cerebrum. This may result in the exactly same
+    # record being output twice, but it should be fine. 
+    person = Factory.get("Person")(db)
+    const = Factory.get("Constants")(db)
+    logger.debug("%d old records left", len(old_dict))
     for leftpnr in old_dict:
+        # FIXME: it is unsafe to assume that this will succeed
+        first, last = fnr2names(person, const, leftpnr[:-1])
+        if not (first and last):
+            logger.warn("No name information for %s is available. %d "
+                        "entry(ies) will be skipped",
+                        leftpnr, len(old_dict[leftpnr]))
+            continue
+        # fi
+                        
         for entry in old_dict[leftpnr]:
             vals = entry.split(";")
+            vals[3] = first
+            vals[4] = last
             vals[13] = today
             vals[17] = ""
-            out.write("%s;%s" % (leftpnr, ";".join(vals)))
+            out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
         # od
     # od
 
