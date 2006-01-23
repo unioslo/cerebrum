@@ -32,9 +32,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
-VALID_GUEST_ACCOUNT_NAMES = ['guest%s' % str(i).zfill(3)
-                             for i in range(1,cereconf.NR_GUEST_USERS+1)]
-
 
 class GuestAccountException(Exception):
     """General exception for GuestAccount"""
@@ -58,15 +55,13 @@ class BofhdUtils(object):
             raise GuestAccountException("Not enough available guest users.\nUse 'user guests_status' to find the number of available guests.")
 
         ret = []
-        for start, end in self._find_subsets(nr):
-            for i in range(start, end+1):
-                guest = VALID_GUEST_ACCOUNT_NAMES[i]
-                try:
-                    self._alloc_guest(guest, end_date, owner_type, owner_id)
-                    ret.append(guest)            
-                except (GuestAccountException, Errors.NotFoundError):
-                    # If one alloc fails the request fails. 
-                    raise GuestAccountException("Could not allocate guests")
+        for guest in self._find_guests(nr):
+            try:
+                self._alloc_guest(guest, end_date, owner_type, owner_id)
+                ret.append(guest)            
+            except (GuestAccountException, Errors.NotFoundError):
+                # If one alloc fails the request fails. 
+                raise GuestAccountException("Could not allocate guests")
         return ret
 
 
@@ -176,32 +171,40 @@ class BofhdUtils(object):
         # Passord...
 
 
-    def _find_available_subsets(self):
+    def _find_guests(self, nr_requested):
+        ret = []
+        nr2guestname = {}
+        # find all available guests
+        for uname in self._available_guests():
+            prefix, nr = _mysplit(uname)
+            nr2guestname[nr] = uname
+        # Find best subset match 
+        for start, end in self._find_subsets(nr_requested, nr2guestname.keys()):
+            for i in range(start, end+1):
+                ret.append(nr2guestname[i])
+        return ret
+                
+
+    def _find_available_subsets(self, available_guests):
         """Return all available subsets sorted after increasing length
         as tuples on the form (len, start, stop).
         """
-        first = None   # First element of a possible subset
-        last = 0       # runs until last available spot of a subset
         tmp = {}       # found subsets placed here for later ordering
         ret = []       # list of subsets returned.
-        i = 0
-        while i < len(VALID_GUEST_ACCOUNT_NAMES):
-            if self._is_free(VALID_GUEST_ACCOUNT_NAMES[i]):
-                self.logger.debug("%s is free" % VALID_GUEST_ACCOUNT_NAMES[i])
-                if first is None:
-                    first = i
-                last = i
-            else:
-                self.logger.debug("%s is taken." % VALID_GUEST_ACCOUNT_NAMES[i])
-                if not first is None:
-                    length = last - first + 1
-                    tmp[(first, last)] = length
-                first = None
-            i += 1
-        # Get the last subset
-        if not first is None:
-            length = last - first + 1
-            tmp[(first, last)] = length
+
+        available_guests.sort()
+        first = available_guests[0]
+        last  = available_guests[0]
+        for i in available_guests[1:]:
+            if i - last != 1:
+                # Starting on new subset
+                length = last - first + 1
+                tmp[(first, last)] = length
+                first = i
+            last = i
+        # Get last subset
+        length = last - first + 1
+        tmp[(first, last)] = length                   
 
         # Sort the subsets, the shortest first
         keys = _sort_by_value(tmp)
@@ -234,7 +237,6 @@ class BofhdUtils(object):
 
         # get length, start- and end-position of shortest subset in las
         slen, start, end = las.pop(0) 
-
         if nr_subsets == 1:              
             if nr_requested <= slen:
                 return start, start+nr_requested-1
@@ -257,17 +259,32 @@ class BofhdUtils(object):
         return self._find_best_subset_fit(las, nr_requested, nr_subsets)
 
 
-    def _find_subsets(self, nr_requested):
+    def _find_subsets(self, nr_requested, available_guests):
         """ Find subset(s) with total length nr_requested.
         Return: ((start1, end1), (start2, end2), ...)
         """
-        las = self._find_available_subsets()
+        las = self._find_available_subsets(available_guests)
         nr_subsets = self._find_nr_of_subsets(las, nr_requested)
-
         return _flatten(self._find_best_subset_fit(las, nr_requested,
                                                    nr_subsets))
 
- 
+
+def _mysplit(arg):
+    """Split string arg into prefix and number if arg ends with a
+    string representation of decimal numbers.
+    """
+    if arg and isinstance(arg, str) and len(arg) >= 2:
+        i = len(arg)
+        try:        
+            while i > 0:
+                tmp = int(arg[i-1])
+                i -= 1
+        except ValueError:
+            if i < len(arg):
+                return arg[:i], int(arg[i:])
+    return None, None
+
+
 def _sort_by_value(d):
     """ Returns the keys of dictionary d sorted by their values """
     items=d.items()
