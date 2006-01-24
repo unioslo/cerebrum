@@ -92,7 +92,7 @@ class Updater(object):
     def remove_arecord(self, a_record_id, try_dns_remove=False):
         """Remove an a-record identified by a_record_id.  Will also
         update override_revmap and remove the entry in ip_number if it
-        is no longer refered by other tables."""
+        is no longer referred to by other tables."""
 
         arecord = ARecord.ARecord(self._db)
         arecord.find(a_record_id)
@@ -102,12 +102,13 @@ class Updater(object):
         arecord._delete()
 
         refs = self._find.find_referers(ip_number_id=ipnumber.entity_id)
+        if dns.REV_IP_NUMBER in refs:
+            self._update_override(ipnumber.entity_id, dns_owner_id)
+            refs = self._find.find_referers(ip_number_id=ipnumber.entity_id)
+
         if not (dns.REV_IP_NUMBER in refs or dns.A_RECORD in refs):
             # IP no longer used
             ipnumber.delete()
-
-        if dns.REV_IP_NUMBER in refs:
-            self._update_override(ipnumber.entity_id, dns_owner_id)
 
         # Assert that any cname/srv targets still point to atleast one
         # a-record.  Assert that host_info has atleast one associated
@@ -207,6 +208,12 @@ class Updater(object):
                 # Always remove the reverse which corresponds to the
                 # ARecord which is being removed.
                 ipnumber.delete_reverse_override(ip_number_id, dns_owner_id)
+            elif row['dns_owner_id'] == None:
+                # We know that this IP has been associated with an
+                # ARecord.  If PTR generation has been surpressed by
+                # setting owner to NULL, we want to remove the reverse
+                # to avoid surprises when the IP is reused.
+                ipnumber.delete_reverse_override(ip_number_id, None)
             else:
                 owners.append(row['dns_owner_id'])
 
@@ -220,10 +227,10 @@ class Updater(object):
         rows = ar.list_ext(ip_number_id=ip_number_id)
         if len(rows) > 1:
             return
-        if len(rows) == 0:
+        elif len(rows) == 0:
             raise DNSError("stray (ip %d, dns %d) in reverse_override" %
                            (ip_number_id, owners[0]))
-        if rows[0]['dns_owner_id'] == owners[0]:
+        elif rows[0]['dns_owner_id'] == owners[0]:
             ipnumber.delete_reverse_override(ip_number_id, owners[0])
 
 # arch-tag: 4805ae64-12e8-11da-84aa-8318af99ae66
