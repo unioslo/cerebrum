@@ -31,6 +31,13 @@ from Cerebrum import Errors
 class MissingOtherException(Exception): pass
 class MissingSelfException(Exception): pass
 
+def prepare_sql_pattern(value, transform=str.lower):
+    value = value.replace("*", "%")
+    value = value.replace("?", "_")
+    if transform is not None:
+        value = transform(value)
+    return value
+
 Entity_class = Utils.Factory.get("Entity")
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
              EntityQuarantine, Entity_class):
@@ -306,9 +313,10 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         occur more than once if return_name is True and he/she has
         several matching names."""
         if case_sensitive:
+            name = prepare_sql_pattern(name, transform=None)
             where = "name LIKE :name"
         else:
-            name = name.lower()
+            name = prepare_sql_pattern(name)
             where = "LOWER(name) LIKE :name"
         if name_variant is not None:
             name_variant = int(name_variant)
@@ -890,12 +898,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         string or int. Wildcards * and ? are expanded for "any chars" and
         "one char"."""
 
-        def prepare_string(value):
-            value = value.replace("*", "%")
-            value = value.replace("?", "_")
-            value = value.lower()
-            return value
-
         tables = []
         where = []
         tables.append("[:table schema=cerebrum name=person_info] pi")
@@ -909,7 +911,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             try:
                 spread = int(spread)
             except (TypeError, ValueError):
-                spread = prepare_string(spread)
+                spread = prepare_sql_pattern(spread)
                 tables.append("[:table schema=cerebrum name=spread_code] sc")
                 where.append("es.spread=sc.code")
                 where.append("LOWER(sc.code_str) LIKE :spread")
@@ -917,11 +919,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 where.append("es.spread=:spread")
 
         if name is not None:
-            name = prepare_string(name)
+            name = prepare_sql_pattern(name)
             where.append("LOWER(pn.name) LIKE :name")
 
         if description is not None:
-            description = prepare_string(description)
+            description = prepare_sql_pattern(description)
             where.append("LOWER(pi.description) LIKE :description")
         
         if exclude_deceased:
