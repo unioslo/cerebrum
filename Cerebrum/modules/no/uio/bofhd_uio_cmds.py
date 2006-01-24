@@ -3947,8 +3947,6 @@ class BofhdExtension(object):
         ("misc", "user_passwd"), AccountName(), AccountPassword())
     def misc_user_passwd(self, operator, accountname, password):
         ac = self._get_account(accountname)
-        if isinstance(password, unicode):  # crypt.crypt don't like unicode
-            password = password.encode('iso8859-1')
         # Only people who can set the password are allowed to check it
         self.ba.can_set_password(operator.get_entity_id(), ac)
         old_pass = ac.get_account_authentication(self.const.auth_type_md5_crypt)
@@ -4340,8 +4338,7 @@ class BofhdExtension(object):
         person.populate(bdate, gender,
                         description='Manually created')
         person.affect_names(self.const.system_manual, self.const.name_full)
-        person.populate_name(self.const.name_full,
-                             person_name.encode('iso8859-1'))
+        person.populate_name(self.const.name_full, person_name)
         try:
             person.write_db()
             self._person_affiliation_add_helper(
@@ -4362,6 +4359,12 @@ class BofhdExtension(object):
         # TODO: Need API support for this
         matches = []
         idcol = 'person_id'
+        if filter is not None:
+            try:
+                filter = int(self.const.PersonAffiliation(filter))
+            except Errors.NotFoundError:
+                raise CerebrumError, ("Invalid affiliation '%s' (perhaps you "
+                                      "need to quote the arguments?)" % filter)
         if search_type == 'person_id':
             person = self._get_person(*self._map_person_id(value))
             matches = [{'person_id': person.entity_id}]
@@ -4369,12 +4372,15 @@ class BofhdExtension(object):
             person = Utils.Factory.get('Person')(self.db)
             person.clear()
             if search_type == 'name':
-                if len(value.strip(" \t%_")) < 3:
+                if filter is not None:
+                    raise CerebrumError, \
+                          "Can't filter by affiliation for search type 'name'"
+                if len(value.strip(" \t%_*?")) < 3:
                     raise CerebrumError, \
                           "You must specify at least three letters of the name"
-                if '%' not in value and '_' not in value:
-                    # Add wildcards to start and end of value.
-                    value = '%' + value + '%'
+                if not [c for c in "_%?*" if c in value]:
+                    # Add wildcard at start and end and between words.
+                    value = '*' + value.replace(' ', '*') + '*'
                 matches = person.list_persons_by_name(
                     value,
                     name_variant=self.const.name_full,
@@ -4390,11 +4396,6 @@ class BofhdExtension(object):
                 matches = person.find_persons_by_bdate(self._parse_date(value))
             elif search_type == 'stedkode':
                 ou = self._get_ou(stedkode=value)
-                if filter is not None:
-                    try:
-                        filter=self.const.PersonAffiliation(filter)
-                    except Errors.NotFoundError:
-                        raise CerebrumError, "Invalid affiliation %s" % affiliation
                 matches = person.list_affiliations(ou_id=ou.entity_id,
                                                    affiliation=filter)
             else:
@@ -4403,6 +4404,9 @@ class BofhdExtension(object):
         seen = {}
         person = Utils.Factory.get('Person')(self.db)
         acc = self.Account_class(self.db)
+        if len(matches) > 250:
+            raise CerebrumError, ("More than 250 (%d) matches, please narrow "
+                                  "search criteria" % len(matches))
         for row in matches:
             # We potentially get multiple rows for a person when
             # s/he has more than one source system or affiliation.
@@ -4432,6 +4436,7 @@ class BofhdExtension(object):
                 account_name = acc.account_name
             else:
                 account_name = "<none>"
+
             # Ideally we'd fetch the authoritative last name, but
             # it's a lot of work.  We cheat and use the last word
             # of the name, which should work for 99.9% of the users.
@@ -4530,8 +4535,7 @@ class BofhdExtension(object):
 	    else:
 		pass
 	    person.affect_names(self.const.system_manual, self.const.name_full)
-	    person.populate_name(self.const.name_full,
-				 person_fullname.encode('iso8859-1'))
+	    person.populate_name(self.const.name_full, person_fullname)
 	    try:
 		person.write_db()
 	    except self.db.DatabaseError, m:
@@ -4808,7 +4812,7 @@ class BofhdExtension(object):
         for c in dir(self.const):
             tmp = getattr(self.const, c)
             if isinstance(tmp, _SpreadCode):
-                ret.append({'name': "%s" % tmp, 'desc': unicode(tmp._get_description(), 'iso8859-1')})
+                ret.append({'name': "%s" % tmp, 'desc': tmp._get_description()})
         return ret
 
     # spread remove
@@ -5183,7 +5187,9 @@ class BofhdExtension(object):
         # Set gecos to NULL if user requests a whitespace-only string.
         self.ba.can_set_gecos(operator.get_entity_id(), account)
         # TBD: Should we allow 8-bit characters?
-        if isinstance(gecos, unicode):
+        try:
+            gecos.encode("ascii")
+        except UnicodeDecodeError:
             raise CerebrumError, "GECOS can only contain US-ASCII."
         account.gecos = gecos.strip() or None
         account.write_db()
@@ -5601,8 +5607,6 @@ class BofhdExtension(object):
             if operator.get_entity_id() <> account.entity_id:
                 raise CerebrumError, \
                       "Cannot specify password for another user."
-            if isinstance(password, unicode):  # crypt.crypt don't like unicode
-                password = password.encode('iso8859-1')
         try:
             pc = PasswordChecker.PasswordChecker(self.db)
             pc.goodenough(account, password)
@@ -5958,7 +5962,7 @@ class BofhdExtension(object):
                 if g == args.get('dfg', None):
                     continue  # already processed
                 group = self._get_group('name:%s' % g)
-                if days_since_deletion > 14 or g.encode('iso8859-1') not in old_groups:
+                if days_since_deletion > 14 or g not in old_groups:
                     self.ba.can_alter_group(operator.get_entity_id(),
                                             group.entity_id)
                 group.add_member(pu.entity_id, pu.entity_type,
@@ -6403,7 +6407,7 @@ class BofhdExtension(object):
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
         try:
-            if isinstance(path, (str, unicode)):
+            if isinstance(path, str):
                 disk.find_by_path(path, host_id)
             else:
                 disk.find(path)
