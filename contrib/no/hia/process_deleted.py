@@ -72,7 +72,6 @@ def process_delete_requests():
     account = Factory.get('Account')(db)
     operator = Factory.get('Account')(db)
     spreads = []
-    posix_user = PosixUser.PosixUser(db)
     posix_home = ''
     pwd = '*'
     uid = ''
@@ -95,11 +94,12 @@ def process_delete_requests():
             logger.error('Could not find account %s' % r['entity_id'])
             continue
         if account.is_deleted():
-            logger.warn("%s is already deleted" % uname)
+            logger.warn("%s is already deleted" % account.account_name)
             br.delete_request(request_id=r['request_id'])
             db.commit()
             continue
 
+        posix_user = PosixUser.PosixUser(db)
         set_operator(r['requestee_id'])
 
         # check for posix attrs
@@ -144,7 +144,7 @@ def process_delete_requests():
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
-                    pass
+                    continue
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
 
@@ -161,7 +161,7 @@ def process_delete_requests():
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
-                    pass
+                    continue
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
 
@@ -183,7 +183,7 @@ def process_delete_requests():
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
-                    pass
+                    continue
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
             if posix_user:
@@ -200,8 +200,8 @@ def process_delete_requests():
             account.write_db()
 
     ## All done, remove request, commit results
-    br.delete_request(request_id=r['request_id'])
-    db.commit()
+        br.delete_request(request_id=r['request_id'])
+        db.commit()
     return del_file
     
 def keep_running():
