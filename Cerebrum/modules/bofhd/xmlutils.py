@@ -66,7 +66,9 @@ def xmlrpc_to_native(obj):
     #  We could have used marshal.{loads,dumps} here,
     # but then the Java client would have trouble
     # encoding/decoding requests/responses.
-    if isinstance(obj, (str, unicode)):
+    if isinstance(obj, unicode):
+        obj = obj.encode('ISO-8859-1')
+    if isinstance(obj, str):
         if obj == ':None':
             return None
         elif obj.startswith(":"):
