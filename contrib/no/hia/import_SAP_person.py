@@ -216,6 +216,11 @@ def populate_external_ids(db, person, fields, const):
     else:
         logger.debug("New person for IDs (%s, %s)", sap_id, no_ssn)
     # fi
+    try:
+        fodselsnr.personnr_ok(no_ssn)
+    except fodselsnr.InvalidFnrError:
+        logger.error("No valid check sum for NO_SSN (%s)!" % no_ssn)
+        return False        
 
     year, month, day = (int(birth_date[:4]), int(birth_date[4:6]),
                         int(birth_date[6:]))
@@ -258,9 +263,15 @@ def populate_names(person, fields, const):
     #      and middle name and update name_first name variant with
     #      the result
     #    old code:
-    #    name_types = ((const.name_first, 6),
-    #                  (const.name_middle, 7),
-    name_types = ((const.name_last, 8),
+    mname = string.strip(fields[7])
+    if mname:
+        fname = string.strip(fields[6]) + ' ' + mname
+    else:
+        fname = string.strip(fields[6])
+
+    name_types = ((const.name_first, 6),
+                  (const.name_middle, 7),
+                  (const.name_last, 8),
                   (const.name_initials, 3),
                   (const.name_work_title, 28))
     
@@ -268,24 +279,15 @@ def populate_names(person, fields, const):
                         *[x[0] for x in name_types]) 
 
     for name_type, index in name_types:
-        value = string.strip(fields[index])
-        if not value:
-            continue
-        # fi
-
-        person.populate_name(name_type, value)
-        logger.debug("Populated name type %s with «%s»", name_type, value)
-    # od
-    
-    # set name_first = name_first + name_middle
-    mname = string.strip(fields[7])
-    if mname:
-        fname = string.strip(fields[6]) + ' ' + mname
-    else:
-        fname = string.strip(fields[6])
-    person.affect_names(const.system_sap, const.name_first)
+        if name_type <> const.name_first and name_type <> const.name_middle:
+            value = string.strip(fields[index])
+            if not value:
+                continue
+            # fi
+            person.populate_name(name_type, value)
+            logger.debug("Populated name type %s with «%s»", name_type, value)
+        # od
     person.populate_name(const.name_first, fname)
-    
 # end populate_names
     
 
