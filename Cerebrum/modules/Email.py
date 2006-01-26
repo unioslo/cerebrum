@@ -695,12 +695,14 @@ class EmailAddress(EmailEntity):
         domain.find_by_domain(dp)
         self.find_by_local_part_and_domain(lp, domain.email_domain_id)
 
+    # FIXME: Can anyone explain what this can be used for?
     def list_email_addresses(self):
         """Return address_id of all EmailAddress in database"""
         return self.query("""
         SELECT address_id
         FROM [:table schema=cerebrum name=email_address]""", fetchall=False)
 
+    # FIXME: Should probably be replaced by search().
     def list_email_addresses_ext(self, domain=None):
         """Return address_id, target_id, local_part and domainof all
         EmailAddress in database"""
@@ -715,6 +717,32 @@ class EmailAddress(EmailEntity):
                           {'domain': domain},
                           fetchall=False)
 
+    def search(self, local_part=None, local_part_pattern=None,
+               target_id=None, domain_id=None, fetchall=False):
+        """Return address_id, target_id, local_part, domain_id, and
+        domain (name) for matching all EmailAddress."""
+        conditions = []
+        if local_part is not None:
+            conditions.append('ea.local_part = :local_part')
+        if local_part_pattern is not None:
+            local_part_pattern = local_part_pattern.lower()
+            conditions.append('LOWER(ea.local_part) LIKE :local_part_pattern')
+        if domain_id is not None:
+            conditions.append('ea.domain_id = :domain_id')
+        if target_id is not None:
+            conditions.append('ea.target_id = :target_id')
+        where = ""
+        if conditions:
+            where = " WHERE " + " AND ".join(conditions)
+        return self.query("""
+        SELECT ea.address_id, ea.target_id, ea.local_part, ed.domain_id,
+               ed.domain
+        FROM [:table schema=cerebrum name=email_address] ea
+          JOIN [:table schema=cerebrum name=email_domain] ed
+            ON ea.domain_id = ed.domain_id""" + where,
+                          locals(), fetchall=fetchall)
+
+    # FIXME: should be replaced by search()
     def list_target_addresses(self, target_id):
         """Return address_id, local_part and domain_id for target_id"""
         return self.query("""
