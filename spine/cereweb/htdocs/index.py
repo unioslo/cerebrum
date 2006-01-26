@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import time
 import cherrypy
 
 import forgetHTML as html
@@ -110,6 +111,39 @@ def full_activitylog():
     page.content = lambda: content
     return page
 full_activitylog.exposed = True
+
+def session_time_left(hash=None):
+    """Return time left before the session times out.
+    
+    'hash' allows the client to avoid a bug where the browser chaches
+    the request.
+    """
+    timeout = cherrypy.session.get('timeout')
+    timestamp = cherrypy.session.get('timestamp', None)
+    
+    if timestamp is None:
+        return '0'
+    
+    time_left = int(timeout - (time.time() - timestamp))
+    time_left = time_left > 0 and time_left or 0
+    return str(time_left)
+session_time_left.exposed = True
+
+def session_keep_alive(hash=None):
+    """Attempt to keep the session alive.
+    
+    Returns 'true' if the session was kept alive, 'false' if the 
+    session has already timed out.
+    """
+    session = cherrypy.session['session']
+    try:
+        session.get_timeout()
+        cherrypy.session['timestamp'] = time.time()
+    except:
+        return 'false'
+    else:
+        return 'true'
+session_keep_alive.exposed = True
 
 __module__ = 'htdocs.index'
 

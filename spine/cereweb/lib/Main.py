@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import time
 import cherrypy
 
 from SideMenu import SideMenu
@@ -35,10 +36,11 @@ class Main(MainTemplate):
     
     def __init__(self):
         """Creates all parts of the page beside the content."""
+        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
         cherrypy.response.headerMap['Pragma'] = 'no-cache'
         cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
+
         MainTemplate.__init__(self)
-#        req.content_type = "text/html" # With this content-type, זרו works! :)
         self.jscripts = []
         self.prepare_page()
         self.prepare_messages()
@@ -73,9 +75,6 @@ class Main(MainTemplate):
 
     def add_jscript(self, jscript):
         self.jscripts.append(jscript)
-
-    def get_timeout(self):
-        return cherrypy.session['timeout']
 
     def __iter__(self):
         return iter(str(self))

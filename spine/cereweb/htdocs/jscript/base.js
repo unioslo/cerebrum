@@ -54,7 +54,7 @@ function get_http_requester() {
         try {
             requester = new ActiveXObject("Microsoft.XMLHTTP");
         } catch (err) {
-            WL_error("Unable to create XMLHttpRequest-object.");
+            alert("Error: Unable to create XMLHttpRequest-object.");
         }
     }
     return requester

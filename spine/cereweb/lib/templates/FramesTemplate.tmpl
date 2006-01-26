@@ -54,11 +54,6 @@
 #end if
 #end def
 
-## Time it takes to timeout the session, overloaded in lib/Main.py
-#def get_timeout
-    #return 3600
-#end def get_timeout
-
 ## Warning given when session has timed out.
 #def session_warning
     <div class="session_warning" id="session_warning" style="display:none;">
@@ -103,10 +98,6 @@ $jscript("worklist.js")
 #for $i in $jscripts
 $jscript($i)
 #end for
-    <script language="JavaScript">
-        ## Set timeout for javascript 'timeout.py'
-        timeout=$get_timeout();
-    </script>
 </head>
 <body>
     <div class="page_content">

@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import time
 import urllib
 import mx.DateTime
 import cherrypy
@@ -143,6 +144,7 @@ def new_transaction():
 
 def transaction_decorator(method):
     def transaction_decorator(*args, **vargs):
+        cherrypy.session['timestamp'] = time.time()
         tr = new_transaction()
         try:
             return method(transaction=tr, *args, **vargs)
