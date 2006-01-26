@@ -35,10 +35,10 @@
  */
 
 // Time between each server request to update time left.
-var TO_check_interval = 10;
+var TO_check_interval = 60;
 
 // Time before the session times out to warn the client.
-var TO_warning_time = 30;
+var TO_warning_time = 120;
 
 var TO_timerid = null; // Contains the last id for the scheduled check.
 var TO_has_warned = false; // To prevent us from warning the user twice.
@@ -46,7 +46,7 @@ var TO_has_warned = false; // To prevent us from warning the user twice.
 // Runs when the page is finished loading.
 addLoadEvent(TO_schedule);
 
-// Schedule next timeout-check. 'time' in secconds.
+// Schedule next timeout-check. 'time' in seconds.
 function TO_schedule(time) {
     time = (time == null) ? TO_check_interval : time
     //NB: setTimeout expects miliseconds.
