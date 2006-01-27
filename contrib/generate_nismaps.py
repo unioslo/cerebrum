@@ -94,7 +94,7 @@ def generate_passwd(filename, shadow_file, spread=None):
         if gecos is None:
             gecos = row['name']
         if gecos is None:
-            gecos = "GECOS NOT SET"
+            gecos = uname
         gecos = Utils.latin1_to_iso646_60(gecos)
         home = row['home']
         shell = shells[int(row['shell'])]
