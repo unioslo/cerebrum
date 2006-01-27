@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,14 +32,21 @@ import string
 import new
 import popen2
 
-class NotSet(object):
-    """This class is really a singleton object.  It should be used as
-    the default value of keyword arguments which need to distinguish
-    between the caller specifying None and not specifying it at
-    all."""
 
-    def __init__(cls):
-        raise NotImplementedError, "NotSet should not be instantiated"
+class _NotSet(object):
+    """This class shouldn't be referred to directly, import the
+    singleton, 'NotSet', instead.  It should be used as the default
+    value of keyword arguments which need to distinguish between the
+    caller specifying None and not specifying it at all."""
+
+    def __new__(type):
+        if not '_the_instance' in type.__dict__:
+            type._the_instance = object.__new__(type)
+        return type._the_instance
+    __slots__ = ()
+
+NotSet = _NotSet()
+
 
 def dyn_import(name):
     """Dynamically import python module ``name``."""
