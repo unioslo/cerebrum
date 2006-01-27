@@ -223,6 +223,15 @@ class AccountUiOMixin(Account.Account):
                 return "contains illegal characters (%s)" % name
         return False
 
+    def validate_new_uname(self, domain, uname):
+        """Check that the requested username is legal and free"""
+        # TBD: will domain ever be anything else?
+        if domain == self.const.account_namespace:
+            ea = Email.EmailAddress(self._db)
+            for row in ea.search(local_part=uname):
+                return False
+        return self.__super.validate_new_uname(domain, uname)
+
     def delete_spread(self, spread):
         #
         # Pre-remove checks
@@ -329,9 +338,12 @@ class AccountUiOMixin(Account.Account):
                 return True
         return False
 
-    def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
-        return pgp_encrypt(plaintext, cereconf.PGPID)
-    
+    def wants_auth_type(self, method):
+        if method == self.const.Authentication("PGP-guest_acc"):
+            # only store this type for guest accounts
+            return self.get_trait(self.const.trait_guest_owner) is not None
+        return self.__super.use_authentication_type(method)
+
     def enc_auth_type_md4_nt(self,plaintext,salt=None):
         import smbpasswd
         return smbpasswd.nthash(plaintext)
