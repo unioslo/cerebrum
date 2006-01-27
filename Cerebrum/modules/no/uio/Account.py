@@ -342,7 +342,7 @@ class AccountUiOMixin(Account.Account):
         if method == self.const.Authentication("PGP-guest_acc"):
             # only store this type for guest accounts
             return self.get_trait(self.const.trait_guest_owner) is not None
-        return self.__super.use_authentication_type(method)
+        return self.__super.wants_auth_type(method)
 
     def enc_auth_type_md4_nt(self,plaintext,salt=None):
         import smbpasswd
