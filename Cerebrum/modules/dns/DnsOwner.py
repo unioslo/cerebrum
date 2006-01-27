@@ -336,13 +336,13 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
     def search(self, name_like=None, zone=None):
         where = ['d.dns_owner_id=en.entity_id']
         if name_like is not None:
-            where = "en.entity_name like :name_like"
+            where.append("en.entity_name like :name_like")
         if zone is not None:
             where.append("d.zone_id=:zone")
             zone = int(zone)
         where = " AND ".join(where)
         return self.query("""
-        SELECT dns_owner_id, mx_set_id, en.entity_name AS name
+        SELECT d.dns_owner_id, d.mx_set_id, en.entity_name AS name
         FROM [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
         WHERE %s""" % where, {
