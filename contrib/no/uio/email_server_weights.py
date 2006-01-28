@@ -56,7 +56,7 @@ from Cerebrum.modules.Email import EmailQuota, EmailServer
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
-db.cl_init(change_program="email_server_weights")
+db.cl_init(change_program="e_srv_weights")
 
 
 def main():
