@@ -62,7 +62,7 @@ from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib.sets import Set
-
+from Cerebrum import Errors
 
 
 
