@@ -4404,6 +4404,9 @@ class BofhdExtension(object):
         seen = {}
         person = Utils.Factory.get('Person')(self.db)
         acc = self.Account_class(self.db)
+        # matches may be an iterator, so force it into a list so we
+        # can count the entries.
+        matches = list(matches)
         if len(matches) > 250:
             raise CerebrumError, ("More than 250 (%d) matches, please narrow "
                                   "search criteria" % len(matches))
