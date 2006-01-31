@@ -58,8 +58,12 @@ class _ChangeTypeCode(_CerebrumCode):
                 # Not the category, but the numeric code value
                 self.int = category
             else:
-                raise TypeError, ("Must pass integer when initialising " +
-                                  "from code value")
+                # Handle PgNumeric etc.
+                try:
+                    self.int = int(category)
+                except ValueError:
+                    raise TypeError, ("Must pass integer when initialising " +
+                                      "from code value")
             self.category, self.type = self.sql.query_1(
                 """
                 SELECT category, type FROM %s
@@ -69,9 +73,16 @@ class _ChangeTypeCode(_CerebrumCode):
         else:
             self.category = category
             self.type = type
-            self.int = None
-        self.msg_string = msg_string
-        self.format = format
+            if not hasattr(self, "init"):
+                self.int = None
+        
+        # The code object may have been initialised explicitly
+        # already.  If we initialise the object based on code value
+        # alone, don't nuke those extra attributes.
+        if not hasattr(self, "msg_string") or msg_string is not None:
+            self.msg_string = msg_string
+        if not hasattr(self, "format") or format is not None:
+            self.format = format
         super(_ChangeTypeCode, self).__init__(category, type)
 
     def __str__(self):
