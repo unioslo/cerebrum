@@ -128,9 +128,10 @@ class AccountUtil(object):
                          None,
                          default_creator_id, default_expire_date)
         password = account.make_passwd(uname)
-        account.set_password(password)
         tmp = account.write_db()
         logger.debug("new Account, write_db=%s" % tmp)
+        account.set_password(password)
+        account.write_db()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
         for spread in profile.get_spreads():
