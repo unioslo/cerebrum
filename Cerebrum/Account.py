@@ -449,6 +449,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             salt = Utils.random_string(2, saltchars)
         return crypt.crypt(plaintext, salt)
 
+    def enc_auth_type_plaintext(self, plaintext, salt=None):
+        """Lets you select plaintext as a encryption method. Use
+        with care!"""
+        return plaintext
+
     def illegal_name(self, name):
         """Return a string with error message if username is illegal"""
         return False

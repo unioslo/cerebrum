@@ -666,6 +666,10 @@ class CommonConstants(ConstantsBase):
         "PGP-encrypt the password so that we later can get at the plaintext "
         "password if we want to populate new backends.  The secret key "
         "should be stored offline.")
+    auth_type_plaintext = _AuthenticationCode(
+        'plaintext',
+        "Plantext passwords. Usefull for installations where non-encrypted "
+        "passwords need to be used and exported. Use with care!")
 
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
     contact_phone_private = _ContactInfoCode('PRIVPHONE',
