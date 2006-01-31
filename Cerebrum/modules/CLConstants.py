@@ -43,7 +43,6 @@ class _ChangeTypeCode(_CerebrumCode):
     change_params should be displayed.  It contains a tuple of strings
     that may contain %%(type:key)s, which will result in key being
     formatted as type.
-    
     """
     # TODO: the formatting is currently done by bofhd_uio_cmds.py.  It
     # would make more sense to do it here, but then we need some
@@ -54,28 +53,25 @@ class _ChangeTypeCode(_CerebrumCode):
     # of strings (category, type) identifying the constant code.
     def __init__(self, category, type=None, msg_string=None, format=None):
         if type is None:
-            if isinstance(category, int):
-                # Not the category, but the numeric code value
-                self.int = category
-            else:
+            # Not the category, but the numeric code value
+            try:
                 # Handle PgNumeric etc.
-                try:
-                    self.int = int(category)
-                except ValueError:
-                    raise TypeError, ("Must pass integer when initialising " +
-                                      "from code value")
+                self.int = int(category)
+            except ValueError:
+                raise TypeError, ("Must pass integer when initialising "
+                                  "from code value")
             self.category, self.type = self.sql.query_1(
-                """
-                SELECT category, type FROM %s
-                WHERE %s=:code
-                """ % (self._lookup_table, self._lookup_code_column),
+                """SELECT category, type
+                FROM %s
+                WHERE %s = :code""" % (self._lookup_table,
+                                       self._lookup_code_column),
                 {'code': self.int})
         else:
             self.category = category
             self.type = type
-            if not hasattr(self, "init"):
+            if not hasattr(self, "int"):
                 self.int = None
-        
+
         # The code object may have been initialised explicitly
         # already.  If we initialise the object based on code value
         # alone, don't nuke those extra attributes.
@@ -111,7 +107,7 @@ class _ChangeTypeCode(_CerebrumCode):
                          {'category': self.category,
                           'type': self.type,
                           'desc': self.msg_string})
-        
+
 
 class CLConstants(Constants.Constants):
 
