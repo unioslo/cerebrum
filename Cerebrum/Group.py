@@ -127,7 +127,7 @@ class Group(EntityQuarantine, EntityName, Entity_class):
                          {'e_type': int(self.const.entity_group),
                           'g_id': self.entity_id,
                           'desc': self.description,
-                          'visib': self.visibility,
+                          'visib': int(self.visibility),
                           'creator_id': self.creator_id,
                           # Even though the following two bind
                           # variables will only be used in the query
@@ -152,7 +152,7 @@ class Group(EntityQuarantine, EntityName, Entity_class):
                 ["%s=%s" % x for x in cols if x[0] <> 'group_id'])},
                          {'g_id': self.entity_id,
                           'desc': self.description,
-                          'visib': self.visibility,
+                          'visib': int(self.visibility),
                           'creator_id': self.creator_id,
                           # Even though the following two bind
                           # variables will only be used in the query

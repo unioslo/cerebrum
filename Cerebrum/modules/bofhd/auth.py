@@ -660,10 +660,10 @@ class BofhdAuth(DatabaseAccessor):
     
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
-        """The list of spreads that an operator may modify are stored
-        in auth_op_attrs"""
-        if isinstance(spread, int):
-            spread = "%s" % self.const.Spread(spread)
+        """Each spread that an operator may modify is stored in
+        auth_op_attrs as the code_str value."""
+        if spread is not None:
+            spread = str(self.const.Spread(spread))
 
         if self.is_superuser(operator):
             return True
