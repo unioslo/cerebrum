@@ -101,14 +101,6 @@ class BofhdExtension(object):
         for t in person.list_person_name_codes():
             self.name_codes[int(t['code'])] = t['description']
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
-        # TODO: str2const is not guaranteed to be unique (OK for now, though)
-        self.num2const = {}
-        self.str2const = {}
-        for c in dir(self.const):
-            tmp = getattr(self.const, c)
-            if isinstance(tmp, _CerebrumCode):
-                self.num2const[int(tmp)] = tmp
-                self.str2const[str(tmp)] = tmp
         self.ba = BofhdAuth(self.db)
         aos = BofhdAuthOpSet(self.db)
         self.num2op_set_name = {}
@@ -163,14 +155,6 @@ class BofhdExtension(object):
                 return
             raise ConnectException(errno.errorcode[err])
         setattr(imaplib.IMAP4, 'open', nonblocking_open)
-
-    def num2str(self, num):
-        """Returns the string value of a numerical constant"""
-        return str(self.num2const[int(num)])
-        
-    def str2num(self, string):
-        """Returns the numerical value of a string constant"""
-        return int(self.str2const[str(string)])
 
     def get_commands(self, account_id):
         try:
@@ -690,8 +674,8 @@ class BofhdExtension(object):
                          self.const.email_target_multi,
                          self.const.email_target_pipe,
                          self.const.email_target_account):
-            raise CerebrumError, ("Can't add e-mail address to target "+
-                                  "type %s") % self.num2const[ttype]
+            raise CerebrumError, ("Can't add e-mail address to target "
+                                  "type %s" % self.const.EmailTarget(ttype))
         ea = Email.EmailAddress(self.db)
         lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
@@ -723,8 +707,8 @@ class BofhdExtension(object):
                          self.const.email_target_pipe,
                          self.const.email_target_multi,
                          self.const.email_target_deleted):
-            raise CerebrumError, ("Can't remove e-mail address from target "+
-                                  "type %s") % self.num2const[ttype]
+            raise CerebrumError, ("Can't remove e-mail address from target "
+                                  "type %s" % self.const.EmailTarget(ttype))
         if address.count('@') != 1:
             raise CerebrumError, "Malformed e-mail address (%s)" % address
         ea = Email.EmailAddress(self.db)
@@ -1552,19 +1536,19 @@ class BofhdExtension(object):
         ed = self._get_email_domain(domainname)
         on = self._get_boolean(onoff)
         catcode = None
-        for c in self.const.fetch_constants(_EmailDomainCategoryCode):
-            if str(c).lower().startswith(cat.lower()):
-                if catcode:
-                    raise CerebrumError, ("'%s' does not uniquely identify "+
-                                          "a configuration category") % cat
-                catcode = c
+        for c in self.const.fetch_constants(self.const.EmailDomainCategory,
+                                            prefix_match=cat):
+            if catcode:
+                raise CerebrumError, ("'%s' does not uniquely identify "+
+                                      "a configuration category") % cat
+            catcode = c
         if catcode is None:
             raise CerebrumError, ("'%s' does not match any configuration "+
                                   "category") % cat
         if self._sync_category(ed, catcode, on):
-            return "%s is now %s" % (str(catcode), onoff.lower())
+            return "%s is now %s" % (catcode, onoff.lower())
         else:
-            return "%s unchanged" % str(catcode)
+            return "%s unchanged" % catcode
 
     def _get_boolean(self, onoff):
         if onoff.lower() in ('on', 'true', 'yes'):
@@ -1616,14 +1600,15 @@ class BofhdExtension(object):
         ret.append({'domainname': domainname,
                     'description': ed.email_domain_description})
         for r in ed.get_categories():
-            ret.append({'category': str(self.num2const[r['category']])})
+            ret.append({'category':
+                        str(self.const.EmailDomainCategory(r['category']))})
         eed = Email.EntityEmailDomain(self.db)
         affiliations = {}
         for r in eed.list_affiliations(ed.email_domain_id):
             ou = self._get_ou(r['entity_id'])
             affname = "<any>"
             if r['affiliation']:
-                affname = str(self.num2const[int(r['affiliation'])])
+                affname = str(self.const.PersonAffiliation(r['affiliation']))
             affiliations[self._format_ou_name(ou)] = affname
         aff_list = affiliations.keys()
         aff_list.sort()
@@ -2553,18 +2538,19 @@ class BofhdExtension(object):
 
     def _entity_info(self, entity):
         result = {}
-        result['type'] = self.num2str(entity.entity_type)
+        co = self.const
+        result['type'] = str(co.EntityType(entity.entity_type))
         result['entity_id'] = entity.entity_id
         if entity.entity_type in \
-            (self.const.entity_group, self.const.entity_account): 
+            (co.entity_group, co.entity_account): 
             result['creator_id'] = entity.creator_id
             result['create_date'] = entity.create_date
             result['expire_date'] = entity.expire_date
             # FIXME: Should be a list instead of a string, but text
             # clients doesn't know how to view such a list
-            result['spread'] = ", ".join([str(self.const.Spread(r['spread']))
+            result['spread'] = ", ".join([str(co.Spread(r['spread']))
                                           for r in entity.get_spread()])
-        if entity.entity_type == self.const.entity_group:
+        if entity.entity_type == co.entity_group:
             result['name'] = entity.group_name
             result['description'] = entity.description
             result['visibility'] = entity.visibility
@@ -2572,7 +2558,7 @@ class BofhdExtension(object):
                 result['gid'] = entity.posix_gid
             except AttributeError:
                 pass    
-        elif entity.entity_type == self.const.entity_account:
+        elif entity.entity_type == co.entity_account:
             result['name'] = entity.account_name
             result['owner_id'] = entity.owner_id
             #result['home'] = entity.home
@@ -2580,32 +2566,31 @@ class BofhdExtension(object):
             #result['disk_id'] = entity.disk_id
            # TODO: de-reference np_type
            # result['np_type'] = entity.np_type
-        elif entity.entity_type == self.const.entity_person:   
-            result['name'] = entity.get_name(self.const.system_cached,
-                                             getattr(self.const,
-                                                     cereconf.DEFAULT_GECOS_NAME))
+        elif entity.entity_type == co.entity_person:   
+            result['name'] = entity.get_name(co.system_cached,
+                                             getattr(co, cereconf.DEFAULT_GECOS_NAME))
             result['export_id'] = entity.export_id
             result['birthdate'] =  entity.birth_date
             result['description'] = entity.description
-            result['gender'] = self.num2str(entity.gender)
+            result['gender'] = str(co.Gender(entity.gender))
             # make boolean
             result['deceased'] = entity.deceased_date
             names = []
             for name in entity.get_all_names():
-                source_system = self.num2str(name.source_system)
-                name_variant = self.num2str(name.name_variant)
+                source_system = str(co.AuthoritativeSystem(name.source_system))
+                name_variant = str(co.PersonName(name.name_variant))
                 names.append((source_system, name_variant, name.name))
             result['names'] = names    
             affiliations = []
             for row in entity.get_affiliations():
                 affiliation = {}
                 affiliation['ou'] = row['ou_id']
-                affiliation['affiliation'] = self.num2str(row.affiliation)
-                affiliation['status'] = self.num2str(row.status)
-                affiliation['source_system'] = self.num2str(row.source_system)
+                affiliation['affiliation'] = str(co.PersonAffiliation(row.affiliation))
+                affiliation['status'] = str(co.PersonAffStatus(row.status))
+                affiliation['source_system'] = str(co.AuthoritativeSystem(row.source_system))
                 affiliations.append(affiliation)
             result['affiliations'] = affiliations     
-        elif entity.entity_type == self.const.entity_ou:
+        elif entity.entity_type == co.entity_ou:
             for attr in '''name acronym short_name display_name
                            sort_name'''.split():
                 result[attr] = getattr(entity, attr)               
@@ -2799,7 +2784,7 @@ class BofhdExtension(object):
 	toaddr = cereconf.GROUP_REQUESTS_SENDTO
 	spreadstring = "(" + spread + ")"
 	spreads = []
-	spreads = re.split(" ",spread)
+	spreads = re.split(" ", spread)
 	subject = "Cerebrum group create request %s" % groupname
 	body = []
 	body.append("Please create a new group:")
@@ -2810,24 +2795,21 @@ class BofhdExtension(object):
 	body.append("Moderator: %s" % moderator)
 	body.append("")
 	body.append("group create %s \"%s\"" % (groupname, description))
-	for i in range(len(spreads)):
-	    if (self._get_constant(spreads[i],"No such spread") in \
-		[self.const.spread_uio_nis_fg,self.const.spread_ifi_nis_fg]):
+	for spr in spreads:
+	    if (self._get_constant(self.const.Spread, spr) in
+		[self.const.spread_uio_nis_fg, self.const.spread_ifi_nis_fg]):
                 pg = PosixGroup.PosixGroup(self.db)
 		if not pg.illegal_name(groupname):
 		    body.append("group promote_posix %s" % groupname)
 		else:
 		    raise CerebrumError, "Illegal groupname, max 8 characters allowed."
-		    break
-	    else:
-		pass	    
 	body.append("spread add group %s %s" % (groupname, spreadstring))
 	body.append("access grant Group-owner (%s) group %s" % (moderator, groupname))
         body.append("group info %s" % groupname)
 	body.append("")
 	body.append("")
         Utils.sendmail(toaddr, fromaddr, subject, "\n".join(body))
-	return "Request sent to brukerreg@usit.uio.no"
+	return "Request sent to %s" % toaddr
 
     #  group def
     all_commands['group_def'] = Command(
@@ -2971,6 +2953,7 @@ class BofhdExtension(object):
             grp = self._get_group(groupname, grtype="PosixGroup")
         except CerebrumError:
             grp = self._get_group(groupname)
+        co = self.const
         ret = [ self._entity_info(grp) ]
         # find owners
         aot = BofhdAuthOpTarget(self.db)
@@ -2984,13 +2967,13 @@ class BofhdExtension(object):
             aos.find(row['op_set_id'])
             id = int(row['entity_id'])
             en = self._get_entity(id=id)
-            if en.entity_type == self.const.entity_account:
+            if en.entity_type == co.entity_account:
                 owner = en.account_name
-            elif en.entity_type == self.const.entity_group:
+            elif en.entity_type == co.entity_group:
                 owner = en.group_name
             else:
                 owner = '#%d' % id
-            ret.append({'owner_type': str(self.num2const[int(en.entity_type)]),
+            ret.append({'owner_type': str(co.EntityType(en.entity_type)),
                         'owner': owner,
                         'opset': aos.name})
         # Count group members of different types
@@ -2999,8 +2982,8 @@ class BofhdExtension(object):
         for members, op in ((u, 'u'), (i, 'i'), (d, 'd')):
             tmp = {}
             for ret_pfix, entity_type in (
-                ('c_group_', int(self.const.entity_group)),
-                ('c_account_', int(self.const.entity_account))):
+                ('c_group_', int(co.entity_group)),
+                ('c_account_', int(co.entity_account))):
                 tmp[ret_pfix+op] = len(
                     [x for x in members if int(x[0]) == entity_type])
             if [x for x in tmp.values() if x > 0]:
@@ -3032,7 +3015,7 @@ class BofhdExtension(object):
                 # tuples instead of the usual db_row objects ...
                 unsorted.append({'op': t,
                                  'id': r[1],
-                                 'type': str(self.num2const[int(r[0])]),
+                                 'type': str(self.const.EntityType(r[0])),
                                  'name': r[2]})
             unsorted.sort(compare)
             ret.extend(unsorted)
@@ -3201,7 +3184,8 @@ class BofhdExtension(object):
     def group_set_visibility(self, operator, group, visibility):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
-        grp.visibility = self._map_visibility_id(visibility)
+        grp.visibility = self._get_constant(self.const.GroupVisibility,
+                                            visibility, "visibility")
         grp.write_db()
         return "OK, set visibility for '%s'" % group
 
@@ -3214,14 +3198,16 @@ class BofhdExtension(object):
     def group_memberships(self, operator, entity_type, id):
         entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
+        co = self.const
         ret = []
         for row in group.list_groups_with_entity(entity.entity_id):
             grp = self._get_group(row['group_id'], idtype="id")
-            ret.append({'memberop': str(self.num2const[int(row['operation'])]),
+            ret.append({'memberop': str(co.GroupMembershipOp(row['operation'])),
                         'entity_id': grp.entity_id,
                         'group': grp.group_name,
-                        'spreads': ",".join(["%s" % self.num2const[int(a['spread'])]
-                                             for a in grp.get_spread()])})
+                        'spreads': ",".join([str(co.Spread(a['spread']))
+                                             for a in grp.get_spread()])
+                       })
         ret.sort(lambda a,b: cmp(a['group'], b['group']))
         return ret
 
@@ -3825,7 +3811,7 @@ class BofhdExtension(object):
             raise CerebrumError("Unknown search_by criteria")
 
         for r in rows:
-            op = self.num2const[int(r['operation'])]
+            op = self.const.BofhdRequestOp(r['operation'])
             dest = None
             if op in (self.const.bofh_move_user, self.const.bofh_move_request):
                 disk = self._get_disk(r['destination_id'])[0]
@@ -3934,7 +3920,7 @@ class BofhdExtension(object):
             for r in eed.list_affiliations():
                 affname = "<any>"
                 if r['affiliation']:
-                    affname = str(self.num2const[int(r['affiliation'])])
+                    affname = str(self.const.PersonAffiliation(r['affiliation']))
                 ed.clear()
                 ed.find(r['domain_id'])
                 output.append({'affiliation': affname,
@@ -4680,10 +4666,9 @@ class BofhdExtension(object):
             ou = self._get_ou(ou_id=row['ou_id'])
             ret.append({'uname': ac2.account_name,
                         'priority': row['priority'],
-                        'affiliation': '%s@%s' % (
-                self.num2const[int(row['affiliation'])], self._format_ou_name(ou))})
-            ## This seems to trigger a wierd python bug:
-            ## self.num2const[int(row['affiliation'], self._format_ou_name(ou))])})
+                        'affiliation':
+                        '%s@%s' % (self.const.PersonAffiliation(row['affiliation']),
+                                   self._format_ou_name(ou))})
         return ret
 
     #
@@ -4697,12 +4682,11 @@ class BofhdExtension(object):
     def quarantine_disable(self, operator, entity_type, id, qtype, date):
         entity = self._get_entity(entity_type, id)
         date = self._parse_date(date)
-        qconst = self._get_constant(qtype, "No such quarantine")
-        qtype = int(qconst)
+        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
-        entity.disable_entity_quarantine(qtype, date)
+        entity.disable_entity_quarantine(qconst, date)
         return "OK, disabled quarantine %s for %s" % (
-            qconst, self._get_name_from_object (entity))
+            qconst, self._get_name_from_object(entity))
 
     # quarantine list
     all_commands['quarantine_list'] = Command(
@@ -4728,14 +4712,14 @@ class BofhdExtension(object):
 
     # quarantine remove
     all_commands['quarantine_remove'] = Command(
-        ("quarantine", "remove"), EntityType(default="account"), Id(), QuarantineType(),
+        ("quarantine", "remove"), EntityType(default="account"), Id(),
+        QuarantineType(),
         perm_filter='can_remove_quarantine')
     def quarantine_remove(self, operator, entity_type, id, qtype):
         entity = self._get_entity(entity_type, id)
-        qconst = self._get_constant(qtype, "No such quarantine")
-        qtype = int(qconst)
-        self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qtype)
-        entity.delete_entity_quarantine(qtype)
+        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
+        self.ba.can_remove_quarantine(operator.get_entity_id(), entity, qconst)
+        entity.delete_entity_quarantine(qconst)
         return "OK, removed quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
 
@@ -4743,19 +4727,20 @@ class BofhdExtension(object):
     all_commands['quarantine_set'] = Command(
         ("quarantine", "set"), EntityType(default="account"), Id(repeat=True),
         QuarantineType(), SimpleString(help_ref="string_why"),
-        SimpleString(help_ref="string_from_to"), perm_filter='can_set_quarantine')
+        SimpleString(help_ref="string_from_to"),
+        perm_filter='can_set_quarantine')
     def quarantine_set(self, operator, entity_type, id, qtype, why, date):
         date_start, date_end = self._parse_date_from_to(date)
         entity = self._get_entity(entity_type, id)
-        qconst = self._get_constant(qtype, "No such quarantine")
-        qtype = int(qconst)
-        self.ba.can_set_quarantine(operator.get_entity_id(), entity, qtype)
-        rows = entity.get_entity_quarantine(type=qtype)
+        qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
+        self.ba.can_set_quarantine(operator.get_entity_id(), entity, qconst)
+        rows = entity.get_entity_quarantine(type=qconst)
         if rows:
             raise CerebrumError("User already has a quarantine of this type")
         try:
-            entity.add_entity_quarantine(qtype, operator.get_entity_id(), why, date_start, date_end)
-        except AttributeError:    
+            entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
+                                         date_start, date_end)
+        except AttributeError:
             raise CerebrumError("Quarantines cannot be set on %s" % entity_type)
         return "OK, set quarantine %s for %s" % (
             qconst, self._get_name_from_object (entity))
@@ -4776,7 +4761,7 @@ class BofhdExtension(object):
         self.ba.can_show_quarantines(operator.get_entity_id(), entity)
         for r in entity.get_entity_quarantine():
             acc = self._get_account(r['creator_id'], idtype='id')
-            ret.append({'type': "%s" % self.num2const[int(r['quarantine_type'])],
+            ret.append({'type': str(self.const.Quarantine(r['quarantine_type'])),
                         'start': r['start_date'],
                         'end': r['end_date'],
                         'disable_until': r['disable_until'],
@@ -4793,8 +4778,7 @@ class BofhdExtension(object):
         perm_filter='can_add_spread')
     def spread_add(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
-        spreadconst = self._get_constant(spread, "No such spread")
-        spread = int(spreadconst)
+        spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         try:
             entity.add_spread(spread)
@@ -4803,7 +4787,7 @@ class BofhdExtension(object):
         if entity_type == 'account':
             self.__spread_sync_group(entity)
         return "OK, added spread %s for %s" % (
-            spreadconst, self._get_name_from_object (entity))
+            spread, self._get_name_from_object(entity))
 
     # spread list
     all_commands['spread_list'] = Command(
@@ -4824,14 +4808,13 @@ class BofhdExtension(object):
         perm_filter='can_add_spread')
     def spread_remove(self, operator, entity_type, id, spread):
         entity = self._get_entity(entity_type, id)
-        spreadconst = self._get_constant(spread, "No such spread")
-        spread = int(spreadconst)
+        spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         entity.delete_spread(spread)
         if entity_type == 'account':
             self.__spread_sync_group(entity)
         return "OK, removed spread %s from %s" % (
-            spreadconst, self._get_name_from_object (entity))
+            spread, self._get_name_from_object(entity))
 
     def __spread_sync_group(self, account, group=None):
         """Make sure the group has the NIS spreads corresponding to
@@ -5072,7 +5055,9 @@ class BofhdExtension(object):
             group_id, np_type, filegroup, shell, home, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
-            np_type = int(self._get_constant(np_type, "Unknown account type"))
+            np_type = self._get_constant(self.const.Account, np_type,
+                                         "account type")
+            print "FOO?", np_type
         else:
             if len(args) == 7:
                 idtype, person_id, affiliation, filegroup, shell, home, uname = args
@@ -5082,7 +5067,7 @@ class BofhdExtension(object):
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
             
-        group=self._get_group(filegroup, grtype="PosixGroup")
+        group = self._get_group(filegroup, grtype="PosixGroup")
         posix_user = PosixUser.PosixUser(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
@@ -5105,8 +5090,7 @@ class BofhdExtension(object):
         try:
             posix_user.write_db()
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-                posix_user.add_spread(self._get_constant(spread,
-                                                         "No such spread"))
+                posix_user.add_spread(self.const.Spread(spread))
             homedir_id = posix_user.set_homedir(
                 disk_id=disk_id, home=home,
                 status=self.const.home_status_not_created)
@@ -5257,11 +5241,12 @@ class BofhdExtension(object):
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
-            affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
-                                           self._format_ou_name(ou)))
+            affiliations.append("%s@%s" %
+                                (self.const.PersonAffiliation(row['affiliation']),
+                                 self._format_ou_name(ou)))
         try:
             tmp = account.get_home(self.const.spread_uio_nis_user)
-            home_status = "%s" % self.num2const[int(tmp['status'])]
+            home_status = str(self.const.AccountHomeStatus(tmp['status']))
         except Errors.NotFoundError:
             tmp = {'disk_id': None, 'home': None, 'status': None,
                    'homedir_id': None}
@@ -5269,14 +5254,15 @@ class BofhdExtension(object):
 
         ret = {'entity_id': account.entity_id,
                'username': account.account_name,
-               'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
+               'spread': ",".join([str(self.const.Spread(a['spread']))
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
                'expire': account.expire_date,
                'home': tmp['home'],
                'home_status': home_status,
                'owner_id': account.owner_id,
-               'owner_type': str(self.num2const[int(account.owner_type)])}
+               'owner_type': str(self.const.EntityType(account.owner_type))
+               }
         try:
             self.ba.can_show_disk_quota(operator.get_entity_id(), account)
             can_see_quota = True
@@ -5324,7 +5310,7 @@ class BofhdExtension(object):
             ret['dfg_posix_gid'] = group.posix_gid
             ret['dfg_name'] = group.group_name
             ret['gecos'] = account.gecos
-            ret['shell'] = str(self.num2const[int(account.shell)])
+            ret['shell'] = str(self.const.PosixShell(account.shell))
         # TODO: Return more info about account
         quarantined = None
         now = DateTime.now()
@@ -5704,7 +5690,8 @@ class BofhdExtension(object):
             group_id, np_type, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
-            np_type = int(self._get_constant(np_type, "Unknown account type"))
+            np_type = self._get_constant(self.const.Account, np_type,
+                                         "account type")
             affiliation = None
             owner_type = self.const.entity_group
         else:
@@ -5934,9 +5921,10 @@ class BofhdExtension(object):
 
         # Spreads
         if args['spreads']:
-            for s in [self._get_constant(x) for x in args['spreads'].split(",")]:
+            for s in [self._get_constant(self.const.Spread, x, "spread")
+                      for x in args['spreads'].split(",")]:
                 # TODO: permissions?
-                pu.add_spread(s)        
+                pu.add_spread(s)
         # Add homedir entry.  We prefer to reuse the old one if it exists
         if not args.get('old_homedir_bool', 'n').startswith('y'):
             # Trigger homedir creation in process_changes.py
@@ -6026,7 +6014,8 @@ class BofhdExtension(object):
     def user_set_np_type(self, operator, accountname, np_type):
         account = self._get_account(accountname)
         self.ba.can_delete_user(operator.get_entity_id(), account)
-        account.np_type = self._map_np_type(np_type)
+        account.np_type = self._get_constant(self.const.Account, np_type,
+                                             "account type")
         account.write_db()
         return "OK, set np-type for %s to %s" % (accountname, np_type)
 
@@ -6076,7 +6065,8 @@ class BofhdExtension(object):
         else:
             accountname, entity_type, id, np_type = args
             new_owner = self._get_entity(entity_type, id)
-            np_type = int(self._get_constant(np_type, "Unknown account type"))
+            np_type = self._get_constant(self.const.Account, np_type,
+                                         "account type")
 
         account = self._get_account(accountname)
         if not self.ba.is_superuser(operator.get_entity_id()):
@@ -6127,8 +6117,9 @@ class BofhdExtension(object):
         ret = {
             'is_personal': len(ac.get_account_types()),
             'fnr': [{'id': r['external_id'],
-                     'source': "%s" % self.num2const[r['source_system']]}
-                    for r in person.get_external_id(id_type=self.const.externalid_fodselsnr)]
+                     'source':
+                     str(self.const.AuthoritativeSystem(r['source_system']))}
+                     for r in person.get_external_id(id_type=self.const.externalid_fodselsnr)]
             }
         ac_types = ac.get_account_types(all_persons_types=True)        
         if ret['is_personal']:
@@ -6137,7 +6128,8 @@ class BofhdExtension(object):
                 ac2 = self._get_account(at['account_id'], idtype='id')
                 ret.setdefault('users', []).append(
                     (ac2.account_name, '%s@ulrik.uio.no' % ac2.account_name,
-                     at['priority'], at['ou_id'], "%s" % self.num2const[int(at['affiliation'])]))
+                     at['priority'], at['ou_id'],
+                     str(self.const.PersonAffiliation(at['affiliation']))))
             # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
             # å hente ikke-personlige konti?
         if ac.home is not None:
@@ -6232,10 +6224,8 @@ class BofhdExtension(object):
         return group
 
     def _get_shell(self, shell):
-        if shell == 'bash':
-            return self.const.posix_shell_bash
-        return self._get_constant(shell, "Unknown shell")
-    
+        return self._get_constant(self.const.PosixShell, shell, "shell")
+
     def _get_opset(self, opset):
         aos = BofhdAuthOpSet(self.db)
         try:
@@ -6389,7 +6379,7 @@ class BofhdExtension(object):
         if type is None:
             ety = Entity.Entity(self.db)
             ety.find(id)
-            type = self.num2const[int(ety.entity_type)]
+            type = self.const.EntityType(ety.entity_type)
         if type == self.const.entity_account:
             acc = self._get_account(id, idtype='id')
             return acc.account_name
@@ -6404,6 +6394,11 @@ class BofhdExtension(object):
             host = Utils.Factory.get('Host')(self.db)
             host.find(id)
             return host.name
+        elif type == self.const.entity_person:
+            person = Utils.Factory.get('Person')(self.db)
+            person.find(id)
+            return person.get_name(self.const.system_cached,
+                                   self.const.name_full)
         else:
             return "%s:%s" % (type, id)
 
@@ -6419,15 +6414,6 @@ class BofhdExtension(object):
             if raise_not_found:
                 raise CerebrumError("Unknown disk: %s" % path)
             return disk, None, path
-
-    def _map_np_type(self, np_type):
-        # TODO: Assert _AccountCode
-        return int(self._get_constant(np_type, "Unknown account type"))
-        
-    def _map_visibility_id(self, visibility):
-        # TODO: Assert _VisibilityCode
-        return int(self._get_constant(visibility, "No such visibility type"))
-
 
     def _is_yes(self, val):
         if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
@@ -6454,10 +6440,13 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError("Unknown affiliation status")
 
-    def _get_constant(self, const_str, err_msg="Could not find constant"):
-        if self.str2const.has_key(const_str):
-            return self.str2const[const_str]
-        raise CerebrumError("%s: %s" % (err_msg, const_str))
+    def _get_constant(self, code_cls, code_str, code_type="value"):
+        c = code_cls(code_str)
+        try:
+            int(c)
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
+        return c
 
     def _parse_date_from_to(self, date):
         date_start = self._today()
@@ -6519,13 +6508,11 @@ class BofhdExtension(object):
         return lst
 
     def _format_from_cl(self, format, val):
-        # TODO: using num2const is not optimal, but the
-        # const.ChangeType(int) magic doesn't work for CLConstants
         if val is None:
             return ''
 
         if format == 'affiliation':
-            return str(self.num2const[int(val)])
+            return str(self.const.PersonAffiliation(val))
         elif format == 'disk':
             disk = Utils.Factory.get('Disk')(self.db)
             try:
@@ -6538,26 +6525,26 @@ class BofhdExtension(object):
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
-            return str(self.num2const[int(val)])
+            return str(self.const.ChangeType(val))
         elif format == 'int':
             return str(val)
         elif format == 'name_variant':
-            return str(self.num2const[int(val)])
+            return str(self.const.PersonName(val))
         elif format == 'ou':
             ou = self._get_ou(ou_id=val)
             return self._format_ou_name(ou)
         elif format == 'quarantine_type':
-            return str(self.num2const[int(val)])
+            return str(self.const.Quarantine(val))
         elif format == 'source_system':
-            return str(self.num2const[int(val)])
+            return str(self.const.AuthoritativeSystem(val))
         elif format == 'spread_code':
-            return str(self.num2const[int(val)])
+            return str(self.const.Spread(val))
         elif format == 'string':
             return str(val)
         elif format == 'trait':
-            return str(self.num2const[int(val)])
+            return str(self.const.EntityTrait(val))
         elif format == 'value_domain':
-            return str(self.num2const[int(val)])
+            return str(self.const.ValueDomain(val))
         else:
             self.logger.warn("bad cl format: %s", repr((format, val)))
             return ''
@@ -6569,8 +6556,7 @@ class BofhdExtension(object):
                 dest = self._get_entity_name(None, dest)
             except Errors.NotFoundError:
                 pass
-        this_cl_const = self.num2const[int(row['change_type_id'])]
-
+        this_cl_const = self.const.ChangeType(row['change_type_id'])
         msg = this_cl_const.msg_string % {
             'subject': self._get_entity_name(None, row['subject_entity']),
             'dest': dest}

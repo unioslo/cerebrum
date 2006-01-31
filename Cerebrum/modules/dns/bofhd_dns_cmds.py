@@ -161,14 +161,6 @@ class BofhdExtension(object):
         #self.ba = BofhdAuth(self.db)
         self.ba = DnsBofhdAuth(self.db)
 
-        # From uio
-        self.num2const = {}
-        #self.str2const = {}
-        for c in dir(self.const):
-            tmp = getattr(self.const, c)
-            if isinstance(tmp, _CerebrumCode):
-                self.num2const[int(tmp)] = tmp
-                #self.str2const[str(tmp)] = tmp
         self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
                                                            Cache.cache_slots,
                                                            Cache.cache_timeout],
@@ -334,14 +326,16 @@ class BofhdExtension(object):
         # TODO: Should make use of "group memberships" command instead
         owner_id = self._find.find_target_by_parsing(hostname, dns.DNS_OWNER)
         group = self.Group_class(self.db)
+        co = self.const
         ret = []
         for row in group.list_groups_with_entity(owner_id):
             grp = self._get_group(row['group_id'], idtype="id")
-            ret.append({'memberop': str(self.num2const[int(row['operation'])]),
+            ret.append({'memberop': str(co.GroupMembershipOp(row['operation'])),
                         'entity_id': grp.entity_id,
                         'group': grp.group_name,
-                        'spreads': ",".join(["%s" % self.num2const[int(a['spread'])]
-                                             for a in grp.get_spread()])})
+                        'spreads': ",".join([str(co.Spread(a['spread']))
+                                             for a in grp.get_spread()])
+                        })
         ret.sort(lambda a,b: cmp(a['group'], b['group']))
         return ret
 
