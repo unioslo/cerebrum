@@ -6273,6 +6273,8 @@ class BofhdExtension(object):
             return self._get_person(*self._map_person_id(id))
         if idtype == 'group':
             return self._get_group(id)
+        if idtype == 'stedkode':
+            return self._get_ou(stedkode=id)
         if idtype is None:
             try:
                 int(id)
