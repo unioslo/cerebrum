@@ -395,7 +395,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
-        self.owner_type = owner_type
+        self.owner_type = int(owner_type)
         self.owner_id = owner_id
         self.np_type = np_type
         self.creator_id = creator_id
@@ -467,6 +467,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if not self.__updated:
             return
         is_new = not self.__in_db
+        
+        # meta_update will not change the value if the new value is
+        # __eq__ to the old.  in other words, it's impossible to
+        # convert it from _CerebrumCode-instance to an integer.
+        if self.np_type is None:
+            np_type = None
+        else:
+            np_type = int(self.np_type)
         if is_new:
             cols = [('entity_type', ':e_type'),
                     ('account_id', ':acc_id'),
@@ -488,7 +496,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                           'o_type' : int(self.owner_type),
                           'c_id' : self.creator_id,
                           'o_id' : self.owner_id,
-                          'np_type' : self.np_type,
+                          'np_type' : np_type,
                           'exp_date' : self.expire_date,
                           'create_date': self.create_date})
             self._db.log_change(self.entity_id, self.const.account_create, None)
@@ -508,7 +516,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                          {'o_type' : int(self.owner_type),
                           'c_id' : self.creator_id,
                           'o_id' : self.owner_id,
-                          'np_type' : self.np_type,
+                          'np_type' : np_type,
                           'exp_date' : self.expire_date,
                           'acc_id' : self.entity_id})
             self._db.log_change(self.entity_id, self.const.account_mod, None)
