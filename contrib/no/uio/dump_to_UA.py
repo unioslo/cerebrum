@@ -466,8 +466,8 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
                         
         for entry in old_dict[leftpnr]:
             vals = entry.split(";")
-            vals[3] = first
-            vals[4] = last
+            vals[2] = first
+            vals[3] = last
             vals[13] = today
             vals[17] = ""
             out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
