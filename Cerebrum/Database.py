@@ -220,6 +220,13 @@ class Cursor(object):
             # module, we require `params' to be a mapping (even though
             # the DB-API allows both sequences and mappings).
             assert type(params) == DictType
+
+            # None of the database engines understand _CerebrumCode,
+            # so we convert them to plain integers to simplify usage.
+            from Cerebrum.Constants import _CerebrumCode
+            for k in params:
+                if isinstance(params[k], _CerebrumCode):
+                    params[k] = int(params[k])
         try:
             driver_sql, pconv = self._sql_cache[statement]
             return (driver_sql, pconv(params))
