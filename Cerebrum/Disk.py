@@ -79,7 +79,9 @@ class Disk(Entity_class):
                           'disk_id': self.entity_id,
                           'path': self.path,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.disk_add, None)
+            self._db.log_change(self.entity_id, self.const.disk_add, None,
+                                change_params={'host_id': self.host_id,
+                                               'path': self.path})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=disk_info]
@@ -88,7 +90,9 @@ class Disk(Entity_class):
                          {'path': self.path,
                           'disk_id': self.entity_id,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.disk_mod, None)
+            self._db.log_change(self.entity_id, self.const.disk_mod, None,
+                                change_params={'host_id': self.host_id,
+                                               'path': self.path})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -171,7 +175,9 @@ class Disk(Entity_class):
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=disk_info]
             WHERE disk_id = :d_id""", {'d_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.disk_del, None)
+            self._db.log_change(self.entity_id, self.const.disk_del, None,
+                                change_params={'host_id': self.host_id,
+                                               'path': self.path})
         self.__super.delete()
 
     def search(self, spread=None, host_id=None, path=None, description=None):
@@ -280,7 +286,8 @@ class Host(Entity_class):
                           'host_id': self.entity_id,
                           'name': self.name,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.host_add, None)
+            self._db.log_change(self.entity_id, self.const.host_add, None,
+                                change_params={'name': self.name})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=host_info]
@@ -289,7 +296,8 @@ class Host(Entity_class):
                          {'name': self.name,
                           'host_id': self.entity_id,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.host_mod, None)
+            self._db.log_change(self.entity_id, self.const.host_mod, None,
+                                change_params={'name': self.name})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
