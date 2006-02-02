@@ -33,14 +33,10 @@ __all__ = ['Host']
 
 table = 'host_info'
 class Host(Entity):
-    slots = Entity.slots + [
+    slots = Entity.slots + (
         DatabaseAttr('name', table, str, write=True),
         DatabaseAttr('description', table, str, write=True)
-    ]
-
-    method_slots = Entity.method_slots + [
-    ]
-
+    )
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {
         'id':'host_id'

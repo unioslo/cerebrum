@@ -118,7 +118,7 @@ class Method(object):
         if args is None:
             args = ()
         if exceptions is None:
-            self.exceptions = []
+            self.exceptions = ()
         else:
             self.exceptions = tuple(exceptions)
         
@@ -181,9 +181,9 @@ class Builder(object):
     in CORBA.
     """
     
-    primary = []
-    slots = []
-    method_slots = []
+    primary = ()
+    slots = ()
+    method_slots = ()
 
     builder_parents = None
     builder_children = None
@@ -321,7 +321,7 @@ class Builder(object):
             quick_register(var_set, set)
 
         if register:
-            cls.slots.append(attribute)
+            cls.slots += (attribute, )
 
     register_attribute = classmethod(register_attribute)
 
@@ -336,17 +336,17 @@ class Builder(object):
             raise ServerProgrammingError('Method %s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, method_func)
         method.doc = method_func.__doc__
-        for m in cls.method_slots:
-            if m.name == method.name:
-                cls.method_slots.remove(m)
-        cls.method_slots.append(method)
-        if cls.builder_children is not None:
-            for i in cls.builder_children:
-                i.method_slots.append(method)
+
+        cls.method_slots = tuple([i for i in cls.method_slots if i.name != method.name])
+        cls.method_slots += (method, )
     register_method = classmethod(register_method)
 
     def build_methods(cls):
         """Create get/set methods for all slots."""
+        assert type(cls.primary) == tuple
+        assert type(cls.slots) == tuple
+        assert type(cls.method_slots) == tuple
+        
         if cls.primary != cls.slots[:len(cls.primary)]:
             cls.slots = cls.primary + cls.slots
 

@@ -30,28 +30,28 @@ __all__ = ['AuthOperation', 'AuthOperationSet', 'AuthOperationSetMember']
 
 table = 'auth_operation'
 class AuthOperation(DatabaseClass):
-    primary = [
-        DatabaseAttr('id', table, int)
-    ]
-    slots = [
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
         DatabaseAttr('op_class', table, str),
         DatabaseAttr('op_method', table, str)
-    ]
+    )
 registry.register_class(AuthOperation)
 
 table = 'auth_operation_set'
 class AuthOperationSet(DatabaseClass):
-    primary = [
-        DatabaseAttr('id', table, int)
-    ]
-    slots = [
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
-    ]
-    method_slots = [
+    )
+    method_slots = (
         Method('add_operation', None, args=[('operation', AuthOperation)], write=True),
         Method('get_operations', [AuthOperation])
-    ]
+    )
 
     def add_operation(self, operation):
         AuthOperationSetMember._create(self.get_database(), operation, self)
@@ -67,11 +67,10 @@ registry.register_class(AuthOperationSet)
 
 table = 'auth_operation_set_member'
 class AuthOperationSetMember(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('op', table, AuthOperation),
         DatabaseAttr('op_set', table, AuthOperationSet)
-    ]
-
+    )
     db_attr_aliases = {
         table: {
             'op':'op_id',

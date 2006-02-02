@@ -37,17 +37,23 @@ __all__ = ['Group']
 
 table = 'group_info'
 
+from SpineLib.DumpClass import Any
+
 class Group(Entity):
-    slots = Entity.slots + [
+    slots = Entity.slots + (
         CerebrumDbAttr('description', table, str, write=True),
         CerebrumDbAttr('visibility', table, GroupVisibilityType, write=True),
         CerebrumDbAttr('creator', table, Entity),
         CerebrumDbAttr('create_date', table, Date),
         CerebrumDbAttr('expire_date', table, Date, write=True),
         CerebrumDbAttr('name', 'entity_name', str, write=True)
-    ]
-    method_slots = Entity.method_slots + [
-    ]
+    )
+    method_slots = (
+        Method('test', Any, args=[('n', int)]),
+    )
+
+    def test(self, n):
+        return [1,2,3,4,'asdf', {'1':12321}, ('asdf', 'fdas')] * n
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {

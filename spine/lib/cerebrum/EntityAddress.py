@@ -37,20 +37,18 @@ table = 'entity_address'
 # TODO: country
 
 class EntityAddress(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('entity', table,  Entity),
         DatabaseAttr('source_system', table, SourceSystem),
         DatabaseAttr('address_type', table, AddressType),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('address_text', table, str, write=True), 
         DatabaseAttr('p_o_box', table, str, write=True),
         DatabaseAttr('postal_number', table, str, write=True),
         DatabaseAttr('city', table, str, write=True),
         DatabaseAttr('country', table, str, write=True)
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table:{'entity':'entity_id'}
     }

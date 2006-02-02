@@ -36,18 +36,16 @@ __all__ = ['EntityContactInfo']
 table = 'entity_contact_info'
 
 class EntityContactInfo(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('entity', table, Entity),
         DatabaseAttr('source_system', table, SourceSystem),
         DatabaseAttr('type', table, ContactInfoType),
         DatabaseAttr('preference', table, int)
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('value', table, str, write=True),
         DatabaseAttr('description', table, str, write=True)
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table:{
             'entity':'entity_id',

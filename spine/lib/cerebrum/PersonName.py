@@ -29,15 +29,14 @@ from SpineLib import Registry
 registry = Registry.get_registry()
 
 class PersonName(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('person', 'person_name', Person),
         DatabaseAttr('name_variant', 'person_name', NameType),
         DatabaseAttr('source_system', 'person_name', SourceSystem),
-    ]
-    slots = [
-        DatabaseAttr('name', 'person_name', str, write=True)
-    ]
-    method_slots = []
+    )
+    slots = (
+        DatabaseAttr('name', 'person_name', str, write=True),
+    )
     db_attr_aliases = {
         'person_name':{
             'person':'person_id'

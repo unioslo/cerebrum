@@ -39,17 +39,21 @@ class CerewebOption(DatabaseClass):
     Cereweb-specific options where both key and value is string.
     """
     
-    primary = [DatabaseAttr('id', option_table, int)]
-    slots = [
+    primary = (
+        DatabaseAttr('id', option_table, int),
+    )
+    slots = (
         DatabaseAttr('entity', option_table, Entity),
         DatabaseAttr('section', option_table, str),
         DatabaseAttr('key', option_table, str),
         DatabaseAttr('value', option_table, str, write=True)
-    ]
+    )
+    method_slots = (
+        Method('delete', None, write=True),
+    )
     db_attr_aliases = {
         option_table: {'id': 'option_id', 'entity': 'entity_id'}
     }
-    method_slots = [Method('delete', None, write=True)]
 
     def delete(self):
         self._delete_from_db()
@@ -65,17 +69,21 @@ class CerewebMotd(DatabaseClass):
     avoid the need to have change-dates and info about who changed it.
     """
     
-    primary = [DatabaseAttr('id', motd_table, int)]
-    slots = [
+    primary = (
+        DatabaseAttr('id', motd_table, int),
+    )
+    slots = (
         DatabaseAttr('create_date', motd_table, Date),
         DatabaseAttr('creator', motd_table, Entity),
         DatabaseAttr('subject', motd_table, str),
         DatabaseAttr('message', motd_table, str)
-    ]
+    )
+    method_slots = (
+        Method('delete', None, write=True),
+    )
     db_attr_aliases = {
         motd_table: {'id': 'motd_id'}
     }
-    method_slots = [Method('delete', None, write=True)]
 
     def delete(self):
         self._delete_from_db()

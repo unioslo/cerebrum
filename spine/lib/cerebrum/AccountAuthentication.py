@@ -34,16 +34,13 @@ registry = Registry.get_registry()
 
 table = 'account_authentication'
 class AccountAuthentication(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('account', table, Account),
         DatabaseAttr('method', table, AuthenticationType)
-    ]
-    slots = [
-        DatabaseAttr('auth_data', table, str, write=True)
-    ]
-
-    method_slots = []
-
+    )
+    slots = (
+        DatabaseAttr('auth_data', table, str, write=True),
+    )
     db_attr_aliases = {
         table:{
             'account':'account_id'

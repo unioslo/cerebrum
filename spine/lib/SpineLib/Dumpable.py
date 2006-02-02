@@ -64,6 +64,7 @@ class Dumpable(object):
         from Searchable import Searchable
 
         dumper_class_name = '%sDumper' % cls.__name__
+
         if not hasattr(cls, 'dumper_class') or dumper_class_name != cls.dumper_class.__name__:
         
             exec 'class %s(DumpClass):\n\tpass\ncls.dumper_class = %s\n' % ( 
@@ -71,9 +72,9 @@ class Dumpable(object):
                 
         dumper_class = cls.dumper_class
         
-        dumper_class.primary = [Attribute('objects', [cls])]
-        dumper_class.slots = DumpClass.slots + []
-        dumper_class.method_slots = DumpClass.method_slots + []
+        dumper_class.primary = (Attribute('objects', [cls]),)
+        dumper_class.slots = ()
+        dumper_class.method_slots = ()
         dumper_class.cls = cls
 
         # make dump accessable from search classes

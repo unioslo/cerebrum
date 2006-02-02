@@ -44,20 +44,20 @@ class HomeDirectory(DatabaseClass):
     'home' and 'disk' is mutualy exclusive, and therefor not writeable,
     but should be updated with the method set_homedir() on account.
     """
-    primary = [
+    primary = (
         DatabaseAttr('id', homedir_table, int),
-    ]
+    )
 
-    slots = [
+    slots = (
         DatabaseAttr('account', homedir_table, Account),
         DatabaseAttr('home', homedir_table, str),
         DatabaseAttr('disk', homedir_table, Disk),
         DatabaseAttr('status', homedir_table, HomeStatus, write=True)
-    ]
+    )
 
-    method_slots = [
-        Method('get_path', str)
-    ]
+    method_slots = (
+        Method('get_path', str),
+    )
 
     db_attr_aliases = {
         homedir_table:{
@@ -87,17 +87,17 @@ class AccountHome(DatabaseClass):
     When all AccountHomes which points to a HomeDirectory is deleted, the
     HomeDirectory will also be removed.
     """
-    primary = [
+    primary = (
         DatabaseAttr('account', home_table, Account),
         DatabaseAttr('spread', home_table, Spread)
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('homedir', home_table, HomeDirectory),
-    ]
+    )
 
-    method_slots = [
-        Method('delete', None, write=True)
-    ]
+    method_slots = (
+        Method('delete', None, write=True),
+    )
 
     db_attr_aliases = {
         home_table:{

@@ -42,15 +42,13 @@ class SearchClass(DatabaseTransactionClass):
     been set, and send them into the generated create_search_method.
     """
     
-    primary = []
-    slots = []
-    search_slots = []
-    method_slots = [
+    search_slots = ()
+    method_slots = (
         Method('clear', None),
         Method('get_signature', [str]), # FIXME: bedre navn?
         Method('set_search_limit', None, args=[('limit', int), ('offset', int)]),
         Method('dump_rows', [[str]], exceptions=[ClientProgrammingError])
-    ]
+    )
     search_id_iterator = create_id_iterator()
 
     def __init__(self, *args, **vargs):

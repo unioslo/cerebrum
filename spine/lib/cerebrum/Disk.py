@@ -34,15 +34,11 @@ __all__ = ['Disk']
 
 table = 'disk_info'
 class Disk(Entity):
-    slots = Entity.slots + [
+    slots = Entity.slots + (
         DatabaseAttr('host', table, Host),
         DatabaseAttr('path', table, str, write=True),
         DatabaseAttr('description', table, str, write=True)
-    ]
-
-    method_slots = Entity.method_slots + [
-    ]
-
+    )
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {
         'id':'disk_id',

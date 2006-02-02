@@ -34,16 +34,14 @@ registry = Registry.get_registry()
 
 table = 'entity_external_id'
 class EntityExternalId(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('external_id', table, str),
         DatabaseAttr('id_type', table, EntityExternalIdType),
         DatabaseAttr('source_system', table, SourceSystem),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('entity', table, Entity),
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table: {
             'entity':'entity_id'

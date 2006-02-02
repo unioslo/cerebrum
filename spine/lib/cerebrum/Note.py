@@ -30,19 +30,19 @@ registry = Registry.get_registry()
 __all__ = ['Note']
 
 class Note(DatabaseClass):
-    primary = [
-        DatabaseAttr('id', 'note', int)
-    ]
-    slots = [
+    primary = (
+        DatabaseAttr('id', 'note', int),
+    )
+    slots = (
         DatabaseAttr('create_date', 'note', Date),
         DatabaseAttr('creator', 'note', Entity),
         DatabaseAttr('entity', 'note', Entity),
         DatabaseAttr('subject', 'note', str),
         DatabaseAttr('description', 'note', str)
-    ]
-    method_slots = [
-        Method('delete', None, write=True)
-    ]
+    )
+    method_slots = (
+        Method('delete', None, write=True),
+    )
     
     db_attr_aliases = {
         'note': {

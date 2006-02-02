@@ -34,15 +34,13 @@ __all__ = ['EntityName']
 table = 'entity_name'
 
 class EntityName(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('entity', table, Entity),
         DatabaseAttr('value_domain', table, ValueDomain)
-    ]
-    slots = [
-        DatabaseAttr('name', table, str, write=True)
-    ]
-    method_slots = []
-
+    )
+    slots = (
+        DatabaseAttr('name', table, str, write=True),
+    )
     db_attr_aliases = {
         table:{
             'entity':'entity_id',

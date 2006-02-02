@@ -34,15 +34,13 @@ class Any:
     pass
 
 class KeyValue(Builder):
-    slots = [
+    slots = (
         Attribute('key', str),
         Attribute('value', str),
         Attribute('int_value', int),
         Attribute('float_value', float),
         Attribute('is_none', bool)
-    ]
-
-    method_slots = []
+    )
 
     def make(cls, key, value):
         int_value = -1
@@ -73,10 +71,6 @@ class DumpClass(Builder):
     be cached.
     """
     
-    primary = []
-    slots = []
-    method_slots = []
-
     def __init__(self, data, signature=None):
         super(DumpClass, self).__init__()
 

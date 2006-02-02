@@ -32,18 +32,17 @@ __all__ = ['OUName']
 
 table = 'ou_name_language'
 class OUName(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('ou', table, OU),
         DatabaseAttr('language', table, LanguageType),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('name', table, str, write=True),
         DatabaseAttr('acronym', table, str, write=True),
         DatabaseAttr('short_name', table, str, write=True), 
         DatabaseAttr('display_name', table, str, write=True),
         DatabaseAttr('sort_name', table, str, write=True)
-    ]
-    method_slots = []
+    )
 
     db_attr_aliases = {
         table : 

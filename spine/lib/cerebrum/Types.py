@@ -25,7 +25,6 @@ from SpineLib import Registry
 registry = Registry.get_registry()
 
 __all__ = ['CodeType']
-a = id
 class CodeType(DatabaseClass):
     def __new__(cls, db, id=None, name=None, **args):
         if id is None and name is not None:
@@ -74,14 +73,13 @@ for name, table in [('AccountType', 'account_code'),
 
     exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)
 
-    cls.primary = [
+    cls.primary = (
         DatabaseAttr('id', table, int),
-    ]
-    cls.slots = [
+    )
+    cls.slots = (
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
-    ]
-    cls.method_slots = []
+    )
     cls.db_attr_aliases = {
         table:{
             'id':'code',
@@ -94,19 +92,18 @@ for name, table in [('AccountType', 'account_code'),
     __all__.append(name)
 
 # Add entity type slot to Spread
-Spread.slots.append(DatabaseAttr('entity_type', 'spread_code', EntityType))
+Spread.slots += (DatabaseAttr('entity_type', 'spread_code', EntityType), )
 
 table = 'entity_external_id_code'
 class EntityExternalIdType(CodeType):
-    primary = [
+    primary = (
         DatabaseAttr('id', table, int),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('type', table, EntityType),
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
-    ]
-    method_slots = []
+    )
     db_attr_aliases = {
         table:{
             'id':'code',
@@ -120,15 +117,14 @@ __all__.append(EntityExternalIdType)
 
 table = 'email_spam_level_code'
 class EmailSpamLevel(CodeType):
-    primary = [
+    primary = (
         DatabaseAttr('id', table, int),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('level', table, int),
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
-    ]
-    method_slots = []
+    )
     db_attr_aliases = {
         table:{
             'id':'code',

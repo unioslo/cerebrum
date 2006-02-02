@@ -6,15 +6,14 @@ registry = Registry.get_registry()
 
 table = 'person_aff_status_code'
 class PersonAffiliationStatus(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('id', table, int),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('affiliation', table, PersonAffiliationType),
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
-    ]
-    method_slots = []
+    )
     db_attr_aliases = {
         table : {
             'id' : 'status',

@@ -32,13 +32,11 @@ __all__ = ['EntitySpread']
 table = 'entity_spread'
 
 class EntitySpread(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('entity', table, Entity),
         DatabaseAttr('entity_type', table, EntityType),
         DatabaseAttr('spread', table, Spread)
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table:{'entity':'entity_id'}
     }

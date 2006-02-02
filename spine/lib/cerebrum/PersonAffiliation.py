@@ -36,24 +36,23 @@ registry = Registry.get_registry()
 
 table = 'person_affiliation_source'
 class PersonAffiliation(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('person', table, Person),
         DatabaseAttr('ou', table, OU),
         DatabaseAttr('affiliation', table, PersonAffiliationType),
         DatabaseAttr('source_system', table, SourceSystem),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('status', table, PersonAffiliationStatus, write=True),
         DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('last_date', table, Date),
         DatabaseAttr('deleted_date', table, Date),
-    ]
-
-    method_slots = [
+    )
+    method_slots = (
         Method('delete', None, write=True),
         Method('marked_for_deletion', bool),
-    ]
+    )
 
     db_attr_aliases = {
         table : {

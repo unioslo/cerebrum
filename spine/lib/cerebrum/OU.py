@@ -57,15 +57,13 @@ class OU(Entity):
     \\see Commands
     \\see PersonAffiliation
     """
-    slots = Entity.slots + [
+    slots = Entity.slots + (
         CerebrumDbAttr('name', table, str, write=True),
         CerebrumDbAttr('acronym', table, str, write=True),
         CerebrumDbAttr('short_name', table, str, write=True), 
         CerebrumDbAttr('display_name', table, str, write=True),
         CerebrumDbAttr('sort_name', table, str, write=True)
-    ]
-
-    method_slots = Entity.method_slots + []
+    )
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {

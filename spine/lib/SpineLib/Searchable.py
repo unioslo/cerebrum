@@ -99,8 +99,7 @@ class Searchable(object):
     union or diffrence, if you need to search on serveral types of
     objects.
     """
-    
-    search_slots = []
+    search_slots = ()
 
     def build_search_class(cls):
         from SearchClass import SearchClass
@@ -115,8 +114,8 @@ class Searchable(object):
         search_class = cls.search_class
         search_class.cls = cls
 
-        search_class.slots = SearchClass.slots + []
-        search_class.method_slots = SearchClass.method_slots + []
+        search_class.slots = ()
+        search_class.method_slots = ()
 
         for attr in cls.slots + cls.search_slots:
             if not isinstance(attr, DatabaseAttr):
@@ -145,7 +144,7 @@ class Searchable(object):
                 set = create_set_method(new_attr)
                 search_class.register_attribute(new_attr, get=get, set=set, overwrite=True)
 
-        search_class.method_slots.append(Method('search', [cls], exceptions=[SpineExceptions.ClientProgrammingError]))
+        search_class.method_slots += (Method('search', [cls], exceptions=[SpineExceptions.ClientProgrammingError]), )
 
         cls.search_class = search_class
 

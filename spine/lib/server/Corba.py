@@ -734,11 +734,11 @@ def register_spine_class(cls, idl_cls, idl_struct):
 
             setattr(corba_class, set_name, _create_corba_method(set))
 
-    for i in cls.builder_parents + (cls, ):
+    classes = (cls, ) + cls.builder_parents
+    for i in classes:
         for method in i.method_slots:
-            if hasattr(corba_class, method.name):
-                raise ServerProgrammingError('Multiple definitions in %s (%s from %s)' % (corba_class, method.name, corba_class))
-            setattr(corba_class, method.name, _create_corba_method(method))
+            if not hasattr(corba_class, method.name):
+                setattr(corba_class, method.name, _create_corba_method(method))
 
     class_cache[cls] = corba_class
 

@@ -54,15 +54,13 @@ class EmailDomain(DatabaseClass):
     \\see EmailDomainCategory
     \\see EmailDomainCategorization
     """
-    primary = [DatabaseAttr('id', table, int)]
-
-    slots = [
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
         DatabaseAttr('name', table, str, write=True),
         DatabaseAttr('description', table, str, write=True),
-    ]
-
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table : {
             'id' : 'domain_id',
@@ -105,13 +103,10 @@ class EmailDomainCategorization(DatabaseClass):
     \\see EmailDomain
     \\see EmailDomainCategory
     """
-    primary = [
+    primary = (
         DatabaseAttr('domain', table, EmailDomain),
         DatabaseAttr('category', table, EmailDomainCategory),
-    ]
-    slots = []
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table : {
             'domain' : 'domain_id',
@@ -215,17 +210,17 @@ class EmailTarget(DatabaseClass):
     \\see EmailAddress
     \\see Entity
     """
-    primary = [DatabaseAttr('id', table, int)]
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
 
-    slots = [
+    slots = (
         DatabaseAttr('type', table, EmailTargetType, write=True),
         DatabaseAttr('entity', table, Entity, write=True, exceptions=[SpineExceptions.AlreadyExistsError]),
         DatabaseAttr('alias', table, str, write=True),
         # FIXME: should be PosixUser
         DatabaseAttr('using', table, Account, write=True), 
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table : {
             'id' : 'target_id',
@@ -313,9 +308,10 @@ class EmailAddress(DatabaseClass):
     \\see EmailDomain
     \\see EmailTarget
     """
-    primary = [DatabaseAttr('id', table, int)]
-
-    slots = [
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
         DatabaseAttr('local_part', table, str, write=True),
         DatabaseAttr('domain', table, EmailDomain, write=True),
         DatabaseAttr('target', table, EmailTarget, write=True),
@@ -323,9 +319,10 @@ class EmailAddress(DatabaseClass):
         # TODO: How do we auto-update change date here?
         DatabaseAttr('change_date', table, Date),
         DatabaseAttr('expire_date', table, Date, write=True),
-    ]
-
-    method_slots = [Method('delete', None, write=True)]
+    )
+    method_slots = (
+        Method('delete', None, write=True),
+    )
 
     db_attr_aliases = {
         table : {
@@ -428,12 +425,12 @@ class PrimaryEmailAddress(DatabaseClass):
     \\see EmailAddress
     """
 
-    primary = [DatabaseAttr('target', table, EmailTarget)]
-    slots = [
-        DatabaseAttr('address', table, EmailAddress, write=True)
-    ]
-    method_slots = []
-
+    primary = (
+        DatabaseAttr('target', table, EmailTarget),
+    )
+    slots = (
+        DatabaseAttr('address', table, EmailAddress, write=True),
+    )
     db_attr_aliases = {
         table : {
             'target' : 'target_id',
@@ -539,15 +536,13 @@ class EntityEmailDomain(DatabaseClass):
     \\see PersonAffiliationType
     \\see EmailDomain
     """
-    primary = [
+    primary = (
         DatabaseAttr('person', table, Person),
         DatabaseAttr('affiliation', table, PersonAffiliationType),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('domain', table, EmailDomain),
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table : {
             'person' : 'entity_id',

@@ -29,11 +29,10 @@ registry = Registry.get_registry()
 __all__ = ['Date']
 
 class Date(Builder):
-    primary = []
-    slots = [
-        Attribute('format', str, write=True)
-    ]
-    method_slots = [
+    slots = (
+        Attribute('format', str, write=True),
+    )
+    method_slots = (
         Method('get_year', int),
         Method('get_month', int),
         Method('get_day', int),
@@ -43,7 +42,7 @@ class Date(Builder):
         Method('get_unix', int),
         Method('strftime', str, args=[('formatstr', str)]),
         Method('to_string', str)
-    ]
+    )
 
     def __init__(self, value, *args, **vargs):
         super(Date, self).__init__(*args, **vargs)

@@ -32,12 +32,10 @@ __all__ = ['EntityFlag']
 table = 'entity_flag'
 
 class EntityFlag(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('entity', table, Entity),
         DatabaseAttr('flag', table, Flag)
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table:{'entity':'entity_id'}
     }

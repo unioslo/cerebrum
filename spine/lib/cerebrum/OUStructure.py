@@ -31,12 +31,13 @@ __all__ = ['OUStructure']
 
 table = 'ou_structure'
 class OUStructure(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('ou', table, OU),
         DatabaseAttr('perspective', table, OUPerspectiveType),
-    ]
-    slots = [DatabaseAttr('parent', table, OU)]
-    method_slots = []
+    )
+    slots = (
+        DatabaseAttr('parent', table, OU),
+    )
     db_attr_aliases = {
         table : {
             'ou' : 'ou_id',

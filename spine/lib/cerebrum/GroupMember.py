@@ -33,14 +33,12 @@ registry = Registry.get_registry()
 
 table = 'group_member'
 class GroupMember(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('group', table, Group),
         DatabaseAttr('operation', table, GroupMemberOperationType),
         DatabaseAttr('member', table, Entity),
         DatabaseAttr('member_type', table, EntityType)
-    ]
-    slots = []
-    method_slots = []
+    )
     db_attr_aliases = {
         table:{
             'group':'group_id',

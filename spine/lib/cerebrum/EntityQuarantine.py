@@ -36,22 +36,22 @@ __all__ = ['EntityQuarantine']
 table = 'entity_quarantine'
 
 class EntityQuarantine(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('entity', table, Entity),
         DatabaseAttr('type', table, QuarantineType),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('creator', table, Entity),
         DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('start_date', table, Date, write=True),
         DatabaseAttr('end_date', table, Date, write=True, optional=True),
         DatabaseAttr('disable_until', table, Date, write=True, optional=True)
-    ]
+    )
 
-    method_slots = [
-        Method('is_active', bool)
-    ]
+    method_slots = (
+        Method('is_active', bool),
+    )
 
     db_attr_aliases = {
         table:{

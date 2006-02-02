@@ -35,12 +35,12 @@ __all__ = ['AuthSuper']
 
 table = 'auth_target_super' # FIXME: better name? auth_target_super?
 class AuthTargetSuper(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('user', table, Entity),
-    ]
-    slots = [
-        DatabaseAttr('type', table, EntityType)
-    ]
+    )
+    slots = (
+        DatabaseAttr('type', table, EntityType),
+    )
     db_attr_aliases = {
         table: {
             'user':'user_id',

@@ -31,14 +31,13 @@ __all__ = ['RequestCode', 'Request']
 
 table = 'bofhd_request_code'
 class RequestCode(CodeType):
-    primary = [
+    primary = (
         DatabaseAttr('id', table, int),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('name', table, str),
         DatabaseAttr('description', table, str)
-    ]
-    method_slots = []
+    )
 
     db_attr_aliases = {
         table: {
@@ -50,18 +49,17 @@ registry.register_class(RequestCode)
 
 table = 'bofhd_request'
 class Request(DatabaseClass):
-    primary = [
-        DatabaseAttr('id', table, int)
-    ]
-    slots = [
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
         DatabaseAttr('requester', table, Entity),
         DatabaseAttr('run_at', table, Date),
         DatabaseAttr('operation', table, RequestCode),
         DatabaseAttr('entity', table, Entity),
         DatabaseAttr('destination', table, str), # Entity
         DatabaseAttr('state_data', table, str),
-    ]
-    method_slots = []
+    )
 
     db_attr_aliases = {
         table:{

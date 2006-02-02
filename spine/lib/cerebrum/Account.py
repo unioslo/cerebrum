@@ -53,7 +53,7 @@ class Account(Entity):
     \\see AccountType
     """
 
-    slots = Entity.slots + [
+    slots = Entity.slots + (
         CerebrumDbAttr('owner', table, Entity),
         CerebrumDbAttr('owner_type', table, EntityType),
         CerebrumDbAttr('np_type', table, AccountType, write=True),
@@ -62,11 +62,11 @@ class Account(Entity):
         CerebrumDbAttr('expire_date', table, Date, write=True),
         DatabaseAttr('description', table, str, write=True),
         CerebrumDbAttr('name', 'entity_name', str, write=True)
-    ]
+    )
     
-    method_slots = Entity.method_slots + [
-        Method('is_expired', bool)
-    ]
+    method_slots = (
+        Method('is_expired', bool),
+    )
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {

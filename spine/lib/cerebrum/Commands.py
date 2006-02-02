@@ -42,15 +42,13 @@ class Commands(DatabaseTransactionClass):
     instead use Registry.get_registry().register_method().
     """
 
-    primary = []
-    slots = []
-    method_slots = [
+    method_slots = (
         Method('get_date_now', Date),
         Method('get_date', Date, args=[('year', int), ('month', int), ('day', int)]),
         Method('get_datetime', Date, args=[('year', int), ('month', int), ('day', int), ('hour', int), ('minute', int), ('second', int)]),
         Method('strptime', Date, args=[('datestr', str), ('formatstr', str)], exceptions=[SpineExceptions.ValueError]),
         Method('get_date_none', Date)
-    ]
+    )
 
     def get_date_none(self):
         return Date(None)
@@ -72,9 +70,9 @@ class Commands(DatabaseTransactionClass):
         Returns a Date-object reflecting the parsed date and time.
         """
         try:
-            return Date(mx.DateTime.strptime(datestr, formatstr))
+            return Date(mx.DateTime.strptime(datestr.strip(), formatstr))
         except mx.DateTime.Error:
-            raise SpineExceptions.ValueError('Parse error when reading date from string.')
+            raise SpineExceptions.ValueError('"%s" does not match the format "%s"' % (datestr, formatstr))
 
 registry.register_class(Commands)
 

@@ -46,15 +46,15 @@ type_cache, group_namespace, account_namespace = init()
 __all__ = ['Entity']
 
 class Entity(CerebrumClass, DatabaseClass, EntityAuth):
-    primary = [
-        DatabaseAttr('id', 'entity_info', int)
-    ]
-    slots = [
-        DatabaseAttr('type', 'entity_info', EntityType)
-    ]
-    method_slots = [
-        Method('delete', None, write=True)
-    ]
+    primary = (
+        DatabaseAttr('id', 'entity_info', int),
+    )
+    slots = (
+        DatabaseAttr('type', 'entity_info', EntityType),
+    )
+    method_slots = (
+        Method('delete', None, write=True),
+    )
 
     db_attr_aliases = {
         'entity_info': {

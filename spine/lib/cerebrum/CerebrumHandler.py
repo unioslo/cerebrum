@@ -34,19 +34,19 @@ from SpineLib import Registry
 registry = Registry.get_registry() 
 
 class CerebrumHandler(Transaction, Builder):
-    primary = [
+    primary = (
         Attribute('client_id', int),
         Attribute('id', int)
-    ]
-    slots = [
+    )
+    slots = (
         Attribute('time_started', Date),
         Attribute('my_entities', [Entity])
-    ]
-    method_slots = [
+    )
+    method_slots = (
         Method('rollback', None),
         Method('commit', None),
         Method('get_date', Date),
-    ]
+    )
 
     def __init__(self, session, *args, **vargs):
         Transaction.__init__(self, session)

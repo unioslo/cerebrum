@@ -38,16 +38,16 @@ __all__ = ['Person']
 
 table = 'person_info'
 class Person(Entity):
-    slots = Entity.slots + [
+    slots = Entity.slots + (
         CerebrumDbAttr('export_id', table, str, write=True),
         CerebrumDbAttr('birth_date', table, Date, write=True),
         CerebrumDbAttr('gender', table, GenderType, write=True),
         CerebrumDbAttr('deceased_date', table, Date, write=True),
         CerebrumDbAttr('description', table, str, write=True)
-    ]
-    method_slots = Entity.method_slots + [
-        Method('get_primary_account', Account)
-    ]
+    )
+    method_slots = (
+        Method('get_primary_account', Account),
+    )
 
     Entity.db_attr_aliases[table] = {
         'id':'person_id'
@@ -60,7 +60,7 @@ class Person(Entity):
         account_id = self._get_cerebrum_obj().get_primary_account()
         if account_id is None:
             return None
-        return Account(account_id)
+        return Account(self.get_database(), account_id)
 
 registry.register_class(Person)
 

@@ -34,16 +34,14 @@ __all__ = ['ChangeType', 'ChangeLog']
 
 table = 'change_type'
 class ChangeType(DatabaseClass):
-    primary = [
+    primary = (
         DatabaseAttr('id', table, int),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('category', table, str),
         DatabaseAttr('type', table, str),
         DatabaseAttr('message', table, str)
-    ]
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table: {
             'id':'change_type_id',
@@ -54,10 +52,10 @@ registry.register_class(ChangeType)
 
 table = 'change_log'
 class ChangeLog(DatabaseClass):
-    primary = [
-        DatabaseAttr('id', table, int)
-    ]
-    slots = [
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
         DatabaseAttr('timestamp', table, Date),
         DatabaseAttr('subject', table, Entity, optional=True),
         DatabaseAttr('subject_entity', table, int),
@@ -68,10 +66,7 @@ class ChangeLog(DatabaseClass):
         DatabaseAttr('change_program', table, str),
         DatabaseAttr('description', table, str),
         Attribute('message', str),
-    ]
-
-    method_slots = []
-
+    )
     db_attr_aliases = {
         table:{
             'id':'change_id',

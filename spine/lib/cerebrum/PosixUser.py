@@ -37,14 +37,13 @@ __all__ = ['PosixUser', 'PosixShell']
 
 table = 'posix_shell_code'
 class PosixShell(CodeType):
-    primary = [
+    primary = (
         DatabaseAttr('id', table, int),
-    ]
-    slots = [
+    )
+    slots = (
         DatabaseAttr('name', table, str),
         DatabaseAttr('shell', table, str)
-    ]
-    method_slots = []
+    )
 
     db_attr_aliases = {
         table:{
