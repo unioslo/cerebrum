@@ -46,7 +46,7 @@ DROP TABLE auth_target_spread;
 category:drop;
 DROP TABLE auth_target_commands;
 category:drop;
-DROP TABLE auth_target_all;
+DROP TABLE auth_target_super;
 category:drop;
 DROP TABLE auth_operation_set_member;
 category:drop;
@@ -117,7 +117,9 @@ CREATE TABLE auth_operation_set_member (
     CONSTRAINT auth_operation_set_fk
       REFERENCES auth_operation_set(id),
   CONSTRAINT auth_operation_set_member_pk
-    PRIMARY KEY (op_id, op_set_id)
+    PRIMARY KEY (op_id, op_set_id),
+  CONSTRAINT auth_operation_set_member_u
+    UNIQUE (op_id, op_set_id)
 );
 
 /* Table for access to commands.
@@ -142,7 +144,9 @@ CREATE TABLE auth_target_commands (
       REFERENCES auth_operation_set(id),
   CONSTRAINT auth_target_commands_user_check
     FOREIGN KEY (user_type, user_id)
-    REFERENCES entity_info(entity_type, entity_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT auth_target_commands_u
+    UNIQUE (user_id, op_set_id)
 );
 
 /* Table for access to self.
@@ -168,7 +172,9 @@ CREATE TABLE auth_target_self (
       REFERENCES auth_operation_set(id),
   CONSTRAINT auth_target_self_user_check
     FOREIGN KEY (user_type, user_id)
-    REFERENCES entity_info(entity_type, entity_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT auth_target_self_u
+    UNIQUE (user_id, op_set_id)
 );
 
 /* Table for access to members in a spread.
@@ -194,7 +200,9 @@ CREATE TABLE auth_target_spread (
       REFERENCES spread_code(code),
   CONSTRAINT auth_target_spread_user_check
     FOREIGN KEY (user_type, user_id)
-    REFERENCES entity_info(entity_type, entity_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT auth_target_spread_u
+    UNIQUE (user_id, op_set_id, spread)
 );
 
 /* Table for acess to specific entities.
@@ -220,7 +228,9 @@ CREATE TABLE auth_target_entity (
       REFERENCES entity_info(entity_id),
   CONSTRAINT auth_target_entity_user_check
     FOREIGN KEY (user_type, user_id)
-    REFERENCES entity_info(entity_type, entity_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT auth_target_entity_u
+    UNIQUE (user_id, op_set_id, entity)
 );
 
 /* Table with superusers.
@@ -229,17 +239,19 @@ CREATE TABLE auth_target_entity (
 * members of classes.
 */
 category:main;
-CREATE TABLE auth_target_all (
+CREATE TABLE auth_target_super (
   user_id       NUMERIC(12,0)
     NOT NULL
-    CONSTRAINT auth_target_all_user_id_fk
-      REFERENCES entity_info(entity_id),
+    CONSTRAINT auth_target_super_user_id_fk
+      REFERENCES entity_info(entity_id)
+    CONSTRAINT auth_target_super_user_id_u
+      UNIQUE,
   user_type     NUMERIC(6,0)
     NOT NULL
-    CONSTRAINT auth_target_all_user_type_check
+    CONSTRAINT auth_target_super_user_type_check
       CHECK (user_type IN ([:get_constant name=entity_account],
         [:get_constant name=entity_group])),
-  CONSTRAINT auth_target_all_user_check
+  CONSTRAINT auth_target_super_user_check
     FOREIGN KEY (user_type, user_id)
     REFERENCES entity_info(entity_type, entity_id)
 );
