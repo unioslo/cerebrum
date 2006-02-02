@@ -54,9 +54,11 @@ DROP TABLE auth_operation;
 category:drop;
 DROP TABLE auth_operation_set;
 category:drop;
-DROP SEQUENCE auth_operation_id_seq;
-category:drop;
-DROP SEQUENCE auth_operation_set_id_seq;
+DROP SEQUENCE auth_;
+
+
+category:main;
+CREATE SEQUENCE auth_seq;
 
 /* Defines the legal operations that may be performed.
 * 
@@ -69,10 +71,9 @@ CREATE TABLE auth_operation (
   op_class      CHAR VARYING(256)
     NOT NULL,
   op_method     CHAR VARYING(256)
-    NOT NULL
+    NOT NULL,
+  CONSTRAINT auth_operation_u UNIQUE (op_class, op_method)
 );
-category:main;
-CREATE SEQUENCE auth_operation_id_seq;
 
 /* Collection of operations.
 *
