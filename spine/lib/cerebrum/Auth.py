@@ -21,161 +21,81 @@
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.Builder import Method
 
-from Entity import Entity
-from Types import AuthOperationType
 from Commands import Commands
 
 from SpineLib import Registry
 registry = Registry.get_registry()
 
-__all__ = ['AuthOperationSet', 'AuthOperation', 'AuthOperationAttr', 'AuthRole']
+__all__ = ['AuthOperation', 'AuthOperationSet', 'AuthOperationSetMember']
 
-# samling med operasjoner
-table = 'auth_operation_set'
-class AuthOperationSet(DatabaseClass):
-    primary = [
-        DatabaseAttr('id', table, int)
-    ]
-    slots = [
-        DatabaseAttr('name', table, str)
-    ]
-    method_slots = [
-        Method('delete', None, write=True)
-    ]
-
-    db_attr_aliases = {
-        table: {
-            'id':'op_set_id'
-        }
-    }
-
-    def delete(self):
-        self._delete_from_db()
-        self._delete()
-
-registry.register_class(AuthOperationSet)
-
-# AuthOperationSet innholder disse
 table = 'auth_operation'
 class AuthOperation(DatabaseClass):
     primary = [
         DatabaseAttr('id', table, int)
     ]
     slots = [
-        DatabaseAttr('operation_type', table, AuthOperationType),
-        DatabaseAttr('operation_set', table, AuthOperationSet)
+        DatabaseAttr('op_class', table, str),
+        DatabaseAttr('op_method', table, str)
     ]
-    method_slots = [
-        Method('delete', None, write=True)
-    ]
-
-    db_attr_aliases = {
-        table: {
-            'id':'op_id',
-            'operation_type':'op_code',
-            'operation_set':'op_set_id'
-        }
-    }
-
-    def delete(self):
-        self._delete_from_db()
-        self._delete()
-
 registry.register_class(AuthOperation)
 
-# ektra argumenter for operasjoner
-table = 'auth_op_attrs'
-class AuthOperationAttr(DatabaseClass):
+table = 'auth_operation_set'
+class AuthOperationSet(DatabaseClass):
     primary = [
         DatabaseAttr('id', table, int)
     ]
     slots = [
-        DatabaseAttr('attr', table, str)
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('description', table, str)
     ]
     method_slots = [
-        Method('delete', None, write=True)
+        Method('add_operation', None, args=[('operation', AuthOperation)], write=True),
+        Method('get_operations', [AuthOperation])
     ]
 
-    db_attr_aliases = {
-        table: {
-            'id':'op_id'
-        }
-    }
+    def add_operation(self, operation):
+        AuthOperationSetMember._create(self.get_database(), operation, self)
 
-    def delete(self):
-        self._delete_from_db()
-        self._delete()
+    def get_operations(self):
+        db = self.get_database()
+        s = registry.AuthOperationSearcher(db)
+        ss = registry.AuthOperationSetMemberSearcher(db)
+        ss.set_op_set(self)
+        s.add_join('', ss, 'op')
+        return s.search()
+registry.register_class(AuthOperationSet)
 
-registry.register_class(AuthOperationAttr)
-
-table = 'auth_role'
-class AuthRole(DatabaseClass):
+table = 'auth_operation_set_member'
+class AuthOperationSetMember(DatabaseClass):
     primary = [
-        DatabaseAttr('entity', table, Entity),
-        DatabaseAttr('operation_set', table, AuthOperationSet),
-        DatabaseAttr('target', table, Entity)
-    ]
-    method_slots = [
-        Method('delete', None, write=True)
+        DatabaseAttr('op', table, AuthOperation),
+        DatabaseAttr('op_set', table, AuthOperationSet)
     ]
 
     db_attr_aliases = {
         table: {
-            'entity':'entity_id',
-            'operation_set':'op_set_id',
-            'target':'op_target_id'
+            'op':'op_id',
+            'op_set':'op_set_id'
         }
     }
+registry.register_class(AuthOperationSetMember)
 
-    def delete(self):
-        self._delete_from_db()
-        self._delete()
-
-registry.register_class(AuthRole)
-
-# Methods for creating the diffrent auth-classes.
-auth_seq = 'code_seq'
-
-def create_auth_operation_set(self, id, name):
+def create_auth_operation(self, op_class, op_method):
     db = self.get_database()
-    obj_id = int(db.nextval(auth_seq))
-    AuthOperationSet._create(db, obj_id, id=id, name=name)
-    return AuthOperationSet(obj_id, write_locker=self.get_writelock_holder())
-
-m = Method('create_auth_operation_set', AuthOperationSet,
-           args=[('id', int), ('name', str)], write=True)
-Commands.register_method(m, create_auth_operation_set)
-
-def create_auth_operation(self, id, operation_type, operation_set):
-    db = self.get_database()
-    obj_id = int(db.nextval(auth_seq))
-    AuthOperation._create(db, obj_id, operation_type, operation_set)
-    return AuthOperation(obj_id, write_locker=self.get_writelock_holder())
-
-m = Method('create_auth_operation', AuthOperation, write=True,
-           args=[('id', int), ('operation_type', AuthOperationType),
-                 ('operation_set', AuthOperationSet)])
+    obj_id = int(db.nextval('auth_seq'))
+    AuthOperation._create(db, obj_id, op_class, op_method)
+    return AuthOperation(db, obj_id)
+m = Method('create_auth_operation', AuthOperation,
+           args=[('op_class', str), ('op_method', str)], write=True)
 Commands.register_method(m, create_auth_operation)
 
-def create_auth_operation_attr(self, id, attr):
+def create_auth_operation_set(self, name, description):
     db = self.get_database()
-    obj_id = int(db.nextval(auth_seq))
-    AuthOperationAttr._create(db, obj_id, id=id, attr=attr)
-    return AuthOperationAttr(obj_id, write_locker=self.get_writelock_holder())
-
-m = Method('create_auth_operation_attr', AuthOperationAttr,
-           args=[('id', int), ('attr', str)], write=True)
-Commands.register_method(m, create_auth_operation_attr)
-
-def create_auth_role(self, entity, operation_set, target):
-    db = self.get_database()
-    obj_id = int(db.nextval(auth_seq))
-    AuthRole._create(db, obj_id, entity, operation_set, target)
-    return AuthRole(obj_id, write_locker=self.get_writelock_holder())
-
-m = Method('create_auth_role', AuthRole, write=True,
-           args=[('entity', Entity), ('operation_set', AuthOperationSet),
-                 ('target', Entity)])
-Commands.register_method(m, create_auth_role)
+    obj_id = int(db.nextval('auth_seq'))
+    AuthOperationSet._create(db, obj_id, name, description)
+    return AuthOperationSet(db, obj_id)
+m = Method('create_auth_operation_set', AuthOperationSet,
+           args=[('name', str), ('description', str)], write=True)
+Commands.register_method(m, create_auth_operation_set)
 
 # arch-tag: 3dd57534-233c-4cc1-aa00-b929fd7fb24b
