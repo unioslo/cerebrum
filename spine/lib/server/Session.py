@@ -30,6 +30,8 @@ import cereconf
 from Corba import create_idl_source, convert_to_corba, register_spine_class, drop_associated_objects
 import Communication
 import SessionHandler
+import Authorization
+
 from Cerebrum.spine.CerebrumHandler import CerebrumHandler
 from Cerebrum.spine.SpineLib.Builder import Attribute, Method
 
@@ -119,6 +121,8 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         transaction = CerebrumHandler(self, self.client.get_id(), self.counter.next())
         corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
         self._transactions[transaction] = corba_obj
+
+        transaction.authorization = Authorization.Authorization(transaction.get_database(), transaction.get_my_entities())
         return corba_obj
 
     def get_encoding(self):

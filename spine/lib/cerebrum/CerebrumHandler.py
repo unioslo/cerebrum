@@ -40,25 +40,24 @@ class CerebrumHandler(Transaction, Builder):
     ]
     slots = [
         Attribute('time_started', Date),
-        Attribute('name', str, write=True),
-        Attribute('description', str, write=True)
+        Attribute('my_entities', [Entity])
     ]
     method_slots = [
         Method('rollback', None),
         Method('commit', None),
-        Method('get_date', Date)
+        Method('get_date', Date),
     ]
 
     def __init__(self, session, *args, **vargs):
         Transaction.__init__(self, session)
-        Builder.__init__(self, *args, **vargs)
-        
-        # Set the current time to the started Attribute.
-        started = self.get_attr('time_started').get_name_private()
-        setattr(self, started, Date(mx.DateTime.now()))
+        Builder.__init__(self, time_started=Date(mx.DateTime.now()), *args, **vargs)
 
     def get_date(self):
         return Date(mx.DateTime.now())
+
+    def load_my_entities(self):
+        me = self.get_account(self.get_client_id())
+        self._my_entities = [me] + me.get_groups()
 
 def convert_name(name):
     name = list(name)

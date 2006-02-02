@@ -55,13 +55,16 @@ import OU
 import Host
 import Disk
 
+# Auth
+import Auth
+import AuthTargetSuper
+
 # Modules
 import Note
 import PosixGroup
 import PosixUser
 import ChangeLog
 import Commands
-import Auth
 #import EntityFlag
 import Request
 import Stedkode

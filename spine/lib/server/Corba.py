@@ -33,14 +33,12 @@ import Communication
 from Cerebrum.extlib import sets
 from Cerebrum.spine.SpineLib.Builder import Method
 from Cerebrum.spine.SpineLib.Date import Date
-from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
+from Cerebrum.spine.SpineLib.DumpClass import Struct, Any, DumpClass
 from Cerebrum.spine.SpineLib.Locking import Locking
 from Cerebrum.spine.SpineLib.Caching import Caching
 from Cerebrum.spine.SpineLib.DatabaseClass import DatabaseTransactionClass
 from Cerebrum.spine.SpineLib.SearchClass import SearchClass
 from Cerebrum.spine.SpineLib.SpineExceptions import AccessDeniedError, ServerProgrammingError, TransactionError, ObjectDeletedError
-from Cerebrum.spine.SpineLib.Transaction import Transaction
-from Cerebrum.spine.Auth import AuthOperationType
 
 __all__ = ['convert_to_corba', 'convert_from_corba',
            'create_idl_source', 'register_spine_class','drop_associated_objects']
@@ -152,6 +150,9 @@ def convert_to_corba(obj, transaction, data_type):
                 return corba_object
         finally:
             object_cache_lock.release()
+    elif data_type == Any:
+        import omniORB.any
+        return omniORB.any.to_any(obj)
     else:
         raise ServerProgrammingError('Cannot convert to CORBA type; unknown data type.', data_type)
 
@@ -167,6 +168,11 @@ def convert_from_corba(obj, data_type):
         corba_class = class_cache[data_type]
         com = Communication.get_communication()
         return com.reference_to_servant(obj).spine_object
+    elif data_type == Any:
+        import omniORB.any
+        return omniORB.any.from_any(obj)
+    else:
+        raise ServerProgrammingError('Cannot convert from CORBA type; unknown data type.', data_type)
 
 def _convert_corba_types_to_none(data_type):
     """Returns the value for data_type which is most like None."""
@@ -256,32 +262,9 @@ def _create_corba_method(method):
             transaction.check_lost_locks()
 
             # Authorization
-#            operator = transaction.get_client()
-#            class_name = self.spine_class.__name__
-#            operation_name = '%s.%s' % (class_name, method.name)
-#            try:
-#                operation_type = AuthOperationType(name=operation_name)
-#            except Exception, e:
-#                # If we get here, then there is no operation type defined for the given 
-#                # set of operations. In that case, we raise and exception telling that
-#                # the type is missing, and aborting the call.
-#                # FIXME: Raise NotFoundError (Spine exception)
-#                operation_type = None
+            if not transaction.authorization.check_permission(self.spine_object, method.name):
+                raise AccessDeniedError('Your are not authorized to perform the requested operation.')
 
-
-            # FIXME: bruk isinstance eller issubclass
-            # FIXME: Remove 'operator is not None'
-            # FIXME: Remove 'operation_type is not None'
-            # FIXME FIXME FIXME
-#            if (operator is not None and operation_type is not None and
-#                   hasattr(self.spine_object, 'check_permission')):
-#                if not self.spine_object.check_permission(operator, operation_type):
-                    # FIXME: raise AccessDeniedError('User %s is not allowed to perform the requested operation.' % (operator))
-#                    pass
-#            else:
-                # FIXME: Raise NotFoundError (Spine exception)
-#                pass
-# (FIXME)
             # Lock the object if it should be locked
             if isinstance(self.spine_object, Locking):
                 if method.write:
@@ -363,6 +346,8 @@ def _get_idl_type_name(arg_t):
     elif isinstance(arg_t, Struct):
         cls = arg_t.data_type
         data_type = cls.__name__ + 'Struct'
+    elif arg_t == Any:
+        data_type = 'any'
     else:
         data_type = 'Spine' + arg_t.__name__
     return data_type
@@ -535,6 +520,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
             header += '};'
 
             add_header(header)
+        elif data_type == Any:
+            name = 'any'
         else:
             name = 'Spine' + data_type.__name__
             add_header('interface %s;' % name)
@@ -747,8 +734,11 @@ def register_spine_class(cls, idl_cls, idl_struct):
 
             setattr(corba_class, set_name, _create_corba_method(set))
 
-    for method in cls.method_slots:
-        setattr(corba_class, method.name, _create_corba_method(method))
+    for i in cls.builder_parents + (cls, ):
+        for method in i.method_slots:
+            if hasattr(corba_class, method.name):
+                raise ServerProgrammingError('Multiple definitions in %s (%s from %s)' % (corba_class, method.name, corba_class))
+            setattr(corba_class, method.name, _create_corba_method(method))
 
     class_cache[cls] = corba_class
 
