@@ -72,3 +72,5 @@ class AuthTargetSuperHandler:
                 break
 
 Authorization.handlers.append(AuthTargetSuperHandler)
+
+# arch-tag: cab34cfc-9431-11da-853d-0246f7b3b699
