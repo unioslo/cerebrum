@@ -27,3 +27,5 @@ class Authorization:
 
         return True # FIXME: for debugging...
         return method in methods
+
+# arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525
