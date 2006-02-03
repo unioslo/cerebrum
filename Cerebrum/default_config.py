@@ -171,6 +171,8 @@ AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
 AD_PW_EXCEPTION = 'process_students'
 AD_PW_EXCEPTION_OU = 'cerebrum_pw_exception'
+AD_STUNNEL = False
+AD_STUNNEL_CONF = '/local/sbin/stunnel.conf'
 
 # Novell eDirectory settings.
 NW_LDAPHOST = 'www.nldap.com'
