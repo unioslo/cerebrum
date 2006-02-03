@@ -403,7 +403,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query("""
-        SELECT DISTINCT oi.ou_id AS ou_id, oi.name AS name
+        SELECT DISTINCT oi.ou_id, oi.name, oi.acronym, oi.short_name,
+                        oi.display_name, oi.sort_name
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_ou),
              'name': name, 'acronym': acronym, 'short_name': short_name,
