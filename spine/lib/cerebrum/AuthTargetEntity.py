@@ -86,3 +86,5 @@ class AuthTargetEntityHandler:
         return operations
 
 Authorization.handlers.append(AuthTargetEntityHandler)
+
+# arch-tag: 445b82d4-9597-11da-91ce-85785560b498

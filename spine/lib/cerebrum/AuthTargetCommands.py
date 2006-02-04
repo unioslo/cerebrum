@@ -92,3 +92,5 @@ class AuthTargetCommandsHandler:
         return operations
 
 Authorization.handlers.append(AuthTargetCommandsHandler)
+
+# arch-tag: 43f45d5c-9597-11da-9115-bcb0d0e381ab
