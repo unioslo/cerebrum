@@ -14,18 +14,21 @@ class Authorization:
     def check_permission(self, obj, method):
         if self.superuser:
             return True
+
+        operations = [(i.__name__, method) for i in obj.builder_parents + (obj.__class__, )]
+        print 'checking', operations
+
+        if obj in self._permissions:
+            return bool(self._permissions[obj].intersection(operations))
             
-        methods = self._permissions.get(obj, sets.Set())
-        if method in methods:
-            return True
+        methods = sets.Set()
 
         for h in self._handlers:
-            if hasattr(h, 'check_permission'):
-                methods.update(h.check_permission(self.users, obj, method))
+            if hasattr(h, 'get_permissions'):
+                methods.update(h.get_permissions(obj, method))
 
         self._permissions[obj] = methods
 
-        return True # FIXME: for debugging...
-        return method in methods
+        return bool(self._permissions[obj].intersection(operations))
 
 # arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525

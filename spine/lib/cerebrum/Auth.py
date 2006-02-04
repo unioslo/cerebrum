@@ -37,6 +37,25 @@ class AuthOperation(DatabaseClass):
         DatabaseAttr('op_class', table, str),
         DatabaseAttr('op_method', table, str)
     )
+
+"""
+    def __new__(cls, db, id=None, op_class=None, op_method=None):
+        if id is not None and op_class is None and op_method is None:
+            s = cls.search_class(db)
+            s.set_id(id)
+            assert len(result) == 1
+            return result[0]
+        else:
+            return super(AuthOperation, cls).__new__(cls, db, id, op_class, op_method)
+
+    def create_primary_key(cls, db, id, op_class, op_method):
+        assert type(op_class) == str
+        assert type(op_method) == str
+
+        return (op_class, op_method)
+    create_primary_key = classmethod(create_primary_key)
+"""
+
 registry.register_class(AuthOperation)
 
 table = 'auth_operation_set'
@@ -46,7 +65,7 @@ class AuthOperationSet(DatabaseClass):
     )
     slots = (
         DatabaseAttr('name', table, str),
-        DatabaseAttr('description', table, str)
+        DatabaseAttr('description', table, str, write=True)
     )
     method_slots = (
         Method('add_operation', None, args=[('operation', AuthOperation)], write=True),

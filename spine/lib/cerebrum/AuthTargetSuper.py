@@ -62,13 +62,11 @@ Commands.register_method(m, del_auth_super_user)
 
 class AuthTargetSuperHandler:
     def __init__(self, auth_session):
-        print 'checking for superuser'
         for user in auth_session.users:
             s = registry.AuthTargetSuperSearcher(auth_session.db)
             s.set_user(user)
             if s.search():
                 auth_session.superuser = True
-                print 'is superuser!'
                 break
 
 Authorization.handlers.append(AuthTargetSuperHandler)
