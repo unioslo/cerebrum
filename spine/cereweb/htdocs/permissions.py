@@ -133,3 +133,4 @@ def _view_user(transaction, entity):
     page.content = lambda: template
     return page
 
+# arch-tag: 4e5580f4-9764-11da-8677-8396cc25bdc0
