@@ -85,8 +85,6 @@ def object_link(object, text=None, method="view", _class="", **params):
         elif type == 'disk':
             text = object.get_path()
         elif hasattr(object, "get_name"):
-        # should also cover
-        #elif type in ('group', 'account'):
             text = object.get_name()   
         else:
             text = str(object)

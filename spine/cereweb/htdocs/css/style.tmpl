@@ -295,6 +295,9 @@ div.notes span.date, div.quarantines span.date {
 ## The light blue box for list over names on the view person page.
 $view_box("div.personnames", "#eff", "#bdf", "div.name")
 
+## Contact information on view of entities.
+$view_box("div.contactinfos", "#eff", "#bdf", "div.contactinfo")
+
 ## External identifiers on view of entities.
 $view_box("div.externalids", "#eff", "#bdf", "div.externalid")
 
@@ -338,9 +341,18 @@ div.tree { margin-left: 2em; }
 ## List over disk in a host on host view page.
 $view_header("div.hostdisks", "#bdf", "#06C")
 
+## Styles for the permissions page.
+$view_header("div.permissions", "#bdf", "#06C")
+span.perm_added { color: green; font-size: 12px; }
+span.perm_removed { color: red; font-size: 12px; }
+table.perm_methods tr.gray { empty-cells: show; background-color: #dadada; }
+table.perm_methods th { text-align: left; }
+a.perm_all:hover { color: gray; }
+
 ## List of accounts/groups on view person/account page.
 $view_header("div.personaccounts", "#bdf", "#06C")
 $view_header("div.accountgroups", "#bdf", "#06C")
+
 
 div.personaccounts div.group, div.personaccounts div.group {
     margin-left: 1em;
@@ -378,34 +390,22 @@ div.email_view h2 { margin: 1em 0 0 0; }
 
 ## Actions is links wich perfom action on something, for instance
 ## [delete] on notes. Or [edit] on the view person page.
-div.actions a, div.account a, a.actions {
+div.actions a, a.actions {
     color: blue;
     white-space: nowrap;
     margin-bottom: 0.1em;
     padding-right: 0.2em;
     text-align: center;
+    text-decoration: none;
 }
 
-div.actions a:visited, div.account a:visited, a.actions:visited {
-    color: blue;
-}
-
-div.actions a:before, a.actions:before {
-    content: "[";
-}
- 
-div.actions a:after, a.actions:after {
-    content: "]";
-}
-
-div.actions a.noaction:before, div.actions a.noaction:after {
-    content: "";
-}
+div.actions a:hover, a.actions:hover { color: gray; }
+div.actions a:before, a.actions:before { content: "["; }
+div.actions a:after, a.actions:after { content: "]"; }
+div.actions a.noaction:before, div.actions a.noaction:after { content: ""; }
 
 ## Styles for the Error-pages.
-div.errorpage {
-    margin: 5px;
-}
+div.errorpage { margin: 5px; }
 
 div.errorpage div.title {
     margin-bottom: 5px;

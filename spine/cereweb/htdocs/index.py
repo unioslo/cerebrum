@@ -46,6 +46,7 @@ import ou
 import person
 import quarantine
 import worklist
+import permissions
 
 
 def index(transaction):

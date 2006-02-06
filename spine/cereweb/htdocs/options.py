@@ -31,6 +31,7 @@ def index(transaction):
     """Creates form for editing user-specific options for cereweb."""
     page = Main()
     page.title = _('Options for cereweb')
+    page.setFocus('options')
     
     template = OptionsTemplate()
     content = template.options(cherrypy.session['options'])

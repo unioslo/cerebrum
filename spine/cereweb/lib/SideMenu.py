@@ -35,6 +35,7 @@ class SideMenu(Menu.Menu):
         self.makeHost()
         self.makeDisk()
         self.makeEmail()
+        self.makePermissions()
         self.makeOptions()
         self.makeLogout()
 
@@ -93,6 +94,12 @@ class SideMenu(Menu.Menu):
         target.addItem("search", _("Search"), "/emailtarget/search")
         target.addItem("view", _("View"), "/emailtarget/view?id=%s")
         target.addItem("edit", _("Edit"), "/emailtarget/edit?id=%s")
+
+    def makePermissions(self):
+        self.perms = self.addItem("permissions", _("Permissions"), "/permissions")
+        self.perms.addItem("view", _("View"), "/permissions/view?id=%s")
+        self.perms.addItem("edit", _("Edit"), "/permissions/edit?id=%s")
+        self.perms.addItem("users", _("Users"), "/permissions/users?id=%s")
 
     def makeOptions(self):
         self.options = self.addItem("options", _("Options"), "/options")

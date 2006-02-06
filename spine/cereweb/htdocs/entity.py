@@ -39,7 +39,6 @@ def add_external_id(transaction, id, external_id, id_type):
     source_system = transaction.get_source_system("Manual")
     entity.set_external_id(external_id, id_type, source_system)
 
-    #TODO: Redirect to where we actualy came from.
     msg = _("External id successfully added.")
     commit(transaction, entity, msg=msg)
 add_external_id = transaction_decorator(add_external_id)
@@ -51,7 +50,6 @@ def remove_external_id(transaction, id, external_id, id_type):
     source_system = transaction.get_source_system("Manual")
     entity.remove_external_id(external_id, id_type, source_system)
 
-    #TODO: Redirect to where we actualy came from.
     msg = _("External id successfully removed.")
     commit(transaction, entity, msg=msg)
 remove_external_id = transaction_decorator(remove_external_id)
@@ -62,7 +60,6 @@ def add_spread(transaction, id, spread):
     spread = transaction.get_spread(spread)
     entity.add_spread(spread)
 
-    #TODO: Redirect to where we actualy came from.
     msg = _("Spread successfully added.")
     commit(transaction, entity, msg=msg)
 add_spread = transaction_decorator(add_spread)
@@ -73,11 +70,33 @@ def remove_spread(transaction, id, spread):
     spread = transaction.get_spread(spread)
     entity.delete_spread(spread)
 
-    #TODO: Redirect to where we actualy came from.
     msg = _("Spread successfully removed.")
     commit(transaction, entity, msg=msg)
 remove_spread = transaction_decorator(remove_spread)
 remove_spread.exposed = True
+
+def add_contact_info(transaction, id, type, value, pref, desc=""):
+    entity = transaction.get_entity(int(id))
+    source_system = transaction.get_source_system("Manual")
+    type = transaction.get_contact_info_type(type)
+    
+    entity.add_contact_info(source_system, type, value, int(pref), desc)
+
+    msg = _("Contact info successfully added.")
+    commit(transaction, entity, msg=msg)
+add_contact_info = transaction_decorator(add_contact_info)
+add_contact_info.exposed = True
+
+def remove_contact_info(transaction, id, ss, type, pref):
+    entity = transaction.get_entity(int(id))
+    source_system = transaction.get_source_system(ss)
+    type = transaction.get_contact_info_type(type)
+    entity.remove_contact_info(source_system, type, int(pref))
+
+    msg = _("Contact info successfully removed.")
+    commit(transaction, entity, msg=msg)
+remove_contact_info = transaction_decorator(remove_contact_info)
+remove_contact_info.exposed = True
 
 def clear_search(url):
     """Resets the lastsearch for cls."""

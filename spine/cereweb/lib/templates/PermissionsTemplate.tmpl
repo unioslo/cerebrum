@@ -1,0 +1,228 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from FormWidgets import FormWidgets
+#from lib.InitTemplate import InitTemplate
+#extends InitTemplate
+
+#attr $form_widgets = FormWidgets()
+
+## General Permission Control view page
+#def view_index($tr)
+#set $searcher = $tr.get_auth_operation_set_searcher()
+#set $ops = [(i.get_id(), i.get_name()) for i in $searcher.search()]
+<div class="email_view">
+    <form action="view" type="post">
+        <h2>$_('Select an operation set')</h2>
+        <label for="id">$_('Select an operation set to view/edit'):</label>
+        <br />
+        $form_widgets.generate_option('id', $ops)
+        <input type="submit" value="$_('Select')" />
+    </form>
+    <form action="make" type="post">
+        <h2>$_('Create a new operation set')</h2>
+        <label for="name">$_('Name'):</label>
+        <input type="text" size="20" name="name" /><br />
+        <label for="description">$_('Description'):</label><br />
+        <textarea cols="20" rows="3" name="description"></textarea><br />
+        <input type="submit" value="$_('Create')" />&nbsp;
+        <input type="reset" value="$_('Clear')" />
+    </form>
+    <form action="view_user_by_name" type="post">
+        <h2>$_('View access for account or group')</h2>
+        <label for="name">$_('Find by name'):</label><br />
+        <input type="name" size="20" name="name" />
+        <select name="type">
+            <option value="account">$_('Account')</option>
+            <option value="group">$_('Group')</option>
+        </select>
+        <input type="submit" value="$_('Find')" />
+    </form>
+</div>
+#end def
+
+## View information about a specific operation set
+#def view($transaction, $op_set)
+#set $id = $op_set.get_id()
+<div class="view_content">
+
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_('edit info')</a><br />
+            <a href="delete?id=$id">$_('delete operation set')</a><br />
+            <a href="#methods">$_('manage methods')</a><br />
+            <a href="users?id=$id">$_('view users')</a><br />
+        </div>
+    </div>
+    
+    ## Content
+    <div class="view_info">
+        <div class="info">
+            <em>$_('Name'):</em> $op_set.get_name()
+        </div>
+        <div class="info">
+            <em>$_('Description'):</em> $op_set.get_description()
+        </div>
+    </div>
+
+    $viewMethods($op_set)
+    $editMethods($transaction, $op_set)
+</div>
+#end def
+
+#def build_method_dict(ops)
+<%
+new_methods = {}
+for op in ops:
+    c = op.get_op_class()
+    m = op.get_op_method()
+    if c not in new_methods:
+        new_methods[c] = [(m, op.get_id())]
+    else:
+        new_methods[c].append((m, op.get_id()))
+classes = new_methods.keys()
+classes.sort()
+return classes, new_methods
+%>
+#end def
+
+## View form for editing methods on an operation set.
+#def editMethods($tr, $op_set)
+#set $searcher = $tr.get_auth_operation_searcher()
+#set $methods = $build_method_dict($searcher.search())
+#set $current = $build_method_dict($op_set.get_operations())
+<div class="permissions">
+    <a name="methods" />
+    <form action="update_methods" method="POST">
+        <input type="hidden" name="id" value="10" />
+        <h3>$_('Manage methods')</h3>
+        <table cellpadding="0" cellspacing="0">
+            <tr>
+                <td>
+                    <label for="current">$_('Current methods'):</label>
+                </td>
+                <td colspan="2">
+                    &nbsp;<label for="objects">$_('Available objects'):</label>
+                </td>
+            </tr>
+            <tr>
+                <td rowspan="2" valign="top">
+                    <select name="current" multiple="multiple" size="12">
+                    #for $c in $current[0]
+                        <option>$c</option>
+                        #for $m, $id in $current[1][$c]
+                        <option value="$id">&nbsp;&nbsp;$m</option>
+                        #end for
+                    #end for
+                    </select>
+                </td>
+                <td colspan="2" valign="top">
+                    &nbsp;<select name="objects">
+                    #for $c in $methods[0]
+                        <option>$c</option>
+                    #end for
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td align="center" valign="middle">
+                    <input type="button" value="$_('<<')" />
+                    <input type="button" value="$_('>>')" />
+                    <br />
+                    <span class="perm_added">$_('Added methods')</span>
+                    <br />
+                    <span class="perm_removed">$_('Removed methods')</span>
+                </td>
+                <td>
+                    <label for="methods">$_('Methods'):</label>
+                    <a href="javascript:;" class="perm_all">all</a><br />
+                    <select name="methods" multiple="multiple" size="10">
+                    #for $m, $id in $methods[1].values()[0]
+                        <option value="$id">$m</option>
+                    #end for
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3" align="center">
+                    <input type="submit" value="$_('Save')" />
+                    <input type="button" value="$_('Restore')" />
+                </td>
+            </tr>
+        </table>
+    </form>
+</div>
+#end def
+
+## View methods the operation set has.
+#def viewMethods($op_set)
+#set $current = $build_method_dict($op_set.get_operations())
+#set $gray = ''
+<div class="permissions">
+    <h3>$_('Current methods')</h3>
+    <table class="perm_methods" cellpadding="2" cellspacing="0">
+    #for $c in $current[0]
+        #set $cl = $c
+        #for $m, $id in $current[1][$c]
+        <tr$gray>
+            <th>$cl</td>
+            <td>$m</td>
+        </tr>
+        #set $cl = '&nbsp;'
+        #if $gray
+            #set $gray = ''
+        #else
+            #set $gray = ' class="gray"'
+        #end if
+        #end for
+    #end for
+    </table>
+</div>
+#end def
+
+## Edit page for a specific operation set
+#def edit($op_set)
+<div class="edit">
+    <form action="save" type="POST">
+        <div class="editform">
+            <input type="hidden" name="id" value="$opset.get_id()" />
+            <label for="name">$_('Name'): </label>
+            <input type="text" size="30" name="name" value="$opset.get_name()" />
+            <br />
+            <label for="description">$_('Description'):</label><br />
+            <textarea cols="40" rows="4" name="description">
+                $opset.get_description()
+            </textarea>
+        </div>
+        <div>
+            <center>
+                <input type="submit" value="$_('Save')" />&nbsp;
+                <input type="submit" value="$_('Cancel')" />
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+
+## View permissions for the entity.
+#def view_user($entity)
+    blipp
+#end def
+
