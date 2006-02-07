@@ -178,35 +178,36 @@ class BofhdExtension(object):
         # not contain \n
         command_help = {
             'host': {
-            'host_a_add': 'Legg til en a-record',
-            'host_a_remove': 'Fjern en a-record',
-            'host_add': 'Registrerer ip-addresse for en ny maskin',
-            'host_cname_add': 'Registrer et cname',
-            'host_cname_remove': 'Fjerne et cname',
-            'host_comment': 'Sette kommentar for en gitt maskin',
-            'host_contact': 'Oppgi contact for gitt maskin',
-            'host_remove': 'Sletter data for oppgitt hosnavn/ip-nr',
-            'host_hinfo_list': 'List lovlige hinfo verdier',
-            'host_hinfo_set': 'Sette hinfo',
-            'host_history': 'Vise history for en host',
-            'host_info': 'Lister data for gitt hostnavn/ip-addresse eller cname',
-            'host_unused_list': 'List ledige ipnr',
-            'host_mx_set': 'Sette MX for host_name til en gitt MX definisjon',
-            'host_mxdef_add': 'Utvid en MX definisjon med ny maskin',
-            'host_mxdef_remove': 'Fjern maskin fra en MX definisjon',
-            'host_mxdef_show': 'Vis innhold i en MX definisjon',
-            'host_rename': 'Forande et IP-nr/navn til et annet IP-nr/navn.',
-            'host_ptr_add': 'Registrere override på reversemap',
-            'host_ptr_remove': 'Fjerne override på reversemap',
-            'host_srv_add': 'Opprette en SRV record',
-            'host_srv_remove': 'Fjerne en SRV record',
-            'host_ttl_set': 'Set TTL for en DNS-owner',
-            'host_txt_set': 'sette TXT',
+            'host_a_add': 'Add an A record',
+            'host_a_remove': 'Remove an A record',
+            'host_add': 'Add a new host with IP address',
+            'host_cname_add': 'Add a CNAME',
+            'host_cname_remove': 'Remove a CNAME',
+            'host_comment': 'Add comment to a host',
+            'host_contact': 'Set contact for a host',
+            'host_remove': 'Remove data for specified host or IP',
+            'host_hinfo_list': 'List acceptable HINFO values',
+            'host_hinfo_set': 'Set HINFO',
+            'host_history': 'Show history for a host',
+            'host_info': 'List data for given host, IP-address or CNAME',
+            'host_unused_list': 'List unused IP addresses',
+            'host_mx_set': 'Set MX for host to specified MX definition',
+            'host_mxdef_add': 'Add host to MX definition',
+            'host_mxdef_remove': 'Remove host from MX definition',
+            'host_mxdef_show': ('List all MX definitions, or show hosts in '
+                                'one MX definition'),
+            'host_rename': 'Rename an IP address or hostname',
+            'host_ptr_add': 'Add override for IP reverse map',
+            'host_ptr_remove': 'Remove override for IP reverse map',
+            'host_srv_add': 'Add a SRV record',
+            'host_srv_remove': 'Remove a SRV record',
+            'host_ttl_set': 'Set TTL for a host',
+            'host_txt_set': 'Set TXT for a host',
             },
             'group': {
-            'group_hadd': 'add machine to a netgroup',
-            'group_host': 'list groups where host is a member',
-            'group_hrem': 'remove machine from a netgroup'
+            'group_hadd': 'Add machine to a netgroup',
+            'group_host': 'List groups where host is a member',
+            'group_hrem': 'Remove machine from a netgroup'
             }
             }
         
@@ -253,7 +254,7 @@ class BofhdExtension(object):
             [" - %-8s -> %s" % (t[0], t[1]) for t in BofhdExtension.legal_hinfo])],
             'mx_set':
             ['mxdef', 'Enter name of mxdef',
-             'Use "host list_mx_set" to get a list of legal values'],
+             'Use "host mxdef_show" to get a list of legal values'],
             'contact':
             ['contact', 'Enter contact',
              'Typically an e-mail address'],
@@ -674,12 +675,22 @@ class BofhdExtension(object):
 
     # host mx_set
     all_commands['host_mx_set'] = Command(
-        ("host", "mx_set"), HostName(), MXSet(),
+        ("host", "mx_set"), HostName(), MXSet(), Force(optional=True),
         perm_filter='is_dns_superuser')
-    def host_mx_set(self, operator, name, mx_set):
+    def host_mx_set(self, operator, name, mx_set, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        owner_id = self._find.find_target_by_parsing(
-            name, dns.DNS_OWNER)
+        mx_set_id = self._find.find_mx_set(mx_set).mx_set_id
+        force = self.dns_parser.parse_force(force)
+        try:
+            owner_id = self._find.find_target_by_parsing(
+                name, dns.DNS_OWNER)
+        except CerebrumError:
+            # FIXME: a bit ugly, since all kinds of errors in
+            # find_target_by_parsing will raise CerebrumError
+            if not force:
+                raise
+            name = self.dns_parser.qualify_hostname(name)
+            owner_id = self.mb_utils.alloc_dns_owner(name, mx_set=mx_set_id)
         self.mb_utils.mx_set_set(owner_id, mx_set)
         return "OK, mx set for %s" % name
 
