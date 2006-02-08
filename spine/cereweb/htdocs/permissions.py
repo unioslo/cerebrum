@@ -44,6 +44,7 @@ def view(transaction, id):
     page = Main()
     page.title = _('Operation set %s') % op_set.get_name()
     page.setFocus('permissions/view', id)
+    page.add_jscript('permissions.js')
 
     template = PermissionsTemplate().view(transaction, op_set)
     page.content = lambda: template
@@ -75,10 +76,23 @@ def delete(transaction, id):
 delete = transaction_decorator(delete)
 delete.exposed = True
 
+def users(transaction, id):
+    """View users on the op set."""
+    op_set = transaction.get_auth_operation_set(int(id))
+    page = Main()
+    page.title = _('Users on %s') % op_set.get_name()
+    page.setFocus('permissions/users', id)
+
+    template = PermissionsTemplate().users(transaction, op_set)
+    page.content = lambda: template
+    return page
+users = transaction_decorator(users)
+users.exposed = True
+
 def save(transaction, id, name, description):
     """Saves an updated operation set."""
     op_set = transaction.get_auth_operation_set(int(id))
-    op_set.set_name(name)
+#    op_set.set_name(name)
     op_set.set_description(description)
     
     msg = _("Operation set updated successfully.")
@@ -132,5 +146,30 @@ def _view_user(transaction, entity):
     template = PermissionsTemplate().view_user(entity)
     page.content = lambda: template
     return page
+
+def get_all_operations(transaction):
+    """Return a javascript JSON array with all operations."""
+    ops = {}
+    for op in transaction.get_auth_operation_searcher().search():
+        cls = op.get_op_class()
+        if cls not in ops.keys():
+            ops[cls] = [(op.get_op_method(), op.get_id())]
+        else:
+            ops[cls].append((op.get_op_method(), op.get_id()))
+     
+    classes = ops.keys()
+    classes.sort()
+    
+    json = []
+    for cls in classes:
+        methods = []
+        for method, id in ops[cls]:
+            methods.append("{'name': '%s', 'id': '%s'}" % (method, id))
+        json.append("{'cls': '%s', 'methods': [%s]}" % (cls, ", ".join(methods)))
+        
+    classes = "'" + "', '".join(classes) + "'"
+    return "{'classes': [%s], 'methods': [%s]}" % (classes, ", ".join(json))
+get_all_operations = transaction_decorator(get_all_operations)
+get_all_operations.exposed = True
 
 # arch-tag: 4e5580f4-9764-11da-8677-8396cc25bdc0

@@ -82,8 +82,8 @@
         </div>
     </div>
 
-    $viewMethods($op_set)
     $editMethods($transaction, $op_set)
+    $viewMethods($op_set)
 </div>
 #end def
 
@@ -105,8 +105,6 @@ return classes, new_methods
 
 ## View form for editing methods on an operation set.
 #def editMethods($tr, $op_set)
-#set $searcher = $tr.get_auth_operation_searcher()
-#set $methods = $build_method_dict($searcher.search())
 #set $current = $build_method_dict($op_set.get_operations())
 <div class="permissions">
     <a name="methods" />
@@ -116,47 +114,44 @@ return classes, new_methods
         <table cellpadding="0" cellspacing="0">
             <tr>
                 <td>
-                    <label for="current">$_('Current methods'):</label>
+                    <label for="current">$_('Current methods'):</label>&nbsp;&nbsp;
                 </td>
-                <td colspan="2">
-                    &nbsp;<label for="objects">$_('Available objects'):</label>
+                <td colspan="2" style="padding-left:5px;">
+                    <label for="objects">$_('Available objects'):</label>
                 </td>
             </tr>
             <tr>
                 <td rowspan="2" valign="top">
-                    <select name="current" multiple="multiple" size="12">
-                    #for $c in $current[0]
-                        <option>$c</option>
-                        #for $m, $id in $current[1][$c]
-                        <option value="$id">&nbsp;&nbsp;$m</option>
+                    <select id="perm_current" name="current" multiple="multiple" size="12">
+                    #for $cls in $current[0]
+                        <option value="$cls">$cls</option>
+                        #for $m, $id in $current[1][$cls]
+                        <option value="$cls.$m.$id">- $m</option>
                         #end for
                     #end for
                     </select>
                 </td>
-                <td colspan="2" valign="top">
-                    &nbsp;<select name="objects">
-                    #for $c in $methods[0]
-                        <option>$c</option>
-                    #end for
+                <td colspan="2" valign="top" style="padding-left:5px;">
+                    <select id="perm_objects" name="objects">
+                        <option>-- Loading objects --</option>
                     </select>
                 </td>
             </tr>
             <tr>
                 <td align="center" valign="middle">
-                    <input type="button" value="$_('<<')" />
-                    <input type="button" value="$_('>>')" />
+                    <input id="perm_add" type="button" value="$_('<<')" />
+                    <input id="perm_rem" type="button" value="$_('>>')" />
                     <br />
                     <span class="perm_added">$_('Added methods')</span>
                     <br />
                     <span class="perm_removed">$_('Removed methods')</span>
                 </td>
                 <td>
-                    <label for="methods">$_('Methods'):</label>
-                    <a href="javascript:;" class="perm_all">all</a><br />
-                    <select name="methods" multiple="multiple" size="10">
-                    #for $m, $id in $methods[1].values()[0]
-                        <option value="$id">$m</option>
-                    #end for
+                    <label for="methods">$_('Methods'):</label>&nbsp;&nbsp;
+                    <a href="javascript:;" id="perm_all" class="perm_all">all</a>
+                    <br />
+                    <select id="perm_methods" name="methods" multiple="multiple" size="10">
+                        <option>-- Loading methods --</option>
                     </select>
                 </td>
             </tr>
@@ -179,13 +174,13 @@ return classes, new_methods
     <h3>$_('Current methods')</h3>
     <table class="perm_methods" cellpadding="2" cellspacing="0">
     #for $c in $current[0]
-        #set $cl = $c
+        #set $cls = $c
         #for $m, $id in $current[1][$c]
         <tr$gray>
-            <th>$cl</td>
+            <th>$cls</td>
             <td>$m</td>
         </tr>
-        #set $cl = '&nbsp;'
+        #set $cls = '&nbsp;'
         #if $gray
             #set $gray = ''
         #else
@@ -202,14 +197,14 @@ return classes, new_methods
 <div class="edit">
     <form action="save" type="POST">
         <div class="editform">
-            <input type="hidden" name="id" value="$opset.get_id()" />
+            <input type="hidden" name="id" value="$op_set.get_id()" />
             <label for="name">$_('Name'): </label>
-            <input type="text" size="30" name="name" value="$opset.get_name()" />
+            <input type="text" size="30" name="name" value="$op_set.get_name()" />
             <br />
-            <label for="description">$_('Description'):</label><br />
+            <label for="description">$_('Description'):</label>
             <textarea cols="40" rows="4" name="description">
-                $opset.get_description()
-            </textarea>
+                $op_set.get_description()
+            </textarea><br />
         </div>
         <div>
             <center>
@@ -219,6 +214,11 @@ return classes, new_methods
         </div>
     </form>
 </div>
+#end def
+
+## Users on the operation set.
+#def users($tr, $op_set)
+    blapp
 #end def
 
 ## View permissions for the entity.
