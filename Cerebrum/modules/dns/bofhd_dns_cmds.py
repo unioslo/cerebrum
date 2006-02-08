@@ -253,7 +253,8 @@ class BofhdExtension(object):
             'host_search_pattern':
             ['pattern', 'Enter pattern',
              "Use ? and * as wildcard characters.  If there are no wildcards, "
-             "it will be a substring search."],
+             "it will be a substring search.  If there are no capital letters, "
+             "the search will be case-insensitive."],
             'host_search_type':
             ['search_type', 'Enter search type',
              'You can search by "name", "comment" or "contact".'],
@@ -478,10 +479,6 @@ class BofhdExtension(object):
     def host_find(self, operator, search_type, pattern):
         if '*' not in pattern and '?' not in pattern:
             pattern = '*' + pattern + '*'
-        elif search_type == 'name' and pattern[-1].isalpha():
-            # All names should be fully qualified, but it's easy to
-            # forget the trailing dot.
-            pattern += "."
         if search_type == 'contact':
             matches = self._hosts_matching_trait(self.const.trait_dns_contact,
                                                  pattern)
@@ -489,6 +486,10 @@ class BofhdExtension(object):
             matches = self._hosts_matching_trait(self.const.trait_dns_comment,
                                                  pattern)
         elif search_type == 'name':
+            if pattern[-1].isalpha():
+                # All names should be fully qualified, but it's easy to
+                # forget the trailing dot.
+                pattern += "."
             matches = self._hosts_matching_name(pattern)
         else:
             raise CerebrumError, "Unknown search type %s" % search_type

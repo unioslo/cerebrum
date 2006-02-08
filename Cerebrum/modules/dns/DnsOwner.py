@@ -5,7 +5,6 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity, EntityName
 from Cerebrum import Errors
 from Cerebrum.modules import dns
-from Cerebrum.modules.dns import EntityNote
 from Cerebrum.modules.dns.DnsConstants import _DnsZoneCode
 from Cerebrum import Group
 
@@ -212,8 +211,7 @@ class GeneralDnsRecord(object):
         WHERE %s""" % where, locals())
 
 Entity_class = Utils.Factory.get("Entity")
-class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName,
-               Entity_class):
+class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
     """``DnsOwner(GeneralDnsRecord, Entity)`` primarily updates the
     DnsOwner table using the standard Cerebrum populate framework.
 

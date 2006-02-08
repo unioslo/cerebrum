@@ -8,10 +8,6 @@ class _FieldTypeCode(Constants._CerebrumCode):
     "Mappings stored in the field_type_code table"
     _lookup_table = '[:table schema=cerebrum name=dns_field_type_code]'
 
-class _EntityNoteCode(Constants._CerebrumCode):
-    "Mappings stored in the entity_note_code table"
-    _lookup_table = '[:table schema=cerebrum name=dns_entity_note_code]'
-
 class _DnsZoneCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=dns_zone]'
 
@@ -67,15 +63,8 @@ class Constants(Constants.Constants):
         'dns_comment', entity_dns_owner,
         """A freeform comment about the host.""")
 
-    note_type_contact = _EntityNoteCode('CONTACT', 'Contact information')
-    note_type_comment = _EntityNoteCode('COMMENT', 'A comment')
-
-    FieldTypeCode = _FieldTypeCode
-    EntityNoteCode = _EntityNoteCode
-
     uio_zone = _DnsZoneCode("uio", ".uio.no.")
     other_zone = _DnsZoneCode("other", None)
-    DnsZone = _DnsZoneCode
 
     # ChangeLog constants
     a_record_add = _ChangeTypeCode(
@@ -131,5 +120,8 @@ class Constants(Constants.Constants):
         'host', 'srv_rec_add', 'add srv-record %(subject)s -> %(dest)s')
     srv_record_del = _ChangeTypeCode(
         'host', 'srv_rec_del', 'del srv-record %(subject)s -> %(dest)s')
+
+    FieldTypeCode = _FieldTypeCode
+    DnsZone = _DnsZoneCode
 
 # arch-tag: 05900130-fb6f-4186-97d0-ded361bdfd88

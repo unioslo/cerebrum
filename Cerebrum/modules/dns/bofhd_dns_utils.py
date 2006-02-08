@@ -5,8 +5,6 @@ import cereconf
 import re
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns.HostInfo import HostInfo
-#from Cerebrum.modules.dns. import 
-#from Cerebrum.modules.dns import EntityNote
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
