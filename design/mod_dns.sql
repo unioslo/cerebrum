@@ -410,47 +410,6 @@ CREATE TABLE dns_reserved_host(
   id              CHAR VARYING(128)
 );
 */
-/*	dns_entity_note_code
-
-   Defines the legal field types for the general_dns_record.  Typical
-   values are TXT, RP */
-
-category:code;
-CREATE TABLE dns_entity_note_code
-(
-  code          NUMERIC(6,0)
-                CONSTRAINT entity_note_code_pk PRIMARY KEY,
-  code_str      CHAR VARYING(16)
-                NOT NULL
-                CONSTRAINT entity_note_codestr_u UNIQUE,
-  description   CHAR VARYING(512)
-                NOT NULL
-);
-
-/*	dns_entity_note
-
-The ``dns_entity_note`` table stores a general record with some info
-about an entity where we only want one instance of the information
-of a given type.  It has the following columns::
-
-  entity_id    FK to entity_info
-  note_type    FK to dns_entity_note_code
-  data         information of the given note_type
-
-TODO: Consider moving this into core
-*/
-
-category:main;
-CREATE TABLE dns_entity_note (
-  entity_id       NUMERIC(12,0)
-                    CONSTRAINT entity_note_fk 
-                    REFERENCES entity_info(entity_id),
-  note_type       NUMERIC(6,0) NOT NULL
-                    CONSTRAINT entity_note_code_fk
-                  REFERENCES dns_entity_note_code(code),
-  data            CHAR VARYING(256) NOT NULL,
-  CONSTRAINT entity_note_pk PRIMARY KEY (entity_id, note_type)
-);
 
 /* arch-tag: 712a00e6-bdbe-4029-9dcc-795f9a047ee8
    (do not change this comment) */
