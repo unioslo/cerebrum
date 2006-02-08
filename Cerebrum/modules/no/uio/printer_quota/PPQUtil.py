@@ -83,7 +83,8 @@ class PPQUtil(object):
         row = self.ppq.find(person_id)
         if op == 'set':
             new_value = new_value - int(row['free_quota'])
-            pageunits_accum = pageunits_accum - int(row['accum_quota'])
+            # This used to be pageunits_accum = pageunits_accum - int(row['accum_quota']) 
+            pageunits_accum = pageunits_accum + int(row['accum_quota'])
         if new_value == 0 and pageunits_accum == 0 and not force:
             # don't want excessive logging of peoples typos, but
             # things like quota_update should be allowed to force so
