@@ -55,6 +55,14 @@ class HostNameRepeat(Parameter):
     _type = 'host_name_repeat'
     _help_ref = 'host_name_repeat'
 
+class HostSearchPattern(Parameter):
+    _type = 'host_search_pattern'
+    _help_ref = 'host_search_pattern'
+
+class HostSearchType(Parameter):
+    _type = 'host_search_type'
+    _help_ref = 'host_search_type'
+
 class ServiceName(Parameter):
     _type = 'service_name'
     _help_ref = 'service_name'
@@ -183,8 +191,9 @@ class BofhdExtension(object):
             'host_add': 'Add a new host with IP address',
             'host_cname_add': 'Add a CNAME',
             'host_cname_remove': 'Remove a CNAME',
-            'host_comment': 'Add comment to a host',
+            'host_comment': 'Set comment for a host',
             'host_contact': 'Set contact for a host',
+            'host_find': 'List hosts matching search criteria',
             'host_remove': 'Remove data for specified host or IP',
             'host_hinfo_list': 'List acceptable HINFO values',
             'host_hinfo_set': 'Set HINFO',
@@ -241,6 +250,13 @@ class BofhdExtension(object):
              'To specify 20 names starting at pcusitN+1, where N is '
              'the highest currently existing number, use pcusit#20.  To '
              'get the names pcusit20 to pcusit30 use pcusit#20-30.'],
+            'host_search_pattern':
+            ['pattern', 'Enter pattern',
+             "Use ? and * as wildcard characters.  If there are no wildcards, "
+             "it will be a substring search."],
+            'host_search_type':
+            ['search_type', 'Enter search type',
+             'You can search by "name", "comment" or "contact".'],
             'service_name':
             ['service_name', 'Enter service name',
              'Enter the service name for this operation'],
@@ -440,7 +456,7 @@ class BofhdExtension(object):
         owner_id = self._find.find_target_by_parsing(
             host_name, dns.DNS_OWNER)
         operation = self.mb_utils.alter_entity_note(
-            owner_id, self.const.note_type_comment, comment)
+            owner_id, self.const.trait_dns_comment, comment)
         return "OK, %s comment for %s" % (operation, host_name)
 
 
@@ -452,9 +468,58 @@ class BofhdExtension(object):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         owner_id = self._find.find_target_by_parsing(name, dns.DNS_OWNER)
         operation = self.mb_utils.alter_entity_note(
-            owner_id, self.const.note_type_contact, contact)
+            owner_id, self.const.trait_dns_contact, contact)
         return "OK, %s contact for %s" % (operation, name)
 
+    all_commands['host_find'] = Command(
+        ("host", "find"), HostSearchType(), HostSearchPattern(),
+        fs=FormatSuggestion("%-30s %s", ('name', 'info'),
+                            hdr="%-30s %s" % ("Host", "Info")))
+    def host_find(self, operator, search_type, pattern):
+        if '*' not in pattern and '?' not in pattern:
+            pattern = '*' + pattern + '*'
+        elif search_type == 'name' and pattern[-1].isalpha():
+            # All names should be fully qualified, but it's easy to
+            # forget the trailing dot.
+            pattern += "."
+        if search_type == 'contact':
+            matches = self._hosts_matching_trait(self.const.trait_dns_contact,
+                                                 pattern)
+        elif search_type == 'comment':
+            matches = self._hosts_matching_trait(self.const.trait_dns_comment,
+                                                 pattern)
+        elif search_type == 'name':
+            matches = self._hosts_matching_name(pattern)
+        else:
+            raise CerebrumError, "Unknown search type %s" % search_type
+        matches.sort(lambda a,b: cmp(a['name'], b['name']))
+        return matches
+
+    def _assert_limit(self, rows, limit):
+        if len(rows) > limit:
+            raise CerebrumError, \
+                  "More than %d matches (%d).  Refine your search." % \
+                  (limit, len(rows))
+
+    def _hosts_matching_trait(self, trait, pattern, limit=500):
+        dns_owner = DnsOwner.DnsOwner(self.db)
+        matches = []
+        rows = dns_owner.list_traits(trait, strval_like=pattern, fetchall=True)
+        self._assert_limit(rows, limit)
+        for row in rows:
+            dns_owner.clear()
+            dns_owner.find(row['entity_id'])
+            matches.append({'name': dns_owner.name, 'info': row['strval']})
+        return matches
+
+    def _hosts_matching_name(self, pattern, limit=500):
+        dns_owner = DnsOwner.DnsOwner(self.db)
+        matches = []
+        rows = dns_owner.search(name_like=pattern, fetchall=True)
+        self._assert_limit(rows, limit)
+        for row in rows:
+            matches.append({'name': row['name'], 'info': ""})
+        return matches
 
     # host free
     all_commands['host_remove'] = Command(
@@ -560,12 +625,11 @@ class BofhdExtension(object):
         dns_owner.find(owner_id)
 
         tmp = {'dns_owner': dns_owner.name}
-        for key, note_type in (('comment', self.const.note_type_comment),
-                               ('contact', self.const.note_type_contact)):
-            try:
-                tmp[key] = dns_owner.get_entity_note(note_type)
-            except Errors.NotFoundError:
-                tmp[key] = None
+        for key, trait in (('comment', self.const.trait_dns_comment),
+                           ('contact', self.const.trait_dns_contact)):
+            tmp[key] = dns_owner.get_trait(trait)
+            if tmp[key] is not None:
+                tmp[key] = tmp[key]['strval']
         ret = [tmp]
 
         # HINFO records

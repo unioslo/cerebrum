@@ -211,7 +211,9 @@ class GeneralDnsRecord(object):
              [:table schema=cerebrum name=dns_owner] d
         WHERE %s""" % where, locals())
 
-class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
+Entity_class = Utils.Factory.get("Entity")
+class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName,
+               Entity_class):
     """``DnsOwner(GeneralDnsRecord, Entity)`` primarily updates the
     DnsOwner table using the standard Cerebrum populate framework.
 
@@ -323,7 +325,6 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
             g.clear()
             g.find(row['group_id'])
             g.remove_member(self.entity_id, row['operation'])
-        self.delete_entity_note()
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_owner]
         WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': self.entity_id})
@@ -333,10 +334,12 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
     def list(self, zone=None):
         return self.search(zone=zone)
 
-    def search(self, name_like=None, zone=None):
+    def search(self, name_like=None, zone=None, fetchall=False):
         where = ['d.dns_owner_id=en.entity_id']
         if name_like is not None:
-            where.append("en.entity_name like :name_like")
+            expr, name_like = self._db.sql_pattern("en.entity_name", name_like,
+                                                   ref_name='name_like')
+            where.append(expr)
         if zone is not None:
             where.append("d.zone_id=:zone")
             zone = int(zone)
@@ -345,9 +348,7 @@ class DnsOwner(EntityNote.EntityNote, GeneralDnsRecord, EntityName, Entity):
         SELECT d.dns_owner_id, d.mx_set_id, en.entity_name AS name
         FROM [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
-        WHERE %s""" % where, {
-            'name_like': name_like,
-            'zone': zone})
+        WHERE %s""" % where, locals(), fetchall=fetchall)
 
     # TBD: Should we have the SRV methods in a separate class?  The
     # methods are currently not connected with the object in any way.

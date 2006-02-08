@@ -2,6 +2,7 @@
 from Cerebrum import DatabaseAccessor
 from Cerebrum import Constants
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 class _FieldTypeCode(Constants._CerebrumCode):
     "Mappings stored in the field_type_code table"
@@ -58,6 +59,14 @@ class Constants(Constants.Constants):
         'Machine netgroup in NIS domain "uio"')
 
     field_type_txt = _FieldTypeCode('TXT', 'TXT Record')
+
+    trait_dns_contact = _EntityTraitCode(
+        'dns_contact', entity_dns_owner,
+        """Contact information (e-mail address) for the host.""")
+    trait_dns_comment = _EntityTraitCode(
+        'dns_comment', entity_dns_owner,
+        """A freeform comment about the host.""")
+
     note_type_contact = _EntityNoteCode('CONTACT', 'Contact information')
     note_type_comment = _EntityNoteCode('COMMENT', 'A comment')
 

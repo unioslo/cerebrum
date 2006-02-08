@@ -105,17 +105,17 @@ class DnsBofhdUtils(object):
         self._dns_owner.clear()
         self._dns_owner.find(dns_owner_ref)
         self._dns_owner.mx_set_id = mx_set
-        self._dns_owner.write_db()
         
         self._host.clear()
         self._host.populate(dns_owner_ref, hinfo)
         self._host.write_db()
         if comment:
-            self._dns_owner.add_entity_note(self.const.note_type_comment,
-                                            comment)
+            self._dns_owner.populate_trait(self.const.trait_dns_comment,
+                                           strval=comment)
         if contact:
-            self._dns_owner.add_entity_note(self.const.note_type_contact,
-                                            contact)
+            self._dns_owner.populate_trait(self.const.trait_dns_contact,
+                                           strval=contact)
+        self._dns_owner.write_db()
 
     def alloc_cname(self, cname_name, target_name, force):
         cname_name = self._parser.qualify_hostname(cname_name)
@@ -135,9 +135,9 @@ class DnsBofhdUtils(object):
         self._cname.write_db()
         return self._cname.entity_id
 
-    def alter_entity_note(self, owner_id, note_type, dta):
+    def alter_entity_note(self, owner_id, trait, dta):
         dta = dta.strip()
-        if note_type == self.const.note_type_contact:
+        if trait == self.const.dns_trait_contact:
             mail_ok_re = re.compile(
                 cereconf.DNS_EMAIL_REGEXP) 
             if dta and not mail_ok_re.match(dta):
@@ -145,16 +145,14 @@ class DnsBofhdUtils(object):
         self._dns_owner.clear()
         self._dns_owner.find(owner_id)
         if not dta:
-            self._dns_owner.delete_entity_note(note_type)
+            self._dns_owner.delete_trait(trait)
             return "removed"
-
-        try:
-            self._dns_owner.get_entity_note(note_type)
-        except Errors.NotFoundError:
-            self._dns_owner.add_entity_note(note_type, dta)
-            return "added"
-        self._dns_owner.update_entity_note(note_type, dta)
-        return "updated"
+        if self._dns_owner.populate_trait(trait, strval=dta) == 'INSERT':
+            action = "added"
+        else:
+            action = 'updated'
+        self._dns_owner.write_db()
+        return action
 
     #
     # IP-numbers
