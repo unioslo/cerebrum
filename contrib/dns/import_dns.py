@@ -364,16 +364,20 @@ class ForwardMap(object):
             del dta['SRV']
         if dta.has_key('contact') or dta.has_key('comment'):
             owner_type, owner_id = self._lookup.get_dns_owner(name)
+            if dnsowner.entity_id != owner_id:
+                dnsowner.clear()
+                dnsowner.find(owner_id)
             if dta.has_key('contact'):
                 logger.debug2("ADD contact: %s " % owner_id)
-                dnsowner.add_entity_note(co.note_type_contact, dta['contact'],
-                                         entity_id=owner_id)
+                dnsowner.populate_trait(co.trait_dns_contact,
+                                        strval=dta['contact'])
                 del dta['contact']
             if dta.has_key('comment'):
                 logger.debug2("ADD comment: %s " % owner_id)
-                dnsowner.add_entity_note(co.note_type_comment, dta['comment'],
-                                         entity_id=owner_id)
+                dnsowner.populate_trait(co.trait_dns_comment,
+                                        strval=dta['comment'])
                 del dta['comment']
+            dnsowner.write_db()
 
     def records_to_db(self):
         logger.info("records_to_db()")

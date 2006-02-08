@@ -344,8 +344,8 @@ class HostsFile(object):
 
         entity_id2comment = {}
         if with_comments:
-            for row in DnsOwner.DnsOwner(db).list_entity_note(co.note_type_comment):
-                entity_id2comment[int(row['entity_id'])] = ' # %s' % row['data']
+            for row in DnsOwner.DnsOwner(db).list_traits(co.trait_dns_comment):
+                entity_id2comment[int(row['entity_id'])] = ' # ' + row['strval']
 
         # If multiple A-records have the same name with different IP, the
         # dns_owner data is only shown for the first IP.
