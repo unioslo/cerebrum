@@ -41,6 +41,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import SqlScanner
+from Cerebrum.Utils import NotSet
 from Cerebrum.extlib import db_row
 
 
@@ -832,6 +833,38 @@ class Database(object):
             return dbpass
         finally:
             f.close()
+
+    def sql_pattern(self, column, pattern, ref_name=None,
+                    case_sensitive=NotSet):
+        """Convert a pattern with wildcards into a tuple consisting of
+        an SQL expression and the value for comparison.
+
+        * If pattern is None, test for NULL.
+        * The name of the reference variable defaults to the column
+          name (without any table reference), and can be specified
+          explicitly using ref_name.
+        * case_sensitive can be explicitly True or False.  If unset,
+          the search will be case sensitive if the pattern contains
+          upper case letters.
+
+        """
+        if pattern is None:
+            return "%s IS NULL" % column, pattern
+        if ref_name is None:
+            ref_name = column.split('.')[-1]
+        if case_sensitive is NotSet:
+            case_sensitive = pattern.lower() != pattern
+        if not case_sensitive:
+            pattern = pattern.lower()
+            column = "LOWER(%s)" % column
+        value = pattern.replace("*", "%")
+        value = value.replace("?", "_")
+        if not case_sensitive or '%' in value or '?' in value:
+            operand = "LIKE"
+        else:
+            operand = "="
+        return "%s %s :%s" % (column, operand, ref_name), value
+
 
 class PostgreSQLBase(Database):
     """PostgreSQL driver base class."""
