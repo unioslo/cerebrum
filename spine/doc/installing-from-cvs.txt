@@ -14,6 +14,8 @@ The following prerequisites must be installed on the machine you want to install
 * python >= 2.2
 * ant (for jbofh, should really be optional)
 * cheetah (for Cereweb, ignore if you do not want Cereweb)
+* omniORB and omniORBpy with devel packages
+
 
 Installing Spine
 ================
