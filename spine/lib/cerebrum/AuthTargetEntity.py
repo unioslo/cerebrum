@@ -66,9 +66,9 @@ class AuthTargetEntityHandler:
     def __init__(self, auth):
         self.auth = auth
 
-    def get_permissions(self, obj, method):
-        operations = sets.Set()
+    def get_permissions(self, obj):
         if isinstance(obj, Entity):
+            operations = sets.Set()
             for user in self.auth.users:
                 op_search = registry.AuthOperationSearcher(self.auth.db)
 
@@ -82,7 +82,15 @@ class AuthTargetEntityHandler:
 
                 for op in op_search.search():
                     operations.add((op.get_op_class(), op.get_op_method()))
-
+        else:
+            operations = None
+            for i in obj.get_primary_key():
+                if isinstance(i, Entity):
+                    if operations is None:
+                        operations = sets.Set(self.get_permissions(i))
+                    else:
+                        operations.intersection_update(self.get_permissions(i))
+        # FIXME: fetch all permissions if obj is a search object
         return operations
 
 Authorization.handlers.append(AuthTargetEntityHandler)
