@@ -19,7 +19,7 @@
 
 import cereconf
 from Cerebrum.Constants import _AuthenticationCode
-from Cerebrum.Utils import pgp_encrypt
+from Cerebrum.Utils import pgp_encrypt, pgp_decrypt
 
 """Mixin for PGP encrypted passwords. Supports several PGP recipients,
 storing each system as a seperate authentication code."""
@@ -31,48 +31,58 @@ storing each system as a seperate authentication code."""
 ##}
 ##CLASS_ACCOUNT = ['Cerebrum.Account/Account',
 ##                 (..)
-##                 'Cerebrum.modules.AuthPGP/Account']
+##                 'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin']
 ##
 ##CLASS_CONSTANTS = [(..)
 ##                   'Cerebrum.modules.AuthPGP/Constants']
 
 # Remember to run makedb --update-codes to add constants to the database
 
+from Cerebrum import Account
 
 # Mixin for encryption methods
-class Account:
-    # Will add methods dynamically
-    pass
+class AuthPGPAccountMixin(Account.Account):
+    def _pgp_auth(self, system):
+        return self.const.Authentication("PGP-" + system)
 
+    def encrypt_password(self, method, plaintext, salt=None):
+        for system, pgpkey in cereconf.AUTH_PGP.items():
+            if method == self._pgp_auth(system):
+                return pgp_encrypt(plaintext, pgpkey)
+        return self.__super.encrypt_password(method, plaintext, salt=salt)
+
+    def decrypt_password(self, method, cryptstring):
+        for system, pgpkey in cereconf.AUTH_PGP.items():
+            if method == self._pgp_auth(system):
+                return pgp_decrypt(cryptstring, pgpkey)
+        return self.__super.decrypt_password(method, cryptstring)
+
+    def verify_password(self, method, plaintext, cryptstring):
+        for system, pgpkey in cereconf.AUTH_PGP.items():
+            if method == self._pgp_auth(system):
+                # TODO: it is possible to verify the plaintext if the
+                # private key is available.
+                return NotImplemented
+        return self.__super.verify_password(method, plaintext, cryptstring)
+
+        
 class Constants:
     # Will add constants dynamically
     pass
 
+
 # WARNING: Hackish code below =)
 
-# Generate authcode constants and encryption methods dynamically, one
-# for each AUTH_PGP system
+# Generate authcode constants dynamically, one for each AUTH_PGP
+# system, and add them to AUTH_CRYPT_METHODS
+
 for (system, pgpkey) in cereconf.AUTH_PGP.items():
-    auth_code = _AuthenticationCode('PGP-%s' % system,
-                    "PGP encrypted password for the system %s" % system)
+    codename = 'PGP-' + system
+    if codename not in cereconf.AUTH_CRYPT_METHODS:
+        cereconf.AUTH_CRYPT_METHODS += (codename,)
+    auth_code = _AuthenticationCode(
+        codename, "PGP encrypted password for the system %s" % system)
     name = "auth_type_pgp_%s" % system
     setattr(Constants, name, auth_code)
-
-    # Each system is another method so they can be stored as
-    # different "authentication types" and will be included by
-    # set_password()
-    if not name in cereconf.AUTH_CRYPT_METHODS:
-        cereconf.AUTH_CRYPT_METHODS += (name,)
-
-    # Generate a method that uses this PGP key
-    def generate_method(name, pgpkey):
-        """Closure for storing name/key"""
-        def method(self, plaintext, salt=None):
-            """PGP encryption for system %s""" % system
-            return pgp_encrypt(plaintext, pgpkey)
-        return method
-    method = generate_method(name, pgpkey)
-    # Add to our mixin so set_password() will find the method 
-    setattr(Account, "enc_" + name, method)
 
 # arch-tag: 6ad76a99-2280-4a12-b04d-cf1b8ea40629
