@@ -123,7 +123,7 @@ class EntityTrait(Entity):
         deletion will fail if any such trait exists.
 
         """
-        for code in self.get_traits():
+        for code in self.get_traits().copy():
             self.delete_trait(code)
         self.__super.delete()
 
