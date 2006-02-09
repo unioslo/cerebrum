@@ -116,11 +116,11 @@ class Updater(object):
         # TODO: This check should be somewhere that makes it is easier
         # to always enforce this constraint.
         refs = self._find.find_referers(dns_owner_id=dns_owner_id)
-        if ((dns.HOST_INFO in refs or dns.CNAME_TARGET in refs or
-             dns.SRV_TARGET in refs)
-            and not dns.A_RECORD in refs):
-            raise DNSError(
-                "A-record is used as target, or has a host_info entry")
+        if not dns.A_RECORD in refs:
+            if dns.HOST_INFO in refs:
+                raise DNSError("Host is used as home server (use misc hrem)")
+            elif dns.SRV_TARGET in refs or dns.CNAME_TARGET in refs:
+                raise DNSError("Host is used as target for CNAME or SRV")
 
         if try_dns_remove:
             self.remove_dns_owner(dns_owner_id)
