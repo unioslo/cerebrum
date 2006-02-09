@@ -19,7 +19,8 @@
  */
 
 var perm_methods = new Array(); // [{'cls', {'method', 'id', 'cur', 'rem'}},]
-var perm_classes = new Array(); // [{'cls', Dom obj},]
+var perm_original_methods = null; // Contains backup of perm_methods for restore.
+var perm_original_current = null; // Contains backup of current for restore.
 
 addLoadEvent(Perm_init_listeners);
 addLoadEvent(Perm_init_methods);
@@ -29,6 +30,8 @@ function Perm_init_listeners() {
     var all = document.getElementById('perm_all');
     var add = document.getElementById('perm_add');
     var rem = document.getElementById('perm_rem');
+    var res = document.getElementById('perm_restore');
+    var save = document.getElementById('perm_save');
     var objs = document.getElementById('perm_objects');
     var mets = document.getElementById('perm_methods');
     var curr = document.getElementById('perm_current');
@@ -36,9 +39,12 @@ function Perm_init_listeners() {
     addEvent(all, 'click', Perm_methods_all);
     addEvent(add, 'click', Perm_add);
     addEvent(rem, 'click', Perm_rem);
+    addEvent(res, 'click', Perm_restore);
+    addEvent(save, 'click', Perm_save);
     addEvent(objs, 'change', Perm_objects_change);
     addEvent(mets, 'change', Perm_methods_change);
-    addEvent(curr, 'change', Perm_current_change);
+    
+    perm_original_current = curr.cloneNode(true);
 }
 
 // Get all operations methods from server.
@@ -56,6 +62,7 @@ function Perm_methods_load(req) {
     var methods = document.getElementById('perm_methods');
     var data = eval('(' + req.responseText + ')');
     perm_methods = data.methods;
+    perm_original_methods = data.methods;
 
     // Update perm_methods with current methods.
     for (i = 0; i < current.length; i++) {
@@ -153,13 +160,9 @@ function Perm_objects_change() {
             Perm_add_option(methods, mets[i].name, null, null, style);
     }
     
-    if (methods.length == 0) { Perm_add_option(methods, "", "-- Empty --"); }
 
     Perm_methods_change(); // Make sure the all link has correct text.
-}
-
-// Update ...
-function Perm_current_change() {
+    Perm_check_empty(methods);
 }
 
 // Create an option.
@@ -192,8 +195,10 @@ function Perm_add() {
     // Find selected.
     var cls = objects[objects.selectedIndex].value;
     var mets = new Array();
-    for (i = 0; i < methods.length; i++)
+    for (i = 0; i < methods.length; i++) {
+        if (methods[i].value == "empty") { continue; }
         if (methods[i].selected) { mets[mets.length] = methods[i].value; }
+    }
 
     if (mets.length == 0) { return; } // No methods selected
 
@@ -206,7 +211,8 @@ function Perm_add() {
             if (current[index].value == cls) break;
         
         adjust = (index == current.length) ? 2 : 1;
-        opt = Perm_create_option(cls+m.name+m.id, "- "+m.name, null, color);
+        value = cls + "." + m.name + "." + m.id
+        opt = Perm_create_option(value, "- "+m.name, null, color);
         for (j = current.length-1; j >= 0; j--) {
             current[j+adjust] = current[j].cloneNode(true);
             
@@ -224,15 +230,72 @@ function Perm_add() {
     for (i = methods.length-1; i >= 0; i--)
         if (methods[i].selected) { methods.remove(i); }
     
-    if (methods.length == 0) { Perm_add_option(methods, "", "-- Empty --"); }
+    Perm_check_empty(methods);
 }
 
+// Remove a method from the current list of methods.
 function Perm_rem() {
     var current = document.getElementById('perm_current');
-    var objects = document.getElementById('perm_objects');
-    var methods = document.getElementById('perm_methods');
     var color = "color:red;"
     
-    alert("error: not implemented yet.");
+    // Update perm_methods and remove from current list.
+    for (i = current.length-1; i >= 0; i--) {
+        if (current[i].value == "empty") { continue; }
+        if (current[i].selected) {
+            str = current[i].value.split(".");
+            if (str.length != 3)
+                continue
+            met = Perm_find_method(str[0], str[1]);
+            met.cur = false; met.rem = true;
+
+            if (current[i-1].value.split(".").length == 1 &&
+                current[i+1].value.split(".").length == 1) {
+                current.remove(i);
+                current.remove(i-1); // Remove the class option.
+            } else {
+                current.remove(i);
+            }
+        }
+    }
+
+    Perm_objects_change(); // Update available method list.
+    Perm_check_empty(current);
+}
+
+// Restore back to default.
+function Perm_restore() {
+    var current = document.getElementById('perm_current');
+    var objects = document.getElementById('perm_objects');
+    
+    alert("Restore not implemented yet.");
+    return; // todo..
+    
+    // Restore current list.
+    new_node = perm_original_current.cloneNode();
+    current.parentNode.replaceChild(new_node, current);
+
+    // Restore method list.
+    perm_methods = perm_original_methods;
+    
+    // Restore objects.
+    objects.selectedIndex = 0;
+    Perm_objects_change();
+}
+
+// Save values to server.
+function Perm_save() {
+    var form = document.getElementById('perm_form');
+    var current = document.getElementById('perm_current');
+
+    for (i = 0; i < current.length; i++)
+        current[i].selected = true;
+    
+    form.submit();
+}
+
+// If the select is empty, add an empty-option.
+function Perm_check_empty(select) {
+    if (select.length == 0)
+        Perm_add_option(select, "empty", "-- Empty --");
 }
 

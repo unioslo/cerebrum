@@ -82,7 +82,7 @@
         </div>
     </div>
 
-    $editMethods($transaction, $op_set)
+    $editMethods($op_set)
     $viewMethods($op_set)
 </div>
 #end def
@@ -104,12 +104,12 @@ return classes, new_methods
 #end def
 
 ## View form for editing methods on an operation set.
-#def editMethods($tr, $op_set)
+#def editMethods($op_set)
 #set $current = $build_method_dict($op_set.get_operations())
 <div class="permissions">
     <a name="methods" />
-    <form action="update_methods" method="POST">
-        <input type="hidden" name="id" value="10" />
+    <form id="perm_form" action="update_methods" method="POST">
+        <input type="hidden" name="id" value="$op_set.get_id()" />
         <h3>$_('Manage methods')</h3>
         <table cellpadding="0" cellspacing="0">
             <tr>
@@ -123,17 +123,21 @@ return classes, new_methods
             <tr>
                 <td rowspan="2" valign="top">
                     <select id="perm_current" name="current" multiple="multiple" size="12">
+                    #if  $len($current[0]) == 0
+                        <option value="empty">-- Empty --</option>
+                    #else
                     #for $cls in $current[0]
                         <option value="$cls">$cls</option>
                         #for $m, $id in $current[1][$cls]
                         <option value="$cls.$m.$id">- $m</option>
                         #end for
                     #end for
+                    #end if
                     </select>
                 </td>
                 <td colspan="2" valign="top" style="padding-left:5px;">
                     <select id="perm_objects" name="objects">
-                        <option>-- Loading objects --</option>
+                        <option>-- $_('Loading objects') --</option>
                     </select>
                 </td>
             </tr>
@@ -151,14 +155,14 @@ return classes, new_methods
                     <a href="javascript:;" id="perm_all" class="perm_all">all</a>
                     <br />
                     <select id="perm_methods" name="methods" multiple="multiple" size="10">
-                        <option>-- Loading methods --</option>
+                        <option>-- $_('Loading methods') --</option>
                     </select>
                 </td>
             </tr>
             <tr>
                 <td colspan="3" align="center">
-                    <input type="submit" value="$_('Save')" />
-                    <input type="button" value="$_('Restore')" />
+                    <input type="button" id="perm_save" value="$_('Save')" />
+                    <input type="button" id="perm_restore" value="$_('Restore')" />
                 </td>
             </tr>
         </table>

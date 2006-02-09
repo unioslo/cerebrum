@@ -110,9 +110,26 @@ def make(transaction, name, description=""):
 make = transaction_decorator(make)
 make.exposed = True
 
-def update_methods(transaction, id, current):
+def update_methods(transaction, id, **vargs):
+    """Update methods on operation set."""
     op_set = transaction.get_auth_operation_set(int(id))
-    old = op_set.get_methods()
+    
+    new = [int(i.split('.')[2]) for i in vargs.get('current', ()) if '.' in i]
+   
+    # Remove old operations
+    for op in op_set.get_operations():
+        id = op.get_id()
+        if id not in new:
+            op_set.remove_operation(op)
+        else:
+            new.remove(id)
+
+    # Add new operations.
+    for id in new:
+        op_set.add_operation(transaction.get_auth_operation(id))
+
+    msg = _("Operation set '%s' updated successfully.") % op_set.get_name()
+    commit_url(transaction, 'view?id=%i' % op_set.get_id(), msg=msg)
 update_methods = transaction_decorator(update_methods)
 update_methods.exposed = True
 
