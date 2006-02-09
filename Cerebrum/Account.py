@@ -32,6 +32,8 @@ import string
 import time
 import re
 import mx
+import sha
+import base64
 
 from Cerebrum import Utils
 from Cerebrum.Entity import EntityName, EntityQuarantine
@@ -453,6 +455,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """Lets you select plaintext as a encryption method. Use
         with care!"""
         return plaintext
+
+    def enc_auth_type_ssha(self, plaintext, salt=None):
+        if salt is None:
+            saltchars = string.ascii_letters + string.digits + "./"
+            salt = Utils.random_string(2, saltchars)
+        # Damn encodestring adds a '\n' hence the .strip()
+        # For the record; Perl does not. The hash fails when added to openldap
+        # with the '\n' present. Maybe whine on a Python mailing-list?
+        return base64.encodestring(sha.new(str(plaintext) + salt).digest() + salt).strip()
 
     def illegal_name(self, name):
         """Return a string with error message if username is illegal"""

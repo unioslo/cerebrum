@@ -670,7 +670,11 @@ class CommonConstants(ConstantsBase):
         'plaintext',
         "Plantext passwords. Usefull for installations where non-encrypted "
         "passwords need to be used and exported. Use with care!")
-
+    auth_type_ssha = _AuthenticationCode(
+        'SSHA',
+        "A salted SHA1-encrypted password. More info on:"
+        "http://www.openldap.org/faq/data/cache/347.html and in RFC 2307")
+ 
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
     contact_phone_private = _ContactInfoCode('PRIVPHONE',
                                              "Person's private phone number")
