@@ -50,12 +50,16 @@ class AuthOperationSet(DatabaseClass):
     )
     method_slots = (
         Method('add_operation', None, args=[('operation', AuthOperation)], write=True),
+        Method('remove_operation', None, args=[('operation', AuthOperation)], write=True),
         Method('get_operations', [AuthOperation]),
-        Method('delete', None)
+        Method('delete', None, write=True)
     )
 
     def add_operation(self, operation):
         AuthOperationSetMember._create(self.get_database(), operation, self)
+
+    def remove_operation(self, operation):
+        AuthOperationSetMember(self.get_database(), operation, self).delete()
 
     def get_operations(self):
         db = self.get_database()
@@ -79,9 +83,6 @@ class AuthOperationSetMember(DatabaseClass):
     primary = (
         DatabaseAttr('op', table, AuthOperation),
         DatabaseAttr('op_set', table, AuthOperationSet)
-    )
-    method_slots = (
-        Method('delete', None),
     )
     db_attr_aliases = {
         table: {
