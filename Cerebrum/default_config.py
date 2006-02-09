@@ -29,7 +29,7 @@ CEREBRUM_DATABASE_NAME = None
 CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
                                   'table_owner': None}
 
-AUTH_CRYPT_METHODS = ("auth_type_md5_crypt",)
+AUTH_CRYPT_METHODS = ("MD5-crypt",)
 
 # List of full path filenames to files containing non-allowed
 # passwords.
