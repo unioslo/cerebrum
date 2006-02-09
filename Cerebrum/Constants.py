@@ -666,14 +666,18 @@ class CommonConstants(ConstantsBase):
         "PGP-encrypt the password so that we later can get at the plaintext "
         "password if we want to populate new backends.  The secret key "
         "should be stored offline.")
+    auth_type_md4_nt =  _AuthenticationCode(
+        'MD4-NT',
+        "MD4-derived password hash with Microsoft-added security.  "
+        "Requires the smbpasswd module to be installed.")
     auth_type_plaintext = _AuthenticationCode(
         'plaintext',
         "Plantext passwords. Usefull for installations where non-encrypted "
         "passwords need to be used and exported. Use with care!")
     auth_type_ssha = _AuthenticationCode(
         'SSHA',
-        "A salted SHA1-encrypted password. More info on:"
-        "http://www.openldap.org/faq/data/cache/347.html and in RFC 2307")
+        "A salted SHA1-encrypted password. More info in RFC 2307 and at "
+        "<URL:http://www.openldap.org/faq/data/cache/347.html>")
  
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
     contact_phone_private = _ContactInfoCode('PRIVPHONE',
