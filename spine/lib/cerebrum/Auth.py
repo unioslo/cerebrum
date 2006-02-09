@@ -37,25 +37,6 @@ class AuthOperation(DatabaseClass):
         DatabaseAttr('op_class', table, str),
         DatabaseAttr('op_method', table, str)
     )
-
-"""
-    def __new__(cls, db, id=None, op_class=None, op_method=None):
-        if id is not None and op_class is None and op_method is None:
-            s = cls.search_class(db)
-            s.set_id(id)
-            assert len(result) == 1
-            return result[0]
-        else:
-            return super(AuthOperation, cls).__new__(cls, db, id, op_class, op_method)
-
-    def create_primary_key(cls, db, id, op_class, op_method):
-        assert type(op_class) == str
-        assert type(op_method) == str
-
-        return (op_class, op_method)
-    create_primary_key = classmethod(create_primary_key)
-"""
-
 registry.register_class(AuthOperation)
 
 table = 'auth_operation_set'
@@ -64,12 +45,13 @@ class AuthOperationSet(DatabaseClass):
         DatabaseAttr('id', table, int),
     )
     slots = (
-        DatabaseAttr('name', table, str),
+        DatabaseAttr('name', table, str, write=True),
         DatabaseAttr('description', table, str, write=True)
     )
     method_slots = (
         Method('add_operation', None, args=[('operation', AuthOperation)], write=True),
-        Method('get_operations', [AuthOperation])
+        Method('get_operations', [AuthOperation]),
+        Method('delete', None)
     )
 
     def add_operation(self, operation):
@@ -82,6 +64,14 @@ class AuthOperationSet(DatabaseClass):
         ss.set_op_set(self)
         s.add_join('', ss, 'op')
         return s.search()
+
+    def delete(self):
+        s = registry.AuthOperationSetMemberSearcher(self.get_database())
+        s.set_op_set(self)
+        for i in s.search():
+            i.delete()
+        self._delete_from_db()
+        self._delete()
 registry.register_class(AuthOperationSet)
 
 table = 'auth_operation_set_member'
@@ -90,12 +80,18 @@ class AuthOperationSetMember(DatabaseClass):
         DatabaseAttr('op', table, AuthOperation),
         DatabaseAttr('op_set', table, AuthOperationSet)
     )
+    method_slots = (
+        Method('delete', None),
+    )
     db_attr_aliases = {
         table: {
             'op':'op_id',
             'op_set':'op_set_id'
         }
     }
+    def delete(self):
+        self._delete_from_db()
+        self._delete()
 registry.register_class(AuthOperationSetMember)
 
 def create_auth_operation(self, op_class, op_method):
