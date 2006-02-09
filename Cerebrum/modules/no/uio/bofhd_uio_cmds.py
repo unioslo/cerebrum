@@ -275,12 +275,15 @@ class BofhdExtension(object):
         for r in acc.get_homes():
             disk_id = int(r['disk_id'])
             if not disk_id in disks:
+                disk.clear()
                 disk.find(disk_id)
                 disks[disk_id] = disk.path
-                host_id = int(disk.host_id)
-                if host_id is not None:
+                if disk.host_id is not None:
                     basename = disk.path.split("/")[-1]
-                    hosts.setdefault(host_id, []).append(basename)
+                    host_id = int(disk.host_id)
+                    if host_id not in hosts:
+                        hosts[host_id] = []
+                    hosts[host_id].append(basename)
         # Look through disks
         ret = []
         for d in disks.keys():
@@ -2598,47 +2601,16 @@ class BofhdExtension(object):
         return result
     
     # entity history
-    all_commands['entity_history'] = None
+    all_commands['entity_history'] = Command(
+        ("entity", "history"), AccountName(), Integer(optional=True),
+        perm_filter='is_superuser')
     def entity_history(self, operator, entity_id, limit=100):
-        entity = self._get_entity(id=entity_id)
-        self.ba.can_show_history(operator.get_entity_id(), entity)
-        result = self.db.get_log_events(any_entity=entity_id)
-        events = []
-        entities = Set()
-        change_types = Set()
-        # (dirty way of unwrapping DB-iterator) 
-        result = [r for r in result]
-        # skip all but the last entries 
-        result = result[-limit:]
-        for row in result:
-            event = {}
-            change_type = int(row['change_type_id'])
-            change_types.add(change_type)
-            event['type'] = change_type
-
-            event['date'] = row['tstamp']
-            event['subject'] = row['subject_entity']
-            event['dest'] = row['dest_entity']
-            params = row['change_params']
-            if params:
-                params = pickle.loads(params)
-            event['params'] = params
-            change_by = row['change_by']
-            if change_by:
-                entities.add(change_by)
-                event['change_by'] = change_by
-            else:
-                event['change_by'] = row['change_program']
-            entities.add(event['subject'])
-            entities.add(event['dest'])
-            events.append(event)
-        # Resolve to entity_info, return as dict
-        entities = dict([(str(e), self._entity_info(e)) 
-                        for e in entities if e])
-        # resolv change_types as well, return as dict
-        change_types = dict([(str(t), self.change_type2details.get(t))
-                        for t in change_types])
-        return events, entities, change_types
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        ret = []
+        for r in self.db.get_log_events(0, subject_entity=entity_id):
+            ret.append(self._format_changelog_entry(r))
+        return "\n".join(ret[-limit:])
 
     #
     # group commands
@@ -3282,8 +3254,10 @@ class BofhdExtension(object):
         except PasswordChecker.PasswordGoodEnoughException, m:
             raise CerebrumError, "Bad password: %s" % m
         ac = self.Account_class(self.db)
-        crypt = ac.enc_auth_type_crypt3_des(password)
-        md5 = ac.enc_auth_type_md5_crypt(password)
+        crypt = ac.encrypt_password(self.const.Authentication("crypt3-DES"),
+                                    password)
+        md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
+                                  password)
         return "OK.  crypt3-DES: %s   MD5-crypt: %s" % (crypt, md5)
 
     # misc clear_passwords
@@ -3935,9 +3909,7 @@ class BofhdExtension(object):
         ac = self._get_account(accountname)
         # Only people who can set the password are allowed to check it
         self.ba.can_set_password(operator.get_entity_id(), ac)
-        old_pass = ac.get_account_authentication(self.const.auth_type_md5_crypt)
-        salt = old_pass[:old_pass.rindex('$')]
-        if ac.enc_auth_type_md5_crypt(password, salt=salt) == old_pass:
+        if ac.verify_auth(password):
             return "Password is correct"
         return "Incorrect password"
 
@@ -6380,8 +6352,11 @@ class BofhdExtension(object):
     def _get_entity_name(self, type, id):
         if type is None:
             ety = Entity.Entity(self.db)
-            ety.find(id)
-            type = self.const.EntityType(ety.entity_type)
+            try:
+                ety.find(id)
+                type = self.const.EntityType(ety.entity_type)
+            except Errors.NotFoundError:
+                return "notfound:%d" % id
         if type == self.const.entity_account:
             acc = self._get_account(id, idtype='id')
             return acc.account_name
