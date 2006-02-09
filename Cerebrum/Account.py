@@ -39,9 +39,8 @@ from Cerebrum import Utils
 from Cerebrum.Entity import EntityName, EntityQuarantine
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.Database import Errors
+from Cerebrum.Utils import NotSet
 import cereconf
-
-class NotSet(object): pass
 
 class AccountType(object):
     """The AccountType class does not use populate logic as the only
@@ -232,27 +231,27 @@ class AccountHome(object):
         if count < 1:
             self.clear_homedir(ah['homedir_id'])
 
-    def set_homedir(self, current_id=NotSet(),
-                    home=NotSet(), disk_id=NotSet(), status=NotSet()):
+    def set_homedir(self, current_id=NotSet, home=NotSet, disk_id=NotSet,
+                    status=NotSet):
         """If current_id=NotSet, insert a new entry.  Otherwise update
         the values != NotSet for the given homedir_id=current_id"""
-        if not isinstance(status, NotSet):
+        if status is not NotSet:
             status = int(status)   # Constants.__eq__ don't like strings
         tmp = [['account_id', self.entity_id],
                ['home', home],
                ['disk_id', disk_id],
                ['status', status]]
-        if ((home is not None and not isinstance(home, NotSet)) and
-            (disk_id is not None and not isinstance(disk_id, NotSet))):
+        if ((home is not None and home is not NotSet) and
+            (disk_id is not None and disk_id is not NotSet)):
             raise self._db.IntegrityError, "Cannot set both home and disk_id"
-        if isinstance(current_id, NotSet):    # Allocate new id
+        if current_id is NotSet:    # Allocate new id
             tmp.append(('homedir_id', long(self.nextval('homedir_id_seq'))))
             for t in tmp:
-                if isinstance(t[1], NotSet):
+                if t[1] is NotSet:
                     t[1] = None
         else:
             tmp.append(('homedir_id', Utils.format_as_int(current_id)))
-        if isinstance(current_id, NotSet):
+        if current_id is NotSet:
             binds = dict([(t[0], t[1]) for t in tmp])
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=homedir]
@@ -266,7 +265,7 @@ class AccountHome(object):
                                'disk_id': Utils.format_as_int(binds.get('disk_id', None)),
                                'home': binds.get('home', None)})
         else:
-            tmp = filter(lambda k: not (k[1] is None or isinstance(k[1], NotSet)), tmp)
+            tmp = filter(lambda k: not (k[1] is None or k[1] is NotSet), tmp)
             if 'home' in [x[0] for x in tmp]:
                 tmp.append(['disk_id', None])
             elif 'disk_id' in [x[0] for x in tmp]:
@@ -285,13 +284,16 @@ class AccountHome(object):
         return tmp[-1][1]
 
     def clear_homedir(self, homedir_id):
+        old = self.get_homedir(homedir_id)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=homedir]
         WHERE homedir_id=:homedir_id""",
                      {'homedir_id' : homedir_id})
         self._db.log_change(
             self.entity_id, self.const.homedir_remove, None,
-            change_params={'homedir_id': homedir_id})
+            change_params={'homedir_id': homedir_id,
+                           'disk_id': Utils.format_as_int(old['disk_id']),
+                           'home': old['home']})
 
     def get_homedir(self, homedir_id):
         return self.query_1("""
@@ -417,53 +419,95 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return True
 
     def set_password(self, plaintext):
-        """Updates all account_authentication entries with an encrypted
-        version of the plaintext password.  The methods to be used
-        are determined by AUTH_CRYPT_METHODS.
+        """Updates all account_authentication entries with an
+        encrypted version of the plaintext password.  The methods to
+        be used are determined by AUTH_CRYPT_METHODS.
 
         Note: affect_auth_types is automatically extended to contain
-        these methods."""
-        for method in cereconf.AUTH_CRYPT_METHODS:
-            method_const = getattr(self.const, method)
-            if not method_const in self._acc_affect_auth_types:
-                self._acc_affect_auth_types.append(method_const)
-            if not self.wants_auth_type(method_const):
+        these methods.
+        """
+        for method_name in cereconf.AUTH_CRYPT_METHODS:
+            method = self.const.Authentication(method_name)
+            if not method in self._acc_affect_auth_types:
+                self._acc_affect_auth_types.append(method)
+            if not self.wants_auth_type(method):
                 # affect_auth_types is set above, so existing entries
                 # which are unwanted for this account will be removed.
+                #
+                # HOWEVER, removing a method from AUTH_CRYPT_METHODS
+                # will not cause deletion of the associated auth_data
+                # upon next password change, the auth_data for that
+                # method will stick around as stale data.
+                #
+                # So to stop storing a method, you'll either have to
+                # clean it out from the database manually, or you'll
+                # have to decline it in wants_auth_data until it's all
+                # gone.
                 continue
-            enc = getattr(self, "enc_%s" % method)
-            enc = enc(plaintext)
-            self.populate_authentication_type(method_const, enc)
+            enc = self.encrypt_password(method, plaintext)
+            self.populate_authentication_type(method, enc)
         self.__plaintext_password = plaintext
 
-    def enc_auth_type_md5_crypt(self, plaintext, salt=None):
-        if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            s = []
-            for i in range(8):
-                s.append(random.choice(saltchars))
-            salt = "$1$" + "".join(s)
-        return crypt.crypt(plaintext, salt)
+    def encrypt_password(self, method, plaintext, salt=None):
+        """Returns the plaintext encrypted according to the specified
+        method.  A mixin for a new method should not call super for
+        the method it handles.
+        """
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_crypt3_des,
+                      self.const.auth_type_ssha):
+            if salt is None:
+                saltchars = string.ascii_letters + string.digits + "./"
+                if method == self.const.auth_type_md5_crypt:
+                    salt = "$1$" + Utils.random_string(8, saltchars)
+                else:
+                    salt = Utils.random_string(2, saltchars)
+            if method == self.const.auth_type_ssha:
+                # encodestring annoyingly adds a '\n' at the end of
+                # the string, and OpenLDAP won't accept that.
+                # b64encode does not, but it requires Python 2.4
+                return base64.encodestring(sha.new(plaintext + salt).digest() +
+                                           salt).strip()
+            return crypt.crypt(plaintext, salt)
+        elif method == self.const.auth_type_md4_nt:
+            # Do the import locally to avoid adding a dependency for
+            # those who don't want to support this method.
+            import smbpasswd
+            return smbpasswd.nthash(plaintext)
+        elif method == self.const.auth_type_plaintext:
+            return plaintext
+        raise ValueError, "Unknown method " + repr(method)
 
-    def enc_auth_type_crypt3_des(self, plaintext, salt=None):
-        if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            salt = Utils.random_string(2, saltchars)
-        return crypt.crypt(plaintext, salt)
+    def decrypt_password(self, method, cryptstring):
+        """Returns the decrypted plaintext according to the specified
+        method.  If decryption is impossible, NotImplementedError is
+        raised.  A mixin for a new method should not call super for
+        the method it handles.
+        """
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_crypt3_des,
+                      self.const.auth_type_md4_nt):
+            raise NotImplementedError, "Can't decrypt %s" % method
+        elif method == self.const.auth_type_plaintext:
+            return cryptstring
+        raise ValueError, "Unknown method " + repr(method)
 
-    def enc_auth_type_plaintext(self, plaintext, salt=None):
-        """Lets you select plaintext as a encryption method. Use
-        with care!"""
-        return plaintext
-
-    def enc_auth_type_ssha(self, plaintext, salt=None):
-        if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            salt = Utils.random_string(2, saltchars)
-        # Damn encodestring adds a '\n' hence the .strip()
-        # For the record; Perl does not. The hash fails when added to openldap
-        # with the '\n' present. Maybe whine on a Python mailing-list?
-        return base64.encodestring(sha.new(str(plaintext) + salt).digest() + salt).strip()
+    def verify_password(self, method, plaintext, cryptstring):
+        """Returns True if the plaintext matches the cryptstring,
+        False if it doesn't.  If the method doesn't support
+        verification, NotImplemented is returned.
+        """
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_crypt3_des,
+                      self.const.auth_type_md4_nt,
+                      self.const.auth_type_ssha,
+                      self.const.auth_type_plaintext):
+            salt = cryptstring
+            if method == self.const.auth_type_ssha:
+                salt = base64.decodestring(cryptstring)[20:]
+            return (self.encrypt_password(method, plaintext, salt=salt) ==
+                    cryptstring)
+        raise ValueError, "Unknown method " + repr(method)
 
     def illegal_name(self, name):
         """Return a string with error message if username is illegal"""
@@ -620,7 +664,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         EntityName.find_by_name(self, name, domain)
 
     def get_account_authentication(self, method):
-        """Return the name with the given variant"""
+        """Return the authentication data for the given method.  Raise
+        an exception if missing."""
 
         return self.query_1("""
         SELECT auth_data
