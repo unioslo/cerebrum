@@ -344,9 +344,30 @@ class AccountUiOMixin(Account.Account):
             return self.get_trait(self.const.trait_guest_owner) is not None
         return self.__super.wants_auth_type(method)
 
-    def enc_auth_type_md4_nt(self,plaintext,salt=None):
-        import smbpasswd
-        return smbpasswd.nthash(plaintext)
+    def verify_auth(self, plaintext):
+        """Try to verify all authentication data stored for an
+        account.  Authentication data from methods not listed in
+        AUTH_CRYPT_METHODS are ignored.  Returns True if all stored
+        authentication methods which are able to confirm a plaintext,
+        do.  If no methods are able to confirm, or one method reports
+        a mismatch, return False.
+        
+        """
+        success = False
+        for m in cereconf.AUTH_CRYPT_METHODS:
+            method = self.const.Authentication(m)
+            try:
+                auth_data = self.get_account_authentication(method)
+            except Errors.NotFoundError:
+                continue
+            status = self.verify_password(method, plaintext, auth_data)
+            if status is NotImplemented:
+                continue
+            elif status is True:
+                success = True
+            else:
+                return False
+        return success
 
     def set_homedir(self, *args, **kw):
         """Remove quota information when the user is moved to a disk
