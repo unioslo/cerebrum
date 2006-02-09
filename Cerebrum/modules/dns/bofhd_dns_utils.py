@@ -135,7 +135,7 @@ class DnsBofhdUtils(object):
 
     def alter_entity_note(self, owner_id, trait, dta):
         dta = dta.strip()
-        if trait == self.const.dns_trait_contact:
+        if trait == self.const.trait_dns_contact:
             mail_ok_re = re.compile(
                 cereconf.DNS_EMAIL_REGEXP) 
             if dta and not mail_ok_re.match(dta):
