@@ -25,6 +25,7 @@
 ## General Permission Control view page
 #def view_index($tr)
 #set $searcher = $tr.get_auth_operation_set_searcher()
+$searcher.order_by($searcher, "name")
 #set $ops = [(i.get_id(), i.get_name()) for i in $searcher.search()]
 <div class="email_view">
     <form action="view" type="post">

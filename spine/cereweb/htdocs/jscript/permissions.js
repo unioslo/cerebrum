@@ -155,9 +155,9 @@ function Perm_objects_change() {
 
     // Update methodlist.
     for (i = 0; i < mets.length; i++) {
-        style = mets[i].rem ? 'color:red;' : null
+        color = mets[i].rem ? "red" : null;
         if (!mets[i].cur)
-            Perm_add_option(methods, mets[i].name, null, null, style);
+            Perm_add_option(methods, mets[i].name, null, null, color);
     }
     
 
@@ -166,18 +166,18 @@ function Perm_objects_change() {
 }
 
 // Create an option.
-function Perm_create_option(value, text, selected, style) {
+function Perm_create_option(value, text, selected, color) {
     var new_elm = document.createElement('option');
     new_elm.text = text == null ? value : text;
     new_elm.value = value;
     new_elm.selected = selected ? true : false;
-    if (style) { new_elm.style = style; }
+    if (color) { new_elm.style.color = color; }
     return new_elm;
 }
 
 // Create and add an option to the select.
-function Perm_add_option(select, value, text, selected, style) {
-    elm = Perm_create_option(value, text, selected, style);
+function Perm_add_option(select, value, text, selected, color) {
+    elm = Perm_create_option(value, text, selected, color);
     try {
         select.add(elm, null); // standards compliant; doesnt work in IE
     } catch(ex) {
@@ -190,39 +190,37 @@ function Perm_add() {
     var current = document.getElementById('perm_current');
     var objects = document.getElementById('perm_objects');
     var methods = document.getElementById('perm_methods');
-    var color = "color:green;"
+    var color = "green";
 
     // Find selected.
-    var cls = objects[objects.selectedIndex].value;
     var mets = new Array();
     for (i = 0; i < methods.length; i++) {
         if (methods[i].value == "empty") { continue; }
         if (methods[i].selected) { mets[mets.length] = methods[i].value; }
     }
 
-    if (mets.length == 0) { return; } // No methods selected
+    if (mets.length == 0) { return; } // No methods selected.
+    if (current.length == 1 && current[0].value == "empty")
+        current.remove(0); // Remove empty option.
 
+    var cls = objects[objects.selectedIndex].value;
+    for (index = 0; index < current.length; index++)
+        if (current[index].value == cls) break;
+        
     // Add selected to current.
     for (i = 0; i < mets.length; i++) {
         m = Perm_find_method(cls, mets[i]);
         m.cur = true;
         
-        for (index = 0; index < current.length; index++)
-            if (current[index].value == cls) break;
-        
-        adjust = (index == current.length) ? 2 : 1;
         value = cls + "." + m.name + "." + m.id
-        opt = Perm_create_option(value, "- "+m.name, null, color);
-        for (j = current.length-1; j >= 0; j--) {
-            current[j+adjust] = current[j].cloneNode(true);
-            
-            if (adjust == 2 && j == 0) {
-                current[0] = Perm_create_option(cls);
-                current[1] = opt;
-            } else if (j == index+1) {
-                current[j] = opt;
-                break;
-            }
+        new_option = Perm_create_option(value, "- "+m.name, null, color);
+
+        if (index == current.length) {
+            Perm_insert_option(current, new_option, 0);
+            Perm_insert_option(current, Perm_create_option(cls), 0);
+            index = 0;
+        } else {
+            Perm_insert_option(current, new_option, index+1);
         }
     }
 
@@ -236,11 +234,10 @@ function Perm_add() {
 // Remove a method from the current list of methods.
 function Perm_rem() {
     var current = document.getElementById('perm_current');
-    var color = "color:red;"
     
     // Update perm_methods and remove from current list.
     for (i = current.length-1; i >= 0; i--) {
-        if (current[i].value == "empty") { continue; }
+        if (current[i] == null || current[i].value == "empty") { continue; }
         if (current[i].selected) {
             str = current[i].value.split(".");
             if (str.length != 3)
@@ -249,7 +246,9 @@ function Perm_rem() {
             met.cur = false; met.rem = true;
 
             if (current[i-1].value.split(".").length == 1 &&
-                current[i+1].value.split(".").length == 1) {
+                (current.length == i+1 || 
+                 current[i+1].value.split(".").length == 1)
+                ) {
                 current.remove(i);
                 current.remove(i-1); // Remove the class option.
             } else {
@@ -299,3 +298,9 @@ function Perm_check_empty(select) {
         Perm_add_option(select, "empty", "-- Empty --");
 }
 
+// Fixes an IE bug where insertBefore removes the node text.
+function Perm_insert_option(select, new_node, old_index) {
+    var text = new_node.text;
+    select.insertBefore(new_node, select[old_index]);
+    new_node.text = text;
+}
