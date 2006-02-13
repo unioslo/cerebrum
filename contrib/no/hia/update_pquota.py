@@ -64,8 +64,7 @@ def check_paid_semfee():
         ansatt = False
         try:
             person.find_by_external_id(const.externalid_fodselsnr, fnr,
-                                       source_system=const.system_fs,
-                                       entity_type=const.entity_person)
+                                       source_system=const.system_fs)
         except Errors.NotFoundError:
             logger.error('No such person (%s)' % fnr)
             continue
