@@ -25,7 +25,7 @@ class Authorization:
 
         for h in self._handlers:
             if hasattr(h, 'get_permissions'):
-                methods.update(h.get_permissions(obj, method))
+                methods.update(h.get_permissions(obj))
 
         self._permissions[obj] = methods
 

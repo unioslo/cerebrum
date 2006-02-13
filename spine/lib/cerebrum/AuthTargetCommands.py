@@ -57,7 +57,9 @@ m = Method('add_auth_commands', None, args=[('user', Entity), ('op_set', AuthOpe
 Commands.register_method(m, add_auth_commands)
 
 def del_auth_commands(self, user, op_set):
-    AuthTargetCommands(self.get_database(), user)._delete_from_db()
+    obj = AuthTargetCommands(self.get_database(), user)
+    obj._delete_from_db()
+    obj._delete()
 m = Method('del_auth_commands', None, args=[('user', Entity), ('op_set', AuthOperationSet)], write=True)
 Commands.register_method(m, del_auth_commands)
 
@@ -83,7 +85,7 @@ class AuthTargetCommandsHandler:
                 except KeyError:
                     self.commands[op_class] = sets.Set([op_method])
 
-    def get_permissions(self, obj, method):
+    def get_permissions(self, obj):
         operations = sets.Set()
         for cls in (obj.__class__, ) + obj.builder_parents:
             op_class = cls.__name__

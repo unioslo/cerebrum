@@ -26,19 +26,20 @@ from SpineLib.Builder import Method
 from Commands import Commands
 from Auth import *
 from Entity import Entity, EntityType
+from Types import Spread
 
 from SpineLib import Registry
 registry = Registry.get_registry()
 from server.Authorization import Authorization
 
-__all__ = ['AuthTargetEntityHandler']
+__all__ = ['AuthTargetSpread']
 
-table = 'auth_target_entity'
-class AuthTargetEntity(DatabaseClass):
+table = 'auth_target_spread'
+class AuthTargetSpread(DatabaseClass):
     primary = (
         DatabaseAttr('user', table, Entity),
         DatabaseAttr('op_set', table, AuthOperationSet),
-        DatabaseAttr('entity', table, Entity)
+        DatabaseAttr('spread', table, Spread)
     )
     slots = (
         DatabaseAttr('user_type', table, EntityType),
@@ -49,41 +50,49 @@ class AuthTargetEntity(DatabaseClass):
             'op_set':'op_set_id',
         }
     }
-registry.register_class(AuthTargetEntity)
+registry.register_class(AuthTargetSpread)
 
-def add_auth_target_entity(self, user, op_set, entity):
+def add_auth_target_spread(self, user, op_set, spread):
     db = self.get_database()
-    AuthTargetEntity._create(db, user, op_set, entity, user.get_type())
-m = Method('add_auth_target_entity', None, args=[('user', Entity), ('op_set', AuthOperationSet), ('entity', Entity)], write=True)
-Commands.register_method(m, add_auth_target_entity)
+    AuthTargetSpread._create(db, user, op_set, spread, user.get_type())
+m = Method('add_auth_target_spread', None, args=[('user', Entity), ('op_set', AuthOperationSet), ('spread', Spread)], write=True)
+Commands.register_method(m, add_auth_target_spread)
 
-def del_auth_target_entity(self, user, op_set, entity):
-    obj = AuthTargetEntity(self.get_database(), user, op_set, entity)
+def del_auth_target_spread(self, user, op_set, spread):
+    obj = AuthTargetSpread(self.get_database(), user, op_set, spread)
     obj._delete_from_db()
     obj._delete()
-m = Method('del_auth_target_entity', None, args=[('user', Entity), ('op_set', AuthOperationSet), ('entity', Entity)], write=True)
-Commands.register_method(m, del_auth_target_entity)
+m = Method('del_auth_target_spread', None, args=[('user', Entity), ('op_set', AuthOperationSet), ('spread', Spread)], write=True)
+Commands.register_method(m, del_auth_target_spread)
 
-class AuthTargetEntityHandler:
+class AuthTargetSpreadHandler:
     def __init__(self, auth):
-        self.auth = auth
+        self.commands = {}
+
+        for user in auth.users:
+            op_search = registry.AuthOperationSearcher(auth.db)
+
+            m_search = registry.AuthOperationSetMemberSearcher(auth.db)
+            op_search.add_intersection('', m_search, 'op')
+
+            c_search = registry.AuthTargetSpreadSearcher(auth.db)
+            m_search.add_intersection('op_set', c_search, 'op_set')
+
+            for spread in registry.SpreadSearcher(auth.db).search():
+                c_search.set_spread(spread)
+                for op in op_search.search():
+                    operation = op.get_op_class(), op.get_op_method()
+                    try:
+                        self.commands[spread].add(operation)
+                    except KeyError:
+                        self.commands[spread] = sets.Set([operation])
+
 
     def get_permissions(self, obj):
         if isinstance(obj, Entity):
             operations = sets.Set()
-            for user in self.auth.users:
-                op_search = registry.AuthOperationSearcher(self.auth.db)
-
-                m_search = registry.AuthOperationSetMemberSearcher(self.auth.db)
-                op_search.add_intersection('', m_search, 'op')
-
-                s = registry.AuthTargetEntitySearcher(self.auth.db)
-                s.set_user(user)
-                s.set_entity(obj)
-                m_search.add_intersection('op_set', s, 'op_set')
-
-                for op in op_search.search():
-                    operations.add((op.get_op_class(), op.get_op_method()))
+            for spread in obj.get_spreads():
+                operations.update(self.commands(spread))
             return operations
         elif hasattr(obj, 'get_primary_key'): # is not a command class
             operations = None
@@ -94,11 +103,9 @@ class AuthTargetEntityHandler:
                     else:
                         operations.intersection_update(self.get_permissions(i))
             return operations or ()
-
         # FIXME: fetch all permissions if obj is a search object
-
         return ()
 
-Authorization.handlers.append(AuthTargetEntityHandler)
+Authorization.handlers.append(AuthTargetSpreadHandler)
 
 # arch-tag: 445b82d4-9597-11da-91ce-85785560b498

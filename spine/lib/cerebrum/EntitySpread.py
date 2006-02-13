@@ -34,8 +34,10 @@ table = 'entity_spread'
 class EntitySpread(DatabaseClass):
     primary = (
         DatabaseAttr('entity', table, Entity),
-        DatabaseAttr('entity_type', table, EntityType),
         DatabaseAttr('spread', table, Spread)
+    )
+    slots = (
+        DatabaseAttr('entity_type', table, EntityType),
     )
     db_attr_aliases = {
         table:{'entity':'entity_id'}
