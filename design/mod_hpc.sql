@@ -316,3 +316,5 @@ DROP TABLE operating_system_code;
 category:drop;
 DROP TABLE interconnect_code;
 
+/* arch-tag: 682319cc-9d38-11da-9d76-01cea5ac3c9a
+   (do not change this comment) */

@@ -127,3 +127,5 @@ class Machine(Host_class):
          WHERE host_id=:host_id""", locals())
         self.__in_db = True
         self.__updated = []
+
+# arch-tag: 663a698a-9d38-11da-8f54-cae0bdbdc61d

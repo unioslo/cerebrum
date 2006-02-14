@@ -122,3 +122,5 @@ class Constants(Constants.Constants):
     quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke skal logge inn')
     quarantine_permisjon = _QuarantineCode('permisjon', 'Brukeren har permisjon')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
+
+# arch-tag: 672f7902-9d38-11da-886a-76f0d5251865
