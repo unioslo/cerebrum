@@ -5684,6 +5684,7 @@ class BofhdExtension(object):
                          np_type,                      # np_type
                          operator.get_entity_id(),  # creator_id
                          None)                      # expire_date
+        account.write_db()
         passwd = account.make_passwd(uname)
         account.set_password(passwd)
         try:
