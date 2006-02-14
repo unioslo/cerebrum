@@ -22,6 +22,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum import Constants
+from Cerebrum import Utils
 
 class _CpuArchCode(Constants._CerebrumCode):
     "CPU types for machine"
@@ -48,14 +49,16 @@ class _ScienceCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=science_code]'
     pass
 
-class Constants(Constants.Constants):
-
+class HpcConstants(Constants.Constants):
     CpuArch = _CpuArchCode
     OperatingSystem = _OperatingSystemCode
     InterConnect = _InterConnectCode
     AllocationAuthority = _AllocationAuthorityCode
     Science = _ScienceCode
 
+    entity_project = Constants._EntityTypeCode(
+        'project',
+        'see table project_info and friends')
 
 Host_class = Factory.get("Host")
 class Machine(Host_class):
@@ -84,7 +87,27 @@ class Machine(Host_class):
         DELETE FROM [:table schema=cerebrum name=machine_info]
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
 
-    
+    def populate(self, cpu_arch, operating_system, interconnect,
+                 total_memory=None, node_number=None, node_memory=None,
+                 node_disk=None, cpu_core_number=None, cpu_core_mflpos=None,
+                 cpu_mhz=None, name=None, description=None, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Host_class.populate(self, name, description)
+        
+        self.__in_db = False
+        self.cpu_arch = cpu_arch
+        self.operating_system = operating_system
+        self.interconnect = interconnect
+        self.total_memory = total_memory
+        self.node_number = node_number
+        self.node_memory = node_memory
+        self.node_disk = node_disk
+        self.cpu_core_number = cpu_core_number
+        self.cpu_core_mflpos = cpu_core_mflpos
+        self.cpu_mhz = cpu_mhz
+
     def write_db(self):
         """Write Machine instance to database."""
         self.__super.write_db()
@@ -95,23 +118,47 @@ class Machine(Host_class):
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=machine_info]
-            (host_id, cpu_arch, operating_system, interconnect)
-            VALUES (:host_id, :cpu_arch, :operating_system, :interconnect)""",
+                (host_id, cpu_arch, operating_system, interconnect,
+                total_memory, node_number, node_memory, node_disk,
+                cpu_core_number, cpu_core_mflpos, cpu_mhz)
+            VALUES (:host_id, :cpu_arch, :operating_system, :interconnect,
+                :total_memory, :node_number, :node_memory, :node_disk,
+                :cpu_core_number, :cpu_core_mflpos, :cpu_mhz)""",
                          {'host_id': self.entity_id,
                           'cpu_arch': int(self.cpu_arch),
                           'operating_system': int(self.operating_system),
-                          'interconnect': int(self.interconnect)})
+                          'interconnect': int(self.interconnect),
+                          'total_memory' : self.total_memory,
+                          'node_number' : self.node_number,
+                          'node_memory': self.node_memory,
+                          'node_disk' : self.node_disk,
+                          'cpu_core_number' : self.cpu_core_number,
+                          'cpu_core_mflpos' : self.cpu_core_mflpos,
+                          'cpu_mhz' : self.cpu_mhz})
+                          
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=machine_info]
             SET cpu_arch=:cpu_arch, operating_system=:operating_system,
-                interconnect=:interconnect
+                interconnect=:interconnect, total_memory=:total_memory,
+                node_number=:node_number, node_memory=:node_memory,
+                node_disk=:node_disk, cpu_core_number=:cpu_core_number,
+                cpu_core_mflpos=:cpu_core_mflpos, cpu_mhz=:cpu_mhz
             WHERE host_id=:host_id
-            VALUES (:host_id, :cpu_arch, :operating_system, :interconnect)""",
+            VALUES (:host_id, :cpu_arch, :operating_system, :interconnect,
+                :total_memory, :node_number, :node_memory, :node_disk,
+                :cpu_core_number, :cpu_core_mflpos, :cpu_mhz)""",
                          {'host_id': self.entity_id,
                           'cpu_arch': int(self.cpu_arch),
                           'operating_system': int(self.operating_system),
-                          'interconnect': int(self.interconnect)})
+                          'interconnect': int(self.interconnect),
+                          'total_memory' : self.total_memory,
+                          'node_number' : self.node_number,
+                          'node_memory': self.node_memory,
+                          'node_disk' : self.node_disk,
+                          'cpu_core_number' : self.cpu_core_number,
+                          'cpu_core_mflpos' : self.cpu_core_mflpos,
+                          'cpu_mhz' : self.cpu_mhz})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -120,12 +167,130 @@ class Machine(Host_class):
     def find(self, host_id):
         """Connect object to Machine with ``host_id`` in database."""
         self.__super.find(host_id)
-        (self.cpu_arch, self.operating_system,
-         self.interconnect) = self.query_1("""
-         SELECT cpu_arch, operating_system, interconnect
+        (self.cpu_arch, self.operating_system, self.interconnect,
+         total_memory, node_number, node_memory, node_disk, cpu_core_number,
+         cpu_core_mflpos, cpu_mhz) = self.query_1("""
+         SELECT cpu_arch, operating_system, interconnect,
+             total_memory, node_number, node_memory, node_disk,
+             cpu_core_number, cpu_core_mflpos, cpu_mhz
          FROM [:table schema=cerebrum name=machine_info]
-         WHERE host_id=:host_id""", locals())
+         WHERE host_id=:host_id""", {'host_id': host_id})
         self.__in_db = True
         self.__updated = []
+
+
+
+Entity_class = Utils.Factory.get("Entity")
+class Project(Entity_class):
+    __read_attr__ = ('__in_db',)
+    __write_attr__ = ('owner_id', 'science')
+
+    def clear(self):
+        super(Project, self).clear()
+        self.clear_class(Project)
+        self.__updated = []
+
+    def populate(self, owner_id, science, parent=None):
+        """Populate a new project"""
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity_class.populate(self, self.const.entity_project)
+        
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
+        
+        self.owner_id = owner_id
+        self.science = science
+
+    def write_db(self):
+        """Write project instance to database"""
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        is_new = not self.__in_db
+
+        if is_new:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=project_info]
+            (project_id, owner, science) 
+            VALUES (:project_id, :owner, :science)""",
+                         {'project_id' : self.entity_id,
+                          'owner' : self.owner_id,
+                          'science' : int(self.science)})
+        else:
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=project_info]
+            SET owner=:owner, science=:science
+            WHERE project_id=:project_id
+            VALUES (:project_id, :owner, :science)""",
+                         {'project_id' : self.entity_id,
+                          'owner' : self.owner_id,
+                          'science' : int(self.science)})
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = []
+        return is_new
+
+    def find(self, project_id):
+        """Connect object to Project with ``project_id`` in database."""
+        self.__super.find(project_id)
+        (self.owner_id, self.science) = self.query_1("""
+         SELECT owner, science
+         FROM [:table schema=cerebrum name=project_info]
+         WHERE project_id=:project_id""", {'project_id': project_id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = []
+
+
+    def delete(self):
+        # don't delete projects with allocations!
+        if self.__in_db:
+            # Remove any members first
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=project_member]
+            WHERE project_id=:project_id""", {'project_id': self.entity_id})
+            # Remove entry in table `project_info'.
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=group_info]
+            WHERE project_id=:project_id""", {'project_id': self.entity_id})
+            #self._db.log_change(self.entity_id, self.const.project_destroy, None)
+        # Delete from entity tables
+        Entity_class.delete(self)
+
+
+    def add_member(self, member_id):
+        """Add ``member`` to project"""
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=project_member]
+          (project_id, member_id)
+        VALUES (:project_id, :member_id)""",
+                     {'project_id': self.entity_id,
+                      'member_id': int(member_id)})
+        #self._db.log_change(member_id, self.clconst.project_add, self.entity_id)
+    def remove_member(self, member_id):
+        """Remove ``member`` from project"""
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=group_info]
+        WHERE project_id=:project_id AND member_id=:member_id""",
+                     {'project_id': self.entity_id,
+                      'member_id': int(member_id)})
+        #self._db.log_change(member_id, self.clconst.project_remove, self.entity_id)
+
+    def get_members(self):
+        """Return a list of members of the project"""
+
+        members = self.query("""SELECT member_id
+        FROM [:table schema=cerebrum name=project_member]
+        WHERE project_id=:project_id""", {'project_id': project_id})
+        return members
+
 
 # arch-tag: 663a698a-9d38-11da-8f54-cae0bdbdc61d
