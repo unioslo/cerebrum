@@ -348,10 +348,7 @@ def populate_address(person, fields, const):
 	    country = int(const.Country(fields[24].strip()))
 	except Errors.NotFoundError:
 	    logger.warn("Could not find country code for «%s», please define country in Constants.py",fields[24].strip())
-    # yrt
-    else:
-        country = None
-    # fi
+            country = None
 
     person.populate_address(const.system_sap,
                             const.address_post,
