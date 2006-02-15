@@ -51,6 +51,7 @@ class Constants(Constants.Constants):
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
+    account_guest = _AccountCode('gjestebruker','Gjestekonto')
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Ansatt ved UiO (i følge LT)')
