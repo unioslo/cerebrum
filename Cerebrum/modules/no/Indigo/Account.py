@@ -64,14 +64,14 @@ class AccountIndigoMixin(Account.Account):
         count = 0
         pwd = []
         if self.is_employee(uname):
-            self.__super.make_password(uname)
-        else:
-            while count < 2:
-                pwd.append(string.digits[random.randint(0, len(string.digits)-1)])
-                count += 1
-            while count < 8:
-                pwd.append(string.ascii_letters[random.randint(0, len(string.ascii_letters)-1)])
-                count += 1
+            return self.__super.make_passwd(uname)
+        
+        while count < 2:
+            pwd.append(string.digits[random.randint(0, len(string.digits)-1)])
+            count += 1
+        while count < 8:
+            pwd.append(string.ascii_letters[random.randint(0, len(string.ascii_letters)-1)])
+            count += 1
         random.shuffle(pwd)
         return string.join(pwd,'')
 
