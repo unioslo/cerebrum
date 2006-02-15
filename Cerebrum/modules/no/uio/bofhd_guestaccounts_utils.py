@@ -57,8 +57,8 @@ class BofhdUtils(object):
         ret = []
         for guest in self._find_guests(nr):
             try:
-                self._alloc_guest(guest, end_date, owner_type, owner_id)
-                ret.append(guest)            
+                e_id, passwd = self._alloc_guest(guest, end_date, owner_type, owner_id)
+                ret.append((guest, e_id, passwd))            
             except (GuestAccountException, Errors.NotFoundError):
                 # If one alloc fails the request fails. 
                 raise GuestAccountException("Could not allocate guests")
@@ -88,7 +88,18 @@ class BofhdUtils(object):
         self.logger.debug("Quarantine reset for %s." % guest)
         ac.populate_trait(self.co.trait_guest_owner, target_id=None)
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
+        # Need to do write_db because of passwd and trait
         ac.write_db()
+        try:
+            # When a account is released set new password so that the
+            # account is ready immediately when it is requested        
+            password = ac.make_passwd(guest)
+            # set_password virker ikke på cerebral
+            ac.set_password(password)
+            ac.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+
 
 
     def get_owner(self, guestname):
@@ -120,6 +131,46 @@ class BofhdUtils(object):
     def nr_available_accounts(self):
         """ Find nr of available guest accounts. """
         return len(self._available_guests())
+
+
+    def find_new_guestusernames(self, nr):
+        """ Find next free guest user names for user_create_guest """
+        ac = Factory.get('Account')(self.db)
+        ret = []
+        nr_new_guests = int(nr)
+        nr2guestname = {}
+        # find all existing guests
+        for row in ac.list_traits(self.co.trait_guest_owner):
+            ac.clear()            
+            ac.find(row['entity_id'])
+            uname = ac.get_account_name()
+            prefix = uname.rstrip("0123456789")
+            nr2guestname[int(uname[len(prefix):])] = uname
+        # Find last guestuser nr
+        tmp = nr2guestname.keys()
+        tmp.sort()
+        lastnr = tmp.pop()
+        print "alle gjester funnet. Siste er ", nr2guestname[lastnr]
+        i = lastnr + 1  # uname number
+        nr_found = 0    # free guest account number
+        tot_runs = 0    # To avoid infinite loop if error occurs
+        print "finn nye gjestenavn"
+        while nr_found < nr_new_guests and tot_runs < 2*nr_new_guests:
+            uname = '%s%s' % (prefix, str(i).zfill(3))
+            i += 1        
+            ac.clear()
+            if ac.validate_new_uname(self.co.account_namespace, uname):
+                self.logger.debug("uname %s is legal and free" % uname)
+                ret.append(uname)
+                nr_found += 1
+            else:
+                self.logger.warn("Account %s already exists. "+ \
+                                 "Is account a guest account?" % uname)
+            tot_runs += 1
+        # If less than nr guest account names was found, it's an error
+        if nr_found < nr_new_guests:
+            raise Errors.CerebrumError("Couldn't find more than %d guest account names in %sXXX namespace" % (nr_found, prefix))
+        return ret
 
 
     def _available_guests(self):
@@ -168,7 +219,10 @@ class BofhdUtils(object):
         self.logger.debug("Set owner_id in owner_trait for %s" % guest)
         ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id)
         ac.write_db()
-        # Passord...
+        # Password
+        cryptstring = ac.get_account_authentication(self.co.auth_type_pgp_crypt)
+        passwd = ac.decrypt_password(auth_type_pgp_crypt, cryptstring)
+        return ac.account_id, passwd
 
 
     def _find_guests(self, nr_requested):
@@ -176,8 +230,13 @@ class BofhdUtils(object):
         nr2guestname = {}
         # find all available guests
         for uname in self._available_guests():
-            prefix, nr = _mysplit(uname)
-            nr2guestname[nr] = uname
+            try:
+                prefix = uname.rstrip("0123456789")
+                nr = int(uname[len(prefix):])
+                nr2guestname[nr] = uname
+            except ValueError:
+                self.logger.warn("%s is not a proper guestuser name." % uname)
+                continue
         # Find best subset match 
         for start, end in self._find_subsets(nr_requested, nr2guestname.keys()):
             for i in range(start, end+1):
@@ -269,22 +328,6 @@ class BofhdUtils(object):
                                                    nr_subsets))
 
 
-def _mysplit(arg):
-    """Split string arg into prefix and number if arg ends with a
-    string representation of decimal numbers.
-    """
-    if arg and isinstance(arg, str) and len(arg) >= 2:
-        i = len(arg)
-        try:        
-            while i > 0:
-                tmp = int(arg[i-1])
-                i -= 1
-        except ValueError:
-            if i < len(arg):
-                return arg[:i], int(arg[i:])
-    return None, None
-
-
 def _sort_by_value(d):
     """ Returns the keys of dictionary d sorted by their values """
     items=d.items()
@@ -311,4 +354,3 @@ def _flatten(tup):
     return res
 
 # arch-tag: bd3d80d8-6272-11da-9a93-7a2e47a48ea3
-
