@@ -288,6 +288,7 @@ class Constants(Constants.Constants):
     country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
     country_it = _CountryCode("IT", "Italy", "39", "Italy")
     country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
+    country_at = _CountryCode("AT", "Austria", "43", "Austria")
 
 ## Landkoder som forekommer i SAP-dumpen uten å være
 ## definert i Cerebrum
