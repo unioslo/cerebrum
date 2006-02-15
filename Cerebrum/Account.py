@@ -825,7 +825,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def list_account_authentication(self, auth_type=None, filter_expired=True):
         if auth_type == None:
             type_str = "= %d" % int(self.const.auth_type_md5_crypt)
-        elif isinstance(auth_type, list):
+        elif isinstance(auth_type, (list, tuple)):
             type_str = ("IN (" +
                         ", ".join([str(int(x)) for x in auth_type]) +
                         ")")
