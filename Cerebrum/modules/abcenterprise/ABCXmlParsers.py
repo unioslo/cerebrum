@@ -482,7 +482,7 @@ class XMLRelation2Object(XMLEntity2Object):
 
         super(XMLRelation2Object, self).__init__(xmliter)
 
-    def _thingy(self, iter):
+    def _get_subvalues(self, iter):
         value = None
         result = []
         for s in iter:
@@ -523,11 +523,15 @@ class XMLRelation2Object(XMLEntity2Object):
                               value)
                 # Org is required
                 if not org:
-                    raise ABCTypesError, "no org"
-                if ou:
+                    # raise ABCTypesError, "no org"
+                    # TODO: enable again.
+                    pass
+                if org and ou:
                     result.append(("org", org, ou))
+                elif org:
+                    result.append(("org", org))
                 else:
-                    result.append(("ou", org))
+                    result.append(("ou", ou))
         return result
 
 
@@ -551,12 +555,12 @@ class XMLRelation2Object(XMLEntity2Object):
                 result.type = sub.attrib.get("relationtype")
 
             if sub.tag == "subject":
-                res = self._thingy(sub.getiterator())
+                res = self._get_subvalues(sub.getiterator())
                 if (not isinstance(res, list)) or len(res) <> 1:
                     raise ABCTypesError, "res is '%s'" % res
                 result.subject = res
             elif sub.tag == "object":
-                res = self._thingy(sub.getiterator())
+                res = self._get_subvalues(sub.getiterator())
                 if not isinstance(res, list):
                     raise ABCTypesError, "object is '%s' not a list" % res
                 result.object = res                

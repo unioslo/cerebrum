@@ -23,6 +23,7 @@ import getopt
 import cerebrum_path
 import abcconf
 
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
 # TODO:
@@ -64,12 +65,22 @@ class ABCPreParser:
     # parameters to? ex: Let properties-module issue warnings instead
     # of errors on config/file mimatch on a given parameter.
 
-    def __init__(self, argv):
+    def __init__(self, argv, logger):
         self.short_args = 'hdf:'
         self.long_args = ['help', 'dru-run', 'file=']
-        opts = self.getopt(argv)
-        filename = dryrun = None
 
+        self.logger = logger
+        
+        filename = dryrun = None
+        verbose = False
+        try:
+            opts, args = getopt.getopt(argv,
+                                       self.short_args,
+                                       self.long_args)
+        except getopt.GetoptError, e:
+            self.logger.warning(e)
+            self.usage(1)
+            
         for opt, val in opts:
             if opt in ('-h', '--help'):
                 self.usage()
@@ -83,16 +94,7 @@ class ABCPreParser:
         self.settings = ABCFactory.get('Settings')()
         self.settings.set('filename', filename)
         self.settings.set('dryrun', dryrun)
-
-    def getopt(self, argv):
-        try:
-            opts, args = getopt.getopt(argv,
-                                       self.short_args,
-                                       self.long_args)
-        except getopt.GetoptError:
-            parser.usage(1)
-        return opts
-
+        
     def usage(self, exit_code=0):
         print """
         -h, --help         This message
@@ -117,20 +119,32 @@ class ABCAnalyzer(object):
     Calls PreParser from ABCFactory. Gets a GlobalVariables object
     in return. Use Mixins for more options."""
     
-    def __init__(self, argv):
+    def __init__(self, argv, logger):
         #self._data_source = None
         # Get argv into variables and make am object for all of it
-        pp = ABCFactory.get('PreParser')(argv)
+        pp = ABCFactory.get('PreParser')(argv, logger)
         self.settings = pp.get_settings()
         self._populate_settings()
+        self.logger = logger
         
-        proc = ABCFactory.get('Processor')(self.settings)
+        proc = ABCFactory.get('Processor')(self.settings, self.logger)
         # Make calls into the Processor. This is where magic happens...
+        logger.debug("parse_settings()")
         proc.parse_settings()
+        
+        logger.debug("parse_orgs()")
         proc.parse_orgs(self.iter_orgs())
+        
+        logger.debug("parse_persons()")
         proc.parse_persons(self.iter_persons())
+        
+        logger.debug("parse_groups()")
         proc.parse_groups(self.iter_groups())
+        
+        logger.debug("parse_relations()")
         proc.parse_relations(self.iter_relations())
+        
+        logger.debug("close()")
         proc.close()
 
     def _populate_settings(self):

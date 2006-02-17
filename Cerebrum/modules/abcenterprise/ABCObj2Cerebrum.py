@@ -25,6 +25,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.extlib.doc_exception import DocstringException
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCDataError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError 
+from Cerebrum.modules.abcenterprise.ABCUtils import ABCConfigError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 from Cerebrum.modules.abcenterprise.Object2Cerebrum import Object2Cerebrum
 
@@ -37,11 +38,12 @@ class ABCObj2Cerebrum(object):
 
     # TODO: lagre state i dette objektet.
 
-    def __init__(self, settings):
+    def __init__(self, settings, logger):
         self.sett = settings
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
-        self._o2c = Object2Cerebrum(abcconf.SOURCE['source_system'])
+        self._o2c = Object2Cerebrum(abcconf.SOURCE['source_system'], logger)
+        self.logger = logger
 
     def _conv_cons(self, value):
         """Convert a temporary text constant from ABCEnterprise to a
@@ -144,16 +146,16 @@ class ABCObj2Cerebrum(object):
                 try:
                     self._o2c.set_ou_parent(i, abcconf.OU_PERSPECTIVE, ou_struct[i])
                 except Exception, e:
-                    print "Error(ou_parent): %s" % e
+                    self.logger.warning("Error(ou_parent): %s" % e)
                 
     def parse_persons(self, iterator):
         """Iterate over person objects."""
         for person in iterator:
             new_person = self._conv_const_person(person)
-            try: 
+            try:
                 self._o2c.store_person(new_person)
             except Exception, e:
-                print "Error(person): %s" % e
+                self.logger.warning("Error(person): %s" % e)
                 
     def parse_groups(self, iterator):
         """Iterate over group objects. Note that members follow in
@@ -184,6 +186,25 @@ class ABCObj2Cerebrum(object):
             s = rel.subject[0][0]
             if s == "org":
                 s = "ou"
+            sub = None
+            try: 
+                sub = rel.subject[0][1:]
+                if isinstance(sub[0], tuple):
+                    # Hack to ignore organizations for now. They are all under one.
+                    if len(sub) == 2:
+                        sub = sub[1]
+                    else:
+                        sub = sub[0]
+                if abcconf.CONSTANTS.has_key(sub[0]):
+                    sub = (abcconf.CONSTANTS[sub[0]], sub[1])
+                else:
+                    raise ABCDataError, "subject-type '%s' not found in CONSTANTS" % sub[0]
+            except Exception, e:
+                txt = "Error(relations) subject: s: %s, t: %s - %s" % (rel.subject,
+                                                                       rel.type, e)
+                self.logger.warning(txt)
+                continue
+               
             for obj in rel.object:
                 try:
                     if obj[0] is 'org':
@@ -194,18 +215,19 @@ class ABCObj2Cerebrum(object):
                     type = tmp[0]
                     rest = tmp[1:]
                 
-                    sub = rel.subject[0][1:]
-                    if isinstance(sub[0], tuple):
-                        sub = sub[1]
-                    sub = (abcconf.CONSTANTS[sub[0]], sub[1])
-
                     ob = obj[1:]
                     if ob == []:
                         raise ABCDataError, "no object: %s, %s" % (type, sub)
                     if isinstance(ob[0], tuple):
-                        ob = ob[0]
-                    ob = (abcconf.CONSTANTS[ob[0]], ob[1])
-                
+                        if len(ob) == 2:
+                            ob = ob[1]
+                        else:
+                            ob = ob[0]                      
+                    if abcconf.CONSTANTS.has_key(ob[0]):
+                        ob = (abcconf.CONSTANTS[ob[0]], ob[1])
+                    else:
+                        raise ABCDataError, "object-type '%s' not found in CONSTANTS" % ob
+
                     if type == "memberof":
                         self._o2c.add_group_member(sub, o, ob)
                     elif type == "affiliation":
@@ -213,12 +235,21 @@ class ABCObj2Cerebrum(object):
                             raise ABCDataError, "error in 'rest'"
                         status = abcconf.AFF_STATUS[rest[0]]
                         self._o2c.add_person_affiliation(sub, ob, rest[0], status)
+                
                 except Exception, e:
-                    print "Error(relations): %s" % e
+                    txt = "Error(relations): s: %s, t: %s, o: %s: %s" % (rel.subject,
+                                                                         rel.type,
+                                                                         obj, e)
+                    self.logger.warning(txt)
 
 
     def close(self):
         """Close whatever you need to close and finish your business."""
-        self._o2c.commit()
+        if self.sett.variables['dryrun']:
+            self.logger.debug("rollback()")
+            self._o2c.rollback()
+        else:
+            self.logger.debug("commit()")
+            self._o2c.commit()
 
 # arch-tag: fc250d64-6995-11da-8e2e-62c416f986a0
