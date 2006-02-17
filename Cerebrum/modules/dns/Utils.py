@@ -366,7 +366,7 @@ class Find(object):
         else:
             try:
                 ar.find_by_dns_owner_id(owner_id)
-            except Errors.ErrorsNotFoundError:
+            except Errors.NotFoundError:
                 raise CerebrumError("No A-record with name=%s" % host_name)
             except Errors.TooManyRowsError:
                 raise CerebrumError("Multiple A-records with name=%s" % host_name)
