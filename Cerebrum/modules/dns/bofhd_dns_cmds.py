@@ -790,15 +790,17 @@ class BofhdExtension(object):
         perm_filter='is_dns_superuser')
     def host_rename(self, operator, old_id, new_id, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        tmp = new_id.split(".")
+        lastpart = new_id.split(".")[-1]
         # Rename by IP-number
-        if new_id.find(":") == -1 and (tmp[-1][-1] == '/' or tmp[-1].isdigit()):
+        if (new_id.find(":") == -1 and lastpart and
+            (lastpart[-1] == '/' or lastpart.isdigit())):
             free_ip_numbers = self.mb_utils.get_relevant_ips(new_id, force)
             new_id = free_ip_numbers[0]
             self.mb_utils.ip_rename(dns.IP_NUMBER, old_id, new_id)
             return "OK, ip-number %s renamed to %s" % (
                 old_id, new_id)
         # Rename by dns-owner
+        new_id = self.dns_parser.qualify_hostname(new_id)
         self.mb_utils.ip_rename(dns.DNS_OWNER, old_id, new_id)
         arecord = ARecord.ARecord(self.db)
         owner_id = self._find.find_target_by_parsing(new_id, dns.DNS_OWNER)
