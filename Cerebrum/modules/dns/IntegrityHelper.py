@@ -225,12 +225,7 @@ class Updater(object):
 
         ar = ARecord.ARecord(self._db)
         rows = ar.list_ext(ip_number_id=ip_number_id)
-        if len(rows) > 1:
-            return
-        elif len(rows) == 0:
-            raise DNSError("stray (ip %d, dns %d) in reverse_override" %
-                           (ip_number_id, owners[0]))
-        elif rows[0]['dns_owner_id'] == owners[0]:
+        if len(rows) == 1 and rows[0]['dns_owner_id'] == owners[0]:
             ipnumber.delete_reverse_override(ip_number_id, owners[0])
 
 # arch-tag: 4805ae64-12e8-11da-84aa-8318af99ae66
