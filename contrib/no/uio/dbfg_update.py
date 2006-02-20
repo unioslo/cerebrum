@@ -33,6 +33,14 @@ FSPROD		select username FROM all_users		fsprod
 AJPROD		select username FROM all_users		ajprod
 LTPROD		select username FROM all_users		ltprod
 OAPRD		select user_name FROM applsys.fnd_user	oaprd
+OEPATST		[1], [2]
+
+[1]   basware-users:
+      select USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
+[2]   basware-masters:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
 
 After the update, each group in cerebrum contains only the members listed in
 the corresponding external database. That is, if
@@ -47,16 +55,13 @@ cerebrum group from the table above) after the update.
 This script produces no output (apart from debug/error messages). All update
 information is written back to cerebrum:
 
-<ofprod db> ---+
-<fsprod db> ---+
-<ajprod db> ---+---> dbfg_update.py ---+
-<ltprod db> ---+                       |
-<oaprd db> ----+                       |
-               |                       |
-<cerebrum db> -+ <---------------------+
+<external dbs> -+---> dbfg_update.py ---+
+                ^                       |
+                |                       |
+<cerebrum db> --+                       |
+      ^---------------------------------+
 
 Each of the updates can be turned on/off from the command line.
-
 """
 
 import sys
@@ -77,6 +82,7 @@ from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.access_OF import OF
 from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
+from Cerebrum.modules.no.uio.access_OEP import OEP
 
 
 
@@ -364,7 +370,7 @@ def construct_group(cerebrum_group):
     
 
 
-def perform_synchronization(user, services):
+def perform_synchronization(services):
     """
     Synchronize cerebrum groups with all external SERVICES.
     """
@@ -374,8 +380,10 @@ def perform_synchronization(user, services):
         klass = item["class"]
         accessor_name = item["sync_accessor"]
         cerebrum_group = item["ceregroup"]
+        user = item["dbuser"]
 
-        logger.debug("Synchronizing against source %s", service)
+        logger.debug("Synchronizing against source %s (user: %s)",
+                     service, user)
 
         try:
             db = Database.connect(user = user, service = service,
@@ -458,7 +466,7 @@ def check_spread(account, sprd):
 
     
 
-def report_users(user, stream_name, external_dbs):
+def report_users(stream_name, external_dbs):
     """
     Prepare status report about users in various databases.
     """
@@ -466,6 +474,7 @@ def report_users(user, stream_name, external_dbs):
     db_cerebrum = Factory.get("Database")()
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
+    user = "ureg2000"
 
     report_stream = AtomicFileWriter(stream_name, "w")
 
@@ -485,7 +494,8 @@ def report_users(user, stream_name, external_dbs):
         
     #
     # Report NIS spread / owner's work record
-    for dbname in ("ofprod", "oaprd", "fsprod", "ltprod"):
+    for dbname in ("ofprod", "oaprd", "fsprod", "ltprod",
+                   "basware-users", "basware-masters"):
         item = external_dbs[dbname]
         message = make_report(user, True, item, item["report_accessor"],
                               check_expired,
@@ -579,29 +589,47 @@ def main():
     logger.info("Performing group synchronization")
 
     external_dbs = { "ofprod" : { "dbname"    : "OFPROD.uio.no",
+                                  "dbuser"    : "ureg2000",
                                   "class"     : OF,
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "report_accessor" : "list_applsys_usernames",
                                   "ceregroup" : "ofprod" },
                      "fsprod" : { "dbname"    : "FSPROD.uio.no",
+                                  "dbuser"    : "ureg2000",
                                   "class"     : FS,
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "report_accessor" : "list_dba_usernames",
                                   "ceregroup" : "fsprod" },
                      "ltprod" : { "dbname"    : "LTPROD.uio.no",
+                                  "dbuser"    : "ureg2000",
                                   "class"     : LT,
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "report_accessor"  : "list_dba_usernames",
                                   "ceregroup" : "ltprod" },
                      "ajprod" : { "dbname"    : "AJPROD.uio.no",
+                                  "dbuser"    : "ureg2000",
                                   "class"     : AJ,
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "ceregroup" : "ajprod" },
                      "oaprd" : { "dbname"    : "OAPRD.uio.no",
+                                 "dbuser"    : "ureg2000",
                                  "class"     : OA,
                                  "sync_accessor"  : "list_dbfg_usernames",
                                  "report_accessor" : "list_applsys_usernames",
                                  "ceregroup" : "oaprd" },
+                     "basware-users" : { "dbname"        : "OEPATST.uio.no",
+                                         "dbuser"        : "ureg2000",
+                                         "class"         : OEP,
+                                         "sync_accessor" : "list_dbfg_users",
+                                         "report_accessor" : "list_dbfg_users",
+                                         "ceregroup"     : "basware-users", },
+                     "basware-masters" : {
+                                 "dbname"        : "OEPATST.uio.no",
+                                 "dbuser"        : "ureg2000",
+                                 "class"         : OEP,
+                                 "sync_accessor" : "list_dbfg_masters",
+                                 "report_accessor" : "list_dbfg_masters",
+                                 "ceregroup"     : "basware-masters", },
                      }
     try:
         options, rest = getopt.getopt(sys.argv[1:],
@@ -611,10 +639,10 @@ def main():
                                        "expired-file="] + external_dbs.keys())
     except getopt.GetoptError:
         usage()
+        raise
         sys.exit(1)
     # yrt
 
-    user = "ureg2000"
     expired_filename = None
     services = []
     global dryrun
@@ -627,14 +655,14 @@ def main():
             usage()
             sys.exit(2)
         elif option in ("-e", "--expired-file"):
-            report_users(user, value, external_dbs)
+            report_users(value, external_dbs)
         elif option in [ "--" + x for x in external_dbs.keys() ]:
             key = option[2:]
             services.append( external_dbs[key] )
         # fi
     # od
 
-    perform_synchronization(user, services)
+    perform_synchronization(services)
 # end main
 
 
