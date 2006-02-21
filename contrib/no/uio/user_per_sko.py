@@ -87,7 +87,7 @@ def make_ou_to_parent_map(perspective, db):
     result = dict()
 
     for item in ou.get_structure_mappings(perspective):
-        if item.parent_id is not None:
+        if item["parent_id"] is not None:
             parent_id = int(item["parent_id"])
         else:
             parent_id = None
@@ -490,14 +490,14 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
         # fi
 
         aff = affiliations[0]
-        ou_result = locate_ou(aff.ou_id, ou2parent, ou2stedkode, level)
+        ou_result = locate_ou(aff["ou_id"], ou2parent, ou2stedkode, level)
 
-        affs = [ x.affiliation for x in affiliations ]
+        affs = [ x["affiliation"] for x in affiliations ]
         if (const.affiliation_student in affs and
             const.affiliation_ansatt in affs):
             affiliation_name = "a&s"
         else:
-            affiliation_name = order[aff.affiliation]["name"]
+            affiliation_name = order[aff["affiliation"]]["name"]
         # fi
 
         try:
