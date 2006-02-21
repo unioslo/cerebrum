@@ -54,6 +54,10 @@ command_help = {
        "List who's authorised to operate on group <gname>",
     'access_host':
        "List who's authorised to operate on host <hostname>",
+    'access_list':
+       "List everything an account or group can operate on.  Only direct "
+       "ownership is reported: the entities an account can access "
+       "due to group memberships will not be listed.",
     'access_list_opsets':
        "List all operation sets",
     'access_maildom':
@@ -360,10 +364,26 @@ Normally only union is used."""],
     'id:entity_ext':
         ['entity_id', 'Enter entity_id, example: group:foo',
          'Enter an entity_id either as number or as group:name / account:name'],
+    'id:target:group':
+        ['entity', 'Enter an existing entity, example: group:foo-users',
+         "Enter the entity as type:name.  If only a name is entered, the "
+         "type 'group' is assumed.  Other types include 'account', 'fnr' "
+         "(fødselsnummer), 'id' (Cerebrum's internal id) and 'host'.  The "
+         "type name may be abbreviated.  (Some of the types may not make "
+         "sense for this command.)"],
+    'id:target:person':
+        ['entity', 'Enter an existing entity, example: account:tenghil',
+         "Enter the entity as type:name.  If only a name is entered, it "
+         "will be assumed to be either an account or a fnr.  If an account "
+         "is given, the person owning the account will be used.  Other "
+         "types include 'account', 'fnr' (fødselsnummer), 'id' (Cerebrum's "
+         "internal id) and 'host'.  The type name may be abbreviated.  (Some "
+         "of the types may not make sense for this command.)"],
     'id:op_target':
         ['op_target_id', 'Enter op_target_id'],
     'id:request_id':
-        ['request_id', 'Enter request_id', '"misc list_requests" returns legal values'],
+        ['request_id', 'Enter request_id',
+         "'misc list_requests' returns legal values"],
     'mailman_admins':
         ['addresses', 'Enter comma separated list of administrators for '+
          'the Mailman list'],

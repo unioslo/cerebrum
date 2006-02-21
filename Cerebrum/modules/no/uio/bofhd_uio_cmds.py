@@ -95,6 +95,7 @@ class BofhdExtension(object):
         self.server = server
         self.logger = server.logger
         self.db = server.db
+        self.util = server.util
         person = Utils.Factory.get('Person')(self.db)
         self.const = person.const
         self.name_codes = {}
@@ -586,9 +587,48 @@ class BofhdExtension(object):
     #
     # The opset could be implicitly deleted after the last op was
     # removed from it.
-    #
-    # Perhaps we also need "access list entity" to list the
-    # permissions entity has.
+
+    # access list operator
+    all_commands['access_list'] = Command(
+        ('access', 'list'),
+        SimpleString(help_ref='id:target:group'),
+        SimpleString(help_ref='string_perm_target_type', optional=True),
+        fs=FormatSuggestion("%-14s %-16s %-30s %-7s",
+                            ("opset", "target_type", "target", "attr"),
+                            hdr="%-14s %-16s %-30s %-7s" %
+                            ("Operation set", "Target type", "Target",
+                             "Attr")))
+    def access_list(self, operator, owner, target_type=None):
+        ar = BofhdAuthRole(self.db)
+        aot = BofhdAuthOpTarget(self.db)
+        aos = BofhdAuthOpSet(self.db)
+        owner_id = self.util.get_target(owner, default_lookup="group",
+                                        restrict_to=[]).entity_id
+        ret = []
+        for role in ar.list(owner_id):
+            aos.clear()
+            aos.find(role['op_set_id'])
+            for r in aot.list(target_id=role['op_target_id']):
+                if target_type is not None and r['target_type'] != target_type:
+                    continue
+                if r['entity_id'] is None:
+                    target_name = "N/A"
+                else:
+                    try:
+                        ety = self._get_entity(id=r['entity_id'])
+                        target_name = self._get_name_from_object(ety)
+                    except Errors.NotFoundError:
+                        self.logger.warn("Non-existing entity in "
+                                         "auth_op_target %s:%d" %
+                                         (r['target_type'], r['entity_id']))
+                        continue
+                ret.append({'opset': aos.name,
+                            'target_type': r['target_type'],
+                            'target': target_name,
+                            'attr': r['attr'] or ""})
+        ret.sort(lambda a,b: (cmp(a['target_type'], b['target_type']) or
+                              cmp(a['target'], b['target'])))
+        return ret
 
     def _get_auth_op_target(self, entity_id, target_type, attr=None,
                             any_attr=False, create=False):
@@ -4413,7 +4453,7 @@ class BofhdExtension(object):
     
     # person info
     all_commands['person_info'] = Command(
-        ("person", "info"), PersonId(),
+        ("person", "info"), PersonId(help_ref="id:target:person"),
         fs=FormatSuggestion([
         ("Name:          %s\n" +
          "Export ID:     %s\n" +
@@ -4428,7 +4468,7 @@ class BofhdExtension(object):
         ]))
     def person_info(self, operator, person_id):
         try:
-            person = self._get_person(*self._map_person_id(person_id))
+            person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         data = [{'name': person.get_name(self.const.system_cached,
