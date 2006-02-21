@@ -519,7 +519,7 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
 def main():
 
     global logger
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
     logger.info("Statistics for OUs at UiO")
 
     options, rest = getopt.getopt(sys.argv[1:],
