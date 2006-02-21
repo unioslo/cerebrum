@@ -68,6 +68,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, \
 from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.bofhd.xmlutils import \
      xmlrpc_to_native, native_to_xmlrpc
+from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 Account_class = Utils.Factory.get('Account')
 
@@ -638,6 +639,7 @@ class BofhdServerImplementation(object):
         self.known_sessions = {}
         self.logRequests = False
         self.db = database
+        self.util = BofhdUtils(database)
         self.config_fname = config_fname
         self.read_config()
 

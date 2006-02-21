@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
+import cereconf
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
@@ -315,5 +316,207 @@ class BofhdRequests(object):
             ret.extend(self._db.query(qry + "operation=:op %s" % extra_where,
                                       {'op': int(self.co.bofh_move_give)}))
         return ret
+
+class BofhdUtils(object):
+    """Utility functions for bofhd."""
+
+    def __init__(self, db):
+        self.db = db
+        self.co = Factory.get("Constants")(db)
+
+    # TBD: The helper functions inside get_target() might be useful
+    # outside.
+    #
+    # TODO: Lookup by e-mail address -- but how to do that without
+    # requiring mod_email?
+    def get_target(self, name, default_lookup="account", restrict_to=None):
+        """The user input should be a name on the form
+            [LOOKUP ':'] IDENTIFIER
+        The name of the lookup type can be abbreviated by the user.
+        If the user doesn't include a lookup type, default_lookup
+        will be used.
+
+        Valid lookup types are
+             'account' (name of user => Account or PosixUser)
+             'fnr' (external ID, Norwegian SSN => Person)
+             'group' (name of group => Group or PosixGroup)
+             'host' (name of host => Host)
+             'id' (entity ID => any)
+
+        If restrict_to isn't set, it will be initialised according to
+        default_lookup.  It should be a list containing the names of
+        acceptable classes, and a CerebrumError will be raised if the
+        resulting entity isn't among them.  The class names must be
+        known to Factory.  To accept all kinds of objects, pass
+        restrict_to=[].
+
+        restrict_to can lead to a cast operation.  E.g., if Person is
+        acceptable, but the user specified an account, the account's
+        owner will be returned.
+
+        The return value is an instantiated object of the appropriate
+        class.  If no entity is found, CerebrumError is raised.
+
+        """
+
+        # This mapping restricts the possible values get_target returns.
+        entity_lookup_types = { "account": ("Account",),
+                                "fnr": ("Person",),
+                                "group": ("Group",),
+                                "host": ("Host",),
+                                "entity_id": None,
+                                "id": None }
+
+        def get_target_find_lookup(name, default_lookup):
+            if name.count(":") == 0:
+                if name.isdigit() and len(name) == 11:
+                    ltype = "fnr"
+                else:
+                    ltype = default_lookup
+            else:
+                ltype, name = name.split(":", 1)
+                found = None
+                for t in entity_lookup_types.keys():
+                    if t.startswith(ltype):
+                        if found:
+                            raise CerebrumError, \
+                                  ("Ambiguous lookup %s (%s or %s?)" %
+                                   (ltype, found, t))
+                        found = t
+                if found is None:
+                    raise CerebrumError, "Unknown lookup %s" % ltype
+                ltype = found
+            return ltype, name
+         
+        def get_target_lookup(ltype, name):
+            if ltype == 'id' or ltype == 'entity_id':
+                return get_target_entity(name)
+            elif ltype == 'account' or ltype == 'group':
+                return get_target_posix_by_name(name, clstype=ltype)
+            elif ltype == 'fnr':
+                return get_target_person_fnr(name)
+            else:
+                raise CerebrumError, "Lookup type %s not implemented yet" % ltype
+         
+        def get_target_entity(name):
+            try:
+                id = int(name)
+            except ValueError:
+                # TBD: This triggers if the numeric value can't fit in
+                # 32 bits, too.  Should we use a regexp instead?
+                raise CerebrumError, "Non-numeric id lookup (%s)" % name
+            en = Factory.get("Entity")(self.db)
+            try:
+                en = en.get_subclassed_object(id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such entity (%d)" % id
+            except ValueError, e:
+                raise CerebrumError, "Can't handle entity (%s)" % e
+            if en.entity_type == self.co.entity_account:
+                return get_target_posix_by_object(en)
+            elif en.entity_type == self.co.entity_group:
+                return get_target_posix_by_object(en, clstype="group")
+            return en
+
+        def get_target_posix_by_object(obj, clstype="account"):
+            """Takes an Account or Group object, and returns a
+            PosixUser or PosixGroup object if the entity is also a
+            POSIX object.
+            
+            """
+            # FIXME: due to constants being defined in this file, we
+            # can't import these at the top level.
+            from Cerebrum.modules.PosixUser import PosixUser
+            from Cerebrum.modules.PosixGroup import PosixGroup
+
+            if clstype == "account":
+                promoted = PosixUser(self.db)
+            elif clstype == "group":
+                promoted = PosixGroup(self.db)
+            try:
+                promoted.find(int(obj.entity_id))
+                return promoted
+            except Errors.NotFoundError:
+                return obj
+
+        def get_target_posix_by_name(name, clstype="account"):
+            """Returns either a Posix or a Cerebrum core version of
+            Account or Group.
+
+            """
+            # FIXME: due to constants being defined in this file, we
+            # can't import these at the top level.
+            from Cerebrum.modules.PosixUser import PosixUser
+            from Cerebrum.modules.PosixGroup import PosixGroup
+
+            # We could use get_target_posix_by_object, but then the
+            # common case of a PosixUser would lead to a wasted
+            # instantiation of a plain Account object first.
+            if clstype == "account":
+                plain_cls = Factory.get("Account")
+                posix_cls = PosixUser
+            elif clstype == "group":
+                plain_cls = Factory.get("Group")
+                posix_cls = PosixGroup
+            try:
+                obj = posix_cls(self.db)
+                obj.find_by_name(name)
+            except Errors.NotFoundError:
+                try:
+                    obj = plain_cls(self.db)
+                    obj.find_by_name(name)
+                except Errors.NotFoundError:
+                    raise CerebrumError, "Unknown %s %s" % (clstype, name)
+            return obj
+         
+        def get_target_person_fnr(id):
+            person = Factory.get("Person")(self.db)
+            found = {}
+            for name in cereconf.SYSTEM_LOOKUP_ORDER:
+                ss = getattr(self.co, name)
+                try:
+                    person.clear()
+                    person.find_by_external_id(self.co.externalid_fodselsnr,
+                                               id, source_system=ss)
+                    found[int(person.entity_id)] = person
+                except Errors.NotFoundError:
+                    pass
+            found = found.keys()
+            if len(found) == 0:
+                raise CerebrumError, "No person with fnr %s" % id
+            if len(found) > 1:
+                raise CerebrumError, "More than one person with fnr %d found" % id
+            person.clear()
+            person.find(found[0])
+            return person
+
+         #
+         # Finally, here is the start of the function itself
+         #
+
+        if name is None or name == "":
+            raise CerebrumError, "Empty value given"
+
+        if restrict_to is None:
+            restrict_to = entity_lookup_types[default_lookup]
+
+        ltype, name = get_target_find_lookup(name, default_lookup)
+        obj = get_target_lookup(ltype, name)
+
+        if not restrict_to:
+            return obj
+        for clsname in restrict_to:
+            if isinstance(obj, Factory.get(clsname)):
+                return obj
+        # The object isn't strictly acceptable according to restrict_to,
+        # but let's be user-friendly and turn an account into a person.
+        if ("Person" in restrict_to and
+            isinstance(obj, Factory.get("Account")) and
+            obj.owner_type == self.co.entity_person):
+            return get_target_entity(obj.owner_id)
+
+        raise CerebrumError, ("Wrong argument type '%s' returned by %s:%s" %
+                              (self.co.EntityType(obj.entity_type),
+                               ltype, name))
 
 # arch-tag: d6650fa6-6a9b-459f-be7e-80c9e6cbba52
