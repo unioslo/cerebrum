@@ -654,10 +654,14 @@ class BofhdAuth(DatabaseAccessor):
     def can_search_group(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
+        # auth_search_group is not tied to a target
+        if self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_search_group):
+            return True
         if query_run_any:
             return False
-        raise PermissionDenied("Currently limited to superusers")
-    
+        raise PermissionDenied("Permission denied")
+
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
         """Each spread that an operator may modify is stored in
