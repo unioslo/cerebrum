@@ -50,6 +50,8 @@ class Constants(Constants.Constants):
                                        'Can add hosts for userdisks')
     auth_create_group = _AuthRoleOpCode('create_group',
                                         'Can create groups')
+    auth_search_group = _AuthRoleOpCode('search_group',
+                                        'Can search for groups')
     auth_disk_def_quota_set = _AuthRoleOpCode('disk_def_quota',
                                               'Can set default disk quota')
     auth_disk_quota_set = _AuthRoleOpCode('disk_quota_set', 'Can set disk quota')
