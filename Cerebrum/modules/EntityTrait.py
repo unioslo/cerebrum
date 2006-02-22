@@ -80,7 +80,7 @@ class EntityTrait(Entity):
                 self.execute("""
                 UPDATE [:table schema=cerebrum name=entity_trait]
                 SET %s
-                WHERE entity_id=:entity_id
+                WHERE entity_id = :entity_id AND code = :code
                 """ % binds,
                              self.__traits[code])
                 self._db.log_change(self.entity_id, self.const.trait_mod, None,
