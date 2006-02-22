@@ -60,7 +60,7 @@ class OEP(object):
         """
 
         query = """
-                SELECT user_network_name AS usernames
+                SELECT user_network_name AS username
                 FROM basware.ip_group_user                                               
                 WHERE group_name = 'Masterbrukere' AND
                       upper(DOMAIN) = 'UIO'
