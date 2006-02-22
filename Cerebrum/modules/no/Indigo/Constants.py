@@ -26,8 +26,8 @@ from Cerebrum.Constants import _AuthoritativeSystemCode, \
                                _AccountCode, \
                                _AuthenticationCode, \
                                _OUPerspectiveCode, \
-                               _ContactInfoCode, \
-                               _EntityTraitCode
+                               _ContactInfoCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 class Constants(Constants.Constants):
 
