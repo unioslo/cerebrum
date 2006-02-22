@@ -174,11 +174,12 @@ class EntityTrait(Entity):
 
     def list_traits(self, code, target_id=NotSet, date=NotSet,
                     numval=NotSet, strval=NotSet, strval_like=NotSet,
-                    fetchall=False):
+                    return_name=False, fetchall=False):
         """Returns all the occurences of a specified trait, optionally
         filtered on values. To match SQL NULL, use None.  date should
         be an mx.DateTime object.  strval_like will apply DWIM case
-        sensitivity (see Utils.prepare_sql_pattern).
+        sensitivity (see Utils.prepare_sql_pattern).  If return_name is
+        True, include the name of the entity (if available).
 
         """
         # TBD: we may want additional filtering parameters, ie.
@@ -205,12 +206,19 @@ class EntityTrait(Entity):
         else:
             # strval_like has precedence over strval
             strval = add_cond("strval", strval, normalise=str)
+        attrs = join = ""
+        if return_name:
+            attrs += ", en.entity_name AS name"
+            join += """
+            LEFT JOIN [:table schema=cerebrum name=entity_name] en
+              ON en.entity_id = t.entity_id"""
         where = " AND ".join(conditions)
 
         # Return everything but entity_type, which is implied by code
         return self.query("""
-        SELECT entity_id, code, target_id, date, numval, strval
-        FROM [:table schema=cerebrum name=entity_trait]
-        WHERE """ + where, locals(), fetchall=fetchall)
+        SELECT t.entity_id, t.code, t.target_id, t.date, t.numval, t.strval %s
+        FROM [:table schema=cerebrum name=entity_trait] t
+        %s
+        WHERE %s""" % (attrs, join, where), locals(), fetchall=fetchall)
 
 # arch-tag: a834dc20-402d-11da-9b87-c30b16468bb4
