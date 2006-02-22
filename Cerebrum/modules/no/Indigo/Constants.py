@@ -126,4 +126,12 @@ class Constants(Constants.Constants):
 
     contact_job_mobile = _ContactInfoCode('JOBMOBILE', 'JOBMOBILE')
 
+## Group traits
+    trait_group_imported = _EntityTraitCode(
+        'imported_group', Constants.Constants.entity_group,
+        'Register last_seen date for groups imported from by ABC')
+    trait_group_derived = _EntityTraitCode(
+        'internal_group', Constants.Constants.entity_group,
+        'Register last_seen date for internaly created groups')
+    
 # arch-tag: 82109000-67f8-11da-8454-871df49a59c9
