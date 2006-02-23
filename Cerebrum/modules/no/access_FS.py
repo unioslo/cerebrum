@@ -491,7 +491,7 @@ class Student(FSObject):
               sps.status_sperr_aut_oppd = 'N' AND
               sps.studieprogramkode = sp.studieprogramkode AND
               %s AND
-              sp.studienivakode >= 980""" % self._is_alive()
+              sp.studienivakode >= 900""" % self._is_alive()
         return self.db.query(qry)
 
     def list_privatist(self):
