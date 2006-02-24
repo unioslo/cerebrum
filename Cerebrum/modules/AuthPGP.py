@@ -39,6 +39,7 @@ storing each system as a seperate authentication code."""
 # Remember to run makedb --update-codes to add constants to the database
 
 from Cerebrum import Account
+from Cerebrum.Utils import read_password
 
 # Mixin for encryption methods
 class AuthPGPAccountMixin(Account.Account):
@@ -54,7 +55,8 @@ class AuthPGPAccountMixin(Account.Account):
     def decrypt_password(self, method, cryptstring):
         for system, pgpkey in cereconf.AUTH_PGP.items():
             if method == self._pgp_auth(system):
-                return pgp_decrypt(cryptstring, pgpkey)
+                passphrase = read_password(pgpkey, system)
+                return pgp_decrypt(cryptstring, pgpkey, passphrase)
         return self.__super.decrypt_password(method, cryptstring)
 
     def verify_password(self, method, plaintext, cryptstring):
