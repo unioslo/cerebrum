@@ -973,22 +973,25 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("No access to %s" % target_type)
 
     def can_request_guests(self, operator, groupname=None, query_run_any=False):
-        if query_run_any: 
-            return True
         if self.is_superuser(operator): 
+            return True
+        if not self._has_operation_perm_somewhere(operator,
+                                                  self.const.auth_create_user):
+            return False
+        if query_run_any:
             return True
         if self.is_group_member(operator, groupname):
             return True
         raise PermissionDenied("Can't request guest accounts")
-        
+
     def can_release_guests(self, operator, groupname=None, query_run_any=False):
         if query_run_any:
             return True
         if self.is_superuser(operator):
             return True
-        if self._is_group_member(operator, groupname):
+        if self.is_group_member(operator, groupname):
             return True
-        raise PermissionDenied("Can't release guest accounts")
+        raise PermissionDenied("Can't release guest account")
 
     def can_create_guests(self, operator, query_run_any=False):
         if query_run_any:
