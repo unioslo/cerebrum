@@ -41,7 +41,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import SqlScanner
-from Cerebrum.Utils import NotSet
+from Cerebrum.Utils import NotSet, read_password
 from Cerebrum.extlib import db_row
 
 
@@ -820,19 +820,9 @@ class Database(object):
     def _sql_port_boolean(self, default=None):
         pass
 
+    # FIXME: deprecated, moved to Utils
     def _read_password(self, database, user):
-        import os
-        filename = os.path.join(cereconf.DB_AUTH_DIR,
-                                'passwd-%s@%s' % (user.lower(),
-                                                  database.lower()))
-        f = file(filename)
-        try:
-            # .rstrip() removes any trailing newline, if present.
-            dbuser, dbpass = f.readline().rstrip().split('\t', 1)
-            assert dbuser == user
-            return dbpass
-        finally:
-            f.close()
+        return read_password(user, database)
 
     def sql_pattern(self, column, pattern, ref_name=None,
                     case_sensitive=NotSet):
@@ -915,7 +905,7 @@ class PgSQL(PostgreSQLBase):
         if user is None:
             user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
         if password is None and user is not None:
-            password = self._read_password(service, user)
+            password = read_password(user, service)
         cdata['real_user'] = user
         cdata['real_password'] = password
         cdata['real_service'] = service
@@ -989,7 +979,7 @@ class PsycoPG(PostgreSQLBase):
         if user is None:
             user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
         if password is None and user is not None:
-            password = self._read_password(service, user)
+            password = read_password(user, service)
         dsn_string = "dbname=%(service)s user=%(user)s password=%(password)s"\
                      % locals()
         cdata['real_user'] = user
@@ -1111,7 +1101,7 @@ class DCOracle2(OracleBase):
         if user is None:
             user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
         if password is None:
-            password = self._read_password(service, user)
+            password = read_password(user, service)
         conn_str = '%s/%s@%s' % (user, password, service)
         cdata['conn_str'] = conn_str
         if client_encoding is None:
