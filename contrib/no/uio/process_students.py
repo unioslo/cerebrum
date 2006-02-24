@@ -260,8 +260,9 @@ class AccountUtil(object):
             for g in already_member.keys():
                 if autostud.pc.group_defs.get(g, {}).get('auto', None) == 'auto':
                     if accounts[account_id].get_gid() == g:
-                        logger.warn("Can't remove %i from its dfg %i" % (
-                            account_id, g))
+                        logger.warn("Can't remove %i from its dfg %i" %
+                                    (account_id, g))
+                        continue
                     group_obj.clear()
                     group_obj.find(g)
                     group_obj.remove_member(account_id, const.group_memberop_union)
