@@ -22,7 +22,8 @@
 # This script should be run regularly.  It processes the changelog,
 # and performs a number of tasks:
 #
-# - when a user has been creted: create users homedir
+# - when a user has been created: create users homedir
+# - when a guest user's home has been archived: make a new home directory
 
 # TBD: If this script is only going to be used for creating users, it
 # should probably be renamed.  There are already other scrits, like
@@ -98,7 +99,7 @@ class MakeUser(EvtHandler):
     home_spread = const.spread_uio_nis_user   
 
     def get_triggers(self):
-        return ("account_home_added",)
+        return ("account_home_added", "account_home_updated")
 
     def notify_account_home_added(self, evt, params):
         if params.get('spread', 0) == int(self.home_spread):
@@ -116,7 +117,26 @@ class MakeUser(EvtHandler):
                                    status=status)
             db.commit()
         return True
-   
+
+    def notify_account_home_updated(self, evt, params):
+        acc = Factory.get("Account")(self.db)
+        try:
+            x, accid, x, x, status = acc.get_homedir(params['homedir_id'])
+        except Errors.NotFoundError:
+            # Ancient changelog entry?  Skip it.
+            logger.debug("Skipping deleted homedir %d for account %d" %
+                         (params['homedir_id']), evt['subject_entity'])
+            return
+        if accid != evt['subject_entity']:
+            logger.error("Homedir %d doesn't belong to account %d" %
+                         (params['homedir_id'], evt['subject_entity']))
+            return
+        acc.find(accid)
+        guest_trait = acc.get_trait(const.trait_guest_owner)
+        if (guest_trait and guest_trait['target_id'] is None and
+            not acc.is_expired() and status == const.home_status_archived):
+            self._make_user(accid)
+
     def _get_make_user_data(self, entity_id):
         posix_user.clear()
         posix_user.find(entity_id)
