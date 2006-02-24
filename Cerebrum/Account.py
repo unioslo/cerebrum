@@ -239,7 +239,7 @@ class AccountHome(object):
             status = int(status)   # Constants.__eq__ don't like strings
         tmp = [['account_id', self.entity_id],
                ['home', home],
-               ['disk_id', disk_id],
+               ['disk_id', Utils.format_as_int(disk_id)],
                ['status', status]]
         if ((home is not None and home is not NotSet) and
             (disk_id is not None and disk_id is not NotSet)):
@@ -259,11 +259,8 @@ class AccountHome(object):
             VALUES (%s)""" % (
                 ", ".join([t[0] for t in tmp]),
                 ", ".join([":%s" % t[0] for t in tmp])), binds)
-            self._db.log_change(
-                self.entity_id, self.const.homedir_add, None,
-                change_params={'homedir_id': binds['homedir_id'],
-                               'disk_id': Utils.format_as_int(binds.get('disk_id', None)),
-                               'home': binds.get('home', None)})
+            self._db.log_change(self.entity_id, self.const.homedir_add,
+                                None, change_params=binds)
         else:
             tmp = filter(lambda k: not (k[1] is None or k[1] is NotSet), tmp)
             if 'home' in [x[0] for x in tmp]:
@@ -276,11 +273,8 @@ class AccountHome(object):
               SET %s
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t[0], t[0]) for t in tmp])), binds)
-            self._db.log_change(
-                self.entity_id, self.const.homedir_update, None,
-                change_params={'homedir_id': binds['homedir_id'],
-                               'disk_id': Utils.format_as_int(binds.get('disk_id', None)),
-                               'home': binds.get('home', None)})
+            self._db.log_change(self.entity_id, self.const.homedir_update,
+                                None, change_params=binds)
         return tmp[-1][1]
 
     def clear_homedir(self, homedir_id):
