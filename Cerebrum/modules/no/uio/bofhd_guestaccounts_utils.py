@@ -30,7 +30,9 @@ from mx import DateTime
 
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 
 class GuestAccountException(Exception):
@@ -45,62 +47,59 @@ class BofhdUtils(object):
         self.co = Factory.get('Constants')(self.db)
         self.logger = server.logger
 
+    def request_guest_users(self, num, end_date, owner_type, owner_id):
+        """Reserve num guest users until they're manually released or
+        until end_date. If the function fails because there are not
+        enough guest users available, GuestAccountException is raised.
 
-    def request_guest_users(self, nr, end_date, owner_type, owner_id):
-        """Allocate nr number of guest users until manually released or
-        until end_date. If the function fails because there are not enough
-        guest users available raise GuestAccountException."""
-
-        if nr > self.nr_available_accounts():
-            raise GuestAccountException("Not enough available guest users.\nUse 'user guests_status' to find the number of available guests.")
-
+        """
+        if num > self.num_available_accounts():
+            raise GuestAccountException, ("Not enough available guest users.\n"
+                                          "Use 'user guests_status' to find "
+                                          "the number of available guests.")
         ret = []
-        for guest in self._find_guests(nr):
-            try:
-                e_id, passwd = self._alloc_guest(guest, end_date, owner_type, owner_id)
-                ret.append((guest, e_id, passwd))            
-            except (GuestAccountException, Errors.NotFoundError):
-                # If one alloc fails the request fails. 
-                raise GuestAccountException("Could not allocate guests")
+        for guest in self._find_guests(num):
+            e_id, passwd = self._alloc_guest(guest, end_date, owner_type,
+                                             owner_id)
+            ret.append((guest, e_id, passwd))            
         return ret
 
-
     def release_guest(self, guest, operator_id):
-        """ Release a guest account
+        """Release a guest account.
 
-        Make sure that the guest account requested actually exists and
-        mark it as released. If it already is released ignore this
-        action and log a warning."""
+        Make sure that the guest account specified actually exists and
+        mark it as released. If it already is released, ignore this
+        action and log a warning.
 
-        if self._is_free(guest):
-            raise GuestAccountException("%s is already available." % guest)
-
+        """
         ac = Factory.get('Account')(self.db)    
-        ac.clear()
         ac.find_by_name(guest)
+        trait = ac.get_trait(self.co.trait_guest_owner)
+        if trait is None:
+            raise GuestAccountException("%s is not a guest" % guest)
+        elif trait['target_id'] is None:
+            raise GuestAccountException("%s is already available" % guest)
+
         # Set normal quarantine again to mark that the account is free
         # Only way to do this is to delete disabled quarantine and set new
         # quarantine. It would be useful with another way to do this.    
         today = DateTime.today()
         ac.delete_entity_quarantine(self.co.quarantine_generell) 
         ac.add_entity_quarantine(self.co.quarantine_generell, operator_id,
-                                      "Released guest user.", today.date) 
+                                 "Released guest user.", today.date) 
         self.logger.debug("Quarantine reset for %s." % guest)
         ac.populate_trait(self.co.trait_guest_owner, target_id=None)
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
-        # Need to do write_db because of passwd and trait
-        ac.write_db()
-        try:
-            # When a account is released set new password so that the
-            # account is ready immediately when it is requested        
-            password = ac.make_passwd(guest)
-            # set_password virker ikke på cerebral
-            ac.set_password(password)
-            ac.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-
-
+        # When a account is released set new password so that the
+        # account is ready immediately when it is requested        
+        password = ac.make_passwd(guest)
+        ac.set_password(password)
+        # Finally, register a request to delete the home directory
+        br = BofhdRequests(self.db, self.const)
+        br.add_request(operator_id, br.now,
+                       self.co.bofh_delete_user,
+                       ac.entity_id, None,
+                       state_data=int(self.co.spread_uio_nis_user))
 
     def get_owner(self, guestname):
         "Check that guestname is a guest account and that it has an owner."
@@ -114,102 +113,72 @@ class BofhdUtils(object):
             raise GuestAccountException("Already available.")
         return int(owner['target_id'])
 
+    def list_guest_users(self, owner_id=NotSet):
+        """List names of guest accounts owned by group with id=owner_id.
+        If no owner_id is specified, return all guest accounts.
 
-    def list_guest_users(self, owner_id):
-        "List guest users owned by group with id=owner_id."
+        """
         ac = Factory.get('Account')(self.db)
         ret = []
-        ac.clear()
-        for row in ac.list_traits(self.co.trait_guest_owner):
-            if row['target_id'] and int(owner_id) == int(row['target_id']):
-                ac.clear()
-                ac.find(row['entity_id'])
-                ret.append(ac.account_name)
+        for row in ac.list_traits(self.co.trait_guest_owner,
+                                  target_id=owner_id, return_name=True):
+            ret.append(row['name'])
         return ret
 
+    def num_available_accounts(self):
+        """Find num of available guest accounts."""
+        return len(self.list_guest_users(owner_id=None))
 
-    def nr_available_accounts(self):
-        """ Find nr of available guest accounts. """
-        return len(self._available_guests())
-
-
-    def find_new_guestusernames(self, nr):
-        """ Find next free guest user names for user_create_guest """
+    def find_new_guestusernames(self, num_new_guests, prefix="guest"):
+        """Find next free guest user names for user_create_guest."""
         ac = Factory.get('Account')(self.db)
         ret = []
-        nr_new_guests = int(nr)
-        nr2guestname = {}
+        num2guestname = {}
         # find all existing guests
-        for row in ac.list_traits(self.co.trait_guest_owner):
-            ac.clear()            
-            ac.find(row['entity_id'])
-            uname = ac.get_account_name()
-            prefix = uname.rstrip("0123456789")
-            nr2guestname[int(uname[len(prefix):])] = uname
-        # Find last guestuser nr
-        tmp = nr2guestname.keys()
-        tmp.sort()
-        lastnr = tmp.pop()
-        print "alle gjester funnet. Siste er ", nr2guestname[lastnr]
-        i = lastnr + 1  # uname number
-        nr_found = 0    # free guest account number
+        for uname in self.list_guest_users():
+            if uname.startswith(prefix):
+                continue
+            num2guestname[int(uname[len(prefix):])] = uname
+        # Find last guestuser num
+        lastnum = 0
+        guest_nums = num2guestname.keys()
+        if guest_nums:
+            guest_nums.sort()
+            lastnum = guest_nums.pop()
+        i = lastnum + 1  # uname number
+        num_found = 0    # free guest account number
         tot_runs = 0    # To avoid infinite loop if error occurs
-        print "finn nye gjestenavn"
-        while nr_found < nr_new_guests and tot_runs < 2*nr_new_guests:
-            uname = '%s%s' % (prefix, str(i).zfill(3))
-            i += 1        
-            ac.clear()
+        while num_found < num_new_guests and i < 1000:
+            uname = '%s%03d' % (prefix, i)
+            i += 1
             if ac.validate_new_uname(self.co.account_namespace, uname):
                 self.logger.debug("uname %s is legal and free" % uname)
                 ret.append(uname)
-                nr_found += 1
+                num_found += 1
             else:
-                self.logger.warn("Account %s already exists. "+ \
-                                 "Is account a guest account?" % uname)
+                self.logger.warn("Account %s already exists. "
+                                 "Is it a guest account?" % uname)
             tot_runs += 1
-        # If less than nr guest account names was found, it's an error
-        if nr_found < nr_new_guests:
-            raise Errors.CerebrumError("Couldn't find more than %d guest account names in %sXXX namespace" % (nr_found, prefix))
+        # If less than num guest account names was found, it's an error
+        if num_found < num_new_guests:
+            raise CerebrumError, ("Couldn't find more than %d guest account "
+                                  "names in %sXXX namespace" %
+                                  (num_found, prefix))
         return ret
-
-
-    def _available_guests(self):
-        """ Return the available guest accounts names """
-        ac = Factory.get('Account')(self.db)    
-        ret = []
-
-        for row in ac.list_traits(self.co.trait_guest_owner):
-            ac.clear()
-            ac.find(row['entity_id'])
-            if ac.get_entity_quarantine(type=self.co.quarantine_generell,
-                                        only_active=True):
-                ret.append(ac.account_name)            
-        return ret
-
-
-    def _is_free(self, uname):
-        ac = Factory.get('Account')(self.db)    
-        ac.clear()
-        ac.find_by_name(uname)            
-        if ac.get_entity_quarantine(type=self.co.quarantine_generell,
-                                    only_active=True):
-            return True
-        return False
-
 
     def _alloc_guest(self, guest, end_date, owner_type, owner_id):
-        """ Allocate a guest account.
+        """Allocate a guest account.
 
-        Make sure that the guest account requested actually exists and is
-        available. If so set owner trait and mark the account as taken by
-        disabling quarantine until end_date"""
+        Make sure that the guest account requested actually exists and
+        is available. If so, set owner trait and mark the account as
+        taken by disabling quarantine until end_date
 
+        """
         ac = Factory.get('Account')(self.db)    
         self.logger.debug("Try to alloc %s" % guest)
         ac.clear()
         ac.find_by_name(guest)
-        if not ac.get_entity_quarantine(type=self.co.quarantine_generell,
-                                        only_active=True):
+        if ac.get_trait(self.co.trait_guest_owner)['target_id']:
             raise GuestAccountException("Guest user %s not available." % guest)
         # OK, disable quarantine until end_date
         self.logger.debug("Disable quarantine for %s" % guest)
@@ -220,29 +189,29 @@ class BofhdUtils(object):
         ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id)
         ac.write_db()
         # Password
-        cryptstring = ac.get_account_authentication(self.co.auth_type_pgp_crypt)
-        passwd = ac.decrypt_password(auth_type_pgp_crypt, cryptstring)
-        return ac.account_id, passwd
+        pgpauth = self.co.Authentication("PGP-guest_acc")
+        cryptstring = ac.get_account_authentication(pgpauth)
+        passwd = ac.decrypt_password(pgpauth, cryptstring)
+        return ac.entity_id, passwd
 
-
-    def _find_guests(self, nr_requested):
+    def _find_guests(self, num_requested):
         ret = []
-        nr2guestname = {}
+        num2guestname = {}
         # find all available guests
-        for uname in self._available_guests():
+        for uname in self.list_guest_users(owner_id=None):
             try:
                 prefix = uname.rstrip("0123456789")
-                nr = int(uname[len(prefix):])
-                nr2guestname[nr] = uname
+                num = int(uname[len(prefix):])
+                num2guestname[num] = uname
             except ValueError:
                 self.logger.warn("%s is not a proper guestuser name." % uname)
                 continue
         # Find best subset match 
-        for start, end in self._find_subsets(nr_requested, nr2guestname.keys()):
-            for i in range(start, end+1):
-                ret.append(nr2guestname[i])
+        for start, end in self._find_subsets(num_requested,
+                                             num2guestname.keys()):
+            for i in range(start, end + 1):
+                ret.append(num2guestname[i])
         return ret
-                
 
     def _find_available_subsets(self, available_guests):
         """Return all available subsets sorted after increasing length
@@ -272,7 +241,7 @@ class BofhdUtils(object):
         return ret
 
 
-    def _find_nr_of_subsets(self, las, n):
+    def _find_num_of_subsets(self, las, n):
         """ Returns the number of subsets necessary to allocate n spots. """
         i = -1
         x = las[i][0]   # length of longest available subset
@@ -281,13 +250,11 @@ class BofhdUtils(object):
             if len(las) < abs(i):  # Enough available subsets? 
                 break
             x += las[i][0]
-
         return abs(i)
 
-
-    def _find_best_subset_fit(self, las, nr_requested, nr_subsets):
+    def _find_best_subset_fit(self, las, num_requested, num_subsets):
         #  Try picking the shortest subset in las, and check if the
-        #  other subset(s) is long enough to cover nr_requested.
+        #  other subset(s) is long enough to cover num_requested.
         #  If so:
         #      pick that
         #      same procedure with the next subsets
@@ -296,36 +263,36 @@ class BofhdUtils(object):
 
         # get length, start- and end-position of shortest subset in las
         slen, start, end = las.pop(0) 
-        if nr_subsets == 1:              
-            if nr_requested <= slen:
-                return start, start+nr_requested-1
+        if num_subsets == 1:              
+            if num_requested <= slen:
+                return start, start+num_requested-1
 
         l = slen
         i = 1
         use_shortest = False
-        while nr_subsets > i:
+        while num_subsets > i:
             l += las[-i][0]   
-            if l >= nr_requested:
+            if l >= num_requested:
                 use_shortest = True
                 break
             i += 1
 
         if use_shortest:
             return (start, end), self._find_best_subset_fit(las,
-                                                            nr_requested-slen,
-                                                            nr_subsets-1)
+                                                            num_requested-slen,
+                                                            num_subsets-1)
         # Try again, this time without the shortest interval
-        return self._find_best_subset_fit(las, nr_requested, nr_subsets)
+        return self._find_best_subset_fit(las, num_requested, num_subsets)
 
 
-    def _find_subsets(self, nr_requested, available_guests):
-        """ Find subset(s) with total length nr_requested.
+    def _find_subsets(self, num_requested, available_guests):
+        """ Find subset(s) with total length num_requested.
         Return: ((start1, end1), (start2, end2), ...)
         """
         las = self._find_available_subsets(available_guests)
-        nr_subsets = self._find_nr_of_subsets(las, nr_requested)
-        return _flatten(self._find_best_subset_fit(las, nr_requested,
-                                                   nr_subsets))
+        num_subsets = self._find_num_of_subsets(las, num_requested)
+        return _flatten(self._find_best_subset_fit(las, num_requested,
+                                                   num_subsets))
 
 
 def _sort_by_value(d):
