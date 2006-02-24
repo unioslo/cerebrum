@@ -345,6 +345,8 @@ class BofhdUtils(object):
              'host' (name of host => Host)
              'id' (entity ID => any)
 
+        If name is actually an integer, 'id' lookup is always chosen.
+
         If restrict_to isn't set, it will be initialised according to
         default_lookup.  It should be a list containing the names of
         acceptable classes, and a CerebrumError will be raised if the
@@ -370,7 +372,12 @@ class BofhdUtils(object):
                                 "id": None }
 
         def get_target_find_lookup(name, default_lookup):
-            if name.count(":") == 0:
+            if isinstance(name, int):
+                # We ignore default_lookup in this case, even if it
+                # could conceivably have been a "fnr" on systems where
+                # int is 64-bit.
+                ltype = "id"
+            elif name.count(":") == 0:
                 if name.isdigit() and len(name) == 11:
                     ltype = "fnr"
                 else:
@@ -499,12 +506,11 @@ class BofhdUtils(object):
         if name is None or name == "":
             raise CerebrumError, "Empty value given"
 
-        if restrict_to is None:
-            restrict_to = entity_lookup_types[default_lookup]
-
         ltype, name = get_target_find_lookup(name, default_lookup)
         obj = get_target_lookup(ltype, name)
 
+        if restrict_to is None:
+            restrict_to = entity_lookup_types[ltype]
         if not restrict_to:
             return obj
         for clsname in restrict_to:
