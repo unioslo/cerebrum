@@ -493,6 +493,7 @@ class BofhdExtension(object):
             matches = self._hosts_matching_name(pattern)
         else:
             raise CerebrumError, "Unknown search type %s" % search_type
+        self._assert_limit(matches, 500)
         matches.sort(lambda a,b: cmp(a['name'], b['name']))
         return matches
 
@@ -502,23 +503,18 @@ class BofhdExtension(object):
                   "More than %d matches (%d).  Refine your search." % \
                   (limit, len(rows))
 
-    def _hosts_matching_trait(self, trait, pattern, limit=500):
+    def _hosts_matching_trait(self, trait, pattern):
         dns_owner = DnsOwner.DnsOwner(self.db)
         matches = []
-        rows = dns_owner.list_traits(trait, strval_like=pattern, fetchall=True)
-        self._assert_limit(rows, limit)
-        for row in rows:
-            dns_owner.clear()
-            dns_owner.find(row['entity_id'])
-            matches.append({'name': dns_owner.name, 'info': row['strval']})
+        for row in dns_owner.list_traits(trait, strval_like=pattern,
+                                         return_name=True):
+            matches.append({'name': row['name'], 'info': row['strval']})
         return matches
 
-    def _hosts_matching_name(self, pattern, limit=500):
+    def _hosts_matching_name(self, pattern):
         dns_owner = DnsOwner.DnsOwner(self.db)
         matches = []
-        rows = dns_owner.search(name_like=pattern, fetchall=True)
-        self._assert_limit(rows, limit)
-        for row in rows:
+        for row in dns_owner.search(name_like=pattern):
             matches.append({'name': row['name'], 'info': ""})
         return matches
 
