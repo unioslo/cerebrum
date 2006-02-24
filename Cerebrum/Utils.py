@@ -240,10 +240,27 @@ def latin1_to_iso646_60(s, substitute=''):
 
     return _lat1_646_subst(xlate_match, str(s).translate(_lat1_646_tr))
 
-def pgp_encrypt(message, id):
+def read_password(user, system):
+    """Read the password 'user' needs to authenticate with 'system'.
+    It is stored as plain text in DB_AUTH_DIR.
+
+    """
+    import os
+    filename = os.path.join(cereconf.DB_AUTH_DIR,
+                            'passwd-%s@%s' % (user.lower(), system.lower()))
+    f = file(filename)
+    try:
+        # .rstrip() removes any trailing newline, if present.
+        dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
+        assert dbuser == user
+        return dbpass
+    finally:
+        f.close()
+
+def pgp_encrypt(message, keyid):
     cmd = [cereconf.PGPPROG]
     cmd.extend(cereconf.PGP_ENC_OPTS)
-    cmd.extend(('--recipient', id, '--default-key', id))
+    cmd.extend(('--recipient', keyid, '--default-key', keyid))
 
     child = popen2.Popen3(cmd)
     child.tochild.write(message)
@@ -251,21 +268,25 @@ def pgp_encrypt(message, id):
     msg = child.fromchild.read()
     exit_code = child.wait()
     if exit_code:
-        raise IOError, "gpg exited with %i" % exit_code
+        raise IOError, "%r exited with %i" % (cmd, exit_code)
     return msg
 
-def pgp_decrypt(message, password):
+def pgp_decrypt(message, keyid, passphrase):
+    """Decrypt message using the private key with ID keyid.  """
+    
     cmd = [cereconf.PGPPROG]
     cmd.extend(cereconf.PGP_DEC_OPTS)
+    cmd.extend(('--default-key', keyid))
     child = popen2.Popen3(cmd)
-    
-    child.tochild.write(password+"\n")
+
+    if passphrase != "":
+        child.tochild.write(passphrase + "\n")
     child.tochild.write(message)
     child.tochild.close()
     msg = child.fromchild.read()
     exit_code = child.wait()
     if exit_code:
-        raise IOError, "gpg exited with %i" % exit_code
+        raise IOError, "%r exited with %i" % (cmd, exit_code)
     return msg
 
 def format_as_int(i):
