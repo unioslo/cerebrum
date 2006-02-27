@@ -994,10 +994,10 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("Can't release guest account")
 
     def can_create_guests(self, operator, query_run_any=False):
-        if query_run_any:
-            return True
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return False
         raise PermissionDenied("Can't create guest accounts")
 
     # TODO: the can_email_xxx functions do not belong in core Cerebrum
