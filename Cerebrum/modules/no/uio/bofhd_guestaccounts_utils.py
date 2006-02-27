@@ -95,10 +95,9 @@ class BofhdUtils(object):
         password = ac.make_passwd(guest)
         ac.set_password(password)
         # Finally, register a request to delete the home directory
-        br = BofhdRequests(self.db, self.const)
+        br = BofhdRequests(self.db, self.co)
         br.add_request(operator_id, br.now,
-                       self.co.bofh_delete_user,
-                       ac.entity_id, None,
+                       self.co.bofh_delete_user, ac.entity_id, None,
                        state_data=int(self.co.spread_uio_nis_user))
 
     def get_owner(self, guestname):
