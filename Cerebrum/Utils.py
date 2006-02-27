@@ -289,11 +289,13 @@ def pgp_decrypt(message, keyid, passphrase):
         raise IOError, "%r exited with %i" % (cmd, exit_code)
     return msg
 
+
 def format_as_int(i):
-    """Get rid of PgNumeric while preserving NULL values"""
-    if i is not None:
-        return int(i)
-    return i
+    """Get rid of PgNumeric while preserving NULL and unset values."""
+    if i is None or i is NotSet:
+        return i
+    return int(i)
+
 
 class auto_super(type):
     """Metaclass adding a private class variable __super, set to super(cls).
