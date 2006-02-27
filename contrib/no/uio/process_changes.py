@@ -126,16 +126,23 @@ class MakeUser(EvtHandler):
             # Ancient changelog entry?  Skip it.
             logger.debug("Skipping deleted homedir %d for account %d" %
                          (params['homedir_id']), evt['subject_entity'])
-            return
+            return True
         if accid != evt['subject_entity']:
             logger.error("Homedir %d doesn't belong to account %d" %
                          (params['homedir_id'], evt['subject_entity']))
-            return
+            return True
         acc.find(accid)
         guest_trait = acc.get_trait(const.trait_guest_owner)
         if (guest_trait and guest_trait['target_id'] is None and
             not acc.is_expired() and status == const.home_status_archived):
-            self._make_user(accid)
+            logger.debug("Creating fresh home directory for guest %d" % accid)
+            if not self._make_user(evt['subject_entity']):
+                return False
+            logger.debug("Successfully created home %d" % params['homedir_id'])
+            acc.set_homedir(current_id=params['homedir_id'],
+                            status=const.home_status_on_disk)
+            db.commit()
+        return True
 
     def _get_make_user_data(self, entity_id):
         posix_user.clear()
