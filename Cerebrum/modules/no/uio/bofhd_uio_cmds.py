@@ -5069,7 +5069,6 @@ class BofhdExtension(object):
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
-            print "FOO?", np_type
         else:
             if len(args) == 7:
                 idtype, person_id, affiliation, filegroup, shell, home, uname = args
@@ -5417,7 +5416,6 @@ class BofhdExtension(object):
     # user move
     def user_move_prompt_func(self, session, *args):
         all_args = list(args[:])
-        print all_args
         if not all_args:
             mt = MoveType()
             return mt.get_struct(self)
