@@ -197,7 +197,7 @@ class Object2Cerebrum(object):
             if self._group.has_member(self._person.entity_id,
                                       self.co.entity_person,
                                       self.co.group_memberop_union):
-
+                pass # TODO
             return self._group.write_db()
 
 
