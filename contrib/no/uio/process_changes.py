@@ -119,7 +119,7 @@ class MakeUser(EvtHandler):
         return True
 
     def notify_account_home_updated(self, evt, params):
-        acc = Factory.get("Account")(self.db)
+        acc = Factory.get("Account")(db)
         try:
             x, accid, x, x, status = acc.get_homedir(params['homedir_id'])
         except Errors.NotFoundError:
