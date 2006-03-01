@@ -43,6 +43,9 @@ def person_join(old_person, new_person, with_pq):
     old_id = old_person.entity_id
     new_id = new_person.entity_id
 
+    # birth_date
+    new_person.birth_date = new_person.birth_date or old_person.birth_date
+    new_person.write_db()
     # person_external_id
     types = {}
     for r in old_person.get_external_id():
