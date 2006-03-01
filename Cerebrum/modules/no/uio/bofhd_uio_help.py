@@ -225,17 +225,30 @@ command_help = {
     'perm_who_has_perm': 'Show who has the given op_set permission somewhere',
     },
     'person': {
-    'person_accounts': 'View account a person is owner of',
-    'person_affiliation_add': 'Add an affiliation to a person',
-    'person_affiliation_remove': 'Remove an affiliation from a person',
-    'person_create': 'Register a new person in Cerebrum',
-    'person_find': 'Search for a person in Cerebrum',
-    'person_info': 'View information about a person',
-    'person_list_user_priorities': 'View a list ordered by priority of all the accounts owned by a person',
-    'person_set_id': 'Set a new id for a person',
-    'person_set_name': 'Change the full name of a manually registered person',
-    'person_student_info': 'View student information for a person',
-    'person_set_user_priority': 'Change account priorities for a person',
+    'person_accounts':
+        'View the accounts a person owns',
+    'person_affiliation_add':
+        'Add an affiliation to a person',
+    'person_affiliation_remove':
+        'Remove an affiliation from a person',
+    'person_clear_name':
+        'Remove the names coming from a source system from a person',
+    'person_create':
+        'Register a new person in Cerebrum',
+    'person_find':
+        'Search for a person in Cerebrum',
+    'person_info':
+        'View information about a person',
+    'person_list_user_priorities':
+        'View a list ordered by priority of all the accounts owned by a person',
+    'person_set_id':
+        'Set a new id for a person',
+    'person_set_name':
+        'Change the full name of a manually registered person',
+    'person_student_info':
+        'View student information for a person',
+    'person_set_user_priority':
+        'Change account priorities for a person',
     },
     'quarantine': {
     'quarantine_disable': 'Temporarily remove a quarantine',
