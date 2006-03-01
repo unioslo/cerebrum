@@ -4546,26 +4546,33 @@ class BofhdExtension(object):
     all_commands['person_clear_name'] = Command(
 	("person", "clear_name"),PersonId(help_ref="person_id_other"),
 	SourceSystem(help_ref="source_system", optional=True),
-	fs=FormatSuggestion("Name removed for: %i",
-        ("person_id",)),
 	perm_filter='is_superuser')
-    def person_clear_name(self, operator, person_id, source_system):
-        person = self._get_person(*self._map_person_id(person_id))
+    def person_clear_name(self, operator, person_id, source_system="LT"):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
-        if not source_system in cereconf.SYSTEM_LOOKUP_ORDER:
+        person = self.util.get_target(person_id, restrict_to="Person")
+        ss = self.const.AuthoritativeSystem(source_system)
+        try:
+            int(ss)
+        except Errors.NotFoundError:
             raise CerebrumError("No such source system")
-        for x in [self.const.name_first, self.const.name_last]:
+        removed = False
+        for variant in (self.const.name_first, self.const.name_last):
             try:
-                person.get_name(getattr(self.const, source_system), x)
+                person.get_name(ss, variant)
             except Errors.NotFoundError:
-                raise CerebrumError("No name registered from %s" % source_system)
+                continue
             try:
-                person._delete_name(getattr(self.const, source_system), x)
-                person._update_cached_names()
+                person._delete_name(ss, variant)
             except:
-                raise CerebrumError("Could not delete name from %s", source_system)
-        return "Removed name from %s for %s" % (source_system, person_id)
+                raise CerebrumError("Could not delete %s from %s" %
+                                    (str(variant).lower(), source_system))
+            removed = True
+        person._update_cached_names()
+        if not removed:
+            return ("No name to remove for %s from %s" %
+                    (person_id, source_system))
+        return "Removed name for %s from %s" % (person_id, source_system)
 
     # person student_info
     all_commands['person_student_info'] = Command(
@@ -6400,7 +6407,7 @@ class BofhdExtension(object):
             return acc.account_name
         elif type == self.const.entity_group:
             group = self._get_group(id, idtype='id')
-            return group.get_name(self.const.group_namespace)
+            return group.group_name
         elif type == self.const.entity_disk:
             disk = Utils.Factory.get('Disk')(self.db)
             disk.find(id)
@@ -6541,6 +6548,8 @@ class BofhdExtension(object):
             return 'homedir_id:%s' % val
         elif format == 'id_type':
             return str(self.const.ChangeType(val))
+        elif format == 'home_status':
+            return str(self.const.AccountHomeStatus(val))
         elif format == 'int':
             return str(val)
         elif format == 'name_variant':
