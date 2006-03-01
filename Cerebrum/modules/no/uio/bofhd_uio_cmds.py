@@ -6544,6 +6544,8 @@ class BofhdExtension(object):
                 return "deleted_disk:%s" % val
         elif format == 'entity':
             return self._get_entity_name(None, int(val))
+        elif format == 'extid':
+            return str(self.const.EntityExternalId(val))
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
