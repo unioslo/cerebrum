@@ -133,8 +133,8 @@ class MakeUser(EvtHandler):
             return True
         acc.find(accid)
         guest_trait = acc.get_trait(const.trait_guest_owner)
-        if (guest_trait and guest_trait['target_id'] is None and
-            not acc.is_expired() and status == const.home_status_archived):
+        if (guest_trait and status == const.home_status_archived and
+            not acc.is_expired()):
             logger.debug("Creating fresh home directory for guest %d" % accid)
             if not self._make_user(evt['subject_entity']):
                 return False
