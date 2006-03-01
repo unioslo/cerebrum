@@ -494,7 +494,7 @@ class BofhdUtils(object):
             if len(found) == 0:
                 raise CerebrumError, "No person with fnr %s" % id
             if len(found) > 1:
-                raise CerebrumError, "More than one person with fnr %d found" % id
+                raise CerebrumError, "More than one person with fnr %s found" % id
             person.clear()
             person.find(found[0])
             return person
@@ -512,7 +512,10 @@ class BofhdUtils(object):
         if restrict_to is None:
             restrict_to = entity_lookup_types[ltype]
         if not restrict_to:
+            # empty list means accept everything
             return obj
+        if not isinstance(restrict_to, (list, tuple)):
+            restrict_to = (restrict_to,)
         for clsname in restrict_to:
             if isinstance(obj, Factory.get(clsname)):
                 return obj
