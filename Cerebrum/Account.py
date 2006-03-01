@@ -235,47 +235,43 @@ class AccountHome(object):
                     status=NotSet):
         """If current_id=NotSet, insert a new entry.  Otherwise update
         the values != NotSet for the given homedir_id=current_id"""
-        if status is not NotSet:
-            status = int(status)   # Constants.__eq__ don't like strings
-        tmp = [['account_id', self.entity_id],
-               ['home', home],
-               ['disk_id', Utils.format_as_int(disk_id)],
-               ['status', status]]
-        if ((home is not None and home is not NotSet) and
-            (disk_id is not None and disk_id is not NotSet)):
+        binds = {'account_id': self.entity_id,
+                 'home': home,
+                 'disk_id': disk_id,
+                 'status': status
+                 }
+        if home and disk_id:
             raise self._db.IntegrityError, "Cannot set both home and disk_id"
         if current_id is NotSet:    # Allocate new id
-            tmp.append(('homedir_id', long(self.nextval('homedir_id_seq'))))
-            for t in tmp:
-                if t[1] is NotSet:
-                    t[1] = None
-        else:
-            tmp.append(('homedir_id', Utils.format_as_int(current_id)))
-        if current_id is NotSet:
-            binds = dict([(t[0], t[1]) for t in tmp])
+            binds['homedir_id'] = long(self.nextval('homedir_id_seq'))
+            for t in binds:
+                if binds[t] is NotSet:
+                    binds[t] = None
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=homedir]
               (%s)
             VALUES (%s)""" % (
-                ", ".join([t[0] for t in tmp]),
-                ", ".join([":%s" % t[0] for t in tmp])), binds)
+                ", ".join(binds.keys()),
+                ", ".join([":%s" % t for t in binds])), binds)
             self._db.log_change(self.entity_id, self.const.homedir_add,
                                 None, change_params=binds)
         else:
-            tmp = filter(lambda k: not (k[1] is None or k[1] is NotSet), tmp)
-            if 'home' in [x[0] for x in tmp]:
-                tmp.append(['disk_id', None])
-            elif 'disk_id' in [x[0] for x in tmp]:
-                tmp.append(['home', None])
-            binds = dict([(t[0], t[1]) for t in tmp])
+            for t in binds.keys():
+                if binds[t] is NotSet or binds[t] is None:
+                    del binds[t]
+            binds['homedir_id'] = current_id
+            if 'home' in binds:
+                binds['disk_id'] = None
+            elif 'disk_id' in binds:
+                binds['home'] = None
             self.execute("""
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
             WHERE homedir_id=:homedir_id""" % (
-                ", ".join(["%s=:%s" % (t[0], t[0]) for t in tmp])), binds)
+                ", ".join(["%s=:%s" % (t, t) for t in binds])), binds)
             self._db.log_change(self.entity_id, self.const.homedir_update,
                                 None, change_params=binds)
-        return tmp[-1][1]
+        return binds['homedir_id']
 
     def clear_homedir(self, homedir_id):
         old = self.get_homedir(homedir_id)
