@@ -893,8 +893,9 @@ def process_delete_requests():
             continue
         account, uname, old_host, old_disk = \
                  get_account(r['entity_id'], spread=spread)
-        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator,
-                       mail_server):
+        operator = get_account(r['requestee_id'])[0].account_name
+        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname),
+                       operator, ''):
             try:
                 home = account.get_home(spread)
             except Errors.NotFoundError:
