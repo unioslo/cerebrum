@@ -43,6 +43,10 @@ class _NotSet(object):
         if not '_the_instance' in type.__dict__:
             type._the_instance = object.__new__(type)
         return type._the_instance
+
+    def __nonzero__(self):
+        return False
+
     __slots__ = ()
 
 NotSet = _NotSet()
