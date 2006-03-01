@@ -175,7 +175,8 @@ class CLConstants(Constants.Constants):
         ('id=%(int:homedir_id)s',))
     homedir_update = _ChangeTypeCode(
         'homedir', 'update', 'homedir update for account %(subject)s',
-        ('id=%(int:homedir_id)s', 'disk_id=%(disk:disk_id)s', 'home=%(string:home)s'))
+        ('id=%(int:homedir_id)s', 'disk_id=%(disk:disk_id)s',
+         'home=%(string:home)s', 'status=%(home_status:status)s'))
     disk_add = _ChangeTypeCode('disk', 'add', 'new disk %(subject)s')
     disk_mod = _ChangeTypeCode('disk', 'mod', 'update disk %(subject)s')
     disk_del = _ChangeTypeCode('disk', 'del', "delete disk %(subject)s")
