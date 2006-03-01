@@ -207,15 +207,15 @@ class CLConstants(Constants.Constants):
          'variant=%(name_variant:name_variant)s',))
     entity_ext_id_del = _ChangeTypeCode(
         'entity', 'ext_id_del', 'del ext_id for %(subject)s',
-        ('src=%(source_system:src)s, type=%(id_type:id_type)s',))
+        ('src=%(source_system:src)s, type=%(extid:id_type)s',))
     entity_ext_id_mod = _ChangeTypeCode(
         'entity', 'ext_id_mod', 'mod ext_id for %(subject)s',
         ('value=%(string:value)s, src=%(source_system:src)s, '+
-         'type=%(id_type:id_type)s',))
+         'type=%(extid:id_type)s',))
     entity_ext_id_add = _ChangeTypeCode(
         'entity', 'ext_id_add', 'add ext_id for %(subject)s',
         ('value=%(string:value)s, src=%(source_system:src)s, '+
-         'type=%(id_type:id_type)s',))
+         'type=%(extid:id_type)s',))
     person_aff_add = _ChangeTypeCode('person', 'aff_add', 'add aff for %(subject)s')
     person_aff_mod = _ChangeTypeCode('person', 'aff_mod', 'mod aff for %(subject)s')
     person_aff_del = _ChangeTypeCode('person', 'aff_del', 'del aff for %(subject)s')
