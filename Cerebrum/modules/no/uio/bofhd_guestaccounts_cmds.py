@@ -302,7 +302,7 @@ class BofhdExtension(object):
     all_commands['user_guests_status'] = Command(
         ('user', 'guests_status'))
     def user_guests_status(self, operator):
-        return "%d guest users available." % self.bgu.nr_available_accounts()
+        return "%d guest users available." % self.bgu.num_available_accounts()
 
 
     def _get_shell(self, shell):

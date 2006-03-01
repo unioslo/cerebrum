@@ -97,7 +97,7 @@ class BofhdUtils(object):
         # Finally, register a request to delete the home directory
         br = BofhdRequests(self.db, self.co)
         br.add_request(operator_id, br.now,
-                       self.co.bofh_delete_user, ac.entity_id, None,
+                       self.co.bofh_archive_user, ac.entity_id, None,
                        state_data=int(self.co.spread_uio_nis_user))
 
     def get_owner(self, guestname):
@@ -146,7 +146,7 @@ class BofhdUtils(object):
             lastnum = guest_nums.pop()
         i = lastnum + 1  # uname number
         num_found = 0    # free guest account number
-        tot_runs = 0    # To avoid infinite loop if error occurs
+        tot_runs = 0     # To avoid infinite loop if error occurs
         while num_found < num_new_guests and i < 1000:
             uname = '%s%03d' % (prefix, i)
             i += 1
@@ -154,9 +154,6 @@ class BofhdUtils(object):
                 self.logger.debug("uname %s is legal and free" % uname)
                 ret.append(uname)
                 num_found += 1
-            else:
-                self.logger.warn("Account %s already exists. "
-                                 "Is it a guest account?" % uname)
             tot_runs += 1
         # If less than num guest account names was found, it's an error
         if num_found < num_new_guests:

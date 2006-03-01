@@ -882,6 +882,33 @@ def process_delete_requests():
     br = BofhdRequests(db, const)
     now = mx.DateTime.now()
     group = Factory.get('Group')(db)
+    spread = default_spread # TODO: check spread in r['state_data']
+
+    for r in br.get_requests(operation=const.bofh_archive_user):
+        if not is_valid_request(r['request_id']):
+            continue
+        if not keep_running():
+            break
+        if r['run_at'] > now:
+            continue
+        account, uname, old_host, old_disk = \
+                 get_account(r['entity_id'], spread=spread)
+        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator,
+                       mail_server):
+            try:
+                home = account.get_home(spread)
+            except Errors.NotFoundError:
+                pass
+            else:
+                account.set_homedir(current_id=home['homedir_id'],
+                                    status=const.home_status_archived)
+            br.delete_request(request_id=r['request_id'])
+            db.commit()
+        else:
+            db.rollback()
+            br.delay_request(r['request_id'], minutes=120)
+            db.commit()
+        
     for r in br.get_requests(operation=const.bofh_delete_user):
         if not is_valid_request(r['request_id']):
             continue
@@ -889,7 +916,6 @@ def process_delete_requests():
             break
         if r['run_at'] > now:
             continue
-        spread = default_spread
         is_posix = False
         try:
             account, uname, old_host, old_disk = get_account(

@@ -110,6 +110,8 @@ class Constants(Constants.Constants):
     bofh_move_student = _BofhdRequestOpCode('br_move_student', 'Move student')
     bofh_move_request = _BofhdRequestOpCode('br_move_request', 'Move request')
     bofh_move_give = _BofhdRequestOpCode('br_move_give', 'Give away user')
+    bofh_archive_user = _BofhdRequestOpCode('br_archive_user',
+                                            'Archive home directory')
     bofh_delete_user = _BofhdRequestOpCode('br_delete_user', 'Delete user')
     bofh_quarantine_refresh = _BofhdRequestOpCode('br_quara_refresh',
                                                   'Refresh quarantine')
