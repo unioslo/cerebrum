@@ -99,7 +99,7 @@ class MakeUser(EvtHandler):
     home_spread = const.spread_uio_nis_user   
 
     def get_triggers(self):
-        return ("account_home_added", "account_home_updated")
+        return ("account_home_added", "homedir_update")
 
     def notify_account_home_added(self, evt, params):
         if params.get('spread', 0) == int(self.home_spread):
@@ -118,7 +118,7 @@ class MakeUser(EvtHandler):
             db.commit()
         return True
 
-    def notify_account_home_updated(self, evt, params):
+    def notify_homedir_update(self, evt, params):
         acc = Factory.get("Account")(db)
         try:
             x, accid, x, x, status = acc.get_homedir(params['homedir_id'])
