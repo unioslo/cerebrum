@@ -4426,17 +4426,16 @@ class BofhdExtension(object):
 
             # Person.get_primary_account will not return expired
             # users.  Account.get_account_types will return the
-            # primary account for the user, but it might be expired,
-            # so further filtering should be done if a "perfect"
-            # result is required.
-            accounts = acc.get_account_types(owner_id=p_id,
-                                             filter_expired=False)
-            if accounts:
+            # accounts ordered by priority, but the highest priority
+            # might be expired.
+            account_name = "<none>"
+            for row in acc.get_account_types(owner_id=p_id,
+                                             filter_expired=False):
                 acc.clear()
-                acc.find(accounts[0]['account_id'])
+                acc.find(row['account_id'])
                 account_name = acc.account_name
-            else:
-                account_name = "<none>"
+                if not acc.is_expired():
+                    break
 
             # Ideally we'd fetch the authoritative last name, but
             # it's a lot of work.  We cheat and use the last word
