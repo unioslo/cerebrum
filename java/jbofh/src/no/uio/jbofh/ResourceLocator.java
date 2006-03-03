@@ -57,7 +57,7 @@ public class ResourceLocator {
      * Get an array of resources
      * @param ref Object the object who is used as a reference when
      * looking up the resource
-     * @param name String the name of the resource.  Must be a directory
+     * @param key 
      * @return String[] list of resources.  Those with a trailing slash
      * are directories
      */
