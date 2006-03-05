@@ -39,56 +39,72 @@ class Constants(Constants.Constants):
     BofhdRequestOp = _BofhdRequestOpCode
     AuthRoleOp = _AuthRoleOpCode
 
-    auth_grant_disk = _AuthRoleOpCode('grant_disk', 'grant access to disk')
-    auth_grant_group = _AuthRoleOpCode('grant_group', 'grant access to group')
-    auth_grant_host = _AuthRoleOpCode('grant_host', 'grant access to host')
-    auth_grant_maildomain = _AuthRoleOpCode('grant_maildom',
-                                            'grant access to mail domain')
-    auth_grant_ou = _AuthRoleOpCode('grant_ou', 'grant access to OU')
-    auth_add_disk = _AuthRoleOpCode('add_disks', 'add userdisks to hosts')
-    auth_create_host = _AuthRoleOpCode('create_host',
-                                       'Can add hosts for userdisks')
-    auth_create_group = _AuthRoleOpCode('create_group',
-                                        'Can create groups')
-    auth_search_group = _AuthRoleOpCode('search_group',
-                                        'Can search for groups')
-    auth_disk_def_quota_set = _AuthRoleOpCode('disk_def_quota',
-                                              'Can set default disk quota')
-    auth_disk_quota_set = _AuthRoleOpCode('disk_quota_set', 'Can set disk quota')
-    auth_disk_quota_forever = _AuthRoleOpCode('disk_quota_forev',
-                                              'Can set unlimited quota duration')
-    auth_disk_quota_unlimited = _AuthRoleOpCode('disk_quota_unlim',
-                                                'Can set unlimited quota')
-    auth_disk_quota_show = _AuthRoleOpCode('disk_quota_show',
-                                           'Can see disk quota')
-    auth_view_studentinfo = _AuthRoleOpCode('view_studinfo',
-                                            'Can view student info')
-    auth_alter_printerquota = _AuthRoleOpCode('alter_printerquo', 'desc')
-    auth_modify_spread = _AuthRoleOpCode('modify_spread', 'modify spread')
-    auth_create_user = _AuthRoleOpCode('create_user', 'create user')
-    auth_remove_user = _AuthRoleOpCode('remove_user', 'remove user')
-    auth_view_history = _AuthRoleOpCode('view_history', 'view history')
-    auth_set_password = _AuthRoleOpCode('set_password', 'desc')
-    auth_set_gecos = _AuthRoleOpCode('set_gecos', 'Set persons gecos field')
-    auth_move_from_disk = _AuthRoleOpCode('move_from_disk',
-                                         'can move from disk')
-    auth_move_to_disk = _AuthRoleOpCode('move_to_disk',
-                                         'can move to disk')
-    auth_alter_group_membership = _AuthRoleOpCode('alter_group_memb', 'desc')
-    auth_email_forward_off = _AuthRoleOpCode('email_forw_off',
-                                             "Disable user's forwards")
-    auth_email_vacation_off = _AuthRoleOpCode('email_vac_off',
-                                              "Disable user's vacation message")
-    auth_email_migrate = _AuthRoleOpCode('email_migrate',
-                                         "Move user's mailbox")
-    auth_email_quota_set = _AuthRoleOpCode('email_quota_set',
-                                           "Set quota on user's mailbox")
-    auth_email_create = _AuthRoleOpCode('email_create',
-                                        "Create e-mail addresses")
-    auth_email_delete = _AuthRoleOpCode('email_delete',
-                                        "Delete e-mail addresses")
-    auth_email_reassign = _AuthRoleOpCode('email_reassign',
-                                          "Reassign e-mail addresses")
+    auth_grant_disk = _AuthRoleOpCode(
+        'grant_disk', 'Grant access to operate on disk')
+    auth_grant_group = _AuthRoleOpCode(
+        'grant_group', 'Grant access to operate on group')
+    auth_grant_host = _AuthRoleOpCode(
+        'grant_host', 'Grant access to operate on host')
+    auth_grant_maildomain = _AuthRoleOpCode(
+        'grant_maildom', 'Grant access to operate on mail domain')
+    auth_grant_ou = _AuthRoleOpCode(
+        'grant_ou', 'Grant access to operate on OU')
+    auth_add_disk = _AuthRoleOpCode(
+        'add_disks', 'Add userdisks to hosts')
+    auth_create_host = _AuthRoleOpCode(
+        'create_host', 'Add hosts for userdisks')
+    auth_create_group = _AuthRoleOpCode(
+        'create_group', 'Create groups')
+    auth_search_group = _AuthRoleOpCode(
+        'search_group', 'Search for groups')
+    auth_disk_def_quota_set = _AuthRoleOpCode(
+        'disk_def_quota', 'Set default disk quota')
+    auth_disk_quota_set = _AuthRoleOpCode(
+        'disk_quota_set', 'Set disk quota')
+    auth_disk_quota_forever = _AuthRoleOpCode(
+        'disk_quota_forev', 'Set unlimited disk quota duration')
+    auth_disk_quota_unlimited = _AuthRoleOpCode(
+        'disk_quota_unlim', 'Set unlimited disk quota')
+    auth_disk_quota_show = _AuthRoleOpCode(
+        'disk_quota_show', 'View disk quota information')
+    auth_view_studentinfo = _AuthRoleOpCode(
+        'view_studinfo', 'View student information')
+    auth_alter_printerquota = _AuthRoleOpCode(
+        'alter_printerquo', 'Alter printer quota')
+    auth_modify_spread = _AuthRoleOpCode(
+        'modify_spread', 'Modify spread')
+    auth_create_user = _AuthRoleOpCode(
+        'create_user', 'Create user')
+    auth_remove_user = _AuthRoleOpCode(
+        'remove_user', 'Remove user')
+    auth_view_history = _AuthRoleOpCode(
+        'view_history', 'View history')
+    auth_set_password = _AuthRoleOpCode(
+        'set_password', 'Set password')
+    auth_set_gecos = _AuthRoleOpCode(
+        'set_gecos', "Set account's gecos field")
+    auth_move_from_disk = _AuthRoleOpCode(
+        'move_from_disk', 'Move account from disk')
+    auth_move_to_disk = _AuthRoleOpCode(
+        'move_to_disk', 'Move account to disk')
+    auth_alter_group_membership = _AuthRoleOpCode(
+        'alter_group_memb', 'Alter group memberships')
+    auth_email_forward_off = _AuthRoleOpCode(
+        'email_forw_off', "Disable user's forwards")
+    auth_email_vacation_off = _AuthRoleOpCode(
+        'email_vac_off', "Disable user's vacation message")
+    auth_email_migrate = _AuthRoleOpCode(
+        'email_migrate', "Move user's mailbox")
+    auth_email_quota_set = _AuthRoleOpCode(
+        'email_quota_set', "Set quota on user's mailbox")
+    auth_email_create = _AuthRoleOpCode(
+        'email_create', "Create e-mail addresses")
+    auth_email_delete = _AuthRoleOpCode(
+        'email_delete', "Delete e-mail addresses")
+    auth_email_info_detail = _AuthRoleOpCode(
+        'email_info_det', "View detailed information about e-mail account")
+    auth_email_reassign = _AuthRoleOpCode(
+        'email_reassign', "Reassign e-mail addresses")
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
     # the CerebrumCode framework.  TODO: redefine the database table
