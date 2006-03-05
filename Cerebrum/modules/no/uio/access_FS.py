@@ -615,8 +615,8 @@ class UiOBetaling(access_FS.FSObject):
         UNION
         SELECT DISTINCT r.fodselsdato, r.personnr
         FROM fs.registerkort r
-        WHERE r.TERMINKODE = :semester AND
-              r.arstall = :year AND
+        WHERE r.TERMINKODE = :semester2 AND
+              r.arstall = :year2 AND
               r.status_reg_ok = 'J' AND
               NVL(r.status_ugyldig, 'N') = 'N' AND
               %s
@@ -626,7 +626,9 @@ class UiOBetaling(access_FS.FSObject):
                                    'personnr': personnr,
                                    'personnr2': personnr,
                                    'semester': self.semester,
-                                   'year': self.year})
+                                   'semester2': self.semester,
+                                   'year': self.year,
+                                   'year2': self.year})
 
 class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
