@@ -1013,7 +1013,7 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any or account and operator == account.entity_id:
             return True
         return self._is_local_postmaster(operator,
-                                         self.const.auth_set_password,
+                                         self.const.auth_email_info_detail,
                                          account, None, query_run_any)
 
     # the user, local sysadmin, and helpdesk can ask for migration
