@@ -53,7 +53,7 @@ def usage(exitcode=0):
         WARNING: This will remove tables and the data they're holding
                  from your database.
   --stage
-        Only peform this stage in the files.
+        Only perform this stage in the files.
   -d | --debug
   -c file | --country-file=file
 
@@ -305,8 +305,10 @@ def runfile(fname, db, debug, phase):
                     output_col = 0
                 sys.stdout.flush()
                 db.commit()
-    if phase == 'main' and metainfo:
-        meta.set_metainfo('sqlmodule_%s' % metainfo['name'], metainfo['version'])
+    if (phase == 'main' or phase == 'metainfo') and metainfo:
+        meta.set_metainfo('sqlmodule_%s' % metainfo['name'],
+                          metainfo['version'])
+        db.commit()
     if state <> NO_CATEGORY:
         raise ValueError, \
               "Found more category specs than statements in file %s." % fname
