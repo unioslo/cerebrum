@@ -36,6 +36,7 @@ from Cerebrum.Constants import _SpreadCode
 targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7'),
+    'bofhd': ('bofhd_1_1', ),
     }
 
 # Global variables
@@ -61,11 +62,16 @@ def continue_prompt(message):
         print "aborting"
         sys.exit(1)
 
-def get_db_version():
+
+def get_db_version(component='core'):
     meta = Metainfo.Metainfo(db)
     version = "pre-0.9.2"
     try:
-        version = "%d.%d.%d" % meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
+        if component == 'core':
+            version = "%d.%d.%d" % \
+                      meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
+        else:
+            version = meta.get_metainfo("sqlmodule_%s" % component)
     except Errors.NotFoundError:
         pass
     except Exception, e:
@@ -75,8 +81,8 @@ def get_db_version():
     return version
 
 
-def assert_db_version(wanted):
-    version = get_db_version()
+def assert_db_version(wanted, component="core"):
+    version = get_db_version(component=component)
     if wanted <> version:
         print "Your database is %s, not %s, aborting" % (version, wanted)
         sys.exit(1)
@@ -353,7 +359,18 @@ def migrate_to_rel_0_9_7():
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,7))
     print "Migration to 0.9.7 completed successfully"
     db.commit()
-                                            
+
+
+def migrate_to_bofhd_1_1():
+    print "\ndone."
+    assert_db_version("1.0", component='bofhd')
+    makedb('bofhd_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd", "1.1")
+    print "Migration to bofhd 1.1 completed successfully"
+    db.commit()
+
+
 def init():
     global db, co, str2const, num2const
 
@@ -454,7 +471,8 @@ def usage(exitcode=0):
     # TBD: --from could be fetched from Metainfo, but do we want that?
     print """Usage: [options]
     Migrates database from one database-schema to another.
-    --releases : list available release names
+    --component: which component to upgrade (default 'core')
+    --releases:  list available release names
     --from release_name: migrate from this release
     --to release_name: migrate to this release
     --help: this text
