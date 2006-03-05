@@ -32,6 +32,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import errors
 
+
 class SimpleLogger(object):
     # Unfortunately we cannot user Factory.get_logger due to the
     # singleton behaviour of cerelog.get_logger().  Once this is
@@ -78,7 +79,23 @@ class BofhdUtils(object):
         except Errors.NotFoundError:
             raise errors.UserHasNoQuota("User has no quota")
         return row
-        
+
+    def get_bdate_and_pnum(self, person_id):
+        """Return birth date and person number in the form expected by
+        FS.  If the person has no fodselsnr from FS, NotFoundError is
+        raised.
+
+        """
+        person = Person.Person(self.db)
+        person.find(person_id)
+        row = person.get_external_id(source_system=self.const.system_fs,
+                                     id_type=self.const.externalid_fodselsnr)
+        if not row:
+            raise errors.NotFoundError("Person has no fnr from FS")
+        fnum = row[0]['external_id']
+        return int(fnum[:6]), int(fnum[6:])
+
+
     def find_pq_person(self, fnr):
         """Returns person_id by doing fnr lookup in the order
         specified by 'betaling for utskrift': spesifikasjon.txt"""

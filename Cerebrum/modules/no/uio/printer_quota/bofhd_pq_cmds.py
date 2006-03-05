@@ -24,6 +24,7 @@ import cereconf
 from Cerebrum import Account
 from Cerebrum import Cache
 from Cerebrum import Constants
+from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Person
@@ -37,6 +38,7 @@ from Cerebrum.modules.no.uio.printer_quota import errors
 from Cerebrum.modules.no.uio import printer_quota
 from Cerebrum.modules.bofhd import auth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+
 
 class Constants(Constants.Constants):
     auth_pquota_list_history = _AuthRoleOpCode(
@@ -249,24 +251,75 @@ The currently defined id-types are:
     # pquota info
     all_commands['pquota_info'] = Command(
         ("pquota", "info"), PersonId())
-    def pquota_info(self, operator, person_id):
-        ppq_info = self.bu.get_pquota_status(
-            self.bu.find_person(person_id))
+    def pquota_info(self, operator, person):
+        person_id = self.bu.find_person(person)
+        try:
+            ppq_info = self.bu.get_pquota_status(person_id)
+        except errors.UserHasNoQuota, e:
+            return "%s: %s" % (person, e)
         has_quota = ppq_info['has_quota'] 
         has_blocked_quota = ppq_info['has_blocked_quota']
         import math
         paid_quota = int(math.floor(1/printer_quota.PAGE_COST *
                                     float(ppq_info['kroner'])))
-        total_available_quota = paid_quota + ppq_info['free_quota'] + ppq_info['accum_quota']
+        total_available_quota = (paid_quota + ppq_info['free_quota'] +
+                                 ppq_info['accum_quota'])
         if has_quota == 'T':
             if has_blocked_quota == 'T':
-                return "Quota blocked, missing semester registration or copy fee for the current term!"
-            if total_available_quota <= 0:
-                return "Quota status: no prints available\nPrint status: %d" % total_available_quota
-            return "Quota status: prints available \nPrint status: %d" % total_available_quota
+                try:
+                    bdate, pnum = self.bu.get_bdate_and_pnum(person_id)
+                except errors.NotFoundError:
+                    # TBD: Can this happen?
+                    return person + ": Quota has been blocked, person not in FS"
+                try:
+                    fs = Database.connect(user="ureg2000",
+                                          service="FSPROD.uio.no",
+                                          DB_driver='Oracle')
+                except Database.DatabaseError, e:
+                    self.logger.warn("Can't connect to FS (%s)" % e)
+                    raise CerebrumError("Can't connect to FS, try later")
+
+                # Estimate when Cerebrum was updated from FS last.  We
+                # assume it happens every morning at 07:00.
+                #
+                # We make some effort to get daylight saving and
+                # timezone right since DCOracle2.Timestamp doesn't.
+                tstamp = time.time()
+                year, mon, mday, hour = time.localtime(tstamp)[:4]
+                if hour < 7:
+                    year, mon, mday = time.localtime(tstamp - 7*3600)[:3]
+                tstamp = int(time.mktime((year, mon, mday, 7, 0, 0, 0, 0, -1)))
+                this_morning = fs.TimeFromTicks(tstamp)
+
+                reason = ["%s: Printer quota has been blocked due to:" % person]
+
+                from Cerebrum.modules.no.access_FS import Student
+                student = Student(fs)
+                reg = student.get_semreg(bdate, pnum)
+                if not reg:
+                    reason.append(' * Semester fee has not been paid, and '
+                                  'semester registration is missing')
+                elif reg[0]['regformkode'] == 'KUNBETALT':
+                    reason.append(' * Semester fee is paid, but semester '
+                                  'registration is missing')
+                elif reg[0]['dato_regform_endret'] > this_morning:
+                    reason.append(' * Semester registration was done today, '
+                                  'please wait for nightly update')
+
+                from Cerebrum.modules.no.uio.access_FS import UiOBetaling
+                bet = UiOBetaling(fs)
+                if not bet.list_ok_kopiavgift(fodselsdato=bdate, personnr=pnum):
+                    reason.append(" * Copy fee has not been paid")
+                return "\n".join(reason)
+            if total_available_quota == 0:
+                return "%s: No prints available" % person
+            elif total_available_quota < 0:
+                return ("%s: No prints available, overdraft is %d prints" %
+                        (person, abs(total_available_quota)))
+            return "%s: %d prints available" % (person, total_available_quota)
         else:
-            return "Person (%s) has unlimited printer quota." % person_id
-        
+            return "%s: Printer quota is unlimited" % person
+
     # pquota status
     all_commands['pquota_status'] = Command(
         ("pquota", "status"), PersonId(),
