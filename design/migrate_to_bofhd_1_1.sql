@@ -34,3 +34,6 @@ ALTER TABLE bofhd_session_state
 category:pre;
 ALTER TABLE bofhd_session_state
   RENAME COLUMN state_data_big TO state_data;
+
+/* arch-tag: 273eaab0-abf8-11da-945c-29e8ee2ffa5e
+   (do not change this comment) */
