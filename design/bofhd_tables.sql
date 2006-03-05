@@ -33,7 +33,7 @@
 category:metainfo;
 name=bofhd;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:main;
 CREATE TABLE bofhd_session
@@ -70,7 +70,7 @@ CREATE TABLE bofhd_session_state
                NOT NULL,
   entity_id    NUMERIC(12,0)
                NULL,
-  state_data   CHAR VARYING(80)
+  state_data   CHAR VARYING(512)
                NULL,
   set_time     TIMESTAMP
                NOT NULL
