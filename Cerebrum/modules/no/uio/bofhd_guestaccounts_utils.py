@@ -80,21 +80,18 @@ class BofhdUtils(object):
         elif trait['target_id'] is None:
             raise GuestAccountException("%s is already available" % guest)
 
-        # Set normal quarantine again to mark that the account is free
-        # Only way to do this is to delete disabled quarantine and set new
-        # quarantine. It would be useful with another way to do this.    
-        today = DateTime.today()
+        # Remove quarantine to ready the account for the next task.
+        # This is not a problem since no one can know the password
+        # until the guest has been requested.  (Access to changing the
+        # password should _not_ be granted to IT personell, that will
+        # also allow them to remove the quarantine of an activated
+        # guest.)
         ac.delete_entity_quarantine(self.co.quarantine_generell) 
-        ac.add_entity_quarantine(self.co.quarantine_generell, operator_id,
-                                 "Released guest user.", today.date) 
-        self.logger.debug("Quarantine reset for %s." % guest)
         ac.populate_trait(self.co.trait_guest_owner, target_id=None)
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
-        # When a account is released set new password so that the
-        # account is ready immediately when it is requested        
-        password = ac.make_passwd(guest)
-        ac.set_password(password)
-        # Finally, register a request to delete the home directory
+        ac.set_password(ac.make_passwd(guest))
+        # Finally, register a request to archive the home directory.
+        # A new directory will be created when archival has been done.
         br = BofhdRequests(self.db, self.co)
         br.add_request(operator_id, br.now,
                        self.co.bofh_archive_user, ac.entity_id, None,
@@ -166,8 +163,8 @@ class BofhdUtils(object):
         """Allocate a guest account.
 
         Make sure that the guest account requested actually exists and
-        is available. If so, set owner trait and mark the account as
-        taken by disabling quarantine until end_date
+        is available. If so, mark the account as taken by setting the
+        owner trait.
 
         """
         ac = Factory.get('Account')(self.db)    
@@ -176,10 +173,14 @@ class BofhdUtils(object):
         ac.find_by_name(guest)
         if ac.get_trait(self.co.trait_guest_owner)['target_id']:
             raise GuestAccountException("Guest user %s not available." % guest)
-        # OK, disable quarantine until end_date
-        self.logger.debug("Disable quarantine for %s" % guest)
-        ac.disable_entity_quarantine(int(self.co.quarantine_generell),
-                                     end_date)
+        if ac.get_entity_quarantine(self.co.quarantine_generell):
+            # This should only happen if someone meddles manually
+            self.logger.warn("Guest %s was unallocated, but had a quarantine" %
+                             guest)
+            ac.delete_entity_quarantine(self.co.quarantine_generell)
+        # OK, add a quarantine which kicks in at end_date
+        ac.add_entity_quarantine(self.co.quarantine_generell, operator_id,
+                                 "Guest user request expired", start=end_date) 
         # Set owner trait
         self.logger.debug("Set owner_id in owner_trait for %s" % guest)
         ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id)

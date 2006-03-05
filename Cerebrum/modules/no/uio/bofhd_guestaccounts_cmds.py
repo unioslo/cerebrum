@@ -187,19 +187,10 @@ class BofhdExtension(object):
                     posix_user.add_spread(self.co.Spread(spread))
             except self.db.DatabaseError, m:
                 raise CerebrumError, "Database error: %s" % m
-            # Add guest_trait and set quarantine
-            today = DateTime.today()
             posix_user.populate_trait(self.co.trait_guest_owner, target_id=None)
-            # The password must be set _after_ the trait, or else we
-            # won't store it using the 'PGP-guest_acc' method.
-            passwd = posix_user.make_passwd(uname)
-            posix_user.set_password(passwd)
-            #self.logger.debug("Set guest trait for %s" % uname)
-            posix_user.add_entity_quarantine(self.co.quarantine_generell,
-                                             operator.get_entity_id(),
-                                             "Available guest user",
-                                             today.date) 
-            #self.logger.debug("Set quarantine for %s" % uname)
+            # The password must be set _after_ the trait, or else it
+            # won't be stored using the 'PGP-guest_acc' method.
+            posix_user.set_password(posix_user.make_passwd(uname))
             posix_user.write_db()
             ret.append((uname, uid))
         return "OK, created guest_users:\n %s " % self._pretty_print(ret)
