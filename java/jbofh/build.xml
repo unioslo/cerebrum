@@ -10,6 +10,7 @@
   <property location="build" name="build"/>
   <property location="dist" name="dist"/>
   <property location="tmpdist" name="tmp"/>
+  <property location="javadoc" name="doc"/>
 
   <target name="init">
     <!-- Create the time stamp -->
@@ -21,10 +22,16 @@
   <target depends="init" description="compile the source " name="compile" unless="${nogui}">
     <!-- Compile the java code from ${src} into ${build} -->
     <echo>Compiling with gui </echo>
+    <depend
+      srcdir="${src}"
+      destdir="${build}"
+      closure="true"
+      dump="true">
+      <include name="no/uio/**/*.java" />
+    </depend>
     <javac destdir="${build}" srcdir="${src}" debug="on">
             <classpath>
-                <fileset dir="lib" includes="*.jar">
-                </fileset>
+                <fileset dir="lib" includes="*.jar"></fileset>
             </classpath>
         </javac>
   </target>
@@ -32,6 +39,13 @@
   <target depends="init" description="compile the source" name="compile-nogui" if="${nogui}">
     <!-- Compile the java code from ${src} into ${build} -->
     <echo>Compiling without gui </echo>
+    <depend
+      srcdir="${src}"
+      destdir="${build}"
+      closure="true"
+      dump="true">
+      <include name="no/uio/**/*.java" />
+    </depend>
     <javac destdir="${build}" srcdir="${src}" debug="on">
             <classpath>
                 <fileset dir="lib" includes="*.jar">
@@ -70,7 +84,37 @@
     <delete dir="${build}"/>
     <delete dir="${dist}"/>
     <delete dir="${tmp}"/>
+    <delete dir="${doc}"/>
   </target>
+
+  <target description="Generate javadoc sourcecode documentation" name="doc">
+    <mkdir dir="${doc}"/>
+    <javadoc
+      sourcepath="${src}"
+      packagenames="no.uio.*"
+      access="private"
+      version="true"
+      windowtitle="Cerebrum JBOFH source code documentation"
+      destdir="${doc}"
+      author="true">
+      <classpath>
+         <pathelement location="lib/libreadline-java.jar"/>
+         <pathelement location="lib/JavaPrintf.jar"/>
+         <pathelement location="lib/log4jME.jar"/>
+         <pathelement location="lib/xmlrpc-1.1.jar"/>
+         <pathelement location="lib/xp.jar"/>
+      </classpath> 
+      <group title="Cerebrum JBOFH classes" packages="no.uio.jbofh*"/>
+      <link href="http://java.sun.com/j2se/1.5.0/docs/api" />
+    </javadoc>
+  </target>
+
+  <target 
+    name="all"
+    depends="dist,doc" 
+    description="Make distribution and generate javadoc documentation">
+  </target>
+
 </project>
 
 <!-- arch-tag: 6037b3ca-369d-4912-8f0a-823872d2c6f5
