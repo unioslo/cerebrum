@@ -18,8 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# FIXME: Remove PgSQL dependency
-import pyPgSQL.PgSQL
 import Cerebrum
 from Cerebrum.extlib import sets
 
@@ -54,8 +52,7 @@ class ConvertableAttribute(object):
     def convert_from(self, db, value):
         if value is None:
             return None
-        # Depends on the db-driver, should be done in a cleaner way.
-        if isinstance(value, pyPgSQL.PgSQL.PgNumeric):
+        if isinstance(value, db.numericType):
             value = int(value)
         # Inject db-object if data_type is a DatabaseTransactionClass
         if issubclass(self.data_type, DatabaseTransactionClass):

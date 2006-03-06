@@ -936,6 +936,10 @@ class PgSQL(PostgreSQLBase):
             # CLIENT_ENCODING = 'default charset for database'.
             self.commit()
 
+        # self.numericType is used by spine to test whether to
+        # auto-convert query-results to int.
+        self.numericType = self._db_mod.PgNumeric
+
     # According to its documentation, this driver module implements
     # the Binary constructor as a method of the connection object.
     #
@@ -995,6 +999,10 @@ class PsycoPG(PostgreSQLBase):
         self._db.set_isolation_level(1)  # read-committed
         self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
         self.commit()
+
+        # self.numericType is used by spine to test whether to
+        # auto-convert query-results to int.
+        self.numericType = self._db_mod.NUMBER
 
     def cursor(self):
         return PsycoPGCursor(self)
