@@ -49,202 +49,6 @@ import org.gnu.readline.ReadlineLibrary;
 import com.sun.java.text.PrintfFormat;
 
 /**
- * Thrown when analyzeing of command failes.
- *
- * @author  runefro
- */
-
-class AnalyzeCommandException extends Exception {
-    private static final long serialVersionUID = 1L;
-
-    /**
-     * @param msg message describing the error
-     */    
-    AnalyzeCommandException(String msg) {
-        super(msg);
-    }
-}
-
-/**
- * Tab-completion utility for use with readline.  Also supports translation 
- * of short-form of unique commands to full-form.
- *
- * @author  runefro
- */
-
-class BofhdCompleter implements org.gnu.readline.ReadlineCompleter {
-    JBofh jbofh;
-    Vector possible;
-    Iterator iter;
-    Category logger;
-    Hashtable complete;
-    private boolean enabled;
-
-    BofhdCompleter(JBofh jbofh, Category logger) {
-        this.jbofh = jbofh;
-        this.logger = logger;
-        this.enabled = false;
-        complete = new Hashtable();
-        //buildCompletionHash();
-    }
-    
-    public void setEnabled(boolean state) {
-        this.enabled = state;
-    }
-
-    /**
-     * {   'access': {   'disk': 'access_disk', ... } }
-     */
-    public void addCompletion(Vector cmd_parts, String target) 
-        throws BofhdException{
-        Hashtable parent = complete;
-        for(Enumeration e = cmd_parts.elements(); e.hasMoreElements(); ) {
-            String protoCmd = (String) e.nextElement();
-            Object tmp = parent.get(protoCmd);
-            if(tmp == null) {
-                if(e.hasMoreElements()) {
-                    parent.put(protoCmd, tmp = new Hashtable());
-                    parent = (Hashtable) tmp;
-                } else {
-                    parent.put(protoCmd, target);
-                }
-            } else {
-                if(tmp instanceof Hashtable) {
-                    if(! e.hasMoreElements()) {
-                        throw new BofhdException(
-                            "Existing map target for"+cmd_parts);
-                    }
-                    parent = (Hashtable) tmp;
-                } else {
-                    if(e.hasMoreElements()) {
-                        throw new BofhdException(
-                            "Existing map target is not a "+
-                            "Hashtable for "+cmd_parts);
-                    } else {
-                        parent.put(protoCmd, target);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Analyze the command that user has entered by comparing with the
-     * list of legal commands, and translating to the command-parts
-     * full name.  When the command is not unique, the value of expat
-     * determines the action.  If < 0, or not equal to the current
-     * argument number, an AnalyzeCommandException is thrown.
-     * Otherwise a list of legal values is returned.
-     *
-     * If expat < 0 and all checked parameters defined in the list of
-     * legal commands were ok, the expanded parameters are returned,
-     * followed by the corresponding protocol_command.  Otherwise an
-     * exception is thrown.
-     *
-     * @param cmd the arguments to analyze
-     * @param expat the level at which expansion should occour, or < 0 to translate
-     * @throws AnalyzeCommandException
-     * @return list of completions, or translated commands
-     */    
-
-    public Vector analyzeCommand(Vector cmd, int expat) throws AnalyzeCommandException { 
-        Hashtable parent = complete;
-        Vector cmdStack = new Vector();
-        int lvl = 0;
-
-        while(expat < 0 || lvl <= expat) {
-            String this_cmd = null;
-            if (lvl < cmd.size()) this_cmd = (String) cmd.get(lvl);
-            Vector thisLevel = new Vector();
-
-            for(Enumeration enumCompleter = parent.keys(); 
-                enumCompleter.hasMoreElements(); ) {
-                String this_key = (String) enumCompleter.nextElement();
-                if(this_cmd == null || this_key.startsWith(this_cmd)) {
-                    thisLevel.add(this_key);
-                    if(this_key.equals(this_cmd) && expat < 1) {
-                        // expanding, and one command matched exactly
-                        thisLevel.clear();
-                        thisLevel.add(this_key);
-                        break;
-                    }
-                }
-            }
-            if (lvl == expat)
-                return thisLevel;
-            if(thisLevel.size() != 1 || 
-                (expat < 0 && cmdStack.size() >= cmd.size())) {
-                if(expat < 0){
-                    if (thisLevel.size() == 0)
-                        throw new AnalyzeCommandException("Unknown command");
-                    throw new AnalyzeCommandException(
-                        "Incomplete command, possible subcommands: "+thisLevel);
-                }
-                throw new AnalyzeCommandException(cmd+" -> "+thisLevel+","+lvl);
-            }
-            String cmdPart = (String) thisLevel.get(0);
-            cmdStack.add(cmdPart);
-            Object tmp = parent.get(cmdPart);
-            if(!(tmp instanceof Hashtable)) {
-                if(expat < 0){
-                    cmdStack.add(tmp);
-                    return cmdStack;
-                }
-                return new Vector();  // No completions
-            }
-            parent = (Hashtable) tmp;
-            lvl++;
-        }
-        logger.error("oops: analyzeCommand "+parent+", "+lvl+", "+expat);
-        throw new RuntimeException("Internal error");  // Not reached
-    }
-
-    public String completer(String str, int param) {
-        /*
-         * The readLine library gives too little information about the
-         * current line to get this correct as it does not seem to
-         * include information about where on the line the cursor is
-         * when tab is pressed, making it impossible to tab-complete
-         * within a line.
-         * 
-         **/
-        String cmdLineText;
-        if(jbofh.guiEnabled) {
-            cmdLineText = jbofh.mainFrame.getCmdLineText();
-        } else {
-            cmdLineText = Readline.getLineBuffer();
-        }
-        if(! this.enabled) 
-            return null;
-        if(param == 0) {  // 0 -> first call to iterator
-            Vector args;
-            try {
-                args = jbofh.cLine.splitCommand(cmdLineText);
-            } catch (ParseException pe) {
-                iter = null;
-                return null;
-            }
-            int len = args.size();
-            if(! cmdLineText.endsWith(" ")) len--;
-            if(len < 0) len = 0;
-            if(len >= 2) {
-                iter = null;
-                return null;
-            }
-            try {
-                possible = analyzeCommand(args, len);
-                iter = possible.iterator();
-            } catch (AnalyzeCommandException e) {
-                logger.debug("Caught: ", e);
-                iter = null;
-            }
-        }
-        if(iter != null && iter.hasNext()) return (String) iter.next();
-        return null;
-    }
-}
-
-/**
  * Main class for the JBofh program.
  *
  * @author  runefro
@@ -636,63 +440,67 @@ public class JBofh {
             }
             return processServerCommandPromptFunction(cmd, ret);
         }
-        for(int i = args.size(); i < ((Vector) pspec).size(); i++) {
-            Hashtable param = (Hashtable) ((Vector) pspec).get(i);
-            logger.debug("ps: "+i+" -> "+param);
-            Object opt = param.get("optional");
-            if(! did_prompt && opt2bool(opt))
-                break;  // If we have prompted, remain in prompt-mode also for optional args
-            Object tmp = param.get("default");
-            String defval = null;
-            if(tmp != null) {
-                if(tmp instanceof String){
-                    defval = (String) tmp;
-                } else {
-                    ret.add(0, bc.sessid);
-                    ret.add(1, cmd);
-                    defval = (String) bc.sendRawCommand("get_default_param", ret, 0);
-                    ret.remove(0);
-                    ret.remove(0);
-                }
-            }
-            did_prompt = true;
-            String prompt = (String) param.get("prompt");
-            String type = (String) param.get("type");
-            try {
-                String s;
-                if (type != null && type.equals("accountPassword")) {
-                    ConsolePassword cp = new ConsolePassword(mainFrame);
+	for(int i = args.size(); i < ((Vector) pspec).size(); i++) {
+	    Hashtable param = (Hashtable) ((Vector) pspec).get(i);
+	    logger.debug("ps: "+i+" -> "+param);
+	    Object opt = param.get("optional");
+	    if(! did_prompt && opt2bool(opt))
+		break;  // If we have prompted, remain in prompt-mode also for optional args
+	    Object tmp = param.get("default");
+	    String defval = null;
+	    if(tmp != null) {
+		if(tmp instanceof String){
+		    defval = (String) tmp;
+		} else {
+		    ret.add(0, bc.sessid);
+		    ret.add(1, cmd);
+		    defval = (String) bc.sendRawCommand("get_default_param", ret, 0);
+		    ret.remove(0);
+		    ret.remove(0);
+		}
+	    }
+	    did_prompt = true;
+	    String prompt = (String) param.get("prompt");
+	    String type = (String) param.get("type");
+	    try {
+		String s;
+		if (type != null && type.equals("accountPassword")) {
+		    ConsolePassword cp = new ConsolePassword(mainFrame);
 
-                    if(guiEnabled) {
-                        try {
-                            s = cp.getPasswordByJDialog(prompt + ">", JBofhFrame.frame);
-                        } catch (MethodFailedException e) {
-                            s = "";
-                        }
-                    } else {
-                        s = cp.getPassword(prompt + ">");
-                    }
-                } else {
-                    bcompleter.setEnabled(false);
-                    s = cLine.promptArg(prompt+
-                        (defval == null ? "" : " ["+defval+"]")+" >", false);
-                }
-                if(defval != null && s.equals("")) {
-                    ret.add(defval);
-                } else if(s.equals("?")) {
-                    i--;
-                    Vector v = new Vector();
-                    v.add("arg_help");
-                    v.add(param.get("help_ref"));
-                    String help = (String) bc.getHelp(v);
-                    showMessage(help, true);
-                } else {
-                    ret.add(s);
-                }
-            } catch (IOException io) {
-                return null;
-            }
-        }
+		    if(guiEnabled) {
+			try {
+			    s = cp.getPasswordByJDialog(prompt + ">", JBofhFrame.frame);
+			} catch (MethodFailedException e) {
+			    s = "";
+			}
+		    } else {
+			s = cp.getPassword(prompt + ">");
+		    }
+		} else {
+		    bcompleter.setEnabled(false);
+		    s = cLine.promptArg(prompt+
+					(defval == null ? "" : " ["+defval+"]")+" >", false);
+		}
+		if(defval != null && s.equals("")) {
+		    ret.add(defval);
+		} else if(s.equals("?")) {
+		    i--;
+		    Vector v = new Vector();
+		    v.add("arg_help");
+		    v.add(param.get("help_ref"));
+		    String help = (String) bc.getHelp(v);
+		    showMessage(help, true);
+		} else {
+		    if (param.get("optional") != null && s.equals("")) {
+			// Ignore optional arguments when left empty
+		    } else {
+			ret.add(s);
+		    }
+		}
+	    } catch (IOException io) {
+		return null;
+	    }
+	}
         return ret;
     }
     
