@@ -52,7 +52,7 @@ logger = Factory.get_logger("cronjob")
 # Hosts to connect to, set to None in a production environment:
 debug_hostlist = None
 SUDO_CMD = "/usr/bin/sudo"
-ldapconn = None
+ldapconns = None
 imapconn = None
 imaphost = None
 
@@ -64,25 +64,29 @@ imaphost = None
 default_spread = const.spread_uio_nis_user
 
 def email_delivery_stopped(user):
-    global ldapconn
-    # Delayed import so that the script can be run on machines without
-    # the ldap module
+    global ldap, ldapconn
     import ldap, ldap.filter, ldap.ldapobject
-    if ldapconn is None:
-        ldapconn= ldap.ldapobject.ReconnectLDAPObject("ldap://ldap.uio.no/")
-        ldapconn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
-        ldapconn.set_option(ldap.OPT_DEREF, ldap.DEREF_NEVER)
-    try:
-        res = ldapconn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
+    if ldapconns is None:
+        # Delayed import so the script can run on machines without ldap module
+        import ldap, ldap.filter, ldap.functions, ldap.ldapobject
+        ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
+                     for server in ("beeblebrox.uio.no", "marvin.uio.no")]
+    filter = ("(&(target=%s)(mailPause=TRUE))"
+              % (ldap.filter.escape_filter_chars(user),))
+    for conn in ldapconns:
+        try:
+            res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
                                 ldap.SCOPE_ONELEVEL,
                                 ("(&(target=%s)(mailPause=TRUE))" %
                                  ldap.filter.escape_filter_chars(user)),
                                 ["1.1"])
-    except ldap.LDAPError, e:
-        logger.error("LDAP search failed: %s", e)
-        return False
+            if len(res) != 1:
+                return False
+        except ldap.LDAPError, e:
+            logger.error("LDAP search failed: %s", e)
+            return False
 
-    return len(res) == 1
+    return True
 
 def get_email_target_id(user_id):
     t = Email.EmailTarget(db)
