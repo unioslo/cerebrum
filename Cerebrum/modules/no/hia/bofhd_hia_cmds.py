@@ -4076,6 +4076,11 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("user_passwd", {'account_id': int(account.entity_id),
                                              'password': password})
+        # Remove "weak password" quarantine
+        for r in account.get_entity_quarantine():
+            if int(r['quarantine_type']) == self.const.quarantine_autopassord:
+                account.delete_entity_quarantine(self.const.quarantine_autopassord)
+
         if account.get_entity_quarantine():
             return "OK.  Warning: user has quarantine"
         return "Password altered. Please use misc list_password to print or view the new password."
