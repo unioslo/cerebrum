@@ -54,7 +54,7 @@ DROP TABLE auth_operation;
 category:drop;
 DROP TABLE auth_operation_set;
 category:drop;
-DROP SEQUENCE auth_;
+DROP SEQUENCE auth_seq;
 
 
 category:main;
@@ -68,9 +68,9 @@ category:main;
 CREATE TABLE auth_operation (
   id            NUMERIC(12,0)
     CONSTRAINT auth_operation_pk PRIMARY KEY,
-  op_class      CHAR VARYING(256)
+  op_class      VARCHAR
     NOT NULL,
-  op_method     CHAR VARYING(256)
+  op_method     VARCHAR
     NOT NULL,
   CONSTRAINT auth_operation_u UNIQUE (op_class, op_method)
 );
@@ -95,13 +95,12 @@ category:main;
 CREATE TABLE auth_operation_set (
   id            NUMERIC(12,0)
     CONSTRAINT auth_operation_set_pk PRIMARY KEY,
-  name          CHAR VARYING(30)
+  name          VARCHAR
     NOT NULL,
-  description   CHAR VARYING(512)
+  description   VARCHAR
     NOT NULL DEFAULT ''
 );
 category:main;
-CREATE SEQUENCE auth_operation_set_id_seq;
 
 
 /* Links operations in operations sets.
@@ -137,7 +136,8 @@ CREATE TABLE auth_target_commands (
     NOT NULL
     CONSTRAINT auth_target_commands_user_type_check
       CHECK (user_type IN ([:get_constant name=entity_account],
-                [:get_constant name=entity_group])),
+        [:get_constant name=entity_group])),
+
   op_set_id     NUMERIC(12,0)
     NOT NULL
     CONSTRAINT auth_target_commands_op_set_fk
@@ -165,7 +165,8 @@ CREATE TABLE auth_target_self (
     NOT NULL
     CONSTRAINT auth_target_self_user_type_check
       CHECK (user_type IN ([:get_constant name=entity_account],
-                [:get_constant name=entity_group])),
+        [:get_constant name=entity_group])),
+
   op_set_id     NUMERIC(12,0)
     NOT NULL
     CONSTRAINT auth_target_self_op_set_fk
@@ -190,6 +191,7 @@ CREATE TABLE auth_target_spread (
     CONSTRAINT auth_target_spread_user_type_check
       CHECK (user_type IN ([:get_constant name=entity_account],
         [:get_constant name=entity_group])),
+
   op_set_id     NUMERIC(12,0)
     NOT NULL
     CONSTRAINT auth_target_spread_op_set_fk
@@ -216,8 +218,9 @@ CREATE TABLE auth_target_entity (
   user_type     NUMERIC(6,0)
     NOT NULL
     CONSTRAINT auth_target_entity_user_type_check
-      CHECK (user_type IN ([:get_constant name=entity_account],
+    CHECK (user_type IN ([:get_constant name=entity_account],
         [:get_constant name=entity_group])),
+
   op_set_id     NUMERIC(12,0)
     NOT NULL
     CONSTRAINT auth_target_entity_op_set_fk
@@ -251,6 +254,8 @@ CREATE TABLE auth_target_super (
     CONSTRAINT auth_target_super_user_type_check
       CHECK (user_type IN ([:get_constant name=entity_account],
         [:get_constant name=entity_group])),
+
+
   CONSTRAINT auth_target_super_user_check
     FOREIGN KEY (user_type, user_id)
     REFERENCES entity_info(entity_type, entity_id)
