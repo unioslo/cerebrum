@@ -43,6 +43,7 @@ class FeideGvsConstants(Constants.Constants):
 
     externalid_sas_id = _EntityExternalIdCode(
         'SASID',
+        Constants.Constants.entity_ou,
         'SAS internal id-number')
 
     affiliation_admin = _PersonAffiliationCode(
@@ -152,11 +153,6 @@ class FeideGvsConstants(Constants.Constants):
     quarantine_svakt_passord = _QuarantineCode(
 	'svakt_passord', 
 	'For dårlig passord')
-
-    externalid_fodselsnr = _EntityExternalIdCode(
-        'NO_BIRTHNO',
-        'Norwegian birth number')
-
 
 
 class FeideGvsEntity(DatabaseAccessor):
