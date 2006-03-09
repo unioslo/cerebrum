@@ -391,6 +391,13 @@ class Builder(object):
 
     register_attribute = classmethod(register_attribute)
 
+    def register_methods(cls, methods):
+        for i in methods:
+            name, signature, write, args, exceptions = get_method_signature(i)
+            setattr(cls, name, i)
+
+    register_methods = classmethod(register_methods)
+
     def register_method(cls, method, method_func, overwrite=False):
         """Registers a method.
         

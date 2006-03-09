@@ -20,7 +20,6 @@
 
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.Builder import Method
 
 from Entity import Entity
 from Host import Host
@@ -50,20 +49,23 @@ class Disk(Entity):
 
 registry.register_class(Disk)
 
-def create(self, host, path, description):
+def create_disk(self, host, path, description):
     db = self.get_database()
     new_id = Disk._create(db, host.get_id(), path, description)
     
     return Disk(db, new_id)
 
-args = [('host', Host), ('path', str), ('description', str)]
-Commands.register_method(Method('create_disk', Disk, args=args, write=True), create)
+create_disk.signature = Disk
+create_disk.signature_write = True
+create_disk.signature_args = [Host, str, str]
+Commands.create_disk = create_disk
 
 def get_disks(self):
     searcher = registry.DiskSearcher(self.get_database())
     searcher.set_host(self)
     return searcher.search()
 
-Host.register_method(Method('get_disks', [Disk], args=[]), get_disks)
+get_disks.signature = [Disk]
+Host.get_disks = get_disks
 
 # arch-tag: 3c4a4e7b-88e8-4b38-83b4-8648146d94bf

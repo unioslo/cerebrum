@@ -22,7 +22,6 @@ import Cerebrum.modules.Email
 import Cerebrum.Database
 import Cerebrum.Errors
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
 from SpineLib import SpineExceptions
 from SpineLib.Date import Date
@@ -89,7 +88,10 @@ def create_email_domain(self, name, description):
         raise SpineExceptions.AlreadyExistsError('A domain with the specified name already exists.')
     return EmailDomain(self.get_database(), obj.email_domain_id)
 
-Commands.register_method(Method('create_email_domain', EmailDomain, args=[('name', str), ('description', str)], write=True, exceptions=[SpineExceptions.AlreadyExistsError]), create_email_domain)
+create_email_domain.signature = EmailDomain
+create_email_domain.signature_write = True
+create_email_domain.signature_args = [str, str]
+create_email_domain.exceptions = exceptions=[SpineExceptions.AlreadyExistsError]
 
 table = 'email_domain_category'
 class EmailDomainCategorization(DatabaseClass):
@@ -129,7 +131,10 @@ def get_email_domains_by_category(self, category):
     s = registry.EmailDomainCategorizationSearcher(self.get_database())
     s.set_category(category)
     return [i.get_domain() for i in s.search()]
-Commands.register_method(Method('get_email_domains_by_category', [EmailDomain], args=[('category', EmailDomainCategory)]), get_email_domains_by_category)
+
+get_email_domains_by_category.signature = [EmailDomain]
+get_email_domains_by_category.signature_args = [EmailDomainCategory]
+Commands.get_email_domains_by_category = get_email_domains_by_category
 
 def get_categories(self):
     """
@@ -142,7 +147,9 @@ def get_categories(self):
     s = registry.EmailDomainCategorizationSearcher(self.get_database())
     s.set_domain(self)
     return [i.get_category() for i in s.search()]
-EmailDomain.register_method(Method('get_categories', [EmailDomainCategory], args=[]), get_categories)
+
+get_categories.signature = [EmailDomainCategory]
+EmailDomain.get_categories = get_categories
 
 def add_to_category(self, category):
     """
@@ -158,7 +165,12 @@ def add_to_category(self, category):
     obj.find(self.get_id())
     obj.add_category(category.get_id())
     obj.write_db()
-EmailDomain.register_method(Method('add_to_category', None, args=[('category', EmailDomainCategory)], write=True, exceptions=[SpineExceptions.ValueError]), add_to_category)
+
+add_to_category.signature = None
+add_to_category.signature_write = True
+add_to_category.signature_args = [EmailDomainCategory]
+EmailDomain.add_to_category = add_to_category
+
 
 def remove_from_category(self, category):
     """
@@ -174,7 +186,11 @@ def remove_from_category(self, category):
     obj.find(self.get_id())
     obj.remove_category(category.get_id())
     obj.write_db()
-EmailDomain.register_method(Method('remove_from_category', None, args=[('category', EmailDomainCategory)], write=True, exceptions=[SpineExceptions.ValueError]), remove_from_category)
+
+remove_from_category.signature = None
+remove_from_category.signature_write = True
+remove_from_category.signature_args = [EmailDomainCategory]
+EmailDomain.remove_from_category = remove_from_category
 
 def get_domains(self):
     """
@@ -186,7 +202,10 @@ def get_domains(self):
     s = registry.EmailDomainCategorizationSearcher(self.get_database())
     s.set_category(self)
     return [i.get_domain() for i in s.search()]
-EmailDomainCategory.register_method(Method('get_domains', [EmailDomain], args=[]), get_domains)
+
+
+get_domains.signature = [EmailDomain]
+EmailDomainCategory.get_domains = get_domains
 
 table = 'email_target'
 class EmailTarget(DatabaseClass):
@@ -267,14 +286,18 @@ class EmailTarget(DatabaseClass):
         except Cerebrum.Database.OperationalError:
             raise SpineExceptions.AlreadyExistsError('There already exists a target for the specified entity.')
 
-def delete_email_target(self):
-    obj = Cerebrum.modules.Email.EmailTarget(self.get_database())
-    obj.find(self.get_id())
-    try:
-        obj.delete()
-    except Cerebrum.Database.IntegrityError:
-        raise SpineExceptions.DeletionError('Constraint violated during deletion. There may be e-mail addresses referring to the target.')
-EmailTarget.register_method(Method('delete', None, args=[], write=True, exceptions=[SpineExceptions.DeletionError]), delete_email_target)
+    def delete_email_target(self):
+        obj = Cerebrum.modules.Email.EmailTarget(self.get_database())
+        obj.find(self.get_id())
+        try:
+            obj.delete()
+        except Cerebrum.Database.IntegrityError:
+            raise SpineExceptions.DeletionError('Constraint violated during deletion. There may be e-mail addresses referring to the target.')
+
+    delete_email_target.signature = None
+    delete_email_target.signature_write = True
+    delete_email_target.signature_exceptions = [SpineExceptions.DeletionError]
+
 registry.register_class(EmailTarget)
 
 def create_email_target(self, type):
@@ -292,7 +315,11 @@ def create_email_target(self, type):
     obj.populate(type.get_id())
     obj.write_db()
     return EmailTarget(self.get_database(), obj.email_target_id)
-Commands.register_method(Method('create_email_target', EmailTarget, args=[('type', EmailTargetType)], write=True), create_email_target)
+
+create_email_target.signature = EmailTarget
+create_email_target.signature_write = True
+create_email_target.signature_args = [EmailTargetType]
+Commands.create_email_target = create_email_target
 
 table = 'email_address'
 class EmailAddress(DatabaseClass):
@@ -320,9 +347,6 @@ class EmailAddress(DatabaseClass):
         DatabaseAttr('change_date', table, Date),
         DatabaseAttr('expire_date', table, Date, write=True),
     )
-    method_slots = (
-        Method('delete', None, write=True),
-    )
 
     db_attr_aliases = {
         table : {
@@ -343,8 +367,10 @@ class EmailAddress(DatabaseClass):
         obj.delete()
         obj.write_db()
 
-registry.register_class(EmailAddress)
+    delete.signature = None
+    delete.signature_write = True
 
+registry.register_class(EmailAddress)
 
 def find_email_address(self, address):        
     """
@@ -359,10 +385,10 @@ def find_email_address(self, address):
         ## FIXME: what error to raise if caller forgot @ ? 
         return
     return EmailAddress(self.get_database(), obj.email_addr_id)
-Commands.register_method(Method('find_email_address', EmailAddress,
-                                args=[('address', str)]), 
-                         find_email_address) 
 
+find_email_address.signature = EmailAddress
+find_email_address.signature_args = [str]
+Commands.find_email_address = find_email_address
 
 def create_email_address(self, local_part, domain, target):
     """
@@ -381,9 +407,10 @@ def create_email_address(self, local_part, domain, target):
     obj.populate(local_part, domain.get_id(), target.get_id())
     obj.write_db()
     return EmailAddress(self.get_database(), obj.email_addr_id)
-Commands.register_method(Method('create_email_address', EmailAddress, args=[('local_part', str), ('domain', EmailDomain), 
-    ('target', EmailTarget)], write=True), create_email_address)
 
+create_email_address.signature = EmailAddress
+create_email_address.signature_write = True
+create_email_address.signature_args = [str, EmailDomain, EmailTarget]
   
 def full_address(self):
     """
@@ -391,7 +418,8 @@ def full_address(self):
     """       
     ## FIXME: Should be in Cerebrum object
     return "%s@%s" % (self.get_local_part(), self.get_domain().get_name())
-EmailAddress.register_method(Method('full_address', str), full_address)
+full_address.signature = str
+EmailAddress.full_address = full_address
 
 def get_addresses(self):
     """
@@ -406,8 +434,9 @@ def get_addresses(self):
     s = registry.EmailAddressSearcher(self.get_database())
     s.set_target(self)
     return s.search()
-EmailTarget.register_method(Method('get_addresses', [EmailAddress], args=[]), get_addresses)
 
+get_addresses.signature = [EmailAddress]
+EmailTarget.get_addresses = get_addresses
 
 table = 'email_primary_address'
 class PrimaryEmailAddress(DatabaseClass):
@@ -451,7 +480,10 @@ def get_primary_address(self):
         return registry.PrimaryEmailAddress(self.get_database(), self).get_address()
     except SpineExceptions.NotFoundError:
         raise SpineExceptions.NotFoundError('E-mail target has no primary address.')
-EmailTarget.register_method(Method('get_primary_address', EmailAddress, args=[], exceptions=[SpineExceptions.NotFoundError]), get_primary_address)
+
+get_primary_address.signature = EmailAddress
+get_primary_address.signature_exceptions = [SpineExceptions.NotFoundError]
+EmailTarget.get_primary_address = get_primary_address
 
 def set_primary_address(self, address):
     """
@@ -478,8 +510,11 @@ def set_primary_address(self, address):
         except Cerebrum.Errors.NotFoundError:
             obj.populate(address.get_id(), self.get_id())
     obj.write_db()
-EmailTarget.register_method(Method('set_primary_address', None, args=[('address', EmailAddress)],
-    exceptions=[SpineExceptions.NotFoundError], write=True), set_primary_address)
+
+set_primary_address.signature = None
+set_primary_address.signature_write = True
+set_primary_address.signature_args = [EmailAddress]
+EmailTarget.set_primary_address = set_primary_address
 
 def set_as_primary(self):
     """
@@ -492,7 +527,9 @@ def set_as_primary(self):
     """
     if not self.is_primary():
         self.get_target().set_primary_address(self)
-EmailAddress.register_method(Method('set_as_primary', None, args=[], write=True), set_as_primary)
+
+set_as_primary.signature = None
+EmailAddress.set_as_primary = set_as_primary
 
 def unset_as_primary(self):
     """
@@ -504,8 +541,14 @@ def unset_as_primary(self):
     \\see PrimaryEmailAddress
     """
     if self.is_primary():
-        self.get_target().set_primary_address(None)
-EmailAddress.register_method(Method('unset_as_primary', None, args=[], write=True), unset_as_primary)
+        # FIXME: there might be more here like this.
+        target = self.get_target()
+        target.set_primary_address(None)
+        target.save()
+
+unset_as_primary.signature = None
+unset_as_primary.signature_write = True
+EmailAddress.unset_as_primary = unset_as_primary
 
 def is_primary(self):
     """
@@ -519,7 +562,9 @@ def is_primary(self):
     s.set_address(self)
     assert len(s.search()) <= 1 # There can only be either 0 or 1 primary e-mail address
     return len(s.search()) == 1
-EmailAddress.register_method(Method('is_primary', bool), is_primary)
+
+is_primary.signature = bool
+EmailAddress.is_primary = is_primary
 
 table = 'email_entity_domain'
 class EntityEmailDomain(DatabaseClass):
@@ -562,7 +607,10 @@ def get_email_domain(self, affiliation):
     \\see EmailDomain
     """
     return registry.EntityEmailDomain(self.get_database(), self, affiliation).get_domain()
-Person.register_method(Method('get_email_domain', EmailDomain, args=[('affiliation', PersonAffiliationType)]), get_email_domain)
+
+get_email_domain.signature = EmailDomain
+get_email_domain.signature_args = [int]
+Person.get_email_domain = get_email_domain
 
 def set_email_domain(self, affiliation, domain):
     """
@@ -588,7 +636,11 @@ def set_email_domain(self, affiliation, domain):
         else:
             obj.populate_email_domain(domain.get_id(), affiliation.get_id())
     obj.write_db()
-Person.register_method(Method('set_email_domain', EmailDomain, args=[('affiliation', PersonAffiliationType), ('domain', EmailDomain)], write=True), set_email_domain)
+
+set_email_domain.signature = EmailDomain
+set_email_domain.signature_write = True
+set_email_domain.signature_args = [PersonAffiliationType, EmailDomain]
+Person.set_email_domain = set_email_domain
 
 def get_persons(self, affiliation):
     """
@@ -603,7 +655,10 @@ def get_persons(self, affiliation):
     s.set_domain(self)
     s.set_affiliation(affiliation)
     return [i.get_entity() for i in s.search()]
-EmailDomain.register_method(Method('get_persons', [Person], args=[('affiliation', PersonAffiliationType)]), get_persons)
+
+get_persons.signature = [Person]
+get_persons.signature_args = [PersonAffiliationType]
+EmailDomain.get_persons = get_persons
 
 def aff_get_email_domain(self):
     """
@@ -614,7 +669,9 @@ def aff_get_email_domain(self):
     \\see EntityEmailDomain
     """
     return registry.EntityEmailDomain(self.get_database(), self.get_person(), self.get_affiliation()).get_domain()
-PersonAffiliation.register_method(Method('get_email_domain', EmailDomain, args=[]), aff_get_email_domain)
+
+aff_get_email_domain.signature = EmailDomain
+PersonAffiliation.aff_get_email_domain = aff_get_email_domain
 
 def aff_set_email_domain(self, domain):
     """
@@ -632,6 +689,10 @@ def aff_set_email_domain(self, domain):
         obj.populate(self.get_person().get_id())
         obj.populate_email_domain(domain.get_id(), affiliation.get_id())
     obj.write_db()
-PersonAffiliation.register_method(Method('set_email_domain', None, args=[('domain', EmailDomain)], write=True), aff_set_email_domain)
+
+aff_set_email_domain.signature = None
+aff_set_email_domain.signature_write = True
+aff_set_email_domain.signature_args = [EmailDomain]
+PersonAffiliation.aff_set_email_domain = aff_set_email_domain
 
 # arch-tag: bd478dc6-f9ef-11d9-905c-b1284ed93a3d

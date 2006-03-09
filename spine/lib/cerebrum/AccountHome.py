@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.Builder import Method
 from SpineLib.SpineExceptions import NotFoundError
 
 from Account import Account
@@ -55,10 +54,6 @@ class HomeDirectory(DatabaseClass):
         DatabaseAttr('status', homedir_table, HomeStatus, write=True)
     )
 
-    method_slots = (
-        Method('get_path', str),
-    )
-
     db_attr_aliases = {
         homedir_table:{
             'id':'homedir_id',
@@ -78,6 +73,8 @@ class HomeDirectory(DatabaseClass):
             path += ':'+self.get_disk().get_path()
         return path
 
+    get_path.signature = str
+
 registry.register_class(HomeDirectory)
 
 home_table = 'account_home'
@@ -95,10 +92,6 @@ class AccountHome(DatabaseClass):
         DatabaseAttr('homedir', home_table, HomeDirectory),
     )
 
-    method_slots = (
-        Method('delete', None, write=True),
-    )
-
     db_attr_aliases = {
         home_table:{
             'account':'account_id',
@@ -110,6 +103,9 @@ class AccountHome(DatabaseClass):
         account = self.get_account()
         acc_obj = account._get_cerebrum_obj()
         acc_obj.clear_home(self.get_spread().get_id())
+    
+    delete.signature = None
+    delete.write = True
 
 registry.register_class(AccountHome)
 
@@ -121,7 +117,7 @@ def _get_homedir(db, account, spread):
     result = searcher.search()
     return result and result[0].get_homedir() or None
 
-def set_homedir(self, spread, home="", disk=None):
+def set_homedir(self, spread, home, disk):
     """Set the home or disk for the homedir on the given spread.
 
     Since we dont support default arguments over corba the clients needs to
@@ -152,24 +148,27 @@ def set_homedir(self, spread, home="", disk=None):
     else:
         homedir.reset(write_only=False) # home and disk is no longer correct
 
-Account.register_method(Method('set_homedir', None, args=[('spread', Spread),
-                        ('home', str), ('disk', Disk)], write=True), set_homedir)
+set_homedir.signature = None
+set_homedir.signature_write = True
+set_homedir.signature_args = [Spread, str, Disk]
 
 def remove_homedir(self, spread):
     """Removes the homedir for the given spread."""
     home = AccountHome(self.get_database(), self, spread)
     home.delete()
 
-Account.register_method(Method('remove_homedir', None,
-    args=[('spread', Spread)], exceptions=[NotFoundError]), remove_homedir)
+remove_homedir.signature = None
+remove_homedir.signature_write = True
+remove_homedir.signature_args = [Spread]
 
 def get_homedir(self, spread):
     """Returns the homedir for the given spread."""
     home = AccountHome(self.get_database(), self, spread)
     return home.get_homedir()
 
-Account.register_method(Method('get_homedir', HomeDirectory,
-    args=[('spread', Spread)], exceptions=[NotFoundError]), get_homedir)
+get_homedir.signature = HomeDirectory
+get_homedir.signature_args = [Spread]
+get_homedir.exceptions = [NotFoundError]
 
 def get_homes(self):
     """Returns all homes this account has.
@@ -183,6 +182,8 @@ def get_homes(self):
     searcher.set_account(self)
     return searcher.search()
 
-Account.register_method(Method('get_homes', [AccountHome]), get_homes)
+get_homes.signature = [AccountHome]
+
+Account.register_methods([set_homedir, remove_homedir, get_homedir, get_homes])
 
 # arch-tag: f1f89d6e-8174-4d53-82ac-c21885a8b574

@@ -20,7 +20,7 @@
 
 import mx.DateTime
 
-from Builder import Builder, Attribute, Method
+from Builder import Builder, Attribute
 import SpineExceptions
 
 import Registry
@@ -32,17 +32,6 @@ class Date(Builder):
     slots = (
         Attribute('format', str, write=True),
     )
-    method_slots = (
-        Method('get_year', int),
-        Method('get_month', int),
-        Method('get_day', int),
-        Method('get_hour', int),
-        Method('get_minute', int),
-        Method('get_second', int),
-        Method('get_unix', int),
-        Method('strftime', str, args=[('formatstr', str)]),
-        Method('to_string', str)
-    )
 
     def __init__(self, value, *args, **vargs):
         super(Date, self).__init__(*args, **vargs)
@@ -51,29 +40,17 @@ class Date(Builder):
     def get_primary_key(self):
         return (self._value, )
 
-    def get_year(self):
-        return self._value.year
-
-    def get_month(self):
-        return self._value.month
-
-    def get_day(self):
-        return self._value.day
-
-    def get_hour(self):
-        return self._value.hour
-
-    def get_minute(self):
-        return self._value.minute
-
-    def get_second(self):
-        return self._value.second
-
+    for i in ('year', 'month', 'day', 'hour', 'minute', 'second'):
+        exec 'def get_%s(self):\n return self._value.%s\nget_%s.signature = int' % (i, i, i)
     def get_unix(self):
         return int(self._value.ticks())
+    get_unix.signature = int
 
     def strftime(self, formatstr):
         return self._value.strftime(formatstr)
+
+    strftime.signature = str
+    strftime.signature_args = [str]
 
     def to_string(self):
         format = getattr(self, self.get_attr('format').get_name_private(), None)
@@ -81,6 +58,8 @@ class Date(Builder):
             return str(self._value)
         else:
             return self.strftime(format)
+
+    to_string.signature = str
 
 registry.register_class(Date)
 

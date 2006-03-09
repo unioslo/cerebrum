@@ -20,7 +20,7 @@
 
 import copy
 
-from Builder import Method, Attribute
+from Builder import Attribute
 
 from Cerebrum.extlib.sets import Set
 from SpineExceptions import ClientProgrammingError
@@ -74,23 +74,19 @@ class Dumpable(object):
         
         dumper_class.primary = (Attribute('objects', [cls]),)
         dumper_class.slots = ()
-        dumper_class.method_slots = ()
         dumper_class.cls = cls
 
         # make dump accessable from search classes
         def dump(self):
             return self.structs
-        m = Method('dump', [Struct(cls)], exceptions=[ClientProgrammingError])
-        dumper_class.register_method(m, dump, overwrite=True)
+        dump.signature = [Struct(cls)]
+        dumper_class.dump = dump
 
         if issubclass(cls, Searchable):
-            get_dumpers = create_get_dumpers()
-            m = Method('get_dumpers', [DumpClass], exceptions=[ClientProgrammingError])
-            cls.search_class.register_method(m, get_dumpers, overwrite=True)
+            cls.search_class.get_dumpers = create_get_dumpers()
 
-            dump = create_dump(dumper_class)
-            m = Method('dump', [Struct(cls)], exceptions=[ClientProgrammingError])
-            cls.search_class.register_method(m, dump, overwrite=True)
+            cls.search_class.dump =  create_dump(dumper_class)
+            dump.signature = [Struct(cls)]
 
     build_dumper_class = classmethod(build_dumper_class)
 
@@ -106,12 +102,16 @@ def create_get_dumpers():
                 data[i].append(row)
 
         return [obj.cls.dumper_class(data, obj.get_signature()) for obj, data in zip(objs, data)]
+    from DumpClass import DumpClass
+    get_dumpers.signature = [DumpClass]
     return get_dumpers
 
 def create_dump(dumper_class):
     def dump(self):
         dumper = dumper_class(self.get_rows(), self.get_signature())
         return dumper.dump()
+    from DumpClass import Struct
+    dump.signature = [Struct(dumper_class.cls)]
     return dump
 
 # arch-tag: 94dead40-0291-4725-a4dd-a37303eec825

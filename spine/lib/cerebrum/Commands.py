@@ -20,7 +20,6 @@
 
 import mx.DateTime
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseTransactionClass
 from SpineLib.Date import Date
 from SpineLib import SpineExceptions
@@ -42,27 +41,29 @@ class Commands(DatabaseTransactionClass):
     instead use Registry.get_registry().register_method().
     """
 
-    method_slots = (
-        Method('get_date_now', Date),
-        Method('get_date', Date, args=[('year', int), ('month', int), ('day', int)]),
-        Method('get_datetime', Date, args=[('year', int), ('month', int), ('day', int), ('hour', int), ('minute', int), ('second', int)]),
-        Method('strptime', Date, args=[('datestr', str), ('formatstr', str)], exceptions=[SpineExceptions.ValueError]),
-        Method('get_date_none', Date)
-    )
-
     def get_date_none(self):
         return Date(None)
 
+    get_date_none.signature = Date
+
     def get_date_now(self):
         return Date(mx.DateTime.now())
+    
+    get_date_now.signature = Date
 
     def get_date(self, year, month, day):
         date = Date(mx.DateTime.Date(year, month, day))
         date.set_format("%Y-%m-%d")
         return date
 
+    get_date.signature = Date
+    get_date.signature_args = [int, int, int]
+
     def get_datetime(self, year, month, day, hour, minute, second):
         return Date(mx.DateTime.DateTime(year, month, day, hour, minute, second))
+
+    get_datetime.signature = Date
+    get_datetime.signature_args = [int, int, int, int, int, int]
 
     def strptime(self, datestr, formatstr):
         """Get date from a string.
@@ -73,6 +74,9 @@ class Commands(DatabaseTransactionClass):
             return Date(mx.DateTime.strptime(datestr.strip(), formatstr))
         except mx.DateTime.Error:
             raise SpineExceptions.ValueError('"%s" does not match the format "%s"' % (datestr, formatstr))
+
+    strptime.signature = Date
+    strptime.signature_args = [str, str]
 
 registry.register_class(Commands)
 

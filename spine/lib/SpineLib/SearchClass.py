@@ -18,13 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
-from __future__ import generators
-
-from Cerebrum.extlib import sets
+import sets
 
 from DatabaseClass import DatabaseTransactionClass, DatabaseAttr
-from Builder import Builder, Attribute, Method
+from Builder import Builder, Attribute
 from SpineExceptions import ClientProgrammingError
 
 import Registry
@@ -43,12 +40,6 @@ class SearchClass(DatabaseTransactionClass):
     """
     
     search_slots = ()
-    method_slots = (
-        Method('clear', None),
-        Method('get_signature', [str]), # FIXME: bedre navn?
-        Method('set_search_limit', None, args=[('limit', int), ('offset', int)]),
-        Method('dump_rows', [[str]], exceptions=[ClientProgrammingError])
-    )
     search_id_iterator = create_id_iterator()
 
     def __init__(self, *args, **vargs):
@@ -87,10 +78,15 @@ class SearchClass(DatabaseTransactionClass):
             if hasattr(self, attr.get_name_private()):
                 delattr(self, attr.get_name_private())
 
+    clear.signature = None
+
     def set_search_limit(self, limit, offset):
         self._search_limit = limit, offset
 
-    def search(self):
+    set_search_limit.signature = None
+    set_search_limit.signature_args = [int, int]
+
+    def _search(self):
         db = self.get_database()
         names = self.get_signature()
 
@@ -133,6 +129,9 @@ class SearchClass(DatabaseTransactionClass):
         for row in self.get_database().query(sql, args):
             rows.append([str(i) for i in row])
         return rows
+
+    dump_rows.signature = [[str]]
+    dump_rows.signature_exceptions = [ClientProgrammingError]
 
     def get_rows(self):
         db = self.get_database()
@@ -285,14 +284,26 @@ class SearchClass(DatabaseTransactionClass):
 def add_join(self, attr, obj, obj_attr):
     self._add_join('JOIN', attr, obj, obj_attr)
 
+add_join.signature = None
+add_join.signature_args = [str, SearchClass, str]
+
 def add_left_join(self, attr, obj, obj_attr):
     self._add_join('LEFT JOIN', attr, obj, obj_attr)
+
+add_left_join.signature = None
+add_left_join.signature_args = [str, SearchClass, str]
 
 def add_intersection(self, attr, obj, obj_attr):
     self._add_intersection('IN', attr, obj, obj_attr)
 
+add_intersection.signature = None
+add_intersection.signature_args = [str, SearchClass, str]
+
 def add_difference(self, attr, obj, obj_attr):
     self._add_intersection('NOT IN', attr, obj, obj_attr)
+
+add_difference.signature = None
+add_difference.signature_args = [str, SearchClass, str]
 
 def get_search_objects(self):
     objects = [self]
@@ -301,24 +312,26 @@ def get_search_objects(self):
 
     return objects
 
+get_search_objects.signature = [SearchClass]
+get_search_objects.signature_args = []
+
 def order_by(self, obj, attr):
     self._order_by('ASC', obj, attr)
+
+order_by.signature = None
+order_by.signature_args = [SearchClass, str]
 
 def order_by_desc(self, obj, attr):
     self._order_by('DESC', obj, attr)
 
+order_by_desc.signature = None
+order_by_desc.signature_args = [SearchClass, str]
+
 args = [('attr', str), ('obj', SearchClass), ('obj_attr', str)]
 exceptions = [ClientProgrammingError]
-for sig, m in (
-    (Method('add_join', None, args=args, exceptions=exceptions), add_join),
-    (Method('add_left_join', None, args=args, exceptions=exceptions), add_left_join),
-    (Method('add_intersection', None, args=args, exceptions=exceptions), add_intersection),
-    (Method('add_difference', None, args=args, exceptions=exceptions), add_intersection),
-    (Method('order_by', None, args=[('obj', SearchClass), ('attr', str)], exceptions=exceptions), order_by),
-    (Method('order_by_desc', None, args=[('obj', SearchClass), ('attr', str)], exceptions=exceptions), order_by_desc),
-    (Method('get_search_objects', [SearchClass]), get_search_objects)):
 
-    SearchClass.register_method(sig, m)
+for m in (add_join, add_left_join, add_intersection, add_difference, order_by, order_by_desc, get_search_objects):
+    setattr(SearchClass, m.__name__, m)
 
 registry.register_class(SearchClass)
 

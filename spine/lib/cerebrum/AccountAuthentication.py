@@ -23,7 +23,6 @@ import crypt
 
 from Cerebrum.Utils import Factory
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Account import Account
@@ -55,8 +54,7 @@ def get_authentications(self):
 
     return s.search()
 
-Account.register_method(Method('get_authentications', [AccountAuthentication]), get_authentications)
-
+get_authentications.signature = [AccountAuthentication]
 
 def authenticate(self, password):
     # FIXME: pass på her altså. Det er mange forskjellige typer.
@@ -66,7 +64,8 @@ def authenticate(self, password):
             return True
     return False
 
-Account.register_method(Method('authenticate', bool, [('password', str)]), authenticate)
+authenticate.signature = bool
+authenticate.signature_args = [str]
 
 def set_authentication(self, method, auth_data):
     db = self.get_database()
@@ -75,8 +74,9 @@ def set_authentication(self, method, auth_data):
     obj.populate_authentication_type(method.get_id(), auth_data)
     obj.write_db()
 
-Account.register_method(Method('set_authentication', None, [('method', AuthenticationType), ('auth_data', str)]), set_authentication)
-    
+set_authentication.signature = None
+set_authentication.write = True
+set_authentication.signature_args = [AuthenticationType, str]
 
 def set_password(self, password):
     """Set the accounts password.
@@ -88,6 +88,10 @@ def set_password(self, password):
     obj.set_password(password)
     obj.write_db()
 
-Account.register_method(Method('set_password', None, [('password', str)], write=True), set_password)
+set_password.signature = None 
+set_password.signature_write = True
+set_password.signature_args = [str] 
+
+Account.register_methods([get_authentications, authenticate, set_authentication, set_password])
 
 # arch-tag: bf5c4d34-78c1-4874-83d3-8f2fc44c75d9

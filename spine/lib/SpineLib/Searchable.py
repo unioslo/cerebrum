@@ -20,7 +20,6 @@
 
 import copy
 
-from Builder import Method
 import SpineExceptions
 
 __all__ = ['Searchable']
@@ -115,7 +114,6 @@ class Searchable(object):
         search_class.cls = cls
 
         search_class.slots = ()
-        search_class.method_slots = ()
 
         for attr in cls.slots + cls.search_slots:
             if not isinstance(attr, DatabaseAttr):
@@ -144,7 +142,10 @@ class Searchable(object):
                 set = create_set_method(new_attr)
                 search_class.register_attribute(new_attr, get=get, set=set, overwrite=True)
 
-        search_class.method_slots += (Method('search', [cls], exceptions=[SpineExceptions.ClientProgrammingError]), )
+        def search(self):
+            return self._search()
+        search.signature = [cls]
+        search_class.search = search
 
         cls.search_class = search_class
 
