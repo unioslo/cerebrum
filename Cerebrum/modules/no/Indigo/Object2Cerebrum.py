@@ -20,6 +20,9 @@
 import cerebrum_path
 import cereconf
 
+import re
+from mx import DateTime
+
 from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
@@ -58,14 +61,10 @@ class Object2Cerebrum(object):
             if isinstance(tmp, _SpreadCode):
                 self.str2const[str(tmp)] = tmp
 
-
-    def commit(self):
-        """Call db.commit()"""
-        self.db.commit()
-
-    def rollback(self):
-        self.db.rollback()
-
+        # Set up the group cache
+        # This is updated in store_group and add_group_member.
+        self._groups = dict()
+        self._affiliations = dict()
 
     def _add_external_ids(self, entity, id_dict):
         """Common external ID operations."""
@@ -76,6 +75,7 @@ class Object2Cerebrum(object):
             entity.populate_external_id(self.source_system,
                                         id_type,
                                         id_dict[id_type])
+
 
     def _check_entity(self, entity, data_entity):
         """Check for conflicting entities or return found or None."""
@@ -123,9 +123,10 @@ class Object2Cerebrum(object):
                           None)
         self._add_external_ids(self._ou, ou._ids)
 
-        # Deal with addresses and contacts.
+        # TODO: Deal with addresses and contacts.
         
         return (self._ou.write_db(), self._ou.entity_id)
+
 
     def set_ou_parent(self, child_entity_id, perspective, parent):
         """Set a parent ID on an OU. Parent may be an entity_id or a
@@ -138,6 +139,7 @@ class Object2Cerebrum(object):
         self._ou.find(child_entity_id)
         self._ou.set_parent(perspective, parent)
         return self._ou.write_db()
+
 
     def store_person(self, person):
         """Pass a DataPerson to this function and it gets stored
@@ -186,10 +188,13 @@ class Object2Cerebrum(object):
         self._group.populate(self.default_creator_id,
                              self.co.group_visibility_all,
                              group.name, description=group.desc)
+        result = self._group.write_db()
+        self._group.populate_trait(self.co.trait_group_imported,
+                                   date=DateTime.now())
         self._group.write_db()
-        if not self._group.has_spread(int(self.co.spread_oid_grp)):
-            self._group.add_spread(int(self.co.spread_oid_grp))
-        return (self._group.write_db(), self._group.entity_id)
+        # Add group to "seen" cache.
+        self._groups.setdefault(group.name, [])
+        return result
 
 
     def create_account(self, owner):
@@ -218,6 +223,14 @@ class Object2Cerebrum(object):
             self._ac.add_spread(int(self.co.spread_oid_acc))
         self._ac.write_db()
 
+
+    def _add_cache(self, group, member):
+        if self._groups.has_key(group):
+            if member not in self._groups[group]:
+                self._groups[group].append(member)
+        else:
+            self.logger.warning("Group '%s' is not in the file." % group) 
+
         
     def add_group_member(self, group, entity_type, member):
         """Add an entity to a group."""
@@ -239,6 +252,10 @@ class Object2Cerebrum(object):
                 for account in ac:
                     self._ac.clear()
                     self._ac.find(account[0])
+
+                    # Add user to cache
+                    self._add_cache(group[1], self._ac.account_name)
+                    
                     if self._group.has_member(self._ac.entity_id,
                                               self.co.entity_account,
                                               self.co.group_memberop_union):
@@ -248,6 +265,8 @@ class Object2Cerebrum(object):
                                            self.co.group_memberop_union)
                 return self._group.write_db()
                 
+            # Add user to cache
+            self._add_cache(group[1], self._ac.account_name)
             
             if self._group.has_member(self._ac.entity_id,
                                    self.co.entity_account,
@@ -272,6 +291,11 @@ class Object2Cerebrum(object):
         self._person.add_affiliation(self._ou.entity_id, affiliation,
                                      self.source_system, status)
         ret = self._person.write_db()
+        
+        # Submit affiliation data to the cache.
+        self._affiliations.setdefault(self._person.entity_id, [])
+        self._affiliations[self._person.entity_id].append((affiliation,
+                                                           self._ou.entity_id))
 
         ac = self._person.get_accounts()
         if len(ac) == 1:
@@ -289,7 +313,165 @@ class Object2Cerebrum(object):
                     
         self._ac.set_account_type(self._ou.entity_id, affiliation)
         self._ac.write_db()
-        
         return ret
+
+
+    def __schoolyear(self):
+        now = DateTime.now()
+        year = str(now.year)
+        year = year[2:]
+        if now.month < 7:
+            return int(year) - 1
+        return int(year)
+
+
+    def __active_group(self, group):
+        m = re.search("^(\w+:)(\d\d):(.+)", group)
+        if not m:
+            raise DocstringException, "no year in group '%'" % group
+        y = int(m.group(2))
+        if y == self.__schoolyear():
+            return "%s%s" % (m.group(1),m.group(3))
+        return None
+
+
+    def __diff_groups(self, new_grp, old_grp):
+        remove = list()
+        add = list()
+        for mbr in new_grp:
+            if mbr not in old_grp:
+                add.append(mbr)
+        for mbr in old_grp:
+            if mbr not in new_grp:
+                remove.append(mbr)
+        return remove, add
+
+    
+    def commit(self):
+        """Do cleanups and call db.commit()"""
+
+        # Process the cache before calling commit. The following code
+        # also operates with "autogroups" which are groups based on
+        # this semester's active groups. They are created to always
+        # have a active group "foo", based on "foo:04", "foo:05" and
+        # so forth.
+
+        # Get group names
+        group_names = dict()
+        for row in self._group.list_names(self.co.group_namespace):
+            group_names[int(row['entity_id'])] = row['entity_name']
+
+        # Set status on autogroups already in the database
+        seen_autogroups = dict()
+        for row in self._group.list_traits(self.co.trait_group_derived):
+            name = group_names[int(row['entity_id'])]
+            seen_autogroups.setdefault(name, False)
+
+        # Traverse the groups we've seen during import, create groups
+        # not found in the database and set their status to active
+        for grp in self._groups.keys():
+            a_grp = self.__active_group(grp)
+            # We don't care about old groups.
+            if not a_grp:
+                continue
+            # We see if the aouto group is in the database
+            if not seen_autogroups.has_key(a_grp):
+                # TODO: create the autogroup
+                self._group.clear()
+                self._group.populate(self.default_creator_id,
+                                     self.co.group_visibility_all,
+                                     a_grp, description=a_grp)
+                self._group.write_db()
+                self._group.populate_trait(self.co.trait_group_derived,
+                                           date=DateTime.now())
+                self._group.write_db()
+
+                org_group = Factory.get('Group')(self.db)
+                org_group.find_by_name(grp)
+                # Get union types
+                for member in org_group.list_members(member_type=self.co.entity_account)[0]:
+                    self._group.add_member(member[1],
+                                           self.co.entity_account,
+                                           self.co.group_memberop_union)
+                self._group.write_db()
+            else:
+                # Update the autogroup with new date in Trait
+                self._group.clear()
+                self._group.find_by_name(a_grp)
+                self._group.populate_trait(self.co.trait_group_imported,
+                                           date=DateTime.now())
+                self._group.write_db()
+        seen_autogroups[a_grp] = True
+
+        # Add spread for new groups and remove spread for groups no longer
+        # in the data file.
+        for grp in seen_autogroups.keys():
+            self._group.clear()
+            self._group.find_by_name(grp)
+            if seen_autogroups[grp]:
+                if not self._group.has_spread(int(self.co.spread_oid_grp)):
+                    self._group.add_spread(int(self.co.spread_oid_grp))
+                    self._group.write_db()
+            else:
+                if self._group.has_spread(int(self.co.spread_oid_grp)):
+                    self._group.delete_spread(int(self.co.spread_oid_grp))
+                    self._group.write_db()
+
+        # Diff members in groups from the data file and in the database
+        # and create the correct member list for autogroups
+        autogroup_members = dict()
+        for grp in self._groups.keys():
+            self._group.clear()
+            self._group.find_by_name(grp)
+            for member in self._group.list_members(get_entity_name=True)[0]:
+                if member[2] not in self._groups[grp]:
+                    self._group.remove_member(member[1], self.co.group_memberop_union)
+            self._group.write_db()
+            agrp = self.__active_group(grp)
+            if agrp:
+                autogroup_members[agrp] = self._groups[grp]
+
+        # Update the active autogroups
+        for grp in autogroup_members.keys():
+            self._group.clear()
+            self._group.find_by_name(grp)
+            current = dict()
+            for member in self._group.list_members(get_entity_name=True)[0]:
+                current.setdefault(member[2], [member[1], []])
+                current[member[2]][1].append(self.co.group_memberop_union)
+            remove, add = self.__diff_groups(autogroup_members[grp], current.keys())
+            for mbr in remove:
+                for op in current[mbr][1]:
+                    self._group.remove_member(current[mbr][0], op)
+            for mbr in add:
+                self._ac.clear()
+                self._ac.find_by_name(mbr)
+                self._group.add_member(self._ac.entity_id,
+                                       self.co.entity_account,
+                                       self.co.group_memberop_union)
+            self._group.write_db()
+
+        # Update affiliations for people
+        for row in self._person.list_affiliations(source_system=self.source_system):
+            p_id = int(row['person_id'])
+            aff = row['affiliation']
+            ou_id = row['ou_id']
+            if self._affiliations.has_key(p_id):
+                if not (aff, ou_id) in self._affiliations[p_id]:
+                    if not self._person.entity_id == p_id:
+                        self._person.clear()
+                        self._person.find(p_id)
+                    self._person.delete_affiliation(ou_id, aff, self.source_system)
+            else:
+                # Person no longer in the data file
+                if not self._person.entity_id == p_id:
+                    self._person.clear()
+                    self._person.find(p_id)
+                self._person.delete_affiliation(ou_id, aff, self.source_system)
+                
+        self.db.commit()
+
+    def rollback(self):
+        self.db.rollback()
 
 # arch-tag: d11dead8-9fd6-11da-8e4b-0869872fe5ca
