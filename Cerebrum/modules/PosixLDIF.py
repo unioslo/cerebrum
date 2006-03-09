@@ -30,7 +30,7 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super
  
  
-logger = Factory.get_logger("cronjob")
+# logger = Factory.get_logger("cronjob")
  
 
 
@@ -41,7 +41,7 @@ class PosixLDIF(object):
 
     __metaclass__ = auto_super
  
-    def __init__(self, db, u_sprd = None, g_sprd = None, n_sprd = None, fd=None):
+    def __init__(self, db, logger, u_sprd = None, g_sprd = None, n_sprd = None, fd=None):
         """Initiate database and import modules. 
         Spreads are given in initiation and general constants which is
         used in more than one method.

@@ -87,6 +87,8 @@ def disable_ldapsync_mode():
 
 
 def main():
+    logger = Factory.get_logger("cronjob")
+    
     short2long_opts = (("u:", "U:", "f:", "F:", "n:", "N:"),
                        ("user=",      "user_spread=",
                         "filegroup=", "filegroup_spread=",
@@ -123,7 +125,7 @@ def main():
         disable_ldapsync_mode()
         init_ldap_dump(fd)
     db = Factory.get('Database')()
-    posldif = Factory.get('PosixLDIF')(db,opts['-U'],opts['-F'],opts['-N'],fd)
+    posldif = Factory.get('PosixLDIF')(db,logger,opts['-U'],opts['-F'],opts['-N'],fd)
     for var, func, arg in \
             (('LDAP_USER',      posldif.user_ldif,            "-u"),
              ('LDAP_FILEGROUP', posldif.filegroup_ldif,       "-f"),
