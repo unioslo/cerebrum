@@ -20,6 +20,7 @@
 
 from __future__ import generators
 
+import os
 import codecs
 import md5
 
@@ -67,6 +68,10 @@ class Session:
     builder_parents = ()
     builder_children = ()
 
+    def _get_builder_methods(cls):
+        return ()
+    _get_builder_methods = classmethod(_get_builder_methods)
+
     def new_transaction(self):
         pass
 
@@ -95,7 +100,14 @@ idl_source = create_idl_source(classes, 'SpineIDL')
 idl_source_md5 = md5.new(idl_source).hexdigest()
 idl_source_commented = create_idl_source(classes, 'SpineIDL', docs=True)
 
-omniORB.importIDLString(idl_source)
+try:
+    omniORB.importIDLString(idl_source)
+except ImportError:
+    name = '/tmp/idlsource.%s.idl' % os.getpid()
+    fd = open('/tmp/idlsource.%s.idl' % os.getpid(), 'w')
+    fd.write(idl_source)
+    fd.close()
+    raise Exception('unable to compile idl %s, try checking it with omniidl' % name)
 
 import SpineIDL, SpineIDL__POA
 

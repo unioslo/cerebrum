@@ -52,7 +52,7 @@ class ConvertableAttribute(object):
     def convert_from(self, db, value):
         if value is None:
             return None
-        if isinstance(value, db.numericType):
+        if hasattr(db, 'numericType') and isinstance(value, db.numericType):
             value = int(value)
         # Inject db-object if data_type is a DatabaseTransactionClass
         if issubclass(self.data_type, DatabaseTransactionClass):

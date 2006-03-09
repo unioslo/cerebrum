@@ -31,7 +31,7 @@ import cereconf
 import Communication
 
 from Cerebrum.extlib import sets
-from Cerebrum.spine.SpineLib.Builder import Method
+from Cerebrum.spine.SpineLib.Builder import Method, get_method_signature
 from Cerebrum.spine.SpineLib.Date import Date
 from Cerebrum.spine.SpineLib.DumpClass import Struct, Any, DumpClass
 from Cerebrum.spine.SpineLib.Locking import Locking
@@ -569,36 +569,30 @@ def _create_idl_interface(cls, error_module="", docs=False):
     # Attributes
     if docs and cls.slots:
         txt += '\t// Get and set methods for attributes\n'
-    for attr in cls.slots:
-        if attr in parent_slots:
+
+    for method in cls._get_builder_methods():
+        name, data_type, write, args, exceptions = get_method_signature(method)
+
+        if name in parent_slots_names:
             continue
-        checkName(attr.get_name_get())
-        if attr.write:
-            checkName(attr.get_name_set())
-        if not hasattr(cls, attr.get_name_get()) or (attr.write and not hasattr(cls, 
-                attr.get_name_set())):
-            msg = 'Class %s has no method %s, check declaration of %s.slots.'
-            raise ServerProgrammingError(msg % (cls.__name__, method.name, cls.__name__))
 
-        exceptions_headers.extend(attr.exceptions)
-        excp = get_exceptions(attr.exceptions, error_module)
+        data_type = get_type(data_type)
 
-        data_type = get_type(attr.data_type)
+        def getArgs():
+            for name, data_type in args:
+                print name, data_type
+                yield 'in %s new_%s' % (get_type(data_type), name)
+        
+        exceptions_headers.extend(exceptions)
+        excp = get_exceptions(exceptions, error_module)
 
+        # FIXME: sorry, i broke this. 20060309 erikgors
         # TODO: Create improved attribute documentation
-        if docs:
-            txt += _create_idl_getattr_comment(attr, data_type, 1)
+#        if docs:
+#            txt += _create_idl_method_comment(method, data_type, 1)
 
-        txt += '\t%s get_%s()%s;\n' % (data_type, attr.name, excp)
-        txt += '\n'
-
-        if attr.write:
-            args = ((attr.name, attr.data_type),)
-            if docs:
-                txt += _create_idl_setattr_comment(attr, 1)
-            txt += '\tvoid set_%s(in %s new_%s)%s;\n' % (attr.name, data_type, attr.name, excp)
-            txt += '\n'
-
+        txt += '\t%s %s(%s)%s;\n' % (data_type, name, ', '.join(getArgs()), excp)
+        
     # Methods
     if docs and cls.slots and cls.method_slots:
         txt += '\t// Other methods\n'
@@ -699,6 +693,7 @@ class CorbaClass:
     
     def __init__(self, spine_object, transaction):
         self.spine_object = spine_object
+        # FIXME: is weakref really a point here? 20060309 erikgors
         self.get_transaction = weakref.ref(transaction)
 
 

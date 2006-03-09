@@ -18,11 +18,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import types
+
 from Cerebrum.extlib import sets
 import Cerebrum.Errors
 from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, NotFoundError, ServerProgrammingError, TooManyMatchesError, TransactionError, ObjectDeletedError
 
 __all__ = ['Attribute', 'Method', 'Builder']
+
+# Add the 'standard' exceptions to the attribute
+# FIXME: AccessDeniedError, TransactionError
+# FIXME: Do we really need all of these?
+default_exceptions = (
+    DatabaseError, TransactionError, 
+    AccessDeniedError, ObjectDeletedError,
+    ServerProgrammingError
+)
 
 class Attribute(object):
     """Representation of an attribute in Spine.
@@ -47,28 +58,19 @@ class Attribute(object):
 
         optional attributes have exists-comparisation in searchobjects.
         """
-        if exceptions is None:
-            self.exceptions = ()
-        else:
-            self.exceptions = tuple(exceptions)
-        self.name = name
         assert type(data_type) != str
         assert write in (True, False)
         assert optional in (True, False)
 
+        self.name = name
         self.data_type = data_type
-        # Add the 'standard' exceptions to the attribute
-        # FIXME: AccessDeniedError, TransactionError
-        self.exceptions += (
-            DatabaseError, TransactionError, 
-            AccessDeniedError, ObjectDeletedError,
-            ServerProgrammingError
-        )
+        self.exceptions = default_exceptions + tuple(exceptions or ())
         if optional:
             self.exceptions += (NotFoundError, TooManyMatchesError)
         self.write = write
         self.optional = optional
 
+    # FIXME: no use with all the get methods. this class should be immutable
     def get_name_get(self):
         """The name provided to clients for reading the attribute value."""
         return 'get_' + self.name
@@ -115,29 +117,67 @@ class Method(object):
         exceptions  - list with all exceptions accessing this attribute might raise.
         write       - should be True for methods which change and object and/or require write locks.
         """
-        if args is None:
-            args = ()
-        if exceptions is None:
-            self.exceptions = ()
-        else:
-            self.exceptions = tuple(exceptions)
-        
         self.name = name
         assert type(data_type) != str
         assert write in (True, False)
 
         self.data_type = data_type
-        self.args = args
-        self.exceptions += (
-            DatabaseError, TransactionError, 
-            AccessDeniedError, ObjectDeletedError,
-            ServerProgrammingError
-        )
+        self.args = args or ()
+        self.exceptions = default_exceptions + tuple(exceptions or ())
         self.write = write
         self.doc = None
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
+
+def get_method_signature(func):
+    """ Get the signature from method in Spine.
+
+    Allowed fields for the signature:
+
+    signature
+        - the return type, should be a class or type: str, list, Entity.
+    signature_name
+        - overrides func_name
+    signature_args
+        - a list with data_types for arguments used
+    signature_exceptions
+        - list with all exceptions accessing this attribute might raise.
+    signature_write
+    write
+        - set to True for methods which change and object and/or require write locks.
+
+    returns name, signature, write, args, exceptions
+
+    Example:
+
+    def test(self, a):
+        return 1337 + a
+
+    test.signature = int
+    test.signature_args = [int]
+    """
+    
+    offset = 0
+    if type(func) == types.MethodType:
+        func = func.im_func
+    if func.func_code.co_varnames[0] == 'self':
+        offset = 1
+    signature = func.signature # need know the return data type
+    assert func.func_defaults is None # default values are uesless with corba
+
+    signature_args = getattr(func, 'signature_args', ())
+    count = func.func_code.co_argcount # first argument is skipped (self)
+
+    assert len(signature_args) == count - offset # data type needs to be defined for all args
+    
+    name = getattr(func, 'signature_name', '') or func.func_name
+    args = zip(func.func_code.co_varnames[offset:count], signature_args)
+    write = hasattr(func, 'signature_write')
+    exceptions = default_exceptions
+    exceptions += tuple(getattr(func, 'signature_exceptions', ()))
+
+    return name, signature, write, args, exceptions
 
 def create_lazy_get_method(attr):
     """Returns a method which will load the attribute if not already loaded."""
@@ -219,12 +259,23 @@ class Builder(object):
 
     def get_attr(cls, name):
         """Get the attribute in slots with name 'name'."""
+        # FIXME: get_slot bedre navn? 20060309 erikgors
         for attr in cls.slots:
             if attr.name == name:
                 return attr
         raise ServerProgrammingError('Attribute %s not found in %s' % (name, cls))
 
     get_attr = classmethod(get_attr)
+
+    def _get_builder_methods(cls):
+        for i in dir(cls):
+            if i[0] != '_':
+                i = getattr(cls, i)
+                if type(i) == types.MethodType:
+                    i = i.im_func
+                if hasattr(i, 'signature'):
+                    yield i
+    _get_builder_methods = classmethod(_get_builder_methods)
 
     def save(self):
         """Save all changed attributes."""
@@ -308,6 +359,7 @@ class Builder(object):
         if set is None and attribute.write:
                 set = create_set_method(attribute)
 
+        not_set = object()
         def quick_register(var, method):
             if method is not None: # no use setting the method to None
                 if hasattr(cls, var) and not overwrite:
@@ -316,8 +368,22 @@ class Builder(object):
 
         quick_register(var_load, load)
         quick_register(var_save, save)
+        if type(get) == types.MethodType:
+            get.im_func.signature_name = var_get
+            get.im_func.signature = attribute.data_type
+        else:
+            get.signature_name = var_get
+            get.signature = attribute.data_type
         quick_register(var_get, get)
         if attribute.write:
+            if type(set) == types.MethodType:
+                set.im_func.signature_name = var_set
+                set.im_func.signature = None
+                set.im_func.signature_args = [attribute.data_type]
+            else:
+                set.signature_name = var_set
+                set.signature = None
+                set.signature_args = [attribute.data_type]
             quick_register(var_set, set)
 
         if register:
