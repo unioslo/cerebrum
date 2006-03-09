@@ -156,12 +156,14 @@ def convert_to_corba(obj, transaction, data_type):
     else:
         raise ServerProgrammingError('Cannot convert to CORBA type; unknown data type.', data_type)
 
-def convert_from_corba(obj, data_type):
+def convert_from_corba(tr, obj, data_type):
     """Convert a CORBA object to a python object."""
-    if data_type in corba_types:
+    if data_type is str:
+        return _string_to_db(obj, tr.get_encoding())
+    elif data_type in corba_types:
         return obj
     elif type(data_type) == list:
-        return [convert_from_corba(i, data_type[0]) for i in obj]
+        return [convert_from_corba(tr, i, data_type[0]) for i in obj]
     elif obj is None:
         return None
     elif data_type in class_cache:
@@ -207,7 +209,7 @@ def _string_to_db(str, encoding):
         return str
     return str.decode(encoding).encode(cereconf.SPINE_DATABASE_ENCODING)
 
-def _create_corba_method(method):
+def _create_corba_method(method, method_name, data_type, write, method_args, exceptions):
     """
     Creates a wrapper for the given method. 
     The supplied argument 'method' must be an instance of Builder.Method.
@@ -223,12 +225,9 @@ def _create_corba_method(method):
 
     In addition, the method wraps all exceptions and raise them as proper CORBA exceptions.
     """
-    args_table = {}
-    for name, data_type in method.args:
-        args_table[name] = data_type
         
-    def corba_method(self, *corba_args, **corba_vargs):
-        assert len(corba_args) + len(corba_vargs) <= len(args_table)
+    def corba_method(self, *corba_args):
+        assert len(corba_args) == len(method_args)
 
         # This try block is here so we can wrap expected exceptions as CORBA expcetions
         try:
@@ -262,42 +261,26 @@ def _create_corba_method(method):
             transaction.check_lost_locks()
 
             # Authorization
-            if not transaction.authorization.check_permission(self.spine_object, method.name):
+            if not transaction.authorization.check_permission(self.spine_object, method_name):
                 raise AccessDeniedError('Your are not authorized to perform the requested operation.')
 
             # Lock the object if it should be locked
             if isinstance(self.spine_object, Locking):
-                if method.write:
+                if write:
                     self.spine_object.lock_for_writing(transaction)
                 else:
                     self.spine_object.lock_for_reading(transaction)
 
             # Add a reference to the object in the transaction making the call.
             transaction.add_ref(self.spine_object)
-
-            # convert from CORBA arguments to python server-side arguments
-            args = []
-            for value, (name, data_type) in zip(corba_args, method.args):
-                arg = convert_from_corba(value, data_type)
-                if data_type is str:
-                    arg = _string_to_db(arg, transaction.get_encoding())
-                args.append(arg)
-
-            vargs = {}
-            for name, value in corba_vargs:
-                data_type = args_table[name]
-                varg = convert_from_corba(value, data_type)
-                if data_type is str:
-                    varg = _string_to_db(varg, transaction.get_encoding())
-                vargs[name] = varg
-
+            args = [convert_from_corba(transaction, obj, i[1]) for obj, i in zip(corba_args, method_args)]
             # Run the real method
-            value = getattr(self.spine_object, method.name)(*args, **vargs)
+            value = method(self.spine_object, *args)
 
-            if method.write:
+            if write:
                 self.spine_object.save()
 
-            return convert_to_corba(value, transaction, method.data_type)
+            return convert_to_corba(value, transaction, data_type)
 
         except Communication.CORBA.OBJECT_NOT_EXIST, e:
             raise e
@@ -307,7 +290,7 @@ def _create_corba_method(method):
             # of Corba.py 
             import SpineIDL
 
-            if getattr(e, '__class__', e) not in method.exceptions:
+            if getattr(e, '__class__', e) not in exceptions:
                 # Temporary raise of unknown exceptions to the client Remember
                 # to remove the message given, and remove in Builder.py before
                 # production.
@@ -544,12 +527,15 @@ def _create_idl_interface(cls, error_module="", docs=False):
     # Inheritance
     parent_slots = sets.Set()
     parent_slots_names = sets.Set()
+    parent_methods = sets.Set()
     if cls.builder_parents:
         spam = sets.Set(cls.builder_parents)
         txt += ': ' + ', '.join(['Spine' + i.__name__ for i in spam])
         for i in cls.builder_parents:
             parent_slots.update(i.slots)
             parent_slots.update(i.method_slots)
+
+            parent_methods.update(i._get_builder_methods())
 
             for attr in i.slots:
                 parent_slots_names.add(attr.get_name_get())
@@ -566,31 +552,22 @@ def _create_idl_interface(cls, error_module="", docs=False):
             raise ServerProgrammingError(msg)
         names.add(name)
 
-    # Attributes
-    if docs and cls.slots:
-        txt += '\t// Get and set methods for attributes\n'
-
     for method in cls._get_builder_methods():
-        name, data_type, write, args, exceptions = get_method_signature(method)
-
-        if name in parent_slots_names:
+        if method in parent_methods:
             continue
+        name, data_type, write, args, exceptions = get_method_signature(method)
 
         data_type = get_type(data_type)
 
         def getArgs():
             for name, data_type in args:
-                print name, data_type
                 yield 'in %s new_%s' % (get_type(data_type), name)
         
         exceptions_headers.extend(exceptions)
         excp = get_exceptions(exceptions, error_module)
 
-        # FIXME: sorry, i broke this. 20060309 erikgors
-        # TODO: Create improved attribute documentation
-#        if docs:
-#            txt += _create_idl_method_comment(method, data_type, 1)
-
+        if method.__doc__:
+            txt += _docstring_to_idl(method.__doc__, 1)
         txt += '\t%s %s(%s)%s;\n' % (data_type, name, ', '.join(getArgs()), excp)
         
     # Methods
@@ -716,24 +693,16 @@ def register_spine_class(cls, idl_cls, idl_struct):
 
     names = sets.Set()
 
-    for attr in cls.slots:
-        get_name = attr.get_name_get()
-        get = Method(get_name, attr.data_type, exceptions=attr.exceptions)
+    for method in cls._get_builder_methods():
+        name, data_type, write, args, exceptions = get_method_signature(method)
 
-        setattr(corba_class, get_name, _create_corba_method(get))
-
-        if attr.write:
-            set_name = attr.get_name_set()
-            set = Method(set_name, None, [(attr.name, attr.data_type)],
-                         exceptions=attr.exceptions, write=True)
-
-            setattr(corba_class, set_name, _create_corba_method(set))
+        setattr(corba_class, name, _create_corba_method(method, name, data_type, write, args, exceptions))
 
     classes = (cls, ) + cls.builder_parents
     for i in classes:
         for method in i.method_slots:
             if not hasattr(corba_class, method.name):
-                setattr(corba_class, method.name, _create_corba_method(method))
+                setattr(corba_class, method.name, _create_corba_method(getattr(i, method.name), method.name, method.data_type, method.write, method.args, method.exceptions))
 
     class_cache[cls] = corba_class
 
