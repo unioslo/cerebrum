@@ -27,11 +27,6 @@ from Cerebrum.modules.abcenterprise.ABCUtils import ABCDataError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError 
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCConfigError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
-from Cerebrum.modules.abcenterprise.Object2Cerebrum import Object2Cerebrum
-
-# TODO:
-# Denne må oversette fra strenger til konstanter.
-
 
 class ABCObj2Cerebrum(object):
     """Class for comunicationg with Cerebrum."""
@@ -42,7 +37,8 @@ class ABCObj2Cerebrum(object):
         self.sett = settings
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
-        self._o2c = Object2Cerebrum(abcconf.SOURCE['source_system'], logger)
+        self._o2c = ABCFactory.get('Object2Cerebrum')(abcconf.SOURCE['source_system'],
+                                                      logger)
         self.logger = logger
 
     def _conv_cons(self, value):

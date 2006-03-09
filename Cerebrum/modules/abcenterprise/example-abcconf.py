@@ -40,6 +40,7 @@ CLASS_RELATIONPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLRelation2
 
 #CLASS_PROCESSOR=['Cerebrum.modules.abcenterprise.ABCXmlWriter/ABCXMLWriter']
 CLASS_PROCESSOR=['Cerebrum.modules.abcenterprise.ABCObj2Cerebrum/ABCObj2Cerebrum']
+CLASS_OBJ2CEREBRUM=['Cerebrum.modules.abcenterprise.Object2Cerebrum/Object2Cerebrum']
 
 
 # Types used in ABCEnterprise. Last argument in list is a coded type.

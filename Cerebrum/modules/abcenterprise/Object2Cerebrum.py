@@ -24,7 +24,6 @@ from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.doc_exception import DocstringException
-from Cerebrum.Constants import _SpreadCode
 
 class ABCMultipleEntitiesExistsError(DocstringException):
     """Several Entities exist with the same ID."""
@@ -51,11 +50,6 @@ class Object2Cerebrum(object):
         self._person = None
         self._ou = None
         self._group = None
-        self.str2const = dict()
-        for c in dir(self.co):
-            tmp = getattr(self.co, c)
-            if isinstance(tmp, _SpreadCode):
-                self.str2const[str(tmp)] = tmp
 
 
     def commit(self):
@@ -194,10 +188,12 @@ class Object2Cerebrum(object):
             self._person.clear()
             self._person.find_by_external_id(member[0], member[1])
 
-            if self._group.has_member(self._person.entity_id,
-                                      self.co.entity_person,
-                                      self.co.group_memberop_union):
-                pass # TODO
+            if not self._group.has_member(self._person.entity_id,
+                                          self.co.entity_person,
+                                          self.co.group_memberop_union):
+                self._group.add_member(self._ac.entity_id,
+                                       self.co.entity_account,
+                                       self.co.group_memberop_union)
             return self._group.write_db()
 
 

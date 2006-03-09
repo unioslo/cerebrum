@@ -49,7 +49,8 @@ class ABCFactory(object):
                       'OrgParser': 'CLASS_ORGPARSER',
                       'OUParser': 'CLASS_OUPARSER',
                       'GroupParser': 'CLASS_GROUPPARSER',
-                      'RelationParser': 'CLASS_RELATIONPARSER'}
+                      'RelationParser': 'CLASS_RELATIONPARSER',
+                      'Object2Cerebrum': 'CLASS_OBJ2CEREBRUM'}
         
         try:
             conf_var = components[comp]
