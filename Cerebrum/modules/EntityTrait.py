@@ -70,8 +70,8 @@ class EntityTrait(Entity):
             if params.get('date'):
                 params = params.copy()
                 params['date'] = str(params['date'])
-                return params
-
+            return params
+            
         for code in self.__trait_updates:
             params = pickle_fixup(self.__traits[code])
             if self.__trait_updates[code] == 'UPDATE':
@@ -142,7 +142,7 @@ class EntityTrait(Entity):
         else:
             self.__trait_updates[code] = 'INSERT'
         self.__traits[code] = {'entity_id': self.entity_id,
-                               'entity_type': self.entity_type,
+                               'entity_type': int(self.entity_type),
                                'code': int(code),
                                'target_id': target_id,
                                'date': date,
