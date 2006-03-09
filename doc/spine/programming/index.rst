@@ -13,3 +13,6 @@ some Python experience.
   examples from "Serverside programming - Step by step".
 
 ..
+
+..
+   arch-tag: 42734f58-af80-11da-8133-d636754fc871

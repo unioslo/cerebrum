@@ -18,3 +18,6 @@ Overview
   configure and setup Spine in a working Cerebrum-install.
 
 ..
+
+..
+   arch-tag: 3f141c70-af80-11da-9cc1-46b38f7e1ebf

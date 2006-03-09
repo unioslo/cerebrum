@@ -38,3 +38,6 @@ Step 3. Adding attribute(s)
 ===========================
    As with part 2 - this part requires a successfull end of part 2.
 TODO: write more
+
+..
+   arch-tag: 4430d04a-af80-11da-9e35-eae9d3051128

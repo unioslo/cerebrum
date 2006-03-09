@@ -116,3 +116,6 @@ category:drop/Oracle;
 DROP ROLE change_mod_room;
 category:drop/Oracle;
 DROP ROLE read_mod_room;
+
+/* arch-tag: 43654858-af80-11da-8a6f-477d3cf29b2a
+   (do not change this comment) */
