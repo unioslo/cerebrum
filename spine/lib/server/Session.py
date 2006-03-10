@@ -63,8 +63,6 @@ class Session:
         Method('get_timeout', int),
         Method('logout', None)
     ]
-    builder_parents = ()
-    builder_children = ()
 
     def _get_builder_methods(cls):
         return ()

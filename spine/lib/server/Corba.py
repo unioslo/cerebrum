@@ -133,7 +133,7 @@ def convert_to_corba(obj, transaction, data_type):
 
     elif data_type in class_cache:
         # corba casting
-        if obj.__class__ in data_type.builder_children:
+        if obj.__class__ in class_cache:
             data_type = obj.__class__
 
         corba_class = class_cache[data_type]
@@ -525,32 +525,27 @@ def _create_idl_interface(cls, error_module="", docs=False):
     txt += 'interface Spine%s' % cls.__name__
 
     # Inheritance
-    parent_slots = sets.Set()
-    parent_slots_names = sets.Set()
     parent_methods = sets.Set()
-    if cls.builder_parents:
-        spam = sets.Set(cls.builder_parents)
-        txt += ': ' + ', '.join(['Spine' + i.__name__ for i in spam])
-        for i in cls.builder_parents:
-            parent_slots.update(i.slots)
-            parent_slots.update(i.method_slots)
+    parent_slots = sets.Set()
 
-            parent_methods.update(i._get_builder_methods())
+    parents = []
 
-            for attr in i.slots:
-                parent_slots_names.add(attr.var_get)
-                if attr.write:
-                    parent_slots_names.add(attr.var_set)
-            for method in i.method_slots:
-                parent_slots_names.add(method.name)
+    if issubclass(cls, object): # old style doesnt support __mro__ with friends
+        for parent in cls.__mro__[1:]:
+            if hasattr(parent, 'method_slots'):
+                parent_slots.update(parent.method_slots)
+            if not hasattr(parent, '_get_builder_methods'): # duck typing
+                continue
+            methods = list(parent._get_builder_methods())
+            if not methods:
+                continue
+            parent_methods.update(methods)
+            parents.append('Spine' + parent.__name__)
+
+    if parents:
+        txt += ': ' + ', '.join(parents)
 
     txt += ' {\n'
-
-    def checkName(name, names=sets.Set()):
-        if name in names or name in parent_slots_names:
-            msg = 'Class %s has duplicate definitions of "%s"' % (cls.__name__, name)
-            raise ServerProgrammingError(msg)
-        names.add(name)
 
     for method in cls._get_builder_methods():
         if method in parent_methods:
@@ -571,13 +566,9 @@ def _create_idl_interface(cls, error_module="", docs=False):
         txt += '\t%s %s(%s)%s;\n' % (data_type, name, ', '.join(getArgs()), excp)
         
     # Methods
-    if docs and cls.slots and cls.method_slots:
-        txt += '\t// Other methods\n'
     for method in cls.method_slots:
         if method in parent_slots:
             continue
-
-        checkName(method.name)
 
         # If the class does not have the method, then method_slots contains an
         # invalid method declaration
@@ -698,8 +689,13 @@ def register_spine_class(cls, idl_cls, idl_struct):
 
         setattr(corba_class, name, _create_corba_method(method, name, data_type, write, args, exceptions))
 
-    classes = (cls, ) + cls.builder_parents
+    if issubclass(cls, object):
+        classes = cls.__mro__
+    else:
+        classes = (cls, )
     for i in classes:
+        if not hasattr(i, 'method_slots'):
+            continue
         for method in i.method_slots:
             if not hasattr(corba_class, method.name):
                 setattr(corba_class, method.name, _create_corba_method(getattr(i, method.name), method.name, method.data_type, method.write, method.args, method.exceptions))

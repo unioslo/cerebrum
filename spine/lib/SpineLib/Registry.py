@@ -31,9 +31,6 @@ class Registry(object):
     def register_class(self, cls):
         name = cls.__name__
 
-        cls.builder_parents = ()
-        cls.builder_children = ()
-
         assert not name in self.map
 
         if issubclass(cls, Builder):
@@ -46,11 +43,6 @@ class Registry(object):
         if issubclass(cls, Dumpable) and issubclass(cls, Builder):
             cls.build_dumper_class()
             self.register_class(cls.dumper_class)
-
-        for i in self.classes:
-            if issubclass(cls, i):
-                cls.builder_parents += (i, )
-                i.builder_children += (cls, )
 
         self.map[name] = cls
         self.classes.append(cls)

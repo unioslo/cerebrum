@@ -208,17 +208,11 @@ class Builder(object):
     'slots' should contain the rest of the attributes for the class.
     'method_slots' should contain methods which are implemented with
     the same name in the class.
-
-    'builder_parents' and 'builder_children' are used for inheritance
-    in CORBA.
     """
     
     primary = ()
     slots = ()
     method_slots = ()
-
-    builder_parents = None
-    builder_children = None
 
     def __init__(self, *args, **vargs):
         map = self.map_args(*args, **vargs)

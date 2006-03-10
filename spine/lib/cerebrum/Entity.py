@@ -89,7 +89,9 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
         # get the correct class for this entity
         entity_type = obj.get_type()
         assert entity_type
-        for entity_class in Entity.builder_children:
+        for entity_class in Entity.__subclasses__():
+            if not hasattr(entity_class, 'entity_type'):
+                continue
             if entity_class.entity_type == entity_type.get_name():
                 break
         else:
