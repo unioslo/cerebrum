@@ -18,8 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import copy
-
 import SpineExceptions
 
 __all__ = ['Searchable']
@@ -37,31 +35,39 @@ def create_get_method(attr):
     """
     def get(self):
         # get the variable
-        if not hasattr(self, attr.get_name_private()):
+        if not hasattr(self, attr.var_private):
             raise SpineExceptions.ClientProgrammingError('Attribute %s is not set.' % attr.name)
-        return getattr(self, attr.get_name_private())
+        return getattr(self, attr.var_private)
+    get.signature_name = attr.var_get
+    get.signature = attr.data_type
     return get
 
-def create_new_attr(attr, **vargs):
+def create_search_attr(attr, modifier=None):
     """Return a copy of the 'attr'.
 
     Attributes in search-classes should always be writeable.
-    To get diffrent methods of comparison, like less or more or like
-    inlcude the argument less=True or more=True or like=True.
+
+    Available modifiers are:
+    less_than   attr < value
+    more_than   attr > value
+    like        attr like value
+    exists      attr is not null
+        or      attr is null
+
+    The modifier will change the name of the attribute.
+    attribute fisk with like as modifier will be changed to fisk_like
     """
-    new_attr = copy.copy(attr)
-    new_attr.write = True
-    name = None
-    for arg, value in vargs.items():
-        if value:
-            setattr(new_attr, arg, True)
-            name = '_' + arg
-    if name:
-        if name == '_less' or name == '_more':
-            name += '_than'
-        new_attr._old_name = new_attr.name
-        new_attr.name += name
-    return new_attr
+    assert modifier in (None, 'less_than', 'more_than', 'like', 'exists')
+
+    name = attr.name
+    if modifier is not None:
+        name += '_' + modifier
+
+    from Builder import Attribute
+    new_attr = Attribute(name, attr.data_type, attr.exceptions, True)
+    new_attr.modifier = modifier
+
+    return new_attr    
 
 def create_set_method(attr):
     """Set the 'value' for the 'attr'.
@@ -70,19 +76,20 @@ def create_set_method(attr):
     Will only return the set-method if the 'attr' has the exists-
     attribute. Raises an exception if the 'value' is False.
     """
-    if getattr(attr, 'exists', False):
-        def set(self, value):
-            if value is None:
-                raise SpineExceptions.ServerProgrammingError('Value %s is not allowed for this method' % value)
-            orig = getattr(self, attr.get_name_private(), None)
-            if orig is not value:
-                setattr(self, attr.get_name_private(), value)
-                self.updated.add(attr)
+    # FIXME: denne returnerte None hvis attr hadde exists satt? 20060310 erikgors.
+    def set(self, value):
+        if value is None:
+            raise SpineExceptions.ServerProgrammingError('Value %s is not allowed for this method' % value)
+        orig = getattr(self, attr.var_private, None)
+        if orig is not value:
+            setattr(self, attr.var_private, value)
+            self.updated.add(attr)
 
-        return set
-    else:
-        return None
-
+    set.signature_name = attr.var_set
+    set.signature_write = True
+    set.signature_args = [attr.data_type]
+    set.signature = None
+    return set
 
 class Searchable(object):
     """Mixin class for adding searchobjects.
@@ -93,7 +100,7 @@ class Searchable(object):
     create_search_method which should return the search-method.
 
     In searchobjects you set the values you want to search for, and if
-    you want other than direct comparisation, you can use less, more,
+    you want other than direct comparisation, you can use less_than, more_than,
     like and exists. You can also merge searchobjects, with intersection,
     union or diffrence, if you need to search on serveral types of
     objects.
@@ -120,27 +127,30 @@ class Searchable(object):
                 continue
             new_attrs = []
 
-            if getattr(attr, 'optional', False):
-                new_attr = create_new_attr(attr, exists=True)
+            if attr.optional:
+                new_attr = create_search_attr(attr, 'exists')
                 new_attr.data_type = bool
                 new_attrs.append(new_attr)
 
             from Date import Date
             if attr.data_type == str:
-                new_attrs.append(create_new_attr(attr, like=True))
+                new_attrs.append(create_search_attr(attr, 'like'))
             elif attr.data_type in (int, Date):
-                new_attrs.append(create_new_attr(attr, less=True))
-                new_attrs.append(create_new_attr(attr, more=True))
-
+                new_attrs.append(create_search_attr(attr, 'less_than'))
+                new_attrs.append(create_search_attr(attr, 'more_than'))
             
-            new_attrs.append(create_new_attr(attr))
+            new_attrs.append(create_search_attr(attr))
             
             # Register original slots and new slots in the searchclass.
             for new_attr in new_attrs:
                 new_attr.exceptions += (SpineExceptions.ClientProgrammingError, )
                 get = create_get_method(new_attr)
-                set = create_set_method(new_attr)
-                search_class.register_attribute(new_attr, get=get, set=set, overwrite=True)
+                if new_attr.write:
+                    set = create_set_method(new_attr)
+                else:
+                    set = None
+
+                search_class.register_attribute(new_attr, get=get, set=set)
 
         def search(self):
             return self._search()

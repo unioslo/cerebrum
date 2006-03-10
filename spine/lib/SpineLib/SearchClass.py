@@ -67,7 +67,7 @@ class SearchClass(DatabaseTransactionClass):
         alive = {}
         mine = object() # make a unique object
         for attr in self.slots:
-            val = getattr(self, attr.get_name_private(), mine)
+            val = getattr(self, attr.var_private, mine)
             if val is not mine:
                 alive[attr.name] = val
         return alive
@@ -75,8 +75,8 @@ class SearchClass(DatabaseTransactionClass):
     def clear(self):
         self._order = []
         for attr in self.slots:
-            if hasattr(self, attr.get_name_private()):
-                delattr(self, attr.get_name_private())
+            if hasattr(self, attr.var_private):
+                delattr(self, attr.var_private)
 
     clear.signature = None
 

@@ -538,9 +538,9 @@ def _create_idl_interface(cls, error_module="", docs=False):
             parent_methods.update(i._get_builder_methods())
 
             for attr in i.slots:
-                parent_slots_names.add(attr.get_name_get())
+                parent_slots_names.add(attr.var_get)
                 if attr.write:
-                    parent_slots_names.add(attr.get_name_set())
+                    parent_slots_names.add(attr.var_set)
             for method in i.method_slots:
                 parent_slots_names.add(method.name)
 

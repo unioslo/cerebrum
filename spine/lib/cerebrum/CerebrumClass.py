@@ -80,9 +80,9 @@ class CerebrumClass(DatabaseTransactionClass):
         obj = self.cerebrum_class(db)
         pk = []
         for attr in self.primary:
-            if not hasattr(self, attr.get_name_private()):
+            if not hasattr(self, attr.var_private):
                 raise ServerProgrammingError('Attribute %s is not set, cannot get all primary attributes.' % attr.name)
-            pk.append(getattr(self, attr.get_name_private()))
+            pk.append(getattr(self, attr.var_private))
         if not hasattr(obj, 'find'):
             raise ServerProgrammingError("Cerebrum class %s has no find() method" % obj.__class__)
         obj.find(*pk)
@@ -103,11 +103,11 @@ class CerebrumClass(DatabaseTransactionClass):
         """Loads 'attributes' from cerebrum."""
         obj = self._get_cerebrum_obj()
         for attr in self.slots:
-            if getattr(self, attr.get_name_load()) != self._load_cerebrum_attributes:
+            if getattr(self, attr.var_load) != self._load_cerebrum_attributes:
                 continue
-            if not hasattr(self, attr.get_name_private()):
+            if not hasattr(self, attr.var_private):
                 value = getattr(obj, self._get_cerebrum_name(attr))
-                setattr(self, attr.get_name_private(), attr.convert_from(self.get_database(), value))
+                setattr(self, attr.var_private, attr.convert_from(self.get_database(), value))
 
     def _save_cerebrum_attributes(self):
         """Stores 'attributes' in cerebrum."""
@@ -115,9 +115,9 @@ class CerebrumClass(DatabaseTransactionClass):
         for attr in self.slots:
             if attr not in self.updated:
                 continue
-            if getattr(self, attr.get_name_save()) != self._save_cerebrum_attributes:
+            if getattr(self, attr.var_save) != self._save_cerebrum_attributes:
                 continue
-            value = getattr(self, attr.get_name_private())
+            value = getattr(self, attr.var_private)
             setattr(obj, self._get_cerebrum_name(attr), attr.convert_to(value))
             self.updated.remove(attr)
         obj.write_db()
@@ -148,11 +148,11 @@ class CerebrumClass(DatabaseTransactionClass):
                 continue
 
             # Only pure CerebrumAttrs gets a load methods
-            if not isinstance(attr, DatabaseAttr) and not hasattr(cls, attr.get_name_load()):
-                setattr(cls, attr.get_name_load(), cls._load_cerebrum_attributes)
+            if not isinstance(attr, DatabaseAttr) and not hasattr(cls, attr.var_load):
+                setattr(cls, attr.var_load, cls._load_cerebrum_attributes)
             # Every writable CerebrumAttr gets save methods
-            if attr.write and not hasattr(cls, attr.get_name_save()):
-                setattr(cls, attr.get_name_save(), cls._save_cerebrum_attributes)
+            if attr.write and not hasattr(cls, attr.var_save):
+                setattr(cls, attr.var_save, cls._save_cerebrum_attributes)
 
         super(CerebrumClass, cls).build_methods()
 

@@ -53,11 +53,10 @@ class Date(Builder):
     strftime.signature_args = [str]
 
     def to_string(self):
-        format = getattr(self, self.get_attr('format').get_name_private(), None)
-        if format is None:
-            return str(self._value)
-        else:
+        if hasattr(self, '_value'):
             return self.strftime(format)
+        else:
+            return str(self._value)
 
     to_string.signature = str
 

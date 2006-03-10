@@ -35,6 +35,8 @@ default_exceptions = (
     ServerProgrammingError
 )
 
+not_set = object()
+
 class Attribute(object):
     """Representation of an attribute in Spine.
 
@@ -70,26 +72,11 @@ class Attribute(object):
         self.write = write
         self.optional = optional
 
-    # FIXME: no use with all the get methods. this class should be immutable
-    def get_name_get(self):
-        """The name provided to clients for reading the attribute value."""
-        return 'get_' + self.name
-
-    def get_name_set(self):
-        """The name provided to clients for storing the attribute value."""
-        return 'set_' + self.name
-
-    def get_name_private(self):
-        """Internal name for storing the value of the attribute."""
-        return '_' + self.name
-
-    def get_name_load(self):
-        """Internal method for loading the value of the attribute."""
-        return 'load_' + self.name
-
-    def get_name_save(self):
-        """Internal method for saving the value of the attriute."""
-        return 'save_' + self.name
+        self.var_get = 'get_' + self.name
+        self.var_set = 'set_' + self.name
+        self.var_load = 'load_' + self.name
+        self.var_save = 'save_' + self.name
+        self.var_private = '_' + self.name
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
@@ -182,27 +169,32 @@ def get_method_signature(func):
 def create_lazy_get_method(attr):
     """Returns a method which will load the attribute if not already loaded."""
     def lazy_get(self):
-        lazy = object() # a unique object.
-        value = getattr(self, attr.get_name_private(), lazy)
-        if value is lazy:
-            loadmethod = getattr(self, attr.get_name_load(), None)
-            if loadmethod is not None:
+        value = getattr(self, attr.var_private, not_set)
+        if value is not_set:
+            loadmethod = getattr(self, attr.var_load, not_set)
+            if loadmethod is not not_set:
                 loadmethod()
-            value = getattr(self, attr.get_name_private(), None)
+            value = getattr(self, attr.var_private, None)
         return value
+    lazy_get.signature_name = attr.var_get
+    lazy_get.signature = attr.data_type
     return lazy_get
 
 def create_set_method(attr):
     """Returns a method which will save the value, if its updated."""
     def set(self, value):
         # make sure the variable has been loaded
-        orig = getattr(self, attr.get_name_get())
+        orig = getattr(self, attr.var_get)
 
         if orig is not value: # we only set a new value if it is different
             # set the variable
-            setattr(self,attr.get_name_private(), value)
+            setattr(self,attr.var_private, value)
             # mark it as updated
             self.updated.add(attr)
+    set.signature = None
+    set.signature_name = attr.var_set
+    set.signature_write = True
+    set.signature_args = [attr.data_type]
     return set
 
 class Builder(object):
@@ -233,9 +225,8 @@ class Builder(object):
         
         # set all variables give in args and vargs
         for attr, value in map.items():
-            var = attr.get_name_private()
-            if not hasattr(self, var):
-                setattr(self, var, value)
+            if not hasattr(self, attr.var_private):
+                setattr(self, attr.var_private, value)
 
         # used to track changes
         if not hasattr(self, 'updated'):
@@ -281,7 +272,7 @@ class Builder(object):
         """Save all changed attributes."""
         saved = sets.Set()
         for attr in list(self.updated):
-            save_method = getattr(self, attr.get_name_save(), None)
+            save_method = getattr(self, attr.var_save, None)
             if save_method not in saved and save_method is not None:
                 save_method()
                 saved.add(save_method)
@@ -299,8 +290,8 @@ class Builder(object):
             if attr not in self.primary:
                 if write_only and not attr.write:
                     continue
-                if hasattr(self, attr.get_name_private()):
-                    delattr(self, attr.get_name_private())
+                if hasattr(self, attr.var_private):
+                    delattr(self, attr.var_private)
         self.updated.clear()
 
     def create_primary_key(cls, *args, **vargs):
@@ -322,23 +313,17 @@ class Builder(object):
 
     create_primary_key = classmethod(create_primary_key)
  
-    def register_attribute(cls, attribute, load=None, save=None, get=None,
-                           set=None, overwrite=False, register=True):
+    def register_attribute(cls, attr, load=None, save=None, get=None, set=None):
         """Registers an attribute.
 
-        attribute contains the name and data_type as it will be in the API
         load - loads the value for this attribute
         save - saves a new attribute
         get  - returns the value
         set  - sets the value. Validation can be done here.
 
+        methods not set (to None or a real method) will be generated.
+
         load/save/get/set must take self as first argument.
-
-        overwrite - decides whether to overwrite existing definitions.
-
-        If the attribute does not exist, it will be added to the class.
-        If overwrite=True load/save/get/set will be overwritten if they
-        allready exists.
 
         If get and set is None, the default behavior is for set and get to use
         self._`attribute.name`. load will then be run automatically by get if the
@@ -347,47 +332,18 @@ class Builder(object):
         If attribute is not write, save will not be used.
         """
 
-        var_private = attribute.get_name_private()
-        var_get = attribute.get_name_get()
-        var_set = attribute.get_name_set()
-        var_load = attribute.get_name_load()
-        var_save = attribute.get_name_save()
+        assert attr not in cls.slots
+        assert not (not attr.write and set is not None) # set methods doesnt make sense when attribute is not writeable
 
-        if get is None:
-            get = create_lazy_get_method(attribute)
-
-        if set is None and attribute.write:
-                set = create_set_method(attribute)
-
-        not_set = object()
-        def quick_register(var, method):
-            if method is not None: # no use setting the method to None
-                if hasattr(cls, var) and not overwrite:
-                    raise ServerProgrammingError('Accessor method %s already exists in %s' % (var, cls.__name__))
-                setattr(cls, var, method)
-
-        quick_register(var_load, load)
-        quick_register(var_save, save)
-        if type(get) == types.MethodType:
-            get.im_func.signature_name = var_get
-            get.im_func.signature = attribute.data_type
-        else:
-            get.signature_name = var_get
-            get.signature = attribute.data_type
-        quick_register(var_get, get)
-        if attribute.write:
-            if type(set) == types.MethodType:
-                set.im_func.signature_name = var_set
-                set.im_func.signature = None
-                set.im_func.signature_args = [attribute.data_type]
-            else:
-                set.signature_name = var_set
-                set.signature = None
-                set.signature_args = [attribute.data_type]
-            quick_register(var_set, set)
-
-        if register:
-            cls.slots += (attribute, )
+        cls.slots += (attr, )
+        if get is not None:
+            setattr(cls, attr.var_get, get)
+        if set is not None:
+            setattr(cls, attr.var_set, set)
+        if load is not None:
+            setattr(cls, attr.var_load, load)
+        if save is not None:
+            setattr(cls, attr.var_save, save)
 
     register_attribute = classmethod(register_attribute)
 
@@ -424,10 +380,24 @@ class Builder(object):
             cls.slots = cls.primary + cls.slots
 
         for attr in cls.slots:
-            get = getattr(cls, attr.get_name_get(), None)
-            set = getattr(cls, attr.get_name_set(), None)
-            cls.register_attribute(attr, get=get, set=set, overwrite=True, register=False)
+            if not hasattr(cls, attr.var_get):
+                setattr(cls, attr.var_get, create_lazy_get_method(attr))
+            
+            if attr.write:
+                if not hasattr(cls, attr.var_set):
+                    setattr(cls, attr.var_set, create_set_method(attr))
 
     build_methods = classmethod(build_methods)
+
+def get_builder_classes(cls=Builder):
+    for i in cls.__subclasses__():
+        yield i
+        for j in get_builder_classes(i):
+            yield j
+
+def build_everything():
+    for i in get_builder_classes():
+        if i.slots:
+            i.build_methods()
 
 # arch-tag: fa55df79-985c-4fab-90f8-d1fefd85fdbb

@@ -199,7 +199,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         primary = []
         for i in self.primary:
             primary.append('%s.%s = :%s' % (i.table, self._get_real_name(i), i.name))
-            args[i.name] = i.convert_to(getattr(self, i.get_name_private()))
+            args[i.name] = i.convert_to(getattr(self, i.var_private))
 
 
         sql = 'SELECT %s FROM %s %s WHERE %s' % (', '.join(attributes), table, ' '.join(joins), ' AND '.join(primary))
@@ -217,7 +217,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
                 continue
             value = row[i.name]
             value = i.convert_from(db, value)
-            setattr(self, i.get_name_private(), value)
+            setattr(self, i.var_private, value)
 
     def _save_all_db(self):
         """Save all attributes to the database.
@@ -251,7 +251,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
 
             args = {}
             for i in self.primary + changed_attributes:
-                args[i.name] = attr.convert_to(getattr(self, i.get_name_private()))
+                args[i.name] = attr.convert_to(getattr(self, i.var_private))
 
             db.execute(sql, args)
 
@@ -273,7 +273,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
                 continue
             if attr.table not in tables:
                 tables[attr.table] = {}
-            value = attr.convert_to(getattr(self, attr.get_name_get())())
+            value = attr.convert_to(getattr(self, attr.var_get)())
             tables[attr.table][self._get_real_name(attr)] = value
         
         # If db_table_order is set, we delete in the opposite order.
@@ -359,11 +359,11 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
             if not isinstance(attr, DatabaseAttr):
                 continue
 
-            if not hasattr(cls, attr.get_name_load()):
-                setattr(cls, attr.get_name_load(), cls._load_all_db)
+            if not hasattr(cls, attr.var_load):
+                setattr(cls, attr.var_load, cls._load_all_db)
 
-            if attr.write and not hasattr(cls, attr.get_name_save()):
-                setattr(cls, attr.get_name_save(), cls._save_all_db)
+            if attr.write and not hasattr(cls, attr.var_save):
+                setattr(cls, attr.var_save, cls._save_all_db)
 
         super(DatabaseClass, cls).build_methods()
         cls.build_search_class()
