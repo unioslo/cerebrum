@@ -192,23 +192,25 @@ def _convert_corba_types_to_none(data_type):
         value = []
     return value
 
+# FIXME: coding should be set in db... 20060310 erikgors.
+
 def _string_from_db(str, encoding):
     """
     Converts a string from the database string encoding to the clients
     string encoding.
     """
-    if encoding == cereconf.SPINE_DATABASE_ENCODING:
+    if encoding == getattr(cereconf, 'SPINE_DATABASE_ENCODING', 'iso-8859-1'):
         return str
-    return str.decode(cereconf.SPINE_DATABASE_ENCODING).encode(encoding)
+    return str.decode(getattr(cereconf, 'SPINE_DATABASE_ENCODING', 'iso-8859-1')).encode(encoding)
 
 def _string_to_db(str, encoding):
     """
     Converts a string from the clients string encoding to the database string
     encoding.
     """
-    if encoding == cereconf.SPINE_DATABASE_ENCODING:
+    if encoding == getattr(cereconf, 'SPINE_DATABASE_ENCODING', 'iso-8859-1'):
         return str
-    return str.decode(encoding).encode(cereconf.SPINE_DATABASE_ENCODING)
+    return str.decode(encoding).encode(getattr(cereconf, 'SPINE_DATABASE_ENCODING', 'iso-8859-1'))
 
 def _create_corba_method(method, method_name, data_type, write, method_args, exceptions):
     """

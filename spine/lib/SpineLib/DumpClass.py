@@ -93,5 +93,10 @@ class DumpClass(Builder):
                         s[name] = value
 
             self.structs.append(s)
+    
+    def get_dumper_size(self):
+        return len(self.structs)
+
+    get_dumper_size.signature = int
 
 # arch-tag: 13564347-7aef-4465-8b83-c3d694bf6951

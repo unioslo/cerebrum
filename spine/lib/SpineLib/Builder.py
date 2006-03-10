@@ -18,21 +18,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sets
 import types
 
-from Cerebrum.extlib import sets
-import Cerebrum.Errors
-from SpineExceptions import AccessDeniedError, DatabaseError, AlreadyLockedError, NotFoundError, ServerProgrammingError, TooManyMatchesError, TransactionError, ObjectDeletedError
+import SpineExceptions
 
 __all__ = ['Attribute', 'Method', 'Builder']
 
-# Add the 'standard' exceptions to the attribute
-# FIXME: AccessDeniedError, TransactionError
-# FIXME: Do we really need all of these?
 default_exceptions = (
-    DatabaseError, TransactionError, 
-    AccessDeniedError, ObjectDeletedError,
-    ServerProgrammingError
+    SpineExceptions.TransactionError, SpineExceptions.AccessDeniedError
 )
 
 not_set = object()
@@ -68,7 +62,7 @@ class Attribute(object):
         self.data_type = data_type
         self.exceptions = default_exceptions + tuple(exceptions or ())
         if optional:
-            self.exceptions += (NotFoundError, TooManyMatchesError)
+            self.exceptions += (SpineExceptions.NotFoundError, SpineExceptions.TooManyMatchesError)
         self.write = write
         self.optional = optional
 
@@ -355,7 +349,7 @@ class Builder(object):
         with the same name will be overwritten.
         """
         if hasattr(cls, method.name) and not overwrite:
-            raise ServerProgrammingError('Method %s already exists in %s' % (method.name, cls.__name__))
+            raise SpineExceptions.ServerProgrammingError('Method %s already exists in %s' % (method.name, cls.__name__))
         setattr(cls, method.name, method_func)
         method.doc = method_func.__doc__
 

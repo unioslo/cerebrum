@@ -33,7 +33,6 @@ import SessionHandler
 import Authorization
 
 from Cerebrum.spine.CerebrumHandler import CerebrumHandler
-from Cerebrum.spine.SpineLib.Builder import Method
 from Cerebrum.spine.SpineLib import Builder
 
 from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError
@@ -53,33 +52,40 @@ class Session:
     should return an Object when logged in.
     """
     
-    slots = []
-    method_slots = [
-        Method('new_transaction', CerebrumHandler),
-        Method('get_transactions', [CerebrumHandler]),
-        Method('get_encoding', str),
-        Method('set_encoding', None, args=[('encoding', str)], exceptions=[NotFoundError]),
-        Method('get_timeout', int),
-        Method('logout', None)
-    ]
+    slots = ()
+    method_slots = ()
 
     def new_transaction(self):
         pass
 
+    new_transaction.signature = CerebrumHandler
+
     def get_transactions(self):
         pass
+
+    get_transactions.signature = [CerebrumHandler]
 
     def get_encoding(self):
         pass
 
+    get_encoding.signature = str
+
     def set_encoding(self, encoding):
         pass
+
+    set_encoding.signature = None
+    set_encoding.signature_args = [str]
+    set_encoding.signature_exceptions = [NotFoundError]
 
     def get_timeout(self):
         pass
 
+    get_timeout.signature = int
+
     def logout(self):
         pass
+
+    logout.signature = None
 
 # Build corba-classes and IDL
 
@@ -115,7 +121,7 @@ for cls in classes:
 
 class SessionImpl(Session, SpineIDL__POA.SpineSession):
     def __init__(self, client):
-        self._encoding = cereconf.SPINE_DEFAULT_CLIENT_ENCODING
+        self._encoding = getattr(cereconf, 'SPINE_DEFAULT_CLIENT_ENCODING', 'iso-8859-1')
         self.counter = count()
         self.client = client
         self._transactions = {}
@@ -146,7 +152,7 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
 
     def get_timeout(self):
         """Returns the time it takes for _a_ session to time out."""
-        return cereconf.SPINE_SESSION_TIMEOUT
+        return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 900)
 
     def get_transactions(self):
         self.reset_timeout()

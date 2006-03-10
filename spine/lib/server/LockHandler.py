@@ -56,7 +56,7 @@ class LockHandler(threading.Thread):
         """Updates the timestamp for the given transactions lock on the given object."""
         self._transactions_lock.acquire()
         assert self._transactions.has_key(transaction) # Transaction MUST be in this list
-        self._transactions[transaction][object] = time.time() + cereconf.SPINE_LOCK_TIMEOUT
+        self._transactions[transaction][object] = time.time() + getattr(cereconf, 'SPINE_LOCK_TIMEOUT', 640)
         self._transactions_lock.release()
 
     def remove_lock(self, transaction, object):
@@ -87,7 +87,7 @@ class LockHandler(threading.Thread):
         self.running = True
         while self.running:
             self._check_times()
-            time.sleep(cereconf.SPINE_LOCK_CHECK_INTERVAL)
+            time.sleep(getattr(cereconf, 'SPINE_LOCK_CHECK_INTERVAL', 10))
 
     def stop(self):
         self.running = False

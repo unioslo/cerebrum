@@ -25,7 +25,7 @@ import cereconf
 
 class Communication(object):
     def __init__(self):
-        if cereconf.SPINE_USE_SSL:
+        if getattr(cereconf, 'SPINE_USE_SSL', False):
             self._init_ssl()
         else:
             self._init_plain()

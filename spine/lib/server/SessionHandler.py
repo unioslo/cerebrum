@@ -61,7 +61,7 @@ class SessionHandler(threading.Thread):
         last call to this method with that session as the argument.
         """
         self._session_lock.acquire()
-        self._sessions[session] = time.time() + cereconf.SPINE_SESSION_TIMEOUT
+        self._sessions[session] = time.time() + session.get_timeout()
         self._session_lock.release()
 
     def remove(self, session):
@@ -102,7 +102,7 @@ class SessionHandler(threading.Thread):
         self.running = True
         while self.running:
             self._check_times()
-            time.sleep(cereconf.SPINE_SESSION_CHECK_INTERVAL)
+            time.sleep(getattr(cereconf, 'SPINE_SESSION_CHECK_INTERVAL', 10))
 
     def stop(self):
         self.running = False
