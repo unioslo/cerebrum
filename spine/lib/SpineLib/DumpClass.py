@@ -22,9 +22,6 @@ from Builder import Builder, Attribute
 from DatabaseClass import DatabaseTransactionClass
 from Date import Date
 
-import Registry
-registry = Registry.get_registry()
-
 # FIXME: finne en bedre plass for Struct og/eller KeyValue?
 class Struct:
     def __init__(self, data_type):
@@ -59,9 +56,6 @@ class KeyValue(Builder):
             'is_none':value is None
         }
     make = classmethod(make)
-
-
-registry.register_class(KeyValue)
 
 class DumpClass(Builder):
     """Base class for all dumperclasses.
@@ -99,7 +93,5 @@ class DumpClass(Builder):
                         s[name] = value
 
             self.structs.append(s)
-
-registry.register_class(DumpClass)
 
 # arch-tag: 13564347-7aef-4465-8b83-c3d694bf6951

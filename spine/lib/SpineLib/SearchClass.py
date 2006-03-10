@@ -24,9 +24,6 @@ from DatabaseClass import DatabaseTransactionClass, DatabaseAttr
 from Builder import Builder, Attribute
 from SpineExceptions import ClientProgrammingError
 
-import Registry
-registry = Registry.get_registry()
-
 def create_id_iterator(start=0):
     while 1:
         yield start
@@ -332,7 +329,5 @@ exceptions = [ClientProgrammingError]
 
 for m in (add_join, add_left_join, add_intersection, add_difference, order_by, order_by_desc, get_search_objects):
     setattr(SearchClass, m.__name__, m)
-
-registry.register_class(SearchClass)
 
 # arch-tag: c3bdb45f-2d86-4863-8df7-6a3f33776bde

@@ -21,6 +21,7 @@
 import os
 import codecs
 import md5
+import sets
 
 import omniORB
 
@@ -32,13 +33,11 @@ import SessionHandler
 import Authorization
 
 from Cerebrum.spine.CerebrumHandler import CerebrumHandler
-from Cerebrum.spine.SpineLib.Builder import Attribute, Method
+from Cerebrum.spine.SpineLib.Builder import Method
+from Cerebrum.spine.SpineLib import Builder
 
-from Cerebrum.spine.SpineLib import Registry
 from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError
 from Cerebrum.spine.SpineLib.Transaction import TransactionError
-
-registry = Registry.get_registry()
 
 def count():
     i = 0
@@ -87,9 +86,14 @@ class Session:
         pass
 
 # Build corba-classes and IDL
-registry.build_all()
+
+Builder.build_everything()
 classes = []
-classes += registry.classes 
+for i in Builder.get_builder_classes():
+    if i not in classes:
+        if list(i._get_builder_methods()): # only export classes with methods
+            classes.append(i)
+
 classes.append(Session)
 
 idl_source = create_idl_source(classes, 'SpineIDL')
@@ -107,7 +111,8 @@ except ImportError:
 
 import SpineIDL, SpineIDL__POA
 
-for name, cls in registry.map.items():
+for cls in classes:
+    name = cls.__name__
     idl_class = getattr(SpineIDL__POA, 'Spine' + name)
     idl_struct = getattr(SpineIDL, name + 'Struct', None)
     register_spine_class(cls, idl_class, idl_struct)

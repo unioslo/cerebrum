@@ -384,8 +384,8 @@ class Builder(object):
     build_methods = classmethod(build_methods)
 
 def get_builder_classes(cls=Builder):
+    yield cls
     for i in cls.__subclasses__():
-        yield i
         for j in get_builder_classes(i):
             yield j
 
