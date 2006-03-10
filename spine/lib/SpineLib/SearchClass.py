@@ -192,7 +192,7 @@ class SearchClass(DatabaseTransactionClass):
                     operator = 'IS'
                 value = None
 
-            attr = self.cls.get_attr(key)
+            attr = self.cls.get_attribute(key)
             name = self.cls._get_real_name(attr)
             arg = '%s_%s' % (alias, name)
             if like:
@@ -250,13 +250,13 @@ class SearchClass(DatabaseTransactionClass):
         data_type2 = obj.cls
 
         if attr:
-            attr = data_type1.get_attr(attr)
+            attr = data_type1.get_attribute(attr)
             data_type1 = attr.data_type
         else:
             attr = data_type1.primary[0]
 
         if obj_attr:
-            obj_attr = data_type2.get_attr(obj_attr)
+            obj_attr = data_type2.get_attribute(obj_attr)
             data_type2 = obj_attr.data_type
         else:
             obj_attr = data_type2.primary[0]
@@ -267,7 +267,7 @@ class SearchClass(DatabaseTransactionClass):
         return attr, obj_attr
             
     def _order_by(self, how, obj, attr):
-        self._order.append((how, obj, obj.cls.get_attr(attr)))
+        self._order.append((how, obj, obj.cls.get_attribute(attr)))
 
     def _add_join(self, how, attr, obj, obj_attr):
         attr, obj_attr = self._get_join_attrs(attr, obj, obj_attr)

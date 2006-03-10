@@ -21,10 +21,10 @@
 import Cerebrum
 from Cerebrum.extlib import sets
 
-from Builder import Attribute
+import Builder
+
 from Searchable import Searchable
 from Dumpable import Dumpable
-from Builder import Builder
 from Caching import Caching
 from SpineExceptions import DatabaseError, NotFoundError
 
@@ -60,7 +60,7 @@ class ConvertableAttribute(object):
 
         return self.data_type(value)
 
-class DatabaseAttr(Attribute, ConvertableAttribute):
+class DatabaseAttr(Builder.Attribute, ConvertableAttribute):
     """Object representing an attribute from the database.
 
     Used to represent an attribute which can be found in the database.
@@ -81,7 +81,7 @@ class DatabaseAttr(Attribute, ConvertableAttribute):
             exceptions = []
         exceptions += [DatabaseError]
 
-        Attribute.__init__(self, name, data_type, exceptions=exceptions,
+        Builder.Attribute.__init__(self, name, data_type, exceptions=exceptions,
                 write=write, optional=optional)
 
         self.table = table
@@ -107,7 +107,7 @@ def get_real_name(map, attr, table=None):
     else:
         return attr.name
 
-class DatabaseTransactionClass(Builder, Caching):
+class DatabaseTransactionClass(Builder.Builder, Caching):
     def __init__(self, db, *args, **vargs):
         self._database = db
         return super(DatabaseTransactionClass, self).__init__(*args, **vargs)
@@ -300,7 +300,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
 
         Notice the write_locker argument when returning the new object.
         """
-        map = cls.map_args(*args, **vargs)
+        map = cls.map_attributes(*args, **vargs)
         tables = cls._get_sql_tables()
 
         for table in (cls.db_table_order or tables.keys()):

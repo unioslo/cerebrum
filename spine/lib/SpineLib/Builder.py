@@ -215,7 +215,7 @@ class Builder(object):
     method_slots = ()
 
     def __init__(self, *args, **vargs):
-        map = self.map_args(*args, **vargs)
+        map = self.map_attributes(*args, **vargs)
         
         # set all variables give in args and vargs
         for attr, value in map.items():
@@ -225,42 +225,6 @@ class Builder(object):
         # used to track changes
         if not hasattr(self, 'updated'):
             self.updated = sets.Set()
-
-    def map_args(cls, *args, **vargs):
-        """Returns a dict with attribute:value."""
-        slotMap = dict([(i.name, i) for i in cls.slots])
-
-        map = dict(zip(cls.slots, args))
-
-        for key, value in vargs.items():
-            attr = slotMap.get(key)
-            if attr is None:
-                continue
-            map[attr] = value
-
-        return map
-
-    map_args = classmethod(map_args)
-
-    def get_attr(cls, name):
-        """Get the attribute in slots with name 'name'."""
-        # FIXME: get_slot bedre navn? 20060309 erikgors
-        for attr in cls.slots:
-            if attr.name == name:
-                return attr
-        raise ServerProgrammingError('Attribute %s not found in %s' % (name, cls))
-
-    get_attr = classmethod(get_attr)
-
-    def _get_builder_methods(cls):
-        for i in dir(cls):
-            if i[0] != '_':
-                i = getattr(cls, i)
-                if type(i) == types.MethodType:
-                    i = i.im_func
-                if hasattr(i, 'signature'):
-                    yield i
-    _get_builder_methods = classmethod(_get_builder_methods)
 
     def save(self):
         """Save all changed attributes."""
@@ -293,16 +257,21 @@ class Builder(object):
 
         Used by the caching facility to identify a unique object.
         """
-        names = [i.name for i in cls.primary]
-        for var, value in zip(names, args):
-            vargs[var] = value
+
+        # this should be kind of optimized...
 
         key = []
-        for i in names:
-            try:
-                key.append(vargs[i])
-            except KeyError:
-                raise ServerProgrammingError('Argument %s missing during construction of primary key. Did you forget to pass an argument or a reference to the database?' % i)
+        if not vargs:
+            for i in xrange(len(cls.primary)):
+                key.append(args[i])
+        else:
+            args = iter(args)
+            for i in cls.primary:
+                try:
+                    key.append(vargs[i.name])
+                except KeyError:
+                    key.append(args.next())
+
         return tuple(key)
 
     create_primary_key = classmethod(create_primary_key)
@@ -340,6 +309,36 @@ class Builder(object):
             setattr(cls, attr.var_save, save)
 
     register_attribute = classmethod(register_attribute)
+
+    def get_attribute(cls, name):
+        """Get the attribute in slots with name 'name'."""
+        # FIXME: get_slot bedre navn? 20060309 erikgors
+        for attr in cls.slots:
+            if attr.name == name:
+                return attr
+        raise KeyError('Attribute %s not found in %s' % (name, cls))
+
+    get_attribute = classmethod(get_attribute)
+
+    def map_attributes(cls, *args, **vargs):
+        """Returns a dict with attribute:value."""
+
+        map = {}
+        for attr, value in zip(cls.slots, args):
+            map[attr] = value
+
+        if vargs:
+            slotMap = dict([(i.name, i) for i in cls.slots])
+
+            for key, value in vargs.items():
+                attr = slotMap.get(key)
+                if attr is None:
+                    continue
+                map[attr] = value
+
+        return map
+
+    map_attributes = classmethod(map_attributes)
 
     def register_methods(cls, methods):
         for i in methods:
@@ -393,5 +392,15 @@ def build_everything():
     for i in get_builder_classes():
         if i.slots:
             i.build_methods()
+
+def get_builder_methods(cls):
+    for i in dir(cls):
+        if i[0] != '_':
+            i = getattr(cls, i)
+            if type(i) == types.MethodType:
+                i = i.im_func
+            if hasattr(i, 'signature'):
+                yield i
+
 
 # arch-tag: fa55df79-985c-4fab-90f8-d1fefd85fdbb

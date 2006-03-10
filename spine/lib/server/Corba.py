@@ -30,8 +30,9 @@ import weakref
 import cereconf
 import Communication
 
+
 from Cerebrum.extlib import sets
-from Cerebrum.spine.SpineLib.Builder import Method, get_method_signature
+from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.spine.SpineLib.Date import Date
 from Cerebrum.spine.SpineLib.DumpClass import Struct, Any, DumpClass
 from Cerebrum.spine.SpineLib.Locking import Locking
@@ -212,7 +213,6 @@ def _string_to_db(str, encoding):
 def _create_corba_method(method, method_name, data_type, write, method_args, exceptions):
     """
     Creates a wrapper for the given method. 
-    The supplied argument 'method' must be an instance of Builder.Method.
 
     The generated wrapper method does the following in addition to calling the
     real method in the server-side class:
@@ -534,9 +534,9 @@ def _create_idl_interface(cls, error_module="", docs=False):
         for parent in cls.__mro__[1:]:
             if hasattr(parent, 'method_slots'):
                 parent_slots.update(parent.method_slots)
-            if not hasattr(parent, '_get_builder_methods'): # duck typing
+            if not hasattr(parent, 'slots'): # duck typing
                 continue
-            methods = list(parent._get_builder_methods())
+            methods = list(Builder.get_builder_methods(parent))
             if not methods:
                 continue
             parent_methods.update(methods)
@@ -547,10 +547,10 @@ def _create_idl_interface(cls, error_module="", docs=False):
 
     txt += ' {\n'
 
-    for method in cls._get_builder_methods():
+    for method in Builder.get_builder_methods(cls):
         if method in parent_methods:
             continue
-        name, data_type, write, args, exceptions = get_method_signature(method)
+        name, data_type, write, args, exceptions = Builder.get_method_signature(method)
 
         data_type = get_type(data_type)
 
@@ -684,8 +684,8 @@ def register_spine_class(cls, idl_cls, idl_struct):
 
     names = sets.Set()
 
-    for method in cls._get_builder_methods():
-        name, data_type, write, args, exceptions = get_method_signature(method)
+    for method in Builder.get_builder_methods(cls):
+        name, data_type, write, args, exceptions = Builder.get_method_signature(method)
 
         setattr(corba_class, name, _create_corba_method(method, name, data_type, write, args, exceptions))
 

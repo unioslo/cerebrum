@@ -63,10 +63,6 @@ class Session:
         Method('logout', None)
     ]
 
-    def _get_builder_methods(cls):
-        return ()
-    _get_builder_methods = classmethod(_get_builder_methods)
-
     def new_transaction(self):
         pass
 
@@ -89,10 +85,10 @@ class Session:
 
 Builder.build_everything()
 classes = []
-for i in Builder.get_builder_classes():
-    if i not in classes:
-        if list(i._get_builder_methods()): # only export classes with methods
-            classes.append(i)
+for cls in Builder.get_builder_classes():
+    if cls not in classes:
+        if list(Builder.get_builder_methods(cls)): # only export classes with methods
+            classes.append(cls)
 
 classes.append(Session)
 
