@@ -310,6 +310,8 @@ The currently defined id-types are:
                 bet = UiOBetaling(fs)
                 if not bet.list_ok_kopiavgift(fodselsdato=bdate, personnr=pnum):
                     reason.append(" * Copy fee has not been paid")
+                if len(reason) == 1:
+                    reason.append(" * Please wait for nightly update")
                 return "\n".join(reason)
             if total_available_quota == 0:
                 return "%s: No prints available" % person
@@ -552,12 +554,16 @@ The currently defined id-types are:
         except ValueError:
             raise CerebrumError, "job_id should be a number"
         self.ba.can_pquota_undo(operator, job_id)
+        if len(why) > 120:
+            raise CerebrumError("The reason for undoing can't be longer than "
+                                "120 characters")
         pu = PPQUtil.PPQUtil(self.db)
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
                             why, update_by=operator.get_entity_id())
-        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)" % (
-            person_id, job_id, num_pages, operator.get_entity_id(), repr(why)))
+        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)",
+                         person_id, job_id, num_pages, operator.get_entity_id(),
+                         repr(why))
         return "OK"
 
 
