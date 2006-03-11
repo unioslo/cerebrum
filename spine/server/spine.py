@@ -22,6 +22,7 @@
 import cerebrum_path
 import cereconf
 
+import sys
 import thread
 import traceback
 
@@ -70,7 +71,51 @@ def main():
     session_handler.stop()
     print 'Spine is going down.'
 
+def check():
+    from Cerebrum.spine.SpineLib import Builder, DatabaseClass
+    from Cerebrum.Utils import Factory
+
+    db = Factory.get('Database')()
+
+    for cls in Builder.get_builder_classes(DatabaseClass.DatabaseClass):
+        for table in cls._get_sql_tables():
+            if DatabaseClass._table_exists(db, table):
+                print '+ exists:', table
+            else:
+                print '- WARNING does not exists:', table
+
+def build():
+    from Cerebrum.spine.SpineLib import Builder, DatabaseClass
+    from Cerebrum.Utils import Factory
+
+    db = Factory.get('Database')()
+
+    for cls in Builder.get_builder_classes(DatabaseClass.DatabaseClass):
+        if cls.slots:
+            DatabaseClass.create_tables(db, cls)
+
 if __name__ == '__main__':        
-    main()
+    help = False
+    if len(sys.argv) == 2:
+        if sys.argv[1] == 'start':
+            main()
+        elif sys.argv[1] == 'check':
+            check()
+        elif sys.argv[1] == 'build':
+            build()
+        else:
+            help = True
+    else:
+        help = True
+    
+    if help:
+        print """Spine!
+
+Hello. Try one of these:
+
+%s start    start the spine server
+%s check    check all tables
+%s build    build all missing tables
+""" % tuple(sys.argv[:1] * 3)
 
 # arch-tag: c5bbf2ca-6dee-49e3-9774-a3f7487b9594
