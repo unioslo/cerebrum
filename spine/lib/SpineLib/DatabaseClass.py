@@ -52,7 +52,7 @@ class ConvertableAttribute(object):
     def convert_from(self, db, value):
         if value is None:
             return None
-        if hasattr(db, 'numericType') and isinstance(value, db.numericType):
+        if self.data_type == int:
             value = int(value)
         # Inject db-object if data_type is a DatabaseTransactionClass
         if issubclass(self.data_type, DatabaseTransactionClass):
@@ -370,5 +370,81 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         cls.build_dumper_class()
  
     build_methods = classmethod(build_methods)
+
+def _table_exists(db, table):
+    db.execute('START TRANSACTION')
+    try:
+        db.query('SELECT * FROM %s LIMIT 1' % table)
+        db.execute('ABORT')
+        return True
+    except Exception:
+        db.execute('ABORT')
+        return False
+
+def _create_table(db, cls, table, slots):
+    if _table_exists(db, table):
+        return
+    print 'creating table', table
+    def genattr(attr):
+        txt = ''
+        if attr.data_type is int:
+            txt += 'INTEGER'
+        elif attr.data_type is str:
+            txt += 'VARCHAR'
+        elif attr.data_type is bool:
+            name = cls._get_real_name(attr, table)
+            txt += "CHAR(1) NOT NULL CONSTRAINT %s_%s_bool CHECK (%s IN ('T', 'F'))" % (table, name, name)
+        elif attr.data_type.__name__ == 'Date':
+            txt += 'DATE'
+        else:
+            primary = attr.data_type.primary
+            assert len(primary) == 1
+            key = primary[0]
+            assert key.data_type == int
+
+            ref = '%s(%s)' % (key.table, attr.data_type._get_real_name(key, key.table))
+
+            txt += 'INTEGER'
+            txt += '\n\t\tCONSTRAINT %s_%s_fk' % (attr.table, attr.name)
+            txt += '\n\t\t\tREFERENCES %s' % (ref)
+
+        return txt
+        
+    def attrs():
+        lines = []
+        for attr in slots:
+            if attr.name == 'subject_entity':
+                continue
+            yield '\t%s\n\t\t%s' % (cls._get_real_name(attr, table), genattr(attr))
+
+        yield '\tCONSTRAINT %s_pk\n\t\tPRIMARY KEY (%s)' % (table, ', '.join([cls._get_real_name(attr, table) for attr in cls.primary]))
+
+    sql = 'CREATE TABLE %s\n(\n%s\n)' % (table, ',\n'.join(attrs()))
+    db.execute(sql)
+
+def create_tables(db, cls):
+    tables = cls._get_sql_tables()
+
+    # make sure primary table is created first. the rest shouldn't matter
+    table = cls.primary[0].table
+    _create_table(db, cls, table, tables.pop(table))
+
+    for table, attrs in tables.items():
+        _create_table(db, cls, table, list(cls.primary) + attrs)
+
+
+def drop_tables(db, cls):
+    # FIXME: this needs alot of work.
+    table = cls.primary[0].table
+    tables = cls._get_sql_tables()
+    tables.pop(table)
+    tables = tables.values()
+
+    for i in tables:
+        if _table_exists(db, '%s' % i):
+            db.execute('DROP TABLE %s' % i)
+
+    if _table_exists(db, '%s' % table):
+        db.execute('DROP TABLE %s' % table)
 
 # arch-tag: 9e06972b-c3b1-45ff-bdad-e32d35d3ab81
