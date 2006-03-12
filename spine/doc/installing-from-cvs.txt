@@ -25,7 +25,7 @@ Check out the source code for Cerebrum from Sourceforge::
 Build Cerebrum and Spine (and Cereweb, if desired)::
     cd cerebrum
     aclocal && autoconf
-    ./configure # -med --prefix=/hvor/du/vil
+    ./configure # --prefix=/where/to/install
     make
     make install
     cd spine
@@ -36,7 +36,10 @@ Build Cerebrum and Spine (and Cereweb, if desired)::
     make
 
 
-If your chosen prefix is not in the default Python path, and you are not root, you will need to do the following to make the installed Cerebrum applications run::
+If your chosen prefix is not in the default Python path, and you are not
+root, you will need to do the following to make the installed Cerebrum
+applications run::
+
         for i in $PREFIX/bin $PREFIX/sbin; do
             cd $i
             cat > cerebrum_path.py << EOF
@@ -78,7 +81,9 @@ Configuring Cerebrum and Spine::
     CLASS_OU = ['Cerebrum.modules.no.Stedkode/Stedkode']
     # Configuration file for logging from Cerebrum-core
     LOGGING_CONFIGFILE_NEW = '$PREFIX/etc/cerebrum/logging.ini'
-    # Prioritized lookup order for system constants, used in various parts of Cerebrum core. Names map to system constants, prefixed with 'system_'
+    # Prioritized lookup order for system constants, used in various
+    # parts of Cerebrum core. Names map to system constants, prefixed
+    # with 'system_'
     SYSTEM_LOOKUP_ORDER = ('system_bdb', 'system_fs', 'system_manual')
     # Default institution number for Stedkode-mixin
     DEFAULT_INSTITUSJONSNR=11
@@ -89,11 +94,12 @@ Configuring Cerebrum and Spine::
 
     # Spine configuration
 
-    # Where to find IDL definitions, change the path below to match your setup
+    # Where to find IDL definitions, change the path below to match your
+    # setup
     IDL_PATH='$PATH_TO_YOUR_CVS_CHECKOUT/cerebrum/spine/lib/server/idl'
 
     # The IOR file for Spine. Must be readable for all clients. 
-    SPINE_IOR_FILE='/tmp/spine.ior' # IOR-fil for Spine, må være tilgjengelig for klienter
+    SPINE_IOR_FILE='/tmp/spine.ior' 
 
     # The encoding of the Cerebrum database Spine is to use
     SPINE_DATABASE_ENCODING='iso-8859-1'
