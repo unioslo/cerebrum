@@ -75,6 +75,8 @@ def check():
     from Cerebrum.spine.SpineLib import Builder, DatabaseClass
     from Cerebrum.Utils import Factory
 
+    Builder.build_everything()
+
     db = Factory.get('Database')()
 
     for cls in Builder.get_builder_classes(DatabaseClass.DatabaseClass):
@@ -87,6 +89,8 @@ def check():
 def build():
     from Cerebrum.spine.SpineLib import Builder, DatabaseClass
     from Cerebrum.Utils import Factory
+
+    Builder.build_everything()
 
     db = Factory.get('Database')()
 

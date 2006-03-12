@@ -384,7 +384,7 @@ def get_builder_classes(cls=Builder):
 
 def build_everything():
     for i in get_builder_classes():
-        if i.slots:
+        if i.primary or i.slots:
             i.build_methods()
 
 def get_builder_methods(cls):
