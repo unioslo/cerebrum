@@ -311,13 +311,25 @@ def determine_reservations(person):
     # TODO: Use something "a bit more defined and permanent".
     # This is a hack. For now we set a reservation on non-guests with
     # any 'ELKAT' reservation except 'PRIVADR' and 'PRIVTLF', and
-    # on guests without 'ELKAT'+'GJESTEOPPL' anti-reservations.
-    res_on_pers = (person_has_active(person, "gjest")
-                   and not person_has_active(person, 'tils'))
-    for r in person.get('res', ()):
-        if r['katalogkode'] == "ELKAT":
-            if r['felttypekode'] not in ("PRIVADR", "PRIVTLF"):
-                res_on_pers = r['felttypekode'] != "GJESTEOPPL"
+    # on guests without 'ELKAT'+'SAMTYKKE' anti-reservations.
+
+    if person_has_active(person, 'tils'):
+        for r in person.get('res', ()):
+            if r['katalogkode'] == "ELKAT":
+                if r['felttypekode'] not in ("PRIVADR", "PRIVTLF"):
+                    if r['resninivakode'] != "SAMTYKKE":
+                        res_on_pers = True
+    else:
+        res_on_pers = True
+        for r in person.get('res', ()):
+            if r['katalogkode'] == "ELKAT":
+                if r['felttypekode'] not in ("PRIVADR", "PRIVTLF"):
+                    if r['resninivakode'] == "SAMTYKKE":
+                        res_on_pers = False
+                    else:
+                        res_on_pers = True
+                        break
+    
     if res_on_pers:
         _add_res(new_person.entity_id)
     else:
