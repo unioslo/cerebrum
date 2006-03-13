@@ -463,7 +463,6 @@ You may also use entity_id:id."""],
   - 'fnr'
   - 'name'
   - 'date' of birth, on format YYYY-MM-DD
-  - 'person_id'
   - 'stedkode'"""],
     'posix_shell':
         ['shell', 'Enter shell',

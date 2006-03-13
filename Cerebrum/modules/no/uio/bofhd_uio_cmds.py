@@ -4363,44 +4363,39 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 raise CerebrumError, ("Invalid affiliation '%s' (perhaps you "
                                       "need to quote the arguments?)" % filter)
-        if search_type == 'person_id':
-            person = self._get_person(*self._map_person_id(value))
-            matches = [{'person_id': person.entity_id}]
+        person = Utils.Factory.get('Person')(self.db)
+        person.clear()
+        if search_type == 'name':
+            if filter is not None:
+                raise CerebrumError, \
+                      "Can't filter by affiliation for search type 'name'"
+            if len(value.strip(" \t%_*?")) < 3:
+                raise CerebrumError, \
+                      "You must specify at least three letters of the name"
+            if not [c for c in "_%?*" if c in value]:
+                # Add wildcard at start and end and between words.
+                value = '*' + value.replace(' ', '*') + '*'
+            matches = person.list_persons_by_name(
+                value,
+                name_variant=self.const.name_full,
+                source_system=self.const.system_cached,
+                return_name=True,
+                case_sensitive=(value != value.lower()))
+        elif search_type == 'fnr':
+            matches = person.list_external_ids(
+                id_type=self.const.externalid_fodselsnr,
+                external_id=value)
+            idcol = 'entity_id'
+        elif search_type == 'date':
+            matches = person.find_persons_by_bdate(self._parse_date(value))
+        elif search_type == 'stedkode':
+            ou = self._get_ou(stedkode=value)
+            matches = person.list_affiliations(ou_id=ou.entity_id,
+                                               affiliation=filter)
         else:
-            person = Utils.Factory.get('Person')(self.db)
-            person.clear()
-            if search_type == 'name':
-                if filter is not None:
-                    raise CerebrumError, \
-                          "Can't filter by affiliation for search type 'name'"
-                if len(value.strip(" \t%_*?")) < 3:
-                    raise CerebrumError, \
-                          "You must specify at least three letters of the name"
-                if not [c for c in "_%?*" if c in value]:
-                    # Add wildcard at start and end and between words.
-                    value = '*' + value.replace(' ', '*') + '*'
-                matches = person.list_persons_by_name(
-                    value,
-                    name_variant=self.const.name_full,
-                    source_system=self.const.system_cached,
-                    return_name=True,
-                    case_sensitive=(value != value.lower()))
-            elif search_type == 'fnr':
-                matches = person.list_external_ids(
-                    id_type=self.const.externalid_fodselsnr,
-                    external_id=value)
-                idcol = 'entity_id'
-            elif search_type == 'date':
-                matches = person.find_persons_by_bdate(self._parse_date(value))
-            elif search_type == 'stedkode':
-                ou = self._get_ou(stedkode=value)
-                matches = person.list_affiliations(ou_id=ou.entity_id,
-                                                   affiliation=filter)
-            else:
-                raise CerebrumError, "Unknown search type (%s)" % search_type
+            raise CerebrumError, "Unknown search type (%s)" % search_type
         ret = []
         seen = {}
-        person = Utils.Factory.get('Person')(self.db)
         acc = self.Account_class(self.db)
         # matches may be an iterator, so force it into a list so we
         # can count the entries.
