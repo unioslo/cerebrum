@@ -303,6 +303,9 @@ arg_help = {
          """A persons affiliation defines the current rolle of that person
 within a defined organizational unit.  'misc affiliations' lists all
 possible affiliations"""],
+    'affiliation_optional':
+        ['aff_opt', 'Affiliation? (optional)',
+         'Enter affiliation to narrow search. Leave empty to search all affiliations.'],
     'affiliation_status':
         ['aff_status', 'Enter affiliation status',
 """Affiliation status describes a persons current status within a

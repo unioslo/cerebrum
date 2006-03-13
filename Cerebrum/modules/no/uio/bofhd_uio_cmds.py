@@ -4348,7 +4348,7 @@ class BofhdExtension(object):
     # person find
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
-        SimpleString(optional=True),
+        SimpleString(optional=True, help_ref="affiliation_optional"),
         fs=FormatSuggestion("%6i   %10s   %-12s  %s",
                             ('id', format_day('birth'), 'account', 'name'),
                             hdr="%6s   %10s   %-12s  %s" % \
