@@ -39,7 +39,7 @@ disk = Factory.get('Disk')(db)
 host = Factory.get('Host')(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = Factory.get('OU')(db)
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 
 
 class SocketCom(object):
@@ -58,7 +58,7 @@ class SocketCom(object):
         if cereconf.AD_STUNNEL:
             try:
                 self.pid = os.spawnlp(os.P_NOWAIT, 'stunnel', 'stunnel', cereconf.AD_STUNNEL_CONF)
-                logger.debug("Starting stunnel, with pid %i" % self.pid)
+                logger.info("Starting stunnel, with pid %i" % self.pid)
                 #Need to sleep for a second so stunnel can initialize.
                 time.sleep(1)
             except:
@@ -67,12 +67,12 @@ class SocketCom(object):
         try:
 	    self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	    self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
-            logger.debug(">>%s" % self.sockobj.recv(8192))
-	    logger.debug("<<Authenticating")
+            logger.info(">>%s" % self.sockobj.recv(8192))
+	    logger.info("<<Authenticating")
 	    self.sockobj.send(cereconf.AD_PASSWORD)
-	    logger.debug(">>%s" % self.read(out=0))
+	    logger.info(">>%s" % self.read(out=0))
         except:
-	    logger.warning("failed connecting to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
+	    logger.warn("failed connecting to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             raise
         
 
@@ -159,7 +159,7 @@ def get_user_info(account_id, account_name):
         person.find(person_id)
         full_name = person.get_name(int(co.system_cached), int(co.name_full)) 
         if not full_name:
-            logger.debug("getting persons name failed, account.owner_id:",person_id)
+            logger.warn("getting persons name failed, account.owner_id:",person_id)
     except Errors.NotFoundError:        
         #This account is missing a person_id.
         full_name = account.account_name
@@ -254,7 +254,7 @@ def find_home_dir(account_id, account_name):
 
 	return "\\\\%s\\%s" % (home_srv,account_name)
     except Errors.NotFoundError:
-        logger.debug("Failure finding the disk of account %s" % account_id)
+        logger.warn("Failure finding the disk of account %s" % account_id)
         
 
 def find_login_script(account):

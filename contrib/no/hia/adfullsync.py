@@ -40,7 +40,7 @@ ent_name = Entity.EntityName(db)
 group = Factory.get('Group')(db)
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 
 
 global delete_users
@@ -55,7 +55,7 @@ def full_user_sync():
     """Checking each user in AD, and compare with cerebrum information."""
 
     global adusers
-    logger.debug("Entering full_user_sync")
+    logger.info("Entering full_user_sync")
     cbusers = {}
     cbusers = get_objects('user')
 
@@ -146,7 +146,7 @@ def full_user_sync():
 	cbusrid = cbusers[user]		
         sock.send('NEWUSR&LDAP://%s&%s&%s\n' % (cbusrid[1] ,user, user))
         if sock.read() == ['210 OK']:
-            logger.debug("Created user %s in %s" % (user, cbusrid[1]))
+            logger.info("Created user %s in %s" % (user, cbusrid[1]))
 	    #Set random password.
             passw = account.make_passwd(user)
             passw=passw.replace('%','%25')
@@ -158,18 +158,18 @@ def full_user_sync():
                        account_disable, cereconf.AD_PASSWORD_EXPIRE, \
                        cereconf.AD_CANT_CHANGE_PW))
             if sock.read() != ['210 OK']:
-		logger.debug("Failed ALTRUSR %s" % user)   
+		logger.warn("Failed ALTRUSR %s" % user)   
                 sock.send('DELUSR&%s/%s\n' % (cereconf.AD_DOMAIN, user))
                 if sock.read() != ['210 OK']:
-                    logger.debug("Failed DELUSR %s,after failed ALTRUSR" % user)
+                    logger.warn("Failed DELUSR %s,after failed ALTRUSR" % user)
         else:
-            logger.debug("Failed create user %s in %s" % (user ,cbusrid[1]))
+            logger.warn("Failed create user %s in %s" % (user ,cbusrid[1]))
     sock.close()
                     
 	    	
 def full_group_sync():
     """Checking each group in AD, and compare with cerebrum"""
-    logger.debug("Starting full_group_sync")
+    logger.info("Starting full_group_sync")
     global adusers
     cbgroups = {}
     cbgroups = get_objects('group')
@@ -187,7 +187,7 @@ def full_group_sync():
             if 'LDAP://CN=%s,%s' % (grpname,cbgrpid[1]) != ldappath:
                 sock.send('MOVEOBJ&%s&LDAP://%s\n' % (ldappath, cbgrpid[1]))
                 if sock.read() != ['210 OK']:
-                    logger.debug("Move user %s to %s failed" % \
+                    logger.warn("Move user %s to %s failed" % \
 		    (grpname, cbgrpid)) 
 
 	    #Finding members of group in cerebrum.
@@ -203,7 +203,7 @@ def full_group_sync():
                         if not membname in memblist:
                             memblist.append(membname)
                 except Errors.NotFoundError:
-                    logger.debug("Could not find name of entity %s" % membid)
+                    logger.warn("Could not find name of entity %s" % membid)
 	    
 	    #Finding members of group in AD.
             sock.send('LGROUP&%s/%s\n' % (cereconf.AD_DOMAIN, grpname))
@@ -218,13 +218,13 @@ def full_group_sync():
 			(cereconf.AD_DOMAIN, mem[1], cereconf.AD_DOMAIN, 
 			grpname))
                         if sock.read() != ['210 OK']:
-                            logger.debug("Failed delete %s from %s" % \
+                            logger.warn("Failed delete %s from %s" % \
 			    (mem[1], grpname))
             for memb in memblist:
 		sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, 
 		memb, cereconf.AD_DOMAIN, grpname))
                 if sock.read() != ['210 OK']:
-                    logger.debug("Failed add %s to %s" % (memb, grpmemb)) 
+                    logger.warn("Failed add %s to %s" % (memb, grpmemb)) 
             del cbgroups[grpname]
 
         elif fields[3] in cereconf.AD_DONT_TOUCH:
@@ -233,14 +233,14 @@ def full_group_sync():
             if delete_groups:
                 sock.send('DELGR&%s/%s\n' % (cereconf.AD_DOMAIN, grpmemb))
                 if sock.read() != ['210 OK']:
-                    logger.debug("Error deleting %s" % grpmemb)
+                    logger.warn("Error deleting %s" % grpmemb)
             else:
                 if cereconf.AD_LOST_AND_FOUND not in \
 		    adutils.get_ad_ou(ldappath):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % \
 		    (ldappath, cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() != ['210 OK']:
-                        logger.debug("Error moving %s to %s" % (grpname, \
+                        logger.warn("Error moving %s to %s" % (grpname, \
 			cereconf.AD_LOST_AND_FOUND))
 
 
@@ -260,12 +260,12 @@ def full_group_sync():
 		    name, cereconf.AD_DOMAIN, grp))
 		    res = sock.read()
                     if res != ['210 OK']:
-                    	logger.debug("Failed add %s to %s:%s" % \
+                    	logger.warn("Failed add %s to %s:%s" % \
 			(name, grp, res))
                 except Errors.NotFoundError:
-                    logger.debug("Could not resolve entity name %s" % name)
+                    logger.warn("Could not resolve entity name %s" % name)
         else:
-            logger.debug("Create group %s in %s failed:%s" % \
+            logger.warn("Create group %s in %s failed:%s" % \
 	    (grp, cbgroups[grp][1], res))    
     sock.close()
 
@@ -313,7 +313,7 @@ def get_objects(entity_type):
         else:
       	    cbou = 'OU=grp,%s' % cereconf.AD_LDAP            
             ulist['%s%s' % (name,grp_postfix)]=(int(row['entity_id']), cbou)
-    logger.debug("Found %s nmbr of objects" % (count))
+    logger.info("Found %s nmbr of objects" % (count))
     return ulist
 
 
