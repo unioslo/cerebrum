@@ -1,0 +1,17 @@
+#! /bin/bash
+#
+# script for starting cerebrum's bofhd
+
+
+start() {
+	echo -n $"Starting bofhd: "
+        /cerebrum/sbin/bofhd.py -c /cerebrum/etc/cerebrum/config.dat -p 8000
+	echo 
+
+}
+
+
+
+
+
+
