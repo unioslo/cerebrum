@@ -145,3 +145,5 @@ cp /home/cerebrum/CVS/cerebrum_H05/cerebrum/contrib/no/uit/cerebrum_export/uit_p
 #
 # Sjekk inn filer i CVS
 # Oppdater setup.py  hvis nødvendig
+
+arch-tag: 41f288cc-b42c-11da-8221-5ff2fda22596
