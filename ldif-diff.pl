@@ -260,3 +260,5 @@ sub bad_entry {
     my($filename, $num, $message) = (@{$_[0]}[1,2], $_[1]);
     die "$filename:entry \#$num: $message.\n";
 }
+
+# arch-tag: b6f6e0ba-b426-11da-9482-1d5a0f5505a3
