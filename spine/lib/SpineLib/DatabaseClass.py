@@ -367,7 +367,8 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
 
         super(DatabaseClass, cls).build_methods()
         cls.build_search_class()
-        cls.build_dumper_class()
+        if cls.slots:
+            cls.build_dumper_class()
  
     build_methods = classmethod(build_methods)
 
