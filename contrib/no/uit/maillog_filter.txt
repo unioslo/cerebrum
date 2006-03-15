@@ -1,0 +1,8 @@
+# filters for uninteressting data from maillog
+2007-01-01 export_xml_fronter.py ERROR Person pers_id: [0-9]+ have no account!
+2007-01-01 generate_frida_export.py ERROR Person [0-9]+ has frida spread, but does not come from slurp or fs...should not happend.. yet
+2007-01-01 import_FS.py ERROR Har aktiv tag uten opptak tag!
+#<- (fnr: [0-9]+ [0-9]+)
+2007-01-01 process_employees.py AD user has no registered username in legacy user.
+
+
