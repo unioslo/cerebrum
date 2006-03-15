@@ -20,3 +20,5 @@ cp -u  --preserve=timestamps /mnt/ad/utdanning_no.csv /cerebrum/var/source/ad/ut
 cp -u  --preserve=timestamps /mnt/ad/uvett.csv /cerebrum/var/source/ad/uvett.csv
 chown cerebrum.cerebrum /cerebrum/var/source/ad/*.csv
 chown cerebrum.cerebrum /cerebrum/var/source/ad/AD_Emaildump.cvs
+
+# arch-tag: bbc13b86-b426-11da-837c-fa59d96c3a7e

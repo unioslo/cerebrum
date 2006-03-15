@@ -11,3 +11,5 @@ python import_FS.py -s /cerebrum/var/dumps/FS/studieprog.xml -p /cerebrum/var/du
 
 # Create student accounts
 python process_students.py -C /cerebrum/etc/cerebrum/studconfig.xml -S /cerebrum/var/dumps/FS/studieprog.xml -s /cerebrum/var/dumps/FS/merged_persons.xml -c -u -e /cerebrum/var/dumps/FS/emner.xml --only-dump-results result_file.txt --workdir /cerebrum/var/log
+
+# arch-tag: ba647c1c-b426-11da-80cd-7712883c9b32

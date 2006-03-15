@@ -20,3 +20,5 @@ python import_LT.py -p /cerebrum/var/dumps/employees/uit_persons_$today.xml
 
 # finally generate accounts
 python process_employees.py
+
+# arch-tag: b9f98060-b426-11da-87cc-a78423d7022d
