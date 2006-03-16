@@ -813,3 +813,5 @@ class uitfronter(Person.Person):
     def get_ou(self,person_id):
         #print "select ou_id from person_affiliation where person_id = %s" % person_id
         return self.query("select fakultet,institutt,avdeling from stedkode where ou_id in (select ou_id from person_affiliation where person_id = %s and affiliation=188)" % person_id)
+
+# arch-tag: 87624dc2-b4f2-11da-9bce-cf68781f5bb2

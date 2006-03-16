@@ -44,3 +44,4 @@ class BofhdUiTExtension(BofhdExtension):
         pass
         #ac = self.Factory("Account")(self.db)
         
+# arch-tag: 85db404e-b4f2-11da-8c86-8173ccfa4bd5

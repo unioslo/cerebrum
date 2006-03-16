@@ -526,3 +526,5 @@ if __name__ == "__main__":
 
     #run the cli
     cli = CLI()
+
+# arch-tag: 88e3cf68-b4f2-11da-810e-efc213413e1a
