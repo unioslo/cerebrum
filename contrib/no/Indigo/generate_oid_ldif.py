@@ -106,9 +106,9 @@ def process_txt_file(file):
             logger.warning("Mail-addr not found for '%s', '%s'" % (id, uname))
             continue
         
-        file.write("%s:%s:%s:%s:%s:%s:%s\n" % (p_id2fnr[id], uname, pwd,
-                                             uname2mailaddr[uname],
-                                             ou_id2name[ou_id], first, last))
+        file.write("%s@%s@%s@%s@%s@%s@%s\n" % (p_id2fnr[id], uname, pwd,
+                                               uname2mailaddr[uname],
+                                               ou_id2name[ou_id], first, last))
         users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
     return users_ou
         
