@@ -19,13 +19,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Cerebrum.Entity
-import Cerebrum.Errors
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.SpineExceptions import AlreadyExistsError, NotFoundError
+from SpineLib.SpineExceptions import AlreadyExistsError
 
 from Entity import Entity
+from Person import Person
+from OU import OU
 from Types import SourceSystem, ContactInfoType
 
 from SpineLib import Registry
@@ -57,33 +57,58 @@ class EntityContactInfo(DatabaseClass):
 
 registry.register_class(EntityContactInfo)
 
-def get_all_contact_info(self):
-    s = registry.EntityContactInfoSearcher(self.get_database())
-    s.set_entity(self)
-    return s.search()
+def remove_contact_info(self, source, type, pref):
+    """Remove contact info from entity."""
+    obj = self._get_cerebrum_obj()
+    obj.delete_contact_info(source.get_id(), type.get_id(), pref)
 
-Entity.register_method(Method('get_all_contact_info', [EntityContactInfo]), get_all_contact_info)
+remove_contact_info.signature = None
+remove_contact_info.signature_write = True
+remove_contact_info.signature_args = [SourceSystem, ContactInfoType, int]
 
-def get_contact_info(self, preference, type, source_system):
-    db = self.get_database()
-    try:
-        return EntityContactInfo(db, self, source_system, type, preference)
-    except Cerebrum.Errors.NotFoundError:
-        raise Spine.Errors.NotFoundError("No such contact info exists.")
-
-Entity.register_method(Method('get_contact_info', EntityContactInfo, args=[('preference', int), ('type', ContactInfoType), ('source_system', SourceSystem)], exceptions=[NotFoundError]), get_contact_info)
-
-def add_contact_info(self, info, description, preference, contact_type, source_system):
+def add_contact_info(self, source, type, value, pref, description):
+    """Add a contact info to entity."""
     db = self.get_database()
     entity = Cerebrum.Entity.EntityContactInfo(db)
     entity.find(self.get_id())
-    if entity.get_contact_info(source_system.get_id(), contact_type.get_id()):
+    
+    # Check if this contact info with this preference already exists.
+    infos = entity.get_contact_info(source.get_id(), type.get_id())
+    preferences = [i[3] for i in infos]
+    if pref in preferences:
         raise AlreadyExistsError("This contact info item already exists.")
-    entity.add_contact_info(source_system.get_id(), contact_type.get_id(), info, preference, description)
-    return EntityContactInfo(db, Entity(db, entity.entity_id), source_system, contact_type, preference)
+    
+    entity.add_contact_info(source.get_id(), type.get_id(), value, pref, description)
 
-Entity.register_method(Method('add_contact_info', EntityContactInfo, args=[('info', str),
-    ('description', str), ('preference', int), ('contact_type', ContactInfoType),
-    ('source_system', SourceSystem)], write=True, exceptions=[AlreadyExistsError]), add_contact_info)
+add_contact_info.signature = None
+add_contact_info.signature_write = True
+add_contact_info.signature_args = [SourceSystem, ContactInfoType, str, int, str]
+
+def get_all_contact_info(self):
+    """Returns all contact info on this entity."""
+    s = registry.EntityContactInfoSearcher(self.get_database())
+    s.set_entity(self)
+
+    # Sorted the way it should be presented to the user,
+    # with highest preference in each type on top.
+    s.order_by(s, 'type')
+    s.order_by_desc(s, 'preference')
+    
+    return s.search()
+
+get_all_contact_info.signature = [EntityContactInfo]
+
+def get_contact_info(self, source, type, pref):
+    """Returns a specific contact info based on given criteriums."""
+    return EntityContactInfo(self.get_database(), self, source, type, pref)
+
+get_contact_info.signature = EntityContactInfo
+get_contact_info.signature_args = [SourceSystem, ContactInfoType, int]
+
+
+methods = [add_contact_info, remove_contact_info,
+           get_contact_info, get_all_contact_info]
+OU.register_methods(methods)
+Person.register_methods(methods)
 
 # arch-tag: 955583e8-356a-4422-b7c0-bb843c854157
