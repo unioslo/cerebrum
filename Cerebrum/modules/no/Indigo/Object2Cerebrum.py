@@ -394,6 +394,9 @@ class Object2Cerebrum(object):
                                            self.co.entity_account,
                                            self.co.group_memberop_union)
                 self._group.write_db()
+                if not self._group.has_spread(int(self.co.spread_oid_grp)):
+                    self._group.add_spread(int(self.co.spread_oid_grp))
+                    self._group.write_db()
             else:
                 # Update the autogroup with new date in Trait
                 self._group.clear()
