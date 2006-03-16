@@ -1,0 +1,9 @@
+<config>
+<hostname>localhost:80</hostname>
+<username>root</username>
+<passwd>test</passwd>
+<logfile>log.txt</logfile>
+<oufile>ou.xml</oufile>
+<persfile>personer.xml</persfile>
+<studfile>studieprog.xml</studfile>
+</config>
