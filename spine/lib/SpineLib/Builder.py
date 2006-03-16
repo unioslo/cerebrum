@@ -26,7 +26,9 @@ import SpineExceptions
 __all__ = ['Attribute', 'Method', 'Builder']
 
 default_exceptions = (
-    SpineExceptions.TransactionError, SpineExceptions.AccessDeniedError
+    SpineExceptions.TransactionError,
+    SpineExceptions.AccessDeniedError,
+    SpineExceptions.ServerProgrammingError
 )
 
 not_set = object()
@@ -207,6 +209,7 @@ class Builder(object):
     primary = ()
     slots = ()
     method_slots = ()
+    _ignore_Builder = True
 
     def __init__(self, *args, **vargs):
         map = self.map_attributes(*args, **vargs)
@@ -376,9 +379,14 @@ class Builder(object):
 
     build_methods = classmethod(build_methods)
 
+    def builder_ignore(cls):
+        return hasattr(cls, '_ignore_' + cls.__name__) and getattr(cls, '_ignore_' + cls.__name__)
+
+    builder_ignore = classmethod(builder_ignore)
+
 def get_builder_classes(cls=Builder):
-    yield cls
     for i in cls.__subclasses__():
+        yield i
         for j in get_builder_classes(i):
             yield j
 

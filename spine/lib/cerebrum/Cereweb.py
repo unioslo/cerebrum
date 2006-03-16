@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.Builder import Method
-from SpineLib.SpineClass import SpineClass
 from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
 from SpineLib.Date import Date
 

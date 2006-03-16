@@ -32,11 +32,10 @@ import Communication
 import SessionHandler
 import Authorization
 
-from Cerebrum.spine.CerebrumHandler import CerebrumHandler
 from Cerebrum.spine.SpineLib import Builder
 
 from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError
-from Cerebrum.spine.SpineLib.Transaction import TransactionError
+from Cerebrum.spine.SpineLib.Transaction import Transaction, TransactionError
 
 def count():
     i = 0
@@ -58,12 +57,12 @@ class Session:
     def new_transaction(self):
         pass
 
-    new_transaction.signature = CerebrumHandler
+    new_transaction.signature = Transaction
 
     def get_transactions(self):
         pass
 
-    get_transactions.signature = [CerebrumHandler]
+    get_transactions.signature = [Transaction]
 
     def get_encoding(self):
         pass
@@ -133,11 +132,11 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
 
     def new_transaction(self):
         self.reset_timeout()
-        transaction = CerebrumHandler(self, self.client.get_id(), self.counter.next())
-        corba_obj = convert_to_corba(transaction, transaction, CerebrumHandler)
+        transaction = Transaction(self)
+        corba_obj = convert_to_corba(transaction, transaction, Transaction)
         self._transactions[transaction] = corba_obj
 
-        transaction.authorization = Authorization.Authorization(transaction.get_database(), transaction.get_my_entities())
+        transaction.authorization = Authorization.Authorization(transaction.get_database(), [])
         return corba_obj
 
     def get_encoding(self):

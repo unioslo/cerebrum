@@ -21,16 +21,21 @@
 import threading
 import traceback
 
+import Builder
 import Database
 from Cerebrum.extlib.sets import Set
+# FIXME: We shouldn't have this dependency to server. 20060313 erikgors.
 from Cerebrum.spine.server import LockHandler
 from Locking import Locking, serialized_decorator
-from SpineExceptions import TransactionError
+from SpineExceptions import TransactionError, NotFoundError
+from DatabaseClass import DatabaseTransactionClass
 
 
 __all__ = ['Transaction']
 
-class Transaction:
+class Transaction(Builder.Builder):
+    _ignore_Transaction = True
+    
     def __init__(self, session):
         handler = LockHandler.get_handler()
         handler.add_transaction(self)
@@ -43,6 +48,8 @@ class Transaction:
 
     def get_encoding(self):
         return self._session.get_encoding()
+
+    get_encoding.signature = str
 
     def add_ref(self, obj):
         """Add a new object to this transaction.
@@ -94,7 +101,7 @@ class Transaction:
         self._session = None
         self._db = None
 
-    def commit(self):
+    def _commit(self):
         """Commits all changes made by this transaction to all objects
         changed.
 
@@ -114,10 +121,13 @@ class Transaction:
             self.rollback()
             raise TransactionError('Failed to commit: %s' % e)
         self.__invalidate()
-    commit = serialized_decorator(commit, '_lost_locks_lock')
-        
 
-    def rollback(self):
+    _commit = serialized_decorator(_commit, '_lost_locks_lock')
+    def commit(self):
+        return self._commit()
+    commit.signature = None
+        
+    def _rollback(self):
         """Discard all changes made to the objects in this transaction
         by the client in question.
 
@@ -140,12 +150,82 @@ class Transaction:
                         item._undelete()
                 item.unlock(self)
         self.__invalidate()
-    rollback = serialized_decorator(rollback, '_lost_locks_lock')
+
+    _rollback = serialized_decorator(_rollback, '_lost_locks_lock')
+    def rollback(self):
+        return self._rollback()
+    rollback.signature = None
 
     def get_database(self):
         if self._db is None:
             raise TransactionError('No transaction started')
         else:
             return self._db
+
+    def build_methods(self):
+        for cls in Builder.get_builder_classes():
+            name = cls.__name__
+
+            if cls.builder_ignore():
+                continue
+
+            method_name = 'get_' + convert_name(name)
+
+            if hasattr(self, method_name):
+                continue
+            elif issubclass(cls, DatabaseTransactionClass):
+                def blipp(cls):
+                    def get_method(self, *args, **vargs):
+                        obj = cls(self.get_database(), *args, **vargs)
+                        if hasattr(obj, '_load_all_db'):
+                            obj._load_all_db()
+                        return obj
+                    return get_method
+                m = blipp(cls)
+                args = []
+                for i in cls.primary:
+                    args.append((i.name, i.data_type))
+            else:
+                def blipp(cls):
+                    def get_method(self, *args, **vargs):
+                        return cls(*args, **vargs)
+                    return get_method
+                m = blipp(cls)
+                args = []
+                for i in cls.primary:
+                    args.append((i.name, i.data_type))
+
+            method = Builder.Method(method_name, cls, args, exceptions=[NotFoundError])
+            Transaction.register_method(method, m)
+        super(Transaction, cls).build_methods()
+    build_methods = classmethod(build_methods)
+
+def convert_name(name):
+    name = list(name)
+    name.reverse()
+    last = name[0]
+    new_name = name[0].lower()
+    for i in name[1:]:
+        if last.isupper() and i.islower():
+            new_name += '_'
+            new_name += i.lower()
+            last = '_'
+        elif last.islower() and i.isupper():
+            new_name += i.lower()
+            new_name += '_'
+            last = '_'
+        else:
+            new_name += i.lower()
+            last = i
+
+    name = list(new_name)
+    if name[-1] == '_':
+        del name[-1]
+
+    name.reverse()
+    return ''.join(name)
+
+
+# arch-tag: 79265054-583c-4ead-ae5b-3720b9d72810
 
 # arch-tag: a0ea5825-7ab6-4444-a4f6-e3ecc7acae34

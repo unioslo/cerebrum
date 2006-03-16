@@ -23,25 +23,39 @@ from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
 from CerebrumClass import CerebrumClass
 
-from Types import EntityType
+from Types import EntityType, ValueDomain
 from EntityAuth import EntityAuth
 
 from SpineLib import Registry
 registry = Registry.get_registry()
 
-def init():
-    import Cerebrum.Utils
-    db = Cerebrum.Utils.Factory.get('Database')()
+type_cache = {}
 
-    type_cache = {}
-    for key, value in db.query('SELECT entity_id, entity_type FROM entity_info'):
-        type_cache[int(key)] = int(value)
+class ValueDomainHack(dict):
+    def __init__(self, var):
+        self.var = var
+        self['value_domain'] = None
 
-    constants = Cerebrum.Utils.Factory.get('Constants')(db)
+    def fix(self):
+        var = self.var
+        self.var = None
+        import Cerebrum.Utils
+        db = Cerebrum.Utils.Factory.get('Database')()
+        self['value_domain'] = ValueDomain(db, name=var).get_id()
 
-    return type_cache, int(constants.group_namespace), int(constants.account_namespace)
+        if not type_cache:
+            for key, value in db.query('SELECT entity_id, entity_type FROM entity_info'):
+                type_cache[int(key)] = int(value)
 
-type_cache, group_namespace, account_namespace = init()
+    def __getitem__(self, key):
+        if self.var:
+            self.fix()
+        return ValueDomain(db, self.var).get_id()
+
+    def items(self):
+        if self.var:
+            self.fix()
+        return dict.items(self)
 
 __all__ = ['Entity']
 

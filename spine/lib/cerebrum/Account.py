@@ -27,7 +27,7 @@ from SpineLib.Date import Date
 from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
 
-from Entity import Entity, account_namespace
+from Entity import Entity, ValueDomainHack
 from Types import EntityType, AccountType
 from Commands import Commands
 
@@ -75,7 +75,7 @@ class Account(Entity):
         'creator':'creator_id'
     }
     db_constants = Entity.db_constants.copy()
-    db_constants['entity_name'] = {'value_domain':account_namespace}
+    db_constants['entity_name'] = ValueDomainHack('account_names')
 
     cerebrum_attr_aliases = {'name':'account_name'}
     cerebrum_class = Factory.get('Account')

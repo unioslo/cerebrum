@@ -32,6 +32,7 @@ class SpineClass(Builder, Caching):
     inherit from this class, to get Caching and Locking, and access to
     the database-cursor.
     """
+    _ignore_SpineClass = True
     
     def __init__(self, *args, **vargs):
         write_locker = vargs.get('write_locker', None)

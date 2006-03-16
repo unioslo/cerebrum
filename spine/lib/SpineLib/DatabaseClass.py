@@ -18,15 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Cerebrum
-from Cerebrum.extlib import sets
+import sets
+
+import Cerebrum.Errors
 
 import Builder
+import SpineExceptions
 
 from Searchable import Searchable
 from Dumpable import Dumpable
 from Caching import Caching
-from SpineExceptions import DatabaseError, NotFoundError
 
 __all__ = [
     'DatabaseAttr', 'DatabaseClass', 'ConvertableAttribute',
@@ -79,7 +80,7 @@ class DatabaseAttr(Builder.Attribute, ConvertableAttribute):
 
         if exceptions is None:
             exceptions = []
-        exceptions += [DatabaseError]
+        exceptions += [SpineExceptions.DatabaseError]
 
         Builder.Attribute.__init__(self, name, data_type, exceptions=exceptions,
                 write=write, optional=optional)
@@ -108,6 +109,8 @@ def get_real_name(map, attr, table=None):
         return attr.name
 
 class DatabaseTransactionClass(Builder.Builder, Caching):
+    _ignore_DatabaseTransactionClass = True
+
     def __init__(self, db, *args, **vargs):
         self._database = db
         return super(DatabaseTransactionClass, self).__init__(*args, **vargs)
@@ -136,6 +139,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
     db_constants = {}
     db_attr_aliases = {}
     db_table_order = []
+    _ignore_DatabaseClass = True
 
     def _get_sql(cls, alias=''):
         if alias:
@@ -205,7 +209,10 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
         sql = 'SELECT %s FROM %s %s WHERE %s' % (', '.join(attributes), table, ' '.join(joins), ' AND '.join(primary))
 
         db = self.get_database()
-        row = db.query_1(sql, args)
+        try:
+            row = db.query_1(sql, args)
+        except Cerebrum.Errors.NotFoundError, e:
+            raise SpineExceptions.NotFoundError, e
         
         if len(attributes) == 1:
             row = {attributes[0].name:row}
@@ -366,8 +373,9 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
                 setattr(cls, attr.var_save, cls._save_all_db)
 
         super(DatabaseClass, cls).build_methods()
-        cls.build_search_class()
-        if cls.slots:
+
+        if not cls.builder_ignore() and cls.slots:
+            cls.build_search_class()
             cls.build_dumper_class()
  
     build_methods = classmethod(build_methods)
@@ -382,7 +390,7 @@ def _table_exists(db, table):
         db.execute('ABORT')
         return False
 
-def _create_table(db, cls, table, slots):
+def _create_table(db, cls, table, slots, visited):
     if _table_exists(db, table):
         return
     print 'creating table', table
@@ -414,6 +422,8 @@ def _create_table(db, cls, table, slots):
     def attrs():
         lines = []
         for attr in slots:
+            if issubclass(attr.data_type, DatabaseTransactionClass):
+                create_tables(db, attr.data_type, visited)
             if attr.name == 'subject_entity':
                 continue
             yield '\t%s\n\t\t%s' % (cls._get_real_name(attr, table), genattr(attr))
@@ -423,15 +433,22 @@ def _create_table(db, cls, table, slots):
     sql = 'CREATE TABLE %s\n(\n%s\n)' % (table, ',\n'.join(attrs()))
     db.execute(sql)
 
-def create_tables(db, cls):
+def create_tables(db, cls, visited=None):
+    if visited is None:
+        visited = sets.Set()
+
+    if cls in visited:
+        return
+    visited.add(cls)
+
     tables = cls._get_sql_tables()
 
     # make sure primary table is created first. the rest shouldn't matter
     table = cls.primary[0].table
-    _create_table(db, cls, table, tables.pop(table))
+    _create_table(db, cls, table, tables.pop(table), visited)
 
     for table, attrs in tables.items():
-        _create_table(db, cls, table, list(cls.primary) + attrs)
+        _create_table(db, cls, table, list(cls.primary) + attrs, visited)
 
 
 def drop_tables(db, cls):
@@ -447,5 +464,35 @@ def drop_tables(db, cls):
 
     if _table_exists(db, '%s' % table):
         db.execute('DROP TABLE %s' % table)
+
+class Sequence(object):
+    def create(cls, db):
+        if cls.exists(db):
+            return
+        print 'creating sequence', cls.__name__
+        db.execute('CREATE SEQUENCE %s' % cls.__name__)
+
+    create = classmethod(create)
+
+    def nextval(cls, db):
+        return db.nextval(cls.__name__)
+
+    nextval = classmethod(nextval)
+
+    def exists(cls, db):
+        db.execute('START TRANSACTION')
+        try:
+            cls.nextval(db)
+            db.execute('ABORT')
+            return True
+        except:
+            db.execute('ABORT')
+            return False
+
+    exists = classmethod(exists)
+
+def get_sequence_classes():
+    for i in Sequence.__subclasses__():
+        yield i
 
 # arch-tag: 9e06972b-c3b1-45ff-bdad-e32d35d3ab81

@@ -57,10 +57,9 @@ class ChangeLog(DatabaseClass):
     )
     slots = (
         DatabaseAttr('timestamp', table, Date),
-        DatabaseAttr('subject', table, Entity, optional=True),
         DatabaseAttr('subject_entity', table, int),
         DatabaseAttr('type', table, ChangeType),
-        DatabaseAttr('destination', table, Entity, optional=True),
+        DatabaseAttr('dest_entity', table, int),
         DatabaseAttr('params', table, str),
         DatabaseAttr('change_by', table, Entity),
         DatabaseAttr('change_program', table, str),
@@ -71,19 +70,16 @@ class ChangeLog(DatabaseClass):
         table:{
             'id':'change_id',
             'timestamp':'tstamp',
-            'subject':'subject_entity',
             'type':'change_type_id',
-            'destination':'dest_entity',
             'params':'change_params'
         }
     }
 
     def load_message(self):
-        args = {'subject':self.get_subject_entity()}
-
-        dest = self.get_destination()
-        if dest:
-            args['dest'] = dest.get_id()
+        args = {
+            'subject':self.get_subject_entity(),
+            'dest':self.get_dest_entity()
+        }
         params = self.get_params()
         if params:
             args.update(cPickle.loads(params))
@@ -109,7 +105,7 @@ Commands.register_method(Method('get_last_changelog_id', int), get_last_changelo
 def get_history(self):
     s = registry.ChangeLogSearcher(self.get_database())
     s.order_by_desc(s, 'timestamp')
-    s.set_subject(self)
+    s.set_subject_entity(self.get_id())
     return s.search()
 
 Entity.register_method(Method('get_history', [ChangeLog]), get_history)

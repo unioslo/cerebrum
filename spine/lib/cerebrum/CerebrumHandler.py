@@ -18,103 +18,25 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import mx.DateTime
-
-from SpineLib.Builder import Builder, Attribute, Method
-from SpineLib.Transaction import Transaction
-from SpineLib.DatabaseClass import DatabaseTransactionClass
+from SpineLib import Builder
+from SpineLib import Transaction
 from SpineLib.SpineExceptions import NotFoundError
 from SpineLib.Date import Date
 
 
-from Entity import Entity
 from Types import CodeType
 
-from SpineLib import Registry
-registry = Registry.get_registry() 
+for cls in Builder.get_builder_classes(CodeType):
+    method_name = 'get_' + Transaction.convert_name(cls.__name__)
 
-class CerebrumHandler(Transaction, Builder):
-    primary = (
-        Attribute('client_id', int),
-        Attribute('id', int)
-    )
-    slots = (
-        Attribute('time_started', Date),
-        Attribute('my_entities', [Entity])
-    )
-    method_slots = (
-        Method('rollback', None),
-        Method('commit', None),
-        Method('get_date', Date),
-    )
+    def blipp(cls):
+        def get_method(self, name):
+            return cls(self.get_database(), name=name)
+        return get_method
+    m = blipp(cls)
+    args = [('name', str)]
 
-    def __init__(self, session, *args, **vargs):
-        Transaction.__init__(self, session)
-        Builder.__init__(self, time_started=Date(mx.DateTime.now()), *args, **vargs)
-
-    def get_date(self):
-        return Date(mx.DateTime.now())
-
-    def load_my_entities(self):
-        me = self.get_account(self.get_client_id())
-        self._my_entities = [me] + me.get_groups()
-
-def convert_name(name):
-    name = list(name)
-    name.reverse()
-    last = name[0]
-    new_name = name[0].lower()
-    for i in name[1:]:
-        if last.isupper() and i.islower():
-            new_name += '_'
-            new_name += i.lower()
-            last = '_'
-        elif last.islower() and i.isupper():
-            new_name += i.lower()
-            new_name += '_'
-            last = '_'
-        else:
-            new_name += i.lower()
-            last = i
-
-    name = list(new_name)
-    if name[-1] == '_':
-        del name[-1]
-
-    name.reverse()
-    return ''.join(name)
-
-for name, cls in registry.map.items():
-    if cls is Date:
-        continue
-    
-    method_name = 'get_' + convert_name(name)
-
-    if issubclass(cls, CodeType):
-        def blipp(cls):
-            def get_method(self, name):
-                return cls(self.get_database(), name=name)
-            return get_method
-        m = blipp(cls)
-        args = [('name', str)]
-    elif issubclass(cls, DatabaseTransactionClass):
-        def blipp(cls):
-            def get_method(self, *args, **vargs):
-                return cls(self.get_database(), *args, **vargs)
-            return get_method
-        m = blipp(cls)
-        args = []
-        for i in cls.primary:
-            args.append((i.name, i.data_type))
-    else:
-        m = cls
-        args = []
-        for i in cls.primary:
-            args.append((i.name, i.data_type))
-
-    method = Method(method_name, cls, args, exceptions=[NotFoundError])
-    CerebrumHandler.register_method(method, m)
-
-registry.register_class(CerebrumHandler)
+    method = Builder.Method(method_name, cls, args, exceptions=[NotFoundError])
+    Transaction.Transaction.register_method(method, m)
 
 # arch-tag: 79265054-583c-4ead-ae5b-3720b9d72810

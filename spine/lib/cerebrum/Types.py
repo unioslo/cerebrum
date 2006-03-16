@@ -26,6 +26,8 @@ registry = Registry.get_registry()
 
 __all__ = ['CodeType']
 class CodeType(DatabaseClass):
+    _ignore_CodeType = True
+
     def __new__(cls, db, id=None, name=None, **args):
         if id is None and name is not None:
             s = cls.search_class(db)

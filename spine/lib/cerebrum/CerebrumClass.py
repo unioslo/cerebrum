@@ -67,6 +67,7 @@ class CerebrumClass(DatabaseTransactionClass):
     This class adds support for working directly against cerebrum, and
     for easly wrapping methods found in cerebrum.
     """
+    _ignore_CerebrumClass = True
     
     cerebrum_class = None
     cerebrum_attr_aliases = {}

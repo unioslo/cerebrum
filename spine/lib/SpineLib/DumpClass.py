@@ -64,6 +64,7 @@ class DumpClass(Builder):
     inherit this class. This class makes sure that dumperobjects wont
     be cached.
     """
+    _ignore_DumpClass = True
     
     def __init__(self, data, signature=None):
         super(DumpClass, self).__init__()

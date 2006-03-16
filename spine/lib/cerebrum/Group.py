@@ -26,7 +26,7 @@ from SpineLib.Date import Date
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
 
-from Entity import Entity, group_namespace
+from Entity import Entity, ValueDomainHack
 from Types import EntityType, GroupVisibilityType
 from Commands import Commands
 
@@ -61,7 +61,7 @@ class Group(Entity):
         'creator':'creator_id'
     }
     db_constants = Entity.db_constants.copy()
-    db_constants['entity_name'] = {'value_domain':group_namespace}
+    db_constants['entity_name'] = ValueDomainHack('group_names')
 
     cerebrum_attr_aliases = {'name':'group_name'}
     cerebrum_class = Factory.get('Group')

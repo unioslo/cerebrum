@@ -303,7 +303,7 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
                                     ''.join(apply(
                                         traceback.format_exception, 
                                         sys.exc_info())))
-                raise SpineIDL.Errors.ServerProgrammingError(exception_string)
+                raise Exception(exception_string)
 
             if len(e.args) > 0:
                 explanation = ', '.join(['%s' % i for i in e.args])
