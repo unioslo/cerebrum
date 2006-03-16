@@ -382,15 +382,23 @@ class BofhdAuth(DatabaseAccessor):
         a Person or Account object.  First check if operator is
         allowed to perform operation on one of the OUs associated with
         Person or Account.  If that fails, and the entity is an
-        Account, check if operator's access to the account's disk.
-        Returns True for success and raises exception PermissionDenied
-        for failure."""
+        Account, check if the account is owned by a group and if the
+        operator is a member of that group. If that fails check operator's
+        access to the account's disk. Returns True for success and raises
+        exception PermissionDenied for failure."""
 
         if self._has_access_to_entity_via_ou(operator, operation, entity,
                                              operation_attr=operation_attr):
             return True
         if not isinstance(entity, Factory.get('Account')):
             raise PermissionDenied("No access to person")
+        acc = Factory.get("Account")(self._db)
+        acc.find(entity.entity_id)
+        if acc.owner_type != self.const.entity_person:
+            grp = Factory.get("Group")(self._db)
+            grp.find(acc.owner_id)
+            if self.is_group_member(operator, grp.group_name):
+                return True
         disk = self._get_user_disk(entity.entity_id)
         if disk and disk['disk_id']:
             self._query_disk_permissions(operator, operation,
