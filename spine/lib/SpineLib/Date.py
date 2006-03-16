@@ -30,8 +30,10 @@ class Date(Builder):
         Attribute('format', str, write=True),
     )
 
-    def __init__(self, value, *args, **vargs):
+    def __init__(self, value=None, *args, **vargs):
         super(Date, self).__init__(*args, **vargs)
+        if value is None:
+            value = mx.DateTime.now()
         self._value = value
 
     def get_primary_key(self):
@@ -50,8 +52,8 @@ class Date(Builder):
     strftime.signature_args = [str]
 
     def to_string(self):
-        if hasattr(self, '_value'):
-            return self.strftime(format)
+        if hasattr(self, '_format'):
+            return self.strftime(self._format)
         else:
             return str(self._value)
 
