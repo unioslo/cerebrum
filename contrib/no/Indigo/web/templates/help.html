@@ -1,99 +1,91 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
 <html> <head>
-<title>Help for cerebrumweb</title>
+<title>Hjelpeside for Cweb</title>
 </head>
 
 <body>
-[<a href="#" target="_blank">åpne i eget vindu</a>]
-<h1>Introduction</h1>
+[<a href="#" target="_blank">Åpne i eget vindu</a>]
+<h1>Introduksjon</h1>
 
-TBD: hvilket språk skal vi legge oss på?  Nå har vi en blanding av norsk og engelsk her.
 <p>
 
-Dette dokumentet er ikke ment å være en fullstendig introduksjon til
-bofh (det kan man finne <a
-href="http://cerebrum.sourceforge.net/doc/html/user/bofh.html">andre
-steder</a>).  Dokumentet inneholder en kort beskrivelse av en del
-begreper, samt forklaring på noen komandoer.
+Dette dokumentet inneholder en beskrivelse av 
+brukeradministrasjonsgrensesnittet Cweb.
+Cweb kan brukes for vedlikehold av brukerdata i 
+<a href="http://cerebrum.sourceforge.net/wiki/">Cerebrum</a>. 
+Mer informasjon om Cweb og en noe mer omfattende introduksjon kan man finne
+<a href="http://cerebrum.sourceforge.net/doc/html/user/bofh.html">her</a>.
+Dokumentet "Cweb hjelp" inneholder også forklaringer på en del vanlige 
+begreper brukt i Cerebrum, samt informasjon om enkelte kommandoer og rutiner som er tilgjengelig i Cweb.
 
-<h1>Menu choices</h1>
+<h1>Menyvalg</h1>
 
 <dl>
-  <dt><a name="email_info">email_info</a>
-    <dd>viser en del informasjon om brukerens e-post adresser.
-  <dt><a name="group_info">group_info</a>
-    <dd>viser informasjon om en gruppe
-  <dt><a name="group_mod">group_mod</a>
-    <dd>viser medlemer i en gruppe, med mulighet for å endre medlemsmassen.
-  <dt><a name="group_search">group_search</a>
-    <dd>søk etter en gruppe.  Se også <a href="#om_sok">generelt om søk</a>
-  <dt><a name="group_search_res">group_search_res</a>
-    <dd>Søkeresultatet for gruppesøk.  Se også <a href="#om_sok">generelt om søk</a>
-  <dt><a name="group_user">group_user</a>
-    <dd>viser de grupper en bruker er medlem av
-  <dt><a name="person_find">person_find</a>
-    <dd>søk etter en person.  Se også <a href="#om_sok">generelt om søk</a>
-  <dt><a name="person_find_res">person_find_res</a>
-    <dd>Søkeresultat for personsøk.  Se også <a href="#om_sok">generelt om søk</a>
-  <dt><a name="person_info">person_info</a>
-    <dd>Dtaljert informasjon om en person
-  <dt><a name="user_quarantine">user_quarantine</a>
-    <dd>Viser de <a href="#karantener">karantener</a> en bruker har.
-  <dt><a name="user_find">user_find</a>
-    <dd>søk etter en bruker.  Se også <a href="#om_sok">generelt om søk</a>
-  <dt><a name="user_find_res">user_find_res</a>
-    <dd>søkeresultat for brukersøk.  Se også <a href="#om_sok">generelt om søk</a>
-  <dt><a name="user_info">user_info</a>
-    <dd>detaljinformasjon om en bruker
-  <dt><a name="user_password">user_password</a>
-    <dd>endre en brukers passord
-  <dt><a name="user_priority">user_priority</a>
-    <dd>endre prioritetsrekkefølgen på alle brukerene en person eier.
+  <dt><a name="email_info">E-post</a>
+    <dd>Viser all tilgjengelig informasjon om en brukers e-post adresser.
+  <dt><a name="group_info">Gruppe info</a>
+    <dd>Viser informasjon om en gruppe (beskrivelse o.l.)
+  <dt><a name="group_mod">Vedlikehold gruppe</a>
+    <dd>Viser en liste over medlemer i en gruppe og gir mulighet for å utføre inn- og utmeldinger.
+  <dt><a name="group_search">Søk etter grupper</a>
+    <dd>Søk etter en gruppe.  Se også 
+        <a href="#om_sok">Om søk</a>
+  <dt><a name="group_search_res">Søkeresultat (gruppesøk)</a>
+    <dd>Søkeresultatet for gruppesøk.  Se også 
+        <a href="#om_sok">Om søk</a>
+  <dt><a name="group_user">Vis medlemskap</a>
+    <dd>Viser listen over grupper en bruker er medlem av.
+  <dt><a name="person_find">Søk etter personer</a>
+    <dd>Søk etter en person.  Se også 
+        <a href="#om_sok">Om søk</a>
+  <dt><a name="person_find_res">Søkeresultater (personsøk)</a>
+    <dd>Søkeresultat for personsøk.  Se også 
+        <a href="#om_sok">Om søk</a>
+  <dt><a name="person_info">Person info</a>
+    <dd>Viser all tilgjengelig informasjon om en person.
+  <dt><a name="user_quarantine">Karantener</a>
+    <dd>Viser en liste over <a href="#karantener">karantener</a> en bruker har.
+  <dt><a name="user_find">Søk etter brukere</a>
+    <dd>Søk etter en bruker.  Se også 
+        <a href="#om_sok">Om søk</a>
+  <dt><a name="user_find_res">Søkeresultater (brukersøk)</a>
+    <dd>Søkeresultat for brukersøk.  Se også 
+        <a href="#om_sok">Om søk</a>
+  <dt><a name="user_info">Bruker info</a>
+    <dd>Viser all tilgjengelig informasjon om en bruker.
+  <dt><a name="user_password">Sett nytt passord</a>
+    <dd>Endre en brukers passord.
+  <dt><a name="user_priority">Brukerprioriteter</a>
+    <dd>Endre prioriteringen på en persons brukere.
 </dl>
 
-<h1>Generelt om søk</h1>
+<h1>Om søk</h1>
 <a name="om_sok"/>
 
-Dersom et søkeresultat kun inneholder ett treff, blir man automatisk
-sendt videre til person/user/group info siden for det aktuelle funnet.
-Dersom man får flere treff, blir disse listet opp, og man må klikke på
-det aktuelle navnet for å få detaljer om en gitt person/bruker/gruppe.
+Dersom et søkeresultat inneholder kun ett treff, blir man automatisk
+sendt videre til informasjonssiden for det aktuelle objektet (det være 
+seg person, bruker eller gruppe). 
+
+Om flere objekter som tilfredsstiller søkekriteriet blir funnet vises en liste
+over aktulle objekter. For å se informasjonssiden for hvert enkelt objekt må man klikke seg in på navnene på navnet i listen.
 
 <p>
 
-Ved søk på navn kan man benytte * i navnet.  F.eks vil
-<code>Fredrik*</code> matche både <code>Fredriksen</code> og
-<code>Fredrik</code>.
+Ved søk på navn kan man benytte * som jokertegn.  For eksempel vil
+<code>Fredrik*</code> tilfredsstille kriterien for både 
+<code>Fredriksen</code> og <code>Fredrik</code>.
 
-<h1>Glossary</h1>
-TBD: Det er litt rart med glossary når vi har name anchors også
-utenfor glossary.  Er "Øvrige begreper" bedre?
+<h1>Øvrige begrep</h1>
 
 <dl>
 
-  <dt><a name="email_default_address">email_default_address</a> <dd>En email_default_address er...
-  <dt><a name="export_id">export_id</a> <dd>En export_id er...
-  <dt><a name="group_expire_date">group_expire_date</a> <dd>En group_expire_date er...
-  <dt><a name="group_memberop">group_memberop</a> <dd>En group_memberop er...
-  <dt><a name="group_search_filter">group_search_filter</a> <dd>En group_search_filter er...
-  <dt><a name="m_op_">m_op_</a> <dd>En m_op_ er...
-  <dt><a name="person_affiliation">person_affiliation</a> <dd>En person_affiliation er...
-  <dt><a name="person_find_filter">person_find_filter</a> <dd>En person_find_filter er...
-  <dt><a name="source_system">source_system</a> <dd>En source_system er...
-  <dt><a name="stedkode">stedkode</a> <dd>En stedkode er...
-  <dt><a name="user_affiliations">user_affiliations</a> <dd>En user_affiliations er...
-  <dt><a name="user_dfg">user_dfg</a> <dd>En user_dfg er...
-  <dt><a name="user_expire_date">expire</a> <dd>En expire er....
-  <dt><a name="user_find_filter">user_find_filter</a> <dd>En user_find_filter er...
-  <dt><a name="user_gecos">user_gecos</a> <dd>En user_gecos er...
-  <dt><a name="user_home">user_home</a> <dd>En user_home er...
-  <dt><a name="user_owner">user_owner</a> <dd>En user_owner er...
-  <dt><a name="user_shell">user_shell</a> <dd>En user_shell er...
-  <dt><a name="user_uid">user_uid</a> <dd>En user_uid er...
+  <dt><a name="email_default_address">Primær e-postadresse</a> <dd>En bruker kan ha flere gyldige e-postadresse. En av disse vil alltid være valgt som foretrukket kontaktadresse. En slik adresse blir ofte kalt for primær e-postadresse. 
+  <dt><a name="person_affiliation">Tilknytning</a> <dd>Bekriver en persons tilknytning til organisasjonen.
+  <dt><a name="source_system">Kildesystem</a> <dd>Forteller hvor informasjon om en gitt person i utganspunktet er hentet fra.
     
 </dl>
 
-<h1>Gruppe medlemskap</h1>
+<h1>Gruppemedlemskap</h1>
 <a name="member_op"/>
 
 Svært avanserte brukere kan ønske å ha medlemstyper av en annen type
@@ -106,133 +98,15 @@ enn union.  Dette anbefales ikke medmindre du vet hva du gjør.
 </dl>
 
 
-<h1>Spreads</h1>
+<h1>Spread</h1>
 
-En spread forteller noe om hvor informasjon om en person/gruppe
-(i.e. en entitet) er tilgjengelig.
+En spread forteller noe om hvilke systemer informasjon om en person, gruppe eller bruker skal være tilgjengelig i.
 
-<p>
-
-<a name="group_spread"/>
-<h2>Følgende gruppe-spreads finnes</h2>
-
-<dl>
-<dt>NIS_fg@ifi
-  <dd>File group in NIS domain "ifi"
-<dt>NIS_ng@ifi
-  <dd>Net group in NIS domain "ifi"
-<dt>AD_group
-  <dd>group included in Active Directory
-<dt>NIS_fg@uio
-  <dd>File group in NIS domain "uio"
-<dt>NIS_ng@uio
-  <dd>Net group in NIS domain "uio"
-<dt>CF@uio_blyant
-  <dd>Group representing a course that should be exported to the
-      ClassFronter instance on blyant.uio.no.  Should only be given to
-      groups that have been automatically generated from FS.
-<dt>CF@uio_kladdebok
-  <dd>Group representing a course that should be exported to the
-      ClassFronter instance on kladdebok.uio.no.  Should only be given
-      to groups that have been automatically generated from FS.
-<dt>CF@uio_petra
-  <dd>Group representing a course that should be exported to the
-      ClassFronter instance on petra.uio.no.  Should only be given to groups
-      that have been automatically generated from FS.
-</dl>
-
-<a name="user_spread"/>
-<h2>Følgende user-spreads finnes</h2>
-<dl>
-<dt>NIS_user@ifi
-  <dd>User in NIS domain "ifi"
-<dt>AD_account
-  <dd>account included in Active Directory
-<dt>NIS_user@uio
-  <dd>User in NIS domain "uio"
-<dt>Notes_user
-  <dd>Account exported to Notes
-</dl>
-
-<h2>Øvrige spreads</h2>
-<dl>
-<dt>IMAP@uio
-  <dd>IMAP account
-<dt>LDAP_OU
-  <dd>OU included in LDAP directory
-<dt>LDAP_person
-  <dd>Person included in LDAP directory
-<dt>UA@uio
-  <dd>Person exported to UA
-</dl>
-
-<h1>Quarantines (karantener)</h1>
+<h1>Karantener</h1>
 <a name="karantener"/>
 
 Karantener benyttes for å legge restriksjoner på bruk av en konto.  De
-fleste karantener medfører at brukeren ikke kan logge inn på ett eller
-flere systemer.
-
-<dl>
-  <dt><a name="q_type_autoekstern">autoekstern</a>
-    <dd>Ekstern konto gått ut på dato
-  <dt><a name="q_type_autointsomm">autointsomm</a>
-    <dd>Sommerskolen er ferdig for i år
-  <dt><a name="q_type_autopassord">autopassord</a>
-    <dd>Passord ikke skiftet trass pålegg
-  <dt><a name="q_type_generell">generell</a>
-    <dd>Generell splatt
-  <dt><a name="q_type_nologin">nologin</a>
-    <dd>Gammel ureg karantene nologin
-  <dt><a name="q_type_nologin_brk">nologin_brk</a>
-    <dd>Gammel ureg karantene nologin_brk
-  <dt><a name="q_type_nologin_ftpuser">nologin_ftpuser</a>
-    <dd>Gammel ureg karantene nologin_ftpuser
-  <dt><a name="q_type_nologin_nystuden">nologin_nystuden</a>
-    <dd>Gammel ureg karantene nologin_nystudent
-  <dt><a name="q_type_nologin_sh">nologin_sh</a>
-    <dd>Gammel ureg karantene nologin_sh
-  <dt><a name="q_type_nologin_stengt">nologin_stengt</a>
-    <dd>Gammel ureg karantene nologin_stengt
-  <dt><a name="q_type_permisjon">permisjon</a>
-    <dd>Brukeren har permisjon
-  <dt><a name="q_type_slutta">slutta</a>
-    <dd>Personen har slutta
-  <dt><a name="q_type_svakt_passord">svakt_passord</a>
-    <dd>For dårlig passord
-  <dt><a name="q_type_system">system</a>
-    <dd>Systembrukar som ikke skal logge inn
-  <dt><a name="q_type_teppe">teppe</a>
-    <dd>Kallt inn på teppet til drift
-  <dt><a name="q_type_ou_notvalid">ou_notvalid</a>
-    <dd>OU not valid from external source
-  <dt><a name="q_type_ou_remove">ou_remove</a>
-    <dd>OU is clean and may be removed
-  <dt><a name="q_type_auto_emailonly">auto_emailonly</a>
-    <dd>Ikke ordinær student, tilgang til bare e-post
-  <dt><a name="q_type_auto_inaktiv">auto_inaktiv</a>
-    <dd>Ikke aktiv student, utestengt
-</dl>
-
-<h1>Affiliations (tilhørighet)</h1>
-<dl>
-  <dt><a name="aff_status_aktiv">aktiv</a> <dd>En aktiv  er....
-  <dt><a name="aff_status_pvare">pvare</a> <dd>En pvare er....
-  <dt><a name="aff_status_tekadm">tekadm</a> <dd>En tekadm er....
-</dl>
-
-<a name="simple_account_type"/>
-<h1>Simple account types</h1>
-
-Uio-begrep for en typen konti.  I praksis består de av en samling
-spreads:
-<dl>
-  <dt><a name="simple_account_type_ldap">ldap</a> <dd>Konto som kun finnes i LDAP
-  <dt><a name="simple_account_type_mail">mail</a> <dd>Ren mail konto
-  <dt><a name="simple_account_type_windows">windows</a> <dd>Kun i windows
-  <dt><a name="simple_account_type_hjemmeomrade">hjemmeområde</a>
-    <dd>En vanlig uio konto m/hjemmeområde++
-</dl>
+fleste karantener medfører at brukeren mister sin tilgang til en eller flere tjenester.
 
 <hr>
 <address></address>
