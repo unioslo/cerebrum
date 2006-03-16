@@ -279,3 +279,4 @@ class Constants(Constants.Constants):
     auth_type_md5_b64= _AuthenticationCode('MD5-crypt_base64',
                                            "MD5-derived 32 bit password base 64 encoded")
     
+# arch-tag: bb60794e-b4ef-11da-9ffc-ae0881dfefd1
