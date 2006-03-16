@@ -394,9 +394,6 @@ class Object2Cerebrum(object):
                                            self.co.entity_account,
                                            self.co.group_memberop_union)
                 self._group.write_db()
-                if not self._group.has_spread(int(self.co.spread_oid_grp)):
-                    self._group.add_spread(int(self.co.spread_oid_grp))
-                    self._group.write_db()
             else:
                 # Update the autogroup with new date in Trait
                 self._group.clear()
@@ -404,7 +401,7 @@ class Object2Cerebrum(object):
                 self._group.populate_trait(self.co.trait_group_imported,
                                            date=DateTime.now())
                 self._group.write_db()
-        seen_autogroups[a_grp] = True
+            seen_autogroups[a_grp] = True
 
         # Add spread for new groups and remove spread for groups no longer
         # in the data file.
@@ -419,7 +416,7 @@ class Object2Cerebrum(object):
                 if self._group.has_spread(int(self.co.spread_oid_grp)):
                     self._group.delete_spread(int(self.co.spread_oid_grp))
                     self._group.write_db()
-
+                    
         # Diff members in groups from the data file and in the database
         # and create the correct member list for autogroups
         autogroup_members = dict()
