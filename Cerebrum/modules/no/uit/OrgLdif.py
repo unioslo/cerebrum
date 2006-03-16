@@ -273,3 +273,5 @@ class OrgLdifUitMixin:
         # If there is no password, store a useless one instead of no password
         # so that a text filter can easily find and replace the password.
         entry.setdefault('userPassword', ("{MD5}*Invalid",)) # UIT: changed to MD5 from crypt
+
+# arch-tag: 8543fff4-b4f2-11da-9167-d5a8ad1cd3f2
