@@ -454,6 +454,10 @@ You may also use entity_id:id."""],
         ['name', 'Enter person name'],
     'person_name_full':
         ['fullname', 'Enter persons fullname'],
+    'person_name_first':
+        ['firstname', 'Enter all persons given names'],
+    'person_name_last':
+        ['lastname', 'Enter persons family name'],
     'person_name_type':
         ['nametype', 'Enter person name type'],
     # this is also in help.py, but without the search type "stedkode"
