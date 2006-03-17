@@ -116,7 +116,6 @@ class BofhdExtension(object):
         return date
 
     def user_create_guest_prompt_func(self, session, *args):
-        #print "args = ", args
         all_args = list(args[:])
         # get number of new guest users
         if not all_args:
@@ -229,7 +228,8 @@ class BofhdExtension(object):
         try:
             user_list = self.bgu.request_guest_users(int(nr), end_date,
                                                      self.co.entity_group,
-                                                     owner.entity_id)
+                                                     owner.entity_id,
+                                                     operator.get_entity_id())
             for uname, e_id, passwd in user_list:
                 operator.store_state("new_account_passwd",
                                      {'account_id': e_id,
@@ -255,7 +255,7 @@ class BofhdExtension(object):
                 first, last = arg.split('-')
                 prefix = first.rstrip('0123456789')
                 first = int(first[len(prefix):])
-                last = int(last)
+                last = int(last[len(prefix):])
                 for i in range(first, last+1):
                     guests.append('%s%03d' % (prefix, i))
             else:

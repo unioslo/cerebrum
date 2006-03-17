@@ -47,7 +47,8 @@ class BofhdUtils(object):
         self.co = Factory.get('Constants')(self.db)
         self.logger = server.logger
 
-    def request_guest_users(self, num, end_date, owner_type, owner_id):
+    def request_guest_users(self, num, end_date, owner_type, owner_id,
+                            operator_id):
         """Reserve num guest users until they're manually released or
         until end_date. If the function fails because there are not
         enough guest users available, GuestAccountException is raised.
@@ -60,7 +61,7 @@ class BofhdUtils(object):
         ret = []
         for guest in self._find_guests(num):
             e_id, passwd = self._alloc_guest(guest, end_date, owner_type,
-                                             owner_id)
+                                             owner_id, operator_id)
             ret.append((guest, e_id, passwd))            
         return ret
 
@@ -88,6 +89,7 @@ class BofhdUtils(object):
         # guest.)
         ac.delete_entity_quarantine(self.co.quarantine_generell) 
         ac.populate_trait(self.co.trait_guest_owner, target_id=None)
+        ac.write_db()
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
         ac.set_password(ac.make_passwd(guest))
         # Finally, register a request to archive the home directory.
@@ -159,7 +161,7 @@ class BofhdUtils(object):
                                   (num_found, prefix))
         return ret
 
-    def _alloc_guest(self, guest, end_date, owner_type, owner_id):
+    def _alloc_guest(self, guest, end_date, owner_type, owner_id, operator_id):
         """Allocate a guest account.
 
         Make sure that the guest account requested actually exists and
