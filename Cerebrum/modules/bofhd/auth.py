@@ -340,6 +340,13 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return False
 
+    def is_schoolit(self, operator, query_run_any=False):
+        if self.is_superuser(operator, query_run_any):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator,
+                                              self.const.auth_set_password)
+        
     def is_postmaster(self, operator, query_run_any=False):
         # Rather than require an operation as an argument, we pick a
         # suitable value which all postmasters ought to have.
@@ -392,11 +399,9 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if not isinstance(entity, Factory.get('Account')):
             raise PermissionDenied("No access to person")
-        acc = Factory.get("Account")(self._db)
-        acc.find(entity.entity_id)
-        if acc.owner_type != self.const.entity_person:
+        if entity.owner_type == self.const.entity_group:
             grp = Factory.get("Group")(self._db)
-            grp.find(acc.owner_id)
+            grp.find(entity.owner_id)
             if self.is_group_member(operator, grp.group_name):
                 return True
         disk = self._get_user_disk(entity.entity_id)
