@@ -4281,12 +4281,13 @@ class BofhdExtension(object):
     # person create
     all_commands['person_create'] = Command(
         ("person", "create"), PersonId(),
-        Date(help_ref='date_birth'), PersonName(help_ref="person_name_full"), OU(),
-        Affiliation(), AffiliationStatus(),
+        Date(help_ref='date_birth'), PersonName(help_ref='person_name_first'), 
+	PersonName(help_ref='person_name_last'), OU(), Affiliation(),
+        AffiliationStatus(),
         fs=FormatSuggestion("Created: %i",
         ("person_id",)), perm_filter='can_create_person')
-    def person_create(self, operator, person_id, bdate, person_name,
-                      ou, affiliation, aff_status):
+    def person_create(self, operator, person_id, bdate, person_name_first,
+                      person_name_last, ou, affiliation, aff_status):
         stedkode = ou
         try:
             ou = self._get_ou(stedkode=ou)
@@ -4335,8 +4336,11 @@ class BofhdExtension(object):
                                             id)
         person.populate(bdate, gender,
                         description='Manually created')
-        person.affect_names(self.const.system_manual, self.const.name_full)
-        person.populate_name(self.const.name_full, person_name)
+        person.affect_names(self.const.system_manual, self.const.name_first, self.const.name_last)
+        person.populate_name(self.const.name_first,
+                             person_name_first)
+	person.populate_name(self.const.name_last,
+                             person_name_last)
         try:
             person.write_db()
             self._person_affiliation_add_helper(
