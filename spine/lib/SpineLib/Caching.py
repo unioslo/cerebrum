@@ -68,12 +68,6 @@ class Caching(object):
 
         return self 
 
-    def __init__(self):
-        mark = '_%s%s' % (self.__class__.__name__, id(self))
-        if hasattr(self, mark):
-            return getattr(self, mark)
-        setattr(self, mark, time.time())
-
     def get_primary_key(self):
         """Returns the primary key for the object."""
         return self.__key[1]

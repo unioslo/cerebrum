@@ -42,9 +42,6 @@ class SpineClass(Builder, Caching):
         # Builder will only update attributes who has not been set
         Builder.__init__(self, *args, **vargs)
 
-        # Caching will return a timestamp if this object is old
-        return Caching.__init__(self)
-
     def save(self):
         """Save all changed attributes."""
         super(SpineClass, self).save()

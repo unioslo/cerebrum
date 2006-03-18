@@ -113,7 +113,7 @@ class DatabaseTransactionClass(Builder.Builder, Caching):
 
     def __init__(self, db, *args, **vargs):
         self._database = db
-        return super(DatabaseTransactionClass, self).__init__(*args, **vargs)
+        super(DatabaseTransactionClass, self).__init__(*args, **vargs)
 
     def get_database(self):
         return self._database
