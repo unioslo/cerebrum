@@ -55,10 +55,29 @@ class UserCommands(VirtualCommands):
         tpl = UserTemplate(self.state, 'user_password_ok')
         return tpl.show({})
 
+  # TODO: this functionality will be removed when we introduce event-based
+  #       export system updates
+    def show_user_get_password(self):
+        tpl = UserTemplate(self.state, 'old_passwords')
+        id = self.state.get_form_value('entity_id')
+        ret = self.cerebrum.user_get_pwd(id)
+        return tpl.show(ret)
+    
     def list_passwords(self):
         tpl = UserTemplate(self.state, 'list_passwords')
         p = self.cerebrum.list_passwords()
         return tpl.show({'pwdlist': p})
+
+    def show_user_pwd_letter(self):
+        tpl = UserTemplate(self.state, 'password_letter')
+        uname = self.state.get_form_value('username')
+        uinfo = self.cerebrum.user_info(uname=uname)
+        pwd = self.state.get_form_value('pwd')
+        email = self.cerebrum.get_default_email(uinfo['entity_id'])
+        ret = {'uname': uname,
+               'pwd': pwd,
+               'email': email}
+        return tpl.show(ret)
 
     def show_user_create(self):
         tpl = UserTemplate(self.state, 'user_create')
@@ -76,7 +95,7 @@ class UserCommands(VirtualCommands):
                 ret['more_unames'] = ', '.join(uname[1:5])
             ret['person_name'] = person['name']
         else:
-            group = selg.cerebrum.group_info(entity_id=owner_id)
+            group = self.cerebrum.group_info(entity_id=owner_id)
             ret['group_name'] = group['name']
         return tpl.show(ret)
 
@@ -156,6 +175,12 @@ class PersonCommands(VirtualCommands):
         person = self.cerebrum.person_info(entity_id=entity_id)
         if not person:
             self.state.controller.html_util.error("no person")
+        # TODO: only the first of the fnrs found is now shown
+        #       this should be fixed by parsing fnrs in cerebrum.person_info     
+        for k, v in person.iteritems():
+            if k == 'fnrs':
+                person['fnrs'] = v[0]['fnr'] + " (Fra: " + v[0]['fnr_src'] + ")"
+        # ENDTODO
         person_spreads = self.cerebrum.get_entity_spreads(entity_id)
         userlist = self.cerebrum.user_find('owner', entity_id)
         for u in userlist:
