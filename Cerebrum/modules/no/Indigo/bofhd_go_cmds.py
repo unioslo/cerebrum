@@ -110,14 +110,19 @@ class BofhdExtension(object):
 
     all_commands['get_auth_level'] = None
     def get_auth_level(self, operator):
-        # TODO: implement this
-        return 50
+        if self.ba.is_superuser(operator.get_entity_id()):
+            return cereconf.BOFHD_AUTH_LEVEL['super']
+
+        if self.ba.is_schoolit(operator.get_entity_id()):
+            return cereconf.BOFHD_AUTH_LEVEL['schoolit']
+
+        return cereconf.BOFHD_AUTH_LEVEL['other']
 
     all_commands['list_defined_spreads'] = None
     def list_defined_spreads(self, operator):
         return [{'code_str': str(y),
                  'desc': y._get_description(),
-                 'entity_type': str(y.entity_type)}
+                 'entity_type': str(self.const.EntityType(y.entity_type))}
                 for y in self.const.fetch_constants(self.const.Spread)]
 
     all_commands['get_entity_spreads'] = None
@@ -132,6 +137,13 @@ class BofhdExtension(object):
         account = self._get_account(entity_id)
         return account.get_primary_mailaddress()
 
+    all_commands['user_get_pwd'] = None
+    def user_get_pwd(self, operator, id):
+        account = self._get_account(int(id),'id')
+        pwd = account.get_account_authentication(self.const.auth_type_plaintext)
+        return {'password': pwd,
+                'uname': account.account_name}
+        
     all_commands['user_info'] = None
     def user_info(self, operator, entity_id):
         account = self._get_account(entity_id)
@@ -199,7 +211,6 @@ class BofhdExtension(object):
         operator.store_state("new_account_passwd", {
             'account_id': int(account.entity_id),
             'password': passwd})
-
         return "Ok, user created"
 
     all_commands['user_suggest_uname'] = None
@@ -218,7 +229,6 @@ class BofhdExtension(object):
         types = (self.const.account_create, self.const.account_password,
                  self.const.ou_create, self.const.person_create)
         sdate = mx.DateTime.now() - mx.DateTime.oneDay * int(days)
-
         # Collect in a dict to remove duplicates etc.
         tmp = {}
         for r in self.db.get_log_events(sdate=sdate, types=types):
@@ -238,7 +248,6 @@ class BofhdExtension(object):
                     if v['change_params']:
                         params = pickle.loads(v['change_params'])
                         params = params.get('password', '')
-
                 tmp = {
                     'tstamp': v['tstamp'],
                     'change_type': str(cl),
@@ -261,7 +270,6 @@ class BofhdExtension(object):
                     name = ou.name
                 tmp['name'] = name
                 ret.append(tmp)
-
         return ret
 
     def get_format_suggestion(self, cmd):
