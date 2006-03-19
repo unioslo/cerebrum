@@ -8,6 +8,8 @@ from Cerebrum.modules.no.Indigo.Cweb import Layout
 from Cerebrum.modules.no.Indigo.Cweb.CerebrumGW import CerebrumProxy
 from Cerebrum.modules.no.Indigo.Cweb import Errors
 
+import re
+
 class Controller(object):
     def __init__(self, logger):
         self.logger = logger
@@ -26,8 +28,9 @@ class Controller(object):
         except Errors.CwebException, e:
             self.html_util.error(str(e), self.state)
         except Exception, e:
+            er = re.sub(r'.*\:', r'Error:', str(e.faultString))
             self.logger.error("Caught unexpected error: ", exc_info=1)
-            self.html_util.error("caught some error (%s), logged a message" % e)
+            self.html_util.error("%s" % er)
             
     def login(self):
         uname = self.state.get_form_value('uname')
@@ -59,7 +62,6 @@ class Controller(object):
         else:
             return self.html_util.error("Unknown target type '%s'" % t)
 
-
     def controller(self):
         action_map = {
             'do_clear_passwords': [self.user_cmd.clear_passwords],
@@ -86,10 +88,12 @@ class Controller(object):
                                  Layout.PersonTemplate, 'person_find'],
             'show_person_info': [self.person_cmd.show_person_info],
             'show_user_create': [self.user_cmd.show_user_create],
+            'show_password_letter': [self.user_cmd.show_user_pwd_letter],
+            'show_user_get_password': [self.user_cmd.show_user_get_password],
             'show_user_find': [self.html_util.show_page,
                                Layout.UserTemplate, 'user_find'],
             'show_user_password': [self.html_util.show_page,
-                                   Layout.UserTemplate, 'user_password'],
+                                   Layout.UserTemplate, 'user_password']
             }
         action = self.state.get_form_value("action")
         self.logger.debug("Action: %s" % action)
@@ -120,7 +124,8 @@ class Controller(object):
         try:
             self.html_util.display(f[0](*f[1:]))
         except Exception, e:
+            er = re.sub(r'.*\:', r'Error:', str(e.faultString))
             self.logger.error("Caught unexpected error: ", exc_info=1)
-            self.html_util.error("caught some error (%s), logged a message" % e)
+            self.html_util.error("%s" % er)
 
 # arch-tag: ce3f527a-7155-11da-985c-65eb434993a3
