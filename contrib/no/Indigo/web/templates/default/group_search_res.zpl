@@ -1,4 +1,4 @@
-<span tal:define="title string:Søkeresultat;title_id string:group_search_res" tal:omit-tag=""><span metal:use-macro="tpl/macros/page">
+<span tal:define="title string:Grupper;title_id string:group_search_res" tal:omit-tag=""><span metal:use-macro="tpl/macros/page">
 <span metal:fill-slot="body" tal:omit-tag="">
 
 <span tal:condition="not:grouplist" tal:omit-tag="">
@@ -7,7 +7,7 @@
 
 <span tal:condition="grouplist" tal:omit-tag="">
 
-Klikk på gruppen for mer informasjon om gruppen.
+Klikk på gruppenavnet for detaljert informasjon om gruppen.
 <p>
 
   <table border="1">

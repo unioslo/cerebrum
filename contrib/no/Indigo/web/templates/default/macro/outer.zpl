@@ -10,7 +10,7 @@
 <table border="1" cellpadding="0" cellspacing="0" width="100%">
   <tbody> 
     <tr> 
-      <td class="LeftColumn" rowspan="2" align="left" valign="top" width="15%"><span  metal:define-slot="menuframe">menu</span></td> 
+      <td class="LeftColumn" rowspan="2" align="left" valign="top" width="20%"><span  metal:define-slot="menuframe">menu</span></td> 
       <td rowspan="2" align="left" valign="top"> <span metal:define-slot="bodyframe">resten</span> </td>
     </tr> 
   </tbody>
