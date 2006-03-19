@@ -78,11 +78,11 @@ class MainTemplate(object):
         if style == 'normal':
             #return '%s <a href="/web/templates/help.html#%s" target="helpframe">[?]</a>' % (
             #    msg, id)
-            return '<a href="/web/templates/help.html#%s" target="helpframe"><img src="/web/templates/help.png" alt="help" border="0" width="12"></a>%s' % (
-                id, msg)
+            # TODO: help URLs should probably be in cereconf or something
+            #       for some reason help.html want work either...
+            return '<a href="http://cweb.ofk.usit.no/cweb_help/help.shtml#%s" target="helpframe"><img src="http://cweb.ofk.usit.no/cweb_help/help.png" alt="help" border="0" width="12"></a>%s' % (id, msg)
         else:
-            return '<a href="/web/templates/help.html#%s" target="helpframe">%s</a>' % (
-                id, msg)
+            return '<a href="http://cweb.ofk.usit.no/cweb_help/help.html#%s" target="helpframe">%s</a>' % (id, msg)
             
     help_link = staticmethod(help_link)
 
