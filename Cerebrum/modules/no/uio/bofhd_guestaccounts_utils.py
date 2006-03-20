@@ -89,9 +89,9 @@ class BofhdUtils(object):
         # guest.)
         ac.delete_entity_quarantine(self.co.quarantine_generell) 
         ac.populate_trait(self.co.trait_guest_owner, target_id=None)
-        ac.write_db()
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
         ac.set_password(ac.make_passwd(guest))
+        ac.write_db()
         # Finally, register a request to archive the home directory.
         # A new directory will be created when archival has been done.
         br = BofhdRequests(self.db, self.co)
