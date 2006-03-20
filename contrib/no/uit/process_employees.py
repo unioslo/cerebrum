@@ -136,11 +136,9 @@ class execute:
         for p in p_list:
             self.person.clear()
             p_id = p['person_id']
-            print "p_id =%s" % p_id
             emp = self.person.list_affiliations(person_id=p_id,source_system=our_source_sys,
                                                 affiliation=empl_aff)
             if (len(emp)>0):
-                print "her"
                 # person er ansatt
                 self.process_employee(p_id,emp[0]['ou_id'])
         # end get_all_employees
