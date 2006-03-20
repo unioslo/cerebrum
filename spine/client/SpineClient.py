@@ -23,7 +23,7 @@ import os
 import sys
 import urllib
 
-from omniORB import CORBA, sslTP, importIDL, importIDLString
+from omniORB import CORBA, importIDL, importIDLString
 
 def fixOmniORB():
     """Workaround for bugs in omniorb
@@ -77,6 +77,11 @@ class SpineClient:
         import SpineIDL, SpineCore
 
     def init_ssl(self):
+        try:
+            from omniORB import sslTP
+        except ImportError:
+            print "Could not import omniORB.sslTP"
+            sys.exit(1)
         sslTP.certificate_authority_file(self.ssl_ca_file)
         sslTP.key_file(self.ssl_key_file)
         sslTP.key_file_password(self.ssl_password)
