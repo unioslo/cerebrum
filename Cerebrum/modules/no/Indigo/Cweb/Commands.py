@@ -128,7 +128,7 @@ class GroupCommands(VirtualCommands):
     
     def group_mod(self):
         tgt_id = self.state.get_form_value('target_id')
-        if self.state.get_form_value('choice') == 'Fjern':
+        if self.state.get_form_value('choice') == 'Meld ut':
             ids = self.state.get_form_value('remove_member', [])
             if ids:
                 self.cerebrum.group_remove_entity(ids, tgt_id)
