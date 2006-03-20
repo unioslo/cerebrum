@@ -255,7 +255,7 @@ class BofhdExtension(object):
                 first, last = arg.split('-')
                 prefix = first.rstrip('0123456789')
                 first = int(first[len(prefix):])
-                last = int(last[len(prefix):])
+                last = int(last)
                 for i in range(first, last+1):
                     guests.append('%s%03d' % (prefix, i))
             else:
