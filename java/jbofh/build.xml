@@ -22,13 +22,6 @@
   <target depends="init" description="compile the source " name="compile" unless="${nogui}">
     <!-- Compile the java code from ${src} into ${build} -->
     <echo>Compiling with gui </echo>
-    <depend
-      srcdir="${src}"
-      destdir="${build}"
-      closure="true"
-      dump="true">
-      <include name="no/uio/**/*.java" />
-    </depend>
     <javac destdir="${build}" srcdir="${src}" debug="on">
             <classpath>
                 <fileset dir="lib" includes="*.jar"></fileset>
@@ -39,13 +32,6 @@
   <target depends="init" description="compile the source" name="compile-nogui" if="${nogui}">
     <!-- Compile the java code from ${src} into ${build} -->
     <echo>Compiling without gui </echo>
-    <depend
-      srcdir="${src}"
-      destdir="${build}"
-      closure="true"
-      dump="true">
-      <include name="no/uio/**/*.java" />
-    </depend>
     <javac destdir="${build}" srcdir="${src}" debug="on">
             <classpath>
                 <fileset dir="lib" includes="*.jar">
