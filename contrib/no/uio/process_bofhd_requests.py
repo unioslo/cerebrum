@@ -973,9 +973,9 @@ def process_delete_requests():
                 group.find(g['group_id'])
                 group.remove_member(account.entity_id, g['operation'])
             br.delete_request(request_id=r['request_id'])
-            db.commit()
             # LOG THAT A USER HAS BEEN DELETED
             db.log_change(r['entity_id'], self.const.account_delete, None)
+            db.commit()
         else:
             db.rollback()
             br.delay_request(r['request_id'], minutes=120)
