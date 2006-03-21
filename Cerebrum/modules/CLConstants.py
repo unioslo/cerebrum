@@ -131,6 +131,8 @@ class CLConstants(Constants.Constants):
 
     account_create =  _ChangeTypeCode('e_account', 'create',
                                       'created %(subject)s')
+    account_delete = _ChangeTypeCode('e_account', 'delete',
+                                     'deleted %(subject)s')
     account_mod =  _ChangeTypeCode('e_account', 'mod',
                                    'modified %(subject)s')
     account_password =  _ChangeTypeCode('e_account', 'password',
