@@ -45,26 +45,14 @@ from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
 
 class Constants(Constants.Constants):
-
-    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
-                                                 Constants.Constants.entity_person,
-                                                 'Norwegian birth number')
-    externalid_sapnr     = _EntityExternalIdCode('SAP_NR',
-                                                 Constants.Constants.entity_person,
-                                                 'SAP employee number')
-
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
-    system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_ureg = _AuthoritativeSystemCode('Ureg', 'Imported from ureg')
     system_fs_derived = _AuthoritativeSystemCode('FS-auto',
                                                  'Utledet av FS data')
     system_folk_uio_no = _AuthoritativeSystemCode('folk.uio.no',
                                                   'http://folk.uio.no/')
-    system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
 
     perspective_lt = _OUPerspectiveCode('LT', 'LT')
-    perspective_fs = _OUPerspectiveCode('FS', 'FS')
-    perspective_sap = _OUPerspectiveCode('SAP', 'SAP')
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')

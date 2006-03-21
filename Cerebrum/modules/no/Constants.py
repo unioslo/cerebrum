@@ -17,36 +17,37 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Access to Cerebrum code values.
-
+"""
+Constants common for higher education institutions in Norway.
 """
 
 from Cerebrum import Constants
-from Cerebrum.Constants import \
-     _AuthoritativeSystemCode, _OUPerspectiveCode, _EntityExternalIdCode, \
-     _PersonAffiliationCode, _PersonAffStatusCode
+from Cerebrum.Constants import _EntityExternalIdCode, \
+                               _AuthoritativeSystemCode, \
+                               _OUPerspectiveCode
 
-class Constants(Constants.Constants):
+class ConstantsCommon(Constants.Constants):
 
-    # TBD: Finnes det egentlige *noen* konstanter som er "globale" for
-    # hele Norge, og derfor bør ligge som attributter i denne klassen?
-
-    system_sats_oslo_gs = _AuthoritativeSystemCode(
-        'SATS/OSLO/GS',
-        'Skoleetaten i Oslo sin SATS-instans for grunnskoler.')
-    system_sats_oslo_vg = _AuthoritativeSystemCode(
-        'SATS/OSLO/VGS',
-        'Skoleetaten i Oslo sin SATS-instans for videregående skoler.')
-
-    perspective_sats = _OUPerspectiveCode('SATS', 'SATS')
-
-    externalid_personoid = _EntityExternalIdCode('SATS_PERSONOID',
+    # external id definitions (NO_NIN, norwegian national id number)
+    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
                                                  Constants.Constants.entity_person,
-                                                 'PK in SATS')
+                                                 'Norwegian birth number')
+class ConstantsHigherEdu(Constants.Constants):
 
-    affiliation_foresatt = _PersonAffiliationCode('FORESATT',
-                                                  'Foresatt for elev')
-    affiliation_status_foresatt_valid = _PersonAffStatusCode(
-        affiliation_foresatt, 'VALID', 'Valid')
+    # authoritative source systems (FS = student registry, SAP = common HR-system)
+    system_fs = _AuthoritativeSystemCode('FS', 'FS')
+    system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
+
+    # external id definitions (student and employee id)
+    externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
+                                                 Constants.Constants.entity_person,
+                                                 'Norwegian student number')
+    externalid_sap_ansattnr = _EntityExternalIdCode('SAP_NR',
+                                                    Constants.Constants.entity_person,
+                                                    'SAP employee number')
+
+    # OU-structure perspectives
+    perspective_fs = _OUPerspectiveCode('FS', 'FS')
+    perspective_sap = _OUPerspectiveCode('SAP', 'SAP')
 
 # arch-tag: 4ba57e9c-75bd-40b6-8d6c-1340312241bb
