@@ -29,7 +29,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
 
 """
-This file is a UiO-specific extensions of Cerebrum.
+This file is a UiO-specific extension of Cerebrum.
 
 It provides statistics about specific activities within Cerebrum.
 
@@ -45,14 +45,14 @@ affiliations_by_code = {129: "ANSATT",
                         131: "STUDENT",
                         132: "TILKNYTTET",
                         133: "UPERSONLIG"}
-# Order is significant for affiliation priority:
+# Most to least significant affiliation. Determines what entitites
+# with multiple affiliations will be counted under.
 affiliations_by_priority = [129, 131, 132, 130, 133]
 no_affiliation = "(INGEN)"
 
 
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
-#account = Factory.get('Account')(db)
 logger = Factory.get_logger()
 
 # Default choices for script options
@@ -62,9 +62,11 @@ options = {"affiliations": False,
 
 
 class EventNotDefinedError(Exception):
+    
     """
-    For use by EventProcessor. Raised when an requested event-type has
+    For use by EventProcessor. Raised when a requested event-type has
     not been defined yet.
+    
     """
     def __init__(self, message):
         "Sets up exception."
@@ -80,13 +82,14 @@ class EventNotDefinedError(Exception):
 
 
 class EventProcessor(object):
+    
     """
     Abstract baseclass for processing a given area of event-based
     statistics.
 
     Subclasses should override at least
     'calculate_count_by_affiliation' to yield desired results. Other
-    fucntions can be overridden as necessary for that particular
+    functions can be overridden as necessary for that particular
     event.
 
     """
@@ -128,8 +131,6 @@ class EventProcessor(object):
         into 'self._entity_ids', where they later can be counted and
         extracted for further purposes.
 
-        self._log_events
-
         """
         event_rows = db.get_log_events_date(sdate=start_date, edate=end_date, type=self._log_events)
 
@@ -150,7 +151,7 @@ class EventProcessor(object):
 
 
     def _get_total(self):
-        "Returns the total number of events for the event-type"
+        """Returns the total number of events for the event-type."""
         return len(self._entity_ids)
     
 
@@ -158,6 +159,7 @@ class EventProcessor(object):
         """
         Prints a report for the data collected by this particular
         event processor.
+        
         """
         print ""
         print ("Event:        '%s'" % self._description),
@@ -175,10 +177,12 @@ class EventProcessor(object):
         Prints affiliation info for this particular prosessor. Can be
         overridden by subclasses, e.g. if there has been collected no
         affiliation-info by them.
+        
         """
         print ""
         # The no-affiliation line should be printed last, and will
-        # therefore be specially treated
+        # therefore be specially treated. This will also handle if
+        # there is no "no-affiliation".
         no_affiliation_line = "" 
         for affiliation, count  in self._count_by_affiliation.iteritems():
             outline = (" " * 18) + affiliation + (" " * (34 -len(affiliation))) + str(count)
@@ -192,14 +196,14 @@ class EventProcessor(object):
 
 
     def get_most_significant_affiliation(self, affiliations):
-        "Determines which of 'affiliations' is the most significant one"
+        """Determines which of 'affiliations' is the most significant one."""
         for aff in affiliations_by_priority:
             if aff in affiliations:
                 return affiliations_by_code[aff]
 
 
     def _add_to_affiliation(self, affiliation):
-        "Adds an event to the count for a given affiliation"
+        """Adds an event to the count for a given affiliation."""
         if self._count_by_affiliation.has_key(affiliation):
             self._count_by_affiliation[affiliation] += 1
         else:
@@ -208,7 +212,8 @@ class EventProcessor(object):
     def _process_affiliation_rows(self, affiliation_rows):
         """
         Processes any affiliation rows found for an entity and adds
-        to the count for the affiliations as determined
+        to the count for the affiliations as determined.
+        
         """
         designated_affiliation = no_affiliation
         if affiliation_rows:
@@ -224,7 +229,11 @@ class EventProcessor(object):
 
 
 class CreatePersonProcessor(EventProcessor):
-    "Handles 'create person'-events"
+
+    """
+    Handles 'create person'-events.
+
+    """
 
     def __init__(self):
         EventProcessor.__init__(self)
@@ -250,7 +259,11 @@ class CreatePersonProcessor(EventProcessor):
 
 
 class CreateAccountProcessor(EventProcessor):
-    "Handles 'create account'-events"
+    
+    """
+    Handles 'create account'-events.
+
+    """
 
     def __init__(self):
         EventProcessor.__init__(self)
@@ -272,10 +285,12 @@ class CreateAccountProcessor(EventProcessor):
      
 
 class CreateGroupProcessor(EventProcessor):
+    
     """
     Handles 'create group'-events. Groups are a bit special compared
     to other events, since they do not have any associations with
     affiliations.
+    
     """
 
     def __init__(self):
@@ -295,7 +310,7 @@ class CreateGroupProcessor(EventProcessor):
 
 
 def usage(exitcode=0):
-    "Gives user info on how to use the program and its options."
+    """Gives user info on how to use the program and its options."""
     
     print """\nUsage: %s [options]
 
@@ -330,7 +345,6 @@ def main():
     print ("Statistics covering the period from %s to %s (inclusive)" %
            (options['from'].date, options['to'].date))
     
-
     event_types = [
         "Person creation",
         "Account creation",
@@ -348,7 +362,7 @@ def main():
             
         processor.print_report(options['affiliations'])
 
-    print "" # For a nice newline at the end of the report
+    print ""  # For a nice newline at the end of the report
     
 
 
@@ -366,6 +380,7 @@ if __name__ == '__main__':
     for opt, val in opts:
         if opt in ('-h', '--help',):
             usage()
+            
         elif opt in ('-f', '--from',):
             logger.debug("Will process events since %s" % val)
             try:
@@ -373,6 +388,7 @@ if __name__ == '__main__':
             except ValueError:
                 print "\nERROR: Incorrect 'from'-format"
                 usage(2)
+                
         elif opt in ('-t', '--to',):
             logger.debug("Will process events till %s" % val)
             try:
@@ -380,6 +396,7 @@ if __name__ == '__main__':
             except ValueError:
                 print "\nERROR: Incorrect 'to'-format"
                 usage(2)
+                
         elif opt in ('-a', '--affiliations',):
             logger.debug("Will process and display info about affiliations")
             options['affiliations'] = True
