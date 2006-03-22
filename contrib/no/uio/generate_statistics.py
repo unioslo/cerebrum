@@ -310,8 +310,11 @@ class CreateGroupProcessor(EventProcessor):
 
 
 
-def usage(exitcode=0):
+def usage(exitcode=0, message=None):
     """Gives user info on how to use the program and its options."""
+
+    if message is not None:
+        print "\n%s" % message
     
     print """\nUsage: %s [options]
 
@@ -387,16 +390,16 @@ if __name__ == '__main__':
             try:
                 options['from'] =  ISO.ParseDate(val)
             except ValueError:
-                print "\nERROR: Incorrect 'from'-format"
-                usage(2)
+                logger.error("Incorrect 'from'-format")
+                usage(exitcode=2, message="ERROR: Incorrect 'from'-format")
                 
         elif opt in ('-t', '--to',):
             logger.debug("Will process events till %s" % val)
             try:
                 options['to'] = ISO.ParseDate(val)
             except ValueError:
-                print "\nERROR: Incorrect 'to'-format"
-                usage(2)
+                logger.error("Incorrect 'to'-format")
+                usage(exitcode=2, message="ERROR: Incorrect 'to'-format")
                 
         elif opt in ('-a', '--affiliations',):
             logger.debug("Will process and display info about affiliations")
