@@ -24,6 +24,7 @@ import getopt
 
 from mx.DateTime import *
 
+import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
