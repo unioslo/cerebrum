@@ -140,7 +140,7 @@ class PosixUser(Account_class):
         member = primary_group.has_member(self.entity_id)
         if member and member['operation'] != self.const.group_memberop_union:
             primary_group.remove_member(self.entity_id,
-                                        membership['operation'])
+                                        member['operation'])
             member = False
         if not member:
             primary_group.add_member(self.entity_id,
