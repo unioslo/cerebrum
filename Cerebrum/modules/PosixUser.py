@@ -133,10 +133,19 @@ class PosixUser(Account_class):
         is_new = not self.__in_db
         primary_group = PosixGroup.PosixGroup(self._db)
         primary_group.find(self.gid_id)
-        if not primary_group.has_member(self.entity_id, self.entity_type,
-                                        self.const.group_memberop_union):
+        # TBD: should Group contain a utility function to add a member
+        # if it's not a member already?  There are many occurences of
+        # code like this, and but none of them implement all the
+        # robustness below.
+        member = primary_group.has_member(self.entity_id)
+        if member and member['operation'] != self.const.group_memberop_union:
+            primary_group.remove_member(self.entity_id,
+                                        membership['operation'])
+            member = False
+        if not member:
             primary_group.add_member(self.entity_id,
-                                     self.entity_type, self.const.group_memberop_union)
+                                     self.entity_type,
+                                     self.const.group_memberop_union)
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]
