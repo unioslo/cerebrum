@@ -992,7 +992,8 @@ def parse_xml_roles(fname):
                 key = key + (data["aktivitetskode"],)
             # fi
         else:
-            logger.warn("Wrong role entry kind: %s", kind)
+            logger.warn("%s%s: Wrong role entry kind: %s",
+                        data["fodselsdato"], data["personnr"], kind)
             return
         # fi
         
