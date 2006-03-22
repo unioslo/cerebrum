@@ -534,6 +534,9 @@ class BofhdExtension(object):
                           for a in arecord.list_ext(ip_number_id=owner_id)])
             if len(names) > 1:
                 raise CerebrumError, "IP matches multiple names"
+            if len(names) == 0:
+                raise CerebrumError("IP does not point at a host in Cerebrum. "
+                                    "Use host ptr_remove to remove the PTR")
             owner_id = names.keys()[0]
         try:
             owner_id = self._find.find_target_by_parsing(
