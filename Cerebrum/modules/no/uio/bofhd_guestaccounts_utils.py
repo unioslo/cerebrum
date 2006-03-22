@@ -33,6 +33,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.PosixUser import PosixUser
 
 
 class GuestAccountException(Exception):
@@ -83,15 +84,13 @@ class BofhdUtils(object):
 
         # Remove quarantine to ready the account for the next task.
         # This is not a problem since no one can know the password
-        # until the guest has been requested.  (Access to changing the
-        # password should _not_ be granted to IT personell, that will
-        # also allow them to remove the quarantine of an activated
-        # guest.)
+        # until the guest has been requested.
         ac.delete_entity_quarantine(self.co.quarantine_generell) 
         ac.populate_trait(self.co.trait_guest_owner, target_id=None)
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
         ac.set_password(ac.make_passwd(guest))
         ac.write_db()
+        self.update_group_memberships(ac.entity_id)
         # Finally, register a request to archive the home directory.
         # A new directory will be created when archival has been done.
         br = BofhdRequests(self.db, self.co)
@@ -102,7 +101,6 @@ class BofhdUtils(object):
     def get_owner(self, guestname):
         "Check that guestname is a guest account and that it has an owner."
         ac = Factory.get('Account')(self.db)    
-        ac.clear()
         ac.find_by_name(guestname)
         owner = ac.get_trait(self.co.trait_guest_owner)
         if not owner:
@@ -192,6 +190,39 @@ class BofhdUtils(object):
         cryptstring = ac.get_account_authentication(pgpauth)
         passwd = ac.decrypt_password(pgpauth, cryptstring)
         return ac.entity_id, passwd
+
+
+    def update_group_memberships(self, account_id):
+        """Make sure that the account is a member of exactly the
+        groups specified in cereconf.GUESTS_DEFAULT_FILEGROUP and
+        cereconf.GUESTS_MEMBER_GROUP.
+
+        """
+        user = PosixUser(self.db)
+        user.find(account_id)
+        gr = Factory.get("Group")(self.db)
+        gr.find_by_name(cereconf.GUESTS_DEFAULT_FILEGROUP)
+        user.gid_id = gr.entity_id
+        user.write_db()
+        req_groups = [gr.entity_id]
+        # Add guest to the required groups
+        for gr_name in cereconf.GUESTS_MEMBER_GROUP:
+            gr.clear()
+            gr.find_by_name(gr_name)
+            req_groups.append(gr.entity_id)
+            member = gr.has_member(account_id)
+            if member and member['operation'] != self.co.group_memberop_union:
+                gr.remove_member(account_id, member['operation'])
+                member = False
+            if not member:
+                gr.add_member(account_id, self.co.entity_account,
+                              self.co.group_memberop_union)
+        # Expel guest from any extra groups
+        for row in gr.list_groups_with_entity(account_id):
+            if row['group_id'] not in req_groups:
+                gr.clear()
+                gr.find(row['group_id'])
+                gr.remove_member(account_id, row['operation'])
 
     def _find_guests(self, num_requested):
         ret = []

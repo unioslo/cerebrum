@@ -186,6 +186,7 @@ class BofhdExtension(object):
                     posix_user.add_spread(self.co.Spread(spread))
             except self.db.DatabaseError, m:
                 raise CerebrumError, "Database error: %s" % m
+            self.bgu.update_group_memberships(posix_user.entity_id)
             posix_user.populate_trait(self.co.trait_guest_owner, target_id=None)
             # The password must be set _after_ the trait, or else it
             # won't be stored using the 'PGP-guest_acc' method.
