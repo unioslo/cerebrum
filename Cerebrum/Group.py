@@ -260,18 +260,25 @@ class Group(EntityQuarantine, EntityName, Entity_class):
                       'm_id': member_id})
         self._db.log_change(member_id, self.clconst.group_add, self.entity_id)
 
-    def has_member(self, member_id, type, op):
+    def has_member(self, member_id, member_type=None, operation=None):
+        """Check whether member_id is a member, return a db_row with
+        its member type and member operation if it is, or False if
+        not.
+
+        """
+        where = ["group_id = :g_id", "member_id = :m_id"]
+        binds = {'g_id': self.entity_id, 'm_id': member_id}
+        if member_type is not None:
+            where.append("member_type = :m_type")
+            binds['m_type'] = int(member_type)
+        if operation is not None:
+            where.append("operation = :op")
+            binds['op'] = int(operation)
         try:
-            self.query_1("""
-            SELECT 'x' AS x FROM [:table schema=cerebrum name=group_member]
-            WHERE group_id=:g_id AND
-                  operation=:op AND
-                  member_type=:m_type AND
-                  member_id=:m_id""", {'g_id': self.entity_id,
-                                       'op': int(op),
-                                       'm_id': member_id,
-                                       'm_type': int(type)})
-            return True
+            return self.query_1("""
+            SELECT member_type, operation
+            FROM [:table schema=cerebrum name=group_member]
+            WHERE """ + " AND ".join(where), binds)
         except Errors.NotFoundError:
             return False
 
