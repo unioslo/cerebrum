@@ -685,7 +685,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return False
 
     def is_deleted(self):
-        """We define a reserved account as an account with 
+        """We define a deleted account as an account with 
         expire_date < now() and no spreads"""
         if self.is_expired() and not self.get_spread():
             return True
