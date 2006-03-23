@@ -29,6 +29,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
+from Cerebrum import Person
 from Cerebrum.modules import CLHandler
 import adutils
 
@@ -40,6 +41,7 @@ entityname = Entity.EntityName(db)
 ou = Factory.get('OU')(db)
 group = Factory.get('Group')(db)
 account = Factory.get('Account')(db)
+person = Factory.get('Person')(db)
 cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger("cronjob")
 
@@ -62,6 +64,7 @@ def quick_user_sync():
                                   clco.quarantine_refresh,
                                   clco.account_home_added,
                                   clco.account_home_updated,
+				  clco.person_name_mod,
 				  clco.homedir_update,
  				  clco.homedir_add,
 				  clco.homedir_remove))
@@ -157,8 +160,53 @@ def quick_user_sync():
 	      chg_type == clco.homedir_add or
 	      chg_type == clco.homedir_remove):
 	    move_account(ans['subject_entity'])
+	elif chg_type == clco.person_name_mod:
+	    try:	
+            	change_params = pickle.loads(ans['change_params'])
+	    except EOFError:
+		logger.warn('picle.load EOFError on change_id: %s' % ans['change_id'])
+		continue
+            if change_name(ans['subject_entity'],change_params):
+		cl.confirm_event(ans)
+	    else:
+		logger.warn('Failed changing fullname on %s ' % ans['subject_entity'])
+
 
     cl.commit_confirmations()
+
+
+def change_name(owner_id, name_param):
+    
+    #One Person can have more than one account. List all account belonging to person.
+    if name_param['name_variant'] == co.name_full:	
+        if debug:
+	    logger.debug("owner_id:%s,name:%s,name-variant:%s" %   \
+		 (owner_id,name_param['name'],name_param['name_variant']))
+    	for acc in account.list_accounts_by_owner_id(owner_id):
+	    try:
+	    	account.clear()
+	    	account.find(acc['account_id'])
+	    except Errors.NotFoundErrors:
+	    	if debug:
+		    logger.debug("Not Found Error")	    		
+	    	    return False		
+    	    if account.has_spread(int(co.spread_uio_ad_account)):
+		try:
+	            person.clear()
+        	    person.find(owner_id)
+        	    full_name = person.get_name(int(co.system_cached), int(co.name_full)) 
+        	    if not full_name:
+			logger.debug('getting persons full_name failed, account.owner_id: %s' % person_id)
+    		except Errors.NotFoundError:        
+        	    #This account is missing a person_id.
+	            full_name = account.account_name
+ 
+       	    	sock.send('ALTRUSR&%s/%s&fn&%s\n' % (cereconf.AD_DOMAIN,
+                                               account.account_name, name_param['name']))
+	    	if sock.read() != ['210 OK']:
+	    	    logger.debug('Failed update name of person %s, account %s' % (owner_id, acc['account_id']))
+		    return False	
+    return True	
 
 
 def move_account(entity_id):
