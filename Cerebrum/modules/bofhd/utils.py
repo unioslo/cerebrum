@@ -105,6 +105,12 @@ class Constants(Constants.Constants):
         'email_info_det', "View detailed information about e-mail account")
     auth_email_reassign = _AuthRoleOpCode(
         'email_reassign', "Reassign e-mail addresses")
+    auth_quarantine_set = _AuthRoleOpCode(
+        'qua_add', "Set quarantine on entity")
+    auth_quarantine_disable = _AuthRoleOpCode(
+        'qua_disable', "Temporarily disable quarantine on entity")
+    auth_quarantine_remove = _AuthRoleOpCode(
+        'qua_remove', "Remove quarantine on entity")
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
     # the CerebrumCode framework.  TODO: redefine the database table
@@ -390,6 +396,7 @@ class BofhdUtils(object):
                                 "fnr": ("Person",),
                                 "group": ("Group",),
                                 "host": ("Host",),
+                                "disk": ("Disk",),
                                 "entity_id": None,
                                 "id": None }
 
@@ -406,19 +413,9 @@ class BofhdUtils(object):
                     ltype = default_lookup
             else:
                 ltype, name = name.split(":", 1)
-                found = None
-                for t in entity_lookup_types.keys():
-                    if t.startswith(ltype):
-                        if found:
-                            raise CerebrumError, \
-                                  ("Ambiguous lookup %s (%s or %s?)" %
-                                   (ltype, found, t))
-                        found = t
-                if found is None:
-                    raise CerebrumError, "Unknown lookup %s" % ltype
-                ltype = found
+                ltype = self.get_abbr_type(ltype, entity_lookup_types.keys())
             return ltype, name
-         
+
         def get_target_lookup(ltype, name):
             if ltype == 'id' or ltype == 'entity_id':
                 return get_target_entity(name)
@@ -426,21 +423,25 @@ class BofhdUtils(object):
                 return get_target_posix_by_name(name, clstype=ltype)
             elif ltype == 'fnr':
                 return get_target_person_fnr(name)
+            elif ltype == 'host':
+                return get_target_host(name)
+            elif ltype == 'disk':
+                return get_target_disk(name)
             else:
                 raise CerebrumError, "Lookup type %s not implemented yet" % ltype
          
-        def get_target_entity(name):
+        def get_target_entity(ety_id):
             try:
-                id = int(name)
+                ety_id = int(ety_id)
             except ValueError:
                 # TBD: This triggers if the numeric value can't fit in
                 # 32 bits, too.  Should we use a regexp instead?
-                raise CerebrumError, "Non-numeric id lookup (%s)" % name
+                raise CerebrumError, "Non-numeric id lookup (%s)" % ety_id
             en = Factory.get("Entity")(self.db)
             try:
-                en = en.get_subclassed_object(id)
+                en = en.get_subclassed_object(ety_id)
             except Errors.NotFoundError:
-                raise CerebrumError, "No such entity (%d)" % id
+                raise CerebrumError, "No such entity (%d)" % ety_id
             except ValueError, e:
                 raise CerebrumError, "Can't handle entity (%s)" % e
             if en.entity_type == self.co.entity_account:
@@ -521,6 +522,30 @@ class BofhdUtils(object):
             person.find(found[0])
             return person
 
+        def get_target_host(hostname):
+            host = Factory.get("Host")(self.db)
+            try:
+                host.find_by_name(hostname)
+            except Errors.NotFoundError:
+                raise CerebrumError("No such host: %s" % hostname)
+            return host
+
+        def get_target_disk(path):
+            disk = Factory.get("Disk")(self.db)
+            host_id = None
+            if path.count(':'):
+                hostname, path = path.split(':', 1)
+                host_id = get_target_host(hostname).entity_id
+            try:
+                disk.find_by_path(path, host_id=host_id)
+            except Errors.NotFoundError:
+                raise CerebrumError("No such path: %s" % path)
+            except Errors.TooManyRowsError:
+                # This can't happen currently, disk_info.path has a
+                # UNIQUE constraint.
+                raise CerebrumError("%s is not unique, use 'host:path'" % path)
+            return disk
+
          #
          # Finally, here is the start of the function itself
          #
@@ -541,15 +566,35 @@ class BofhdUtils(object):
         for clsname in restrict_to:
             if isinstance(obj, Factory.get(clsname)):
                 return obj
-        # The object isn't strictly acceptable according to restrict_to,
-        # but let's be user-friendly and turn an account into a person.
+        # The object isn't strictly acceptable according to
+        # restrict_to, but let's be user-friendly and turn an account
+        # into a person and a disk into a host.
         if ("Person" in restrict_to and
             isinstance(obj, Factory.get("Account")) and
             obj.owner_type == self.co.entity_person):
             return get_target_entity(obj.owner_id)
+        if "Host" in restrict_to and isinstance(obj, Factory.get("Disk")):
+            return get_target_entity(obj.host_id)
 
         raise CerebrumError, ("Wrong argument type '%s' returned by %s:%s" %
                               (self.co.EntityType(obj.entity_type),
                                ltype, name))
+
+    def get_abbr_type(self, type_name, valid_types):
+        """Looks for type_name in valid_types, and returns the full
+        type name if found.  Raises CerebrumError if not found, or if
+        name is ambiguous.
+
+        """
+        found = None
+        for v in valid_types:
+            if v.startswith(type_name):
+                if found:
+                    raise CerebrumError("Ambiguous value '%s' (%s or %s?)" %
+                                        (type_name, found, v))
+                found = v
+        if found is None:
+            raise CerebrumError, "Unknown value '%s'" % name
+        return found
 
 # arch-tag: d6650fa6-6a9b-459f-be7e-80c9e6cbba52
