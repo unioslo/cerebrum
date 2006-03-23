@@ -634,10 +634,15 @@ class CoreConstants(ConstantsBase):
     entity_host = _EntityTypeCode('host', 'see table host_info')
     entity_disk = _EntityTypeCode('disk', 'see table disk_info')
 
-    group_namespace = _ValueDomainCode(cereconf.ENTITY_TYPE_NAMESPACE['group'],
-                                       'Default domain for group names')
-    account_namespace = _ValueDomainCode(cereconf.ENTITY_TYPE_NAMESPACE['account'],
-                                         'Default domain for account names')
+    group_namespace = _ValueDomainCode(
+        cereconf.ENTITY_TYPE_NAMESPACE['group'],
+        'Default domain for group names')
+    account_namespace = _ValueDomainCode(
+        cereconf.ENTITY_TYPE_NAMESPACE['account'],
+        'Default domain for account names')
+    host_namespace = _ValueDomainCode(
+        cereconf.ENTITY_TYPE_NAMESPACE['host'],
+        'Default domain for host names')
 
     group_memberop_union = _GroupMembershipOpCode('union', 'Union')
     group_memberop_intersection = _GroupMembershipOpCode(

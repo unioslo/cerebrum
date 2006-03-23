@@ -35,7 +35,7 @@ from Cerebrum.Constants import _SpreadCode
 # run migrate_* in this order
 targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
-             'rel_0_9_6', 'rel_0_9_7'),
+             'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8'),
     'bofhd': ('bofhd_1_1', ),
     }
 
@@ -361,6 +361,21 @@ def migrate_to_rel_0_9_7():
     db.commit()
 
 
+def migrate_to_rel_0_9_8():
+    """Migrate from 0.9.7 database to the 0.9.8 database schema."""
+    assert_db_version("0.9.7")
+    # insert new code
+    makedb('0_9_8', 'pre')
+    # move data
+    makedb('0_9_8', 'post')
+    db.commit()
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,8))
+    print "Migration to 0.9.8 completed successfully"
+    db.commit()
+
+
 def migrate_to_bofhd_1_1():
     print "\ndone."
     assert_db_version("1.0", component='bofhd')
@@ -414,15 +429,16 @@ def main():
                                     'makedb-path=', 'design-path=',
                                     'component=',
                                     'no-changelog', 'info'])
-    except getopt.GetoptError:
-        usage(1)
+    except getopt.GetoptError, e:
+        print e
+        usage()
 
     from_rel = to_rel = None
     makedb_path = design_path = None
     component = 'core'
     for opt, val in opts:
         if opt in ('--help',):
-            usage()
+            usage(exitcode=0)
         elif opt in ('--component',):
             if val in targets:
                 component = val
@@ -446,10 +462,15 @@ def main():
             show_migration_info()
             sys.exit(0)
         else:
+            print "Unknown option:", opt
             usage()
-    if (not (from_rel or to_rel)) or (not (makedb_path and design_path)):
+    if not (from_rel or to_rel):
+        print "You must specify --from and/or --to"
         usage()
-        
+    if not (makedb_path and design_path):
+        print "You must specify --makedb-path and --design-path"
+        usage()
+
     continue_prompt("Do you have a backup of your '%s' database? (y/n)[y]" % \
                     cereconf.CEREBRUM_DATABASE_NAME)
     init()
@@ -467,7 +488,7 @@ def main():
             if to_rel == v:
                 started = False
 
-def usage(exitcode=0):
+def usage(exitcode=64):
     # TBD: --from could be fetched from Metainfo, but do we want that?
     print """Usage: [options]
     Migrates database from one database-schema to another.

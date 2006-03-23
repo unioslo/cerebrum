@@ -1378,10 +1378,13 @@ class EmailServer(Host):
         if server_type is not None:
             where = "WHERE s.server_type = %d" % server_type
         return self.query("""
-        SELECT s.server_id, s.server_type, h.name
+        SELECT s.server_id, s.server_type, en.entity_name AS name
         FROM [:table schema=cerebrum name=email_server] s
         JOIN [:table schema=cerebrum name=host_info] h
           ON s.server_id = h.host_id
+        JOIN [:table schema=cerebrum name=entity_name] en
+          ON h.host_id = en.entity_id AND
+             en.value_domain = [:get_constant name=host_namespace]
         %s
         """ % where)
 

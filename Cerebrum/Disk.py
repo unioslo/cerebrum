@@ -23,6 +23,7 @@
 
 import cereconf
 from Cerebrum.Utils import Factory
+from Cerebrum.Entity import EntityName
 
 Entity_class = Factory.get("Entity")
 
@@ -235,7 +236,7 @@ class Disk(Entity_class):
             {'spread': spread, 'entity_type': int(self.const.entity_disk),
              'host_id': host_id, 'path': path, 'description': description})
         
-class Host(Entity_class):
+class Host(EntityName, Entity_class):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'description')
 
@@ -288,16 +289,19 @@ class Host(Entity_class):
                           'description': self.description})
             self._db.log_change(self.entity_id, self.const.host_add, None,
                                 change_params={'name': self.name})
+            self.add_entity_name(self.const.host_namespace, self.name)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=host_info]
-            SET name=:name, description=:description
+            SET description=:description
             WHERE host_id=:host_id""",
-                         {'name': self.name,
-                          'host_id': self.entity_id,
+                         {'host_id': self.entity_id,
                           'description': self.description})
             self._db.log_change(self.entity_id, self.const.host_mod, None,
                                 change_params={'name': self.name})
+            if 'name' in self.__updated:
+                self.update_entity_name(self.const.host_namespace, self.name)
+
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -320,10 +324,11 @@ class Host(Entity_class):
         If host_id isn't an existing Host identifier,
         NotFoundError is raised."""
         self.__super.find(host_id)
-        (self.host_id, self.name, self.description) = self.query_1("""
-        SELECT host_id, name, description
+        (self.host_id, self.description) = self.query_1("""
+        SELECT host_id, description
         FROM [:table schema=cerebrum name=host_info]
         WHERE host_id=:host_id""", {'host_id': host_id})
+        self.name = self.get_name(self.const.host_namespace)
         try:
             del self.__in_db
         except AttributeError:
@@ -332,15 +337,12 @@ class Host(Entity_class):
         self.__updated = []
 
     def find_by_name(self, name):
-        """Associate the object with the Host whose name is name.
+        """Associate the object with the Host whose name is name.  If
+        name isn't an existing Host identifier, NotFoundError is
+        raised.
 
-        If name isn't an existing Host identifier,
-        NotFoundError is raised."""
-        entity_id = self.query_1("""
-        SELECT host_id
-        FROM [:table schema=cerebrum name=host_info]
-        WHERE name=:name""", {'name': name})
-        self.find(entity_id)
+        """
+        EntityName.find_by_name(self, name, self.const.host_namespace)
 
     def delete(self):
         if self.__in_db:
@@ -358,20 +360,18 @@ class Host(Entity_class):
         If no criteria is given, all hosts are returned. ``name`` and
         ``description`` should be strings if given. Wildcards * and ? are
         expanded for "any chars" and "one char"."""
-    
+
         def prepare_string(value):
             value = value.replace("*", "%")
             value = value.replace("?", "_")
             value = value.lower()
             return value
 
-        tables = []
         where = []
-        tables.append("[:table schema=cerebrum name=host_info] hi")
 
         if name is not None:
             name = prepare_string(name)
-            where.append("LOWER(hi.name) LIKE :name")
+            where.append("LOWER(en.entity_name) LIKE :name")
 
         if description is not None:
             description = prepare_string(description)
@@ -382,9 +382,12 @@ class Host(Entity_class):
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query("""
-        SELECT DISTINCT hi.host_id AS host_id, hi.name AS name,
-                hi.description AS description
-        FROM %s %s""" % (','.join(tables), where_str),
-            {'name': name, 'description': description })
+        SELECT DISTINCT hi.host_id, en.entity_name AS name, hi.description
+        FROM [:table schema=cerebrum name=host_info] hi
+        JOIN [:table schema=cerebrum name=entity_name] en
+          ON hi.host_id = en.entity_id AND
+             en.value_domain = [:get_constant name=host_namespace]
+        %s""" % where_str,
+                          {'name': name, 'description': description })
 
 # arch-tag: 6a63bc5c-14aa-48f2-9e98-1c8f45ab3e47

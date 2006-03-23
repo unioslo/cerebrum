@@ -45,7 +45,8 @@ NAME_LOOKUP_ORDER = (("name_full",),
 DEFAULT_GECOS_NAME="name_full"
 
 ENTITY_TYPE_NAMESPACE = {'account': 'account_names',
-                         'group': 'group_names'}
+                         'group': 'group_names',
+                         'host': 'host_names'}
 
 DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
 POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
