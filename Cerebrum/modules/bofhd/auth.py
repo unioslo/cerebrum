@@ -535,29 +535,27 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if query_run_any:
             return self._has_operation_perm_somewhere(
-                operator, self.const.auth_set_password)
-        # TODO 2003-07-04: Bård is going to comment this
+                operator, self.const.auth_quarantine_disable)
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
-        return self.is_account_owner(operator, self.const.auth_set_password,
-                                     entity)
-    
+        return self.is_account_owner(
+            operator, self.const.auth_quarantine_disable, entity)
+
     def can_remove_quarantine(self, operator, entity=None, qtype=None,
                               query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
             return self._has_operation_perm_somewhere(
-                operator, self.const.auth_set_password)
-        # TODO 2003-07-04: Bård is going to comment this
+                operator, self.const.auth_quarantine_remove)
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         # this is a hack
         else:
             if self._no_account_home(operator, entity):
                 return True
-        return self.is_account_owner(operator, self.const.auth_set_password,
-                                     entity)
+        return self.is_account_owner(
+            operator, self.const.auth_quarantine_remove, entity)
 
     def can_set_quarantine(self, operator, entity=None, qtype=None,
                            query_run_any=False):
@@ -565,14 +563,14 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if query_run_any:
             return self._has_operation_perm_somewhere(
-                operator, self.const.auth_set_password)
+                operator, self.const.auth_quarantine_set)
         # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         else:
             if self._no_account_home(operator, entity):
                 return True
-        return self.is_account_owner(operator, self.const.auth_set_password,
+        return self.is_account_owner(operator, self.const.auth_quarantine_set,
                                      entity)
 
     def can_show_quarantines(self, operator, entity=None,
@@ -582,7 +580,6 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_set_password)
-        # TODO 2003-07-04: Bård is going to comment this
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         # this is a hack
