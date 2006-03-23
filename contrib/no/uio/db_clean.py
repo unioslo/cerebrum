@@ -251,6 +251,14 @@ class CleanChangeLog(object):
         {'columns': ('subject_entity', ),
          'change_params': ('homedir_id', ),
          'triggers': (co.disk_quota_set, co.disk_quota_clear)},
+        # Traits
+        {'columns': ('subject_entity', ),
+         'change_params': ('code', ),
+         'triggers': (co.trait_add, co.trait_del)},
+        {'columns': ('subject_entity', ),
+         'change_params': ('code', ),
+         'toggleable': False,
+         'triggers': (co.trait_mod, )},
         ]
 
     if never_forget_homedir:
@@ -273,7 +281,7 @@ class CleanChangeLog(object):
         {'columns': ('subject_entity', ),
          'toggleable': toggleable,
          'change_params': ('homedir_id', ),
-         'triggers': (co.homedir_add, co.homedir_update)}
+         'triggers': (co.homedir_add, co.homedir_update, co.homedir_remove)}
         ])
 
     if hasattr(co, 'a_record_add'):
@@ -308,34 +316,35 @@ class CleanChangeLog(object):
         for e in db2.get_log_events():
             n += 1
             tmp = e['change_params']
-            if e['change_type_id'] == int(co.account_password):
+            change_type = int(e['change_type_id'])
+            if change_type == int(co.account_password):
                 tmp = 'password'      # Don't write password in log
-            logger.debug((e['tstamp'].strftime('%Y-%m-%d'),
-                          int(e['change_id']), int(e['change_type_id']),
+            debuginfo = (e['tstamp'].strftime('%Y-%m-%d'),
+                          int(e['change_id']), change_type,
                           format_as_int(e['subject_entity']),
-                          format_as_int(e['dest_entity']),
-                          repr(tmp)))
+                          format_as_int(e['dest_entity']), tmp)
+            logger.debug('Changelog entry: %r', debuginfo)
 
-            if not self.trigger_mapping.has_key(int(e['change_type_id'])):
-                if not warn_unknown_type.has_key(int(e['change_type_id'])):
-                    warn_unknown_type[ int(e['change_type_id']) ] = 1
+            if change_type not in self.trigger_mapping:
+                if change_type not in warn_unknown_type:
+                    warn_unknown_type[change_type] = 1
                 else:
-                    warn_unknown_type[ int(e['change_type_id']) ] += 1
+                    warn_unknown_type[change_type] += 1
                 continue
-            
+
             age = now - e['tstamp'].ticks()
             # Keep all data newer than minimum_age
             if age < self.minimum_age:
                 continue
 
-            tmp = self.max_ages.get(int(e['change_type_id']), self.default_age)
+            tmp = self.max_ages.get(change_type, self.default_age)
             if tmp != self.AGE_FOREVER and age > tmp:
-                logger.debug("Remove due to age: %i" % e['change_id'])
+                logger.info("Removed due to age: %r", debuginfo)
                 if not dryrun:
                     db.remove_log_event(e['change_id'])
-                
+
             # Determine a unique key for this event to check togglability
-            m = self.trigger_mapping[int(e['change_type_id'])]
+            m = self.trigger_mapping[change_type]
             if m is None:
                 continue          # Entry is not toggle'able
             key = [ "%i" % m['toggler_id'] ]
@@ -350,9 +359,9 @@ class CleanChangeLog(object):
                     key.append("%s" % dta.get(c, None))
             # Not needed if a list may be efficiently/safely used as key in a dict:
             key = "-".join(key)
-            logger.debug("Key is: %s" % key)
             if last_seen.has_key(key):
-                logger.debug("Remove (%s): %i" % (key, last_seen[key]))
+                logger.info("Remove toggle %r %r %r",
+                            key, last_seen[key], debuginfo)
                 if not dryrun:
                     db.remove_log_event(last_seen[key])
             last_seen[key] = int(e['change_id'])
