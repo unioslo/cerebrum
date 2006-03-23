@@ -719,9 +719,11 @@ class EntityQuarantine(Entity):
                       'q_type': int(type)})
         self._db.log_change(self.entity_id, self.const.quarantine_del,
                             None, change_params={'q_type': int(type)})
+	
 
-    def list_entity_quarantines(self, entity_types=None):
+    def list_entity_quarantines(self, entity_types=None, only_active=False):
         sel = ""
+	where = ""
         if entity_types:
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
@@ -730,10 +732,16 @@ class EntityQuarantine(Entity):
                 sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
             else:
                 sel += "= %d" % entity_types
+	if only_active:
+	    where = """ 
+	    WHERE start_date <= [:now] AND  
+	    (end_date IS NULL OR end_date > [:now]) AND 
+	    (disable_until IS NULL OR disable_until <= [:now])"""
+
         return self.query("""
         SELECT eq.entity_id, eq.quarantine_type, eq.start_date,
                eq.disable_until, eq.end_date
-          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel)
+          FROM [:table schema=cerebrum name=entity_quarantine] eq""" + sel + where)
 
 
 class EntityExternalId(Entity):
