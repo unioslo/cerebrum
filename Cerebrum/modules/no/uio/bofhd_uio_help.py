@@ -28,6 +28,7 @@ group_help = {
     'person': 'Person related commands',
     'quarantine': 'Quarantine related commands',
     'spread': 'Spread related commands',
+    'trait': 'Trait related commands',
     'user': 'Account building and manipulation',
     'perm': 'Control of Privileges in Cerebrum'
     }
@@ -262,6 +263,16 @@ command_help = {
     'spread_list': 'List all defined spreads',
     'spread_remove': 'Remove a spread from an entity',
     },
+    'trait': {
+    'trait_info':
+        "Display all traits associated with an entity",
+    'trait_list':
+        "List all entities which have specified trait",
+    'trait_remove':
+        "Remove a trait from an entity",
+    'trait_set':
+        "Add or update an entity's trait",
+    },
     'user': {
     'user_affiliation_add': 'Add affiliation for an account',
     'user_affiliation_remove': 'Remove an affiliation for an account',
@@ -380,21 +391,31 @@ Normally only union is used."""],
     'id:entity_ext':
         ['entity_id', 'Enter entity_id, example: group:foo',
          'Enter an entity_id either as number or as group:name / account:name'],
+    'id:target:account':
+        ['entity', 'Enter an existing entity',
+         """Enter the entity as type:name, for example 'account:bob'.  If only
+a name is entered, the type 'account' is assumed.  Other types include
+'group', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
+'host'.  The type name may be abbreviated.  (Some of the types may not
+make sense for this command.)
+"""],
     'id:target:group':
-        ['entity', 'Enter an existing entity, example: group:foo-users',
-         "Enter the entity as type:name.  If only a name is entered, the "
-         "type 'group' is assumed.  Other types include 'account', 'fnr' "
-         "(fødselsnummer), 'id' (Cerebrum's internal id) and 'host'.  The "
-         "type name may be abbreviated.  (Some of the types may not make "
-         "sense for this command.)"],
+        ['entity', 'Enter an existing entity',
+         """Enter the entity as type:name, for example 'group:foo'.  If only a
+name is entered, the type 'group' is assumed.  Other types include
+'account', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
+'host'.  The type name may be abbreviated.  (Some of the types may not
+make sense for this command.)
+"""],
     'id:target:person':
-        ['entity', 'Enter an existing entity, example: account:tenghil',
-         "Enter the entity as type:name.  If only a name is entered, it "
-         "will be assumed to be either an account or a fnr.  If an account "
-         "is given, the person owning the account will be used.  Other "
-         "types include 'account', 'fnr' (fødselsnummer), 'id' (Cerebrum's "
-         "internal id) and 'host'.  The type name may be abbreviated.  (Some "
-         "of the types may not make sense for this command.)"],
+        ['entity', 'Enter an existing entity',
+         """Enter the entity as type:name, for example: 'account:bob'.  If
+only a name is entered, it will be assumed to be either an account or
+a fnr.  If an account is given, the person owning the account will be
+used.  Other types include 'account', 'fnr' (fødselsnummer), 'id'
+(Cerebrum's internal id) and 'host'.  The type name may be
+abbreviated.  (Some of the types may not make sense for this command.)
+"""],
     'id:op_target':
         ['op_target_id', 'Enter op_target_id'],
     'id:request_id':
@@ -568,6 +589,20 @@ Example:
     'string_why':
         ['why', 'Why?',
          'You should type a text indicating why you perform the operation'],
+    'trait':
+        ['trait', 'Name of trait'],
+    'trait_val':
+        ['value', 'Trait value',
+         """Enter the trait value as key=value.  'key' is one of
+
+ * target_id -- value is an entity, entered as type:name
+ * date -- value is on format YYYY-MM-DD
+ * numval -- value is an integer
+ * strval -- value is a string
+
+The key name may be abbreviated.  If value is left empty, the value
+associated with key will be cleared.  Updating an existing trait will
+blank all unnamed keys."""],
     'tripnote_text':
         ['text', 'Tripnote',
          'Enter message to be sent.  You may use \\n to separate lines of text.'],

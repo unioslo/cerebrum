@@ -1012,6 +1012,8 @@ class BofhdExtension(object):
          ("dis_quota_hard", "dis_quota_soft")),
         ("Mail quota:       %d MiB, warn at %d%% (%s MiB used)",
          ("quota_hard", "quota_soft", "quota_used")),
+        ("                  (currently %d MiB on server)",
+         ("quota_server",)),
         # TODO: change format so that ON/OFF is passed as separate value.
         # this must be coordinated with webmail code.
         ("Forwarding:       %s",
@@ -1191,6 +1193,7 @@ class BofhdExtension(object):
                         used = 'N/A'
                     else:
                         used = str(used/1024)
+                        limit = limit/1024
                 except TimeoutException:
                     used = 'DOWN'
                 except ConnectException, e:
@@ -1198,6 +1201,8 @@ class BofhdExtension(object):
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
                              'quota_used': used})
+                if limit != eq.email_quota_hard:
+                    info.append({'quota_server': limit})
             else:
                 info.append({'dis_quota_hard': eq.email_quota_hard,
                              'dis_quota_soft': eq.email_quota_soft})
@@ -4899,6 +4904,127 @@ class BofhdExtension(object):
             group.add_spread(spread)
 
     #
+    # trait commands
+    #
+
+    # trait info -- show trait values for an entity
+    all_commands['trait_info'] = Command(
+        ("trait", "info"), Id(help_ref="id:target:account"),
+        fs=FormatSuggestion([
+        ("Entity:        %s (%s)", ('name', 'type')),
+        ("Trait:         %s", ('trait_name',)),
+        ("  Numeric:     %d", ('numval',)),
+        ("  String:      %s", ('strval',)),
+        ("  Date:        %s%s", ('dummy', format_time('date'),)),
+        ("  Target:      %s (%s)", ('target_name', 'target_type'))]),
+        perm_filter="is_superuser")
+    def trait_info(self, operator, ety_id):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        ety = self.util.get_target(ety_id, restrict_to=[])
+        if isinstance(ety, Utils.Factory.get('Disk')):
+            ety_name = ety.path
+        else:
+            ety_name = ety.get_names()[0][0]
+        ret = []
+        for trait, values in ety.get_traits().items():
+            ret.append({'trait_name': str(trait)})
+            for simple in ('numval', 'strval'):
+                if values[simple] is not None:
+                    ret.append({simple: values[simple]})
+                    
+            if values['target_id'] is not None:
+                target = self.util.get_target(int(values['target_id']))
+                ret.append({'target_name': target.get_names()[0][0],
+                            'target_type':
+                            str(self.const.EntityType(target.entity_type))})
+            if values['date'] is not None:
+                # FormatSuggestion doesn't handle having format_time as
+                # the first parameter.
+                ret.append({'dummy': "", 'date': values['date']})
+        if ret:
+            return [{'name': ety_name,
+                     'type': str(self.const.EntityType(ety.entity_type))}] + ret
+        return "%s has no traits" % ety_name
+
+    # trait list -- list all entities with trait
+    all_commands['trait_list'] = Command(
+        ("trait", "list"), SimpleString(help_ref="trait"),
+        fs=FormatSuggestion("%-16s %-16s %s", ('trait', 'type', 'name'),
+                            hdr="%-16s %-16s %s" % ('Trait', 'Type', 'Name')),
+        perm_filter="is_superuser")
+    def trait_list(self, operator, trait_name):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        ety = self.Account_class(self.db) # exact class doesn't matter
+        ret = []
+        ety_type = str(self.const.EntityType(trait.entity_type))
+        for row in ety.list_traits(trait, return_name=True):
+            # TODO: Host and Disk don't use entity_name, so name will
+            # be <not set>
+            ret.append({'trait': str(trait),
+                        'type': ety_type,
+                        'name': row['name']})
+        ret.sort(lambda x,y: cmp(x['name'], y['name']))
+        return ret
+
+    # trait remove -- remove trait from entity
+    all_commands['trait_remove'] = Command(
+        ("trait", "remove"), Id(help_ref="id:target:account"),
+        SimpleString(help_ref="trait"),
+        perm_filter="is_superuser")
+    def trait_remove(self, operator, ety_id, trait_name):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        ety = self.util.get_target(ety_id, restrict_to=[])
+        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        if isinstance(ety, Utils.Factory.get('Disk')):
+            ety_name = ety.path
+        else:
+            ety_name = ety.get_names()[0][0]
+        if ety.get_trait(trait) is None:
+            return "%s has no %s trait" % (ety_name, trait)
+        ety.delete_trait(trait)
+        return "OK, deleted trait %s from %s" % (trait, ety_name)
+
+    # trait set -- add or update a trait
+    all_commands['trait_set'] = Command(
+        ("trait", "set"), Id(help_ref="id:target:account"),
+        SimpleString(help_ref="trait"),
+        SimpleString(help_ref="trait_val", repeat=True),
+        perm_filter="is_superuser")
+    def trait_set(self, operator, ent_name, trait_name, *values):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        ent = self.util.get_target(ent_name, restrict_to=[])
+        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        params = {}
+        for v in values:
+            if v.count('='):
+                key, value = v.split('=', 1)
+            else:
+                key = v; value = ''
+            key = self.util.get_abbr_type(key, ('target_id', 'date', 'numval',
+                                                'strval'))
+            if value == '':
+                params[key] = None
+            elif key == 'target_id':
+                target = self.util.get_target(value, restrict_to=[])
+                params[key] = target.entity_id
+            elif key == 'date':
+                # TODO: _parse_date only handles dates, not hours etc.
+                params[key] = self._parse_date(value)
+            elif key == 'numval':
+                params[key] = int(value)
+            elif key == 'strval':
+                params[key] = value
+        ent.populate_trait(trait, **params)
+        ent.write_db()
+        return "Ok, set trait %s for %s" % (trait_name, ent_name)
+
+
+    #
     # user commands
     #
 
@@ -6494,7 +6620,7 @@ class BofhdExtension(object):
         try:
             y, m, d = [int(x) for x in date.split('-')]
         except ValueError:
-            raise CerebrumError, "Dates must be numeric"
+            raise CerebrumError, "Dates must be on format YYYY-MM-DD"
         # TODO: this should be a proper delta, but rather than using
         # pgSQL specific code, wait until Python has standardised on a
         # Date-type.
