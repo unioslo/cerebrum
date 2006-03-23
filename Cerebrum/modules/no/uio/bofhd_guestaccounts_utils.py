@@ -195,7 +195,7 @@ class BofhdUtils(object):
     def update_group_memberships(self, account_id):
         """Make sure that the account is a member of exactly the
         groups specified in cereconf.GUESTS_DEFAULT_FILEGROUP and
-        cereconf.GUESTS_MEMBER_GROUP.
+        cereconf.GUESTS_MEMBER_GROUPS.
 
         """
         user = PosixUser(self.db)
@@ -206,7 +206,7 @@ class BofhdUtils(object):
         user.write_db()
         req_groups = [gr.entity_id]
         # Add guest to the required groups
-        for gr_name in cereconf.GUESTS_MEMBER_GROUP:
+        for gr_name in cereconf.GUESTS_MEMBER_GROUPS:
             gr.clear()
             gr.find_by_name(gr_name)
             req_groups.append(gr.entity_id)
