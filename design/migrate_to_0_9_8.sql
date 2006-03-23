@@ -30,3 +30,6 @@ INSERT INTO entity_name (entity_id, value_domain, entity_name)
     FROM host_info;
 category:post;
 ALTER TABLE host_info DROP COLUMN name;
+
+/* arch-tag: 3a8df4c6-ba40-11da-98aa-ecfb74a7c630
+   (do not change this comment) */
