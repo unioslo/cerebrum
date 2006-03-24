@@ -636,6 +636,8 @@ def remap_fnrs(sequence, person, person_info):
 
         result.append((id_type, peid))
     # od
+
+    return result
 # end remap_fnr
         
 
@@ -654,11 +656,12 @@ def output_kull_relations(kull_info, person_info, fs):
         xml_id = make_id(*internal_id)
 
         studieprogram_kode, terminkode, arstall = internal_id
-        students = remap_fnrs(fs.undervisning.list_studenter_kull(
-                                  studieprogram_kode,
-                                  terminkode,
-                                  arstall),
-                              person, person_info)
+        tmpseq = fs.undervisning.list_studenter_kull(studieprogram_kode,
+                                                     terminkode,
+                                                     arstall)
+        logger.debug("FS returned %d students for %s:%s:%s",
+                     len(tmpseq), studieprogram_kode, terminkode, arstall)
+        students = remap_fnrs(tmpseq, person, person_info)
         if not students:
             logger.warn("No students for kull %s. No groups will be generated",
                         internal_id)
