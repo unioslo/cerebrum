@@ -82,7 +82,7 @@ def process_txt_file(file):
         a_id = p_id2a_id[id]
         if not (a_id2auth.has_key(a_id) and a_id2auth[a_id][0]):
             # No username
-            logger.warning("No username found for '%s'" % id)
+            logger.warning("ptf: No user found for person '%s'" % id)
             continue
         if not p_id2fnr.has_key(id):
             logger.warning("Fnr not found for '%s'" % id)
@@ -105,10 +105,10 @@ def process_txt_file(file):
         if not uname2mailaddr.has_key(uname):
             logger.warning("Mail-addr not found for '%s', '%s'" % (id, uname))
             continue
-        
-        file.write("%s$%s$%s$%s$%s$%s$%s\n" % (p_id2fnr[id], uname, pwd,
-                                               uname2mailaddr[uname],
-                                               ou_id2name[ou_id], first, last))
+        txt = '$'.join((p_id2fnr[id], uname, pwd,
+                        uname2mailaddr[uname],
+                        ou_id2name[ou_id], first, last)) + '\n'
+        file.write(txt)
         users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
     return users_ou
         
@@ -120,7 +120,7 @@ def process_users(affiliation, file):
         id = row['account_id']
         if not (a_id2auth.has_key(id) and a_id2auth[id][0]):
             # No username
-            logger.warning("No username found for '%s'" % id)
+            logger.warning("pu: No username found for account '%s'" % id)
             continue
         uname = a_id2auth[id][0]
         plain = "*notfound"
@@ -169,8 +169,8 @@ def process_users(affiliation, file):
                 "orclsamaccountname: %s" % uname,
                 "sn: %s" % last, 
                 "uid: %s" % uname, 
-                "userpassword: %s" % ssha,
-                "ofkpassword: %s" % md4,
+                "userpassword: {SSHA}%s" % ssha,
+                "ofkpassword: {MD4}%s" % md4,
                 "userpasswordct: %s" % plain,
                 "fnr: %s" % p_id2fnr[a_id2p_id[id][1]],
                 "\n"]
@@ -183,7 +183,9 @@ def process_prof_group(dn, users, file):
     txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % dn,
            "objectclass: top",
            "objectclass: groupOfUniqueNames",
-           "objectclass: orclGroup"]
+           "objectclass: orclGroup",
+           "displayname: %s" % dn,
+           "description; %s" % dn]
     for u in users:
         txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
     file.write('\n'.join(txt))
@@ -195,11 +197,25 @@ def process_aff_groups(users, file):
             txt = ["dn: cn=%s:%s,cn=groups,dc=ovgs,dc=no" % (ou, const2str[int(aff)]),
                    "objectclass: top",
                    "objectclass: groupOfUniqueNames",
-                   "objectclass: orclGroup"]
+                   "objectclass: orclGroup",
+                   "displayname: %s:%s" % (ou, const2str[int(aff)]),
+                   "description; %s:%s" % (ou, const2str[int(aff)])]
             for u in users[ou][aff]:
                 txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
             file.write('\n'.join(txt))
         file.write('\n\n')
+        # Make "pure" OU groups as well
+        txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % (ou),
+               "objectclass: top",
+               "objectclass: groupOfUniqueNames",
+               "objectclass: orclGroup",
+               "displayname: %s" % ou,
+               "description; %s" % ou]
+        for aff in users[ou].keys():
+            for u in users[ou][aff]:
+                txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
+        txt = '\n'.join(txt) + "\n\n"
+        file.write(txt)
 
 
 def process_groups(spread, file):
@@ -223,7 +239,7 @@ def process_groups(spread, file):
                 if a_id2auth.has_key(a_id):
                     txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % a_id2auth[a_id][0]]
                 else:
-                    logger.warning("No username found for: %s" % a_id)
+                    logger.warning("pg: No username found for: %s" % a_id)
                     continue
             else:
                 logger.warning("Member not account: %s" % a_id)
