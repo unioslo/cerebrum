@@ -29,10 +29,25 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
 
-"""
-This file is a UiO-specific extension of Cerebrum.
+"""This program provides statistics about various activities within Cerebrum.
 
-It provides statistics about specific activities within Cerebrum.
+Currently it reports the following:
+* 'Create person'-events
+* 'Create account'-events
+* 'Create group'-events
+
+Where such information can be found, it also breaks the event-counts
+down by affiliation, when the 'affiliation'-option is used.
+
+The program makes use of 2 cereconf-variables:
+
+* AFFILIATIONS_BY_PRIORITY - which is a list of most to least
+  significant affiliation. This is important for those cases where an
+  event can be associated with more than one affiliation, in order to
+  know which affiliation counts the most.
+
+* NO_AFFILIATION - which is the string that should be used as the name
+  for grouping those events that cannot be related to any affiliation.
 
 """
 
@@ -40,21 +55,26 @@ __version__ = "$Revision$"
 # $Source$
 
 
-# THIS IS JUST WAAAAY TOO HARD-CODED....
-affiliations_by_code = {129: "ANSATT",
-                        130: "MANUELL",
-                        131: "STUDENT",
-                        132: "TILKNYTTET",
-                        133: "UPERSONLIG"}
-# Most to least significant affiliation. Determines what entitites
-# with multiple affiliations will be counted under.
-affiliations_by_priority = [129, 131, 132, 130, 133]
-no_affiliation = "(INGEN)"
-
-
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
 logger = Factory.get_logger()
+
+
+# Most to least significant affiliation. Determines what entitites
+# with multiple affiliations will be counted under.
+affiliations_by_priority = []
+# Need to map to numeric codes, since that's what we'll be getting
+# from the database later.
+for element in cereconf.AFFILIATIONS_BY_PRIORITY:
+    try:
+        code = int(constants.PersonAffiliation(element))
+        affiliations_by_priority.append(code)
+    except NotFoundError:
+        logger.warning("Unable to find affiliation code for '%s'. Misspelling?" % element)
+# Name used for group when no affiliation info can be associated with
+# an event that normally has affiliation info.
+no_affiliation = cereconf.NO_AFFILIATION
+
 
 # Default choices for script options
 options = {"affiliations": False,
@@ -64,28 +84,17 @@ options = {"affiliations": False,
 
 class EventNotDefinedError(Exception):
     
-    """
-    For use by EventProcessor. Raised when a requested event-type has
-    not been defined yet.
+    """For use by EventProcessor.
+
+    Raised when a requested event-type has not been defined yet.
     
     """
-    def __init__(self, message):
-        "Sets up exception."
-        if message is None:
-            self.message = "Event type handling not defined for this event type"
-        else:
-            self._message = message
-        
-    def __str__(self):
-        "Returns exception's message."
-        return self._message
-    
+    pass
 
 
 class EventProcessor(object):
     
-    """
-    Abstract baseclass for processing a given area of event-based
+    """Abstract baseclass for processing a given area of event-based
     statistics.
 
     Subclasses should override at least
@@ -96,10 +105,11 @@ class EventProcessor(object):
     """
 
     def __init__(self):
-        """
-        Initializes processor; should be called with
-        'EventProcessor.__init__(self)' by subclasses before any
-        subclass-specific initialization takes place.
+        """Initializes processor.
+
+        Should be called with 'EventProcessor.__init__(self)' by
+        subclasses before any subclass-specific initialization takes
+        place.
 
         """
         self._log_events = 0
@@ -110,9 +120,9 @@ class EventProcessor(object):
         
 
     def get_processor(event_type):
-        """
-        Static factory method. Returns an event processor based on
-        'event_type'.
+        """Static factory method.
+
+        Returns an event processor based on 'event_type'.
 
         """
         if event_type == "Person creation":
@@ -127,7 +137,8 @@ class EventProcessor(object):
 
 
     def process_events(self, start_date=0, end_date=0):
-        """
+        """Main 'counting' function.
+
         Extracts desired events from database and places entity IDs
         into 'self._entity_ids', where they later can be counted and
         extracted for further purposes.
@@ -143,9 +154,10 @@ class EventProcessor(object):
 
 
     def calculate_count_by_affiliation(self):
-        """
-        Calculates counts by affiliation for the particular
-        event-type. Must be implemented by subclasses.
+        """Calculates counts by affiliation for the particular
+        event-type.
+
+        Must be implemented by subclasses.
 
         """
         raise NotImplementedError("This method should be implemented by subclasses")
@@ -157,7 +169,8 @@ class EventProcessor(object):
     
 
     def print_report(self, print_affiliations=False):
-        """
+        """Prints summary of collected info.
+
         Prints a report for the data collected by this particular
         event processor.
         
@@ -174,10 +187,10 @@ class EventProcessor(object):
 
 
     def _print_affiliation_info(self):
-        """
-        Prints affiliation info for this particular prosessor. Can be
-        overridden by subclasses, e.g. if there has been collected no
-        affiliation-info by them.
+        """Prints affiliation info for this particular prosessor.
+
+        Can be overridden by subclasses, e.g. if there has been
+        collected no affiliation-info by them.
         
         """
         print ""
@@ -186,7 +199,13 @@ class EventProcessor(object):
         # there is no "no-affiliation".
         no_affiliation_line = "" 
         for affiliation, count  in self._count_by_affiliation.iteritems():
-            outline = (" " * 18) + affiliation + (" " * (34 -len(affiliation))) + str(count)
+            # If 'affiliation' isn't a proper code (as is the case for
+            # 'no_affiliation'), then PersonAffiliation will simply
+            # use 'affiliation' as its string represnetation, and
+            # that's sufficient for our purposes.
+            aff_str = str(constants.PersonAffiliation(affiliation))
+                
+            outline = (" " * 18) + aff_str + (" " * (34 -len(aff_str))) + str(count)
             
             if affiliation == no_affiliation:
                 no_affiliation_line = outline + "\n"
@@ -200,7 +219,13 @@ class EventProcessor(object):
         """Determines which of 'affiliations' is the most significant one."""
         for aff in affiliations_by_priority:
             if aff in affiliations:
-                return affiliations_by_code[aff]
+                return aff
+
+        logger.warning("Unable to find most significant affiliation from " +
+                       "list " + str(affiliations) + ". cereconf.AFFILIATIONS_BY_PRIORITY " +
+                       "is probably undefined or missing some affiliations")
+        
+        return affiliations[0];
 
 
     def _add_to_affiliation(self, affiliation):
@@ -211,12 +236,16 @@ class EventProcessor(object):
             self._count_by_affiliation[affiliation] = 1
 
     def _process_affiliation_rows(self, affiliation_rows):
-        """
-        Processes any affiliation rows found for an entity and adds
-        to the count for the affiliations as determined.
+        """Generalized handling of affiliation data.
+
+        Processes any affiliation rows found for an entity and adds to
+        the count for the 'proper' affiliation as determined.
+
+        Some processors might need to handle this differently and
+        should therefore override this function.
         
         """
-        designated_affiliation = no_affiliation
+        designated_affiliation = no_affiliation #  Default till proven otherwise
         if affiliation_rows:
             affiliations = []
             for row in affiliation_rows:
@@ -231,10 +260,7 @@ class EventProcessor(object):
 
 class CreatePersonProcessor(EventProcessor):
 
-    """
-    Handles 'create person'-events.
-
-    """
+    """Handles 'create person'-events."""
 
     def __init__(self):
         EventProcessor.__init__(self)
@@ -261,10 +287,7 @@ class CreatePersonProcessor(EventProcessor):
 
 class CreateAccountProcessor(EventProcessor):
     
-    """
-    Handles 'create account'-events.
-
-    """
+    """Handles 'create account'-events."""
 
     def __init__(self):
         EventProcessor.__init__(self)
@@ -287,10 +310,10 @@ class CreateAccountProcessor(EventProcessor):
 
 class CreateGroupProcessor(EventProcessor):
     
-    """
-    Handles 'create group'-events. Groups are a bit special compared
-    to other events, since they do not have any associations with
-    affiliations.
+    """Handles 'create group'-events.
+
+    Groups are a bit special compared to other events, since they do
+    not have any associations with affiliations.
     
     """
 
@@ -300,11 +323,11 @@ class CreateGroupProcessor(EventProcessor):
         self._description = "Create Group"
         
     def calculate_count_by_affiliation(self):
-        "Groups do not have affiliations"
+        """Groups do not have affiliations"""
         pass
 
     def _print_affiliation_info(self):
-        "Groups do not have affiliations"
+        """Groups do not have affiliations"""
         print ""
         print "        (no affiliation info)"
 
@@ -329,37 +352,66 @@ def usage(exitcode=0, message=None):
     info, spanning all of last week.
 
     'from' and 'to' must be given in standard ISO format, i.e. YYYY-MM-DD.
+
+    The program makes use of 2 cereconf-variables:
+
+    * AFFILIATIONS_BY_PRIORITY - which is a list of most to least
+    significant affiliation. This is important for those cases where an
+    event can be associated with more than one affiliation, in order to
+    know which affiliation counts the most.
+
+    * NO_AFFILIATION - which is the string that should be used as the name
+    for grouping those events that cannot be related to any affiliation.
+    
     """ % sys.argv[0]
     
     sys.exit(exitcode)
 
 
 def main():
-    """
-    Main processing 'hub' of program.
-    Decides which areas to generate, then generates them sequentially
+    """Main processing 'hub' of program.
+    
+    Decides which areas to generate, then generates them sequentially,
+    dumping collected and relevant info to STDOUT along the way.
 
     """
     logger.info("Statistics for Cerebrum activities - processing started")
-
     logger.debug("Time period: from: '%s'; to: '%s' (inclusive)" %
                  (options['from'].date, options['to'].date))
 
     print ""
     print ("Statistics covering the period from %s to %s (inclusive)" %
            (options['from'].date, options['to'].date))
-    
+
+    if cereconf.STATISTICS_EXPLANATION_TEMPLATE is not None:
+        print ""
+        try:
+            f = file(cereconf.STATISTICS_EXPLANATION_TEMPLATE)
+            for line in f.readlines():
+                print line,
+        except IOError:
+            logger.warning("Unable to find explanatory file: '%s'"
+                           % cereconf.STATISTICS_EXPLANATION_TEMPLATE)
+    else:
+        logger.debug("No explanation file defined in cereconf")
+
+    # List of event types that will be looked into. If you wish to add
+    # to this list, you'll need to also make new subclass(es) of
+    # EventProcessor.
     event_types = [
         "Person creation",
         "Account creation",
         "Group creation",
         ]
-    
+
+    # Iterate over all event types, retrieve info and generate output
+    # based on it.
     for current_type in event_types:
-        logger.debug("Looking at '%s'" % current_type)
+        logger.info("Looking at '%s'" % current_type)
         
         processor = EventProcessor.get_processor(current_type)
-        processor.process_events(start_date=options['from'], end_date=options['to'])
+        processor.process_events(start_date=options['from'],
+                                 end_date=options['to'])
 
         if options['affiliations']:
             processor.calculate_count_by_affiliation()
@@ -368,7 +420,6 @@ def main():
 
     print ""  # For a nice newline at the end of the report
     
-
 
 if __name__ == '__main__':
     logger.info("Statistics for Cerebrum activities")
