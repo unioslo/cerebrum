@@ -308,7 +308,7 @@ The currently defined id-types are:
 
                 from Cerebrum.modules.no.uio.access_FS import UiOBetaling
                 bet = UiOBetaling(fs)
-                if not bet.list_ok_kopiavgift(fodselsdato=bdate, personnr=pnum):
+                if not bet.list_kopiavgift_data(kun_fritak=False, fodselsdato=bdate, personnr=pnum):
                     reason.append(" * Copy fee has not been paid")
                 if len(reason) == 1:
                     reason.append(" * Please wait for nightly update")
