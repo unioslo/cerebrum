@@ -90,6 +90,24 @@ class AccountUtil(object):
     """Collection of methods that operate on a single account to make
     it conform to a profile """
 
+    def restore_uname(account_id, profile):
+        logger.info2("RESTORE")
+        account = Factory.get('Account')(db)
+        account.find(account_id)
+
+        homes = account.get_homes()
+
+        for h in homes:
+            disk_quota_obj.clear(h['homedir_id'])
+            account.clear_home(h['spread'])
+        account.expire_date = None
+        password = account.make_passwd(account.account_name)
+        logger.debug("refreshing password write_db=%s" % account.account_name)
+        account.set_password(password)
+        account.write_db()
+        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
+    restore_uname=staticmethod(restore_uname)
+        
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
@@ -378,6 +396,10 @@ class AccountUtil(object):
         # We have now collected all changes that would need fetching of
         # the user object.
         if changes:
+            if ac.is_deleted():
+                AccountUtil.restore_uname(account_id, profile)
+            
+        if changes:
             AccountUtil._handle_user_changes(changes, account_id, as_posix)
 
         changes.extend(AccountUtil._update_group_memberships(account_id, profile))
@@ -564,6 +586,10 @@ class BuildAccounts(object):
                     logger.debug("using reserved: %s" % pinfo.get_best_reserved_ac())
                     BuildAccounts._update_persons_accounts(
                         profile, fnr, [pinfo.get_best_reserved_ac()])
+                elif pinfo.has_deleted_ac():
+                    logger.debug("using deleted: %s" % pinfo.get_best_deleted_ac())
+                    BuildAccounts._update_persons_accounts(profile, 
+                                                           fnr, [pinfo.get_best_deleted_ac()])
                 else:
                     account_id = AccountUtil.create_user(fnr, profile)
                     if account_id is None:
@@ -588,8 +614,9 @@ class BuildAccounts(object):
 
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
-        
+
         as_posix = False
+
         for spread in profile.get_spreads():  # TBD: Is this check sufficient?
             if int(spread) in posix_spreads:
                 as_posix = True
@@ -643,6 +670,7 @@ class ExistingAccount(object):
         self._home = {}
         self._quarantines = []
         self._reserved = False
+        self._deleted = False
         self._spreads = []
 
     def append_affiliation(self, affiliation, ou_id):
@@ -702,6 +730,12 @@ class ExistingAccount(object):
     def set_reserved(self, cond):
         self._reserved = cond
 
+    def is_deleted(self):
+        return self._deleted
+
+    def set_deleted(self, cond):
+        self._deleted = cond
+        
     def append_spread(self, spread):
         self._spreads.append(spread)
 
@@ -714,6 +748,7 @@ class ExistingPerson(object):
         self._groups = []
         self._other_ac = []
         self._reserved_ac = []
+        self._deleted_ac = []
         self._spreads = []
         self._stud_ac = []
 
@@ -735,6 +770,15 @@ class ExistingPerson(object):
     def has_other_ac(self):
         return len(self._other_ac) > 0
 
+    def append_deleted_ac(self, account_id):
+        self._deleted_ac.append(account_id)
+
+    def get_best_deleted_ac(self):
+        return self._deleted_ac[0]
+
+    def has_deleted_ac(self):
+        return len(self._deleted_ac) > 0
+    
     def append_reserved_ac(self, account_id):
         self._reserved_ac.append(account_id)
 
@@ -795,7 +839,7 @@ def get_existing_accounts():
 
     persons = {'fnr': {'affs': [(aff, ou, status)],
                        'stud_ac': [account_id], 'other_ac': [account_id],
-                       'reserved_ac': [account_id],
+                       'reserved_ac': [account_id], 'deleted_ac': [account_id],
                        'spreads': [spread_id],
                        'groups': [group_id]}}
     accounts = {'account_id': {'owner: fnr, 'reserved': boolean,
@@ -833,11 +877,11 @@ def get_existing_accounts():
     #
     logger.info("Listing accounts...")
     tmp_ac = {}
-    for row in account_obj.list(fetchall=False):
+    for row in account_obj.list(filter_expired=False, fetchall=False):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
-                                                           row['expire_date'])
+                                                         row['expire_date'])
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
@@ -848,6 +892,11 @@ def get_existing_accounts():
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
             tmp.set_reserved(True)
+    # Deleted users
+    for row in account_obj.list_deleted_users():
+        tmp = tmp_ac.get(int(row['account_id']), None)
+        if tmp is not None:
+            tmp.set_deleted(True)
     # quarantines
     for row in account_obj.list_entity_quarantines(
         entity_types=const.entity_account):
@@ -907,6 +956,8 @@ def get_existing_accounts():
         fnr = tmp_ac[ac_id].get_fnr()
         if tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
+        elif tmp.is_deleted():
+            tmp_persons[fnr].append_deleted_ac(ac_id)
         elif tmp.has_affiliation(int(const.affiliation_student)):
             tmp_persons[fnr].append_stud_ac(ac_id)
         elif tmp_persons[fnr].get_affiliations():
