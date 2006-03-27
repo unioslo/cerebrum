@@ -326,6 +326,7 @@ class UiOStudent(access_FS.Student):
               p.personnr=r.personnr AND
               p.fodselsdato=em.fodselsdato AND
               p.personnr=em.personnr AND
+              em.arstall >= %s AND
               %s
               %s AND
               NOT EXISTS
@@ -336,7 +337,7 @@ class UiOStudent(access_FS.Student):
                      es.emnekode=em.emnekode AND
                      es.studieprogramkode = sps.studieprogramkode AND
                      NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= SYSDATE)
-        """ % (extra, self._get_termin_aar(only_current=1))
+        """ % (self.year, extra, self._get_termin_aar(only_current=1))
         return self.db.query(qry, locals())
 
     def list_privatist(self, fodselsdato=None, personnr=None): # GetStudentPrivatist_50
@@ -542,24 +543,6 @@ class UiOBetaling(access_FS.FSObject):
     # Kopiavgift
     # Ny ordning fra høsten 2004.
     ################################################
-    def list_kopiavgift_fritak(self):  # GetStudFritattKopiavg
-        """Lister fødselsnummer på de som er fritatt fra å måtte
-        betale kopiavgift jmf den ordningen som ble innført høsten
-        2004.  Kun de som har registerkort med betformkode lik:
-          * 'FRITATT' - Dette er innreisende utenlandsstudenter
-          * 'EKSTERN' - Dette er studenter som har betalt ved andre
-                        samskipnader
-        """
-
-        qry ="""
-        SELECT DISTINCT r.fodselsdato, r.personnr
-        FROM fs.registerkort r
-        WHERE r.terminkode = :semester AND
-              r.arstall = :year AND
-              r.betformkode IN ('FRITATT', 'EKSTERN')"""
-        return self.db.query(qry, {'semester': self.semester,
-                                   'year': self.year})
-
     def list_utskrifts_betaling(self, days_past=180): # GetUtskriftsBetaling
         """Lister fødselsnummer, betalingsinformasjon og beløp for de
         innbetalinger som er gjordt gjennom studentweben for
@@ -583,44 +566,74 @@ class UiOBetaling(access_FS.FSObject):
               frk.status_betalt = 'J' %s""" % where
         return self.db.query(qry)
 
+    def list_kopiavgift_data(self, kun_fritak=True, semreg=False, fodselsdato=None, personnr=None):
+        """List alle som har betalt kopiavgift eller har fritak for
+           betaling av kopiavgift. Fritak for kopiavgift betegnes ved
+           at registerkortet for inneværende semester får
+           betalingsformkode 'FRITATT' eller 'EKSTERN'. Hvis
+           kun_fritak=True listes alle som har fritak uavhengig om de
+           er semesterregistrert. Hvis semreg=True listet alle som har
+           betalt kopiavgift eller har fritak for kopiavgift og som er
+           semesterregistrert for inneværende semester. Erstatter
+           list_kopiavgift_fritak og list_ok_kopiavgift.""" 
+           
+        extra1 = extra2 = extra_semreg1 = extra_semreg2 = extra_from = ""
 
-    def list_ok_kopiavgift(self, fodselsdato=None, personnr=None):  # GetStudBetPapir
-        """Lister ut fødselsnummer til alle de som har betalt
-        kopiavgiften eller har fritak fra å betale denne avgiften.
-        """
-
-        extra1 = extra2 = ""
         if fodselsdato and personnr:
-            extra1 = "r.fodselsdato=:fodselsdato AND r.personnr=:personnr AND"
+            extra1 = "frk.fodselsdato=:fodselsdato AND frk.personnr=:personnr AND"
             extra2 = "r.fodselsdato=:fodselsdato2 AND r.personnr=:personnr2 AND"
 
-        qry = """
-        SELECT DISTINCT r.fodselsdato, r.personnr
-        FROM fs.fakturareskontrodetalj fkd,
-             fs.fakturareskontro frk,
-             fs.registerkort r
-        WHERE r.TERMINKODE = :semester AND
-              r.arstall = :year AND
-              r.status_reg_ok = 'J' AND
-              NVL(r.status_ugyldig, 'N') = 'N' AND
-              r.fodselsdato = frk.fodselsdato AND
-              r.personnr = frk.personnr AND
-              %s
-              frk.status_betalt = 'J' AND
-              frk.terminkode = r.terminkode AND
-              frk.arstall = r.arstall AND
-              frk.fakturastatuskode ='OPPGJORT' AND
-              fkd.fakturanr = frk.fakturanr AND
-              fkd.fakturadetaljtypekode = 'KOPIAVG'
-        UNION
+        if semreg:
+            extra_semreg2 = """r.status_reg_ok = 'J' AND
+                               NVL(r.status_ugyldig, 'N') = 'N' AND"""
+            extra_from = ", fs.registerkort r"
+            extra_semreg1 = """r.terminkode = :semester3 AND
+                               r.arstall = :year3 AND
+                               r.status_reg_ok = 'J' AND  
+                               NVL(r.status_ugyldig, 'N') = 'N'
+                               AND r.fodselsdato = frk.fodselsdato AND 
+                               r.personnr = frk.personnr AND"""
+
+        qry1 = """
         SELECT DISTINCT r.fodselsdato, r.personnr
         FROM fs.registerkort r
-        WHERE r.TERMINKODE = :semester2 AND
-              r.arstall = :year2 AND
-              r.status_reg_ok = 'J' AND
-              NVL(r.status_ugyldig, 'N') = 'N' AND
-              %s
-              r.betformkode IN ('FRITATT', 'EKSTERN')""" % (extra1, extra2)
+        WHERE r.terminkode = :semester2 AND
+        r.arstall = :year2 AND
+        %s
+        %s
+        r.betformkode IN ('FRITATT', 'EKSTERN')""" % (extra_semreg2, extra2)
+
+        if kun_fritak:
+            return self.db.query(qry1, {'fodselsdato2': fodselsdato,
+                                        'personnr2': personnr,
+                                        'semester2': self.semester,
+                                        'year2': self.year})
+        qry = qry1 + """
+        UNION
+        SELECT DISTINCT frk.fodselsdato, frk.personnr
+        FROM fs.fakturareskontrodetalj fkd,
+             fs.fakturareskontro frk
+             %s
+        WHERE %s
+             frk.status_betalt = 'J' AND
+             frk.terminkode = :semester AND
+             frk.arstall = :year AND
+             %s 
+             frk.fakturastatuskode ='OPPGJORT' AND
+             fkd.fakturanr = frk.fakturanr AND
+             fkd.fakturadetaljtypekode = 'KOPIAVG'""" % (extra_from, extra_semreg1, extra1)
+        if semreg:
+            return self.db.query(qry, {'fodselsdato': fodselsdato,
+                                       'fodselsdato2': fodselsdato,
+                                       'personnr': personnr,
+                                       'personnr2': personnr,
+                                       'semester': self.semester,
+                                       'semester2': self.semester,
+                                       'semester3': self.semester,
+                                       'year': self.year,
+                                       'year2': self.year,
+                                       'year3': self.year})
+        
         return self.db.query(qry, {'fodselsdato': fodselsdato,
                                    'fodselsdato2': fodselsdato,
                                    'personnr': personnr,
