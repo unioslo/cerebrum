@@ -39,11 +39,13 @@ from Cerebrum.modules.no.uio import AutoStud
 
 default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
 default_studieprogramfile = "/cerebrum/dumps/FS/studieprogrammer.xml"
+default_emnefile = "/cerebrum/dumps/FS/emner.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
 
 studieprog2sko = {}
+emne2sko = {}
 ou_cache = {}
 ou_adr_cache = {}
 gen_groups = False
@@ -288,8 +290,6 @@ def process_person_callback(person_info):
                     subtype = co.affiliation_status_student_aktiv
                 elif row['studierettstatkode'] == 'EVU':
                     subtype = co.affiliation_status_student_evu
-                elif row['studierettstatkode'] == 'PRIVATIST':
-                    subtype = co.affiliation_status_student_privatist
                 elif row['studierettstatkode'] == 'FULLFØRT':
                     subtype = co.affiliation_status_student_alumni
                 elif int(row['studienivakode']) >= 980:
@@ -300,6 +300,15 @@ def process_person_callback(person_info):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_privatist,
                                  affiliations, studieprog2sko[p['studieprogramkode']])
+        elif dta_type in ('privatist_emne',):
+            try:
+                sko = emne2sko[p['emnekode']]
+            except KeyError:
+                logger.warn("Fant ingen emner med koden %s" % p['emnekode'])
+                continue
+            _process_affiliation(co.affiliation_student,
+                                 co.affiliation_status_student_privatist,
+                                 affiliations, sko)
         elif dta_type in ('perm',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
@@ -453,6 +462,11 @@ def main():
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
 
+    for e in StudentInfo.EmneDefParser(default_emnefile):
+        emne2sko[e['emnekode']] = \
+            _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
+                     'gruppenr_reglement')
+        
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
     if include_delete:
