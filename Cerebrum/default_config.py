@@ -172,6 +172,7 @@ AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
 AD_PW_EXCEPTION = 'process_students'
 AD_PW_EXCEPTION_OU = 'cerebrum_pw_exception'
+AD_DO_NOT_TOUCH = 'Cerebrum_dont_touch' 
 AD_STUNNEL = False
 AD_STUNNEL_CONF = '/local/sbin/stunnel.conf'
 
