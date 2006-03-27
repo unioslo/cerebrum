@@ -1201,7 +1201,7 @@ class BofhdExtension(object):
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
                              'quota_used': used})
-                if limit != eq.email_quota_hard:
+                if limit is not None and limit != eq.email_quota_hard:
                     info.append({'quota_server': limit})
             else:
                 info.append({'dis_quota_hard': eq.email_quota_hard,
