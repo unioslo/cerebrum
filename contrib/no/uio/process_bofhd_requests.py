@@ -80,7 +80,9 @@ def email_delivery_stopped(user):
                   ldap.filter.escape_filter_chars(user))
     for conn in ldapconns:
         try:
-            res = conn.search_s("cn=targets," + cereconf.LDAP_MAIL['dn'],
+            # FIXME: cereconf.LDAP_MAIL['dn'] has a bogus value, so we
+            # must hardcode the DN.
+            res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
                                 ldap.SCOPE_ONELEVEL, userfilter, ["1.1"])
             if len(res) != 1:
                 return False
