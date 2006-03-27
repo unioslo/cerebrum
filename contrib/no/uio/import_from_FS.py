@@ -300,7 +300,7 @@ def write_betalt_papir_info(outfile):
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(fs.betaling.list_ok_kopiavgift())
+    cols, dta = _ext_cols(fs.betaling.list_kopiavgift_data(kun_fritak=False, semreg=True))
     for t in dta:
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'betalt') + "\n")
