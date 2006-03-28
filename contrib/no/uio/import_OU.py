@@ -139,16 +139,16 @@ def import_org_units(sources, cer_ou_tab):
     """
 
     ou = OU_class(db)
+    # These are used to help build OU structure information
+    stedkode2ou = dict()
+    org_units = dict()
+    existing_ou_mappings = dict()
 
     for system, filename in sources:
         logger.debug("Processing %s data from %s", system, filename)
         source_system = getattr(co, system)
         db_writer = XML2Cerebrum(db, source_system, def_kat_merke)
         perspective = source2perspective[source_system]
-
-        # These are used to help build OU structure information
-        stedkode2ou = dict()
-        org_units = dict()
 
         # iter_ou provides an iterator over objects inheriting from
         # xml2object.DataOU
@@ -196,7 +196,6 @@ def import_org_units(sources, cer_ou_tab):
         # od
 
         # Build and register parent information
-        existing_ou_mappings = dict()
         for node in ou.get_structure_mappings(perspective):
             existing_ou_mappings[int(node.fields.ou_id)] = node.fields.parent_id
         # od
