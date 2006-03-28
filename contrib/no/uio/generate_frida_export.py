@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso8859-1 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,13 +20,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-
 This file is part of the Cerebrum framework.
 
 It generates an XML dump, suitable for importing into the FRIDA project (for
 more information on FRIDA, start at <URL:
-http://www.usit.uio.no/prosjekter/frida/pg/>). The output format is
-specified in:
+http://www.usit.uio.no/prosjekter/frida/pg/>). The output format is specified
+in:
 
 <URL: http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/schema/Frida-import-1_0.xsd>
 <URL: http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/>
@@ -40,36 +39,31 @@ Although the original specification places a limit on the length of certain
 
 All information for the XML dump is fetched from the cerebrum database.
 
-FIXME: Right now (2005-01-03), Cerebrum has no information about OU
-lifetimes. Therefore this information is gathered from the XML file produced
-by import_from_LT.py. This is a temporary solution while we wait for mod_HR.
+As of 2006-03, the data basis for this script is the XML files from
+LDPROD/SAP, not Cerebrum.
 """
 
-import sys
-import time
-import getopt
-import string
+import getopt, sys, time, types
 
-import cerebrum_path
-import cereconf
-
+import cerebrum_path, cereconf
 from Cerebrum import Errors
-from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.extlib.sets import Set
+from Cerebrum.modules.xmlutils.system2parser import system2parser
+from Cerebrum.modules.xmlutils.xml2object import DataOU, DataAddress
+from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
+from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU
+from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
 
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum.Cache import memoize_function
+INSTITUSJON = 185
 
 
 
 
 
-def output_element(writer, value, element, attributes = {}):
-    '''
-    A helper function to write out xml elements.
+def output_element(writer, value, element, attributes = dict()):
+    """A helper function to output XML elements.
 
     The output element would look like this:
 
@@ -80,13 +74,14 @@ def output_element(writer, value, element, attributes = {}):
     ... where KEY,VALUE pairs come from ATTRIBUTES
 
     This function is just a shorthand, to avoid mistyping the element names
-    in open and close tags
-    '''
+    in open and close tags.
+    """
 
-    # skip "empty" elements
+    # If there are no attributes and no textual value for the element, we do
+    # not need it.
     if not attributes and (value is None or not str(value)):
         return
-    # fi
+    # fi 
 
     writer.startElement(element, attributes)
     writer.data(str(value))
@@ -94,155 +89,52 @@ def output_element(writer, value, element, attributes = {}):
 # end output_element
 
 
-def output_contact_element(writer, contact_entity, type, element, constants):
+def output_contact(writer, xmlobject, *seq):
+    """Output contact information (seq) for xmlobject.
+
+    seq is a sequence of tuples (kind, xml-attribute-name).
     """
-    A help function for outputting contact information
-    """
-
-    sequence = contact_entity.get_contact_info(source = constants.system_lt,
-                                               type = type)
-    sequence.sort(lambda x, y: cmp(x.fields.contact_pref,
-                                   y.fields.contact_pref))
-    value = ""
-    if sequence: value = sequence[0].fields.contact_value
-
-    output_element(writer, value, element)
-# end output_contact_element
-
-
-def output_OU_address(writer, db_ou, constants):
-    """
-    Output address information for a particular OU.
-
-    """
-    #
-    # FIXME: This code is *horrible*. cerebrum has no idea about an OU's
-    # address structure. That is, it is impossible to generate anything
-    # sensible. This is just a guess (inspired by LDAP people's work) at
-    # what might be potentially useful.
-    # 
     
-    address = db_ou.get_entity_address(constants.system_lt,
-                                       constants.address_post)
-
-    addr_text, post_nr_city, country = ("", "", "")
-
-    # Unfortunately, there are OUs without any addresses registered
-    if not address:
-        logger.error("No address information for %s is registered",
-                     db_ou.entity_id)
-    else:
-        # We cannot have more than one answer for any given
-        # (ou_id, source_system, address_type) triple
-        address = address[0]
-
-        city = address["city"]
-        po_box = address["p_o_box"]
-        postal_number = address["postal_number"]
-        country = address["country"] or ""
-        
-        if (po_box and int(postal_number or 0) / 100 == 3):
-            addr_text = "Pb. %s - Blindern" % po_box
-        else:
-            addr_text = (address["address_text"] or "").strip()
+    for attribute, element in seq:
+        # We have to respect the relative priority order
+        # TBD: Should we hide this ugliness inside DataContact?
+        contacts = filter(lambda x: x.kind == attribute, xmlobject.itercontacts())
+        contacts.sort(lambda x, y: cmp(x.priority, y.priority))
+        if contacts:
+            output_element(writer, contacts[0].value, element)
         # fi
-        
-        post_nr_city = ""
-        if city or (postal_number and country):
-            post_nr_city = string.join(filter(None,
-                                              [postal_number,
-                                               (city or "").strip()]))
-        # fi
-    # fi
-
-    output_element(writer, addr_text, "postadresse")
-    output_element(writer, post_nr_city, "postnrOgPoststed")
-    output_element(writer, country, "land")
-# end output_OU_address
+    # od
+# end output_contact
 
 
-#
-# Mapping ou_id -> publishable_id.
-#
-# publishable_id is any id in the OU hierarchy (starting from ou_id and
-# walking upwards toward the root) for which katalog_merke = 'T'
-def find_suitable_OU(ou, id, constants):
-    """
-    This is a caching wrapper around __find_suitable_OU
-    """
-    child = int(id)
+def find_ou(sko, ou_cache):
+    """Locate a publishable OU starting from SKO.
 
-    parent = __find_suitable_OU(ou, child, constants)
-    if parent is not None:
-        parent = int(parent)
-    # fi
-    
-    return parent
-# end find_suitable_OU
-find_suitable_OU = memoize_function(find_suitable_OU)
-
-
-
-def find_sko(ou, id):
-    """
+    We walk upwards in the hierarchy tree until we run out of parents or
+    until a publishable OU is located.
     """
 
-    try:
-        ou.clear()
-        ou.find(id)
-    except Errors.NotFoundError:
-        return ""
-    else:
-        return int(ou.fakultet), int(ou.institutt), int(ou.avdeling)
-    # yrt
-# end find_sko
-find_sko = memoize_function(find_sko)
-
-
-
-def __find_suitable_OU(ou, id, constants):
-    """
-    Return ou_id for an OU x that:
-
-    * x.entity_id = id or x is a parent of the OU with id 'id'.
-    * x.katalog_merke = 'T'
-
-    ... or None if no such id is found.
-
-    While walking upward the organization tree, we consider LT perspective
-    only.
-    """
-
-    try:
-        ou.clear()
-        ou.find(id)
-
-        if ou.katalog_merke == 'T':
-            return id
+    ou = ou_cache.get(sko)
+    while ou:
+        if ou.publishable:
+            return ou
         # fi
 
-        parent_id = ou.get_parent(constants.perspective_lt)
-        logger.debug("parent search: %s -> %s",
-                     ou.entity_id, parent_id)
-                 
-        if (parent_id is not None and 
-            parent_id != ou.entity_id):
-            return __find_suitable_OU(ou, parent_id, constants)
+        parent = None
+        if ou.parent:
+            assert ou.parent[0] == DataOU.NO_SKO
+            parent = ou.parent[1]
         # fi
-    except Errors.NotFoundError, value:
-        logger.error("AIEE! Looking up an OU failed: %s", value)
-        return None
-    # yrt
+        ou = ou_cache.get(parent)
+    # od
 
     return None
-# end __find_suitable_OU
+# end find_ou
 
 
 
-_ou_cache = Set()
-def output_OU(writer, start_id, db_ou, parent_ou, lifetimes, constants):
-    '''
-    Output all information pertinent to a specific OU
+def output_OU(writer, sko, ou_cache):
+    """Publish a particular OU.
 
     Each OU is described thus:
 
@@ -282,434 +174,169 @@ def output_OU(writer, start_id, db_ou, parent_ou, lifetimes, constants):
                                           LT.STEDKOMM.KOMMTYPEKODE = "URL"
                                           MIN(LT.STEDKOMM.TLFPREFTEGN) -->
     </enhet>
-    '''
+    """
 
-    # 
-    # Find the OU in Cerebrum
-    #
-    id = find_suitable_OU(db_ou, start_id, constants)
-    if id is None:
-        # Errors are reported later, when we output employments
+    # step1: locate a publishable OU
+    # find_ou returns either an instance of DataOU or None
+    ou = find_ou(sko, ou_cache)
+    if ou is None:
         return
     # fi
+    sko = ou.get_id(DataOU.NO_SKO)
 
-    # Skip duplicates
-    if int(id) in _ou_cache:
-        return
-    # fi
-
-    # Cache for future reference
-    _ou_cache.add(int(id))
-    if int(id) != int(start_id):
-        logger.debug("ID %s converted to %s", id, start_id)
-    # fi
-
-    db_ou.clear()
-    db_ou.find(id)
-
-    #
-    # Locate the parent
-    #
-    try:
-        parent_id = db_ou.get_parent(constants.perspective_lt)
-        if parent_id is None:
-            parent_id = id
-        # fi
-    except Errors.NotFoundError:
-        # This is a hack for the roots of the organisational structure.
-        # I.e. the root of the OU structure is its own parent
-        parent_id = db_ou.entity_id
-    # yrt
-
-    parent_ou.clear()
-    parent_ou.find(parent_id)
-
-    #
-    # Output the element 
-    #
+    # step2: output OU info
     writer.startElement("enhet")
-
-    for attribute, element in (("institusjon", "institusjonsnr"),
-                               ("fakultet", "avdnr"),
-                               ("institutt", "undavdnr"),
-                               ("avdeling", "gruppenr")):
-        output_element(writer, getattr(db_ou, attribute), element)
+    for value, element in ((INSTITUSJON, "institusjonsnr"),
+                           (sko[0], "avdnr"),
+                           (sko[1], "undavdnr"),
+                           (sko[2], "gruppenr")):
+        output_element(writer, value, element)
     # od
 
-    for attribute, element in (("institusjon", "institusjonsnrUnder"),
-                               ("fakultet", "avdnrUnder"),
-                               ("institutt", "undavdnrUnder"),
-                               ("avdeling", "gruppenrUnder")):
-        output_element(writer, getattr(parent_ou, attribute), element)
-    # od
-
-    sko = int(db_ou.fakultet), int(db_ou.institutt), int(db_ou.avdeling)
-
-    # TBD: If the test fails, we have a strage situation -- we have an OU in
-    # the database, *BUT* there is no information about its lifetime in the
-    # current LT dump. It probably means that something is very wrong
-    # (e.g. cerebrum has not been updated in a while, whereas the OU dumps
-    # have.
-    if sko in lifetimes:
-        output_element(writer, lifetimes[sko][0], "datoAktivFra")
-        output_element(writer, lifetimes[sko][1], "datoAktivTil")
-        output_element(writer, lifetimes[sko][2], "navnBokmal")
-        output_element(writer, lifetimes[sko][3], "navnEngelsk")
-        output_element(writer, lifetimes[sko][4], "NSDKode")
+    # Is a missing parent at all possible here?
+    if ou.parent:
+        assert ou.parent[0] == DataOU.NO_SKO 
+        psko = ou.parent[1]
+    else:
+        psko = (None, None, None)
     # fi
-
-    output_element(writer, db_ou.acronym or "", "akronym")
-
-    output_OU_address(writer, db_ou, constants)
-
-    # Contact information
-    for item, attr in ((constants.contact_phone, "telefonnr"),
-                       (constants.contact_fax, "telefaxnr"),
-                       (constants.contact_email, "epost"),
-                       (constants.contact_url, "URLBokmal")):
-        output_contact_element(writer, db_ou, item, attr, constants)
+    for value, element in ((INSTITUSJON, "institusjonsnrUnder"),
+                           (psko[0], "avdnrUnder"),
+                           (psko[1], "undavdnrUnder"),
+                           (psko[2], "gruppenrUnder")):
+        output_element(writer, value, element)
     # od
 
+    for attribute, element in (("start_date", "datoAktivFra"),
+                               ("end_date", "datoAktivTil")):
+        value = getattr(ou, attribute)
+        if value:
+            value = value.strftime("%Y-%m-%d")
+        output_element(writer, value, element)
+    # od
+
+    for kind, lang, element in ((DataOU.NAME_LONG, "no", "navnBokmal"),
+                                (DataOU.NAME_LONG, "en", "navnEngelsk")):
+        tmp = ou.get_name_with_lang(kind, lang)
+        output_element(writer, tmp, element)
+    # od
+
+    nsd = ou.get_id(DataOU.NO_NSD)
+    if nsd:
+        output_element(writer, str(nsd), "NSDKode")
+    # fi
+    
+    output_element(writer, ou.get_name_with_lang(DataOU.NAME_ACRONYM, "no", "en"),
+                   "akronym")
+
+    # Grab the first available address
+    for kind in (DataAddress.ADDRESS_BESOK, DataAddress.ADDRESS_POST):
+        addr = ou.get_address(kind)
+        if addr:
+            output_element(writer, addr.street, "postadresse")
+            output_element(writer, (addr.zip + " " + addr.city).strip(),
+                           "postnrOgPoststed")
+            output_element(writer, addr.country, "land")
+            break
+        # fi 
+    # od
+
+    output_contact(writer, ou,
+                   (DataContact.CONTACT_PHONE, "telefonnr"),
+                   (DataContact.CONTACT_FAX, "telefaxnr"),
+                   (DataContact.CONTACT_EMAIL, "epost"),
+                   (DataContact.CONTACT_URL, "URLBokmal"))
+    
     writer.endElement("enhet")
 # end output_OU
     
 
 
-#
-# FIXME: This is a temporary hack, until the information is available through
-# Cerebrum. 
-
-import xml.sax
-
-class OUParser(xml.sax.ContentHandler):
-
-    def __init__(self, filename):
-        self.mapping = dict()
-        xml.sax.parse(filename, self)
-    # end __init__
-
-    def startElement(self, element, attrs):
-        if element != "sted":
-            return
-        # fi
-
-        decoded_attrs = dict()
-        for (key, value) in attrs.items():
-            decoded_attrs[key.encode("latin1")] = value.encode("latin1")
-        # od
-
-        key = self.make_sko(decoded_attrs)
-        if key not in self.mapping:
-            self.mapping[key] = self.extract_attributes(decoded_attrs)
-        # fi
-    # end endElement
-
-    def make_sko(self, attrs):
-        return tuple(map(lambda x: int(x),
-                         (attrs["fakultetnr"],
-                          attrs["instituttnr"],
-                          attrs["gruppenr"])))
-    # end make_sko
-
-    def extract_attributes(self, attrs):
-        def reformat_date(date):
-            if not date:
-                return ""
-            # fi
-
-            return date[:4] + "-" + date[4:6] + "-" + date[6:]
-        # end
-        
-        name_bokmal = ""
-        for i in ("stedlangnavn_bokmal", "stedkortnavn_bokmal",
-                  "stednavn"):
-            if attrs.get(i):
-                name_bokmal = attrs[i]
-            # fi
-        # od
-
-        name_english = ""
-        for i in ("stedlangnavn_engelsk", "stedkortnavn_engelsk"):
-            if attrs.get(i):
-                name_english = attrs[i]
-            # fi
-        # od
-
-        return (reformat_date(attrs.get("dato_opprettet")),
-                reformat_date(attrs.get("dato_nedlagt")),
-                name_bokmal, name_english, attrs.get("nsd_kode"))
-    # end extract_attributes
-# end OUParser
-
-
-def output_OUs(writer, db, ou_file):
-    """
-    Output information about all interesting OUs.
+def output_OUs(writer, db, sysname, oufile):
+    """Run through all OUs and publish the interesting ones.
 
     An OU is interesting to FRIDA, if:
 
-    - 'katalog_merke' = 'T' (the OU is supposed to be published)
-    - NVL(LT.DATO_NEDLAGT, SYSDATE) > SYSDATE - 365 (it has been less than a
-      year since the OU has been terminated).
+    - the OU is supposed to be published (marked as such in the data source)
+    - it has been less than a year since the OU has been terminated.
     """
 
-    db_ou = Factory.get("OU")(db)
-    parent_ou = Factory.get("OU")(db)
-    constants = Factory.get("Constants")(db)
+    # First we build an ID cache.
+    ou_cache = dict()
+    parser = system2parser(sysname)(oufile, False)
+    it = parser.iter_ou()
+    while 1:
+        try:
+            ou = it.next()
+        except StopIteration:
+            break
+        except:
+            logger.exception("Failed to process next OU")
+            continue
+        # yrt
 
-    # FIXME: This is a temporary hack until we have the proper information
-    # in Cerebrum. We need OU lifetimes ([from, to]) in the output file, but
-    # this information is NOT available through Cerebrum (yet); for now
-    # we'll just extract it from the XML file:
-
-    parser = OUParser(ou_file)
-    ou_lifetimes = parser.mapping
-
-    writer.startElement("organisasjon")
-
-    for id in db_ou.list_all():
-        output_OU(writer, id["ou_id"], db_ou, parent_ou, ou_lifetimes,
-                  constants)
+        sko = ou.get_id(DataOU.NO_SKO, None)
+        if sko:
+            ou_cache[sko] = ou
+        # fi
     # od
 
-    writer.endElement("organisasjon")
+    logger.info("Cached info on %d OUs from %s", len(ou_cache), oufile)
+    for sko in ou_cache:
+        output_OU(writer, sko, ou_cache)
+    # od
 # end output_OUs
 
 
+def output_assignments(writer, seq, blockname, elemname, *rest):
+    """Output tilsetting/gjest information.
 
-def construct_person_attributes(writer, db_person, constants):
+    The format is:
+    
+    <blockname>
+      <elemname>
+        <k1>x.v1</k1>
+        <k2>x.v2</k2>
+      </elemname>
+    </blockname>
+
+    ... where rest is a sequence of (v1, k1) and seq contains the x's to be
+    output.
     """
-    Construct a dictionary containing all attributes for the FRIDA <person>
-    element represented by DB_PERSON.
-
-    This function assumes that DB_PERSON is already associated to the
-    appropriate database row(s) (via a suitable find*-call).
-
-    This function returns a dictionary with all attributes to be output in
-    the xml file.
-    """
-
-    attributes = {}
-
-    # This *cannot* fail or return more than one entry
-    row = db_person.get_external_id(constants.system_lt,
-                                    constants.externalid_fodselsnr)[0]
-    attributes["fnr"] = str(row.fields.external_id)
-
-    result = db_person.get_reservert()
-    if result:
-        # And now the reservations -- there is at most one result
-        attributes["reservert"] = {"T" : "J",
-                                   "F" : "N" }[result[0]["reservert"]]
-    else:
-        logger.error("Aiee! Missing reservation information for person_id %s",
-                     db_person.entity_id)
-    # fi
-
-    return attributes
-# end construct_person_attributes
-
-
-
-def process_person_frida_information(db_person, db_ou, constants):
-    """
-    This function locate all tils/gjest records for DB_PERSON and possibly
-    re-writes them in a suitable fashion.
-
-    'Suitable fashion' means that each record output has information on an
-    OU that is 'publishable' (i.e. has katalog_merke = 'T'). A person is
-    output only if (s)he has at least one tils or gjest record with a
-    publisheable OU.
-
-    If there is an OU that is not 'publishable', its closest publishable
-    parent is used instead.
-
-    This function returns a tuple with two sequences -- one containing all
-    updated employment (tils) records, the other containing all updated
-    guest (gjest) records.
-    """
-
-    # We are interested only in "active" records 
-    now = time.strftime("%Y%m%d")
-    employments = map(lambda db_row: db_row.dict(),
-                      db_person.get_tilsetting(now))
-    guests = map(lambda db_row: db_row.dict(),
-                 db_person.get_gjest(now))
-
-    logger.debug("Fetched %d employments and %d guests from db",
-                 len(employments), len(guests))
-
-    # Force ou_ids to refer to publishable OUs
-    employments = filter(lambda dictionary:
-                         _update_person_ou_information(dictionary,
-                                                       db_ou,
-                                                       constants),
-                         employments)
-
-    # Force ou_ids to refer to publishable OUs
-    guests = filter(lambda dictionary:
-                    _update_person_ou_information(dictionary,
-                                                  db_ou,
-                                                  constants),
-                    guests)
-
-    for sequence in (employments, guests):
-        for item in sequence:
-            item["dato_fra"] = item["dato_fra"].strftime("%Y-%m-%d")
-            # dato_til need not be present 
-            if item["dato_til"]:
-                item["dato_til"] = item["dato_til"].strftime("%Y-%m-%d")
-            # fi    
-        # od
-    # od
-
-    return (employments, guests)
-# end process_person_frida_information
-
-
-
-#
-# To keep track of which OUs we have complained about. This should be very
-# small.
-__missing = Set()
-def _update_person_ou_information(dictionary, db_ou, constants):
-    """
-    This function forces the OU_ID in DICTIONARY to be the ou_id for a
-    publishable OU, if at all possible.
-
-    It returns True if such an OU can be found, and False otherwise.
-
-    Consult find_suitable_OU.__doc__ for more information.
-
-    NB! DICTIONARY is modified.
-    """
-
-    ou_id = find_suitable_OU(db_ou, dictionary["ou_id"], constants)
-    if ou_id is None:
-        if int(dictionary["ou_id"]) not in __missing:
-            sko = find_sko(db_ou, dictionary["ou_id"])
-            logger.warn("Cannot find an OU with katalog_merke = 'T' " +
-                        "from id = %s (sko: %s)", dictionary["ou_id"], sko)
-            __missing.add(int(dictionary["ou_id"]))
-        # fi
-        return False
-    # fi
-
-    db_ou.clear()
-    db_ou.find(ou_id)
-
-    # Otherwise, register the publishable parent under the key ou_id
-    dictionary["ou_id"] = ou_id
-    dictionary["institusjon"] = db_ou.institusjon
-    dictionary["fakultet"] = db_ou.fakultet
-    dictionary["institutt"] = db_ou.institutt
-    dictionary["avdeling"] = db_ou.avdeling
-    return True
-# end _process_employment
-
-
-
-def output_employment_information(writer, employment):
-    """
-    Output all employment information contained in sequence EMPLOYMENT. Each
-    entry is a dictionary, representing employment information from mod_lt.
-
-    Each employment record is written out thus:
-
-    <ansettelse>
-      <institusjonsnr>...</...>
-      <avdnr>...</...>
-      <undavdnr>...</...>
-      <gruppenr>...</...>
-      <stillingskode>...</...>
-      <datoFra>...</...>
-      <datoTil>...</...>
-      <stillingsbetegnelse>...</...>
-      <stillingsandel>...</...>
-    </ansettelse>        
-    """
-
-    if not employment:
+    
+    if not seq:
         return
     # fi
 
-    writer.startElement("ansettelser")
-
-    # There can be several <ansettelse> elements for each person
-    # Each 'element' below is a dictionary of attributes for that particular
-    # <ansettelse>
-    for element in employment:
-
-        writer.startElement("ansettelse")
-
-        for item, attr in (("institusjon", "institusjonsnr"),
-                           ("fakultet", "avdnr"),
-                           ("institutt", "undavdnr"),
-                           ("avdeling", "gruppenr"),
-                           ("code_str", "stillingskode"),
-                           ("dato_fra", "datoFra"),
-                           ("dato_til", "datoTil"),
-                           ("tittel", "stillingsbetegnelse"),
-                           ("andel", "stillingsandel")):
-            output_element(writer, element[item], attr)
+    writer.startElement(blockname)
+    for item in seq:
+        writer.startElement(elemname)
+        assert item.place[0] == DataOU.NO_SKO
+        ou = item.place[1]
+        for value, xmlelement in ((INSTITUSJON, "institusjonsnr"),
+                                  (ou[0], "avdnr"),
+                                  (ou[1], "undavdnr"),
+                                  (ou[2], "gruppenr")):
+            output_element(writer, value, xmlelement)
         # od
 
-        writer.endElement("ansettelse")
-    # od
-
-    writer.endElement("ansettelser")
-# end output_employment_information
-
-
-
-def output_guest_information(writer, guest, constants):
-    """
-    Output all guest information contained in sequence GUEST. Each entry in
-    GUEST is a dictionary representing guest information from mod_lt.
-
-    Each guest record is written out thus:
-
-    <gjest>
-      <institusjonsnr>...</...>
-      <avdnr>...</...>
-      <undavdnr>...</...>
-      <gruppenr>...</...>
-      <gjestebetegnelse>...</...> <!-- LT: gjestetypekode -->
-    </gjest>
-    """
-
-    if not guest:
-        return
-    # fi
-
-    writer.startElement("gjester")
-
-    for element in guest:
-
-        writer.startElement("gjest")
-
-        for item, attr in (("institusjon", "institusjonsnr"),
-                           ("fakultet", "avdnr"),
-                           ("institutt", "undavdnr"),
-                           ("avdeling", "gruppenr"),
-                           ("dato_fra", "datoFra"),
-                           ("dato_til", "datoTil"),
-                           ("code_str", "gjestebetegnelse")):
-            output_element(writer, element[item], attr)
+        for key, xmlelement in rest:
+            value = getattr(item, key)
+            # FIXME: DateTime hack. SIGTHTBABW
+            if hasattr(value, "strftime"):
+                value = value.strftime("%Y-%m-%d")
+            output_element(writer, value, xmlelement)
         # od
-
-        writer.endElement("gjest")
+        
+        writer.endElement(elemname)
     # od
+        
+    writer.endElement(blockname)
+# end output_assignments
 
-    writer.endElement("gjester")
-# end output_guest_information
 
-
-
-def output_person(writer, person_id, db_person, db_account,
-                  constants, db_ou):
-    '''
-    Output all information pertinent to a particular person (PERSON_ID)
+def output_person(writer, person, db, source_system):
+    """Output all information pertinent to a particular person.
 
     Each <person> is described thus:
 
@@ -729,85 +356,89 @@ def output_person(writer, person_id, db_person, db_account,
         ...
       </gjester>
     <person>
-    '''
+    """
 
-    # load all interesting information about this person
-    try:
-        db_person.clear()
-        db_person.find(person_id)
-    except Errors.NotFoundError:
-        logger.error("Aiee! person_id %s spontaneously disappeared", person_id)
+    employments = filter(lambda x: x.kind in (DataEmployment.HOVEDSTILLING,
+                                              DataEmployment.BISTILLING) and
+                                   x.is_active(),
+                         person.iteremployment())
+    guests = filter(lambda x: x.kind == DataEmployment.GJEST and
+                              x.is_active(),
+                    person.iteremployment())
+
+    if not (employments or guests):
+        logger.info("person_id %s has no suitable tils/gjest records",
+                    list(person.iterids()))
         return
+    # fi
+
+    reserved = { True  : "J",
+                 False : "N",
+                 None  : "N", }[person.reserved]
+    fnr = person.get_id(DataPerson.NO_SSN)
+    writer.startElement("person", { "fnr" : fnr,
+                                    "reservert" : reserved })
+    for attribute, element in ((DataPerson.NAME_LAST, "etternavn"),
+                               (DataPerson.NAME_FIRST, "fornavn"),
+                               (DataPerson.NAME_TITLE, "personligTittel")):
+        # NB! I assume here that there is only *one* name. Is this always true
+        # for personligTittel?
+        output_element(writer, person.get_name(attribute), element)
+    # od
+
+    db_person = Factory.get("Person")(db)
+    db_const = Factory.get("Constants")(db)
+    try:
+        db_person.find_by_external_id(db_const.externalid_fodselsnr, fnr)
+    except Errors.NotFoundError:
+        logger.error("Person %s is in the datafile, but not in Cerebrum",
+                     list(person.iterids()))
+    else:
+        primary_account = db_person.get_primary_account()
+        if primary_account is None:
+            logger.info("Person %s has no accounts", list(person.iterids()))
+        else:
+            db_account = Factory.get("Account")(db)
+            db_account.find(primary_account)
+
+            output_element(writer, db_account.get_account_name(), "brukernavn")
+
+            try:
+                primary_email = db_account.get_primary_mailaddress()
+                output_element(writer, primary_email, "epost")
+            except Errors.NotFoundError:
+                logger.info("person %s has no primary e-mail address",
+                            list(person.iterids()))
+                pass
+            # yrt
+        # fi
     # yrt
 
-    employment, guest = process_person_frida_information(db_person,
-                                                         db_ou,
-                                                         constants)
-    logger.debug("There are %d employments and %d guest rows for %s",
-                 len(employment), len(guest), db_person.entity_id)
-    
-    if (not employment and not guest):
-        logger.info("person_id %s has no suitable tils/gjest records",
-                    person_id)
-        return
-    # fi
+    output_contact(writer, person,
+                   (DataContact.CONTACT_PHONE, "telefonnr"),
+                   (DataContact.CONTACT_FAX, "telefaxnr"),
+                   (DataContact.CONTACT_URL, "URL"))
 
-    attributes = construct_person_attributes(writer, db_person, constants)
+    output_assignments(writer, employments,
+                      "ansettelser", "ansettelse",
+                      ("code", "stillingskode"),
+                      ("start", "datoFra"),
+                      ("end", "datoTil"),
+                      ("title", "stillingsbetegnelse"),
+                      ("percentage", "stillingsandel"))
 
-    writer.startElement("person", attributes)
+    output_assignments(writer, guests,
+                      "gjester", "gjest",
+                      ("start", "datoFra"),
+                      ("end", "datoTil"),
+                      ("code", "gjestebetegnelse")) 
 
-    #
-    # Process all names
-    for item, attr in ((constants.name_last, "etternavn"),
-                       (constants.name_first, "fornavn"),
-                       (constants.name_personal_title, "personligTittel")):
-        try:
-            value = db_person.get_name(constants.system_lt, item)
-        except Errors.NotFoundError:
-            value = ""
-        # yrt
-
-        output_element(writer, value, attr)
-    # od
-
-    # uname && email for the *primary* account.
-    primary_account = db_person.get_primary_account()
-    if primary_account is None:
-        logger.info("person_id %s has no accounts", db_person.entity_id)
-    else:
-        db_account.clear()
-        db_account.find(primary_account)
-
-        output_element(writer, db_account.get_account_name(), "brukernavn")
-
-        try:
-            primary_email = db_account.get_primary_mailaddress()
-            output_element(writer, primary_email, "epost")
-        except Errors.NotFoundError:
-            logger.info("person_id %s has no primary e-mail address",
-                        db_person.entity_id)
-            pass
-        # yrt
-    # fi
-
-    for item, attr in ((constants.contact_phone, "telefonnr"),
-                       (constants.contact_fax, "telefaxnr"),
-                       (constants.contact_url, "URL")):
-        output_contact_element(writer, db_person, item, attr, constants)
-    # od
-    
-    output_employment_information(writer, employment)
-
-    output_guest_information(writer, guest, constants)
-    
     writer.endElement("person")
 # end output_person
 
 
-
-def output_people(writer, db):
-    """
-    Output information about all interesting people.
+def output_people(writer, db, sysname, personfile):
+    """Output information about all interesting people.
 
     A person is interesting for FRIDA, if it has active employments
     (tilsetting) or active guest records (gjest). A record is considered
@@ -815,58 +446,54 @@ def output_people(writer, db):
     the script is run) and the end date is either unknown or in the future.
     """
 
-    db_person = Factory.get("Person")(db)
-    constants = Factory.get("Constants")(db)
-    db_account = Factory.get("Account")(db)
-    ou = Factory.get("OU")(db)    
+    logger.info("extracting people from %s", personfile)
+
+    source_system = getattr(Factory.get("Constants")(db), sysname)
 
     writer.startElement("personer")
-    for id in db_person.list_frida_persons():
-        output_person(writer, id["person_id"],
-                      db_person,
-                      db_account,
-                      constants,
-                      ou)
+    parser = system2parser(sysname)(personfile, False)
+    it = parser.iter_persons()
+    while 1:
+        try:
+            person = it.next()
+        except StopIteration:
+            break
+        except:
+            logger.exception("Failed to process next person")
+            continue
+        # yrt
+
+        output_person(writer, person, db, source_system)
     # od
+
     writer.endElement("personer")
-# end output_people    
+# output_people
 
 
+def output_xml(output_file, sysname, personfile, oufile):
+    """Output the data from sysname source."""
 
-def output_xml(output_file, data_source, target, ou_file):
-    """
-    Initialize all connections and start generating the xml output.
-
-    OUTPUT_FILE names the xml output.
-
-    DATA_SOURCE and TARGET are elements in the xml output.
-    """
-
-    # Nuke the old copy
     output_stream = AtomicFileWriter(output_file, "w")
     writer = xmlprinter.xmlprinter(output_stream,
                                    indent_level = 2,
-                                   # Output is for humans too
                                    data_mode = True,
-                                   input_encoding = 'latin1')
-    db = Factory.get('Database')()
+                                   input_encoding = "latin1")
+    db = Factory.get("Database")()
 
-    # 
-    # Here goes the hardcoded stuff
-    #
+    # Hardcoded headers
     writer.startDocument(encoding = "iso8859-1")
 
     writer.startElement("fridaImport")
 
     writer.startElement("beskrivelse")
-    output_element(writer, data_source, "kilde")
+    output_element(writer, "UIO", "kilde")
     # ISO8601 style -- the *only* right way :)
     output_element(writer, time.strftime("%Y-%m-%d %H:%M:%S"), "dato")
-    output_element(writer, target, "mottager")
+    output_element(writer, "UiO-FRIDA", "mottager")
     writer.endElement("beskrivelse")
 
     writer.startElement("institusjon")
-    output_element(writer, 185, "institusjonsnr")
+    output_element(writer, INSTITUSJON, "institusjonsnr")
     output_element(writer, "Universitetet i Oslo", "navnBokmal")
     output_element(writer, "University of Oslo", "navnEngelsk")
     output_element(writer, "UiO", "akronym")
@@ -874,11 +501,11 @@ def output_xml(output_file, data_source, target, ou_file):
     writer.endElement("institusjon")
 
     # Dump all OUs
-    output_OUs(writer, db, ou_file)
+    output_OUs(writer, db, sysname, oufile)
 
     # Dump all people
-    output_people(writer, db)
-
+    output_people(writer, db, sysname, personfile)
+    
     writer.endElement("fridaImport")
 
     writer.endDocument()
@@ -888,83 +515,38 @@ def output_xml(output_file, data_source, target, ou_file):
 
 
 
-def usage():
-    '''
-    Display option summary
-    '''
-
-    options = '''
-options: 
--o, --output-file: output file (default ./frida.xml)
--v, --verbose:     output more debugging information
--d, --data-source: source that generates frida.xml (default "UiO-Cerebrum")
--t, --target:      what (whom :)) the dump is meant for (default "UiO-FRIDA")
--s, --sted:        sted.xml generated by import_from_LT.py (this is hack!)
--h, --help:        display usage
-    '''
-
-    # FIMXE: hmeland, is the log facility the right thing here?
-    logger.info(options)
-# end usage
-
-
-
 def main():
-    """
-    Start method for this script. 
-    """
     global logger
-
-    logger = Factory.get_logger()
+    logger = Factory.get_logger("cronjob")
     logger.info("Generating FRIDA export")
 
     try:
         options, rest = getopt.getopt(sys.argv[1:],
-                                      "o:vd:t:hs:", ["output-file=",
-                                                    "verbose",
-                                                    "data-source=",
-                                                    "target",
-                                                    "help",
-                                                    "sted=",])
-    except getopt.GetoptError:
-        usage()
-        sys.exit(1)
+                                      "o:s:", ["output-file=",
+                                               "source-spec=",])
+    except getopt.GetoptError, val:
+        usage(1)
+        sys.exit(str(val))
     # yrt
 
-    # Default values
     output_file = "frida.xml"
-    data_source = "UIO"
-    target = "UiO-FRIDA"
-    ou_file = None
+    sources = list()
 
-    # Why does this look _so_ ugly?
     for option, value in options:
         if option in ("-o", "--output-file"):
             output_file = value
-        elif option in ("-d", "--data-source"):
-            data_source = value
-        elif option in ("-t", "--target"):
-            target = value
-        elif option in ("-h", "--help"):
-            usage()
-            sys.exit(2)
-        elif option in ("-s", "--sted"):
-            ou_file = value
+        elif option in ("-s", "--source-spec"):
+            sysname, personfile, oufile = value.split(":")
         # fi
     # od
 
-    output_xml(output_file = output_file,
-               data_source = data_source,
-               target = target,
-               ou_file = ou_file)
+    output_xml(output_file, sysname, personfile, oufile)
 # end main
-
-
+    
+    
 
 
 
 if __name__ == "__main__":
     main()
 # fi
-
-# arch-tag: 82474d1a-532f-4619-97c4-bf412c7564db
