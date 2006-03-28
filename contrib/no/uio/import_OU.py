@@ -29,274 +29,196 @@ import getopt
 import time
 import string
 
-import xml.sax
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import Stedkode
+from Cerebrum.modules.xmlutils.system2parser import system2parser
+from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
+
 
 OU_class = Factory.get('OU')
 db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger("cronjob")
+logger = Factory.get_logger("console")
+# TBD: Do we *ever* need to supply the perspective explicitely, even if we
+# always supply source_system?
+source2perspective = { co.system_lt  : co.perspective_lt,
+                       co.system_sap : co.perspective_sap }
 
 
-# <data>
-#   <sted fakultetnr="ff" instituttnr="ii" gruppenr="gg"
-#         forkstednavn="foo" stednavn="foo bar" akronym="fb"
-#         stedkortnavn_bokmal="fooen" stedkortnavn_nynorsk="fooa"
-#         stedkortnavn_engelsk="thefoo"
-#         stedlangnavn_bokmal="foo baren" stedlangnavn_nynorsk="foo bara"
-#         stedlangnavn_engelsk="the foo bar"
-#         fakultetnr_for_org_sted="FF" instituttnr_for_org_sted="II"
-#         gruppenr_for_org_sted="GG"
-#         opprettetmerke_for_oppf_i_kat="X"
-#         telefonnr="22851234" innvalgnr="228" linjenr="51234"
-#         stedpostboks="1023"
-#         adrtypekode_besok_adr="INT" adresselinje1_besok_adr="adr1_besok"
-#         adresselinje2_besok_adr="adr2_besok"
-#         poststednr_besok_adr="postnr_besok"
-#         poststednavn_besok_adr="postnavn_besok" landnavn_besok_adr="ITALIA"
-#         adrtypekode_intern_adr="INT" adresselinje1_intern_adr="adr1_int"
-#         adresselinje2_intern_adr="adr2_int"
-#         poststednr_intern_adr="postnr_int"
-#         poststednavn_intern_adr="postnavn_int" landnavn_intern_adr="ITALIA"
-#         adrtypekode_alternativ_adr="INT"
-#         adresselinje1_alternativ_adr="adr1_alt"
-#         adresselinje2_alternativ_adr="adr2_alt"
-#         poststednr_alternativ_adr="postnr_alt"
-#         poststednavn_alternativ_adr="postnavn_alt"
-#         landnavn_alternativ_adr="ITALIA">
-#     <komm kommtypekode=("EKSTRA TLF" | "TLF" | "TLFUTL" |
-#                         "FAX" | "FAXUTLAND" | "EPOST" | "URL")
-#           telefonnr="foo" kommnrverdi="bar">
-#     </komm>
-#   </sted>
-# </data>
 
-class OUData(xml.sax.ContentHandler):
-    def __init__(self, sources):
-        global source_system
-        self.tp = TrivialParser()
-        for source_spec in sources:
-            source_sys_name, filename = source_spec.split(':')
-            source_system = getattr(co, source_sys_name)
-            xml.sax.parse(filename, self.tp)
 
-    def __iter__(self):
-        return self
 
-    def next(self):
-        try:
-            return self.tp.org_units.pop(0)
-        except IndexError:
-            raise StopIteration, "End of file"
+def format_sko(xmlou):
+    sko = xmlou.get_id(xmlou.NO_SKO)
+    if sko is None:
+        return None
+    # fi
+    
+    # Yes, we will fail if there is no sko
+    return "%02d%02d%02d" % sko
+# end format_sko
 
-class TrivialParser(xml.sax.ContentHandler):
-    def __init__(self):
-        self.org_units = []
 
-    def startElement(self, name, attrs):
-        tmp = {}
-        for k in attrs.keys():
-            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
-        if name == 'data':
-            pass
-        elif name == "sted":
-            self.org_units.append(tmp)
-        elif name == "komm":
-            self.org_units[-1].setdefault("komm", []).append(tmp)
-        else:
-            raise ValueError, "Unknown XML element %s" % name
+def format_parent_sko(xmlou):
 
-    def endElement(self, name):
-        pass
+    parent = xmlou.parent
+    if parent:
+        assert parent[0] == xmlou.NO_SKO
+        return "%02d%02d%02d" % parent[1]
+    else:
+        return None
+    # fi
+# end format_parent_sko
 
-def get_stedkode_str(row, suffix=""):
-    elems = []
-    for key in ('fakultetnr', 'instituttnr', 'gruppenr'):
-        elems.append("%02d" % int(row[key+suffix]))
-    return "-".join(elems)
+
 
 def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
-                stedkode2ou, co):
+                stedkode2ou, perspective):
     """Recursively create the ou_id -> parent_id mapping"""
-    ou_data = org_units[stedkode]
-    org_stedkode = get_stedkode_str(ou_data, suffix='_for_org_sted')
-    logger.debug("Place %s under %s" % (stedkode, org_stedkode))
-    if not stedkode2ou.has_key(org_stedkode):
+
+    xmlou = org_units[stedkode]
+    parent_sko = format_parent_sko(xmlou)
+    logger.debug("Place %s under %s" % (stedkode, parent_sko))
+
+    if (not parent_sko) or (not stedkode2ou.has_key(parent_sko)):
         logger.warn("Error in dataset:"
-                    " %s references missing STEDKODE: %s, using None" % (
-            stedkode, org_stedkode))
-        org_stedkode = None
-        org_stedkode_ou = None
-    elif stedkode == org_stedkode:
+                    " %s references missing STEDKODE: %s, using None" %
+                    (stedkode, parent_sko))
+        parent_sko = None
+        parent_ouid = None
+    elif stedkode == parent_sko:
         logger.debug("%s has self as parent, using None" % stedkode)
-        org_stedkode = None
-        org_stedkode_ou = None
+        parent_sko = None
+        parent_ouid = None
     else:
-        org_stedkode_ou = stedkode2ou[org_stedkode]
+        parent_ouid = stedkode2ou[parent_sko]
+    # fi
 
     if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
-        logger.debug("Exist: %s (%s)" % (
-            existing_ou_mappings[stedkode2ou[stedkode]],
-            org_stedkode_ou
-            ))
-        if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
-            logger.warn("Mapping for %s changed (%s != %s)" % (
-                stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
-                org_stedkode_ou))
+        logger.debug("Exist: %s (%s)" %
+                     (existing_ou_mappings[stedkode2ou[stedkode]],
+                      parent_ouid))
+        if existing_ou_mappings[stedkode2ou[stedkode]] != parent_ouid:
+            logger.warn("Mapping for %s changed (%s != %s)" %
+                        (stedkode,
+                         existing_ou_mappings[stedkode2ou[stedkode]],
+                         parent_ouid))
             # Assert that parents are properly placed before placing ourselves
-            rec_make_ou(org_stedkode, ou, existing_ou_mappings, org_units,
-                        stedkode2ou, co)
+            rec_make_ou(parent_sko, ou, existing_ou_mappings, org_units,
+                        stedkode2ou, perspective)
         else:
             return
-    elif (org_stedkode_ou is not None
-        and (stedkode != org_stedkode)
-        and (not existing_ou_mappings.has_key(org_stedkode_ou))):
-        rec_make_ou(org_stedkode, ou, existing_ou_mappings, org_units,
-                          stedkode2ou, co)
+        # fi
+    elif (parent_ouid is not None
+          and (stedkode != parent_sko)
+          and (not existing_ou_mappings.has_key(parent_ouid))):
+        rec_make_ou(parent_sko, ou, existing_ou_mappings, org_units,
+                    stedkode2ou, perspective)
+    # fi
 
     ou.clear()
     ou.find(stedkode2ou[stedkode])
-    if stedkode2ou.has_key(org_stedkode):
-        ou.set_parent(perspective, stedkode2ou[org_stedkode])
+    if stedkode2ou.has_key(parent_sko):
+        ou.set_parent(perspective, stedkode2ou[parent_sko])
     else:
         ou.set_parent(perspective, None)
-    existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
+    # fi
+    existing_ou_mappings[stedkode2ou[stedkode]] = parent_ouid
+# end rec_make_ou
 
-def import_org_units(sources):
-    org_units = {}
+
+
+def import_org_units(sources, cer_ou_tab):
+    """Scan the sources and import all the OUs into Cerebrum.
+
+    Each entry in sources is a pair (system_name, filename).
+
+    cer_ou_tab contains the OU list present in Cerebrum at the start of this
+    script.
+    """
+
     ou = OU_class(db)
-    i = 1
-    stedkode2ou = {}
-    for k in OUData(sources):
-        i += 1
-        org_units[get_stedkode_str(k)] = k
-        if verbose:
-            logger.debug("Processing %s '%s'" % (get_stedkode_str(k),
-                                                 k['forkstednavn']))
-        ou.clear()
-        try:
-            ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'],
-                             institusjon=k.get('institusjonsnr',
-                                               cereconf.DEFAULT_INSTITUSJONSNR))
-        except Errors.NotFoundError:
-            pass
-        else:
+
+    for system, filename in sources:
+        logger.debug("Processing %s data from %s", system, filename)
+        source_system = getattr(co, system)
+        db_writer = XML2Cerebrum(db, source_system, def_kat_merke)
+        perspective = source2perspective[source_system]
+
+        # These are used to help build OU structure information
+        stedkode2ou = dict()
+        org_units = dict()
+
+        # iter_ou provides an iterator over objects inheriting from
+        # xml2object.DataOU
+        it = system2parser(system)(filename, False).iter_ou()
+        while 1:
+            try:
+                xmlou = it.next()
+            except StopIteration:
+                break
+            except:
+                logger.exception("Failed to process next OU")
+                continue
+            # yrt
+
+            formatted_sko = format_sko(xmlou)
+            if not formatted_sko:
+                logger.error("Missing sko for OU %s (names: %s). Skipped!" %
+                             (list(xmlou.iterids()), list(xmlou.iternames())))
+                continue
+            # fi
+            
+            org_units[formatted_sko] = xmlou
+            if verbose:
+                logger.debug("Processing %s '%s'" %
+                             (formatted_sko,
+                              xmlou.get_name_with_lang(xmlou.NAME_SHORT,
+                                                       "no", "en")))
+            # fi
+
+            args = (xmlou, None)
             if clean_obsolete_ous:
-                del cer_ou_tab[int(ou.ou_id)]
-                for r in ou.get_entity_quarantine():
-                    if (r['quarantine_type'] == co.quarantine_ou_notvalid or
-                        r['quarantine_type'] == co.quarantine_ou_remove):
-                        ou.delete_entity_quarantine(r['quarantine_type'])
-        kat_merke = 'F'
-        if k.get('opprettetmerke_for_oppf_i_kat'):
-            kat_merke = 'T'
-	if def_kat_merke:
-	    kat_merke = 'T'
-        ou.populate(k['stednavn'], k['fakultetnr'],
-                    k['instituttnr'], k['gruppenr'],
-                    institusjon=k.get('institusjonsnr',
-                                      cereconf.DEFAULT_INSTITUSJONSNR),
-                    katalog_merke=kat_merke,
-                    acronym=k.get('akronym', None),
-                    short_name=k['forkstednavn'],
-                    display_name=k['stednavn'],
-                    sort_name=k['stednavn'])
-        p_o_box = k.get('stedpostboks', None)
-        if p_o_box == '0' or k.get('adrtypekode_intern_adr', '') != 'INT':
-            p_o_box = None
-        if p_o_box or k.has_key('adresselinje1_intern_adr'):
-            which = '_intern_adr'
-        else:
-            which = '_besok_adr'
-        adrlines = filter(None, (k.get('adresselinje1' + which, None),
-                                 k.get('adresselinje2' + which, None) ))
-        city = k.get('poststednavn' + which, '')
-        # TODO: get country
-        country = None
-        if p_o_box or adrlines or city or country:
-            postal_number = k.get('poststednr' + which, '')
-            if postal_number:
-                postal_number = "%04i" % int(postal_number)
-            ou.populate_address(source_system, co.address_post,
-                                address_text = "\n".join(adrlines),
-                                p_o_box = p_o_box,
-                                postal_number = postal_number,
-                                city = city,
-                                country = country)
-        adrlines = filter(None, (k.get('adresselinje1_besok_adr', None),
-                                 k.get('adresselinje2_besok_adr', None) ))
-        city = k.get('poststednavn_besok_adr', None)
-        # TODO: get country
-        country = None
-        if adrlines or city or country:
-            postal_number = k.get('poststednr_besok_adr', None)
-            if postal_number:
-                postal_number = "%04i" % int(postal_number)
-            ou.populate_address(source_system, co.address_street,
-                                address_text = "\n".join(adrlines),
-                                postal_number = postal_number,
-                                city = city,
-                                country = country)
-        n = 0
-        nrtypes = {'EKSTRA TLF': co.contact_phone,
-                   'TLF': co.contact_phone,
-                   'TLFUTL': co.contact_phone,
-                   'FAX': co.contact_fax,
-                   'FAXUTLAND': co.contact_fax}
-        txttypes = {'EPOST': co.contact_email,
-                    'URL': co.contact_url}
-        for t in k.get('komm', []):
-            n += 1       # TODO: set contact_pref properly
-            if nrtypes.has_key(t['kommtypekode']):
-                nr = t.get('telefonnr', t.get('kommnrverdi', None))
-                if nr is None:
-                    logger.warn("Warning: unknown contact: %s" % str(t))
-                    continue
-                ou.populate_contact_info(source_system, nrtypes[t['kommtypekode']],
-                                         nr, contact_pref=n)
-            elif txttypes.has_key(t['kommtypekode']):
-                ou.populate_contact_info(source_system,
-                                         txttypes[t['kommtypekode']],
-                                         t['kommnrverdi'], contact_pref=n)
-	n += 1
-	if k.has_key('innvalgnr') and k.has_key('linjenr'):
-	    phone_value = "%s%05i" % (k['innvalgnr'], int(k['linjenr']))
-            ou.populate_contact_info(source_system, co.contact_phone,
-					phone_value, contact_pref=n)
-        if int(k.get('telefonnr', 0)):
-            n += 1
-            ou.populate_contact_info(source_system, co.contact_phone,
-					k['telefonnr'], contact_pref=n)
-        op = ou.write_db()
-        if verbose:
-            if op is None:
-                logger.debug("**** EQUAL ****")
-            elif op:
-                logger.debug("**** NEW ****")
-            else:
-                logger.debug("**** UPDATE ****")
+                args = (xmlou, cer_ou_tab)
+            # fi
+            
+            # logger.debug("Storing OU %s", xmlou)
+            status, ou_id = db_writer.store_ou(*args)
 
-        stedkode = get_stedkode_str(k)
-        # Not sure why this casting to int is required for PostgreSQL
-        stedkode2ou[stedkode] = int(ou.entity_id)
+            if verbose:
+                logger.debug("**** %s ****", status)
+            # fi
+
+            # Not sure why this casting to int is required for PostgreSQL
+            stedkode2ou[formatted_sko] = int(ou_id)
+            db.commit()
+        # od
+
+        # Build and register parent information
+        existing_ou_mappings = dict()
+        for node in ou.get_structure_mappings(perspective):
+            existing_ou_mappings[int(node.fields.ou_id)] = node.fields.parent_id
+        # od
+
+        # Now populate ou_structure
+        logger.info("Populate ou_structure")
+        for stedkode in org_units.keys():
+            rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
+                        stedkode2ou, perspective)
+        # od
         db.commit()
+    # od
+# end import_org_units
 
-    existing_ou_mappings = {}
-    for node in ou.get_structure_mappings(perspective):
-        existing_ou_mappings[int(node.fields.ou_id)] = node.fields.parent_id
 
-    # Now populate ou_structure
-    logger.info("Populate ou_structure")
-    for stedkode in org_units.keys():
-        rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
-                    stedkode2ou, co)
-    db.commit()
 
 def get_cere_ou_table():
+    """Collect sko available in Cerebrum now.
+
+    This information is used to detect stale entries in Cerebrum.
+    """
+    
     stedkode = OU_class(db)
     sted_tab = {}
     for entry in stedkode.get_stedkoder():
@@ -304,9 +226,23 @@ def get_cere_ou_table():
                                   entry['avdeling'])
 	key = int(entry['ou_id'])
 	sted_tab[key] = value
-    return(sted_tab)
+    # od
+    
+    return sted_tab
+# end get_cere_ou_table
 
-def set_quaran():
+
+
+def set_quaran(cer_ou_tab):
+    """Set quarantine on OUs that are no longer in the data source.
+    
+    All the OUs that were in Cerebrum before an import is run are compared
+    with the data files. Those OUs that are no longer present in the data
+    source are marked as invalid.
+
+    FIXME: How does it work with multiple data sources?
+    """
+    
     ous = OU_class(db)
     now = db.DateFromTicks(time.time())
     acc = Factory.get("Account")(db)
@@ -320,15 +256,18 @@ def set_quaran():
                                           description='import_OU',
                                           start = now) 
     db.commit()
+# end set_quaran
 
 
 
 def dump_perspective(sources):
-    """Displays the OU hierarchy in a fairly readable way"""
+    """Displays the OU hierarchy in a fairly readable way.
 
-    tree_info = {}
-    org_units = {}
+    For information about sources, see import_org_units.
+    """
 
+    logger.info("OU tree for %s", sources)
+    
     class Node(object):
         def __init__(self, name, parent):
             self.name = name
@@ -341,23 +280,21 @@ def dump_perspective(sources):
     ou = Factory.get("OU")(db)
     person = Factory.get("Person")(db)
     def make_prefix(key, level):
-        """
-        Make a pretty prefix for each output line
-        """
+        """Make a pretty prefix for each output line."""
 
-        if key in org_units:
-            katalogmerke = org_units[key].get("opprettetmerke_for_oppf_i_kat",
-                                              " ")
+        xmlou = org_units.get(key)
+        if xmlou is not None and getattr(xmlou, "publishable", False):
+            katalogmerke = 'T'
         else:
-            katalogmerke = " "
+            katalogmerke = ' '
         # fi
 
         # And now we find out if there are people with affiliations to this
         # place
         people_mark = " "
-        if key is not None:
+        if key is not None and xmlou is not None:
             try:
-                fakultet, institutt, avdeling = string.split(key, "-")
+                fakultet, institutt, avdeling = xmlou.get_id(xmlou.NO_SKO)
                 ou.clear()
                 ou.find_stedkode(int(fakultet), int(institutt), int(avdeling),
                                  cereconf.DEFAULT_INSTITUSJONSNR)
@@ -374,16 +311,23 @@ def dump_perspective(sources):
     
 
     def dump_part(parent, level):
-        dummy = { "stednavn" : "N/A",
-                  "akronym"  : "N/A", }
-        values = org_units.get(parent, dummy)
-        
+        """dump part of the OU tree rooted at parent."""
+        lang_pri = ("no", "en")
+        xmlou = org_units.get(parent)
+        if xmlou:
+            name = xmlou.get_name_with_lang(xmlou.NAME_LONG, *lang_pri)
+            values = { "akronym" : xmlou.get_name_with_lang(xmlou.NAME_ACRONYM,
+                                                          *lang_pri) or "N/A",
+                       "stednavn" : name or "N/A" }
+        else:
+            values = { "akronym" : "N/A",
+                       "stednavn" : "N/A", }
+        # fi
+
         print "%s%s %s %s (%s)" % (make_prefix(parent, level),
                                    " " * (level * 4),
-                                   string.join(string.split(str(parent), "-"),
-                                               ""),
-                                   values.get("akronym", "N/A"),
-                                   values.get("stednavn", "N/A"))
+                                   str(parent),
+                                   values["akronym"], values["stednavn"])
         children = list()
         for t in tree_info.keys():
             if tree_info[t].parent == parent:
@@ -398,32 +342,67 @@ def dump_perspective(sources):
         children.sort()
         for t in children:
             dump_part(t, level + 1)
-        # od 
+        # od
+    # end dump_part
 
+    
+    for system, filename in sources:
+        source_system = getattr(co, system)
+        perspective = source2perspective[source_system]
 
-    # Read data source
-    for k in OUData(sources):
-        org_units[get_stedkode_str(k)] = k
+        # These are used to help build OU structure information
+        tree_info = dict()
+        org_units = dict()
 
-    # Fill tree_info with parent/child relationships
-    for k in org_units.keys():
-        sjef = get_stedkode_str(org_units[k], '_for_org_sted')
-        if not tree_info.has_key(sjef):
-            if not org_units.has_key(sjef):
-                sjef_sjef = None
-            else:
-                sjef_sjef = get_stedkode_str(org_units[sjef], '_for_org_sted')
-            tree_info[sjef] = Node(sjef, sjef_sjef)
-        tree_info[k] = Node(k, sjef)
-        tree_info[sjef].children.append(k)
+        # Slurp in data
+        it = system2parser(system)(filename, False).iter_ou()
+        while 1:
+            try:
+                xmlou = it.next()
+            except StopIteration:
+                break
+            except:
+                logger.exception("Failed to construct next OU")
+                pass
+            # yrt
+            sko = format_sko(xmlou)
+            if sko is None:
+                print ("Missing sko for OU %s (names: %s). Skipped!" %
+                           (list(xmlou.iterids()), list(xmlou.iternames())))
+                continue
+            # fi
+            org_units[sko] = xmlou
+        # od
+            
+        # Fill tree_info with parent/child relationships
+        for k in org_units.keys():
+            parent_sko = format_parent_sko(org_units[k])
+            if parent_sko is None:
+                print "%s has no parent" % k
+            # fi
 
-    # Display structure
-    dump_part(None, 0)
-    top_keys = tree_info.keys(); top_keys.sort()
-    for t in top_keys:
-        if tree_info[t].parent == tree_info[t].name:
-            dump_part(t, 0)
-        # fi
+            if parent_sko not in tree_info:
+                if parent_sko not in org_units or parent_sko is None:
+                    parent2x = None
+                else:
+                    parent2x = format_parent_sko(org_units[parent_sko])
+                # fi
+
+                tree_info[parent_sko] = Node(parent_sko, parent2x)
+            # fi
+
+            tree_info[k] = Node(k, parent_sko)
+            tree_info[parent_sko].children.append(k)
+        # od
+
+        # Display structure
+        # dump_part(None, 0)
+        top_keys = tree_info.keys(); top_keys.sort()
+        for t in top_keys:
+            if tree_info[t].parent == tree_info[t].name:
+                dump_part(t, 0)
+            # fi
+        # od
     # od
 # end dump_perspective
 
@@ -436,77 +415,50 @@ import from UoOs LT system.
 
     -v | --verbose              increase verbosity
     -c | --clean		quarantine invalid OUs
-    -o | --ou-file FILE         file to read stedinfo from
-    -p | --perspective NAME     name of perspective to use
     -s | --source-spec SPEC     colon-separated (source-system, filename) pair
     -l | --ldap-visibility
     --dump-perspective          view the hierarchy of the ou-file
-
-For backward compatibility, there still is some support for the
-following (deprecated) option; note, however, that the new option
---source-spec is the preferred way to specify input data:
-    --source-system name: name of source-system to use
-
     """
     sys.exit(exitcode)
 
 def main():
-    global verbose, perspective, cer_ou_tab, clean_obsolete_ous, def_kat_merke
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vcp:s:o:l',
-                                   ['verbose',
-				    'clean',
-                                    'perspective=',
-                                    'source-spec=',
-                                    'dump-perspective',
-				    'ldap-visibility',
-                                    # Deprecated:
-                                    'ou-file=', 'source-system='])
-    except getopt.GetoptError:
-        usage(1)
+    global verbose, clean_obsolete_ous, def_kat_merke
+
+    opts, args = getopt.getopt(sys.argv[1:], 'vcs:l',
+                               ['verbose',
+                                'clean',
+                                'source-spec=',
+                                'dump-perspective',
+                                'ldap-visibility',])
+    
+
     verbose = 0
-    perspective = None
     sources = []
-    source_file = None
-    source_system = None
     clean_obsolete_ous = False
     def_kat_merke = False
-    cer_ou_tab = {}
+    cer_ou_tab = dict()
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
 	elif opt in ('-c','--clean'):
 	    clean_obsolete_ous = True
-        elif opt in ('-p', '--perspective',):
-            perspective = getattr(co, val)
         elif opt in ('-s', '--source-spec'):
-            sources.append(val)
+            sysname, filename = val.split(":")
+            sources.append((sysname, filename))
 	elif opt in ('-l', '--ldap-visibility',):
 	    def_kat_merke = True
-        elif opt in ('-o', '--ou-file'):
-            # This option is deprecated; use --source-spec instead.
-            source_file = val
-        elif opt in ('--source-system',):
-            # This option is deprecated; use --source-spec instead.
-            source_system = val
         elif opt in ('--dump-perspective',):
             dump_perspective(sources)
             sys.exit(0)
-    if perspective is None:
-        usage(2)
     if clean_obsolete_ous:
-	cer_ou_tab = get_cere_ou_table() 
+	cer_ou_tab = get_cere_ou_table()
+        logger.debug("Collected %d ou_id->sko mappings from Cerebrum",
+                     len(cer_ou_tab))
     if sources:
-        if source_file is None and source_system is None:
-            import_org_units(sources)
-        else:
-            usage(3)
-    elif source_file is not None and source_system is not None:
-	print source_file,source_system
-        import_org_units([':'.join((source_system, source_file))])
+        import_org_units(sources, cer_ou_tab)
     else:
         usage(4)
-    set_quaran()
+    set_quaran(cer_ou_tab)
 
 if __name__ == '__main__':
     main()
