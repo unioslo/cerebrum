@@ -185,7 +185,7 @@ def process_prof_group(dn, users, file):
            "objectclass: groupOfUniqueNames",
            "objectclass: orclGroup",
            "displayname: %s" % dn,
-           "description; %s" % dn]
+           "description: %s" % dn]
     for u in users:
         txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
     file.write('\n'.join(txt))
