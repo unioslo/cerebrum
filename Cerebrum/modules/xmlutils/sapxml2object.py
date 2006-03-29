@@ -360,9 +360,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 # fi
                 if code in self.stilling2kode:
                     category = self.stilling2kode[code]
+                # FIXME: assuyming this silently is a probably a bad thing
                 else:
                     category = DataEmployment.KATEGORI_OEVRIG
-                    print "missing mapping for %d. assuming tekadm" % code
                 # fi
             elif sub.tag == "Stilling":
                 title = value.strip()

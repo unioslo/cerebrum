@@ -333,6 +333,9 @@ class XMLOU2Object(XMLEntity2Object):
                                              "en"),
                                             (result.NAME_ACRONYM,
                                              ("akronym",),
+                                             "no"),
+                                            (result.NAME_SHORT,
+                                             ("forkstednavn",),
                                              "no")):
             result.add_name(DataName(name_kind,
                                      self._pull_name(element, *candidates),

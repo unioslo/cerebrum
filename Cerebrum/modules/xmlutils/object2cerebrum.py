@@ -224,8 +224,6 @@ class XML2Cerebrum:
         short = xmlou.get_name_with_lang(xmlou.NAME_SHORT, *pri)
         name = display_name = sort_name = \
                xmlou.get_name_with_lang(xmlou.NAME_LONG, *pri)
-        print "Names are: <<%s>>, <<%s>>, <<%s>>" % (acronym, short, name)
-        
         try:
             ou.find_stedkode(sko[0], sko[1], sko[2],
                              cereconf.DEFAULT_INSTITUSJONSNR)
