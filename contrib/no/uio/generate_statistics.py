@@ -57,7 +57,7 @@ __version__ = "$Revision$"
 
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
-logger = Factory.get_logger()
+logger = Factory.get_logger("cronjob")
 
 
 # Most to least significant affiliation. Determines what entitites
