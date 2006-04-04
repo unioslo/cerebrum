@@ -262,7 +262,7 @@ def make_reservation(to_be_reserved, p_id, group):
         group.add_member(p_id, const.entity_person, op)
         group.write_db()
     elif not to_be_reserved and group.has_member(p_id, const.entity_person, op):
-        group.remove_member(p_id, const.entity_person, op)
+        group.remove_member(p_id, op)
         group.write_db()
     # fi
 # end
