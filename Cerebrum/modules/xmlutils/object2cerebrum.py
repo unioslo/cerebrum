@@ -121,15 +121,15 @@ class XML2Cerebrum:
         for id in (xmlperson.NAME_FIRST, xmlperson.NAME_LAST,):
             assert xmlperson.get_name(id, None) is not None
             # There should be exactly one, actually
-            name = str(xmlperson.get_name(id))
-            person.populate_name(name2db[id], str(name))
+            name = xmlperson.get_name(id).value
+            person.populate_name(name2db[id], name)
         # od
 
         # ... and allow others to be missing
         if xmlperson.get_name(xmlperson.NAME_TITLE):
             # FIXME: How many names can potentially match?
             person.populate_name(name2db[xmlperson.NAME_TITLE],
-                                 str(xmlperson.get_name(xmlperson.NAME_TITLE)))
+                                 xmlperson.get_name(xmlperson.NAME_TITLE).value) 
         # fi
 
         # TBD: The implicit assumption here is that idxml2db contains all the
@@ -173,28 +173,6 @@ class XML2Cerebrum:
 
         return status, person.entity_id
     # end store_person
-
-
-    def _extract_name(self, names):
-        """Pull out the first name among many in the same category.
-
-        We prefer Norwegian to English.
-        """
-        if not isinstance(names, types.ListType):
-            return str(names)
-        # fi
-        if not names:
-            return None
-        # fi
-
-        tmp = { "no" : 0,
-                "en" : 1,
-                None : 2 }
-
-        names.sort(lambda x, y: cmp(tmp.get(x.language, 500),
-                                    tmp.get(y.language, 500)))
-        return str(names[0])
-    # end _extract_name
 
 
     def store_ou(self, xmlou, old_ou_cache=None):

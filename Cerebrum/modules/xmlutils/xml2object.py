@@ -187,15 +187,11 @@ class DataName(object):
         """
 
         self.kind = kind
-        self.value = str(value)
+        self.value = value
         self.language = lang
         if self.language:
             self.language = self.language.lower()
     # end __init__
-
-    def __str__(self):
-        return self.value
-    # end __str__
 # end DataName
 
 
@@ -263,7 +259,8 @@ class DataEntity(object):
         """Extract a name of given kind, respecting the given priority order.
 
         priority_order contains languages in the preferred order. If no
-        language matches, we return an empty string.
+        language matches, we return None. NB! None is different from a name
+        that is an empty string.
         """
 
         # Names without language come last
@@ -275,8 +272,13 @@ class DataEntity(object):
             i += 1
         # od
 
-        # it can be an atom or a list
-        names = self._names.get(kind, list())
+        # If we have no name of this kind at all, just return None at once.
+        names = self._names.get(kind, None)
+        if names is None:
+            return None
+        # fi
+        
+        # it can be an atom or a list...
         if not isinstance(names, types.ListType):
             names = [names]
         # fi
@@ -285,9 +287,9 @@ class DataEntity(object):
         names.sort(lambda x, y: cmp(weights[x.language],
                                     weights[y.language]))
         if names:
-            return str(names[0])
+            return names[0].value
         else:
-            return ""
+            return None
         # fi
     # end get_name_with_lang
 

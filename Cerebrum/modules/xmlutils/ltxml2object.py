@@ -271,7 +271,9 @@ class XMLOU2Object(XMLEntity2Object):
             # fi
         # od
 
-        return ""
+        # NB! A name that is not there *must* be represented as None. "" (empty
+        # string) is NOT the same as no name.
+        return None
     # end _pull_name
 
 
