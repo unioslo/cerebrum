@@ -795,6 +795,8 @@ class uitfronter(Person.Person):
           JOIN [:table schema=cerebrum name=entity_external_id] pei
             ON pi.person_id = pei.entity_id AND
 	  	pei.id_type = [:get_constant name=externalid_fodselsnr]
+          JOIN [:table schema=cerebrum name=account_info] ai
+            ON pi.person_id = ai.owner_id
 	  LEFT JOIN [:table schema=cerebrum name=person_name] pn2
             ON pn2.person_id = pi.person_id AND
                pn2.name_variant = [:get_constant name=name_last] AND
@@ -803,6 +805,8 @@ class uitfronter(Person.Person):
             ON pn3.person_id = pi.person_id AND
                pn3.name_variant = [:get_constant name=name_first] AND
                pn3.source_system = [:get_constant name=system_fs]
+        WHERE
+           (ai.expire_date IS NULL OR ai.expire_date > [:now])
 	""")
 
     #Uit: function to figgure out if a person is a student,employee, or other
