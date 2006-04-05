@@ -561,9 +561,9 @@ The currently defined id-types are:
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
                             why, update_by=operator.get_entity_id())
-        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)",
-                         person_id, job_id, num_pages, operator.get_entity_id(),
-                         repr(why))
+        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)" %
+                         (person_id, job_id, num_pages, operator.get_entity_id(),
+                         repr(why)))
         return "OK"
 
 
