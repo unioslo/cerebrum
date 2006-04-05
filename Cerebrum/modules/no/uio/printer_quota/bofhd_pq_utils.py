@@ -41,29 +41,29 @@ class SimpleLogger(object):
         self.stream = open(
             os.path.join(cereconf.AUTOADMIN_LOG_DIR, fname), 'a+')
         
-    def show_msg(self, lvl, msg, exc_info=None):
+    def show_msg(self, lvl, msg, *args, **kwargs):
         self.stream.write("%s %s [%i] %s\n" % (
             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-            lvl, os.getpid(), msg))
+            lvl, os.getpid(), msg % args))
         self.stream.flush()
 
-    def debug2(self, msg, **kwargs):
-        self.show_msg("DEBUG2", msg, **kwargs)
+    def debug2(self, msg, *args, **kwargs):
+        self.show_msg("DEBUG2", msg, *args, **kwargs)
     
-    def debug(self, msg, **kwargs):
-        self.show_msg("DEBUG", msg, **kwargs)
+    def debug(self, msg, *args, **kwargs):
+        self.show_msg("DEBUG", msg, *args, **kwargs)
 
-    def info(self, msg, **kwargs):
-        self.show_msg("INFO", msg, **kwargs)
+    def info(self, msg, *args, **kwargs):
+        self.show_msg("INFO", msg, *args, **kwargs)
 
-    def error(self, msg, **kwargs):
-        self.show_msg("ERROR", msg, **kwargs)
+    def error(self, msg, *args, **kwargs):
+        self.show_msg("ERROR", msg, *args, **kwargs)
 
-    def fatal(self, msg, **kwargs):
-        self.show_msg("FATAL", msg, **kwargs)
+    def fatal(self, msg, *args, **kwargs):
+        self.show_msg("FATAL", msg, *args, **kwargs)
 
-    def critical(self, msg, **kwargs):
-        self.show_msg("CRITICAL", msg, **kwargs)
+    def critical(self, msg, *args, **kwargs):
+        self.show_msg("CRITICAL", msg, *args, **kwargs)
 
 class BofhdUtils(object):
     def __init__(self, server):
