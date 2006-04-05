@@ -1,13 +1,12 @@
 
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.no.uit.bofhd_uit_cmds import BofhdExtension
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.fodselsnr import personnr_ok, InvalidFnrError
+from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.no.uit.bofhd_uit_cmds import BofhdExtension
 
 class BofhdUiTExtension(BofhdExtension):
-
 
 
     def _uit_list_legacy_user(self,personid):
@@ -53,6 +52,7 @@ class BofhdUiTExtension(BofhdExtension):
 
     def uit_legacy_user_func(self, session, *args):
         return self._uit_legacy_user_func_helper(session, *args)
+
 
     def _uit_legacy_user_func_helper(self, session, *args):
         """A prompt_func on the command level should return
@@ -166,7 +166,6 @@ class BofhdUiTExtension(BofhdExtension):
                     accts = ",".join(acclist)                
                     return "got %s accounts for person: %s " % (len(accounts), accts)
 
-            print "Got here: noaccounts=%s, len(all_args)=%d" % (NoAccounts,len(all_args))
             if NoAccounts and (len(all_args) == 3):
                 first_name, last_name, answer = all_args
                 name = "%s %s" % (first_name,last_name)
@@ -191,7 +190,7 @@ class BofhdUiTExtension(BofhdExtension):
                 else:
                     return "Reserved username for %s %s (ssn=%s): username=%s" % (first_name, last_name,ssn,new_username)  
         else:
-            raise CerebrumError, "ProgrammingError: invalid args lengtht from prompt_func"            
+            raise CerebrumError, "ProgrammingError: invalid args length from prompt_func"            
 
 
 # arch-tag: 85db404e-b4f2-11da-8c86-8173ccfa4bd5
