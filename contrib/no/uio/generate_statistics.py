@@ -82,6 +82,7 @@ options = {"affiliations": False,
            "to": now() + RelativeDateTime(days=-7, weekday=(Sunday,0))}
 
 
+
 class EventNotDefinedError(Exception):
     
     """For use by EventProcessor.
@@ -90,6 +91,7 @@ class EventNotDefinedError(Exception):
     
     """
     pass
+
 
 
 class EventProcessor(object):
@@ -112,7 +114,7 @@ class EventProcessor(object):
         place.
 
         """
-        self._log_events = 0
+        self._log_event = 0
         self._total_count = 0
         self._count_by_affiliation = {}
         self._entity_ids = []
@@ -144,7 +146,7 @@ class EventProcessor(object):
         extracted for further purposes.
 
         """
-        event_rows = db.get_log_events_date(sdate=start_date, edate=end_date, type=self._log_events)
+        event_rows = db.get_log_events_date(sdate=start_date, edate=end_date, type=self._log_event)
 
         for row in event_rows:
             self._entity_ids.append(row["subject_entity"])
@@ -207,8 +209,10 @@ class EventProcessor(object):
                 
             outline = (" " * 18) + aff_str + (" " * (34 -len(aff_str))) + str(count)
             
-            if affiliation == no_affiliation:
-                no_affiliation_line = outline + "\n"
+            if aff_str.startswith(no_affiliation):
+                # "No affiliation" might be specified further in some
+                # cases; we want to gather all these groups at the end.
+                no_affiliation_line = no_affiliation_line + outline + "\n"
             else:
                 print outline
         
@@ -234,6 +238,7 @@ class EventProcessor(object):
             self._count_by_affiliation[affiliation] += 1
         else:
             self._count_by_affiliation[affiliation] = 1
+
 
     def _process_affiliation_rows(self, affiliation_rows):
         """Generalized handling of affiliation data.
@@ -264,11 +269,11 @@ class CreatePersonProcessor(EventProcessor):
 
     def __init__(self):
         EventProcessor.__init__(self)
-        self._log_events = int(constants.person_create)
+        self._log_event = int(constants.person_create)
         self._description = "Create Person"
         
     def calculate_count_by_affiliation(self):
-        "Implementations of superclass' abstract function"
+        """Implementations of superclass' abstract function"""
         person = Factory.get('Person')(db)
         for current_entity in self._entity_ids:
             logger.debug("Checking affiliations for person entity '%s'", current_entity)
@@ -281,8 +286,31 @@ class CreatePersonProcessor(EventProcessor):
             except NotFoundError:
                 # Unable to look up person (deleted?) Let rows be empty, so affiliation will be none
                 logger.debug("Unable to find person with entity-id '%s'" % current_entity)
-            self._process_affiliation_rows(affiliation_rows)
 
+            if affiliation_rows:
+                self._process_affiliation_rows(affiliation_rows)
+            else:
+                # Need to quantify with source, since no affiliation is known.
+                source = self._determine_source(current_entity)
+                self._add_to_affiliation(no_affiliation + " (source: " + source + ")")
+
+
+    def _determine_source(self, entity):
+        """Determines source system when the person represented by
+        'entity' was created.
+
+        """
+        types = [self._log_event]  # get_log_events requires iterable 'types'
+        event_rows = db.get_log_events(subject_entity=entity, types=types)
+
+        # There should only be one row matching this, but since the result is an iterator...
+        for row in event_rows:
+            source = row['change_program']
+            
+        logger.debug("Source for enitity '%s' determined to be %s " % (entity, source))
+
+        return source
+                
 
 
 class CreateAccountProcessor(EventProcessor):
@@ -291,7 +319,7 @@ class CreateAccountProcessor(EventProcessor):
 
     def __init__(self):
         EventProcessor.__init__(self)
-        self._log_events = int(constants.account_create)
+        self._log_event = int(constants.account_create)
         self._description = "Create Account"
         
     def calculate_count_by_affiliation(self):
@@ -319,7 +347,7 @@ class CreateGroupProcessor(EventProcessor):
 
     def __init__(self):
         EventProcessor.__init__(self)
-        self._log_events = int(constants.group_create)
+        self._log_event = int(constants.group_create)
         self._description = "Create Group"
         
     def calculate_count_by_affiliation(self):
