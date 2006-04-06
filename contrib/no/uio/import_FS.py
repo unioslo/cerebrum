@@ -362,7 +362,7 @@ def process_person_callback(person_info):
                                    (ad_street, co.address_street)):
         # TBD: Skal vi slette evt. eksisterende adresse v/None?
         if address_info is not None:
-            logger.debug("Populating address for person %s" % new_person.entity_id)
+            logger.debug("Populating address...")
             new_person.populate_address(co.system_fs, ad_const, **address_info)
     # if this is a new Person, there is no entity_id assigned to it
     # until written to the database.
