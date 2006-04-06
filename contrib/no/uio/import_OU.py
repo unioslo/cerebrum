@@ -39,7 +39,7 @@ OU_class = Factory.get('OU')
 db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 # TBD: Do we *ever* need to supply the perspective explicitely, even if we
 # always supply source_system?
 source2perspective = { co.system_lt  : co.perspective_lt,
