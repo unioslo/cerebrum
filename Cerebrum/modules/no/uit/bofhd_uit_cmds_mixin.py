@@ -135,7 +135,7 @@ class BofhdUiTExtension(BofhdExtension):
     def misc_find_potenial_username(self,operator,*args):
         all_args = list(args)
         NoAccounts = False
-        if len(all_args) > 1 and (len(all_args)<=4): 
+        if len(all_args) >= 1 and (len(all_args)<=4): 
             ssn = all_args.pop(0)
             try:
                 # search BAS
@@ -190,7 +190,7 @@ class BofhdUiTExtension(BofhdExtension):
                 else:
                     return "Reserved username for %s %s (ssn=%s): username=%s" % (first_name, last_name,ssn,new_username)  
         else:
-            raise CerebrumError, "ProgrammingError: invalid args length from prompt_func"            
+            raise CerebrumError, "ProgrammingError: invalid args length from prompt_func: %d" % len(all_args)            
 
 
 # arch-tag: 85db404e-b4f2-11da-8c86-8173ccfa4bd5
