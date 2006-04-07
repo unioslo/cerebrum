@@ -156,3 +156,5 @@ class Constants(Constants.Constants):
     spread_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
         'group included in Active Directory')   
+
+# arch-tag: b941f1fc-c641-11da-9d35-75aad02b30cc
