@@ -124,12 +124,12 @@ class MakeUser(EvtHandler):
             x, accid, x, x, status = acc.get_homedir(params['homedir_id'])
         except Errors.NotFoundError:
             # Ancient changelog entry?  Skip it.
-            logger.debug("Skipping deleted homedir %d for account %d" %
-                         (params['homedir_id']), evt['subject_entity'])
+            logger.debug("Skipping deleted homedir %d for account %d",
+                         params['homedir_id'], evt['subject_entity'])
             return True
         if accid != evt['subject_entity']:
-            logger.error("Homedir %d doesn't belong to account %d" %
-                         (params['homedir_id'], evt['subject_entity']))
+            logger.error("Homedir %d doesn't belong to account %d",
+                         params['homedir_id'], evt['subject_entity'])
             return True
         acc.find(accid)
         guest_trait = acc.get_trait(const.trait_guest_owner)
