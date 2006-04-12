@@ -226,7 +226,7 @@ class EventProcessor(object):
                 return aff
 
         logger.warning("Unable to find most significant affiliation from " +
-                       "list " + str(affiliations) + ". cereconf.AFFILIATIONS_BY_PRIORITY " +
+                       "list '" + str(affiliations) + "'. cereconf.AFFILIATIONS_BY_PRIORITY " +
                        "is probably undefined or missing some affiliations")
         
         return affiliations[0];
@@ -284,33 +284,22 @@ class CreatePersonProcessor(EventProcessor):
                 person.find(current_entity)
                 affiliation_rows = person.list_affiliations(person_id=current_entity)
             except NotFoundError:
-                # Unable to look up person (deleted?) Let rows be empty, so affiliation will be none
+                # Unable to look up person (deleted? merged?) 
                 logger.debug("Unable to find person with entity-id '%s'" % current_entity)
+                self._add_to_affiliation(no_affiliation + " (deleted since creation)")
+                continue
 
             if affiliation_rows:
                 self._process_affiliation_rows(affiliation_rows)
             else:
                 # Need to quantify with source, since no affiliation is known.
-                source = self._determine_source(current_entity)
+                event_rows = person.get_external_id()
+                source_as_num = event_rows[0]['source_system']
+                source = str(constants.AuthoritativeSystem(source_as_num))
+            
+                logger.debug("Source for entity '%s' determined to be %s " % (current_entity, source))
                 self._add_to_affiliation(no_affiliation + " (source: " + source + ")")
 
-
-    def _determine_source(self, entity):
-        """Determines source system when the person represented by
-        'entity' was created.
-
-        """
-        types = [self._log_event]  # get_log_events requires iterable 'types'
-        event_rows = db.get_log_events(subject_entity=entity, types=types)
-
-        # There should only be one row matching this, but since the result is an iterator...
-        for row in event_rows:
-            source = row['change_program']
-            
-        logger.debug("Source for enitity '%s' determined to be %s " % (entity, source))
-
-        return source
-                
 
 
 class CreateAccountProcessor(EventProcessor):
