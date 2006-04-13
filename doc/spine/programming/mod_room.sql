@@ -44,6 +44,10 @@ GRANT change_mod_building TO change_core_table;
 /* building
 
 */
+
+category:code;
+CREATE SEQUENCE dummy_seq;
+
 category:main;
 CREATE TABLE building
 (
@@ -111,6 +115,9 @@ GRANT INSERT, UPDATE, DELETE on room TO change_mod_room;
 
 category:drop;
 DROP TABLE room;
+
+category:drop;
+DROP SEQUENCE dummy_seq;
 
 category:drop/Oracle;
 DROP ROLE change_mod_room;
