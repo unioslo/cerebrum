@@ -23,6 +23,7 @@ import cerebrum_path
 import cereconf
 
 import sys
+import sets
 import thread
 import traceback
 
@@ -79,12 +80,24 @@ def check():
 
     db = Factory.get('Database')()
 
+    checked = sets.Set()
+
     for cls in Builder.get_builder_classes(DatabaseClass.DatabaseClass):
         for table in cls._get_sql_tables():
+            if table in checked:
+                continue
+            checked.add(table)
             if DatabaseClass._table_exists(db, table):
                 print '+ exists:', table
             else:
-                print '- WARNING does not exists:', table
+                print '- WARNING table does not exists:', table
+
+    for cls in DatabaseClass.get_sequence_classes():
+        if cls.exists(db):
+            print '+ exists:', cls.__name__
+        else:
+            print '- WARNING sequence does not exists:', cls.__name__
+
 
 def build():
     from Cerebrum.spine.SpineLib import Builder, DatabaseClass
@@ -97,6 +110,9 @@ def build():
     for cls in Builder.get_builder_classes(DatabaseClass.DatabaseClass):
         if cls.slots:
             DatabaseClass.create_tables(db, cls)
+
+    for cls in DatabaseClass.get_sequence_classes():
+        cls.create(db)
 
 if __name__ == '__main__':        
     help = False

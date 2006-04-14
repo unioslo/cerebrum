@@ -21,7 +21,6 @@
 import Cerebrum.Errors
 import Cerebrum.modules.PosixUser
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
 
@@ -29,9 +28,6 @@ from Account import Account
 from Group import Group
 from Commands import Commands
 from Types import CodeType, GroupMemberOperationType
-
-from SpineLib import Registry
-registry = Registry.get_registry()
 
 __all__ = ['PosixUser', 'PosixShell']
 
@@ -51,7 +47,6 @@ class PosixShell(CodeType):
             'name':'code_str'
         }
     }
-registry.register_class(PosixShell)
 
 def get_gecos(self):
     p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
@@ -62,22 +57,21 @@ def get_gecos(self):
 
     return p.get_gecos()
 
-table = 'posix_user'
-Account.register_attribute(DatabaseAttr('posix_uid', table, int,
-                                        write=True, optional=True))
-Account.register_attribute(DatabaseAttr('primary_group', table, Group,
-                                        write=True, optional=True))
-Account.register_attribute(DatabaseAttr('pg_member_op', table,
-                                        GroupMemberOperationType,
-                                        write=True, optional=True))
-Account.register_attribute(DatabaseAttr('gecos', table, str, write=True,
-                                        optional=True), get=get_gecos)
-Account.register_attribute(DatabaseAttr('shell', table, PosixShell,
-                                        write=True, optional=True))
-Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
+Account.get_gecos = get_gecos
 
-Account.build_methods()
-Account.search_class.build_methods()
+table = 'posix_user'
+attrs = [
+    DatabaseAttr('gecos', table, str, write=True, optional=True),
+    DatabaseAttr('posix_uid', table, int, write=True, optional=True),
+    DatabaseAttr('primary_group', table, Group, write=True, optional=True),
+    DatabaseAttr('pg_member_op', table, GroupMemberOperationType, write=True, optional=True),
+    DatabaseAttr('shell', table, PosixShell, write=True, optional=True)
+]
+
+for attr in attrs:
+    Account.register_attribute(attr)
+
+Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
 
 def is_posix(self):
     """Check if a account has been promoted to posix.
@@ -88,12 +82,13 @@ def is_posix(self):
         return False
     return True
 
-Account.register_method(Method('is_posix', bool), is_posix)
+is_posix.signature = bool
 
 def get_free_uid(self):
     p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
     return p.get_free_uid()
-Commands.register_method(Method('get_free_uid', int, args=[]), get_free_uid)
+
+get_free_uid.signature = int
 
 def promote_posix(self, posix_uid, primary_group, shell):
     obj = self._get_cerebrum_obj()
@@ -101,7 +96,9 @@ def promote_posix(self, posix_uid, primary_group, shell):
     p.populate(posix_uid, primary_group.get_id(), None, shell.get_id(), parent=obj)
     p.write_db()
 
-Account.register_method(Method('promote_posix', None, args=[('posix_uid', int), ('primary_group', Group), ('shell', PosixShell)], write=True), promote_posix)
+promote_posix.signature = None
+promote_posix.signature_args = [int, Group, PosixShell]
+promote_posix.signature_write = True
 
 def demote_posix(self):
     """Demotes the PosixUser to a normal Account."""
@@ -110,6 +107,10 @@ def demote_posix(self):
     p.find(obj.entity_id)
     p.delete_posixuser()
 
-Account.register_method(Method('demote_posix', None, write=True), demote_posix)
+demote_posix.signature = None
+demote_posix.signature_write = True
+
+Commands.register_methods([get_free_uid])
+Account.register_methods([is_posix, promote_posix, demote_posix])
 
 # arch-tag: 6397155e-c46c-4e57-a5f7-54d2f046f622

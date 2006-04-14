@@ -172,8 +172,6 @@ def create_lazy_get_method(attr):
                 loadmethod()
             value = getattr(self, attr.var_private, None)
         return value
-    lazy_get.signature_name = attr.var_get
-    lazy_get.signature = attr.data_type
     return lazy_get
 
 def create_set_method(attr):
@@ -187,10 +185,6 @@ def create_set_method(attr):
             setattr(self,attr.var_private, value)
             # mark it as updated
             self.updated.add(attr)
-    set.signature = None
-    set.signature_name = attr.var_set
-    set.signature_write = True
-    set.signature_args = [attr.data_type]
     return set
 
 class Builder(object):
@@ -258,16 +252,19 @@ class Builder(object):
         # this should be kind of optimized...
 
         key = []
-        if not vargs:
-            for i in xrange(len(cls.primary)):
-                key.append(args[i])
-        else:
-            args = iter(args)
-            for i in cls.primary:
-                try:
-                    key.append(vargs[i.name])
-                except KeyError:
-                    key.append(args.next())
+        try:
+            if not vargs:
+                for i in xrange(len(cls.primary)):
+                    key.append(args[i])
+            else:
+                args = iter(args)
+                for i in cls.primary:
+                    try:
+                        key.append(vargs[i.name])
+                    except KeyError:
+                        key.append(args.next())
+        except IndexError, e:
+            raise TypeError, 'Missing primary key: %s' % (cls.primary, )
 
         return tuple(key)
 
@@ -372,10 +369,27 @@ class Builder(object):
         for attr in cls.slots:
             if not hasattr(cls, attr.var_get):
                 setattr(cls, attr.var_get, create_lazy_get_method(attr))
-            
+
+            get = getattr(cls, attr.var_get)
+            if type(get) == types.MethodType:
+                get = get.im_func
+            get.signature = attr.data_type
+            get.signature_name = attr.var_get
+             
             if attr.write:
                 if not hasattr(cls, attr.var_set):
                     setattr(cls, attr.var_set, create_set_method(attr))
+
+                set = getattr(cls, attr.var_set)
+                if type(set) == types.MethodType:
+                    set = set.im_func
+                    set.signature = None
+                    set.signature_name = attr.var_set
+                    set.signature_write = True
+                    set.signature_args = [attr.data_type]
+            else:
+                assert not hasattr(cls, attr.var_set)
+
 
     build_methods = classmethod(build_methods)
 

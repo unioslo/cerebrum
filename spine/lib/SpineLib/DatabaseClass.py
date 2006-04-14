@@ -381,13 +381,14 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
     build_methods = classmethod(build_methods)
 
 def _table_exists(db, table):
-    db.execute('START TRANSACTION')
+    from Cerebrum.Utils import Factory
+    db = Factory.get('Database')()
     try:
         db.query('SELECT * FROM %s LIMIT 1' % table)
-        db.execute('ABORT')
+        db.close()
         return True
     except Exception:
-        db.execute('ABORT')
+        db.close()
         return False
 
 def _create_table(db, cls, table, slots, visited):
@@ -466,27 +467,15 @@ def drop_tables(db, cls):
         db.execute('DROP TABLE %s' % table)
 
 class Sequence(object):
-    def create(cls, db):
-        if cls.exists(db):
-            return
-        print 'creating sequence', cls.__name__
-        db.execute('CREATE SEQUENCE %s' % cls.__name__)
-
-    create = classmethod(create)
-
-    def nextval(cls, db):
-        return db.nextval(cls.__name__)
-
-    nextval = classmethod(nextval)
-
-    def exists(cls, db):
-        db.execute('START TRANSACTION')
+    def exists(cls):
+        from Cerebrum.Utils import Factory
+        db = Factory.get('Database')()
         try:
             cls.nextval(db)
-            db.execute('ABORT')
+            db.close()
             return True
         except:
-            db.execute('ABORT')
+            db.close()
             return False
 
     exists = classmethod(exists)
