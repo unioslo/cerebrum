@@ -19,3 +19,5 @@ for room in tr.get_dummy_room_searcher().search():
     print room.get_id(), room.get_name(), room.get_description(), 'building:', room.get_building().get_name()
 
 # tr.commit()
+
+# arch-tag: c7e8b83c-cb49-11da-83cd-13e9296b50e4

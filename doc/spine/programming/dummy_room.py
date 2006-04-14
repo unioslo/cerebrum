@@ -45,3 +45,5 @@ class DummyCommands(DatabaseTransactionClass):
 
     create_room.signature = DummyRoom
     create_room.signature_args = [str, DummyBuilding, str]
+
+# arch-tag: c868a164-cb49-11da-9413-4156413f6c3e
