@@ -87,3 +87,6 @@ Cascade style sheets
 --------------------
 Css-files are placed in <cereweb\htdocs\css\>, and uses cheetah-templates
 too. Add your css code to the styles.tmpl file or create your own css-file.
+
+..
+   arch-tag: 543d2da8-ce52-11da-8653-3805d70f470b
