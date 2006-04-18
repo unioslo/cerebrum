@@ -18,16 +18,19 @@ def main():
     contrib_dir = '/cerebrum/share/cerebrum/contrib/no/uit'
 
     ret =0
-    
     ret = os.system("%s/job_runner.py --quit"% sbin_dir)
     if(ret != 0):
         print "Error: stopping the job_runner. is it running?"
     try:
         ret = os.system("gzip -9 -c %s/rooterror.log > %s/rooterror.log_%s.gz" % (log_dir,backup_dir,time_stamp))
+        if (ret == 0):
+            ret = os.system("rm %s/rooterror.log" % log_dir)
+            ret = os.system("touch %s/rooterror.log" % log_dir)
+            ret = os.system("echo 0 > %s/rooterror.log.pos" % log_dir)    
         ret = os.system("gzip -9 -c %s/rootwarn.log > %s/rootwarn.log_%s.gz" % (log_dir,backup_dir,time_stamp))
-        ret = os.system("rm %s/rooterror.log" % log_dir)
-        ret = os.system("rm %s/rootwarn.log" % log_dir)
-    except:
+        if (ret == 0):
+            ret = os.system("rm %s/rootwarn.log" % log_dir)
+   except:
         print "error in log rotate"
     
 
