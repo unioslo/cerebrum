@@ -40,17 +40,10 @@ class Constants(Constants.Constants):
                                                'Override information fetched from proper authoritative systems')
     system_manual =  _AuthoritativeSystemCode('MANUELL',
                                               'Manually added information')
-    # Disse fins i Cerebrum.modules.no/ConstantsHigherEdu  
-    system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
-    system_fs = _AuthoritativeSystemCode('FS', 'FS')
-    # external id definitions (NO_NIN, norwegian national id number)
-    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
-                                                 Constants.Constants.entity_person,
-                                                 'Norwegian birth number')    
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker', 'Kurskonto')
-    # account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
+    account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
     account_felles  = _AccountCode('fellesbruker','Fellesbruker')
     account_system  = _AccountCode('systembruker', 'Systembruker') 
 ## AFFILIATIONS FOR ANSATTE
