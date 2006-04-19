@@ -73,7 +73,7 @@ def process_lines(infile):
     # Iterate over all persons:
     for line in stream:
         commit_count += 1
-        logger.debug5("Processing line: |%s|", line)
+        logger.debug5("\nProcessing line: |%s|", line.strip())
 
         fields = string.split(line.strip(), ";")
         if len(fields) != 2:
@@ -84,10 +84,10 @@ def process_lines(infile):
         if not fnr == "":
             person_id = process_person(fnr)
             if person_id:
-                logger.debug4("Processing user with person: %s", uname)
+                logger.debug4("Processing person with user: %s", uname)
                 account_id = process_user(person_id, uname)
             else:
-                # logger.error("Bad fnr: %s Skipping", line)
+                logger.error("Bad fnr: %s, uname %s. Skipping!" % (fnr, uname))
                 continue
         else:
             logger.debug4("Processing user without person: %s", uname)
@@ -111,7 +111,7 @@ def process_person(fnr):
     try:
         fodselsnr.personnr_ok(fnr)
     except fodselsnr.InvalidFnrError:
-        logger.warn("Bad no_ssn |%s|", fnr)
+        #logger.warn("Bad no_ssn |%s|", fnr)
         return None
         
     if fnr2person_id.has_key(fnr):
@@ -188,7 +188,6 @@ def usage():
     -f, --file    : File to parse.
     """
     sys.exit(0)
-# end usage
 
 
 
@@ -236,14 +235,8 @@ def main():
         process_lines(infile)
 
     attempt_commit()
-# end main
-
-
 
 
 
 if __name__ == '__main__':
     main()
-# fi
-
-# arch-tag: d7992a61-eb09-4683-a072-43e3c6fdf352
