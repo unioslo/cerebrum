@@ -57,22 +57,30 @@ def main():
     db = Factory.get("Database")()
     execute = delete()
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'f:',['file='])
+        opts,args = getopt.getopt(sys.argv[1:],'f:a:',['file=','account_id='])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
     
     account_file=0
+    account_id = 0
     for opt,val in opts:
         if opt in('-f','--file'):
             account_file = val
+        if opt in('-a','--account_id'):
+            account_id = val
 
-    if account_file == 0:
+    if (account_file == 0 and account_id == 0):
         usage()
         sys.exit(1)
     else:
-        print "account_file = %s" % account_file
-        file_handle = open(account_file,"r")
+        if (account_file != 0):
+            print "account_file = %s" % account_file
+            file_handle = open(account_file,"r")
+        elif (account_id != 0):
+            file_handle = []
+            file_handle.append(account_id)
+            
         for line in file_handle:
             if(line[0] != '\n'):
                 account_id = line
@@ -94,9 +102,12 @@ def main():
 
 def usage():
     print """
-    -f | --file : reads a file containing the account_id of all accounts
-                  to delete. 1 account_id on each line.
-                  """
+    -f | --file       : reads a file containing the account_id of all accounts
+                        to delete. 1 account_id on each line.
+    -a | --account_id : reads account id from command lina and deletes only this account
+                        and its related email info
+
+    """
 if __name__ == '__main__':
     main()
 
