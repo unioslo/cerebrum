@@ -319,10 +319,17 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                 ret.extend(self.list_children(perspective, r['ou_id'],
                                               recursive))
         return ret
-
-    def list_all(self):
+            
+    def list_all(self, filter_quarantined=False):
+        extra = "" 
+        if filter_quarantined:
+            extra = " WHERE NOT EXISTS (" \
+                    " SELECT 'x' " \
+                    " FROM [:table schema=cerebrum name=entity_quarantine] eq" \
+                    " WHERE oi.ou_id=eq.entity_id)"
         return self.query("""
-        SELECT ou_id FROM [:table schema=cerebrum name=ou_info]""")
+        SELECT oi.ou_id FROM [:table schema=cerebrum name=ou_info] oi
+        %s""" % extra)
 
     def get_structure_mappings(self, perspective):
         """Return list of ou_id -> parent_id connections in ``perspective``."""
