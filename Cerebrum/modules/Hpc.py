@@ -40,7 +40,7 @@ class _InterConnectCode(Constants._CerebrumCode):
     pass
 
 class _AllocationAuthorityCode(Constants._CerebrumCode):
-    "Entity responsible for allocating credits to projects"
+    "Authority responsible for allocating credits to projects"
     _lookup_table = '[:table schema=cerebrum name=allocation_authority_code]'
     pass
 
@@ -49,12 +49,52 @@ class _ScienceCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=science_code]'
     pass
 
+
+class _AllocationPeriodCode(Constants._CerebrumCode):
+    "Periods used for Quota Allocations"
+    _lookup_table = '[:table schema=cerebrum name=allocation_period]'
+    _lookup_code_column = 'allocation_period_id'
+    _lookup_str_column = 'name'
+
+    def __init__(self, code, authority=None, startdate=None, enddate=None,
+                 description=None):
+        if (authority is not None
+            and startdate is not None
+            and enddate is not None):
+            self._authority = authority
+            self._startdate = startdate
+            self._enddate = enddate
+        super(_AllocationPeriodCode, self).__init__(code, description)
+
+    def insert(self):
+        self.sql.execute("""
+        INSERT INTO %(code_table)s
+        (%(code_col)s, %(str_col)s, allocation, startdate, enddate,
+        %(desc_col)s)
+        VALUES
+          (%(code_seq)s, :str, :allocation, :startdate, :enddate, :desc)""" % {
+            'code_table': self._lookup_table,
+            'code_col': self._lookup_code_column,
+            'str_col': self._lookup_str_column,
+            'desc_col': self._lookup_desc_column,
+            'code_seq': self._code_sequence},
+                         {'str': self.str,
+                          'allocation': self._allocation,
+                          'startdate': self._startdate,
+                          'enddate': self._enddate,
+                          'desc': self.description})
+
+        
+
+
+
 class HpcConstants(Constants.Constants):
     CpuArch = _CpuArchCode
     OperatingSystem = _OperatingSystemCode
     InterConnect = _InterConnectCode
     AllocationAuthority = _AllocationAuthorityCode
     Science = _ScienceCode
+    AllocationPeriod = _AllocationPeriodCode
 
     entity_project = Constants._EntityTypeCode(
         'project',
@@ -235,6 +275,7 @@ class Project(Entity_class):
         self.__updated = []
         return is_new
 
+
     def find(self, project_id):
         """Connect object to Project with ``project_id`` in database."""
         self.__super.find(project_id)
@@ -278,7 +319,7 @@ class Project(Entity_class):
     def remove_member(self, member_id):
         """Remove ``member`` from project"""
         self.execute("""
-        DELETE FROM [:table schema=cerebrum name=group_info]
+        DELETE FROM [:table schema=cerebrum name=project_member]
         WHERE project_id=:project_id AND member_id=:member_id""",
                      {'project_id': self.entity_id,
                       'member_id': int(member_id)})
@@ -289,8 +330,257 @@ class Project(Entity_class):
 
         members = self.query("""SELECT member_id
         FROM [:table schema=cerebrum name=project_member]
-        WHERE project_id=:project_id""", {'project_id': project_id})
+        WHERE project_id=:project_id""", {'project_id': self.entity_id})
         return members
+
+
+    def add_allocation(self, name, authority):
+        """Add an allocation to project"""
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=allocation]
+          (project_id, allocation_authority, name)
+        VALUES (:project_id, :allocation_authority, :name)""",
+                     {'project_id': self.entity_id,
+                      'allocation_authority': int(authority),
+                      'name': name})
+
+    def remove_allocation(self, name):
+        """Remove allocation from project"""
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=allocation]
+        WHERE project_id=:project_id AND name=:name""",
+                     {'project_id': self.entity_id,
+                      'name': name})
+
+    def get_allocations(self):
+        """Return a list of allocations for the project"""
+
+        allocations = self.query("""SELECT name, allocation_authority
+        FROM [:table schema=cerebrum name=allocation]
+        WHERE project_id=:project_id""", {'project_id': self.entity_id})
+        return allocations
+
+    def find_by_allocation_name(self, name):
+        project_id=self.query_1("""
+        SELECT project_id
+        FROM [:table schema=cerebrum name=allocation]
+        WHERE name=:name""", locals())
+        self.find(project_id)
+
+    def _add_credit_transaction(self, allocation_name, allocation_period,
+                                credits, description=None):
+        
+        credit_transaction_id=self.nextval("credit_transaction_seq")
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=credit_transaction]
+          (credit_transaction_id, project_id, allocation_period,
+          name, credits)
+        VALUES (:credit_transaction_id, :project_id, :allocation_period,
+                :name, :credits)""",
+                     {'credit_transaction_id': credit_transaction_id,
+                      'project_id': self.entity_id,
+                      'allocation_period': int(allocation_period),
+                      'name': name,
+                      'credits': credits})
+        return credit_transaction_id
+    
+    def allocate_credits(self, allocation_name, allocation_period,
+                         credits, description=None):
+        """Allocate credits to project and allocation_name"""
+        credit_transaction_id=self._add_credit_transaction()
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=accounting_transaction]
+          (credit_transaction_id, description)
+        VALUES (:credit_transaction_id, :description)""",
+                     {'credit_transaction_id': credit_transaction_id,
+                      'description': description})
+
+    def account_credits(self, allocation_name, allocation_period):
+        pass
+    
+
+
+
+class AllocationPeriod(Entity_class):
+    __read_attr__ = ('__in_db',)
+    __write_attr__ = ('authority', 'name', 'startdate', 'enddate',
+                      'description')
+
+    def clear(self):
+        super(AllocationPeriod, self).clear()
+        self.clear_class(AllocationPeriod)
+        self.__updated = []
+
+    def populate(self, authority, name, startdate, enddate, parent=None):
+        """Populate a new period"""
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity_class.populate(self, self.const.entity_project)
+        
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
+
+        self.authority=authority
+        self.name=name
+        self.startdate=startdate
+        self.enddate=enddate
+
+
+    def write_db(self):
+        """Write allocation_period instance to database"""
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        is_new = not self.__in_db
+
+        if is_new:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=allocation_period]
+            (allocation_period_id, authority, name, startdate, enddate)
+            VALUES (:allocation_period_id, :authority, :name,
+              :startdate, :enddate)""",
+                         {'allocation_period_id' : self.entity_id,
+                          'authority' : int(self.authority),
+                          'name' : self.name,
+                          'startdate' : self.startdate,
+                          'enddate' : self.enddate})
+        else:
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=allocation_period]
+            SET authority=:authority, name=:name, startdate=:startdate,
+              enddate=:enddate
+            WHERE allocation_period_id=:allocation_period_id
+            VALUES (:allocation_period_id, :authority, :name,
+              :startdate, :enddate)""",
+                         {'allocation_period_id' : self.entity_id,
+                          'authority' : int(self.authority),
+                          'name' : self.name,
+                          'startdate' : self.startdate,
+                          'enddate' : self.enddate})
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = []
+        return is_new
+
+    def find(self, allocation_period_id):
+        """Connect object with 'allocation_period' in the database."""
+        self.__super.find(allocation_period_id)
+        (self.authority, self.name, self.startdate,
+         self.enddate) = self.query_1("""
+         SELECT authority, name, startdate, enddate
+         FROM [:table schema=cerebrum name=allocation_period]
+         WHERE allocation_period_id=:period_id""",
+                                      {'period_id': allocation_period_id})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = []
+
+    def find_by_name(self, name):
+        allocation_period_id=self.query_1("""
+        SELECT allocation_period_id
+        FROM [:table schema=cerebrum name=allocation_period]
+        WHERE name=:name""", locals())
+        self.find(allocation_period_id)
+        
+
+
+    def delete(self):
+        """Delete an unreferenced allocation period"""
+        if self.__in_db:
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=allocation_period]
+            WHERE allocation_period=:allocation_period""",
+                         {'allocation_period_id': entity_id})
+            #self._db.log_change(self.entity_id, self.const.allocation_period_destroy, None)
+        # Delete from entity tables
+        Entity_class.delete(self)
+
+
+
+
+class Allocation(Entity_class):
+    __read_attr__ = ('__in_db',)
+    __write_attr__ = ('authority', 'name')
+
+    def clear(self):
+        super(AllocationPeriod, self).clear()
+        self.clear_class(AllocationPeriod)
+        self.__updated = []
+
+    def populate(self, authority, name, startdate, enddate, parent=None):
+        """Populate a new period"""
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity_class.populate(self, self.const.entity_project)
+        
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
+
+        self.authority=authority
+        self.name=name
+        self.startdate=startdate
+        self.enddate=enddate
+
+
+    def write_db(self):
+        """Write allocation_period instance to database"""
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        is_new = not self.__in_db
+
+        if is_new:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=allocation_period]
+            (allocation_period_id, authority, name, startdate, enddate)
+            VALUES (:allocation_period_id, :authority, :name,
+              :startdate, :enddate)""",
+                         {'allocation_period_id' : self.entity_id,
+                          'authority' : int(self.authority),
+                          'name' : self.name,
+                          'startdate' : self.startdate,
+                          'enddate' : self.enddate})
+        else:
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=allocation_period]
+            SET authority=:authority, name=:name, startdate=:startdate,
+              enddate=:enddate
+            WHERE allocation_period_id=:allocation_period_id
+            VALUES (:allocation_period_id, :authority, :name,
+              :startdate, :enddate)""",
+                         {'allocation_period_id' : self.entity_id,
+                          'authority' : int(self.authority),
+                          'name' : self.name,
+                          'startdate' : self.startdate,
+                          'enddate' : self.enddate})
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = []
+        return is_new
+
+    def delete(self):
+        """Delete an unreferenced allocation period"""
+        if self.__in_db:
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=allocation_period]
+            WHERE allocation_period=:allocation_period""",
+                         {'allocation_period_id': self.allocation_period_id})
+            #self._db.log_change(self.entity_id, self.const.allocation_period_destroy, None)
+        # Delete from entity tables
+        Entity_class.delete(self)
+
+
 
 
 # arch-tag: 663a698a-9d38-11da-8f54-cae0bdbdc61d
