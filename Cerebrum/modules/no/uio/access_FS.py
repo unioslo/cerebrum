@@ -177,9 +177,13 @@ class UiOStudent(access_FS.Student):
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            em.emnekode, em.versjonskode
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
-           fs.registerkort r, fs.eksamensmelding em, fs.emne_i_studieprogram es
+           fs.registerkort r, fs.eksamensmelding em,
+           fs.emne_i_studieprogram es, fs.person p
+           
         WHERE s.fodselsdato=r.fodselsdato AND
            s.personnr=r.personnr AND
+           s.fodselsdato=p.fodselsdato AND
+           s.personnr=p.personnr AND
            s.fodselsdato=sps.fodselsdato AND
            s.personnr=sps.personnr AND
            s.fodselsdato=em.fodselsdato AND
@@ -192,7 +196,9 @@ class UiOStudent(access_FS.Student):
            r.status_reg_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           %s """ % (extra, self._get_termin_aar(only_current=1))
+           %s AND
+           %s""" % (extra, self._get_termin_aar(only_current=1),
+                    self._is_alive())
         return self.db.query(qry, locals())
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
@@ -211,10 +217,13 @@ class UiOStudent(access_FS.Student):
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            em.emnekode, em.versjonskode
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
-           fs.registerkort r, fs.eksamensmelding em
+           fs.registerkort r, fs.eksamensmelding em,
+           fs.person p
         WHERE sps.studieprogramkode='ENKELTEMNE' AND
            s.fodselsdato=r.fodselsdato AND
            s.personnr=r.personnr AND
+           s.fodselsdato=p.fodselsdato AND
+           s.personnr=p.personnr AND
            s.fodselsdato=sps.fodselsdato AND
            s.personnr=sps.personnr AND
            s.fodselsdato=em.fodselsdato AND
@@ -225,7 +234,9 @@ class UiOStudent(access_FS.Student):
            r.status_reg_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           %s """ % (extra, self._get_termin_aar(only_current=1))
+           %s AND
+           %s""" % (extra, self._get_termin_aar(only_current=1),
+                    self._is_alive())
         return self.db.query(qry, locals())
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
@@ -243,9 +254,12 @@ class UiOStudent(access_FS.Student):
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            'NULL' as emnekode, 'NULL' as versjonskode
         FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
-           fs.studprogstud_planbekreft spp, fs.studieprogram sp
+           fs.studprogstud_planbekreft spp, fs.studieprogram sp,
+           fs.person p
         WHERE s.fodselsdato=sps.fodselsdato AND
            s.personnr=sps.personnr AND
+           s.fodselsdato=p.fodselsdato AND
+           s.personnr=p.personnr AND
            s.fodselsdato=r.fodselsdato AND
            s.personnr=r.personnr AND
            s.fodselsdato=spp.fodselsdato AND
@@ -261,8 +275,9 @@ class UiOStudent(access_FS.Student):
            spp.terminkode_bekreft='%s' AND
            r.status_reg_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
-           %s """ % (extra, self.year, self.semester,
-                     self._get_termin_aar(only_current=1))
+           %s AND
+           %s""" % (extra, self.year, self.semester,
+                    self._get_termin_aar(only_current=1), self._is_alive())
         return self.db.query(qry, locals())
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
@@ -281,10 +296,13 @@ class UiOStudent(access_FS.Student):
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            sp.emnekode, sp.versjonskode
         FROM fs.studentseksprotokoll sp, fs.studieprogramstudent sps,
-           fs.emne_i_studieprogram es, fs.registerkort r
+           fs.emne_i_studieprogram es, fs.registerkort r,
+           fs.person p
         WHERE sp.arstall=%s AND
            sp.fodselsdato=sps.fodselsdato AND
            sp.personnr=sps.personnr AND
+           sp.fodselsdato=p.fodselsdato AND
+           sp.personnr=p.personnr AND
            r.fodselsdato=sps.fodselsdato AND
            r.personnr=sps.personnr AND
            %s
@@ -293,8 +311,10 @@ class UiOStudent(access_FS.Student):
            es.studieprogramkode=sps.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist='N' AND
+           %s AND
            %s
-        """ % (self.year, extra, self._get_termin_aar(only_current=1))
+        """ % (self.year, extra, self._get_termin_aar(only_current=1),
+               self._is_alive())
         return self.db.query(qry, locals())
 
     def list_privatist_emne(self, fodselsdato=None, personnr=None):  # GetStudentPrivatistEmne_50
@@ -337,7 +357,10 @@ class UiOStudent(access_FS.Student):
                      es.emnekode=em.emnekode AND
                      es.studieprogramkode = sps.studieprogramkode AND
                      NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= SYSDATE)
-        """ % (self.year, extra, self._get_termin_aar(only_current=1))
+              AND
+              %s
+        """ % (self.year, extra, self._get_termin_aar(only_current=1),
+               self._is_alive())
         return self.db.query(qry, locals())
 
     def list_privatist(self, fodselsdato=None, personnr=None): # GetStudentPrivatist_50
@@ -379,8 +402,9 @@ class UiOStudent(access_FS.Student):
                sps.status_privatist = 'J' AND
                sps.dato_studierett_tildelt < SYSDATE + 14 AND
                sps.dato_studierett_tildelt >= to_date('2003-01-01',
-                                                      'yyyy-mm-dd')
-       """ % extra1
+                                                      'yyyy-mm-dd') AND
+               %s
+       """ % (extra1, self._is_alive())
         qry += """ UNION
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -403,8 +427,9 @@ class UiOStudent(access_FS.Student):
                %s
                NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
                sps.status_privatist = 'J' AND
-               r.arstall >= (%s - 1)
-               """ % (extra2, self.year)
+               r.arstall >= (%s - 1) AND
+               %s
+               """ % (extra2, self.year, self._is_alive())
         return self.db.query(qry, {'fodselsdato': fodselsdato,
                                    'fodselsdato2': fodselsdato,
                                    'personnr': personnr,
