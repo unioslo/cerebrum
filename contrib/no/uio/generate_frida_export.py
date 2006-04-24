@@ -282,9 +282,12 @@ def output_OUs(writer, db, sysname, oufile):
     # od
 
     logger.info("Cached info on %d OUs from %s", len(ou_cache), oufile)
+
+    writer.startElement("organisasjon")
     for sko in ou_cache:
         output_OU(writer, sko, ou_cache)
     # od
+    writer.endElement("organisasjon")
 # end output_OUs
 
 
