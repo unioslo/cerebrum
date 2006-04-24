@@ -57,10 +57,11 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, \
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
      AuthConstants, BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.templates.letters import TemplateHandler
