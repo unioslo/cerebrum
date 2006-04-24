@@ -184,7 +184,7 @@ def _calc_address(person_info):
             # Henter ikke adresseinformasjon for aktiv, men vi vil
             # alltid ha minst et opptak når noen er aktiv.
             if not (person_info.has_key('opptak') or
-                    person_info.has_key('privatist_studieprogram'):
+                    person_info.has_key('privatist_studieprogram')):
                 logger.error("Har aktiv tag uten opptak/privatist tag! (fnr: %s %s)" % (
                     person_info['fodselsdato'], person_info['personnr']))
                 continue
