@@ -63,3 +63,4 @@ class BofhdAuth(auth.BofhdAuth):
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      account)
     
+# arch-tag: 4ab0350c-d3a0-11da-9a00-b0596eba3453
