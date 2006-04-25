@@ -129,7 +129,7 @@ class Machine(Host_class):
 
     def populate(self, cpu_arch, operating_system, interconnect,
                  total_memory=None, node_number=None, node_memory=None,
-                 node_disk=None, cpu_core_number=None, cpu_core_mflpos=None,
+                 node_disk=None, cpu_core_number=None, cpu_core_mflops=None,
                  cpu_mhz=None, name=None, description=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
@@ -145,7 +145,7 @@ class Machine(Host_class):
         self.node_memory = node_memory
         self.node_disk = node_disk
         self.cpu_core_number = cpu_core_number
-        self.cpu_core_mflpos = cpu_core_mflpos
+        self.cpu_core_mflops = cpu_core_mflops
         self.cpu_mhz = cpu_mhz
 
     def write_db(self):
@@ -160,10 +160,10 @@ class Machine(Host_class):
             INSERT INTO [:table schema=cerebrum name=machine_info]
                 (host_id, cpu_arch, operating_system, interconnect,
                 total_memory, node_number, node_memory, node_disk,
-                cpu_core_number, cpu_core_mflpos, cpu_mhz)
+                cpu_core_number, cpu_core_mflops, cpu_mhz)
             VALUES (:host_id, :cpu_arch, :operating_system, :interconnect,
                 :total_memory, :node_number, :node_memory, :node_disk,
-                :cpu_core_number, :cpu_core_mflpos, :cpu_mhz)""",
+                :cpu_core_number, :cpu_core_mflops, :cpu_mhz)""",
                          {'host_id': self.entity_id,
                           'cpu_arch': int(self.cpu_arch),
                           'operating_system': int(self.operating_system),
@@ -173,7 +173,7 @@ class Machine(Host_class):
                           'node_memory': self.node_memory,
                           'node_disk' : self.node_disk,
                           'cpu_core_number' : self.cpu_core_number,
-                          'cpu_core_mflpos' : self.cpu_core_mflpos,
+                          'cpu_core_mflops' : self.cpu_core_mflops,
                           'cpu_mhz' : self.cpu_mhz})
                           
         else:
@@ -183,11 +183,11 @@ class Machine(Host_class):
                 interconnect=:interconnect, total_memory=:total_memory,
                 node_number=:node_number, node_memory=:node_memory,
                 node_disk=:node_disk, cpu_core_number=:cpu_core_number,
-                cpu_core_mflpos=:cpu_core_mflpos, cpu_mhz=:cpu_mhz
+                cpu_core_mflops=:cpu_core_mflops, cpu_mhz=:cpu_mhz
             WHERE host_id=:host_id
             VALUES (:host_id, :cpu_arch, :operating_system, :interconnect,
                 :total_memory, :node_number, :node_memory, :node_disk,
-                :cpu_core_number, :cpu_core_mflpos, :cpu_mhz)""",
+                :cpu_core_number, :cpu_core_mflops, :cpu_mhz)""",
                          {'host_id': self.entity_id,
                           'cpu_arch': int(self.cpu_arch),
                           'operating_system': int(self.operating_system),
@@ -197,7 +197,7 @@ class Machine(Host_class):
                           'node_memory': self.node_memory,
                           'node_disk' : self.node_disk,
                           'cpu_core_number' : self.cpu_core_number,
-                          'cpu_core_mflpos' : self.cpu_core_mflpos,
+                          'cpu_core_mflops' : self.cpu_core_mflops,
                           'cpu_mhz' : self.cpu_mhz})
         del self.__in_db
         self.__in_db = True
@@ -209,10 +209,10 @@ class Machine(Host_class):
         self.__super.find(host_id)
         (self.cpu_arch, self.operating_system, self.interconnect,
          total_memory, node_number, node_memory, node_disk, cpu_core_number,
-         cpu_core_mflpos, cpu_mhz) = self.query_1("""
+         cpu_core_mflops, cpu_mhz) = self.query_1("""
          SELECT cpu_arch, operating_system, interconnect,
              total_memory, node_number, node_memory, node_disk,
-             cpu_core_number, cpu_core_mflpos, cpu_mhz
+             cpu_core_number, cpu_core_mflops, cpu_mhz
          FROM [:table schema=cerebrum name=machine_info]
          WHERE host_id=:host_id""", {'host_id': host_id})
         self.__in_db = True
@@ -306,6 +306,20 @@ class Project(Entity_class):
         # Delete from entity tables
         Entity_class.delete(self)
 
+    def list_projects(self):
+        """List all projects"""
+        return self.query("""
+        SELECT project_id, owner, science
+        FROM [:table schema=cerebrum name=project_info]""")
+
+    def list_projects_allocations(self):
+        """List all projects with allocation names"""
+        return self.query("""
+        SELECT a.name, a.allocation_authority, pi.project_id,
+        pi.owner, pi.science
+        FROM [:table schema=cerebrum name=project_info] pi,
+        [:table schema=cerebrum name=allocation] a
+        WHERE a.project_id=pi.project_id""")
 
     def add_member(self, member_id):
         """Add ``member`` to project"""
@@ -368,39 +382,68 @@ class Project(Entity_class):
         self.find(project_id)
 
     def _add_credit_transaction(self, allocation_name, allocation_period,
-                                credits, description=None):
+                                credits, date=None):
         
         credit_transaction_id=self.nextval("credit_transaction_seq")
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=credit_transaction]
           (credit_transaction_id, project_id, allocation_period,
-          name, credits)
+          date, credits)
         VALUES (:credit_transaction_id, :project_id, :allocation_period,
-                :name, :credits)""",
+                :date, :credits)""",
                      {'credit_transaction_id': credit_transaction_id,
                       'project_id': self.entity_id,
-                      'allocation_period': int(allocation_period),
-                      'name': name,
+                      'allocation_period': allocation_period.entity_id,
+                      'date': date,
                       'credits': credits})
         return credit_transaction_id
     
     def allocate_credits(self, allocation_name, allocation_period,
                          credits, description=None):
         """Allocate credits to project and allocation_name"""
-        credit_transaction_id=self._add_credit_transaction()
+        credit_transaction_id=self._add_credit_transaction(allocation_name,
+	    allocation_period, credits)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=accounting_transaction]
           (credit_transaction_id, description)
         VALUES (:credit_transaction_id, :description)""",
-                     {'credit_transaction_id': credit_transaction_id,
+                     {'credit_transaction_id': int(credit_transaction_id),
                       'description': description})
 
-    def account_credits(self, allocation_name, allocation_period):
-        pass
+    def account_credits(self, allocation_name, allocation_period,
+	credits, date, jobstart, jobend, machine, num_nodes, num_cores,
+        max_memory, walltime, cputime, suspendtime, num_suspends,
+	io_transfered, nice, account):
+        """Account credits to project and allocation_name"""
+        credit_transaction_id=self._add_credit_transaction(allocation_name,
+	    allocation_period, credits, date)
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=accounting_transaction]
+          (credit_transaction_id, jobstart, jobend, machine, num_nodes,
+          num_cores, max_memory, walltime, cputime, suspendtime,
+          num_suspends, io_transfered, nice, account)
+        VALUES (:credit_transaction_id, :jobstart, :jobend, :machine,
+        :num_nodes, :max_memory, :walltime, :cputime, :suspendtime,
+        :num_suspends, :io_transfered, :nice, :account)""",
+                     {'credit_transaction_id': int(credit_transaction_id),
+                      'jobstart': jobstart,
+                      'jobend': jobend,
+                      'machine': machine.entity_id,
+                      'num_nodes': num_nodes,
+                      'num_cores': num_cores,
+                      'max_memory': max_memory,
+                      'walltime': walltime,
+                      'cputime': cputime,
+                      'suspendtime': suspendtime,
+                      'num_suspends': num_suspends,
+                      'io_transfered': io_transfered,
+                      'nice': nice,
+                      'account': account.entity_id})
+
     
 
 
-
+#Entity_class already defined
 class AllocationPeriod(Entity_class):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('authority', 'name', 'startdate', 'enddate',
@@ -436,7 +479,7 @@ class AllocationPeriod(Entity_class):
         if not self.__updated:
             return
         is_new = not self.__in_db
-
+        
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=allocation_period]
@@ -496,12 +539,17 @@ class AllocationPeriod(Entity_class):
         if self.__in_db:
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=allocation_period]
-            WHERE allocation_period=:allocation_period""",
-                         {'allocation_period_id': entity_id})
+            WHERE allocation_period_id=:allocation_period_id""",
+                         {'allocation_period_id': self.entity_id})
             #self._db.log_change(self.entity_id, self.const.allocation_period_destroy, None)
         # Delete from entity tables
         Entity_class.delete(self)
 
+    def list_allocation_periods(self):
+        """List all allocation periods"""
+        return self.query("""
+        SELECT allocation_period_id, authority, name, startdate, enddate
+        FROM [:table schema=cerebrum name=allocation_period]""")
 
 
 
