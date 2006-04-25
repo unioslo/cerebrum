@@ -55,6 +55,9 @@ class Constants(Constants.Constants):
     system_feide = _AuthoritativeSystemCode('Feide', 'Feide')
     perspective_feide = _OUPerspectiveCode('Feide', 'Feide')
 
+    system_manual = _AuthoritativeSystemCode('Manual', 'Manual')
+    perspective_manual = _OUPerspectiveCode('Manual', 'Manual')
+
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
 
