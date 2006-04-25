@@ -319,6 +319,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         else:
             self.person_parent_dn = None
         self.visible_person_attrs = ldapconf('PERSON', 'attrs_visible', {})
+        self.invisible_person_attrs = ldapconf('PERSON', 'attrs_invisible', {})
 
     def init_person_selections(self, affiliation_only=False):
         # Set self.person_spread and self.*_selector, which select
@@ -627,6 +628,8 @@ from None and LDAP_PERSON['dn'].""")
                             person_id, p_affiliations):
             entry.update(self.visible_person_attrs)
             alias_info = (primary_ou_dn,)
+        else:
+            entry.update(self.invisible_person_attrs)
 
         self.update_person_entry(entry, row)
         return dn, entry, alias_info

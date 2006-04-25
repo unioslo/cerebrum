@@ -444,7 +444,7 @@ LDAP_PERSON = {
     # has aliasing turned on must examine all aliases that are in scope.
     'aliases': False,
 
-    # ACI (Access control information) attributes for visible persons.
+    # ACI (Access control information) attributes for (in)visible persons.
     # With OpenLDAP-2.1.4 or later, one can e.g. configure with --enable-aci,
     # put something like this in slapd.conf:
     #   access  to dn.children=<LDAP_PERSON['dn']>  by self read  by aci read
@@ -452,7 +452,10 @@ LDAP_PERSON = {
     # and then give this ACI to persons who should be visible:
     #   "attrs_visible": {
     #       "OpenLDAPaci": ("1.1#entry#grant;c,r,s,x;[all],[entry]#public#",)},
+    # A simpler variant is to use "access to ... filter=(foo=bar) ..."
+    # in slapd.conf, and put 'foo: bar' in (in)visible objects.
     'attrs_visible': {},
+    'attrs_invisible': {},
 
     # Constants.py varname for spread to select persons, or None.
     'spread': None,
@@ -465,11 +468,11 @@ LDAP_PERSON = {
     # A selector can be a simple-selector (below), or a dict
     #   {"affiliation": {"status": simple-selector,
     #                    True:     simple-selector, ...}, # True means wildcard
-    #    True:          {True:     simple-selector, ...}, # True means wildcard
-    #    # Shorthand for "affiliation": {True: simple-selector}:
-    #    "affiliation": simple-selector}
-    # where for each (aff., status), the first existing simple-selector is used
-    # of selector[aff.][status], selector[aff.][True] and selector[True][True].
+    #    True:   {True:            simple-selector, ...}, # True means wildcard
+    #    # Shorthand for ' "affiliation": {True: simple-selector} ':
+    #    "affiliation": simple-selector}.
+    # For each (aff., status), the first existing simple-selector is used of
+    # selector[aff.][status], selector[aff.][True] and selector[True][True].
     # Each affiliation or status can be a tuple of several values.
     #
     # A list selector evaluates to a list of the selected values for the
