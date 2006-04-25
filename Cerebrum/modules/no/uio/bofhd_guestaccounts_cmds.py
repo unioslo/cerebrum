@@ -120,7 +120,11 @@ class BofhdExtension(object):
         # get number of new guest users
         if not all_args:
             return {'prompt': 'How many guest users?', 'default': '1'}
-        nr_of_guests = int(all_args.pop(0))
+        try:
+            int(all_args[0])
+            all_args.pop(0)
+        except ValueError:
+            raise CerebrumError("Not a number: %s" % all_args[0])
         # Get group name. 
         if not all_args:
             return {'prompt': 'Enter owner group name',
@@ -192,15 +196,18 @@ class BofhdExtension(object):
             # won't be stored using the 'PGP-guest_acc' method.
             posix_user.set_password(posix_user.make_passwd(uname))
             posix_user.write_db()
-            ret.append((uname, uid))
+            ret.append(uname)
         return "OK, created guest_users:\n %s " % self._pretty_print(ret)
 
     def user_request_guest_prompt_func(self, session, *args):
         all_args = list(args[:])
         if not all_args:
             return {'prompt': 'How many guest users?', 'default': '1'}
-        nr_of_guests = int(all_args[0])
-        all_args.pop(0)
+        try:
+            int(all_args[0])
+            all_args.pop(0)
+        except ValueError:
+            raise CerebrumError("Not a number: %s" % all_args[0])
         # Date checking
         default_date = DateTime.today() + \
                        DateTime.RelativeDateTime(days=cereconf.GUESTS_DEFAULT_PERIOD)
@@ -210,8 +217,10 @@ class BofhdExtension(object):
         end_date = all_args.pop(0)            
         # Get group name. If name is valid is checked in the other method
         if not all_args:
-            return {'prompt': 'Enter owner group name', 'last_arg': True}
+            return {'prompt': 'Enter owner group name'}
         owner = all_args.pop(0)
+        if not all_args:
+            return {'prompt': 'Enter comment', 'last_arg': True}
         return {'last_arg': True}
 
 
@@ -220,23 +229,24 @@ class BofhdExtension(object):
         ('user', 'request_guest'), prompt_func=user_request_guest_prompt_func,
         perm_filter='can_request_guests')
     def user_request_guest(self, operator, *args):
-        nr, end_date, groupname = args
+        nr, end_date, groupname, comment = args
         self.ba.can_request_guests(operator.get_entity_id(), groupname)
         owner = self.util.get_target(groupname, default_lookup="group")
         today = DateTime.today()
         end_date = self.time_in_interval(end_date, today,
             today + DateTime.RelativeDateTime(days=cereconf.GUESTS_MAX_PERIOD))
         try:
-            user_list = self.bgu.request_guest_users(int(nr), end_date,
+            user_list = self.bgu.request_guest_users(int(nr), end_date, comment,
                                                      self.co.entity_group,
                                                      owner.entity_id,
                                                      operator.get_entity_id())
-            for uname, e_id, passwd in user_list:
+            for uname, comment, e_id, passwd in user_list:
                 operator.store_state("new_account_passwd",
                                      {'account_id': e_id,
                                       'password': passwd})
 
-            ret = "OK, reserved guest users:\n%s\n" % self._pretty_print(user_list)
+            ret = "OK, reserved guest users:\n%s\n" % \
+                  self._pretty_print(user_list, include_comment=False)
             ret += "Please use misc list_passwords to print or view the passwords."
             return ret
         except GuestAccountException, e:
@@ -284,11 +294,16 @@ class BofhdExtension(object):
         ('user', 'guests'), GroupName(help_ref="guest_owner_group"))
     def user_guests(self, operator, groupname): 
         owner = self.util.get_target(groupname, default_lookup="group")
-        users = self.bgu.list_guest_users(owner_id=owner.entity_id)
+        users = self.bgu.list_guest_users(owner_id=owner.entity_id,
+                                          include_comment=True)
         if not users:
             return "No guest users are owned by %s" % groupname
-        return "The following guest users is owned by %s:\n%s" % (
-            groupname, self._pretty_print(users))
+        if len(users) == 1:
+            verb = 'user is'
+        else:
+            verb = 'users are'
+        return ("The following guest %s owned by %s:\n%s" %
+                (verb, groupname, self._pretty_print(users)))
 
 
     all_commands['user_guests_status'] = Command(
@@ -324,34 +339,43 @@ class BofhdExtension(object):
             return disk, None, path
 
 
-    def _pretty_print(self, guests):
+    def _pretty_print(self, guests, include_comment=True):
         """Return a pretty string of the names in guestlist. If the
-        list contains more than 2 consecutive names they should be
-        written as an interval."""
-    
-        intervals = []
-        int2name = {}
+        list contains more than 2 consecutive names they are written
+        as an interval.  The list may be of strings (usernames) or of
+        tuples (username, comment [, more elements]).
 
-        if isinstance(guests[0], tuple):
-            guestlist = [x[0] for x in guests]
-        else:
-            guestlist = guests
-        guestlist.sort()    # sort the list before looking for ranges.
-        for name in guestlist:
-            nr = int(name[-3:])
-            int2name[nr] = name
-            if intervals and nr - intervals[-1][1] == 1:
-                intervals[-1][1] = nr
+        """
+        # Tuples are sorted first by element 0, then element 1 etc.,
+        # if guests is a plain array, that's fine, too.
+        guests.sort()
+        if not isinstance(guests[0], tuple):
+            guests = [(x, "") for x in guests]
+        prev = -2
+        prev_comment = None
+        intervals = []
+        for guest in guests:
+            num = int(guest[0][-3:])
+            if intervals and num - prev == 1 and guest[1] == prev_comment:
+                intervals[-1][1] = guest
             else:
-                intervals.append([nr, nr])
-    
+                intervals.append([guest, guest])
+            prev = num
+            prev_comment = guest[1]
+
         ret = []
-        for i,j in intervals:
-            if i == j:
-                ret.append(int2name[i])
-            else:
-                ret.append('%s - %s' % (int2name[i], int2name[j]))
-    
+        if include_comment:
+            for i, j in intervals:
+                if i == j:
+                    ret.append('%-12s   %s' % (i[0], i[1]))
+                else:
+                    ret.append('%-8s-%s   %s' % (i[0], j[0][-3:], i[1]))
+        else:
+            for i, j in intervals:
+                if i == j:
+                    ret.append('%-12s' % i[0])
+                else:
+                    ret.append('%-8s-%s' % (i[0], j[0][-3:]))
         return '\n'.join(ret)
 
 # arch-tag: bddd54d2-6272-11da-906d-7a8b01ac279a

@@ -48,8 +48,8 @@ class BofhdUtils(object):
         self.co = Factory.get('Constants')(self.db)
         self.logger = server.logger
 
-    def request_guest_users(self, num, end_date, owner_type, owner_id,
-                            operator_id):
+    def request_guest_users(self, num, end_date, comment,
+                            owner_type, owner_id, operator_id):
         """Reserve num guest users until they're manually released or
         until end_date. If the function fails because there are not
         enough guest users available, GuestAccountException is raised.
@@ -61,9 +61,9 @@ class BofhdUtils(object):
                                           "the number of available guests.")
         ret = []
         for guest in self._find_guests(num):
-            e_id, passwd = self._alloc_guest(guest, end_date, owner_type,
-                                             owner_id, operator_id)
-            ret.append((guest, e_id, passwd))            
+            e_id, passwd = self._alloc_guest(guest, end_date, comment,
+                                             owner_type, owner_id, operator_id)
+            ret.append((guest, comment, e_id, passwd))
         return ret
 
     def release_guest(self, guest, operator_id):
@@ -74,7 +74,7 @@ class BofhdUtils(object):
         action and log a warning.
 
         """
-        ac = Factory.get('Account')(self.db)    
+        ac = Factory.get('Account')(self.db)
         ac.find_by_name(guest)
         trait = ac.get_trait(self.co.trait_guest_owner)
         if trait is None:
@@ -109,7 +109,7 @@ class BofhdUtils(object):
             raise GuestAccountException("Already available.")
         return int(owner['target_id'])
 
-    def list_guest_users(self, owner_id=NotSet):
+    def list_guest_users(self, owner_id=NotSet, include_comment=False):
         """List names of guest accounts owned by group with id=owner_id.
         If no owner_id is specified, return all guest accounts.
 
@@ -118,7 +118,10 @@ class BofhdUtils(object):
         ret = []
         for row in ac.list_traits(self.co.trait_guest_owner,
                                   target_id=owner_id, return_name=True):
-            ret.append(row['name'])
+            if include_comment:
+                ret.append((row['name'], row['strval'] or ""))
+            else:
+                ret.append(row['name'])
         return ret
 
     def num_available_accounts(self):
@@ -159,7 +162,8 @@ class BofhdUtils(object):
                                   (num_found, prefix))
         return ret
 
-    def _alloc_guest(self, guest, end_date, owner_type, owner_id, operator_id):
+    def _alloc_guest(self, guest, end_date, comment, owner_type, owner_id,
+                     operator_id):
         """Allocate a guest account.
 
         Make sure that the guest account requested actually exists and
@@ -183,7 +187,10 @@ class BofhdUtils(object):
                                  "Guest user request expired", start=end_date) 
         # Set owner trait
         self.logger.debug("Set owner_id in owner_trait for %s" % guest)
-        ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id)
+        if comment == '':
+            comment = None
+        ac.populate_trait(self.co.trait_guest_owner, target_id=owner_id,
+                          strval=comment)
         ac.write_db()
         # Password
         pgpauth = self.co.Authentication("PGP-guest_acc")
