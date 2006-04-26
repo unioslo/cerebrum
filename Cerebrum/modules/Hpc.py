@@ -44,49 +44,21 @@ class _AllocationAuthorityCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=allocation_authority_code]'
     pass
 
+class _AllocationStatusCode(Constants._CerebrumCode):
+    "Status for an allocation"
+    _lookup_table = '[:table schema=cerebrum name=allocation_status_code]'
+    pass
+
 class _ScienceCode(Constants._CerebrumCode):
     "Science for categorising projects"
     _lookup_table = '[:table schema=cerebrum name=science_code]'
     pass
 
-
-class _AllocationPeriodCode(Constants._CerebrumCode):
-    "Periods used for Quota Allocations"
-    _lookup_table = '[:table schema=cerebrum name=allocation_period]'
-    _lookup_code_column = 'allocation_period_id'
-    _lookup_str_column = 'name'
-
-    def __init__(self, code, authority=None, startdate=None, enddate=None,
-                 description=None):
-        if (authority is not None
-            and startdate is not None
-            and enddate is not None):
-            self._authority = authority
-            self._startdate = startdate
-            self._enddate = enddate
-        super(_AllocationPeriodCode, self).__init__(code, description)
-
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-        (%(code_col)s, %(str_col)s, allocation, startdate, enddate,
-        %(desc_col)s)
-        VALUES
-          (%(code_seq)s, :str, :allocation, :startdate, :enddate, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'allocation': self._allocation,
-                          'startdate': self._startdate,
-                          'enddate': self._enddate,
-                          'desc': self.description})
-
-        
-
-
+class _AllocationCreditPriority(Constants._CerebrumCode):
+    "Priority associated with allocated credits."
+    _lookup_table ='[:table schema=cerebrum name=allocation_credit_priority]'
+    pass
+    
 
 class HpcConstants(Constants.Constants):
     CpuArch = _CpuArchCode
