@@ -27,8 +27,10 @@ class norEduLDIFMixin(OrgLDIF):
 
     cereconf.py setup:
 
-    cereconf.CLASS_OU:     Add 'Cerebrum.modules.no.Stedkode/Stedkode'.
-    cereconf.CLASS_PERSON: Add 'Cerebrum.modules.no.Person/PersonFnrMixin'.
+    Add 'Cerebrum.modules.no.Person/PersonFnrMixin' to cereconf.CLASS_PERSON.
+
+    Either add 'Cerebrum.modules.no.Stedkode/Stedkode' to cereconf.CLASS_OU
+    or override get_orgUnitUniqueID() in a cereconf.CLASS_ORGLDIF mixin.
 
     cereconf.LDAP['FEIDE_schema_version']: '1.1' (current default) to '1.3'.
     If it is a sequence of two versions, use the high version but
@@ -136,13 +138,13 @@ class norEduLDIFMixin(OrgLDIF):
 
     def make_ou_entry(self, ou_id, parent_dn):
         # Changes from superclass:
-        # Only output OUs with katalog_merke == 'T'.
+        # If Stedkode is used, only output OUs with katalog_merke == 'T'.
         # Add object class norEduOrgUnit and its attributes norEduOrgAcronym,
         # cn, norEduOrgUnitUniqueIdentifier, norEduOrgUniqueIdentifier.
         # If a DN is not unique, prepend the norEduOrgUnitUniqueIdentifier.
         self.ou.clear()
         self.ou.find(ou_id)
-        if self.ou.katalog_merke != 'T':
+        if getattr(self.ou, 'katalog_merke', 'T') != 'T':
             return parent_dn, None
         ou_names = [iso2utf((n or '').strip()) for n in (self.ou.acronym,
                                                          self.ou.short_name,
