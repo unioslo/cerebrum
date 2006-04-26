@@ -104,7 +104,6 @@ CREATE TABLE machine_info
 			  REFERENCES interconnect_code(code)
 );
 
-
 
 category:code;
 CREATE TABLE allocation_authority_code
@@ -116,6 +115,31 @@ CREATE TABLE allocation_authority_code
 		CONSTRAINT allocation_authority_codestr_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL
+);
+
+
+category:code;
+CREATE TABLE allocation_status_code
+(
+  code          NUMERIC(6,0)
+                CONSTRAINT allocation_status_code_pk PRIMARY KEY,
+  code_str      CHAR VARYING(16)
+                NOT NULL
+                CONSTRAINT allocation_status_codestr_u UNIQUE,
+  description   CHAR VARYING(512)
+                NOT NULL
+);
+
+category:code;
+CREATE TABLE allocation_credit_priority_code
+(
+  code          NUMERIC(6,0)
+                CONSTRAINT allocation_credit_priority_code_pk PRIMARY KEY,
+  code_str      CHAR VARYING(16)
+                NOT NULL
+                CONSTRAINT allocation_credit_priority_codestr_u UNIQUE,
+  description   CHAR VARYING(512)
+                NOT NULL
 );
 
 

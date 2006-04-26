@@ -54,7 +54,7 @@ class _ScienceCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=science_code]'
     pass
 
-class _AllocationCreditPriority(Constants._CerebrumCode):
+class _AllocationCreditPriorityCode(Constants._CerebrumCode):
     "Priority associated with allocated credits."
     _lookup_table ='[:table schema=cerebrum name=allocation_credit_priority]'
     pass
@@ -65,8 +65,9 @@ class HpcConstants(Constants.Constants):
     OperatingSystem = _OperatingSystemCode
     InterConnect = _InterConnectCode
     AllocationAuthority = _AllocationAuthorityCode
+    AllocationStatusCode = _AllocationStatusCode
+    AllocationCreditPriority = _AllocationCreditPriorityCode
     Science = _ScienceCode
-    AllocationPeriod = _AllocationPeriodCode
 
     entity_project = Constants._EntityTypeCode(
         'project',

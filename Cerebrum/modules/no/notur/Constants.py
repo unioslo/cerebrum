@@ -29,20 +29,52 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode,_AuthenticationCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.Hpc import _CpuArchCode, _OperatingSystemCode, \
-     _InterConnectCode, _ScienceCode, _AllocationAuthorityCode
+     _InterConnectCode, _ScienceCode, _AllocationAuthorityCode, \
+     _AllocationCreditPriorityCode, _AllocationStatusCode
 
 class Constants(Constants.Constants):
 
     science_chemistry = _ScienceCode('Chemistry', 'Chemistry')
+    science_physics = _ScienceCode('Physics', 'Physics')
+    science_cfd = _ScienceCode('CFD', 'Computational Fluid Dynamics')
+    science_geosciences = _ScienceCode('Geosciences', 'Geosciences')
+    science_biosciences = _ScienceCode('Biosciences', 'Biosciences')
+    science_math_inf = _ScienceCode('Math_Inf', 'Mathematics and Informatics')
+    science_mat_sciences = _ScienceCode('mat_sciences', 'Material Sciences')
+    science_economics = _ScienceCode('Economics', 'Economics')
+    science_other = _ScienceCode('Other', 'Other/Unknown')
 
     operatingsystem_irix = _OperatingSystemCode('IRIX', "SGI's UNIX")
+    operatingsystem_aix = _OperatingSystemCode('AIX', "IBM's UNIX")
+    operatingsystem_hpux = _OperatingSystemCode('HP-UX', "HP's UNIX")
+    operatingsystem_linux = _OperatingSystemCode('Linux', "Generic Linux")
+    operatingsystem_solaris = _OperatingSystemCode('Solaris', "Sun Solaris")
 
+    interconnect_fasteth = _InterConnectCode('FastEth', 'Fast Ethernet')
+    interconnect_gigeth = _InterConnectCode('GigEth', 'Gigabit Ethernet')
+    interconnect_sci = _InterConnectCode('SCI', 'Dolphin SCI')
+    interconnect_myrinet = _InterConnectCode('Myrinet', 'Myrinet')
+    interconnect_ib = _InterConnectCode('IB', 'InfiniBand')
+    interconnect_infinipath = _InterConnectCode('InfiniPath', 'InfiniPath')
     interconnect_numa = _InterConnectCode('numa', 'NUMAlink')
 
-    cpuarch_i386 = _CpuArchCode('i386', 'Intel IA32');
+    cpuarch_i386 = _CpuArchCode('i386', 'Intel/AMD 32-bit');
+    cpuarch_x86_64 = _CpuArchCode('x86_64', 'Intel/AMD 64-bit');
+    cpuarch_ia64 = _CpuArchCode('ia64', 'Intel Itanium 64-bit');
+    cpuarch_power = _CpuArchCode('power', 'IBM POWER');
+    cpuarch_ppc32 = _CpuArchCode('ppc32', 'PowerPC 32-bit');
+    cpuarch_ppc64 = _CpuArchCode('ppc64', 'PowerPC 64-bit');
 
     allocationauthority_notur = _AllocationAuthorityCode('notur',
         'forskningsrådet, fordelingsutvalget')
+    allocationauthority_uio = _AllocationAuthorityCode('uio', 'Universitetet i Oslo')
+    allocationauthority_uib = _AllocationAuthorityCode('uib', 'Universitetet i Bergen')
+    allocationauthority_ntnu = _AllocationAuthorityCode('ntnu', 'Norges teknisk-naturvitenskapelige universitet')
+    allocationauthority_uit = _AllocationAuthorityCode('uit', 'Universitetet i Tromsø')
+
+    allocationstatus_active = _AllocationStatusCode('active', 'Active')
+    allocationstatus_inactive = _AllocationStatusCode('inactive', 'Inactive')
+    allocationstatus_unknown = _AllocationStatusCode('unknown', 'Unknown')
 
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
@@ -52,9 +84,11 @@ class Constants(Constants.Constants):
         Constants.Constants.entity_person,
         'Feide name')
 
+    # Most of our data comes from source 'Feide'.
     system_feide = _AuthoritativeSystemCode('Feide', 'Feide')
     perspective_feide = _OUPerspectiveCode('Feide', 'Feide')
 
+    # Some values are constructed manually, such as the initial OUs.
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual')
     perspective_manual = _OUPerspectiveCode('Manual', 'Manual')
 
