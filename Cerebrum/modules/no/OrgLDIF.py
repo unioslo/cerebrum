@@ -25,47 +25,92 @@ class norEduLDIFMixin(OrgLDIF):
     Adds object classes norEdu<Org,OrgUnit,Person> from the FEIDE schema:
     <http://www.feide.no/feide-prosjektet/dokumenter/ldap/FEIDEldap.html>.
 
-    Expects:
-    'Cerebrum.modules.no.Stedkode/Stedkode'     in cereconf.CLASS_OU,
-    'Cerebrum.modules.no.Person/PersonFnrMixin' in cereconf.CLASS_PERSON."""
+    cereconf.py setup:
+
+    cereconf.CLASS_OU:     Add 'Cerebrum.modules.no.Stedkode/Stedkode'.
+    cereconf.CLASS_PERSON: Add 'Cerebrum.modules.no.Person/PersonFnrMixin'.
+
+    cereconf.LDAP['FEIDE_schema_version']: '1.1' (current default) to '1.3'.
+    If it is a sequence of two versions, use the high version but
+    include obsolete attributes from the low version.  This may be
+    useful in a transition stage between schema versions.
+
+    Note that object class extensibleObject, which if the server
+    supports it allows any attribute, is used instead of norEduObsolete
+    and federationFeideSchema.  This avoids a FEIDE schema bug.
+    cereconf.LDAP['use_extensibleObject'] = False disables this.
+    """
+
+    extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True)
+                        and 'extensibleObject') or None
+
+    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.1')
+    FEIDE_obsolete_version = None
+    if isinstance(FEIDE_schema_version, (tuple, list)):
+        FEIDE_obsolete_version = min(*FEIDE_schema_version)
+        FEIDE_schema_version   = max(*FEIDE_schema_version)
+    FEIDE_attr_org_id, FEIDE_attr_ou_id = {
+        '1.1': ('norEduOrgUniqueNumber',     'norEduOrgUnitUniqueNumber'),
+        '1.3': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
+        }[FEIDE_schema_version]
+    FEIDE_class_obsolete = None
+    if FEIDE_obsolete_version <= '1.1' < FEIDE_schema_version:
+        FEIDE_class_obsolete = extensibleObject
+        if not FEIDE_class_obsolete:
+            raise ValueError(
+                "cereconf.LDAP: "
+                "'FEIDE_schema_version' of '1.3' needs 'use_extensibleObject'")
 
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
-        self.norEduOrgUniqueNumber = ("000%05d"  # Note: 000 = Norway in FEIDE.
-                                      % cereconf.DEFAULT_INSTITUSJONSNR,)
+        self.norEduOrgUniqueID = ("000%05d" # Note: 000 = Norway in FEIDE.
+                                  % cereconf.DEFAULT_INSTITUSJONSNR,)
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
     def update_org_object_entry(self, entry):
         # Changes from superclass:
-        # Add object class norEduOrg and its attribute norEduOrgUniqueNumber,
+        # Add object class norEduOrg and its attr norEduOrgUniqueIdentifier,
         # and optionally eduOrgHomePageURI, labeledURI and labeledURIObject.
+        # Also add attribute federationFeideSchemaVersion if appropriate.
         entry['objectClass'].append('norEduOrg')
-        entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueNumber
+        entry[self.FEIDE_attr_org_id] = self.norEduOrgUniqueID
+        if self.FEIDE_class_obsolete:
+            entry['objectClass'].append(self.FEIDE_class_obsolete)
+            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+        if self.FEIDE_schema_version > '1.1' and self.extensibleObject:
+            entry['objectClass'].append(self.extensibleObject)
+            entry['federationFeideSchemaVersion']= (self.FEIDE_schema_version,)
         uri = entry.get('labeledURI') or entry.get('eduOrgHomePageURI')
         if uri:
             entry.setdefault('eduOrgHomePageURI', uri)
             if entry.setdefault('labeledURI', uri):
-                entry['objectClass'].append('labeledURIObject')
+                if self.FEIDE_schema_version <= '1.1':
+                    entry['objectClass'].append('labeledURIObject')
 
-    def get_orgUnitUniqueNumber(self):
-        # Make norEduOrgUnitUniqueNumber attribute from the current OU.
+    def get_orgUnitUniqueID(self):
+        # Make norEduOrgUnitUniqueIdentifier attribute from the current OU.
         return "%02d%02d%02d" % \
                (self.ou.fakultet, self.ou.institutt, self.ou.avdeling)
 
     def update_dummy_ou_entry(self, entry):
         # Changes from superclass:
-        # If root_ou_id is set is found, add object class norEduOrgUnit and
-        # its attributes cn, norEduOrgUnitUniqueNumber, norEduOrgUniqueNumber.
+        # If root_ou_id is set is found, add object class norEduOrgUnit and its
+        # attrs cn, norEduOrgUnitUniqueIdentifier, norEduOrgUniqueIdentifier.
         if self.root_ou_id is None:
             return
         self.ou.clear()
         self.ou.find(self.root_ou_id)
+        ldap_ou_id = self.get_orgUnitUniqueID()
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            'cn':                        (ldapconf('OU', 'dummy_name'),),
-            'norEduOrgUnitUniqueNumber': (self.get_orgUnitUniqueNumber(),),
-            'norEduOrgUniqueNumber':     self.norEduOrgUniqueNumber})
+            'cn':                   (ldapconf('OU', 'dummy_name'),),
+            self.FEIDE_attr_ou_id:  (ldap_ou_id,),
+            self.FEIDE_attr_org_id: self.norEduOrgUniqueID})
+        if self.FEIDE_class_obsolete:
+            entry['objectClass'].append(self.FEIDE_class_obsolete)
+            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+            entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
 
     def fill_ou_entry_contacts(self, entry):
         # Changes from superclass:
@@ -93,8 +138,8 @@ class norEduLDIFMixin(OrgLDIF):
         # Changes from superclass:
         # Only output OUs with katalog_merke == 'T'.
         # Add object class norEduOrgUnit and its attributes norEduOrgAcronym,
-        # cn, norEduOrgUnitUniqueNumber, norEduOrgUniqueNumber.
-        # If a DN is not unique, prepend the norEduOrgUnitUniqueNumber.
+        # cn, norEduOrgUnitUniqueIdentifier, norEduOrgUniqueIdentifier.
+        # If a DN is not unique, prepend the norEduOrgUnitUniqueIdentifier.
         self.ou.clear()
         self.ou.find(ou_id)
         if self.ou.katalog_merke != 'T':
@@ -104,12 +149,17 @@ class norEduLDIFMixin(OrgLDIF):
                                                          self.ou.display_name)]
         acronym  = ou_names[0]
         ou_names = filter(None, ou_names)
+        ldap_ou_id = self.get_orgUnitUniqueID()
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            'norEduOrgUnitUniqueNumber': (self.get_orgUnitUniqueNumber(),),
-            'norEduOrgUniqueNumber':     self.norEduOrgUniqueNumber,
+            self.FEIDE_attr_ou_id:  (ldap_ou_id,),
+            self.FEIDE_attr_org_id: self.norEduOrgUniqueID,
             'ou': ou_names,
             'cn': ou_names[-1:]}
+        if self.FEIDE_class_obsolete:
+            entry['objectClass'].append(self.FEIDE_class_obsolete)
+            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+            entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
         if acronym:
             entry['norEduOrgAcronym'] = (acronym,)
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
@@ -123,13 +173,14 @@ class norEduLDIFMixin(OrgLDIF):
     def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # If the preferred DN is already used, include
-        # norEduOrgUnitUniqueNumber in the RDN as well.
+        # norEduOrgUnitUniqueIdentifier in the RDN as well.
         dn = "ou=%s,%s" % (
             dn_escape_re.sub(hex_escape_match, entry['ou'][0]), parent_dn)
         if normalize_string(dn) in self.used_DNs:
-            dn = "norEduOrgUnitUniqueNumber=%s+%s" % (
-                dn_escape_re.sub(hex_escape_match,
-                                 entry['norEduOrgUnitUniqueNumber'][0]),
+            ldap_ou_id = entry[self.FEIDE_attr_ou_id][0]
+            dn = "%s=%s+%s" % (
+                self.FEIDE_attr_ou_id,
+                dn_escape_re.sub(hex_escape_match, ldap_ou_id),
                 dn)
         return dn
 
