@@ -280,12 +280,11 @@ class Host(EntityName, Entity_class):
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=host_info]
-              (entity_type, host_id, name, description)
-            VALUES (:e_type, :host_id, :name, :description)
+              (entity_type, host_id, description)
+            VALUES (:e_type, :host_id, :description)
                     """,
                          {'e_type': int(self.const.entity_host),
                           'host_id': self.entity_id,
-                          'name': self.name,
                           'description': self.description})
             self._db.log_change(self.entity_id, self.const.host_add, None,
                                 change_params={'name': self.name})
