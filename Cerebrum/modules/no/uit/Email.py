@@ -32,18 +32,20 @@ from Cerebrum.modules import Email
 
 class email_address:
 
-    def __init__(self,db):
+    def __init__(self,db,logger=None):
         self.db = db
         self.account = Factory.get("Account")(db)
         self.constants = Factory.get("Constants")(db)
         self.person = Factory.get("Person")(db)
         self.ou = Factory.get("OU")(db)
-        self.logger = Factory.get_logger("console")
         self.et = Email.EmailTarget(db)
         self.ea = Email.EmailAddress(db)
         self.edom = Email.EmailDomain(db)
         self.epat = Email.EmailPrimaryAddressTarget(db)
-
+        if logger == None:
+            self.logger = Factory.get_logger("cronjob")
+        else:
+            self.logger = logger
 
     def build_email_list(self):
         email_list = {}
@@ -118,7 +120,7 @@ class email_address:
             self.logger.debug("EmailAddress created: addr='%s': ea_id='%d'", addr, self.ea.email_addr_id)
         # yrt
 
-        if type == "defaultmail":
+        if type == "depricated":
             try:
                 self.epat.find(self.et.email_target_id)
                 self.logger.debug("EmailPrimary found: %s: %d",
@@ -139,7 +141,11 @@ class email_address:
                                  self.ea.email_addr_target_id, self.et.email_target_id)
                 # fi
             # yrt
-        elif (type=="ansattemail"):
+        elif (type == "no_primary_update"):
+            # We are not to update primary email address. -> pass
+            print "not updating primary email address"
+            pass
+        elif (type=="defaultmail"):
             #print "debug: before try:  self.ea.email_addr_target_id=%s,  self.et.email_target_id=%s" % (self.ea.email_addr_target_id ,elf.et.email_target_id)
             try:
                 self.epat.find(self.et.email_target_id)
@@ -197,10 +203,8 @@ class email_address:
 
 
 
-    def account_id2email_address(self,entity_id,account_affiliation,email_list):
+    def account_id2email_address(self,entity_id,email_list):
         logger = Factory.get_logger("console")
-
-        #account_affiliation = self.constants.affiliation_student
 
         # lets get account username
         #print "account_id2email_address. entity_id =%s" % entity_id
@@ -222,6 +226,7 @@ class email_address:
         #student_counter = 0
         #ansatt_counter = 0
 
+        emp_email = stud_email = None
 
         for i in my_account_type:
 
@@ -231,7 +236,8 @@ class email_address:
 
                 logger.debug("student account...")
                 logger.debug("email =%s" % email)
-                return email # returning student email address
+                #return email # returning student email address
+                stud_email = email
             elif i.affiliation == self.constants.affiliation_ansatt:
                 #lets get email address for this employee user
                 logger.debug("----")
@@ -256,27 +262,38 @@ class email_address:
                         #my_domain = self.check_email_address(account_name,default_email_conversion_list,self.ou.fakultet,self.ou.institutt,self.ou.avdeling)
                         email = "%s@%s.uit.no" % (throw_away,my_domain)
                     logger.debug("email address for AD account = %s" % email)
-                    return email
+                    #return email
+                    emp_email = email
                 else:
                     #we have an employee account that doesnt have any email email address associated with it
                     # from AD.
                     #self.ou.clear()
                     #self.ou.find(i.ou_id)
-                    my_domain="asp"
+                    my_domain="invalid"
                     #my_domain = self.check_email_address(account_name,default_email_conversion_list,self.ou.fakultet,self.ou.institutt,self.ou.avdeling)
                     logger.debug("WARNING -> account %s has no email address from AD. checking ou_data towards conversion file" % account_name)
                     email ="%s@%s.uit.no" % (account_name,my_domain) 
                     logger.debug("will use %s" % email)
-                    return email
+                    #return email
+                    emp_email = email
+                
             else:
                 # This account belongs to a person whos not a student or an employee
                 # No email address registered on this account
-                return None
+                #return None
+                pass
+
+        if emp_email:
+            return emp_email
+        if stud_email:
+            return stud_email
+
         logger.debug("ERROR. should never get here..exiting (account % s has no account_type)" % entity_id)
         sys.exit(1)
         
 def main():
     db = Factory.get("Database")()
+    logger=Factory.get_logger("console")
     #account = Factory.get("Account")(db)
     #constants = Factory.get("Constants")(db)
     #person = Factory.get("Person")(db)
@@ -287,12 +304,12 @@ def main():
         usage()
         sys.exit(1)
 
-    person_id = 129249
+    #person_id = 129249
     for opt,val in opts:
         if opt in('-p','--person_id'):
             person_id = val
 
-    execute = email_address(db)
+    execute = email_address(db,logger)
     email_list = execute.build_email_list()
     
     ## This code will not update email_primary_adress table.
@@ -309,7 +326,7 @@ def main():
         execute.person.find(person_id)
         for accounts in execute.person.get_accounts():
             email = execute.account_id2email_address(accounts['account_id'],email_list)
-            execute.process_mail(accounts['account_id'],"defaultmail",email)
+            execute.process_mail(accounts['account_id'],"ansattemail",email)
             execute.person.clear()
     execute.db.commit()
 
@@ -332,7 +349,7 @@ if __name__ == '__main__':
   # hvis something@noe (noe!=ad) -> bruk det jeg faar (something@noe).
   # hvis somethinge@ad           -> something@asp.uit.no
 
-  # hvis ikke noe -> username@asp.uit.no
+  # hvis ikke noe -> username@invalid.uit.no
 
 #hvis student:
   # brukernavn@student.uit.no
