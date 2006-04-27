@@ -265,6 +265,10 @@ class Host(EntityName, Entity_class):
         self.name = name
         self.description = description
 
+    def illegal_name(self, name):
+        """Return a string with error message if host name is illegal"""
+        return False
+
     def write_db(self):
         """Sync instance with Cerebrum database.
 
@@ -273,6 +277,11 @@ class Host(EntityName, Entity_class):
 
         If you want to populate instances with data found in the
         Cerebrum database, use the .find() method."""
+
+        tmp = self.illegal_name(self.name)
+        if tmp:
+            raise self._db.IntegrityError, "Illegal host name: %s" % tmp
+
         self.__super.write_db()
         if not self.__updated:
             return
