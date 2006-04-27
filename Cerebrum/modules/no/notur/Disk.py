@@ -14,3 +14,4 @@ class HostNoturMixin(Disk.Host):
         return self.__super.illegal_name(name)
 
 
+# arch-tag: b45a0f12-d609-11da-8b66-63efeac51fdb
