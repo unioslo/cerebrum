@@ -27,3 +27,5 @@ class IndigoLDIFMixin(OrgLDIF):
         # For now, we don't have an identifier to populate the
         # objects with. We take the entity_id for now.
         return "%d" % self.ou.entity_id
+
+# arch-tag: c1d0e5d8-d5d4-11da-911a-1b5d3a183ac6
