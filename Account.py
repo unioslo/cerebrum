@@ -234,6 +234,9 @@ class AccountUiTMixin(Account.Account):
         if Regime == None:
             cstart=22
             query = "select user_name from legacy_users where ssn='%s' and source <>'AD'" % (ssn)
+        elif Regime == "ONE":
+            cstart=0
+            query = "select user_name from legacy_users where ssn='%s'" % (ssn)
         else:
             cstart=0
             query = "select user_name from legacy_users where ssn='%s' and source ='AD'" % (ssn)
