@@ -90,7 +90,8 @@ class execute:
 
         self.db.cl_init(change_program='process_empl')
         self.emp_list = []
-
+        # lag en liste over alle som har affiliation lik ansatt og som kommer fra SLP4
+        self.existing_emp_list = self.person.list_affiliations(source_system=self.constants.system_lt,affiliation=self.constants.affiliation_ansatt,include_last=True,include_deleted=True)
 
     # This function creates a list of all employees that exists in uit_persons_YYYYMMDD
     # The list is used as authoritative data on which persons (and accounts) that is to
@@ -115,10 +116,8 @@ class execute:
         if(pers_id !=0):
 
             p_entry=self.person.find(pers_id)
-            print "%s" % (self.person.birth_date)
             t=({'person_id':int(pers_id),'birth_date' :self.person.birth_date})
             p_list.append(t)
-            print "p_list =%s" % p_list
         else:
             SLPDataParser(person_file,self.list_xml_fnr)
             for person in person_list:
@@ -126,21 +125,25 @@ class execute:
                 self.person.find_by_external_id(id_type,person,our_source_sys,entity_type)
                 t=({'person_id':int(self.person.entity_id),'birth_date' :self.person.birth_date})
                 p_list.append(t)
-
-            #print "starting listing ssn of all persons in employeee file"
-            #for all in person_list:
-            #    print "%s" % all
-            #sys.exit(1)
-            #p_list = self.person.list_persons()
-        #print "p_list = %s" % p_list
+        i=0
         for p in p_list:
             self.person.clear()
             p_id = p['person_id']
+            #print "%s-person_id=%s" % (i,p_id)
+            i+=1
             emp = self.person.list_affiliations(person_id=p_id,source_system=our_source_sys,
                                                 affiliation=empl_aff)
             if (len(emp)>0):
                 # person er ansatt
                 self.process_employee(p_id,emp[0]['ou_id'])
+                # delete this person from the existing_emp_list
+                # Thus existing_emp_list will only contain employees already stored in the database
+                # but missin in the import file.
+                for emp in self.existing_emp_list:
+                    if emp['person_id']==p_id:
+                        self.existing_emp_list.remove(emp)
+                        
+                    
         # end get_all_employees
 
         
@@ -151,22 +154,23 @@ class execute:
             ad_email = ad_email[account_obj.account_name]
         else:
             # no email in ad_email table for this account.
-            self.logger.warning("WARNING: No ad email for account_id=%s. defaulting to asp.uit.no domain" % account_obj.entity_id)
-            ad_email= "%s@asp.uit.no" % account_obj.account_name 
+            no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
+            self.logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
+            ad_email= "%s@%s" % (account_obj.account_name,no_mailbox_domain)
             self.logger.warning("ad_email = %s" % ad_email)
         
         current_email = ""
         try:
             current_email = account_obj.get_primary_mailaddress()
         except Errors.NotFoundError:
-            # no current mail try to retreive from ad-mail table
+            # no current mail. try to retreive from ad-mail table
             pass
     
         if (current_email.lower() != ad_email.lower()):
             # update email!
             self.logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
             try:
-                em.process_mail(account_obj.entity_id,"ansattemail",ad_email)
+                em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
             except Exception:
                 self.logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
                 sys.exit(2)
@@ -188,32 +192,43 @@ class execute:
         self.person.clear()
         self.person.find(p_id)
         acc = self.person.get_primary_account()
-        has_employee_account = False
+        has_account = False
         if (acc):
-            ac_tmp = Factory.get('Account')(self.db)
-            ac_tmp.find(acc)
-            ac_types = ac_tmp.get_account_types()
-            # only update an account if account type is employee account!
-            for a in ac_types:
-                if (a['affiliation'] == self.constants.affiliation_ansatt):
+            # Person already has an account.
+            # need to update: spread and affiliation
+            try:
+                ac_tmp = Factory.get('Account')(self.db)
+                ac_tmp.find(acc)
+                ac_types = ac_tmp.get_account_types()
+                for a in ac_types:
                     self.logger.info("Update_account(p_id=%s,acc_id=%s):  " % (p_id,acc))
-                    has_employee_account = True
+                    has_account = True
                     self.update_employee_account(acc,ou_id)
+                ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
+                if(not ac_tmp_name.isalpha()):
+                    # The existing account has a valid username for AD export.
+                    # lets update the affiliation,spread and email address.
+                    def_spreads = cereconf.UIT_DEFAULT_EMPLOYEE_SPREADS
+                    ac_tmp.set_account_type(ou_id,self.constants.affiliation_ansatt)
+                    has_account=True
+                    self.update_email(ac_tmp)
+                    for s in def_spreads:
+                        spread_id = int(self.constants.Spread(s))
+                        if (not ac_tmp.has_spread(spread_id)):
+                            self.logger.info("- adding spread %s for account:%s" % (s,this_acc[0]))
+                            ac_tmp.add_spread(spread_id)
                 else:
-                    self.logger.info("Account type for account_id='%s' does not have an employee affiliation! skipping..." % acc)
-
-        if (not has_employee_account):
-            self.logger.warn("No employee account for entity_id=%s" % (self.person.entity_id))        
+                    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (this_acc[0],ac_tmp_name))
+            except:
+                self.logger.warn("unable to update spread,affiliation and email for account: %s" % acc)
+        if (not has_account):
+            # This person does not have an account.
+            # create new account.
             try:
                 acc = self.create_employee_account(ou_id)
                 self.db.commit()
             except Exception,msg:
-                self.logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))
-                #sys.exit(1)
-        #sys.exit(0)
-
-        
-                
+                self.logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))                                
 
     def _promote_posix(self,account_id):
                 
@@ -340,7 +355,7 @@ class execute:
         grp_name = "posixgroup"
         group.clear()
         group.find_by_name(grp_name,domain=self.constants.group_namespace)
-        print "POSIX: %i" % group.entity_id
+        #print "POSIX: %i" % group.entity_id
         self.logger.info("trying to create %s for %s" % (username,personnr))
         
         posix_user.populate(name = username,
@@ -393,8 +408,6 @@ class execute:
         entity_name = Entity.EntityName(self.db)
         entity_name.find_by_name('bootstrap_account',self.constants.account_namespace)
         return entity_name.entity_id
-
-        
         
 def main():
 
@@ -418,13 +431,16 @@ def main():
     else:
         x_create = execute()
         x_create.get_all_employees(person_id,person_file)
+        #print "entry=%s" % x_create.existing_emp_list
+        #x_create.delete_employee_spreads(x_create.existing_emp_list)
         x_create.db.commit()
                                
 def usage():
     print """
     usage:: python process_employees.py 
     -p | --person_id : if you want to run through the whole process, but for
-                       one person only, use thi option with the person_id as the argument
+                       one person only, use this option with the person_id as the argument
+    -f | --file      : xml file containing person information 
     """
     sys.exit(1)
 
