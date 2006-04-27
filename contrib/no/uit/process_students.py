@@ -161,15 +161,46 @@ class AccountUtil(object):
         current_email = ""
         try:
             current_email = account_obj.get_primary_mailaddress()
+            
         except Errors.NotFoundError:
             # no current mail try to retreive from ad-mail table
             pass
+
+        logger.debug("UIT _update_email: student_email='%s', current='%s'" % (student_email,current_email))
     
         if (current_email != student_email):
             # update email!
             em = Email.email_address(db)
             try:
-                em.process_mail(account_obj.entity_id,"defaultmail",student_email)
+                # We need an additional check here. If the student already has an employee account
+                # with an employee primary email address, this script must NOT update the primary
+                # email address (only add an additional email address).
+                # if person_affiliation_soure.affiliation == ansatt && person_affiliation_source.delete_date == NULL
+                #   do not update primary email
+                # else:
+                #   update_primary_email
+                person_id = account_obj.owner_id
+                my_person = Factory.get('Person')(db)
+                my_person.clear()
+                my_person.find(person_id)
+                affiliations = my_person.get_affiliations()
+                update_primary_email=True
+                #print "PERSON ID->%s,affiliations=%s" % (person_id,affiliations)
+                for i in affiliations:
+                    #print "AFF-> %s" % i
+                    #print "affiliation=>>%s, delete_date=%s" % (i.affiliation,i.deleted_date)
+                    if((i.affiliation==const.affiliation_ansatt) and (i.deleted_date==None)):
+                        update_primary_email=False
+                        #print "has employee affiliation. do not update primary email"
+                        #print "affiliation=%s,create_date=%s,delete_date=%s" % (i.affiliation,i.create_date,i.deleted_date)
+                if update_primary_email==False:
+                    print "adding student email"
+                    em.process_mail(account_obj.entity_id,"no_primary_update",student_email)
+                else:
+                    print "has no employee affiliation. update primary email"
+                    em.process_mail(account_obj.entity_id,"defaultmail",student_email)
+
+                logger.debug("UIT: process mailaddr update!")
             except Exception:
                 print "EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,student_email)
                 sys.exit(2)
@@ -232,11 +263,6 @@ class AccountUtil(object):
         else:
             user.find(account_id)
             
-            
-        # UIT: This is how we handle email with students
-        AccountUtil._update_email(user)
-        
-
         for c_id, dta in changes:
             if c_id == 'dfg':
                 user.gid_id = dta
@@ -413,7 +439,17 @@ class AccountUtil(object):
         if changes:
             AccountUtil._handle_user_changes(changes, account_id, as_posix)
 
+
+        # uit:Need to check for email updates here
+        my_user = account_obj
+        my_user.clear()
+        my_user.find(account_id)
+        #print "my_user.name:%s" % my_user.account_name
+        AccountUtil._update_email(my_user)
+        
         changes.extend(AccountUtil._update_group_memberships(account_id, profile))
+
+        
 
         if changes:
             logger.debug("Changes [%i/%s]: %s" % (
@@ -592,6 +628,9 @@ class BuildAccounts(object):
                 profile.get_build()['action']):
                 if pinfo.has_other_ac():
                     logger.debug("Has active non-student account, skipping")
+                    #print "foo=%s" % pinfo._other_ac
+                    BuildAccounts._update_persons_accounts(profile, fnr, [pinfo._other_ac[0]])
+                    #BuildAccounts._update_persons_accounts(profile, fnr, [pinfo.get_best_reserved_ac()])
                     return
                 elif pinfo.has_reserved_ac():  # has a reserved account
                     logger.debug("using reserved: %s" % pinfo.get_best_reserved_ac())
