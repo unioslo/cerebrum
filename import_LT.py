@@ -24,6 +24,7 @@ import os
 import sys
 import getopt
 import time
+import datetime
 import mx
 
 import xml.sax
@@ -411,6 +412,14 @@ def process_person(person):
         new_person.populate_contact_info(const.system_lt, c_type, value, pref)
         c_prefs[c_type] = pref + 1
     op2 = new_person.write_db()
+
+    # UIT: Update last_date field
+    # must be done after write_db() to ensure that affiliation table entry exist in database
+    for k,v in affiliations.items():
+	ou_id, aff, aff_stat = v
+        new_person.set_affiliation_last_date(const.system_lt, ou_id,\
+                                         int(aff), int(aff_stat))
+
     if gen_groups == 1:
         # determine_reservation() needs new_person.entity_id to be
         # set; this should always be the case after write_db() is
@@ -442,12 +451,24 @@ def load_all_affi_entry():
 
 def clean_affi_s_list():
     for k,v in cere_list.items():
+        logger.info("clean_affi_s_list: k=%s,v=%s" % (k,v))
 	if v:
-	    ent_id,ou,affi = k.split(':')
+            logger.info("CLEAN")
+	    #ent_id,ou,affi = k.split(':')
+            #ent_id = int(ent_id)
+            #ou=int(ou)
+            #affi=int(affi)
+            [ent_id,ou,affi] = [int(x) for x in k.split(':')]
 	    new_person.clear()
 	    #new_person.find(int(ent_id))
 	    new_person.entity_id = int(ent_id)
-	    new_person.delete_affiliation(ou, affi, const.system_lt)
+            affs = new_person.list_affiliations(ent_id,affiliation=affi,ou_id=ou ,include_last=True)
+            for aff in affs:
+                last_date = datetime.datetime.fromtimestamp(aff['last_date'])               
+                end_grace_period = last_date + datetime.timedelta(days=cereconf.GRACEPERIOD_EMPLOYEE)                
+                if datetime.datetime.today() > end_grace_period:
+                    logger.warn("Deleting system_lt affiliation for person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s" % (ent_id,ou,affi,last_date,cereconf.GRACEPERIOD_EMPLOYEE))
+                    new_person.delete_affiliation(ou, affi, const.system_lt)
 # end clean_affi_s_list
 
 
