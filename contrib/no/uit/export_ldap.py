@@ -22,6 +22,8 @@ def ldap_export():
     year = date[0]
     month = date[1]
     day = date[2]
+    hour = date[3]
+    min = date[4]
     script_dir = os.path.join(cereconf.CB_PREFIX,'share','cerebrum','contrib')
     
     #logger.info("Starting export of ldap data")
@@ -61,6 +63,7 @@ def ldap_export():
     script_cmd = "%s %s %s" % ('perl', script, script_arg)
     #logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd) 
+    aret = os.system("cp  /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d_%02d%02d " % (year,month,day,year,month,day,hour,min))
     global_ret +=ret
     #logger.info("   ldif-diff.pl %s" % ret)
 
@@ -101,5 +104,3 @@ def usage():
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: ae1fd118-b426-11da-8b2e-9a2d7a16dc82
