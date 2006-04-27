@@ -48,12 +48,12 @@ class create_person_xml:
 
 
     #def __init__(self,out_file,person_file,type,uname_file,slp4_file):
-    def __init__(self,out_file,type,uname_file,slp4_file):
+    def __init__(self,out_file,type,slp4_file):
         person_dict = []
 	person_dict_no_uname =[] 
         if (type =="AD"):
 	    if slp4_file != 0:
-	    	person_info_slp4,person_info_no_uname_slp4 = self.parse_person_file(slp4_file,out_file,uname_file)
+	    	person_info_slp4 = self.parse_person_file(slp4_file,out_file)
                 
 	    self.create_employee_person_xml(person_info_slp4,out_file)
 
@@ -61,7 +61,7 @@ class create_person_xml:
     # This function uses a person file with information about persons from the NIFU file
     # along with a user_name file which contains a mapping between ssn and AD usernames
     # to create person data for import to cerebrum
-    def parse_person_file(self,person_file,out_file,uname_file):
+    def parse_person_file(self,person_file,out_file):
         person_info = []
         person_info_no_uname = []
         # first lets create a hash table with faculty, institute and group number currently in cerebrum
@@ -204,9 +204,12 @@ class create_person_xml:
                 ##########################
                 
                 # lets see if we can get the AD username for this person
-               	if(uname_file !=0):
-		 	uname = ""
-                	uname = self.get_uname(uname_file,SSN)
+               	#if(uname_file !=0):
+                #    uname = ""
+                #    uname = self.get_uname(uname_file,SSN)
+                #    if uname == "":
+                #        logger.error("username for person %s not found in legacy. Not inserted!." % SSN)
+                                                 
                 
 
 
@@ -258,7 +261,7 @@ class create_person_xml:
                 stillingskode = stillingskode.lstrip("\"").rstrip("\"")
                 stillingsbetegnelse = stillingsbetegnelse.lstrip("\"").rstrip("\"")
                 #print "uname =%s AND match = %s AND uname_file = %s AND stillingskode = '%s'" % (len(uname),match,uname_file,stillingskode)
-                if((len(uname) != 0) and (match != 0) and (uname_file != 0) and (stillingskode != 'None') and (stillingsbetegnelse != 'None') and(instituttnr !='None')):
+                if((match != 0) and (stillingskode != 'None') and (stillingsbetegnelse != 'None') and(instituttnr !='None')):
                     # This means that we have all the info we need to store a new person in cerebrum
                     # lets format the input data.
                     #print "with uname = %s" % personnavn
@@ -288,7 +291,7 @@ class create_person_xml:
                                   
                                    'stillingskode' : stillingskode.lstrip("\"").rstrip("\""),
                                    'tittel' : stillingsbetegnelse.lstrip("\"").rstrip("\""),
-				   'uname' : uname,	
+				   #'uname' : uname,	
                                    'Fradato' : begynt.lstrip("\"").rstrip("\"").strip("\n")}
                 
                     #print "%s" % person_dict.items()
@@ -304,80 +307,99 @@ class create_person_xml:
                         person_info.append(person_dict)
 
 
-                elif((uname_file !=0) and (match != 0) and (len(uname) == 0) ):
-		    # no uname found, lets create a dict withouth the uname field
-                    #print "NO uname = %s" % personnavn
-                    ansvarssted = ansvarssted.lstrip("\"").rstrip("\"")
-                    person_dict_no_uname = {'navn' : personnavn.capitalize(),
-                                   'etternavn' : etternavn,
-                                   'fornavn' : fornavn,
-                                   'fodtdag' : fodtdag,
-                                   'fodtmnd' : fodtmnd,
-                                   'fodtar' : fodtar,
-                                   'personnr' : fodselsnr,
-                                   'kjonn' : kjonn.lstrip("\"").rstrip("\""),
-                                   'stedkode' : ansvarssted,
-                                   'fakultet' : fakultetnr,
-                                   'institutt' : instituttnr,
-                                   'gruppe': gruppenr,
-                                   'adresselinje1' : adresselinje1,
-                                   'poststednr' : poststednr,
-                                   'poststednavn' : poststednavn,
-                                   'stillingskode' : stillingskode,
-                                   'tittel' : stillingsbetegnelse.lstrip("\"").rstrip("\""),
-                                   'Fradato' : begynt.lstrip("\"").rstrip("\"").strip("\n")}
+#                 elif((uname_file !=0) and (match != 0) and (len(uname) == 0) ):
+# 		    # no uname found, lets create a dict withouth the uname field
+#                     #print "NO uname = %s" % personnavn
+#                     ansvarssted = ansvarssted.lstrip("\"").rstrip("\"")
+#                     person_dict_no_uname = {'navn' : personnavn.capitalize(),
+#                                    'etternavn' : etternavn,
+#                                    'fornavn' : fornavn,
+#                                    'fodtdag' : fodtdag,
+#                                    'fodtmnd' : fodtmnd,
+#                                    'fodtar' : fodtar,
+#                                    'personnr' : fodselsnr,
+#                                    'kjonn' : kjonn.lstrip("\"").rstrip("\""),
+#                                    'stedkode' : ansvarssted,
+#                                    'fakultet' : fakultetnr,
+#                                    'institutt' : instituttnr,
+#                                    'gruppe': gruppenr,
+#                                    'adresselinje1' : adresselinje1,
+#                                    'poststednr' : poststednr,
+#                                    'poststednavn' : poststednavn,
+#                                    'stillingskode' : stillingskode,
+#                                    'tittel' : stillingsbetegnelse.lstrip("\"").rstrip("\""),
+#                                    'Fradato' : begynt.lstrip("\"").rstrip("\"").strip("\n")}
 
                     # Now...we must check if this person is already inserted into our person_info array
                     # if that is the case, do not enter new data
-                    person_check = 0
-                    for person in person_info_no_uname:
-                        if(person['fodtdag']== person_dict_no_uname['fodtdag'] and person['fodtmnd'] == person_dict_no_uname['fodtmnd'] and person['personnr'] == person_dict_no_uname['personnr']):
-                            person_check = 1
+#                    person_check = 0
+#                    for person in person_info_no_uname:
+#                        if(person['fodtdag']== person_dict_no_uname['fodtdag'] and person['fodtmnd'] == person_dict_no_uname['fodtmnd'] and person['personnr'] == person_dict_no_uname['personnr']):
+#                            person_check = 1
                             #print "%s %s already exists in the person list. NOT inserted" % (person['fornavn'],person['etternavn'])
-                    if person_check == 0:
+#                    if person_check == 0:
                         #print "appending person: %s %s" % (person_dict_no_uname['fornavn'],person_dict_no_uname['etternavn'])
-                        person_info_no_uname.append(person_dict_no_uname)
+#                        person_info_no_uname.append(person_dict_no_uname)
 
                     
                     #print "instnr = %s" % person_dict['institutt']
         # all person data collected, lets send the array of dicts to
         # the function that creates the xml file
-        return person_info,person_info_no_uname
+        return person_info #,person_info_no_uname
         #ret = self.create_employee_person_xml(person_info,out_file)
                 
                 
 
+
+
+    def get_uname2(self,SSN):
+        query = "select user_name,source from legacy_users where ssn='%s'" % SSN
+        person_uname = db.query(query)
+        if(len(person_uname) != 0):
+            for i in person_uname:
+                if(i['source']=='AD'):
+                    return i[0]
+            #print "returning %s" % person_uname[0][0]
+            return person_uname[0][0]
+        else:
+            return ""
+    
+    
+
+
     # This function gets any existing usernames for all users. If a user name exists in the
     # file given, a username is generated. The function reads a file on the format: name, SSN, uname,faculty
-    def get_uname(self,uname_file,SSN):
-        name_check = 0
-        #print "uname file = %s" % uname_file
-        uname_handle = open(uname_file,'r')
-        for uname in uname_handle:
-            # Skal lage brukere til alle som:
-            # har brukernavn, personnummer
-            query = "select user_name,source from legacy_users where ssn='%s'" % SSN
-            person_uname = db.query(query)
-            if(len(person_uname) != 0):
-                for i in person_uname:
-                    if(i['source']=='AD'):
-                        #print "returning %s" % i[0]
-                        return i[0]
-                #print "returning %s" % person_uname[0][0]
-                return person_uname[0][0]
+
+
+#     def get_uname(self,uname_file,SSN):
+#         name_check = 0
+#         #print "uname file = %s" % uname_file
+#         uname_handle = open(uname_file,'r')
+#         for uname in uname_handle:
+#             # Skal lage brukere til alle som:
+#             # har brukernavn, personnummer
+#             query = "select user_name,source from legacy_users where ssn='%s'" % SSN
+#             person_uname = db.query(query)
+#             if(len(person_uname) != 0):
+#                 for i in person_uname:
+#                     if(i['source']=='AD'):
+#                         #print "returning %s" % i[0]
+#                         return i[0]
+#                 #print "returning %s" % person_uname[0][0]
+#                 return person_uname[0][0]
             
-            else:
-                #print "could not get username for person %s from legacy table, person not inserted into cerebrum" % SSN
-                #sys.exit(0)
-                return ""
-            #if ((uname[0] != '#') and (uname[0] != '\n')):
-            #    if(uname)
-            #    uname,perso = uname.split(",",2)
-            #    if(long(SSN) == long(personnr)):
-                    #print "***MATCH***"
-            #        return uname.lstrip()
+#             else:
+#                 #print "could not get username for person %s from legacy table, person not inserted into cerebrum" % SSN
+#                 #sys.exit(0)
+#                 return ""
+#             #if ((uname[0] != '#') and (uname[0] != '\n')):
+#             #    if(uname)
+#             #    uname,perso = uname.split(",",2)
+#             #    if(long(SSN) == long(personnr)):
+#                     #print "***MATCH***"
+#             #        return uname.lstrip()
                 
-        # we only get here if no username was found
+#         # we only get here if no username was found
         
 
 
@@ -402,7 +424,8 @@ class create_person_xml:
         #adresselinje1_privatadresse=""
         #poststednr_privatadresse=""
         #poststednavn_privatadresse=""
-        uname="">
+        #uname=""
+        >
         <bilag stedkode=""/>
         </person>
         """
@@ -494,7 +517,7 @@ def main():
     out_file = '%s/uit_persons_%02d%02d%02d.xml' % (file_path,year,month,day)
     #person_file = 'source_data/NIFU.txt'
     slp4_file = cereconf.CB_PREFIX + '/var/dumps/slp4/slp4_personer_%02d%02d%02d.txt' % (year,month,day)
-    uname_file = cereconf.CB_PREFIX + '/var/source/static_user_info.txt'
+    #uname_file = cereconf.CB_PREFIX + '/var/source/static_user_info.txt'
     #print "Reading %s" % slp4_file
     #print "Reading %s" % uname_file
     #print "Writing to %s" % (out_file)
@@ -520,7 +543,7 @@ def main():
             slp4_file = val
 
 #    sys.exit(1)
-    person_handle = create_person_xml(out_file,type,uname_file,slp4_file)
+    person_handle = create_person_xml(out_file,type,slp4_file)
 
 def usage():
     print """Usage: python generate_person.py 
