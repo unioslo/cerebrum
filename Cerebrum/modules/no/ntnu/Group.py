@@ -5,7 +5,7 @@ import re
 
 group_name_regex=re.compile("^[a-z][a-z0-9_]*$")
 
-class GroupNTNUMixin(Account.Account):
+class GroupNTNUMixin(Group.Group):
     def illegal_name(self, name):
         if len(name) > 16:
             return "too long (%s)" % name
