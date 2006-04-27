@@ -93,3 +93,4 @@ class UiTPersonMixin(Person.Person):
         except Errors.NotFoundError:
             raise ProgrammingError, "set_affiliation_last_date() failed. Called before person.populate_affiliations()?"
          
+# arch-tag: f172d376-d5d1-11da-809b-edddac023152
