@@ -25,7 +25,7 @@ import sys
 import getopt
 import time
 import mx
-
+import datetime
 import xml.sax
 
 import cerebrum_path
@@ -211,7 +211,13 @@ def rem_old_aff():
             ent_id,ou,affi = k.split(':')
             person.clear()
             person.find(int(ent_id))
-            person.delete_affiliation(ou, affi, co.system_fs)
+            affs = person.list_affiliations(int(ent_id),affiliation=int(affi),ou_id=int(ou) ,include_last=True)
+            for aff in affs:
+                last_date = datetime.datetime.fromtimestamp(aff['last_date'])               
+                end_grace_period = last_date + datetime.timedelta(days=cereconf.GRACEPERIOD_STUDENT)                
+                if datetime.datetime.today() > end_grace_period:
+                    logger.warn("Deleting system_fs affiliation for person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s" % (ent_id,ou,affi,last_date,cereconf.GRACEPERIOD_STUDENT))            
+                    person.delete_affiliation(ou, affi, co.system_fs)
 
 def filter_affiliations(affiliations):
     """The affiliation list with cols (ou, affiliation, status) may
@@ -385,6 +391,15 @@ def process_person_callback(person_info):
                 old_aff[key_a] = False
 
     op2 = new_person.write_db()
+
+    #UIT: Update last_date field for student affiliations
+    for a in filter_affiliations(affiliations):
+        ou, aff, aff_status = a
+        new_person.set_affiliation_last_date(co.system_fs, ou,\
+                                             int(aff), int(aff_status))
+
+
+    
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
     elif op == True:
