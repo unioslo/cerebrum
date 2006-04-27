@@ -17,8 +17,6 @@ logger = Factory.get_logger("console")
 
 class ad_email_import:
 
-    def commit(self):
-        self.db.commit()
 
     def __init__(self,file_path):
         if(0 == os.path.isfile(file_path)):
@@ -26,6 +24,9 @@ class ad_email_import:
             sys.exit(1)
         else:
             self.db = Factory.get('Database')()
+
+    def commit(self):
+        self.db.commit()
 
     def parse(self,file_path):
         file_handle = open(file_path,"r")
@@ -36,38 +37,51 @@ class ad_email_import:
                 local_part,domain = email_address.split("@")
                 self.insert(uname,local_part,domain)
 
-    # insert is misleading.. it only inserts new ad email addresses.
+
     # if an old one is found, it updates.
     def insert(self,uname,local_part,domain):
         #print "--%s,%s,%s" % (uname,local_part,domain)
         create_date = datetime.date.today()
         update_date = datetime.date.today()
+
+        ins_query = """
+        INSERT INTO [:table schema=cerebrum name=ad_email]
+        (account_name,local_part,domain_part,create_date,update_date)
+        VALUES (:account_name,:local_part,:domain_part,[:now],[:now])
+        """
+        ins_binds = {'account_name':uname,
+                     'local_part': local_part,
+                     'domain_part': domain
+                     }
+
+        sel_query = """
+        SELECT account_name,local_part,domain_part from [:table schema=cerebrum name=ad_email]
+        WHERE account_name=:account_name
+        """
+        sel_binds = {'account_name': uname}
+
+        upd_query = """
+        UPDATE [:table schema=cerebrum name=ad_email]
+        SET local_part=:local_part, domain_part=:domain,update_date=[:now]
+        WHERE account_name=:account_name
+        """
+        upd_binds = { 'local_part' : local_part,
+                      'domain' : domain,
+                      'account_name': uname
+                      }
+
+        
         try:
-            in_res = self.db.query("""
-            INSERT INTO [:table schema=cerebrum name=ad_email]
-            (account_name,local_part,domain_part,create_date,update_date)
-            VALUES (:account_name,:local_part,:domain_part,[:now],[:now])""",
-                                   {'account_name':uname,
-                                    'local_part': local_part,
-                                    'domain_part': domain
-                                    })
-            self.db.commit()
-
-
-        except:
-                logger.info("UPDATING email address %s@%s" % (local_part,domain))
-                up_res = self.db.query("""
-                UPDATE [:table schema=cerebrum name=ad_email]
-                SET local_part=:local_part,
-                domain_part=:domain,update_date=[:now]
-                WHERE account_name=:account_name""",
-                                       {'local_part' : local_part,
-                                        'domain' : domain,
-                                        'account_name': uname
-                                        })
-                self.db.commit()
-                
+            res = self.db.query_1(sel_query,sel_binds)
+            res = self.db.execute(upd_query,upd_binds)
+            logger.info("Updated %s to %s@%s" % (uname,local_part,domain))
             
+        except Errors.NotFoundError:
+            res = self.db.execute(ins_query,ins_binds)
+            logger.info("Insertet new %s to %s@%s" % (uname,local_part,domain))
+
+
+
 def main():
 
     try:
