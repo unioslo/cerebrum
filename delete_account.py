@@ -15,8 +15,8 @@ class delete:
         delete_tables.append({'account_authentication':'account_id'})
         delete_tables.append({'posix_user':'account_id'})
         delete_tables.append({'homedir':'account_id'})
-        delete_tables.append({'account_info':'account_id'})
         delete_tables.append({'group_member':'member_id'})
+        delete_tables.append({'account_info':'account_id'})
         delete_tables.append({'entity_spread':'entity_id'})
 
         delete_mail_tables=[]
@@ -57,40 +57,35 @@ def main():
     db = Factory.get("Database")()
     execute = delete()
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'f:a:',['file=','account_id='])
+        opts,args = getopt.getopt(sys.argv[1:],'f:',['file='])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
     
     account_file=0
-    account_id = 0
     for opt,val in opts:
         if opt in('-f','--file'):
             account_file = val
-        if opt in('-a','--account_id'):
-            account_id = val
 
-    if (account_file == 0 and account_id == 0):
+    if account_file == 0:
         usage()
         sys.exit(1)
     else:
-        if (account_file != 0):
-            print "account_file = %s" % account_file
-            file_handle = open(account_file,"r")
-        elif (account_id != 0):
-            file_handle = []
-            file_handle.append(account_id)
-            
+        print "account_file = %s" % account_file
+        file_handle = open(account_file,"r")
         for line in file_handle:
             if(line[0] != '\n'):
-                account_id = line
+                foo=line.split(",")
+                #print "foo=%s" % foo
+                account_id = foo[1]
+                print "ac=%s" % account_id
                 query ="select target_id from email_target where entity_id=%s" % account_id
                 print "query =%s " % query
                 try:
                     db_row=db.query_1(query)
                 except:
-                    print "error collecting target_id for account_id. only deleting account info" % account_id
-                    res = delete_account(db,account_id)
+                    print "error collecting target_id for account_id:%s. only deleting account info" % account_id
+                    res = execute.delete_account(db,account_id)
                     continue
 
                 target_id = db_row
@@ -102,12 +97,9 @@ def main():
 
 def usage():
     print """
-    -f | --file       : reads a file containing the account_id of all accounts
-                        to delete. 1 account_id on each line.
-    -a | --account_id : reads account id from command lina and deletes only this account
-                        and its related email info
-
-    """
+    -f | --file : reads a file containing the account_id of all accounts
+                  to delete. 1 account_id on each line.
+                  """
 if __name__ == '__main__':
     main()
 
