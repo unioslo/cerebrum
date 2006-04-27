@@ -22,6 +22,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum import Constants
+from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum import Utils
 
 class _CpuArchCode(Constants._CerebrumCode):
@@ -72,6 +73,57 @@ class HpcConstants(Constants.Constants):
     entity_project = Constants._EntityTypeCode(
         'project',
         'see table project_info and friends')
+    entity_allocation = Constants._EntityTypeCode(
+        'allocation',
+        'see table allocation_info and friends')
+    entity_allocationperiod = Constants._EntityTypeCode(
+        'allocationperiod',
+        'see table allocation_period_info and friends')
+
+    machine_add = _ChangeTypeCode('e_machine', 'add',
+                                  'added %(subject)s to %(dest)s')
+    machine_rem = _ChangeTypeCode('e_machine', 'rem',
+                                'removed %(subject)s from %(dest)s')
+    machine_mod = _ChangeTypeCode('e_machine', 'mod',
+                                'modified %(subject)s')
+    machine_demote = _ChangeTypeCode('e_machine', 'demote',
+                                 'demote %(subject)s')
+    machine_promote = _ChangeTypeCode('e_machine', 'promote',
+                                 'promote %(subject)s')
+
+    project_add = _ChangeTypeCode('e_project', 'add',
+                                  'added %(subject)s to %(dest)s')
+    project_rem = _ChangeTypeCode('e_project', 'rem',
+                                'removed %(subject)s from %(dest)s')
+    project_create = _ChangeTypeCode('e_project', 'create',
+                                 'created %(subject)s')
+    project_mod = _ChangeTypeCode('e_project', 'mod',
+                                'modified %(subject)s')
+    project_destroy = _ChangeTypeCode('e_project', 'destroy',
+                                 'destroyed %(subject)s')
+   
+    allocation_add = _ChangeTypeCode('e_allocation', 'add',
+                               'added %(subject)s to %(dest)s')
+    allocation_rem = _ChangeTypeCode('e_allocation', 'rem',
+                               'removed %(subject)s from %(dest)s')
+    allocation_create = _ChangeTypeCode('e_allocation', 'create',
+                                  'created %(subject)s')
+    allocation_mod = _ChangeTypeCode('e_allocation', 'mod',
+                               'modified %(subject)s')
+    allocation_destroy = _ChangeTypeCode('e_allocation', 'destroy',
+                                'destroyed %(subject)s')
+   
+    allocation_period_add = _ChangeTypeCode('e_alloc_period', 'add',
+                               'added %(subject)s to %(dest)s')
+    allocation_period_rem = _ChangeTypeCode('e_alloc_period', 'rem',
+                               'removed %(subject)s from %(dest)s')
+    allocation_period_create = _ChangeTypeCode('e_alloc_period', 'create',
+                               'created %(subject)s')
+    allocation_period_mod = _ChangeTypeCode('e_alloc_period', 'mod',
+                               'modified %(subject)s')
+    allocation_period_destroy = _ChangeTypeCode('e_alloc_period',
+                                'destroy', 'destroyed %(subject)s')
+
 
 Host_class = Factory.get("Host")
 class Machine(Host_class):
@@ -94,8 +146,8 @@ class Machine(Host_class):
         if self.entity_id is None:
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
-        #self._db.log_change(self.entity_id, self.const.machine_demote,
-        #                    None)
+        self._db.log_change(self.entity_id, self.const.machine_demote,
+                            None)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=machine_info]
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
@@ -231,6 +283,7 @@ class Project(Entity_class):
                          {'project_id' : self.entity_id,
                           'owner' : self.owner_id,
                           'science' : int(self.science)})
+            self._db.log_change(self.entity_id, self.const.project_create, None)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=project_info]
@@ -239,6 +292,7 @@ class Project(Entity_class):
                          {'project_id' : self.entity_id,
                           'owner' : self.owner_id,
                           'science' : int(self.science)})
+            self._db.log_change(self.entity_id, self.const.project_mod, None)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -269,9 +323,9 @@ class Project(Entity_class):
             WHERE project_id=:project_id""", {'project_id': self.entity_id})
             # Remove entry in table `project_info'.
             self.execute("""
-            DELETE FROM [:table schema=cerebrum name=group_info]
+            DELETE FROM [:table schema=cerebrum name=project_info]
             WHERE project_id=:project_id""", {'project_id': self.entity_id})
-            #self._db.log_change(self.entity_id, self.const.project_destroy, None)
+            self._db.log_change(self.entity_id, self.const.project_destroy, None)
         # Delete from entity tables
         Entity_class.delete(self)
 
@@ -284,7 +338,7 @@ class Project(Entity_class):
     def list_projects_allocation_names(self):
         """List all projects with allocation names"""
         return self.query("""
-        SELECT a.project_allocation_name, a.name, a.allocation_authority,
+        SELECT a.project_allocation_name_id, a.name, a.allocation_authority,
         pi.project_id, pi.owner, pi.science
         FROM [:table schema=cerebrum name=project_info] pi,
         [:table schema=cerebrum name=project_allocation_name] a
@@ -403,6 +457,7 @@ class AllocationPeriod(Entity_class):
                           'name' : self.name,
                           'startdate' : self.startdate,
                           'enddate' : self.enddate})
+            self._db.log_change(self.entity_id, self.const.allocation_create, None)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=allocation_period]
@@ -414,6 +469,7 @@ class AllocationPeriod(Entity_class):
                           'name' : self.name,
                           'startdate' : self.startdate,
                           'enddate' : self.enddate})
+            self._db.log_change(self.entity_id, self.const.allocation_mod, None)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -451,7 +507,7 @@ class AllocationPeriod(Entity_class):
             DELETE FROM [:table schema=cerebrum name=allocation_period]
             WHERE allocation_period_id=:allocation_period_id""",
                          {'allocation_period_id': self.entity_id})
-            #self._db.log_change(self.entity_id, self.const.allocation_period_destroy, None)
+            self._db.log_change(self.entity_id, self.const.allocation_period_destroy, None)
         # Delete from entity tables
         Entity_class.delete(self)
 
@@ -530,7 +586,7 @@ class Allocation(Entity_class):
             DELETE FROM [:table schema=cerebrum name=allocation_info]
             WHERE allocation_id=:allocation_id""",
                          {'allocation_id': self.entity_id})
-            #self._db.log_change(self.entity_id, self.const.allocation_period_destroy, None)
+            self._db.log_change(self.entity_id, self.const.allocation_destroy, None)
         # Delete from entity tables
         Entity_class.delete(self)
 
