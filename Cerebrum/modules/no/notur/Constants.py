@@ -66,7 +66,7 @@ class Constants(Constants.Constants):
     cpuarch_ppc64 = _CpuArchCode('ppc64', 'PowerPC 64-bit');
 
     allocationauthority_notur = _AllocationAuthorityCode('notur',
-        'forskningsrådet, fordelingsutvalget')
+        'Forskningsrådet, fordelingsutvalget')
     allocationauthority_uio = _AllocationAuthorityCode('uio', 'Universitetet i Oslo')
     allocationauthority_uib = _AllocationAuthorityCode('uib', 'Universitetet i Bergen')
     allocationauthority_ntnu = _AllocationAuthorityCode('ntnu', 'Norges teknisk-naturvitenskapelige universitet')
