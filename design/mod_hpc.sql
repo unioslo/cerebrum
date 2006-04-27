@@ -187,32 +187,38 @@ CREATE TABLE project_member
     PRIMARY KEY (project_id, member_id)
 );
 
-/* allocation, or rather allocation(name) is "kvotenummer"
-   in the spesification */
+
+category:code;
+CREATE SEQUENCE project_allocation_name_seq;
+
+/* project_allocation_name, or rather project_allocation_name(name)
+   is "kvotenummer" in the spesification */
 category:main;
-CREATE TABLE allocation
+CREATE TABLE project_allocation_name
 (
-  project_id    	NUMERIC(12,0)
-			NOT NULL
-			CONSTRAINT allocation_project_id
-				REFERENCES project_info(project_id),
-  allocation_authority	NUMERIC(6,0)
-			NOT NULL
-			CONSTRAINT allocation_allocation_authority
-				REFERENCES allocation_authority_code(code),
-  name			CHAR VARYING(16)
-			NOT NULL
-			CONSTRAINT allocation_name_u UNIQUE,
-  CONSTRAINT allocation_pk
-    PRIMARY KEY (project_id, allocation_authority)
+  project_allocation_name_id
+		NUMERIC(12,0)
+		CONSTRAINT project_allocation_name_id PRIMARY KEY,
+  name		CHAR VARYING(16)
+		CONSTRAINT project_allocation_name_name_u UNIQUE,
+  project_id    NUMERIC(12,0)
+		NOT NULL
+		CONSTRAINT allocation_project_id
+			REFERENCES project_info(project_id),
+  allocation_authority
+		NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT allocation_allocation_authority
+			REFERENCES allocation_authority_code(code)
 );
+
 
 /* This should really be category:code, but the data needed may make
    that impossible???? */
 category:main;
 CREATE TABLE allocation_period
 (
-  allocation_period_id	NUMERIC(6,0)
+  allocation_period_id	NUMERIC(12,0)
 			CONSTRAINT allocation_period_id PRIMARY KEY,
   authority		NUMERIC(6,0)
 			NOT NULL
@@ -228,6 +234,43 @@ CREATE TABLE allocation_period
 );
 
 
+
+category:main;
+CREATE TABLE allocation_info
+(
+  allocation_id	NUMERIC(12,0)
+		CONSTRAINT allocation_info_pk PRIMARY KEY
+		CONSTRAINT allocation_info_project_id
+		  REFERENCES entity_info(entity_id),
+  name_id 	NUMERIC(12,0)
+		NOT NULL
+		CONSTRAINT allocation_info_name_id
+		  REFERENCES project_allocation_name(project_allocation_name_id),
+  allocation_period
+		NUMERIC(12,0)
+		NOT NULL
+		CONSTRAINT allocation_info_allocation_period
+		  REFERENCES allocation_period(allocation_period_id),
+  allocation_status
+		NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT allocation_info_allocation_status
+		  REFERENCES allocation_status_code(code)
+);
+
+category:main;
+CREATE TABLE allocation_machine
+(
+  allocation_id	NUMERIC(12,0)
+		NOT NULL
+		CONSTRAINT allocation_machine_allocation
+		  REFERENCES allocation_info(allocation_id),
+  machine	NUMERIC(12,0)
+		NOT NULL
+		CONSTRAINT accounting_machine_machine
+		  REFERENCES machine_info(host_id)
+);
+
 category:code;
 CREATE SEQUENCE credit_transaction_seq;
 
@@ -238,17 +281,13 @@ CREATE TABLE credit_transaction
 (
   credit_transaction_id	NUMERIC(12,0)
 			CONSTRAINT credit_transaction_pk PRIMARY KEY,
-  project_id    	NUMERIC(12,0)
+  allocation_id    	NUMERIC(12,0)
 			NOT NULL
-			CONSTRAINT credit_transaction_project_id
-			  REFERENCES project_info(project_id),
-  allocation_period	NUMERIC(6,0)
-			NOT NULL
-			CONSTRAINT creadit_transaction_allocation_period
-			  REFERENCES allocation_period(allocation_period_id),
-  credits		NUMERIC(12,0)
+			CONSTRAINT credit_transaction_allocation_id
+			  REFERENCES allocation_info(allocation_id),
+  credits		NUMERIC(24,0)
 			NOT NULL,
-  date			DATE
+  date			TIMESTAMP
 			DEFAULT [:now]
 			NOT NULL
 );
@@ -260,24 +299,35 @@ CREATE TABLE accounting_transaction
 			CONSTRAINT accounting_transaction_pk PRIMARY KEY
   			CONSTRAINT accounting_transaction_credit_transaction_id
 			  REFERENCES credit_transaction(credit_transaction_id),
-  jobstart		DATE,
-  jobend		DATE,
+  jobsubmit		TIMESTAMP,
+  jobstart		TIMESTAMP,
+  jobend		TIMESTAMP,
   machine		NUMERIC(12,0)
 			CONSTRAINT accounting_transaction_machine
 			  REFERENCES machine_info(host_id),
+  jobid			CHAR VARYING(64),
+  jobname		CHAR VARYING(64),
+  queuename		CHAR VARYING(16), /* Should refer to code? */
   num_nodes		NUMERIC(12,0),
   num_cores		NUMERIC(12,0),
-  max_memory		NUMERIC(12,0),
+  num_nodes_req		NUMERIC(12,0),
+  num_cores_req		NUMERIC(12,0),
+  memory_req_mb		NUMERIC(12,0),
+  max_memory_mb		NUMERIC(12,0),
+  walltime_req		NUMERIC(12,0),
   walltime		NUMERIC(12,0),
-  cputime		NUMERIC(12,0),
+  cputime_req		NUMERIC(24,0),
+  cputime		NUMERIC(24,0),
+  waittime		NUMERIC(12,0),
   suspendtime		NUMERIC(12,0),
   num_suspends		NUMERIC(12,0),
-  io_transfered		NUMERIC(12,0),
+  io_transfered_mb	NUMERIC(24,0),
   nice			NUMERIC(12,0),
+  exitstatus		NUMERIC(12,0),
   account		NUMERIC(12,0)
 			CONSTRAINT accounting_transaction_account
 			  REFERENCES account_info(account_id)
-  /* Do we really need this?
+  /* Do we really need this? Version 2?
   group			NUMERIC(12,0)  
 			CONSTRAINT accounting_transaction_group
 			  REFERENCES group_info(group_id),
@@ -287,11 +337,18 @@ CREATE TABLE accounting_transaction
 category:main;
 CREATE TABLE allocation_transaction
 (
-  credit_transaction_id	NUMERIC(12,0)
-			CONSTRAINT allocation_transaction_pk PRIMARY KEY
-  			CONSTRAINT allocation_transaction_credit_transaction_id
-			  REFERENCES credit_transaction(credit_transaction_id),
-  description		CHAR VARYING(512)
+  credit_transaction_id
+	NUMERIC(12,0)
+	CONSTRAINT allocation_transaction_pk PRIMARY KEY
+  	CONSTRAINT allocation_transaction_credit_transaction_id
+	  REFERENCES credit_transaction(credit_transaction_id),
+  allocation_credit_priority
+  	NUMERIC(6,0)
+	NOT NULL
+	CONSTRAINT allocation_transaction_allocation_credit_priority
+	  REFERENCES allocation_credit_priority_code(code),
+  description
+	CHAR VARYING(512)
 );
 
 
@@ -309,10 +366,16 @@ category:drop;
 DROP SEQUENCE credit_transaction_seq;
 
 category:drop;
-DROP TABLE allocation_period;
+DROP TABLE allocation_machine;
 
 category:drop;
-DROP TABLE allocation;
+DROP TABLE allocation_info;
+
+category:drop;
+DROP TABLE project_allocation_name;
+
+category:drop;
+DROP SEQUENCE project_allocation_name_seq;
 
 category:drop;
 DROP TABLE project_member;
@@ -321,7 +384,16 @@ category:drop;
 DROP TABLE project_info;
 
 category:drop;
+DROP TABLE allocation_period;
+
+category:drop;
 DROP TABLE allocation_authority_code;
+
+category:drop;
+DROP TABLE allocation_status_code;
+
+category:drop;
+DROP TABLE allocation_credit_priority_code;
 
 category:drop;
 DROP TABLE science_code;

@@ -94,8 +94,8 @@ class Machine(Host_class):
         if self.entity_id is None:
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
-        self._db.log_change(self.entity_id, self.const.machine_demote,
-                            None)
+        #self._db.log_change(self.entity_id, self.const.machine_demote,
+        #                    None)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=machine_info]
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
@@ -157,10 +157,7 @@ class Machine(Host_class):
                 node_number=:node_number, node_memory=:node_memory,
                 node_disk=:node_disk, cpu_core_number=:cpu_core_number,
                 cpu_core_mflops=:cpu_core_mflops, cpu_mhz=:cpu_mhz
-            WHERE host_id=:host_id
-            VALUES (:host_id, :cpu_arch, :operating_system, :interconnect,
-                :total_memory, :node_number, :node_memory, :node_disk,
-                :cpu_core_number, :cpu_core_mflops, :cpu_mhz)""",
+            WHERE host_id=:host_id""",
                          {'host_id': self.entity_id,
                           'cpu_arch': int(self.cpu_arch),
                           'operating_system': int(self.operating_system),
@@ -238,8 +235,7 @@ class Project(Entity_class):
             self.execute("""
             UPDATE [:table schema=cerebrum name=project_info]
             SET owner=:owner, science=:science
-            WHERE project_id=:project_id
-            VALUES (:project_id, :owner, :science)""",
+            WHERE project_id=:project_id""",
                          {'project_id' : self.entity_id,
                           'owner' : self.owner_id,
                           'science' : int(self.science)})
@@ -285,13 +281,13 @@ class Project(Entity_class):
         SELECT project_id, owner, science
         FROM [:table schema=cerebrum name=project_info]""")
 
-    def list_projects_allocations(self):
+    def list_projects_allocation_names(self):
         """List all projects with allocation names"""
         return self.query("""
-        SELECT a.name, a.allocation_authority, pi.project_id,
-        pi.owner, pi.science
+        SELECT a.project_allocation_name, a.name, a.allocation_authority,
+        pi.project_id, pi.owner, pi.science
         FROM [:table schema=cerebrum name=project_info] pi,
-        [:table schema=cerebrum name=allocation] a
+        [:table schema=cerebrum name=project_allocation_name] a
         WHERE a.project_id=pi.project_id""")
 
     def add_member(self, member_id):
@@ -321,99 +317,56 @@ class Project(Entity_class):
         return members
 
 
-    def add_allocation(self, name, authority):
-        """Add an allocation to project"""
+    def add_allocation_name(self, name, authority):
+        """Add an allocation name to project"""
+        name_id=self.nextval("project_allocation_name_seq")
         self.execute("""
-        INSERT INTO [:table schema=cerebrum name=allocation]
-          (project_id, allocation_authority, name)
-        VALUES (:project_id, :allocation_authority, :name)""",
-                     {'project_id': self.entity_id,
+        INSERT INTO [:table schema=cerebrum name=project_allocation_name]
+          (project_allocation_name_id, project_id, allocation_authority, name)
+        VALUES (:name_id, :project_id, :allocation_authority, :name)""",
+                     {'name_id': name_id,
+                      'project_id': self.entity_id,
                       'allocation_authority': int(authority),
                       'name': name})
+        return name_id
 
-    def remove_allocation(self, name):
-        """Remove allocation from project"""
+    def remove_allocation_name(self, name_id):
+        """Remove allocation name from project"""
         self.execute("""
-        DELETE FROM [:table schema=cerebrum name=allocation]
-        WHERE project_id=:project_id AND name=:name""",
-                     {'project_id': self.entity_id,
-                      'name': name})
+        DELETE FROM [:table schema=cerebrum name=project_allocation_name]
+        WHERE project_allocation_name_id=:name_id""",
+                     {'name_id': name_id})
 
-    def get_allocations(self):
+    def remove_allocation_name_by_name(self, name):
+        """Remove allocation name from project"""
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=project_allocation_name]
+        WHERE name=:name""",
+                     {'name': name})
+
+    def get_allocation_name_id(self, name):
+        """Get project allocation name id from project allocation name"""
+        return self.query_1("""
+        SELECT project_allocation_name_id
+        FROM [:table schema=cerebrum name=project_allocation_name]
+        WHERE name=:name""", locals())
+        
+
+    def get_allocation_names(self):
         """Return a list of allocations for the project"""
 
         allocations = self.query("""SELECT name, allocation_authority
-        FROM [:table schema=cerebrum name=allocation]
+        FROM [:table schema=cerebrum name=project_allocation_name]
         WHERE project_id=:project_id""", {'project_id': self.entity_id})
         return allocations
 
     def find_by_allocation_name(self, name):
         project_id=self.query_1("""
         SELECT project_id
-        FROM [:table schema=cerebrum name=allocation]
+        FROM [:table schema=cerebrum name=project_allocation_name]
         WHERE name=:name""", locals())
         self.find(project_id)
 
-    def _add_credit_transaction(self, allocation_name, allocation_period,
-                                credits, date=None):
-        
-        credit_transaction_id=self.nextval("credit_transaction_seq")
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=credit_transaction]
-          (credit_transaction_id, project_id, allocation_period,
-          date, credits)
-        VALUES (:credit_transaction_id, :project_id, :allocation_period,
-                :date, :credits)""",
-                     {'credit_transaction_id': credit_transaction_id,
-                      'project_id': self.entity_id,
-                      'allocation_period': allocation_period.entity_id,
-                      'date': date,
-                      'credits': credits})
-        return credit_transaction_id
-    
-    def allocate_credits(self, allocation_name, allocation_period,
-                         credits, description=None):
-        """Allocate credits to project and allocation_name"""
-        credit_transaction_id=self._add_credit_transaction(allocation_name,
-	    allocation_period, credits)
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=accounting_transaction]
-          (credit_transaction_id, description)
-        VALUES (:credit_transaction_id, :description)""",
-                     {'credit_transaction_id': int(credit_transaction_id),
-                      'description': description})
-
-    def account_credits(self, allocation_name, allocation_period,
-	credits, date, jobstart, jobend, machine, num_nodes, num_cores,
-        max_memory, walltime, cputime, suspendtime, num_suspends,
-	io_transfered, nice, account):
-        """Account credits to project and allocation_name"""
-        credit_transaction_id=self._add_credit_transaction(allocation_name,
-	    allocation_period, credits, date)
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=accounting_transaction]
-          (credit_transaction_id, jobstart, jobend, machine, num_nodes,
-          num_cores, max_memory, walltime, cputime, suspendtime,
-          num_suspends, io_transfered, nice, account)
-        VALUES (:credit_transaction_id, :jobstart, :jobend, :machine,
-        :num_nodes, :max_memory, :walltime, :cputime, :suspendtime,
-        :num_suspends, :io_transfered, :nice, :account)""",
-                     {'credit_transaction_id': int(credit_transaction_id),
-                      'jobstart': jobstart,
-                      'jobend': jobend,
-                      'machine': machine.entity_id,
-                      'num_nodes': num_nodes,
-                      'num_cores': num_cores,
-                      'max_memory': max_memory,
-                      'walltime': walltime,
-                      'cputime': cputime,
-                      'suspendtime': suspendtime,
-                      'num_suspends': num_suspends,
-                      'io_transfered': io_transfered,
-                      'nice': nice,
-                      'account': account.entity_id})
-
-    
 
 
 #Entity_class already defined
@@ -469,9 +422,7 @@ class AllocationPeriod(Entity_class):
             UPDATE [:table schema=cerebrum name=allocation_period]
             SET authority=:authority, name=:name, startdate=:startdate,
               enddate=:enddate
-            WHERE allocation_period_id=:allocation_period_id
-            VALUES (:allocation_period_id, :authority, :name,
-              :startdate, :enddate)""",
+            WHERE allocation_period_id=:allocation_period_id""",
                          {'allocation_period_id' : self.entity_id,
                           'authority' : int(self.authority),
                           'name' : self.name,
@@ -528,19 +479,19 @@ class AllocationPeriod(Entity_class):
 
 class Allocation(Entity_class):
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('authority', 'name')
+    __write_attr__ = ('authority', 'name_id', 'period', 'status')
 
     def clear(self):
-        super(AllocationPeriod, self).clear()
-        self.clear_class(AllocationPeriod)
+        super(Allocation, self).clear()
+        self.clear_class(Allocation)
         self.__updated = []
 
-    def populate(self, authority, name, startdate, enddate, parent=None):
-        """Populate a new period"""
+    def populate(self, name_id, period, status, parent=None):
+        """Populate a new allocation"""
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity_class.populate(self, self.const.entity_project)
+            Entity_class.populate(self, self.const.entity_allocation)
         
         try:
             if not self.__in_db:
@@ -548,14 +499,13 @@ class Allocation(Entity_class):
         except AttributeError:
             self.__in_db = False
 
-        self.authority=authority
-        self.name=name
-        self.startdate=startdate
-        self.enddate=enddate
+        self.name_id=name_id
+        self.period=period
+        self.status=status
 
 
     def write_db(self):
-        """Write allocation_period instance to database"""
+        """Write allocation instance to database"""
         self.__super.write_db()
         if not self.__updated:
             return
@@ -563,45 +513,143 @@ class Allocation(Entity_class):
 
         if is_new:
             self.execute("""
-            INSERT INTO [:table schema=cerebrum name=allocation_period]
-            (allocation_period_id, authority, name, startdate, enddate)
-            VALUES (:allocation_period_id, :authority, :name,
-              :startdate, :enddate)""",
-                         {'allocation_period_id' : self.entity_id,
-                          'authority' : int(self.authority),
-                          'name' : self.name,
-                          'startdate' : self.startdate,
-                          'enddate' : self.enddate})
+            INSERT INTO [:table schema=cerebrum name=allocation_info]
+            (allocation_id, name_id, allocation_period, allocation_status)
+            VALUES (:allocation_id, :name_id, :allocation_period,
+              :allocation_status)""",
+                         {'allocation_id' : self.entity_id,
+                          'name_id' : self.name_id,
+                          'allocation_period' : self.period,
+                          'allocation_status' : self.status})
         else:
             self.execute("""
-            UPDATE [:table schema=cerebrum name=allocation_period]
-            SET authority=:authority, name=:name, startdate=:startdate,
-              enddate=:enddate
-            WHERE allocation_period_id=:allocation_period_id
-            VALUES (:allocation_period_id, :authority, :name,
-              :startdate, :enddate)""",
-                         {'allocation_period_id' : self.entity_id,
-                          'authority' : int(self.authority),
-                          'name' : self.name,
-                          'startdate' : self.startdate,
-                          'enddate' : self.enddate})
+            UPDATE [:table schema=cerebrum name=allocation_info]
+            SET name_id=:name_id, allocation_period=:allocation_period,
+              allocation_status=:allocation_status
+            WHERE allocation_id=:allocation_id""",
+                         {'allocation_id' : self.entity_id,
+                          'name_id' : self.name_id,
+                          'allocation_period' : self.period,
+                          'allocation_status' : self.status})
+
         del self.__in_db
         self.__in_db = True
         self.__updated = []
         return is_new
 
     def delete(self):
-        """Delete an unreferenced allocation period"""
+        """Delete an unreferenced allocation"""
         if self.__in_db:
             self.execute("""
-            DELETE FROM [:table schema=cerebrum name=allocation_period]
-            WHERE allocation_period=:allocation_period""",
-                         {'allocation_period_id': self.allocation_period_id})
+            DELETE FROM [:table schema=cerebrum name=allocation_info]
+            WHERE allocation_id=:allocation_id""",
+                         {'allocation_id': self.entity_id})
             #self._db.log_change(self.entity_id, self.const.allocation_period_destroy, None)
         # Delete from entity tables
         Entity_class.delete(self)
 
+    def list_allocations(self):
+        """Lists all allocations"""
+        return self.query("""
+        SELECT allocation_id, allocation_name, allocation_period,
+        allocation_status
+        FROM [:table schema=cerebrum name=allocation_info]""")
 
+    def list_allocations_by_name(self, name):
+        """Lists all allocations"""
+        return self.query("""
+        SELECT allocation_id, allocation_period, allocation_status
+        FROM [:table schema=cerebrum name=allocation_info]
+        WHERE name_id=(SELECT project_allocation_name_id
+          FROM [:table schema=cerebrum name=project_allocation_name]
+          WHERE name=:name)""", locals())
+
+    def add_machine(self, machine_id):
+        """Add ``machine`` to allocation"""
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=allocation_machine]
+          (allocation_id, machine_id)
+        VALUES (:allocation_id, :machine_id)""",
+                     {'allocation_id': self.entity_id,
+                      'machine_id': machine_id})
+        #self._db.log_change(machine_id, self.clconst.allocation_add, self.entity_id)
+
+    def get_machines(self):
+        """List machines for thios allocation"""
+        return self.query("""SELECT machine
+        FROM [:table schema=cerebrum name=allocation_machine]
+        WHERE allocation_id=:allocation_id""",
+                          { 'allocation_id': self.entity_id })
+        
+
+    def remove_machine(self, machine_id):
+        """Remove ``machine`` from allocation"""
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=allocation_machine]
+        WHERE allocation_id=:allocation_id AND machine_id=:machine_id""",
+                     {'allocation_id': self.entity_id,
+                      'machine_id': machine_id})
+        #self._db.log_change(machine_id, self.clconst.allocation_remove, self.entity_id)
+        
+
+    def _add_credit_transaction(self, allocation_name, allocation_period,
+                                credits, date=None):
+        
+        credit_transaction_id=self.nextval("credit_transaction_seq")
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=credit_transaction]
+          (credit_transaction_id, allocation_id, date, credits)
+        VALUES (:credit_transaction_id, :allocation_id, :date, :credits)""",
+                     {'credit_transaction_id': credit_transaction_id,
+                      'allocation_id': self.entity_id,
+                      'date': date,
+                      'credits': credits})
+        return credit_transaction_id
+    
+    def allocate_credits(self, allocation_name, allocation_period,
+                         credits, description=None):
+        """Allocate credits to allocation and allocation_name"""
+        credit_transaction_id=self._add_credit_transaction(allocation_name,
+	    allocation_period, credits)
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=accounting_transaction]
+          (credit_transaction_id, description)
+        VALUES (:credit_transaction_id, :description)""",
+                     {'credit_transaction_id': int(credit_transaction_id),
+                      'description': description})
+
+    def account_credits(self, allocation_name, allocation_period,
+	credits, date, jobstart, jobend, machine, num_nodes, num_cores,
+        max_memory, walltime, cputime, suspendtime, num_suspends,
+	io_transfered, nice, account):
+        """Account credits to allocation and allocation_name"""
+        credit_transaction_id=self._add_credit_transaction(allocation_name,
+	    allocation_period, credits, date)
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=accounting_transaction]
+          (credit_transaction_id, jobstart, jobend, machine, num_nodes,
+          num_cores, max_memory, walltime, cputime, suspendtime,
+          num_suspends, io_transfered, nice, account)
+        VALUES (:credit_transaction_id, :jobstart, :jobend, :machine,
+        :num_nodes, :max_memory, :walltime, :cputime, :suspendtime,
+        :num_suspends, :io_transfered, :nice, :account)""",
+                     {'credit_transaction_id': int(credit_transaction_id),
+                      'jobstart': jobstart,
+                      'jobend': jobend,
+                      'machine': machine.entity_id,
+                      'num_nodes': num_nodes,
+                      'num_cores': num_cores,
+                      'max_memory': max_memory,
+                      'walltime': walltime,
+                      'cputime': cputime,
+                      'suspendtime': suspendtime,
+                      'num_suspends': num_suspends,
+                      'io_transfered': io_transfered,
+                      'nice': nice,
+                      'account': account.entity_id})
+
+    
+        
 
 
 # arch-tag: 663a698a-9d38-11da-8f54-cae0bdbdc61d
