@@ -89,16 +89,18 @@ class process:
             elem[9]="%s/%s/%s" % (mnd,dag,aar)
             for item in elem:
                 # need to reformat the "begynt" field
-
-            
-                file_handle.writelines("\"%s\"" % item)
-                #item = item.rstrip()
-                #print "\"%s\"" % item
-                if(i < ((max)-1)):
-                    file_handle.writelines(",")
-                else:
-                    file_handle.writelines("\n")
-                i = i+1
+                day,month,year=elem[1].split(".")
+                if((day[0]!='8') and(day[0] !='9')):
+                    # Do not insert persons that has 8 or 9 as the first digit in the birth day.
+                    # These persons only has an internal slp code. not meant for external use.
+                    file_handle.writelines("\"%s\"" % item)
+                    #item = item.rstrip()
+                    #print "\"%s\"" % item
+                    if(i < ((max)-1)):
+                        file_handle.writelines(",")
+                    else:
+                        file_handle.writelines("\n")
+                    i = i+1
         file_handle.close()
         
 def main():
