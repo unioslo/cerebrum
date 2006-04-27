@@ -211,7 +211,21 @@ class AccountHome(object):
     may a different home dir for each spread.  A home is identified
     either by a disk_id, or by the string represented by home"""
 
+    def delete(self):
+        """Removes all homedirs for an account"""
+
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=account_home]
+        WHERE account_id=:a_id""", {'a_id': self.entity_id})
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=homedir]
+        WHERE account_id=:a_id""", {'a_id': self.entity_id})
+ 
+
+
     def clear_home(self, spread):
+        """Clears home for a spread. Removes homedir if no other
+        home uses it."""
         ah = self.get_home(spread)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_home]
@@ -229,7 +243,7 @@ class AccountHome(object):
         FROM [:table schema=cerebrum name=account_home]
         WHERE homedir_id=:homedir_id""", {'homedir_id': ah['homedir_id']})
         if count < 1:
-            self.clear_homedir(ah['homedir_id'])
+            self._clear_homedir(ah['homedir_id'])
 
     def set_homedir(self, current_id=NotSet, home=NotSet, disk_id=NotSet,
                     status=NotSet):
@@ -273,7 +287,8 @@ class AccountHome(object):
                                 None, change_params=binds)
         return binds['homedir_id']
 
-    def clear_homedir(self, homedir_id):
+    def _clear_homedir(self, homedir_id):
+        """Called from clear_home. Removes actual homedir."""
         old = self.get_homedir(homedir_id)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=homedir]
@@ -348,6 +363,25 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     __write_attr__ = ('account_name', 'owner_type', 'owner_id',
                       'np_type', 'creator_id', 'expire_date', 'create_date',
                       '_auth_info', '_acc_affect_auth_types')
+
+    def delete(self):
+        """Really,really remove the account and homedir"""
+
+        if self.__in_db:
+            # remove homedir first:
+            AccountHome.delete(self)
+            
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=account_info]
+            WHERE account_id=:a_id""", {'a_id': self.entity_id})
+            # Remove name of account from the account namespace.
+            self.delete_entity_name(self.const.account_namespace)
+            self._db.log_change(self.entity_id, self.const.account_destroy, None)
+        # Class Account is a core class; when its delete() method is
+        # called, the underlying Entity object is also removed.
+        Entity_class.delete(self)
+
+
 
     def clear(self):
         super(Account, self).clear()
