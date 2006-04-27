@@ -300,6 +300,10 @@ class execute:
                 posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
                 #print "ENTITY_ID=%s" % posix_user.entity_id
                 self.send_mail(bruker_epost,username,spread_list)
+                if("AD_account" in spread_list):
+                    #only send email to nybruker@asp.uit.no if AD_account is one of the chosen spreads.
+                    self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
+                self.confirm_registration()
                 return  posix_user.entity_id,bruker_epost
             except Errors:
                 self.logger("Error in creating posix account for person %s" % personnr)
@@ -326,26 +330,87 @@ class execute:
                             #print "adding spread %s" % new_spread
                             self.account.add_spread(int(new_spread))
             return self.account.entity_id,bruker_epost # <- even if the account exists we have to update email information from system_x by returning the account_id here
+
+    def send_ad_mail(self,name,ssn,ou,type,expire_date,why,contact_data,external_email,registrator_email):
+        ad_message="""
+%s har sendt inne en forespørsel om ny AD konto. Følgende data er registrert om denne personen.
+
+Navn: %s
+personnummer:%s
+stedkode: %s
+type:%s
+utløps dato:%s
+grunn: %s
+kontakt data: %s
+ekstern epost: %s
+
+""" % (registrator_email,name,ssn,ou,type,expire_date,why,contact_data,external_email)
+
+        SENDMAIL="/usr/sbin/sendmail"
+        p=os.popen("%s -t" % SENDMAIL, "w")
+        p.write("From bas-admin@cc.uit.no\n")
+        p.write("To: nybruker2@asp.uit.no\n")
+        p.write("Bcc: kenneth.johansen@cc.uit.no\n")
+        p.write("subject: Registrering av ny AD bruker\n")
+        p.write("\n")
+        p.write("%s" % ad_message)
+        sts = p.close()
+        if sts != None:
+            self.logger("Sendmail exit status: %s" % sts)
+
+
+    def confirm_registration(self,personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost):
+        confirm_message="""
+Følgende data er motatt og behandlet i system X.
+
+Personnr: %s
+Fornavn: %s
+Etternavn: %s
+ou: %s
+Tilknytning: %s
+Tilknytnings type: %s
+utløps dato: %s
+skal eksporteres til disse ende systemene: %s
+Hjemmel: %s
+kontakt info: %s
+Ekstern epost: %s
+Ansvarlig epost: %s
+
+""" % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
+        SENDMAIL="/usr/sbin/sendmail"
+        p=os.popen("%s -t" % SENDMAIL, "w")
+        p.write("From bas-admin@cc.uit.no\n")
+        p.write("To: %s\n" % ansvarlig_epost)
+        p.write("Bcc: kenneth.johansen@cc.uit.no\n")
+        p.write("subject: Registrering av bruker\n")
+        p.write("\n")
+        p.write("%s" % confirm_message)
+        sts = p.close()
+        if sts != None:
+            self.logger("Sendmail exit status: %s" % sts)
+        
         
     def send_mail(self,email_address,user_name,spreads):
         #This function sends an email to the email_address given
-        message="""
-        Translation in english follows.
         
-        Dette er en automatisk generert epost. Du er registrert i BAS og har fått tildelt brukernavn og passord.
-        For å aktivisere kontoen din må du gå til orakel tjenesten ved uit. http://uit.no/orakel.
-        \n
-        I samsvar med de data som ble registrert ved din innmeldelse vil du bli eksponert til disse systemene: %s.
-        I tilfellet FRIDA kan det ta opp til ett par virkedager før kontoen er klar.
-        Har du noen spørsmål kan du ta kontakt med orakel@uit.no eller bas-admin@cc.uit.no. \n
-        -----------------------------------------------------------------------------------
 
-        This is an automated message. You are now registered in BAS and have received a username and password.
-        To activate your account you need to visit the oracle service at uit.  http://uit.no/orakel
-        \n
-        According to the data registered you will be exported to the following systems: %s.
-        Notice that it may take a few days before your FRIDA account is activated.
-        If you have any questions you can either contact orakel@uit.no or bas-admin@cc.uit.no\n
+        message="""
+Translation in english follows.
+        
+Dette er en automatisk generert epost. Du er registrert i BAS og har fått tildelt brukernavn og passord.
+For å aktivisere kontoen din må du gå til orakel tjenesten ved uit. http://uit.no/orakel.
+\n
+I samsvar med de data som ble registrert ved din innmeldelse vil du bli eksponert til disse systemene: %s.
+I tilfellet FRIDA kan det ta opp til ett par virkedager før kontoen er klar.
+Har du noen spørsmål kan du ta kontakt med orakel@uit.no eller bas-admin@cc.uit.no. \n
+-----------------------------------------------------------------------------------
+
+This is an automated message. You are now registered in BAS and have received a username and password.
+To activate your account you need to visit the oracle service at uit.  http://uit.no/orakel
+\n
+According to the data registered you will be exported to the following systems: %s.
+Notice that it may take a few days before your FRIDA account is activated.
+If you have any questions you can either contact orakel@uit.no or bas-admin@cc.uit.no\n
         """ % (spreads,spreads)
 
         SENDMAIL="/usr/sbin/sendmail"
