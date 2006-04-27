@@ -328,29 +328,15 @@ class Project(Entity_class):
                       'project_id': self.entity_id,
                       'allocation_authority': int(authority),
                       'name': name})
-        return name_id
 
-    def remove_allocation_name(self, name_id):
-        """Remove allocation name from project"""
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=project_allocation_name]
-        WHERE project_allocation_name_id=:name_id""",
-                     {'name_id': name_id})
 
-    def remove_allocation_name_by_name(self, name):
+    def remove_allocation_name(self, name):
         """Remove allocation name from project"""
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=project_allocation_name]
         WHERE name=:name""",
                      {'name': name})
 
-    def get_allocation_name_id(self, name):
-        """Get project allocation name id from project allocation name"""
-        return self.query_1("""
-        SELECT project_allocation_name_id
-        FROM [:table schema=cerebrum name=project_allocation_name]
-        WHERE name=:name""", locals())
-        
 
     def get_allocation_names(self):
         """Return a list of allocations for the project"""
@@ -486,7 +472,7 @@ class Allocation(Entity_class):
         self.clear_class(Allocation)
         self.__updated = []
 
-    def populate(self, name_id, period, status, parent=None):
+    def populate(self, name, period, status, parent=None):
         """Populate a new allocation"""
         if parent is not None:
             self.__xerox__(parent)
@@ -499,7 +485,7 @@ class Allocation(Entity_class):
         except AttributeError:
             self.__in_db = False
 
-        self.name_id=name_id
+        self.name_id=self._get_project_allocation_name_id(name)
         self.period=period
         self.status=status
 
@@ -555,6 +541,13 @@ class Allocation(Entity_class):
         allocation_status
         FROM [:table schema=cerebrum name=allocation_info]""")
 
+    def _get_allocation_name_id(self, name):
+        """Get project allocation name id from project allocation name"""
+        return self.query_1("""
+        SELECT project_allocation_name_id
+        FROM [:table schema=cerebrum name=project_allocation_name]
+        WHERE name=:name""", locals())
+        
     def list_allocations_by_name(self, name):
         """Lists all allocations"""
         return self.query("""
