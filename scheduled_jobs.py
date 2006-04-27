@@ -235,6 +235,15 @@ def get_jobs():
                                          params=['-s','%s/System_x/guest_data' % (dumps),'-u']),
                              when=When(time=[Time(min=[00],hour=[06])]),
                              post=None)
+
+        # Kast gamle changelog entries hver lørdag kl 06:00
+        #'db_clean_changelog' = Action(pre=None,
+        #                              call=System('%s/no/uio/db_clean.py' % contrib,
+        #                                          params=['--changelog', '--logger-level=INFO']),
+        #                              max_freq=3*24*60*60,
+        #                              when = When(time=[Time(wday=[5], hour=[6], min=[0])]))
+
+        
         #post=['export_frida','generate_fronter_groups','export_ldap','export_sut'])
 
 
