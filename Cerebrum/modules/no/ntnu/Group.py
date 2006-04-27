@@ -14,3 +14,4 @@ class GroupNTNUMixin(Group.Group):
         return self.__super.illegal_name(name)
 
 
+# arch-tag: 11c6f04e-d604-11da-957b-a2951bfbed57

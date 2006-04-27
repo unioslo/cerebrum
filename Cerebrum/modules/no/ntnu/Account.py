@@ -15,3 +15,4 @@ class AccountNTNUMixin(Account.Account):
         return self.__super.illegal_name(name)
 
 
+# arch-tag: 115d851e-d604-11da-80dd-29649c6d89a0
