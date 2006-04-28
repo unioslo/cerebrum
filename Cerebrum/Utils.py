@@ -608,7 +608,10 @@ class Factory(object):
                       'DBDriver': 'CLASS_DBDRIVER',
                       'EmailLDAP': 'CLASS_EMAILLDAP',
                       'OrgLDIF': 'CLASS_ORGLDIF',
-                      'PosixLDIF': 'CLASS_POSIXLDIF'}
+                      'PosixLDIF': 'CLASS_POSIXLDIF',
+                      'Project': 'CLASS_PROJECT',
+                      'Allocation': 'CLASS_ALLOCATION',
+                      'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD'}
         if Factory.class_cache.has_key(comp):
             return Factory.class_cache[comp]
         try:
