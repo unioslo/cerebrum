@@ -1,5 +1,5 @@
 
-from Cerebrum.modules import Host
+from Cerebrum import Disk
 from Cerebrum import Errors
 import re
 
