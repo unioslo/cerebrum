@@ -210,7 +210,7 @@ class execute:
         elif(affiliation=="TILKNYTTET"):
             self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=350)
         else:
-            raise errors.ValueError "invalid affiliation: %s in guest database" % (affiliation)
+            raise errors.ValueError("invalid affiliation: %s in guest database" % (affiliation))
         
         self.account.write_db()
 
