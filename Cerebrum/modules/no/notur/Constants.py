@@ -92,6 +92,11 @@ class Constants(Constants.Constants):
     system_manual = _AuthoritativeSystemCode('Manual', 'Manual')
     perspective_manual = _OUPerspectiveCode('Manual', 'Manual')
 
+    # Legacy systems
+    system_bdb = _AuthoritativeSystemCode('BDB', 'Old Notur BAS')
+    system_legacy = _AuthoritativeSystemCode('Legacy', 'Passwdfile and such')
+
+
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
 
