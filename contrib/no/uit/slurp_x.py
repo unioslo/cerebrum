@@ -212,6 +212,7 @@ class execute:
         else:
             raise errors.ValueError("invalid affiliation: %s in guest database" % (affiliation))
         
+>>>>>>> 1.5
         self.account.write_db()
 
 
