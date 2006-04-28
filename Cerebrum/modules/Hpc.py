@@ -542,7 +542,7 @@ class Allocation(Entity_class):
         except AttributeError:
             self.__in_db = False
 
-        self.name_id=self._get_project_allocation_name_id(name)
+        self.name_id=self._get_allocation_name_id(name)
         self.period=period
         self.status=status
 
