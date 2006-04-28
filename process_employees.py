@@ -84,8 +84,8 @@ class execute:
         self.constants = Factory.get('Constants')(self.db)
         self.OU = Factory.get('OU')(self.db)
         
-        #self.logger = Factory.get_logger('console')
-        self.logger = Factory.get_logger('cronjob')
+        self.logger = Factory.get_logger('console')
+        #self.logger = Factory.get_logger('cronjob')
         
 
         self.db.cl_init(change_program='process_empl')
@@ -150,20 +150,30 @@ class execute:
     def update_email(self,account_obj):
         em = Email.email_address(self.db)
         ad_email = em.get_employee_email(account_obj.entity_id,self.db)
+        print "CHECK2 %s: %s" % (account_obj.account_name,ad_email)
         if (len(ad_email)>0):
             ad_email = ad_email[account_obj.account_name]
         else:
             # no email in ad_email table for this account.
-            no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
-            self.logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
-            ad_email= "%s@%s" % (account_obj.account_name,no_mailbox_domain)
-            self.logger.warning("ad_email = %s" % ad_email)
+            
+            # IF this account has a student affiliation. do not update primary email address with an invalid code.
+            # IF this account does NOT have a student affiliation. update the email primary address with the invalid code.
+            acc_type = account_obj.list_accounts_by_type(account_id=account_obj.entity_id,
+                                                         affiliation=self.constants.affiliation_student)
+            if (len(acc_type)>0):
+                print "Account Type has student aff: %s" % (acc_type) # is it active???                
+                ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
+            else:
+                no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
+                self.logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
+                ad_email= "%s@%s" % (account_obj.account_name,no_mailbox_domain)
+                self.logger.warning("ad_email = %s" % ad_email)
         
         current_email = ""
         try:
             current_email = account_obj.get_primary_mailaddress()
         except Errors.NotFoundError:
-            # no current mail. try to retreive from ad-mail table
+            # no current primary mail.
             pass
     
         if (current_email.lower() != ad_email.lower()):
@@ -219,13 +229,15 @@ class execute:
                             ac_tmp.add_spread(spread_id)
                 else:
                     self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (this_acc[0],ac_tmp_name))
-            except:
-                self.logger.warn("unable to update spread,affiliation and email for account: %s" % acc)
+            except Exception,m:
+                self.logger.warn("unable to update spread,affiliation and email for account: %s: Reason:%s" % (acc,m))
         if (not has_account):
             # This person does not have an account.
             # create new account.
             try:
                 acc = self.create_employee_account(ou_id)
+
+                # why do we commit after each create???
                 self.db.commit()
             except Exception,msg:
                 self.logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))                                
