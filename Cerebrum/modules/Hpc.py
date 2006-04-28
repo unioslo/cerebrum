@@ -17,7 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -229,14 +228,15 @@ class Machine(Host_class):
 Entity_class = Utils.Factory.get("Entity")
 class Project(Entity_class):
     __read_attr__ = ('__in_db',)
-    __write_attr__ = ('owner_id', 'science')
+    __write_attr__ = ('owner_id', 'science', 'title', 'description')
 
     def clear(self):
         super(Project, self).clear()
         self.clear_class(Project)
         self.__updated = []
 
-    def populate(self, owner_id, science, parent=None):
+    def populate(self, owner_id, science, title=None, description=None,
+                 parent=None):
         """Populate a new project"""
         if parent is not None:
             self.__xerox__(parent)
@@ -251,6 +251,8 @@ class Project(Entity_class):
         
         self.owner_id = owner_id
         self.science = science
+        self.title = title
+        self.description = description
 
     def write_db(self):
         """Write project instance to database"""
@@ -262,19 +264,24 @@ class Project(Entity_class):
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=project_info]
-            (project_id, owner, science) 
-            VALUES (:project_id, :owner, :science)""",
+            (project_id, owner, science, title, description) 
+            VALUES (:project_id, :owner, :science, :title, :description)""",
                          {'project_id' : self.entity_id,
                           'owner' : self.owner_id,
+                          'title' : self.title,
+                          'description' : self.description,
                           'science' : int(self.science)})
             self._db.log_change(self.entity_id, self.const.project_create, None)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=project_info]
-            SET owner=:owner, science=:science
+            SET owner=:owner, science=:science, title=:title,
+                description=:description
             WHERE project_id=:project_id""",
                          {'project_id' : self.entity_id,
                           'owner' : self.owner_id,
+                          'title' : self.title,
+                          'description' : self.description,
                           'science' : int(self.science)})
             self._db.log_change(self.entity_id, self.const.project_mod, None)
         del self.__in_db
@@ -286,8 +293,9 @@ class Project(Entity_class):
     def find(self, project_id):
         """Connect object to Project with ``project_id`` in database."""
         self.__super.find(project_id)
-        (self.owner_id, self.science) = self.query_1("""
-         SELECT owner, science
+        (self.owner_id, self.science, self.title,
+         self.description) = self.query_1("""
+         SELECT owner, science, title, description
          FROM [:table schema=cerebrum name=project_info]
          WHERE project_id=:project_id""", {'project_id': project_id})
         try:
@@ -316,14 +324,23 @@ class Project(Entity_class):
     def list_projects(self):
         """List all projects"""
         return self.query("""
-        SELECT project_id, owner, science
+        SELECT project_id, owner, science, title, description
         FROM [:table schema=cerebrum name=project_info]""")
+
+    # Should use LIKE or such
+    def list_projects_by_title(self, title):
+        """List projects by title"""
+        return self.query("""
+        SELECT project_id, owner, science, title, description
+        FROM [:table schema=cerebrum name=project_info]
+        WHERE title=:title""",
+                          {'title': title})
 
     def list_projects_allocation_names(self):
         """List all projects with allocation names"""
         return self.query("""
         SELECT a.project_allocation_name_id, a.name, a.allocation_authority,
-        pi.project_id, pi.owner, pi.science
+        pi.project_id, pi.owner, pi.science, pi.title, pi.description
         FROM [:table schema=cerebrum name=project_info] pi,
         [:table schema=cerebrum name=project_allocation_name] a
         WHERE a.project_id=pi.project_id""")

@@ -169,7 +169,9 @@ CREATE TABLE project_info
   science	NUMERIC(6,0)
 		NOT NULL
 		CONSTRAINT project_info_science
-		  REFERENCES science_code(code)
+		  REFERENCES science_code(code),
+  title		CHAR VARYING(512),
+  description	CHAR VARYING(512)
 );
 
 category:main;
