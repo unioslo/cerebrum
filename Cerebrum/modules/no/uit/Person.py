@@ -46,7 +46,6 @@ class UiTPersonMixin(Person.Person):
                   where.append("%s IN (%s)" %
                                (t, ", ".join(map(str, map(int, val)))))
               else:
-                print "%s,%s" % (t,val)
                 where.append("%s = %d" % (t, val))
       if not include_deleted:
           where.append("(deleted_date IS NULL OR deleted_date > [:now])")
