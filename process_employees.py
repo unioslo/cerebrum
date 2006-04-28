@@ -150,7 +150,6 @@ class execute:
     def update_email(self,account_obj):
         em = Email.email_address(self.db)
         ad_email = em.get_employee_email(account_obj.entity_id,self.db)
-        print "CHECK2 %s: %s" % (account_obj.account_name,ad_email)
         if (len(ad_email)>0):
             ad_email = ad_email[account_obj.account_name]
         else:
@@ -161,7 +160,6 @@ class execute:
             acc_type = account_obj.list_accounts_by_type(account_id=account_obj.entity_id,
                                                          affiliation=self.constants.affiliation_student)
             if (len(acc_type)>0):
-                print "Account Type has student aff: %s" % (acc_type) # is it active???                
                 ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
             else:
                 no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
@@ -225,10 +223,10 @@ class execute:
                     for s in def_spreads:
                         spread_id = int(self.constants.Spread(s))
                         if (not ac_tmp.has_spread(spread_id)):
-                            self.logger.info("- adding spread %s for account:%s" % (s,acc.entity_id))
+                            self.logger.info("- adding spread %s for account:%s" % (s,ac_tmp.entity_id))
                             ac_tmp.add_spread(spread_id)
                 else:
-                    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (acc.entity_id,ac_tmp_name))
+                    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (ac_tmp.entity_id,ac_tmp_name))
             except Exception,m:
                 self.logger.warn("unable to update spread,affiliation and email for account: %s: Reason:%s" % (acc,m))
         if (not has_account):
