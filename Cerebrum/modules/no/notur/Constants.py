@@ -74,7 +74,9 @@ class Constants(Constants.Constants):
 
     allocationstatus_active = _AllocationStatusCode('active', 'Active')
     allocationstatus_inactive = _AllocationStatusCode('inactive', 'Inactive')
-    allocationstatus_unknown = _AllocationStatusCode('unknown', 'Unknown')
+
+    allocationcreditpriority_pri = _AllocationCreditPriorityCode('pri', 'Priority time')
+    allocationcreditpriority_upri = _AllocationCreditPriorityCode('upri', 'Non-Priority Time')
 
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
