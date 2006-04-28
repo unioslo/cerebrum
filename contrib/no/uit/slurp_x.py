@@ -201,12 +201,17 @@ class execute:
         self.OU.clear()
         self.OU.find_stedkode(ou[0:2],ou[2:4],ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
         my_account_types = self.account.get_account_types()
-        for i in my_account_types:
-            #print "deleting old account_type"
-            self.account.del_account_type(i.ou_id,i.affiliation)
+        #for i in my_account_types:
+        #    #print "deleting old account_type"
+        #    self.account.del_account_type(i.ou_id,i.affiliation)
 
-        #print "setting new = %s" % self.OU.ou_id
-        self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
+        if(affiliation=="MANUELL"):
+            self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=400)
+        elif(affiliation=="TILKNYTTET"):
+            self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=350)
+        else:
+            raise errors.ValueError "invalid affiliation: %s in guest database" % (affiliation)
+        
         self.account.write_db()
 
 
@@ -303,7 +308,7 @@ class execute:
                 if("AD_account" in spread_list):
                     #only send email to nybruker@asp.uit.no if AD_account is one of the chosen spreads.
                     self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
-                self.confirm_registration()
+                self.confirm_registration(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost)
                 return  posix_user.entity_id,bruker_epost
             except Errors:
                 self.logger("Error in creating posix account for person %s" % personnr)
