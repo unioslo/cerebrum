@@ -255,7 +255,7 @@ class AccountUiTMixin(Account.Account):
                 #This user already has an account in cerebrum with the username from the legacy table
                 #Returning existing account_name
                 #print "%s already has an account with user_name %s. returning this. " % (ssn,username)
-                return username
+                raise errors.IntegrityError, "ssn:%s already has an account. Error trying to create a new account" % (ssn)
 
             # was unable to find any existing accounts in cerebrum for this person with the
             # username from the legacy table.
@@ -272,11 +272,11 @@ class AccountUiTMixin(Account.Account):
         # already taken by another user.
         # if we get here and regieme == AD, it means we cannot find a account in legacy
         # which can be used!  This is an consistenscy error!
-        if (Regime=='AD'):
-            if(len(db_row)==0):
-                raise ValueError, "AD user has no registered username in legacy user."
-            else:
-                raise ValueError, "AD Username: %s,fnr: %s, in legacy table is taken by another person." % (username,ssn)
+        #if (Regime=='AD'):
+        #    if(len(db_row)==0):
+        #        raise ValueError, "AD user has no registered username in legacy user."
+        #    else:
+        #        raise ValueError, "AD Username: %s,fnr: %s, in legacy table is taken by another person." % (username,ssn)
 
         # getting here means either that:
         # 1. the person does not have a previous account
