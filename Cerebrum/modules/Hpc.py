@@ -66,7 +66,7 @@ class HpcConstants(Constants.Constants):
     OperatingSystem = _OperatingSystemCode
     InterConnect = _InterConnectCode
     AllocationAuthority = _AllocationAuthorityCode
-    AllocationStatusCode = _AllocationStatusCode
+    AllocationStatus = _AllocationStatusCode
     AllocationCreditPriority = _AllocationCreditPriorityCode
     Science = _ScienceCode
 
@@ -80,10 +80,6 @@ class HpcConstants(Constants.Constants):
         'allocationperiod',
         'see table allocation_period_info and friends')
 
-    machine_add = _ChangeTypeCode('e_machine', 'add',
-                                  'added %(subject)s to %(dest)s')
-    machine_rem = _ChangeTypeCode('e_machine', 'rem',
-                                'removed %(subject)s from %(dest)s')
     machine_mod = _ChangeTypeCode('e_machine', 'mod',
                                 'modified %(subject)s')
     machine_demote = _ChangeTypeCode('e_machine', 'demote',
@@ -91,10 +87,6 @@ class HpcConstants(Constants.Constants):
     machine_promote = _ChangeTypeCode('e_machine', 'promote',
                                  'promote %(subject)s')
 
-    project_add = _ChangeTypeCode('e_project', 'add',
-                                  'added %(subject)s to %(dest)s')
-    project_rem = _ChangeTypeCode('e_project', 'rem',
-                                'removed %(subject)s from %(dest)s')
     project_create = _ChangeTypeCode('e_project', 'create',
                                  'created %(subject)s')
     project_mod = _ChangeTypeCode('e_project', 'mod',
@@ -102,10 +94,6 @@ class HpcConstants(Constants.Constants):
     project_destroy = _ChangeTypeCode('e_project', 'destroy',
                                  'destroyed %(subject)s')
    
-    allocation_add = _ChangeTypeCode('e_allocation', 'add',
-                               'added %(subject)s to %(dest)s')
-    allocation_rem = _ChangeTypeCode('e_allocation', 'rem',
-                               'removed %(subject)s from %(dest)s')
     allocation_create = _ChangeTypeCode('e_allocation', 'create',
                                   'created %(subject)s')
     allocation_mod = _ChangeTypeCode('e_allocation', 'mod',
@@ -113,10 +101,6 @@ class HpcConstants(Constants.Constants):
     allocation_destroy = _ChangeTypeCode('e_allocation', 'destroy',
                                 'destroyed %(subject)s')
    
-    allocation_period_add = _ChangeTypeCode('e_alloc_period', 'add',
-                               'added %(subject)s to %(dest)s')
-    allocation_period_rem = _ChangeTypeCode('e_alloc_period', 'rem',
-                               'removed %(subject)s from %(dest)s')
     allocation_period_create = _ChangeTypeCode('e_alloc_period', 'create',
                                'created %(subject)s')
     allocation_period_mod = _ChangeTypeCode('e_alloc_period', 'mod',
