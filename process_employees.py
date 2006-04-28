@@ -225,10 +225,10 @@ class execute:
                     for s in def_spreads:
                         spread_id = int(self.constants.Spread(s))
                         if (not ac_tmp.has_spread(spread_id)):
-                            self.logger.info("- adding spread %s for account:%s" % (s,this_acc[0]))
+                            self.logger.info("- adding spread %s for account:%s" % (s,acc.entity_id))
                             ac_tmp.add_spread(spread_id)
                 else:
-                    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (this_acc[0],ac_tmp_name))
+                    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (acc.entity_id,ac_tmp_name))
             except Exception,m:
                 self.logger.warn("unable to update spread,affiliation and email for account: %s: Reason:%s" % (acc,m))
         if (not has_account):
