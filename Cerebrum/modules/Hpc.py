@@ -56,7 +56,7 @@ class _ScienceCode(Constants._CerebrumCode):
 
 class _AllocationCreditPriorityCode(Constants._CerebrumCode):
     "Priority associated with allocated credits."
-    _lookup_table ='[:table schema=cerebrum name=allocation_credit_priority]'
+    _lookup_table ='[:table schema=cerebrum name=allocation_credit_priority_code]'
     pass
     
 
@@ -642,8 +642,7 @@ class Allocation(Entity_class):
         #self._db.log_change(machine_id, self.clconst.allocation_remove, self.entity_id)
         
 
-    def _add_credit_transaction(self, allocation_name, allocation_period,
-                                credits, date=None):
+    def _add_credit_transaction(self, credits, date=None):
         
         credit_transaction_id=self.nextval("credit_transaction_seq")
         self.execute("""
@@ -656,25 +655,23 @@ class Allocation(Entity_class):
                       'credits': credits})
         return credit_transaction_id
     
-    def allocate_credits(self, allocation_name, allocation_period,
-                         credits, description=None):
+    def allocate_credits(self, credits, date, priority, description=None):
         """Allocate credits to allocation and allocation_name"""
-        credit_transaction_id=self._add_credit_transaction(allocation_name,
-	    allocation_period, credits)
+        credit_transaction_id=self._add_credit_transaction(credits, date)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=accounting_transaction]
           (credit_transaction_id, description)
         VALUES (:credit_transaction_id, :description)""",
                      {'credit_transaction_id': int(credit_transaction_id),
+                      'priority': priority,
                       'description': description})
 
-    def account_credits(self, allocation_name, allocation_period,
-	credits, date, jobstart, jobend, machine, num_nodes, num_cores,
-        max_memory, walltime, cputime, suspendtime, num_suspends,
-	io_transfered, nice, account):
+    def account_credits(self, credits, date, jobstart, jobend, machine,
+                        num_nodes, num_cores, max_memory,
+                        walltime, cputime, suspendtime, num_suspends,
+                        io_transfered, nice, account):
         """Account credits to allocation and allocation_name"""
-        credit_transaction_id=self._add_credit_transaction(allocation_name,
-	    allocation_period, credits, date)
+        credit_transaction_id=self._add_credit_transaction(credits, date)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=accounting_transaction]
           (credit_transaction_id, jobstart, jobend, machine, num_nodes,
