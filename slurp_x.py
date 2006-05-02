@@ -30,6 +30,7 @@ import sys
 import string
 import os
 import urllib
+import datetime
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -75,7 +76,7 @@ class execute:
 
     # creates a person object in cerebrum
     def create_person(self,data_list):
-        #print data_list
+        print data_list
         try: 
             personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost = data_list.split(self.split_char)
         except ValueError,m:
@@ -142,7 +143,7 @@ class execute:
                                          )
 
         #write the person data to the database
-        #print "write to db..."
+        print "write to db..."
         op = self.person.write_db()
         # return sanity messages
         if op is None:
@@ -212,7 +213,6 @@ class execute:
         else:
             raise errors.ValueError("invalid affiliation: %s in guest database" % (affiliation))
         
->>>>>>> 1.5
         self.account.write_db()
 
 
@@ -239,7 +239,11 @@ class execute:
             return 1,bruker_epost
 
         try:
-            self.account.find(self.person.get_primary_account())
+            #self.account.find(self.person.get_primary_account())
+            account_list = self.person.get_accounts(filter_expired=False)
+            #print "foo=%s" % account_list[0][0]
+            #default_account = "%s" % int(account_list[0])
+            self.account.find(account_list[0][0])
             account_types = self.account.get_account_types()
             for account_type in account_types:
                 #print "account_type[affiliation] = %s" % account_type['affiliation']
@@ -249,9 +253,9 @@ class execute:
         except Errors.NotFoundError:
             pass
             
-        my_accounts = self.person.get_accounts()
-        if(len(my_accounts) == 0):
-            #print "no account"
+        #my_accounts = self.person.get_accounts()
+        if(account_list == None):
+
             spread_list = string.split(spreads,",")
             spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
             #for i in spread_list:
@@ -289,7 +293,7 @@ class execute:
             try:
                 posix_user.write_db()
 
-                #print "entity_id =%s" % posix_user.entity_id
+
                 # add the correct spreads to the account
                 for spread in spread_list:
                     #print "%s,%s,%s" % (posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
@@ -304,9 +308,9 @@ class execute:
                 # need: oi_id, affiliation and priority
                 self.OU.find_stedkode(ou[0:2],ou[2:4],ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
                 posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
-                #print "ENTITY_ID=%s" % posix_user.entity_id
                 self.send_mail(bruker_epost,username,spread_list)
                 if("AD_account" in spread_list):
+
                     #only send email to nybruker@asp.uit.no if AD_account is one of the chosen spreads.
                     self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
                 self.confirm_registration(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost)
@@ -317,8 +321,18 @@ class execute:
             #posix_user.get_homedir_id(self.constants.spread_uit_ldap_person)
             posix_user.write_db()
         else:
-            #print "person %s already has an account in cerebrum" % personnr
-
+            self.logger.info("person %s already has an account in cerebrum" % personnr)
+            #print "my accounts=%s" % account_list
+            #
+            #print"%s,%s" % (datetime.date.today(),expire_date)
+            my_date= expire_date.split("-")
+            if (self.account.is_expired() and (datetime.date(int(my_date[0]),int(my_date[1]),int(my_date[2])) > datetime.date.today())):
+                # This account is expired in cerebrum. expire_date from the guest database
+                # is set in the future. need to update expire_date in the database
+                self.logger.info("updating expire date to" % expire_date)
+                self.account.expire_date = expire_date
+            
+            
             for account_type in account_types:
                 if((self.constants.affiliation_student == account_type['affiliation'])or (self.constants.affiliation_ansatt == account_type['affiliation'])):
                     # This person already has a student account. we must now add new spreads (if any).
