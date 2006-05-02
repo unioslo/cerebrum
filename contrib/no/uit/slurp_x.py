@@ -76,7 +76,7 @@ class execute:
 
     # creates a person object in cerebrum
     def create_person(self,data_list):
-        print data_list
+        #print data_list
         try: 
             personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost = data_list.split(self.split_char)
         except ValueError,m:
