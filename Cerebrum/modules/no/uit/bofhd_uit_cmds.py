@@ -6015,7 +6015,7 @@ class BofhdExtension(object):
                     raise CerebrumError, "Unkown person id %r" % arg
             elif idtype == 'fnr':
                 for ss in [self.const.system_fs, self.const.system_lt,
-                           self.const.system_manual, self.const.system_ureg]:
+                           self.const.system_manual, self. const.system_x]:
                     try:
                         person.clear()
                         person.find_by_external_id(
