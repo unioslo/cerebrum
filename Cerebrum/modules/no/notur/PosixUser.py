@@ -26,3 +26,5 @@ class PosixUserNoturMixin(PosixUser.PosixUser):
                     "Uid out of range: Please reset posix_uid_seq to %d" %
                     minfreeuid)
         return uid
+
+# arch-tag: 174b9c44-dac9-11da-91a8-0e10df6ad6e9
