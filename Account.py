@@ -255,7 +255,7 @@ class AccountUiTMixin(Account.Account):
                 #This user already has an account in cerebrum with the username from the legacy table
                 #Returning existing account_name
                 #print "%s already has an account with user_name %s. returning this. " % (ssn,username)
-                raise errors.IntegrityError, "ssn:%s already has an account. Error trying to create a new account" % (ssn)
+                raise Errors.IntegrityError, "ssn:%s already has an account=%s. Error trying to create a new account" % (ssn,username)
 
             # was unable to find any existing accounts in cerebrum for this person with the
             # username from the legacy table.
@@ -264,7 +264,7 @@ class AccountUiTMixin(Account.Account):
                 username = row['user_name']
                 query = "select entity_id from entity_name where entity_name='%s'" % (username)
                 db_row2 = db.query(query)
-                if(len(db_row2) ==0 ):
+                if((len(db_row2) ==0) and (not username.isalpha())):
                     #print "registered username %s for %s is free. returning this" % (ssn,username)
                     return username
 
