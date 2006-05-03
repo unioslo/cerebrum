@@ -143,7 +143,7 @@ class execute:
                                          )
 
         #write the person data to the database
-        print "write to db..."
+        #print "write to db..."
         op = self.person.write_db()
         # return sanity messages
         if op is None:
@@ -307,7 +307,16 @@ class execute:
                 # lets set the account_type table
                 # need: oi_id, affiliation and priority
                 self.OU.find_stedkode(ou[0:2],ou[2:4],ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
-                posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
+
+                if(affiliation=="MANUELL"):
+                    posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=400)
+                elif(affiliation=="TILKNYTTET"):
+                    posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=350)
+                else:
+                    raise errors.ValueError("invalid affiliation: %s in guest database" % (affiliation))
+
+
+                #posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
                 self.send_mail(bruker_epost,username,spread_list)
                 if("AD_account" in spread_list):
 
