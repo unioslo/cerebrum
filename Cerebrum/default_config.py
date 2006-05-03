@@ -109,6 +109,16 @@ CLASS_CHANGELOG = ['Cerebrum.ChangeLog/ChangeLog']
 # CLASS_EMAILLDAP = ['Cerebrum.modules.no.uio.EmailLDAP/EmailLDAPUiOMixin']
 CLASS_EMAILLDAP = ['Cerebrum.modules.EmailLDAP/EmailLDAP']
 
+# Posix extensions of Account/Group
+CLASS_POSIX_USER = ['Cerebrum.modules.PosixUser/PosixUser']
+CLASS_POSIX_GROUP = ['Cerebrum.modules.PosixGroup/PosixGroup']
+
+# Hpc module
+CLASS_MACHINE = ['Cerebrum.modules.Hpc/Machine']
+CLASS_PROJECT = ['Cerebrum.modules.Hpc/Project']
+CLASS_ALLOCATION = ['Cerebrum.modules.Hpc/Allocation']
+CLASS_ALLOCATIONPERIOD = ['Cerebrum.modules.Hpc/AllocationPeriod']
+
 # Which module(s) to use as ClientAPI
 # (use Cerebrum.Utils.Factory.get_module("ClientAPI")
 MODULE_CLIENTAPI = ['Cerebrum.client.BofhModel']

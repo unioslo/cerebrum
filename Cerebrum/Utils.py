@@ -609,6 +609,8 @@ class Factory(object):
                       'EmailLDAP': 'CLASS_EMAILLDAP',
                       'OrgLDIF': 'CLASS_ORGLDIF',
                       'PosixLDIF': 'CLASS_POSIXLDIF',
+                      'PosixUser' : 'CLASS_POSIX_USER',
+                      'PosixGroup' : 'CLASS_POSIX_GROUP',
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
                       'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD'}
