@@ -33,6 +33,20 @@ class UiTPersonMixin(Person.Person):
   This class provides an UiT-specific extension to the core Person class.
   """
 
+  def get_primary_account(self,filter_expired=True):
+    """Returns the account_id of SELF.entity_id's primary account"""
+    acc = Utils.Factory.get("Account")(self._db)
+    # get_account_types returns its results sorted
+    accounts = acc.get_account_types(all_persons_types=True,
+                                     owner_id=self.entity_id,
+                                     filter_expired=filter_expired)
+    if accounts:
+      return accounts[0]["account_id"]
+    else:
+      return None
+
+
+
   def list_affiliations(self, person_id=None, source_system=None,
                         affiliation=None, status=None, ou_id=None,
                         include_deleted=False, fetchall = True, include_last=False):
@@ -92,4 +106,3 @@ class UiTPersonMixin(Person.Person):
         except Errors.NotFoundError:
             raise ProgrammingError, "set_affiliation_last_date() failed. Called before person.populate_affiliations()?"
          
-# arch-tag: f172d376-d5d1-11da-809b-edddac023152
