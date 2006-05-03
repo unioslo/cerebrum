@@ -386,7 +386,11 @@ def output_person(writer, person, db, source_system):
                                (DataPerson.NAME_TITLE, "personligTittel")):
         # NB! I assume here that there is only *one* name. Is this always true
         # for personligTittel?
-        output_element(writer, person.get_name(attribute), element)
+        name = person.get_name(attribute)
+        if name:
+            name = name.value
+        # fi
+        output_element(writer, name, element)
     # od
 
     db_person = Factory.get("Person")(db)
