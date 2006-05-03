@@ -83,6 +83,8 @@ class execute:
         self.account = Factory.get('Account')(self.db)
         self.constants = Factory.get('Constants')(self.db)
         self.OU = Factory.get('OU')(self.db)
+
+        self.employee_priority = 50
         
         self.logger = Factory.get_logger('console')
         #self.logger = Factory.get_logger('cronjob')
@@ -199,34 +201,45 @@ class execute:
         self.logger.info("**************** Processing employee: person_id=%s,ou_id=%s *********************" % (p_id,ou_id))
         self.person.clear()
         self.person.find(p_id)
-        acc = self.person.get_primary_account()
+        acc = self.person.get_primary_account(filter_expired=False)
         has_account = False
+        employee_priority = 50
         if (acc):
             # Person already has an account.
             # need to update: spread and affiliation
             try:
                 ac_tmp = Factory.get('Account')(self.db)
                 ac_tmp.find(acc)
+                ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
+                if(ac_tmp_name.isalpha()):                    
+                    # not a valid "employee" username. log error and continue with next
+                    self.logger.error("AccountID %s=%s does not conform with AD account naming rules!" % (acc,ac_tmp_name))
+                    return
+                                
                 ac_types = ac_tmp.get_account_types()
                 for a in ac_types:
-                    self.logger.info("Update_account(p_id=%s,acc_id=%s):  " % (p_id,acc))
-                    has_account = True
-                    self.update_employee_account(acc,ou_id)
-                ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
-                if(not ac_tmp_name.isalpha()):
-                    # The existing account has a valid username for AD export.
-                    # lets update the affiliation,spread and email address.
-                    def_spreads = cereconf.UIT_DEFAULT_EMPLOYEE_SPREADS
-                    ac_tmp.set_account_type(ou_id,self.constants.affiliation_ansatt)
-                    has_account=True
-                    self.update_email(ac_tmp)
-                    for s in def_spreads:
-                        spread_id = int(self.constants.Spread(s))
-                        if (not ac_tmp.has_spread(spread_id)):
-                            self.logger.info("- adding spread %s for account:%s" % (s,ac_tmp.entity_id))
-                            ac_tmp.add_spread(spread_id)
-                else:
-                    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (ac_tmp.entity_id,ac_tmp_name))
+                    # if this account affiliation is other than ansatt, skip
+                    if (a['affiliation'] == self.constants.affiliation_ansatt):
+                        self.logger.info("Update_account(p_id=%s,acc_id=%s):  " % (p_id,acc))
+                        has_account = True
+                        self.update_employee_account(acc,ou_id)
+                    #ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
+                    #if(not ac_tmp_name.isalpha()):
+                    #    # The existing account has a valid username for AD export.
+                    #    # lets update the affiliation,spread and email address.
+                    #    def_spreads = cereconf.UIT_DEFAULT_EMPLOYEE_SPREADS
+                    #    ac_tmp.set_account_type(ou_id,
+                    #                            self.constants.affiliation_ansatt,
+                    #                            self.employee_priority)
+                    #   has_account=True
+                    #   self.update_email(ac_tmp)
+                    #   for s in def_spreads:
+                    #       spread_id = int(self.constants.Spread(s))
+                    #       if (not ac_tmp.has_spread(spread_id)):
+                    #           self.logger.info("- adding spread %s for account:%s" % (s,ac_tmp.entity_id))
+                    #           ac_tmp.add_spread(spread_id)
+                    #else:
+                    #    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (ac_tmp.entity_id,ac_tmp_name))
             except Exception,m:
                 self.logger.warn("unable to update spread,affiliation and email for account: %s: Reason:%s" % (acc,m))
         if (not has_account):
@@ -309,7 +322,9 @@ class execute:
         # this is done by updating account-type
         # do we need to remove other account_types that this account has??
         self.logger.info("- updating account type")
-        posix_user.set_account_type(ou_id,self.constants.affiliation_ansatt)
+        posix_user.set_account_type(ou_id,
+                                    self.constants.affiliation_ansatt,
+                                    self.employee_priority)
 
         # update homedir for current spreads
         def_spreads = cereconf.UIT_DEFAULT_EMPLOYEE_SPREADS
@@ -397,7 +412,9 @@ class execute:
             posix_user.set_password(personnr)
             posix_user.write_db()
             # lets set the account_type table
-            posix_user.set_account_type(ou_id,self.constants.affiliation_ansatt)
+            posix_user.set_account_type(ou_id,
+                                        self.constants.affiliation_ansatt,
+                                        self.employee_priority)
             posix_user.write_db()
             
             # Update the email adress!
@@ -418,6 +435,8 @@ class execute:
         entity_name = Entity.EntityName(self.db)
         entity_name.find_by_name('bootstrap_account',self.constants.account_namespace)
         return entity_name.entity_id
+
+
         
 def main():
 
@@ -441,8 +460,6 @@ def main():
     else:
         x_create = execute()
         x_create.get_all_employees(person_id,person_file)
-        #print "entry=%s" % x_create.existing_emp_list
-        #x_create.delete_employee_spreads(x_create.existing_emp_list)
         x_create.db.commit()
                                
 def usage():
