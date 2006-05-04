@@ -342,10 +342,12 @@ automatically generated from FS.''')
     quarantine_nologin_stengt = _QuarantineCode('nologin_stengt',
                                                 'Gammel ureg karantene nologin_stengt')
     quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
-                                            'OU not valid from external source')
+                                             'OU not valid from external source')
     quarantine_ou_remove = _QuarantineCode('ou_remove',
-                                          'OU is clean and may be removed')
-
+                                           'OU is clean and may be removed')
+    quarantine_guest_release = _QuarantineCode('guest_release',
+                                               'Guest user is released but not available.')
+    
     email_domain_category_uio_globals = _EmailDomainCategoryCode(
         'UIO_GLOBALS',
         "All local_parts defined in domain 'UIO_GLOBALS' are treated"
