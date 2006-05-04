@@ -119,6 +119,14 @@ def get_jobs():
                                          params=['-v','-o','%s/ou/uit_ou_%s.xml' % (dumps,time_stamp),'--perspective=perspective_fs','--source-system=system_fs']),
                              max_freq=60),
 
+
+        # import ad email data to cerebrum
+        'import_ad_email' : Action(pre=None,
+                             call=System('%s/import_ad_email.py' % contrib_uit,
+                                         params=['-i','%s/ad/AD_Emaildump.cvs' % (source)]),
+                             max_freq=60),
+        
+
         ####################################
         # cerebrum data processing         #
         ####################################
@@ -204,7 +212,7 @@ def get_jobs():
 
         
 
-        'daily_process_all' : Action(pre=['daily_process_students'],
+        'daily_process_all' : Action(pre=['daily_process_students','import_ad_email'],
                                      call=None,
                                      post=['daily_process_employees']),
         
