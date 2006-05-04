@@ -51,7 +51,7 @@ def process_logfile(logfile):
 
 
     look_for = "exit_code=1"
-    job_runner_path = "/cerebrum/sbin"
+    job_runner_path = "/cerebrum/var/log/cerebrum/job_runner"
     
     lines = logf.readlines()
     logf.close()
