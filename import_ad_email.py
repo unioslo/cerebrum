@@ -12,7 +12,8 @@ import datetime
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-logger = Factory.get_logger("console")
+#logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 
 
 class ad_email_import:
@@ -38,7 +39,7 @@ class ad_email_import:
                 self.insert(uname,local_part,domain)
 
 
-    # if an old one is found, it updates.
+    # if an old one is found, its updated.
     def insert(self,uname,local_part,domain):
         #print "--%s,%s,%s" % (uname,local_part,domain)
         create_date = datetime.date.today()
@@ -78,7 +79,7 @@ class ad_email_import:
             
         except Errors.NotFoundError:
             res = self.db.execute(ins_query,ins_binds)
-            logger.info("Insertet new %s to %s@%s" % (uname,local_part,domain))
+            logger.info("Inserted new: %s to %s@%s" % (uname,local_part,domain))
 
 
 
