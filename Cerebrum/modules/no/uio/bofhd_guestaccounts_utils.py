@@ -67,12 +67,13 @@ class BofhdUtils(object):
         return ret
 
     def release_guest(self, guest, operator_id):
-        """Release a guest account.
+        """Release a guest account from temporary owner.
 
         Make sure that the guest account specified actually exists and
-        mark it as released. If it already is released, ignore this
-        action and log a warning.
-
+        release it from owner. The guest account is now in
+        release_quarantine and will be available for new allocations
+        when the quarantine period is due.
+        
         """
         ac = Factory.get('Account')(self.db)
         ac.find_by_name(guest)
@@ -81,22 +82,28 @@ class BofhdUtils(object):
             raise GuestAccountException("%s is not a guest" % guest)
         elif trait['target_id'] is None:
             raise GuestAccountException("%s is already available" % guest)
-
-        # Remove quarantine to ready the account for the next task.
-        # This is not a problem since no one can know the password
-        # until the guest has been requested.
-        ac.delete_entity_quarantine(self.co.quarantine_generell) 
+        # Remove owner, i.e set owner_trait to None
         ac.populate_trait(self.co.trait_guest_owner, target_id=None)
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
+        # Remove quarantine set by _alloc_guest and set a new
+        # quarantine that kicks in now.
+        if ac.get_entity_quarantine(self.co.quarantine_guest_release):
+            ac.delete_entity_quarantine(self.co.quarantine_guest_release)
+        ac.add_entity_quarantine(self.co.quarantine_guest_release, operator_id,
+                                 "Guest user released", start=DateTime.today())
+        self.logger.debug("%s is now in release_quarantine" % guest)
         ac.set_password(ac.make_passwd(guest))
         ac.write_db()
         self.update_group_memberships(ac.entity_id)
+        self.logger.debug("Updating group memberships for %s" % guest)
         # Finally, register a request to archive the home directory.
         # A new directory will be created when archival has been done.
         br = BofhdRequests(self.db, self.co)
         br.add_request(operator_id, br.now,
                        self.co.bofh_archive_user, ac.entity_id, None,
                        state_data=int(self.co.spread_uio_nis_user))
+        self.logger.debug("Added archive_user request for %s" % guest)
+        
 
     def get_owner(self, guestname):
         "Check that guestname is a guest account and that it has an owner."
@@ -111,13 +118,16 @@ class BofhdUtils(object):
 
     def list_guest_users(self, owner_id=NotSet, include_comment=False):
         """List names of guest accounts owned by group with id=owner_id.
+        If owner_id=None, return all available accounts.
         If no owner_id is specified, return all guest accounts.
-
         """
         ac = Factory.get('Account')(self.db)
         ret = []
         for row in ac.list_traits(self.co.trait_guest_owner,
                                   target_id=owner_id, return_name=True):
+            # Must check if guest is available. 
+            if owner_id is None and not self._guest_is_available(row['entity_id']):
+                continue
             if include_comment:
                 ret.append((row['name'], row['strval'] or ""))
             else:
@@ -162,6 +172,15 @@ class BofhdUtils(object):
                                   (num_found, prefix))
         return ret
 
+    def _guest_is_available(self, e_id):
+        "Check if guest is avaialable"
+        ac = Factory.get('Account')(self.db)
+        ac.find(e_id)
+        # If guest has a quarantine it is not available
+        if ac.get_entity_quarantine(self.co.quarantine_guest_release):
+            return False
+        return True
+
     def _alloc_guest(self, guest, end_date, comment, owner_type, owner_id,
                      operator_id):
         """Allocate a guest account.
@@ -177,13 +196,13 @@ class BofhdUtils(object):
         ac.find_by_name(guest)
         if ac.get_trait(self.co.trait_guest_owner)['target_id']:
             raise GuestAccountException("Guest user %s not available." % guest)
-        if ac.get_entity_quarantine(self.co.quarantine_generell):
+        if ac.get_entity_quarantine(self.co.quarantine_guest_release):
             # This should only happen if someone meddles manually
             self.logger.warn("Guest %s was unallocated, but had a quarantine" %
                              guest)
-            ac.delete_entity_quarantine(self.co.quarantine_generell)
+            ac.delete_entity_quarantine(self.co.quarantine_guest_release)
         # OK, add a quarantine which kicks in at end_date
-        ac.add_entity_quarantine(self.co.quarantine_generell, operator_id,
+        ac.add_entity_quarantine(self.co.quarantine_guest_release, operator_id,
                                  "Guest user request expired", start=end_date) 
         # Set owner trait
         self.logger.debug("Set owner_id in owner_trait for %s" % guest)
