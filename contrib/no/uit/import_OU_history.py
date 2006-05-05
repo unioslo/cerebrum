@@ -99,7 +99,10 @@ def main():
 def usage():
     print """Usage: import_OU_history -o ou_file 
 
-    Note: The bofhd daemon needs to run in order to create users.
+    ou_file needs to be of the following format:
+    <new_ou_id>;<name>;<old_ou_id>.
+
+    new_ou_id and old_ou_id is a 6 digit stedkode
     """
     
 if __name__ == '__main__':
