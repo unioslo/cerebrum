@@ -235,13 +235,12 @@ class execute:
         try:
             self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
         except Errors.NotFoundError:
-            #print "person with ssn = %s does not exist in cerebrum. unable to check for account" % personnr
+            print "person with ssn = %s does not exist in cerebrum. unable to check for account" % personnr
             return 1,bruker_epost
 
         try:
             #self.account.find(self.person.get_primary_account())
             account_list = self.person.get_accounts(filter_expired=False)
-            #print "foo=%s" % account_list[0][0]
             #default_account = "%s" % int(account_list[0])
             self.account.find(account_list[0][0])
             account_types = self.account.get_account_types()
@@ -249,13 +248,15 @@ class execute:
                 #print "account_type[affiliation] = %s" % account_type['affiliation']
                 if ((account_type['affiliation']==self.constants.affiliation_manuell) or (account_type['affiliation']==self.constants.affiliation_tilknyttet)):
                     self.update_account(data_list)
-                    
         except Errors.NotFoundError:
             pass
+        except IndexError:
+            pass
+        
             
         #my_accounts = self.person.get_accounts()
-        if(account_list == None):
-
+        if(len(account_list) == 0):
+            print "create new account"
             spread_list = string.split(spreads,",")
             spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
             #for i in spread_list:
@@ -319,7 +320,6 @@ class execute:
                 #posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
                 self.send_mail(bruker_epost,username,spread_list)
                 if("AD_account" in spread_list):
-
                     #only send email to nybruker@asp.uit.no if AD_account is one of the chosen spreads.
                     self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
                 self.confirm_registration(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost)
@@ -344,7 +344,7 @@ class execute:
             
             for account_type in account_types:
                 if((self.constants.affiliation_student == account_type['affiliation'])or (self.constants.affiliation_ansatt == account_type['affiliation'])):
-                    # This person already has a student account. we must now add new spreads (if any).
+                    # This person already has a student/employee  account. we must now add new spreads (if any).
                     # indicating that this account is now to be sent to the new spreads listed.
                     # FS/SLP4 is still authoritative on account data, including expire date,
                     # and as such,no other manipulation of the account will be done
@@ -360,7 +360,7 @@ class execute:
                             self.account.add_spread(int(new_spread))
             return self.account.entity_id,bruker_epost # <- even if the account exists we have to update email information from system_x by returning the account_id here
 
-    def send_ad_mail(self,name,ssn,ou,type,expire_date,why,contact_data,external_email,registrator_email):
+    def send_ad_email(self,name,ssn,ou,type,expire_date,why,contact_data,external_email,registrator_email):
         ad_message="""
 %s har sendt inne en forespørsel om ny AD konto. Følgende data er registrert om denne personen.
 
