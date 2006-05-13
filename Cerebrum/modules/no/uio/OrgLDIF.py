@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,7 +25,11 @@ ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 class OrgLDIFUiOMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
-    def __init__(self, db, logger):
+    from cereconf import LDAP_PERSON
+    if LDAP_PERSON['dn'].startswith('ou='):
+      # Hacks for old LDAP structure
+
+      def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
         self.used_new_DNs = {}
@@ -34,7 +38,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                                  'ou=--,ou=organization,dc=uio,dc=no':
                                  'cn=organization,dc=uio,dc=no'}
 
-    def make_ou_dn(self, entry, parent_dn):
+      def make_ou_dn(self, entry, parent_dn):
         # Change from superclass:
         # Replace special characters with spaces instead of escaping them.
         # Replace multiple whitespace with a single space.  strip() the result.
@@ -45,8 +49,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             entry, self.dn2new_structure[parent_dn])
         norm_new_dn = normalize_string(new_structure_dn)
         if norm_new_dn in self.used_new_DNs:
-            new_structure_dn = "norEduOrgUnitUniqueNumber=%s+%s" % (
-                entry['norEduOrgUnitUniqueNumber'][0],
+            new_structure_dn = "%s=%s+%s" % (
+                self.FEIDE_attr_ou_id, entry[self.FEIDE_attr_ou_id][0],
                 new_structure_dn)
         self.used_new_DNs[norm_new_dn] = True
         entry['#dn'] = (new_structure_dn,)
