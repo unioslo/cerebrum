@@ -115,6 +115,7 @@ class XMLPerson2Object(XMLEntity2Object):
         start_date = end_date = None
         category = None
         ou_id = None
+        leave = []     
         tag2kind = { "bilag" : DataEmployment.BILAG,
                      "tils"  : DataEmployment.HOVEDSTILLING,
                      "gjest" : DataEmployment.GJEST }
@@ -149,11 +150,23 @@ class XMLPerson2Object(XMLEntity2Object):
                 category = xml2cat[elem.get("hovedkat").encode("latin1")]
         # fi
 
+        # Handle leave (permisjon).
+        for child in elem:
+            if child.tag == "permisjon":
+                tmp = {}
+                tmp['percentage'] = float(child.get("prosent_permisjon"))
+                tmp['start_date'] = self._make_mxdate(elem.get("dato_fra"))
+                tmp['end_date'] = self._make_mxdate(elem.get("dato_til"))
+                leave.append(tmp)
+            # fi
+        # od
+
         return DataEmployment(kind = tag2kind[elem.tag],
                               percentage = percentage,
                               code = code, title = title,
                               start = start_date, end = end_date, place = ou_id,
-                              category = category)
+                              category = category,
+                              leave = leave)
     # end _make_employment
     
 

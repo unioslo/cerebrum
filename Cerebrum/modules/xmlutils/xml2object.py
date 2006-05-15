@@ -130,7 +130,7 @@ class DataEmployment(object):
     KATEGORI_OEVRIG = "tekadm-øvrig"
     KATEGORI_VITENSKAPLIG  = "vitenskaplig"
 
-    def __init__(self, kind, percentage, code, title, start, end, place, category):
+    def __init__(self, kind, percentage, code, title, start, end, place, category, leave=None):
         # TBD: Subclass?
         self.kind = kind
         assert self.kind in (self.HOVEDSTILLING, self.BISTILLING,
@@ -146,6 +146,8 @@ class DataEmployment(object):
         self.place = place
         # Kind of employment -- VIT/TEKADM-ØVR
         self.category = category
+        # leave
+        self.leave = leave
     # end __init__
 
 
@@ -159,6 +161,12 @@ class DataEmployment(object):
         return self.start <= date and ((not self.end) or
                                        (date <= self.end))
     # end is_expired
+
+    def has_leave(self, date = Date(*time.localtime()[:3])):
+        for l in self.leave:
+            if l['start_date'] <= date and (date <= l['end_date']):
+                return True
+        return False
 
 
     def __str__(self):
@@ -400,8 +408,10 @@ class DataPerson(DataEntity):
 
 
     def __str__(self):
-        return "DataPerson: %s\n%s\n" % (list(self.iterids()),
-                                         list(self.iternames()))
+        ret = "DataPerson: %s\n" % list(self.iterids())
+        for kind, name in self.iternames():
+            ret += "%s: %s\n" % (kind, name.value)
+        return ret
     # end __str__
 # end DataPerson
 
@@ -437,9 +447,10 @@ class HRDataPerson(DataPerson):
                   "\tgender: %s\n"
                   "\tbirth: %s\n"
                   "\taddress: %s\n"
-                  "\temployment: %s\n" % (spr, self.gender,
+                  "\temployment: %s" % (spr, self.gender,
                                           self.birth_date, self.address,
-                                          list(self.iteremployment())))
+                                          [str(x) for x in list(
+            self.iteremployment())]))
         return result
     # end __str__
 # end HRDataPerson
