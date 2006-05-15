@@ -58,11 +58,11 @@ import os
 import ftplib
 
 import Cerebrum
-from Cerebrum import Database
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
-from Cerebrum.extlib.sets import Set
-from Cerebrum import Errors
+from Cerebrum.modules.xmlutils.system2parser import system2parser
+from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
 
 
 
@@ -247,7 +247,7 @@ def locate_common(person, const):
 
 
 
-def leave_covered(person, db_row):
+def leave_covered(xml_person, employment):
     """
     Check whether a given employment (tilsetting) entry has active leaves of
     absence (permisjon) totalling to 100% (or more :))
@@ -256,59 +256,58 @@ def leave_covered(person, db_row):
     total = 0
 
     now = time.strftime("%Y%m%d")
-    for row in person.get_permisjon(now, db_row.fields.tilsettings_id):
-        if row.fields.andel:
-            total += int(row.fields.andel)
-        else:
-            logger.debug("%s %s does not have andel",
-                         person.entity_id, row.fields.tilsettings_id)
-        # fi
+    for l in employment.leave:
+        total += int(l['percentage'])
     # od
 
-    logger.debug1("%s %s has andel == %d",
-                  person.entity_id, db_row.fields.tilsettings_id, total)
     return total >= 100
+
 # end leave_covered
 
 
 
-def process_employee(person, ou, const, db_row, stream):
+def process_employee(db_person, ou, const, xml_person, fnr, stream):
     """
     Output an UA entry corresponding to PERSON's employment represented by
     DB_ROW.
     """
 
-    fnr, first_name, last_name = locate_common(person, const)
-    if not fnr:
-        return
-    # fi
+    # TBD, Should we check that names from db and xml are consistent?
+    first_name, last_name = locate_names(db_person, const)
 
-    if leave_covered(person, db_row):
-        logger.debug("%s has tilsetting %s which has >= 100%% coverage",
-                     person.entity_id, db_row.fields.tilsettings_id)
-        return
-    # fi
+    # Check all employments (tilsettinger) for this person
+    for employment in xml_person.iteremployment():
+        # TBD, this might be unnecessary
+        if leave_covered(xml_person, employment):
+            logger.debug("%s has tilsetting %s which has >= 100%% coverage",
+                         fnr, employment)
+            return
+        # fi
 
-    stedkode = locate_stedkode(ou, db_row.fields.ou_id)
-    startdato = ""
-    if db_row['dato_fra']:
-        startdato = db_row['dato_fra'].strftime("%d.%m.%Y")
-    # fi
+        if not employment.place:
+            logger.warning("No SKO for %s: %s" % (fnr, employment))
+        # fi
+        stedkode = "%02d%02d%02d" % employment.place[1]
 
-    sluttdato = ""
-    if db_row['dato_til']:
-        sluttdato = db_row['dato_til'].strftime("%d.%m.%Y")
-    # fi
+        startdato = ""
+        if employment.start:
+            startdato = employment.start.strftime("%d.%m.%Y")
+        # fi
+        sluttdato = ""
+        if employment.end:
+            sluttdato= employment.end.strftime("%d.%m.%Y")
+        # fi
 
-    # systemnr == 2 for employees
-    stream.write(prepare_entry(fnr = fnr,
-                               systemnr = "2",
-                               korttype = "Tilsatt UiO",
-                               fornavn = first_name,
-                               etternavn = last_name,
-                               arbeidssted = stedkode,
-                               startdato = startdato,
-                               sluttdato = sluttdato))
+        # systemnr == 2 for employees
+        stream.write(prepare_entry(fnr = fnr,
+                                   systemnr = "2",
+                                   korttype = "Tilsatt UiO",
+                                   fornavn = first_name,
+                                   etternavn = last_name,
+                                   arbeidssted = stedkode,
+                                   startdato = startdato,
+                                   sluttdato = sluttdato))
+    # od
 # end process_employee
 
 
@@ -341,7 +340,7 @@ def process_student(person, ou, const, db_row, stream):
 
 
 
-def generate_output(stream, do_employees, do_students):
+def generate_output(stream, do_employees, do_students, sysname, person_file):
     """
     Create dump for UA
     """
@@ -351,26 +350,38 @@ def generate_output(stream, do_employees, do_students):
     # the students.
     # 
 
-    person = Factory.get("Person")(db)
+    db_person = Factory.get("Person")(db)
     ou = Factory.get("OU")(db)
     const = Factory.get("Constants")(db)
 
     if do_employees:
-        logger.debug("Processing all employee records")
-        
-        for db_row in person.list_tilsetting():
-            person_id = db_row['person_id']
-            
+        logger.info("Extracting employee info from %s", person_file)
+
+        source_system = getattr(const, sysname)
+        parser = system2parser(sysname)(person_file, False)
+
+        # Go through all persons in person_info_file
+        it = parser.iter_persons()
+        while 1:
             try:
-                person.clear()
-                person.find(person_id)
-            except Cerebrum.Errors.NotFoundError:
-                logger.exception("Aiee! No person with %s exists, although "
-                                 "list_tilsetting() returned it", person_id)
+                xml_person = it.next()
+                fnr = xml_person.get_id(DataPerson.NO_SSN)
+                db_person.find_by_external_id(const.externalid_fodselsnr, fnr,
+                                              source_system=source_system)
+            except StopIteration:
+                break
+            except Errors.NotFoundError:
+                logger.exception("Couldn't find person with fnr %s in db" %
+                                 fnr)
+                continue
+            except:
+                logger.exception("Failed to process next person from %s" %
+                                 person_file)
                 continue
             # yrt
 
-            process_employee(person, ou, const, db_row, stream)
+            process_employee(db_person, ou, const, xml_person, fnr, stream)
+            db_person.clear()
         # od
     # fi
 
@@ -497,6 +508,7 @@ def usage():
 
     options = '''
 options: 
+-i, --input-file:       source_system:person_info_file
 -o, --output-directory: output directory
 -h, --help:             display this message
 -d, --distribute:       attempt to deliver the dump file
@@ -521,8 +533,9 @@ def main():
     
     try:
         options, rest = getopt.getopt(sys.argv[1:],
-                                      "o:hdes",
-                                      ["output-directory=",
+                                      "i:o:hdes",
+                                      ["input-file",
+                                       "output-directory=",
                                        "help",
                                        "distribute",
                                        "employees",
@@ -534,12 +547,16 @@ def main():
     # yrt
 
     output_directory = None
+    sysname = None
+    person_file = None
     distribute = False
     do_employees = False
     do_students = False
     for option, value in options:
         if option in ("-o", "--output-directory"):
             output_directory = value
+        elif option in ("-i", "--source-spec"):
+            sysname, person_file = value.split(":")
         elif option in ("-h", "--help"):
             usage()
             sys.exit(2)
@@ -553,7 +570,7 @@ def main():
     # od
 
     output_file = AtomicFileWriter(os.path.join(output_directory, "uadata.new"), "w")
-    generate_output(output_file, do_employees, do_students)
+    generate_output(output_file, do_employees, do_students, sysname, person_file)
     output_file.close()
 
     diff_file = "uadata.%s" % time.strftime("%Y-%m-%d")
