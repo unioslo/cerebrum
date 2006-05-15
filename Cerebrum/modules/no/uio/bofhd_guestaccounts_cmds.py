@@ -146,7 +146,7 @@ class BofhdExtension(object):
         return {'last_arg': True}
 
 
-    # user create_guest <nr> <group_id> <filegroup> <shell> <disk> <uname-prefix>
+    # user create_guest <nr> <group_id> <filegroup> <shell> <disk>
     all_commands['user_create_guest'] = Command(
         ('user', 'create_guest'), prompt_func=user_create_guest_prompt_func,
         perm_filter='can_create_guests')
@@ -295,7 +295,8 @@ class BofhdExtension(object):
     def user_guests(self, operator, groupname): 
         owner = self.util.get_target(groupname, default_lookup="group")
         users = self.bgu.list_guest_users(owner_id=owner.entity_id,
-                                          include_comment=True)
+                                          include_comment=True,
+                                          include_date=True)
         if not users:
             return "No guest users are owned by %s" % groupname
         if len(users) == 1:
@@ -339,43 +340,46 @@ class BofhdExtension(object):
             return disk, None, path
 
 
-    def _pretty_print(self, guests, include_comment=True):
+    def _pretty_print(self, guests, include_comment=True, include_date=True):
+
         """Return a pretty string of the names in guestlist. If the
         list contains more than 2 consecutive names they are written
-        as an interval.  The list may be of strings (usernames) or of
-        tuples (username, comment [, more elements]).
+        as an interval. guests is a list of lists, where the inner
+        lists are on the form [username, end_date, comment]. 
 
         """
-        # Tuples are sorted first by element 0, then element 1 etc.,
-        # if guests is a plain array, that's fine, too.
+
         guests.sort()
-        if not isinstance(guests[0], tuple):
-            guests = [(x, "") for x in guests]
         prev = -2
         prev_comment = None
+        prev_date = None
         intervals = []
         for guest in guests:
             num = int(guest[0][-3:])
-            if intervals and num - prev == 1 and guest[1] == prev_comment:
+            if intervals and num - prev == 1 and guest[1] == prev_date \
+                   and guest[2] == prev_comment:
                 intervals[-1][1] = guest
             else:
                 intervals.append([guest, guest])
             prev = num
-            prev_comment = guest[1]
+            prev_date = guest[1]
+            prev_comment = guest[2]
 
         ret = []
-        if include_comment:
-            for i, j in intervals:
-                if i == j:
-                    ret.append('%-12s   %s' % (i[0], i[1]))
-                else:
-                    ret.append('%-8s-%s   %s' % (i[0], j[0][-3:], i[1]))
-        else:
-            for i, j in intervals:
-                if i == j:
-                    ret.append('%-12s' % i[0])
-                else:
-                    ret.append('%-8s-%s' % (i[0], j[0][-3:]))
+        for i, j in intervals:
+            if i == j:
+                tmp = '%-12s   ' % i[0]
+                if include_date:
+                    tmp += '%-12s  ' % i[1]
+                if include_comment:
+                    tmp += '%s' % i[2]
+            else:
+                tmp = '%-8s-%s  ' % (i[0], j[0][-3:])
+                if include_date:
+                    tmp += ' %-12s  ' % i[1]
+                if include_comment:
+                    tmp += ' %s' % i[2]
+            ret.append(tmp)
         return '\n'.join(ret)
 
 # arch-tag: bddd54d2-6272-11da-906d-7a8b01ac279a

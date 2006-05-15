@@ -116,7 +116,8 @@ class BofhdUtils(object):
             raise GuestAccountException("Already available.")
         return int(owner['target_id'])
 
-    def list_guest_users(self, owner_id=NotSet, include_comment=False):
+    def list_guest_users(self, owner_id=NotSet, include_comment=False,
+                         include_date=False):
         """List names of guest accounts owned by group with id=owner_id.
         If owner_id=None, return all available accounts.
         If no owner_id is specified, return all guest accounts.
@@ -128,10 +129,12 @@ class BofhdUtils(object):
             # Must check if guest is available. 
             if owner_id is None and not self._guest_is_available(row['entity_id']):
                 continue
+            tmp = [row['name']]
+            if include_date:
+                tmp.append(self._get_end_date(row['entity_id']))
             if include_comment:
-                ret.append((row['name'], row['strval'] or ""))
-            else:
-                ret.append(row['name'])
+                tmp.append(row['strval'] or "")
+            ret.append(tmp)
         return ret
 
     def num_available_accounts(self):
@@ -180,6 +183,15 @@ class BofhdUtils(object):
         if ac.get_entity_quarantine(self.co.quarantine_guest_release):
             return False
         return True
+
+    def _get_end_date(self, e_id):
+        "Return end date of request period for guest user"
+        ac = Factory.get('Account')(self.db)
+        ac.find(e_id)
+        for q in ac.get_entity_quarantine(self.co.quarantine_guest_release):
+            if q.has_key('start_date'):
+                return q['start_date'].date
+        return None
 
     def _alloc_guest(self, guest, end_date, comment, owner_type, owner_id,
                      operator_id):
