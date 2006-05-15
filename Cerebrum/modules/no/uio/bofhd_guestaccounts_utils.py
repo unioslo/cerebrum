@@ -129,11 +129,11 @@ class BofhdUtils(object):
             # Must check if guest is available. 
             if owner_id is None and not self._guest_is_available(row['entity_id']):
                 continue
-            tmp = [row['name']]
+            tmp = [row['name'], None, None]
             if include_date:
-                tmp.append(self._get_end_date(row['entity_id']))
+                tmp[1] = self._get_end_date(row['entity_id'])
             if include_comment:
-                tmp.append(row['strval'] or "")
+                tmp[2] = row['strval'] or ""
             ret.append(tmp)
         return ret
 

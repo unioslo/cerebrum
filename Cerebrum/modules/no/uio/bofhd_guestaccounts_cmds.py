@@ -27,7 +27,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory 
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules import PosixUser
-from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils \
@@ -246,7 +245,7 @@ class BofhdExtension(object):
                                       'password': passwd})
 
             ret = "OK, reserved guest users:\n%s\n" % \
-                  self._pretty_print(user_list, include_comment=False)
+                  self._pretty_print([x[0] for x in user_list])
             ret += "Please use misc list_passwords to print or view the passwords."
             return ret
         except GuestAccountException, e:
@@ -304,7 +303,8 @@ class BofhdExtension(object):
         else:
             verb = 'users are'
         return ("The following guest %s owned by %s:\n%s" %
-                (verb, groupname, self._pretty_print(users)))
+                (verb, groupname, self._pretty_print(users, include_date=True,
+                                                     include_comment=True)))
 
 
     all_commands['user_guests_status'] = Command(
@@ -340,12 +340,14 @@ class BofhdExtension(object):
             return disk, None, path
 
 
-    def _pretty_print(self, guests, include_comment=True, include_date=True):
-
+    def _pretty_print(self, guests, include_comment=False, include_date=False):
         """Return a pretty string of the names in guestlist. If the
         list contains more than 2 consecutive names they are written
-        as an interval. guests is a list of lists, where the inner
-        lists are on the form [username, end_date, comment]. 
+        as an interval. If comment or date in included they must be
+        equal within an interval.
+        guests is either a list of guest names or a list of lists,
+        where the inner lists are on the form [username, end_date,
+        comment].
 
         """
 
@@ -355,6 +357,9 @@ class BofhdExtension(object):
         prev_date = None
         intervals = []
         for guest in guests:
+            # Handle simple list of guest user names
+            if not type(guest) is list:
+                guest = [guest, None, None]
             num = int(guest[0][-3:])
             if intervals and num - prev == 1 and guest[1] == prev_date \
                    and guest[2] == prev_comment:
