@@ -30,7 +30,10 @@ from Cerebrum.Constants import _AuthoritativeSystemCode, \
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode, \
                                _EntityExternalIdCode, \
-                               _AccountCode
+                               _AccountCode, \
+                               _PersonNameCode, \
+                               _ContactInfoCode, \
+                               _CountryCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 
@@ -149,5 +152,30 @@ class Constants(Constants.Constants):
     spread_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
         'group included in Active Directory')   
+
+## SAP-spesifikke navnekonstanter
+    name_middle = _PersonNameCode('MIDDLE', 'Middle name')
+    name_initials = _PersonNameCode('INITIALS', 'Initials')
+
+## SAP-spesifikke kommtypekonstater
+    contact_phone_cellular = _ContactInfoCode("CELLPHONE",
+                                              "Person's cellular phone")
+    contact_phone_cellular_private = _ContactInfoCode(
+                                       "PRIVCELLPHONE",
+                                       "Person's private cellular phone")
+
+## Landkonstanter for SAP
+    country_no = _CountryCode("NO", "Norway", "47", "Norway")
+    country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
+    country_fi = _CountryCode("FI", "Finland", "358", "Finland")
+    country_se = _CountryCode("SE", "Sweden", "46", "Sweden")
+    country_us = _CountryCode("US", "USA", "1", "United states of America")
+    country_nl = _CountryCode("NL", "The Netherlands", "31", "The Netherlands")
+    country_de = _CountryCode("DE", "Germany", "49", "Germany")
+    country_au = _CountryCode("AU", "Australia", "61", "Australia")
+    country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
+    country_it = _CountryCode("IT", "Italy", "39", "Italy")
+    country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
+    country_at = _CountryCode("AT", "Austria", "43", "Austria")
 
 # arch-tag: b941f1fc-c641-11da-9d35-75aad02b30cc
