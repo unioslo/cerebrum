@@ -5650,6 +5650,37 @@ class BofhdExtension(object):
                                account.entity_id, disk_id, state_data=spread)
                 message += "Command queued for immediate execution."
             elif move_type == "batch":
+                # mail user about the awaiting move operation
+                uname = account.get_account_name()
+                new_homedir = disk.path + '/' + uname
+                mailaddr = account.get_primary_mailaddress()
+                try:
+                    mail_file = cereconf.USER_BATCH_MOVE_WARNING
+                    f = open(mail_file)
+                except AttributeError:
+                    self.logger.warn("cereconf.py not set up correctly. " +
+                                     "USER_BATCH_MOVE_WARNING must be defined")
+                except:
+                    self.logger.warn("Couldn't read template warning file %s" % mail_file)
+                else:
+                    lines = f.readlines()
+                    f.close()
+
+                msg = []
+                for line in lines:            
+                    if line.strip().startswith('From:'):
+                        email_from = line.split(':')[1] 
+                    elif line.strip().startswith('Subject:'):
+                        subject = line.split(':', 1)[1]
+                    else:                
+                        msg.append(line)
+                body = ''.join(msg)
+                body = body.replace('${USER}', uname)
+                body = body.replace('${TO_DISK}', new_homedir)
+                
+                # Try to send mail
+                Utils.sendmail(mailaddr, email_from, subject, body)
+
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_user,
                                account.entity_id, disk_id, state_data=spread)
