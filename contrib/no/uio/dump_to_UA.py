@@ -501,7 +501,7 @@ def ftpput(host, uname, password, local_dir, file, dir):
 
 
 
-def usage():
+def usage(exitcode=0):
     '''
     Display option summary
     '''
@@ -517,6 +517,7 @@ options:
     '''
 
     logger.info(options)
+    sys.exit(exitcode)
 # end usage
 
 
@@ -542,8 +543,7 @@ def main():
                                        "students",])
     except getopt.GetoptError:
         logger.exception("foo")
-        usage()
-        sys.exit(1)
+        usage(1)
     # yrt
 
     output_directory = None
@@ -555,11 +555,10 @@ def main():
     for option, value in options:
         if option in ("-o", "--output-directory"):
             output_directory = value
-        elif option in ("-i", "--source-spec"):
+        elif option in ("-i", "--input-file"):
             sysname, person_file = value.split(":")
         elif option in ("-h", "--help"):
-            usage()
-            sys.exit(2)
+            usage(2)
         elif option in ("-d", "--distribute"):
             distribute = True
         elif option in ("-e", "--employees"):
