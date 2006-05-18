@@ -125,10 +125,16 @@ def write_person_info(outfile):
     for p in permstud:
         f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'permisjon') + "\n")
 
-    # Personer som har fått tilbud
-    cols, tilbudstud = _ext_cols(fs.student.list_tilbud())
-    for t in tilbudstud:
-        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
+##
+## STA har bestemt at personer med tilbud ikke skal ha tilgang til noen IT-tjenester
+## inntil videre. Derfor slutter vi på nåværende tidspunkt å hente ut informasjon om
+## disse. Ettersom det er usikkert om dette vil endre seg igjen i nær fremtid lar vi
+## koden ligge for nå.
+##        
+##    # Personer som har fått tilbud
+##    cols, tilbudstud = _ext_cols(fs.student.list_tilbud())
+##    for t in tilbudstud:
+##        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'tilbud') + "\n")
     
     f.write("</data>\n")
     f.close()
@@ -140,6 +146,7 @@ def write_ou_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))  # TODO
     for o in ouer:
+
         sted = {}
         for fs_col, xml_attr in (
             ('faknr', 'fakultetnr'),
