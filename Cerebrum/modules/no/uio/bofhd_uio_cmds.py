@@ -2140,8 +2140,9 @@ class BofhdExtension(object):
         ("email", "move"),
         AccountName(help_ref="account_name", repeat=True),
         SimpleString(help_ref='string_email_host'),
+        Date(optional=True),
         perm_filter='can_email_move')
-    def email_move(self, operator, uname, server):
+    def email_move(self, operator, uname, server, when=None):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         est = Email.EmailServerTarget(self.db)
@@ -2153,6 +2154,10 @@ class BofhdExtension(object):
             raise CerebrumError, "User is already at %s" % server
         est.populate(es.entity_id)
         est.write_db()
+        if when is None:
+            when = DateTime.now()
+        else:
+            when = self._parse_date(when)
         if es.email_server_type == self.const.email_server_type_cyrus:
             spreads = [int(r['spread']) for r in acc.get_spread()]
             br = BofhdRequests(self.db, self.const)
@@ -2161,11 +2166,11 @@ class BofhdExtension(object):
                 # EmailServerTarget is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uio_imap)
             # Create the mailbox.
-            req = br.add_request(operator.get_entity_id(), br.now,
+            req = br.add_request(operator.get_entity_id(), when,
                                  self.const.bofh_email_create,
                                  acc.entity_id, est.email_server_id)
             # Now add a move request.
-            br.add_request(operator.get_entity_id(), br.now,
+            br.add_request(operator.get_entity_id(), when,
                            self.const.bofh_email_move,
                            acc.entity_id, old_server, state_data=req)
         else:
@@ -6642,13 +6647,40 @@ class BofhdExtension(object):
         return (date_start, date_end)
 
     def _parse_date(self, date):
+        """Convert a written date into DateTime object.  Possible
+        syntaxes are:
+
+            YYYY-MM-DD       (2005-04-03)
+            YYYY-MM-DDTHH:MM (2005-04-03T02:01)
+            THH:MM           (T02:01)
+
+        Time of day defaults to midnight.  If date is unspecified, the
+        resulting time is between now and 24 hour into future.
+
+        """
         if not date:
             # TBD: Is this correct behaviour?  mx.DateTime.DateTime
             # objects allow comparison to None, although that is
             # hardly what we expect/want.
             return None
         if isinstance(date, DateTime.DateTimeType):
-            date = date.Format("%Y-%m-%d")
+            # Why not just return date?  Answer: We do some sanity
+            # checks below.
+            date = date.Format("%Y-%m-%dT%H:%M")
+        if date.count('T') == 1:
+            date, time = date.split('T')
+            try:
+                hour, min = [int(x) for x in time.split(':')]
+            except ValueError:
+                raise CerebrumError, "Time of day must be on format HH:MM"
+            if date == '':
+                now = DateTime.now()
+                target = DateTime.Date(now.year, now.month, now.day, hour, min)
+                if target < now:
+                    target += DateTime.DateTimeDelta(1)
+                date = target.Format("%Y-%m-%d")
+        else:
+            hour = min = 0
         try:
             y, m, d = [int(x) for x in date.split('-')]
         except ValueError:
@@ -6661,7 +6693,7 @@ class BofhdExtension(object):
 	if y < 1800:
 	    raise CerebrumError, "Too long ago: %s" % date
         try:
-            return DateTime.Date(y, m, d)
+            return DateTime.Date(y, m, d, hour, min)
         except:
             raise CerebrumError, "Illegal date: %s" % date
 
