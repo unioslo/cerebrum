@@ -42,6 +42,13 @@ class UiOStudent(access_FS.Student):
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
         samt alle med opptak som blir gyldig om 14 dager.
+
+        Obs! For å unngå at sommerskolestudentene kommer over til
+        Cerebrum for tidlig, legger vi inn en eksplisitt sjekk på om
+        studieprogramkode er sommerskole-kode.
+
+        Denne skal tas vekk dagen før vi skal skrive ut passord for
+        sommerskolestudentene, dvs. 21. juni.
         """
 
         extra = ""
@@ -68,8 +75,9 @@ class UiOStudent(access_FS.Student):
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist = 'N' AND
-           sps.dato_studierett_tildelt < SYSDATE + 14 AND
+           sps.dato_studierett_tildelt < SYSDATE + 14 AND           
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd') AND
+           (sps.studieprogramkode <> 'ISS' OR sps.studieprogramkode <> 'EILC') AND           
            %s
            """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
