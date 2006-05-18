@@ -59,10 +59,14 @@ aff_status_pri_order = [int(x) for x in (  # Most significant first
     co.affiliation_status_student_aktiv,
     co.affiliation_status_student_evu,
     co.affiliation_status_student_privatist,
-#    co.affiliation_status_student_permisjon,
+##
+## Ikke i bruk p.t.
+##    co.affiliation_status_student_permisjon,
     co.affiliation_status_student_opptak,
     co.affiliation_status_student_alumni,
-    co.affiliation_status_student_tilbud,
+##
+## Ikke i bruk p.t.
+##    co.affiliation_status_student_tilbud,
     co.affiliation_status_student_soker)]
 aff_status_pri_order = dict([(aff_status_pri_order[i], i)
                               for i in range(len(aff_status_pri_order))] )
