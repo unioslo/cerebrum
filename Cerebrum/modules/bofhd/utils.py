@@ -596,7 +596,7 @@ class BofhdUtils(object):
                                         (type_name, found, v))
                 found = v
         if found is None:
-            raise CerebrumError, "Unknown value '%s'" % name
+            raise CerebrumError, "Unknown value '%s'" % type_name
         return found
 
 # arch-tag: d6650fa6-6a9b-459f-be7e-80c9e6cbba52
