@@ -413,13 +413,14 @@ def move_email(acc, src, dest):
                      src.name, dest.name)
         return False
 
+    pwfile = os.path.join(cereconf.DB_AUTH_DIR,
+                          'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
+                                            cereconf.CYRUS_HOST))
     cmd = [cereconf.IMAPSYNC_SCRIPT,
            '--user1', acc.account_name, '--host1', src.name,
            '--user2', acc.account_name, '--host2', dest.name,
            '--authusing', cereconf.CYRUS_ADMIN,
-           '--passfile1', os.path.join(cereconf.DB_AUTH_DIR,
-                                       'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
-                                                         cereconf.CYRUS_HOST)),
+           '--passfile1', pwfile,
            '--useheader', 'Message-ID',
            '--regexmess', 's/\\0/ /g',
            '--ssl', '--subscribe', '--nofoldersizes']
@@ -429,11 +430,26 @@ def move_email(acc, src, dest):
                                   dest.name in debug_hostlist):
         errnum = spawn_and_log_output(cmd)
     if errnum == EXIT_SUCCESS:
-        logger.info('%s: move_email completed successfully',
+        logger.info('%s: imapsync completed successfully',
                     acc.account_name)
-        return True
-    logger.error('move mail failed, returned %d' % errnum)
-    return False
+    else:
+        logger.error('move mail failed, returned %d' % errnum)
+        return False
+    cmd = [cereconf.MANAGESIEVE_SCRIPT,
+           '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
+           acc.account_name, src.name, dest.name]
+    logger.debug("doing %s" % cmd)
+    errnum = EXIT_SUCCESS
+    if debug_hostlist is None or (src.name in debug_hostlist and
+                                  dest.name in debug_hostlist):
+        errnum = spawn_and_log_output(cmd)
+    if errnum == EXIT_SUCCESS:
+        logger.info('%s: managesieve_sync completed successfully',
+                    acc.account_name)
+    else:
+        logger.error('move sieve failed, returned %d' % errnum)
+        return False
+    return True
 
 
 def process_mailman_requests():
