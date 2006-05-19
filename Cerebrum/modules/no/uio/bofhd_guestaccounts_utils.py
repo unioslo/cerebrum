@@ -146,8 +146,12 @@ class BofhdUtils(object):
         ac = Factory.get('Account')(self.db)
         ret = []
         num2guestname = {}
+        unames = []
+        # make a list of used unames
+        for u in self.list_guest_users():
+            unames.append(u[0])
         # find all existing guests
-        for uname in self.list_guest_users():
+        for uname in unames:
             if uname.startswith(prefix):
                 continue
             num2guestname[int(uname[len(prefix):])] = uname
