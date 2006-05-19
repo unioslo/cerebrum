@@ -142,18 +142,20 @@ class Constants(Constants.Constants):
     
     # br_email_move stays in queue until delivery has stopped.
     # generate_mail_ldif.py will set the mailPause attribute based on
-    # entries in the request queue
-
-    # destination server is value in database, source server is passed
-    # in destination_id (!) -- this way the fresh data is in the
-    # database, and hence LDAP.  state_data is optionally a
-    # request_id: wait if that request is in queue (typically a create
-    # request).  a bofh_email_convert is inserted when done.
+    # entries in the request queue.
+    #
+    # Messages will queue up on the old server while mailPause is
+    # true.  When the move is done, those messages will make another
+    # trip through the main hub before being delivered.
+    # Unfortunately, this may mean we get another shadow copy.
+    #
+    # state_data is optionally a request_id: wait if that request is
+    # in queue (typically a create request).  A bofh_email_convert is
+    # inserted when done.
     bofh_email_move = _BofhdRequestOpCode('br_email_move',
                                           'Move user among e-mail servers')
     bofh_email_create = _BofhdRequestOpCode('br_email_create',
                                             'Create user mailboxes')
-    # state_data is emailserver (entity_id):
     bofh_email_delete = _BofhdRequestOpCode('br_email_delete',
                                             'Delete all user mailboxes')
     bofh_email_hquota = _BofhdRequestOpCode('br_email_hquota',

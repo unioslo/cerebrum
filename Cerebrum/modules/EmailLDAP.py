@@ -211,11 +211,14 @@ class EmailLDAP(DatabaseAccessor):
 
     def read_pending_moves(self):
         br = BofhdRequests(self._db, self.const)
+        # We define near future as two hours from now.
+        near_future = mx.DateTime.now() + mx.DateTime.DateTimeDelta(0, 2)
         for op in (self.const.bofh_email_create,
                    self.const.bofh_email_move,
                    self.const.bofh_email_convert):
             for r in br.get_requests(operation=op):
-                self.pending[int(r['entity_id'])] = True
+                if r['run_at'] < near_future:
+                    self.pending[int(r['entity_id'])] = True
 
 
     def read_multi_target(self, group_id):

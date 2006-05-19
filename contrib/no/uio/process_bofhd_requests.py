@@ -239,13 +239,13 @@ def process_email_requests():
                 continue
 
             # The database contains the new host, so the id of the server
-            # to remove from is passed in state_data.
+            # to remove from is passed in destination_id.
             server = Email.EmailServer(db)
             try:
-                server.find(r['state_data'])
+                server.find(r['destination_id'])
             except Errors.NotFoundError:
                 logger.error("bofh_email_delete: %d: target server not found",
-                             r['state_data'])
+                             r['destination_id'])
                 br.delay_request(request_id=r['request_id'])
                 db.commit()
                 continue
@@ -274,9 +274,9 @@ def process_email_requests():
             except Errors.NotFoundError:
                 logger.error("email_move: user %d not found", r['entity_id'])
                 continue
-            old_server = Email.EmailServer(db)
-            old_server.find(r['destination_id'])
-            new_server = get_email_server(r['entity_id'])
+            old_server = get_email_server(r['entity_id'])
+            new_server = Email.EmailServer(db)
+            new_server.find(r['destination_id'])
             if old_server.entity_id == new_server.entity_id:
                 logger.error("trying to move %s from and to the same server!",
                              acc.account_name)
@@ -287,15 +287,16 @@ def process_email_requests():
                 logger.debug("E-mail delivery not stopped for %s",
                              acc.account_name)
                 db.rollback()
-                br.delay_request(r['request_id'])
-                db.commit()
                 continue
             if move_email(acc, old_server, new_server):
+                est = Email.EmailServerTarget(db)
+                est.find_by_entity(acc.entity_id)
+                est.populate(new_server.entity_id)
+                est.write_db()
                 br.delete_request(request_id=r['request_id'])
                 br.add_request(r['requestee_id'], r['run_at'],
                                const.bofh_email_delete,
-                               r['entity_id'], None,
-                               state_data=old_server.entity_id)
+                               r['entity_id'], old_server.entity_id)
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])

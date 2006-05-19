@@ -2152,8 +2152,6 @@ class BofhdExtension(object):
         es.find_by_name(server)
         if old_server == es.entity_id:
             raise CerebrumError, "User is already at %s" % server
-        est.populate(es.entity_id)
-        est.write_db()
         if when is None:
             when = DateTime.now()
         else:
@@ -2168,11 +2166,11 @@ class BofhdExtension(object):
             # Create the mailbox.
             req = br.add_request(operator.get_entity_id(), when,
                                  self.const.bofh_email_create,
-                                 acc.entity_id, est.email_server_id)
+                                 acc.entity_id, es.entity_id)
             # Now add a move request.
             br.add_request(operator.get_entity_id(), when,
                            self.const.bofh_email_move,
-                           acc.entity_id, old_server, state_data=req)
+                           acc.entity_id, es.entity_id, state_data=req)
         else:
             # TBD: should we remove spread_uio_imap ?
             # It does not do much good to add to a bofh request, mvmail
@@ -3844,10 +3842,16 @@ class BofhdExtension(object):
             elif op in (self.const.bofh_move_give,):
                 dest = self._get_entity_name(self.const.entity_group,
                                              r['destination_id'])
+            elif op in (self.const.bofh_email_create,
+                        self.const.bofh_email_move,
+                        self.const.bofh_email_delete):
+                dest = self._get_entity_name(self.const.entity_host,
+                                             r['destination_id'])
             if r['requestee_id'] is None:
                 requestee = ''
             else:
-                requestee = self._get_entity_name(self.const.entity_account, r['requestee_id'])
+                requestee = self._get_entity_name(self.const.entity_account,
+                                                  r['requestee_id'])
             ret.append({'when': r['run_at'],
                         'requestee': requestee,
                         'op': str(op),
