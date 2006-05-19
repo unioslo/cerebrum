@@ -270,7 +270,7 @@ class BofhdUtils(object):
         ret = []
         num2guestname = {}
         # find all available guests
-        for uname in self.list_guest_users(owner_id=None):
+        for uname, date, comment in self.list_guest_users(owner_id=None):
             try:
                 prefix = uname.rstrip("0123456789")
                 num = int(uname[len(prefix):])
