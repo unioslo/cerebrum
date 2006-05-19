@@ -421,6 +421,7 @@ def move_email(acc, src, dest):
                                        'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
                                                          cereconf.CYRUS_HOST)),
            '--useheader', 'Message-ID',
+           '--regexmess', 's/\\0/ /g',
            '--ssl', '--subscribe', '--nofoldersizes']
     logger.debug("doing %s" % cmd)
     errnum = EXIT_SUCCESS
