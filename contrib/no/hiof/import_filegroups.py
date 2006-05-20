@@ -59,10 +59,9 @@ def process_line(infile, spread):
     Traverse infile line for line.
     """
     sp = spread
-    print sp
     stream = open(infile, 'r')
     for line in stream:
-	 logger.debug5("Processing line: |%s|", line)
+	 logger.debug5("Processing line: |%s|", line.strip())
 
          fields = string.split(line.strip(), ":")
          if len(fields) < 4:
@@ -143,8 +142,8 @@ def process_members(gname,mem):
 			logger.debug3("Added group |%s| to group |%s|.", member, gname)
 	    except Errors.NotFoundError:
 		logger.warn("Group |%s| not found!", member)
-	    logger.error("Trying to assign membership to a non-existing entity |%s|", member)
-	    continue 
+                logger.error("Trying to assign membership to a non-existing entity |%s|", member)
+
 
 def usage():
     print """Usage: import_uname_mail.py
@@ -163,7 +162,7 @@ def main():
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:d:s',
+                                   'f:ds:',
                                    ['file=',
                                     'dryrun',
 				    'spread='])
@@ -197,11 +196,11 @@ def main():
     db.cl_init(change_program='import_groups')
     if spread == "spread_nis_fg":
 	spread = constants.spread_nis_fg
-    elif spread == "spread_ans_nis_fg":
-	spread = constants.spread_ans_nis_fg
+    elif spread == "spread_nis_ans_fg":
+	spread = constants.spread_nis_ans_fg
     else:
 	usage()
-    process_line(infile,spread)
+    process_line(infile, spread)
 
 # end main	
 
