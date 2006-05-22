@@ -202,7 +202,7 @@ class XMLPerson2Object(XMLEntity2Object):
             city = extract("poststednavn_privatadresse"))
         
         # Contact information and jobs
-        # FIXME: We do not have anything more intelligent
+        # FIXME: We do not have anything more intelligent for priorities
         priorities = dict()
         for sub in element.getiterator():
             if sub.tag in ("bilag", "gjest", "tils",):
@@ -242,8 +242,11 @@ class XMLPerson2Object(XMLEntity2Object):
         # fi
         result.reserved = to_reserve
 
-        assert (result.get_name(result.NAME_FIRST) and
-                result.get_name(result.NAME_LAST))
+        if not (result.get_name(result.NAME_FIRST) and
+                result.get_name(result.NAME_LAST)):
+            raise AssertionError, ("Missing name for %s" %
+                                   list(result.iterids()))
+        # fi
                    
         # alternative reservation rules. Probably not applicable anymore.
         # 
