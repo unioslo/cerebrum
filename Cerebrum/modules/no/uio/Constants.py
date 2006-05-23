@@ -64,6 +64,8 @@ class Constants(Constants.Constants):
         affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
     affiliation_status_ansatt_bil = _PersonAffStatusCode(
         affiliation_ansatt, 'bilag', 'Bilagslønnet')
+    affiliation_status_ansatt_ltreg = _PersonAffStatusCode(
+        affiliation_ansatt, 'ltreg', 'Registert som gjest (POLS-ANSATT) i LT i påvente av POLS')    
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
         affiliation_ansatt, 'tekadm', 'Teknisk/administrativt ansatt')
     affiliation_status_ansatt_perm = _PersonAffStatusCode(
