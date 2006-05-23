@@ -203,8 +203,13 @@ def process_email_requests():
                      r['request_id'], r['run_at'])
         if keep_running() and r['run_at'] < now:
             hq = get_email_hardquota(r['entity_id'])
-            if (cyrus_create(r['entity_id']) and
-                cyrus_set_quota(r['entity_id'], hq)):
+            servername = None
+            if r['destination_id']:
+                es = Email.EmailServer(db)
+                es.find(r['destination_id'])
+                servername = es.name
+            if (cyrus_create(r['entity_id'], host=servername) and
+                cyrus_set_quota(r['entity_id'], hq, host=servername)):
                 br.delete_request(request_id=r['request_id'])
             else:
                 db.rollback()
@@ -302,15 +307,15 @@ def process_email_requests():
                 br.delay_request(r['request_id'])
             db.commit()
         
-def cyrus_create(user_id):
+def cyrus_create(user_id, host=None):
     try:
         uname = get_account(user_id).account_name
     except Errors.NotFoundError:
         logger.error("cyrus_create: %d not found", user_id)
         return False
     try:
-        cyradm = connect_cyrus(username=uname)
-        cyr = connect_cyrus(username=uname, as_admin=False)
+        cyradm = connect_cyrus(host=host, username=uname)
+        cyr = connect_cyrus(host=host, username=uname, as_admin=False)
     except CyrusConnectError, e:
         logger.error("cyrus_create: %s", e)
         return False
@@ -374,14 +379,14 @@ def cyrus_delete(host, uname):
     cyradm.logout()
     return True
 
-def cyrus_set_quota(user_id, hq):
+def cyrus_set_quota(user_id, hq, host=None):
     try:
         uname = get_account(user_id).account_name
     except Errors.NotFoundError:
         logger.error("cyrus_set_quota: %d: user not found", user_id)
         return False
     try:
-        cyradm = connect_cyrus(username=uname)
+        cyradm = connect_cyrus(username=uname, host=host)
     except CyrusConnectError, e:
         logger.error("cyrus_set_quota(%s, %d): %s" % (uname, hq, e))
         return False
