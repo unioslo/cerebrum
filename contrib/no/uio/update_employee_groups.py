@@ -21,9 +21,7 @@
 
 
 """
-
-This file performs group information update for certain people registered in
-Cerebrum.
+This file performs group information update for certain employee categories.
 
 Specifically,
 
@@ -32,386 +30,303 @@ Specifically,
    'uio-ans'.
 
 2) for all people who had received a 'bilagslønn' within the past 180 days,
-   subscribe their respective primary account (user) to group
-   'uio-ans'. Such people are referred to as 'temporaries' in this script.
+   subscribe their respective primary account (user) to group 'uio-ans'. Such
+   people are referred to as 'temporaries' in this script.
 
-LT keeps track of the employment information; Cerebrum keeps track of
-groups, accounts and the like. The Norwegian social security number
-('fødselsnummer') binds these two together.
+This script can deal with both LT and SAP input. Employment data from LT/SAP
+are extracted from the corresponding XML files. The key to link file data to
+Cerebrum is the Norwegian national id (fnr).
 
-This script generates no output. All updates are written back to the
-cerebrum database:
+This script generates no output. All updates are writte back to the Cerebrum
+database.
 
-<LT db> --------+
-                |
-                +--> update_employee_groups.py --+
-                |                                |
-<cerebrum db> --+ <------------------------------+
+<employee XML data> -----+
+                         |
+                         +--> update_employee_groups.py --+
+                         |                                |
+<cerebrum db> -----------+ <------------------------------+
 
+<TheBard> igorr: Ja, det skal den.  Dog slik at kun gyldige stillingskoder
+          skal kunne gi medlemskap i 'uio-tils', mens man (inntil videre) kan
+          la alle med gyldig hovedstilling få bli med i 'uio-ans'.
 """
 
-import sys
-import time
-import getopt
-import string
-import traceback
+import sys, time, getopt, string, traceback
+from mx.DateTime import Date, DateTimeDeltaFromDays
 
-import cerebrum_path
-import cereconf
+import cerebrum_path, cereconf
 
 import Cerebrum
 from Cerebrum import Database
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.access_LT import LT
-from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.xmlutils.system2parser import system2parser
 
-# FIXME: As of python 2.3, this module is part of the standard distribution
-if sys.version >= (2, 3):
-    import logging
-else:
-    from Cerebrum.extlib import logging
-# fi
+
+logger = None
 
 
 
 
 
-# 
-# It looks like there is way too much time spent looking up things. The
-# output structure suggests that it might be beneficial to cache
-# (no_ssn,uname) mappings
-#
-no_ssn_cache = {}
+def build_cache(db, groupname):
+    """Build a set with account_id/names of members of groupname."""
 
-def cached_value(key):
-    """
-    Returns a tuple -- the cached value for the KEY and a status telling
-    whether this value actually existed in the cache.
-    """
-    
-    value = no_ssn_cache.get(key, None)
-    hit = no_ssn_cache.has_key(key)
-
-    return value, hit
-# end cached_value
-
-def cache_value(key, value):
-    """
-    Insert a new pair into the cache.
-    """
-
-    # NB! This is potentially very dangerous, as no upper limit is placed on
-    # the cache
-    no_ssn_cache[key] = value
-# end cache_value
-
-
-
-def fetch_no_ssn(db_row):
-    """
-    This is a helper function for constructing NO_SSNs (11-siffrede
-    personnumre).
-    """
-    no_ssn = "%02d%02d%02d%05d" % (int(db_row["fodtdag"]),
-                                   int(db_row["fodtmnd"]),
-                                   int(db_row["fodtar"]),
-                                   int(db_row["personnr"]))
+    logger.debug("Caching members of %s", groupname)
     try:
-        fodselsnr.personnr_ok(no_ssn)
-    except (ValueError, fodselsnr.InvalidFnrError), exc_value:
-        logger.error("Aiee! Failed to construct proper NO_SSN %s: %s",
-                     no_ssn, exc_value)
-        return None
+        db_group = Factory.get("Group")(db)
+        db_group.find_by_name(groupname)
+    except Errors.NotFoundError:
+        logger.error("Group %s not found in Cerebrum. This script will fail.",
+                     groupname)
+        # TBD: sys.exit(1) ?
+        return None, None
     # yrt
 
-    return no_ssn
-# end fetch_no_ssn
+    #
+    # TBD: Should we enforce empty intersection and difference?
+    #
+    
+    # account_name->account_id mapping
+    result = dict()
+    for account_id, account_name in \
+                    db_group.get_members(get_entity_name=True):
+        result[account_name] = int(account_id)
+    # od
+
+    logger.debug("Group %s has %d cached entires", groupname, len(result))
+    return result, db_group
+# end build_cache
 
 
 
-def fetch_primary_account(no_ssn, db_person, constants):
+def build_employee_cache(db, sysname, filename):
+    """Build a mapping of primary account names for employees to their
+       employment status.
+ 
+    Employment status in this case is a pair of booleans, that tell whether
+    the person with that primary account has tilsettinger and bilag that we
+    need.
     """
-    Fetch primary account id of a person with NO_SSN
-    """
 
-    account, hit = cached_value(no_ssn)
-    # 
-    # Note that account might still be None, meaning that this no_ssn had
-    # been looked up earlier without a match.
-    if hit:
-        return account
-    # fi
+    logger.debug("Building employee cache")
 
-    # Now, this is the first time we see this NO_SSN
-    # Locate the person in the Cerebrum db
+    # Cache *all* primary accounts. This helps us bind a primary account to an
+    # fnr in the XML data.
+    db_person = Factory.get("Person")(db)
+    const = Factory.get("Constants")(db)
+    logger.debug("Fetching all fnr->account mappings...")
+    fnr2uname = db_person.getdict_external_id2primary_account(
+                                      const.externalid_fodselsnr)
+    logger.debug("... done (%d mappings)", len(fnr2uname))
 
-    # NB! This is a pretty dangerous stunt -- in worst case, we ignore the
-    # source of the external id. While this would work fine for NO_SSNs, it
-    # might fail miserably as soon as we start inserting other external ids
-    # similar in 'shape' to NO_SSNs.
-    # Also, should cereconf.SYSTEM_LOOKUP_ORDER matter?
-    person_exists = False
-    for source in [ constants.system_lt, None ]:
+    # Build mapping for the employees
+    parser = system2parser(sysname)(filename, False)
+    it = parser.iter_persons()
+    # mapping from uname to employment status
+    employee_cache = dict()
+    while 1:
         try:
-            db_person.clear()
-            db_person.find_by_external_id(constants.externalid_fodselsnr,
-                                          no_ssn,
-                                          source)
-            person_exists = True
+            xmlperson = it.next()
+        except StopIteration:
             break
-        except Cerebrum.Errors.NotFoundError:
-            # We hope to get a match later
-            pass
+        except:
+            logger.exception("Failed to process next person")
         # yrt
+
+        fnr = xmlperson.get_id(xmlperson.NO_SSN)
+        if not fnr:
+            logger.warning("Person %s has no fnr in XML source",
+                           list(xmlperson.iterids()))
+            continue
+        # fi
+
+        # If this fnr is not in Cerebrum, we cannot locate its primary account
+        if fnr not in fnr2uname:
+            logger.warning("Cerebrum has no fnr %s, although XML source has",
+                           fnr)
+            continue
+        # fi
+
+        tils = filter(lambda x: x.is_active() and
+                                x.kind in (x.HOVEDSTILLING, x.BISTILLING),
+                      xmlperson.iteremployment())
+
+        # Everyone with bilag more recent than 180 days old is eligible
+        bilag = filter(lambda x: ((not x.end) or
+                                  (x.end >= (Date(*time.localtime()[:3]) -
+                                             DateTimeDeltaFromDays(180)))) and
+                                 x.kind == x.BILAG,
+                       xmlperson.iteremployment())
+
+        # each entry is a pair, telling whether the person has active
+        # tilsetting and bilag (in that order). We do not need to know *what*
+        # they are, only that they exist.
+        employee_cache[fnr2uname[fnr]] = (bool(tils), bool(bilag))
     # od
 
-    if not person_exists:
-        logger.error("Aiee! NO_SSN %s has an employment record but no " +
-                     "registration in Cerebrum", no_ssn)
-        cache_value(no_ssn, None)
-        return None
-    # fi
-
-    # Locate the primary account
-    account = db_person.get_primary_account()
-    if not account:
-        logger.warn("NO_SSN %s has no accounts; no group memberships " +
-                    "will be updated",
-                    no_ssn)
-        cache_value(no_ssn, None)
-        return None
-    # fi
-
-    cache_value(no_ssn, account)
-    return account
-# end fetch_primary_account
+    del fnr2uname
+    logger.debug("employee_cache has %d uname->employment status mappings",
+                 len(employee_cache))
+    return employee_cache
+# end build_employee_cache
 
 
 
-def process_employees(db_cerebrum, lt):
-    """
-    Run task 1) 
-    """
+def perform_update(db, sysname, filename):
+    """Perform all updates to all groups.
 
-    db_person = Factory.get("Person")(db_cerebrum)
-    constants = Factory.get("Constants")(db_cerebrum)
-    group1 = Factory.get("Group")(db_cerebrum)
-    group2 = Factory.get("Group")(db_cerebrum)
-    db_account = Factory.get("Account")(db_cerebrum)
+    An 'update' in this case entails both member addition and removal. The
+    strategy goes like this:
 
-    try:
-        group1.find_by_name("uio-tils")
-        group2.find_by_name("uio-ans")
-    except Cerebrum.Errors.NotFoundError:
-        logger.error("Aiee! Critical groups not found. " +
-                     "Aborting all employee updates")
-        return
-    # yrt
-    
-    values = lt.GetTilsettinger()
-    now = time.strftime("%Y%m%d")
-    for row in values:
-        # Reconstruct NO_SSN first
-        no_ssn = fetch_no_ssn(row)
-        if no_ssn is None:
-            continue
-        # fi
-
-        # Skip outdated records
-        if not (row["dato_fra"] <= now <= row["dato_til"]):
-            logger.debug("Skipping irrelevant employment information: " +
-                         "NO_SSN=%s; [%s;%s]",
-                         no_ssn, row["dato_fra"], row["dato_til"])
-            continue
-        # fi
-
-        # Get primary account id belonging to NO_SSN
-        account_id = fetch_primary_account(no_ssn, db_person, constants)
-        if account_id is None:
-            continue
-        # fi
-
-        # Subscribe to various groups
-        adjoin_member(account_id, group1, db_account, constants)
-        adjoin_member(account_id, group2, db_account, constants)
-    # od 
-# end process_employees
-
-
-
-def process_temporaries(db_cerebrum, lt):
-    """
-    Run task 2)
-    """
-
-    db_person = Factory.get("Person")(db_cerebrum)
-    constants = Factory.get("Constants")(db_cerebrum)
-    db_group = Factory.get("Group")(db_cerebrum)
-    db_account = Factory.get("Account")(db_cerebrum)
-
-    try:
-        db_group.find_by_name("uio-ans")
-    except Cerebrum.Errors.NotFoundError:
-        logger.error("Aiee! Critical group not found. " +
-                     "Aborting all bilag updates")
-        return
-    # yrt
-
-    # import_from_LT uses UTC. Why?
-    # timestamp is 180 days ago
-    timestamp = time.strftime("%Y%m%d",
-                              time.localtime(time.time() - (3600*24*180)))
-    values = lt.GetLonnsPosteringer(timestamp)
-    logger.debug("All payments fetched")
-    for row in values:
-        no_ssn = fetch_no_ssn(row)
-        if no_ssn is None:
-            continue
-        # fi
-
-        # Now, we do not care about dates here, since GetLonnsPosteringer
-        # returns only the most recent rows.
-        account_id = fetch_primary_account(no_ssn, db_person, constants)
-        if account_id is None:
-            continue
-        # fi
-
-        adjoin_member(account_id, db_group, db_account, constants)
-    # od
-# end process_temporaries
-
-
-
-def adjoin_member(account_id, db_group, db_account, constants):
-    """
-    Adds a new member ACCOUNT_ID to group DB_GROUP, unless the account is
-    already there.
+    * build group member caches (A and B) for uio-tils/ans
+    * build employment file cache (C) from the XML source (filename)
+    * for each entry E in C:
+      ** if E should be in A/B:
+             if E is not in A/B:                <-- new entry
+                 add E to the right group
+                 remove E from A/B
+             if E is in A/B:                    <-- old entry
+                 remove E from A/B
+    * Everything left in A/B at this point are members that should no longer
+      be there. Remove them.
     """
     
-    if db_group.has_member(account_id,
-                           constants.entity_account,
-                           constants.group_memberop_union):
-        logger.debug("%s is already a member of %s",
-                     account_id, db_group.entity_id)
-        return
-    # fi
+    # Build cached mappings for uio-tils/uio-ans
+    # account_name -> account_id
+    tils_cache, tils_group = build_cache(db, "uio-tils")
+    # account_name -> account_id
+    bilag_cache, bilag_group = build_cache(db, "uio-ans")
 
-    # FIXME: we should have an atomic "test-and-set" operation
-    # Even though one update fails, the others do not have to
+    # account_name -> (tils?, bilag?)
+    employee_cache = build_employee_cache(db, sysname, filename)
+
+    db_account = Factory.get("Account")(db)
+    db_const = Factory.get("Constants")(db)
+    # All caches are built now, we can proceed with real work
+    for uname, (tilsp, bilagp) in employee_cache.iteritems():
+        # this account should be in uio-tils
+        if tilsp:
+            if uname not in tils_cache:
+                adjoin_member(uname, tils_group, db_account, db_const)
+            else:
+                del tils_cache[uname]
+            # fi
+        # fi
+
+        # this account should be in uio-ans
+        if bilagp:
+            if uname not in bilag_cache:
+                adjoin_member(uname, bilag_group, db_account, db_const)
+            else:
+                del bilag_cache[uname]
+            # fi
+        # fi
+    # end 
+
+    remove_remaining(tils_cache, tils_group, db_const)
+    remove_remaining(bilag_cache, bilag_group, db_const)
+# end perform_update
+
+
+
+def adjoin_member(uname, db_group, db_account, db_const):
+    """Add uname's account_id to db_group."""
+
+    # TBD: Why can't we have an account_id? Ideally this remapping should not
+    # be necessary.
+    db_account.clear()
     try:
-        logger.debug("db_group.add_member(%d, %d, %d)",
-                     int(account_id),
-                     int(constants.account_namespace),
-                     int(constants.group_memberop_union))
-        
-        db_group.add_member(account_id,
-                            constants.entity_account,
-                            constants.group_memberop_union)
+        db_account.find_by_name(uname)
+        db_group.add_member(db_account.entity_id,
+                            db_const.entity_account,
+                            db_const.group_memberop_union)
     except:
-        type, value, tb = sys.exc_info()
-        logger.error("Got an exception while updating group memberships: %s",
-                     str(value))
-        logger.error("%s", string.join(traceback.format_tb(tb), ""))
+        logger.exception("adding account %s to %s failed",
+                         uname, list(db_group.get_names()))
+        return
     # yrt
 # end adjoin_member
 
 
 
-def perform_updates(user, sid):
-    """
-    """
+def remove_remaining(cache, db_group, db_const):
+    """Remove all entries in cache from db_group."""
 
-    db_lt = Database.connect(user = user, service = sid, DB_driver = "Oracle")
-    lt = LT(db_lt)
+    logger.debug("group %s will have %d members removed",
+                 list(db_group.get_names()), len(cache))
 
-    db_cerebrum = Factory.get("Database")()
-    db_cerebrum.cl_init(change_program="update_employee")
-
-    # process active employees
-    logger.debug("Processing employees (<tils>)")
-    process_employees(db_cerebrum, lt)
-
-    # process 'bilag' people
-    logger.debug("Processing temporaries (<bilag>)")
-    process_temporaries(db_cerebrum, lt)
-
-    if not dryrun:
-        db_cerebrum.commit()
-        logger.info("Committed changes to the database")
-    else:
-        db_cerebrum.rollback()
-        logger.info("No changes were committed to the database")
-    # fi
-# end
+    for account_id in cache.itervalues():
+        logger.debug("removing account_id %d (union) from %s",
+                     account_id, list(db_group.get_names()))
+        db_group.remove_member(account_id, db_const.group_memberop_union)
+    # od
+# end remove_remaining
 
 
 
 def usage():
-    """
-    Display option summary
-    """
+    """Display usage information about this script."""
 
-    options = """
-options: 
--d, --dryrun:      do not write anything to the database, just display the
-                   changes.
--v, --verbose:     output some debugging
--h, --help:        display usage
-    """
-    logger.info(options)
+    print """
+%s [-d|--dryrun] [-h|--help] [-s|--source-spec sys:file]
+... where
+-d|--dryrun			Run this script without committing the changes
+                                to the database.
+-h|--help			Display this message.
+-s|--source-spec sys:file	Specify XML input file for this script, where
+                                sys  - system to use (e.g. system_lt)
+                                file - file with person info (e.g. person.xml)
+""" % sys.argv[0]
 # end usage
 
 
 
-def main(argv):
-    """
-    Start method for this script. 
-    """
+def main():
+    """Start method for this script."""
+
     global logger
-    logger = Factory.get_logger("console")
-    logger.setLevel(logging.INFO)
-    logger.info("Performing employement group updates")
-    
+    logger = Factory.get_logger("cronjob")
+    logger.info("Performing uio-tils/uio-ans group updates")
+
     try:
-        options, rest = getopt.getopt(argv,
-                                      "dvhu:s:", ["dryrun",
-                                                  "verbose",
-                                                  "help",
-                                                  "user=",
-                                                  "sid=",])
+        options, rest = getopt.getopt(sys.argv[1:],
+                                      "dhs:", ["dryrun",
+                                               "help",
+                                               "source-spec=",])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
     # yrt
 
-    global dryrun
     dryrun = False
-    user = "ureg2000"
-    sid = "LTPROD.uio.no"
     for option, value in options:
-        if option in ("-d", "--dryrun"):
+        if option in ("-d", "--dryrun",):
             dryrun = True
-        elif option in ("-v", "--verbose"):
-            logger.setLevel(logging.DEBUG)
-        elif option in ("-h", "--help"):
+        elif option in ("-h", "--help",):
             usage()
-            sys.exit(2)
-        elif option in ("-u", "--user"):
-            user = value
-        elif option in ("-s", "--sid"):
-            sid = value
+            sys.exit(0)
+        elif option in ("-s", "--source-spec"):
+            sysname, filename = value.split(":")
         # fi
     # od
 
-    perform_updates(user, sid)
-# fi
+    db = Factory.get("Database")()
+    db.cl_init(change_program="update_emp_grp")
+    perform_update(db, sysname, filename)
+    if dryrun:
+        logger.info("updates completed. all changes rolled back")
+        db.rollback()
+    else:
+        db.commit()
+        logger.info("updates completed. all changes committed")
+    # fi
+# end main
 
 
 
-
+    
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
 # fi
-
-# arch-tag: b8f43327-af3a-4376-a0eb-0160aa3b01ed
