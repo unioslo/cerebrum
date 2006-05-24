@@ -90,9 +90,9 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     from email.Utils import formatdate
 
     msg = MIMEText(body, _charset=charset)
-    msg['Subject'] = Header(subject, charset)
-    msg['From'] = fromaddr
-    msg['To'] = toaddr
+    msg['Subject'] = Header(subject.strip(), charset)
+    msg['From'] = fromaddr.strip()
+    msg['To'] = toaddr.strip()
     msg['Date'] = formatdate(localtime=True)
     if cc:
         msg['Cc'] = cc
