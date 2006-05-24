@@ -35,6 +35,8 @@ class ABCTypesError(DocstringException):
 class ABCDataError(DocstringException):
     """We have errors or conflicts in our data."""
 
+class ABCNotSupportedError(DocstringException):
+    """Function not supported."""
 
 class ABCFactory(object):
     def get(comp):

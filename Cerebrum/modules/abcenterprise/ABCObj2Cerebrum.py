@@ -137,7 +137,7 @@ class ABCObj2Cerebrum(object):
                 if new_ou.parent is None:
                     ou_struct[e_id] = org_e_id
                 else:
-                    ou_struct[e_id] = new_ou.parent
+                    ou_struct[e_id] = (self._conv_cons(new_ou.parent[0]), new_ou.parent[1])
             for i in ou_struct.keys():
                 try:
                     self._o2c.set_ou_parent(i, abcconf.OU_PERSPECTIVE, ou_struct[i])
@@ -151,7 +151,7 @@ class ABCObj2Cerebrum(object):
             try:
                 self._o2c.store_person(new_person)
             except Exception, e:
-                self.logger.warning("Error(person): %s" % e)
+                self.logger.warning("Error(person): %s, %s" % (e, list(person.iterids())))
                 
     def parse_groups(self, iterator):
         """Iterate over group objects. Note that members follow in
@@ -231,7 +231,9 @@ class ABCObj2Cerebrum(object):
                             raise ABCDataError, "error in 'rest'"
                         status = abcconf.AFF_STATUS[rest[0]]
                         self._o2c.add_person_affiliation(sub, ob, rest[0], status)
-                
+                    else:
+                        raise ABCNotSupportedError, "'%s' is not supported." % type
+                    
                 except Exception, e:
                     txt = "Error(relations): s: %s, t: %s, o: %s: %s" % (rel.subject,
                                                                          rel.type,

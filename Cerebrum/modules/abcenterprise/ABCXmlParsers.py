@@ -407,9 +407,12 @@ class XMLPerson2Object(XMLEntity2Object):
                     result.add_name(t, v)
             elif sub.tag == "birthdate":
                 # if len == 6 we asume ddmmyy
-                if len(value) == 6:
-                    value = "19%s-%s-%s" % (value[4:6], value[2:4], value[0:2])
-                result.birth_date = self._make_mxdate(value)
+                if value == None:
+                    result.birth_date = None
+                else:
+                    if len(value) == 6:
+                        value = "19%s-%s-%s" % (value[4:6], value[2:4], value[0:2])
+                    result.birth_date = self._make_mxdate(value)
             elif sub.tag == "gender":
                 result.gender = value
             elif sub.tag == "address":

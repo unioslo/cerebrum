@@ -64,8 +64,10 @@ class Object2Cerebrum(object):
         """Common external ID operations."""
         entity.affect_external_id(self.source_system, *id_dict.keys())
         for id_type in id_dict.keys():
-            if id_type is None or id_dict[id_type] is None:
-                raise ABCErrorInData
+            if id_type is None:
+                raise ABCErrorInData, "None not allowed as type: '%s'" % id_type
+            elif id_dict[id_type] is None:
+                raise ABCErrorInData, "None not alowed as a value: '%s': '%s'" % (id_type, id_dict[id_type])
             entity.populate_external_id(self.source_system,
                                         id_type,
                                         id_dict[id_type])
@@ -147,6 +149,9 @@ class Object2Cerebrum(object):
             # Noone in the database could be found with our IDs.
             # This is fine, write_db() figures it out.
 
+        if person.birth_date == None:
+            raise ABCErrorInData, "No birthdate in file."
+
         # Populate the person
         self._person.populate(person.birth_date, person.gender)
         self._add_external_ids(self._person, person._ids)
@@ -191,8 +196,8 @@ class Object2Cerebrum(object):
             if not self._group.has_member(self._person.entity_id,
                                           self.co.entity_person,
                                           self.co.group_memberop_union):
-                self._group.add_member(self._ac.entity_id,
-                                       self.co.entity_account,
+                self._group.add_member(self._person.entity_id,
+                                       self.co.entity_person,
                                        self.co.group_memberop_union)
             return self._group.write_db()
 
