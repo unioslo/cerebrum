@@ -301,18 +301,20 @@ class Object2Cerebrum(object):
         if len(ac) == 1:
             self._ac.clear()
             self._ac.find(ac[0][0])
+            self._ac.set_account_type(self._ou.entity_id, affiliation)
+            self._ac.write_db()
         elif len(ac) == 0:
             self.create_account(self._person)
+            # At this point we know self_ac to be the account we're after.
+            self._ac.set_account_type(self._ou.entity_id, affiliation)
+            self._ac.write_db()
         else:
             # Multiple accounts
             for account in ac:
                 self._ac.clear()
                 self._ac.find(account[0])
                 self._ac.set_account_type(self._ou.entity_id, affiliation)
-                self._ac.write_db()
-                    
-        self._ac.set_account_type(self._ou.entity_id, affiliation)
-        self._ac.write_db()
+                self._ac.write_db()        
         return ret
 
 
