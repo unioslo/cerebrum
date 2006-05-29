@@ -143,8 +143,8 @@ def build_employee_cache(db, sysname, filename):
 
         # If this fnr is not in Cerebrum, we cannot locate its primary account
         if fnr not in fnr2uname:
-            logger.warning("Cerebrum has no fnr %s, although XML source has",
-                           fnr)
+            logger.warning("Cerebrum has no fnr %s or primary account for fnr %s",
+                           fnr, fnr)
             continue
         # fi
 
