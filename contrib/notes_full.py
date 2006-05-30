@@ -144,7 +144,6 @@ def notes_cmd(sock, cmd, dryrun=False):
         logger.debug("Notes command: '%s'", cmd)
         return ("200", ["dryrun mode"])
 
-    assert cmd == 'LUSERS'
     sock.send(cmd + "\n")
     line = sock.readline()
     resp_code = line[:3]
