@@ -115,13 +115,16 @@ def compare_users(notesdata, cerebrumdata):
             logger.info("New user: " + user['uname'])
             create_notes_user(sock, user['uname'])
         else:
-            n_user = notesdata[user['uname']]
-            c_notes_username = "%s/%s/UIO" % (user['fullname'],
-                                              user['ou_path'].upper())
-            if n_user != c_notes_username:
+            notes_name, notes_ou_path = notesdata[user['uname']].split('/', 1)
+            cere_ou_path = "%s/UIO" % user['ou_path'].upper()
+            if notes_name != user['fullname']:
                 logger.info("%s: new name '%s', current '%s'",
-                            user['uname'], c_notes_username, n_user)
+                            user['uname'], user['fullname'], notes_name)
                 rename_notes_user(sock, user)
+            if notes_ou_path != cere_ou_path:
+                logger.info("%s: new OU path '%s', current '%s'",
+                            user['uname'], cere_ou_path, notes_ou_path)
+                move_notes_user(sock, user)
             # Everything is OK or taken care of
             del notesdata[user['uname']]
     # The remaining entries in notesdata should not exist in Notes
@@ -139,7 +142,6 @@ def notes_cmd(sock, cmd, dryrun=False):
     tuple consisting of the response code and an array of the lines.
 
     """
-
     if dryrun:
         logger.debug("Notes command: '%s'", cmd)
         return ("200", ["dryrun mode"])
@@ -153,7 +155,7 @@ def notes_cmd(sock, cmd, dryrun=False):
         line = sock.readline()
     if resp_code[0] != '2':
         raise NotesException("Notes cmd '%s' returned %s (%s)" %
-                             (cmd, resp_code, lines[0]))
+                             (cmd, resp_code, line))
     return resp_code, lines
 
 
@@ -168,11 +170,19 @@ def create_notes_user(sock, username):
 
 
 def rename_notes_user(sock, user):
-    ous = user['ou_path'].split("/")
-    ous.reverse()
+    fname, lname = user['fullname'].rsplit(' ', 1)
     cmd = ['RENAMEUSR',
            'ShortName', user['uname'],
-           'FullName', user['fullname']]
+           'FirstName', fname,
+           'LastName', lname]
+    notes_cmd(sock, "&".join(cmd), dryrun=dryrun)
+
+
+def move_notes_user(sock, user):
+    ous = user['ou_path'].split("/")
+    ous.reverse()
+    cmd = ['MOVEUSR',
+           'ShortName', user['uname']]
     i = 1
     for ou in ous:
         cmd.extend(("OU%d" % i, ou))
@@ -209,6 +219,10 @@ def main():
 
 def usage(exitcode=64):
     print """Usage: [options]
+    --dryrun        Don't do anything
+    --full          Perform full sync (required argument)
+    --logger-name   Which logger to use ("console" or "cronjob")
+    --logger-level  Which debug level to use
     """
     sys.exit(exitcode)
 
