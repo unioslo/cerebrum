@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003,2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,7 +30,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import CLHandler
-import notesutils
+from Cerebrum.modules import notesutils
 
 
 db = Factory.get('Database')()
