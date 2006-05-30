@@ -120,19 +120,19 @@ class SocketCom(object):
         self.sockobj.close()
 
 
-
-def get_crbrm_ou(ou_id):
-
+def get_cerebrum_ou_path(ou_id):
     try:
         ou.clear()
         ou.find(ou_id)
         path = ou.structure_path(co.perspective_lt)
-        #Notes can only take 4 OU levels.
-        ou_path = path.split('/',4)
-        #Do not wish to send the root OU name to Notes.
-        return ou_path[:-1]
+        # Notes can only take 4 OU levels, if there are more, we chop
+        # off the more specific levels.  We also don't include the
+        # root OU name since it is implicit.
+        # "A/B/C/D/E/F" -> ["B", "C", "D", E"]
+        return path.split('/')[-5:-1]
     except Errors.NotFoundError:
         logger.warn("Could not find OU with id %s", ou_id)
+
 
 def chk_quarantine(account_id):
     # Check against quarantine.
