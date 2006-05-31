@@ -86,9 +86,6 @@ def email_delivery_stopped(user):
                                 ldap.SCOPE_ONELEVEL, userfilter, ["1.1"])
             if len(res) != 1:
                 return False
-        except ldap.NO_SUCH_OBJECT:
-            logger.debug("Not stopped for %s at %s", user, conn._uri)
-            return False
         except ldap.LDAPError, e:
             logger.error("LDAP search failed: %s", e)
             return False
