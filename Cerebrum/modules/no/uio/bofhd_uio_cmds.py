@@ -3836,6 +3836,7 @@ class BofhdExtension(object):
         for r in rows:
             op = self.const.BofhdRequestOp(r['operation'])
             dest = None
+            ent_name = None
             if op in (self.const.bofh_move_user, self.const.bofh_move_request):
                 disk = self._get_disk(r['destination_id'])[0]
                 dest = disk.path
@@ -3847,6 +3848,17 @@ class BofhdExtension(object):
                         self.const.bofh_email_delete):
                 dest = self._get_entity_name(self.const.entity_host,
                                              r['destination_id'])
+            elif op in (self.const.bofh_mailman_create,
+                        self.const.bofh_mailman_add_admin):
+                ea = Email.EmailAddress(self.db)
+                ea.find(r['destination_id'])
+                dest = ea.get_address()
+                ea.clear()
+                ea.find(r['entity_id'])
+                ent_name = ea.get_address()
+            if ent_name is None:
+                ent_name = self._get_entity_name(self.const.entity_account,
+                                                 r['entity_id'])
             if r['requestee_id'] is None:
                 requestee = ''
             else:
@@ -3855,7 +3867,7 @@ class BofhdExtension(object):
             ret.append({'when': r['run_at'],
                         'requestee': requestee,
                         'op': str(op),
-                        'entity': self._get_entity_name(self.const.entity_account, r['entity_id']),
+                        'entity': ent_name,
                         'destination': dest,
                         'args': r['state_data'],
                         'id': r['request_id']
