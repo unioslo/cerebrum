@@ -764,6 +764,16 @@ class EmailAddress(EmailEntity):
         """Return domain_id of this EmailAddress in database"""
         return self.email_addr_local_part
 
+    def get_address(self):
+        """Return textual representation of address,
+        i.e. 'local_part@domain'.
+
+        """
+        domain = EmailDomain(self._db)
+        domain.find(self.email_addr_domain_id)
+        return (self.email_addr_local_part + '@' +
+                domain.rewrite_special_domains(domain.email_domain_name))
+
 ########################################################################
 ########################################################################
 ########################################################################
