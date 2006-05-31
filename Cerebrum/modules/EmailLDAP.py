@@ -211,8 +211,8 @@ class EmailLDAP(DatabaseAccessor):
 
     def read_pending_moves(self):
         br = BofhdRequests(self._db, self.const)
-        # We define near future as two hours from now.
-        near_future = mx.DateTime.now() + mx.DateTime.DateTimeDelta(0, 2)
+        # We define near future as 15 minutes from now.
+        near_future = mx.DateTime.now() + mx.DateTime.DateTimeDelta(0, 0, 15)
         for op in (self.const.bofh_email_create,
                    self.const.bofh_email_move,
                    self.const.bofh_email_convert):
