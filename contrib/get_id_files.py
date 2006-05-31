@@ -22,6 +22,7 @@
 import binascii
 import string
 
+import cerebrum_path
 from Cerebrum.modules import notesutils
 
 sock = notesutils.SocketCom()
