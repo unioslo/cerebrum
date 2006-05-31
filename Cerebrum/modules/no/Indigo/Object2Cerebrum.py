@@ -330,7 +330,7 @@ class Object2Cerebrum(object):
     def __active_group(self, group):
         m = re.search("^(\w+:)(\d\d):(.+)", group)
         if not m:
-            raise DocstringException, "no year in group '%'" % group
+            raise DocstringException, "no year in group '%s'" % group
         y = int(m.group(2))
         if y == self.__schoolyear():
             return "%s%s" % (m.group(1),m.group(3))
