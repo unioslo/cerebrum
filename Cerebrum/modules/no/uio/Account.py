@@ -261,8 +261,8 @@ class AccountUiOMixin(Account.Account):
             int(self.const.spread_uio_imap) in spreads):
             est = Email.EmailServerTarget(self._db)
             est.find_by_entity(self.entity_id)
-            self._UiO_order_cyrus_action(self.const.bofh_email_delete, None,
-                                         state_data=est.email_server_id)
+            self._UiO_order_cyrus_action(self.const.bofh_email_delete,
+                                         est.email_server_id)
             # TBD: should we also perform a "cascade delete" from EmailTarget?
 
         #
