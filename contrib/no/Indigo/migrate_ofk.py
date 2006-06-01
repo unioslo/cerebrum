@@ -85,6 +85,13 @@ def process_line(infile):
             gender = constants.gender_female
 
         y, m, d = fodselsnr.fodt_dato(fnr)
+
+        # Can't just populate like this, we need to search for persons
+        # first.
+        try:
+            person.find_by_external_id(constants.externalid_fodselsnr, fnr)
+        except Errors.NotFoundError:
+            pass
         
         person.populate(db.Date(y, m, d), gender)
         person.affect_external_id(constants.system_ekstens,
