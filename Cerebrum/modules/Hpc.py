@@ -618,7 +618,7 @@ class Allocation(Entity_class):
         """Add ``machine`` to allocation"""
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=allocation_machine]
-          (allocation_id, machine_id)
+          (allocation_id, machine)
         VALUES (:allocation_id, :machine_id)""",
                      {'allocation_id': self.entity_id,
                       'machine_id': machine_id})
@@ -659,41 +659,41 @@ class Allocation(Entity_class):
         """Allocate credits to allocation and allocation_name"""
         credit_transaction_id=self._add_credit_transaction(credits, date)
         self.execute("""
-        INSERT INTO [:table schema=cerebrum name=accounting_transaction]
-          (credit_transaction_id, description)
-        VALUES (:credit_transaction_id, :description)""",
+        INSERT INTO [:table schema=cerebrum name=allocation_transaction]
+          (credit_transaction_id, allocation_credit_priority, description)
+        VALUES (:credit_transaction_id, :priority, :description)""",
                      {'credit_transaction_id': int(credit_transaction_id),
                       'priority': priority,
                       'description': description})
 
     def account_credits(self, credits, date, jobstart, jobend, machine,
-                        num_nodes, num_cores, max_memory,
+                        num_nodes, num_cores, max_memory_mb,
                         walltime, cputime, suspendtime, num_suspends,
-                        io_transfered, nice, account):
+                        io_transfered_mb, nice, account):
         """Account credits to allocation and allocation_name"""
         credit_transaction_id=self._add_credit_transaction(credits, date)
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=accounting_transaction]
-          (credit_transaction_id, jobstart, jobend, machine, num_nodes,
-          num_cores, max_memory, walltime, cputime, suspendtime,
-          num_suspends, io_transfered, nice, account)
+          (credit_transaction_id, jobstart, jobend, machine,
+          num_nodes, num_cores, max_memory_mb, walltime, cputime,
+          suspendtime, num_suspends, io_transfered_mb, nice, account)
         VALUES (:credit_transaction_id, :jobstart, :jobend, :machine,
-        :num_nodes, :max_memory, :walltime, :cputime, :suspendtime,
-        :num_suspends, :io_transfered, :nice, :account)""",
+        :num_nodes, :num_cores, :max_memory_mb, :walltime, :cputime,
+        :suspendtime, :num_suspends, :io_transfered_mb, :nice, :account)""",
                      {'credit_transaction_id': int(credit_transaction_id),
                       'jobstart': jobstart,
                       'jobend': jobend,
-                      'machine': machine.entity_id,
+                      'machine': machine,
                       'num_nodes': num_nodes,
                       'num_cores': num_cores,
-                      'max_memory': max_memory,
+                      'max_memory_mb': max_memory_mb,
                       'walltime': walltime,
                       'cputime': cputime,
                       'suspendtime': suspendtime,
                       'num_suspends': num_suspends,
-                      'io_transfered': io_transfered,
+                      'io_transfered_mb': io_transfered_mb,
                       'nice': nice,
-                      'account': account.entity_id})
+                      'account': account})
 
     
         
