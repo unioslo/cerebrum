@@ -47,7 +47,6 @@ def main():
             ac.clear()
             ac.find(id)
             pw = ac.make_passwd(ac.account_name)
-            print pw
             ac.set_password(pw)
             ac.write_db()
 
