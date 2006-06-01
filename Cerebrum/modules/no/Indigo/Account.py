@@ -63,8 +63,10 @@ class AccountIndigoMixin(Account.Account):
         pot = string.ascii_letters + string.digits
         count = 0
         pwd = []
-        if self.is_employee(uname):
-            return self.__super.make_passwd(uname)
+        ## Project currently has the same rule for passwords.
+
+        #if self.is_employee(uname):
+        #    return self.__super.make_passwd(uname)
         
         while count < 2:
             pwd.append(string.digits[random.randint(0, len(string.digits)-1)])
