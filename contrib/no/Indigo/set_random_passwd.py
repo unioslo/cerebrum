@@ -43,7 +43,7 @@ def main():
             # If the user has passwords listed, we don't create new
             # ones.
             if active.has_key(id):
-                pass
+                continue
             ac.clear()
             ac.find(id)
             pw = ac.make_passwd(ac.account_name)
