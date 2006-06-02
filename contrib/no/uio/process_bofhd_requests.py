@@ -246,7 +246,7 @@ def process_email_requests():
             try:
                 server.find(r['destination_id'])
             except Errors.NotFoundError:
-                logger.error("bofh_email_delete: %d: target server not found",
+                logger.error("bofh_email_delete: %s: target server not found",
                              r['destination_id'])
                 br.delay_request(request_id=r['request_id'])
                 db.commit()
