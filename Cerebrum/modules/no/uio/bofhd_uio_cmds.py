@@ -3849,7 +3849,8 @@ class BofhdExtension(object):
                 dest = self._get_entity_name(self.const.entity_host,
                                              r['destination_id'])
             elif op in (self.const.bofh_mailman_create,
-                        self.const.bofh_mailman_add_admin):
+                        self.const.bofh_mailman_add_admin,
+                        self.const.bofh_mailman_remove):
                 ea = Email.EmailAddress(self.db)
                 ea.find(r['destination_id'])
                 dest = ea.get_address()
