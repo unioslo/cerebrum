@@ -116,7 +116,7 @@ def add_user(account_id):
     if not pri_ou:
         oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
     else:
-        ou = notesutils.get_crbrm_ou(pri_ou)
+        ou = notesutils.get_cerebrum_ou_path(pri_ou)
         if ou:
             oustr = ""
             i=0
