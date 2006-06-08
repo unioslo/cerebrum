@@ -29,15 +29,30 @@ fodtdato,pnr,name,username
 """
 
 
+"""
+New format as of may 2006
+shoud be of unix passwd format
+
+uid:crypt:uid:gid:gecos:home:shell
+eks:
+paalde:xySfdaS3aS2:500:500:Paal D. Ekran:/its/home/p/pa/paalde:/bin/bash
+
+"""
+
+import sys
+import time
+import re
+import getopt
+
+
 import cerebrum_path
 import cereconf
-import string
-import getopt
-import sys
-
+import adutils
+from Cerebrum import Constants
+from Cerebrum import Errors
+from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-
-
+from Cerebrum.modules import PosixUser
 
 def export_sut(out_file):
     db = Factory.get('Database')()
@@ -127,6 +142,86 @@ def export_sut(out_file):
 
 
 
+class export:
+
+    def __init__(self):
+        self.db = Factory.get('Database')()
+        self.co = Factory.get('Constants')(self.db)
+        self.ou = Factory.get('OU')(self.db)
+        self.ent_name = Entity.EntityName(self.db)
+        self.group = Factory.get('Group')(self.db)
+        self.account = Factory.get('Account')(self.db)
+        self.pu = PosixUser.PosixUser(self.db)
+        self.logger = Factory.get_logger("console")
+        self.sut_spread = self.co.spread_uit_sut_user
+        self.db.cl_init(change_program='export_sut')
+
+    def get_entities(self):
+        e_list = []
+        e_list = self.ent_name.list_all_with_spread(self.sut_spread)
+
+        # lets remove any account entities which has active quarantines.
+        for element in e_list:
+            quarantine=''
+            self.account.clear()
+            self.account.find(element['entity_id'])
+            quarantine = self.account.get_entity_quarantine(only_active=True)
+            if(len(quarantine)!=0):
+                self.logger.info("%s has quarantine set. removed from sut export" % element['entity_id'])
+                e_list.remove(element)
+
+        # return the resulting list.
+        return e_list
+
+
+    def build_sut_export(self,sut_entities):
+
+        sut_data = {}
+        for item in sut_entities:
+            en_id = item['entity_id']
+            self.pu.clear()
+            try:
+                print "Finding %d" % (en_id)
+                self.pu.find(en_id)
+                if self.pu.is_expired():
+                    self.logger.info("Account %s (acc_id=%d) is expired!" % (self.pu.account_name,en_id))
+                    continue
+                else:
+                    username = self.pu.account_name
+                    crypt = self.pu.get_account_authentication(self.co.auth_type_crypt3_des) 
+                    uid = self.pu.posix_uid
+                    gid = self.pu.posix_uid # uit policy
+                    gecos = self.pu.get_gecos()
+                    home = self.pu.get_posix_home(self.sut_spread)
+                    shell = '/bin/bash'
+            except Errors.NotFoundError,m:
+                self.logger.error("Entity_ID %s has SUT spread, but is not a POSIX account: %s!" % (item,m))
+                continue
+
+            # write a dict
+            line = "%s:%s:%s:%s:%s:%s:%s" % (username,crypt,uid,gid,gecos,home,shell)
+            sut_data[uid] = line
+            
+        return sut_data
+
+    
+    def write_export(self,sut_file,data):
+
+        try:
+            fh = open(sut_file,'w')
+        except Exception,m:
+            self.logger.critical("Failed to open SUT export file='%s' for writing. Error was %s" % (sut_file,m))
+            sys.exit(1)
+        self.logger.info("SUT export: Start writing export file")
+        keys = data.keys()
+        keys.sort()
+        for k in keys:
+            line = data[k]
+            fh.write("%s\n" % line)   
+        fh.close()
+        self.logger.info("SUT export finished, wrote %d accounts to file" % (len(keys)))
+
+
 def main():
 
     global logger
@@ -151,18 +246,29 @@ def main():
         usage()
         sys.exit(2)
         
-    if ((sut_file != 0) and (help ==0)):
+#    if ((sut_file != 0) and (help ==0)):
         #logger.info("Starting SUT export")        
-        retval = export_sut(sut_file)
+        #retval = export_sut(sut_file)
         #logger.info("SUT export finished, processed %i students" % retval)
+
+    if ((sut_file != 0) and (help ==0)):
+        sut = export()
+        sut_entities = sut.get_entities()
+        export_data = sut.build_sut_export(sut_entities)
+        sut.write_export(sut_file,export_data)
+        
+
+
+        
+
 
         
 def usage():
-    print """This program reads a stillingskode file and inserts the data
-    into the person_stillingskode table in cerebrum
+    print """This program exports SUT account to a file
+    Data should be copied to the SUT servers for distributuion.
 
     Usage: [options]
-    -s | --sut-file : stillingskode file
+    -s | --sut-file : export file
     -h | --help : this text """
 
 
