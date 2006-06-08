@@ -2171,6 +2171,29 @@ class BofhdExtension(object):
             br.add_request(operator.get_entity_id(), when,
                            self.const.bofh_email_move,
                            acc.entity_id, es.entity_id, state_data=req)
+            # Norwegian (nynorsk) names:
+            wdays_nn = ["måndag", "tysdag", "onsdag", "torsdag",
+                        "fredag", "laurdag", "søndag"]
+            when_nn = "%s %d. kl %02d:%02d" % \
+                      (wdays_nn[when.day_of_week],
+                       when.day, when.hour, when.minute - when.minute % 10)
+            nth_en = ["th"] * 32
+            nth_en[1] = nth_en[21] = nth_en[31] = "st"
+            nth_en[2] = nth_en[22] = "nd"
+            nth_en[3] = nth_en[23] = "rd"
+            when_en = "%s %d%s at %02d:%02d" % \
+                      (DateTime.Weekday[when.day_of_week],
+                       when.day, nth_en[when.day + 1],
+                       when.hour, when.minute - when.minute % 10)
+            try:
+                Utils.mail_template(acc.get_primary_mailaddress(),
+                                    cereconf.USER_EMAIL_MOVE_WARNING,
+                                    sender="postmaster@usit.uio.no",
+                                    substitute={'USER': acc.account_name,
+                                                'WHEN_EN': when_en,
+                                                'WHEN_NN': when_nn})
+            except Exception, e:
+                logger.error("Sending mail failed: %s", e)
         else:
             # TBD: should we remove spread_uio_imap ?
             # It does not do much good to add to a bofh request, mvmail
@@ -3852,11 +3875,16 @@ class BofhdExtension(object):
                         self.const.bofh_mailman_add_admin,
                         self.const.bofh_mailman_remove):
                 ea = Email.EmailAddress(self.db)
-                ea.find(r['destination_id'])
-                dest = ea.get_address()
+                if r['destination_id'] is not None:
+                    ea.find(r['destination_id'])
+                    dest = ea.get_address()
                 ea.clear()
-                ea.find(r['entity_id'])
-                ent_name = ea.get_address()
+                try:
+                    ea.find(r['entity_id'])
+                except Errors.NotFoundError:
+                    ent_name = "<not found>"
+                else:
+                    ent_name = ea.get_address()
             if ent_name is None:
                 ent_name = self._get_entity_name(self.const.entity_account,
                                                  r['entity_id'])
@@ -5626,7 +5654,7 @@ class BofhdExtension(object):
             if disk_id is None:
                 raise CerebrumError, "Bad destination disk"
             self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
-            
+
             for r in account.get_spread():
                 if (r['spread'] == self.const.spread_ifi_nis_user and
                     not re.match(r'^/ifi/', args[0])):
@@ -5677,38 +5705,14 @@ class BofhdExtension(object):
                                account.entity_id, disk_id, state_data=spread)
                 message += "Move queued for execution at %s." % br.batch_time 
                 # mail user about the awaiting move operation
-                uname = account.get_account_name()
                 new_homedir = disk.path + '/' + uname
-                mailaddr = account.get_primary_mailaddress()
-                lines = []
                 try:
-                    mail_file = "%s/%s" % (cereconf.TEMPLATE_DIR,
-                                           cereconf.USER_BATCH_MOVE_WARNING)
-                except AttributeError:
-                    self.logger.warn("cereconf.py not set up correctly. " +
-                                     "USER_BATCH_MOVE_WARNING must be defined")
-                    return message
-                try:
-                    f = open(mail_file)
-                except IOError, e:
-                    self.logger.warn("Couldn't read template file: %s", e)
-                    return message
-                lines = f.readlines()
-                f.close()
-                msg = []
-                for line in lines:            
-                    if line.strip().startswith('From:'):
-                        email_from = line.split(':')[1] 
-                    elif line.strip().startswith('Subject:'):
-                        subject = line.split(':', 1)[1]
-                    else:                
-                        msg.append(line)
-                body = ''.join(msg)
-                body = body.replace('${USER}', uname)
-                body = body.replace('${TO_DISK}', new_homedir)
-                
-                # Try to send mail
-                Utils.sendmail(mailaddr, email_from, subject, body)
+                    Utils.mail_template(account.get_primary_mailaddress(),
+                                        cereconf.USER_BATCH_MOVE_WARNING,
+                                        substitute={'USER': account.account_name,
+                                                    'TO_DISK': new_homedir})
+                except Exception, e:
+                    logger.error("Sending mail failed: %s", e)
             elif move_type == "nofile":
                 ah = account.get_home(spread)
                 account.set_homedir(current_id=ah['homedir_id'],
