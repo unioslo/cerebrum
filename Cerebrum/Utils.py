@@ -102,6 +102,68 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     smtp.sendmail(fromaddr, toaddr, msg.as_string())
     smtp.quit()
 
+
+def mail_template(recipient, template_file, sender=None,
+                  substitute={}, charset='iso-8859-1',
+                  debug=False):
+    """Read template from file, perform substitutions based on the
+    dict, and send e-mail to recipient.  The recipient and sender
+    e-mail address will be used as the defaults for the To and From
+    headers, and vice versa for sender.  These values are also made
+    available in the substitution dict as the keys 'RECIPIENT' and
+    'SENDER'.
+
+    When looking for replacements in the template text, it has to be
+    enclosed in ${}, ie. '${SENDER}', not just 'SENDER'.  The template
+    should contain at least a Subject header.  Make each header in the
+    template a single line, it will be folded when sent.  Note that
+    due to braindamage in Python's email module, only Subject and the
+    body will be automatically MIME encoded.  The lines in the
+    template should be terminated by LF, not CRLF.
+
+    """
+    from email.MIMEText import MIMEText
+    from email.Header import Header
+    from email.Utils import formatdate, getaddresses
+
+    if not template_file.startswith('/'):
+        template_file = cereconf.TEMPLATE_DIR + "/" + template_file
+    f = open(template_file)
+    message = "".join(f.readlines())
+    f.close()
+    substitute['RECIPIENT'] = recipient
+    if sender: substitute['SENDER'] = sender
+    for key in substitute:
+        message = message.replace("${%s}" % key, substitute[key])
+
+    headers, body = message.split('\n\n', 1)
+    msg = MIMEText(body, _charset=charset)
+    # Date is always set, and shouldn't be in the template
+    msg['Date'] = formatdate(localtime=True)
+    preset_fields = {'from': sender,
+                     'to': recipient,
+                     'subject': '<none>'}
+    for header in headers.split('\n'):
+        field, value = header.split(':', 1)
+        field = field.strip().lower()
+        value = value.strip()
+        if field in preset_fields:
+            preset_fields[field] = value
+        else:
+            msg[field] = Header(value)
+    msg['From'] = Header(preset_fields['from'])
+    msg['To'] = Header(preset_fields['to'])
+    msg['Subject'] = Header(preset_fields['subject'], charset)
+
+    if debug:
+        return msg.as_string()
+
+    smtp = smtplib.SMTP(cereconf.SMTP_HOST)
+    smtp.sendmail(sender or getaddresses([preset_fields['from']])[0][1],
+                  recipient, msg.as_string())
+    smtp.quit()
+
+
 def separate_entries(rows, *predicates):
     """Separate ``rows`` into (keep, reject) tuple based on ``predicates``.
 
