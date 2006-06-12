@@ -146,6 +146,8 @@ def notes_cmd(sock, cmd, dryrun=False):
         logger.debug("Notes command: '%s'", cmd)
         return ("200", ["dryrun mode"])
 
+    if isinstance(cmd, (list, tuple)):
+        cmd = "&".join(cmd)
     sock.send(cmd + "\n")
     line = sock.readline()
     resp_code = line[:3]
@@ -160,22 +162,32 @@ def notes_cmd(sock, cmd, dryrun=False):
 
 
 def delete_notes_users(sock, usernames):
+    cmd = ['DELUNDELUSR',
+           'ShortName', None,
+           'Status', 'Delete']
     for user in usernames:
         logger.info('Deleting user: ' + user)
-        notes_cmd(sock, "DELETEUSR&Shortname&" + user, dryrun=dryrun)
+        cmd[2] = user
+        notes_cmd(sock, cmd, dryrun=dryrun)
 
 
 def create_notes_user(sock, username):
-    notes_cmd(sock, "CREATEUSR&ShortName&" + username, dryrun=dryrun)
+    notes_cmd(sock, ("CREATEUSR", "ShortName", username), dryrun=dryrun)
+
+
+def split_name(name):
+    # str.rsplit would be convenient, but didn't appear until Python 2.4
+    names = name.split(' ')
+    return " ".join(names[:-1]), names[-1]
 
 
 def rename_notes_user(sock, user):
-    fname, lname = user['fullname'].rsplit(' ', 1)
+    fname, lname = split_name(user['fullname'])
     cmd = ['RENAMEUSR',
            'ShortName', user['uname'],
            'FirstName', fname,
            'LastName', lname]
-    notes_cmd(sock, "&".join(cmd), dryrun=dryrun)
+    notes_cmd(sock, cmd, dryrun=dryrun)
 
 
 def move_notes_user(sock, user):
@@ -187,7 +199,7 @@ def move_notes_user(sock, user):
     for ou in ous:
         cmd.extend(("OU%d" % i, ou))
         i += 1
-    notes_cmd(sock, "&".join(cmd), dryrun=dryrun)
+    notes_cmd(sock, cmd, dryrun=dryrun)
 
 
 def full_sync():
