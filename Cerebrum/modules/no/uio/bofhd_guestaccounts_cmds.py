@@ -277,7 +277,11 @@ class BofhdExtension(object):
                 owner_group = self.util.get_target(owner_id)
                 self.ba.can_release_guests(operator.get_entity_id(),
                                            owner_group.group_name)
-                self.bgu.release_guest(guest, operator.get_entity_id())
+                # HACK! We can't give operator_id to release_guest
+                # (actually aruser) so we use cerebrum's id instead.
+                # This is OK since we check can_release_guest first.                
+                op_id = self.util.get_target("cerebrum").entity_id
+                self.bgu.release_guest(guest, op_id)
             except Errors.NotFoundError:
                 raise CerebrumError("Could not find guest user with name %s" % guest)
             except PermissionDenied:
@@ -300,11 +304,15 @@ class BofhdExtension(object):
             return "No guest users are owned by %s" % groupname
         if len(users) == 1:
             verb = 'user is'
+            noun = 'Guest user'
         else:
             verb = 'users are'
-        return ("The following guest %s owned by %s:\n%s" %
-                (verb, groupname, self._pretty_print(users, include_date=True,
-                                                     include_comment=True)))
+            noun = 'Guest users'
+        return ("The following guest %s owned by %s:\n%s\n%s" %
+                (verb, groupname,
+                 "%-12s   %-12s  %s" % (noun, "End date", "Comment"),
+                 self._pretty_print(users, include_date=True,
+                                    include_comment=True)))
 
 
     all_commands['user_guests_status'] = Command(
