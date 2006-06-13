@@ -74,6 +74,112 @@ class execute:
         file_handle.close()
         return lines
 
+
+    def create_person2(self,data_list):
+        try: 
+            id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
+        except ValueError,m:
+            sys.stderr.write("VALUEERROR: %s: Line=%s" % (m,data_list))
+            return 1
+        
+        my_stedkode = Stedkode(self.db)
+        my_stedkode.clear()
+        self.person.clear()
+        print "national_id=%s,aproved=%s" % (national_id,aproved)
+        aproved = aproved.rstrip()
+        if((national_id !="NO") and (aproved=='Yes')):
+            # we have a non-norwegian person. only insert this person if it has been approved by administrator with superduper admin rights.
+            external_id_type = self.constants.externalid_sys_x_id
+            external_id = id
+            date_field = fodsels_dato.split(".")
+            year = date_field[2]
+            mon =  date_field[1]
+            day =  date_field[0]
+            if(gender=='M'):
+                gender = self.constants.gender_male
+            elif(gender=='F'):
+                gender = self.constants.gender_female
+            try:
+                self.person.find_by_external_id(external_id_type,id)
+            except Errors.NotFoundError:
+                pass
+            print "processing data about:%s,%s" % (external_id_type,id)
+
+        elif((national_id!="NO") and (aproved !='Yes')):
+            print "foreign person processing"
+            self.logger.warn("foreign person registered, but not aproved yet. person not stored in BAS.")
+            return 1
+        else:
+            # norwegian. use standard method.
+            personnr ="%s%s" % (fodsels_dato,personnr)
+            external_id_type = self.constants.externalid_fodselsnr
+            external_id = personnr
+            try:
+                fnr = fodselsnr.personnr_ok(personnr)
+                self.logger.info("process %s" % (fnr))
+
+            except fodselsnr.InvalidFnrError:
+                self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
+                return 1
+            try:
+                self.person.find_by_external_id(external_id_type,external_id)
+            except Errors.NotFoundError:
+                pass
+
+            (year,mon,day) = fodselsnr.fodt_dato(fnr)        
+            gender = self.constants.gender_male
+            if(fodselsnr.er_kvinne(fnr)):
+                gender = self.constants.gender_female
+
+        self.person.populate(self.db.Date(int(year),int(mon),int(day)),gender)
+
+        self.person.affect_names(self.constants.system_x,self.constants.name_first,self.constants.name_last,self.constants.name_full)
+        self.person.populate_name(self.constants.name_first,fornavn)
+        self.person.populate_name(self.constants.name_last,etternavn)
+
+        fult_navn = "%s %s" % (fornavn,etternavn)
+        self.person.populate_name(self.constants.name_full,fult_navn)
+        self.person.affect_external_id(self.constants.system_x,external_id_type)
+        self.person.populate_external_id(self.constants.system_x,external_id_type,external_id)
+        #self.person.affect_external_id(self.constants.system_x,self.constants.externalid_fodselsnr)
+        #self.person.populate_external_id(self.constants.system_x,self.constants.externalid_fodselsnr,fnr)
+        
+        # setting affiliation and affiliation_status
+        #print "aff before = %s" % affiliation
+        orig_affiliation = affiliation
+        affiliation = int(self.constants.PersonAffiliation(affiliation))
+        #print "aff after = '%s'" % affiliation
+
+        #print "aff_status before = '%s'" % affiliation_status
+        affiliation_status = int(self.constants.PersonAffStatus(orig_affiliation,affiliation_status.lower()))
+        #print "aff_status after = %s" % affiliation_status
+
+        fakultet = ou[0:2]
+        institutt = ou[2:4]
+        avdeling = ou[4:6]
+        # get ou_id of stedkode used
+        my_stedkode.find_stedkode(fakultet,institutt,avdeling,cereconf.DEFAULT_INSTITUSJONSNR)
+        ou_id = my_stedkode.entity_id
+        #print "populating person affiliation..."
+        # populate the person affiliation table
+        self.person.populate_affiliation(int(self.constants.system_x),
+                                         int(ou_id),
+                                         int(affiliation),
+                                         int(affiliation_status)
+                                         )
+
+        #write the person data to the database
+        #print "write to db..."
+        op = self.person.write_db()
+        # return sanity messages
+        if op is None:
+            self.logger.info("**** EQUAL ****")
+        elif op == True:
+            self.logger.info("**** NEW ****")
+        elif op == False:
+            self.logger.info("**** UPDATE ****")
+
+
     # creates a person object in cerebrum
     def create_person(self,data_list):
         #print data_list
@@ -165,7 +271,7 @@ class execute:
     def update_account(self,data_list):
         num_new_list = []
         num_old_list = []
-        personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost = data_list.split(self.split_char)
+        id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
         #print "update"
         # need to check and update the following data: affiliation,expire_date,gecos,ou and spread
 
@@ -218,7 +324,12 @@ class execute:
 
     def create_account(self,data_list):
         data_list = data_list.rstrip()
-        personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost = data_list.split(self.split_char)
+
+        try:
+            id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
+        except ValueError,m:
+            print "data_list:%s##%s" % (data_list,m)
+            sys.exit(1)
         posix_user = PosixUser.PosixUser(self.db)
         group = Factory.get('Group')(self.db)
         self.person.clear()
@@ -231,12 +342,19 @@ class execute:
         num_new_list = []
         num_old_list = []
         spread_list = string.split(spreads,",")
-        
-        try:
-            self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
-        except Errors.NotFoundError:
-            print "person with ssn = %s does not exist in cerebrum. unable to check for account" % personnr
-            return 1,bruker_epost
+
+        if((national_id !='NO') and (aproved=='Yes')):
+            try:
+                self.person.find_by_external_id(self.constants.externalid_sys_x_id,id,self.constants.system_x,self.constants.entity_person)
+            except Errors.NotFoundError:
+                print "Foreign person with national id:%s does not exist in cerebrum. unable to check for account" % national_id
+                return 1,bruker_epost
+        else:
+            try:
+                self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
+            except Errors.NotFoundError:
+                print "person with ssn = %s does not exist in cerebrum. unable to check for account" % personnr
+                return 1,bruker_epost
 
         try:
             #self.account.find(self.person.get_primary_account())
@@ -270,10 +388,13 @@ class execute:
 
 
             full_name = "%s %s" % (fornavn,etternavn)
-            if ('AD_account' in spread_list):
-                username = self.account.get_uit_uname(personnr,full_name,'AD')
+            if(national_id !='NO'):
+                username = self.account.get_uit_uname(id,full_name,'AD')
             else:
-                username = self.account.get_uit_uname(personnr,full_name)
+                if('AD_account' in spread_list):
+                    username = self.account.get_uit_uname(personnr,full_name,'AD')
+                else:
+                    username = self.account.get_uit_uname(personnr,full_name)
             
             group.find_by_name("posixgroup",domain=self.constants.group_namespace)
             new_expire_date = self.expire_date_conversion(expire_date)
@@ -293,8 +414,7 @@ class execute:
                                 )
             try:
                 posix_user.write_db()
-
-
+                
                 # add the correct spreads to the account
                 for spread in spread_list:
                     #print "%s,%s,%s" % (posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
@@ -303,7 +423,10 @@ class execute:
                 
                     
                 #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
-                posix_user.set_password(personnr)
+                if(national_id !='NO'):
+                    posix_user.set_password(posix_user.make_passwd(username))
+                else:
+                    posix_user.set_password(personnr)
                 posix_user.write_db()
                 # lets set the account_type table
                 # need: oi_id, affiliation and priority
@@ -318,7 +441,17 @@ class execute:
 
 
                 #posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
-                self.send_mail(bruker_epost,username,spread_list)
+                if(bruker_epost !=""):
+                    self.send_mail(bruker_epost,username,spread_list)
+
+                if(bruker_epost==''):
+                    if "AD_account" in spread_list:
+                        domain ="%s" % cereconf.NO_MAILBOX_DOMAIN
+                    else:
+                        domain="student.uit.no"
+                    bruker_epost="%s@%s" % (username,domain)
+
+
                 if("AD_account" in spread_list):
                     #only send email to nybruker@asp.uit.no if AD_account is one of the chosen spreads.
                     self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
@@ -338,7 +471,7 @@ class execute:
             if (self.account.is_expired() and (datetime.date(int(my_date[0]),int(my_date[1]),int(my_date[2])) > datetime.date.today())):
                 # This account is expired in cerebrum. expire_date from the guest database
                 # is set in the future. need to update expire_date in the database
-                self.logger.info("updating expire date to" % expire_date)
+                self.logger.info("updating expire date to: %s" % expire_date)
                 self.account.expire_date = expire_date
             
             
@@ -377,7 +510,7 @@ ekstern epost: %s
 
         SENDMAIL="/usr/sbin/sendmail"
         p=os.popen("%s -t" % SENDMAIL, "w")
-        p.write("From bas-admin@cc.uit.no\n")
+        p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: nybruker2@asp.uit.no\n")
         p.write("Bcc: kenneth.johansen@cc.uit.no\n")
         p.write("subject: Registrering av ny AD bruker\n")
@@ -408,7 +541,7 @@ Ansvarlig epost: %s
 """ % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
         SENDMAIL="/usr/sbin/sendmail"
         p=os.popen("%s -t" % SENDMAIL, "w")
-        p.write("From bas-admin@cc.uit.no\n")
+        p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: %s\n" % ansvarlig_epost)
         p.write("Bcc: kenneth.johansen@cc.uit.no\n")
         p.write("subject: Registrering av bruker\n")
@@ -444,7 +577,7 @@ If you have any questions you can either contact orakel@uit.no or bas-admin@cc.u
 
         SENDMAIL="/usr/sbin/sendmail"
         p=os.popen("%s -t" % SENDMAIL, "w")
-        p.write("From bas-admin@cc.uit.no\n")
+        p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: %s\n" % email_address)
         p.write("Bcc: kenneth.johansen@cc.uit.no\n")
         p.write("subject: Registrering av bruker\n")
@@ -480,7 +613,7 @@ def main():
         data = x_create.read_data(source_file)
         for line in data:
             if (line[0] != '#'):
-                ret = x_create.create_person(line)
+                ret = x_create.create_person2(line)
         x_create.db.commit()
         #accounts needs to be created after person objects are stored
         #Therefore we need to traverse the list again and generate
