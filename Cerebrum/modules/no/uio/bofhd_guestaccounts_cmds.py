@@ -316,9 +316,18 @@ class BofhdExtension(object):
 
 
     all_commands['user_guests_status'] = Command(
-        ('user', 'guests_status'))
-    def user_guests_status(self, operator):
-        return "%d guest users available." % self.bgu.num_available_accounts()
+        ('user', 'guests_status'), SimpleString(optional=True))
+    def user_guests_status(self, operator, *args):
+        ret = ""
+        if args and args[0] == "verbose" and self.ba.is_superuser(
+            operator.get_entity_id()):
+            # Find status for all guests
+            ret = "%-12s   %s:\n%s\n" % (
+                "Guest users", "Status",
+                self._pretty_print(self.bgu.list_guests_info(),
+                                   include_comment=True))
+        ret += "%d guest users available." % self.bgu.num_available_accounts()
+        return ret
 
 
     def _get_shell(self, shell):

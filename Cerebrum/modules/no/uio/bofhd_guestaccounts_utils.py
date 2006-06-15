@@ -137,6 +137,40 @@ class BofhdUtils(object):
             ret.append(tmp)
         return ret
 
+    def list_guests_info(self):
+        """Find status of all guest accounts.
+        Status can be either allocated, free or release_quarantine.
+        """
+        ret = []
+        ownerid2name = {}
+        ac = Factory.get('Account')(self.db)    
+        group = Factory.get('Group')(self.db)    
+        for guest in self.list_guest_users():
+            ac.clear()
+            ac.find_by_name(guest[0])
+            qua = ac.get_entity_quarantine(self.co.quarantine_guest_release)
+            if not qua:
+                # Status == available
+                tmp = [guest[0], None, "available"]
+            else:                
+                owner = ac.get_trait(self.co.trait_guest_owner)
+                if owner['target_id']:
+                    # Status == allocated
+                    if not ownerid2name.has_key(int(owner['target_id'])):
+                        group.clear()
+                        group.find(owner['target_id'])
+                        ownerid2name[int(owner['target_id'])] = group.group_name
+                    tmp = [guest[0], None, "allocated by %s (%s) until %s" % (
+                        owner['target_id'],
+                        ownerid2name[int(owner['target_id'])],
+                        qua[0]['start_date'].date)]
+                else:
+                    # status == release_quarantine
+                    tmp = [guest[0], None, "in release_quarantine"]
+            ret.append(tmp)
+        ret.sort()
+        return ret
+
     def num_available_accounts(self):
         """Find num of available guest accounts."""
         return len(self.list_guest_users(owner_id=None))
@@ -177,7 +211,7 @@ class BofhdUtils(object):
             raise CerebrumError, ("Couldn't find more than %d guest account "
                                   "names in %sXXX namespace" %
                                   (num_found, prefix))
-        return ret
+        return ret            
 
     def _guest_is_available(self, e_id):
         "Check if guest is avaialable"
