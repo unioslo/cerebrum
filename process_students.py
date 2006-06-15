@@ -142,6 +142,13 @@ class AccountUtil(object):
         account.set_password(password)
         tmp = account.write_db()
         logger.debug("new Account, write_db=%s" % tmp)
+        # Need to set initial quarantine.
+        # setting todays date at start date.
+        quarantine_date = "%s" % today.date()
+        print "quarantine date =%s" % quarantine_date
+        account.add_entity_quarantine(const.quarantine_tilbud,default_crator_id,start=quarantine_date)
+        #sys.exit(1) # <- for debuging purposes. remove this once quarantene settings on new accounts has been verified.
+        logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
         for spread in profile.get_spreads():
@@ -662,6 +669,7 @@ class BuildAccounts(object):
         assert not dryrun
         
         as_posix = False
+        logger.debug("Spreads from profile=%s, POSIX_SPREADS=%s" %  (profile.get_spreads(),posix_spreads))
         for spread in profile.get_spreads():  # TBD: Is this check sufficient?
             if int(spread) in posix_spreads:
                 as_posix = True
