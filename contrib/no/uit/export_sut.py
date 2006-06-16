@@ -87,22 +87,16 @@ def export_sut(out_file):
     for row in db_row:
         full_name = row['name']
         ssn = row['external_id']
-        if(len(ssn)==11):
-            fodt = ssn[0:6]
-            pnr = ssn[6:11]
-            dag = fodt[0:1]
-            mnd = fodt[2:4]
-            aar = fodt[4:6]
-        else:
+        if(len(ssn)!=11):
+            # we need to allow import of foreign persons withouth an ssn
+            # this is done by padding the external_id stored with zero's.
             ssn=ssn.zfill(11)
-            fodt = ssn[0:6]
-            pnr = ssn[6:11]
-            dag = fodt[0:1]
-            mnd = fodt[2:4]
-            aar = fodt[4:6]
-            print "len ssn=%s, ssn=%s" % (len(ssn),ssn)
+        fodt = ssn[0:6]
+        pnr = ssn[6:11]
+        dag = fodt[0:1]
+        mnd = fodt[2:4]
+        aar = fodt[4:6]
         
-
         # unfortunately we have some fake ssn. these cannot be inserted into the export
         # file to SUT. We need to convert these by issuing the following
         # any months which have the first number = 5 or 6 must be changed to 0 or 1 respectively
