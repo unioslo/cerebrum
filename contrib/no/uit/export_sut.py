@@ -87,31 +87,32 @@ def export_sut(out_file):
     for row in db_row:
         full_name = row['name']
         ssn = row['external_id']
-        if(len(ssn)!=11):
-            # we need to allow import of foreign persons withouth an ssn
-            # this is done by padding the external_id stored with zero's.
-            ssn=ssn.zfill(11)
-        fodt = ssn[0:6]
-        pnr = ssn[6:11]
-        dag = fodt[0:1]
-        mnd = fodt[2:4]
-        aar = fodt[4:6]
+        if((len(ssn)!=11)and(row['id_type'==const.externalid_sys_x_id])):
+            print "foreigner"
+            fodt="010170"
+            pnr="%i" % (10000+int(ssn))
+        else:
+            fodt = ssn[0:6]
+            pnr = ssn[6:11]
+            dag = fodt[0:1]
+            mnd = fodt[2:4]
+            aar = fodt[4:6]
         
-        # unfortunately we have some fake ssn. these cannot be inserted into the export
-        # file to SUT. We need to convert these by issuing the following
-        # any months which have the first number = 5 or 6 must be changed to 0 or 1 respectively
-        try:
-            if(fodt[2] == "5"):
-               #logger.debug("before:%s" % (fodt))
-               fodt = "%s%s%s" % (fodt[0:2],"0",fodt[3:6])
-               #logger.debug("after:%s" % (fodt))
-            elif(fodt[2] == "6"):
-               #logger.debug("before:%s" % (fodt))
-               fodt = "%s%s%s" % (fodt[0:2],"1",fodt[3:6])
-               #logger.debug("after:%s" % (fodt))
-        except Exception,msg:
-            print "SUT ERR: db_row=%s, error:%s" %(db_row, msg)
-            sys.exit(1)
+            # unfortunately we have some fake ssn. these cannot be inserted into the export
+            # file to SUT. We need to convert these by issuing the following
+            # any months which have the first number = 5 or 6 must be changed to 0 or 1 respectively
+            try:
+                if(fodt[2] == "5"):
+                    #logger.debug("before:%s" % (fodt))
+                    fodt = "%s%s%s" % (fodt[0:2],"0",fodt[3:6])
+                    #logger.debug("after:%s" % (fodt))
+                elif(fodt[2] == "6"):
+                    #logger.debug("before:%s" % (fodt))
+                    fodt = "%s%s%s" % (fodt[0:2],"1",fodt[3:6])
+                    #logger.debug("after:%s" % (fodt))
+            except Exception,msg:
+                print "SUT ERR: db_row=%s, error:%s" %(db_row, msg)
+                sys.exit(1)
             
         user_name = row['entity_name']
         
