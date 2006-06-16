@@ -343,6 +343,20 @@ class AccountUiOMixin(Account.Account):
                 return False
         return success
 
+
+    def clear_home(self, spread):
+        """Remove disk quota before clearing home."""
+
+        try:
+            homeinfo = self.get_home(spread)
+        except Errors.NotFoundError:
+            pass
+        else:
+            dq = DiskQuota(self._db)
+            dq.clear(homeinfo['homedir_id'])
+        return self.__super.clear_home(spread)
+
+
     def set_homedir(self, *args, **kw):
         """Remove quota information when the user is moved to a disk
         without quotas or where the default quota is larger than his
