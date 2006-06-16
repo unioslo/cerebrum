@@ -5712,7 +5712,7 @@ class BofhdExtension(object):
                                account.entity_id, disk_id, state_data=spread)
                 message += "Move queued for execution at %s." % br.batch_time 
                 # mail user about the awaiting move operation
-                new_homedir = disk.path + '/' + uname
+                new_homedir = disk.path + '/' + account.account_name
                 try:
                     Utils.mail_template(account.get_primary_mailaddress(),
                                         cereconf.USER_BATCH_MOVE_WARNING,
