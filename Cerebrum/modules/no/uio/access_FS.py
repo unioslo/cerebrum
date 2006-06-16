@@ -42,13 +42,6 @@ class UiOStudent(access_FS.Student):
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
         samt alle med opptak som blir gyldig om 14 dager.
-
-        Obs! For å unngå at sommerskolestudentene kommer over til
-        Cerebrum for tidlig, legger vi inn en eksplisitt sjekk på om
-        studieprogramkode er sommerskole-kode.
-
-        Denne skal tas vekk dagen før vi skal skrive ut passord for
-        sommerskolestudentene, dvs. 21. juni.
         """
 
         extra = ""
@@ -77,7 +70,6 @@ class UiOStudent(access_FS.Student):
            sps.status_privatist = 'N' AND
            sps.dato_studierett_tildelt < SYSDATE + 14 AND           
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd') AND
-           (sps.studieprogramkode <> 'ISS' OR sps.studieprogramkode <> 'EILC') AND           
            %s
            """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
@@ -202,6 +194,7 @@ class UiOStudent(access_FS.Student):
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
            r.status_reg_ok = 'J' AND
+           r.status_bet_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
@@ -240,6 +233,7 @@ class UiOStudent(access_FS.Student):
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
            r.status_reg_ok = 'J' AND
+           r.status_bet_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
@@ -282,6 +276,7 @@ class UiOStudent(access_FS.Student):
            spp.arstall_bekreft=%d AND
            spp.terminkode_bekreft='%s' AND
            r.status_reg_ok = 'J' AND
+           r.status_bet_ok = 'J' AND
            NVL(r.status_ugyldig, 'N') = 'N' AND
            %s AND
            %s""" % (extra, self.year, self.semester,
