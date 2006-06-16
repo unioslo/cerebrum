@@ -100,6 +100,7 @@ class AccountUtil(object):
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
+        today = datetime.datetime.now()
         logger.info2("CREATE")
         person = Factory.get('Person')(db)
         try:
@@ -146,7 +147,7 @@ class AccountUtil(object):
         # setting todays date at start date.
         quarantine_date = "%s" % today.date()
         print "quarantine date =%s" % quarantine_date
-        account.add_entity_quarantine(const.quarantine_tilbud,default_crator_id,start=quarantine_date)
+        account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
         #sys.exit(1) # <- for debuging purposes. remove this once quarantene settings on new accounts has been verified.
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
@@ -917,7 +918,7 @@ def get_existing_accounts():
     #
     logger.info("Listing accounts...")
     tmp_ac = {}
-    for row in account_obj.list(fetchall=False):
+    for row in account_obj.list(filter_expired=False,fetchall=False):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
