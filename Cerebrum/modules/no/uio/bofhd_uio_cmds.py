@@ -2194,7 +2194,7 @@ class BofhdExtension(object):
                                                 'WHEN_EN': when_en,
                                                 'WHEN_NN': when_nn})
             except Exception, e:
-                logger.error("Sending mail failed: %s", e)
+                self.logger.error("Sending mail failed: %s", e)
         else:
             # TBD: should we remove spread_uio_imap ?
             # It does not do much good to add to a bofh request, mvmail
@@ -5719,7 +5719,7 @@ class BofhdExtension(object):
                                         substitute={'USER': account.account_name,
                                                     'TO_DISK': new_homedir})
                 except Exception, e:
-                    logger.error("Sending mail failed: %s", e)
+                    self.logger.error("Sending mail failed: %s", e)
             elif move_type == "nofile":
                 ah = account.get_home(spread)
                 account.set_homedir(current_id=ah['homedir_id'],
