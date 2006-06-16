@@ -202,9 +202,11 @@ class execute:
         self.person.clear()
         self.person.find(p_id)
         acc = self.person.get_primary_account(filter_expired=False)
-        has_account = False
+        has_account = True
         employee_priority = 50
-        if (acc):
+        if (not acc):
+            has_account=False
+        else:
             # Person already has an account.
             # need to update: spread and affiliation
             try:
@@ -215,33 +217,9 @@ class execute:
                     # not a valid "employee" username. log error and continue with next
                     self.logger.error("AccountID %s=%s does not conform with AD account naming rules!" % (acc,ac_tmp_name))
                     return
-                                
-                ac_types = ac_tmp.get_account_types()
-                for a in ac_types:
-                    # if this account affiliation is other than ansatt, skip
-                    if (a['affiliation'] == self.constants.affiliation_ansatt):
-                        self.logger.info("Update_account(p_id=%s,acc_id=%s):  " % (p_id,acc))
-                        has_account = True
-                        self.update_employee_account(acc,ou_id)
-                    #ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
-                    #if(not ac_tmp_name.isalpha()):
-                    #    # The existing account has a valid username for AD export.
-                    #    # lets update the affiliation,spread and email address.
-                    #    def_spreads = cereconf.UIT_DEFAULT_EMPLOYEE_SPREADS
-                    #    ac_tmp.set_account_type(ou_id,
-                    #                            self.constants.affiliation_ansatt,
-                    #                            self.employee_priority)
-                    #   has_account=True
-                    #   self.update_email(ac_tmp)
-                    #   for s in def_spreads:
-                    #       spread_id = int(self.constants.Spread(s))
-                    #       if (not ac_tmp.has_spread(spread_id)):
-                    #           self.logger.info("- adding spread %s for account:%s" % (s,ac_tmp.entity_id))
-                    #           ac_tmp.add_spread(spread_id)
-                    #else:
-                    #    self.logger.warn("Account %s does not have a valid user name:%s. need to create new AD user" % (ac_tmp.entity_id,ac_tmp_name))
+                self.update_employee_account(acc,ou_id)
             except Exception,m:
-                self.logger.warn("unable to update spread,affiliation and email for account: %s: Reason:%s" % (acc,m))
+                self.logger.error("unable to process employee account for personid=%s, accountid=%s: %s: Reason:%s" % (p_id,acc,m))
         if (not has_account):
             # This person does not have an account.
             # create new account.
