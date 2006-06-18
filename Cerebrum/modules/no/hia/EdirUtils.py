@@ -40,40 +40,47 @@ class EdirUtils:
         self.__ldap_handle = ldap_handle
         self.logger = Factory.get_logger('cronjob')
         self.pq_attrlist = ['accountBalance', 'allowUnlimitedCredit']
-        self.group_prefix = 'bas-'
         t = time.localtime()[0:3]
         self.date = '%s-%s-%s' % (t[0], t[1], t[2])
         self.c_person = 'objectClass=inetOrgPerson'
         self.c_group = 'objectClass=group'
         self.account_attrs = ['passwordAllowChange', 'givenName',
-                              'sn', 'fullName', 'ndsHomeDirectory',
-                              'mail', 'passwordRequired', 'generationQualifier',
-                              'uid']
+                              'sn', 'fullName', 'mail', 'passwordRequired',
+                              'generationQualifier', 'uid', 'loginDisabled']
 
 ## CREATE OBJECT:
     def object_edir_create(self, dn, attrdict):
         """Create a user or group object in eDir."""
         self.__ldap_handle.ldap_add_object(dn, attrdict)
-        
-## HOME: set home directory
-    def account_set_home(self, account_name, path):
-        """Set attr nsdHomeDirectory for a user if change_log
-           event e_account_move occurs. Home directory changes
-           are actually handled through group membership so this
-           method affects the attr only."""
-        attr = {}
-        home = 'ndsHomeDirectory'
-        attr[home] = path
-        ldap_object = self._find_object(account_name,self.c_person)
-        if ldap_object:
-            (ldap_object_dn, ldap_attr) = ldap_object[0]
-            self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
-            if home in ldap_attr.keys():
-                if path <> ldap_attr[home]:
-                    desc = "Cerebrum: user moved %s" % self.date
-                    self.object_set_description(account_name, self.c_person, desc)
-                    logger.info("Account ndsHomeDirectory changed for %s" % account_name)
 
+## GROUP:  add/remove group_member.
+    def group_modify(self, mod_type, group_name, member_name):
+        """Add an existing account object to a group in eDir."""
+        attr_g = {}
+        attr_m = {}
+        ## TODO: should support group-object members
+        ldap_group = self._find_object(group_name, self.c_group)
+        ldap_account = self._find_object(member_name, self.c_person)
+        if ldap_group:
+            (ldap_group_dn, group_attr) = ldap_group[0]
+            if ldap_account:
+                (ldap_account_dn, ldap_attr) = ldap_account[0]
+                attr_g['member'] = [ldap_account_dn]
+                if mod_type == 'add':
+                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
+                elif mod_type == 'delete':
+                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
+                attr_m['groupMembership'] = [ldap_group_dn]
+                attr_m['securityEquals'] = [ldap_group_dn]
+                if mod_type == 'add':
+                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_m)
+                elif mod_type == 'delete':
+                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
+            else:
+                self.logger.error("No such account |%s|" % member_name)
+        else:
+            self.logger.error("No such group, |%s|." % group_name)
+            
 ## QUARANTINE: set/remove quarantine
     def account_set_quarantine(self, account_name, q_type):
         """Set loginDisabled attribute to True. Used when a
@@ -131,7 +138,10 @@ class EdirUtils:
         """Set value of attribute 'accountBalance' for account_name.
            Also set attr 'allowUnlimitedCredit' to False. This method
            is used only when the account has been found to be a student
-           account and update is needed (term fee is paid)."""
+           account and update is needed (term fee is paid).
+           Her bør det legges in forskjell mellom quota_old og quota_new
+           i kommentarfeltet. Change_log - lars vil ha updates inn der."""
+        
         attrs = {}
         ldap_object = self._find_object(account_name,
                                         self.c_person,
@@ -139,7 +149,8 @@ class EdirUtils:
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             if 'accountBalance' in ldap_attr.keys():
-                pquota = int(ldap_attr['accountBalance'][0]) + pquota
+                tmp = int(ldap_attr['accountBalance'][0])
+                pquota = tmp + pquota
                 attrs['accountBalance'] = [str(pquota)]
                 attrs['allowUnlimitedCredit'] = ['False']
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
@@ -147,7 +158,10 @@ class EdirUtils:
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'add', attrs)
             self.logger.info("Updated quota for %s, new quota is %s" % (account_name,
                                                                    pquota))
-            desc = "Cerebrum: update_quota (%s)" % self.date
+            desc = "Cerebrum: update_quota (%s), old=%s, new=%s" % (self.date,
+                                                                    tmp,
+                                                                    pquota)
+                                                                    
             self.object_set_description(account_name, self.c_person, desc)
 
     def get_all_pq_info(self):
@@ -214,7 +228,11 @@ class EdirUtils:
     def object_set_description(self, object_name, object_class, description):
         """Update or set 'description' attr for an object in eDir. This
            method is used every time a relevant change occurs in Cerebrum.
-           Relevant changes are listed in edirsync.py."""
+           Relevant changes are listed in edirsync.py.
+
+           TODO: Det er ønskelig å endre den første kommentaren på
+           alle brukere som er blitt opprettet i Cerebrum til
+           Cerebrum: created yyyy-mm-dd (stud_nr hvis finnes)"""
         desc = []
         attrs = {}
         ldap_object = self._find_object(object_name,
@@ -225,7 +243,7 @@ class EdirUtils:
 
         if ldap_attrs:
             temp = ldap_attrs['description']
-            desc = string.split(temp[0], ';')
+            desc = string.split(temp[0], '\n')
             
         if len(desc) <= 4:
             desc.append(description)
@@ -233,8 +251,29 @@ class EdirUtils:
             desc.pop(1)
             desc.append(description)
 
-        attrs['description'] = string.join(desc,';')
+        attrs['description'] = string.join(desc,'\n')
         self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
+
+
+## HOME: set home directory
+## ikke i bruk
+    def account_set_home(self, account_name, path):
+        """Set attr nsdHomeDirectory for a user if change_log
+           event e_account_move occurs. Home directory changes
+           are actually handled through group membership so this
+           method affects the attr only."""
+        attr = {}
+        home = 'ndsHomeDirectory'
+        attr[home] = path
+        ldap_object = self._find_object(account_name,self.c_person)
+        if ldap_object:
+            (ldap_object_dn, ldap_attr) = ldap_object[0]
+            self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
+            if home in ldap_attr.keys():
+                if path <> ldap_attr[home]:
+                    desc = "Cerebrum: user moved %s" % self.date
+                    self.object_set_description(account_name, self.c_person, desc)
+                    logger.info("Account ndsHomeDirectory changed for %s" % account_name)
 
 # arch-tag: 5e6865d4-5cb2-11da-97b8-ad2f2be70968
 
