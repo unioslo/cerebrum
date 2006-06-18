@@ -216,7 +216,7 @@ class SelectMapTilbudSted(SelectMapAktivtSted):
         matches = []
         for fs_infodict, match_tag, col_postfix in (
             (self._pc.autostud.studieprogramkode2info,
-             'studieprogramkode', '_studieansv')):
+             'studieprogramkode', '_studieansv'),):
             for pdta in person_info.get('tilbud', []):
                 if not pdta.has_key(match_tag):
                     continue  # emnekode not set for some aktiv tags.
@@ -325,7 +325,7 @@ class SelectTool(object):
         "emne": SelectMapTag('emnekode', 'eksamen', 'emnekode'),
         "privatist_emne": SelectMapTag('emnekode','privatist_emne', 'emnekode'),
         "aktivt_sted": SelectMapAktivtSted(),
-        "tilbud_sted": SelectMapAktivtSted(),
+        "tilbud_sted": SelectMapTilbudSted(),
         "evu_sted": SelectMapEvuSted(),
         "medlem_av_gruppe": SelectMapGroupMember(),
         "person_affiliation": SelectMapPersonAffiliation(),
