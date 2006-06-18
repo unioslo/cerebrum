@@ -139,8 +139,7 @@ class EdirUtils:
            Also set attr 'allowUnlimitedCredit' to False. This method
            is used only when the account has been found to be a student
            account and update is needed (term fee is paid).
-           Her bør det legges in forskjell mellom quota_old og quota_new
-           i kommentarfeltet. Change_log - lars vil ha updates inn der."""
+           Change_log - lars vil ha updates inn der."""
         
         attrs = {}
         ldap_object = self._find_object(account_name,
