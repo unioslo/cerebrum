@@ -26,8 +26,8 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils             import Factory
 from Cerebrum.modules.LDIFutils import *
-from Cerebrum.modules import OrgLDIF
-
+from Cerebrum.modules           import OrgLDIF
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 class OrgLdifUitMixin:
     
