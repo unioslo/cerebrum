@@ -55,6 +55,9 @@ class Constants(Constants.Constants):
     externalid_feide_id = _EntityExternalIdCode('FEIDE_ID',
                                                  Constants.Constants.entity_person,
                                                 'Feide identification')        # uit
+    externalid_sys_x_id = _EntityExternalIdCode('SYS_X_ID',
+                                                Constants.Constants.entity_person,
+                                                'Internal sys_x identifier')        # uit
     externalid_studentnr = _EntityExternalIdCode('STUDENT_NUMBER',
                                                   Constants.Constants.entity_person,
                                                  'Student card number') # uit
@@ -256,7 +259,7 @@ class Constants(Constants.Constants):
 
     # TODO: Kunne begrense tillatte spreads for spesielt priviligerte
     # brukere.
-
+    quarantine_tilbud = _QuarantineCode('Tilbud','Pre-generert konto til studenter som har fått studietilbud, men som ikke har aktivert kontoen.')
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
     quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn på teppet til drift')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
