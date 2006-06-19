@@ -15,8 +15,8 @@ from Cerebrum.Utils import Factory
 
 def ldap_export():
 
-    #logger = Factory.get_logger("console")   
-    logger = Factory.get_logger("cronjob")
+    logger = Factory.get_logger("console")   
+    #logger = Factory.get_logger("cronjob")
     global_ret = 0
     date = time.localtime()
     year = date[0]
@@ -36,7 +36,7 @@ def ldap_export():
     #logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
     global_ret +=ret
-    #logger.info("   generate_posix_ldif.py: %s" % ret)
+    logger.info("   generate_posix_ldif.py: %s" % ret)
 
     # 2 create the ou_ldif
     script = os.path.join(script_dir,'generate_org_ldif.py')
@@ -45,7 +45,7 @@ def ldap_export():
     #logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
     global_ret +=ret
-    #logger.info("   generate_org_ldif.py %s" %ret)
+    logger.info("   generate_org_ldif.py %s" %ret)
 
     # 3 concatenate the two files into a third called temp_uit_ldif
     my_dump = os.path.join(cereconf.DUMPDIR , "ldap")
@@ -54,7 +54,7 @@ def ldap_export():
     #logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
     global_ret +=ret
-    #logger.info("   cat ou_ldif users_ldif > temp_uit_ldif %s" %ret)
+    logger.info("   cat ou_ldif users_ldif > temp_uit_ldif %s" %ret)
 
     # 4.create a new ldif file based on the difference between the old and new data from cerebrum
     # 
@@ -65,11 +65,10 @@ def ldap_export():
     ret = os.system(script_cmd) 
     aret = os.system("cp  /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d_%02d%02d " % (year,month,day,year,month,day,hour,min))
     global_ret +=ret
-    #logger.info("   ldif-diff.pl %s" % ret)
+    logger.info("   ldif-diff.pl %s" % ret)
 
     #logger.debug("Finished running ldap export: global ret=%s " % global_ret)
     return global_ret
-
 
 
 
@@ -91,6 +90,10 @@ def main():
         sys.exit(0)
 
     retval = ldap_export()
+
+    if (retval != 0):
+        retval=1
+    
     sys.exit(retval)
     
     
