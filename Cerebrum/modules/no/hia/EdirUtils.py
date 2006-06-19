@@ -82,7 +82,7 @@ class EdirUtils:
             self.logger.error("No such group, |%s|." % group_name)
             
 ## QUARANTINE: set/remove quarantine
-    def account_set_quarantine(self, account_name, q_type):
+    def account_set_quarantine(self, account_name):
         """Set loginDisabled attribute to True. Used when a
            change_log event 'quarantine_add' is found in
            change_log.""" 
@@ -95,10 +95,10 @@ class EdirUtils:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
 
-        desc = 'Cerebrum: set quarantine %s (%s)' % (q_type, self.date)
+        desc = 'Cerebrum: set quarantine %s' % (self.date)
         self.object_set_description(account_name, self.c_person, desc)
                 
-    def account_remove_quarantine(self, account_name, q_type):
+    def account_remove_quarantine(self, account_name):
         """Set loginDisabled attribute to False. Used when a
            change_log event 'quarantine_remove' or 'quarantine_mod'
            is found in change_log."""
@@ -112,7 +112,7 @@ class EdirUtils:
             if l_disabled in ldap_attr.keys():
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
 
-        desc = 'Cerebrum: remove quarantine %s (%s)' % (q_type, self.date) 
+        desc = 'Cerebrum: rem quarantine %s' % self.date 
         self.object_set_description(account_name, self.c_person, desc)
 
 ## PRINTER QUOTA: get quota info, set accountBalance, get all available quota info
