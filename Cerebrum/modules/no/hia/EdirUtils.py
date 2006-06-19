@@ -92,11 +92,14 @@ class EdirUtils:
         ldap_object = self._find_object(account_name,self.c_person)
 
         if ldap_object:
+            print "OK %s" % account_name
             (ldap_object_dn, ldap_attr) = ldap_object[0]
-            self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
-
-        desc = 'Cerebrum: set quarantine %s' % (self.date)
-        self.object_set_description(account_name, self.c_person, desc)
+            if l_disabled in ldap_attr.keys():
+                self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
+            else:
+                self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'add', attr)
+            desc = 'Cerebrum: set quarantine %s' % (self.date)
+            self.object_set_description(account_name, self.c_person, desc)
                 
     def account_remove_quarantine(self, account_name):
         """Set loginDisabled attribute to False. Used when a
@@ -111,9 +114,8 @@ class EdirUtils:
             attr[l_disabled] = ['False']
             if l_disabled in ldap_attr.keys():
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
-
-        desc = 'Cerebrum: rem quarantine %s' % self.date 
-        self.object_set_description(account_name, self.c_person, desc)
+                desc = 'Cerebrum: rem quarantine %s' % self.date 
+                self.object_set_description(account_name, self.c_person, desc)
 
 ## PRINTER QUOTA: get quota info, set accountBalance, get all available quota info
     def get_pq_balance(self, account_name):
@@ -236,6 +238,8 @@ class EdirUtils:
            until a proper solution is found"""
         desc = []
         attrs = {}
+        ldap_attrs = {}
+        ldap_object_dn = None
         ldap_object = self._find_object(object_name,
                                         object_class,
                                         ['description'])
@@ -253,7 +257,8 @@ class EdirUtils:
             desc.append(description)
 
         attrs['description'] = string.join(desc,';')
-        self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
+        if not ldap_object_dn == None:
+            self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
 
 
 ## HOME: set home directory
