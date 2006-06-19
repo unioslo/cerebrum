@@ -231,7 +231,9 @@ class EdirUtils:
 
            TODO: Det er ønskelig å endre den første kommentaren på
            alle brukere som er blitt opprettet i Cerebrum til
-           Cerebrum: created yyyy-mm-dd (stud_nr hvis finnes)"""
+           Cerebrum: created yyyy-mm-dd (stud_nr hvis finnes)
+           TODO: \n does not seem to work, changing back to ';'
+           until a proper solution is found"""
         desc = []
         attrs = {}
         ldap_object = self._find_object(object_name,
@@ -250,7 +252,7 @@ class EdirUtils:
             desc.pop(1)
             desc.append(description)
 
-        attrs['description'] = string.join(desc,'\n')
+        attrs['description'] = string.join(desc,';')
         self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
 
 
