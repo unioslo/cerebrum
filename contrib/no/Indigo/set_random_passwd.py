@@ -37,18 +37,17 @@ def main():
         if not row['auth_data'] == None:
             active[int(row['account_id'])] = True
 
-    for aff in (co.affiliation_ansatt, co.affiliation_elev):
-        for row in ac.list_accounts_by_type(affiliation=aff):
-            id = int(row['account_id'])
-            # If the user has passwords listed, we don't create new
-            # ones.
-            if active.has_key(id):
-                continue
-            ac.clear()
-            ac.find(id)
-            pw = ac.make_passwd(ac.account_name)
-            ac.set_password(pw)
-            ac.write_db()
+    for row in ac.list():
+        id = int(row['account_id'])
+        # If the user has passwords listed, we don't create new
+        # ones.
+        if active.has_key(id):
+            continue
+        ac.clear()
+        ac.find(id)
+        pw = ac.make_passwd(ac.account_name)
+        ac.set_password(pw)
+        ac.write_db()
 
     db.commit()
     
