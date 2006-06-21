@@ -794,7 +794,8 @@ class uitfronter(Person.Person):
             ON at.account_id = en.entity_id
           JOIN [:table schema=cerebrum name=entity_external_id] pei
             ON pi.person_id = pei.entity_id AND
-	  	pei.id_type = [:get_constant name=externalid_fodselsnr]
+               ( pei.id_type = [:get_constant name=externalid_fodselsnr] OR
+                 pei.id_type = [:get_constant name=externalid_sys_x_id] )
           JOIN [:table schema=cerebrum name=account_info] ai
             ON pi.person_id = ai.owner_id
 	  LEFT JOIN [:table schema=cerebrum name=person_name] pn2
