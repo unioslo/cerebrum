@@ -4890,7 +4890,11 @@ class BofhdExtension(object):
         entity = self._get_entity(entity_type, id)
         spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
-        entity.delete_spread(spread)
+        if entity.has_spread(spread):
+            entity.delete_spread(spread)
+        else:
+            txt = "Entity '%s' does not have spread '%s'" % (id, str(spread))
+            raise CerebrumError, txt
         if entity_type == 'account':
             self.__spread_sync_group(entity)
         return "OK, removed spread %s from %s" % (
