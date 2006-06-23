@@ -331,8 +331,14 @@ class BofhdExtension(object):
         dest_group = self._get_group(dest_group)
         owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
         self.ba.can_alter_group(operator.get_entity_id(), dest_group)
-        dest_group.add_member(owner_id, self.const.entity_dns_owner,
-                              self._get_group_opcode(group_operator))
+        # Check if member is in the group or not.
+        if not dest_group.has_member(owner_id, self.const.entity_dns_owner,
+                                     self._get_group_opcode(group_operator)):
+            dest_group.add_member(owner_id, self.const.entity_dns_owner,
+                                  self._get_group_opcode(group_operator))
+        else:
+            raise CerebrumError("Member '%s' already in group '%s'" % (src_name,
+                                                                       dest_group))
         return "OK, added %s to %s" % (src_name, dest_group.group_name)
 
     # group host
