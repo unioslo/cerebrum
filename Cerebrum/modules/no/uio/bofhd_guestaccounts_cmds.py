@@ -229,7 +229,10 @@ class BofhdExtension(object):
         perm_filter='can_request_guests')
     def user_request_guest(self, operator, *args):
         nr, end_date, groupname, comment = args
-        self.ba.can_request_guests(operator.get_entity_id(), groupname)
+        try:
+            self.ba.can_request_guests(operator.get_entity_id(), groupname)
+        except NotFoundError:
+            raise CerebrumError, "Group '%s' not found" % groupname
         owner = self.util.get_target(groupname, default_lookup="group")
         today = DateTime.today()
         end_date = self.time_in_interval(end_date, today,
