@@ -4143,11 +4143,22 @@ class BofhdExtension(object):
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
         perm_filter='can_create_user')
     def user_reserve(self, operator, *args):
-	if len(args) == 4:
-	    idtype, person_id, affiliation, uname = args
-	else:
-	    idtype, person_id, yes_no, affiliation, uname = args
-        person = self._get_person("entity_id", person_id)
+        if args[0].startswith('group:'):
+            group_id, np_type, uname = args
+            owner_type = self.const.entity_group
+            owner_id = self._get_group(group_id.split(":")[1]).entity_id
+            np_type = self._get_constant(self.const.Account, np_type,
+                                         "account type")
+            affiliation = None
+            owner_type = self.const.entity_group
+        else:
+            if len(args) == 4:
+                idtype, person_id, affiliation, uname = args
+            else:
+                idtype, person_id, yes_no, affiliation, uname = args
+            person = self._get_person("entity_id", person_id)
+            owner_type, owner_id = self.const.entity_person, person.entity_id
+            np_type = None
         account = self.Account_class(self.db)
         account.clear()
         if not self.ba.is_superuser(operator.get_entity_id()):
