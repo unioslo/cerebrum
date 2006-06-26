@@ -136,15 +136,15 @@ def build_employee_cache(db, sysname, filename):
 
         fnr = xmlperson.get_id(xmlperson.NO_SSN)
         if not fnr:
-            logger.warning("Person %s has no fnr in XML source",
-                           list(xmlperson.iterids()))
+            logger.debug("Person %s has no fnr in XML source",
+                         list(xmlperson.iterids()))
             continue
         # fi
 
         # If this fnr is not in Cerebrum, we cannot locate its primary account
         if fnr not in fnr2uname:
-            logger.warning("Cerebrum has no fnr %s or primary account for fnr %s",
-                           fnr, fnr)
+            logger.debug("Cerebrum has no fnr %s or primary account for fnr %s",
+                         fnr, fnr)
             continue
         # fi
 
@@ -253,13 +253,15 @@ def adjoin_member(uname, db_group, db_account, db_const):
 def remove_remaining(cache, db_group, db_const):
     """Remove all entries in cache from db_group."""
 
-    logger.debug("group %s will have %d members removed",
-                 list(db_group.get_names()), len(cache))
-
     for account_id in cache.itervalues():
-        logger.debug("removing account_id %d (union) from %s",
-                     account_id, list(db_group.get_names()))
-        db_group.remove_member(account_id, db_const.group_memberop_union)
+        if db_group.has_member(account_id):
+            db_group.remove_member(account_id, db_const.group_memberop_union)
+            logger.debug("removing account_id %d (union) from %s",
+                         account_id, list(db_group.get_names()))
+        else:
+            logger.debug("%s not a member in group %s" % (account_id, db_group.entity_id))
+            continue
+
     # od
 # end remove_remaining
 
