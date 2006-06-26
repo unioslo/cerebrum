@@ -211,6 +211,10 @@ class Object2Cerebrum(object):
                                              firstname, lastname)
             self._ac.populate(unames[0], owner.entity_type, owner.entity_id,
                               None, self.default_creator_id, None)
+            # Give tha account a password
+            pwd =  account.make_passwd(unames[0])
+            self._ac.write_db()
+            self._ac.set_password(pwd)
             self._ac.write_db()
         else:
             self._ac.find(ac)
@@ -219,8 +223,6 @@ class Object2Cerebrum(object):
                 self._ac.add_spread(int(self.str2const[spread]))
             except self.db.DatabaseError:
                 pass
-        if not self._ac.has_spread(int(self.co.spread_oid_acc)):
-            self._ac.add_spread(int(self.co.spread_oid_acc))
         self._ac.write_db()
 
 
@@ -457,7 +459,8 @@ class Object2Cerebrum(object):
             self._group.write_db()
 
         # Update affiliations for people
-        for row in self._person.list_affiliations(source_system=self.source_system):
+        for row in self._person.list_affiliations(source_system=self.source_system,
+                                                  include_deleted=True):
             p_id = int(row['person_id'])
             aff = row['affiliation']
             ou_id = row['ou_id']
