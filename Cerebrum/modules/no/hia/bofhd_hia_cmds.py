@@ -4147,8 +4147,7 @@ class BofhdExtension(object):
             group_id, np_type, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
-            np_type = self._get_constant(self.const.Account, np_type,
-                                         "account type")
+            np_type = self._get_constant2(self.const.Account, np_type, "account type")
             affiliation = None
             owner_type = self.const.entity_group
         else:
@@ -4164,17 +4163,18 @@ class BofhdExtension(object):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("only superusers may reserve users")
         account.populate(uname,
-                         self.const.entity_person,  # Owner type
-                         person.entity_id,
-                         None,                      # np_type
+                         owner_type,  # Owner type
+                         owner_id,
+                         np_type,                      # np_type
                          operator.get_entity_id(),  # creator_id
                          None)                      # expire_date
         passwd = account.make_passwd(uname)
         account.set_password(passwd)
-	ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
         try:
             account.write_db()
-            self._user_create_set_account_type(account, person.entity_id, ou_id, affiliation)
+            if affiliation is not None:
+                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
+                self._user_create_set_account_type(account, person.entity_id, ou_id, affiliation)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
@@ -4713,6 +4713,14 @@ class BofhdExtension(object):
             return self.str2const[const_str]
         raise CerebrumError("%s: %s" % (err_msg, const_str))
 
+    def _get_constant2(self, code_cls, code_str, code_type="value"):
+        c = code_cls(code_str)
+        try:
+            int(c)
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
+        return int(c)
+    
     def _parse_date_from_to(self, date):
         date_start = self._today()
         date_end = None
