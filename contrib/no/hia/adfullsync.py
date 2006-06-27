@@ -224,16 +224,16 @@ def full_group_sync():
 		sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, 
 		memb, cereconf.AD_DOMAIN, grpname))
                 if sock.read() != ['210 OK']:
-                    logger.warn("Failed add %s to %s" % (memb, grpmemb)) 
+                    logger.warn("Failed add %s to %s" % (memb, grpname)) 
             del cbgroups[grpname]
 
         elif fields[3] in cereconf.AD_DONT_TOUCH:
             pass
         else:
             if delete_groups:
-                sock.send('DELGR&%s/%s\n' % (cereconf.AD_DOMAIN, grpmemb))
+                sock.send('DELGR&%s/%s\n' % (cereconf.AD_DOMAIN, grpname))
                 if sock.read() != ['210 OK']:
-                    logger.warn("Error deleting %s" % grpmemb)
+                    logger.warn("Error deleting %s" % grpname)
             else:
                 if cereconf.AD_LOST_AND_FOUND not in \
 		    adutils.get_ad_ou(ldappath):
