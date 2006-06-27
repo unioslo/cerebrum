@@ -12,10 +12,11 @@ Medlemmer:
   <tr><th>Navn</th> <th>Type</th></tr>
   <tr valign="top" tal:repeat="m members"
       tal:attributes="class python:test(path('repeat/m/odd'), 'white', 'grey')">
-      <td><input type="CHECKBOX" name="remove_member" tal:attributes="value string:${m/entity_id}"><a tal:attributes="href string:?action=d\
-o_select_target&type=${m/type}&entity_id=${m/entity_id}" tal:content="m/name">foogroup</a></td>
-      <td tal:content="m/type">account</td>
-  </tr>
+      <td><input type="CHECKBOX" name="remove_member" tal:attributes="value string:${m/entity_id}" tal:content="m/name"></td>
+      <!--TODO: fix select stuff real soon-->
+      <!--<a tal:attributes="href string:?action=do_select_target&type=${m/type}&entity_id=${m/entity_id}"..>foogroup</a></td>-->
+      <td tal:content="m/type">account</td>  
+</tr>
 </table>
 
 <p>
