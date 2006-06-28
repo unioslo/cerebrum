@@ -28,6 +28,7 @@ from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.doc_exception import DocstringException
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.modules.no import fodselsnr
 
 class ABCMultipleEntitiesExistsError(DocstringException):
     """Several Entities exist with the same ID."""
@@ -71,7 +72,13 @@ class Object2Cerebrum(object):
         entity.affect_external_id(self.source_system, *id_dict.keys())
         for id_type in id_dict.keys():
             if id_type is None or id_dict[id_type] is None:
-                raise ABCErrorInData
+                raise ABCErrorInData, "ID holds no data."
+            if int(id_type) == self.co.externalid_fodselsnr:
+                # Check fnr with the fnr module.
+                try:
+                    fodselsnr.personnr_ok(id_dict[id_type])
+                except fodselsnr.InvalidFnrError:
+                    raise ABCErrorInData, "fnr not valid: '%s'" %  id_dict[id_type]
             entity.populate_external_id(self.source_system,
                                         id_type,
                                         id_dict[id_type])
