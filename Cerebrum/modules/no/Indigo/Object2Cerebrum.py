@@ -212,7 +212,7 @@ class Object2Cerebrum(object):
             self._ac.populate(unames[0], owner.entity_type, owner.entity_id,
                               None, self.default_creator_id, None)
             # Give tha account a password
-            pwd =  account.make_passwd(unames[0])
+            pwd = self._ac.make_passwd(unames[0])
             self._ac.write_db()
             self._ac.set_password(pwd)
             self._ac.write_db()
