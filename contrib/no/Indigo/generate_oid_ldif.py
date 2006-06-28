@@ -298,17 +298,17 @@ def main():
     process_prof_group("ANSATTE", users, f)
     f.close()
 
-    # Dump info about users with co.affiliation_elev 
-    f = SimilarSizeWriter("%s/elev_user_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    users = process_users(co.affiliation_elev, f)
-    f.close()
+##     # Dump info about users with co.affiliation_elev 
+##     f = SimilarSizeWriter("%s/elev_user_oid.ldif" % oid_path, "w")
+##     f.set_size_change_limit(10)
+##     users = process_users(co.affiliation_elev, f)
+##     f.close()
     
-    # Make a group out of these users
-    f = SimilarSizeWriter("%s/elev_group_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    process_prof_group("ELEVER", users, f)
-    f.close()
+##     # Make a group out of these users
+##     f = SimilarSizeWriter("%s/elev_group_oid.ldif" % oid_path, "w")
+##     f.set_size_change_limit(10)
+##     process_prof_group("ELEVER", users, f)
+##     f.close()
             
     # Make and populate groups with spread spread_oid_grp
     f = SimilarSizeWriter("%s/group_oid.ldif" % oid_path, "w")
