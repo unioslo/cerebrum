@@ -18,8 +18,7 @@ Ny bruker (eid av
 <input type="HIDDEN" name="owner_id" tal:attributes="value string:${owner_id}">
 
 <strong>Brukernavn:</strong> <input type="TEXT" name="name" size="20" tal:attributes="value string:${uname}">
-<span tal:condition="more_unames" tal:omit-tag=""> <br><br>Andre ledige brukernavn:<br> <span tal:content="more_unames" tal:omit-tag=""/></\
-span>
+<span tal:condition="more_unames" tal:omit-tag=""> <br><br>Andre ledige brukernavn:<br> <span tal:content="more_unames" tal:omit-tag=""/></span>
 
 <p>
 
