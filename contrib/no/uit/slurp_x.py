@@ -451,10 +451,12 @@ class execute:
                         domain="student.uit.no"
                     bruker_epost="%s@%s" % (username,domain)
 
-
+                    
                 if("AD_account" in spread_list):
                     #only send email to nybruker@asp.uit.no if AD_account is one of the chosen spreads.
-                    self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
+                    # removed by request from ASP team, may be inserted againg in the future
+                    #self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
+                    pass
                 self.confirm_registration(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost)
                 return  posix_user.entity_id,bruker_epost
             except Errors:
