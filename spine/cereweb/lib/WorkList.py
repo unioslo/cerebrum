@@ -82,7 +82,10 @@ class WorkList(html.Division):
         self.remembered = cherrypy.session['wl_remembered']
         self.selected = cherrypy.session['wl_selected']
         self.actions = cherrypy.session['wl_actions']
-        
+     
+    def __call__(self,*args):
+        return self.output()
+    
     def add(self, element):
         self.remembered.append(element)
 

@@ -36,4 +36,7 @@ class ActivityLog(html.Division):
         messages = self.messages[:-6:-1]
         return template.activitylog(messages)
 
+    def __call__(self,*args):
+	return self.output()
+
 # arch-tag: ed8a9388-5b3e-4650-96bf-add0ba181744
