@@ -28,6 +28,7 @@ __all__ = ['Attribute', 'Method', 'Builder']
 default_exceptions = (
     SpineExceptions.TransactionError,
     SpineExceptions.AccessDeniedError,
+    SpineExceptions.ObjectDeletedError,
     SpineExceptions.ServerProgrammingError
 )
 
