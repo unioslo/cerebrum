@@ -875,13 +875,8 @@ def process_delete_requests():
             es.find(est.email_server_id)
             mail_server = es.name
 
-        generation = account.get_trait(const.trait_account_generation)
-        if generation:
-            generation = generation['numval'] + 1
-        else:
-            generation = 1
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator,
-                       mail_server, generation):
+                       mail_server):
             if is_posix:
                 # demote the user first to avoid problems with
                 # PosixUsers with names illegal for PosixUsers
@@ -889,7 +884,6 @@ def process_delete_requests():
                 account_id = account.entity_id
                 account = Factory.get('Account')(db)
                 account.find(account_id)
-            account.populate_trait(const.trait_account_generation, numval=generation)
             account.expire_date = br.now
             account.write_db()
             try:
@@ -916,7 +910,13 @@ def process_delete_requests():
             br.delay_request(r['request_id'], minutes=120)
             db.commit()
 
-def delete_user(uname, old_host, old_home, operator, mail_server, generation):
+def delete_user(uname, old_host, old_home, operator, mail_server):
+    account = get_account(name=uname)
+    generation = account.get_trait(const.trait_account_generation)
+    if generation:
+        generation = generation['numval'] + 1
+    else:
+        generation = 1
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
            operator, old_home, mail_server, generation]
     cmd = ["%s" % x for x in cmd]
@@ -925,6 +925,9 @@ def delete_user(uname, old_host, old_home, operator, mail_server, generation):
     if debug_hostlist is None or old_host in debug_hostlist:
         errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
     if errnum == EXIT_SUCCESS:
+        account.populate_trait(
+            const.trait_account_generation, numval=generation)
+        account.write_db()
         return True
     logger.error("%s returned %i" % (cmd, errnum))
     return False
