@@ -36,8 +36,10 @@ class PosixTest(unittest.TestCase):
         date = commands.get_date_now()
         gender = transaction.get_gender_type('M')
         source = transaction.get_source_system('Manual')
-        name = 'unittest%s' % id(self)
-        return commands.create_person(date, gender, name, source)
+        first_name = 'unit'
+        last_name  = 'test%s' % id(self)
+
+        return commands.create_person(date, gender, first_name, last_name, source)
 
     def __create_group(self, tr):
         name = 'unittest_gr%s' % id(self)
@@ -104,7 +106,8 @@ class PosixTest(unittest.TestCase):
         if not shells:
             return
         
-        account.promote_posix(group, shells[0])
+        uid = tr.get_commands().get_free_uid()
+        account.promote_posix(uid, group, shells[0])
         assert account.get_posix_uid() != None
         assert account.get_shell().get_name() == shells[0].get_name()
         assert account.get_primary_group().get_id() == group.get_id()
@@ -124,7 +127,8 @@ class PosixTest(unittest.TestCase):
         if not shells:
             return
         
-        account.promote_posix(group, shells[0])
+        uid = tr.get_commands().get_free_uid()
+        account.promote_posix(uid, group, shells[0])
         account.demote_posix()
         assert account.is_posix() == False
     
