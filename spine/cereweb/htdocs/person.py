@@ -23,7 +23,7 @@ import cherrypy
 import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import queue_message, redirect, redirect_object
+from lib.utils import queue_message, redirect, redirect_object, strftime
 from lib.utils import transaction_decorator, object_link, commit, commit_url
 from lib.WorkList import remember_link
 from lib.Search import get_arg_values, get_form_values, setup_searcher
@@ -104,7 +104,7 @@ def search(transaction, offset=0, **vargs):
         result = []
         display_hits = cherrypy.session['options'].getint('search', 'display hits')
         for person in persons[:display_hits]:
-            date = person.get_birth_date().strftime('%Y-%m-%d')
+            date = strftime(person.get_birth_date(), '%Y-%m-%d')
             accounts = [str(object_link(i)) for i in person.get_accounts()[:3]]
             accounts = ', '.join(accounts[:2]) + (len(accounts) == 3 and '...' or '')
             affs = [str(object_link(i.get_ou())) for i in person.get_affiliations()[:3]]
