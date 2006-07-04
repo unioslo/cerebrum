@@ -285,7 +285,8 @@ def posix_promote(transaction, id):
     if primary_group:
         searcher = transaction.get_posix_shell_searcher()
         shell = searcher.search()[0]
-        account.promote_posix(primary_group, shell)
+        uid = transaction.get_commands().get_free_uid()
+        account.promote_posix(uid, primary_group, shell)
         msg = _("Account successfully promoted to posix.")
         commit(transaction, account, msg=msg)
     else:
