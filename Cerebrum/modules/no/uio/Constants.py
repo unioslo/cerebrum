@@ -392,5 +392,8 @@ automatically generated from FS.''')
         "When a guest account is requested a group must be set as "
         "owner for the account for the given time.")
 
-    
+    trait_account_generation = _EntityTraitCode(
+        'ac_generation', Constants.Constants.entity_account,
+        "When a users homedir is archived, this value is increased.")
+
 # arch-tag: 2b7d46eb-fc77-4ce2-a691-0d49cbf3e597
