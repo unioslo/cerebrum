@@ -257,7 +257,7 @@ class DatabaseClass(DatabaseTransactionClass, Searchable, Dumpable):
             sql = 'UPDATE %s SET %s WHERE %s' % (table, ', '.join(changed), ' AND '.join(keys))
 
             args = {}
-            for i in self.primary + changed_attributes:
+            for i in self.primary + tuple(changed_attributes):
                 args[i.name] = attr.convert_to(getattr(self, i.var_private))
 
             db.execute(sql, args)
