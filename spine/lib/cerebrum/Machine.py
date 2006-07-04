@@ -26,7 +26,7 @@ import Cerebrum.modules.Hpc
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
 
-from Disk import Host
+from Host import Host
 from Types import CodeType
 
 #magic incantation; explanation _SHOULD_ be provided at a later date.
@@ -88,9 +88,9 @@ class Interconnect(CodeType):
 
 table = 'machine_info'
 attrs = [
-    DatabaseAttr('cpu_arch', table, CpuArch, write=True, optional=False),
-    DatabaseAttr('operating_system', table, OperatingSystem, write=True, optional=False),
-    DatabaseAttr('interconnect', table, Interconnect, write=True, optional=False),
+    DatabaseAttr('cpu_arch', table, CpuArch, write=True, optional=True),
+    DatabaseAttr('operating_system', table, OperatingSystem, write=True, optional=True),
+    DatabaseAttr('interconnect', table, Interconnect, write=True, optional=True),
     DatabaseAttr('total_memory', table, int, write=True, optional=True),
     DatabaseAttr('node_number', table, int, write=True, optional=True),
     DatabaseAttr('node_memory', table, int, write=True, optional=True),
@@ -107,6 +107,7 @@ for attr in attrs:
 #define aliases - that is attributes that are renamed in Spine
 Host.db_attr_aliases[table] = {'id':'host_id'}
 
+
 #define additional methods.
 def is_machine(self):
     """Returns true if the object is a machine object"""
@@ -122,7 +123,8 @@ def promote_machine(self, cpu_arch, operating_system, interconnect):
     """Promote a host to machine"""
     obj = self._get_cerebrum_obj()
     p = Cerebrum.modules.Hpc.Machine(self.get_database())
-    p.populate(cpu_arch, operating_system, interconnect)
+    p.populate(cpu_arch.get_id(), operating_system.get_id(),
+	interconnect.get_id(), parent=obj)
     p.write_db()
 
 promote_machine.signature = None
@@ -142,3 +144,6 @@ demote_machine.signature_write = True
 
 #register ze newly defined methods
 Host.register_methods([is_machine, promote_machine, demote_machine])
+
+Host.build_methods()
+Host.build_search_class()
