@@ -32,7 +32,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
-from Cerebrum.Constants import _SpreadCode
+from Cerebrum.Constants import _SpreadCode,_AuthenticationCode
 
 Factory = Utils.Factory
 db = Factory.get('Database')()
@@ -60,7 +60,7 @@ class NISMapError(NISMapException): pass
 class BadUsername(NISMapError): pass
 class NoDisk(NISMapError): pass
 
-def generate_passwd(filename, shadow_file, spread=None):
+def generate_passwd(filename, shadow_file, auth_method, spread=None):
     logger.debug("generate_passwd: "+str((filename, shadow_file, spread)))
     if spread is None:
         raise ValueError, "Must set user_spread"
@@ -139,7 +139,7 @@ def generate_passwd(filename, shadow_file, spread=None):
         f.write(line+"\n")
         # convert to 7-bit
     user_iter = posix_user.list_extended_posix_users(
-        auth_method=co.auth_type_crypt3_des,
+        auth_method=auth_method,
         spread=spread, include_quarantines=True)
     prev_user = None
     user_rows = []
@@ -384,7 +384,14 @@ def map_spread(id):
     try:
         return int(_SpreadCode(id))
     except Errors.NotFoundError:
-        print "Error mapping %s" % id  # no need to use logger here
+        print "Error mapping spread %s" % id  # no need to use logger here
+        raise
+
+def map_auth_method(id):
+    try:
+        return int(_AuthenticationCode(id))
+    except Errors.NotFoundError:
+        print "Error mapping auth_method %s" % id  # no need to use logger here
         raise
 
 def main():
@@ -392,16 +399,17 @@ def main():
     global e_o_f
     global max_group_memberships
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:s:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:s:a:',
                                    ['debug', 'help', 'eof', 'group=',
                                     'passwd=', 'group_spread=',
-                                    'user_spread=', 'netgroup=',
+                                    'user_spread=', 'netgroup=', 'auth_method=',
                                     'max_memberships=', 'shadow='])
     except getopt.GetoptError:
         usage(1)
 
     user_spread = group_spread = None
     max_group_memberships = 16
+    auth_method = co.auth_type_crypt3_des
     shadow_file = None
     for opt, val in opts:
         if opt in ('--help',):
@@ -410,6 +418,8 @@ def main():
             debug += 1
         elif opt in ('--eof',):
             e_o_f = True
+        elif opt in ('-a', '--auth_method'):
+            auth_method = map_auth_method(val)
         elif opt in ('-g', '--group'):
             if not (user_spread and group_spread):
                 sys.stderr.write("Must set user and group spread!\n")
@@ -419,7 +429,7 @@ def main():
             if not user_spread:
                 sys.stderr.write("Must set user spread!\n")
                 sys.exit(1)
-            generate_passwd(val, shadow_file, user_spread)
+            generate_passwd(val, shadow_file, auth_method, user_spread)
             shadow_file = None
         elif opt in ('-n', '--netgroup'):
             if not (user_spread and user_spread):
