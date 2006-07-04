@@ -1,0 +1,69 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.InitTemplate import InitTemplate
+#extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## Lines with info about the form, used with the function showHelp().
+#attr $help = ["* Optional"]
+
+## Creates the content on the host edit page.
+#def editHost($host,$transaction)
+<div class="person">
+    $form($host,$transaction)
+</div>
+#end def
+
+## Action to go to when the form is submitted.
+#def getAction
+    #return '/host/save'
+#end def
+
+## Creates the form for editing the main host info.
+#def form($host,$transaction)
+<div class="edit">
+    <form action="$getAction()" method="POST">
+        <div class="editform">
+            $form_widgets.input("name", "Name", $host.get_name())
+            $form_widgets.input("description", "Description", $host.get_description())
+            $form_widgets.code_selector("cpu_arch","Cpu arch",$transaction.get_cpu_arch_searcher(),$host.get_cpu_arch().get_name())
+            $form_widgets.code_selector("operating_system","Operating system",$transaction.get_operating_system_searcher(),$host.get_operating_system().get_name())
+            $form_widgets.code_selector("interconnect","Interconnect",$transaction.get_interconnect_searcher(),$host.get_interconnect().get_name())
+            $form_widgets.input("total_memory","Total memory (MB) *",$host.get_total_memory())
+            $form_widgets.input("node_number","Node number *",$host.get_node_number())
+            $form_widgets.input("node_memory","Node memory (MB) *",$host.get_node_memory())
+            $form_widgets.input("node_disk","Node disk (GB) *",$host.get_node_disk())
+            $form_widgets.input("cpu_core_number","Cpu core number *",$host.get_cpu_core_number())
+            $form_widgets.input("cpu_core_mflops","Cpu core mflops *",$host.get_cpu_core_mflops())
+            $form_widgets.input("cpu_mhz","Cpu MHz *",$host.get_cpu_mhz())
+            <input type="hidden" name="id" value="$host.get_id()" />
+        </div>
+        $form_widgets.showHelp($help)
+        <div>
+            <center>
+                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
+                <input type="submit" value="$_('Cancel')" name="submit" />
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+
