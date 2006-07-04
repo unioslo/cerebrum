@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.InitTemplate import InitTemplate
+#from lib.utils import strftime
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -45,7 +46,7 @@
         <div class="editform">
             $form_widgets.generate_loption("gender",  "Gender",
                        $genders, $person.get_gender().get_name())
-            #set $date = $person.get_birth_date().strftime("%Y-%m-%d")
+            #set $date = $strftime($person.get_birth_date(), '%Y-%m-%d')
             $form_widgets.input("birthdate", "Birthdate *", $date)
             $form_widgets.input("description", "Description", $person.get_description())
             #set $deceased = $person.get_deceased_date()
