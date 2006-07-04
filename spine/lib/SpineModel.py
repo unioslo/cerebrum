@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2004-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,6 +65,7 @@ import Commands
 import Request
 import Stedkode
 import Email
+import EmailTypes
 
 # Cereweb
 import Cereweb

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2004-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,12 +65,6 @@ for name, table in [('AccountType', 'account_code'),
                     ('PersonAffiliationType', 'person_affiliation_code'),
                     ('ValueDomain', 'value_domain_code'),
                     ('LanguageType', 'language_code'),
-                    ('EmailTargetType', 'email_target_code'),
-                    ('EmailDomainCategory', 'email_domain_cat_code'),
-                    ('EmailSpamAction', 'email_spam_action_code'),
-                    ('EmailServerType', 'email_server_type_code'),
-                    ('EmailVirusFound', 'email_virus_found_code'),
-                    ('EmailVirusRemoved', 'email_virus_removed_code'),
                    ]:
 
     exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)
@@ -116,26 +110,6 @@ class EntityExternalIdType(CodeType):
 
 registry.register_class(EntityExternalIdType)
 __all__.append(EntityExternalIdType)
-
-table = 'email_spam_level_code'
-class EmailSpamLevel(CodeType):
-    primary = (
-        DatabaseAttr('id', table, int),
-    )
-    slots = (
-        DatabaseAttr('level', table, int),
-        DatabaseAttr('name', table, str),
-        DatabaseAttr('description', table, str)
-    )
-    db_attr_aliases = {
-        table:{
-            'id':'code',
-            'name':'code_str',
-        }
-    }
-
-registry.register_class(EmailSpamLevel)
-__all__.append(EmailSpamLevel)
 
 
 # arch-tag: 965b1b0a-4526-4189-b507-2459e1ed646d
