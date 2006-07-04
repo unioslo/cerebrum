@@ -46,8 +46,10 @@ class CreateDeleteTest(unittest.TestCase):
         date = commands.get_date_now()
         gender = transaction.get_gender_type('M')
         source = transaction.get_source_system('Manual')
-        name = 'unittest%s' % id(self)
-        return commands.create_person(date, gender, name, source), name
+        first_name = 'unit'
+        last_name  = 'test%s' % id(self)
+        full_name = '%s %s' % (first_name, last_name)
+        return commands.create_person(date, gender, first_name, last_name, source), full_name
 
     def testPerson(self):
         tr = self.session.new_transaction()
