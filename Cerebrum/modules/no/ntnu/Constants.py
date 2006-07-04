@@ -56,7 +56,7 @@ class Constants(Constants.Constants):
     system_kjernen = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
     perspective_kjernen = _OUPerspectiveCode('Kjernen', 'Kjernen')
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
-    perspective_kjernen = _OUPerspectiveCode('FS', 'FS')
+    perspective_fs = _OUPerspectiveCode('FS', 'FS')
     system_bdb = _AuthoritativeSystemCode('BDB', 'NTNUs old user database')
     perspective_bdb = _OUPerspectiveCode('BDB', 'NTNUs old user database')
 
