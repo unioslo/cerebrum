@@ -27,7 +27,8 @@ from SpineLib import SpineExceptions
 from SpineLib.Date import Date
 
 from Entity import Entity
-from Types import EmailDomainCategory, EmailTargetType, PersonAffiliationType
+from Types import PersonAffiliationType
+from EmailTypes import EmailDomainCategory, EmailTargetType
 from Account import Account
 from Person import Person
 from PersonAffiliation import PersonAffiliation
@@ -92,6 +93,7 @@ create_email_domain.signature = EmailDomain
 create_email_domain.signature_write = True
 create_email_domain.signature_args = [str, str]
 create_email_domain.exceptions = exceptions=[SpineExceptions.AlreadyExistsError]
+Commands.create_email_domain = create_email_domain
 
 table = 'email_domain_category'
 class EmailDomainCategorization(DatabaseClass):

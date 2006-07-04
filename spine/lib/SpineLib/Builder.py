@@ -291,7 +291,8 @@ class Builder(object):
         """
 
         assert attr not in cls.slots
-        assert not (not attr.write and set is not None) # set methods doesnt make sense when attribute is not writeable
+        if not attr.write: # set methods doesnt make sense when attribute is not writeable
+            assert set is None
 
         cls.slots += (attr, )
         if get is not None:
