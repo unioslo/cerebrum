@@ -8,7 +8,7 @@
 
 <div class="body">
 <div class="header"><h1></h1></div>
-<table border="1" cellpadding="0" cellspacing="0" width="100%">
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
   <tbody>
     <tr>
       <td class="LeftColumn" rowspan="2" align="left" valign="top" width="20%"><span  metal:define-slot="menuframe">menu</span></td>
