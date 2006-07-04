@@ -34,7 +34,7 @@ __all__ = ['Host']
 table = 'host_info'
 class Host(Entity):
     slots = Entity.slots + (
-        DatabaseAttr('name', table, str, write=True),
+        DatabaseAttr('name', 'entity_name', str, write=True),
         DatabaseAttr('description', table, str, write=True)
     )
     db_attr_aliases = Entity.db_attr_aliases.copy()
@@ -46,6 +46,8 @@ class Host(Entity):
     entity_type = 'host'
 
 registry.register_class(Host)
+
+db_constants['entity_name'] = ValueDomainHack('host_names')
 
 def create(self, name, description):
     db = self.get_database()
