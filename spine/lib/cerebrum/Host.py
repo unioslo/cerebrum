@@ -22,7 +22,7 @@ from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.Builder import Method
 
-from Entity import Entity
+from Entity import Entity, ValueDomainHack
 from Types import EntityType
 from Commands import Commands
 
@@ -41,13 +41,13 @@ class Host(Entity):
     db_attr_aliases[table] = {
         'id':'host_id'
     }
+    db_constants = Entity.db_constants.copy()
+    db_constants['entity_name'] = ValueDomainHack('host_names')
 
     cerebrum_class = Factory.get('Host')
     entity_type = 'host'
 
 registry.register_class(Host)
-
-db_constants['entity_name'] = ValueDomainHack('host_names')
 
 def create(self, name, description):
     db = self.get_database()
