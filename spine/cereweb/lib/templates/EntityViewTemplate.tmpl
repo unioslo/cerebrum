@@ -25,7 +25,11 @@
 #extends InitTemplate
 
 #def viewNotes($entity)
-    #return $NoteTemplate().view($entity)
+    #try
+    	#return $NoteTemplate().view($entity)
+    #except 
+        #return ""
+    #end try
 #end def
 
 #def addNote($entity)
