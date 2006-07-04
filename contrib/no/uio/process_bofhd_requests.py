@@ -251,8 +251,24 @@ def process_email_requests():
                 br.delay_request(request_id=r['request_id'])
                 db.commit()
                 continue
-            if cyrus_delete(server.name, uname):
+            account = get_account(r['entity_id'])
+            # If the account is deleted, we assume that delete_user
+            # has already bumped the generation.  Othwerise, we bump
+            # the generation ourself
+            generation = account.get_trait(const.trait_account_generation)
+            update_gen = False
+            if generation:
+                generation = generation['numval']
+            else:
+                generation = 0
+            if not account.is_deleted():
+                generation += 1
+                update_gen = true
+            if cyrus_delete(server.name, uname, generation):
                 br.delete_request(request_id=r['request_id'])
+                if update_gen:
+                    account.populate_trait(const.trait_account_generation, numval=generation)
+                    account.write_db()
             else:
                 db.rollback()
                 br.delay_request(r['request_id'])
@@ -339,10 +355,10 @@ def cyrus_create(user_id, host=None):
     
     return status
 
-def cyrus_delete(host, uname):
+def cyrus_delete(host, uname, generation):
     logger.debug("will delete %s from %s", uname, host)
     # Backup Cyrus data before deleting it.
-    if not archive_cyrus_data(uname, host):
+    if not archive_cyrus_data(uname, host, generation):
         logger.error("bofh_email_delete: Archival of Cyrus data failed.")
         return False
     try:
@@ -391,9 +407,9 @@ def cyrus_set_quota(user_id, hq, host=None):
     logger.debug("cyrus_set_quota(%s, %d): %s" % (uname, hq, repr(res)))
     return res == 'OK'
 
-def archive_cyrus_data(uname, mail_server):
+def archive_cyrus_data(uname, mail_server, generation):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'archivemail',
-           mail_server, uname]
+           mail_server, uname, generation]
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     errnum = EXIT_SUCCESS
@@ -858,8 +874,14 @@ def process_delete_requests():
             es = Email.EmailServer(db)
             es.find(est.email_server_id)
             mail_server = es.name
+
+        generation = account.get_trait(const.trait_account_generation)
+        if generation:
+            generation = generation['numval'] + 1
+        else:
+            generation = 1
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator,
-                       mail_server):
+                       mail_server, generation):
             if is_posix:
                 # demote the user first to avoid problems with
                 # PosixUsers with names illegal for PosixUsers
@@ -867,6 +889,7 @@ def process_delete_requests():
                 account_id = account.entity_id
                 account = Factory.get('Account')(db)
                 account.find(account_id)
+            account.populate_trait(const.trait_account_generation, numval=generation)
             account.expire_date = br.now
             account.write_db()
             try:
@@ -893,9 +916,9 @@ def process_delete_requests():
             br.delay_request(r['request_id'], minutes=120)
             db.commit()
 
-def delete_user(uname, old_host, old_home, operator, mail_server):
+def delete_user(uname, old_host, old_home, operator, mail_server, generation):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
-           operator, old_home, mail_server]
+           operator, old_home, mail_server, generation]
     cmd = ["%s" % x for x in cmd]
     logger.debug("doing %s" % cmd)
     errnum = EXIT_SUCCESS
