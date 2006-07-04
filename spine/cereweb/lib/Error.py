@@ -23,6 +23,7 @@ import cherrypy
 import os
 import sys
 import traceback
+import urllib
 import config
 from utils import redirect
 from templates.ErrorTemplate import ErrorTemplate
@@ -56,8 +57,11 @@ def handle(error):
     
     if isinstance(error, SessionError):
         if path not in ('/', '/login'):
+            tmp = path
+            if path.split('/')[-1] not in ('make', 'delete', 'save'):
+                tmp += urllib.quote("?" + cherrypy.request.queryString)
             msg = "Your session has most likely timed out."
-            redirect('/login?redirect=%s&msg=%s' % (path, msg))
+            redirect('/login?redirect=%s&msg=%s' % (tmp, msg))
         else:
             redirect('/login')
         return
