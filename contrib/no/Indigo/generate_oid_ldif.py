@@ -29,8 +29,8 @@ from Cerebrum.Utils import SimilarSizeWriter
 from Cerebrum.Constants import _PersonAffStatusCode
 
 def get_account_info():
-    global uname2mailaddr, p_id2name, p_id2fnr, a_id2auth, a_id2p_id, p_id2a_id, \
-           ou_id2name, const2str
+    global uname2mailaddr, p_id2name, p_id2fnr, a_id2auth
+    global a_id2p_id, p_id2a_id, ou_id2name, const2str
     
     uname2mailaddr = ac.getdict_uname2mailaddr()
     p_id2name = p.getdict_persons_names(source_system=co.system_cached,
@@ -298,17 +298,17 @@ def main():
     process_prof_group("ANSATTE", users, f)
     f.close()
 
-##     # Dump info about users with co.affiliation_elev 
-##     f = SimilarSizeWriter("%s/elev_user_oid.ldif" % oid_path, "w")
-##     f.set_size_change_limit(10)
-##     users = process_users(co.affiliation_elev, f)
-##     f.close()
+    # Dump info about users with co.affiliation_elev 
+    f = SimilarSizeWriter("%s/elev_user_oid.ldif" % oid_path, "w")
+    f.set_size_change_limit(10)
+    users = process_users(co.affiliation_elev, f)
+    f.close()
     
-##     # Make a group out of these users
-##     f = SimilarSizeWriter("%s/elev_group_oid.ldif" % oid_path, "w")
-##     f.set_size_change_limit(10)
-##     process_prof_group("ELEVER", users, f)
-##     f.close()
+    # Make a group out of these users
+    f = SimilarSizeWriter("%s/elev_group_oid.ldif" % oid_path, "w")
+    f.set_size_change_limit(10)
+    process_prof_group("ELEVER", users, f)
+    f.close()
             
     # Make and populate groups with spread spread_oid_grp
     f = SimilarSizeWriter("%s/group_oid.ldif" % oid_path, "w")
