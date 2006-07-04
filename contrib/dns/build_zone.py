@@ -249,7 +249,7 @@ class ForwardMap(object):
             if line:
                 f.write(line)
         f.close()
-        if f.replaced_file:
+        if f.replaced_file or os.stat(fname).st_mtime < os.stat(status_fname).st_mtime:
             self.zu.write_file_with_serial(status_fname, fname, heads, data_dir)
         logger.debug("zone file completed")
 
