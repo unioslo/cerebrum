@@ -133,6 +133,13 @@ def strftime(date, format="%Y-%m-%d", default=''):
     """
     return date and date.strftime(format) or default
 
+def strptime(tr, date, format="%Y-%m-%d"):
+    """Returns a Date obj for the date-string."""
+    if date:
+        return tr.get_commands().strptime(date, format)
+    else:
+        return None
+
 def new_transaction():
     try:
         return cherrypy.session['session'].new_transaction()

@@ -23,8 +23,9 @@ import cherrypy
 import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import queue_message, redirect, redirect_object, strftime
-from lib.utils import transaction_decorator, object_link, commit, commit_url
+from lib.utils import strftime, strptime, commit_url
+from lib.utils import queue_message, redirect, redirect_object
+from lib.utils import transaction_decorator, object_link, commit
 from lib.WorkList import remember_link
 from lib.Search import get_arg_values, get_form_values, setup_searcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
@@ -63,7 +64,7 @@ def search(transaction, offset=0, **vargs):
             search.add_intersection('', searcher, 'owner')
             
         if birthdate:
-            date = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
+            date = strptime(transaction, birthdate)
             search.set_birth_date(date)
 
         if name:
@@ -104,7 +105,7 @@ def search(transaction, offset=0, **vargs):
         result = []
         display_hits = cherrypy.session['options'].getint('search', 'display hits')
         for person in persons[:display_hits]:
-            date = strftime(person.get_birth_date(), '%Y-%m-%d')
+            date = strftime(person.get_birth_date())
             accounts = [str(object_link(i)) for i in person.get_accounts()[:3]]
             accounts = ', '.join(accounts[:2]) + (len(accounts) == 3 and '...' or '')
             affs = [str(object_link(i.get_ou())) for i in person.get_affiliations()[:3]]
@@ -207,15 +208,9 @@ def save(transaction, id, gender, birthdate,
         return
     
     person.set_gender(transaction.get_gender_type(gender))
-    person.set_birth_date(transaction.get_commands().strptime(birthdate, "%Y-%m-%d"))
+    person.set_birth_date(strptime(transaction, birthdate))
     person.set_description(description)
-    
-    if deceased:
-        deceased = transaction.get_commands().strptime(deceased, "%Y-%m-%d")
-    else:
-        deceased = transaction.get_commands().get_date_none()
-        
-    person.set_deceased_date(deceased)
+    person.set_deceased_date(strptime(transaction, deceased))
     
     commit(transaction, person, msg=_("Person successfully updated."))
 save = transaction_decorator(save)
@@ -223,7 +218,7 @@ save.exposed = True
 
 def make(transaction, firstname, lastname, gender, birthdate, description=""):
     """Create a new person with the given values."""
-    birthdate = transaction.get_commands().strptime(birthdate, "%Y-%m-%d")
+    birthdate = strptime(transaction, birthdate)
     gender = transaction.get_gender_type(gender)
     source_system = transaction.get_source_system('Manual')
     
