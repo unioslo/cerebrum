@@ -44,16 +44,18 @@
         <div class="editform">
             $form_widgets.input("name", "Name", $host.get_name())
             $form_widgets.input("description", "Description", $host.get_description())
-            $form_widgets.code_selector("cpu_arch","Cpu arch",$transaction.get_cpu_arch_searcher(),$host.get_cpu_arch().get_name())
-            $form_widgets.code_selector("operating_system","Operating system",$transaction.get_operating_system_searcher(),$host.get_operating_system().get_name())
-            $form_widgets.code_selector("interconnect","Interconnect",$transaction.get_interconnect_searcher(),$host.get_interconnect().get_name())
-            $form_widgets.input("total_memory","Total memory (MB) *",$host.get_total_memory())
-            $form_widgets.input("node_number","Node number *",$host.get_node_number())
-            $form_widgets.input("node_memory","Node memory (MB) *",$host.get_node_memory())
-            $form_widgets.input("node_disk","Node disk (GB) *",$host.get_node_disk())
-            $form_widgets.input("cpu_core_number","Cpu core number *",$host.get_cpu_core_number())
-            $form_widgets.input("cpu_core_mflops","Cpu core mflops *",$host.get_cpu_core_mflops())
-            $form_widgets.input("cpu_mhz","Cpu MHz *",$host.get_cpu_mhz())
+            #if $host.is_machine()
+                 $form_widgets.code_selector("cpu_arch","Cpu arch",$transaction.get_cpu_arch_searcher(),$host.get_cpu_arch().get_name())
+                 $form_widgets.code_selector("operating_system","Operating system",$transaction.get_operating_system_searcher(),$host.get_operating_system().get_name())
+                 $form_widgets.code_selector("interconnect","Interconnect",$transaction.get_interconnect_searcher(),$host.get_interconnect().get_name())
+                 $form_widgets.input("total_memory","Total memory (MB) *",$host.get_total_memory())
+                 $form_widgets.input("node_number","Node number *",$host.get_node_number())
+                 $form_widgets.input("node_memory","Node memory (MB) *",$host.get_node_memory())
+                 $form_widgets.input("node_disk","Node disk (GB) *",$host.get_node_disk())
+                 $form_widgets.input("cpu_core_number","Cpu core number *",$host.get_cpu_core_number())
+                 $form_widgets.input("cpu_core_mflops","Cpu core mflops *",$host.get_cpu_core_mflops())
+                 $form_widgets.input("cpu_mhz","Cpu MHz *",$host.get_cpu_mhz())
+            #end if
             <input type="hidden" name="id" value="$host.get_id()" />
         </div>
         $form_widgets.showHelp($help)
