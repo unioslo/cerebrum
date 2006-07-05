@@ -29,6 +29,8 @@ from Group import Group
 from Commands import Commands
 from Types import CodeType, GroupMemberOperationType
 
+Commands.register_extention("posixuser")
+
 __all__ = ['PosixUser', 'PosixShell']
 
 table = 'posix_shell_code'

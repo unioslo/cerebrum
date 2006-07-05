@@ -37,6 +37,8 @@ from Commands import Commands
 from SpineLib import Registry
 registry = Registry.get_registry()
 
+Commands.register_extention("email")
+
 __all__ = ['EmailDomain', 'EmailDomainCategorization', 'EmailTarget', 'EmailAddress']
 
 table = 'email_domain'

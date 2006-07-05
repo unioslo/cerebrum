@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2004-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -77,6 +77,26 @@ class Commands(DatabaseTransactionClass):
 
     strptime.signature = Date
     strptime.signature_args = [str, str]
+
+    # Extentions are registered on the class, but queried via
+    # command objects.
+    _extentions = []
+    def register_extention(cls, name):
+        """Interface for letting modules register extentions"""
+        cls._extentions.append(name)
+    register_extention = classmethod(register_extention)
+    
+    def has_extention(self, name):
+        """Interface for quering extentions"""
+        return name in self._extentions
+    has_extention.signature = int
+    has_extention.signature_args = [str]
+    
+    def get_extentions(self):
+        """Interface for quering extentions"""
+        return self._extentions
+    get_extentions.signature = [str]
+
 
 registry.register_class(Commands)
 

@@ -23,11 +23,14 @@ from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.Date import Date
 
 from Entity import Entity
+from Commands import Commands
 
 from SpineLib import Registry
 registry = Registry.get_registry()
 
 __all__ = ['Note']
+
+Commands.register_extention("note")
 
 class Note(DatabaseClass):
     primary = (
