@@ -57,9 +57,10 @@ def handle(error):
     
     if isinstance(error, SessionError):
         if path not in ('/', '/login'):
-            tmp = path
             if path.split('/')[-1] not in ('make', 'delete', 'save'):
-                tmp += urllib.quote("?" + cherrypy.request.queryString)
+                tmp = path + urllib.quote("?" + cherrypy.request.queryString)
+            else:
+                tmp = '/'.join(path.split('/')[:-1])
             msg = "Your session has most likely timed out."
             redirect('/login?redirect=%s&msg=%s' % (tmp, msg))
         else:
