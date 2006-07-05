@@ -24,7 +24,7 @@ import Cerebrum.Errors
 import Cerebrum.modules.Hpc
 
 from Cerebrum.Utils import Factory
-from SpineLib.DatabaseClass import DatabaseAttr
+from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
 from SpineLib.Builder import Method
 
 from Person import Person
@@ -57,8 +57,8 @@ class Science(CodeType):
         }
     }
 
-
-#We're defining a new class - thus this is the way to do it.
+    
+#We're defining a new class/entity - thus this is the way to do it.
 table = 'project_info'
 class Project(Entity):
     slots = Entity.slots + (
@@ -66,7 +66,7 @@ class Project(Entity):
         DatabaseAttr('science', table, Science, write=True, optional=False),
         DatabaseAttr('title', table, str, write=True, optional=True),
         DatabaseAttr('description',table, str, write=True, optional=True)
-    )
+    ) 
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {
         'id':'project_id'
@@ -77,6 +77,23 @@ class Project(Entity):
 
 registry.register_class(Project)
 
+
+table = 'project_member'
+class ProjectMember(DatabaseClass):
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
+        DatabaseAttr('project', table, Project),
+        DatabaseAttr('member', table, Person)
+    )
+    db_attr_aliases = {
+        table:{
+            'id':'code',
+        }
+    }
+
+
 #define additional methods.
 
 def create(self, owner, science, title, description):
@@ -86,5 +103,29 @@ def create(self, owner, science, title, description):
     
 args = [('owner', Person), ('science', Science), ('title', str), ('description', str)]
 
-#register ze newly defined methods
+#register ze newly defined method
 Commands.register_method(Method('create_project', Project, args=args, write=True), create)
+
+def add_member(self, member):
+
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.Hpc.Project(self.get_database())
+    p.find(obj.entity_id)
+    p.add_member(member.get_id())
+
+add_member.signature = None
+add_member.signature_args = [Person]
+add_member.signature_write = True
+
+def remove_member(self, member):
+
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.Hpc.Project(self.get_database())
+    p.find(obj.entity_id)
+    p.remove_member(member.get_id())
+
+remove_member.signature = None
+remove_member.signature_args = [Person]
+remove_member.signature_write = True
+
+Project.register_methods([add_member, remove_member])
