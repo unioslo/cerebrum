@@ -1,0 +1,61 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.InitTemplate import InitTemplate
+#extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## Lines with info about the form, used with the function showHelp().
+#attr $help = ["* Optional"]
+
+## Creates the content on the project edit page.
+#def editProject($project,$transaction)
+<div class="person">
+    $form($project,$transaction)
+</div>
+#end def
+
+## Action to go to when the form is submitted.
+#def getAction
+    #return '/project/save'
+#end def
+
+## Creates the form for editing the main project info.
+#def form($project,$transaction)
+<div class="edit">
+    <form action="$getAction()" method="POST">
+        <div class="editform">
+            $form_widgets.input("title", "Title", $project.get_title())
+            $form_widgets.input("description", "Description", $project.get_description())
+            ##<label for="description">$_(Description):</label>
+	    ##<textarea cols="40" rows="4" name="description"></textarea><br />
+            $form_widgets.code_selector("science","Science",$transaction.get_science_searcher(),$project.get_science().get_name())
+        </div>
+        $form_widgets.showHelp($help)
+        <div>
+            <center>
+                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
+                <input type="submit" value="$_('Cancel')" name="submit" />
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+

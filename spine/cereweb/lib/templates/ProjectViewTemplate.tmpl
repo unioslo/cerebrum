@@ -1,0 +1,93 @@
+## Copyright 2004-2006 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.utils import object_link
+#from lib.WorkList import remember_link
+#extends EntityViewTemplate
+
+## Main method for creating the project view page.
+#def view($transaction, $project)
+#set $id = $project.get_id()
+<div class="view_content">
+
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_("edit info")</a><br />
+            <a href="delete?id=$id">$_("delete project")</a><br />
+            <a href="#note" id="note_add">$_('add note')</a><br />
+            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+            <br />
+            $remember_link($project)<br />
+        </div>
+    </div>
+
+    ## Content
+    $viewInfo($project)
+    ##$addNote($project)
+    ##$viewNotes($project)
+    ##$viewAllocations($project)
+    $viewHistoryLog($project)
+
+    ## Register divs and links to flip visibility.
+    <script language="JavaScript">
+        <!--
+        FV_register('note_form', 'note_add', null, 'note_cancel');
+        //-->
+    </script>
+</div>
+#end def
+
+## View information about host (name and description).
+#def viewInfo($project)
+<div class="view_info">
+    <div class="info"><em>$_("Title"):</em> $project.get_title()</div>
+    <div class="info"><em>$_("Description"):</em> $project.get_description()</div>
+    <div class="info"><em>$_("Owner"):</em> $object_link($project.get_owner())</div>
+    <div class="info"><em>$_("Science"):</em> $project.get_science().get_description()</div>
+</div>
+#end def
+
+
+## XXX Fix this
+#def viewAllocations($project)
+#set $disks = $host.get_disks()
+#if $disks
+<div class="hostdisks">
+    <h3>$_('Disks')</h3>
+    <form action="disks" type="POST">
+        <input type="hidden" name="host" value="$host.get_id()" />
+        #for $disk in $disks
+        <div>
+            <input type="checkbox" name="$disk.get_id()" />
+            <em>$_('Path'):</em> $disk.get_path()
+            $object_link($disk, "view", _class="actions")
+            $object_link($disk, "edit", "edit", _class="actions")
+            $remember_link($disk, _class="actions")
+        <div>
+        #end for
+        #if $disks
+        <input type="submit" name="delete" value="$_('Delete disks')" />&nbsp;
+        #end if
+        <input type="submit" name="add" value="$_('Add a disk')" />
+    </form>
+</div>
+#end if
+#end def
+
