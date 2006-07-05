@@ -39,6 +39,8 @@ def remember_args(object):
             name_str = 'Not available'
     elif type == 'Disk':
         name_str = object.get_path()
+    elif type == 'Project':
+        name_str = object.get_title()
     else:
         name_str = object.get_name()
 

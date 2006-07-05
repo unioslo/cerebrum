@@ -84,6 +84,8 @@ def object_link(object, text=None, method="view", _class="", **params):
                 text = primary.full_address() + " (%s)" % object.get_type().get_name()
         elif type == 'disk':
             text = object.get_path()
+        elif type == 'project':
+            text = object.get_title()
         elif hasattr(object, "get_name"):
             text = object.get_name()   
         else:
