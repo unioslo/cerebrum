@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004-2006 University of Oslo, Norway
+# Copyright 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,21 +20,33 @@
 #
 
 import unittest
+from TestBase import *
+from omniORB import CORBA
 
-# Test classes
-from CommunicationTest import *
-from SessionTest import *
-from TransactionTest import *
-#from LockingTest import *
-from CreateDeleteTest import *
-from OUTest import *
-from HomeDirectoryTest import *
-from PosixTest import *
-from ExtentionTest import *
-from EmailTest import *
-from AutoTest import *
+class ExtentionTest(unittest.TestCase):
+    """Tests Spine extention interface"""
+    def setUp(self):
+        self.session = spine.login(username, password)
 
+    def tearDown(self):
+        self.session.logout()
+
+    def testGetExtentions(self):
+        tr = self.session.new_transaction()
+    	cmd = tr.get_commands()
+	exts = cmd.get_extentions()
+	assert "posixuser" in exts
+        tr.rollback()
+
+    def testHasExtention(self):
+        tr = self.session.new_transaction()
+        cmd = tr.get_commands()
+        assert cmd.has_extention("posixuser")
+	assert not cmd.has_extention("")
+	assert not cmd.has_extention("nosuchextention")
+        tr.rollback()
+    
 if __name__ == '__main__':
     unittest.main()
 
-# arch-tag: d4e71fa7-90e0-4fd5-8b38-ce5ac0340e2f
+# arch-tag: c9944718-f3a0-11d9-8f80-6ca94c3e384f
