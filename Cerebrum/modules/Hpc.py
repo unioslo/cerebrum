@@ -426,7 +426,7 @@ class AllocationPeriod(Entity_class):
         if parent is not None:
             self.__xerox__(parent)
         else:
-            Entity_class.populate(self, self.const.entity_project)
+            Entity_class.populate(self, self.const.entity_allocationperiod)
         
         try:
             if not self.__in_db:
