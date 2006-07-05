@@ -117,7 +117,7 @@ CLASS_POSIX_GROUP = ['Cerebrum.modules.PosixGroup/PosixGroup']
 CLASS_MACHINE = ['Cerebrum.modules.Hpc/Machine']
 CLASS_PROJECT = ['Cerebrum.modules.Hpc/Project']
 CLASS_ALLOCATION = ['Cerebrum.modules.Hpc/Allocation']
-CLASS_ALLOCATIONPERIOD = ['Cerebrum.modules.Hpc/AllocationPeriod']
+CLASS_ALLOCATION_PERIOD = ['Cerebrum.modules.Hpc/AllocationPeriod']
 
 # Which module(s) to use as ClientAPI
 # (use Cerebrum.Utils.Factory.get_module("ClientAPI")
