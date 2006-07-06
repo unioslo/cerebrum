@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #import cherrypy
+#import config
 
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
@@ -43,8 +44,8 @@
                 </div>
                 <div class="contact">
                     <b>$_('Contact information'):</b><br />
-                    insert contact info here</br>
-                    <a href="mailto:orakel@ntnu.no?subject='Cereweb error'">orakel@ntnu.no</a>
+                    $config.conf.get('contact', 'name')</br>
+                    <a href="mailto:$config.conf.get('contact', 'email')?subject='Cereweb error'">$config.conf.get('contact', 'email')</a>
                 </div>
                 <div class="bottom">
                     <div class="actions">

@@ -16,3 +16,7 @@ allow_traceback: true
 allow_reporting: true
 report_dir: /tmp/
 
+[contact]
+email: root@localhost
+name: Superuser
+
