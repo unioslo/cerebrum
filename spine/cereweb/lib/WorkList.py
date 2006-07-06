@@ -41,6 +41,9 @@ def remember_args(object):
         name_str = object.get_path()
     elif type == 'Project':
         name_str = object.get_title()
+    elif type == 'Allocation':
+        # XXX often not unique
+        name_str = object.get_allocation_name().get_name()
     else:
         name_str = object.get_name()
 

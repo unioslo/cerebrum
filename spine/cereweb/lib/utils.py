@@ -86,6 +86,8 @@ def object_link(object, text=None, method="view", _class="", **params):
             text = object.get_path()
         elif type == 'project':
             text = object.get_title()
+        elif type == 'allocation':
+            text = object.get_allocation_name().get_name()
         elif hasattr(object, "get_name"):
             text = object.get_name()   
         else:
