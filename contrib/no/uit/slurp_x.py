@@ -85,7 +85,7 @@ class execute:
         my_stedkode = Stedkode(self.db)
         my_stedkode.clear()
         self.person.clear()
-        print "national_id=%s,aproved=%s" % (national_id,aproved)
+        self.logger.debug("national_id=%s,aproved=%s" % (national_id,aproved))
         aproved = aproved.rstrip()
         if((national_id !="NO") and (aproved=='Yes')):
             # we have a non-norwegian person. only insert this person if it has been approved by administrator with superduper admin rights.
@@ -107,7 +107,7 @@ class execute:
 
         elif((national_id!="NO") and (aproved !='Yes')):
             print "foreign person processing"
-            self.logger.warn("foreign person registered, but not aproved yet. person not stored in BAS.")
+            self.logger.error("foreign person (%s %s) registered, but not aproved yet. person not stored in BAS.", (fornavn, etternavn))
             return 1
         else:
             # norwegian. use standard method.
@@ -180,84 +180,84 @@ class execute:
             self.logger.info("**** UPDATE ****")
 
 
-    # creates a person object in cerebrum
-    def create_person(self,data_list):
-        #print data_list
-        try: 
-            personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost = data_list.split(self.split_char)
-        except ValueError,m:
-            sys.stderr.write("VALUEERROR: %s: Line=%s" % (m,data_list))
-            return 1
+#     # creates a person object in cerebrum
+#     def create_person(self,data_list):
+#         #print data_list
+#         try: 
+#             personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost = data_list.split(self.split_char)
+#         except ValueError,m:
+#             sys.stderr.write("VALUEERROR: %s: Line=%s" % (m,data_list))
+#             return 1
             
 
-        my_stedkode = Stedkode(self.db)
-        my_stedkode.clear()
-        self.person.clear()
+#         my_stedkode = Stedkode(self.db)
+#         my_stedkode.clear()
+#         self.person.clear()
 
 
-        try:
-            fnr = fodselsnr.personnr_ok(personnr)
-            self.logger.info("process %s" % (fnr))
-            (year,mon,day) = fodselsnr.fodt_dato(fnr)
-        except fodselsnr.InvalidFnrError:
-            self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
-            return 1
+#         try:
+#             fnr = fodselsnr.personnr_ok(personnr)
+#             self.logger.info("process %s" % (fnr))
+#             (year,mon,day) = fodselsnr.fodt_dato(fnr)
+#         except fodselsnr.InvalidFnrError:
+#             self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
+#             return 1
         
-        try:
-            self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr)
-        except Errors.NotFoundError:
-            pass
+#         try:
+#             self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr)
+#         except Errors.NotFoundError:
+#             pass
         
-        gender = self.constants.gender_male
-        if(fodselsnr.er_kvinne(fnr)):
-            gender = self.constants.gender_female
+#         gender = self.constants.gender_male
+#         if(fodselsnr.er_kvinne(fnr)):
+#             gender = self.constants.gender_female
 
-        self.person.populate(self.db.Date(year,mon,day),gender)
+#         self.person.populate(self.db.Date(year,mon,day),gender)
 
-        self.person.affect_names(self.constants.system_x,self.constants.name_first,self.constants.name_last,self.constants.name_full)
-        self.person.populate_name(self.constants.name_first,fornavn)
-        self.person.populate_name(self.constants.name_last,etternavn)
+#         self.person.affect_names(self.constants.system_x,self.constants.name_first,self.constants.name_last,self.constants.name_full)
+#         self.person.populate_name(self.constants.name_first,fornavn)
+#         self.person.populate_name(self.constants.name_last,etternavn)
 
-        fult_navn = "%s %s" % (fornavn,etternavn)
-        self.person.populate_name(self.constants.name_full,fult_navn)
+#         fult_navn = "%s %s" % (fornavn,etternavn)
+#         self.person.populate_name(self.constants.name_full,fult_navn)
 
-        self.person.affect_external_id(self.constants.system_x,self.constants.externalid_fodselsnr)
-        self.person.populate_external_id(self.constants.system_x,self.constants.externalid_fodselsnr,fnr)
+#         self.person.affect_external_id(self.constants.system_x,self.constants.externalid_fodselsnr)
+#         self.person.populate_external_id(self.constants.system_x,self.constants.externalid_fodselsnr,fnr)
         
-        # setting affiliation and affiliation_status
-        #print "aff before = %s" % affiliation
-        orig_affiliation = affiliation
-        affiliation = int(self.constants.PersonAffiliation(affiliation))
-        #print "aff after = '%s'" % affiliation
+#         # setting affiliation and affiliation_status
+#         #print "aff before = %s" % affiliation
+#         orig_affiliation = affiliation
+#         affiliation = int(self.constants.PersonAffiliation(affiliation))
+#         #print "aff after = '%s'" % affiliation
 
-        #print "aff_status before = '%s'" % affiliation_status
-        affiliation_status = int(self.constants.PersonAffStatus(orig_affiliation,affiliation_status.lower()))
-        #print "aff_status after = %s" % affiliation_status
+#         #print "aff_status before = '%s'" % affiliation_status
+#         affiliation_status = int(self.constants.PersonAffStatus(orig_affiliation,affiliation_status.lower()))
+#         #print "aff_status after = %s" % affiliation_status
 
-        fakultet = ou[0:2]
-        institutt = ou[2:4]
-        avdeling = ou[4:6]
-        # get ou_id of stedkode used
-        my_stedkode.find_stedkode(fakultet,institutt,avdeling,cereconf.DEFAULT_INSTITUSJONSNR)
-        ou_id = my_stedkode.entity_id
-        #print "populating person affiliation..."
-        # populate the person affiliation table
-        self.person.populate_affiliation(int(self.constants.system_x),
-                                         int(ou_id),
-                                         int(affiliation),
-                                         int(affiliation_status)
-                                         )
+#         fakultet = ou[0:2]
+#         institutt = ou[2:4]
+#         avdeling = ou[4:6]
+#         # get ou_id of stedkode used
+#         my_stedkode.find_stedkode(fakultet,institutt,avdeling,cereconf.DEFAULT_INSTITUSJONSNR)
+#         ou_id = my_stedkode.entity_id
+#         #print "populating person affiliation..."
+#         # populate the person affiliation table
+#         self.person.populate_affiliation(int(self.constants.system_x),
+#                                          int(ou_id),
+#                                          int(affiliation),
+#                                          int(affiliation_status)
+#                                          )
 
-        #write the person data to the database
-        #print "write to db..."
-        op = self.person.write_db()
-        # return sanity messages
-        if op is None:
-            self.logger.info("**** EQUAL ****")
-        elif op == True:
-            self.logger.info("**** NEW ****")
-        elif op == False:
-            self.logger.info("**** UPDATE ****")
+#         #write the person data to the database
+#         #print "write to db..."
+#         op = self.person.write_db()
+#         # return sanity messages
+#         if op is None:
+#             self.logger.info("**** EQUAL ****")
+#         elif op == True:
+#             self.logger.info("**** NEW ****")
+#         elif op == False:
+#             self.logger.info("**** UPDATE ****")
 
 
     def expire_date_conversion(self,expire_date):
@@ -361,10 +361,11 @@ class execute:
             account_list = self.person.get_accounts(filter_expired=False)
             #default_account = "%s" % int(account_list[0])
             self.account.find(account_list[0][0])
-            account_types = self.account.get_account_types()
+            account_types = self.account.get_account_types(filter_expired=False)
             for account_type in account_types:
                 #print "account_type[affiliation] = %s" % account_type['affiliation']
-                if ((account_type['affiliation']==self.constants.affiliation_manuell) or (account_type['affiliation']==self.constants.affiliation_tilknyttet)):
+                if ((account_type['affiliation']==self.constants.affiliation_manuell)
+                    or (account_type['affiliation']==self.constants.affiliation_tilknyttet)):
                     self.update_account(data_list)
         except Errors.NotFoundError:
             pass
@@ -460,7 +461,7 @@ class execute:
                 self.confirm_registration(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost)
                 return  posix_user.entity_id,bruker_epost
             except Errors:
-                self.logger("Error in creating posix account for person %s" % personnr)
+                self.logger.error("Error in creating posix account for person %s" % personnr)
                 return 1,bruker_epost
             #posix_user.get_homedir_id(self.constants.spread_uit_ldap_person)
             posix_user.write_db()
@@ -468,17 +469,17 @@ class execute:
             self.logger.info("person %s already has an account in cerebrum" % personnr)
             #print "my accounts=%s" % account_list
             #
-            #print"%s,%s" % (datetime.date.today(),expire_date)
+            #self.logger.debug("Expire check: %s,%s" % (datetime.date.today(),expire_date))
             my_date= expire_date.split("-")
             if (self.account.is_expired() and (datetime.date(int(my_date[0]),int(my_date[1]),int(my_date[2])) > datetime.date.today())):
                 # This account is expired in cerebrum. expire_date from the guest database
                 # is set in the future. need to update expire_date in the database
                 self.logger.info("updating expire date to: %s" % expire_date)
                 self.account.expire_date = expire_date
-            
-            
+
             for account_type in account_types:
-                if((self.constants.affiliation_student == account_type['affiliation'])or (self.constants.affiliation_ansatt == account_type['affiliation'])):
+                if((self.constants.affiliation_student == account_type['affiliation']) or
+                   (self.constants.affiliation_ansatt == account_type['affiliation'])):
                     # This person already has a student/employee  account. we must now add new spreads (if any).
                     # indicating that this account is now to be sent to the new spreads listed.
                     # FS/SLP4 is still authoritative on account data, including expire date,
@@ -493,6 +494,8 @@ class execute:
                         if new_spread not in num_old_list:
                             #print "adding spread %s" % new_spread
                             self.account.add_spread(int(new_spread))
+            # Write changes to database!
+            self.account.write_db()
             return self.account.entity_id,bruker_epost # <- even if the account exists we have to update email information from system_x by returning the account_id here
 
     def send_ad_email(self,name,ssn,ou,type,expire_date,why,contact_data,external_email,registrator_email):
