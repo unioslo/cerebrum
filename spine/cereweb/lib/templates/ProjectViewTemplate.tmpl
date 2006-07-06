@@ -42,7 +42,7 @@
     $viewInfo($project)
     ##$addNote($project)
     ##$viewNotes($project)
-    ##$viewAllocations($project)
+    $viewAllocations($project)
     $viewHistoryLog($project)
 
     ## Register divs and links to flip visibility.
@@ -64,30 +64,29 @@
 </div>
 #end def
 
-
-## XXX Fix this
 #def viewAllocations($project)
-#set $disks = $host.get_disks()
-#if $disks
-<div class="hostdisks">
-    <h3>$_('Disks')</h3>
-    <form action="disks" type="POST">
-        <input type="hidden" name="host" value="$host.get_id()" />
-        #for $disk in $disks
-        <div>
-            <input type="checkbox" name="$disk.get_id()" />
-            <em>$_('Path'):</em> $disk.get_path()
-            $object_link($disk, "view", _class="actions")
-            $object_link($disk, "edit", "edit", _class="actions")
-            $remember_link($disk, _class="actions")
-        <div>
-        #end for
-        #if $disks
-        <input type="submit" name="delete" value="$_('Delete disks')" />&nbsp;
-        #end if
-        <input type="submit" name="add" value="$_('Add a disk')" />
-    </form>
-</div>
-#end if
-#end def
 
+#set $allallocationnames = $project.get_allocation_names()
+#set $project_id = $project.get_id()
+<div class="projectallocationnames">
+    <h3>$_('Allocation Names')</h3>
+    <ul>
+    #for $allocationname in $allallocationnames
+       <li> $allocationname.get_name()
+       <ul>
+	#for allocation in $allocationname.get_allocations()
+	  <li>$allocation.get_period().get_name()
+          $allocation.get_status().get_name()
+             ( 
+             #for machine in $allocation.get_machines()
+                $object_link($machine)
+             #end for
+             )
+          </li>
+	#end for
+       </ul>
+       </li>
+    #end for
+    </ul>
+</div>
+#end def
