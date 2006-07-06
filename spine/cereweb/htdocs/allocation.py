@@ -40,28 +40,22 @@ def search(transaction, offset=0, **vargs):
     page.add_jscript("search.js")
 
     searchform = AllocationSearchTemplate()
-    arguments = ['allocation_name', 'period', 'status',
+    arguments = ['allocation_name', 'period', 'status', 'machines',
                  'orderby', 'orderby_dir']
     values = get_arg_values(arguments, vargs)
     perform_search = len([i for i in values if i != ""])
 
     if perform_search:
         cherrypy.session['allocation_ls'] = values
-        allocation_name, period, status, orderby, orderby_dir = values
+        allocation_name, period, status, machines, orderby, orderby_dir = values
 
-        search = transaction.get_allocation_searcher()
-        setup_searcher([search], orderby, orderby_dir, offset)
-
-        if accountname:
-            searcher = transaction.get_account_searcher()
-            searcher.set_name_like(accountname)
-            search.add_intersection('', searcher, 'owner')
-
+        searcher = transaction.get_allocation_searcher()
+        setup_searcher([searcher], orderby, orderby_dir, offset)
 
         if allocation_name:
-            searcher = transaction.get_project_allocation_name_searcher()
-            searcher.set_name_like(allocation_name)
-            search.add_intersection('', searcher, 'owner')
+            an_searcher = transaction.get_project_allocation_name_searcher()
+            an_searcher.set_name_like(allocation_name)
+            searcher.add_join('allocation_name', an_searcher, '')
 
         #XXX status
         #XXX period
@@ -75,12 +69,18 @@ def search(transaction, offset=0, **vargs):
         for allocation in allocations[:display_hits]:
             edit = object_link(allocation, text='edit', method='edit', _class='actions')
             remb = remember_link(allocation, _class='actions')
-            proj = object_link(allocation.get_project())
-            period = object_link(allocation.get_period())
-            result.append((object_link(allocation),
+            proj = object_link(allocation.get_allocation_name().get_project())
+            period = allocation.get_period().get_name()
+            status = allocation.get_status().get_name()
+            machines = [m.get_name() for m in allocation.get_machines()]
+            result.append((object_link(allocation), period, status,
+                           "("+",".join(machines)+")",
                            str(edit) + str(remb)))
 
         headers = [('Allocation name', 'allocation_name'),
+                   ('Period', 'period'),
+                   ('Status', 'status'),
+                   ('Machines', 'machines'),
                    ('Actions', '')]
 
         template = SearchResultTemplate()
