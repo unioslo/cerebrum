@@ -31,7 +31,7 @@ from SpineLib.Builder import Method
 from Entity import Entity
 from Types import CodeType
 from Commands import Commands
-from Project import Project
+from Project import Project, ProjectAllocationName
 from AllocationPeriod import AllocationAuthority, AllocationPeriod
 from Host import Host
 
@@ -63,28 +63,11 @@ class AllocationStatus(CodeType):
         }
     }
     
-table = 'project_allocation_name'
-class ProjectAllocationName(DatabaseClass):
-    primary = (
-        DatabaseAttr('id', table, int),
-    )
-    slots = (
-        DatabaseAttr('name', table, str),
-        DatabaseAttr('project', table, Project),
-        DatabaseAttr('allocation_authority', table, AllocationAuthority)
-    )
-    db_attr_aliases = {
-        table:{
-            'id':'project_allocation_id',
-            'project':'project_id'
-        }
-    }
-
 #We're defining a new class - thus this is the way to do it.
 table = 'allocation_info' #('authority', 'name_id', 'period', 'status')
 class Allocation(Entity):
     slots = Entity.slots + (
-        DatabaseAttr('name_id', table, ProjectAllocationName, write=True, optional=False),
+        DatabaseAttr('allocation_name', table, ProjectAllocationName, write=True, optional=False),
         DatabaseAttr('period', table, AllocationPeriod, write=True, optional=True),
         DatabaseAttr('status',table, AllocationStatus, write=True, optional=True)
     )
@@ -92,13 +75,30 @@ class Allocation(Entity):
     db_attr_aliases[table] = {
         'id':'allocation_id',
         'status':'allocation_status',
-        'period':'allocation_period'
+        'period':'allocation_period',
+	'allocation_name':'name_id'
     }
 
     cerebrum_class = Factory.get('Allocation')
     entity_type = 'allocation'
 
 registry.register_class(Allocation)
+
+table = 'allocation_machine'
+class AllocationMachine(DatabaseClass):
+    primary = (
+        DatabaseAttr('allocation', table, Allocation),
+        DatabaseAttr('machine', table, Host)
+    )
+    db_attr_aliases = {
+        table:{
+            'allocation':'allocation_id',
+        }
+    }
+registry.register_class(AllocationMachine)
+
+
+
 
 #define additional methods.
 
@@ -111,29 +111,41 @@ create.signature = Allocation
 create.signature_args = [ AllocationAuthority, ProjectAllocationName,
     AllocationPeriod, AllocationStatus ]
 create.signature_write = True
-    
+   
+#register ze newly defined methods
+Commands.register_methods([create])
+ 
 def add_machine(self, machine):
-
     obj = self._get_cerebrum_obj()
     p = Cerebrum.modules.Hpc.Project(self.get_database())
     p.find(obj.entity_id)
     p.add_machine(machine.get_id())
-
 add_machine.signature = None
 add_machine.signature_args = [Host]
 add_machine.signature_write = True
+Allocation.register_methods([add_machine])
 
 def remove_machine(self, machine):
-
     obj = self._get_cerebrum_obj()
     p = Cerebrum.modules.Hpc.Project(self.get_database())
     p.find(obj.entity_id)
     p.remove_machine(machine.get_id())
-
 remove_machine.signature = None
 remove_machine.signature_args = [Host]
 remove_machine.signature_write = True
+Allocation.register_methods([remove_machine])
 
+def get_machines(self):
+    s = registry.AllocationMachineSearcher(self.get_database())
+    s.set_allocation(self)
+    return [i.get_machine() for i in s.search()]
+get_machines.signature = [Host]
+Allocation.register_methods([get_machines])
+   
+def get_allocations(self):
+    s = registry.AllocationSearcher(self.get_database())
+    s.set_allocation_name(self)
+    return s.search()
+get_allocations.signature = [Allocation]
+ProjectAllocationName.register_methods([get_allocations])
 
-#register ze newly defined methods
-Commands.register_methods([create])
