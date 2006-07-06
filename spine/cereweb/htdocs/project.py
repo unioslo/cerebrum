@@ -43,14 +43,14 @@ def search(transaction, offset=0, **vargs):
     page.add_jscript("search.js")
 
     searchform = ProjectSearchTemplate()
-    arguments = ['title', 'description', 'science',
+    arguments = ['title', 'description', 'allocation_name', 'science',
                  'orderby', 'orderby_dir']
     values = get_arg_values(arguments, vargs)
     perform_search = len([i for i in values if i != ""])
 
     if perform_search:
         cherrypy.session['project_ls'] = values
-        title, description, science, orderby, orderby_dir = values
+        title, description, allocation_name, science, orderby, orderby_dir = values
 
         searcher = transaction.get_project_searcher()
         setup_searcher([searcher], orderby, orderby_dir, offset)
@@ -121,11 +121,64 @@ def edit(transaction, id):
 edit = transaction_decorator(edit)
 edit.exposed = True
 
-def save(transaction, id, title="", description="", submit=None, **vargs):
+def save(transaction, id, title="", description="", owner=None,
+         science=None, submit=None):
     """Saves the information for the project."""
     project = transaction.get_project(int(id))
 
     if submit == 'Cancel':
         redirect_object(project)
 
+    project.set_title(title)
+    project.set_description(description)
+    #XXX project.set_owner(owner)
+
+    project.set_science(transaction.get_science(science))
+    commit(transaction, project, msg=_("Project successfully updated."))
+save = transaction_decorator(save)
+save.exposed = True
+
+def create(transaction, title="", description="", owner=None, science=None):
+    """Creates a page with the form for creating a project"""
+    page = Main()
+    page.title = _("Create a new project")
+    page.setFocus("project/create")
+
+    # Store given create parameters in create-form
+    values = {}
+    values['title'] = title
+    values['description'] = description
+    values['owner'] = owner
+    values['science'] = science
+
+    create = ProjectCreateTemplate(searchList=[{'formvalues': values}])
+
+    content = create.form(transaction)
+    page.content = lambda: content
+    return page
+create = transaction_decorator(create)
+create.exposed = True
+
+def make(transaction, title="", description="", owner=None, science=None):
+    """Creates the project."""
+
+    science = transaction.get_science(science)
+    # XXX owner
     
+    cmd = transaction.get_commands()
+    project = cmd.create_project(owner, science,
+                                 title, description)
+
+    commit(transaction, host, msg=_("Project successfully created."))
+make = transaction_decorator(make)
+make.exposed = True
+
+def delete(transaction, id):
+    """Delete the project from the server."""
+    project = transaction.get_project(int(id))
+    msg = _("Project '%s' successfully deleted.") % project.get_title()
+    project.delete()
+    commit_url(transaction, 'index', msg=msg)
+delete = transaction_decorator(delete)
+delete.exposed = True
+
