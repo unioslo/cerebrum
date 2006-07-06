@@ -1,4 +1,4 @@
-## Copyright 2004, 2005 University of Oslo, Norway
+## Copyright 2004-2006 University of Oslo, Norway
 ##
 ## This file is part of Cerebrum.
 ##
@@ -47,6 +47,8 @@
             ##<label for="description">$_(Description):</label>
 	    ##<textarea cols="40" rows="4" name="description"></textarea><br />
             $form_widgets.code_selector("science","Science",$transaction.get_science_searcher(),$project.get_science().get_name())
+
+            <input type="hidden" name="id" value="$project.get_id()" />
         </div>
         $form_widgets.showHelp($help)
         <div>
