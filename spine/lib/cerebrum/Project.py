@@ -33,12 +33,13 @@ from Types import CodeType
 from Commands import Commands
 
 from SpineLib import Registry
+from AllocationPeriod import AllocationAuthority
 registry = Registry.get_registry()
 
 #magic incantation; explanation _SHOULD_ be provided at a later date.
 #Basically, list all classes defined or modified in this file.
 
-__all__ = ['Project', 'Science']
+__all__ = ['Project', 'Science', 'ProjectAllocationName', 'ProjectMember']
 
 #Define supporting classes
 table = 'science_code'
@@ -81,17 +82,37 @@ registry.register_class(Project)
 table = 'project_member'
 class ProjectMember(DatabaseClass):
     primary = (
-        DatabaseAttr('id', table, int),
-    )
-    slots = (
         DatabaseAttr('project', table, Project),
         DatabaseAttr('member', table, Person)
     )
     db_attr_aliases = {
         table:{
-            'id':'code',
+            'project':'project_id',
+            'member':'member_id',
         }
     }
+registry.register_class(ProjectMember)
+
+
+
+table = 'project_allocation_name'
+class ProjectAllocationName(DatabaseClass):
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('project', table, Project),
+        DatabaseAttr('allocation_authority', table, AllocationAuthority)
+    )
+    db_attr_aliases = {
+        table:{
+            'id':'project_allocation_name_id',
+            'project':'project_id'
+        }
+    }
+registry.register_class(ProjectAllocationName)
+
 
 
 #define additional methods.
@@ -128,4 +149,69 @@ remove_member.signature = None
 remove_member.signature_args = [Person]
 remove_member.signature_write = True
 
-Project.register_methods([add_member, remove_member])
+def get_members(self):
+    # XXX Want to use Hpc.py
+    #obj = self._get_cerebrum_obj()
+    #p = Cerebrum.modules.Hpc.Project(self.get_database())
+    #p.find(obj.entity_id)
+    #p.get_members()
+    s = registry.ProjectMemberSearcher(self.get_database())
+    s.set_project(self)
+    return [i.get_member() for i in s.search()]
+
+get_members.signature = [Person]
+
+Project.register_methods([add_member, remove_member, get_members])
+
+
+def add_allocation_name(self, name, authority):
+
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.Hpc.Project(self.get_database())
+    p.find(obj.entity_id)
+    p.add_allocation_name(name, authority.get_id())
+
+add_allocation_name.signature = None
+add_allocation_name.signature_args = [str, AllocationAuthority]
+add_allocation_name.signature_write = True
+
+def remove_allocation_name(self, name):
+
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.Hpc.Project(self.get_database())
+    p.find(obj.entity_id)
+    p.remove_allocation_name(name)
+
+remove_allocation_name.signature = None
+remove_allocation_name.signature_args = [str]
+remove_allocation_name.signature_write = True
+
+
+def remove_allocation_name(self, name):
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.Hpc.Project(self.get_database())
+    p.find(obj.entity_id)
+    p.remove_allocation_name(name)
+
+remove_allocation_name.signature = None
+remove_allocation_name.signature_args = [str]
+remove_allocation_name.signature_write = True
+
+def get_allocation_names_str(self):
+    obj = self._get_cerebrum_obj()
+    p = Cerebrum.modules.Hpc.Project(self.get_database())
+    p.find(obj.entity_id)
+    return [i[0] for i in p.get_allocation_names()]
+get_allocation_names_str.signature = [str]
+
+
+def get_allocation_names(self):
+    s = registry.ProjectAllocationNameSearcher(self.get_database())
+    s.set_project(self)
+    return s.search()
+get_allocation_names.signature = [ProjectAllocationName]
+
+
+Project.register_methods([add_allocation_name, remove_allocation_name,
+                          get_allocation_names, get_allocation_names_str])
+
