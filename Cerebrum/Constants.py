@@ -377,7 +377,7 @@ class _PersonAffiliationCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=person_affiliation_code]'
     pass
 
-class _PersonAffStatusCode(_CerebrumCode):
+class _PersonAffStatusCode(_CerebrumCode): 
     "Mappings stored in the person_aff_status_code table"
     # TODO: tror ikke dette er riktig?  I.E, pk=affiliation+status?
     _lookup_code_column = 'status'
@@ -406,7 +406,8 @@ class _PersonAffStatusCode(_CerebrumCode):
                 # Handle PgNumeric and similar numeric objects
                 try:
                     if not isinstance(affiliation, str):
-                        return self.__init__(int(affiliation))
+                        self.__init__(int(affiliation))
+                        return # done
                 except ValueError:
                     pass
                 raise TypeError, ("Must pass integer when initialising " +
@@ -415,8 +416,7 @@ class _PersonAffStatusCode(_CerebrumCode):
             self.affiliation = affiliation
         else:
             self.affiliation = _PersonAffiliationCode(affiliation)
-        return (str(self.affiliation),
-                super(_PersonAffStatusCode, self).__init__(status, description))
+        super(_PersonAffStatusCode, self).__init__(status, description)
 
     def __int__(self):
         if self.int is None:
@@ -515,6 +515,8 @@ class _QuarantineCode(_CerebrumCode):
                           'desc': self._desc})
 
 class ConstantsBase(DatabaseAccessor):
+    def __init__(self, database):
+        super(ConstantsBase, self).__init__(database)
 
     def map_const(self, num):
         """Returns the Constant object as a reverse lookup on integer num"""
@@ -591,9 +593,6 @@ class ConstantsBase(DatabaseAccessor):
             raise ValueError, "Some code values have circular dependencies."
         return (stats['inserted'], stats['total'], stats['updated'],
                 stats['deleted'])
-
-    def __init__(self, database):
-        super(ConstantsBase, self).__init__(database)
 
         # Give away database connection to the otherwise unrelated
         # class _CerebrumCode so it's instances will work properly
