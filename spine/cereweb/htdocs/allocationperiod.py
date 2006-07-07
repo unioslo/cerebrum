@@ -29,7 +29,7 @@ from lib.Search import get_arg_values, get_form_values, setup_searcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.AllocationPeriodSearchTemplate import AllocationPeriodSearchTemplate
 from lib.templates.AllocationPeriodViewTemplate import AllocationPeriodViewTemplate
-#from lib.templates.AllocationPeriodEditTemplate import AllocationPeriodEditTemplate
+from lib.templates.AllocationPeriodEditTemplate import AllocationPeriodEditTemplate
 from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateTemplate
 
 
@@ -160,26 +160,4 @@ def delete(transaction, id):
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
 delete.exposed = True
-
-def disks(transaction, host, add=None, delete=None, **checkboxes):
-    if add:
-        redirect('/disk/create?host=%s' % host)
-        
-    elif delete:
-        host = transaction.get_host(int(host))
-        for arg, value in checkboxes.items():
-            disk = transaction.get_disk(int(arg))
-            disk.delete()
-        
-        if len(checkboxes) > 0:
-            msg = _("Disk(s) successfully deleted.")
-            commit(transaction, host, msg=msg)
-        else:
-            msg = _("No disk(s) selected for deletion")
-            queue_message(msg, error=True, link=object_link(host))
-            redirect_object(host)
-    else:
-        raise "I don't know what you want me to do"
-disks = transaction_decorator(disks)
-disks.exposed = True
 
