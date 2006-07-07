@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2005 University of Oslo, Norway
+# Copyright 2002-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -2419,10 +2419,6 @@ class BofhdExtension(object):
                 enable = "ACTIVE"
             elif hide:
                 text = "<text is hidden>"
-            lines = text.split('\n')
-            if len(lines) > 3:
-                lines[2] += "[...]"
-            text = '\n'.join(lines[:3])
             # TODO: FormatSuggestion won't work with a format_day()
             # coming first, so we use an empty dummy string as a
             # workaround.
@@ -2456,6 +2452,12 @@ class BofhdExtension(object):
             if date_start is not None and v['start_date'] == date_start:
                 raise CerebrumError, ("There's a tripnote starting on %s "+
                                       "already") % str(date_start)[:10]
+
+        # FIXME: The SquirrelMail plugin sends CR LF which xmlrpclib
+        # (AFAICT) converts into LF LF.  Remove the double line
+        # distance.  jbofh users have to send backslash n anyway, so
+        # this won't affect common usage.
+        text = text.replace('\n\n', '\n')
         text = text.replace('\\n', '\n')
         ev.add_vacation(date_start, text, date_end, enable=True)
         ev.write_db()
@@ -4583,11 +4585,12 @@ class BofhdExtension(object):
     #person set_name
     all_commands['person_set_name'] = Command(
 	("person", "set_name"),PersonId(help_ref="person_id_other"),
-	PersonName(help_ref="person_name_full"),
+	PersonName(help_ref="person_name_first"),
+	PersonName(help_ref="person_name_last"),
 	fs=FormatSuggestion("Name altered for: %i",
         ("person_id",)),
 	perm_filter='can_create_person')
-    def person_set_name(self, operator, person_id, person_fullname):
+    def person_set_name(self, operator, person_id, firstname, lastname):
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())        
 	for a in person.get_affiliations():
@@ -4596,8 +4599,19 @@ class BofhdExtension(object):
 		raise PermissionDenied("You are not allowed to alter names.")
 	    else:
 		pass
-	    person.affect_names(self.const.system_manual, self.const.name_full)
-	    person.populate_name(self.const.name_full, person_fullname)
+	    person.affect_names(self.const.system_manual,
+                                self.const.name_first,
+                                self.const.name_last,
+                                self.const.name_full)
+            if lastname == "":
+                raise CerebrumError, "A last name is required"
+            if firstname == "":
+                fullname = lastname
+            else:
+                fullname = firstname + " " + lastname
+	    person.populate_name(self.const.name_first, firstname)
+	    person.populate_name(self.const.name_last, lastname)
+	    person.populate_name(self.const.name_full, fullname)
 	    try:
 		person.write_db()
 	    except self.db.DatabaseError, m:
