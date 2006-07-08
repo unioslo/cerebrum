@@ -263,7 +263,7 @@ def process_email_requests():
                 generation = 0
             if not account.is_deleted():
                 generation += 1
-                update_gen = true
+                update_gen = True
             if cyrus_delete(server.name, uname, generation):
                 br.delete_request(request_id=r['request_id'])
                 if update_gen:
