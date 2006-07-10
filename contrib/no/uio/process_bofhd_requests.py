@@ -563,32 +563,41 @@ def is_ok_batch_time(now):
             return True
     return False
 
-def log_output(fileobj, logfunc):
-    """Read lines from fileobj without buffering, strip trailing
-    whitespace, and call func on each line.
-
-    """
-    # We use file.readline since file.__iter__ buffers input
-    while True:
-        line = fileobj.readline()
-        if line == '':
-            break
-        logfunc(line.rstrip())
 
 def spawn_and_log_output(cmd):
     """Run command and copy stdout to logger.info and stderr to
     logger.error.  cmd may be a sequence.
 
+    Return the exit code if the process exits normally, or the
+    negative signal value if the process was killed by a signal.
+
     """
-    # Popen3 only works on Unix.  Now you know.
+    # select on pipes and Popen3 only works in Unix.
+    from select import select
     from popen2 import Popen3
     proc = Popen3(cmd, capturestderr=True, bufsize=10240)
     proc.tochild.close()
-    # FIXME: The process will block if it outputs more than 10 KiB on
-    # stderr.
-    log_output(proc.fromchild, logger.debug)
-    log_output(proc.childerr, logger.error)
-    return proc.wait() >> 8
+    descriptor = {proc.fromchild: logger.debug,
+                  proc.childerr: logger.error}
+    while descriptor:
+        # select() is called for _every_ line, since we can't inspect
+        # the buffering in Python's file object.  This works OK since
+        # select() will return "readable" for an unread EOF, and
+        # Python won't read the EOF until the buffers are exhausted.
+        ready, x, x = select(descriptor.keys(), [], [])
+        for fd in ready:
+            line = fd.readline()
+            if line == '':
+                fd.close()
+                del descriptor[fd]
+            else:
+                descriptor[fd](line.rstrip())
+    status = proc.wait()
+    if status & 0xFF:
+        # The process was killed by a signal.
+        return -(status & 0xFF)
+    return status >> 8
+
 
 def process_move_requests():
     br = BofhdRequests(db, const)
