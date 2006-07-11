@@ -175,7 +175,23 @@ class JobRunner(object):
                 continue
             logger.debug2("cond_wait(%s) = %s" % (job['name'], ret))
             if ret is None:          # Job not completed
-                pass
+                job_def = self.job_queue.get_known_job(job['name'])
+                if job_def.max_duration is not None:
+                    run_for = time.time() - job['started']
+                    if run_for > job_def.max_duration:
+                        # We sleep a little so that we don't risk entering
+                        # a tight loop with lots of logging
+                        time.sleep(1)
+                        logger.error("%s (pid %d) has run for %d seconds, "
+                                     "sending SIGTERM" %
+                                     (job['name'], job['pid'], run_for))
+                        os.kill(job['pid'], signal.SIGTERM)
+                        # By setting did_wait to True, the main loop
+                        # will immediately call this function again to
+                        # reap the job we just killed.  (If we don't,
+                        # the SIGCHLD may be delivered before we reach
+                        # sigpause)
+                        did_wait = True
             else:
                 did_wait = True
                 if isinstance(ret, tuple):

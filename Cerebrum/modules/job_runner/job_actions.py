@@ -38,7 +38,7 @@ if debug_dryrun:
 
 class Action(object):
     def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None,
-                 notwhen=None, multi_ok=0):
+                 notwhen=None, max_duration=2*60*60, multi_ok=0):
         # TBD: Trenger vi engentlig post?  Dersom man setter en jobb
         # til å kjøre 1 sek etter en annen vil den automatisk havne
         # bakerst i ready_to_run køen, og man oppnår dermed det samme.
@@ -53,26 +53,32 @@ class Action(object):
         - pre contains name of jobs that must run before this job.
         - post contains name of jobs that must run after this job.
         - call contains the command to call to run the command
-        - max_freq indicates how often (in seconds) the job may run
-        - when indicates when the job should be ran.  None indicates
-          that the job should not run directly (normally ran as a
+        - max_freq indicates how often (in seconds) the job may run,
+          or in other words, for how long the previous result will be
+          reused.  Set it to None to always run.
+        - max_duration indicates how long (in seconds) the job should
+          be allowed to run before giving up and killing it.  Default
+          is 2 hours.  Set it to None to disable.
+        - when indicates when the job should be run.  None indicates
+          that the job should not run directly (normally run as a
           prerequisite for another job).
+        - notwhen indicates when a job should not be started.  Jobs
+          which are running when the notwhen interval arrives are
+          allowed to complete normally.
         - multi_ok indicates if multiple instances of this job may
           appear in the ready_to_run queue
 
-          If max_freq is None, the job will allways run.  If when is
-          None, the job will only run if it is a prerequisite of
-          another job."""
-
+        """
         self.pre = pre or []
         self.call = call
         self.max_freq = max_freq
+        self.max_duration = max_duration
         self.when = when
         self.post = post or []
         self.multi_ok = multi_ok
         self.last_exit_msg = None
         self.notwhen = notwhen
-        
+
     def copy_runtime_params(self, other):
         """When reloading the configuration, we must preserve some
         runtime params when we alter the all_jobs dict"""
@@ -173,7 +179,8 @@ class System(CallableAction):
         try:
             self.check_lockfile()
         except LockExists:
-            self.logger.error("Lockfile exists, this is unexpected!")
+            self.logger.error("%s: Lockfile exists, this is unexpected!" %
+                              self.lockfile_name)
             return 0
         return 1
         
