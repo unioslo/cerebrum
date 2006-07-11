@@ -53,13 +53,13 @@ class execute:
         self.constants = Factory.get('Constants')(self.db)
         self.OU = Factory.get('OU')(self.db)
         
-        self.logger = Factory.get_logger('console')
+        self.logger = Factory.get_logger(cereconf.LOGGER_TARGET)
         self.db.cl_init(change_program='slurp_x')
         bootstrap_inst = self.account.search(name=cereconf.INITIAL_ACCOUNTNAME)
         bootstrap_id=bootstrap_inst[0]['account_id']
         #print "bootstrap_id = %s" % bootstrap_id
-    #reads the input source file
 
+    #reads the input source file
     def get_guest_data(self):
         guest_host = cereconf.GUEST_HOST
         guest_host_dir = cereconf.GUEST_HOST_DIR
@@ -79,7 +79,7 @@ class execute:
         try: 
             id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
         except ValueError,m:
-            sys.stderr.write("VALUEERROR: %s: Line=%s" % (m,data_list))
+            self.logger.error("VALUEERROR: %s: Line=%s" % (m,data_list))
             return 1
         
         my_stedkode = Stedkode(self.db)
@@ -103,10 +103,10 @@ class execute:
                 self.person.find_by_external_id(external_id_type,id)
             except Errors.NotFoundError:
                 pass
-            print "processing data about:%s,%s" % (external_id_type,id)
+            self.logger.info("processing data about:%s,%s" % (external_id_type,id))
 
         elif((national_id!="NO") and (aproved !='Yes')):
-            print "foreign person processing"
+            self.logger.debug("foreign person processing")
             self.logger.error("foreign person (%s %s) registered, but not aproved yet. person not stored in BAS.", (fornavn, etternavn))
             return 1
         else:
@@ -126,7 +126,7 @@ class execute:
             except Errors.NotFoundError:
                 pass
 
-            (year,mon,day) = fodselsnr.fodt_dato(fnr)        
+            (year,mon,day) = fodselsnr.fodt_dato(fnr)
             gender = self.constants.gender_male
             if(fodselsnr.er_kvinne(fnr)):
                 gender = self.constants.gender_female
@@ -328,7 +328,7 @@ class execute:
         try:
             id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
         except ValueError,m:
-            print "data_list:%s##%s" % (data_list,m)
+            self.logger.error("data_list:%s##%s" % (data_list,m))
             sys.exit(1)
         posix_user = PosixUser.PosixUser(self.db)
         group = Factory.get('Group')(self.db)
@@ -347,13 +347,13 @@ class execute:
             try:
                 self.person.find_by_external_id(self.constants.externalid_sys_x_id,id,self.constants.system_x,self.constants.entity_person)
             except Errors.NotFoundError:
-                print "Foreign person with national id:%s does not exist in cerebrum. unable to check for account" % national_id
+                self.logger.error("Foreign person(db_id=%s) with national id:%s does not exist in cerebrum. unable to check for account" % (id,national_id))
                 return 1,bruker_epost
         else:
             try:
                 self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
             except Errors.NotFoundError:
-                print "person with ssn = %s does not exist in cerebrum. unable to check for account" % personnr
+                self.logger.error("person with ssn = %s does not exist in Cerebrum. unable to check for account" % personnr)
                 return 1,bruker_epost
 
         try:
@@ -375,7 +375,7 @@ class execute:
             
         #my_accounts = self.person.get_accounts()
         if(len(account_list) == 0):
-            print "create new account"
+            self.logger.debug("create new account")
             spread_list = string.split(spreads,",")
             spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
             #for i in spread_list:
@@ -523,7 +523,7 @@ ekstern epost: %s
         p.write("%s" % ad_message)
         sts = p.close()
         if sts != None:
-            self.logger("Sendmail exit status: %s" % sts)
+            self.logger.error("Sendmail exit status: %s for send_ad_email" % sts)
 
 
     def confirm_registration(self,personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost):
@@ -554,7 +554,7 @@ Ansvarlig epost: %s
         p.write("%s" % confirm_message)
         sts = p.close()
         if sts != None:
-            self.logger("Sendmail exit status: %s" % sts)
+            self.logger.error("Sendmail exit status: %s for confirm registration" % sts)
         
         
     def send_mail(self,email_address,user_name,spreads):
@@ -590,7 +590,7 @@ If you have any questions you can either contact orakel@uit.no or bas-admin@cc.u
         p.write("%s" % message)
         sts = p.close()
         if sts != None:
-            self.logger("Sendmail exit status: %s" % sts)
+            self.logger.error("Sendmail exit status: %s for send_mail" % sts)
 
 
 def main():
