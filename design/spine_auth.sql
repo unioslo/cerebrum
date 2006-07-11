@@ -100,7 +100,6 @@ CREATE TABLE auth_operation_set (
   description   VARCHAR
     NOT NULL DEFAULT ''
 );
-category:main;
 
 
 /* Links operations in operations sets.
