@@ -2218,7 +2218,7 @@ class BofhdExtension(object):
             raise CerebrumError, "Quota must be numeric"
         hquota = int(hquota)
         squota = int(squota)
-        if hquota < 100:
+        if hquota < 100 and hquota != 0:
             raise CerebrumError, "The hard quota can't be less than 100 MiB"
         if hquota > 1024*1024:
             raise CerebrumError, "The hard quota can't be more than 1 TiB"
@@ -2235,15 +2235,19 @@ class BofhdExtension(object):
         change = False
         try:
             eq.find_by_entity(acc.entity_id)
-            if eq.email_quota_hard <> hquota:
+            if eq.email_quota_hard != hquota:
                 change = True
             eq.email_quota_hard = hquota
             eq.email_quota_soft = squota
         except Errors.NotFoundError:
             eq.clear()
-            eq.populate(squota, hquota, parent=et)
-            change = True
-        eq.write_db()
+            if hquota != 0:
+                eq.populate(squota, hquota, parent=et)
+                change = True
+        if hquota == 0:
+            eq.delete()
+        else:
+            eq.write_db()
         if change:
             # If we're supposed to put a request in BofhdRequests we'll have to
             # be sure that the user getting the quota is a Cyrus-user. If not,
