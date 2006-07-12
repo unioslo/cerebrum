@@ -134,7 +134,8 @@ class CLConstants(Constants.Constants):
     account_delete = _ChangeTypeCode('e_account', 'delete',
                                      'deleted %(subject)s')
     account_mod =  _ChangeTypeCode('e_account', 'mod',
-                                   'modified %(subject)s')
+                                   'modified %(subject)s',
+                                   ("new owner=%(entity:owner_id)s",))
     account_password =  _ChangeTypeCode('e_account', 'password',
                                         'new password for %(subject)s')
     account_destroy = _ChangeTypeCode('e_account', 'destroy',
