@@ -306,11 +306,17 @@ def process_email_requests():
                              acc.account_name)
                 db.rollback()
                 continue
+            # Disable quota while copying so the move doesn't fail
+            cyrus_set_quota(acc.entity_id, 0, host=new_server.name)
             if move_email(acc, old_server, new_server):
+                # The move was successful, update the user's server
                 est = Email.EmailServerTarget(db)
                 est.find_by_entity(acc.entity_id)
                 est.populate(new_server.entity_id)
                 est.write_db()
+                # Now set the correct quota.
+                hq = get_email_hardquota(acc.entity_id)
+                cyrus_set_quota(acc.entity_id, hq, host=new_server.name)
                 br.delete_request(request_id=r['request_id'])
                 br.add_request(r['requestee_id'], r['run_at'],
                                const.bofh_email_delete,
@@ -392,6 +398,7 @@ def cyrus_delete(host, uname, generation):
     cyradm.logout()
     return True
 
+
 def cyrus_set_quota(user_id, hq, host=None):
     try:
         uname = get_account(user_id).account_name
@@ -403,9 +410,13 @@ def cyrus_set_quota(user_id, hq, host=None):
     except CyrusConnectError, e:
         logger.error("cyrus_set_quota(%s, %d): %s" % (uname, hq, e))
         return False
-    res, msg = cyradm.setquota("user.%s" % uname, '(STORAGE %d)' % (hq * 1024))
+    quotalist = '(STORAGE %d)' % (hq * 1024)
+    if hq == 0:
+        quotalist = '()'
+    res, msg = cyradm.setquota("user.%s" % uname, quotalist)
     logger.debug("cyrus_set_quota(%s, %d): %s" % (uname, hq, repr(res)))
     return res == 'OK'
+
 
 def archive_cyrus_data(uname, mail_server, generation):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'archivemail',
