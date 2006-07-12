@@ -161,8 +161,8 @@ class email_address:
                         self.epat.write_db()
                         self.logger.debug("EmailPrimary created: addr='%s'(ea_id=%d): et_id%d", addr, self.ea.email_addr_id, self.epat.email_target_id)
                     except Exception, msg:
-                        self.logger.error("EmailPrimaryAddess Failed to set for %s: ea: %d, et: %d\nReason:%s",
-                                           addr, self.ea.email_addr_id, self.et.email_target_id,msg)                        
+                        self.logger.error("EmailPrimaryAddess Failed to set for %s: ea: %d, et: %d! Reason:%s",
+                                           addr, self.ea.email_addr_id, self.et.email_target_id,str(msg).replace('\n','--'))    
             except Errors.NotFoundError:
                 if self.ea.email_addr_target_id == self.et.email_target_id:
                     self.epat.clear()
