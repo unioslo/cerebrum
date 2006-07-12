@@ -546,8 +546,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if not self.__updated:
             return
         is_new = not self.__in_db
-        
-        # meta_update will not change the value if the new value is
+        # make dict of changes to send to changelog
+        newvalues = {}
+        for key in self.__updated:
+            # "password" is not handled by mark_update, so getattr
+            # won't work.
+            if key != 'password':
+                newvalues[key] = getattr(self, key)
+
+        # mark_update will not change the value if the new value is
         # __eq__ to the old.  in other words, it's impossible to
         # convert it from _CerebrumCode-instance to an integer.
         if self.np_type is None:
@@ -578,7 +585,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                           'np_type' : np_type,
                           'exp_date' : self.expire_date,
                           'create_date': self.create_date})
-            self._db.log_change(self.entity_id, self.const.account_create, None)
+            self._db.log_change(self.entity_id, self.const.account_create,
+                                None, change_params=newvalues)
             self.add_entity_name(self.const.account_namespace, self.account_name)
         else:
             cols = [('owner_type',':o_type'),
@@ -598,9 +606,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                           'np_type' : np_type,
                           'exp_date' : self.expire_date,
                           'acc_id' : self.entity_id})
-            self._db.log_change(self.entity_id, self.const.account_mod, None)
+            self._db.log_change(self.entity_id, self.const.account_mod,
+                                None, change_params=newvalues)
             if 'account_name' in self.__updated:
-                self.update_entity_name(self.const.account_namespace, self.account_name)
+                self.update_entity_name(self.const.account_namespace,
+                                        self.account_name)
 
         # We store the plaintext password in the changelog so that
         # other systems that need it may get it.  The changelog
