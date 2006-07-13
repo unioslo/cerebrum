@@ -40,6 +40,8 @@
 
     ## Content
     $viewInfo($allocation)
+    $viewMachines($allocation)
+    $viewAccounts($allocation)
     ##$addNote($allocation)
     ##$viewNotes($allocation)
     $viewHistoryLog($allocation)
@@ -58,12 +60,43 @@
 <div class="view_info">
     <div class="info"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
     <div class="info"><em>$_("Project"):</em> $object_link($allocation.get_allocation_name().get_project())</div>
-    <div class="info"><em>$_("Period"):</em> $object_link($allocation.get_period())</div>
+    <div class="info"><em>$_("Period"):</em>
+        #set $period = $allocation.get_period()
+        $object_link($period)
+        ##( $period.get_startdate().strftime("%Y-%m-%d")
+        ##- $period.get_enddate().strftime("%Y-%m-%d") )
+    </div>
     <div class="info"><em>$_("Status"):</em> $allocation.get_status().get_name()</div>
 </div>
 #end def
 
+#def listMachines($allocation)
+#for $machine in $allocation.get_machines()
+  <div class="machine">
+     $object_link($machine)
+  </div>
+#end for
+#end def
 
+# XXX fix in spine
+#def listAccounts($allocation)
+#for $account in $allocation.get_accounts()
+  <div class="account">
+    $object_link($account)
+  </div>
+#end for
+#end def
 
+#def viewMachines($allocation)
+<div class="accountgroups">
+<h3>$_('Machines')</h3>
+$listMachines($allocation)
+</div>
+#end def
 
+#def viewAccounts($allocation)
+<div class="accountgroups">
+<h3>$_('Accounts')</h3>
+</div>
+#end def
 
