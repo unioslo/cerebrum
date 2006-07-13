@@ -119,16 +119,23 @@ def edit(transaction, id):
 edit = transaction_decorator(edit)
 edit.exposed = True
 
-def save(transaction, id, name, description="", submit=None):
+def save(transaction, id, name, authority, startdate, enddate, submit=None):
     """Saves the information for the host."""
-    host = transaction.get_host(int(id))
+    period = transaction.get_allocation_period(int(id))
+    c = transaction.get_commands()
 
     if submit == 'Cancel':
         redirect_object(host)
+
+    startdate = c.strptime(startdate, "%Y-%m-%d")
+    enddate = c.strptime(enddate, "%Y-%m-%d")
+    authority = transaction.get_allocation_authority(authority)
     
-    host.set_name(name)
-    host.set_description(description)
-    commit(transaction, host, msg=_("Host successfully updated."))
+    period.set_name(name)
+    period.set_startdate(startdate)
+    period.set_enddate(enddate)
+    period.set_authority(authority)
+    commit(transaction, period, msg=_("Allocation period successfully updated."))
 save = transaction_decorator(save)
 save.exposed = True
 
