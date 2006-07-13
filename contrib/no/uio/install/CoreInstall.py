@@ -43,12 +43,18 @@ class Init(CerebrumInstallationModule):
 
 
     def __str__(self):
-        """String representation of this module's 'qualified' name, i.e. 'module:class'"""
+        """String representation of this module's 'qualified' name,
+        i.e. 'module:class'
+
+        """
         return "CoreInstall:Init"
 
 
     def postgres_tests(self):
-        """Runs through basic connectivity and functionality tests for Postgres DB."""
+        """Runs through basic connectivity and functionality tests for
+        Postgres DB.
+
+        """
         work_start("Checking that we can connect to database")
         import psycopg
         conn_info = "host=localhost dbname=cerebrum user=cerebrum password=cerebrum"
@@ -57,7 +63,8 @@ class Init(CerebrumInstallationModule):
         except psycopg.OperationalError, error:
             sys.stdout.flush()  # To dump anything waiting before reporting errors
             logging.error(error)
-            raise CerebrumInstallationError("Unable to connect to database with given parameters: '%s'" % conn_info)
+            raise CerebrumInstallationError("Unable to connect to database with given parameters: '%s'"
+                                            % conn_info)
         work_end()
         
         work_start("Checking that we can do stuff in database")
@@ -74,7 +81,8 @@ class Init(CerebrumInstallationModule):
         connection.commit()
 
         logging.debug("===> UPDATE")
-        cursor.execute("UPDATE installtest SET col2 = 'more testing' WHERE col1 LIKE 'Testing'")
+        cursor.execute("UPDATE installtest SET col2 = 'more testing' " +
+                       "WHERE col1 LIKE 'Testing'")
         connection.commit()
 
         logging.debug("===> DELETE")

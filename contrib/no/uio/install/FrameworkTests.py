@@ -110,17 +110,22 @@ class CheckPythonModuleTestCase(unittest.TestCase):
         # Check module (only)
         self.assertEqual(check_python_library(module="os"), True)
         # Check module and specific component
-        self.assertEqual(check_python_library(module="os", component="path"), True)
+        self.assertEqual(check_python_library(module="os",
+                                              component="path"), True)
         # Check module and generic component
-        self.assertEqual(check_python_library(module="os", component="*"), True)
+        self.assertEqual(check_python_library(module="os",
+                                              component="*"), True)
         # Check module and comma-seperated component
-        self.assertEqual(check_python_library(module="os", component="chown,link,listdir"), True)
+        self.assertEqual(check_python_library(module="os",
+                                              component="chown,link,listdir"), True)
         # Check 'deeper' module
         self.assertEqual(check_python_library(module="os.path"), True)
         # Check 'deeper' module with component
-        self.assertEqual(check_python_library(module="distutils.command", component="build_scripts"), True)
+        self.assertEqual(check_python_library(module="distutils.command",
+                                              component="build_scripts"), True)
         # Check local stuff
-        self.assertEqual(check_python_library(module="Framework", component="check_python_version"), True)
+        self.assertEqual(check_python_library(module="Framework",
+                                              component="check_python_version"), True)
 
 
     def test_imports_that_dont_work(self):
@@ -128,15 +133,20 @@ class CheckPythonModuleTestCase(unittest.TestCase):
         # Cannot call method withod specifying a module
         self.assertRaises(CerebrumInstallationError, check_python_library)
         # ... not even when (only) component is specified
-        self.assertRaises(CerebrumInstallationError, check_python_library, component="path")
+        self.assertRaises(CerebrumInstallationError, check_python_library,
+                          component="path")
         # Bogus module
-        self.assertRaises(CerebrumInstallationError, check_python_library, module="fnattiblatti")
+        self.assertRaises(CerebrumInstallationError, check_python_library,
+                          module="fnattiblatti")
         # Real module, bogus component
-        self.assertRaises(CerebrumInstallationError, check_python_library, module="sys", component="fnattiblatti")
+        self.assertRaises(CerebrumInstallationError, check_python_library,
+                          module="sys", component="fnattiblatti")
         # Real module, component both real and bogus
-        self.assertRaises(CerebrumInstallationError, check_python_library, module="sys", component="path,fnattiblatti")
+        self.assertRaises(CerebrumInstallationError, check_python_library,
+                          module="sys", component="path,fnattiblatti")
         # Real module, deep component
-        self.assertRaises(CerebrumInstallationError, check_python_library, module="distutils", component="command.build_scripts")
+        self.assertRaises(CerebrumInstallationError, check_python_library,
+                          module="distutils", component="command.build_scripts")
 
 
     def suite():

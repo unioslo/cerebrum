@@ -69,7 +69,7 @@ class InstallationQueueController(object):
         Also checks to see that it is in fact an installation module.
 
         @param module_identifier: Name of module to load.
-            Will be formatted a la 'Modulegroup:Module'.
+            Needs to be formatted a la 'Modulegroup:Module'.
         @type module_identifier: String
 
         @raise CerebrumInstallationError: If unable to instantiate an
