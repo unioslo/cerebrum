@@ -80,7 +80,7 @@ def search(transaction, offset=0, **vargs):
     else:
         rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
         if 'host_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['host_ls']
+            values = cherrypy.session['allocationpeiod_ls']
             searchform.formvalues = get_form_values(arguments, values)
         page.content = searchform.form
 
@@ -109,8 +109,11 @@ def edit(transaction, id):
     page.title = _("Edit ") + object_link(allocationperiod)
     page.setFocus("allocationperiod/edit", id)
 
+    authorities = [(a.get_name(), a.get_name()) for a in
+               transaction.get_allocation_authority_searcher().search()]
+
     edit = AllocationPeriodEditTemplate()
-    content = edit.editAllocationPeriod(allocationperiod)
+    content = edit.editAllocationPeriod(allocationperiod, authorities)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
@@ -135,11 +138,11 @@ def create(transaction):
     page.title = _("Create a new allocation period")
     page.setFocus("allocationperiod/create")
 
-    authorites = [(a.get_name(), a.get_name()) for a in
+    authorities = [(a.get_name(), a.get_name()) for a in
                transaction.get_allocation_authority_searcher().search()]
 
     create = AllocationPeriodCreateTemplate()
-    content = create.form(authorites)
+    content = create.form(authorities)
     page.content = lambda: content
     return page
 create = transaction_decorator(create)

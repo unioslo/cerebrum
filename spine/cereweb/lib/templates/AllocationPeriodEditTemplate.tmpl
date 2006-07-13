@@ -1,0 +1,65 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.InitTemplate import InitTemplate
+#from lib.utils import strftime
+#extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## Lines with info about the form, used with the function showHelp().
+#attr $help = ["* Start/End date: YYYY-MM-DD"]
+
+## Creates the content on the Allocation Period edit page.
+#def editAllocationPeriod($allocationperiod, $authorities)
+<div class="allocationperiod">
+    $form($allocationperiod, $authorities)
+</div>
+#end def
+
+## Action to go to when the form is submitted.
+#def getAction
+    #return '/allocationperiod/save'
+#end def
+
+## Creates the form for editing the main allocation period info.
+#def form($allocationperiod, $authorities)
+<div class="edit">
+    <form action="$getAction()" method="POST">
+        <div class="editform">
+           $form_widgets.generate_loption("authority", "Allocation Authority",
+                                           $authorities, $allocationperiod.get_authority().get_name())
+            $form_widgets.input("name", "Name", $allocationperiod.get_name())
+            #set $startdate = $strftime($allocationperiod.get_startdate(), '%Y-%m-%d')
+            #set $enddate = $strftime($allocationperiod.get_enddate(), '%Y-%m-%d')
+            $form_widgets.input("startdate", "Start Date *", $startdate)
+            $form_widgets.input("enddate", "End Date *", $enddate)
+            <input type="hidden" name="id" value="$allocationperiod.get_id()" />
+        </div>
+        $form_widgets.showHelp($help)
+        <div>
+            <center>
+                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
+                <input type="submit" value="$_('Cancel')" name="submit" />
+            </center>
+        </div>
+    </form>
+</div>
+#end def
+
