@@ -33,6 +33,7 @@
 ## Main method for creating the view of accounts.
 #def view($transaction, $account)
 #set $id = $account.get_id()
+#set $commands=$transaction.get_commands()
 <div class="view_content">
 
     ## Actions
@@ -68,8 +69,10 @@
     $homedir_template.view($account)
     $setPassword($account)
     $viewPasswords($account)
-    $email_template.set($account, $transaction)
-    $email_template.view($account, $transaction)
+    #if $commands.has_extention("email")
+        $email_template.set($account, $transaction)
+        $email_template.view($account, $transaction)
+    #end if
     $addSpread($account, $transaction)
     $viewSpreads($account)
     $joinGroup($account, transaction=$transaction)
