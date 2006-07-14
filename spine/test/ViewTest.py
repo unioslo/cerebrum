@@ -26,9 +26,8 @@ class ViewTest(unittest.TestCase):
     def testAccountView(self):
         session = spine.login(username, password)
         tr = session.new_transaction()
-        spread = tr.get_spread_searcher().search()[0]
         view = tr.get_view()
-        view.set_spread(spread)
+        view.set_spread(tr.get_spread('user@stud'))
         print view.account()
         print view.account_quarantine()
         print view.group()
@@ -39,6 +38,44 @@ class ViewTest(unittest.TestCase):
         for row in view.test():
             for i in row:
                 print [i.key, i.value, i.int_value, i.is_none]
+
+        tr.rollback()
+        session.logout()
+
+    def testMany(self):
+        import time
+        a = time.time()
+        for i in range(100):
+            session = spine.login(username, password)
+            session.logout()
+        print '\ntime used for spine.login:', time.time() - a
+        a = time.time()
+        session = spine.login(username, password)
+        for i in range(100):
+            tr = session.new_transaction()
+            tr.get_group(89)
+            tr.rollback()
+        session.logout()
+        print '\ntime used for spine.login:', time.time() - a
+
+    def testGroupMember(self):
+        session = spine.login(username, password)
+        try:
+            tr = session.new_transaction()
+            view = tr.get_view()
+            view.set_spread(tr.get_spread('user@stud'))
+
+            groups = {}
+            for i in view.group_members():
+                try:
+                    groups[i.key].append(i.value)
+                except KeyError:
+                    groups[i.key] = [i.value]
+                    
+            for key, value in groups.items():
+                print key, value
+        finally:
+            session.logout()
 
 
 if __name__ == '__main__':

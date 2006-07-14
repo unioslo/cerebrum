@@ -27,7 +27,7 @@ from TestBase import *
 __all__ = []
 
 untestable_classes = ['get_account_view_searcher']
-untestable_methods = [
+untestable_cls_methods = [
     ('get_ou_searcher', 'get_parent'), 
     ('get_ou_searcher', 'get_children'), 
     ('get_ou_searcher', 'get_entity_name'),
@@ -47,6 +47,12 @@ untestable_methods = [
     ('get_person_searcher', 'get_quarantine'),
     ('get_account_searcher', 'get_quarantine'),
     ('get_account_searcher', 'get_homedir'),
+]
+untestable_methods = [
+    'get_quarantine',
+    'get_entity_name',
+    'get_external_id'
+    'get_address'
 ]
 
 log = cStringIO.StringIO()
@@ -127,7 +133,7 @@ def _create_testclass(cls, obj):
 
     testclass = _create_testclass_base(cls)
     for attr in dir(obj):
-        if not attr.startswith('get') or not callable(getattr(obj, attr)) or (cls, attr) in untestable_methods:
+        if not attr.startswith('get') or not callable(getattr(obj, attr)) or attr in untestable_methods or (cls, attr) in untestable_cls_methods:
             continue
         setattr(testclass, 'test_%s' % attr, _create_testmethod(attr))
         method = getattr(testclass, 'test_%s' % attr)
