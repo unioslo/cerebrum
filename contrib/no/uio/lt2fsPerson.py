@@ -114,7 +114,7 @@ def get_fs_stedkoder():
         stedkode = tuple([int(row[c]) for c in (
             'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')])
         if not stedkode2ou_id.has_key(stedkode):
-            logger.warn("Unknown stedkode: %s" % repr(stedkode))
+            logger.info("Unknown stedkode: %s" % repr(stedkode))
             continue
         sted_info[stedkode2ou_id[stedkode]] = row
     return sted_info
