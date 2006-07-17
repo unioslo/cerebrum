@@ -36,7 +36,11 @@ import getopt
 import sys
 
 from Cerebrum.Utils import Factory
-
+from Cerebrum import Constants
+from Cerebrum import Errors
+from Cerebrum import Entity
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import PosixUser
 
 
 def export_sut(out_file):
@@ -76,7 +80,13 @@ def export_sut(out_file):
         AND ai.owner_id = s.person_id \
         AND s.name_variant=162 \
         AND s.source_system = 69 \
-        AND ((p.id_type = 96) OR(p.id_type=%i))  " % (value_domain,id_type,const.externalid_sys_x_id,sys_fs,sys_x,name_variant,affiliation,const.externalid_sys_x_id)
+        AND ((p.id_type = 96) OR(p.id_type=%i))  " % (value_domain,
+                                                      id_type,
+                                                      const.externalid_sys_x_id,
+                                                      sys_fs,sys_x,
+                                                      name_variant,
+                                                      affiliation,
+                                                      const.externalid_sys_x_id)
           
     #logger.debug(query)
           
@@ -132,14 +142,137 @@ def export_sut(out_file):
 
 
 
+class export_new:
+
+    def __init__(self,logger_name):
+        self.db = Factory.get('Database')()
+        self.co = Factory.get('Constants')(self.db)
+        self.ou = Factory.get('OU')(self.db)
+        self.ent_name = Entity.EntityName(self.db)
+        self.group = Factory.get('Group')(self.db)
+        self.account = Factory.get('Account')(self.db)
+        self.person = Factory.get('Person')(self.db)
+        self.pu = PosixUser.PosixUser(self.db)
+        self.logger = Factory.get_logger(logger_name)
+        self.sut_spread = self.co.spread_uit_sut_user
+        self.db.cl_init(change_program='export_sut')
+        self.intCnt = 0
+        self.intRej = 0
+        self.intExp = 0
+        self.intQnt = 0
+
+        self.cache = {}
+             # account_id => 'userid' => bto001
+             #              'birth_date => 1968-01-01
+             #              'fullname' => Bjorn Torsteinsen
+             #              'owner_id' => 1241  # person id thath owns bto001
+
+
+    def check_account(self):
+        if self.account.is_expired():
+            self.intExp +=1
+            self.logger.info("%s(%s) is expired. removed from sut export" % (self.account.account_name,
+                                                                             self.account.entity_id ))
+            return False
+        quarantine = self.account.get_entity_quarantine(only_active=True)
+        if(len(quarantine)!=0):
+            self.intQnt += 1
+            self.logger.info("%s(%s) has quarantine set. removed from sut export" % (self.account.account_name,
+                                                                                     self.account.entity_id))
+            return False
+        return True
+
+
+    def cache_info(self,acc_id):
+        #self.logger.info("Appending %s" % element['entity_id'])
+        self.person.clear()
+        self.person.find(self.account.owner_id)
+        name = self.account.get_fullname()
+        pnrs = self.person.get_external_id(id_type=self.co.externalid_fodselsnr)
+        pnr = 0
+        if (len(pnrs)>0):
+            fnr = pnrs[0]['external_id']
+            pnr = fnr[-5:]
+        else:
+            # does not have no_birthno. Try systemX id
+            pnrs = self.person.get_external_id(id_type=self.co.externalid_sys_x_id)
+            if (len(pnrs)>0):
+                pnr = pnrs[0]['external_id']
+            else:
+                self.logger.error("ERROR RETRIVING external_id for %s" % (acc_id))
+                sys.exit(1)
+        self.cache[acc_id] = { 'userid': self.account.account_name,
+                               'pnr': pnr,
+                               'fullname': name,
+                               'birth': self.person.birth_date.Format("%d%m%y")
+                               }
+                
+
+    def get_entities(self):
+        entityList = []
+        e_list = []
+        self.logger.info("Retriving sut spread")
+        e_list = self.ent_name.list_all_with_spread(self.sut_spread)
+        self.logger.info("Ready...")
+        # lets remove any account entities which has active quarantines.
+        for element in e_list:
+            self.intCnt += 1
+            self.account.clear()
+            self.account.find(element['entity_id'])
+            if (self.check_account()):
+                self.cache_info(element['entity_id'])
+                entityList.append(element['entity_id'])
+                              
+        a_list = []
+        self.logger.info("Retriving ad_account spread")
+        a_list = self.ent_name.list_all_with_spread(self.co.spread_uit_ad_account)
+        self.logger.info("Ready...")
+        for element in a_list:
+            if (element['entity_id'] not in entityList):
+                self.intCnt += 1
+                self.account.clear()
+                try:
+                    self.account.find(element['entity_id'])
+                except Errors.NotFoundError:
+                    self.logger.error("Unknown Account ID %d found in ad_spread!" % element['entity_id'])
+                    continue
+                if (self.check_account()):
+                    self.cache_info(element['entity_id'])
+                    entityList.append(element['entity_id'])
+                    
+        # return the resulting list.
+        self.logger.info("Retrived %d accounts, rejected=%d, is_exp=%d, quarantined=%d" % (self.intCnt,
+                                                                                           (self.intExp+self.intQnt),
+                                                                                           self.intExp,
+                                                                                           self.intQnt))
+        return entityList
+
+
+    def build_sut_exportdata(self,entityList,out_file):
+        #         sut_line = "%s:%s:%s:%s\n" % (fodt,pnr,full_name,user_name)
+        
+        lines=[]
+        for a_id in entityList:
+            line = "%s:%s:%s:%s\n" % (self.cache[a_id]['birth'],
+                                       self.cache[a_id]['pnr'],
+                                       self.cache[a_id]['fullname'],
+                                       self.cache[a_id]['userid']
+                                       )
+            lines.append(line)
+        #print lines
+        file_handle = open(out_file,"w")
+        for l in lines:
+            file_handle.write(l)
+        file_handle.close()
+
+
 def main():
 
     global logger
-    #logger = Factory.get_logger("console")
-    logger = Factory.get_logger("cronjob")
+    logger_name = cereconf.DEFAULT_LOGGER_TARGET
     
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:h',['sut-file=','help'])
+        opts,args = getopt.getopt(sys.argv[1:],'s:l:h',['sut-file=','help','logger-name='])
     except getopt.GetoptError:
         usage()
 
@@ -148,6 +281,8 @@ def main():
     for opt,val in opts:
         if opt in ('-s','--sut-file'):
             sut_file = val
+        if opt in ('-l','--logger-name'):
+            logger_name = val
         if opt in('-h','--help'):
             help = 1
 
@@ -155,12 +290,16 @@ def main():
     if (help == 1 or sut_file==0):
         usage()
         sys.exit(2)
-        
+
     if ((sut_file != 0) and (help ==0)):
+        #logger = Factory.get_logger(logger_name)
         #logger.info("Starting SUT export")        
-        retval = export_sut(sut_file)
+        #retval = export_sut(sut_file)
         #logger.info("SUT export finished, processed %i students" % retval)
 
+        x = export_new(logger_name)
+        ents = x.get_entities()
+        x.build_sut_exportdata(ents,sut_file)
         
 def usage():
     print """This program reads a stillingskode file and inserts the data
