@@ -904,7 +904,7 @@ def process_delete_requests():
                 account_id = account.entity_id
                 account = Factory.get('Account')(db)
                 account.find(account_id)
-            account.expire_date = br.now
+            account.expire_date = now
             account.write_db()
             try:
                 home = account.get_home(spread)
