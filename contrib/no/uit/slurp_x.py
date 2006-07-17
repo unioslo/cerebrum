@@ -53,7 +53,7 @@ class execute:
         self.constants = Factory.get('Constants')(self.db)
         self.OU = Factory.get('OU')(self.db)
         
-        self.logger = Factory.get_logger(cereconf.LOGGER_TARGET)
+        self.logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
         self.db.cl_init(change_program='slurp_x')
         bootstrap_inst = self.account.search(name=cereconf.INITIAL_ACCOUNTNAME)
         bootstrap_id=bootstrap_inst[0]['account_id']
