@@ -340,7 +340,7 @@ class Student(FSObject):
                         AND ((e.arstall = %(year)d AND
                               e.manednr >= %(mndnr)d) OR
                              (e.arstall > %(year)d))
-                        """ % vars(selv)
+                        """ % vars(self)
         return self.db.query(query + time_part, {"emnekode" : emnekode})
 
     def get_student_kull(self, fnr, pnr):
