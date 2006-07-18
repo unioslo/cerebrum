@@ -2612,6 +2612,8 @@ class BofhdExtension(object):
     #
     # entity commands
     #
+
+    # entity info
     all_commands['entity_info'] = None
     def entity_info(self, operator, entity_id):
         """Returns basic information on the given entity id"""
@@ -2678,7 +2680,26 @@ class BofhdExtension(object):
                 result[attr] = getattr(entity, attr)               
                 
         return result
-    
+
+    # entity accounts
+    all_commands['entity_accounts'] = Command(
+        ("entity", "accounts"), EntityType(default="person"), Id(),
+        fs=FormatSuggestion("%6i %-10s %s", ("account_id", "name", format_day("expire")),
+                            hdr="%6s %-10s %s" % ("Id", "Name", "Expire")))
+    def entity_accounts(self, operator, entity_type, id):
+        entity = self._get_entity(entity_type, id)
+        account = self.Account_class(self.db)
+        ret = []
+        for r in account.list_accounts_by_owner_id(entity.entity_id,
+                                                   entity.entity_type,
+                                                   filter_expired=False):
+            account = self._get_account(r['account_id'], idtype='id')
+
+            ret.append({'account_id': r['account_id'],
+                        'name': account.account_name,
+                        'expire': account.expire_date})
+        return ret
+                                        
     # entity history
     all_commands['entity_history'] = Command(
         ("entity", "history"), AccountName(), Integer(optional=True),
@@ -2895,9 +2916,9 @@ class BofhdExtension(object):
             except CerebrumError:
                 pass   # Not a PosixGroup
             except self.db.DatabaseError, msg:
-                if str(msg).find("posix_user_gid"):
+                if re.search("posix_user_gid", str(msg)):
                     raise CerebrumError(
-                        "Posix users has group as primary group.  "+
+                        "Assigned as primary group for posix user(s).  "+
                         "Use 'group list %s'" % grp.group_name)
                 raise
         self._remove_auth_target("group", grp.entity_id)
@@ -2905,10 +2926,14 @@ class BofhdExtension(object):
         try:
             grp.delete()
         except self.db.DatabaseError, msg:
-            if str(msg).find("group_member_exists"):
+            if re.search("group_member_exists", str(msg)):
                 raise CerebrumError(
                     "Group is member of groups.  "+
                     "Use 'group memberships group %s'" % grp.group_name)
+            elif re.search("account_info_owner", str(msg)):
+                raise CerebrumError(
+                    "Group is owner of an account.  "+
+                    "Use 'entity accounts group %s'" % grp.group_name)
             raise
         return "OK, deleted group '%s'" % groupname
 
@@ -4266,7 +4291,10 @@ class BofhdExtension(object):
     all_commands['person_accounts'] = Command(
         ("person", "accounts"), PersonId(),
         fs=FormatSuggestion("%6i %-10s %s", ("account_id", "name", format_day("expire")),
-                            hdr="%6s %-10s %s" % ("Id", "Name", "Expire")))
+                            hdr=("WARNING: This command is deprecated and will be removed.  "
+                                 "Please use 'entity accounts'\n%-9s %-18s %s") % ("Id",
+                                                                                   "Name",
+                                                                                   "Expire")))
     def person_accounts(self, operator, id):
         if id.find(":") == -1 and not id.isdigit():
             ac = self._get_account(id)
@@ -4463,6 +4491,10 @@ class BofhdExtension(object):
             matches = person.find_persons_by_bdate(self._parse_date(value))
         elif search_type == 'stedkode':
             ou = self._get_ou(stedkode=value)
+            matches = person.list_affiliations(ou_id=ou.entity_id,
+                                               affiliation=filter)
+        elif search_type == 'ou':
+            ou = self._get_ou(ou_id=value)
             matches = person.list_affiliations(ou_id=ou.entity_id,
                                                affiliation=filter)
         else:
