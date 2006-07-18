@@ -207,9 +207,10 @@ class AccountType(object):
 
 
 class AccountHome(object):
-    """AccountHome keeps track of where the users home dir is.  There
-    may a different home dir for each spread.  A home is identified
-    either by a disk_id, or by the string represented by home"""
+    """AccountHome keeps track of where the users home dir is. 
+    A different home dir for each defined home spread may exist.  
+    A home is identified either by a disk_id, or by the string 
+    represented by home"""
 
     def delete(self):
         """Removes all homedirs for an account"""
@@ -551,9 +552,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         for key in self.__updated:
             # "password" is not handled by mark_update, so getattr
             # won't work.
-            if key != 'password':
+            if key == 'np_type':
+                newvalues[key] = int(getattr(self, key))                
+            elif key != 'password':
                 newvalues[key] = getattr(self, key)
-
+                
         # mark_update will not change the value if the new value is
         # __eq__ to the old.  in other words, it's impossible to
         # convert it from _CerebrumCode-instance to an integer.
