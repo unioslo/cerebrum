@@ -55,10 +55,6 @@ from Cerebrum.Utils import Factory, AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
 
-
-
-
-#
 # We can process these export IDs only
 selectors = { "uname" : { "xmlname"  : "userid",
                           "function" : lambda fnr: person2uname(fnr) },
@@ -68,6 +64,8 @@ selectors = { "uname" : { "xmlname"  : "userid",
 
 __cache_fnr2mail = dict()
 __cache_fnr2uname = dict()
+
+
 def _fill_caches(person, const):
     """Fill all the caches, so that we can save time"""
 
@@ -84,8 +82,6 @@ def _fill_caches(person, const):
     __cache_fnr2uname = person.getdict_external_id2primary_account(
         const.externalid_fodselsnr)
     logger.info("%d entries in fnr2uname", len(__cache_fnr2uname))
-# end _fill_caches
-
 
 
 def person2email(fnr):
@@ -95,8 +91,6 @@ def person2email(fnr):
     """
 
     return __cache_fnr2mail.get(fnr)
-# end person2mail
-
 
 
 def person2uname(fnr):
@@ -106,8 +100,6 @@ def person2uname(fnr):
     """
 
     return __cache_fnr2uname.get(fnr)
-# end person2uname
-
 
 
 def person2fnr(person, const):
@@ -118,14 +110,10 @@ def person2fnr(person, const):
         fnr = person.get_external_id(system, const.externalid_fodselsnr)
         if not fnr:
             continue
-        # fi
 
         return str(fnr[0]["external_id"])
-    # od
 
     return None
-# end person2fnr
-
 
 
 def generate_export(writer, id_list):
@@ -162,7 +150,6 @@ def generate_export(writer, id_list):
             continue
         else:
             processed[fnr] = 1
-        # fi
     
         tmp = dict()
         for id_kind in id_list:
@@ -171,20 +158,16 @@ def generate_export(writer, id_list):
             # that, given an fnr, returns the proper value.
             value = selectors[id_kind]["function"](fnr)
             if value: tmp[id_kind] = value
-        # od
 
         # Skip entries for which we have to elements at all
         if not tmp:
             continue
 
         output_person(writer, fnr, tmp)
-    # od
 
     logger.info("Processed %d fnrs", len(processed))
     writer.endElement("BAS2SAP")
     writer.endDocument()
-# end generate_export
-
 
 
 def output_person(writer, fnr, data):
@@ -197,11 +180,8 @@ def output_person(writer, fnr, data):
 
     for key, value in data.items():
         writer.dataElement(selectors[key]["xmlname"], value)
-    # od
 
     writer.endElement("person")
-# end output_person
-
 
 
 def generate_static_headers(writer):
@@ -213,8 +193,6 @@ def generate_static_headers(writer):
     writer.dataElement("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
     writer.endElement("properties")
     logger.info("done writing static headers")
-# end generate_static_headers
-
 
 
 def usage():
@@ -228,8 +206,6 @@ OPTIONS:
         -f, --file <filename>
              filename to export to.
 """ % str(selectors.keys())
-# end usage
-
 
 
 def main():
@@ -243,7 +219,6 @@ def main():
         print "Wrong option", value
         usage()
         sys.exit(1)
-    # yrt
 
     # Which ids we want to export
     id_list = list()
@@ -258,16 +233,13 @@ def main():
                 logger.warn("Duplicate ID value %s (duplicate ignored)", value)
             else:
                 id_list.append(value)
-            # fi
+
         elif option in ("-f", "--file"):
             output_file = value
-        # fi
-    # od
 
     if not id_list:
         logger.warn("No IDs specified for export. No XML file generated")
         sys.exit(0)
-    # fi
 
     stream = AtomicFileWriter(output_file, "w")
     writer = xmlprinter.xmlprinter(stream,
@@ -277,16 +249,10 @@ def main():
                                    input_encoding = "latin1")
     generate_export(writer, id_list)
     stream.close()
-# end main
-
 
 
 if __name__ == "__main__":
     main()
-# fi
-
-
-
 
 
 # arch-tag: 847aacd7-5551-48b3-8d11-5fab60dcb87e
