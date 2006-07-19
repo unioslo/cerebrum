@@ -24,11 +24,24 @@ get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
-     _SpreadCode, _QuarantineCode, _EntityExternalIdCode, \
-     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode, _PersonNameCode, _ContactInfoCode ,_CerebrumCode, _AddressCode, _AuthenticationCode
-from Cerebrum.modules.PosixUser import _PosixShellCode
-from Cerebrum.modules.Email import _EmailServerTypeCode
+from Cerebrum.Constants import \
+     _AuthoritativeSystemCode, \
+     _OUPerspectiveCode, \
+     _SpreadCode, \
+     _QuarantineCode, \
+     _EntityExternalIdCode, \
+     _PersonAffiliationCode, \
+     _PersonAffStatusCode, \
+     _AccountCode, \
+     _PersonNameCode, \
+     _ContactInfoCode, \
+     _CerebrumCode, \
+     _AddressCode, \
+     _AuthenticationCode
+from Cerebrum.modules.PosixUser import \
+     _PosixShellCode
+from Cerebrum.modules.Email import \
+     _EmailServerTypeCode
 
 
 
@@ -122,8 +135,7 @@ class Constants(Constants.Constants):
         affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
     affiliation_status_student_drgrad = _PersonAffStatusCode(
         affiliation_student, 'drgrad', 'Registrert student på doktorgrad')
-    
-    
+        
     affiliation_tilknyttet = _PersonAffiliationCode(
         'TILKNYTTET', 'Tilknyttet UiT uten å være student eller ansatt')
     affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
@@ -134,6 +146,7 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_stip',
         'Personer registrert i LT med gjestetypekode=EF-STIP')
+    
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 'Tilknyttet enheter/instutusjoner som UiT har avtale med')
     affiliation_manuell_sito = _PersonAffStatusCode(
@@ -144,6 +157,15 @@ class Constants(Constants.Constants):
         affiliation_manuell, 'notur', 'Notur')
     affiliation_manuell_gjest = _PersonAffStatusCode(
         affiliation_manuell, 'gjest', 'Gjest')
+    affiliation_manuell_utdanning_no = _PersonAffStatusCode(
+        affiliation_manuell, 'utdanning_no','Utdanning.no')
+    affiliation_manuell_akademisk_kvarter = _PersonAffStatusCode(
+        affiliation_manuell, 'akademisk_kvart', 'Akademisk Kvarter')
+    affiliation_manuell_norges_universitetet = _PersonAffStatusCode(
+        affiliation_manuell, 'norges_universi', 'Norgesuniversitetet')
+    affiliation_manuell_kirkutdnor = _PersonAffStatusCode(
+        affiliation_manuell, 'kirkutdnor', 'Kirkelig Utdanningssenter Nord-Norge')
+    
     affiliation_manuell_ekst_person = _PersonAffStatusCode(
         affiliation_manuell, 'ekst_person',
         'Ekstern person (under utfasing)')
@@ -178,7 +200,7 @@ class Constants(Constants.Constants):
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
 
-    posix_shell_bash = _PosixShellCode('bash', '/local/gnu/bin/bash')
+    posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
     posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
     posix_shell_false = _PosixShellCode('false', '/bin/false')
     posix_shell_ksh = _PosixShellCode('ksh', '/bin/ksh')
