@@ -46,7 +46,7 @@ class execute:
 
     def __init__(self):
         #init variables
-        self.split_char = ";" # char used to split data from the source_file
+        self.split_char = ":" # char used to split data from the source_file
         self.db = Factory.get('Database')()
         self.person = Factory.get('Person')(self.db)
         self.account = Factory.get('Account')(self.db)
@@ -178,86 +178,6 @@ class execute:
             self.logger.info("**** NEW ****")
         elif op == False:
             self.logger.info("**** UPDATE ****")
-
-
-#     # creates a person object in cerebrum
-#     def create_person(self,data_list):
-#         #print data_list
-#         try: 
-#             personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost = data_list.split(self.split_char)
-#         except ValueError,m:
-#             sys.stderr.write("VALUEERROR: %s: Line=%s" % (m,data_list))
-#             return 1
-            
-
-#         my_stedkode = Stedkode(self.db)
-#         my_stedkode.clear()
-#         self.person.clear()
-
-
-#         try:
-#             fnr = fodselsnr.personnr_ok(personnr)
-#             self.logger.info("process %s" % (fnr))
-#             (year,mon,day) = fodselsnr.fodt_dato(fnr)
-#         except fodselsnr.InvalidFnrError:
-#             self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
-#             return 1
-        
-#         try:
-#             self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr)
-#         except Errors.NotFoundError:
-#             pass
-        
-#         gender = self.constants.gender_male
-#         if(fodselsnr.er_kvinne(fnr)):
-#             gender = self.constants.gender_female
-
-#         self.person.populate(self.db.Date(year,mon,day),gender)
-
-#         self.person.affect_names(self.constants.system_x,self.constants.name_first,self.constants.name_last,self.constants.name_full)
-#         self.person.populate_name(self.constants.name_first,fornavn)
-#         self.person.populate_name(self.constants.name_last,etternavn)
-
-#         fult_navn = "%s %s" % (fornavn,etternavn)
-#         self.person.populate_name(self.constants.name_full,fult_navn)
-
-#         self.person.affect_external_id(self.constants.system_x,self.constants.externalid_fodselsnr)
-#         self.person.populate_external_id(self.constants.system_x,self.constants.externalid_fodselsnr,fnr)
-        
-#         # setting affiliation and affiliation_status
-#         #print "aff before = %s" % affiliation
-#         orig_affiliation = affiliation
-#         affiliation = int(self.constants.PersonAffiliation(affiliation))
-#         #print "aff after = '%s'" % affiliation
-
-#         #print "aff_status before = '%s'" % affiliation_status
-#         affiliation_status = int(self.constants.PersonAffStatus(orig_affiliation,affiliation_status.lower()))
-#         #print "aff_status after = %s" % affiliation_status
-
-#         fakultet = ou[0:2]
-#         institutt = ou[2:4]
-#         avdeling = ou[4:6]
-#         # get ou_id of stedkode used
-#         my_stedkode.find_stedkode(fakultet,institutt,avdeling,cereconf.DEFAULT_INSTITUSJONSNR)
-#         ou_id = my_stedkode.entity_id
-#         #print "populating person affiliation..."
-#         # populate the person affiliation table
-#         self.person.populate_affiliation(int(self.constants.system_x),
-#                                          int(ou_id),
-#                                          int(affiliation),
-#                                          int(affiliation_status)
-#                                          )
-
-#         #write the person data to the database
-#         #print "write to db..."
-#         op = self.person.write_db()
-#         # return sanity messages
-#         if op is None:
-#             self.logger.info("**** EQUAL ****")
-#         elif op == True:
-#             self.logger.info("**** NEW ****")
-#         elif op == False:
-#             self.logger.info("**** UPDATE ****")
 
 
     def expire_date_conversion(self,expire_date):
@@ -609,10 +529,14 @@ def main():
         if opt in ('-u','--update'):
             update = 1
 
+    x_create=execute()
     if (source_file == 0):
-        usage()
+        if (update):
+            print "Retreiving Guest data"
+            x_create.get_guest_data()
+        else:
+            usage()
     else:
-        x_create = execute()
         if(update ==1):
             x_create.get_guest_data()
         data = x_create.read_data(source_file)
