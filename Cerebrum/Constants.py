@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2005 University of Oslo, Norway
+# Copyright 2002-2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -203,6 +203,10 @@ class _CerebrumCode(DatabaseAccessor):
         if equal is NotImplemented:
             return NotImplemented
         return not equal
+
+    # Allow pickling of code values.
+    def __getstate__(self):
+        return int(self)
 
     def _pre_insert_check(self):
         try:
