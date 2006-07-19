@@ -22,7 +22,6 @@
 
 import Cerebrum.Errors
 import Cerebrum.modules.Hpc
-#import AllocationPeriod
 
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
@@ -34,6 +33,8 @@ from Commands import Commands
 from Project import Project, ProjectAllocationName
 from AllocationPeriod import AllocationAuthority, AllocationPeriod
 from Host import Host
+from Account import Account
+from SpineLib.Date import Date
 
 from SpineLib import Registry
 registry = Registry.get_registry()
@@ -62,6 +63,22 @@ class AllocationStatus(CodeType):
             'name':'code_str'
         }
     }
+
+table = 'allocation_credit_priority_code'
+class AllocationCreditPriority(CodeType):
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('description', table, str)
+    )
+    db_attr_aliases = {
+        table:{
+            'id':'code',
+            'name':'code_str'
+        }
+    }
     
 #We're defining a new class - thus this is the way to do it.
 table = 'allocation_info' #('authority', 'name_id', 'period', 'status')
@@ -76,7 +93,7 @@ class Allocation(Entity):
         'id':'allocation_id',
         'status':'allocation_status',
         'period':'allocation_period',
-	'allocation_name':'name_id'
+        'allocation_name':'name_id'
     }
 
     cerebrum_class = Factory.get('Allocation')
@@ -97,8 +114,77 @@ class AllocationMachine(DatabaseClass):
     }
 registry.register_class(AllocationMachine)
 
+table = 'credit_transaction'
+class CreditTransaction(DatabaseClass):
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
+        DatabaseAttr('allocation', table, Allocation),
+        DatabaseAttr('credits', table, int),
+        DatabaseAttr('date', table, Date)
+    )
+    db_attr_aliases = {
+        table:{
+            'id':'credit_transaction_id',
+            'allocation':'allocation_id'
+        }
+    }
+registry.register_class(CreditTransaction)
 
+table = 'allocation_transaction'
+class AllocationTransaction(DatabaseClass):
+    primary = (
+        DatabaseAttr('credit_transaction', table, CreditTransaction),
+    )
+    slots = (
+        DatabaseAttr('allocation_credit_priority', table, AllocationCreditPriority),
+        DatabaseAttr('description', table, str)
+    )
+    db_attr_aliases = {
+        table:{
+            'credit_transaction':'credit_transaction_id',
+        }
+    }
+registry.register_class(AllocationTransaction)
 
+table = 'accounting_transaction'
+class AccountingTransaction(DatabaseClass):
+    primary = (
+        DatabaseAttr('credit_transaction', table, CreditTransaction),
+    )
+    slots = (
+        DatabaseAttr('jobsubmit', table, Date),
+        DatabaseAttr('jobstart', table, Date),
+        DatabaseAttr('jobend', table, Date),
+        DatabaseAttr('machine', table, Host),
+        DatabaseAttr('jobid', table, str),
+        DatabaseAttr('jobname', table, str),
+        DatabaseAttr('queuename', table, str),
+        DatabaseAttr('num_nodes', table, int),
+        DatabaseAttr('num_cores', table, int),
+        DatabaseAttr('num_nodes_req', table, int),
+        DatabaseAttr('num_cores_req', table, int),
+        DatabaseAttr('memory_req_mb', table, int),
+        DatabaseAttr('max_memory_mb', table, int),
+        DatabaseAttr('walltime_req', table, int),
+        DatabaseAttr('walltime', table, int),
+        DatabaseAttr('cputime_req', table, int),
+        DatabaseAttr('cputime', table, int),
+        DatabaseAttr('waittime', table, int),
+        DatabaseAttr('suspendtime', table, int),
+        DatabaseAttr('num_suspends', table, int),
+        DatabaseAttr('io_transfered_mb', table, int),
+        DatabaseAttr('nice', table, int),
+        DatabaseAttr('exitstatus', table, int),
+        DatabaseAttr('account', table, Account)
+    )
+    db_attr_aliases = {
+        table:{
+            'credit_transaction':'credit_transaction_id',
+        }
+    }
+registry.register_class(AccountingTransaction)
 
 #define additional methods.
 
@@ -109,10 +195,10 @@ def create(self, authority, name_id, period, status):
 
 create.signature = Allocation
 create.signature_args = [ AllocationAuthority, ProjectAllocationName,
-    AllocationPeriod, AllocationStatus ]
+                          AllocationPeriod, AllocationStatus ]
 create.signature_write = True
    
-#register ze newly defined methods
+#register ze newly defined method
 Commands.register_methods([create])
  
 def add_machine(self, machine):
