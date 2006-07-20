@@ -139,23 +139,25 @@ class system_xRepresentation(object):
             current_source_system= const.system_x
             try:
                 aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
-                if(len(aff)==0):
-                    current_source_system=const.system_fs
-                    aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
-                if(len(aff)==0):
-                    logger.error("Person %s has frida spread, but does not come from slurp or fs...should not happend.. yet" % person.entity_id )
-                    continue
+                #if(len(aff)==0):
+                #    current_source_system=const.system_fs
+                #    aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
+                #if(len(aff)==0):
+                #    current_source_system=const.system_lt
+                #    aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
+                    #logger.error("Person %s has frida spread, but does not come from slurp or fs...should not happend.. yet" % person.entity_id )
+                    #continue
                 #fornavn = person.get_name(const.system_cached,const.name_first)
                 #etternavn = person.get_name(const.system_cached,const.name_last)
-                fornavn = person.get_name(const.system_x,const.name_first)
-                etternavn = person.get_name(const.system_x,const.name_last)
+                fornavn = person.get_name(current_source_system,const.name_first)
+                etternavn = person.get_name(current_source_system,const.name_last)
                 aff_str = const.PersonAffStatus(aff[0]['status'])
                 aff_id = aff[0].ou_id
                 external_id = person.get_external_id(current_source_system)
                 attributes = {"fnr":external_id[0]['external_id'],"reservert":"N"}
 
             except Errors.NotFoundError:
-                logger.error("ERROR: FRIDA spread from invalid source system. PersonID(%s)" % person.entity_id) 
+                #logger.error("ERROR: FRIDA spread from invalid source system. PersonID(%s)" % person.entity_id) 
                 continue
             except Exception,msg:
                 logger.error("Error: %s,account_id =%s,person_id=%s" % (msg,account.entity_id,person.entity_id))
