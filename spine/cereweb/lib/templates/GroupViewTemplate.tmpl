@@ -29,6 +29,7 @@
 #set $id = $group.get_id()
 #set $searcher = $transaction.get_group_member_operation_type_searcher()
 #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
+#set $commands=$transaction.get_commands()
 <div class="view_content">
 
     ## Actions
@@ -61,8 +62,10 @@
     $viewQuarantines($group)
     $addNote($group)
     $viewNotes($group)
-    $email_template.set($group, $transaction)
-    $email_template.view($group, $transaction)
+    #if $commands.has_extention("email")
+        $email_template.set($group, $transaction)
+        $email_template.view($group, $transaction)
+    #end if
     $addSpread($group, $transaction)
     $viewSpreads($group)
     $joinGroup($group, $ops)
