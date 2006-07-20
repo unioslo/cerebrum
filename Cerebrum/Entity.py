@@ -385,7 +385,8 @@ class EntityContactInfo(Entity):
         return Utils.keep_entries(
             self.query("""
             SELECT * FROM [:table schema=cerebrum name=entity_contact_info]
-            WHERE entity_id=:e_id""", {'e_id': self.entity_id}),
+            WHERE entity_id=:e_id ORDER BY contact_pref""",
+                       {'e_id': self.entity_id}),
             ('source_system', source),
             ('contact_type', type))
 
