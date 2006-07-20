@@ -275,7 +275,8 @@ def process_person_callback(person_info):
                 aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
                 logger.debug("App2akrivts")
             else:
-                logger.warn("Student aktiv i ukjent sted: studieprog2sko[row['studieprogramkode'] (%s) er NONE!" % (row['studieprogramkode']))
+                logger.error("Student %s aktiv i ukjent sted: studieprog2sko[row['studieprogramkode'] (%s) er NONE!" % (fnr, row['studieprogramkode']))
+                continue
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
@@ -304,12 +305,16 @@ def process_person_callback(person_info):
                 #subtype = co.affiliation_status_student_aktiv
                 #print "HER: %s DTA_TYPE: %s : AKTIV_STED=%s\nROW=%s" % (fnr,dta_type,aktiv_sted,row)
                 #keys2 = studieprog2sko.keys()
+                #keys2.sort()
                 #for i in keys2:
                 #    print "HER2: %s -> %s" % (i,studieprog2sko[i])
-                #print "HER2: %s" % studieprog2sko
-                #print x
+                #print "HER3: %s" % studieprog2sko
+                #print "HER4: %s" % x
                 if dta_type in ('opptak'):
                     subtype = co.affiliation_status_student_opptak
+                if dta_type in ('aktiv') and studieprog2sko[row['studieprogramkode']] == None:
+                    logger.error("Student %s aktiv i ukjent sted studieprog2sko=None for %s:  " % (fnr,row['studieprogramkode']))
+                    continue
                 if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
                     subtype = co.affiliation_status_student_aktiv
                 elif row['studierettstatkode'] == 'EVU':
@@ -447,10 +452,11 @@ def main():
     global old_aff, include_delete, no_name
     verbose = 0
     include_delete = False
-    logger = Factory.get_logger("cronjob")
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
+    logger_name = cereconf.DEFAULT_LOGGER_TARGET
+
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:l:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
-        'generate-groups','include-delete', ])
+        'generate-groups','include-delete','logger-name' ])
 
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
@@ -465,6 +471,11 @@ def main():
             gen_groups = True
         elif opt in ('-d', '--include-delete'):
             include_delete = True
+        elif opt in ('-l', '--logger-name'):
+            logger_name = val
+
+
+    logger = Factory.get_logger(logger_name)
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
