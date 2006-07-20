@@ -28,12 +28,9 @@ from lib.WorkList import remember_link
 from lib.Search import get_arg_values, get_form_values, setup_searcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.ProjectSearchTemplate import ProjectSearchTemplate
-# from lib.templates.HostViewTemplate import HostViewTemplate
-# from lib.templates.HostEditTemplate import HostEditTemplate
-#from lib.templates.HostCreateTemplate import HostCreateTemplate
 from lib.templates.ProjectViewTemplate import ProjectViewTemplate
 from lib.templates.ProjectEditTemplate import ProjectEditTemplate
-#from lib.templates.ProjectCreateTemplate import ProjectCreateTemplate
+from lib.templates.ProjectCreateTemplate import ProjectCreateTemplate
 
 def search(transaction, offset=0, **vargs):
     """Search for projects and displays result and/or searchform."""
@@ -169,7 +166,7 @@ def make(transaction, title="", description="", owner=None, science=None):
     project = cmd.create_project(owner, science,
                                  title, description)
 
-    commit(transaction, host, msg=_("Project successfully created."))
+    commit(transaction, project, msg=_("Project successfully created."))
 make = transaction_decorator(make)
 make.exposed = True
 
