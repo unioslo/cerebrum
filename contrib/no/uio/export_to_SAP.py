@@ -56,10 +56,14 @@ from Cerebrum.extlib import xmlprinter
 
 
 # We can process these export IDs only
-selectors = { "uname" : { "xmlname"  : "userid",
-                          "function" : lambda fnr: person2uname(fnr) },
-              "mail"  : { "xmlname"  : "email",
-                          "function" : lambda fnr: person2email(fnr) }, }
+selectors = { "uname"    : { "xmlname"  : "userid",
+                             "function" : lambda fnr, person, const: person2uname(fnr) },
+              "mail"     : { "xmlname"  : "email",
+                             "function" : lambda fnr, person, const: person2email(fnr) },
+              "fullname" : { "xmlname"  : "persnavn",
+                             "function" : lambda fnr, person, const: person2fullname(person, const) },
+              "URL"      : { "xmlname"  : "URL",
+                             "function" : lambda fnr, person, const: person2URL(person, const) }, }
 
 
 __cache_fnr2mail = dict()
@@ -100,6 +104,29 @@ def person2uname(fnr):
     """
 
     return __cache_fnr2uname.get(fnr)
+
+
+def person2fullname(person, const):
+    """Find the full name for the given person.
+
+    Return None if no name is found.
+    """
+
+    return person.get_name(const.system_cached, const.name_full)
+
+
+def person2URL(person, const):
+    """Find the primary URL for the given person.
+
+    Return None if no URL  is found.
+    """
+
+    URLrows = person.get_contact_info(type=const.contact_url)
+    if len(URLrows) > 0:
+        return URLrows[0]["contact_value"]
+
+    return None
+    
 
 
 def person2fnr(person, const):
@@ -156,8 +183,7 @@ def generate_export(writer, id_list):
             # selectors is indexed by the ID type we want to export.
             # selectors[id_kind]['function'] gives as a callable object
             # that, given an fnr, returns the proper value.
-            value = selectors[id_kind]["function"](fnr)
-            if value: tmp[id_kind] = value
+            tmp[id_kind] = selectors[id_kind]["function"](fnr, person, const)
 
         # Skip entries for which we have to elements at all
         if not tmp:
@@ -179,6 +205,9 @@ def output_person(writer, fnr, data):
     writer.startElement("person", { "ID" : fnr })
 
     for key, value in data.items():
+        if value is None:
+            # Undefined values should merely be left empty in the export
+            value = ""
         writer.dataElement(selectors[key]["xmlname"], value)
 
     writer.endElement("person")
@@ -205,6 +234,8 @@ OPTIONS:
              be included. The legal values are %s.
         -f, --file <filename>
              filename to export to.
+        -a, --all
+             alias for including all id-types
 """ % str(selectors.keys())
 
 
@@ -214,7 +245,7 @@ def main():
 
     try:
         options, rest = getopt.getopt(sys.argv[1:],
-                                      "i:f:", ["id=", "file="])
+                                      "i:f:a", ["id=", "file=", "all"])
     except getopt.GetoptError, value:
         print "Wrong option", value
         usage()
@@ -224,7 +255,7 @@ def main():
     id_list = list()
     # XML-filename
     output_file = None
-    
+
     for option, value in options:
         if option in ("-i", "--id"):
             if value not in selectors.keys():
@@ -236,6 +267,12 @@ def main():
 
         elif option in ("-f", "--file"):
             output_file = value
+
+    # Option "--all" overrides specific id-lists
+    for option, value in options:
+        if option in ("-a", "--all"):
+            logger.info("Option '--all' specified; all id-types will be included")
+            id_list = selectors.keys()
 
     if not id_list:
         logger.warn("No IDs specified for export. No XML file generated")
