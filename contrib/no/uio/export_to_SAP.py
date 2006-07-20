@@ -19,7 +19,35 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This script exports some employee data to SAP.
+import sys, time, getopt
+
+import cerebrum_path, cereconf
+from Cerebrum.Utils import Factory, AtomicFileWriter
+from Cerebrum.extlib import xmlprinter
+
+# We can process these export IDs only
+selectors = { "uname"    : { "xmlname"  : "userid",
+                             "function" : lambda fnr, person, const: person2uname(fnr) },
+              "mail"     : { "xmlname"  : "email",
+                             "function" : lambda fnr, person, const: person2email(fnr) },
+              "fullname" : { "xmlname"  : "persnavn",
+                             "function" : lambda fnr, person, const: person2fullname(person, const) },
+              "URL"      : { "xmlname"  : "URL",
+                             "function" : lambda fnr, person, const: person2URL(person, const) }, }
+
+__doc__ = """
+Usage: export_to_SAP.py [OPTIONS]
+
+OPTIONS:
+        -i, --id <idtype>
+             include <idtype> into the export. Only those specified will
+             be included. The legal values are %s.
+        -a, --all
+             alias for including all id-types
+        -f, --file <filename>
+             filename to export to.
+
+This script exports some employee data to SAP.
 
 Specifically, this script generates an XML file according to schema
 specified:
@@ -27,9 +55,7 @@ specified:
 <URL: http://folk.uio.no/baardj/BAS2SAP/BAS2SAP.html>
 
 Only the employees are exported. We export the following data items:
-
-e-mail, uname, phone number, URL. Right now only e-mail and uname are
-implemented.
+e-mail, uname, fullname and URL. Other elements may be added later.
 
 An example of a person element might look something like this:
 
@@ -46,24 +72,12 @@ An example of a person element might look something like this:
 
 The elements for which we have no values are left empty. If no data items
 for a given employee have values, we skip that employee altogether.
-"""
 
-import sys, time, getopt
-
-import cerebrum_path, cereconf
-from Cerebrum.Utils import Factory, AtomicFileWriter
-from Cerebrum.extlib import xmlprinter
+""" % str(selectors.keys())
 
 
-# We can process these export IDs only
-selectors = { "uname"    : { "xmlname"  : "userid",
-                             "function" : lambda fnr, person, const: person2uname(fnr) },
-              "mail"     : { "xmlname"  : "email",
-                             "function" : lambda fnr, person, const: person2email(fnr) },
-              "fullname" : { "xmlname"  : "persnavn",
-                             "function" : lambda fnr, person, const: person2fullname(person, const) },
-              "URL"      : { "xmlname"  : "URL",
-                             "function" : lambda fnr, person, const: person2URL(person, const) }, }
+__version__ = "$Revision$"
+# $Source$
 
 
 __cache_fnr2mail = dict()
@@ -118,15 +132,14 @@ def person2fullname(person, const):
 def person2URL(person, const):
     """Find the primary URL for the given person.
 
-    Return None if no URL  is found.
+    Return None if no URL is found.
     """
 
     URLrows = person.get_contact_info(type=const.contact_url)
     if len(URLrows) > 0:
         return URLrows[0]["contact_value"]
 
-    return None
-    
+    return None    
 
 
 def person2fnr(person, const):
@@ -225,31 +238,23 @@ def generate_static_headers(writer):
 
 
 def usage():
-    print """
-Usage: export_to_SAP.py [OPTION]
-
-OPTIONS:
-        -i, --id <idtype>
-             include <idtype> into the export. Only those specified will
-             be included. The legal values are %s.
-        -f, --file <filename>
-             filename to export to.
-        -a, --all
-             alias for including all id-types
-""" % str(selectors.keys())
+    print __doc__
 
 
-def main():
+def main(argv=None):
     global logger
     logger = Factory.get_logger("cronjob")
 
+    if argv is None:
+        argv = sys.argv
+
     try:
-        options, rest = getopt.getopt(sys.argv[1:],
+        options, rest = getopt.getopt(argv[1:],
                                       "i:f:a", ["id=", "file=", "all"])
     except getopt.GetoptError, value:
         print "Wrong option", value
         usage()
-        sys.exit(1)
+        return 1
 
     # Which ids we want to export
     id_list = list()
@@ -276,7 +281,7 @@ def main():
 
     if not id_list:
         logger.warn("No IDs specified for export. No XML file generated")
-        sys.exit(0)
+        return 2
 
     stream = AtomicFileWriter(output_file, "w")
     writer = xmlprinter.xmlprinter(stream,
@@ -289,7 +294,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
 
 
 # arch-tag: 847aacd7-5551-48b3-8d11-5fab60dcb87e
