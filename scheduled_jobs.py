@@ -189,6 +189,16 @@ def get_jobs():
                                     max_freq=60,
                                     post=None),
 
+        'export_fd' : Action(pre=None,
+                              call=System('%s/export_fd.py' % contrib_uit,
+                                           params=['-o','%s/FD/fd_export_%s.txt' % (dumps,time_stamp)]),
+                              post=['copy_export_fd'],
+                              max_freq=60),
+
+        'copy_export_fd' : Action(pre=None,
+                                   call=System('%s/copy_fd_export.sh' % contrib_uit),
+                                   max_freq=60),
+
         ###############
         # daily jobs  #
         ###############
@@ -219,7 +229,7 @@ def get_jobs():
 
         'daily_export_all' : Action(pre=['daily_process_all'],
                                     call=None,
-                                    post=['export_ldap','export_sut','generate_fronter_groups','export_frida']),
+                                    post=['export_fd','export_ldap','export_sut','generate_fronter_groups','export_frida']),
 
         'full_pupp' : Action(pre=None,
                              call=None,
@@ -242,6 +252,11 @@ def get_jobs():
                              call=System('%s/slurp_x.py' % contrib_uit,
                                          params=['-s','%s/System_x/guest_data' % (dumps),'-u']),
                              when=When(time=[Time(min=[00],hour=[06])]),
+                             post=None),
+
+        'run_fd_sync' : Action(pre=None,
+                             call=System('%s/adpwsync.py' % contrib_uit),
+                             max_freq=60*5,when=When(freq=10*60),
                              post=None)
 
         # Kast gamle changelog entries hver lørdag kl 06:00
