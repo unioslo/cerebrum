@@ -316,7 +316,7 @@ class Fronter(object):
                     'nt': 3,
                     'plain': 4,
                     'ldap': 5}
-        ret = {'pwencryptiontype': type_map[pwtype]}
+        ret = {'pwencryptiontype': type_map['ldap']}
         if password:
             ret['password'] = password
         return ret
@@ -344,7 +344,7 @@ class FronterXML(object):
     def __init__(self, fname, cf_dir=None, debug_file=None, debug_level=None,
                  fronter=None, include_password=True):
         self.xml = XMLWriter(fname)
-        self.xml.startDocument(encoding='ISO-8859-1')
+        self.xml.startDocument(encoding='UTF-8')
         self.rootEl = 'enterprise'
         self.DataSource = 'UREG2000@uio.no'
         self.cf_dir = cf_dir
