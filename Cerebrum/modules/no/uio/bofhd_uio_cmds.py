@@ -2184,7 +2184,7 @@ class BofhdExtension(object):
             nth_en[3] = nth_en[23] = "rd"
             when_en = "%s %d%s at %02d:%02d" % \
                       (DateTime.Weekday[when.day_of_week],
-                       when.day, nth_en[when.day + 1],
+                       when.day, nth_en[when.day],
                        when.hour, when.minute - when.minute % 10)
             try:
                 Utils.mail_template(acc.get_primary_mailaddress(),
