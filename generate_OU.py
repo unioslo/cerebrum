@@ -33,6 +33,8 @@ import string
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
+from Cerebrum import Database
+from Cerebrum.modules.no.uit.access_FS import FS
 
 #sys.path = ['/home/cerebrum/CVS/cerebrum_H05/cerebrum/contrib/no/uit/create_import_data/lib'] + sys.path
 #import fstalk
@@ -325,113 +327,124 @@ def create_dummy(file_name):
 
 
 
-# this function compares two files and extracts ou information for
-# all ou's that has this information. For those ou's that does
-# not have any information, default values are used
-def create_ou(ou_file,fs_file,root,default_xml):
-    global_data = []
-    global_data2 = []
-    fs_handle = open(fs_file,"r")
-    ou_handle = open(ou_file,"r")
-    i = 0
-    
-    for temp in fs_handle:
-        if (temp[0] != "#"):
-            INSTITUSJONSNR,FAKNR,INSTITUTTNR,GRUPPENR,STEDAKRONYM,STEDNAVN_BOKMAL,ORGNIVAKODE,INSTITUSJONSNR_ORG_UNDER,FAKNR_ORG_UNDER,INSTITUTTNR_ORG_UNDER,GRUPPENR_ORG_UNDER,ADRLIN1,ADRLIN2,POSTNR,ADRLIN3,ADRESSELAND,STEDKORTNAVN,STEDNAVN_NYNORSK,STEDNAVN_ENGELSK,TELEFONLANDNR,TELEFONRETNNR,TELEFONNR,FAXNR,INSTITUSJONSNR_ERSTATTES_AV,FAKNR_ERSTATTES_AV,INSTITUTTNR_ERSTATTES_AV,GRUPPENR_ERSTATTES_AV,DATO_AKTIV_FRA,DATO_AKTIV_TIL,NSD_AVDKODE,EIERTYPEKODE,ADRLIN1_BESOK,ADRLIN2_BESOK,POSTNR_BESOK,ADRLIN3_BESOK,ADRESSELAND_BESOK,EMAILADRESSE,KODEVERDITYPE,NSDINSTKODE,INSTTYPEKODE,UTRSTEDKODE,LANDNR,TELEFONLANDNR_FAX,TELEFONRETNNR_FAX,TELEFONNR_FAX,INSTITUSJONSNR_GEOGR,FAKNR_GEOGR,INSTITUTTNR_GEOGR,GRUPPENR_GEOGR,BIBSYSBESTSTEDKODE,ORGNR,URL,TELEFONLANDNR_2,TELEFONRETNNR_2,TELEFONNR_2,MERKNADTEKST = temp.split(",",55)
-            temp_inst_nr = "%02d%02d%02d" % (int(FAKNR),int(INSTITUTTNR),int(GRUPPENR))
-            
-            fs_data.append({})
-            fs_data[i]['temp_inst_nr'] = temp_inst_nr
-            fs_data[i]['fakultetnr'] = FAKNR
-            fs_data[i]['instituttnr'] = INSTITUTTNR
-            fs_data[i]['gruppenr'] = GRUPPENR
-            fs_data[i]['stednavn'] = STEDNAVN_BOKMAL
-            fs_data[i]['forkstednavn'] = forkstednavn
-            fs_data[i]['akronym'] = STEDAKRONYM
-            fs_data[i]['stedkortnavn_bokmal'] = STEDKORTNAVN
-            fs_data[i]['stedkortnavn_nynorsk'] = stedkortnavn_nynorsk
-            fs_data[i]['stedkortnavn_engelsk'] = stedkortnavn_engelsk
-            fs_data[i]['stedlangnavn_bokmal'] = stedlangnavn_bokmal
-            fs_data[i]['stedlangnavn_nynorsk'] = stedlangnavn_nynorsk
-            fs_data[i]['stedlangnavn_engelsk'] = stedlangnavn_engelsk
-            fs_data[i]['fakultetnr_for_org_sted'] = FAKNR_ORG_UNDER
-            fs_data[i]['instituttnr_for_org_sted'] = INSTITUTTNR_ORG_UNDER
-            fs_data[i]['gruppenr_for_org_sted'] = GRUPPENR_ORG_UNDER
-            fs_data[i]['opprettetmerke_for_oppf_i_kat'] = opprettetmerke_for_oppf_i_kat
-            fs_data[i]['telefonnr'] = TELEFONNR
-            fs_data[i]['innvalgnr'] = innvalgnr
-            fs_data[i]['linjenr'] = linjenr
-            fs_data[i]['stedpostboks'] = stedpostboks
+class get_ou_info:
+    def __init__(self):
+        user="fsbas"
+        service="fsprod"
+        db = Database.connect(user=user,service=service,DB_driver='Oracle')
+        self.fs = FS(db)
+        self.fs_data= []
 
-            fs_data[i]['adrtypekode_besok_adr'] = adrtypekode_besok_adr
-            fs_data[i]['adresselinje1_besok_adr'] = ADRLIN1
-            fs_data[i]['adresselinje2_besok_adr'] = ADRLIN2
-            if(POSTNR.isdigit()):
-                fs_data[i]['poststednr_besok_adr'] = POSTNR
-            else:
-                fs_data[i]['poststednr_besok_adr'] = poststednr_besok_adr
-            fs_data[i]['poststednavn_besok_adr'] = poststednavn_besok_adr
-            fs_data[i]['landnavn_besok_adr'] = ADRESSELAND
-            
-            fs_data[i]['adrtypekode_intern_adr'] = adrtypekode_intern_adr
-            fs_data[i]['adresselinje1_intern_adr'] = adresselinje1_intern_adr
-            fs_data[i]['adresselinje2_intern_adr'] = adresselinje2_intern_adr
-            fs_data[i]['poststednr_inter_adr'] = poststednr_intern_adr
-            fs_data[i]['poststednavn_intern_adr'] = poststednavn_intern_adr
-            fs_data[i]['landnavn_intern_adr'] = ADRESSELAND
 
-            fs_data[i]['adrtypekode_alternativ_adr'] = adrtypekode_alternativ_adr
-            fs_data[i]['adresselinje1_alternativ_adr'] = ADRLIN1_BESOK
-            fs_data[i]['adresselinje2_alternativ_adr'] = ADRLIN2_BESOK
-            if(POSTNR_BESOK.isdigit()):
-                fs_data[i]['poststednr_alternativ_adr'] = POSTNR_BESOK
-            else:
-                fs_data[i]['poststednr_alternativ_adr'] = poststednr_alternativ_adr
-            fs_data[i]['poststednavn_alternativ_adr'] = poststednavn_alternativ_adr
-            fs_data[i]['landnavn_alternativ_adr'] = ADRESSELAND_BESOK
-            #print "### %s = %s" % (i,fs_data[i]['temp_inst_nr'])
-            # special case for including the uit institution
+    def get_fs_ou(self,ou_file,root,default_xml):
+        ouer = self.fs.ou.GetAktiveOUer(institusjonsnr=186)
+        global poststednr_alternativ_adr
+        global poststednr_besok_adr
+        global adresselinje1_alternativ_adr
+        global_data =[]
+        global_data2=[]
+        ou_handle = open(ou_file,"r")
+        counter =0
+        for i in ouer:
+            temp_inst_nr = "%02d%02d%02d" % (i['faknr'],i['instituttnr'],i['gruppenr'])
+            for key in i.keys():
+                if i[key]==None:
+                    i[key]=""
+                else:
+                    i[key]=str(i[key])
+            postnr = "%s" % i['postnr']
+            postnr_besok = "%s" % i['postnr_besok']
+            
+            if(postnr.isdigit()):
+                poststednr_besok_adr = postnr
+
+            if(postnr_besok.isdigit()):
+                print "CHECK=%s" % postnr_besok
+                poststednr_alternativ_adr = postnr_besok
+
+            self.fs_data.append({'temp_inst_nr' : temp_inst_nr,
+                                 'fakultetnr' : i['faknr'],
+                                 'instituttnr' : i['instituttnr'],
+                                 'gruppenr' : i['gruppenr'],
+                                 'stednavn' : i['stednavn_bokmal'],
+                                 'forkstednavn' : i['stedkortnavn'],
+                                 'akronym' : i['stedakronym'],
+                                 'stedkortnavn_bokmal' : i['stedkortnavn'],
+                                 'stedkortnavn_nynorsk' : stedkortnavn_nynorsk,
+                                 'stedkortnavn_engelsk' : stedkortnavn_engelsk,
+                                 'stedlangnavn_bokmal': stedlangnavn_bokmal,
+                                 'stedlangnavn_nynorsk': stedlangnavn_nynorsk,
+                                 'stedlangnavn_engelsk' : stedlangnavn_engelsk,
+                                 'fakultetnr_for_org_sted' : i['faknr_org_under'],
+                                 'instituttnr_for_org_sted': i['instituttnr_org_under'],
+                                 'gruppenr_for_org_sted' : i['gruppenr_org_under'],
+                                 'opprettetmerke_for_oppf_i_kat' : 'X',# i['opprettetmerke_for_oppf_i_kat'],
+                                 'telefonnr' : i['telefonnr'],
+                                 'innvalgnr' : innvalgnr, #i['innvalgnr'],
+                                 'linjenr' : linjenr,#i['linjenr'],
+                                 'stedpostboks' : stedpostboks,
+                                 'adrtypekode_besok_adr': adrtypekode_besok_adr,
+                                 'adresselinje1_besok_adr' :i['adrlin1'],
+                                 'adresselinje2_besok_adr': i['adrlin2'],
+                                 'poststednr_besok_adr' : poststednr_besok_adr,
+                                 'poststednavn_besok_adr' : poststednavn_besok_adr,
+                                 'landnavn_besok_adr' : landnavn_besok_adr,
+                                 'adrtypekode_intern_adr': adrtypekode_intern_adr,
+                                 'adresselinje1_intern_adr' : adresselinje1_intern_adr,
+                                 'adresselinje2_intern_adr': adresselinje2_intern_adr,
+                                 'poststednr_inter_adr': poststednr_intern_adr,
+                                 'poststednavn_intern_adr': poststednavn_intern_adr,
+                                 'landnavn_intern_adr': i['adresseland'],
+                                 'adrtypekode_alternativ_adr' : adrtypekode_alternativ_adr,
+                                 'adresselinje1_alternativ_adr': i['adrlin1_besok'],
+                                 'adresselinje2_alternativ_adr': i['adrlin2_besok'],
+                                 'poststednr_alternativ_adr': poststednr_alternativ_adr,
+                                 'poststednavn_alternativ_adr' : poststednavn_alternativ_adr,
+                                 'landnavn_alternativ_adr': i['adresseland_besok']
+                                 })
+            
+        
+        
             if(root ==1):
-                if(int (fs_data[i]['temp_inst_nr']) == 000000):
+                if(int (self.fs_data[counter]['temp_inst_nr']) == 000000):
                     #print "INSERT ROOT OU"
-                    fs_data[i]['display_name'] = 'Universitetet i tromsø'
-                    global_data2 = fs_data[i].copy()
+                    self.fs_data[counter]['display_name'] = 'Universitetet i tromsø'
+                    global_data2 = self.fs_data[counter].copy()
                     del global_data2['temp_inst_nr']
                     global_data.append(global_data2)
-                    
-                    #create_xml_fsd(fs_data[i])
-            i+=1
-            
-    num_elements = i-1
+                
 
-    #i+=1
-    # now we must read the authoritative uo file. IF ou exists in fs file
-    # then use stored info, if not, use default info.
+            counter+=1
+        
+        num_elements = counter-1
 
-    test_value_1 = 0
-    test_value_2 = 0
-    for temp in ou_handle:
-        if((temp[0] !='\n') and (temp[0] != '#')):
-            INST_NR,SOURCE,STEDNAVN,GRUPPE,DISPLAY = temp.split(",") # TODO. MUST SEND EITHER SOURCE,STEDNAVN OR GRUPPE BASED ON OU TYPE
-            DISPLAY = DISPLAY.rstrip("\n").capitalize()
-            DISPLAY= DISPLAY.rstrip("\t")
-            #print "Processing line = %s %s %s '%s'" % (INST_NR,SOURCE,STEDNAVN,DISPLAY)
-            # lets fix the display string. Remove trailing newline and set the right character capitalization
+        #i+=1
+        # now we must read the authoritative uo file. IF ou exists in fs file
+        # then use stored info, if not, use default info.
 
-            if(1 == remove_surp_ou(INST_NR)):
-                match = 0
-                i=0
-                while(i<=num_elements):
-                    #print "%s = %s" % (fs_data[i]['temp_inst_nr'],INST_NR) 
-                    if(int(fs_data[i]['temp_inst_nr']) == int(INST_NR)):
-                        #print "MATCH on %s" % INST_NR
-                        match = 1
-                        test_value_1 += 1
-                        # For all ou in both files, use stored ou info
-                        #fs_data2 = fs_data
-                        global_data.append(create_xml_fsd(fs_data[i],DISPLAY))
-                                
-                    i+=1
+        test_value_1 = 0
+        test_value_2 = 0
+        for temp in ou_handle:
+            if((temp[0] !='\n') and (temp[0] != '#')):
+                INST_NR,SOURCE,STEDNAVN,GRUPPE,DISPLAY = temp.split(",") # TODO. MUST SEND EITHER SOURCE,STEDNAVN OR GRUPPE BASED ON OU TYPE
+                DISPLAY = DISPLAY.rstrip("\n").capitalize()
+                DISPLAY= DISPLAY.rstrip("\t")
+                #print "Processing line = %s %s %s '%s'" % (INST_NR,SOURCE,STEDNAVN,DISPLAY)
+                # lets fix the display string. Remove trailing newline and set the right character capitalization
+
+                if(1 == remove_surp_ou(INST_NR)):
+                    match = 0
+                    i=0
+                    while(i<=num_elements):
+                        #print "%s = %s" % (fs_data[i]['temp_inst_nr'],INST_NR) 
+                        if(int(self.fs_data[i]['temp_inst_nr']) == int(INST_NR)):
+                            #print "MATCH on %s" % INST_NR
+                            match = 1
+                            test_value_1 += 1
+                            # For all ou in both files, use stored ou info
+                            #fs_data2 = fs_data
+                            global_data.append(create_xml_fsd(self.fs_data[i],DISPLAY))
+                        i+=1
 
                 if(match == 0):
                     #print "DEBUG: match=0, ou does not exist in FS."
@@ -441,21 +454,23 @@ def create_ou(ou_file,fs_file,root,default_xml):
                     ou_description = get_ou_name(INST_NR,STEDNAVN,SOURCE,GRUPPE)
                     global_data.append(create_xml_nd(INST_NR,ou_description,DISPLAY))
                 match = 0
-    #print "number of old OU's = %s AND number of new OU's = %s" % (test_value_1,test_value_2)
+        #priant "number of old OU's = %s AND number of new OU's = %s" % (test_value_1,test_value_2)
                 
-    #print "GD = %s" % global_data
-    man_ou_handle = FSImport()
-    #man_ou_handle.readConfig("/cerebrum/lib/python2.3/site-packages/Cerebrum/modules/no/uit/uit_txt2xml_config.xml")
-    bar = {'name' : 'data', 'attr' : 'None'}
-    foo = []
-    for sted_dict in global_data:
-        #print "forkstednavn = %s " %sted_dict['forkstednavn']
-        foo.append({'name': 'sted', 'child': 'None', 'attr' : sted_dict})
+        #print "GD = %s" % global_data
+        man_ou_handle = FSImport()
+        #man_ou_handle.readConfig("/cerebrum/lib/python2.3/site-packages/Cerebrum/modules/no/uit/uit_txt2xml_config.xml")
+        bar = {'name' : 'data', 'attr' : 'None'}
+        foo = []
 
-    bar['child'] = foo
-    
-    man_ou_handle.writeXML("kenny", bar,default_xml)
+        for sted_dict in global_data:
+            print "%s,%s,%s:forkstednavn = %s " %(sted_dict['fakultetnr'],sted_dict['instituttnr'],sted_dict['gruppenr'],sted_dict['forkstednavn'])
+            foo.append({'name': 'sted', 'child': 'None', 'attr' : sted_dict})
 
+        bar['child'] = foo
+        print "bar=%s" % bar
+        man_ou_handle.writeXML("kenny", bar,default_xml)
+
+        
 
 # THIS function returns the correct name for the ou given.
 # A faculty will use the STEDNAVN name
@@ -496,20 +511,18 @@ def remove_surp_ou(INST_NR):
 
         
 def main():
-    #print "syspath = %s" % sys.path
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'f:o:root:d:O:',['fs_source=','ou_source=','dummy=','Out_file='])
-
+        opts,args = getopt.getopt(sys.argv[1:],'rf:o:d:O:l:',['root=','fs_source=','ou_source=','dummy=','Out_file=','logger-target'])
     except getopt.GetoptError:
         usage()
-    fs_run = 0
     ou_run = 0
     dummy_run = 0
     root = 0
+    logger_name = 'cronjob'
     for opt,val in opts:
-        if opt in ('-f','--fs_source'):
-            fs_run =1
-            fs_file = val
+#        if opt in ('-f','--fs_source'):
+#            fs_run =1
+#            fs_file = val
         if opt in ('-o','--ou_source'):
             ou_run=1
             ou_file = val
@@ -520,18 +533,24 @@ def main():
             dummy_val = val
         if opt in ('-O','-Out_file'):
             default_xml = val
-    if(fs_run == 1 and ou_run == 1):
-        create_ou(ou_file,fs_file,root,default_xml)
+        if opt in ('-l','-logger-name'):
+            logger_name = val
+
+    #if(fs_run == 1 and ou_run == 1):
+    if (ou_run == 1):
+        ou = get_ou_info()
+        ou.get_fs_ou(ou_file,root,default_xml)
     elif(dummy_run ==1):
         create_dummy(dummy_val)
     else:
         usage()
 
 def usage():
-    print """Usage: python generate_OU.py -f fs_file | -o ou_source | -r
+    print """Usage: python generate_OU.py -f fs_file | -o ou_source | -r | -O result_xml
     -f | --fs_source - fs data source file
     -o | --ou_source - ou source file. list over all ou's to include in cerebrum
-    -r | --root - indicates that we are to create the root node"""
+    -r | --root - indicates that we are to create the root node
+    -O | --Out_file - indicates file to write result xml."""
     sys.exit(0)
 
 if __name__ == '__main__':
