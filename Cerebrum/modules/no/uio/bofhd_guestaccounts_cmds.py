@@ -280,11 +280,7 @@ class BofhdExtension(object):
                 owner_group = self.util.get_target(owner_id)
                 self.ba.can_release_guests(operator.get_entity_id(),
                                            owner_group.group_name)
-                # HACK! We can't give operator_id to release_guest
-                # (actually aruser) so we use cerebrum's id instead.
-                # This is OK since we check can_release_guest first.                
-                op_id = self.util.get_target("cerebrum").entity_id
-                self.bgu.release_guest(guest, op_id)
+                self.bgu.release_guest(guest, operator.get_entity_id())
             except Errors.NotFoundError:
                 raise CerebrumError("Could not find guest user with name %s" % guest)
             except PermissionDenied:
