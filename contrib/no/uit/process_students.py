@@ -332,15 +332,21 @@ class AccountUtil(object):
     _handle_user_changes=staticmethod(_handle_user_changes)
 
     def _update_group_memberships(account_id, profile):
+        global fisk
+        fisk = account_id
         changes = []       # Changes is only used for debug output
         already_member = {}
         today = str(datetime.date.today())
-
-        if(accounts[account_id].get_expire_date().date < today):
-            expired=1
-            print "account is expired"
-        else:
-            expired=0
+        try:
+            if(accounts[account_id].get_expire_date().date < today):
+                expired=1
+                logger.debug("account %s is expired" % account_id)
+            else:
+                expired=0
+        except AttributeError, m:
+            # we are working on a yet-to-be account. no account object has been
+            # created. set expire to 0;
+            expired =0
             
         for group_id in accounts[account_id].get_groups():
             already_member[group_id] = True
