@@ -22,7 +22,7 @@
 import hotshot, hotshot.stats
 proffile  = 'hotshot.prof'
 import getopt
-import datetime  
+import datetime
 import sys
 import os
 import pickle
@@ -99,6 +99,7 @@ class AccountUtil(object):
 
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
+        print "creating new user for fnr=%s" % fnr
         assert not dryrun
         today = datetime.datetime.now()
         logger.info2("CREATE")
@@ -146,7 +147,7 @@ class AccountUtil(object):
         # Need to set initial quarantine.
         # setting todays date at start date.
         quarantine_date = "%s" % today.date()
-        print "quarantine date =%s" % quarantine_date
+        logger.debug("quarantine date =%s" % quarantine_date)
         account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
         #sys.exit(1) # <- for debuging purposes. remove this once quarantene settings on new accounts has been verified.
         logger.debug("new Account, write_db=%s" % tmp)
@@ -202,10 +203,10 @@ class AccountUtil(object):
                         #print "has employee affiliation. do not update primary email"
                         #print "affiliation=%s,create_date=%s,delete_date=%s" % (i.affiliation,i.create_date,i.deleted_date)
                 if update_primary_email==False:
-                    print "adding student email"
+                    logger.debug("adding student email")
                     em.process_mail(account_obj.entity_id,"no_primary_update",student_email)
                 else:
-                    print "has no employee affiliation. update primary email"
+                    logger.debug("has no employee affiliation. update primary email")
                     em.process_mail(account_obj.entity_id,"defaultmail",student_email)
 
                 logger.debug("UIT: process mailaddr update!")
@@ -236,8 +237,13 @@ class AccountUtil(object):
         remove_idx = 1     # Do not remove last account affiliation
         account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
                        if aff == const.affiliation_student]
+        is_student = 0
         for aff, ou, status in persons[fnr].get_affiliations():
-            assert aff == const.affiliation_student
+            if(aff == const.affiliation_student):
+                is_student =1
+        assert is_student == 1
+        for aff, ou, status in persons[fnr].get_affiliations():
+            #assert aff == const.affiliation_student
             if not ou in account_ous:
                 changes.append(('set_ac_type', (ou, const.affiliation_student)))
             else:
@@ -328,19 +334,27 @@ class AccountUtil(object):
     def _update_group_memberships(account_id, profile):
         changes = []       # Changes is only used for debug output
         already_member = {}
+        today = str(datetime.date.today())
+
+        if(accounts[account_id].get_expire_date().date < today):
+            expired=1
+            print "account is expired"
+        else:
+            expired=0
+            
         for group_id in accounts[account_id].get_groups():
             already_member[group_id] = True
-
         logger.debug("%i already in %s" % (account_id, repr(already_member)))
         for g in profile.get_grupper():
-            if not already_member.has_key(g):
+            if((not already_member.has_key(g)) and(not expired)):
                 group_obj.clear()
                 group_obj.find(g)
                 group_obj.add_member(account_id, const.entity_account,
                                  const.group_memberop_union)
                 changes.append(("g_add", group_obj.group_name))
             else:
-                del already_member[g]
+                if(not expired):
+                    del already_member[g]
         if remove_groupmembers:
             for g in already_member.keys():
                 if autostud.pc.group_defs.get(g, {}).get('auto', None) == 'auto':
@@ -906,7 +920,7 @@ def get_existing_accounts():
 
     for row in person_obj.list_affiliations(
         source_system=const.system_fs,
-        affiliation=const.affiliation_student,
+        affiliation=(const.affiliation_student,const.affiliation_tilknyttet),
         fetchall=False):
         tmp = pid2fnr.get(int(row['person_id']), None)
         if tmp is not None:
