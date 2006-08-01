@@ -53,7 +53,7 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataOU, DataAddress
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
-from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU
+from Cerebrum.modules.xmlutils.xml2object import DataEmployment
 from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
 
 INSTITUSJON = 185
@@ -521,6 +521,14 @@ def output_xml(output_file, sysname, personfile, oufile):
 # end output_xml
 
 
+def usage(exitcode=0):
+    print """Usage: generate_frida_export.py [options]
+    -o, --output-file: 
+    -s, --source-spec: 
+    """
+    sys.exit(str(val))
+# end usage    
+
 
 def main():
     global logger
@@ -533,11 +541,9 @@ def main():
                                                "source-spec=",])
     except getopt.GetoptError, val:
         usage(1)
-        sys.exit(str(val))
     # yrt
 
     output_file = "frida.xml"
-    sources = list()
 
     for option, value in options:
         if option in ("-o", "--output-file"):
