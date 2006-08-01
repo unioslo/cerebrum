@@ -103,9 +103,8 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     smtp.quit()
 
 
-def mail_template(recipient, template_file, sender=None,
-                  substitute={}, charset='iso-8859-1',
-                  debug=False):
+def mail_template(recipient, template_file, sender=None, cc=None,
+                  substitute={}, charset='iso-8859-1', debug=False):
     """Read template from file, perform substitutions based on the
     dict, and send e-mail to recipient.  The recipient and sender
     e-mail address will be used as the defaults for the To and From
@@ -154,13 +153,19 @@ def mail_template(recipient, template_file, sender=None,
     msg['From'] = Header(preset_fields['from'])
     msg['To'] = Header(preset_fields['to'])
     msg['Subject'] = Header(preset_fields['subject'], charset)
+    # recipients in smtp.sendmail should be a list of RFC 822
+    # to-address strings
+    to_addrs = [recipient]
+    if cc:
+        to_addrs.extend(cc)
+        msg['Cc'] = ', '.join(cc)
 
     if debug:
         return msg.as_string()
 
     smtp = smtplib.SMTP(cereconf.SMTP_HOST)
     smtp.sendmail(sender or getaddresses([preset_fields['from']])[0][1],
-                  recipient, msg.as_string())
+                  to_addrs, msg.as_string())
     smtp.quit()
 
 
