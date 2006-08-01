@@ -289,7 +289,7 @@ def write_ldif():
                     passwd = "*invalid"
                 f.write("userPassword: {crypt}%s\n" % passwd)
             else:
-                txt = "No auth-data for user: %s\n" % ei
+                txt = "No auth-data for user: %s\n" % (target or ei)
                 sys.stderr.write(txt)
 
         misc = ldap.get_misc(ei, t, tt)
