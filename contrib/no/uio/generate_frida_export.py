@@ -526,7 +526,7 @@ def usage(exitcode=0):
     -o, --output-file: 
     -s, --source-spec: 
     """
-    sys.exit(str(val))
+    sys.exit(exitcode)
 # end usage    
 
 
