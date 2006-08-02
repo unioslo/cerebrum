@@ -197,7 +197,15 @@ class export_new:
             # does not have no_birthno. Try systemX id
             pnrs = self.person.get_external_id(id_type=self.co.externalid_sys_x_id)
             if (len(pnrs)>0):
-                pnr = pnrs[0]['external_id']
+                # the resulting pnr must be 11 digits long. In the case of system-X persons
+                # the pnr is a combination of birth date and cerebrums internal id
+                # the internal ID in cerebrum does not neccesarry have 5 digits so the
+                # next line padds the internal ID with trailing zeros to generate a 5 digit number.
+                # The resulting ssn is then 11 digits long.
+                pnr_len = len(pnrs[0]['external_id'])
+                missing_pnr_len = 5 - pnr_len
+                trailing_zeros = string.zfill("",missing_pnr_len)
+                pnr="%s%s" % (pnrs[0]['external_id'],trailing_zeros)
             else:
                 self.logger.error("ERROR RETRIVING external_id for %s" % (acc_id))
                 sys.exit(1)
@@ -302,8 +310,7 @@ def main():
         x.build_sut_exportdata(ents,sut_file)
         
 def usage():
-    print """This program reads a stillingskode file and inserts the data
-    into the person_stillingskode table in cerebrum
+    print """This program creates data for export to sut.
 
     Usage: [options]
     -s | --sut-file : stillingskode file
