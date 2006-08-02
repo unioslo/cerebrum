@@ -265,11 +265,20 @@ class execute:
 
         if((national_id !='NO') and (aproved=='Yes')):
             try:
-                self.person.find_by_external_id(self.constants.externalid_sys_x_id,id,self.constants.system_x,self.constants.entity_person)
+                # some foreign people may have temporary norwegian ssn. If that is the case, store this ssn in external_id
+                self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
             except Errors.NotFoundError:
-                self.logger.error("Foreign person(db_id=%s) with national id:%s does not exist in cerebrum. unable to check for account" % (id,national_id))
+                self.logger.error("Foreign person with norwegian ssn = %s does not exist in Cerebrum. unable to check for account" % personnr)
                 return 1,bruker_epost
+            else:
+                # This foreign person does not have a norwegian ssn. use an internal ID as external_id in cerebrum.
+                try:
+                    self.person.find_by_external_id(self.constants.externalid_sys_x_id,id,self.constants.system_x,self.constants.entity_person)
+                except Errors.NotFoundError:
+                    self.logger.error("Foreign person(db_id=%s) with national id:%s does not exist in cerebrum. unable to check for account" % (id,national_id))
+                    return 1,bruker_epost
         else:
+            # A norwegian person is being processed. Use the ssn as external_id in cerebrum.
             try:
                 self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
             except Errors.NotFoundError:
@@ -346,6 +355,7 @@ class execute:
                 #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
                 if(national_id !='NO'):
                     posix_user.set_password(posix_user.make_passwd(username))
+                    self.verify_foreign(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost)
                 else:
                     posix_user.set_password(personnr)
                 posix_user.write_db()
@@ -445,6 +455,35 @@ ekstern epost: %s
         if sts != None:
             self.logger.error("Sendmail exit status: %s for send_ad_email" % sts)
 
+
+    def verify_foreign(self,personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost):
+
+        verify_message="""Følgende data om en utenlandsk person er motatt i system-X. Personen må godkjennes.
+
+Personnr: %s
+Fornavn: %s
+Etternavn: %s
+ou: %s
+Tilknytning: %s
+Tilknytnings type: %s
+utløps dato: %s
+skal eksporteres til disse ende systemene: %s
+Hjemmel: %s
+kontakt info: %s
+Ekstern epost: %s
+Ansvarlig epost: %s
+
+""" % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
+        SENDMAIL="/usr/sbin/sendmail"
+        p=os.popen("%s -t" % SENDMAIL, "w")
+        p.write("From: bas-admin@cc.uit.no\n")
+        p.write("To: sys-x-admin@cc.uit.no\n")
+        p.write("subject: Registrering av utenlandsk bruker\n")
+        p.write("\n")
+        p.write("%s" % verify_message)
+        sts = p.close()
+        if sts != None:
+            self.logger.error("Sendmail exit status: %s for confirm registration" % sts)
 
     def confirm_registration(self,personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost):
         confirm_message="""
