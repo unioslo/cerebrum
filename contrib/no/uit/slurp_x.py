@@ -268,15 +268,17 @@ class execute:
                 # some foreign people may have temporary norwegian ssn. If that is the case, store this ssn in external_id
                 self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
             except Errors.NotFoundError:
-                self.logger.error("Foreign person with norwegian ssn = %s does not exist in Cerebrum. unable to check for account" % personnr)
-                return 1,bruker_epost
-            else:
                 # This foreign person does not have a norwegian ssn. use an internal ID as external_id in cerebrum.
-                try:
-                    self.person.find_by_external_id(self.constants.externalid_sys_x_id,id,self.constants.system_x,self.constants.entity_person)
-                except Errors.NotFoundError:
-                    self.logger.error("Foreign person(db_id=%s) with national id:%s does not exist in cerebrum. unable to check for account" % (id,national_id))
-                    return 1,bruker_epost
+                self.person.find_by_external_id(self.constants.externalid_sys_x_id,id,self.constants.system_x,self.constants.entity_person)
+                #self.logger.error("Foreign person with norwegian ssn = %s does not exist in Cerebrum. unable to check for account" % personnr)
+                #return 1,bruker_epost
+            except Errors.NotFoundError:
+
+                #try:
+                self.logger("foreign person does not have a temporary norwegian ssn, neither does it have a sys-x id. Account NOT created.")
+                #except Errors.NotFoundError:
+                #self.logger.error("Foreign person(db_id=%s) with national id:%s does not exist in cerebrum. unable to check for account" % (id,national_id))
+                return 1,bruker_epost
         else:
             # A norwegian person is being processed. Use the ssn as external_id in cerebrum.
             try:
