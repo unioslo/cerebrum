@@ -29,7 +29,7 @@ def main():
         for user in posix_user_list:
             posix_user.clear()
             posix_user.find(user[0])
-            file_handle.writelines("%s:s%s\n" % (posix_user.account_name,user[1]))
+            file_handle.writelines("%s:%s\n" % (posix_user.account_name,user[1]))
         file_handle.close()
     else:
         usage()
