@@ -396,6 +396,23 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         self._auth_info = {}
         self._acc_affect_auth_types = []
 
+    def delete(self):
+        if self.__in_db:
+            # Delete all authentication data
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=account_authentication]
+            WHERE account_id=:acc_id""", {'acc_id' : self.entity_id})
+            # Remove name of account from the account namespace.
+            self.delete_entity_name(self.const.account_namespace)
+            # Remove entry in table `account_info'.
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=account_info]
+            WHERE account_id=:a_id""", {'a_id': self.entity_id})
+            self._db.log_change(self.entity_id, self.const.account_destroy, None)
+        # Class Account is a core class; when its delete() method is
+        # called, the underlying Entity object is also removed.
+        self.__super.delete()
+
     def __eq__(self, other):
         assert isinstance(other, Account)
 
