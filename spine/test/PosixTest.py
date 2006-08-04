@@ -45,7 +45,7 @@ class PosixTest(unittest.TestCase):
         name = 'unittest_gr%s' % id(self)
         group = tr.get_commands().create_group(name)
         return group, name
-    
+
     def __create_account(self, tr):
         owner = self.__create_person(tr)
         date = tr.get_commands().get_date_none()
@@ -76,7 +76,7 @@ class PosixTest(unittest.TestCase):
         assert name == group.get_name()
         assert group.is_posix() == False
         group.promote_posix()
-        assert group.get_posix_gid() != None
+        assert group.get_posix_gid() != -1
         assert group.is_posix() == True
     
         tr.rollback()
@@ -114,6 +114,30 @@ class PosixTest(unittest.TestCase):
         assert account.is_posix() == True
     
         tr.rollback()
+
+    def testPromoteGroupTwoStep(self):
+        groupname = "twoStepTest"
+        tr = self.session.new_transaction()
+        try:
+            tr1 = self.session.new_transaction()
+            g = tr1.get_commands().get_group_by_name(groupname)
+            g.demote_posix(groupname)
+            g.delete()
+            tr1.commit()
+        except Spine.Errors.NotFoundError:
+            pass
+        
+        group = tr.get_commands().create_group(groupname)
+        assert group.is_posix() == False
+        group.promote_posix()
+        tr.commit()
+        tr = self.session.new_transaction()
+        group = tr.get_commands().get_group_by_name(groupname)
+        assert group.get_posix_gid() != -1
+        assert group.is_posix() == True
+        group.demote_posix()
+        group.delete()
+        tr.commit()
 
     def testDemoteAccount(self):
         tr = self.session.new_transaction()
