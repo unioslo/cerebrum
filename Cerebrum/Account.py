@@ -568,10 +568,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         newvalues = {}
         for key in self.__updated:
             # "password" is not handled by mark_update, so getattr
-            # won't work.
+            # won't work.  _auth_info and _acc_affect_auth_types
+            # should not be logged.
+            # TBD: Why are they in __updated?
             if key == 'np_type':
                 newvalues[key] = int(getattr(self, key))                
-            elif key != 'password':
+            elif key not in ['_auth_info', '_acc_affect_auth_types', 'password']:
                 newvalues[key] = getattr(self, key)
                 
         # mark_update will not change the value if the new value is
