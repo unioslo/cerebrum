@@ -21,6 +21,9 @@
 category:drop;
 drop TABLE note;
 
+category:drop;
+drop SEQUENCE note_seq;
+
 category:code;
 CREATE SEQUENCE note_seq;
 
