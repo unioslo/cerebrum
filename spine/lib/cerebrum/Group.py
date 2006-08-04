@@ -22,6 +22,7 @@ from Cerebrum.Utils import Factory
 from SpineLib.Builder import Method, Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.Date import Date
+from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
@@ -78,13 +79,24 @@ def create(self, name):
 Commands.register_method(Method('create_group', Group, args=[('name', str)], write=True), create)
 
 def get_group_by_name(self, name):
+    """
+    Get a group by name.
+    \\param name The name of the group to get.
+    \\return The Group object with the given name.
+    """
+
     db = self.get_database()
+
     s = registry.EntityNameSearcher(db)
     s.set_value_domain(registry.ValueDomain(db, name='group_names'))
     s.set_name(name)
 
-    group, = s.search()
-    return group.get_entity()
+    groups = s.search()
+    if len(groups) == 0:
+        raise NotFoundError('There are no groups with the name %s' % name)
+    elif len(groups) > 1:
+        raise TooManyMatchesError('There are several groups with the name %s' % name)
+    return groups[0].get_entity()
 
 Commands.register_method(Method('get_group_by_name', Group, args=[('name', str)]), get_group_by_name)
 
