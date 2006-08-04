@@ -30,14 +30,14 @@ export PYTHONPATH
 cd $SRCDIR
 
 chmod u+x ./contrib/no/uio/import_OU.py 
-chmod u+x ./contrib/no/uio/import_LT.py ./contrib/no/uio/import_FS.py
+chmod u+x ./contrib/no/uio/import_from_LT.py ./contrib/no/uio/import_FS.py
 chmod u+x $TESTDIR/create_user.py ./contrib/generate_nismaps.py
 
 echo "***** First time import *****"
 
 ./contrib/no/uio/import_OU.py -s $TESTDIR/LT-sted.dat
 
-./contrib/no/uio/import_LT.py -p $TESTDIR/LT-persons.dat
+./contrib/no/uio/import_from_LT.py -p $TESTDIR/LT-persons.dat
 
 ./contrib/no/uio/import_FS.py -p $TESTDIR/FS-persons.dat
 
@@ -45,7 +45,7 @@ echo "***** Second time import, ie update *****"
 
 ./contrib/no/uio/import_OU.py -s $TESTDIR/LT-sted.dat
 
-./contrib/no/uio/import_LT.py -p $TESTDIR/LT-persons.dat
+./contrib/no/uio/import_from_LT.py -p $TESTDIR/LT-persons.dat
 
 ./contrib/no/uio/import_FS.py -p $TESTDIR/FS-persons.dat
 
