@@ -29,6 +29,7 @@ default_exceptions = (
     SpineExceptions.TransactionError,
     SpineExceptions.AccessDeniedError,
     SpineExceptions.ObjectDeletedError,
+    SpineExceptions.NotFoundError,
     SpineExceptions.ServerProgrammingError
 )
 
@@ -40,7 +41,7 @@ class Attribute(object):
     Attributes are used to collect metainfo about attributes which Spine
     should provide to clients and internally for Spine-classes.
 
-    After Spine-classes are build, Spine will generate get/load-methods
+    After Spine-classes are built, Spine will generate get/load-methods
     for attributes of this class, or subclass, which are listed, in a
     class or subclass of Builder, in primary and slots. Attributes which
     are writeable, will also get set/save-methods.
@@ -148,7 +149,7 @@ def get_method_signature(func):
     if func.func_code.co_varnames[0] == 'self':
         offset = 1
     signature = func.signature # need know the return data type
-    assert func.func_defaults is None # default values are uesless with corba
+    assert func.func_defaults is None # default values are useless with corba
 
     signature_args = getattr(func, 'signature_args', ())
     count = func.func_code.co_argcount # first argument is skipped (self)
