@@ -394,33 +394,26 @@ class _PersonAffStatusCode(_CerebrumCode):
     # __init__(<one of str, int or _PersonAffiliationCode>, str [, str])
     def __init__(self, affiliation, status=None, description=None):
         if status is None:
-            if isinstance(affiliation, int):
-                # Not affiliation, but the code value for this status
-                code = affiliation
-                self.int = code
-                (affiliation, self.str, self._desc) = \
-                             self.sql.query_1("""
-                             SELECT affiliation, %s, %s FROM %s
-                             WHERE %s=:status""" % (self._lookup_str_column,
-                                                    self._lookup_desc_column,
-                                                    self._lookup_table,
-                                                    self._lookup_code_column),
-                                              {'status': code})
-            else:
-                # Handle PgNumeric and similar numeric objects
-                try:
-                    if not isinstance(affiliation, str):
-                        return self.__init__(int(affiliation))
-                except ValueError:
-                    pass
+            try:
+                code = int(affiliation)
+            except ValueError:
                 raise TypeError, ("Must pass integer when initialising " +
                                   "from code value")
+
+            self.int = code
+            (affiliation, status, description) = \
+                         self.sql.query_1("""
+                         SELECT affiliation, %s, %s FROM %s
+                         WHERE %s=:status""" % (self._lookup_str_column,
+                                                self._lookup_desc_column,
+                                                self._lookup_table,
+                                                self._lookup_code_column),
+                                          {'status': code})
         if isinstance(affiliation, _PersonAffiliationCode):
             self.affiliation = affiliation
         else:
             self.affiliation = _PersonAffiliationCode(affiliation)
-        return (str(self.affiliation),
-                super(_PersonAffStatusCode, self).__init__(status, description))
+        super(_PersonAffStatusCode, self).__init__(status, description)
 
     def __int__(self):
         if self.int is None:
