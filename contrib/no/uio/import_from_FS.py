@@ -79,10 +79,6 @@ def write_person_info(outfile):
 	# The Oracle driver thinks the result of a union of ints is float
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
-    # Studenter med alumni opptak til et studieprogram
-    cols, students = _ext_cols(fs.alumni.list())
-    for s in students:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'alumni') + "\n")
 
     # Privatister, privatistopptak til studieprogram eller emne-privatist
     cols, students = _ext_cols(fs.student.list_privatist())
