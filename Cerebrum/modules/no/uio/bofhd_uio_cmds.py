@@ -4290,25 +4290,24 @@ class BofhdExtension(object):
     # person accounts
     all_commands['person_accounts'] = Command(
         ("person", "accounts"), PersonId(),
-        fs=FormatSuggestion("%6i %-10s %s", ("account_id", "name", format_day("expire")),
-                            hdr=("WARNING: This command is deprecated and will be removed.  "
-                                 "Please use 'entity accounts'\n%-9s %-18s %s") % ("Id",
-                                                                                   "Name",
-                                                                                   "Expire")))
+        fs=FormatSuggestion("%9i %-10s %s",
+                            ("account_id", "name", format_day("expire")),
+                            hdr=("%9s %-10s %s") %
+                            ("Id", "Name", "Expire")))
     def person_accounts(self, operator, id):
-        if id.find(":") == -1 and not id.isdigit():
-            ac = self._get_account(id)
-            id = "entity_id:%i" % ac.owner_id
-        person = self._get_person(*self._map_person_id(id))
+        person = self.util.get_target(id, restrict_to=['Person', 'Group'])
+        print "DEBUG2", person.entity_id
         account = self.Account_class(self.db)
         ret = []
         for r in account.list_accounts_by_owner_id(person.entity_id,
+                                                   owner_type=person.entity_type,
                                                    filter_expired=False):
             account = self._get_account(r['account_id'], idtype='id')
 
             ret.append({'account_id': r['account_id'],
                         'name': account.account_name,
                         'expire': account.expire_date})
+        ret.sort(lambda a,b: cmp(a['name'], b['name']))
         return ret
 
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
