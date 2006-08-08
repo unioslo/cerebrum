@@ -4296,7 +4296,6 @@ class BofhdExtension(object):
                             ("Id", "Name", "Expire")))
     def person_accounts(self, operator, id):
         person = self.util.get_target(id, restrict_to=['Person', 'Group'])
-        print "DEBUG2", person.entity_id
         account = self.Account_class(self.db)
         ret = []
         for r in account.list_accounts_by_owner_id(person.entity_id,
