@@ -213,13 +213,14 @@ class execute:
                 ac_tmp = Factory.get('Account')(self.db)
                 ac_tmp.find(acc)
                 ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
+                self.logger.info("found account name:%s" % ac_tmp_name)
                 if(ac_tmp_name.isalpha()):                    
                     # not a valid "employee" username. log error and continue with next
                     self.logger.error("AccountID %s=%s does not conform with AD account naming rules!" % (acc,ac_tmp_name))
                     return
                 self.update_employee_account(acc,ou_id)
             except Exception,m:
-                self.logger.error("unable to process employee account for personid=%s, accountid=%s: %s: Reason:%s" % (p_id,acc,m))
+                self.logger.error("unable to process employee account for personid:%s, accountid:%s, Reason:%s" % (p_id,acc,m))
         if (not has_account):
             # This person does not have an account.
             # create new account.
@@ -256,6 +257,7 @@ class execute:
        
     
     def update_employee_account(self,account_id,ou_id):
+        self.logger.info("updating account:%s" % account_id)
         posix_user = PosixUser.PosixUser(self.db)
         today = datetime.datetime.now()
         nextMonth = today + datetime.timedelta(days=90) 
@@ -300,6 +302,7 @@ class execute:
         # this is done by updating account-type
         # do we need to remove other account_types that this account has??
         self.logger.info("- updating account type")
+        self.logger.info("setting account_type:%s,%s,%s" % (ou_id,self.constants.affiliation_ansatt,self.employee_priority))
         posix_user.set_account_type(ou_id,
                                     self.constants.affiliation_ansatt,
                                     self.employee_priority)
