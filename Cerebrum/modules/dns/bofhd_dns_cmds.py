@@ -437,7 +437,10 @@ class BofhdExtension(object):
     def host_cname_add(self, operator, cname_name, target_name, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
-        self.mb_utils.alloc_cname(cname_name, target_name, force)
+        try:
+            self.mb_utils.alloc_cname(cname_name, target_name, force)
+        except ValueError, ve:
+            raise CerebrumError("%s" % ve)
         return "OK, cname registered for %s" % target_name
 
     # host cname_remove
