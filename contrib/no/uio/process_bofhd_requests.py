@@ -251,6 +251,8 @@ def process_requests(types):
     global max_requests
     
     operations = {
+        'quarantine':
+        [(const.bofh_quarantine_refresh, proc_quarantine_refresh, 0)],
         'delete':
         [(const.bofh_archive_user, proc_archive_user, 2*60),
          (const.bofh_delete_user, proc_delete_user, 2*60)],
@@ -507,16 +509,8 @@ def cyrus_set_quota(user_id, hq, host=None):
 
 def archive_cyrus_data(uname, mail_server, generation):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'archivemail',
-           mail_server, uname, generation]
-    cmd = ["%s" % x for x in cmd]
-    logger.debug("doing %s" % cmd)
-    errnum = EXIT_SUCCESS
-    if debug_hostlist is None or mail_server in debug_hostlist:
-        errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
-    if errnum == EXIT_SUCCESS:
-        return True
-    logger.error("%s returned %i", cmd, errnum)
-    return False
+           mail_server, uname, str(generation)]
+    return spawn_and_log_output(cmd, connect_to=[mail_server]) == EXIT_SUCCESS
 
 
 def move_email(acc, src, dest):
@@ -541,29 +535,18 @@ def move_email(acc, src, dest):
            '--useheader', 'Message-ID',
            '--regexmess', 's/\\0/ /g',
            '--ssl', '--subscribe', '--nofoldersizes']
-    errnum = EXIT_SUCCESS
-    if debug_hostlist is None or (src.name in debug_hostlist and
-                                  dest.name in debug_hostlist):
-        errnum = spawn_and_log_output(cmd)
-    if errnum == EXIT_SUCCESS:
-        logger.info('%s: imapsync completed successfully',
-                    acc.account_name)
+    if (spawn_and_log_output(cmd, connect_to=[src.name, dest.name]) ==
+        EXIT_SUCCESS):
+        logger.info('%s: imapsync completed successfully', acc.account_name)
     else:
-        logger.error('move mail failed, returned %d' % errnum)
         return False
     cmd = [cereconf.MANAGESIEVE_SCRIPT,
            '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
            acc.account_name, src.name, dest.name]
-    errnum = EXIT_SUCCESS
-    if debug_hostlist is None or (src.name in debug_hostlist and
-                                  dest.name in debug_hostlist):
-        errnum = spawn_and_log_output(cmd)
-    if errnum == EXIT_SUCCESS:
-        logger.info('%s: managesieve_sync completed successfully',
-                    acc.account_name)
-    else:
-        logger.error('move sieve failed, returned %d' % errnum)
+    if (spawn_and_log_output(cmd, connect_to=[src.name, dest.name]) !=
+        EXIT_SUCCESS):
         return False
+    logger.info('%s: managesieve_sync completed successfully', acc.account_name)
     return True
 
 
@@ -622,9 +605,12 @@ def is_ok_batch_time(now):
     return False
 
 
-def spawn_and_log_output(cmd, log_exit_status=True):
+def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     """Run command and copy stdout to logger.debug and stderr to
-    logger.error.  cmd may be a sequence.
+    logger.error.  cmd may be a sequence.  connect_to is a list of
+    servers which will be contacted.  If debug_hostlist is set and
+    does not contain these servers, the command will not be run and
+    success is always reported.
 
     Return the exit code if the process exits normally, or the
     negative signal value if the process was killed by a signal.
@@ -635,6 +621,12 @@ def spawn_and_log_output(cmd, log_exit_status=True):
     from popen2 import Popen3
     if log_exit_status:
         logger.debug('Spawning %r', cmd)
+    if debug_hostlist is not None:
+        for srv in connect_to:
+            if srv not in debug_hostlist:
+                logger.debug("Won't connect to %s, won't spawn", srv)
+                return EXIT_SUCCESS
+
     proc = Popen3(cmd, capturestderr=True, bufsize=10240)
     proc.tochild.close()
     descriptor = {proc.fromchild: logger.debug,
@@ -854,21 +846,16 @@ def move_student_callback(person_info):
                                account_id, disk, state_data=spread)
                 db.commit()
 
-def process_quarantine_refresh_requests():
+def proc_quarantine_refresh():
     """process_changes.py has added bofh_quarantine_refresh for the
     start/disable/end dates for the quarantines.  Register a
     quarantine_refresh change-log event so that changelog-based
-    quicksync script can revalidate the quarantines."""
+    quicksync script can revalidate the quarantines.
 
-    br = BofhdRequests(db, const)
-    now = mx.DateTime.now()
-    for r in br.get_requests(operation=const.bofh_quarantine_refresh):
-        if r['run_at'] > now:
-            continue
-        set_operator(r['requestee_id'])
-        db.log_change(r['entity_id'], const.quarantine_refresh, None)
-        br.delete_request(request_id=r['request_id'])
-        db.commit()
+    """
+    set_operator(r['requestee_id'])
+    db.log_change(r['entity_id'], const.quarantine_refresh, None)
+    return True
 
 
 def proc_archive_user(r):
@@ -956,18 +943,12 @@ def delete_user(uname, old_host, old_home, operator, mail_server):
     else:
         generation = 1
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
-           operator, old_home, mail_server, generation]
-    cmd = ["%s" % x for x in cmd]
-    logger.debug("doing %s" % cmd)
-    errnum = EXIT_SUCCESS
-    if debug_hostlist is None or old_host in debug_hostlist:
-        errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
-    if errnum == EXIT_SUCCESS:
-        account.populate_trait(
-            const.trait_account_generation, numval=generation)
+           operator, old_home, mail_server, str(generation)]
+    if spawn_and_log_output(cmd, connect_to=[old_host]) == EXIT_SUCCESS:
+        account.populate_trait(const.trait_account_generation,
+                               numval=generation)
         account.write_db()
         return True
-    logger.error("%s returned %i" % (cmd, errnum))
     return False
 
 
@@ -978,15 +959,8 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvuser', uname, uid, gid,
            old_disk, new_disk, spread, mailto, 0]
     cmd = ["%s" % x for x in cmd]
-    logger.debug("doing %s" % cmd)
-    errnum = EXIT_SUCCESS
-    if debug_hostlist is None or (old_host in debug_hostlist and
-                                  new_host in debug_hostlist):
-        errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
-    if errnum == EXIT_SUCCESS:
-        return True
-    logger.error("%s returned %i" % (cmd, errnum))
-    return False
+    return (spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
+            EXIT_SUCCESS)
 
 
 def set_operator(entity_id=None):
@@ -1084,7 +1058,7 @@ def main():
             max_requests = int(val)
         elif opt in ('-p', '--process'):
             if not types:
-                types = ['delete', 'move', 'email', 'mailman']
+                types = ['quarantine', 'delete', 'move', 'email', 'mailman']
             process_requests(types)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
@@ -1104,15 +1078,14 @@ def usage(exitcode=0):
     -d | --debug: turn on debugging
     -p | --process: perform the queued operations
     -t | --type type: performe queued operations of this type.  May be
-         repeated, and must be preceeded by -p
+         repeated, and must precede -p
     -m | --max val: perform up to this number of requests
 
     Legal values for --type:
       email
       mailman
       move
-      move_student
-      quarantine_refresh
+      quarantine
       delete
 
     Needed for move_student requests:
