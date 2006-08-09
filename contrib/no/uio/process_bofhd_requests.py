@@ -26,6 +26,8 @@ import os
 import re
 import mx
 import imaplib
+import errno
+import fcntl
 
 import cerebrum_path
 import cereconf
@@ -65,8 +67,57 @@ EXIT_SUCCESS = 0
 # and/or letting state_data be pickled.
 default_spread = const.spread_uio_nis_user
 
+
+class RequestLocked(Exception):
+    pass
+
+
+class RequestLockHandler(object):
+    def __init__(self, lockdir):
+        """lockdir should be a template holding exactly one %d."""
+        self.lockdir = lockdir
+        self.lockfd = None
+
+    def grab(self, reqid):
+        """Release the old lock if one is held, then grab the lock
+        corresponding to reqid.  Returns False if it fails.
+
+        """
+        if self.lockfd is not None:
+            self.release()
+            
+        self.reqid = reqid
+        try:
+            lockfile = file(self.lockdir % reqid, "w")
+        except IOError, e:
+            logger.error("Checking lock for %d failed: %s", reqid, e)
+            return False
+        try:
+            fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError, e:
+            if e.errno == errno.EAGAIN:
+                logger.debug("Skipping locked request %d", reqid)
+            else:
+                logger.error("Locking request %d failed: %s", reqid, e)
+            return False
+        self.lockfd = lockfile
+        return True
+
+    def release(self):
+        """Release and clean up lock."""
+        if self.lockfd is not None:
+            fcntl.flock(self.lockfd, fcntl.LOCK_UN)
+            # There's a potential race here (someone else can grab and
+            # release this lock before the unlink), but users of this
+            # class should remove the request from the todo list
+            # before releasing the lock.
+            os.unlink(self.lockdir % self.reqid)
+            self.lockfd = None
+
+
 class CyrusConnectError(Exception):
     pass
+
 
 def email_delivery_stopped(user):
     global ldapconns
@@ -91,12 +142,14 @@ def email_delivery_stopped(user):
             return False
     return True
 
+
 def get_email_hardquota(user_id):
     eq = Email.EmailQuota(db)
     try:
         eq.find_by_entity(user_id)
     except Errors.NotFoundError:
-        return 0	# unlimited/no quota
+        # unlimited/no quota
+        return 0
     return eq.email_quota_hard
 
 
@@ -109,6 +162,7 @@ def get_email_server(account_id):
     server = Email.EmailServer(db)
     server.find(est.email_server_id)
     return server
+
 
 def get_home(acc, spread=None):
     if not spread:
@@ -127,6 +181,7 @@ def get_home(acc, spread=None):
         return "%s/%s" % (disk.path, acc.account_name)
     else:
         return None
+
 
 def add_forward(user_id, addr):
     ef = Email.EmailForward(db)
@@ -151,6 +206,7 @@ def add_forward(user_id, addr):
             return
     ef.add_forward(addr)
     ef.write_db()
+
 
 def connect_cyrus(host=None, username=None, as_admin=True):
     """Connect to user's Cyrus and return IMAP object.  Authentication
@@ -180,6 +236,7 @@ def connect_cyrus(host=None, username=None, as_admin=True):
         raise CyrusConnectError("%s@%s: %s" % (username, host, e))
     return imapconn
 
+
 def dependency_pending(dep_id):
     if not dep_id:
         return False
@@ -189,143 +246,168 @@ def dependency_pending(dep_id):
         return True
     return False
 
-def process_email_requests():
-    global start_time
+
+def process_requests(types):
+    global max_requests
     
+    operations = {
+        'delete':
+        [(const.bofh_archive_user, proc_archive_user, 2*60),
+         (const.bofh_delete_user, proc_delete_user, 2*60)],
+        'move':
+        [(const.bofh_move_user_now, proc_move_user, 24*60),
+         (const.bofh_move_user, proc_move_user, 24*60)],
+        'email':
+        [(const.bofh_email_create, proc_email_create, 0),
+         (const.bofh_email_hquota, proc_email_hquota, 0),
+         (const.bofh_email_delete, proc_email_delete, 4*60),
+         (const.bofh_email_move, proc_email_move, 0)],
+        'mailman':
+        [(const.bofh_mailman_create, proc_mailman_create, 2*60),
+         (const.bofh_mailman_add_admin, proc_mailman_add_admin, 1*60),
+         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)]
+        }
+    """Each type (or category) of requests consists of a list of which
+    requests to process.  The tuples are operation, processing function,
+    and how long to delay the request (in minutes) if the function returns
+    False.
+
+    """
+
+    # TODO: There is no variable containing the default log directory
+    # in cereconf
+    reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
     br = BofhdRequests(db, const)
-    now = mx.DateTime.now()
-    start_time = time.time()
-    for r in br.get_requests(operation=const.bofh_email_create):
-        logger.debug("Req: email_create %d at %s",
-                     r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < now:
-            hq = get_email_hardquota(r['entity_id'])
-            servername = None
-            if r['destination_id']:
-                es = Email.EmailServer(db)
-                es.find(r['destination_id'])
-                servername = es.name
-            if (cyrus_create(r['entity_id'], host=servername) and
-                cyrus_set_quota(r['entity_id'], hq, host=servername)):
-                br.delete_request(request_id=r['request_id'])
-            else:
-                db.rollback()
-                br.delay_request(r['request_id'])
-            db.commit()
+    for t in types:
+        if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
+            # convert move_student into move_user requests
+            process_move_student_requests()
+            
+        for op, process, delay in operations[t]:
+            set_operator()
+            start_time = time.time()
+            for r in br.get_requests(operation=op):
+                reqid = r['request_id']
+                logger.debug("Req: %s %d at %s, state %r",
+                             op, reqid, r['run_at'], r['state_data'])
+                if time.time() - start_time > 30 * 60:
+                    break
+                if r['run_at'] > mx.DateTime.now():
+                    continue
+                if not is_valid_request(reqid):
+                    continue
+                if reqlock.grab(reqid):
+                    if max_requests <= 0:
+                        break
+                    max_requests -= 1
+                    if process(r):
+                        br.delete_request(request_id=reqid)
+                        db.commit()
+                    else:
+                        db.rollback()
+                        if delay:
+                            br.delay_request(reqid, minutes=delay)
+                            db.commit()
+    reqlock.release()
 
-    start_time = time.time()
-    for r in br.get_requests(operation=const.bofh_email_hquota):
-        logger.debug("Req: email_hquota %s", r['run_at'])
-        if keep_running() and r['run_at'] < now:
-            hq = get_email_hardquota(r['entity_id'])
-            if cyrus_set_quota(r['entity_id'], hq):
-                br.delete_request(request_id=r['request_id'])
-            else:
-                db.rollback()
-                br.delay_request(r['request_id'])
-            db.commit()
 
-    start_time = time.time()
-    for r in br.get_requests(operation=const.bofh_email_delete):
-        if not is_valid_request(r['request_id']):
-            continue
-        logger.debug("Req: email_delete %s", r['run_at'])
-        if keep_running() and r['run_at'] < now:
-            try:
-                uname = get_account(r['entity_id']).account_name
-            except Errors.NotFoundError:
-                logger.error("bofh_email_delete: %d: user not found",
-                             r['entity_id'])
-                br.delay_request(request_id=r['request_id'])
-                db.commit()
-                continue
+def proc_email_create(r):
+    hq = get_email_hardquota(r['entity_id'])
+    servername = None
+    if r['destination_id']:
+        es = Email.EmailServer(db)
+        es.find(r['destination_id'])
+        servername = es.name
+    return (cyrus_create(r['entity_id'], host=servername) and
+            cyrus_set_quota(r['entity_id'], hq, host=servername))
 
-            # The database contains the new host, so the id of the server
-            # to remove from is passed in destination_id.
-            server = Email.EmailServer(db)
-            try:
-                server.find(r['destination_id'])
-            except Errors.NotFoundError:
-                logger.error("bofh_email_delete: %d: target server not found",
-                             r['destination_id'])
-                br.delay_request(request_id=r['request_id'])
-                db.commit()
-                continue
-            account = get_account(r['entity_id'])
-            # If the account is deleted, we assume that delete_user
-            # has already bumped the generation.  Othwerise, we bump
-            # the generation ourself
-            generation = account.get_trait(const.trait_account_generation)
-            update_gen = False
-            if generation:
-                generation = generation['numval']
-            else:
-                generation = 0
-            if not account.is_deleted():
-                generation += 1
-                update_gen = True
-            if cyrus_delete(server.name, uname, generation):
-                br.delete_request(request_id=r['request_id'])
-                if update_gen:
-                    account.populate_trait(const.trait_account_generation, numval=generation)
-                    account.write_db()
-            else:
-                db.rollback()
-                br.delay_request(r['request_id'])
-            db.commit()
 
-    start_time = time.time()
-    for r in br.get_requests(operation=const.bofh_email_move):
-        if not is_valid_request(r['request_id']):
-            continue
-        logger.debug("Req: email_move %s %d", r['run_at'], int(r['state_data']))
-        if keep_running() and r['run_at'] < now:
-            # state_data is a request-id which must complete first,
-            # typically an email_create request.
-            logger.debug("email_move %d, state is %r" % \
-                         (r['entity_id'], r['state_data']))
-            if dependency_pending(r['state_data']):
-                br.delay_request(r['request_id'])
-                continue 
-            try:
-                acc = get_account(r['entity_id'])
-            except Errors.NotFoundError:
-                logger.error("email_move: user %d not found", r['entity_id'])
-                continue
-            old_server = get_email_server(r['entity_id'])
-            new_server = Email.EmailServer(db)
-            new_server.find(r['destination_id'])
-            if old_server.entity_id == new_server.entity_id:
-                logger.error("trying to move %s from and to the same server!",
-                             acc.account_name)
-                br.delete_request(request_id=r['request_id'])
-                db.commit()
-                continue
-            if not email_delivery_stopped(acc.account_name):
-                logger.debug("E-mail delivery not stopped for %s",
-                             acc.account_name)
-                db.rollback()
-                continue
-            # Disable quota while copying so the move doesn't fail
-            cyrus_set_quota(acc.entity_id, 0, host=new_server.name)
-            if move_email(acc, old_server, new_server):
-                # The move was successful, update the user's server
-                est = Email.EmailServerTarget(db)
-                est.find_by_entity(acc.entity_id)
-                est.populate(new_server.entity_id)
-                est.write_db()
-                # Now set the correct quota.
-                hq = get_email_hardquota(acc.entity_id)
-                cyrus_set_quota(acc.entity_id, hq, host=new_server.name)
-                br.delete_request(request_id=r['request_id'])
-                br.add_request(r['requestee_id'], r['run_at'],
-                               const.bofh_email_delete,
-                               r['entity_id'], old_server.entity_id)
-            else:
-                db.rollback()
-                br.delay_request(r['request_id'])
-            db.commit()
-        
+def proc_email_hquota(r):
+    hq = get_email_hardquota(r['entity_id'])
+    return cyrus_set_quota(r['entity_id'], hq)
+
+
+def proc_email_delete(r):
+    try:
+        uname = get_account(r['entity_id']).account_name
+    except Errors.NotFoundError:
+        logger.error("bofh_email_delete: %d: user not found",
+                     r['entity_id'])
+        return False
+
+    # The database contains the new host, so the id of the server
+    # to remove from is passed in destination_id.
+    server = Email.EmailServer(db)
+    try:
+        server.find(r['destination_id'])
+    except Errors.NotFoundError:
+        logger.error("bofh_email_delete: %d: target server not found",
+                     r['destination_id'])
+        return False
+    account = get_account(r['entity_id'])
+    # If the account is deleted, we assume that delete_user has
+    # already bumped the generation.  Otherwise, we bump the
+    # generation ourselves
+    generation = account.get_trait(const.trait_account_generation)
+    update_gen = False
+    if generation:
+        generation = generation['numval']
+    else:
+        generation = 0
+    if not account.is_deleted():
+        generation += 1
+        update_gen = True
+    if cyrus_delete(server.name, uname, generation):
+        if update_gen:
+            account.populate_trait(const.trait_account_generation,
+                                   numval=generation)
+            account.write_db()
+        return True
+    else:
+        return False
+
+
+def proc_email_move(r):
+    # state_data is a request-id which must complete first, typically
+    # an email_create request.
+    if dependency_pending(r['state_data']):
+        return False
+    try:
+        acc = get_account(r['entity_id'])
+    except Errors.NotFoundError:
+        logger.error("email_move: user %d not found", r['entity_id'])
+        return False
+
+    old_server = get_email_server(r['entity_id'])
+    new_server = Email.EmailServer(db)
+    new_server.find(r['destination_id'])
+    if old_server.entity_id == new_server.entity_id:
+        logger.error("trying to move %s from and to the same server!",
+                     acc.account_name)
+        return True
+    if not email_delivery_stopped(acc.account_name):
+        logger.debug("E-mail delivery not stopped for %s", acc.account_name)
+        return False
+    # Disable quota while copying so the move doesn't fail
+    cyrus_set_quota(acc.entity_id, 0, host=new_server.name)
+    if not move_email(acc, old_server, new_server):
+        return False
+    
+    # The move was successful, update the user's server
+    est = Email.EmailServerTarget(db)
+    est.find_by_entity(acc.entity_id)
+    est.populate(new_server.entity_id)
+    est.write_db()
+    # Now set the correct quota.
+    hq = get_email_hardquota(acc.entity_id)
+    cyrus_set_quota(acc.entity_id, hq, host=new_server.name)
+    br = BofhdRequests(db, const)
+    br.add_request(r['requestee_id'], r['run_at'],
+                   const.bofh_email_delete,
+                   r['entity_id'], old_server.entity_id)
+    return True
+
+
 def cyrus_create(user_id, host=None):
     try:
         uname = get_account(user_id).account_name
@@ -360,6 +442,7 @@ def cyrus_create(user_id, host=None):
     cyr.logout()
     
     return status
+
 
 def cyrus_delete(host, uname, generation):
     logger.debug("will delete %s from %s", uname, host)
@@ -431,6 +514,7 @@ def archive_cyrus_data(uname, mail_server, generation):
     logger.error("%s returned %i", cmd, errnum)
     return False
 
+
 def move_email(acc, src, dest):
     """Copy e-mail for Account acc from EmailServer src to EmailServer
     dest.  The servers must support IMAP.
@@ -481,80 +565,40 @@ def move_email(acc, src, dest):
     return True
 
 
-def process_mailman_requests():
-    br = BofhdRequests(db, const)
-    now = mx.DateTime.now()
-    for r in br.get_requests(operation=const.bofh_mailman_create):
-        if not is_valid_request(r['request_id']):
-            continue
-        logger.debug("Req: mailman_create %d at %s",
-                     r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < now:
-            try:
-                listname = get_address(r['entity_id'])
-            except Errors.NotFoundError:
-                logger.warn("List address %s deleted!  It probably wasn't "+
-                            "needed anyway.", listname)
-                br.delete_request(request_id=r['request_id'])
-                continue
-            try:
-                admin = get_address(r['destination_id'])
-            except Errors.NotFoundError:
-                logger.error("Admin address deleted for %s!  Ask postmaster "+
-                             "to create list manually.", listname)
-                br.delete_request(request_id=r['request_id'])
-                continue
-            cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-                   'mailman', 'newlist', listname, admin ];
-            logger.debug(repr(cmd))
-            errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
-            logger.debug("returned %d", errnum)
-            if errnum == EXIT_SUCCESS:
-                logger.debug("delete %d", r['request_id'])
-                br.delete_request(request_id=r['request_id'])
-                db.commit()
-            else:
-                logger.error("bofh_mailman_create: %s: returned %d" %
-                             (listname, errnum))
-                br.delay_request(r['request_id'])
-    for r in br.get_requests(operation=const.bofh_mailman_add_admin):
-        if not is_valid_request(r['request_id']):
-            continue
-        logger.debug("Req: mailman_add_admin %d at %s",
-                     r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < now:
-            if dependency_pending(r['state_data']):
-                br.delay_request(r['request_id'])
-                continue 
-            listname = get_address(r['entity_id'])
-            admin = get_address(r['destination_id'])
-            cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-                   'mailman', 'add_admin', listname, admin ];
-            errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
-            if errnum == EXIT_SUCCESS:
-                br.delete_request(request_id=r['request_id'])
-                db.commit()
-            else:
-                logger.error("bofh_mailman_admin_add: %s: returned %d" %
-                             (listname, errnum))
-                br.delay_request(r['request_id'])
-    for r in br.get_requests(operation=const.bofh_mailman_remove):
-        if not is_valid_request(r['request_id']):
-            continue
-        logger.debug("Req: mailman_remove %d at %s",
-                     r['request_id'], r['run_at'])
-        if keep_running() and r['run_at'] < now:
-            listname = r['state_data']
-            cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-                   'mailman', 'rmlist', listname, "dummy" ];
-            errnum = os.spawnv(os.P_WAIT, cmd[0], cmd)
-            if errnum == EXIT_SUCCESS:
-                br.delete_request(request_id=r['request_id'])
-                db.commit()
-            else:
-                logger.error("bofh_mailman_remove: %s: returned %d" %
-                             (listname, errnum))
-                br.delay_request(r['request_id'])
+def proc_mailman_create(r):
+    try:
+        listname = get_address(r['entity_id'])
+    except Errors.NotFoundError:
+        logger.warn("List address %s deleted!  It probably wasn't "+
+                    "needed anyway.", listname)
+        return True
+    try:
+        admin = get_address(r['destination_id'])
+    except Errors.NotFoundError:
+        logger.error("Admin address deleted for %s!  Ask postmaster "+
+                     "to create list manually.", listname)
+        return True
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
+           'mailman', 'newlist', listname, admin ];
+    return spawn_and_log_output(cmd) == EXIT_SUCCESS
+
+
+def proc_mailman_add_admin(r):
+    if dependency_pending(r['state_data']):
+        return False
+    listname = get_address(r['entity_id'])
+    admin = get_address(r['destination_id'])
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
+           'mailman', 'add_admin', listname, admin ];
+    return spawn_and_log_output(cmd) == EXIT_SUCCESS
+
+
+def proc_mailman_remove(r):
+    listname = r['state_data']
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
+           'mailman', 'rmlist', listname, "dummy" ];
+    return spawn_and_log_output(cmd) == EXIT_SUCCESS
+
 
 def get_address(address_id):
     ea = Email.EmailAddress(db)
@@ -563,6 +607,7 @@ def get_address(address_id):
     ed.find(ea.email_addr_domain_id)
     return "%s@%s" % (ea.email_addr_local_part,
                       ed.rewrite_special_domains(ed.email_domain_name))
+
 
 def is_ok_batch_time(now):
     times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
@@ -575,8 +620,8 @@ def is_ok_batch_time(now):
     return False
 
 
-def spawn_and_log_output(cmd):
-    """Run command and copy stdout to logger.info and stderr to
+def spawn_and_log_output(cmd, log_exit_status=True):
+    """Run command and copy stdout to logger.debug and stderr to
     logger.error.  cmd may be a sequence.
 
     Return the exit code if the process exits normally, or the
@@ -586,6 +631,8 @@ def spawn_and_log_output(cmd):
     # select on pipes and Popen3 only works in Unix.
     from select import select
     from popen2 import Popen3
+    if log_exit_status:
+        logger.debug('Spawning %r', cmd)
     proc = Popen3(cmd, capturestderr=True, bufsize=10240)
     proc.tochild.close()
     descriptor = {proc.fromchild: logger.debug,
@@ -604,65 +651,54 @@ def spawn_and_log_output(cmd):
             else:
                 descriptor[fd](line.rstrip())
     status = proc.wait()
+    if log_exit_status:
+        if status == EXIT_SUCCESS:
+            logger.debug("%s: Completed successfully", cmd[0])
+        else:
+            logger.error("%s: Return value was %d", cmd[0], status)
     if status & 0xFF:
         # The process was killed by a signal.
         return -(status & 0xFF)
     return status >> 8
 
 
-def process_move_requests():
-    br = BofhdRequests(db, const)
-    now = mx.DateTime.now()
-    requests = br.get_requests(operation=const.bofh_move_user_now)
-    if is_ok_batch_time(time.strftime("%H:%M")):
-        process_move_student_requests() # generates bofh_move_user requests
-        requests.extend(br.get_requests(operation=const.bofh_move_user))    
-    for r in requests:
-        if not is_valid_request(r['request_id']):
-            continue
-        if keep_running() and r['run_at'] < now:
-            logger.debug("Req %d: bofh_move_user %d",
-                         r['request_id'], r['entity_id'])
-            try:
-                account, uname, old_host, old_disk = get_account_and_home(
-                    r['entity_id'], type='PosixUser', spread=r['state_data'])
-                new_host, new_disk  = get_disk(r['destination_id'])
-            except Errors.NotFoundError:
-                logger.error("move_request: user %i not found" % r['entity_id'])
-                continue
-            if account.is_expired():
-                logger.warn("Account %s is expired, cancelling request" %
-                            account.account_name)
-                br.delete_request(request_id=r['request_id'])
-                db.commit()
-                continue
-            set_operator(r['requestee_id'])
-            try:
-                operator = get_account(r['requestee_id']).account_name
-            except Errors.NotFoundError:
-                # The mvuser script requires a valid address here.  We
-                # may want to change this later.
-                operator = "cerebrum"
-            group = get_group(account.gid_id, grtype='PosixGroup')
+def proc_move_user(r):
+    try:
+        account, uname, old_host, old_disk = \
+                 get_account_and_home(r['entity_id'], type='PosixUser',
+                                      spread=r['state_data'])
+        new_host, new_disk  = get_disk(r['destination_id'])
+    except Errors.NotFoundError:
+        logger.error("move_request: user %i not found", r['entity_id'])
+        return False
+    if account.is_expired():
+        logger.warn("Account %s is expired, cancelling request",
+                    account.account_name)
+        return False
+    set_operator(r['requestee_id'])
+    try:
+        operator = get_account(r['requestee_id']).account_name
+    except Errors.NotFoundError:
+        # The mvuser script requires a valid address here.  We
+        # may want to change this later.
+        operator = "cerebrum"
+    group = get_group(account.gid_id, grtype='PosixGroup')
 
-            spread = ",".join(["%s" % Constants._SpreadCode(int(a['spread']))
-                               for a in account.get_spread()]),
-            if move_user(uname, int(account.posix_uid), int(group.posix_gid),
-                         old_host, old_disk, new_host, new_disk, spread,
-                         operator):
-                logger.debug('user %s moved from %s to %s' %
-                             (uname,old_disk,new_disk))
-                ah = account.get_home(default_spread)
-                account.set_homedir(current_id=ah['homedir_id'],
-                                    disk_id=r['destination_id'])
-                account.write_db()
-                br.delete_request(request_id=r['request_id'])
-            else:
-                if new_disk == old_disk:
-                    br.delete_request(request_id=r['request_id'])
-                else:
-                    br.delay_request(r['request_id'], minutes=24*60)
-            db.commit()
+    spread = ",".join([str(const.Spread(a['spread']))
+                       for a in account.get_spread()])
+    if move_user(uname, int(account.posix_uid), int(group.posix_gid),
+                 old_host, old_disk, new_host, new_disk, spread,
+                 operator):
+        logger.debug('user %s moved from %s to %s',
+                     uname, old_disk, new_disk)
+        ah = account.get_home(default_spread)
+        account.set_homedir(current_id=ah['homedir_id'],
+                            disk_id=r['destination_id'])
+        account.write_db()
+        return True
+    else:
+        return new_disk == old_disk
+
 
 def process_move_student_requests():
     global fnr2move_student, autostud
@@ -702,8 +738,7 @@ def process_move_student_requests():
             int(account.entity_id), int(r['request_id']),
             int(r['requestee_id'])))
     logger.debug("Starting callbacks to find: %s" % fnr2move_student)
-    autostud.start_student_callbacks(
-        student_info_file, move_student_callback)
+    autostud.start_student_callbacks(student_info_file, move_student_callback)
 
     # Move remaining users to pending disk
     disk = Factory.get('Disk')(db)
@@ -719,8 +754,10 @@ def process_move_student_requests():
                            state_data=int(default_spread))
             db.commit()
 
+
 class NextAccount(Exception):
     pass
+
 
 def move_student_callback(person_info):
     """We will only move the student if it has a valid fnr from FS,
@@ -831,104 +868,83 @@ def process_quarantine_refresh_requests():
         br.delete_request(request_id=r['request_id'])
         db.commit()
 
-def process_delete_requests():
-    br = BofhdRequests(db, const)
-    now = mx.DateTime.now()
-    group = Factory.get('Group')(db)
-    spread = default_spread # TODO: check spread in r['state_data']
 
-    for r in br.get_requests(operation=const.bofh_archive_user):
-        if not is_valid_request(r['request_id']):
-            continue
-        if not keep_running():
-            break
-        if r['run_at'] > now:
-            continue
+def proc_archive_user(r):
+    spread = default_spread # TODO: check spread in r['state_data']
+    account, uname, old_host, old_disk = \
+             get_account_and_home(r['entity_id'], spread=spread)
+    operator = get_account(r['requestee_id']).account_name
+    if delete_user(uname, old_host, '%s/%s' % (old_disk, uname),
+                   operator, ''):
+        try:
+            home = account.get_home(spread)
+        except Errors.NotFoundError:
+            pass
+        else:
+            account.set_homedir(current_id=home['homedir_id'],
+                                status=const.home_status_archived)
+        return True
+    else:
+        return False
+
+
+def proc_delete_user(r):
+    spread = default_spread # TODO: check spread in r['state_data']
+    is_posix = False
+    try:
+        account, uname, old_host, old_disk = \
+                 get_account_and_home(r['entity_id'], spread=spread,
+                                      type='PosixUser')
+        is_posix = True
+    except Errors.NotFoundError:
         account, uname, old_host, old_disk = \
                  get_account_and_home(r['entity_id'], spread=spread)
-        operator = get_account(r['requestee_id']).account_name
-        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname),
-                       operator, ''):
-            try:
-                home = account.get_home(spread)
-            except Errors.NotFoundError:
-                pass
-            else:
-                account.set_homedir(current_id=home['homedir_id'],
-                                    status=const.home_status_archived)
-            br.delete_request(request_id=r['request_id'])
-            db.commit()
-        else:
-            db.rollback()
-            br.delay_request(r['request_id'], minutes=120)
-            db.commit()
-        
-    for r in br.get_requests(operation=const.bofh_delete_user):
-        if not is_valid_request(r['request_id']):
-            continue
-        if not keep_running():
-            break
-        if r['run_at'] > now:
-            continue
-        is_posix = False
-        try:
-            account, uname, old_host, old_disk = get_account_and_home(
-                r['entity_id'], spread=spread, type='PosixUser')
-            is_posix = True
-        except Errors.NotFoundError:
-            account, uname, old_host, old_disk = get_account_and_home(
-                r['entity_id'], spread=spread)
-        if account.is_deleted():
-            logger.warn("%s is already deleted" % uname)
-            br.delete_request(request_id=r['request_id'])
-            db.commit()
-            continue
-        set_operator(r['requestee_id'])
-        operator = get_account(r['requestee_id']).account_name
-        est = Email.EmailServerTarget(db)
-        try:
-            est.find_by_entity(account.entity_id)
-        except Errors.NotFoundError:
-            mail_server = ''
-        else:
-            es = Email.EmailServer(db)
-            es.find(est.email_server_id)
-            mail_server = es.name
+    if account.is_deleted():
+        logger.warn("%s is already deleted" % uname)
+        return True
+    set_operator(r['requestee_id'])
+    operator = get_account(r['requestee_id']).account_name
+    est = Email.EmailServerTarget(db)
+    try:
+        est.find_by_entity(account.entity_id)
+    except Errors.NotFoundError:
+        mail_server = ''
+    else:
+        es = Email.EmailServer(db)
+        es.find(est.email_server_id)
+        mail_server = es.name
 
-        if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator,
-                       mail_server):
-            if is_posix:
-                # demote the user first to avoid problems with
-                # PosixUsers with names illegal for PosixUsers
-                account.delete_posixuser()
-                account_id = account.entity_id
-                account = Factory.get('Account')(db)
-                account.find(account_id)
-            account.expire_date = now
-            account.write_db()
-            try:
-                home = account.get_home(spread)
-            except Errors.NotFoundError:
-                pass
-            else:
-                account.set_homedir(current_id=home['homedir_id'],
-                                    status=const.home_status_archived)
-            # Remove references in other tables
-            # Note that we preserve the quarantines for deleted users
-            # TBD: Should we have an API function for this?
-            for s in account.get_spread():
-                account.delete_spread(s['spread'])
-            for g in group.list_groups_with_entity(account.entity_id):
-                group.clear()
-                group.find(g['group_id'])
-                group.remove_member(account.entity_id, g['operation'])
-            br.delete_request(request_id=r['request_id'])
-            db.log_change(r['entity_id'], const.account_delete, None)
-            db.commit()
-        else:
-            db.rollback()
-            br.delay_request(r['request_id'], minutes=120)
-            db.commit()
+    if not delete_user(uname, old_host, '%s/%s' % (old_disk, uname),
+                       operator, mail_server):
+        return False
+    if is_posix:
+        # demote the user first to avoid problems with
+        # PosixUsers with names illegal for PosixUsers
+        account.delete_posixuser()
+        account_id = account.entity_id
+        account = Factory.get('Account')(db)
+        account.find(account_id)
+    account.expire_date = mx.DateTime.now()
+    account.write_db()
+    try:
+        home = account.get_home(spread)
+    except Errors.NotFoundError:
+        pass
+    else:
+        account.set_homedir(current_id=home['homedir_id'],
+                            status=const.home_status_archived)
+    # Remove references in other tables
+    # Note that we preserve the quarantines for deleted users
+    # TBD: Should we have an API function for this?
+    for s in account.get_spread():
+        account.delete_spread(s['spread'])
+    group = Factory.get('Group')(db)
+    for g in group.list_groups_with_entity(account.entity_id):
+        group.clear()
+        group.find(g['group_id'])
+        group.remove_member(account.entity_id, g['operation'])
+    return True
+
 
 def delete_user(uname, old_host, old_home, operator, mail_server):
     account = get_account(name=uname)
@@ -952,6 +968,7 @@ def delete_user(uname, old_host, old_home, operator, mail_server):
     logger.error("%s returned %i" % (cmd, errnum))
     return False
 
+
 def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
               operator):
     mailto = operator
@@ -969,11 +986,13 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
     logger.error("%s returned %i" % (cmd, errnum))
     return False
 
+
 def set_operator(entity_id=None):
     if entity_id:
         db.cl_init(change_by=entity_id)
     else:
         db.cl_init(change_program='process_bofhd_r')
+
 
 def get_disk(disk_id):
     disk = Factory.get('Disk')(db)
@@ -984,6 +1003,7 @@ def get_disk(disk_id):
     host.find(disk.host_id)
     return host.name, disk.path
 
+
 def get_account(account_id=None, name=None):
     assert account_id or name
     acc = Factory.get('Account')(db)
@@ -992,6 +1012,7 @@ def get_account(account_id=None, name=None):
     elif name:
         acc.find_by_name(name)
     return acc
+
 
 def get_account_and_home(account_id, type='Account', spread=None):
     if type == 'Account':
@@ -1016,6 +1037,7 @@ def get_account_and_home(account_id, type='Account', spread=None):
         home = home['home']
     return account, uname, host, home
 
+
 def get_group(id, grtype="Group"):
     if grtype == "Group":
         group = Factory.get('Group')(db)
@@ -1025,16 +1047,6 @@ def get_group(id, grtype="Group"):
     group.find(id)
     return group
 
-def keep_running():
-    # If we've run for more than half an hour, it's time to go on to
-    # the next task.  This check is necessary since job_runner is
-    # single-threaded, and so this job will block LDAP updates
-    # etc. while it is running.
-    global max_requests
-    max_requests -= 1
-    if max_requests < 0:
-        return False
-    return time.time() - start_time < 15 * 60
 
 def is_valid_request(req_id):
     # The request may have been canceled very recently
@@ -1043,8 +1055,9 @@ def is_valid_request(req_id):
         return True
     return False
 
+
 def main():
-    global start_time, max_requests
+    global max_requests
     global ou_perspective, emne_info_file, studconfig_file, \
            studieprogs_file, student_info_file
     try:
@@ -1070,14 +1083,7 @@ def main():
         elif opt in ('-p', '--process'):
             if not types:
                 types = ['delete', 'move', 'email', 'mailman']
-            # We set start_time for each type of requests, so that a
-            # lot of home directory moves won't stop e-mail requests
-            # from being processed in a timely manner.
-            for t in types:
-                start_time = time.time()
-                func = globals()["process_%s_requests" % t]
-                set_operator()
-                apply(func)
+            process_requests(types)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
             int(ou_perspective)   # Assert that it is defined
@@ -1089,6 +1095,7 @@ def main():
             studieprogs_file = val
         elif opt in ('--student-info-file',):
             student_info_file = val
+
 
 def usage(exitcode=0):
     print """Usage: process_bofhd_requests.py
