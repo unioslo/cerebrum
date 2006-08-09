@@ -401,7 +401,11 @@ def proc_email_move(r):
     # Now set the correct quota.
     hq = get_email_hardquota(acc.entity_id)
     cyrus_set_quota(acc.entity_id, hq, host=new_server.name)
+    # We need to delete this request before adding the delete to avoid
+    # triggering the conflicting request test.
     br = BofhdRequests(db, const)
+    br.delete_request(request_id=r['request_id'])
+    db.commit()
     br.add_request(r['requestee_id'], r['run_at'],
                    const.bofh_email_delete,
                    r['entity_id'], old_server.entity_id)
@@ -537,7 +541,6 @@ def move_email(acc, src, dest):
            '--useheader', 'Message-ID',
            '--regexmess', 's/\\0/ /g',
            '--ssl', '--subscribe', '--nofoldersizes']
-    logger.debug("doing %s" % cmd)
     errnum = EXIT_SUCCESS
     if debug_hostlist is None or (src.name in debug_hostlist and
                                   dest.name in debug_hostlist):
@@ -551,7 +554,6 @@ def move_email(acc, src, dest):
     cmd = [cereconf.MANAGESIEVE_SCRIPT,
            '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
            acc.account_name, src.name, dest.name]
-    logger.debug("doing %s" % cmd)
     errnum = EXIT_SUCCESS
     if debug_hostlist is None or (src.name in debug_hostlist and
                                   dest.name in debug_hostlist):
@@ -649,7 +651,7 @@ def spawn_and_log_output(cmd, log_exit_status=True):
                 fd.close()
                 del descriptor[fd]
             else:
-                descriptor[fd](line.rstrip())
+                descriptor[fd]("[%d] %s" % (proc.pid, line.rstrip()))
     status = proc.wait()
     if log_exit_status:
         if status == EXIT_SUCCESS:
