@@ -400,6 +400,8 @@ def output_person(writer, person, db, source_system):
     except Errors.NotFoundError:
         logger.error("Person %s is in the datafile, but not in Cerebrum",
                      list(person.iterids()))
+    except Errors.TooManyRowsError:
+        logger.error("Found more than one person with NO_SSN=%s", fnr)
     else:
         primary_account = db_person.get_primary_account()
         if primary_account is None:
