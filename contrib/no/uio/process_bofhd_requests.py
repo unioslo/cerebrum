@@ -846,7 +846,7 @@ def move_student_callback(person_info):
                                account_id, disk, state_data=spread)
                 db.commit()
 
-def proc_quarantine_refresh():
+def proc_quarantine_refresh(r):
     """process_changes.py has added bofh_quarantine_refresh for the
     start/disable/end dates for the quarantines.  Register a
     quarantine_refresh change-log event so that changelog-based
