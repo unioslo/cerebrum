@@ -42,9 +42,9 @@ To get the latest stable version:
   - untar the sources into an empty directory
 
 Or get the CVS version:
-  - cvs -d:pserver:anonymous@cvs.cerebrum.sourceforge.net:/cvsroot/cerebrum login
+  - cvs -d:pserver:anonymous@cerebrum.cvs.sourceforge.net:/cvsroot/cerebrum login
   (no password required)
-  -cvs -z3 -d:pserver:anonymous@cvs.cerebrum.sourceforge.net:/cvsroot/cerebrum \
+  -cvs -z3 -d:pserver:anonymous@cerebrum.cvs.sourceforge.net:/cvsroot/cerebrum \
    co cerebrum
 
 
