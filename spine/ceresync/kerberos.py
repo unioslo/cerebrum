@@ -89,8 +89,7 @@ class Account:
             raise SystemExit
 
         if (not incr):
-            # Delete current principals not */admin@REALM ? spooky
-            pass
+            self.added_princs = []
             
     def close(self,):
         """
@@ -113,9 +112,12 @@ class Account:
             password = account.password
             options = None # or some defaults from config in dict-format
             self.k.CreatePrincipal(princ,password,options)
+            if (not incr):
+                self.added_princs.append(princ)
         except heimdal_error.KADM5_DUP,kdup:
-            print "Account already exists. Trying update instead"
-            update(account)
+            # FIXME! Fetch override from config. If we set new password
+            # the user will get a new kvno and things might break.
+            pass
         except Exception,err:
             print err
 
@@ -139,6 +141,22 @@ class Account:
             self.k.DeletePrincipal(princ)
         except Exception,err:
             print err
+
+    def syncronize(self):
+        """Delete any old account not supposed to be here.
+        """
+        if not self.incr:
+            added = self.added_princs
+            princs = self.k.ListPrincipals()
+            for princ in princs:
+                p = self.k.GetPrincipal(princ)
+                if p['mod_name'] == self.principal:
+                    if princ not in added:
+                    try:
+                        self.k.DeletePrincipal(princ)
+                    except Exception,err:
+                        print err
+
 
 
 class User:
