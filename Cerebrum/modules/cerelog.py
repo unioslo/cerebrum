@@ -539,8 +539,15 @@ class CerebrumLogger(logging.Logger):
         logging.Logger.__init__(self, name, level)
     # end __init__
 
+
     def findCaller(self):
-        rv = (None, None)
+        # Python versions prior to 2.4 want a 2-tuple in return from
+        # this function, while later versions want a 3-tuple.
+        if sys.version_info < (2, 4):
+            rv = (None, None)
+        else:
+            rv = (None, None, None)
+            
         frame = inspect.currentframe()
         while frame:
             source = inspect.getsourcefile(frame)
@@ -556,15 +563,16 @@ class CerebrumLogger(logging.Logger):
                  (source.find("logging/__init__.py") == -1) and
                  (source.find("logging.py") == -1))):
                 lineno = inspect.getlineno(frame)
-                rv = (source, lineno)
+                if sys.version_info < (2, 4):
+                    rv = (source, lineno)
+                else:
+                    co = frame.f_code
+                    rv = (source, lineno, co)
                 break
-            # fi
 
             frame = frame.f_back
-        # od
 
         return rv
-    # end findCaller
       
 
     def __cerebrum_debug(self, level, msg, *args, **kwargs):
