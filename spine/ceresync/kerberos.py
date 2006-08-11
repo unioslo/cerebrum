@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,10 +20,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""Kerberos-based backend for ceresync."""
+""" Kerberos-based backend """
 
 import unittest
-import config
+#import config
 
 try:
     import kadm5
@@ -37,7 +38,8 @@ class Account:
     def __init__(self):
         self.k = None # Holds the authenticated kadm object
 
-    def begin(incr=False):
+
+    def begin(self,incr=False):
         """
         Initiate connection to local or remote kadmin
         """
@@ -48,17 +50,16 @@ class Account:
 
         try:
             kadm5.init_libs(kadm5.KRB_FLAVOR_HEIMDAL)
+            haveHeimdal = True
         except OSError,err:
             print "info: unable to initialize Heimdal kerberos: %s" % err
-        else:
-            haveHeimdal = True
 
-        try:
-            kadm5.init_libs(kadm5.KRB_FLAVOR_MIT)
-        except OSError,err:
-            print "info: unable to initialize MIT kerberos: %s" % err
-        else:
-            haveMIT = True
+        # Decomment if using MIT and not Heimdal. Make it configurable. 
+        #try:
+        #    kadm5.init_libs(kadm5.KRB_FLAVOR_MIT)
+        #    haveMIT = True
+        #except OSError,err:
+        #    print "info: unable to initialize MIT kerberos: %s" % err
 
         if not (haveMIT or haveHeimdal):
             print "No kreberos libs found"
@@ -75,82 +76,108 @@ class Account:
         if (not principals):
             return None
 
-        # Using first principal as default, or later principalname+password from config
+        # Using first principal as default, or later from config
         principal = principals[0]
-        print "Found principal: %s" % (principal)
+        assert 'admin' in principal
 
         # OK.. not far left
         self.k = kadm5.KADM5()
-        self.k.connect(princ=principal)
+        try:
+            self.k.connect(princ=principal)
+        except Exception,e:
+            print "Error connecting. Reason: %s" % e
+            raise SystemExit
 
-    def close():
+        if (not incr):
+            # Delete current principals not */admin@REALM ? spooky
+            pass
+            
+    def close(self,):
         """
         Close connection to local or remote kadmin. 
         """
-        self.k = None # Room for improvement? 
-        # We still may have a valid ticket available
+        self.k = None
 
-    def abort():
-        """
-        Abort current transaction.
+    def abort(self):
+        """Only here for compability reasons
         """
         pass
 
-    def add(account):
+    def add(self,account):
         """Add account into kerberos database.
-           Create a new principal, optionally specifying a password and options.
+           Create a new principal, optionally specifying a password and options
+           If no password is found, a random password is generated
         """
         try:
             princ = account.name + '@' + self.k.realm # or from config
-            # FIXME: What do we do if we can't get cleartext password?
-            password = account.password or None
+            password = account.password
             options = None # or some defaults from config in dict-format
             self.k.CreatePrincipal(princ,password,options)
+        except heimdal_error.KADM5_DUP,kdup:
+            print "Account already exists. Trying update instead"
+            update(account)
         except Exception,err:
-            # FIXME: If Principal exist.. update password and options
             print err
 
-    def update(account):
+    def update(self,account):
         """Update account in kerberos database
         """
         # Update password? guess so
         princ = account.name + '@' + self.k.realm # or from config
-        # needs to be cleartext, pgp to decrypt?
+        # Needs to be cleartext, pgp to decrypt?
         password = account.password 
         try:
             self.k.SetPassword(princ,password)
         except Exception,err:
-            # FIXME: If Principal does not exist, run add(account)
             print err
 
-    def delete(account):
+    def delete(self,account):
         """Delete account from kerberos database
         """
         princ = account.name + '@' + self.k.realm # or from config
         try:
             self.k.DeletePrincipal(princ)
         except Exception,err:
-            #FIXME: if account/principal doesn't exist, log it
             print err
 
-class testKerberosBack(unittest.TestCase):
+
+class User:
+   def __init__(self):
+       self.name = 'testuser'
+       self.password = 'testpw'
+
+class KerberosBackTest(unittest.TestCase):
 
     def setUp(self):
-        self.kback = Account()
+        self.account = Account()
 
     def testBegin(self):
-        self.kback.begin()
+        self.account = Account()
+        self.account.begin()
+
+    def testAdd(self):
+        user = User()
+        self.account = Account()
+        self.account.begin()
+        self.account.add(user)
+
+    def testSetPassword(self):
+        user = User()
+        self.account = Account()
+        self.account.begin()
+        self.account.update(user)
+
+    def testDelete(self):
+        user = User()
+        self.account = Account()
+        self.account.begin()
+        self.account.delete(user)
 
     def testClose(self):
-        self.kback.close()
+        self.account = Account()
+        self.account.begin()
+        self.account.close()
 
-    """
-    Missing test-cases:
-    Add/update/delete principal
-    Sync a test-REALM
-    """
 
 if __name__ == '__main__':
     unittest.main()
-
-# arch-tag: c8362ce4-2019-430d-a311-5e90ffd0f575
