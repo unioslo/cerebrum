@@ -86,41 +86,16 @@ class ZoneUtils(object):
             return name[:-len(self._zone.postfix)]
         return name
 
-    def __new_serial(self, fname):
-        """Returns a serial > than the one in fname"""
-        serial = None
-        if os.path.isfile(fname):
-            serial = self.__read_serial(fname)
-            if serial[:-2] == time.strftime('%Y%m%d'):
-                serial = int(serial) + 1
-            else:
-                serial = None
-        if serial is None:
-            serial = time.strftime('%Y%m%d') + '01'
+    def open(self, fname):
+        self._file = ExtSimilarSizeWriter(fname, "w")
+        self._fname = fname
 
-        fout = file(fname, "w")
-        fout.write("%s" % serial)
-        fout.close()
-        return serial
-
-    def __read_serial(self, fname):
-        if not os.path.isfile(fname):
-            return time.strftime('%Y%m%d') + '01'
-        fin = open(fname)
-        ret = fin.readline()
-        fin.close()
-        return ret.strip()
-
-    def get_serial_fname(self, fname, data_dir):
-        return os.path.join(data_dir, os.path.basename(fname)+".serial")
-
-    def write_heads(self, fhandle, fname, heads, data_dir):
+    def write_heads(self, heads, data_dir):
         """Writes the zone-file header file(s), re-using the old
         serial number"""
-        
-        fhandle.write(header_splitter)
-        serial = self.__read_serial(
-            self.get_serial_fname(fname, data_dir))
+
+        self._file.write(header_splitter)
+        serial = self._read_update_serial(self._fname)
         first = True
         for h in heads:
             fin = file(h, "r")
@@ -133,21 +108,42 @@ class ZoneUtils(object):
             if first and self._as_reversemap and not [
                 x for x in lines if x.startswith('$ORIGIN')]:
                 lines.insert(0, self.__origin)
-            fhandle.write("".join(lines))
+            self._file.write("".join(lines))
             fin.close()
             first = False
-        fhandle.write(extra_splitter)
+        self._file.write(extra_splitter)
 
-    def update_serial(self, fname, serial_file):
-        serial = self.__new_serial(serial_file)
+    def close(self):
+        self._file.close(dont_rename=True)
+        if self._file.replaced_file:
+            self._read_update_serial(self._file._tmpname, update=True)
+            self._file.rename_tmpfile()
+
+    def write(self, s):
+        self._file.write(s)
+
+    def _read_update_serial(self, fname, update=False):
+        """Parse existing serial in zonefile, and opionally updates
+        the serial.  Returns the serial used.  """
+
         all_lines = []
         for line in open(fname):
             m = ZoneUtils.re_serial.search(line)
             if m:
+                serial = m.group(1)
+                if not update:
+                    return serial
+                if serial[:-2] == time.strftime('%Y%m%d'):
+                    serial = int(serial) + 1
+                else:
+                    serial = time.strftime('%Y%m%d') + '01'
                 line = "%30s ; Serialnumber\n" % serial
             all_lines.append(line)
+        if not update:
+            # First time this zone is written
+            return time.strftime('%Y%m%d') + '01'
         # Rewrite the entire file in case the serial line length has changed
-        f = open(fname, 'w')
+        f = Utils.AtomicFileWriter(fname, 'w')
         f.write("".join(all_lines))
         f.close()
 
@@ -215,10 +211,8 @@ class ForwardMap(object):
 
     def generate_zone_file(self, fname, heads, data_dir):
         logger.debug("Generating zone file")
-        f = ExtSimilarSizeWriter(
-            os.path.join(data_dir, os.path.basename(fname)), "w")
-        #f.set_line_count_change_limit(self.__lc_delta)
-        self.zu.write_heads(f, fname, heads, data_dir)
+        self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
+        self.zu.write_heads(heads, data_dir)
 
         order = self.a_records.keys()
         order.sort(lambda x,y: int(self.a_records[x]['ipnr'] - self.a_records[y]['ipnr']))
@@ -242,7 +236,7 @@ class ForwardMap(object):
 
             dns_owner_id = int(a_ref['dns_owner_id'])
             if shown_owner.has_key(dns_owner_id):
-                f.write(line)
+                self.zu.write(line)
                 continue
             shown_owner[dns_owner_id] = True
             #logger.debug2("A: %s, owner=%s" % (a_id, dns_owner_id))
@@ -267,8 +261,8 @@ class ForwardMap(object):
                 # for machines with multiple a-records and cnames, the
                 # cnames will be listed before the last a-records.
                 prev_name = ''
-            f.write(line)
-        f.write('; End of a-record owned entries\n')
+            self.zu.write(line)
+        self.zu.write('; End of a-record owned entries\n')
         logger.debug("Check remaining data")
         for row in DnsOwner.DnsOwner(db).list():
             line = ''
@@ -292,12 +286,8 @@ class ForwardMap(object):
                         c_ref['name'], c_ref['ttl'] or '',
                         self.zu.exp_name(c_ref['target_name']))
             if line:
-                f.write(line)
-        f.close(dont_rename=True)
-        if f.replaced_file:
-            #self.zu.write_file_with_serial(status_fname, fname, heads, data_dir)
-            self.zu.update_serial(f._tmpname, self.zu.get_serial_fname(fname, data_dir))
-            f.rename_tmpfile()
+                self.zu.write(line)
+        self.zu.close()
         logger.debug("zone file completed")
 
 class ReverseMap(object):
@@ -336,9 +326,8 @@ class ReverseMap(object):
         return '$ORIGIN %s.IN-ADDR.ARPA.\n' % ".".join(tmp)
 
     def generate_reverse_file(self, fname, heads, data_dir):
-        f = ExtSimilarSizeWriter(os.path.join(data_dir, os.path.basename(fname)), "w")
-        #f.set_line_count_change_limit(self.__lc_delta)
-        self.zu.write_heads(f, fname, heads, data_dir)
+        self.zu.open(os.path.join(data_dir, os.path.basename(fname)))
+        self.zu.write_heads(heads, data_dir)
 
         order = self.ip_numbers.keys()
         order.sort(lambda x,y: int(self.ip_numbers[x]['ipnr'] - self.ip_numbers[y]['ipnr']))
@@ -356,17 +345,14 @@ class ReverseMap(object):
                 this_net = a_ip[:a_ip.rfind(".")+1]
                 line = self.__net2origin(a_ip)
                 if line != self.__prev_origin:
-                    f.write(line)
+                    self.zu.write(line)
                     self.__prev_origin = line  # avoid dupl. $ORIGIN in /24 net
             a_ip = a_ip[a_ip.rfind(".")+1:]
             for row in tmp:
                 if row['name'] is not None:
                     line = "%s\tPTR\t%s\n" % (a_ip, row['name'])
-                    f.write(line)
-        f.close(dont_rename=True)
-        if f.replaced_file:
-            self.zu.update_serial(f._tmpname, self.zu.get_serial_fname(fname, data_dir))
-            f.rename_tmpfile()
+                    self.zu.write(line)
+        self.zu.close()
 
 class HostsFile(object):
     MAX_LINE_LENGTH = 1000
