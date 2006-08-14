@@ -176,7 +176,19 @@ class AccountUtil(object):
             pass
 
         logger.debug("UIT _update_email: student_email='%s', current='%s'" % (student_email,current_email))
-    
+
+        # need to figure out if this a student or "fagperson"
+        only_tilknyttet = 0
+        account_types = account_obj.get_account_types(filter_expired=False)
+        for acc_aff in account_types:
+            if ((const.affiliation_student == acc_aff['affiliation']) or (const.affiliation_ansatt == acc_aff['affiliation'])):
+                only_tilknyttet = 1
+
+        if only_tilknyttet == 0 and current_email =="":
+            student_email = "%s@external.uit.no" % (account_obj.account_name)
+            logger.debug("account:%s only has a tilknyttet affiliation, use %s@external.uit.no" % (account_obj.account_name,account_obj.account_name))
+
+            
         if (current_email != student_email):
             # update email!
             em = Email.email_address(db)
@@ -211,7 +223,7 @@ class AccountUtil(object):
 
                 logger.debug("UIT: process mailaddr update!")
             except Exception:
-                print "EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,student_email)
+                logger.debug("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,student_email))
                 sys.exit(2)
         else:
             #current email = student_email :=> we need to do nothing. all is ok....
@@ -237,15 +249,34 @@ class AccountUtil(object):
         remove_idx = 1     # Do not remove last account affiliation
         account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
                        if aff == const.affiliation_student]
-        is_student = 0
-        for aff, ou, status in persons[fnr].get_affiliations():
-            if(aff == const.affiliation_student):
-                is_student =1
-        assert is_student == 1
+
+        tilknyttet_account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
+                       if aff == const.affiliation_tilknyttet]
+
+                       
+        #is_student = 0
+        #is_tilknyttet = 0
+        #print "processing account:%s for personnr:%s" % (account_id,fnr)
+        #for aff, ou, status in persons[fnr].get_affiliations():
+        #    print "aff=%s" % aff
+        #    if(aff == const.affiliation_student):
+        #        is_student =1
+        #    if aff == const.affiliation_tilknyttet:
+        #        is_tilknyttet = 1
+        #assert is_student == 1
+
         for aff, ou, status in persons[fnr].get_affiliations():
             #assert aff == const.affiliation_student
-            if not ou in account_ous:
+            if not ou in account_ous and aff == const.affiliation_student:
+                #if(is_student ==1):
                 changes.append(('set_ac_type', (ou, const.affiliation_student)))
+            if not ou in tilknyttet_account_ous and aff == const.affiliation_tilknyttet:
+                #if(is_tilknyttet):
+                changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
+                #elif(is_student==0 and is_tilknyttet==1):
+                #    changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
+                #else:
+                #    logger.error("Unknown affiliation:%s for account:%s on person:%s" %(aff,account_id,fnr))
             else:
                 account_ous.remove(ou)
                 # The account has at least one valid affiliation, so
