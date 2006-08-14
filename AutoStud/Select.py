@@ -238,7 +238,7 @@ class SelectMapGroupMember(SelectMapSuper):
 
 class SelectMapPersonAffiliation(SelectMapSuper):
     def set_select_map(self, select_attrs, profile):
-        self._logger.debug2("Paff Map: %s -> %s" % (select_attrs, profile))
+        self._logger.debug("Paff UIT Map: %s -> %s" % (select_attrs, profile))
         for s_attr in select_attrs:
             affiliation = self._pc.autostud.co.PersonAffiliation(
                 s_attr['affiliation'])
@@ -253,10 +253,13 @@ class SelectMapPersonAffiliation(SelectMapSuper):
     
     def get_matches(self, person_info, member_groups=None, person_affs=None):
         matches = []
+        self._logger.debug("try match personaff: person_info: %s: member_groups: %s, person_affs=%s" % (person_info, member_groups, person_affs))
         if not person_affs:
+            self._logger.debug("Person AFFS er TOM!!!")
             return matches
         for p_aff in ([(x[1], x[2]) for x in person_affs] +  # ou, aff, status
                       [x[1] for x in person_affs]):
+            self._logger.debug("Match p_aff = %s against %s" % (p_aff, self._select_map.keys()))
             if self._select_map.has_key(p_aff):
                 self._append_match(matches, self._select_map[p_aff])
         return matches
@@ -279,6 +282,9 @@ class SelectTool(object):
                                'drgrad',
                                ['studieprogramkode']),
         "emne": SelectMapTag('emnekode', 'eksamen', 'emnekode'),
+        "fagperson": SelectMapTag(['instituttnr','gruppenr','faknr'],
+                                     'fagperson',
+                                     ['instituttnr','gruppenr','faknr']),
         "privatist_emne": SelectMapTag('emnekode','privatist_emne', 'emnekode'),
         "aktivt_sted": SelectMapAktivtSted(),
         "evu_sted": SelectMapEvuSted(),
@@ -296,6 +302,7 @@ class SelectTool(object):
             smd._logger = logger
             smd._pc = profile_config
         for p in profiles:
+            print "P: %s" % p
             for select_name, select_attrs in p.selection_criterias.items():
                 self._logger.debug2("S: %s -> %s" % (select_name, select_attrs))
                 sm_obj = self.select_map_defs[select_name]
@@ -334,10 +341,10 @@ class SelectTool(object):
         for mtype, sm in self.select_map_defs.items():
             tmp = sm.get_matches(person_info, member_groups=member_groups,
                                  person_affs=person_affs)
-            self._logger.debug2("check-type: %s -> %s" % (mtype, tmp))
+            self._logger.debug("check-type: %s -> %s (sm is %s)" % (mtype, tmp,sm))
             matches.extend(tmp)
 
-        self._logger.debug2("pre-priority filter: m= %s" % matches)
+        self._logger.debug("pre-priority filter: m= %s" % matches)
         if self._pc.using_priority:
             # Only use matches at prioritylevel with lowest value
             tmp = []
@@ -348,11 +355,11 @@ class SelectTool(object):
             for m in matches:
                 if m[0].priority == min_pri:
                     tmp.append(m)
-            self._logger.debug2("Priority filter gave %i -> %i entries" % (
+            self._logger.debug("Priority filter gave %i -> %i entries" % (
                 len(matches), len(tmp)))
             matches = tmp
 
-        self._logger.debug("Matching settings: %s" % matches)
+        self._logger.debug("Matching UIT settings: %s" % matches)
         # Sort matches on nivåkode, and remove duplicates
         matches.sort(self._matches_sort)
         matched_settings = {}
