@@ -218,10 +218,15 @@ class XMLPerson2Object(XMLEntity2Object):
         # FIXME:
         # 
         # baardj's reservation patch
-        has_active = filter(lambda x: x.kind in (DataEmployment.HOVEDSTILLING,
-                                                 DataEmployment.BISTILLING) and
-                                      x.is_active(),
-                            result.iteremployment())
+
+        # En person har aktiv ansettelse dersom den har en
+        # hoved/bistilling, eller er registrert som gjest med
+        # gjestetypekode POLS-ANSAT
+        has_active = filter(lambda x: (
+            x.kind in (DataEmployment.HOVEDSTILLING,
+                       DataEmployment.BISTILLING) or (
+            x.kind == DataEmployment.GJEST and x.code == "POLS-ANSAT"))
+                            and x.is_active(), result.iteremployment())
         if has_active:
             to_reserve = False
             for resv in element.findall("res"):
