@@ -1138,7 +1138,7 @@ def main():
                 stpr.add(attrs)
 
     logger.info("Leser XML-fil: person.xml")
-    access_FS.person_xml_parser(
+    person_xml_parser(
         os.path.join(dump_dir, 'person.xml'),
         student_studieprog_helper)
     logger.info("Ferdig med XML-fil: person.xml")
