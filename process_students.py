@@ -38,9 +38,9 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio import AutoStud
-from Cerebrum.modules.no.uio import DiskQuota
-from Cerebrum.modules.no.uio import PrinterQuotas
+from Cerebrum.modules.no.uit import AutoStud
+from Cerebrum.modules.no.uit import DiskQuota
+from Cerebrum.modules.no.uit import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
 #UIT:
 from Cerebrum.modules.no.uit import Email
@@ -99,11 +99,12 @@ class AccountUtil(object):
 
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
-        print "creating new user for fnr=%s" % fnr
+
         assert not dryrun
         today = datetime.datetime.now()
         logger.info2("CREATE")
         person = Factory.get('Person')(db)
+        logger.info("Trying to create user for person with fnr=%s" % fnr)
         try:
             person.find_by_external_id(const.externalid_fodselsnr, fnr,
                                        const.system_fs)
@@ -138,9 +139,9 @@ class AccountUtil(object):
                          None,
                          default_creator_id, default_expire_date)
         
-        # UIT: We use fnr as initial password!
-        #password = account.make_passwd(uname)
-        password = fnr
+        ## UIT: We no longer use fnr as initial password!
+        #password = fnr
+        password = account.make_passwd(uname)
         account.set_password(password)
         tmp = account.write_db()
         logger.debug("new Account, write_db=%s" % tmp)
