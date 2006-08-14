@@ -390,7 +390,8 @@ class execute:
                 
                     
             #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
-            posix_user.set_password(personnr)
+            password = posix_user.make_passwd(username)
+            posix_user.set_password(password)
             posix_user.write_db()
             # lets set the account_type table
             posix_user.set_account_type(ou_id,
