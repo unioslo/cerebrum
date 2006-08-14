@@ -18,7 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
-
+import sys
 from Cerebrum.modules.no import access_FS
 
 class UiTOU(access_FS.StudieInfo):
@@ -220,9 +220,8 @@ class FS(access_FS.FS):
         self.ou = UiTOU(self.db)
 
 
-class person_xml_parser(non_nested_xml_parser):
+class person_xml_parser(access_FS.non_nested_xml_parser):
     "Parserklasse for person.xml."
-
     elements = {'data': False,
                 'aktiv': True,
                 'tilbud': True,
