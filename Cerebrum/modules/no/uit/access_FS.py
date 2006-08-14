@@ -219,3 +219,15 @@ class FS(access_FS.FS):
         self.evu = UiTEVU(self.db)
         self.ou = UiTOU(self.db)
 
+
+class person_xml_parser(non_nested_xml_parser):
+    "Parserklasse for person.xml."
+
+    elements = {'data': False,
+                'aktiv': True,
+                'tilbud': True,
+                'fagperson': True,
+                'evu': True,
+                'privatist_studieprogram': True,
+                'eksamen' : True,
+                }
