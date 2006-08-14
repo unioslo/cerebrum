@@ -51,10 +51,24 @@ fs = uitfs = None
 KiB = 1024
 MiB = KiB**2
 
+
+def _ext_cols(db_rows):
+    # TBD: One might consider letting xmlify_dbrow handle this
+    cols = None
+    if db_rows:
+        cols = list(db_rows[0].keys())
+    return cols, db_rows
+
+
 def write_uit_person_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(500*KiB)
     f.write(xml.xml_hdr + "<data>\n")
+
+    # Fagpersoner
+    cols, fagpersoner = _ext_cols(fs.undervisning.list_fagperson_semester())
+    for p in fagpersoner:
+        f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
 
     #Aktive ordinære studenter ved Uit
     cols, uitaktiv = uitfs.GetAktive()
