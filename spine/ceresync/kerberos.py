@@ -37,12 +37,14 @@ class Account:
 
     def __init__(self):
         self.k = None # Holds the authenticated kadm object
+        self.incr = False
 
 
     def begin(self,incr=False):
         """
         Initiate connection to local or remote kadmin
         """
+        self.incr = incr
         if not kadm5:
             return None
         haveMIT = False
@@ -88,7 +90,7 @@ class Account:
             print "Error connecting. Reason: %s" % e
             raise SystemExit
 
-        if (not incr):
+        if (not self.incr):
             self.added_princs = []
             
     def close(self,):
@@ -112,7 +114,7 @@ class Account:
             password = account.password
             options = None # or some defaults from config in dict-format
             self.k.CreatePrincipal(princ,password,options)
-            if (not incr):
+            if (not self.incr):
                 self.added_princs.append(princ)
         except heimdal_error.KADM5_DUP,kdup:
             # FIXME! Fetch override from config. If we set new password
