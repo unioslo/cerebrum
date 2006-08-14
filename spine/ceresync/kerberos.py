@@ -152,10 +152,10 @@ class Account:
                 p = self.k.GetPrincipal(princ)
                 if p['mod_name'] == self.principal:
                     if princ not in added:
-                    try:
-                        self.k.DeletePrincipal(princ)
-                    except Exception,err:
-                        print err
+                        try:
+                            self.k.DeletePrincipal(princ)
+                        except Exception,err:
+                            print err
 
 
 
