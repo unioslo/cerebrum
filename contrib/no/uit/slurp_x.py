@@ -355,11 +355,7 @@ class execute:
                 
                     
                 #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
-                if(national_id !='NO'):
-                    posix_user.set_password(posix_user.make_passwd(username))
-                    self.verify_foreign(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost)
-                else:
-                    posix_user.set_password(personnr)
+                posix_user.set_password(posix_user.make_passwd(username))
                 posix_user.write_db()
                 # lets set the account_type table
                 # need: oi_id, affiliation and priority
