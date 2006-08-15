@@ -139,11 +139,7 @@ class LdapBack:
         try:
             self.l = ldap.initialize(self.uri)
             self.l.simple_bind_s(self.binddn,self.bindpw)
-            self.notinsync = []
-            if incr == False:
-                res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
-                for (dn, attrs) in res:
-                    self.notinsync.append(dn)
+            self.insync = []
         except ldap.LDAPError,e:
             #raise LdapConnectionError
             print "Error connecting to server: %s" % (e)
@@ -160,15 +156,34 @@ class LdapBack:
         except ldap.LDAPError,e:
             print "Error occured while closing LDAPConnection: %s" % (e)
 
+    def _cmp(self,x,y):
+        """Comparator for sorting hierarchical DNs for ldapsearch-result"""
+        x = x.count(",")
+        y = y.count(",")
+        if x < y : return 1
+        elif x == y : return 0
+        else: return -1
+
     def syncronize(self):
         """ Deletes objects not to be found in given base.
         Only for use when incr is set to False.
         """
-        print "Syncronizing LDAP database"
-        for entry in self.notinsync:
-            print "Found %s in database.. should not be here.. removing" % entry
-            self.delete(dn=entry)
-        print "Done syncronizing"
+        if not self.incr
+            print "Syncronizing LDAP database"
+            self.indirectory = []
+            for (dn,attrs) in self.search(filterstr=self.filter,attrlist=["dn"]):
+                self.indirectory.append(dn)
+            for entry in self.insync:
+                try:
+                    self.inderectory.remove(entry)
+                except:
+                    info("Info: Didn't find entry: %s." % entry)
+            self.indirectory.sort(self._cmp)
+            for entry in self.indirectory:
+                # FIXME - Fetch list of DNs not to be touched
+                self.delete(dn=entry)
+                info("Info: Found %s in database.. should not be here.. removing" % entry)
+            print "Done syncronizing"
 
     def abort(self):
         """
@@ -187,11 +202,7 @@ class LdapBack:
         attrs=self.get_attributes(obj)
         try:
             self.l.add_s(dn,modlist.addModlist(attrs,ignore_attr_types))
-            if not self.incr:
-                try:
-                    self.notinsync.remove(dn)
-                except:
-                    pass
+            self.insync.append(dn)
         except ldap.ALREADY_EXISTS,e:
             print "%s already exist. Trying update instead..." % (obj.name)
             self.update(obj)
@@ -216,8 +227,7 @@ class LdapBack:
         mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
             self.l.modify_s(dn,mod_attrs)
-            if not self.incr:
-                self.notinsync.remove(dn)
+            self.insync.append(dn)
             print "%s updated successfully" % (obj.name)
         except ldap.LDAPError,e:
             print "An error occured while modifying %s" % (dn)
