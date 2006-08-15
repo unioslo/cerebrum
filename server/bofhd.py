@@ -659,7 +659,7 @@ class BofhdServerImplementation(object):
             if not line:
                 break
             line = line.strip()
-            if line[0] == '#' or not line:
+            if not line or line.startswith('#'):
                 continue
             # Import module and create an instance of it; update
             # mapping from command name to a class instance with a
