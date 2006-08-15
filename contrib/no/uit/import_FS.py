@@ -94,7 +94,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
                              institusjon=institusjon)
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
-            print "a_dict keys: %s" % a_dict.keys()
+            #print "a_dict keys: %s" % a_dict.keys()
             if (a_dict.has_key('studieprogramkode')):
                 logger.warn("Cannot find an OU in Cerebrum with stedkode: %s (name=%s)", key,a_dict['studieprogramkode'])
             else:
