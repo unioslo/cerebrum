@@ -94,7 +94,11 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
                              institusjon=institusjon)
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
-            logger.warn("Cannot find an OU in Cerebrum with stedkode: %s (name=%s)", key,a_dict['studieprogramkode'])
+            print "a_dict keys: %s" % a_dict.keys()
+            if (a_dict.has_key('studieprogramkode')):
+                logger.warn("Cannot find an OU in Cerebrum with stedkode: %s (name=%s)", key,a_dict['studieprogramkode'])
+            else:
+                logger.warn("Cannot find an OU in Cerebrum with stedkode: %s" % (key) )
             ou_cache[key] = None
     #print "GETSKO returned: %s" % ou_cache[key]
     return ou_cache[key]
@@ -253,7 +257,7 @@ def process_person_callback(person_info):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn("Ugyldig fødselsnr: %s" % fnr)
+        logger.error("Ugyldig fødselsnr: %d-%d" % (int(person_info['fodselsdato']), int(person_info['personnr'])))
         return
 
     gender = co.gender_male
@@ -453,7 +457,6 @@ def main():
     verbose = 0
     include_delete = False
     logger_name = cereconf.DEFAULT_LOGGER_TARGET
-
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:l:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
         'generate-groups','include-delete','logger-name' ])
