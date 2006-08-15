@@ -231,7 +231,7 @@ class BofhdExtension(object):
         nr, end_date, groupname, comment = args
         try:
             self.ba.can_request_guests(operator.get_entity_id(), groupname)
-        except NotFoundError:
+        except Errors.NotFoundError:
             raise CerebrumError, "Group '%s' not found" % groupname
         owner = self.util.get_target(groupname, default_lookup="group")
         today = DateTime.today()
