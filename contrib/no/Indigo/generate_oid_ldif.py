@@ -26,12 +26,17 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import SimilarSizeWriter
+from Cerebrum.modules import Email
 from Cerebrum.Constants import _PersonAffStatusCode
 
 def get_account_info():
-    global uname2mailaddr, p_id2name, p_id2fnr, a_id2auth
+    global a_id2email, uname2mailaddr, p_id2name, p_id2fnr, a_id2auth
     global a_id2p_id, p_id2a_id, ou_id2name, const2str
-    
+
+    a_id2email = dict()
+    for row in et.list_email_target_primary_addresses():
+        a_id2email[int(row['entity_id'])] = "%s@%s" % (row['local_part'], row['domain'])
+
     uname2mailaddr = ac.getdict_uname2mailaddr()
     p_id2name = p.getdict_persons_names(source_system=co.system_cached,
                                         name_types=(co.name_first,co.name_last))
@@ -102,11 +107,11 @@ def process_txt_file(file):
         p_names = p_id2name[id]
         first = p_names[int(co.name_first)]
         last = p_names[int(co.name_last)]
-        if not uname2mailaddr.has_key(uname):
+        if not a_id2email.has_key(a_id):
             logger.warning("Mail-addr not found for '%s', '%s'" % (id, uname))
             continue
         txt = '$'.join((p_id2fnr[id], uname, pwd,
-                        uname2mailaddr[uname],
+                        a_id2email[a_id],
                         ou_id2name[ou_id], first, last)) + '\n'
         file.write(txt)
         users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
@@ -249,7 +254,7 @@ def process_groups(spread, file):
         
 
 def main():
-    global db, co, ac, p, ou, logger
+    global db, co, ac, p, ou, et, logger
 
     logger = Factory.get_logger("cronjob")
     
@@ -258,6 +263,7 @@ def main():
     ac = Factory.get('Account')(db)
     p = Factory.get('Person')(db)
     ou = Factory.get('OU')(db)
+    et = Email.EmailTarget(db) 
 
     txt_path = "/cerebrum/dumps/txt"
     oid_path = "/cerebrum/dumps/OID"
