@@ -248,6 +248,7 @@ class AccountUtil(object):
 
         changes = []
         remove_idx = 1     # Do not remove last account affiliation
+        tilknyttet_remove_idx = 1
         account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
                        if aff == const.affiliation_student]
 
@@ -271,6 +272,13 @@ class AccountUtil(object):
             if not ou in account_ous and aff == const.affiliation_student:
                 #if(is_student ==1):
                 changes.append(('set_ac_type', (ou, const.affiliation_student)))
+            else:
+                if (len(account_ous)>0):
+                    account_ous.remove(ou)
+                    # The account has at least one valid affiliation, so
+                    # we can delete everything left in account_ous.
+                    remove_idx = 0
+
             if not ou in tilknyttet_account_ous and aff == const.affiliation_tilknyttet:
                 #if(is_tilknyttet):
                 changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
@@ -279,13 +287,20 @@ class AccountUtil(object):
                 #else:
                 #    logger.error("Unknown affiliation:%s for account:%s on person:%s" %(aff,account_id,fnr))
             else:
-                account_ous.remove(ou)
-                # The account has at least one valid affiliation, so
-                # we can delete everything left in account_ous.
-                remove_idx = 0
+                if (len(tilknyttet_account_ous)>0):
+                    tilknyttet_account_ous.remove(ou)
+                    # The account has at least one valid affiliation, so
+                    # we can delete everything left in account_ous.
+                    tilknyttet_remove_idx = 0
+
 
         for ou in account_ous[remove_idx:]:
             changes.append(('del_ac_type', (ou, const.affiliation_student)))
+
+        for ou in tilknyttet_account_ous[tilknyttet_remove_idx:]:
+            changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
+
+
         return changes
     _populate_account_affiliations=staticmethod(_populate_account_affiliations)
     
