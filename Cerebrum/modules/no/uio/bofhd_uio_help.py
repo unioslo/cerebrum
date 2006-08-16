@@ -155,6 +155,12 @@ command_help = {
     "email_remove_tripnote":
         "Remove vacation message",
     },
+    'entity': {
+    'entity_accounts':
+        "Gives information about accounts associated with given entities",
+    'entity_history':
+        "Gives partial history for entities",
+    },
     'group': {
     'group_add': 'Let an account join a group',
     'group_create': 'Create a new Cerebrum group',
