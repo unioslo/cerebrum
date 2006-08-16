@@ -108,6 +108,18 @@ class Object2Cerebrum(object):
             # This is fine, write_db() figures it up.
             return None
 
+
+    def _add_entity_addresses(self, entity, addresses):
+        """Add an entity's addresses."""
+        for addr in addresses.keys():
+            #for tag in ("pobox", "street", "postcode", "city", "country"):
+            entity.populate_address(self.source_system, type=addr,
+                                    address_text=addresses[addr].street,
+                                    p_o_box=addresses[addr].pobox,
+                                    postal_number=addresses[addr].postcode,
+                                    city=addresses[addr].city,
+                                    country=addresses[addr].country)
+            entity.write_db()
         
     def store_ou(self, ou):
         """Pass a DataOU to this function and it gets stored
@@ -177,6 +189,7 @@ class Object2Cerebrum(object):
         if not self._person.has_spread(int(self.co.spread_ldap_per)):
             self._person.add_spread(int(self.co.spread_ldap_per))
         self._person.write_db()
+        self._add_entity_addresses(self._person, person._address)
         return (ret, self._person.entity_id)
 
 
