@@ -371,7 +371,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if self.__in_db:
             # remove homedir first:
             AccountHome.delete(self)
-            
+
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=account_authentication]
+            WHERE account_id=:a_id""", {'a_id': self.entity_id})
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=account_info]
             WHERE account_id=:a_id""", {'a_id': self.entity_id})
