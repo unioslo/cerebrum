@@ -22,15 +22,17 @@ group_help = {
     'access': "Access (authorisation) related commands",
     'disk': "Disk related commands",
     'email': "E-mail commands",
+    'entity': "Entity commands",
     'group': "Group commands",
     'host': "Host related commands",
     'misc': 'Miscellaneous commands',
+    'perm': 'Control of Privileges in Cerebrum',
     'person': 'Person related commands',
+    'pquota': 'Pquota related commands',
     'quarantine': 'Quarantine related commands',
     'spread': 'Spread related commands',
     'trait': 'Trait related commands',
     'user': 'Account building and manipulation',
-    'perm': 'Control of Privileges in Cerebrum'
     }
 
 # The texts in command_help are automatically line-wrapped, and should
@@ -170,6 +172,7 @@ command_help = {
     'group_remove': 'Remove member accounts from a given group',
     'group_request': 'Send in request for a new Cerebrum group',
     'group_search': 'Search for a group using various criteria',
+    'group_set_description': 'Set description for a group',
     'group_set_expire': 'Set expire date for a group',
     'group_set_visibility': 'Set visibility for a group',
     'group_user': 'List all groups an account is a member of',
