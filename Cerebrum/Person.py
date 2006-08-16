@@ -651,14 +651,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             self._db.log_change(self.entity_id,
                                 self.const.person_aff_add, None)
         try:
-            self.query_1("""
-            SELECT 'yes' AS yes
+            cur_status = int(self.query_1("""
+            SELECT status
             FROM [:table schema=cerebrum name=person_affiliation_source]
             WHERE
               person_id=:p_id AND
               ou_id=:ou_id AND
               affiliation=:affiliation AND
-              source_system=:source""", binds)
+              source_system=:source""", binds))
             self.execute("""
             UPDATE [:table schema=cerebrum name=person_affiliation_source]
             SET status=:status, last_date=[:now], deleted_date=NULL
@@ -667,8 +667,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               ou_id=:ou_id AND
               affiliation=:affiliation AND
               source_system=:source""", binds)
-            self._db.log_change(self.entity_id,
-                                self.const.person_aff_src_mod, None)
+            if not cur_status == int(status):
+                self._db.log_change(self.entity_id,
+                                    self.const.person_aff_src_mod, None)
         except Errors.NotFoundError:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=person_affiliation_source]
