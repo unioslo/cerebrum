@@ -2702,7 +2702,8 @@ class BofhdExtension(object):
                                         
     # entity history
     all_commands['entity_history'] = Command(
-        ("entity", "history"), AccountName(), Integer(optional=True),
+        ("entity", "history"), AccountName(help_ref="entity_id"),
+        Integer(optional=True, help_ref="limit_number_of_results"),
         perm_filter='is_superuser')
     def entity_history(self, operator, entity_id, limit=100):
         if not self.ba.is_superuser(operator.get_entity_id()):
@@ -2710,7 +2711,7 @@ class BofhdExtension(object):
         ret = []
         for r in self.db.get_log_events(0, subject_entity=entity_id):
             ret.append(self._format_changelog_entry(r))
-        return "\n".join(ret[-limit:])
+        return "\n".join(ret[-int(limit):])
 
     #
     # group commands
@@ -3774,7 +3775,13 @@ class BofhdExtension(object):
             skriver = args.pop(0)
         else:
             skriver = cereconf.PRINT_PRINTER
-        selection = args.pop(0)
+            
+        try:
+            selection = args.pop(0)
+        except IndexError:
+            # Trying to list passwords when none have been set
+            raise CerebrumError("Cannot print new passwords when none have been set")
+            
         cache = self._get_cached_passwords(operator)
         th = TemplateHandler(tpl_lang, tpl_name, tpl_type)
         tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,

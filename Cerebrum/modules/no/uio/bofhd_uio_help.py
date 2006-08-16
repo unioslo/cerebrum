@@ -216,6 +216,8 @@ command_help = {
         "Re-read server config file (use with care)",
     "misc_list_requests":
         "View pending jobs",
+    "misc_samba_mount":
+        "Does thingy with stuff", # /Might/ need a better text.....
     "misc_stedkode":
         "Look up OU by stedkode or name",
     "misc_user_passwd":
@@ -379,6 +381,9 @@ affiliation status codes"""],
     'email_tripnote_action':
         ['action', 'Enter action',
          "Legal tripnote actions:\n - on\n - off"],
+    'entity_id':
+        ['id', 'Enter entity ID',
+         "Numeric ID of the entity you wish to process."],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
@@ -431,6 +436,10 @@ abbreviated.  (Some of the types may not make sense for this command.)
     'id:request_id':
         ['request_id', 'Enter request_id',
          "'misc list_requests' returns legal values"],
+    'limit_number_of_results':
+        ['number', 'Number of results for query',
+         "Gives upper limit for how many entries to include, counting " +
+         "backwards from the most recent. Default (when left empty) is 100"],
     'mailman_admins':
         ['addresses', 'Enter comma separated list of administrators for '+
          'the Mailman list'],
