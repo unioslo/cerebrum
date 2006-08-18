@@ -83,8 +83,8 @@ else:
 # fi
 
 #logger = logging.getLogger("console")
-#logger = Factory.get_logger("console")
-logger = Factory.get_logger("cronjob")
+logger = None
+#logger = Factory.get_logger("cronjob")
 
 
 
@@ -115,6 +115,8 @@ class system_xRepresentation(object):
         do not exist in cerebrum already. q.e.d, they will wither appear here as a 'gjest'
         or in the LT/SLP4 import.
     """
+
+    
     def execute(self,writer,system_source):
         db = Factory.get('Database')()
         person = Factory.get('Person')(db)
@@ -122,60 +124,48 @@ class system_xRepresentation(object):
         const = Factory.get('Constants')(db)
         stedkode = Stedkode.Stedkode(db)
 
-        # Get all accounts with FRIDA spread
-        entities = account.list_all_with_spread(int(const.spread_uit_frida))
+
+        current_source_system= const.system_x
+
+        # Get all persons that come from SysX _and_ has a norwegian SSN! 
+        entities = person.list_external_ids(source_system=const.system_x,id_type=const.externalid_fodselsnr,entity_type=8)
         for entity in entities:
             account.clear()
             person.clear()
             stedkode.clear()
-            
-            account.find(entity['entity_id'])
-            # Get the corresponding Person object for these accounts
-            person.find(account.owner_id)
-            logger.info("person_id = %s, account_id = %s" % (person.entity_id,account.entity_id))
-            
 
+            # find account and person objects
+            person.find(entity['entity_id'])
+                        
+            acc_id = person.get_primary_account()
+            if (acc_id):
+                account.find(acc_id)
+            else:
+                logger.warn("SysX person ID=(%s) Fnr=(%s) has no active account" % (entity['entity_id'],entity['external_id']))
+                continue
+                             
+
+            external_id = entity['external_id']
+            person_attrs = {"fnr":external_id,"reservert":"N"}
+            account_name = account.account_name            
+            
             # Get the affiliation status code string
-            current_source_system= const.system_x
             try:
                 aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
-                #if(len(aff)==0):
-                #    current_source_system=const.system_fs
-                #    aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
-                #if(len(aff)==0):
-                #    current_source_system=const.system_lt
-                #    aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
-                    #logger.error("Person %s has frida spread, but does not come from slurp or fs...should not happend.. yet" % person.entity_id )
-                    #continue
-                #fornavn = person.get_name(const.system_cached,const.name_first)
-                #etternavn = person.get_name(const.system_cached,const.name_last)
                 fornavn = person.get_name(current_source_system,const.name_first)
                 etternavn = person.get_name(current_source_system,const.name_last)
                 aff_str = const.PersonAffStatus(aff[0]['status'])
-                aff_id = aff[0].ou_id
-                external_id = person.get_external_id(current_source_system)
-                attributes = {"fnr":external_id[0]['external_id'],"reservert":"N"}
-
+                aff_id = aff[0]['ou_id']
             except Errors.NotFoundError:
-                #logger.error("ERROR: FRIDA spread from invalid source system. PersonID(%s)" % person.entity_id) 
+                # Frida spread from another source system, we dont care about these here...
                 continue
             except Exception,msg:
                 logger.error("Error: %s,account_id =%s,person_id=%s" % (msg,account.entity_id,person.entity_id))
                 continue
-#                try:
-#                    aff = person.list_affiliations(person_id=person.entity_id,source_system=const.system_lt)
-#                    fornavn = person.get_name(const.system_lt,const.name_first)
-#                    etternavn = person.get_name(const.system_lt,const.name_last)
-#
-#                except Errors.NotFoundError:
-#                    #This person has a frida spread, but we have no person data from either system_x or AD
-#                    # serious bug.
-#                    logger.debug("ERROR: FRIDA spread from invalid source system %s" % person.entity_id) 
-#                    continue
 
-           
 
-            writer.startElement("person",attributes)
+            # Got info, output!
+            writer.startElement("person",person_attrs)
 
             writer.startElement("etternavn")
             writer.data(etternavn)
@@ -187,7 +177,7 @@ class system_xRepresentation(object):
             writer.endElement("fornavn")
 
             writer.startElement("brukernavn")
-            writer.data(account.get_account_name())
+            writer.data(account_name)
             writer.endElement("brukernavn")
             writer.startElement("gjester")
             writer.startElement("gjest")
@@ -210,7 +200,7 @@ class system_xRepresentation(object):
             writer.endElement("gruppenr")
 
             writer.startElement("datoFra")
-            create_date = aff[0].create_date
+            create_date = aff[0]['create_date']
 
             dato_fra ="%s-%s-%s" % (create_date.year,create_date.month,create_date.day)
             writer.data(dato_fra)
@@ -295,7 +285,6 @@ class LTPersonRepresentation(object):
         # Interesting elements have repetitions. Thus a hash of lists
         for element in self.INTERESTING_ELEMENTS:
             self.elements[element] = []
-        # od
 
         # We need an ID to tie a person to the database identification Let's
         # use fnr, although it's a bad identification in general, but we do
@@ -306,9 +295,7 @@ class LTPersonRepresentation(object):
                 attributes.has_key("personnr")):
             raise (ValueError,
                   "Missing critical data for person: " + str(attributes))
-        # fi
 
-        logger.debug("personnr = %s" % attributes["personnr"])
         self.fnr = "%02d%02d%02d%5s" % (int(attributes["fodtdag"]),
                                         int(attributes["fodtmnd"]),
                                         int(attributes["fodtar"]),
@@ -318,7 +305,7 @@ class LTPersonRepresentation(object):
         # NB! This code might raise fodselsnr.InvalidFnrError
         #     We need sanity checking, because LT dumps are suffer from bitrot
         #     (e.g. Swedish SSNs end up as Norwegian. Gah!)
-        logger.debug("self.fnr = %s" % self.fnr)
+        #logger.debug("self.fnr = %s" % self.fnr)
         fodselsnr.personnr_ok(self.fnr)
         
         self.fnr = self.fnr.encode("latin1")
@@ -328,8 +315,6 @@ class LTPersonRepresentation(object):
         self.name = attributes["navn"].encode("latin1")
         logger.debug("extracted new person element from LT (%s, %s)",
                      self.fnr, self.name)
-    # end
-
 
 
     def register_element(self, name, attributes):
@@ -339,7 +324,6 @@ class LTPersonRepresentation(object):
         """
         if name not in self.INTERESTING_ELEMENTS:
             return
-        # fi
 
         encoded_attributes = {}
         for key, value in attributes.items():
@@ -348,11 +332,8 @@ class LTPersonRepresentation(object):
             key = key.encode("latin1")
             value = value.encode("latin1")
             encoded_attributes[key] = value
-        # od
 
         self.elements[name].append(encoded_attributes)
-    # end registerElement
-
 
 
     def get_element(self, name):
@@ -363,8 +344,6 @@ class LTPersonRepresentation(object):
         attributes (key = attribute name, value = attribute value).
         """
         return self.elements.get(name, [])
-    # end get_element
-        
 
 
     def is_frida(self):
@@ -384,8 +363,6 @@ class LTPersonRepresentation(object):
                 self.has_active("tils") or
                 # FIXME: remove this as soon as LT dumps respect the DTD
                 len(self.elements.get("gjest", [])) > 0)
-    # end is_frida
-
 
 
     def is_employee(self):
@@ -394,8 +371,6 @@ class LTPersonRepresentation(object):
         """
 
         return self.has_active("tils")
-    # end is_employee
-
 
 
     def has_active(self, element):
@@ -414,12 +389,8 @@ class LTPersonRepresentation(object):
             if (start and end and
                 start < now <= end):
                 return True
-            # fi
-        # od
 
         return False
-    # end has_active
-
 
 
     def has_reservation(self, **attributes):
@@ -436,15 +407,9 @@ class LTPersonRepresentation(object):
                 if not res.has_key(attribute) or res[attribute] != value:
                     hit = False
                     break 
-                # fi
-            # od
-
             if hit: return True
-        # od
 
         return False
-    # end has_resevation
-
 
 
     def __str__(self):
@@ -462,7 +427,6 @@ class LTPersonRepresentation(object):
 
         output += " ]>"
         return output
-    # end debug_output
     
 # end LTPersonRepresentation
 
@@ -547,20 +511,14 @@ class LTPersonParser(xml.sax.ContentHandler, object):
             except fodselsnr.InvalidFnrError, value:
                 logger.error("Failed to construct a person from XML: %s",
                              value)
-            # yrt
         elif (name in self.INTERESTING_ELEMENTS and
               self.current_person):
             self.current_person.register_element(name, attributes)
-        # fi
-    # end startElement
-
 
 
     def endElement(self, name):
         if name == self.PERSON_ELEMENT and self.current_person:
             self.callback(self.current_person)
-        # fi
-    # end endElement
 # end class LTPersonParser
 
 
@@ -887,7 +845,8 @@ def construct_person_attributes(writer, pobj, db_person, constants):
     #     up is an extra check for data validity
     row = db_person.get_external_id(constants.system_lt,
                                     constants.externalid_fodselsnr)[0]
-    attributes["fnr"] = str(row.external_id)
+    attributes["fnr"] = str(row['external_id'])
+
 
     # The rule for selecting primary affiliation is pretty simple:
     # 1. If there is an ANSATT/vitenskapelig affiliation then
@@ -1111,8 +1070,8 @@ def output_person(writer, pobj, db_person, db_account, constants,system_source):
     # surname
     #writer.startElement("sn")
     writer.startElement("etternavn")
-    print "etternavn--->%s<---" %(str(db_person.get_name(system_source,
-                                       constants.name_last)))
+    #print "etternavn--->%s<---" %(str(db_person.get_name(system_source,
+    #                                   constants.name_last)))
     writer.data(str(db_person.get_name(system_source,
                                        constants.name_last)))
     #writer.endElement("sn")
@@ -1121,7 +1080,7 @@ def output_person(writer, pobj, db_person, db_account, constants,system_source):
     # first name
     first_name = db_person.get_name(system_source,
                                     constants.name_first)
-    print "fornavn--->%s<---" % first_name
+    #print "fornavn--->%s<---" % first_name
     if first_name:
         #writer.startElement("givenName")
         writer.startElement("fornavn")
@@ -1317,7 +1276,6 @@ def output_xml(output_file,
     #writer.startElement("XML-export")
     xml_options = {'xmlns:xsi' : "http://www.w3.org/2001/XMLSchema-instance","xsi:noNamespaceSchemaLocation":"http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/schema/Frida-import-1_0.xsd"}
     writer.startElement("fridaImport",xml_options)
-    #writer.startElement("fridaImport","xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/schema/Frida-import-1_0.xsd\"")
 
     writer.startElement("beskrivelse")
     writer.startElement("kilde")
@@ -1381,19 +1339,22 @@ def main():
     Start method for this script. 
     """
 
+    global logger
+
     try:
         options, rest = getopt.getopt(sys.argv[1:],
-                                      "o:p:s:vd:t:h", ["output-file=",
-                                                       "person-file=",
-                                                       "sted-file=",
-                                                       "verbose",
-                                                       "data-source=",
-                                                       "target",
-                                                       "help",])
+                                      "o:p:s:vd:t:hl:", ["output-file=",
+                                                         "person-file=",
+                                                         "sted-file=",
+                                                         "verbose",
+                                                         "data-source=",
+                                                         "target",
+                                                         "help",
+                                                         "logger_name=",])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
-    # yrt
+
 
     # Default values
     output_file = 0
@@ -1403,6 +1364,7 @@ def main():
     # FIXME: Maybe snatch these from cereconf?
     data_source = "UITO"
     target = "FRIDA"
+    logger_name = cereconf.DEFAULT_LOGGER_TARGET
     
     # Why does this look _so_ ugly?
     for option, value in options:
@@ -1417,28 +1379,23 @@ def main():
             pass
         elif option in ("-d", "--data-source"):
             data_source = value
-        elif option in ("-t", "--target"):
+        elif option in ("-t", "--target"):            
             target = value
+        elif option in ('-l', '--logger_name'):
+            logger_name = value
         elif option in ("-h", "--help"):
             usage()
             sys.exit(2)
-        # fi
-    # od
 
+    logger = Factory.get_logger(logger_name)
     if (sted_file != 0 and output_file != 0 and person_file != 0):
-        # why do we need the line below??
-        #logging.fileConfig(cereconf.LOGGING_CONFIGFILE_NEW)
-        #logger.setLevel(logging.INFO)
-        #logger.setLevel(logging.DEBUG)
         logger.info( "Generating FRIDA export")
-
         output_xml(output_file = output_file,
                    data_source = data_source,
                    target = target,
                    person_file = person_file)
     else:
         usage()
-# fi
 
 
 
@@ -1446,6 +1403,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-# fi
 
 # arch-tag: adade92c-b426-11da-9da7-f4082863a3d1
