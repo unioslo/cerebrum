@@ -204,7 +204,7 @@ def process_aff_groups(users, file):
                    "objectclass: groupOfUniqueNames",
                    "objectclass: orclGroup",
                    "displayname: %s:%s" % (ou, const2str[int(aff)]),
-                   "description; %s:%s" % (ou, const2str[int(aff)])]
+                   "description: %s:%s" % (ou, const2str[int(aff)])]
             for u in users[ou][aff]:
                 txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
             file.write('\n'.join(txt))
@@ -215,7 +215,7 @@ def process_aff_groups(users, file):
                "objectclass: groupOfUniqueNames",
                "objectclass: orclGroup",
                "displayname: %s" % ou,
-               "description; %s" % ou]
+               "description: %s" % ou]
         for aff in users[ou].keys():
             for u in users[ou][aff]:
                 txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
