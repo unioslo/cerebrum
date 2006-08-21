@@ -266,13 +266,27 @@ def register_spread_groups(emne_info, stprog_info):
 
             
             emne_sted_id = 'STRUCTURE:%s' % my_emne_id_prefix
+
+            # UIT: we need to represent emenrom with an indication of which termin this
+            # emenroom is for. f.eks a room with terminkode 1,2 and 3 would need something like
+            # (course_name - semester 1)
+            # (course_name - semester 2)
+            # (course_name - semester 3)
+            # This to diffenrentiate between the different semesters a course can be in.
+            #if terminnr != "1":
+            #    termin_representation = "%s. semester" % terminnr
+            #    emne_rom_id = 'ROOM:%s:undenh:%s (%s):%s:%s' % (emne_id_prefix,emnekode,termin_representation,versjon,terminnr)
+            #else:
             emne_rom_id = 'ROOM:%s:undenh:%s:%s:%s' % (
                 emne_id_prefix, emnekode, versjon, terminnr)
+
+            #print "--> emnerom = %s" % emne_rom_id
             ##print "emnenavnfork == '%s'" % emne_info[emnekode]['emnenavnfork'] # UIT
 
             #UIT register_room with versjon and int(terminnr) substituted with emne_info[emnekode]['emnenavnfork']
-            register_room('%s - %s' %
-                          (emnekode.upper(), emne_info[emnekode]['emnenavnfork']),
+            termin_representation = "%s. Sem" % terminnr
+            register_room('%s - %s (%s)' %
+                          (emnekode.upper(), emne_info[emnekode]['emnenavnfork'],termin_representation),
                           emne_rom_id, emne_sted_id,
                           profile=romprofil_id['emnerom'])
 
