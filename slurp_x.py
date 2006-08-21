@@ -44,7 +44,7 @@ locale.setlocale(locale.LC_ALL,"en_US.ISO-8859-1")
     
 class execute:
 
-    def __init__(self):
+    def __init__(self,logger_name):
         #init variables
         self.split_char = ":" # char used to split data from the source_file
         self.db = Factory.get('Database')()
@@ -53,7 +53,7 @@ class execute:
         self.constants = Factory.get('Constants')(self.db)
         self.OU = Factory.get('OU')(self.db)
         
-        self.logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+        self.logger = Factory.get_logger(logger_name)
         self.db.cl_init(change_program='slurp_x')
         bootstrap_inst = self.account.search(name=cereconf.INITIAL_ACCOUNTNAME)
         bootstrap_id=bootstrap_inst[0]['account_id']
@@ -69,98 +69,119 @@ class execute:
         return ret
 
     def read_data(self,file):
+
+        data = []
         file_handle = open(file,"r")
         lines = file_handle.readlines()
         file_handle.close()
-        return lines
+        for line in lines:
+            line = line.rstrip()
+            if not line or line.startswith('#'):
+                continue
+            data.append(line)
+        return data
+
+
+
+    def get_sysX_person(self,sysX_id):
+
+        p = Factory.get('Person')(self.db)
+        external_id_type = self.constants.externalid_sys_x_id
+        try:
+            p.find_by_external_id(external_id_type,sysX_id)
+            print "SysX person (%s) found" % (sysX_id)
+        except Errors.NotFoundError:
+            print "SysX person NOT found with sysX id=(%s) " % sysX_id
+            pass
+        return p
+
+    
 
 
     def create_person2(self,data_list):
         try: 
             id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
         except ValueError,m:
-            self.logger.error("VALUEERROR: %s: Line=%s" % (m,data_list))
+            self.logger.error("VALUEERROR_create_person2: %s: Line=%s" % (m,data_list))
             return 1
         
         my_stedkode = Stedkode(self.db)
         my_stedkode.clear()
         self.person.clear()
-        self.logger.debug("national_id=%s,aproved=%s" % (national_id,aproved))
+        self.logger.debug("Trying to process %s %s ID=%s, national_id=%s,aproved=%s" % (fornavn,etternavn,id,national_id,aproved))
         aproved = aproved.rstrip()
-        if((national_id !="NO") and (aproved=='Yes')):
-            # we have a non-norwegian person. only insert this person if it has been approved by administrator with superduper admin rights.
-            external_id_type = self.constants.externalid_sys_x_id
-            external_id = id
-            date_field = fodsels_dato.split(".")
-            year = date_field[2]
-            mon =  date_field[1]
-            day =  date_field[0]
-            if(gender=='M'):
-                gender = self.constants.gender_male
-            elif(gender=='F'):
-                gender = self.constants.gender_female
-            try:
-                self.person.find_by_external_id(external_id_type,id)
-            except Errors.NotFoundError:
-                pass
-            self.logger.info("processing data about:%s,%s" % (external_id_type,id))
 
-        elif((national_id!="NO") and (aproved !='Yes')):
-            self.logger.debug("foreign person processing")
-            self.logger.error("foreign person (%s %s) registered, but not aproved yet. person not stored in BAS.", (fornavn, etternavn))
-            return 1
+
+        if (aproved != 'Yes'):
+            self.logger.error("Processing person: %s %s (id=%s)not yet approved, not stored in BAS." % (fornavn, etternavn,id))
+            return 1,bruker_epost
         else:
-            # norwegian. use standard method.
-            personnr ="%s%s" % (fodsels_dato,personnr)
-            external_id_type = self.constants.externalid_fodselsnr
-            external_id = personnr
-            try:
-                fnr = fodselsnr.personnr_ok(personnr)
-                self.logger.info("process %s" % (fnr))
+            #person is approved!
+            if (personnr != ""):
+                # person has a norwegian ssn. use standard method.
+                external_id_type = self.constants.externalid_fodselsnr
+                external_id = personnr
+                try:
+                    fnr = fodselsnr.personnr_ok(personnr)
+                except fodselsnr.InvalidFnrError:
+                    self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
+                    return 1,bruker_epost
 
-            except fodselsnr.InvalidFnrError:
-                self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
-                return 1
-            try:
-                self.person.find_by_external_id(external_id_type,external_id)
-            except Errors.NotFoundError:
-                pass
+                (year,mon,day) = fodselsnr.fodt_dato(fnr)
+                gender = self.constants.gender_male
+                if(fodselsnr.er_kvinne(fnr)):
+                    gender = self.constants.gender_female
 
-            (year,mon,day) = fodselsnr.fodt_dato(fnr)
-            gender = self.constants.gender_male
-            if(fodselsnr.er_kvinne(fnr)):
-                gender = self.constants.gender_female
+                try:
+                    self.person.find_by_external_id(external_id_type,external_id)
+                    print "found person obj with id_type=%s" % external_id_type
+                except Errors.NotFoundError:
+                    # person not found with norwegian ssn, try to locate with sysX id.
+                    if (national_id != "NO"):
+                        print "has nor-snn, but not found with it. try to locate as sysX"
+                        self.person = self.get_sysX_person(id)
+            else:
+                # foreigner without norwegian ssn, use SysX-id as external-id.
+                external_id_type = self.constants.externalid_sys_x_id
+                external_id = id
+                date_field = fodsels_dato.split(".")
+                year = date_field[2]
+                mon =  date_field[1]
+                day =  date_field[0]
+                if(gender=='M'):
+                    gender = self.constants.gender_male
+                elif(gender=='F'):
+                    gender = self.constants.gender_female
+                
+                self.person = self.get_sysX_person(id)
 
+
+        self.logger.info("Processing person: name=%s %s , id_type=%s, id=%s" % (fornavn,etternavn,external_id_type,external_id))
+
+        # person object located, populate...
         self.person.populate(self.db.Date(int(year),int(mon),int(day)),gender)
-
+        
         self.person.affect_names(self.constants.system_x,self.constants.name_first,self.constants.name_last,self.constants.name_full)
         self.person.populate_name(self.constants.name_first,fornavn)
         self.person.populate_name(self.constants.name_last,etternavn)
 
-        fult_navn = "%s %s" % (fornavn,etternavn)
-        self.person.populate_name(self.constants.name_full,fult_navn)
+        fullt_navn = "%s %s" % (fornavn,etternavn)
+        self.person.populate_name(self.constants.name_full,fullt_navn)
         self.person.affect_external_id(self.constants.system_x,external_id_type)
         self.person.populate_external_id(self.constants.system_x,external_id_type,external_id)
-        #self.person.affect_external_id(self.constants.system_x,self.constants.externalid_fodselsnr)
-        #self.person.populate_external_id(self.constants.system_x,self.constants.externalid_fodselsnr,fnr)
         
         # setting affiliation and affiliation_status
-        #print "aff before = %s" % affiliation
         orig_affiliation = affiliation
         affiliation = int(self.constants.PersonAffiliation(affiliation))
-        #print "aff after = '%s'" % affiliation
-
-        #print "aff_status before = '%s'" % affiliation_status
         affiliation_status = int(self.constants.PersonAffStatus(orig_affiliation,affiliation_status.lower()))
-        #print "aff_status after = %s" % affiliation_status
 
+        # get ou_id of stedkode used
         fakultet = ou[0:2]
         institutt = ou[2:4]
         avdeling = ou[4:6]
-        # get ou_id of stedkode used
         my_stedkode.find_stedkode(fakultet,institutt,avdeling,cereconf.DEFAULT_INSTITUSJONSNR)
         ou_id = my_stedkode.entity_id
-        #print "populating person affiliation..."
+
         # populate the person affiliation table
         self.person.populate_affiliation(int(self.constants.system_x),
                                          int(ou_id),
@@ -168,16 +189,29 @@ class execute:
                                          int(affiliation_status)
                                          )
 
+        # Update last-seen date
+        try:
+            self.person.set_affiliation_last_date(int(self.constants.system_x),
+                                                  int(ou_id),
+                                                  int(affiliation),
+                                                  int(affiliation_status)
+                                                  )
+        except AttributeError:
+            # in case this is a new person object...
+            pass
+        except Errors.ProgrammingError:
+            pass
+
+
         #write the person data to the database
-        #print "write to db..."
         op = self.person.write_db()
-        # return sanity messages
         if op is None:
             self.logger.info("**** EQUAL ****")
         elif op == True:
             self.logger.info("**** NEW ****")
         elif op == False:
             self.logger.info("**** UPDATE ****")
+        self.db.commit()
 
 
     def expire_date_conversion(self,expire_date):
@@ -192,53 +226,51 @@ class execute:
         num_new_list = []
         num_old_list = []
         id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
-        #print "update"
         # need to check and update the following data: affiliation,expire_date,gecos,ou and spread
 
         #update expire_date
-        self.account.expire_date = expire_date
+        my_date= expire_date.split("-")
+        if (self.account.is_expired() and (datetime.date(int(my_date[0]),int(my_date[1]),int(my_date[2])) > datetime.date.today())):
+            # This account is expired in cerebrum. expire_date from the guest database
+            # is set in the future. need to update expire_date in the database
+            self.logger.info("updating expire date to: %s" % expire_date)
+            self.account.expire_date = expire_date
 
         # update gecos
-        full_name = "%s %s" % (fornavn,etternavn)
-        self.account.gecos = full_name
-
-        #update spread
-        old_spreads = self.account.get_spread()
-        
-        spread_list = string.split(spreads,",")
-        for i in spread_list:
-            num_new_list.append(int(self.constants.Spread(i)))
-
-        for o in old_spreads:
-            num_old_list.append(int(self.constants.Spread(o['spread'])))
-
-
-        for old_spread in num_old_list:
-            #print "old_spread = %s" % old_spread
-            if old_spread not in num_new_list:
-                #print "deleting spread %s" % old_spread
-                self.account.delete_spread(int(old_spread))
-
-        for new_spread in num_new_list:
-            if new_spread not in num_old_list:
-                #print "adding spread %s" % new_spread
-                self.account.add_spread(int(new_spread))
+        full_name = "%s %s" % (fornavn,etternavn) # check if equal first? # check name from personobject? to 
+        self.account.gecos = self.account.simplify_name(full_name,as_gecos=True)
 
         #update ou and affiliation (setting of account_type)
         self.OU.clear()
         self.OU.find_stedkode(ou[0:2],ou[2:4],ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
-        my_account_types = self.account.get_account_types()
-        #for i in my_account_types:
-        #    #print "deleting old account_type"
-        #    self.account.del_account_type(i.ou_id,i.affiliation)
 
+        #my_account_types = self.account.get_account_types()
         if(affiliation=="MANUELL"):
             self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=400)
         elif(affiliation=="TILKNYTTET"):
             self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=350)
         else:
             raise errors.ValueError("invalid affiliation: %s in guest database" % (affiliation))
-        
+
+        #update spread
+        old_spreads = self.account.get_spread()
+        if (spreads):
+            spread_list = string.split(spreads,",")
+        else:
+            spread_list = []
+        spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
+        for i in spread_list:
+            num_new_list.append(int(self.constants.Spread(i)))
+        for o in old_spreads:
+            num_old_list.append(int(self.constants.Spread(o['spread'])))
+
+        for new_spread in num_new_list:
+            if new_spread not in num_old_list:
+                self.account.add_spread(int(new_spread))
+            # also check and update homedir for each spread!
+            self.account.set_home_dir(int(new_spread))
+
+        # updates done. write
         self.account.write_db()
 
 
@@ -263,61 +295,71 @@ class execute:
         num_old_list = []
         spread_list = string.split(spreads,",")
 
-        if((national_id !='NO') and (aproved=='Yes')):
-            try:
-                # some foreign people may have temporary norwegian ssn. If that is the case, store this ssn in external_id
-                self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
-            except Errors.NotFoundError:
-                # This foreign person does not have a norwegian ssn. use an internal ID as external_id in cerebrum.
-                self.person.find_by_external_id(self.constants.externalid_sys_x_id,id,self.constants.system_x,self.constants.entity_person)
-                #self.logger.error("Foreign person with norwegian ssn = %s does not exist in Cerebrum. unable to check for account" % personnr)
-                #return 1,bruker_epost
-            except Errors.NotFoundError:
 
-                #try:
-                self.logger("foreign person does not have a temporary norwegian ssn, neither does it have a sys-x id. Account NOT created.")
-                #except Errors.NotFoundError:
-                #self.logger.error("Foreign person(db_id=%s) with national id:%s does not exist in cerebrum. unable to check for account" % (id,national_id))
-                return 1,bruker_epost
+
+        if (aproved != 'Yes'):
+            self.logger.error("Person %s %s (id=%s) not approved! Do not create account" % (fornavn, etternavn, id))
+            return 1,bruker_epost
         else:
-            # A norwegian person is being processed. Use the ssn as external_id in cerebrum.
-            try:
-                self.person.find_by_external_id(self.constants.externalid_fodselsnr,personnr,self.constants.system_x,self.constants.entity_person)
-            except Errors.NotFoundError:
-                self.logger.error("person with ssn = %s does not exist in Cerebrum. unable to check for account" % personnr)
-                return 1,bruker_epost
+            #person is approved!
+            if (personnr != ""):
+                # person has a norwegian ssn. use standard method.
+                external_id_type = self.constants.externalid_fodselsnr
+                external_id = personnr
+                try:
+                    fnr = fodselsnr.personnr_ok(personnr)
+                except fodselsnr.InvalidFnrError:
+                    self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
+                    return 1,bruker_epost
 
+                (year,mon,day) = fodselsnr.fodt_dato(fnr)
+                gender = self.constants.gender_male
+                if(fodselsnr.er_kvinne(fnr)):
+                    gender = self.constants.gender_female
+
+                try:
+                    self.person.find_by_external_id(external_id_type,external_id)
+                except Errors.NotFoundError:
+                    # person not found with norwegian ssn, try to locate with sysX id.
+                    if (national_id != "NO"):
+                        self.person = self.get_sysX_person(id)
+            else:
+                # foreigner without norwegian ssn, use SysX-id as external-id.
+                external_id_type = self.constants.externalid_sys_x_id
+                external_id = id
+                date_field = fodsels_dato.split(".")
+                year = date_field[2]
+                mon =  date_field[1]
+                day =  date_field[0]
+                if(gender=='M'):
+                    gender = self.constants.gender_male
+                elif(gender=='F'):
+                    gender = self.constants.gender_female
+                self.person = self.get_sysX_person(id)
+
+
+        self.logger.info("Processing account for person: name=%s %s , id_type=%s, id=%s" % (fornavn,etternavn,external_id_type,external_id))
         try:
-            #self.account.find(self.person.get_primary_account())
             account_list = self.person.get_accounts(filter_expired=False)
-            #default_account = "%s" % int(account_list[0])
             self.account.find(account_list[0][0])
-            account_types = self.account.get_account_types(filter_expired=False)
-            for account_type in account_types:
-                #print "account_type[affiliation] = %s" % account_type['affiliation']
-                if ((account_type['affiliation']==self.constants.affiliation_manuell)
-                    or (account_type['affiliation']==self.constants.affiliation_tilknyttet)):
-                    self.update_account(data_list)
+            self.update_account(data_list)
+            return account_list[0][0], bruker_epost
+            #account_types = self.account.get_account_types(filter_expired=False)
+            #for account_type in account_types:
+            #    #print "account_type[affiliation] = %s" % account_type['affiliation']
+            #    if ((account_type['affiliation']==self.constants.affiliation_manuell)
+            #        or (account_type['affiliation']==self.constants.affiliation_tilknyttet)):
+            #        self.update_account(data_list)
         except Errors.NotFoundError:
             pass
         except IndexError:
             pass
-        
-            
-        #my_accounts = self.person.get_accounts()
+             
+
         if(len(account_list) == 0):
             self.logger.debug("create new account")
             spread_list = string.split(spreads,",")
             spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
-            #for i in spread_list:
-            #    print "code value = %s,%s" % (self.constants.Spread(i),int(self.constants.Spread(i)))
-                
-            #try:
-
-            #except Errors.NotFoundError:
-            #    self.logger("Unable to create account for person %s. Person does not exist in cerebrum" % (personnr))
-            #    return 1
-
 
             full_name = "%s %s" % (fornavn,etternavn)
             if(national_id !='NO'):
@@ -330,7 +372,7 @@ class execute:
             
             group.find_by_name("posixgroup",domain=self.constants.group_namespace)
             new_expire_date = self.expire_date_conversion(expire_date)
-            #print "new = %s" % new_expire_date
+
             bootstrap_inst = self.account.search(name=cereconf.INITIAL_ACCOUNTNAME)
             bootstrap_id=bootstrap_inst[0]['account_id']
             posix_user.populate(name = username,
@@ -391,40 +433,11 @@ class execute:
             except Errors:
                 self.logger.error("Error in creating posix account for person %s" % personnr)
                 return 1,bruker_epost
-            #posix_user.get_homedir_id(self.constants.spread_uit_ldap_person)
+ 
             posix_user.write_db()
         else:
-            self.logger.info("person %s already has an account in cerebrum" % personnr)
-            #print "my accounts=%s" % account_list
-            #
-            #self.logger.debug("Expire check: %s,%s" % (datetime.date.today(),expire_date))
-            my_date= expire_date.split("-")
-            if (self.account.is_expired() and (datetime.date(int(my_date[0]),int(my_date[1]),int(my_date[2])) > datetime.date.today())):
-                # This account is expired in cerebrum. expire_date from the guest database
-                # is set in the future. need to update expire_date in the database
-                self.logger.info("updating expire date to: %s" % expire_date)
-                self.account.expire_date = expire_date
+            logger.error("Should never get here: New account, but account_list not empty")
 
-            for account_type in account_types:
-                if((self.constants.affiliation_student == account_type['affiliation']) or
-                   (self.constants.affiliation_ansatt == account_type['affiliation'])):
-                    # This person already has a student/employee  account. we must now add new spreads (if any).
-                    # indicating that this account is now to be sent to the new spreads listed.
-                    # FS/SLP4 is still authoritative on account data, including expire date,
-                    # and as such,no other manipulation of the account will be done
-                    old_spreads = self.account.get_spread()
-                    for o in old_spreads:
-                        num_old_list.append(int(self.constants.Spread(o['spread'])))
-                    for i in spread_list:
-                        if i !='':
-                            num_new_list.append(int(self.constants.Spread(i)))
-                    for new_spread in num_new_list:
-                        if new_spread not in num_old_list:
-                            #print "adding spread %s" % new_spread
-                            self.account.add_spread(int(new_spread))
-            # Write changes to database!
-            self.account.write_db()
-            return self.account.entity_id,bruker_epost # <- even if the account exists we have to update email information from system_x by returning the account_id here
 
     def send_ad_email(self,name,ssn,ou,type,expire_date,why,contact_data,external_email,registrator_email):
         ad_message="""
@@ -552,8 +565,10 @@ If you have any questions you can either contact orakel@uit.no or bas-admin@cc.u
 
 def main():
 
+    logger_name = cereconf.DEFAULT_LOGGER_TARGET
+
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:u',['source_file','update'])
+        opts,args = getopt.getopt(sys.argv[1:],'s:l:u',['source_file','logger-name','update',])
     except getopt.GetoptError:
         usage()
 
@@ -565,11 +580,13 @@ def main():
             source_file = val
         if opt in ('-u','--update'):
             update = 1
+        if opt in ('l','--logger-name'):
+            logger_name = val
 
-    x_create=execute()
+    x_create=execute(logger_name)
     if (source_file == 0):
         if (update):
-            print "Retreiving Guest data"
+            x_create.logger.info("Retreiving Guest data")
             x_create.get_guest_data()
         else:
             usage()
@@ -578,31 +595,33 @@ def main():
             x_create.get_guest_data()
         data = x_create.read_data(source_file)
         for line in data:
-            if (line[0] != '#'):
-                ret = x_create.create_person2(line)
+            ret = x_create.create_person2(line)
         x_create.db.commit()
+        #sys.exit(1)
         #accounts needs to be created after person objects are stored
         #Therefore we need to traverse the list again and generate
         #accounts.
         for line in data:
-            if (line[0] != '#'):
-                ret,bruker_epost = x_create.create_account(line)
-                #print "ret = %s" % ret
-                x_create.db.commit()
-                if ret != 1:
-                    #print "SET EMAIL: acc_id=%s, email=%s " % (ret, bruker_epost)
-                    email_class = Email.email_address(x_create.db)
-                    email_class.process_mail(ret,"defaultmail",bruker_epost)
-                    email_class.db.commit()                    
-        #x_create.db.commit()
+            ret,bruker_epost = x_create.create_account(line)
+            #print "ret = %s,epost=%s" % (ret,bruker_epost)
+            x_create.db.commit()
+            if ((ret != 1) and (bruker_epost != "")):
+                email_class = Email.email_address(x_create.db)
+                email_class.process_mail(ret,"defaultmail",bruker_epost)
+                email_class.db.commit()
+            else:
+                x_create.logger.warn("Failed to update email on account_id=%s, email=%s" % (ret,bruker_epost))
+               
+        x_create.db.commit()
         
                                
 def usage():
     print """
     usage:: python slurp_x.py -s
-    -s | --source_file    source file containing information needed to create
-                          person and user entities in cerebrum
-    -u | --update_data :  updates the datafile containing guests from the guest database
+    -s file | --source_file file : source file containing information needed to create
+                                   person and user entities in cerebrum
+    -u      | --update_data      : updates the datafile containing guests from the guest database
+    -l name | --logger_name name : change default logger target
     """
     sys.exit(1)
 
