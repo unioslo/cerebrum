@@ -70,7 +70,10 @@ class EmailDomain(DatabaseClass):
         }
     }
 
-    # TODO: delete()
+    def delete(self):
+        self._delete_from_db()
+    delete.signature = None
+    delete.signature_write = True
 
 registry.register_class(EmailDomain)
 
@@ -698,5 +701,51 @@ aff_set_email_domain.signature = None
 aff_set_email_domain.signature_write = True
 aff_set_email_domain.signature_args = [EmailDomain]
 PersonAffiliation.aff_set_email_domain = aff_set_email_domain
+
+table = 'email_forward'
+class EmailForward(DatabaseClass):
+    primary = (
+        DatabaseAttr('target', table, EmailTarget),
+        DatabaseAttr('forward_to', table, str),
+    )
+    slots = (
+        DatabaseAttr('enable', table, bool, write=True),
+    )
+    db_attr_aliases = {
+        table : {
+            'target' : 'target_id',
+        }
+    }
+
+    #TODO delete()
+
+registry.register_class(EmailForward)
+
+def create_forward(self, forward_to):
+    pass # TODO
+
+create_forward.signature = EmailForward
+create_forward.signature_write = True
+create_forward.signature_args = [str]
+EmailTarget.add_forward = create_forward
+
+table = 'email_vacation'
+class EmailVacation(DatabaseClass):
+    primary = (
+        DatabaseAttr('target', table, EmailTarget),
+        DatabaseAttr('start_date', table, Date),
+    )
+    slots = (
+        DatabaseAttr('vacation_text', table, str, write=True),
+        DatabaseAttr('end_date', table, Date, write=True),
+        DatabaseAttr('enable', table, bool, write=True),
+    )
+    db_attr_aliases = {
+        table : {
+            'target' : 'target_id',
+        }
+    }
+
+registry.register_class(EmailVacation)
 
 # arch-tag: bd478dc6-f9ef-11d9-905c-b1284ed93a3d

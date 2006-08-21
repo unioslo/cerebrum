@@ -43,9 +43,6 @@ class Note(DatabaseClass):
         DatabaseAttr('subject', 'note', str),
         DatabaseAttr('description', 'note', str)
     )
-    method_slots = (
-        Method('delete', None, write=True),
-    )
     
     db_attr_aliases = {
         'note': {
@@ -57,6 +54,8 @@ class Note(DatabaseClass):
 
     def delete(self):
         self._delete_from_db()
+    delete.signature = None
+    delete.signature_write = True
 
 registry.register_class(Note)
 
