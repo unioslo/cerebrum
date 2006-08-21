@@ -26,7 +26,7 @@ import cereconf
 
 from Cerebrum import Utils
 from Cerebrum import Person
-
+from Cerebrum import Errors
 
 
 class UiTPersonMixin(Person.Person):
@@ -105,6 +105,6 @@ class UiTPersonMixin(Person.Person):
             #                    self.const.person_aff_src_mod, None)
         
         except Errors.NotFoundError:
-            raise ProgrammingError, "set_affiliation_last_date() failed. Called before person.populate_affiliations()?"
+            raise Errors.ProgrammingError, "set_affiliation_last_date() failed. Called before person.populate_affiliations()?"
          
 # arch-tag: 07747944-da97-11da-854b-ac67a6778cc2
