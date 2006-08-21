@@ -1075,14 +1075,14 @@ class BofhdExtension(object):
     def _email_info_account(self, operator, acc, et, addrs):
         self.ba.can_email_info(operator.get_entity_id(), acc)
         ret = self._email_info_basic(acc, et)
-        try:
-            self.ba.can_email_info_detail(operator.get_entity_id(), acc)
-        except PermissionDenied:
-            pass
-        else:
-            ret += self._email_info_spam(et)
-            ret += self._email_info_detail(acc)
-            ret += self._email_info_forwarding(et, addrs)
+        #try:
+        #    self.ba.can_email_info_detail(operator.get_entity_id(), acc)
+        #except PermissionDenied:
+        #    pass
+        #else:
+        #    ret += self._email_info_spam(et)
+        #    ret += self._email_info_detail(acc)
+        #    ret += self._email_info_forwarding(et, addrs)
         return ret
 
     def __get_valid_email_addrs(self, et, special=False):
@@ -4976,7 +4976,8 @@ class BofhdExtension(object):
                               ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
                                'shell')),
                              ("Quarantined:   %s",
-                              ("quarantined",))]))
+                              ("quarantined",)),
+                             "Email:         %s\n"]))
     def user_info(self, operator, accountname):
         is_posix = False
         try: 
@@ -4992,15 +4993,22 @@ class BofhdExtension(object):
             affiliations.append("%s@%s" % (self.num2const[int(row['affiliation'])],
                                            self._format_ou_name(ou)))
         try:
-            tmp = account.get_home(self.const.spread_uit_nis_user)
+            tmp = account.get_home(self.const.spread_uit_ldap_account)
             home_status = "%s" % self.num2const[int(tmp['status'])]
         except Errors.NotFoundError:
             tmp = {'disk_id': None, 'home': None, 'status': None,
                    'homedir_id': None}
             home_status = None
 
+        try:
+            einfo = self.email_info(operator, accountname)
+            email_default = einfo[0]['def_addr']
+        except Exception,m:
+            email_default = "None"
+
         ret = {'entity_id': account.entity_id,
                'username': account.account_name,
+               'email': email_default,
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
