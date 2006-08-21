@@ -629,8 +629,16 @@ from None and LDAP_PERSON['dn'].""")
             entry.update(self.visible_person_attrs)
             alias_info = (primary_ou_dn,)
         else:
-            entry.update(self.invisible_person_attrs)
-
+            for key in self.invisible_person_attrs.keys():
+                if entry.has_key(key):
+                    if isinstance(self.invisible_person_attrs[key], (list, tuple)):
+                        for i in self.invisible_person_attrs[key]:
+                            entry[key].append(i)
+                    else:
+                        entry[key].append(self.invisible_person_attrs[key])
+                else:
+                    entry.update(self.invisible_person_attrs)
+             
         self.update_person_entry(entry, row)
         return dn, entry, alias_info
 
