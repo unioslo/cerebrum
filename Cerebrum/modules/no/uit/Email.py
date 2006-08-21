@@ -143,7 +143,7 @@ class email_address:
             # yrt
         elif (type == "no_primary_update"):
             # We are not to update primary email address. -> pass
-            print "not updating primary email address"
+            self.logger.debug("not updating primary email address")
             pass
         elif (type=="defaultmail"):
             #print "debug: before try:  self.ea.email_addr_target_id=%s,  self.et.email_target_id=%s" % (self.ea.email_addr_target_id ,elf.et.email_target_id)
