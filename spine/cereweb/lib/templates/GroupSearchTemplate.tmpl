@@ -31,21 +31,17 @@
     #return '/group/search'
 #end def
 
-
-## Overrides SearchTemplate.form to add extra options.
-#def form
-    #block extra
-        #set $style = "width: 3em; margin-right: 0.6em;"
-        #set $options = (("exact","Exact"), ("above", "Above"), ("below", "Below"), ("range", "Range"))
-        #set $start = $formvalues.get("gid", "")
-        #set $end = $formvalues.get("gid_end", "")
-        #set $opt = $formvalues.get("gid_option", "")
-        <label for="gid">$_("Posix GID")</label>
-        <input type="text" name="gid" id="gid" value="$start" style="$style"/>
-        <input type="text" name="gid_end" id="gid_end" value="$end" style="$style"/>
-        $form_widgets.generate_option("gid_option", $options, $opt)
-        <br />
-    #end block
-    #return SearchTemplate.form($self, $extra)
+## Overrides SearchTemplate to add extra options.
+#def getExtra($vargs)
+    #set $style = "width: 3em; margin-right: 0.6em;"
+    #set $options = (("exact","Exact"), ("above", "Above"), ("below", "Below"), ("range", "Range"))
+    #set $gid = $vargs.get("gid", "")
+    #set $gide = $vargs.get("gid_end", "")
+    #set $gopt = $vargs.get("gid_option", "")
+    <label for="gid">$_("Posix GID")</label>
+    <input type="text" name="gid" id="gid" value="$gid" style="$style"/>
+    <input type="text" name="gid_end" id="gid_end" value="$gide" style="$style"/>
+    $form_widgets.generate_option("gid_option", $options, $gopt)
+    <br />
 #end def
 

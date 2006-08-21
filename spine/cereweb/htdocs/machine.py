@@ -25,8 +25,7 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.HostSearchTemplate import HostSearchTemplate
 # from lib.templates.HostViewTemplate import HostViewTemplate
 # from lib.templates.HostEditTemplate import HostEditTemplate
@@ -36,24 +35,24 @@ from lib.templates.MachineEditTemplate import MachineEditTemplate
 from lib.templates.MachineCreateTemplate import MachineCreateTemplate
 
 def index():
-   return search(offset=0, **{'name':'*'})
+   return search(name='*')
 index.exposed = True
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search for hosts and displays result and/or searchform."""
     page = Main()
     page.title = _("Search for host(s)")
     page.setFocus("host/search")
     page.add_jscript("search.js")
     
-    searchform = HostSearchTemplate()
-    arguments = ['name', 'description', 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
+    handler = SearchHandler('machine', HostSearchTemplate().form)
+    handler.args = ('name', 'description')
+    handler.headers = (
+        ('Name', 'name'), ('Description', 'description'), ('Actions', '')
+    )
     
-    if perform_search:
-        cherrypy.session['host_ls'] = values
-        name, description, orderby, orderby_dir = values
+    def search_method(values, offset, orderby, orderby_dir):
+        name, description = values
         
         searcher = transaction.get_host_searcher()
         setup_searcher([searcher], orderby, orderby_dir, offset)
@@ -64,35 +63,20 @@ def search(transaction, offset=0, **vargs):
         if description:
             searcher.set_description_like(description)
             
-        hosts = searcher.search()
+        return searcher.search()
 
-        result = []
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        for host in hosts[:display_hits]:
-            edit = object_link(host, text='edit', method='edit', _class='actions')
-            remb = remember_link(host, _class='actions')
-            desc = host.get_description()
-            result.append((object_link(host), desc, str(edit) + str(remb)))
+    def row(elm):
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class='actions')
+        return object_link(elm), elm.get_description(), str(edit)+str(remb)
     
-        headers = [('Name', 'name'), ('Description', 'description'),
-                   ('Actions', '')]
-
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(hosts), display_hits, offset, searchform, 'search')
-        
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'host_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['host_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
+    objs = handler.search(search_method, **vargs)
+    result = handler.get_result(objs, row)
+    page.content = lambda: result
     
     return page
 search = transaction_decorator(search)
 search.exposed = True
-
 
 def view(transaction, id):
     """Creates a page with a view of the host given by id."""

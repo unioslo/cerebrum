@@ -25,28 +25,28 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, object_link
 from lib.utils import transaction_decorator, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.DiskSearchTemplate import DiskSearchTemplate
 from lib.templates.DiskViewTemplate import DiskViewTemplate
 from lib.templates.DiskEditTemplate import DiskEditTemplate
 from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search after disks and displays result and/or searchform."""
     page = Main()
     page.title = _("Search for disk(s)")
     page.setFocus("disk/search")
     page.add_jscript("search.js")
    
-    searchform = DiskSearchTemplate()
-    arguments = ['path', 'description', 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
-
-    if perform_search:
-        cherrypy.session['disk_ls'] = values
-        path, description, orderby, orderby_dir = values
+    handler = SearchHandler('disk', DiskSearchTemplate().form)
+    handler.args = ('path', 'description')
+    handler.headers = (
+        ('Path', 'path'), ('Host', ''),
+        ('Description', 'description'), ('Actions', '')
+    )
+   
+    def search_method(values, offset, orderby, orderby_dir):
+        path, description = values
 
         disksearcher = transaction.get_disk_searcher()
         setup_searcher([disksearcher], orderby, orderby_dir, offset)
@@ -57,37 +57,22 @@ def search(transaction, offset=0, **vargs):
         if description:
             disksearcher.set_description_like(description)
             
-        disks = disksearcher.search()
+        return disksearcher.search()
 
-        result = []
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        for disk in disks[:display_hits]:
-            path = object_link(disk, text=disk.get_path())
-            host = object_link(disk.get_host())
-            desc = disk.get_description()
-            edit = object_link(disk, text='edit', method='edit', _class='actions')
-            remb = remember_link(disk, _class='actions')
-            result.append((path, host, desc, str(edit) + str(remb)))
+    def row(elm):
+        path = object_link(elm, text=elm.get_path())
+        host = object_link(elm.get_host())
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class='actions')
+        return path, host, elm.get_description(), str(edit)+str(remb)
 
-        headers = [('Path', 'path'), ('Host', ''), 
-                   ('Description', 'description'), ('Actions', '')]
-
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(disks), display_hits, offset, searchform, 'search')
-
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'disk_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['disk_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
+    disks = handler.search(search_method, **vargs)
+    result = handler.get_result(disks, row)
+    page.content = lambda: result
 
     return page
 search = transaction_decorator(search)
 search.exposed = True
-
 index = search
 
 def view(transaction, id):

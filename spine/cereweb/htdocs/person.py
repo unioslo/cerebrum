@@ -20,44 +20,45 @@
 
 import cherrypy
 
-import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import strftime, strptime, commit_url
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.PersonSearchTemplate import PersonSearchTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 from lib.templates.PersonEditTemplate import PersonEditTemplate
 from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search after hosts and displays result and/or searchform."""
     page = Main()
     page.title = _("Search for person(s)")
     page.setFocus("person/search")
     page.add_jscript("search.js")
 
-    searchform = PersonSearchTemplate()
-    arguments = ['name', 'accountname', 'birthdate',
-                 'spread', 'ou', 'aff', 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
-
-    if perform_search:
-        cherrypy.session['person_ls'] = values
-        name, accountname, birthdate, spread, ou, aff, orderby, orderby_dir = values
-
+    handler = SearchHandler('person', PersonSearchTemplate().form)
+    handler.args = (
+        'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff'
+    )
+    handler.headers = (
+        ('Name', 'last_name.name'), ('Date of birth', 'birth_date'),
+        ('Account(s)', ''), ('Affiliation(s)', ''), ('Actions', '')
+    )
+    
+    def search_method(values, offset, orderby, orderby_dir):
+        name, accountname, birthdate, spread, ou, aff = values
+        
         search = transaction.get_person_searcher()
         last_name = transaction.get_person_name_searcher()
         last_name.set_name_variant(transaction.get_name_type('LAST'))
         last_name.set_source_system(transaction.get_source_system('Cached'))
         search.add_left_join('', last_name, 'person')
-        setup_searcher({'main':search, 'last_name':last_name}, orderby, orderby_dir, offset)
-
+        setup_searcher({'main':search, 'last_name':last_name},
+                       orderby, orderby_dir, offset)
+        
         if accountname:
             searcher = transaction.get_account_searcher()
             searcher.set_name_like(accountname)
@@ -99,35 +100,21 @@ def search(transaction, offset=0, **vargs):
             searcher.add_join('affiliation', affsearcher, '')
             search.add_intersection('', searcher, 'person')
 
-
-        persons = search.search()
-
-        result = []
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        for person in persons[:display_hits]:
-            date = strftime(person.get_birth_date())
-            accounts = [str(object_link(i)) for i in person.get_accounts()[:3]]
-            accounts = ', '.join(accounts[:2]) + (len(accounts) == 3 and '...' or '')
-            affs = [str(object_link(i.get_ou())) for i in person.get_affiliations()[:3]]
-            affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
-            edit = object_link(person, text='edit', method='edit', _class='actions')
-            remb = remember_link(person, _class="actions")
-            result.append((object_link(person), date, accounts, affs, str(edit)+str(remb)))
-
-        headers = [('Name', 'last_name.name'), ('Date of birth', 'birth_date'),
-                   ('Account(s)', ''), ('Affiliation(s)', ''), ('Actions', '')]
-
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(persons), display_hits, offset, searchform, 'search')
-
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'person_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['person_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
+        return search.search()
+    
+    def row(elm):
+        date = strftime(elm.get_birth_date())
+        accs = [str(object_link(i)) for i in elm.get_accounts()[:3]]
+        accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
+        affs = [str(object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
+        affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class="actions")
+        return object_link(elm), date, accs, affs, str(edit)+str(remb)
+            
+    persons = handler.search(search_method, **vargs)
+    result = handler.get_result(persons, row)
+    page.content = lambda: result
 
     return page
 search = transaction_decorator(search)

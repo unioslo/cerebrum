@@ -27,57 +27,159 @@
 ## Max addresses to view in emaildomain/view
 #attr $max_addresses = 20
 
-#def create_domain()
+#def create_box($tr)
 <div class="email_view">
     <h2>$_('Create a new email domain')</h2>
-    $edit_domain()
+    <form action="/email/make" method="POST">
+        #echo $_create($tr)
+        <div>
+            <input type="submit" value="$_('Create')" />&nbsp;
+            <input type="reset" value="$_('Clear')" />
+        </div>
+    </form>
 </div>
 #end def
 
-#def list_domains($transaction)
-<div class="email_view">
-    <h2>$_('Browse an email domain')</h2>
-    #set $domains=$transaction.get_email_domain_searcher()
-    #set $domains = $domains.search()
-    $domains.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
-    #for $domain in $domains
-    <div>$object_link($domain)</div>
-    #end for
+#def create($tr)
+<div class="create">
+    <form action="/email/make" method="POST">
+        <div class="createform">
+            #echo $_create($tr)
+        </div>
+        <div>
+            <center>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </center>
+        </div>
+    </form>
 </div>
+#end def
+
+#def _create($tr)
+    #set $cats = $tr.get_email_domain_category_searcher().search()
+    #set $cats = [('',''),] + [(i.get_name(), i.get_description()) for i in $cats]
+    $form_widgets.input('name', 'Domain name')
+    $form_widgets.input('description', 'Description')
+    $form_widgets.generate_loption("category", "Category", $cats)
+#end def
+
+#def search_box($tr)
+<div class="email_view">
+    <h2>$_('Find email domain')</h2>
+    <form method="POST" action="/email/search">
+        #echo $_search($tr, {})
+        <div>
+            <input type="submit" value="$_('Search')" />&nbsp;
+            <input type="reset" value="$_('Clear')" />
+        </div>
+    </form>
+</div>
+#end def
+
+#def search($tr, $vargs)
+<div class="search">
+    <form method="POST" action="/email/search">
+    <div class="searchform">
+        #echo $_search($tr, $vargs)
+    </div>
+    #set $help = ["Use wildcards * and ? to extend the search.", "Supply several search parameters to limit the search."]
+    $form_widgets.showHelp($help)
+    <div>
+        <center>
+            <input type="submit" value="$_('Search')" />&nbsp;
+            <input type="reset" value="$_('Clear')" />
+        </center>
+    </div>
+    </form>
+</div>
+#end def
+
+#def _search($tr, $vargs)
+    #set $cats = $tr.get_email_domain_category_searcher().search()
+    #set $cats = [('',''),] + [(i.get_name(), i.get_description()) for i in $cats]
+    $form_widgets.input("name", "Name", $vargs.get('name', ''))
+    $form_widgets.input("description", "Description", $vargs.get('description', ''))
+    $form_widgets.generate_loption("category", "Category", $cats, $vargs.get('category',''))
+#end def
+
+#def categories($tr)
+    #set $cats = $tr.get_email_domain_category_searcher().search()
+    #for $cat in $cats
+        <div>
+            $cat.get_name() - $cat.get_description()
+        </div>
+    #end for
 #end def
 
 #def view_domain($transaction, $domain)
-<div class="info">
-<em>$_("Domain name"):</em> $domain.get_name()
-</div>
-<div class="info">
-<em>$_("Description"):</em> $domain.get_description()
-</div>
-$object_link($domain, "Edit", "edit", _class="actions")
+#set $id = $domain.get_id()
+<div class="view_content">
 
-<h2>$_("Member of categories")</h2>
-#set $category=None
-#for $category in $domain.get_categories()
-    <div>$object_link($category) 
-    $object_link($domain, method="remove_from_category", 
-        text=$_("Remove from category"), 
-        _class="actions",
-        category=$category.get_name())
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_('edit info')</a><br />
+            <a href="delete?id=$id">$_('delete domain')</a><br />
+            <a href="#cats" id="cats_add">$_('add to category')</a><br />
+            <a href="addresses?id=$id">$_('list adresses')</a><br />
+            $remember_link($domain)<br />
+        </div>
     </div>
-#end for
-#if $category is None
-    <div>($_("Not a member of any categories"))</div>
-#end if    
+    
+    ## Content
+    <div class="view_info">
+        <div class="info">
+            <em>$_("Domain name"):</em> $domain.get_name()
+        </div>
+        <div class="info">
+            <em>$_("Description"):</em> $domain.get_description()
+        </div>
+    </div>
 
-<form action="/emaildomain/add_to_category" method="POST">
-  <input type="hidden" name="id" value="$domain.get_id()" />
-#set $categories = $transaction.get_email_domain_category_searcher()
-$form_widgets.code_selector("category", "Category", $categories)
+    $addCategory($transaction, $domain)
+    $viewCategories($domain)
+    
+    $list_addresses($transaction, $domain, $max_addresses)
 
-    <input type="submit" value="$_("Add")" />
-</form>
+    ## Register divs and links to flip visibility.
+    <script language="JavaScript">
+        <!--
+        FV_register('cats_form', 'cats_add', null, 'cats_cancel');
+    </script>
+</div>
+#end def
 
-$list_addresses($transaction, $domain, $max_addresses)
+#def addCategory($transaction, $domain)
+<div class="view_add" id="cats_form" style="display:none;">
+    <form action="add_to_category" method="POST">
+        <a name="cats">
+        <h3>$_('Add to category')</h3>
+        <input type="hidden" name="id" value="$domain.get_id()" />
+        #set $categories = $transaction.get_email_domain_category_searcher()
+        $form_widgets.code_selector("category", "Category", $categories)
+        <input type="submit" value="$_('Add')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="cats_cancel" />
+    </form>
+</div>
+#end def
+
+#def viewCategories($domain)
+#set $cats = $domain.get_categories()
+#if $cats
+    <div class="passwords">
+        <h3>$_("Categories")</h3>
+        #for $category in $cats
+        <div>
+            $object_link($category)
+            $object_link($domain, method="remove_from_category", 
+            text=$_("Remove from category"), _class="actions",
+            category=$category.get_name())
+        </div>
+        #end for
+    </div>
+#end if
 #end def
 
 ## List email addresses (targets) in domain
@@ -104,24 +206,22 @@ $list_addresses($transaction, $domain, $max_addresses)
             "attached to the account.")</div>
 #end def
 
-#def edit_domain($domain=None)
-<form action="/emaildomain/save" method="POST">
-    #if $domain is not None
-        <input type="hidden" name="domain" value="$domain.get_id()" />
-    #end if
-    #set $name = $domain and $domain.get_name() or ""
-    <label for="name">$_("Domain name"):</label>
-    <input name="name" value="$name" /><br />
-
-    #set $description = $domain and $domain.get_description() or ""
-    <label for="description">$_("Description"):</label>
-    <input name="description" value="$description" /><br />
-
-    #if $domain is not None
-        <input type="submit" value="$_("Save")" />
-    #else
-        <input type="submit" value="$_("Create domain")" /><br />
-    #end if
-</form>
+#def edit_domain($domain)
+<div class="edit">
+    <form action="save" method="POST">
+        <div class="editform">
+            $form_widgets.input('name', 'Domain name', $domain.get_name())
+            $form_widgets.input('description', 'Description', $domain.get_description())
+            <input type="hidden" name="id" value="$domain.get_id()" />
+        </div>
+        $form_widgets.showHelp([])
+        <div>
+            <center>
+                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
+                <input type="submit" value="$_('Cancel')" name="submit" />
+            </center>
+        </div>
+    </form>
+</div>
 #end def
 

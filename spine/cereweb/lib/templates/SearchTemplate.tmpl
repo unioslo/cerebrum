@@ -25,9 +25,6 @@
 ## fields should contain a list of tuples with (name, label)
 #attr $fields = []
 
-## formvalues should include the values for the names in field (otpional)
-#attr $formvalues = {}
-
 ## help is a list with more lines to print, with help about the search
 #attr $help = []
 
@@ -37,23 +34,24 @@
     #return '/some/where'
 #end def
 
-## Creates html-code for each inputfield.
-#def input($name, $label)
-    #set $value = $formvalues.get($name, "")
-    $form_widgets.input($name, $label, $value)
+## Overloaded by search-pages which needs search-fields which arent inputs.
+## vargs is a dict with the values the user provided in the field in the
+## last search.
+#def getExtra($vargs)
 #end def
 
 ## Creates the form for searching.
-#def form($extra=None)
+#def form($vargs=None)
+#if $vargs == None
+    #set $vargs = {}
+#end if
 <div class="search">
     <form action="$getAction()" method="POST" id="search_form">
         <div class="searchform">
             #for $name, $label in $fields
-                $input($name, $label)
+                $form_widgets.input($name, $label, $vargs.get($name, None))
             #end for
-            #if $extra
-                $extra
-            #end if
+            $getExtra($vargs)
         </div>
         <div class="help">
             #for $line in $help

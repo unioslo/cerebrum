@@ -54,6 +54,9 @@ def object_url(object, method="view", **params):
     type = _spine_type(object)
     params["id"] = object.get_id()
 
+    if type == 'emaildomain':
+        type = 'email'
+
     # FIXME: urlencode will separate with & - not &amp; or ?
     return "/%s/%s?%s" % (type, method, urllib.urlencode(params))
 

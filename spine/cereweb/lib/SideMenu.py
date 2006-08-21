@@ -81,19 +81,14 @@ class SideMenu(Menu.Menu):
         self.disk.addItem("view", _("View"), "/disk/view?id=%s")
         self.disk.addItem("edit", _("Edit"), "/disk/edit?id=%s")
         
-    def makeEmail(self):    
+    def makeEmail(self):
         self.email = self.addItem("email", _("Email"), "/email")
-        domain = self.email.addItem("domain", _("Domain"), "/emaildomain")
-        domain.addItem("list", _("List"), "/emaildomain/list")
-        domain.addItem("create", _("Create"), "/emaildomain/create")
-        domain.addItem("view", _("View"), "/emaildomain/view?id=%s")
-        domain.addItem("addresses", _("Addresses"), "/emaildomain/addresses?id=%s")
-        domain.addItem("edit", _("Edit"), "/emaildomain/edit?id=%s")
-
-        target = self.email.addItem("target", _("Target"), "/emailtarget")
-        target.addItem("search", _("Search"), "/emailtarget/search")
-        target.addItem("view", _("View"), "/emailtarget/view?id=%s")
-        target.addItem("edit", _("Edit"), "/emailtarget/edit?id=%s")
+        self.email.addItem("search", _("Search"), "/email/search")
+        self.email.addItem("categories", _("Categories"), "/email/categories")
+        self.email.addItem("create", _("Create"), "/email/create")
+        self.email.addItem("view", _("View"), "/email/view?id=%s")
+        self.email.addItem("addresses", _("Addresses"), "/email/addresses?id=%s")
+        self.email.addItem("edit", _("Edit"), "/email/edit?id=%s")
 
     def makePermissions(self):
         self.perms = self.addItem("permissions", _("Permissions"), "/permissions")

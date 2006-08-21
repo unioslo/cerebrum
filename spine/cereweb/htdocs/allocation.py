@@ -25,29 +25,28 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.AllocationSearchTemplate import AllocationSearchTemplate
 from lib.templates.AllocationViewTemplate import AllocationViewTemplate
 from lib.templates.AllocationEditTemplate import AllocationEditTemplate
 #from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search for allocations and displays result and/or searchform."""
     page = Main()
     page.title = _("Search for allocation(s)")
     page.setFocus("allocation/search")
     page.add_jscript("search.js")
 
-    searchform = AllocationSearchTemplate()
-    arguments = ['allocation_name', 'period', 'status', 'machines',
-                 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
+    handler = SearchHandler('allocation', AllocationSearchTemplate().form)
+    handler.args = ('allocation_name', 'period', 'status', 'machines')
+    handler.headers = (
+        ('Allocation name', 'allocation_name'), ('Period', 'period'),
+        ('Status', 'status'), ('Machines', 'machines'), ('Actions', '')
+    )
 
-    if perform_search:
-        cherrypy.session['allocation_ls'] = values
-        allocation_name, period, status, machines, orderby, orderby_dir = values
+    def search_method(values, offset, orderby, orderby_dir):
+        allocation_name, period, status, machines = values
 
         searcher = transaction.get_allocation_searcher()
         setup_searcher([searcher], orderby, orderby_dir, offset)
@@ -60,43 +59,23 @@ def search(transaction, offset=0, **vargs):
         #XXX status
         #XXX period
 
-        allocations = searcher.search()
+        return searcher.search()
 
-        result = []
+    def row(elm):
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class='actions')
+        proj = object_link(elm.get_allocation_name().get_project())
+        period = elm.get_period().get_name()
+        status = elm.get_status().get_name()
+        machines = [m.get_name() for m in elm.get_machines()]
+        machines = "(%s)" % ",".join(machines)
+        return object_link(elm), period, status, machines, str(edit)+str(remb)
 
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        # XXX
-        for allocation in allocations[:display_hits]:
-            edit = object_link(allocation, text='edit', method='edit', _class='actions')
-            remb = remember_link(allocation, _class='actions')
-            proj = object_link(allocation.get_allocation_name().get_project())
-            period = allocation.get_period().get_name()
-            status = allocation.get_status().get_name()
-            machines = [m.get_name() for m in allocation.get_machines()]
-            result.append((object_link(allocation), period, status,
-                           "("+",".join(machines)+")",
-                           str(edit) + str(remb)))
+    objs = handler.search(search_method, **vargs)
+    result = handler.get_result(objs, row)
+    page.content = lambda: result
 
-        headers = [('Allocation name', 'allocation_name'),
-                   ('Period', 'period'),
-                   ('Status', 'status'),
-                   ('Machines', 'machines'),
-                   ('Actions', '')]
-
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(allocations), display_hits, offset, searchform, 'search')
-
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'allocation_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['allocation_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
-    
     return page
-
 search = transaction_decorator(search)
 search.exposed = True
 index = search

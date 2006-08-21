@@ -25,15 +25,14 @@ from lib.Main import Main
 from lib.utils import queue_message, redirect_object, commit
 from lib.utils import object_link, transaction_decorator, commit_url
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupEditTemplate import GroupEditTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search for groups and displays results and/or searchform."""
     page = Main()
     page.title = _("Search for group(s)")
@@ -41,16 +40,16 @@ def search(transaction, offset=0, **vargs):
     page.add_jscript("search.js")
     page.add_jscript("groupsearch.js")
     
-    searchform = GroupSearchTemplate()
-    arguments = ['name', 'description', 'spread', 'gid', 
-                 'gid_end', 'gid_option', 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
-            
-    if perform_search:
-        cherrypy.session['group_ls'] = values
-        (name, description, spread, gid, gid_end,
-                gid_option, orderby, orderby_dir) = values
+    handler = SearchHandler('group', GroupSearchTemplate().form)
+    handler.args = (
+        'name', 'description', 'spread', 'gid', 'gid_end', 'gid_option'
+    )
+    handler.headers = (
+        ('Group name', 'name'), ('Description', 'description'), ('Actions', '')
+    )
+
+    def search_method(values, offset, orderby, orderby_dir):
+        name, description, spread, gid, gid_end, gid_option = values
         
         search = transaction.get_group_searcher()
         setup_searcher([search], orderby, orderby_dir, offset)
@@ -84,29 +83,16 @@ def search(transaction, offset=0, **vargs):
             searcher.add_join('spread', spreadsearcher, '')
             search.add_intersection('', searcher, 'entity')
 
-        groups = search.search()
+        return search.search()
 
-        result = []
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        for group in groups[:display_hits]:
-            edit = str(object_link(group, text='edit', method='edit', _class='actions'))
-            remb = str(remember_link(group, _class='actions'))
-            result.append((object_link(group), group.get_description(), edit+remb))
+    def row(elm):
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class='actions')
+        return object_link(elm), elm.get_description(), str(edit)+str(remb)
 
-        headers = [('Group name', 'name'), ('Description', 'description'),
-                   ('Actions', '')]
-
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(groups), display_hits, offset, searchform, 'search')
-
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'group_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['group_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
+    groups = handler.search(search_method, **vargs)
+    result = handler.get_result(groups, row)
+    page.content = lambda: result
 
     return page
 search = transaction_decorator(search)

@@ -25,13 +25,14 @@
 #attr $form_widgets = FormWidgets()
 
 #def set($entity, $transaction)
-#set $target_types=$transaction.get_email_target_type_searcher()
+#set $target_types = $transaction.get_email_target_type_searcher()
 <div class="view_add" id="email_form" style="display:none;">
     <a name="email" />
     <h3>$_('Create a new email target')</h3>
-    <form action="/emailtarget/creation" method="POST">
+    <form action="/email/make_target" method="POST">
         <input type="hidden" name="entity" value="$entity.get_id()" />
         $form_widgets.code_selector('target_type', 'Target type', $target_types)
+        $form_widgets.input('alias', 'Alias')
         <input type="submit" value="$_('Add')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="email_cancel" />
     </form>
@@ -48,27 +49,14 @@ $searcher.set_entity($entity)
     #for $target in $targets:
     <div class="emailtarget">
         <div class="actions_right">
-            $object_link($target, $_('Delete'), 'delete', _class='actions')
+            #set $url = "/email/remove_target?entity=&target=$target.get_id()"
+            <a href="$url" class="actions">$_('Delete')</a>
         </div>
-        $object_link($target)
+        $target
     </div>
     #end for
 </div>
 #end if
-#end def
-
-#def create_target($transaction, $entity=None)
-#set $target_types=$transaction.get_email_target_type_searcher()
-<div class="email_view">
-    <h2>$_('Create a new email target')</h2>
-    <form action="/emailtarget/creation" method="POST">
-        #if $entity is not None
-        <input type="hidden" name="entity" value="$entity.get_id()" />
-        #end if
-        $form_widgets.code_selector("target_type", $_("Target type"), $target_types)
-        <input type="submit" value="$_('Add target')" />
-    </form>
-</div>
 #end def
 
 #def find_email($address="")
@@ -77,7 +65,7 @@ $searcher.set_entity($entity)
     <form action="/emailtarget/search" method="POST">
         <label for="address">$_('Enter an email address:')</label>
         <br />
-        <input name="address" value="$address" />
+        <input name="address" value="TODO" />
         ## FIXME: Other ways to search up? For instance target type?
         <input type="submit" value="$_('Search')" />
     </form>

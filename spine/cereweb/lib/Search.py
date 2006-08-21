@@ -18,24 +18,137 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+Helper-module for search-pages and search-result-pages in cereweb.
+
+See SearchHandler for how to create searchpages.
+"""
+
+import cherrypy
+
+import urllib
 import forgetHTML as html
 from gettext import gettext as _
 
 import config
+
+# maximum hits to search for in one search.
 max_hits = config.conf.getint('cereweb', 'max_hits')
 
-def get_arg_values(args, vargs):
-    """Returns a list containing the values sorted by attr.
+class SearchHandler:
+    """Handling display of a search-page and searching.
+    
+    To create a searchpage for cereweb initiate this class and provide
+    the needed information.
+    
+    'cls_name' is the object which is searched for, and is used for
+    storing the values searched for.
+    'form' should be a method which returns the searchform.
+    'args' should be a list containing the names of the search variables.
+    'headers' should be a list with the names of the result table headers
+    and their respective variables on the search-objects.
 
-    The method is used in searchpages to create a list of the arguments
-    given for the search. 'args' should contain a list with the names
-    of the arguments. 'vargs' should be a dict with {'argument': value}.
+    Code-example:
+    ----------------------------------------------------------------
+    def example_search(transaction, **vargs):
+        handler = SearchHandler('example', example_form_method)
+        handler.args = ('name', 'description')
+        handler.headers = (('Name', 'name'), ('Actions', ''))
+
+        def search_method(values, offset, orderby, orderby_dir):
+            name, description = values
+            search = transaction.get_example_searcher()
+            setup_searcher([search], orderby, orderby_dir, offset)
+            if name:
+                search.set_name_like(name)
+            return search.search()
+
+        def row(elm):
+            return object_link(elm), "no actions here"
+
+        objs = handler.search(search_method, **vargs)
+        result = handler.get_result(objs, row)
+        return result
+    ----------------------------------------------------------------
     """
-    valuelist = [''] * len(args)
-    for name, value in vargs.items():
-        if name in args:
-            valuelist[args.index(name)] = value
-    return valuelist
+    
+    def __init__(self, cls_name, form):
+        self.var_name = cls_name + '_last_search'
+        self.form = form
+        self.args = []
+        self.headers = []
+        
+    def search(self, method, **vargs):
+        """Prepare values for search and return result.
+
+        Prepares search-values before the search, then performs
+        the actual search with the provided search-method 'method'.
+        'method' is provided with a dict containing the search-values
+        given by the user, and the offset, orderby and orderby-direction.
+        
+        If no values was provided None is returned, else a list with
+        the search-result is returned (empty list if none is found).
+        """
+        self.values = get_arg_values(self.args, vargs)
+        perform_search = len([i for i in self.values if i != ""])
+
+        if perform_search:
+            self.offset = vargs.get('offset', 0)
+            self.orderby = vargs.get('orderby', None)
+            self.orderby_dir = vargs.get('orderby_dir', None)
+            cherrypy.session[self.var_name] = self.values
+            return method(self.values, self.offset,
+                          self.orderby, self.orderby_dir)
+        else:
+            return None
+
+    def get_form(self):
+        """ Get the html-form for the search.
+        
+        Return the HTML-form for the search with the values
+        used in the current or last performed search.
+
+        self.form must be set, and should be a callable method
+        which returns a string with the search-form.
+        """
+        assert self.form is not None
+        
+        remember = cherrypy.session['options'].getboolean('search', 'remember last')
+
+        formvalues = {}
+        if self.var_name in cherrypy.session and remember:
+            values = cherrypy.session[self.var_name]
+            formvalues = get_form_values(self.args, values)
+        return self.form(formvalues)
+
+    def get_result(self, elements, row_method):
+        """Returns a table with the result.
+
+        'row_method' is called on each element in 'elements' and the
+        result is inserted into a SearchResultTemplate.
+
+        search must be called before get_result.
+        """
+        if elements is None:
+            return self.get_form()
+        
+        if not (hasattr(self, 'values') and hasattr(self, 'offset')):
+            raise Exception('search must be called before get_result')
+        
+        # maximum hits to display in a search result.
+        dis_hits = cherrypy.session['options'].getint('search', 'display hits')
+
+        result = []
+        for elm in elements[:dis_hits]:
+            result.append(row_method(elm))
+
+        # To avoid import-circle we import the template here
+        from lib.templates.SearchResultTemplate import SearchResultTemplate
+        
+        template = SearchResultTemplate()
+        return template.view(result, self.headers, self.args, self.values,
+                             len(elements), dis_hits, self.offset, self.orderby,
+                             self.orderby_dir, self.get_form(), 'search')
 
 def setup_searcher(searchers, orderby, orderby_dir, offset):
     """Set up the searcher with offset and orderby if given.
@@ -71,6 +184,20 @@ def setup_searcher(searchers, orderby, orderby_dir, offset):
     else:
         searcher.set_search_limit(max_hits - int(offset), int(offset))
 
+def get_arg_values(args, vargs):
+    """Returns a list containing the values sorted by attr.
+
+    The method is used in searchpages to create a list of the arguments
+    given for the search. 'args' should contain a list with the names
+    of the arguments. 'vargs' should be a dict with {'argument': value}.
+    """
+    args = list(args)
+    valuelist = [''] * len(args)
+    for name, value in vargs.items():
+        if name in args:
+            valuelist[args.index(name)] = value
+    return valuelist
+
 def get_form_values(args, values):
     """Creates a dict with {arg: value} for each arg in args."""
     formvalues = {}
@@ -84,7 +211,7 @@ def get_link_arguments(args, values):
                     range(len(args)) if values[i] != '']
     return len(arguments) and '?' + '&'.join(arguments) or ''
 
-def create_table_headers(headers, args, values, page):
+def create_table_headers(headers, args, values, orderby, orderby_dir, page):
     """Returns the headers for insertion into a table.
     
     Headers which the search can be sorted by, will be returned as a
@@ -94,26 +221,29 @@ def create_table_headers(headers, args, values, page):
     for that particular header and optionaly the name for the attribute
     it should be sorted after.
     """
-    link = page
-
+    vargs = {}
+    for i in range(len(args)):
+        vargs[args[i]] = values[i]
+    
     new_headers = []
-    for header, orderby in headers:
-        if orderby != '':
-            new_values = values[:]
-            if values[args.index('orderby')] == orderby:
-                if values[args.index('orderby_dir')] != 'desc':
-                    new_values[args.index('orderby_dir')] = 'desc'
-                else:
-                    new_values[args.index('orderby_dir')] = ''
-                _class = 'current'
-            else:
-                new_values[args.index('orderby')] = orderby
-                _class = ''
-            href = link + get_link_arguments(args, new_values)
-            header = html.Anchor(_(header), href=href, _class=_class) 
-            new_headers.append(header)
-        else:
+    for header, h_orderby in headers:
+        if not h_orderby:
             new_headers.append(_(header))
+            continue
+        
+        new_vargs = vargs.copy()
+        new_vargs['orderby'] = h_orderby
+        _class = ''
+
+        if h_orderby == orderby:
+            _class = 'current'
+            new_vargs['orderby_dir'] = ''
+            if orderby_dir != 'desc':
+                new_vargs['orderby_dir'] = 'desc'
+        
+        href = '%s?%s' % (page, urllib.urlencode(new_vargs))
+        header = html.Anchor(_(header), href=href, _class=_class) 
+        new_headers.append(header)
 
     return new_headers
 

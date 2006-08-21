@@ -26,30 +26,30 @@ from lib.utils import redirect, redirect_object, queue_message
 from lib.utils import object_link, transaction_decorator
 from lib.utils import strftime,  commit, commit_url
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.AccountSearchTemplate import AccountSearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
     page = Main()
-    page.title = _("Account search")
+    page.title = _("Search for account(s)")
     page.setFocus("account/search")
     page.add_jscript("search.js")
 
-    searchform = AccountSearchTemplate()
-    arguments = ['name', 'spread', 'create_date', 'expire_date',
-                 'description', 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
+    handler = SearchHandler('account', AccountSearchTemplate().form)
+    handler.args = (
+        'name', 'spread', 'create_date', 'expire_date', 'description'
+    )
+    handler.headers = (
+        ('Name', 'name'), ('Owner', ''), ('Create date', 'create_date'),
+        ('Expire date', 'expire_date'), ('Actions', '')
+    )
 
-    if perform_search:
-        cherrypy.session['account_ls'] = values
-        (name, spread, create_date, expire_date,
-         description, orderby, orderby_dir) = values
+    def search_method(values, offset, orderby, orderby_dir):
+        name, spread, create_date, expire_date, description = values
 
         search = transaction.get_account_searcher()
         setup_searcher([search], orderby, orderby_dir, offset)
@@ -85,33 +85,19 @@ def search(transaction, offset=0, **vargs):
             entityspread.add_join('spread', spreadsearcher, '')
             search.add_intersection('', entityspread, 'entity')
 
-        accounts = search.search()
-  
-        result = []
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        for account in accounts[:display_hits]:
-            link = object_link(account)
-            owner = object_link(account.get_owner())
-            cdate = strftime(account.get_create_date())
-            edate = strftime(account.get_expire_date())
-            edit = object_link(account, text='edit', method='edit', _class='actions')
-            remb = remember_link(account, _class='actions')
-            result.append((link, owner, cdate, edate, str(edit)+str(remb)))
-
-        headers = [('Name', 'name'), ('Owner', ''), ('Create date', 'create_date'),
-                   ('Expire date', 'expire_date'), ('Actions', '')]
-        
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(accounts), display_hits, offset, searchform, 'search')
-
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'account_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['account_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
+        return search.search()
+    
+    def row(elm):
+        owner = object_link(elm.get_owner())
+        cdate = strftime(elm.get_create_date())
+        edate = strftime(elm.get_expire_date())
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class='actions')
+        return object_link(elm), owner, cdate, edate, str(edit)+str(remb)
+    
+    accounts = handler.search(search_method, **vargs)
+    result = handler.get_result(accounts, row)
+    page.content = lambda: result
 
     return page
 search = transaction_decorator(search)

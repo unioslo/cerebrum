@@ -32,8 +32,8 @@
 
 
 ## Creates a table with the result from the search.
-#def view($result, $headers, $args, $values, $hits,
-          $display_hits, $offset, $form, $page)
+#def view($result, $headers, $args, $values, $hits, $display_hits,
+          $offset, $orderby, $orderby_dir, $form, $page)
 #if $result
 <div class="searchresult">
     #set self.display_hits = $display_hits
@@ -57,8 +57,9 @@
     #end if
     
     #set $table = $forgetHTML.SimpleTable(header='row', _class='results')
-    $table.add(*$create_table_headers($headers, $args, $values, $page))
-    #for $item in $result:
+    $table.add(*$create_table_headers($headers, $args, $values,
+                                      $orderby, $orderby_dir, $page))
+    #for $item in $result
         $table.add(*$item)
     #end for
     $table.output()
@@ -84,8 +85,7 @@
     <div class="searchtitle">
         <h3>$_('Search for more')</h3>
     </div>
-    #set $form.formvalues = $get_form_values($args, $values)
-    $form.form()
+    $form
 </div>
 #end def
 

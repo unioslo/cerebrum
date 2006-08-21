@@ -25,8 +25,7 @@ from lib.Main import Main
 from lib.utils import redirect_object, commit, commit_url
 from lib.utils import transaction_decorator, object_link
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.OUSearchTemplate import OUSearchTemplate
 from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
@@ -50,22 +49,24 @@ def tree(transaction, perspective=None):
 tree = transaction_decorator(tree)
 tree.exposed = True
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search for ous and displays result and/or searchform."""
     page = Main()
     page.title = _("Search for OU(s)")
     page.setFocus("ou/search")
     page.add_jscript("search.js")
     
-    searchform = OUSearchTemplate()
-    arguments = ['name', 'acronym', 'short', 
-                 'spread', 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
-                
-    if perform_search:
-        cherrypy.session['ou_ls'] = values
-        name, acronym, short, spread, orderby, orderby_dir = values
+    handler = SearchHandler('ou', OUSearchTemplate().form)
+    handler.args = (
+        'name', 'acronym', 'short', 'spread'
+    )
+    handler.headers = (
+        ('Name', 'name'), ('Acronym', 'acronym'),
+        ('Short name', 'short_name'), ('Actions', '')
+    )
+    
+    def search_method(values, offset, orderby, orderby_dir):
+        name, acronym, short, spread = values
         
         search = transaction.get_ou_searcher()
         setup_searcher([search], orderby, orderby_dir, offset)
@@ -90,30 +91,17 @@ def search(transaction, offset=0, **vargs):
             searcher.add_join('spread', spreadsearcher, '')
             search.add_intersection('', searcher, 'entity')
 
-        ous = search.search()
+        return search.search()
     
-        result = []
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        for ou in ous[:display_hits]:
-            link = object_link(ou, text=_get_display_name(ou))
-            edit = str(object_link(ou, text='edit', method='edit', _class='actions'))
-            remb = str(remember_link(ou, _class='actions'))
-            result.append((link, ou.get_acronym(), ou.get_short_name(), edit+remb))
+    def row(elm):
+        link = object_link(elm, text=_get_display_name(elm))
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class='actions')
+        return link, elm.get_acronym(), elm.get_short_name(), str(edit)+str(remb)
        
-        headers = [('Name', 'name'), ('Acronym', 'acronym'),
-                   ('Short name', 'short_name'), ('Actions', '')]
-        
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(ous), display_hits, offset, searchform, 'search')
-
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'ou_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['ou_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
+    ous = handler.search(search_method, **vargs)
+    result = handler.get_result(ous, row)
+    page.content = lambda: result
 
     return page
 search = transaction_decorator(search)

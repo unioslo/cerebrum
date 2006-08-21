@@ -25,29 +25,29 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import get_arg_values, get_form_values, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Search import SearchHandler, setup_searcher
 from lib.templates.AllocationPeriodSearchTemplate import AllocationPeriodSearchTemplate
 from lib.templates.AllocationPeriodViewTemplate import AllocationPeriodViewTemplate
 from lib.templates.AllocationPeriodEditTemplate import AllocationPeriodEditTemplate
 from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateTemplate
 
 
-def search(transaction, offset=0, **vargs):
+def search(transaction, **vargs):
     """Search for allocation periods and displays result and/or searchform."""
     page = Main()
     page.title = _("Search for allocation Period(s)")
     page.setFocus("allocationperiod/search")
     page.add_jscript("search.js")
     
-    searchform = AllocationPeriodSearchTemplate()
-    arguments = ['name', 'allocationauthority', 'orderby', 'orderby_dir']
-    values = get_arg_values(arguments, vargs)
-    perform_search = len([i for i in values if i != ""])
+    handler = SearchHandler('allocationperiod', AllocationPeriodSearchTemplate().form)
+    handler.args = ('name', 'allocationauthority')
+    handler.headers = (
+        ('Name', 'name'), 'Allocation Authority', 'allocationauthority'),
+        ('Actions', '')
+    )
     
-    if perform_search:
-        cherrypy.session['allocationperiod_ls'] = values
-        name, allocationauthority, orderby, orderby_dir = values
+    def search_method(values, offset, orderby, orderby_dir):
+        name, allocationauthority = values
         
         searcher = transaction.get_allocation_period_searcher()
         setup_searcher([searcher], orderby, orderby_dir, offset)
@@ -59,31 +59,18 @@ def search(transaction, offset=0, **vargs):
         if allocationauthority:
             searcher.set_allocationauthority_like(allocationauthority)
             
-        allocation_periods = searcher.search()
+        return searcher.search()
 
-        result = []
-        display_hits = cherrypy.session['options'].getint('search', 'display hits')
-        for allocation_period in allocation_periods[:display_hits]:
-            edit = object_link(allocation_period, text='edit', method='edit', _class='actions')
-            remb = remember_link(allocation_period, _class='actions')
-            auth = allocation_period.get_authority().get_name()
-            result.append((object_link(allocation_period), auth, str(edit) + str(remb)))
+    def row(elm):
+        edit = object_link(elm, text='edit', method='edit', _class='actions')
+        remb = remember_link(elm, _class='actions')
+        auth = elm.get_authority().get_name()
+        return object_link(elm), auth, str(edit)+str(remb)
+
+    objs = handler.search(search_method, **vargs)
+    result = handler.get_result(objs, row)
+    page.content = lambda: result
     
-        headers = [('Name', 'name'), ('Allocation Authority', 'allocationauthority'),
-                   ('Actions', '')]
-
-        template = SearchResultTemplate()
-        table = template.view(result, headers, arguments, values,
-            len(allocation_periods), display_hits, offset, searchform, 'search')
-        
-        page.content = lambda: table
-    else:
-        rmb_last = cherrypy.session['options'].getboolean('search', 'remember last')
-        if 'host_ls' in cherrypy.session and rmb_last:
-            values = cherrypy.session['allocationpeiod_ls']
-            searchform.formvalues = get_form_values(arguments, values)
-        page.content = searchform.form
-
     return page
 search = transaction_decorator(search)
 search.exposed = True

@@ -21,13 +21,14 @@
 import cherrypy
 
 import forgetHTML as html
+import utils
 from templates.WorkListTemplate import WorkListTemplate
 
 def remember_args(object):
     import SpineIDL
     
     id = object.get_id()
-    type = object.get_type().get_name().capitalize()
+    type = utils._spine_type(object).capitalize()
     
     if type == 'Person':
         name_str = None
