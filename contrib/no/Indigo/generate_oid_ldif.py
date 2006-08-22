@@ -30,14 +30,13 @@ from Cerebrum.modules import Email
 from Cerebrum.Constants import _PersonAffStatusCode
 
 def get_account_info():
-    global a_id2email, uname2mailaddr, p_id2name, p_id2fnr, a_id2auth
+    global a_id2email, p_id2name, p_id2fnr, a_id2auth
     global a_id2p_id, p_id2a_id, ou_id2name, const2str
 
     a_id2email = dict()
     for row in et.list_email_target_primary_addresses():
         a_id2email[int(row['entity_id'])] = "%s@%s" % (row['local_part'], row['domain'])
 
-    uname2mailaddr = ac.getdict_uname2mailaddr()
     p_id2name = p.getdict_persons_names(source_system=co.system_cached,
                                         name_types=(co.name_first,co.name_last))
     p_id2fnr = dict()
@@ -161,8 +160,10 @@ def process_users(affiliation, file):
         
         txt = ["dn: cn=%s,cn=users,dc=ovgs,dc=no" % uname, 
                "givenname: %s" % first]
-        if uname2mailaddr.has_key(uname):
-            txt += ["mail: %s" % uname2mailaddr[uname]]
+        if a_id2email.has_key(id):
+            txt += ["mail: %s" % a_id2email[id]]
+        else:
+            print "Not found '%s'" % uname
         txt += ["orcldefaultprofilegroup: cn=%s,cn=groups,dc=ovgs,dc=no" % const2str[int(affiliation)], 
                 "orcltimezone: Europe/Oslo",
                 "objectclass: top",
