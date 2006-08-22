@@ -924,6 +924,37 @@ def start_process_students(recalc_pq=False, update_create=False):
         BuildAccounts.update_accounts_main()
     logger.info("process_students finished")
 
+
+def get_semester():
+    import time
+    t = time.localtime()[0:2]
+    this_year = t[0]
+    if t[1] <= 6:
+        this_sem = 'vår'
+        next_year = this_year
+        next_sem = 'høst'
+    else:
+        this_sem = 'høst'
+        next_year = this_year + 1
+        next_sem = 'vår'
+    return ((str(this_year), this_sem), (str(next_year), next_sem))
+
+
+def get_default_expire_date():
+
+    this_sem, next_sem = get_semester()
+    sem = this_sem[1]
+    if (sem=='vår'):
+        month = 9
+    else:        
+        month = 2
+    year = int(next_sem[0])
+    day = 16
+    expire_date = datetime.date(year,month,day).isoformat()
+    return expire_date
+
+
+
 def bootstrap():
     global default_creator_id, default_expire_date, default_shell
     for t in ('PRINT_PRINTER', 'PRINT_BARCODE', 'AUTOADMIN_LOG_DIR',
@@ -934,11 +965,8 @@ def bootstrap():
     account = Factory.get('Account')(db)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
-    today = datetime.datetime.now()
-    nextMonth = today + datetime.timedelta(days=60) 
-    time_stamp = nextMonth.date()
-    default_expire_date ="%s" % time_stamp
 
+    default_expire_date = get_default_expire_date()
     default_shell = const.posix_shell_bash
 
 def get_existing_accounts():
