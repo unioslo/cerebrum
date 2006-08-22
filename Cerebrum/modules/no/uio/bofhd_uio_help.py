@@ -217,7 +217,7 @@ command_help = {
     "misc_list_requests":
         "View pending jobs",
     "misc_samba_mount":
-        "Does thingy with stuff", # /Might/ need a better text.....
+        "Maps disk to logon-server (for use with Samba)",
     "misc_stedkode":
         "Look up OU by stedkode or name",
     "misc_user_passwd":
