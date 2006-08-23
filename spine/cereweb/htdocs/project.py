@@ -59,7 +59,7 @@ def search(transaction, **vargs):
 
         return searcher.search()
 
-    def row(elm)
+    def row(elm):
         edit = object_link(elm, text='edit', method='edit', _class='actions')
         remb = remember_link(elm, _class='actions')
         sci  = " " #elm.get_science().get_name()
@@ -118,12 +118,14 @@ def save(transaction, id, title="", description="", owner=None,
 save = transaction_decorator(save)
 save.exposed = True
 
-def create(transaction, title="", description="", owner=None, science=None):
+def create(transaction, owner, title="", description="", science=None):
     """Creates a page with the form for creating a project"""
     page = Main()
     page.title = _("Create a new project")
     page.setFocus("project/create")
 
+    owner = transaction.get_entity(int(owner))
+    
     # Store given create parameters in create-form
     values = {}
     values['title'] = title
@@ -133,7 +135,7 @@ def create(transaction, title="", description="", owner=None, science=None):
 
     create = ProjectCreateTemplate(searchList=[{'formvalues': values}])
 
-    content = create.form(transaction)
+    content = create.form(transaction, owner)
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
@@ -143,8 +145,8 @@ def make(transaction, title="", description="", owner=None, science=None):
     """Creates the project."""
 
     science = transaction.get_science(science)
-    # XXX owner
-    
+    owner = transaction.get_entity(int(owner))
+
     cmd = transaction.get_commands()
     project = cmd.create_project(owner, science,
                                  title, description)
