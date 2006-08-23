@@ -4195,11 +4195,11 @@ class BofhdExtension(object):
         ("Name:          %s\n" +
          "Export ID:     %s\n" +
          "Birth:         %s\n" +
-         "Affiliations:  %s [from %s]",
+         "Affiliations:  %s [from %s] (last: %s)",
          ("name", "export_id", format_day("birth"),
-          "affiliation_1", "source_system_1")),
-        ("               %s [from %s]",
-         ("affiliation", "source_system")),
+          "affiliation_1", "source_system_1","last_date_1")),
+        ("               %s [from %s] (last: %s)",
+         ("affiliation", "source_system","last_date")),
         ("Fnr:           %s [from %s]",
          ("fnr", "fnr_src"))
         ]))
@@ -4216,8 +4216,11 @@ class BofhdExtension(object):
                  'entity_id': person.entity_id}]
         affiliations = []
         sources = []
-        for row in person.get_affiliations():
+        last_dates = []
+        for row in person.list_affiliations(person_id=person.entity_id,include_last=True):
             ou = self._get_ou(ou_id=row['ou_id'])
+            date = row['last_date'].strftime("%Y-%m-%d")
+            last_dates.append(date)
             affiliations.append("%s@%s" % (
                 self.const.PersonAffStatus(row['status']),
                 self._format_ou_name(ou)))
@@ -4225,12 +4228,15 @@ class BofhdExtension(object):
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
+            data[0]['last_date_1'] = last_dates[0]
         else:
             data[0]['affiliation_1'] = "<none>"
             data[0]['source_system_1'] = "<nowhere>"
+            data[0]['last_date_1'] = "<none>"
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
-                         'source_system': sources[i]})
+                         'source_system': sources[i],
+                         'last_date': last_dates[i]})
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
                        for r in account.list_accounts_by_owner_id(person.entity_id)]
