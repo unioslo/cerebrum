@@ -19,6 +19,8 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
+#from lib.utils import object_link
+
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
@@ -31,11 +33,12 @@
 #end def
 
 ## The main method for creating the form for the project create page.
-#def form($transaction)
+#def form($transaction, $owner)
 <div class="create">
     <form action="$getAction()" method="POST">
         <div class="createform">
             #set $fv = $formvalues
+            $form_widgets.input("owner", "Owner", $owner.get_id(), $object_link($owner), type="hidden")
             $form_widgets.input("title", "Title", $fv.get("title", ""))
             $form_widgets.input("description", "Description", $fv.get("description", ""))
             $form_widgets.code_selector("science", "Science", $transaction.get_science_searcher())
