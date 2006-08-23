@@ -25,25 +25,48 @@ from omniORB import CORBA
 
 class PosixTest(unittest.TestCase):
     """Tests promote/demote of accounts and groups in Spine."""
+
     def setUp(self):
+        self.pid = []
+        self.aid = []
+        self.gid = []
         self.session = spine.login(username, password)
 
     def tearDown(self):
+        """Make sure we remove all our test entries from the db."""
+        self.__delete_entity('get_account', self.aid)
+        self.__delete_entity('get_group', self.gid)
+        self.__delete_entity('get_person', self.pid)
         self.session.logout()
 
-    def __create_person(self, transaction):
-        commands = transaction.get_commands()
-        date = commands.get_date_now()
-        gender = transaction.get_gender_type('M')
-        source = transaction.get_source_system('Manual')
-        first_name = 'unit'
-        last_name  = 'test%s' % id(self)
+    def __delete_entity(self, func, ids):
+        for id in ids:
+            try:
+                tr = self.session.new_transaction()
+                get_entity = getattr(tr, func)
+                e = get_entity(id)
+                if hasattr(e, 'is_posix') and e.is_posix():
+                    e.demote_posix()
+                e.delete()
+                tr.commit()
+            except Spine.Errors.NotFoundError:
+                pass
 
-        return commands.create_person(date, gender, first_name, last_name, source)
+    def __create_person(self, tr):
+        cmds = tr.get_commands()
+        date = cmds.get_date_now()
+        gender = tr.get_gender_type('M')
+        source = tr.get_source_system('Manual')
+        fn = "unit_%s" % id(self)
+        ln = "test_%s" % id(self)
+        person = cmds.create_person(date, gender, fn, ln, source)
+        self.pid.append(person.get_id())
+        return person
 
     def __create_group(self, tr):
         name = 'unittest_gr%s' % id(self)
         group = tr.get_commands().create_group(name)
+        self.gid.append(group.get_id())
         return group, name
 
     def __create_account(self, tr):
@@ -51,7 +74,7 @@ class PosixTest(unittest.TestCase):
         date = tr.get_commands().get_date_none()
         name = 'unittest_ac%s' % id(self)
         account = tr.get_commands().create_account(name, owner, date)
-
+        self.aid.append(account.get_id())
         return account, name
    
     def __join_posix_group(self, tr, account):
@@ -70,30 +93,6 @@ class PosixTest(unittest.TestCase):
         else:
             return shells
         
-    def testPromoteGroup(self):
-        tr = self.session.new_transaction()
-        group, name = self.__create_group(tr)
-        assert name == group.get_name()
-        assert group.is_posix() == False
-        group.promote_posix()
-        assert group.get_posix_gid() != -1
-        assert group.is_posix() == True
-    
-        tr.rollback()
-
-    def testDemoteGroup(self):
-        tr = self.session.new_transaction()
-        group, name = self.__create_group(tr)
-        assert name == group.get_name()
-        assert group.is_posix() == False
-        
-        group.promote_posix()
-        group.demote_posix()
-        
-        assert group.is_posix() == False
-        
-        tr.rollback()
-        
     def testPromoteAccount(self):
         tr = self.session.new_transaction()
         account, name = self.__create_account(tr)
@@ -101,42 +100,23 @@ class PosixTest(unittest.TestCase):
         assert account.is_posix() == False
         
         group = self.__join_posix_group(tr, account)[0]
+        gid = group.get_id()
         shells = self.__get_posix_shell(tr)
-
-        if not shells:
-            return
+        shell_name = shells[0].get_name()
         
         uid = tr.get_commands().get_free_uid()
         account.promote_posix(uid, group, shells[0])
-        assert account.get_posix_uid() != None
-        assert account.get_shell().get_name() == shells[0].get_name()
-        assert account.get_primary_group().get_id() == group.get_id()
-        assert account.is_posix() == True
-    
-        tr.rollback()
-
-    def testPromoteGroupTwoStep(self):
-        groupname = "twoStepTest"
-        tr = self.session.new_transaction()
-        try:
-            tr1 = self.session.new_transaction()
-            g = tr1.get_commands().get_group_by_name(groupname)
-            g.demote_posix(groupname)
-            g.delete()
-            tr1.commit()
-        except Spine.Errors.NotFoundError:
-            pass
-        
-        group = tr.get_commands().create_group(groupname)
-        assert group.is_posix() == False
-        group.promote_posix()
         tr.commit()
+
         tr = self.session.new_transaction()
-        group = tr.get_commands().get_group_by_name(groupname)
-        assert group.get_posix_gid() != -1
-        assert group.is_posix() == True
-        group.demote_posix()
-        group.delete()
+        account = tr.get_commands().get_account_by_name(name)
+        assert account.is_posix() == True
+        assert account.get_posix_uid() != None
+        assert account.get_shell().get_name() == shell_name
+        assert account.get_primary_group().get_id() == gid
+    
+        account.demote_posix()
+        account.delete()
         tr.commit()
 
     def testDemoteAccount(self):
@@ -158,6 +138,20 @@ class PosixTest(unittest.TestCase):
     
         tr.rollback()
     
+    def testPromoteGroup(self):
+        tr = self.session.new_transaction()
+        group, groupname = self.__create_group(tr)
+        assert group.is_posix() == False
+        group.promote_posix()
+        tr.commit()
+        tr = self.session.new_transaction()
+        group = tr.get_commands().get_group_by_name(groupname)
+        assert group.get_posix_gid() != -1
+        assert group.is_posix() == True
+        group.demote_posix()
+        group.delete()
+        tr.commit()
+
 if __name__ == '__main__':
     unittest.main()
 
