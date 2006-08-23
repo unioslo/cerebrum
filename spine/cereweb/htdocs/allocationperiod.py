@@ -42,7 +42,7 @@ def search(transaction, **vargs):
     handler = SearchHandler('allocationperiod', AllocationPeriodSearchTemplate().form)
     handler.args = ('name', 'allocationauthority')
     handler.headers = (
-        ('Name', 'name'), 'Allocation Authority', 'allocationauthority'),
+        ('Name', 'name'), ('Allocation Authority', 'allocationauthority'),
         ('Actions', '')
     )
     
