@@ -65,8 +65,7 @@ class Constants(Constants.Constants):
     cpuarch_ppc32 = _CpuArchCode('ppc32', 'PowerPC 32-bit');
     cpuarch_ppc64 = _CpuArchCode('ppc64', 'PowerPC 64-bit');
 
-    allocationauthority_notur = _AllocationAuthorityCode('notur',
-        'Forskningsrådet, fordelingsutvalget')
+    allocationauthority_notur = _AllocationAuthorityCode('notur', 'Forskningsrådet, fordelingsutvalget')
     allocationauthority_uio = _AllocationAuthorityCode('uio', 'Universitetet i Oslo')
     allocationauthority_uib = _AllocationAuthorityCode('uib', 'Universitetet i Bergen')
     allocationauthority_ntnu = _AllocationAuthorityCode('ntnu', 'Norges teknisk-naturvitenskapelige universitet')
@@ -158,6 +157,16 @@ class Constants(Constants.Constants):
                                          'User on system "magnum"')
     spread_magnum_nis_fg = _SpreadCode('NIS_fg@magnum', Constants.Constants.entity_account,
                                          'File group on system "magnum"')
+
+    spread_titan_nis_user = _SpreadCode('NIS_user@titan', Constants.Constants.entity_account,
+                                         'User on system "titan"')
+    spread_titan_nis_fg = _SpreadCode('NIS_fg@titan', Constants.Constants.entity_account,
+                                         'File group on system "titan"')
+
+#    spread_snowstorm_nis_user = _SpreadCode('NIS_user@snowstorm', Constants.Constants.entity_account,
+#                                         'User on system "snowstorm"')
+#    spread_snowstorm_nis_fg = _SpreadCode('NIS_fg@snowstorm', Constants.Constants.entity_account,
+#                                         'File group on system "snowstorm"')
     
 
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
