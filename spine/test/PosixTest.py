@@ -83,7 +83,12 @@ class PosixTest(unittest.TestCase):
         group.promote_posix()
         operation = tr.get_group_member_operation_type("union")
         group.add_member(account, operation)
-        return group, name
+        return group
+
+    def __leave_posix_group(self, tr, account):
+        for group in account.get_groups():
+            group.remove_member(account)
+        
         
     def __get_posix_shell(self, tr):
         shells = tr.get_posix_shell_searcher().search()
@@ -93,13 +98,13 @@ class PosixTest(unittest.TestCase):
         else:
             return shells
         
-    def testPromoteAccount(self):
+    def ftestDeadlock(self):
         tr = self.session.new_transaction()
         account, name = self.__create_account(tr)
         assert name == account.get_name()
         assert account.is_posix() == False
         
-        group = self.__join_posix_group(tr, account)[0]
+        group = self.__join_posix_group(tr, account)
         gid = group.get_id()
         shells = self.__get_posix_shell(tr)
         shell_name = shells[0].get_name()
@@ -114,8 +119,46 @@ class PosixTest(unittest.TestCase):
         assert account.get_posix_uid() != None
         assert account.get_shell().get_name() == shell_name
         assert account.get_primary_group().get_id() == gid
-    
+
         account.demote_posix()
+        group.remove_member(account)
+        group.demote_posix()
+        group.delete()
+        account.delete()
+        tr.commit()
+
+
+    def testPromoteAccount(self):
+        tr = self.session.new_transaction()
+        account, name = self.__create_account(tr)
+        aid = account.get_id()
+
+        assert name == account.get_name()
+        assert account.is_posix() == False
+        
+        group = self.__join_posix_group(tr, account)
+        gid = group.get_id()
+        shells = self.__get_posix_shell(tr)
+        shell_name = shells[0].get_name()
+        
+        uid = tr.get_commands().get_free_uid()
+        account.promote_posix(uid, group, shells[0])
+        tr.commit()
+
+        tr = self.session.new_transaction()
+        op = tr.get_group_member_operation_type("union")
+        account = tr.get_account(aid)
+        group = tr.get_group(gid)
+        assert account.is_posix() == True
+        assert account.get_posix_uid() != None
+        assert account.get_shell().get_name() == shell_name
+        assert account.get_primary_group().get_id() == gid
+        account.demote_posix()
+
+        group_member = tr.get_group_member(group, op, account, account.get_type())
+        group.remove_member(group_member)
+        group.demote_posix()
+        group.delete()
         account.delete()
         tr.commit()
 
@@ -125,7 +168,7 @@ class PosixTest(unittest.TestCase):
         assert name == account.get_name()
         assert account.is_posix() == False
         
-        group = self.__join_posix_group(tr, account)[0]
+        group = self.__join_posix_group(tr, account)
         shells = self.__get_posix_shell(tr)
 
         if not shells:
