@@ -4703,8 +4703,8 @@ class BofhdExtension(object):
         ("Utd. plan: %s, %s, %d, %s",
          ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
           format_day("dato_bekreftet"))),
-        ("Semesterreg: %s, %s, betalt: %s, endret: %s",
-         ("regformkode", "betformkode", format_day("dato_betaling"),
+        ("Semesterreg: %s, %s, FS bet. reg: %s, endret: %s",
+         ("regformkode", "betformkode", format_day("dato_endring"),
           format_day("dato_regform_endret")))
         ]),
         perm_filter='can_get_student_info')
@@ -4754,7 +4754,7 @@ class BofhdExtension(object):
         for row in fs.student.get_semreg(fodselsdato, pnum):
             ret.append({'regformkode': row['regformkode'],
                         'betformkode': row['betformkode'],
-                        'dato_betaling': self._convert_ticks_to_timestamp(row['dato_betaling']),
+                        'dato_endring': self._convert_ticks_to_timestamp(row['dato_endring']),
                         'dato_regform_endret': self._convert_ticks_to_timestamp(row['dato_regform_endret'])})
         db.close()
         return ret
