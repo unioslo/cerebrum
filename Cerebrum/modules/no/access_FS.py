@@ -249,15 +249,21 @@ class Student(FSObject):
         """Hent data om semesterregistrering for student i nåværende semester."""
         qry = """
         SELECT DISTINCT
-          r.regformkode, r.betformkode, r.dato_betaling, r.dato_regform_endret
-        FROM fs.registerkort r, fs.person p
+          r.regformkode, r.betformkode, r.dato_betaling, r.dato_regform_endret,
+          f.dato_endring
+        FROM fs.registerkort r, fs.person p, fs.fakturareskontro f
         WHERE r.fodselsdato = :fnr AND
               r.personnr = :pnr AND
+              r.fodselsdato = f.fodselsdato AND
+              r.personnr = f.personnr AND
+              f.terminkode = '%s' AND
+              f.arstall = %s AND
+              f.fakturastatuskode = 'OPPGJORT' AND
               %s AND
               r.fodselsdato = p.fodselsdato AND
               r.personnr = p.personnr AND
               %s
-        """ %(self._get_termin_aar(only_current=1), self._is_alive())
+        """ %(self.semester, self.year, self._get_termin_aar(only_current=1), self._is_alive())
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
 
     def list_eksamensmeldinger(self):  # GetAlleEksamener
