@@ -674,12 +674,15 @@ class CommonConstants(ConstantsBase):
         "Requires the smbpasswd module to be installed.")
     auth_type_plaintext = _AuthenticationCode(
         'plaintext',
-        "Plantext passwords. Usefull for installations where non-encrypted "
+        "Plaintext passwords. Usefull for installations where non-encrypted "
         "passwords need to be used and exported. Use with care!")
     auth_type_ssha = _AuthenticationCode(
         'SSHA',
         "A salted SHA1-encrypted password. More info in RFC 2307 and at "
         "<URL:http://www.openldap.org/faq/data/cache/347.html>")
+    auth_type_md5_unsalt = _AuthenticationCode(
+        'md5-unsalted',
+        "Unsalted MD5-crypt. Use with care!")
  
     contact_phone = _ContactInfoCode('PHONE', 'Phone')
     contact_phone_private = _ContactInfoCode('PRIVPHONE',

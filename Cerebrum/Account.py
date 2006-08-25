@@ -502,6 +502,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             return smbpasswd.nthash(plaintext)
         elif method == self.const.auth_type_plaintext:
             return plaintext
+        elif method == self.const.auth_type_md5_unsalt:
+            import md5
+            return md5.md5(plaintext)
         raise ValueError, "Unknown method " + repr(method)
 
     def decrypt_password(self, method, cryptstring):
