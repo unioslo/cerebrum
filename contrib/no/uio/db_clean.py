@@ -58,7 +58,8 @@ ChangeLog ting
   entryen skal overleve
 
 * Alle entries har en maks levetid på 6 måneder, med unntak av:
-  - user create: tas vare på sålenge kontoen lever
+  - account create: skal ikke slettes
+  - account delete: skal ikke slettes
   - add spread
   - gruppe innmeldinger uten påfølgende utmelding
   - siste passord endring
@@ -133,6 +134,7 @@ class CleanChangeLog(object):
 
     max_ages = {
         int(co.account_create): AGE_FOREVER,
+        int(co.account_delete): AGE_FOREVER,
         int(co.group_create): AGE_FOREVER,
         int(co.ou_create): AGE_FOREVER,
         int(co.person_create): AGE_FOREVER,
@@ -183,6 +185,9 @@ class CleanChangeLog(object):
         # Account updates
         {'columns': ('subject_entity', ),
          'triggers': (co.posix_demote, )},
+        # Account delete
+        {'columns': ('subject_entity', ),
+         'triggers': (co. account_delete,)},
         # Account passwords
         {'columns': ('subject_entity', ),
          'triggers': (co.account_password, )},
