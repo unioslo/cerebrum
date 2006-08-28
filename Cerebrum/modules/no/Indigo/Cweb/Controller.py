@@ -28,7 +28,7 @@ class Controller(object):
         except Errors.CwebException, e:
             self.html_util.error(str(e), self.state)
         except Exception, e:
-            er = re.sub(r'.*\:', r'Error:', str(e.faultString))
+            er = re.sub(r'.*\:', r'Error:', str(e))
             self.logger.error("Caught unexpected error: ", exc_info=1)
             self.html_util.error("%s" % er)
             
@@ -124,7 +124,7 @@ class Controller(object):
         try:
             self.html_util.display(f[0](*f[1:]))
         except Exception, e:
-            er = re.sub(r'.*\:', r'Error:', str(e.faultString))
+            er = re.sub(r'.*\:', r'Error:', str(e))
             self.logger.error("Caught unexpected error: ", exc_info=1)
             self.html_util.error("%s" % er)
 
