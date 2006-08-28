@@ -231,6 +231,8 @@ class AccountUtil(object):
                         logger.warn(e)
             elif c_id == 'remove_autostud_quarantine':
                 user.delete_entity_quarantine(dta)
+            elif c_id == 'remove_quarantine_at_restore':
+                user.delete_entity_quarantine(dta)
             elif c_id == 'add_spread':
                 user.add_spread(dta)
             elif c_id == 'add_person_spread':
@@ -398,6 +400,10 @@ class AccountUtil(object):
         if changes:
             if ac.is_deleted():
                 AccountUtil.restore_uname(account_id, profile)
+            for q in ac.get_quarantines():
+                if q in [int(const.quarantine_generell),
+                         int(const.quarantine_autopassord)]:
+                    changes.append(('remove_quarantine_at_restore', q))
             
         if changes:
             AccountUtil._handle_user_changes(changes, account_id, as_posix)
