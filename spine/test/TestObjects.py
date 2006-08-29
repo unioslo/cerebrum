@@ -22,6 +22,14 @@
 import unittest
 from TestBase import *
 
+def debug(func):
+    fname = func.__module__, func.func_name
+    def decorator(*args, **kwargs):
+        print fname, args
+        return func(*args, **kwargs)
+    return decorator
+    
+
 class TestEntity(object):
     def __init__(self, session, id=None):
         self._keep = False
@@ -50,14 +58,22 @@ class TestEntity(object):
         attr = getattr(tr, self.get_attr)
         return attr(self.id)
 
-    def _commit(self):
+    def _commit(self, tr=None):
+        if tr:
+            assert tr is self.tr
         if self.open:
             self.open = False
             self.tr.commit()
 
     def __getattr__(self, attr):
+        """ Decorate the method calls so we can make sure all changes are commited. """
         obj = self._get_obj()
-        return getattr(obj, attr)
+        f = getattr(obj, attr)
+        def w(*args, **kwargs):
+            r = f(*args, **kwargs)
+            self._commit()
+            return r
+        return w
 
 class DummyPerson(TestEntity):
     def __init__(self, session, id=None):
@@ -94,16 +110,22 @@ class DummyGroup(TestEntity):
 
     def __del__(self):
         if not self._keep:
-            for gm in self.get_group_members():
+            group = self._get_obj()
+            for gm in group.get_group_members():
+                member = gm.get_member()
+                if member.is_posix():
+                    if group.get_id() == member.get_primary_group().get_id():
+                        member.demote_posix()
                 group.remove_member(gm)
-            if self._get_obj().is_posix():
-                self._get_obj().demote_posix()
+            if group.is_posix():
+                group.demote_posix()
             super(DummyGroup, self).__del__()
 
-    def add_member(self, account):
+    def add_member(self, aid):
         tr = self._get_tr()
         union_type = tr.get_group_member_operation_type("union")
-        self._get_obj().add_member(account._get_obj(), union_type)
+        account = tr.get_account(aid)
+        self._get_obj().add_member(account, union_type)
         self._commit()
 
 class DummyAccount(TestEntity):
@@ -114,15 +136,15 @@ class DummyAccount(TestEntity):
 
     def __del__(self):
         if not self._keep:
+            obj = self._get_obj()
+            if obj.is_posix():
+                obj.demote_posix()
             self._commit() # get a new transaction
             groups = self._get_obj().get_groups()
             for group in groups:
                 for i in group.get_group_members():
                     if i.get_member().get_id() == self.id:
                         group.remove_member(i)
-            self._commit()
-            if self._get_obj().is_posix():
-                self._get_obj().demote_posix()
             self._commit()
             super(DummyAccount, self).__del__()
 
@@ -135,10 +157,10 @@ class DummyAccount(TestEntity):
         self.id = account.get_id()
         self._commit()
 
-    def promote_posix(self, group):
+    def promote_posix(self, gid):
         tr = self._get_tr()
-        c = tr.get_commands()
+        uid = tr.get_commands().get_free_uid()
+        group = tr.get_group(gid)
         shell = tr.get_posix_shell('bash')
-        uid = c.get_free_uid()
-        self._get_obj().promote_posix(uid, group._get_obj(), shell)
-        self._commit()
+        self._get_obj().promote_posix(uid, group, shell)
+        self._commit(tr)
