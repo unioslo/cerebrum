@@ -295,8 +295,7 @@ public class BofhdConnection {
                 throw new BofhdException("Error: "+e.getMessage());
             }
         } catch (IOException e) {
-            logger.error("IO", e);
-            throw new BofhdException("Server error: "+e);
+            throw new BofhdException("IOError talking to bofhd server: "+e.getMessage());
         }
     }
 
