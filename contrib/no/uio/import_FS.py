@@ -429,12 +429,13 @@ def main():
     verbose = 0
     include_delete = False
     logger = Factory.get_logger("cronjob")
-    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
+    opts, args = getopt.getopt(sys.argv[1:], 'vp:s:e:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
-        'generate-groups','include-delete', ])
+        'emne-file=', 'generate-groups','include-delete', ])
 
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
+    emnefile = default_emnefile
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
@@ -442,6 +443,8 @@ def main():
             personfile = val
         elif opt in ('-s', '--studieprogram-file'):
             studieprogramfile = val
+        elif opt in ('-e', '--emne-file'):
+            emnefile = val
         elif opt in ('-g', '--generate-groups'):
             gen_groups = True
         elif opt in ('-d', '--include-delete'):
@@ -470,7 +473,7 @@ def main():
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
 
-    for e in StudentInfo.EmneDefParser(default_emnefile):
+    for e in StudentInfo.EmneDefParser(emnefile):
         emne2sko[e['emnekode']] = \
             _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
                      'gruppenr_reglement')
