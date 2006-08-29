@@ -48,6 +48,9 @@ default_betalt_papir_file = "/cerebrum/dumps/FS/betalt_papir.xml"
 xml = XMLHelper()
 fs = None
 
+logger = Factory.get_logger("cronjob")
+
+
 def _ext_cols(db_rows):
     # TBD: One might consider letting xmlify_dbrow handle this
     cols = None
@@ -63,6 +66,8 @@ def write_person_info(outfile):
     # TBD: Burde vi cache alle data, slik at vi i stedet kan lage en
     # fil der all informasjon om en person er samlet under en egen
     # <person> tag?
+
+    logger.info("Writing person info to '%s'" % outfile)
     
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
@@ -137,6 +142,8 @@ def write_person_info(outfile):
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
+    logger.info("Writing OU info to '%s'" % outfile)
+    
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -185,6 +192,7 @@ def write_ou_info(outfile):
 def write_topic_info(outfile):
     """Lager fil med informasjon om alle XXX"""
     # TODO: Denne filen blir endret med det nye opplegget :-(
+    logger.info("Writing topic info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -199,6 +207,7 @@ def write_topic_info(outfile):
 def write_regkort_info(outfile):
     """Lager fil med informasjon om semesterregistreringer for
     inneværende semester"""
+    logger.info("Writing regkort info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -210,6 +219,7 @@ def write_regkort_info(outfile):
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
+    logger.info("Writing studprog info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -221,6 +231,7 @@ def write_studprog_info(outfile):
 
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
+    logger.info("Writing emne info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -232,6 +243,7 @@ def write_emne_info(outfile):
 
 def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
+    logger.info("Writing personrolle info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -243,6 +255,7 @@ def write_personrole_info(outfile):
 
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
+    logger.info("Writing misc info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -261,6 +274,7 @@ def write_misc_info(outfile, tag, func_name):
 
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
+    logger.info("Writing fnrupdate info to '%s'" % outfile)
     stream = AtomicFileWriter(outfile, 'w')
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level = 2,
@@ -300,6 +314,7 @@ def write_betalt_papir_info(outfile):
     """Lager fil med informasjon om alle som enten har fritak fra å
     betale kopiavgift eller har betalt kopiavgiften"""
     
+    logger.info("Writing betaltpapir info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
     f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
@@ -352,6 +367,7 @@ def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
         fs = FS(db)
 
 def main():
+    logger.info("Starting import from FS")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "ptsroefbk",
                                    ["person-file=", "topics-file=",
@@ -425,6 +441,9 @@ def main():
             misc_tag = val
         elif o in ('--misc-file',):
             write_misc_info(val, misc_tag, misc_func)
+
+    logger.info("Import from FS done")
+
 
 if __name__ == '__main__':
     main()
