@@ -427,7 +427,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # od
 
         # TODO: generaliser ifi-hack seinare
-        if (re.match(r"(dig|inf|med-inf|tool)", emnekode.lower())
+        if (re.match(r"(dig|inf|med-inf|tool|humit)", emnekode.lower())
             and termk == fs.info.semester
             and aar == str(fs.info.year)):
             logger.debug(" (ta med Ifi-spesifikke grupper)")

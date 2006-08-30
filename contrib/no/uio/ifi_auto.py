@@ -125,6 +125,7 @@ def shorten_course_name(course):
     fgname = fgname.replace("matinf", "mi", 1)
     fgname = fgname.replace("infmat", "mi", 1)
     fgname = fgname.replace("infverk", "iv", 1)
+    fgname = fgname.replace("humit", "hi", 1)
     # there are currently no MODxxxx courses, perhaps they won't return.
     # so I reuse the "im" abbreviation for MED-INFxxxx
     fgname = fgname.replace("medinf", "im", 1)
