@@ -99,12 +99,13 @@ class AccountUtil(object):
 
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
-
         assert not dryrun
         today = datetime.datetime.now()
         logger.info2("CREATE")
         person = Factory.get('Person')(db)
         logger.info("Trying to create user for person with fnr=%s" % fnr)
+
+        sys.exit(1)
         try:
             person.find_by_external_id(const.externalid_fodselsnr, fnr,
                                        const.system_fs)
@@ -145,11 +146,17 @@ class AccountUtil(object):
         account.set_password(password)
         tmp = account.write_db()
         logger.debug("new Account, write_db=%s" % tmp)
-        # Need to set initial quarantine.
+        # Need to set initial quarantine for students only (no quarantine for "fagpersoner").
         # setting todays date at start date.
-        quarantine_date = "%s" % today.date()
-        logger.debug("quarantine date =%s" % quarantine_date)
-        account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
+        check_aff=persons[fnr].get_affiliations()
+        print "person affiliations=%s" % check_aff
+        if (const.affiliation_student in persons[fnr].get_affiliations()):
+            # This persons has a student affiliation. set quarantine on the account. (we do not set quarantine for employees or "fagpersoner" accounts)
+            print "$$$creating student account with quarantine$$$"
+            sys.exit(3)
+            quarantine_date = "%s" % today.date()
+            logger.debug("quarantine date =%s" % quarantine_date)
+            account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
         #sys.exit(1) # <- for debuging purposes. remove this once quarantene settings on new accounts has been verified.
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
@@ -186,8 +193,8 @@ class AccountUtil(object):
                 only_tilknyttet = 1
 
         if only_tilknyttet == 0 and current_email =="":
-            student_email = "%s@external.uit.no" % (account_obj.account_name)
-            logger.debug("account:%s only has a tilknyttet affiliation, use %s@external.uit.no" % (account_obj.account_name,account_obj.account_name))
+            student_email = "%s@mailbox.uit.no" % (account_obj.account_name)
+            logger.debug("account:%s only has a tilknyttet affiliation, use %s@mailbox.uit.no" % (account_obj.account_name,account_obj.account_name))
 
             
         if (current_email != student_email):
@@ -255,39 +262,20 @@ class AccountUtil(object):
         tilknyttet_account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
                        if aff == const.affiliation_tilknyttet]
 
-                       
-        #is_student = 0
-        #is_tilknyttet = 0
-        #print "processing account:%s for personnr:%s" % (account_id,fnr)
-        #for aff, ou, status in persons[fnr].get_affiliations():
-        #    print "aff=%s" % aff
-        #    if(aff == const.affiliation_student):
-        #        is_student =1
-        #    if aff == const.affiliation_tilknyttet:
-        #        is_tilknyttet = 1
-        #assert is_student == 1
-
         for aff, ou, status in persons[fnr].get_affiliations():
-            #assert aff == const.affiliation_student
             if not ou in account_ous and aff == const.affiliation_student:
-                #if(is_student ==1):
                 changes.append(('set_ac_type', (ou, const.affiliation_student)))
             else:
-                if (len(account_ous)>0):
+                if ((len(account_ous)>0) and (aff == const.affiliation_student)):
                     account_ous.remove(ou)
                     # The account has at least one valid affiliation, so
                     # we can delete everything left in account_ous.
                     remove_idx = 0
 
             if not ou in tilknyttet_account_ous and aff == const.affiliation_tilknyttet:
-                #if(is_tilknyttet):
                 changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
-                #elif(is_student==0 and is_tilknyttet==1):
-                #    changes.append(('set_ac_type', (ou, const.affiliation_tilknyttet)))
-                #else:
-                #    logger.error("Unknown affiliation:%s for account:%s on person:%s" %(aff,account_id,fnr))
             else:
-                if (len(tilknyttet_account_ous)>0):
+                if ((len(tilknyttet_account_ous)>0) and (aff==const.affiliation_tilknyttet)):
                     tilknyttet_account_ous.remove(ou)
                     # The account has at least one valid affiliation, so
                     # we can delete everything left in account_ous.
