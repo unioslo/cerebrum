@@ -68,9 +68,9 @@ def check_paid_semfee():
         except Errors.NotFoundError:
             logger.error('No such person (%s)' % fnr)
             continue
-        ansatt = _er_ansatt(person)
-        if not ansatt:
-            paid_semfee.append(int(person.entity_id))
+#        ansatt = _er_ansatt(person)
+#        if not ansatt:
+        paid_semfee.append(int(person.entity_id))
     return paid_semfee
 
 def update_quota(update, ldap_handle, pq, edir_ut, noup):
