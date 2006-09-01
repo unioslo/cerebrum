@@ -105,7 +105,6 @@ class AccountUtil(object):
         person = Factory.get('Person')(db)
         logger.info("Trying to create user for person with fnr=%s" % fnr)
 
-        sys.exit(1)
         try:
             person.find_by_external_id(const.externalid_fodselsnr, fnr,
                                        const.system_fs)
@@ -150,13 +149,13 @@ class AccountUtil(object):
         # setting todays date at start date.
         check_aff=persons[fnr].get_affiliations()
         print "person affiliations=%s" % check_aff
-        if (const.affiliation_student in persons[fnr].get_affiliations()):
-            # This persons has a student affiliation. set quarantine on the account. (we do not set quarantine for employees or "fagpersoner" accounts)
-            print "$$$creating student account with quarantine$$$"
-            sys.exit(3)
-            quarantine_date = "%s" % today.date()
-            logger.debug("quarantine date =%s" % quarantine_date)
-            account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
+        for aff in persons[fnr].get_affiliations():
+            if aff == const.affiliation_student:
+                # This persons has a student affiliation. set quarantine on the account. (we do not set quarantine for employees or "fagpersoner" accounts)
+                print "$$$creating student account with quarantine$$$"
+                quarantine_date = "%s" % today.date()
+                logger.debug("quarantine date =%s" % quarantine_date)
+                account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
         #sys.exit(1) # <- for debuging purposes. remove this once quarantene settings on new accounts has been verified.
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
