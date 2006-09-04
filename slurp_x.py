@@ -454,7 +454,7 @@ ekstern epost: %s
 
 """ % (registrator_email,name,ssn,ou,type,expire_date,why,contact_data,external_email)
 
-        SENDMAIL="/usr/sbin/sendmail"
+        SENDMAIL="/usr/sbin/sendmail -fnybruker2@asp.uit.no"
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: nybruker2@asp.uit.no\n")
@@ -485,7 +485,7 @@ Ekstern epost: %s
 Ansvarlig epost: %s
 
 """ % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
-        SENDMAIL="/usr/sbin/sendmail"
+        SENDMAIL="/usr/sbin/sendmail -fsys-x-admin@cc.uit.no"
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: sys-x-admin@cc.uit.no\n")
@@ -517,7 +517,7 @@ Personen har fått tildelt brukernavnet:%s
 
 
 """ % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost,username)
-        SENDMAIL="/usr/sbin/sendmail"
+        SENDMAIL="/usr/sbin/sendmail -f%s" % (ansvarlig_epost)
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: %s\n" % ansvarlig_epost)
@@ -571,7 +571,7 @@ Notice that it may take a few days before your FRIDA account is activated.
 If you have any questions you can either contact orakel@uit.no or bas-admin@cc.uit.no\n
         """ % (user_name,spreads,user_name,spreads)
 
-        SENDMAIL="/usr/sbin/sendmail"
+        SENDMAIL="/usr/sbin/sendmail -f%s" % (email_address)
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: %s\n" % email_address)
