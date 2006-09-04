@@ -4380,9 +4380,29 @@ class BofhdExtension(object):
                                           row['source_system'])
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou), person.entity_id)
 
+    # person set_bdate
+    all_commands['person_set_bdate'] = Command(
+        ("person", "set_bdate"), PersonId(help_ref="id:target:person"),
+        Date(help_ref='date_birth'), perm_filter='can_create_person')
+    def person_set_bdate(self, operator, person_id, bdate):
+        try:
+            person = self.util.get_target(person_id, restrict_to=['Person'])
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+	for a in person.get_affiliations():
+	    if (int(a['source_system']) in
+                [int(self.const.system_fs), int(self.const.system_lt)]):
+		raise PermissionDenied("You are not allowed to alter birth date for this person.")        
+        bdate = self._parse_date(bdate)
+        if bdate > self._today():
+            raise CerebrumError, "Please check the date of birth, cannot register date_of_birth > now"
+        person.birth_date = bdate
+        person.write_db()
+        return "OK, set birth date for '%s' = '%s'" % (person_id, bdate)
+        
     # person create
     all_commands['person_create'] = Command(
-        ("person", "create"), PersonId(),
+        ("person", "create"), PersonId(), 
         Date(help_ref='date_birth'), PersonName(help_ref='person_name_first'), 
 	PersonName(help_ref='person_name_last'), OU(), Affiliation(),
         AffiliationStatus(),
