@@ -227,43 +227,23 @@ def move_account(entity_id):
 
 
 def change_quarantine(entity_id):
-    account.clear()
-    try:
-	account.find(entity_id)
-	if account.is_expired():
-	    logger.debug('change_quarantine:Account %s is expired' % entity_id)
-	    return False
-    except Errors.NotFoundError:
-	# The entity exists, but account information deleted, ignore
-	# further processing.
-	return False
-    if account.has_spread(int(co.spread_uio_ad_account)):
-    	if adutils.chk_quarantine(entity_id):
-	    del_spread(entity_id, co.spread_uio_ad_account,
-                       delete=False)
-    	else:
-	    account_name = id_to_name(entity_id,'user')
-	    if not account_name:
-	    	return False	
-	    ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)		
-            sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, account_name))
-            ou_in_ad = sock.read()[0]
-            if ou_in_ad[0:3] == '210':
-                #Account already in AD, we move to correct OU.
-                sock.send('MOVEOBJ&%s&LDAP://%s\n' % ( ou_in_ad[4:],ad_ou ))
+	account.clear()
+	try:
+		account.find(entity_id)
+		if account.is_expired():
+			logger.debug('change_quarantine:Account %s is expired' % entity_id)
+			return False
+ 	except Errors.NotFoundError:
+		# The entity exists, but account information deleted, ignore
+		# further processing.
+		return False
 
-                if sock.read() == ['210 OK']:
-                    sock.send(('ALTRUSR&%s/%s&dis&0&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
-                                               account_name,
-                                               cereconf.AD_PASSWORD_EXPIRE,
-                                               cereconf.AD_CANT_CHANGE_PW))
-		    if sock.read() != ['210 OK']:
-			logger.debug("Failed enabling account %s" % account_name)
-                else:
-                    logger.debug("Failed move user %s" % account_name)
-            else:
-                logger.debug("Failed getting AD_OU, %s, creating..." %  account_name)
-                add_spread(entity_id, co.spread_uio_ad_account)
+	if account.has_spread(int(co.spread_uio_ad_account)):
+		if adutils.chk_quarantine(entity_id):
+			del_spread(entity_id, co.spread_uio_ad_account, delete=False)
+		else:
+			add_spread(entity_id, co.spread_uio_ad_account)
+
 
 def build_user(entity_id):
 
@@ -295,14 +275,13 @@ def build_user(entity_id):
              login_script) = adutils.get_user_info(entity_id, account_name,
                                                    disk_spread)
 
-            sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s'+
+            sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s'+
                        '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
                                                account_name,
                                                full_name,
                                                account_disable,
                                                home_dir,
                                                cereconf.AD_HOME_DRIVE,
-                                               login_script,
                                                cereconf.AD_PASSWORD_EXPIRE,
                                                cereconf.AD_CANT_CHANGE_PW))
 
@@ -364,18 +343,15 @@ def add_spread(entity_id, spread):
                 logger.debug('Failed creating new user %s' % account_name)
 
         if sock.read() == ['210 OK']:
-            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
-             login_script) = adutils.get_user_info(entity_id, account_name,
-                                                   disk_spread)
+            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE) = adutils.get_user_info(entity_id, account_name, disk_spread)
 
-            sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s'+
+            sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s'+
                        '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
                                                account_name,
                                                full_name,
                                                account_disable,
                                                home_dir,
                                                cereconf.AD_HOME_DRIVE,
-                                               login_script,
                                                cereconf.AD_PASSWORD_EXPIRE,
                                                cereconf.AD_CANT_CHANGE_PW))
             if sock.read() == ['210 OK']:
