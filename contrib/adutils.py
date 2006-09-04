@@ -132,7 +132,6 @@ def now():
 def get_user_info(account_id, account_name, spread):
 
     home_dir = find_home_dir(account_id, account_name, spread)
-    login_script = find_login_script(account_name)
         
     account.clear()
     account.find(account_id)
@@ -152,7 +151,7 @@ def get_user_info(account_id, account_name, spread):
         if not chk_quarantine(account_id):
             account_disable = '0'       
 
-    return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, login_script)
+    return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE)
 
 
 def chk_quarantine(account_id):
@@ -163,11 +162,11 @@ def chk_quarantine(account_id):
     qua = []
     for row in quarantines:
         qua.append(row['quarantine_type']) 
-    qh = QuarantineHandler.QuarantineHandler(db, qua)
     try:
+	qh = QuarantineHandler.QuarantineHandler(db, qua)
         if qh.is_locked():           
             return True
-    except KeyError:
+    except (KeyError,Errors.NotFoundError):
         pass
     return False        
 
