@@ -29,6 +29,7 @@ import re
 import locale
 import time
 
+from mx import DateTime
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
@@ -130,6 +131,7 @@ def shorten_course_name(course):
     # so I reuse the "im" abbreviation for MED-INFxxxx
     fgname = fgname.replace("medinf", "im", 1)
     fgname = fgname.replace("mod", "im", 1)
+    fgname = fgname.replace("infps", "ip", 1)
     # INFxxx used to stay as infxxx, but there won't be any more three digit
     # codes, so we change it to just "i" unconditionally.
     fgname = fgname.replace("inf", "i", 1)
@@ -159,11 +161,14 @@ def convert_activitynumber(act):
 def make_filegroup_name(course, act, names):
     # if there is both a 3000 and a 4000 course, they are guaranteed to
     # have the same teachers.
-    m = re.search(r'(.*)4(\d){3}$', course)
+    m = re.search(r'(.*)4(\d{3})$', course)
     if m:
-        threethousandlevel = m.group(1) + '3' + m.group(2)
-        if threethousandlevel in names:
-            course = threethousandlevel
+        if m.group(1) + '3' + m.group(2) in names:
+            return None
+    m = re.search(r'^(humit\d{4})$', course)
+    if m:
+        if m.group(1) + 'mn' in names:
+            return None
     return names[course] + convert_activitynumber(act)
 
 def add_members(gname, new_members):
@@ -187,8 +192,8 @@ def sync_filegroup(fgname, group, course, act):
     # Make the group last a year or so.  To avoid changing the database
     # every night, we only change expire date if it has less than three
     # month to live.
-    expdate = db.TimestampFromTicks(time.time() + 12*31*24*3600)
-    refreshdate = db.TimestampFromTicks(time.time() + 3*31*24*3600)
+    expdate = DateTime.TimestampFromTicks(time.time() + 12*31*24*3600)
+    refreshdate = DateTime.TimestampFromTicks(time.time() + 3*31*24*3600)
     try:
         fgroup = get_group(fgname)
     except Errors.NotFoundError:
@@ -202,7 +207,8 @@ def sync_filegroup(fgname, group, course, act):
         posix_group.find(fgroup.entity_id)
         # make sure the group is alive
         if posix_group.expire_date and posix_group.expire_date < refreshdate:
-            logger.info("Extending life of %s", fgname)
+            logger.info("Extending life of %s from %s to %s", fgname,
+                        posix_group.expire_date, refreshdate)
             posix_group.expire_date = expdate
             posix_group.write_db()
     u, i, d = posix_group.list_members(filter_expired=False)
@@ -294,11 +300,15 @@ def process_groups(super, fg_super):
 
     for course, act, group in todo.values():
         fgname = make_filegroup_name(course, act, short_name)
+        if fgname == None:
+            logger.debug("Skipping %s-%s, it is an alias", course, act)
+            continue
         fgroup = sync_filegroup(fgname, group, course, act)
         if fgroup.entity_id in auto_fg:
             del auto_fg[fgroup.entity_id]
         else:
-            logger.info("New automatic filegroup %s", fgname)
+            logger.info("New automatic filegroup %s for %s-%s",
+                        fgname, course, act)
             fg_super_gr.add_member(fgroup.entity_id, co.entity_group,
                                    co.group_memberop_union)
 
@@ -332,7 +342,7 @@ def get_account(name):
     return ac
 
 def main():
-    global db, co, logger, group_creator
+    global db, co, logger, group_creator, dryrun
     # handle upper and lower casing of strings with Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
@@ -341,13 +351,37 @@ def main():
     co = Factory.get('Constants')(db)
     logger = Factory.get_logger("cronjob")
 
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], '?',
+                                   ['dryrun', 'help'])
+    except getopt.GetoptError:
+        usage()
+    for opt, val in opts:
+        if opt == '--dryrun':
+            dryrun = 1
+        if opt in ('-?', '--help'):
+            usage(0)
+
     supergroup = "internal:uio.no:fs:{autogroup}"
     fg_supergroup = "internal:uio.no:fs:{ifi_auto_fg}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
     process_groups(supergroup, fg_supergroup)
-    logger.debug("commit...")
-    db.commit()
+    if not dryrun:
+        logger.debug("commit...")
+        db.commit()
     logger.info("All done")
+
+def usage(exitcode=64):
+    print """Usage: ifi_auto.py [options]
+    Update e-mail addresses and filegroups associated with courses
+    taught at Deptartment of Informatics.
+
+    Options:
+        --dryrun: don't commit changes to database
+        --logger-name={console|cronjob}
+        --logger-level={debug|info|warning|error}
+    """
+    sys.exit(exitcode)
 
 if __name__ == '__main__':
     main()
