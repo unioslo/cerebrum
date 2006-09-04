@@ -158,18 +158,28 @@ def convert_activitynumber(act):
     else:
         return "%c%c" % (ord('a') + act/26, ord('a') + act%26)
 
+
 def make_filegroup_name(course, act, names):
-    # if there is both a 3000 and a 4000 course, they are guaranteed to
-    # have the same teachers.
-    m = re.search(r'(.*)4(\d{3})$', course)
+    """Return a name which can be used for a filegroup.  If the group
+    would duplicate a different filegroup, return None.
+
+    """
+    # If there is both a 3000 and a 4000 course, they are guaranteed to
+    # have the same teachers.  This could be a HUMIT course, too.
+    m = re.search(r'(.*)4(\d{3})(\D*)$', course)
     if m:
-        if m.group(1) + '3' + m.group(2) in names:
+        if m.group(1) + '3' + m.group(2) + m.group(3) in names:
             return None
+
+    # HUMITxxxxMN and HUMITxxxx are the same.  We prefer the long
+    # version with 'MN' since the teachers happen to be registered
+    # there at the time of writing (FIXME).
     m = re.search(r'^(humit\d{4})$', course)
     if m:
         if m.group(1) + 'mn' in names:
             return None
     return names[course] + convert_activitynumber(act)
+
 
 def add_members(gname, new_members):
     """Add the new members as union members to existing group gname.
@@ -260,6 +270,7 @@ def process_groups(super, fg_super):
     # fetch super group's members and update accordingly
     todo = {}
     vortex_access = {}
+    # short_name contains the shortened name for every known course
     short_name = {}
     u, i, d = get_group(super).list_members(member_type=co.entity_group,
                                             filter_expired=False)
