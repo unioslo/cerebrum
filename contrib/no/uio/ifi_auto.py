@@ -361,6 +361,7 @@ def main():
     db.cl_init(change_program='ifi_auto')
     co = Factory.get('Constants')(db)
     logger = Factory.get_logger("cronjob")
+    dryrun = False
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], '?',
@@ -369,7 +370,7 @@ def main():
         usage()
     for opt, val in opts:
         if opt == '--dryrun':
-            dryrun = 1
+            dryrun = True
         if opt in ('-?', '--help'):
             usage(0)
 
