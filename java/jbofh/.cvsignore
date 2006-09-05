@@ -3,3 +3,4 @@ dist
 tmpdist
 version.txt
 javadoc
+cacert.pem
