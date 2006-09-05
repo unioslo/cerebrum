@@ -299,6 +299,7 @@ class XMLPerson2Object(XMLEntity2Object):
                  "Bistilling"    : DataEmployment.BISTILLING,
                  "Ansattnr"      : SAPPerson.SAP_NR, }
 
+
     def __init__(self, xmliter):
         """Constructs an iterator supplying SAPPerson objects."""
 
@@ -308,9 +309,11 @@ class XMLPerson2Object(XMLEntity2Object):
 
     def _make_address(self, addr_element):
         """Make a DataAddress instance out of an <Adresse>."""
-
         assert addr_element.tag == "Adresse"
-        street = zip = city = country = ""
+
+        sap2intern = { "Fysisk arbeidssted" : DataAddress.ADDRESS_POST,
+                       "Bostedsadresse" : DataAddress.ADDRESS_PRIVATE, }
+        street = zip = city = country = addr_kind = ""
 
         for sub in addr_element.getiterator():
             if not sub.text:
@@ -325,13 +328,19 @@ class XMLPerson2Object(XMLEntity2Object):
                 city += value
             elif sub.tag in ("Landkode",):
                 country += value
+            # NB! yes, "AdressType". Don't ask me who made that one up.
+            elif sub.tag in ("AdressType",):
+                addr_kind = sap2intern.get(value, "")
             # fi
         # od
 
-        # Yes, the address is set to ADDRESS_PRIVATE intentionally
-        return DataAddress(kind = DataAddress.ADDRESS_PRIVATE,
-                           street = street, zip = zip,
-                           city = city, country = country)
+        # If we do not know the address kind, we *cannot* register it.
+        if not addr_kind:
+            return None
+        else:
+            return DataAddress(kind = addr_kind,
+                               street = street, zip = zip,
+                               city = city, country = country)
     # end _make_address
 
 
@@ -503,7 +512,7 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "Kjonn":
                 result.gender = self.tag2type[value]
             elif sub.tag == "Adresse":
-                result.address = self._make_address(sub)
+                result.add_address(self._make_address(sub))
             elif sub.tag in ("HovedStilling", "Bistilling"):
                 emp = self._make_employment(sub)
                 if emp is not None:

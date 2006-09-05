@@ -145,8 +145,27 @@ class XML2Cerebrum:
         # fi 
 
         #
-        # FIXME: populate_address
+        # FIXME: LT data.
         # 
+        # This one isn't pretty. The problem is that in LT some of the
+        # addresses (e.g. ADDRESS_POST) have to be derived from the addresses
+        # of the "corresponding" OUs. This breaks quite a few abstractions in
+        # this code.
+        # 
+        for addr_kind in (DataAddress.ADDRESS_POST, DataAddress.ADDRESS_PRIVATE):
+            addr = xmlperson.get_address(addr_kind)
+            if not addr:
+                continue
+
+            # FIXME: country-table is not populated in the database. We cannot
+            # write anything to the country-slot, until that table is
+            # populated.
+            person.populate_address(source_system,
+                                    type = self.xmladdr2db[addr_kind],
+                                    address_text = addr.street or None,
+                                    postal_number = addr.zip or None,
+                                    city = addr.city or None,)
+        # od 
 
         person.populate_affiliation(source_system)
         for value in affiliations.itervalues():

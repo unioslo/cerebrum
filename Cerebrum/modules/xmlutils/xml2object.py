@@ -213,6 +213,7 @@ class DataEntity(object):
         self._external_ids = dict()
         self._names = dict()
         self._contacts = list()
+        self._addresses = dict()
     # end __init__
 
     def add_id(self, kind, value):
@@ -245,6 +246,11 @@ class DataEntity(object):
         self._contacts.append(contact)
     # end add_contact
 
+    def add_address(self, address):
+        if address:
+            self._addresses[address.kind] = address
+    # end add_address
+
     def iterids(self):
         return self._external_ids.iteritems()
     # end iternames
@@ -257,11 +263,14 @@ class DataEntity(object):
         return iter(self._contacts)
     # end itercontacts
 
+    def iteraddress(self):
+        return self._addresses.iteritems()
+    # end iteraddress
+
     def get_name(self, kind, default=None):
         tmp = self._names.get(kind, default)
         return tmp
     # end get_name
-
 
     def get_name_with_lang(self, kind, *priority_order):
         """Extract a name of given kind, respecting the given priority order.
@@ -316,7 +325,11 @@ class DataEntity(object):
     def get_id(self, kind, default=None):
         return self._external_ids.get(kind, default)
     # end get_id
-    
+
+    def get_address(self, kind, default=None):
+        return self._addresses.get(kind, default)
+    # end get_address
+
 # end DataEntity    
     
 
@@ -350,22 +363,6 @@ class DataOU(DataEntity):
     def validate_name(self, name):
         assert name.kind in (self.NAME_ACRONYM, self.NAME_SHORT, self.NAME_LONG)
     # end validate_name
-
-
-    def add_address(self, address):
-        if address:
-            self._addresses[address.kind] = address
-    # end add_address
-
-
-    def get_address(self, kind, default=None):
-        return self._addresses.get(kind, default)
-    # end get_address
-
-
-    def iteraddress(self):
-        return self._addresses.iteritems()
-    # end iteraddress
 
 
     def __str__(self):
@@ -425,7 +422,6 @@ class HRDataPerson(DataPerson):
 
         self.gender = None
         self.birth_date = None
-        self.address = None
         self.employments = list()
         self.reserved = None
     # end __init__
@@ -448,9 +444,11 @@ class HRDataPerson(DataPerson):
                   "\tbirth: %s\n"
                   "\taddress: %s\n"
                   "\temployment: %s" % (spr, self.gender,
-                                          self.birth_date, self.address,
-                                          [str(x) for x in list(
-            self.iteremployment())]))
+                                        self.birth_date, self.address,
+                                        [str(x) for x in
+                                         list(self.iteraddress())],
+                                        [str(x) for x in
+                                         list(self.iteremployment())]))
         return result
     # end __str__
 # end HRDataPerson
