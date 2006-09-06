@@ -138,18 +138,19 @@ class ZoneUtils(object):
         the serial.  Returns the serial used.  """
 
         all_lines = []
-        for line in open(fname):
-            m = ZoneUtils.re_serial.search(line)
-            if m:
-                serial = m.group(1)
-                if not update:
-                    return serial
-                if serial[:-2] == time.strftime('%Y%m%d'):
-                    serial = int(serial) + 1
-                else:
-                    serial = time.strftime('%Y%m%d') + '01'
-                line = "%30s ; Serialnumber\n" % serial
-            all_lines.append(line)
+        if os.path.exists(fname):
+            for line in open(fname):
+                m = ZoneUtils.re_serial.search(line)
+                if m:
+                    serial = m.group(1)
+                    if not update:
+                        return serial
+                    if serial[:-2] == time.strftime('%Y%m%d'):
+                        serial = int(serial) + 1
+                    else:
+                        serial = time.strftime('%Y%m%d') + '01'
+                    line = "%30s ; Serialnumber\n" % serial
+                all_lines.append(line)
         if not update:
             # First time this zone is written
             return time.strftime('%Y%m%d') + '01'
