@@ -110,7 +110,7 @@ class MXSet(DatabaseAccessor):
              [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
         WHERE %s
-        ORDER BY mxs.mx_set_id""" % where, {
+        ORDER BY mxs.mx_set_id, pri, target_id""" % where, {
             'mx_set_id': mx_set_id,
             'target_id': target_id})
 
@@ -286,7 +286,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=dns_owner]
-            SET mx_set_id=:mx_set_id
+            SET mx_set_id=:mx_set_id, zone_id=:zone_id
             WHERE dns_owner_id=:e_id""", binds)
             if 'name' in self.__updated:
                 self.update_entity_name(self.const.dns_owner_namespace, self.name)
@@ -343,7 +343,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
             zone = int(zone)
         where = " AND ".join(where)
         return self.query("""
-        SELECT d.dns_owner_id, d.mx_set_id, en.entity_name AS name
+        SELECT d.dns_owner_id, d.mx_set_id, d.zone_id, en.entity_name AS name
         FROM [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
         WHERE %s""" % where, locals(), fetchall=fetchall)
@@ -400,7 +400,8 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
              [:table schema=cerebrum name=dns_owner] d_tgt,
              [:table schema=cerebrum name=entity_name] en_own,
              [:table schema=cerebrum name=entity_name] en_tgt
-        WHERE %s""" % where, {
+        WHERE %s
+        ORDER BY pri, weight, target_owner_id""" % where, {
             'owner_id': owner_id,
             'target_owner_id': target_owner_id,
             'zone': zone} )
