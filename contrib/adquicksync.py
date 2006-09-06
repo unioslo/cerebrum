@@ -247,7 +247,7 @@ def change_quarantine(entity_id):
 
 def build_user(entity_id):
 
-    account_name =id_to_name(entity_id,'user')
+    account_name = id_to_name(entity_id,'user')
 
     if not account_name:
 	return False
@@ -269,11 +269,13 @@ def build_user(entity_id):
             pw=pw.replace('%','%25')
             pw=pw.replace('&','%26')
 
-        sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,account_name,pw))
+        sock.send('ALTRUSR&%s/%s&pass&%s\n' % \
+			(cereconf.AD_DOMAIN,account_name,pw))
+
         if sock.read() == ['210 OK']:
-            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE,
-             login_script) = adutils.get_user_info(entity_id, account_name,
-                                                   disk_spread)
+            (full_name, account_disable, home_dir, 
+			cereconf.AD_HOME_DRIVE) = adutils.get_user_info(entity_id,
+									account_name, disk_spread)
 
             sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s'+
                        '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
