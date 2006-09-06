@@ -123,6 +123,10 @@ class DnsParser(object):
             if name.endswith(postfix[:-1]):
                 return name+"."
             else:
+                chk = postfix[postfix.find('.', 1):-1]
+                if name.endswith(chk):
+                    raise CerebrumError(
+                        "The name ends with '%s' which may be ambigous.  Use trailing dot" % chk)
                 return name+postfix
         return name
 
