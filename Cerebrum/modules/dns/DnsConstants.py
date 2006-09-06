@@ -63,7 +63,10 @@ class Constants(Constants.Constants):
         'dns_comment', entity_dns_owner,
         """A freeform comment about the host.""")
 
+    # TODO: The uio constants should be in a uio specific constants module
     uio_zone = _DnsZoneCode("uio", ".uio.no.")
+    simula_zone = _DnsZoneCode("simula", ".simula.no.")
+    trofast_zone = _DnsZoneCode("trofast_uio", ".trofast.uio.no.")
     other_zone = _DnsZoneCode("other", None)
 
     # ChangeLog constants
