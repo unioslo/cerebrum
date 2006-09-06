@@ -190,11 +190,28 @@ class DnsBofhdUtils(object):
     #
     
     def alloc_dns_owner(self, name, mx_set=None):
+        def _get_reverse_order(lst):
+            """Return index of sorted zones"""
+            # We must sort the zones to assert that trofast.uio.no
+            # does not end up in the uio.no zone.  This is acheived by
+            # spelling the zone postfix backwards and sorting the
+            # resulting list backwards
+            lst = [str(x.postfix)[::-1] for x in lst]
+            t = range(len(lst))
+            t.sort(lambda a, b: cmp(lst[b], lst[a]))
+            return t
+
         self._dns_owner.clear()
-        if not name.endswith(self.default_zone.postfix):
+        zone = None
+        tmp = self.default_zone.postfix
+        zones = self.const.fetch_constants(self.const.DnsZone)
+        for n in _get_reverse_order(zones):
+            z = zones[n]
+            if z.postfix and name.endswith(z.postfix):
+                zone = z
+                break
+        if not zone:
             zone = self.const.other_zone
-        else:
-            zone = self.default_zone
         self._dns_owner.populate(zone, name, mx_set_id=mx_set)
         self._dns_owner.write_db()
         return self._dns_owner.entity_id
