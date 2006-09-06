@@ -168,7 +168,8 @@ class ARecord(Entity):
              [:table schema=cerebrum name=dns_ip_number] i,
              [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
-        WHERE %s """ % where, {
+        WHERE %s
+        ORDER BY a_record_id""" % where, {
             'ip_number_id': ip_number_id,
             'dns_owner_id': dns_owner_id,
             'start': start, 'stop': stop,
