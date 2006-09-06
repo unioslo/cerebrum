@@ -211,6 +211,8 @@ class ForwardMap(object):
             if lparts[0].isdigit():   # Check for TTL value
                 ttl = lparts[0]
                 lparts = lparts[1:]
+            if lparts[0] == 'IN':    # Ignore, IN is default in a zone file
+                lparts = lparts[1:]
             rectype = lparts[0]       # Get record type
             lparts = lparts[1:]
             logger.debug2("%s: r=%s, ttl=%s" % (line, rectype, ttl))
@@ -255,9 +257,9 @@ class ForwardMap(object):
                 arecord.clear()
                 if not self._a_ip_name_unique.has_key((name, a[1])):
                     self._a_ip_name_unique[(name, a[1])] = 1
-                    ip_ref = self._lookup.get_ip(a[1])
+                    ip_ref = self._lookup.get_ip(a[1], try_lookup=True)
                     owner_type, owner_id = self._lookup.get_dns_owner(
-                        name, _type='a_record')
+                        name, _type='a_record', try_lookup=True)
                     arecord.populate(owner_id, ip_ref, ttl=dta['A'][0][0])
                     arecord.write_db()
                 else:
@@ -310,7 +312,7 @@ class ForwardMap(object):
 
             key = "-".join([ str(x) for x in mx_records ])
             if not self._mx_targets.has_key(key):
-                mx_name = "mx_target_%i" % (len(self._mx_targets) + 1)
+                mx_name = "%s%i" % (mx_target_prefix, len(self._mx_targets) + 1)
                 logger.debug("Creating %s (%s)" % (mx_name, key))
                 mx_set.clear()
                 mx_set.populate(mx_name)
@@ -323,7 +325,7 @@ class ForwardMap(object):
                         continue
                     prev_mx_member = (pri, target_name)
                     owner_type, owner_id = self._lookup.get_dns_owner(
-                        target_name)
+                        target_name, try_lookup=True)
                     if not isinstance(owner_type, (
                         ARecord.ARecord, CNameRecord.CNameRecord,
                         DnsOwner.DnsOwner)):
@@ -345,9 +347,9 @@ class ForwardMap(object):
                 logger.warn("Too many CNAME in %s" % str(dta))
             cname_ttl, cname_target = dta['CNAME'][0]
             target_owner_type, target_owner_id = self._lookup.get_dns_owner(
-                cname_target, _type='a_record')
+                cname_target, _type='a_record', try_lookup=True)
             cname_owner_type, cname_owner_id = self._lookup.get_dns_owner(
-                name, _type='cname_record')
+                name, _type='cname_record', try_lookup=True)
             cname.clear()
             cname.populate(cname_owner_id, target_owner_id, cname_ttl)
             cname.write_db()
@@ -379,12 +381,26 @@ class ForwardMap(object):
                 del dta['comment']
             dnsowner.write_db()
 
+    def _change_existing_zone_associations(self):
+        """When merging zones, we want to move existing entries from
+        the 'other' zone to the new zone """
+        
+        dz = self._lookup._default_zone 
+        for row in dnsowner.list():
+            if (row['name'].endswith(dz.postfix) and
+                row['zone_id'] != dz.zone_id):
+                dnsowner.clear()
+                dnsowner.find(row['dns_owner_id'])
+                dnsowner.zone = dz
+                dnsowner.write_db()
+
     def records_to_db(self):
         logger.info("records_to_db()")
         for k in self.recs.keys():
             if self.recs[k].has_key('contact') and len(self.recs[k].keys()) == 1:
                 logger.warn("Contact for nothing: %s" % k)
                 del(self.recs[k])
+        self._change_existing_zone_associations()
         order = self.recs.keys()  # Not really needed, but looks nice
         order.sort()
         for pass_num in (1,2):
@@ -666,7 +682,7 @@ def usage(exitcode=0):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ch:z:r:inZ:H:', [
+        opts, args = getopt.getopt(sys.argv[1:], 'ch:z:r:inZ:H:M:', [
             'help', 'clear', 'zone=', 'reverse=', 'import',
             'hosts=', 'netgroups=', 'zone-def='])
     except getopt.GetoptError:
@@ -674,8 +690,9 @@ def main():
     if not opts:
         usage(1)
 
-    global parser, zone
+    global parser, zone, mx_target_prefix
     zone = hosts_file = header_end = None
+    mx_target_prefix = "mx_target_"
     logger.debug("opts: %s" % str(opts))
     for opt, val in opts:
         if opt in ('--help', ):
@@ -696,6 +713,8 @@ def main():
             netgroup_file = val
         elif opt in ('-H',):
             header_end = val
+        elif opt in ('-M',):
+            mx_target_prefix = val
         elif opt in ('--import', '-i'):
             if zone is None:
                 raise ValueError("-Z is required")
