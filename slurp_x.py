@@ -227,7 +227,8 @@ class execute:
         num_old_list = []
         id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
         # need to check and update the following data: affiliation,expire_date,gecos,ou and spread
-
+        # if the entry in sys-x is no longer aproved, a quarantine on any accounts given through sys-x must be set.
+        
         #update expire_date
         my_date= expire_date.split("-")
         if (self.account.is_expired() and (datetime.date(int(my_date[0]),int(my_date[1]),int(my_date[2])) > datetime.date.today())):
@@ -270,6 +271,15 @@ class execute:
             # also check and update homedir for each spread!
             self.account.set_home_dir(int(new_spread))
 
+        # update quarantine if appropriate.
+        if aproved !='Yes':
+            # if this person ONLY comes from sys-x, set quarantine
+            source_system=self.get_external_id(id_type=const.entity_person)
+            if (len(source_system)==1 and source_system[0]['source_system']==const.system_x):
+                today = datetime.datetime.now()
+                quarantine_date = "%s" % today.date()
+                logger.debug("setting sys-x quarantine from %s" % quarantine_date)
+                self.account.add_entity_quarantine(const.quarantine_sys_x_approved,default_creator_id,start=quarantine_date)
         # updates done. write
         self.account.write_db()
 
