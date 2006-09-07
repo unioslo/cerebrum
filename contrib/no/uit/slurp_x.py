@@ -272,15 +272,18 @@ class execute:
             self.account.set_home_dir(int(new_spread))
 
         # update quarantine if appropriate.
+        print "source_system=%s" % self.person.get_external_id()
         if aproved !='Yes':
             # if this person ONLY comes from sys-x, set quarantine
-            source_system=self.get_external_id(id_type=const.entity_person)
+            #self.person.find(self.account.owner_id)
+            source_system=self.person.get_external_id()
             if (len(source_system)==1 and source_system[0]['source_system']==const.system_x):
                 today = datetime.datetime.now()
                 quarantine_date = "%s" % today.date()
                 logger.debug("setting sys-x quarantine from %s" % quarantine_date)
                 self.account.add_entity_quarantine(const.quarantine_sys_x_approved,default_creator_id,start=quarantine_date)
         # updates done. write
+        self.person.clear()
         self.account.write_db()
 
 
