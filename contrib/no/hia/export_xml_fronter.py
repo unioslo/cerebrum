@@ -245,10 +245,13 @@ def register_spread_groups_evu(row, group, evukurs_info):
     # Rom for EVU-kurset
     evukursrom_id = 'ROOM:%s:fs:%s:evu:%s:%s' % (domain, domain_nr,
                                                  eukk, ktak)
-    register_room(evukurs_info[eukk, ktak],
-                  evukursrom_id,
-                  kursrom_parent,
-                  profile = romprofil_id["evukursrom"])
+    try:
+        register_room(evukurs_info[eukk, ktak],
+                      evukursrom_id,
+                      kursrom_parent,
+                      profile = romprofil_id["evukursrom"])
+    except KeyError:
+        logger.error("Could not find room %s", evukursrom_id)
 
     #
     # Grupper for studenter og forelesere på EVU-kurset
