@@ -282,6 +282,7 @@ class Constants(Constants.Constants):
     # TODO: Kunne begrense tillatte spreads for spesielt priviligerte
     # brukere.
     quarantine_tilbud = _QuarantineCode('Tilbud','Pre-generert konto til studenter som har fått studietilbud, men som ikke har aktivert kontoen.')
+    quarantine_sys_x_approved = _QuarantineCode('sys-x_approved','Konto fra system-x som ikke er godkjent')
     quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
     quarantine_teppe = _QuarantineCode('teppe', 'Kallt inn på teppet til drift')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
