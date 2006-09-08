@@ -209,7 +209,7 @@ def process_aff_groups(users, file):
             for u in users[ou][aff]:
                 txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
             file.write('\n'.join(txt))
-        file.write('\n\n')
+            file.write('\n\n')
         # Make "pure" OU groups as well
         txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % (ou),
                "objectclass: top",
@@ -220,7 +220,8 @@ def process_aff_groups(users, file):
         for aff in users[ou].keys():
             for u in users[ou][aff]:
                 txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
-        txt = '\n'.join(txt) + "\n\n"
+        txt = '\n'.join(txt)
+        txt += "\n\n"
         file.write(txt)
 
 
