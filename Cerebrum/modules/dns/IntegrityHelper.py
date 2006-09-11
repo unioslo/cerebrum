@@ -193,9 +193,14 @@ class Updater(object):
         if dest_host is not None:
             refs = self._find.find_referers(dns_owner_id=dest_host)
             if not refs:
-                dns_owner = DnsOwner.DnsOwner(self._db)
-                dns_owner.find(dest_host)
-                dns_owner.delete()
+                tmp = []
+                for row in ipnumber.list_override(dns_owner_id=dest_host):
+                    # One might argue that find_referers also should find this type of refs.
+                    tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
+                if not tmp:
+                    dns_owner = DnsOwner.DnsOwner(self._db)
+                    dns_owner.find(dest_host)
+                    dns_owner.delete()
 
     def _update_override(self, ip_number_id, dns_owner_id):
         """Handles the updating of the override_reversemap when an
