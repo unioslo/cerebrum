@@ -491,18 +491,28 @@ def main():
             if not heads:
                 usage(1)
             fm = ForwardMap(zone, lc_delta)
-            if data_dir:
-                fm.generate_zone_file(val, heads, data_dir)
-            else:
-                fm.generate_zone_file(val, heads, os.path.dirname(val))
+            try:
+                if data_dir:
+                    fm.generate_zone_file(val, heads, data_dir)
+                else:
+                    fm.generate_zone_file(val, heads, os.path.dirname(val))
+            except FileChangeTooBigError, fce:
+                print >> sys.stderr, (
+                    "%s: %s\nCheck %s and rename if the changes seems ok." % (
+                    fce.__class__.__name__, fce.msg, fce.tmpfile))
         elif opt in ('--reverse', '-r'):
             if not (heads and mask):
                 usage(1)
             rm = ReverseMap(mask, lc_delta)
-            if data_dir:
-                rm.generate_reverse_file(val, heads, data_dir)
-            else:
-                rm.generate_reverse_file(val, heads, os.path.dirname(val))
+            try:
+                if data_dir:
+                    rm.generate_reverse_file(val, heads, data_dir)
+                else:
+                    rm.generate_reverse_file(val, heads, os.path.dirname(val))
+            except FileChangeTooBigError, fce:
+                print >> sys.stderr, (
+                    "%s: %s\nCheck %s and rename if the changes seems ok." % (
+                    fce.__class__.__name__, fce.msg, fce.tmpfile))
         elif opt in ('--hosts', ):
             hf = HostsFile(zone, lc_delta)
             hf.generate_hosts_file(val, with_comments=with_comments)
@@ -510,12 +520,6 @@ def main():
             heads = []
 
 if __name__ == '__main__':
-    try:
-        main()
-    except FileChangeTooBigError, fce:
-        print >> sys.stderr, (
-            "%s: %s\nCheck %s and rename if the changes seems ok." % (
-            fce.__class__.__name__, fce.msg, fce.tmpfile))
-        sys.exit(1)
+    main()
 
 # arch-tag: d18c6bc2-8ab3-44c0-b499-436bcfc95394
