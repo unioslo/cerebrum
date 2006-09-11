@@ -179,7 +179,7 @@ class IPNumber(Entity.Entity):
         WHERE ip_number_id=:ip_number_id""", locals())
         self._db.log_change(ip_number_id, self.const.ip_number_update, dns_owner_id)
 
-    def list_override(self, ip_number_id=None, start=None, stop=None):
+    def list_override(self, ip_number_id=None, start=None, stop=None, dns_owner_id=None):
         where = []
         if ip_number_id:
             where.append("ovr.ip_number_id=:ip_number_id")
@@ -187,6 +187,8 @@ class IPNumber(Entity.Entity):
             where.append("dip.ipnr >= :start")
         if stop is not None:
             where.append("dip.ipnr <= :stop")
+        if dns_owner_id is not None:
+            where.append("ovr.dns_owner_id = :dns_owner_id")            
         if where:
             where = "AND " + " AND ".join(where)
         return self.query("""
@@ -197,7 +199,7 @@ class IPNumber(Entity.Entity):
                ovr.ip_number_id=dip.ip_number_id %s)
              LEFT JOIN [:table schema=cerebrum name=entity_name] en ON
                ovr.dns_owner_id=en.entity_id
-        """ % where, {'ip_number_id': ip_number_id,
+        """ % where, {'ip_number_id': ip_number_id, 'dns_owner_id': dns_owner_id,
                       'start': start, 'stop': stop})
 
 
