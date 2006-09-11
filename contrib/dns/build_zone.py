@@ -34,11 +34,22 @@ class FileChangeTooBigError(Exception):
         self.tmpfile = tmpfile
         
 class ExtSimilarSizeWriter(Utils.AtomicFileWriter):
+    def __init__(self, *args, **kwargs):
+        self.__count_offset = 0
+        super(ExtSimilarSizeWriter, self).__init__(*args, **kwargs)
+
     def _count_lines(self, fname):
         count = 0
-        for line in open(fname):
+        f = open(fname)
+        f.seek(self.__count_offset)
+        for line in f:
             count = count + 1
         return count
+
+    def mark_count_offset(self):
+        self.flush()
+        self.__count_offset = os.path.getsize(self._tmpname)
+        # self.__count_offset = self._file.tell()
 
     def validate_output(self):
         super(ExtSimilarSizeWriter, self).validate_output()
@@ -52,7 +63,9 @@ class ExtSimilarSizeWriter(Utils.AtomicFileWriter):
         # ignore lines in headers
         old = self._count_lines(self._name)
         new = self._count_lines(self._tmpname)
-        if old < 100 and new < 100:
+        if old <= 2 and new < 260:
+            delta = 260     # Don't trigger when populating a new subnet
+        elif old < 100 and new < 100:
             delta = 50
         elif old > 10000 and new > 10000:
             delta = 500
@@ -117,6 +130,7 @@ class ZoneUtils(object):
             fin.close()
             first = False
         self._file.write(extra_splitter)
+        self._file.mark_count_offset()
 
     def close(self):
         try:
