@@ -858,16 +858,110 @@ class AtomicFileWriter(object):
     def write(self, data):
         return self.__file.write(data)
 
+
+
+class FileSizeChangeError(RuntimeError):
+    """Indicates a problem related to change in file size for files
+    updated by the *SizeWriter classes.
+
+    """
+
+
+class FileChangeTooBigError(FileSizeChangeError):
+    """Indicates that a file has either grown or been reduced beyond
+    acceptable limits.
+
+    """
+
+
 class SimilarSizeWriter(AtomicFileWriter):
+    """This file writer will fail if the file size has changed by more
+    than a certain percentage (if using 'set_size_change_limit')
+    and/or by a certain number of lines (if using
+    'set_line_count_change_limit') from the old to the new version.
+
+    Clients will normally govern the exact limits for 'similar size'
+    themselves, but there are times when it is convenient to have
+    central overrides/modifications of these values. SimilarSizeWriter
+    therefore makes use of the following 'cereconf'-variables:
+
+    SIMILARSIZE_CHECK_DISABLED - If this is set to True, no checks
+    will be done when validating the file size, i.e. validation will
+    always succeed.
+
+    SIMILARSIZE_LIMIT_MULTIPLIER - Modifies the change limit by
+    multiplying it by the given number (default is 1.0, i.e. to not
+    modify the value given by the client)
+
+    Since central changes to the defaults for these values (especially
+    central disabling) is risky, non-default values for these
+    variables will generate warnings via the logger.
+
+    Clients can also disable/enable the checks directly by calling the
+    'set_checks_enabled', though this will not override
+    SIMILARSIZE_CHECK_DISABLED.
+
+    """
+
+    
+    __checks_enabled = True
+
+
     def __init__(self, *args, **kwargs):
         super(SimilarSizeWriter, self).__init__(*args, **kwargs)
         self.__percentage = self.__line_count = None
+        self._logger = Factory.get_logger("cronjob")
+
+
+    def set_checks_enabled(self, new_enabled_status):
+        """Method for activating (new_enabled_status is 'True') or
+        de-activating (new_enabled_status is 'False') all similar size
+        checks being run by a given program.
+
+        Default state, before this method has been called, is for
+        checks to be enabled.
+
+        """
+        self._logger.debug("SimilarSizeWriter: setting checks_enabled to '%s'"
+                           % new_enabled_status)
+        SimilarSizeWriter.__checks_enabled = new_enabled_status
+
 
     def set_size_change_limit(self, percentage):
-        self.__percentage = percentage
+        """Method for setting a limit based on percentage change in
+        file size (bytes). The exact percentage can be centrally
+        modified by setting SIMILARSIZE_SIZE_LIMIT_MULTIPLIER to
+        something other than 1.0 in cereconf.
+
+        """
+        self.__percentage = percentage * cereconf.SIMILARSIZE_LIMIT_MULTIPLIER
+        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:            
+            self._logger.warning(("SIMILARSIZE_LIMIT_MULTIPLIER is set to " +
+                                 "a value other than 1.0; change limit " +
+                                 "will be %s%% rather than client's explicit " +
+                                 "setting of %s%%.")
+                                 % (self.__percentage, percentage))
+        self._logger.debug("SimilarSize size change limit set to '%d'"
+                           % self.__percentage)
+
 
     def set_line_count_change_limit(self, num):
-        self.__line_count = num
+        """Method for setting a limit based on change in number of
+        lines in the generated file. The exact number can be centrally
+        modified by setting SIMILARSIZE_SIZE_LIMIT_MULTIPLIER to
+        something other than 1.0 in cereconf.
+
+        """
+        self.__line_count = num * cereconf.SIMILARSIZE_LIMIT_MULTIPLIER
+        if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:            
+            self._logger.warning(("SIMILARSIZE_LIMIT_MULTIPLIER is set to " +
+                                 "a value other than 1.0; change limit " +
+                                 "will be %s lines rather than client's explicit " +
+                                 "setting of %s lines.")
+                                 % (self.__line_count, num))
+        self._logger.debug("SimilarSize line count change limit set to '%d'"
+                           % self.__line_count)
+
 
     def __count_lines(self, fname):
         count = 0
@@ -875,8 +969,34 @@ class SimilarSizeWriter(AtomicFileWriter):
             count = count + 1
         return count
 
+
     def validate_output(self):
-        super(SimilarSizeWriter, self).validate_output()
+        """Checks if the new file's size change (compared to the old
+        file) is within acceptable limits as previously set. If the
+        file did not exist or if the old file was empty, the new file
+        will be considered 'valid' no matter how large or small it is.
+
+        If neither file size nor line count are set, an AssertionError
+        will be raised.
+
+        If SIMILARSIZE_CHECK_DISABLED is set to 'True' in cereconf,
+        validation will always succeed, no matter what, as is the case
+        if 'set_checks_enabled(False)' has been called.
+    
+        """
+        if cereconf.SIMILARSIZE_CHECK_DISABLED:
+            # Having the check globally disabled is not A Good Thing(tm),
+            # so we warn about it, in all cases.
+            self._logger.warning("SIMILARSIZE_CHECK_DISABLED is 'True'; no " +
+                                 "'similar filesize' comparisons will be done.")
+            return
+        if not SimilarSizeWriter.__checks_enabled:
+            # Checks have been specifically disabled by a client, but
+            # we'll still inform them about it, in case they don't
+            # realize it
+            self._logger.info("Client has disabled similarsize checks for now; no " +
+                              "'similar filesize' comparisons will be done.")
+            return            
         if not os.path.exists(self._name):
             return
         old = os.path.getsize(self._name)
@@ -890,16 +1010,25 @@ class SimilarSizeWriter(AtomicFileWriter):
         if self.__percentage:
             change_percentage = 100 * (float(new)/old) - 100
             if abs(change_percentage) > self.__percentage:
-                raise RuntimeError, \
+                raise FileChangeTooBigError, \
                       "%s: File size changed more than %d%%: %d -> %d (%+.1f)" % \
                       (self._name, self.__percentage, old, new, change_percentage)
         if self.__line_count:
             old = self.__count_lines(self._name)
             new = self.__count_lines(self._tmpname)
             if abs(old - new) > self.__line_count:
-                raise RuntimeError, \
+                raise FileChangeTooBigError, \
                       "%s: File changed more than %d lines: %d -> %d (%i)" % \
                       (self._name, self.__line_count, old, new, abs(old-new))
+
+
+
+class FileTooSmallError(FileSizeChangeError):
+    """Indicates that the new version of the file in question is below
+    acceptable size.
+
+    """
+
 
 class MinimumSizeWriter(AtomicFileWriter):
     """This file writer would fail, if the new file size is less than
@@ -915,9 +1044,10 @@ class MinimumSizeWriter(AtomicFileWriter):
 
         new_size = os.path.getsize(self._tmpname)
         if new_size < self.__minimum_size:
-            raise RuntimeError, \
+            raise FileTooSmallError, \
                   "%s: File is too small: current: %d, minimum allowed: %d" % \
                   (self._name, new_size, self.__minimum_size)
+
 
 
 class RecursiveDict(dict):

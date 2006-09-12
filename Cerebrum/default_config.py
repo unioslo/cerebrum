@@ -149,6 +149,17 @@ HOME_SPREADS = ()
 # class for information on the proper structure of the value.
 ACCOUNT_PRIORITY_RANGES = None
 
+# Utils.SimilarSizeWriter default values
+
+# Checks should be not be globally disabled.
+SIMILARSIZE_CHECK_DISABLED = False
+
+# Set to a value less than one for more restrictive checks,
+# a value more than on for more lenient checks.
+# Default is to use the values from clients without modifications.
+SIMILARSIZE_LIMIT_MULTIPLIER = 1.0
+
+
 # Active directory specific settings.
 
 AD_SERVER_HOST = 'bastard'
