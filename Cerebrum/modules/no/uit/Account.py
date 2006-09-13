@@ -241,7 +241,7 @@ class AccountUiTMixin(Account.Account):
             cstart=0
             query = "select user_name from legacy_users where ssn='%s' and source ='AD'" % (ssn)
         #print "%s" % query
-        db = Factory.get('Database')()
+        db = self._db
         db_row = db.query(query)
         for row in db_row:
             # lets see if this person already has an account in cerebrum with this username (From legacy_user)
@@ -294,7 +294,7 @@ class AccountUiTMixin(Account.Account):
 
         foo = ""
         found = False
-        db = Factory.get('Database')()
+        db = self._db
         ac = Factory.get('Account')(db)
 
         while ((not found) and (cstart < 990)):
