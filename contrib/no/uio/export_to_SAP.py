@@ -28,11 +28,11 @@ from Cerebrum.extlib import xmlprinter
 # We can process these export IDs only
 selectors = { "uname"    : { "xmlname"  : "userid",
                              "function" : lambda fnr, person, const: person2uname(fnr) },
-              "mail"     : { "xmlname"  : "email",
+              "mail"     : { "xmlname"  : "e-mail",
                              "function" : lambda fnr, person, const: person2email(fnr) },
               "fullname" : { "xmlname"  : "persnavn",
                              "function" : lambda fnr, person, const: person2fullname(person, const) },
-              "URL"      : { "xmlname"  : "URL",
+              "URL"      : { "xmlname"  : "url",
                              "function" : lambda fnr, person, const: person2URL(person, const) }, }
 
 __doc__ = """
@@ -50,25 +50,19 @@ OPTIONS:
 This script exports some employee data to SAP.
 
 Specifically, this script generates an XML file according to schema
-specified:
-
-<URL: http://folk.uio.no/baardj/BAS2SAP/BAS2SAP.html>
+specified.
 
 Only the employees are exported. We export the following data items:
 e-mail, uname, fullname and URL. Other elements may be added later.
 
 An example of a person element might look something like this:
 
-<Person ID="12345678901">
-    <email>olebrumm@usit.uio.no</email>
-    <userid>olebrumm</userid>
-    <Telephone Type="Jobb" Prioritet="1">22222222</Telephone>
-    <Telephone Type="mobil-jobb" Prioritet="1">22222222</Telephone>
-    <BibsysID></BibsysID>
-    <Picture></Picture>
-    <IDCardNumber></IDCardNumber>
-    <URL>http://folk.uio.no/olebrumm</URL>
-</Person>
+<perskomm>
+    <personnr>12345678901</personnr>
+    <persnavn>Ole Brumm</persnavn>
+    <e-mail>olebrumm@usit.uio.no</e-mail>
+    <url>http://folk.uio.no/olebrumm</url>
+</Perskomm>
 
 The elements for which we have no values are left empty. If no data items
 for a given employee have values, we skip that employee altogether.
@@ -169,7 +163,7 @@ def generate_export(writer, id_list):
     """
 
     writer.startDocument(encoding = "iso8859-1")
-    writer.startElement("BAS2SAP")
+    writer.startElement("bas2sap")
 
     generate_static_headers(writer)
 
@@ -205,7 +199,7 @@ def generate_export(writer, id_list):
         output_person(writer, fnr, tmp)
 
     logger.info("Processed %d fnrs", len(processed))
-    writer.endElement("BAS2SAP")
+    writer.endElement("bas2sap")
     writer.endDocument()
 
 
@@ -215,24 +209,23 @@ def output_person(writer, fnr, data):
     data is a dictionary mapping id kind to id value.
     """
 
-    writer.startElement("person", { "ID" : fnr })
+    writer.startElement("perskomm")
+    writer.dataElement("persnr", fnr)
+    
+    for key in ("fullname", "mail", "URL"):
+        if data[key] <> None:
+            writer.dataElement(selectors[key]["xmlname"], data[key])
 
-    for key, value in data.items():
-        if value is None:
-            # Undefined values should merely be left empty in the export
-            value = ""
-        writer.dataElement(selectors[key]["xmlname"], value)
-
-    writer.endElement("person")
+    writer.endElement("perskomm")
 
 
 def generate_static_headers(writer):
     """Generate the fixed headers for the export."""
 
     writer.startElement("properties")
-    writer.dataElement("datasource", "Cerebrum@UiO")
-    writer.dataElement("target", "SAP@UiO")
+    writer.dataElement("source", "Cerebrum@UiO")
     writer.dataElement("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
+    writer.dataElement("target", "SAP@UiO")
     writer.endElement("properties")
     logger.info("done writing static headers")
 
