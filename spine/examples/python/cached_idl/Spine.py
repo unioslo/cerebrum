@@ -68,8 +68,9 @@ if conf.getboolean('cache', 'cache'):
         os.system('omniidl -bpython -C %s %s' % (cache_dir, core_idl_file))
         import SpineCore
 
+    spine = connect()
+
     try:
-        spine = connect()
         f = open(md5_file)
         cached_md5 = f.read()
         f.close()
@@ -79,7 +80,6 @@ if conf.getboolean('cache', 'cache'):
         Errors = SpineIDL.Errors
     except:
         try:
-            spine = connect()
             source = spine.get_idl()
             spine_md5 = spine.get_idl_md5()
             md5sum = md5.md5()
