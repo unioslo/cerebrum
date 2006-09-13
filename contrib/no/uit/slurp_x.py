@@ -527,6 +527,7 @@ Ekstern epost: %s
 Ansvarlig epost: %s
 
 Personen har fått tildelt brukernavnet:%s
+Merk: personen har ikke fått generert en AD konto enda. Dette må gjøres i sammarbeid med den lokale It-avdelingen.
 
 
 """ % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost,username)
@@ -549,16 +550,16 @@ Personen har fått tildelt brukernavnet:%s
             message="""
 Translation in english follows.
         
-Dette er en automatisk generert epost. Du er registrert i BAS og har fått tildelt ett brukernavn:%s og ett passord.
-For å aktivere kontoen din må du ta kontakt med din lokale personal konsulent.
+Dette er en automatisk generert epost. Du er registrert i BAS og har fått tildelt ett brukernavn:%s og ett passord i BAS.
+For å få opprette kontoen i AD, må du ta kontakt med din lokale It-konsulent.
 \n
 I samsvar med de data som ble registrert ved din innmeldelse vil du bli eksponert til disse systemene: %s.
 I tilfellet FRIDA kan det ta opp til ett par virkedager før kontoen er klar.
 Har du noen spørsmål kan du ta kontakt med orakel@uit.no eller bas-admin@cc.uit.no. \n
 -----------------------------------------------------------------------------------
 
-This is an automated message. You are now registered in BAS and have received the username:%s and a password.
-To activate your account you need to contact the local personnel coordinator.
+This is an automated message. You are now registered in BAS and have received the username:%s and a password in BAS.
+To create your AD account you need to contact the local It-department.
 \n
 According to the data registered you will be exported to the following systems: %s.
 Notice that it may take a few days before your FRIDA account is activated.
