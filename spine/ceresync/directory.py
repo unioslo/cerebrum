@@ -34,7 +34,16 @@ from errors import ServerError
 
 import config
 
-
+def ldapDict(s):
+    """Oracle Internet Directory suck bigtime. if we insert with lowercase, 
+    we might get camelCase back. Helperfunction for easier comparison of 
+    dicts with attributes and values. This function lowercases all keys
+    in a dictionary and keeps the values untouched.
+    """
+    for key, val in s.items():
+        del s[key]
+        s[key.lower()] = val
+    return s
 
 class LdapConnectionError(ServerError):
     pass
@@ -168,7 +177,7 @@ class LdapBack:
         """ Deletes objects not to be found in given base.
         Only for use when incr is set to False.
         """
-        if not self.incr
+        if not self.incr:
             print "Syncronizing LDAP database"
             self.indirectory = []
             for (dn,attrs) in self.search(filterstr=self.filter,attrlist=["dn"]):
@@ -224,7 +233,7 @@ class LdapBack:
             old_attrs = res[0][1]
         else:
             old_attrs = {}
-        mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
+        mod_attrs = modlist.modifyModlist(ldapDict(old_attrs),ldapDict(attrs),ignore_attr_types,ignore_oldexistent)
         try:
             self.l.modify_s(dn,mod_attrs)
             self.insync.append(dn)
@@ -442,20 +451,43 @@ class OU:
 ###
 ### UnitTesting is good for you
 ###
+class _testObject:
+    def __init__(self):
+        pass
 
 class testLdapBack(unittest.TestCase):
     
     def setUp(self):
         self.lback = LdapBack()
-
-    def testBegin(self):
         self.lback.begin()
+
+    def tearDown(self):
+        self.lback.close()
+
+    def testSetup(self):
+        pass
 
     def testBeginFails(self):
         self.assertRaises(LdapConnectionError, self.lback.begin, hostname='doesnotexist.bizz')
 
     def testClose(self):
         self.lback.close()
+
+    def testAdd(self):
+        user = _testObject()
+        self.add(user)
+        self.lback.close()
+
+    def testUpdate(self):
+        user = _testObject()
+        self.update(user)
+        self.lback.close()
+
+    def testDelete(self):
+        user = _testObject()
+        self.delete(user)
+        self.lback.close()
+
 
     # Test-cases to be added:
     # Search (find root-node from config-file)
