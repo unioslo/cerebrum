@@ -209,12 +209,13 @@ def output_person(writer, fnr, data):
     data is a dictionary mapping id kind to id value.
     """
 
+    key_order = ["fullname", "mail", "URL"]
     writer.startElement("perskomm")
     writer.dataElement("persnr", fnr)
     
-    for key in ("fullname", "mail", "URL"):
-        if data[key] <> None:
-            writer.dataElement(selectors[key]["xmlname"], data[key])
+    for k in key_order:
+        if data[k] <> None:
+            writer.dataElement(selectors[k]["xmlname"], data[k])
 
     writer.endElement("perskomm")
 
