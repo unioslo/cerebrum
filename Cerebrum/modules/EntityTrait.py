@@ -36,8 +36,8 @@ class TraitConstants(Constants):
                                 "new trait for %(subject)s",
                                 ("%(trait:code)s",
                                  "numval=%(int:numval)s",
-                                 "strval=%(str:strval)s",
-                                 "date=%(str:date)s",
+                                 "strval=%(string:strval)s",
+                                 "date=%(string:date)s",
                                  "target=%(entity:target_id)s"))
     trait_del = _ChangeTypeCode("trait", "del",
                                 "removed trait from %(subject)s",
