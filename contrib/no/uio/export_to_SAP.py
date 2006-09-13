@@ -225,7 +225,7 @@ def generate_static_headers(writer):
 
     writer.startElement("properties")
     writer.dataElement("source", "Cerebrum@UiO")
-    writer.dataElement("timestamp", time.strftime("%Y-%m-%d %H:%M:%S"))
+    writer.dataElement("dato", time.strftime("%Y-%m-%d"))
     writer.dataElement("target", "SAP@UiO")
     writer.endElement("properties")
     logger.info("done writing static headers")
