@@ -64,7 +64,7 @@ class Person(Entity):
 
 registry.register_class(Person)
 
-def create(self, birthdate, gender, first_name, last_name, source_system):
+def create_person(self, birthdate, gender, first_name, last_name, source_system):
     db = self.get_database()
     new_id = Person._create(db, birthdate.strftime('%Y-%m-%d'), gender.get_id())
 
@@ -83,7 +83,10 @@ def create(self, birthdate, gender, first_name, last_name, source_system):
 
     return person
 
-Commands.register_method(Method('create_person', Person, write=True,
-                         args=[('birthdate', Date), ('gender', GenderType), ('first_name', str), ('last_name', str), ('source_system', SourceSystem)]), create)
+create_person.signature = Person
+create_person.signature_args = [Date, GenderType, str, str, SourceSystem]
+create_person.signature_write = True
+
+Commands.register_methods([create_person])
 
 # arch-tag: 7b2aca28-7bca-4872-98e1-c45e08faadfc
