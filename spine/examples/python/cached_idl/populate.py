@@ -67,28 +67,64 @@ lastnametype=t.get_name_type("LAST")
 firstnametype=t.get_name_type("FIRST")
 fullnametype=t.get_name_type("FULL")
 bashshell=t.get_posix_shell("bash")
-usersgroup=comm.get_group_by_name("bootstrap_group")
+#usersgroup=comm.get_group_by_name("bootstrap_group")
 unionoperation=t.get_group_member_operation_type("union")
+studspread=t.get_spread("user@stud")
+adspread=t.get_spread("user@ntnu_ad")
+
+
+def get_host(t, name):
+    s=t.get_host_searcher()
+    s.set_name(name)
+    return s.search()[0]
+
+def get_disk(t, host, path):
+    s=t.get_disk_searcher()
+    s.set_host(host)
+    s.set_path(path)
+    return s.search()[0]
+
+import string
+def create_disks():
+   disks=[]
+   for c in string.ascii_lowercase[:6]:
+	hostname="host%s" % c
+	diskpath="/home/disk%s" % c
+        try:
+            h=get_host(t, hostname)
+        except:
+            h=comm.create_host(hostname, "Home server %s" % c.upper())
+        try:
+            d=get_disk(t, h, diskpath)
+        except:
+            d=comm.create_disk(h, diskpath, "Home disk %s" % c.upper())
+        disks.append(d)
+   return disks
+
+disks=[]
 
 def create_random():
    gd=random.choice(("M","F"))
-   p=comm.create_person(comm.get_date_now(), t.get_gender_type(gd))
    fn=get_name_first(gd)
    ln=get_name_last()
-   p.add_name("%s %s" % (fn, ln), fullnametype, sourcesystem)
-   p.add_name(fn, firstnametype, sourcesystem)
-   p.add_name(ln, lastnametype, sourcesystem)
+   name="%s %s" % (fn, ln)
+   print 'Creating %s' % name
+   p=comm.create_person(comm.get_date_now(), t.get_gender_type(gd), name, sourcesystem)
+   #p.add_name(fn, firstnametype, sourcesystem)
+   #p.add_name(ln, lastnametype, sourcesystem)
    names=comm.suggest_usernames(fn, ln)
    a=comm.create_account(names[0], p, comm.get_date(2010, 12, 31))
-   a.promote_posix(usersgroup, bashshell)
    #a.promote_ad(loginscript, homedir)
-   a.add_spread(t.get_spread("NIS_user@uio"))
-   a.add_spread(t.get_spread("AD_account"))
+   a.add_spread(studspread)
+   a.add_spread(adspread)
    # Prefix group names with "g"
-   g=comm.create_group("g" + names[0])
+   g=comm.create_group("g_" + names[0])
    g.promote_posix()
    #g.promote_ad()
    g.add_member(a, unionoperation)
+   a.promote_posix(g, bashshell)
+   #a.set_homedir(studspread, "/home/%s" % names[0], None)
+   a.set_homedir(studspread, "", random.choice(disks))
 
 import time
 
@@ -102,7 +138,8 @@ def create_many(n):
 
 
 if __name__=="__main__":
-    create_many(100)
+    disks=create_disks()
+    create_many(10000)
     t.commit()
 
 # arch-tag: c05b814d-9d58-4b63-b467-25f3bb4b4307
