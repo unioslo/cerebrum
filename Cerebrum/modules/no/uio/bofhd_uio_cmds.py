@@ -381,7 +381,7 @@ class BofhdExtension(object):
     all_commands['access_grant'] = Command(
         ('access', 'grant'),
         OpSet(),
-        GroupName(repeat=True, help_ref="auth_group"),
+        GroupName(help_ref="id:target:group"),
         EntityType(default='group', help_ref="auth_entity_type"),
         SimpleString(help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
@@ -395,7 +395,7 @@ class BofhdExtension(object):
     all_commands['access_revoke'] = Command(
         ('access', 'revoke'),
         OpSet(),
-        GroupName(repeat=True, help_ref="auth_group"),
+        GroupName(help_ref="id:target:group"),
         EntityType(default='group', help_ref="auth_entity_type"),
         SimpleString(help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
@@ -407,7 +407,6 @@ class BofhdExtension(object):
 
     def _manipulate_access(self, change_func, operator, opset, group,
                            entity_type, target_name, attr):
-        
         """This function does no validation of types itself.  It uses
         _get_access_id() to get a (target_type, entity_id) suitable for
         insertion in auth_op_target.  Additional checking for validity
@@ -416,10 +415,12 @@ class BofhdExtension(object):
         Those helper functions look for a function matching the
         target_type, and call it.  There should be one
         _get_access_id_XXX and one _validate_access_XXX for each known
-        target_type."""
-        
+        target_type.
+
+        """
         opset = self._get_opset(opset)
-        gr = self._get_group(group)
+        gr = self.util.get_target(owner, default_lookup="group",
+                                  restrict_to=['Account', 'Group'])
         target_id, target_type, target_auth = \
                    self._get_access_id(entity_type, target_name)
         operator_id = operator.get_entity_id()
@@ -1388,7 +1389,7 @@ class BofhdExtension(object):
             pass
         else:
             raise CerebrumError, ("%s-archive@%s already exists" % (lp, dom))
-        archive_user = 'www'
+        archive_user = 'caesar'
         archive_prog = '/site/mailpipe/bin/new-archive-monthly'
         arch = lp.lower() + "-archive"
         dc = dom.lower().split('.'); dc.reverse()
@@ -2702,16 +2703,25 @@ class BofhdExtension(object):
                                         
     # entity history
     all_commands['entity_history'] = Command(
-        ("entity", "history"), AccountName(help_ref="entity_id"),
+        ("entity", "history"),
+        Id(help_ref="id:target:account"),
+        YesNo(help_ref='yes_no_all_op', optional=True, default="no"),
         Integer(optional=True, help_ref="limit_number_of_results"),
-        perm_filter='is_superuser')
-    def entity_history(self, operator, entity_id, limit=100):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        fs=FormatSuggestion("%s [%s]: %s",
+                            ("timestamp", "change_by", "message")),
+        perm_filter='can_show_history')
+    def entity_history(self, operator, entity, any="no", limit=100):
+        ent = self.util.get_target(entity, restrict_to=[])
+        self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
-        for r in self.db.get_log_events(0, subject_entity=entity_id):
+        if self._get_boolean(any):
+            kw = {'any_entity': ent.entity_id}
+        else:
+            kw = {'subject_entity': ent.entity_id}
+        rows = list(self.db.get_log_events(0, **kw))
+        for r in rows[-limit:]:
             ret.append(self._format_changelog_entry(r))
-        return "\n".join(ret[-int(limit):])
+        return ret
 
     #
     # group commands
@@ -5061,6 +5071,12 @@ class BofhdExtension(object):
         ety = self.util.get_target(ety_id, restrict_to=[])
         if isinstance(ety, Utils.Factory.get('Disk')):
             ety_name = ety.path
+        elif isinstance(ety, Utils.Factory.get('Person')):
+            try:
+                ety_name = ety.get_name(self.const.system_cached,
+                                        self.const.name_full)
+            except Errors.NotFoundError:
+                ety_name = "<no name>"
         else:
             ety_name = ety.get_names()[0][0]
         ret = []
@@ -5473,14 +5489,11 @@ class BofhdExtension(object):
     # user history
     all_commands['user_history'] = Command(
         ("user", "history"), AccountName(),
+        fs=FormatSuggestion("%s [%s]: %s",
+                            ("timestamp", "change_by", "message")),
         perm_filter='can_show_history')
     def user_history(self, operator, accountname):
-        account = self._get_account(accountname)
-        self.ba.can_show_history(operator.get_entity_id(), account)
-        ret = []
-        for r in self.db.get_log_events(0, subject_entity=account.entity_id):
-            ret.append(self._format_changelog_entry(r))
-        return "\n".join(ret)
+        return self.entity_history(operator, accountname)
 
     # user info
     all_commands['user_info'] = Command(
@@ -6904,7 +6917,10 @@ class BofhdExtension(object):
                         f = f.replace(k, v)
                     msg += ", " + f
         by = row['change_program'] or self._get_entity_name(None, row['change_by'])
-        return "%s [%s]: %s" % (row['tstamp'], by, msg)
+        return {'timestamp': row['tstamp'],
+                'change_by': (row['change_program'] or
+                              self._get_entity_name(None, row['change_by'])),
+                'message': msg}
 
     def _convert_ticks_to_timestamp(self, ticks):
         if ticks is None:

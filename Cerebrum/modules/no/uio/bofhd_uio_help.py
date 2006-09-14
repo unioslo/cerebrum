@@ -81,6 +81,10 @@ command_help = {
     "disk_quota":
         "Enable quotas on a disk, and set the default value",
     },
+    'entity': {
+    "entity_history":
+        "List the changes made to entity.",
+    },
     'email': {
     "email_add_address":
         "Add an alias address",
@@ -649,6 +653,8 @@ number.  If the person is not registered, you must create an instance with
   - 'disk'"""],
     'yes_no_force':
         ['force', 'Force the operation?'],
+    'yes_no_all_op':
+        ['all', 'All operations?'],
     'yes_no_include_expired':
         ['include_expired', 'Include expired? (y/n)']
     }
