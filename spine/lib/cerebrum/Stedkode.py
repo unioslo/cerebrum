@@ -23,7 +23,6 @@ from Cerebrum.Utils import Factory
 
 from CerebrumClass import CerebrumDbAttr
 from Commands import Commands
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import AlreadyExistsError
 
@@ -71,6 +70,9 @@ def get_stedkode(self):
         pad_with_zeros(obj.fakultet, 2) + pad_with_zeros(obj.institutt, 2) + \
         pad_with_zeros(obj.avdeling, 2)
 
+get_stedkode.signature = str
+OU.register_methods([get_stedkode])
+
 def create_ou(self, name, institusjon, fakultet, institutt, avdeling):
     db = self.get_database()
     ou = Factory.get('OU')(db)
@@ -83,9 +85,9 @@ def create_ou(self, name, institusjon, fakultet, institutt, avdeling):
     return OU(db, ou.entity_id)
 
 # Overwrite the OU create method to take additional arguments
-Commands.register_method(Method('create_ou', OU, args=[('name', str), ('institusjon', int), ('fakultet', int),
-    ('institutt', int), ('avdeling', int)], write=True, exceptions=[AlreadyExistsError]), create_ou, overwrite=True)
-
-OU.register_method(Method('get_stedkode', str, args=[]), get_stedkode)
+create_ou.signature = OU
+create_ou.signature_args = [str, int, int, int, int]
+create_ou.signature_write = True
+Commands.register_methods([create_ou])
 
 # arch-tag: 975c6be6-e251-11d9-9880-98d92f1bc0af

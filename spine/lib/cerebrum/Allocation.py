@@ -25,7 +25,6 @@ import Cerebrum.modules.Hpc
 
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.Builder import Method
 
 from Entity import Entity
 from Types import CodeType

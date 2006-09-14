@@ -20,7 +20,6 @@
 
 import Cerebrum.Entity
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
 
@@ -60,7 +59,8 @@ def get_addresses(self):
     s.set_entity(self)
     return s.search()
 
-Entity.register_method(Method('get_addresses', [EntityAddress]), get_addresses)
+get_addresses.signature = [EntityAddress]
+Entity.register_methods([get_addresses])
 
 def get_address(self, address_type, source_system):
     db = self.get_database()
@@ -71,7 +71,10 @@ def get_address(self, address_type, source_system):
     if not result:
         raise NotFoundError('No address exists for the given source system.')
     return result[0]
-Entity.register_method(Method('get_address', EntityAddress, args=[('address_type', AddressType), ('source_system', SourceSystem)], exceptions=[NotFoundError]), get_address)
+
+get_address.signature = EntityAddress
+get_address.signature_args = [AddressType, SourceSystem]
+Entity.register_methods([get_address])
 
 def create_address(self, address_type, source_system):
     db = self.get_database()
@@ -81,6 +84,9 @@ def create_address(self, address_type, source_system):
     cerebrum_entity.write_db()
     return EntityAddress(db, self, source_system, address_type)
 
-Entity.register_method(Method('create_address', EntityAddress, args=[('address_type', AddressType), ('source_system', SourceSystem)], write=True), create_address)
+create_address.signature = EntityAddress
+create_address.signature_args = [AddressType, SourceSystem]
+create_address.signature_write = True
+Entity.register_methods([create_address])
 
 # arch-tag: ff3c2894-d69c-4de5-bf1f-8bd44d0a8e31

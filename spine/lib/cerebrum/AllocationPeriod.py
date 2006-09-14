@@ -25,7 +25,6 @@ import Cerebrum.modules.Hpc
 
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseAttr
-from SpineLib.Builder import Method
 
 from Entity import Entity
 from Types import CodeType
@@ -79,15 +78,13 @@ registry.register_class(AllocationPeriod)
 
 #define additional methods.
 
-def create(self, authority, name, startdate, enddate):
+def create_allocation_period(self, authority, name, startdate, enddate):
     db = self.get_database()
     new_id = AllocationPeriod._create(db, authority.get_id(), name,
                 startdate._value, enddate._value)
     return AllocationPeriod(db, new_id)
-    
-args = [('authority', AllocationAuthority), ('name', str),
-        ('startdate', Date), ('enddate', Date)]
 
-#register ze newly defined methods
-Commands.register_method(Method('create_allocation_period', AllocationPeriod,
-                                args=args, write=True), create)
+create_allocation_period.signature = AllocationPeriod
+create_allocation_period.signature_args = [AllocationAuthority, str, Date, Date]
+create_allocation_period.signature_write = True
+Commands.register_methods([create_allocation_period])

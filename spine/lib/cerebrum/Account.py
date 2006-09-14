@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.Utils import Factory
-from SpineLib.Builder import Method, Attribute
+from SpineLib.Builder import Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 from SpineLib.Date import Date
@@ -64,10 +64,6 @@ class Account(Entity):
         CerebrumDbAttr('name', 'entity_name', str, write=True)
     )
     
-    method_slots = (
-        Method('is_expired', bool),
-    )
-
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {
         'id':'account_id',
@@ -82,11 +78,14 @@ class Account(Entity):
 
     entity_type = 'account'
 
-    def is_expired(self):
-        obj = self._get_cerebrum_obj()
-        return obj.is_expired()
-
 registry.register_class(Account)
+
+
+def is_expired(self):
+    obj = self._get_cerebrum_obj()
+    return obj.is_expired()
+is_expired.signature = bool
+Account.register_methods([is_expired])
 
 def create_account(self, name, owner, expire_date):
     """
@@ -100,8 +99,10 @@ def create_account(self, name, owner, expire_date):
     new_id = Account._create(db, name, owner.get_type().get_id(), owner.get_id(), None, db.change_by, expire_date._value)
     return Account(db, new_id)
 
-args = [('name', str), ('owner', Entity), ('expire_date', Date)]
-Commands.register_method(Method('create_account', Account, args=args, write=True), create_account)
+create_account.signature = Account
+create_account.signature_args = [str, Entity, Date]
+create_account.signature_write = True
+Commands.register_methods([create_account])
 
 
 def create_np_account(self, name, owner, np_type, expire_date):
@@ -119,10 +120,10 @@ def create_np_account(self, name, owner, np_type, expire_date):
                              db.change_by, expire_date._value)
     return Account(db, new_id)
 
-args = [('name', str), ('owner', Entity), ('np_type', AccountType), 
-        ('expire_date', Date)]
-Commands.register_method(Method('create_np_account', Account, args=args, 
-                         write=True), create_np_account)
+create_np_account.signature = Account
+create_np_account.signature_args = [str, Entity, AccountType, Date]
+create_np_account.signature_write = True
+Commands.register_methods([create_np_account])
 
 def get_account_by_name(self, name):
     """
@@ -144,7 +145,9 @@ def get_account_by_name(self, name):
         raise TooManyMatchesError('There are several accounts with the name %s' % name)
     return accounts[0].get_entity()
 
-Commands.register_method(Method('get_account_by_name', Account, args=[('name', str)]), get_account_by_name)
+get_account_by_name.signature = Account
+get_account_by_name.signature_args = [str]
+Commands.register_methods([get_account_by_name])
 
 def get_accounts(self):
     """
@@ -159,7 +162,8 @@ def get_accounts(self):
     s.set_owner(self)
     return s.search()
 
-Entity.register_method(Method('get_accounts', [Account]), get_accounts)
+get_accounts.signature = [Account]
+Entity.register_methods([get_accounts])
 
 def suggest_usernames(self, first_name, last_name):
     """
@@ -178,6 +182,8 @@ def suggest_usernames(self, first_name, last_name):
     account = Factory.get('Account')(db)
     return account.suggest_unames(registry.ValueDomain(db, name='account_names').get_id(), first_name, last_name)
 
-Commands.register_method(Method('suggest_usernames', [str], args=[('first_name', str), ('last_name', str)]), suggest_usernames)
+suggest_usernames.signature = [str]
+suggest_usernames.signature_args = [str, str]
+Commands.register_methods([suggest_usernames])
 
 # arch-tag: 166fa5e9-de27-4bb9-ad37-79f73fc4e102

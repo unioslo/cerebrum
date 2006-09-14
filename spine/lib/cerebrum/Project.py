@@ -25,7 +25,6 @@ import Cerebrum.modules.Hpc
 
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
-from SpineLib.Builder import Method
 
 from Person import Person
 from Entity import Entity
@@ -117,15 +116,14 @@ registry.register_class(ProjectAllocationName)
 
 #define additional methods.
 
-def create(self, owner, science, title, description):
+def create_project(self, owner, science, title, description):
     db = self.get_database()
     new_id = Project._create(db, owner.get_id(), science.get_id(), title, description)
     return Project(db, new_id)
-    
-args = [('owner', Person), ('science', Science), ('title', str), ('description', str)]
-
-#register ze newly defined method
-Commands.register_method(Method('create_project', Project, args=args, write=True), create)
+create_project.signature = Project
+create_project.signature_args = [Person, Science, str, str]
+create_project.signature_write = True
+Commands.register_method([create_project])
 
 def add_member(self, member):
 

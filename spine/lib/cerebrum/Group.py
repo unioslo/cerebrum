@@ -71,12 +71,15 @@ class Group(Entity):
 
 registry.register_class(Group)
 
-def create(self, name):
+def create_group(self, name):
     db = self.get_database()
     new_id = Group._create(db, db.change_by, GroupVisibilityType(db, name='A').get_id(), name)
     return Group(db, new_id)
 
-Commands.register_method(Method('create_group', Group, args=[('name', str)], write=True), create)
+create_group.signature = Group
+create_group.signature_args = [str]
+create_group.signature_write = True
+Commands.register_methods([create_group])
 
 def get_group_by_name(self, name):
     """
@@ -98,6 +101,8 @@ def get_group_by_name(self, name):
         raise TooManyMatchesError('There are several groups with the name %s' % name)
     return groups[0].get_entity()
 
-Commands.register_method(Method('get_group_by_name', Group, args=[('name', str)]), get_group_by_name)
+get_group_by_name.signature = Group
+get_group_by_name.signature_args = [str]
+Commands.register_methods([get_group_by_name])
 
 # arch-tag: 263241fc-0255-4c71-9494-dc13153ad781

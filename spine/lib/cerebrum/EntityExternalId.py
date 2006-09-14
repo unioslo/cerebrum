@@ -21,7 +21,6 @@
 import Cerebrum.Database
 import Cerebrum.Entity
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.SpineExceptions import ClientProgrammingError, NotFoundError, TooManyMatchesError, AlreadyExistsError
 
@@ -59,15 +58,18 @@ def get_external_id(self, id_type, source_system):
     if not result:
         raise NotFoundError('There are no external IDs of the given type from the given source system.')
     return result[0].get_external_id()
-Entity.register_method(Method('get_external_id', str, 
-    args=[('id_type', EntityExternalIdType), ('source_system', SourceSystem)], 
-    exceptions=[NotFoundError]), get_external_id)
+
+get_external_id.signature = str
+get_external_id.signature_args = [EntityExternalIdType, SourceSystem]
+get_external_id.signature_exceptions = [NotFoundError]
+Entity.register_methods([get_external_id])
 
 def get_external_ids(self):
     s = registry.EntityExternalIdSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
-Entity.register_method(Method('get_external_ids', [EntityExternalId], args=[], exceptions=[]), get_external_ids)
+get_external_ids.signature = [EntityExternalId]
+Entity.register_methods([get_external_ids])
 
 def set_external_id(self, id, id_type, source_system):
     db = self.get_database()
@@ -97,19 +99,20 @@ def set_external_id(self, id, id_type, source_system):
         e.populate_external_id(source_system.get_id(), id_type.get_id(), id)
         e.write_db()
         return registry.EntityExternalId(self.get_database(), self, id_type, source_system)
-
-Entity.register_method(Method('set_external_id', EntityExternalId,
-    args=[('id', str), ('id_type', EntityExternalIdType), ('source_system', SourceSystem)], 
-    write=True, exceptions=[AlreadyExistsError, ClientProgrammingError]), set_external_id)
+set_external_id.signature = EntityExternalId
+set_external_id.signature_args = [str, EntityExternalIdType, SourceSystem]
+set_external_id.signature_write = True
+set_external_id.signature_exceptions = [AlreadyExistsError, ClientProgrammingError]
+Entity.register_methods([set_external_id])
 
 def remove_external_id(self, id_type, source_system):
     e = Cerebrum.Entity.EntityExternalId(self.get_database())
     e.find(self.get_id())
     e._delete_external_id(source_system.get_id(), id_type.get_id()) # No need to call write_db(), this executes by itself
-
-Entity.register_method(Method('remove_external_id', None, 
-    args=[('id_type', EntityExternalIdType), ('source_system', SourceSystem)], 
-    write=True), remove_external_id)
+remove_external_id.signature = None
+remove_external_id.signature_args = [EntityExternalIdType, SourceSystem]
+remove_external_id.signature_write = True
+Entity.register_methods([remove_external_id])
 
 def get_entity_with_external_id(self, id, id_type, source_system):
     s = registry.EntityExternalIdSearcher(self.get_database())
@@ -121,8 +124,9 @@ def get_entity_with_external_id(self, id, id_type, source_system):
         raise NotFoundError('No entity with the external ID %s found.' % id)
     return result[0].get_entity()
 
-Commands.register_method(Method('get_entity_with_external_id', Entity, args=[('id', str), 
-    ('id_type', EntityExternalIdType),('source_system', SourceSystem)], 
-    exceptions=[NotFoundError]), get_entity_with_external_id)
+get_entity_with_external_id.signature = Entity
+get_entity_with_external_id.signature_args = [str, EntityExternalIdType, SourceSystem]
+get_entity_with_external_id.signature_exceptions = [NotFoundError]
+Commands.register_methods([get_entity_with_external_id])
 
 # arch-tag: ee7aa1c8-845b-4ead-89e0-4fc7aa7051b6

@@ -21,7 +21,7 @@
 import cPickle
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.Builder import Method, Attribute
+from SpineLib.Builder import Attribute
 from SpineLib.Date import Date
 
 from Entity import Entity
@@ -97,10 +97,11 @@ registry.register_class(ChangeLog)
 
 def get_last_changelog_id(self):
     db = self.get_database()
-    # db_query_1 will return None when there's no change_log 
+    # db_query_1 will return None when there's no change_log
     return int(db.query_1('SELECT max(change_id) FROM change_log') or 0)
 
-Commands.register_method(Method('get_last_changelog_id', int), get_last_changelog_id)
+get_last_changelog_id.signature = int
+Commands.register_methods([get_last_changelog_id])
 
 def get_history(self):
     s = registry.ChangeLogSearcher(self.get_database())
@@ -108,6 +109,7 @@ def get_history(self):
     s.set_subject_entity(self.get_id())
     return s.search()
 
-Entity.register_method(Method('get_history', [ChangeLog]), get_history)
+get_history.signature = [ChangeLog]
+Entity.register_methods([get_history])
 
 # arch-tag: 7e73d1d8-0ac3-46a6-a360-1b3efe6e4549

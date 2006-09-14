@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
 
@@ -43,23 +42,25 @@ def is_posix(self):
     except NotFoundError, e:
         return False
     return True
-
-Group.register_method(Method('is_posix', bool), is_posix)
+is_posix.signature = bool
+Group.register_methods([is_posix])
 
 def promote_posix(self):
     obj = self._get_cerebrum_obj()
     p = Cerebrum.modules.PosixGroup.PosixGroup(self.get_database())
     p.populate(parent=obj)
     p.write_db()
-
-Group.register_method(Method('promote_posix', None, write=True), promote_posix)
+promote_posix.signature = None
+promote_posix.signature_write = True
+Group.register_methods([promote_posix])
 
 def demote_posix(self):
     obj = self._get_cerebrum_obj()
     p = Cerebrum.modules.PosixGroup.PosixGroup(self.get_database())
     p.find(obj.entity_id)
     p.delete()
-
-Group.register_method(Method('demote_posix', None, write=True), demote_posix)
+demote_posix.signature = None
+demote_posix.signature_write = True
+Group.register_methods([demote_posix])
 
 # arch-tag: 1d1d6cc7-0222-42b1-9e43-4953ad046987

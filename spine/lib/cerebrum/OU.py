@@ -78,9 +78,9 @@ registry.register_class(OU)
 #    s = registry.OUStructureSearcher(self.get_database())
 #    s.set_perspective(perspective)
 #    return s.search()
-#
-#OU.register_method(Method('get_structure_mappings', [registry.OUStructure], args=[('perspective',
-#    OUPerspectiveType)]), get_structure_mappings)
+#get_structure_mappings.signature = [registry.OUStructure]
+#get_structure_mappings.signature_args = [OUPerspectiveType]
+#OU.register_methods([get_structure_mappings])
 
 def get_parent(self, perspective):
     """
@@ -106,8 +106,10 @@ def get_parent(self, perspective):
     # Note, this can be None for root OUs
     return s.search()[0].get_parent()
 
-OU.register_method(Method('get_parent', OU, args=[('perspective', OUPerspectiveType)],
-    exceptions=[NotFoundError]), get_parent)
+get_parent.signature =  OU
+get_parent.signature_args = [OUPerspectiveType]
+get_parent.signature_exceptions = [NotFoundError]
+OU.register_methods([get_parent])
 
 def get_children(self, perspective):
     """
@@ -128,9 +130,9 @@ def get_children(self, perspective):
     s.set_perspective(perspective)
     return [i.get_ou() for i in s.search()]
 
-OU.register_method(Method('get_children', [OU], 
-        args=[('perspective', OUPerspectiveType)], exceptions=[NotFoundError]), 
-    get_children)
+get_children.signature = [OU]
+get_children.signature_args = [OUPerspectiveType]
+OU.register_methods([get_children])
 
 def get_names(self):
     """
@@ -141,7 +143,8 @@ def get_names(self):
     ou.find(self.get_id())
     return [i[0] for i in ou.get_names()]
 
-OU.register_method(Method('get_names', [str], args=None, write=False), get_names)
+get_names.signature = [str]
+OU.register_methods([get_names])
 
 def get_acronyms(self):
     """
@@ -152,7 +155,8 @@ def get_acronyms(self):
     ou.find(self.get_id())
     return [i[0] for i in ou.get_acronyms()]
 
-OU.register_method(Method('get_acronyms', [str], args=None, write=False), get_acronyms)
+get_acronyms.signature = [str]
+OU.register_methods([get_acronyms])
 
 def structure_path(self, perspective):
     """
@@ -165,8 +169,9 @@ def structure_path(self, perspective):
     ou.find(self.get_id())
     return ou.structure_path(perspective)
 
-OU.register_method(Method('structure_path', str, args=[('perspective', OUPerspectiveType)]),
-    structure_path)
+structure_path.signature = str
+structure_path.signature_args = [OUPerspectiveType]
+OU.register_methods([structure_path])
 
 def _set_parent(self, parent, perspective, forced_create):
     db = self.get_database()
@@ -207,6 +212,11 @@ def set_parent(self, parent, perspective):
     """
     _set_parent(self, parent, perspective, False)
 
+set_parent.signature = None
+set_parent.signature_args = [OU, OUPerspectiveType]
+set_parent.signature_write = True
+OU.register_methods([set_parent])
+
 def set_parent_forced_create(self, parent, perspective):
     """
     This method sets the parent of this OU from the given perspective. If the
@@ -219,11 +229,10 @@ def set_parent_forced_create(self, parent, perspective):
     """
     _set_parent(self, parent, perspective, True)
 
-OU.register_method(Method('set_parent', None, 
-    args=[('parent', OU), ('perspective', OUPerspectiveType)], write=True), set_parent)
-
-OU.register_method(Method('set_parent_forced_create', None, 
-    args=[('parent', OU), ('perspective', OUPerspectiveType)], write=True), set_parent_forced_create)
+set_parent_forced_create.signature = None
+set_parent_forced_create.signature_args = [OU, OUPerspectiveType]
+set_parent_forced_create.signature_write = True
+OU.register_methods([set_parent_forced_create])
 
 def unset_parent(self, perspective):
     """
@@ -237,8 +246,10 @@ def unset_parent(self, perspective):
     ou.unset_parent(perspective.get_id())
     ou.write_db()
 
-OU.register_method(Method('unset_parent', None, 
-    args=[('perspective', OUPerspectiveType)], write=True), unset_parent)
+unset_parent.signature = None
+unset_parent.signature_args = [OUPerspectiveType]
+unset_parent.signature_write = True
+OU.register_methods([unset_parent])
 
 def create_ou(self, name):
     """
@@ -253,8 +264,10 @@ def create_ou(self, name):
     ou.write_db()
     return OU(db, ou.entity_id)
 
-Commands.register_method(Method('create_ou', OU, args=[('name', str)], write=True), create_ou)
-
+create_ou.signature = OU
+create_ou.signature_args = [str]
+create_ou.signature_write = [str]
+Commands.register_methods([create_ou])
 
 def get_roots(self):
     """Find the roots of a the OU perspective.
@@ -272,8 +285,7 @@ def get_roots(self):
         if parent == None:
             results.append(OU(db, ou_id))
     return results          
-OUPerspectiveType.register_method(Method('get_roots', [OU], args=[], write=True), get_roots)
-
-
+get_roots.signature = [OU]
+OUPerspectiveType.register_methods([get_roots])
 
 # arch-tag: ec070b27-28c8-4b51-b1cd-85d14b5e28e4
