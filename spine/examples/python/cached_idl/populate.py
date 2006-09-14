@@ -33,31 +33,36 @@ def mult(a, b):
 name_m = ["ole", "jens", "gunnar", "frode", "jørgen", "kristian",
           "knut", "steinar", "stian", "carl", "thomas", "erik",
           "marius", "lars", "martin", "leiv", "arild", "johan",
-          "sverre" ]
+          "sverre", "alf", "børge", "bjørn", "ove" ]
 name_f  = ["lise", "mari", "gro", "anne", "kristin", "jenny", "hanne",
         "ida", "marit", "maria", "siv", "silje", "tine", "tina",
-        "idunn", "hege", "marte", "gry", "vigdis" ]
+        "idunn", "hege", "marte", "gry", "vigdis", "kari", "eli" ]
 name_g  = ["myr", "teig", "skog", "fjell", "vass"]
 name_s  = ["set", "stad", "sæter", "by", "voll", "eng", "sjø",
         "vatn", "å", "skog", "ås", "vik", "nes"]
 name_p  = [ "lille", "stor", "lang", "kort", "brå" ]
 
-name_1 = name_m + name_f
+#name_1 = name_m + name_f
 name_2 = mult(name_m, ["sen"]) * 4 + mult(name_m, ["son"]) \
          + mult(name_g, name_s) + mult(name_p, name_g) + mult(name_p, name_s)
 
 import random
-def get_name_first(g):
+def get_name_first(g=None):
     if g:
         if g=="M":
-            return name_m[random.randrange(len(name_m))].capitalize()
+            name_1=name_m
         else:
-            return name_f[random.randrange(len(name_f))].capitalize()
+            name_1=name_f
     else:
-        return name_1[random.randrange(len(name_1))].capitalize()
+        name_1=random.choice([name_m, name_f])
+    if random.random() < 0.1:
+        return (random.choice(name_1).capitalize() + "-"
+                + random.choice(name_1).capitalize())
+    else:
+        return random.choice(name_1).capitalize()
 
 def get_name_last():
-    return name_2[random.randrange(len(name_2))].capitalize()
+    return random.choice(name_2).capitalize()
 
 t=Spine.connect().login("bootstrap_account", "blapp").new_transaction()
 comm=t.get_commands()
@@ -109,7 +114,7 @@ def create_random():
    ln=get_name_last()
    name="%s %s" % (fn, ln)
    print 'Creating %s' % name
-   p=comm.create_person(comm.get_date_now(), t.get_gender_type(gd), name, sourcesystem)
+   p=comm.create_person(comm.get_date_now(), t.get_gender_type(gd), fn, ln, sourcesystem)
    #p.add_name(fn, firstnametype, sourcesystem)
    #p.add_name(ln, lastnametype, sourcesystem)
    names=comm.suggest_usernames(fn, ln)
@@ -122,7 +127,7 @@ def create_random():
    g.promote_posix()
    #g.promote_ad()
    g.add_member(a, unionoperation)
-   a.promote_posix(g, bashshell)
+   a.promote_posix(comm.get_free_uid(), g, bashshell)
    #a.set_homedir(studspread, "/home/%s" % names[0], None)
    a.set_homedir(studspread, "", random.choice(disks))
 
@@ -139,7 +144,7 @@ def create_many(n):
 
 if __name__=="__main__":
     disks=create_disks()
-    create_many(10000)
+    create_many(100)
     t.commit()
 
 # arch-tag: c05b814d-9d58-4b63-b467-25f3bb4b4307
