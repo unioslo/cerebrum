@@ -83,7 +83,7 @@ class Method(object):
     """Representation of a method in Spine.
 
     Methods are used to collect metainfo about methods which should be
-    provided to clients. Information like arguments and return-tyoe is
+    provided to clients. Information like arguments and return-type is
     used when generating idl for use in corba.
 
     The methods will be wrapped to allow for authentication and access
@@ -126,6 +126,8 @@ def get_method_signature(func):
         - overrides func_name
     signature_args
         - a list with data_types for arguments used
+    signature_named_args
+        - a list with (arg_name, data_type), for use when introspection doesn't cut it
     signature_exceptions
         - list with all exceptions accessing this attribute might raise.
     signature_write
@@ -143,21 +145,30 @@ def get_method_signature(func):
     test.signature_args = [int]
     """
     
-    offset = 0
-    if type(func) == types.MethodType:
-        func = func.im_func
-    if func.func_code.co_varnames[0] == 'self':
-        offset = 1
-    signature = func.signature # need know the return data type
+    signature = func.signature # need to know the return data type
     assert func.func_defaults is None # default values are useless with corba
 
-    signature_args = getattr(func, 'signature_args', ())
-    count = func.func_code.co_argcount # first argument is skipped (self)
+    if type(func) == types.MethodType:
+        func = func.im_func
 
-    assert len(signature_args) == count - offset # data type needs to be defined for all args
+    named_args = getattr(func, 'signature_named_args', ())
+
+    if named_args:
+        args = named_args
+    else:
+        offset = 0
+
+        if func.func_code.co_varnames[0] == 'self':
+            offset = 1
+
+        signature_args = getattr(func, 'signature_args', ())
+        count = func.func_code.co_argcount # first argument is skipped (self)
+
+        assert len(signature_args) == count - offset # data type needs to be defined for all args
     
+        args = zip(func.func_code.co_varnames[offset:count], signature_args)
+
     name = getattr(func, 'signature_name', '') or func.func_name
-    args = zip(func.func_code.co_varnames[offset:count], signature_args)
     write = hasattr(func, 'signature_write')
     exceptions = default_exceptions
     exceptions += tuple(getattr(func, 'signature_exceptions', ()))

@@ -182,21 +182,22 @@ class Transaction(Builder.Builder):
                         return obj
                     return get_method
                 m = blipp(cls)
-                args = []
-                for i in cls.primary:
-                    args.append((i.name, i.data_type))
             else:
                 def blipp(cls):
                     def get_method(self, *args, **vargs):
                         return cls(*args, **vargs)
                     return get_method
                 m = blipp(cls)
-                args = []
-                for i in cls.primary:
-                    args.append((i.name, i.data_type))
 
-            method = Builder.Method(method_name, cls, args, exceptions=[NotFoundError])
-            Transaction.register_method(method, m)
+            args = []
+            for i in cls.primary:
+                args.append((i.name, i.data_type))
+
+            m.signature = cls
+            m.signature_name = method_name
+            m.signature_named_args = args
+            m.signature_exceptions = [NotFoundError]
+            Transaction.register_methods([m])
         super(Transaction, cls).build_methods()
     build_methods = classmethod(build_methods)
 
