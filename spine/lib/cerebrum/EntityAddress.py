@@ -71,7 +71,7 @@ def get_address(self, address_type, source_system):
     if not result:
         raise NotFoundError('No address exists for the given source system.')
     return result[0]
-Entity.register_method(Method('get_address', EntityAddress, args=[('address_type', AddressType), ('source_system', SourceSystem)], exceptions=[NotFoundError]), get_addresses)
+Entity.register_method(Method('get_address', EntityAddress, args=[('address_type', AddressType), ('source_system', SourceSystem)], exceptions=[NotFoundError]), get_address)
 
 def create_address(self, address_type, source_system):
     db = self.get_database()
