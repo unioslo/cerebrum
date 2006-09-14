@@ -30,8 +30,8 @@ def create_get_method(attr):
     in search objects.
 
     The get method for search objects will raise
-    SpineExceptions.ServerProgrammingErrorif the attribute has
-    not yet been set.
+    SpineExceptions.ClientProgrammingError if the
+    attribute has not yet been set.
     """
     def get(self):
         # get the variable
