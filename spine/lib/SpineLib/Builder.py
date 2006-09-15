@@ -111,6 +111,24 @@ class Method(object):
         self.exceptions = default_exceptions + tuple(exceptions or ())
         self.write = write
         self.doc = None
+        try: raise RuntimeError
+        except RuntimeError:
+            import sys
+            e, b, t = sys.exc_info()
+            caller_dict = t.tb_frame.f_back.f_globals
+            e_file = caller_dict['__file__']
+            e_line = t.tb_frame.f_back.f_lineno
+            print "DeprecationWarning:SpineLib:Method, %s in %s:%s" % (self.name, e_file, e_line)
+
+    def upgrade(self, method_func):
+        assert not hasattr(method_func, "im_func")
+        method_func.signature = self.data_type
+        method_func.signature_name = self.name
+        method_func.signature_named_args = self.args
+        method_func.signature_exceptions = self.exceptions
+        if self.write:
+            method_func.signature_write = self.write
+        return method_func
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
@@ -356,19 +374,10 @@ class Builder(object):
     register_methods = classmethod(register_methods)
 
     def register_method(cls, method, method_func, overwrite=False):
-        """Registers a method.
-        
-        Registers the method 'method', and points it towards the method
-        'method_func'. If overwrite is True, an already existing method
-        with the same name will be overwritten.
-        """
-        if hasattr(cls, method.name) and not overwrite:
-            raise SpineExceptions.ServerProgrammingError('Method %s already exists in %s' % (method.name, cls.__name__))
-        setattr(cls, method.name, method_func)
-        method.doc = method_func.__doc__
-
-        cls.method_slots = tuple([i for i in cls.method_slots if i.name != method.name])
-        cls.method_slots += (method, )
+        """Deprecated.  Convert the method and use register_methods
+        instead."""
+        method.upgrade(method_func)
+        cls.register_methods([method_func])
     register_method = classmethod(register_method)
 
     def build_methods(cls):
