@@ -36,7 +36,11 @@ for cls in Builder.get_builder_classes(CodeType):
     m = blipp(cls)
     args = [('name', str)]
 
-    method = Builder.Method(method_name, cls, args, exceptions=[NotFoundError])
-    Transaction.Transaction.register_method(method, m)
+    m.signature = cls
+    m.signature_name = method_name
+    m.signature_named_args = args
+    m.signature_exceptions = [NotFoundError]
+
+    Transaction.Transaction.register_methods([m])
 
 # arch-tag: 79265054-583c-4ead-ae5b-3720b9d72810
