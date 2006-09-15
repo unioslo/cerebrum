@@ -74,6 +74,7 @@ def get_address(self, address_type, source_system):
 
 get_address.signature = EntityAddress
 get_address.signature_args = [AddressType, SourceSystem]
+get_address.signature_exceptions = [NotFoundError]
 Entity.register_methods([get_address])
 
 def create_address(self, address_type, source_system):
