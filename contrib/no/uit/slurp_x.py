@@ -527,10 +527,13 @@ Ekstern epost: %s
 Ansvarlig epost: %s
 
 Personen har fått tildelt brukernavnet:%s
-Merk: personen har ikke fått generert en AD konto enda. Dette må gjøres i sammarbeid med den lokale It-avdelingen.
-
-
 """ % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost,username)
+        if "AD_account" in spreads:
+            message+="""
+
+            Merk: personen har ikke fått generert en AD konto enda. Dette må gjøres i sammarbeid med den lokale It-avdelingen."""
+
+
         SENDMAIL="/usr/sbin/sendmail -f%s" % (ansvarlig_epost)
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
