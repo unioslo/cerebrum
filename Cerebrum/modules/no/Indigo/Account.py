@@ -134,7 +134,7 @@ class AccountIndigoMixin(Account.Account):
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
         # account.
-        et = EmailTarget(self._db)
+        et = Email.EmailTarget(self._db)
         target_type = self.const.email_target_account
         if self.is_expired():
             target_type = self.const.email_target_deleted
@@ -154,7 +154,7 @@ class AccountIndigoMixin(Account.Account):
         et.write_db()
         # For deleted/reserved users, set expire_date for all of the
         # user's addresses, and don't allocate any new addresses.
-        ea = EmailAddress(self._db)
+        ea = Email.EmailAddress(self._db)
         if changed and cereconf.EMAIL_EXPIRE_ADDRESSES is not False:
             if target_type == self.const.email_target_deleted:
                 seconds = cereconf.EMAIL_EXPIRE_ADDRESSES * 86400
@@ -178,7 +178,7 @@ class AccountIndigoMixin(Account.Account):
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
-        ed = EmailDomain(self._db)
+        ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
         if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
@@ -187,7 +187,7 @@ class AccountIndigoMixin(Account.Account):
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
         primary_set = False
-        epat = EmailPrimaryAddressTarget(self._db)
+        epat = Email.EmailPrimaryAddressTarget(self._db)
         for domain in domains:
             if ed.email_domain_name <> domain:
                 ed.clear()
