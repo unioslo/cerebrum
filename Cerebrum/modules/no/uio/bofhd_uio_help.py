@@ -81,10 +81,6 @@ command_help = {
     "disk_quota":
         "Enable quotas on a disk, and set the default value",
     },
-    'entity': {
-    "entity_history":
-        "List the changes made to entity.",
-    },
     'email': {
     "email_add_address":
         "Add an alias address",
@@ -161,9 +157,9 @@ command_help = {
     },
     'entity': {
     'entity_accounts':
-        "Gives information about accounts associated with given entities",
+        "List information about accounts associated with given entities",
     'entity_history':
-        "Gives partial history for entities",
+        "List the changes made to entity.",
     },
     'group': {
     'group_add': 'Let an account join a group',
