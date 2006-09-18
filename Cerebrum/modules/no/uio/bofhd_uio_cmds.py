@@ -6302,8 +6302,10 @@ class BofhdExtension(object):
         ('user', 'set_expire'), AccountName(), Date(),
         perm_filter='can_delete_user')
     def user_set_expire(self, operator, accountname, date):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         account = self._get_account(accountname)
-        self.ba.can_delete_user(operator.get_entity_id(), account)
+        # self.ba.can_delete_user(operator.get_entity_id(), account)
         account.expire_date = self._parse_date(date)
         account.write_db()
         return "OK, set expire-date for %s to %s" % (accountname, date)
