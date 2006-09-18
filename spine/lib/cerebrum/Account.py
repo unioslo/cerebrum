@@ -147,6 +147,7 @@ def get_account_by_name(self, name):
 
 get_account_by_name.signature = Account
 get_account_by_name.signature_args = [str]
+get_account_by_name.signature_exceptions = [NotFoundError, TooManyMatchesError]
 Commands.register_methods([get_account_by_name])
 
 def get_accounts(self):
