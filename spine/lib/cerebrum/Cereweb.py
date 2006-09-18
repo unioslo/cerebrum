@@ -47,15 +47,15 @@ class CerewebOption(DatabaseClass):
         DatabaseAttr('key', option_table, str),
         DatabaseAttr('value', option_table, str, write=True)
     )
-    method_slots = (
-        Method('delete', None, write=True),
-    )
     db_attr_aliases = {
         option_table: {'id': 'option_id', 'entity': 'entity_id'}
     }
 
     def delete(self):
         self._delete_from_db()
+    delete.signature = None
+    delete.signature_name = 'delete'
+    delete.signature_write = True
 
 registry.register_class(CerewebOption)
 
@@ -77,15 +77,15 @@ class CerewebMotd(DatabaseClass):
         DatabaseAttr('subject', motd_table, str),
         DatabaseAttr('message', motd_table, str)
     )
-    method_slots = (
-        Method('delete', None, write=True),
-    )
     db_attr_aliases = {
         motd_table: {'id': 'motd_id'}
     }
 
     def delete(self):
         self._delete_from_db()
+    delete.signature = None
+    delete.signature_name = 'delete'
+    delete.signature_write = True
 
 registry.register_class(CerewebMotd)
 

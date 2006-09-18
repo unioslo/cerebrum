@@ -37,6 +37,7 @@ class AuthOperation(DatabaseClass):
         DatabaseAttr('op_class', table, str),
         DatabaseAttr('op_method', table, str)
     )
+
 registry.register_class(AuthOperation)
 
 table = 'auth_operation_set'
@@ -48,18 +49,21 @@ class AuthOperationSet(DatabaseClass):
         DatabaseAttr('name', table, str, write=True),
         DatabaseAttr('description', table, str, write=True)
     )
-    method_slots = (
-        Method('add_operation', None, args=[('operation', AuthOperation)], write=True),
-        Method('remove_operation', None, args=[('operation', AuthOperation)], write=True),
-        Method('get_operations', [AuthOperation]),
-        Method('delete', None, write=True)
-    )
 
     def add_operation(self, operation):
         AuthOperationSetMember._create(self.get_database(), operation, self)
-
+    add_operation.signature = None
+    add_operation.signature_name = 'add_operation'
+    add_operation.signature_args = [AuthOperation]
+    add_operation.signature_write = True
+    
     def remove_operation(self, operation):
         AuthOperationSetMember(self.get_database(), operation, self).delete()
+    remove_operation.signature = None
+    remove_operation.signature_name = 'remove_operation'
+    remove_operation.signature_args = [AuthOperation]
+    remove_operation.signature_write = True
+    
 
     def get_operations(self):
         db = self.get_database()
@@ -68,6 +72,8 @@ class AuthOperationSet(DatabaseClass):
         ss.set_op_set(self)
         s.add_join('', ss, 'op')
         return s.search()
+    get_operations.signature = [AuthOperation]
+    get_operations.signature_name = 'get_operations'
 
     def delete(self):
         s = registry.AuthOperationSetMemberSearcher(self.get_database())
@@ -76,6 +82,10 @@ class AuthOperationSet(DatabaseClass):
             i.delete()
         self._delete_from_db()
         self._delete()
+    delete.signature = None
+    delete.signature_name = 'delete'
+    delete.signature_write = True
+
 registry.register_class(AuthOperationSet)
 
 table = 'auth_operation_set_member'
@@ -93,6 +103,10 @@ class AuthOperationSetMember(DatabaseClass):
     def delete(self):
         self._delete_from_db()
         self._delete()
+    delete.signature = None
+    delete.signature_name = 'delete'
+    delete.signature_write = True
+
 registry.register_class(AuthOperationSetMember)
 
 def create_auth_operation(self, op_class, op_method):

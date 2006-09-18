@@ -49,12 +49,12 @@ class Group(Entity):
         CerebrumDbAttr('expire_date', table, Date, write=True),
         CerebrumDbAttr('name', 'entity_name', str, write=True)
     )
-    method_slots = (
-        Method('test', Any, args=[('n', int)]),
-    )
 
     def test(self, n):
         return [1,2,3,4,'asdf', {'1':12321}, ('asdf', 'fdas')] * n
+    test.signature = Any
+    test.signature_name = 'test'
+    test.signature_args = [int]
 
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {

@@ -49,9 +49,6 @@ class EntityQuarantine(DatabaseClass):
         DatabaseAttr('disable_until', table, Date, write=True, optional=True)
     )
 
-    method_slots = (
-        Method('is_active', bool),
-    )
 
     db_attr_aliases = {
         table:{
@@ -71,6 +68,8 @@ class EntityQuarantine(DatabaseClass):
         return (start <= now
             and (end is None or end >= now)
             and (disable is None or disable < now))
+    is_active.signature = bool
+    is_active.signature_name = 'is_active'
 
 registry.register_class(EntityQuarantine)
 

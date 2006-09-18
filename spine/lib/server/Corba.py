@@ -454,7 +454,7 @@ def _create_idl_interface(cls, error_module="", docs=False):
     Create IDL definition for the class 'cls'.
     
     Creates IDL interface for the class from attributes in cls.slots
-    and methods in cls.method_slots.
+    and methods found by calling Builder.get_builder_methods.
 
     If you wish the IDL to be commented, use docs=True. This will copy
     the docstring into the IDL interface for this class.
@@ -534,8 +534,7 @@ def _create_idl_interface(cls, error_module="", docs=False):
 
     if issubclass(cls, object): # old style doesnt support __mro__ with friends
         for parent in cls.__mro__[1:]:
-            if hasattr(parent, 'method_slots'):
-                parent_slots.update(parent.method_slots)
+            assert not hasattr(parent, 'method_slots')
             if not hasattr(parent, 'slots'): # duck typing
                 continue
             methods = list(Builder.get_builder_methods(parent))
@@ -543,6 +542,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
                 continue
             parent_methods.update(methods)
             parents.append('Spine' + parent.__name__)
+
+    assert not hasattr(cls, 'method_slots') 
 
     if parents:
         txt += ': ' + ', '.join(parents)
@@ -567,37 +568,6 @@ def _create_idl_interface(cls, error_module="", docs=False):
             txt += _docstring_to_idl(method.__doc__, 1)
         txt += '\t%s %s(%s)%s;\n' % (data_type, name, ', '.join(getArgs()), excp)
         
-    # Methods
-    for method in cls.method_slots:
-        if method in parent_slots:
-            continue
-
-        # If the class does not have the method, then method_slots contains an
-        # invalid method declaration
-        if not hasattr(cls, method.name):
-            msg = 'Class %s has no method %s, check declaration of %s.method_slots.'
-            raise ServerProgrammingError(msg % (cls.__name__, method.name, cls.__name__))
-
-        args = []
-        for name, data_type in method.args:
-            #args.append('in %s in_%s' % (get_type(data_type), name))
-            args.append('in %s %s' % (get_type(data_type), name))
-
-        data_type = get_type(method.data_type)
-        
-        exceptions_headers.extend(method.exceptions)
-        excp = get_exceptions(method.exceptions, error_module)
-
-        if method.doc is None and hasattr(cls, method.name):
-            method.doc = getattr(cls, method.name).__doc__
-        #doc = _trim_docstring(method.doc or '')
-        
-        if docs:
-            txt += _create_idl_method_comment(method, data_type, 1)
-
-        txt += '\t%s %s(%s)%s;\n' % (data_type, method.name, ', '.join(args), excp)
-        txt += '\n'
-
     txt += '};\n'
     
     return headers, exceptions_headers, txt
@@ -690,17 +660,6 @@ def register_spine_class(cls, idl_cls, idl_struct):
         name, data_type, write, args, exceptions = Builder.get_method_signature(method)
 
         setattr(corba_class, name, _create_corba_method(method, name, data_type, write, args, exceptions))
-
-    if issubclass(cls, object):
-        classes = cls.__mro__
-    else:
-        classes = (cls, )
-    for i in classes:
-        if not hasattr(i, 'method_slots'):
-            continue
-        for method in i.method_slots:
-            if not hasattr(corba_class, method.name):
-                setattr(corba_class, method.name, _create_corba_method(getattr(i, method.name), method.name, method.data_type, method.write, method.args, method.exceptions))
 
     class_cache[cls] = corba_class
 

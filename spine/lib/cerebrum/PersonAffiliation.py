@@ -49,10 +49,6 @@ class PersonAffiliation(DatabaseClass):
         DatabaseAttr('last_date', table, Date),
         DatabaseAttr('deleted_date', table, Date),
     )
-    method_slots = (
-        Method('delete', None, write=True),
-        Method('marked_for_deletion', bool),
-    )
 
     db_attr_aliases = {
         table : {
@@ -66,7 +62,8 @@ class PersonAffiliation(DatabaseClass):
         obj = person._get_cerebrum_obj()
         obj.add_affiliation(self.get_ou().get_id(), self.get_affiliation().get_id(), self.get_source_system().get_id(), status.get_id())
         obj.write_db()
-
+    # FIXME: set signature?
+    
 
     def delete(self):
         db = self.get_database()
@@ -74,6 +71,9 @@ class PersonAffiliation(DatabaseClass):
         person.find(self.get_person().get_id())
         person.delete_affiliation(self.get_ou().get_id(), self.get_affiliation().get_id(), self.get_source_system().get_id())
         person.write_db()
+    delete.signature = None
+    delete.signature_name = 'delete'
+    delete.signature_write = True
 
     def marked_for_deletion(self):
         """Checks if the affiliation deleted_date is set."""
@@ -81,6 +81,8 @@ class PersonAffiliation(DatabaseClass):
             return True
         else:
             return False
+    marked_for_deletion.signature = bool
+    marked_for_deletion.signature_name = 'marked_for_deletion'
 
 registry.register_class(PersonAffiliation)
 

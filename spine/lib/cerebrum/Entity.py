@@ -66,9 +66,6 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
     slots = (
         DatabaseAttr('type', 'entity_info', EntityType),
     )
-    method_slots = (
-        Method('delete', None, write=True),
-    )
 
     db_attr_aliases = {
         'entity_info': {
@@ -121,7 +118,10 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
     def delete(self):
         self._delete_from_cerebrum()
         self._delete()
-
+    delete.signature_name = 'delete'
+    delete.signature = None
+    delete.signature_write = True
+    
 registry.register_class(Entity)
 
 # arch-tag: 2004ac4b-14d6-4f9b-93a2-e255c5a0d3f8

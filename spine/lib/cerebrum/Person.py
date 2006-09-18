@@ -45,9 +45,6 @@ class Person(Entity):
         CerebrumDbAttr('deceased_date', table, Date, write=True),
         CerebrumDbAttr('description', table, str, write=True)
     )
-    method_slots = (
-        Method('get_primary_account', Account),
-    )
 
     Entity.db_attr_aliases[table] = {
         'id':'person_id'
@@ -61,6 +58,8 @@ class Person(Entity):
         if account_id is None:
             return None
         return Account(self.get_database(), account_id)
+    get_primary_account.signature = Account
+    get_primary_account.signature_name = 'get_primary_account'
 
 registry.register_class(Person)
 

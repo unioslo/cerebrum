@@ -52,7 +52,6 @@ class Session:
     """
     
     slots = ()
-    method_slots = ()
 
     def new_transaction(self):
         pass

@@ -227,13 +227,10 @@ class Builder(object):
     Attributes which subclasses should implement:
     'primary' should contain attributes which are unique for objects.
     'slots' should contain the rest of the attributes for the class.
-    'method_slots' should contain methods which are implemented with
-    the same name in the class.
     """
     
     primary = ()
     slots = ()
-    method_slots = ()
     _ignore_Builder = True
 
     def __init__(self, *args, **vargs):
@@ -370,7 +367,6 @@ class Builder(object):
         for i in methods:
             name, signature, write, args, exceptions = get_method_signature(i)
             setattr(cls, name, i)
-
     register_methods = classmethod(register_methods)
 
     def register_method(cls, method, method_func, overwrite=False):
@@ -384,7 +380,6 @@ class Builder(object):
         """Create get/set methods for all slots."""
         assert type(cls.primary) == tuple
         assert type(cls.slots) == tuple
-        assert type(cls.method_slots) == tuple
         
         if cls.primary != cls.slots[:len(cls.primary)]:
             cls.slots = cls.primary + cls.slots
