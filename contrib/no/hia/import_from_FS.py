@@ -101,6 +101,7 @@ def write_ou_info(outfile):
             ('stedakronym', 'akronym'),
             ('stedakronym', 'forkstednavn'),
             ('stednavn_bokmal', 'stednavn'),
+            ('stedkode_konv', 'stedkode_konv'),
             ('faknr_org_under', 'fakultetnr_for_org_sted'),
             ('instituttnr_org_under', 'instituttnr_for_org_sted'),
             ('gruppenr_org_under', 'gruppenr_for_org_sted'),
