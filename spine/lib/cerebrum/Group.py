@@ -103,6 +103,7 @@ def get_group_by_name(self, name):
 
 get_group_by_name.signature = Group
 get_group_by_name.signature_args = [str]
+get_group_by_name.signature_exceptions = [NotFoundError, TooManyMatchesError]
 Commands.register_methods([get_group_by_name])
 
 # arch-tag: 263241fc-0255-4c71-9494-dc13153ad781
