@@ -35,7 +35,7 @@ class SpineDatabase(Database):
         else:
             self.cl_init(change_by=entity_id)
 
-        # i hope this is the correct way to do it
+        # FIXME: Find out what this does.
         self.execute('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
 
 # arch-tag: 3a36a882-0fd8-4a9c-9889-9540095f93e3
