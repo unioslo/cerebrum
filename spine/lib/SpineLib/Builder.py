@@ -30,6 +30,7 @@ default_exceptions = (
     SpineExceptions.AccessDeniedError,
     SpineExceptions.ObjectDeletedError,
     SpineExceptions.NotFoundError,
+    SpineExceptions.ClientProgrammingError,
     SpineExceptions.ServerProgrammingError
 )
 
@@ -149,7 +150,6 @@ def get_method_signature(func):
     signature_exceptions
         - list with all exceptions accessing this attribute might raise.
     signature_write
-    write
         - set to True for methods which change and object and/or require write locks.
 
     returns name, signature, write, args, exceptions
@@ -187,7 +187,7 @@ def get_method_signature(func):
         args = zip(func.func_code.co_varnames[offset:count], signature_args)
 
     name = getattr(func, 'signature_name', '') or func.func_name
-    write = hasattr(func, 'signature_write')
+    write = hasattr(func, 'signature_write') and func.signature_write == True
     exceptions = default_exceptions
     exceptions += tuple(getattr(func, 'signature_exceptions', ()))
 
