@@ -62,8 +62,9 @@ class PersonAffiliation(DatabaseClass):
         obj = person._get_cerebrum_obj()
         obj.add_affiliation(self.get_ou().get_id(), self.get_affiliation().get_id(), self.get_source_system().get_id(), status.get_id())
         obj.write_db()
-    # FIXME: set signature?
-    
+    set_status.signature = None
+    set_status.signature_args = [PersonAffiliationStatus]
+    set_status.signature_write = True
 
     def delete(self):
         db = self.get_database()
@@ -72,7 +73,6 @@ class PersonAffiliation(DatabaseClass):
         person.delete_affiliation(self.get_ou().get_id(), self.get_affiliation().get_id(), self.get_source_system().get_id())
         person.write_db()
     delete.signature = None
-    delete.signature_name = 'delete'
     delete.signature_write = True
 
     def marked_for_deletion(self):
@@ -82,7 +82,6 @@ class PersonAffiliation(DatabaseClass):
         else:
             return False
     marked_for_deletion.signature = bool
-    marked_for_deletion.signature_name = 'marked_for_deletion'
 
 registry.register_class(PersonAffiliation)
 
@@ -93,15 +92,16 @@ def add_affiliation(self, ou, affiliation_status, source_system):
     person.add_affiliation(ou.get_id(), affiliation_status.get_affiliation().get_id(), source_system.get_id(), affiliation_status.get_id())
     person.write_db()
     return PersonAffiliation(db, self, ou, affiliation_status.get_affiliation(), source_system)
-
-Person.register_method(Method('add_affiliation', PersonAffiliation, args=[('ou', OU), ('affiliation_status', PersonAffiliationStatus), ('source_system', SourceSystem)], write=True), add_affiliation)
+add_affiliation.signature = PersonAffiliation
+add_affiliation.signature_args = [OU, PersonAffiliationStatus, SourceSystem]
+add_affiliation.signature_write = True
 
 def get_affiliations(self):
     s = registry.PersonAffiliationSearcher(self.get_database())
     s.set_person(self)
     return s.search()
+get_affiliations.signature = [PersonAffiliation]
 
-Person.register_method(Method('get_affiliations', [PersonAffiliation], args=[]), get_affiliations)
-
+Person.register_methods([add_affiliation, get_affiliations])
 
 # arch-tag: 848f642e-e7d7-11d9-8ba0-fa7bc076c927
