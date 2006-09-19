@@ -81,7 +81,7 @@ def _create_testclass_base(cls_name):
         proper exception."""
         for attr in dir(self.search_obj):
             if attr.startswith('get_') and not attr in ['get_dumpers', 'get_search_objects']:
-                assertRaises(Spine.Errors.ClientProgrammingError, getattr(self.search_obj, attr))
+                self.assertRaises(Spine.Errors.ClientProgrammingError, getattr(self.search_obj, attr))
     testclass.testSearchObject = testSearchObject
 
     def testDump(self):
