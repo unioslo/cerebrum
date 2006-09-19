@@ -80,8 +80,8 @@ def _create_testclass_base(cls_name):
         """Tests that getting any attribute on a fresh search object raises a
         proper exception."""
         for attr in dir(self.search_obj):
-            if attr.startswith('get_') and not attr == 'get_dumper':
-                self.assertRaises(Spine.Errors.ValueError, getattr(self.search_obj, attr))
+            if attr.startswith('get_') and not attr in ['get_dumpers', 'get_search_objects']:
+                assertRaises(Spine.Errors.ClientProgrammingError, getattr(self.search_obj, attr))
     testclass.testSearchObject = testSearchObject
 
     def testDump(self):
