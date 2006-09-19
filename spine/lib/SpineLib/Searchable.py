@@ -38,8 +38,9 @@ def create_get_method(attr):
         if not hasattr(self, attr.var_private):
             raise SpineExceptions.ClientProgrammingError('Attribute %s is not set.' % attr.name)
         return getattr(self, attr.var_private)
-    get.signature_name = attr.var_get
     get.signature = attr.data_type
+    get.signature_name = attr.var_get
+    get.signature_exceptions = [ClientProgrammingError]
     return get
 
 def create_search_attr(attr, modifier=None):
