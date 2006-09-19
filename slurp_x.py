@@ -529,7 +529,7 @@ Ansvarlig epost: %s
 Personen har fått tildelt brukernavnet:%s
 """ % (personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost,username)
         if "AD_account" in spreads:
-            message+="""
+            confirm_message+="""
 
             Merk: personen har ikke fått generert en AD konto enda. Dette må gjøres i sammarbeid med den lokale It-avdelingen."""
 
