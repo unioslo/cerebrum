@@ -58,6 +58,8 @@ class Transaction(Builder.Builder):
         database if the transaction is commited and rolled back if the
         transaction is aborted.
         """
+        if not self._session:
+            raise TransactionError("Transaction:add_ref(%s) on invalid transaction." % obj)
         self._session.reset_timeout()
         self._refs.add(obj)
 
