@@ -23,6 +23,7 @@ import sets
 from DatabaseClass import DatabaseTransactionClass, DatabaseAttr
 from Builder import Builder, Attribute
 from SpineExceptions import ClientProgrammingError
+from Cerebrum.Database import ProgrammingError
 
 def create_id_iterator(start=0):
     while 1:
@@ -135,8 +136,11 @@ class SearchClass(DatabaseTransactionClass):
         sql, args = self.search_sql()
         slots = self.get_signature_slots()
 
-        for row in db.query(sql, args):
-            yield [attr.convert_from(db, value) for attr, value in zip(slots, row)]
+        try:
+            for row in db.query(sql, args):
+                yield [attr.convert_from(db, value) for attr, value in zip(slots, row)]
+        except ProgrammingError, e:
+            raise ClientProgrammingError(e.args)
 
     def get_all_rows(self):
         db = self.get_database()
