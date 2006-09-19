@@ -5183,15 +5183,30 @@ class BofhdExtension(object):
 
     # user affiliation_add
     all_commands['user_affiliation_add'] = Command(
-        ("user", "affiliation_add"), AccountName(), OU(), Affiliation(), AffiliationStatus(),
+        ("user", "affiliation_add"),
+        AccountName(), OU(), Affiliation(), AffiliationStatus(),
         perm_filter='can_add_account_type')
     def user_affiliation_add(self, operator, accountname, ou, aff, aff_status):
         account = self._get_account(accountname)
         person = self._get_person('entity_id', account.owner_id)
         ou, aff, aff_status = self._person_affiliation_add_helper(
             operator, person, ou, aff, aff_status)
-        self.ba.can_add_account_type(operator.get_entity_id(), account, ou, aff, aff_status)
+        self.ba.can_add_account_type(operator.get_entity_id(), account,
+                                     ou, aff, aff_status)
         account.set_account_type(ou.entity_id, aff)
+
+        # When adding an affiliation manually, make sure the user gets
+        # the e-mail addresses associated with it automatically.  To
+        # achieve this, we temporarily change the priority to 1 and
+        # call write_db.  This will displace an existing priority 1 if
+        # there is one, but it's not worthwhile to do this perfectly.
+        for row in account.get_account_types(filter_expired=False):
+            if row['ou_id'] == ou.entity_id and row['affiliation'] == aff:
+                priority = row['priority']
+                break
+        account.set_account_type(ou.entity_id, aff, 1)
+        account.write_db()
+        account.set_account_type(ou.entity_id, aff, priority)
         account.write_db()
         return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou),
                                           accountname)
