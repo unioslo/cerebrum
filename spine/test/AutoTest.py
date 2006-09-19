@@ -148,6 +148,7 @@ def create_test_classes():
     
     # Loop through all attributes and prepare objects
     for attr in dir(transaction):
+        transaction = session.new_transaction()
         if attr.startswith('get_') and attr.endswith('_searcher') and not attr in untestable_classes:
             cls = getattr(transaction, attr)
             try:
@@ -163,7 +164,7 @@ def create_test_classes():
                 __all__.append(obj.__class__.__name__)
             else:
                 print 'Note: No instances of \'%s\' available in database.' % attr[4:-9] # Name without get_ and _searcher
-    transaction.rollback()
+        transaction.rollback()
     session.logout()
 
 print 'Generating test suites...'
