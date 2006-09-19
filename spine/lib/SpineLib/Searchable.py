@@ -40,7 +40,7 @@ def create_get_method(attr):
         return getattr(self, attr.var_private)
     get.signature = attr.data_type
     get.signature_name = attr.var_get
-    get.signature_exceptions = [ClientProgrammingError]
+    get.signature_exceptions = [SpineExceptions.ClientProgrammingError]
     return get
 
 def create_search_attr(attr, modifier=None):
