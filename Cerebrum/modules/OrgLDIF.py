@@ -637,7 +637,7 @@ from None and LDAP_PERSON['dn'].""")
                     else:
                         entry[key].append(self.invisible_person_attrs[key])
                 else:
-                    entry.update(self.invisible_person_attrs)
+                    entry[key] = self.invisible_person_attrs[key]
              
         self.update_person_entry(entry, row)
         return dn, entry, alias_info
