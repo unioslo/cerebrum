@@ -1133,10 +1133,6 @@ class BofhdAuth(DatabaseAccessor):
                                  query_run_any=False):
         return self.can_email_pipe_create(operator, domain, query_run_any)
 
-    def can_email_pipe_edit(self, operator, domain=None,
-                                 query_run_any=False):
-        return self.can_email_pipe_create(operator, domain, query_run_any)
-
     def can_email_set_failure(self, operator, account=None,
                               query_run_any=False):
         if self.is_superuser(operator):
