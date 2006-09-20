@@ -198,10 +198,7 @@ class Cursor(object):
                     fields = [ d[0].lower() for d in self.description ]
                     # Make a db_row class that corresponds to this set of
                     # column names.
-                    try:
-                        self._row_class = db_row.make_row_class(fields)
-                    except TypeError:
-                        self._row_class = None
+                    self._row_class = db_row.make_row_class(fields)
                 else:
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
@@ -383,11 +380,8 @@ class Cursor(object):
             return None
         if fetchall:
             # Return all rows, wrapped up in db_row instances.
-            if self._row_class is None:
-                return self.fetchall()
-            else:
-                R = self._row_class
-                return [ R(row) for row in self.fetchall() ]
+            R = self._row_class
+            return [ R(row) for row in self.fetchall() ]
         else:
             return iter(self)
 
@@ -427,7 +421,7 @@ class Cursor(object):
         database.
 
         """
-        self.execute("""SELECT 1""")
+        self.execute("""SELECT 1 AS foo [:from_dual]""")
 
 
 class RowIterator(object):
@@ -613,9 +607,8 @@ class Database(object):
 ##                 print "Skipping copy of type %s to class %s." % \
 ##                       (type_name, self_class.__name__)
                 continue
-            if hasattr(self._db_mod, type_name):
-                type_obj = getattr(self._db_mod, type_name)
-                setattr(self_class, type_name, type_obj)
+            type_obj = getattr(self._db_mod, type_name)
+            setattr(self_class, type_name, type_obj)
         #
         # Set up a "bind parameter converter" suitable for the driver
         # module's `paramstyle' constant.
