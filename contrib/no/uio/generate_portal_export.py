@@ -76,7 +76,6 @@ if sys.version >= (2, 3):
     import logging
 else:
     from Cerebrum.extlib import logging
-# fi
 
 
 # 
@@ -86,6 +85,7 @@ else:
 #
 no_ssn_cache = {}
 
+
 def cached_value(key):
     """
     Returns a pair (much like aref in CL) -- the cached value for KEY (if it
@@ -93,7 +93,7 @@ def cached_value(key):
     """
 
     return (no_ssn_cache.get(key, None), no_ssn_cache.has_key(key))
-# end cached_value
+
 
 def cache_value(key, value):
     """
@@ -103,8 +103,6 @@ def cache_value(key, value):
     # NB! This is potentially very dangerous, as no upper limit is placed on
     # the cache's size
     no_ssn_cache[key] = value
-# end cache_value
-
 
 
 def get_account(no_ssn, db_person, db_account, constants, lookup_order):
@@ -141,7 +139,6 @@ def get_account(no_ssn, db_person, db_account, constants, lookup_order):
                     logger.warn("Person %s has no accounts", no_ssn)
                     cache_value(no_ssn, None)
                     return None
-                # fi
 
                 db_account.clear()
                 db_account.find(account_id)
@@ -157,20 +154,14 @@ def get_account(no_ssn, db_person, db_account, constants, lookup_order):
                 # FIXME: What can we do about _this_ type of errors?
                 logger.error("Multiple rows for source system %s (fnr = %s)",
                              source, no_ssn)
-            # yrt
-        # od
 
         # We did not find anything useful
         if uname is None:
             logger.error("Aiee! All attempts to find %s in Cerebrum failed",
                          no_ssn)
             cache_value(no_ssn, uname)
-        # fi
-    # fi
 
     return uname
-# end get_account
-
 
 
 def output_row(row, stream, db_person, db_account, constants, lookup_order):
@@ -193,23 +184,22 @@ def output_row(row, stream, db_person, db_account, constants, lookup_order):
 
     # This is insane! Why is FS so non-chalant?
     # Force birth dates to be 6-digit by prepending zeros
-    birth_date = str(int(row.fodselsdato)).zfill(6)
-    no_ssn = birth_date + str(int(row.personnr))
+    birth_date = str(int(row["fodselsdato"])).zfill(6)
+    no_ssn = birth_date + str(int(row["personnr"]))
 
     uname = get_account(no_ssn, db_person, db_account, constants, lookup_order)
     if uname is None:
         return
-    # fi
 
     # These can potentially be empty in the query result (NULL, that is)
     year = ''
     month = ''
     subject = ''
-    if row.arstall is not None: year = int(row.arstall)
+    if row["arstall"] is not None: year = int(row["arstall"])
 
-    if row.manednr is not None: month = int(row.manednr)
+    if row["manednr"] is not None: month = int(row["manednr"])
 
-    if row.emnekode is not None: subject = row.emnekode
+    if row["emnekode"] is not None: subject = row["emnekode"]
     
     # int()-conversions are necessary, since dco2 hands us numeric data as
     # floating point values
@@ -218,16 +208,14 @@ def output_row(row, stream, db_person, db_account, constants, lookup_order):
                                   subject,
                                   year,
                                   month,
-                                  int(row.studienivakode),
-                                  int(row.institusjonsnr_reglement),
-                                  int(row.faknr_reglement),
-                                  int(row.instituttnr_reglement),
-                                  int(row.gruppenr_reglement),
-                                  row.studieprogramkode]),
+                                  int(row["studienivakode"]),
+                                  int(row["institusjonsnr_reglement"]),
+                                  int(row["faknr_reglement"]),
+                                  int(row["instituttnr_reglement"]),
+                                  int(row["gruppenr_reglement"]),
+                                  row["studieprogramkode"]]),
                              "','"))
     stream.write("\n")
-# end output_row
-
 
 
 def output_text(output_file):
@@ -256,7 +244,6 @@ def output_text(output_file):
     lookup_order = [constants.system_fs]
     for authoritative_system_name in cereconf.SYSTEM_LOOKUP_ORDER:
         lookup_order.append(getattr(constants, authoritative_system_name))
-    # od
     
     rows = db_fs.portal.list_eksmeld()
     logger.debug("Fetched portal information from FS")
@@ -264,11 +251,8 @@ def output_text(output_file):
         output_row(row, output_stream,
                    db_person, db_account, constants,
                    lookup_order)
-    # od
 
     output_stream.close()
-# end output_text
-
 
 
 def usage():
@@ -285,8 +269,6 @@ options:
 
     # FIMXE: hmeland, is the log facility the right thing here?
     logger.info(options)
-# end usage
-
 
 
 def main(argv):
@@ -307,7 +289,6 @@ def main(argv):
     except getopt.GetoptError:
         usage()
         sys.exit(1)
-    # yrt
 
     # Default values
     output_file = "portal.txt"
@@ -323,18 +304,9 @@ def main(argv):
         elif option in ("-h", "--help"):
             usage()
             sys.exit(2)
-        # fi
-    # od
 
     output_text(output_file = output_file)
-# fi
-
-
-
 
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-# fi
-
-# arch-tag: dc389e27-21d6-4bae-8722-f4b38a7879d0
