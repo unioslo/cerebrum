@@ -142,6 +142,7 @@ class BofhdExtension(object):
         ("mac", "MAC\tDARWIN"),
         ("other", "OTHER\tOTHER"),
         ("dhcp", "DHCP\tDHCP"),
+        ("netapp", "NETAPP\tNETAPP")
         )
 
     def __new__(cls, *arg, **karg):
