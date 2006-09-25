@@ -419,7 +419,7 @@ class BofhdExtension(object):
 
         """
         opset = self._get_opset(opset)
-        gr = self.util.get_target(owner, default_lookup="group",
+        gr = self.util.get_target(target_name, default_lookup="group",
                                   restrict_to=['Account', 'Group'])
         target_id, target_type, target_auth = \
                    self._get_access_id(entity_type, target_name)
