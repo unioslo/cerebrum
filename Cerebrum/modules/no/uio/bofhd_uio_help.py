@@ -254,6 +254,8 @@ command_help = {
         'View information about a person',
     'person_list_user_priorities':
         'View a list ordered by priority of all the accounts owned by a person',
+    'person_set_bdate':
+        'Set a new birth date for a person',
     'person_set_id':
         'Set a new id for a person',
     'person_set_name':
