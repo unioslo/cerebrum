@@ -30,7 +30,7 @@ CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
                                   'table_owner': None}
 # Database host. Note that if this starts with "/", Postgres
 # will interpret it as the address for a (local) Unix socket
-CEREBRUM_DATABASE_HOST = "localhost"
+CEREBRUM_DATABASE_HOST = None
 
 AUTH_CRYPT_METHODS = ("MD5-crypt",)
 
