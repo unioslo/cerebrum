@@ -1,6 +1,7 @@
 # -*- coding: iso-8859-1 -*-
 import struct
 import socket
+from Cerebrum.modules.dns.Errors import DNSError
 
 class IPCalc(object):
     """Methods for playing with IP-numbers"""
@@ -10,7 +11,10 @@ class IPCalc(object):
     netmask_to_intrep = staticmethod(netmask_to_intrep)
 
     def ip_to_long(ip):
-        return struct.unpack('!L', socket.inet_aton(ip))[0]
+        try:
+            return struct.unpack('!L', socket.inet_aton(ip))[0]
+        except socket.error, msg:
+            raise DNSError("Bad IP: %s" % msg)
     ip_to_long = staticmethod(ip_to_long)
 
     def long_to_ip(n):
