@@ -972,7 +972,7 @@ class PsycoPG(PostgreSQLBase):
     _db_mod = 'psycopg'
 
     def connect(self, user=None, password=None, service=None,
-                client_encoding=None):
+                client_encoding=None, host=None):
         dsn = []
         if service is None:
             service = cereconf.CEREBRUM_DATABASE_NAME
@@ -980,13 +980,17 @@ class PsycoPG(PostgreSQLBase):
             user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
         if password is None and user is not None:
             password = read_password(user, service)
-
+        if host is None:
+            host = cereconf.CEREBRUM_DATABASE_HOST
+        
         if service is not None:
             dsn.append('dbname=' + service)
         if user is not None:
             dsn.append('user=' + user)
         if password is not None:
             dsn.append('password=' + password)
+        if host is not None:
+            dsn.append('host=' + host)
 
         dsn_string = ' '.join(dsn)
 
