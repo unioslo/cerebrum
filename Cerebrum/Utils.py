@@ -812,7 +812,7 @@ class AtomicFileWriter(object):
         self.replaced_file = False
         self._replace_equal = replace_equal
 
-    def close(self):
+    def close(self, dont_rename=False):
         if self.closed: return
         ret = self.__file.close()
         self.closed = True
@@ -826,10 +826,12 @@ class AtomicFileWriter(object):
                     filecmp.cmp(self._tmpname, self._name, shallow=0)):
                     os.unlink(self._tmpname)
                 else:
-                    os.rename(self._tmpname, self._name)
+                    if not dont_rename:
+                        os.rename(self._tmpname, self._name)
                     self.replaced_file = True
             else:
-                os.rename(self._tmpname, self._name)
+                if not dont_rename:
+                    os.rename(self._tmpname, self._name)
                 self.replaced_file = True
         return ret
 
