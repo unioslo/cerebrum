@@ -598,7 +598,7 @@ class JobQueue(object):
         return min_delta
 
     def insert_job(self, queue, job_name):
-        """Recursively add jobb and all its prerequisited jobs.
+        """Recursively add job and all its prerequisited jobs.
 
         We allways process all parents jobs, but they are only added to
         the queue if it won't violate max_freq."""
@@ -616,6 +616,23 @@ class JobQueue(object):
 
         for j in this_job.post or []:
             self.insert_job(queue, j)
+
+
+    def has_conflicting_jobs_running(self, job_name):
+        """Finds out if there are any jobs running that conflict with
+        the given job, as defined by the job's setup (via Action)
+
+        Returns True if there are any such jobs, False otherwise
+
+        """
+        this_job = self._known_jobs[job_name]
+        for potential_anti_job in [x[0] for x in self._running_jobs]:
+            if potential_anti_job in this_job.nonconcurrent:
+                # It's confirmed that there's at least one running job
+                # that conflicts
+                return True 
+        return False 
+
 
     def dump_jobs(scheduled_jobs, details=0):
         jobs = scheduled_jobs.get_jobs()

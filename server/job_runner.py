@@ -229,6 +229,11 @@ class JobRunner(object):
                 if self.job_queue.has_queued_prerequisite(job_name):
                     logger.debug2("has queued prereq: %s" % job_name)
                     continue
+                if self.job_queue.has_conflicting_jobs_running(job_name):
+                    # "Abort" the job for now, but let it remain in
+                    # the queue for re-evaluation the next time around
+                    logger.debug2("has conflicting job(s) running: %s" % job_name)
+                    continue
                 logger.debug2("  ready: %s" % job_name)
 
             if job_ref.call is not None:

@@ -38,7 +38,7 @@ if debug_dryrun:
 
 class Action(object):
     def __init__(self, pre=None, post=None, call=None, max_freq=None, when=None,
-                 notwhen=None, max_duration=2*60*60, multi_ok=0):
+                 notwhen=None, max_duration=2*60*60, multi_ok=0, nonconcurrent=[]):
         # TBD: Trenger vi engentlig post?  Dersom man setter en jobb
         # til å kjøre 1 sek etter en annen vil den automatisk havne
         # bakerst i ready_to_run køen, og man oppnår dermed det samme.
@@ -67,6 +67,9 @@ class Action(object):
           allowed to complete normally.
         - multi_ok indicates if multiple instances of this job may
           appear in the ready_to_run queue
+        - nonconcurrent contains the names of jobs that if running,
+          should postpone the start of this job till they are (all)
+          finished.
 
         """
         self.pre = pre or []
@@ -78,6 +81,7 @@ class Action(object):
         self.multi_ok = multi_ok
         self.last_exit_msg = None
         self.notwhen = notwhen
+        self.nonconcurrent = nonconcurrent
 
     def copy_runtime_params(self, other):
         """When reloading the configuration, we must preserve some
