@@ -34,13 +34,20 @@ AJPROD		select username FROM all_users		ajprod
 LTPROD		select username FROM all_users		ltprod
 OAPRD		select user_name FROM applsys.fnd_user	oaprd
 OEPATST		[1], [2]
+OEPAPRD         [3], [4]
 
-[1]   basware-users:
+[1]   basware-users-test:
       select USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
-[2]   basware-masters:
+[2]   basware-masters-test:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
+[3]   basware-users:
+      select USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
+[4]   basware-masters:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
 
 After the update, each group in cerebrum contains only the members listed in
 the corresponding external database. That is, if
@@ -617,19 +624,30 @@ def main():
                                  "sync_accessor"  : "list_dbfg_usernames",
                                  "report_accessor" : "list_applsys_usernames",
                                  "ceregroup" : "oaprd" },
-                     "basware-users" : { "dbname"        : "OEPATST.uio.no",
+                     "basware-users" : { "dbname"        : "OEPAPRD.uio.no",
                                          "dbuser"        : "ureg2000",
                                          "class"         : OEP,
                                          "sync_accessor" : "list_dbfg_users",
                                          "report_accessor" : "list_dbfg_users",
                                          "ceregroup"     : "basware-users", },
-                     "basware-masters" : {
-                                 "dbname"        : "OEPATST.uio.no",
-                                 "dbuser"        : "ureg2000",
-                                 "class"         : OEP,
-                                 "sync_accessor" : "list_dbfg_masters",
-                                 "report_accessor" : "list_dbfg_masters",
-                                 "ceregroup"     : "basware-masters", },
+                     "basware-masters" : { "dbname"        : "OEPAPRD.uio.no",
+                                           "dbuser"        : "ureg2000",
+                                           "class"         : OEP,
+                                           "sync_accessor" : "list_dbfg_masters",
+                                           "report_accessor" : "list_dbfg_masters",
+                                           "ceregroup"     : "basware-masters", },                     
+                     "basware-users-test" : { "dbname"        : "OEPATST.uio.no",
+                                              "dbuser"        : "ureg2000",
+                                              "class"         : OEP,
+                                              "sync_accessor" : "list_dbfg_users",
+                                              "report_accessor" : "list_dbfg_users",
+                                              "ceregroup"     : "basware-users-test", },
+                     "basware-masters-test" : { "dbname"        : "OEPATST.uio.no",
+                                                "dbuser"        : "ureg2000",
+                                                "class"         : OEP,
+                                                "sync_accessor" : "list_dbfg_masters",
+                                                "report_accessor" : "list_dbfg_masters",
+                                                "ceregroup"     : "basware-masters-test", },
                      }
     try:
         options, rest = getopt.getopt(sys.argv[1:],
