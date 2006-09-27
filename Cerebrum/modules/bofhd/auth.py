@@ -877,24 +877,24 @@ class BofhdAuth(DatabaseAccessor):
 
     # hack (fix for users with no registered home at UiO)
     def _no_account_home(self, operator, account=None):
-        spreads = [int(r['spread']) for r in account.get_spread()]
-        a_type = [int(r['affiliation']) for r in account.get_account_types()]
-        home_spread = False
-        for s in ([int(getattr(self.const, x)) for x in cereconf.HOME_SPREADS]):
-            if s in spreads:
-                home_spread = True
-        is_stud = False
         try:
             aff_stud = int(self.const.affiliation_student)
         except AttributeError, e:
             return False
-        for a in a_type:
-            if a == aff_stud:
-                is_stud = True
-        if self.is_studit(operator) and not home_spread and is_stud:
-            return True
+        if not self.is_studit(operator):
+            return False
+        for r in account.get_account_types():
+            if r['affiliation'] == aff_stud:
+                break
+        else:
+            return False
+        spreads = [int(r['spread']) for r in account.get_spread()]
+        for s in ([int(getattr(self.const, x)) for x in cereconf.HOME_SPREADS]):
+            if s in spreads:
+                return False
+        return True
     # end hack
-    
+
     def can_set_password(self, operator, account=None,
                          query_run_any=False):
         if self.is_superuser(operator):
@@ -930,23 +930,17 @@ class BofhdAuth(DatabaseAccessor):
     def can_show_history(self, operator, entity=None, query_run_any=False):
         if self.is_superuser(operator):
             return True
-        # use 
         if query_run_any:
-            return (self._has_operation_perm_somewhere(operator,
-                               self.const.auth_create_user) or
-                    self._has_operation_perm_somewhere(operator,
-                               self.const.auth_view_history))
+            return self._has_operation_perm_somewhere(operator,
+                    self.const.auth_view_history)
         if entity.entity_type == self.const.entity_account:
             if self._no_account_home(operator, entity):
                 return True
-            try:
-                return self.is_account_owner(operator,
-                                             self.const.auth_create_user,
-                                             entity)
-            except:
-                pass
             return self.is_account_owner(operator, self.const.auth_view_history,
                                          entity)
+        elif entity.entity_type == self.const.entity_group:
+            return self.is_group_owner(operator, self.const.auth_view_history,
+                                       entity)
         raise PermissionDenied("no access for that entity_type")
 
     def can_cancel_request(self, operator, req_id, query_run_any=False):
