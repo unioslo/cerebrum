@@ -1389,7 +1389,7 @@ class BofhdExtension(object):
             pass
         else:
             raise CerebrumError, ("%s-archive@%s already exists" % (lp, dom))
-        archive_user = 'caesar'
+        archive_user = 'www'
         archive_prog = '/site/mailpipe/bin/new-archive-monthly'
         arch = lp.lower() + "-archive"
         dc = dom.lower().split('.'); dc.reverse()
@@ -1403,8 +1403,8 @@ class BofhdExtension(object):
         ea.populate(arch, ed.email_domain_id, et.email_target_id)
         ea.write_db()
         # TODO: add bofh request to run mkdir on www
-        return ("OK, now run ssh www 'mkdir -p %s; chown www %s; chmod o= %s'" %
-                (archive_dir, archive_dir, archive_dir))
+        return ("OK, now run ssh caesar 'mkdir -p %s; chown %s %s; chmod o= %s'"
+                % (archive_dir, archive_user, archive_dir, archive_dir))
 
     # email primary_address <address>
     all_commands['email_primary_address'] = Command(
