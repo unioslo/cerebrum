@@ -347,7 +347,6 @@ class DataOU(DataEntity):
     def __init__(self):
         super(DataOU, self).__init__()
         self.parent = None
-        self._addresses = dict()
         # Whether this OU can be published in electronic catalogues
         self.publishable = False
         self.start_date = None
@@ -444,7 +443,7 @@ class HRDataPerson(DataPerson):
                   "\tbirth: %s\n"
                   "\taddress: %s\n"
                   "\temployment: %s" % (spr, self.gender,
-                                        self.birth_date, self.address,
+                                        self.birth_date,
                                         [str(x) for x in
                                          list(self.iteraddress())],
                                         [str(x) for x in
