@@ -142,7 +142,7 @@ class EdirUtils:
            is used only when the account has been found to be a student
            account and update is needed (term fee is paid).
            Change_log - lars vil ha updates inn der."""
-        
+        tmp = 0
         attrs = {}
         ldap_object = self._find_object(account_name,
                                         self.c_person,
