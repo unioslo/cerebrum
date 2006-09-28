@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+
 
 # Copyright 2004, 2005 University of Oslo, Norway
 #
@@ -50,10 +50,9 @@ class SpineImpl(SpineCore__POA.Spine):
 
     def __init__(self):
         self.sessions = {}
-        self.db = Database.SpineDatabase()
 
     def get_database(self):
-        return self.db
+        return Database.SpineDatabase()
 
     def get_idl(self):
         return Session.idl_source
