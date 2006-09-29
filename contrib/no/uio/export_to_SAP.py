@@ -28,6 +28,8 @@ from Cerebrum.extlib import xmlprinter
 # We can process these export IDs only
 selectors = { "uname"    : { "xmlname"  : "userid",
                              "function" : lambda fnr, person, const: person2uname(fnr) },
+              "phone"    : { "xmlname"  : "direktetelefon",
+                             "function" : lambda fnr, person, const: person2phone(person, const) },
               "mail"     : { "xmlname"  : "e-mail",
                              "function" : lambda fnr, person, const: person2email(fnr) },
               "fullname" : { "xmlname"  : "persnavn",
@@ -123,6 +125,19 @@ def person2fullname(person, const):
     return person.get_name(const.system_cached, const.name_full)
 
 
+def person2phone(person, const):
+    """Find the primary phone number for the given person.
+
+    Return None if no phone number is found.
+    """
+
+    phonerows = person.get_contact_info(type=const.contact_phone)
+    if len(phonerows) > 0:
+        return phonerows[0]["contact_value"]
+
+    return None
+
+
 def person2URL(person, const):
     """Find the primary URL for the given person.
 
@@ -209,7 +224,7 @@ def output_person(writer, fnr, data):
     data is a dictionary mapping id kind to id value.
     """
 
-    key_order = ["fullname", "mail", "URL"]
+    key_order = ["fullname", "phone", "mail", "URL"]
     writer.startElement("perskomm")
     writer.dataElement("persnr", fnr)
     
