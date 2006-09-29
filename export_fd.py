@@ -394,6 +394,7 @@ def usage(exitcode=0):
     -u | --user_file : filename to write userinfo to
     -g | --group_file: filename to write groupinfo to
     -l | --logger_name: logger target
+    -w | --what:  one or more of these: admin,adminuser,group and admingroup
     --disk_spread spread (not used)
     """
     sys.exit(exitcode)
