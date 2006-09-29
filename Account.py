@@ -85,7 +85,9 @@ class AccountUiTMixin(Account.Account):
 
         #print "UIT version of suggest_uames returns '%s'" % username
         return username
-        
+
+
+    
     
     def get_homedir_id(self,spread):
         # sjekk om denne konto id har en konto for denne spread,
@@ -231,15 +233,20 @@ class AccountUiTMixin(Account.Account):
 
     def get_uit_uname(self,fnr,name,Regime=None):
         ssn = fnr
+        step=1
         if Regime == None:
             cstart=22
-            query = "select user_name from legacy_users where ssn='%s' and source <>'AD'" % (ssn)
+            query = "select user_name from legacy_users where ssn='%s' and source <>'AD' and type='P'" % (ssn)
         elif Regime == "ONE":
             cstart=0
-            query = "select user_name from legacy_users where ssn='%s'" % (ssn)
+            query = "select user_name from legacy_users where ssn='%s' and type='P'" % (ssn)
+        elif Regime == "ADMIN":
+            cstart=999
+            step = -1
+            query = "select user_name from legacy_users where ssn='%s' and type='SYS'" % (ssn)
         else:
             cstart=0
-            query = "select user_name from legacy_users where ssn='%s' and source ='AD'" % (ssn)
+            query = "select user_name from legacy_users where ssn='%s' and source ='AD' and type='P'" % (ssn)
         #print "%s" % query
         db = self._db
         db_row = db.query(query)
@@ -260,23 +267,13 @@ class AccountUiTMixin(Account.Account):
             # was unable to find any existing accounts in cerebrum for this person with the
             # username from the legacy table.
             # lets return the first user_name in legacy_users for this person, that no one alrady has.
-            for row in db_row:
-                username = row['user_name']
+            for row3 in db_row:
+                username = row3['user_name']
                 query = "select entity_id from entity_name where entity_name='%s'" % (username)
                 db_row2 = db.query(query)
                 if((len(db_row2) ==0) and (not username.isalpha())):
                     #print "registered username %s for %s is free. returning this" % (ssn,username)
                     return username
-
-        # The person has no account, or the user name registered in the legacy_table is
-        # already taken by another user.
-        # if we get here and regieme == AD, it means we cannot find a account in legacy
-        # which can be used!  This is an consistenscy error!
-        #if (Regime=='AD'):
-        #    if(len(db_row)==0):
-        #        raise ValueError, "AD user has no registered username in legacy user."
-        #    else:
-        #        raise ValueError, "AD Username: %s,fnr: %s, in legacy table is taken by another person." % (username,ssn)
 
         # getting here means either that:
         # 1. the person does not have a previous account
@@ -284,24 +281,20 @@ class AccountUiTMixin(Account.Account):
         inits = self.get_uit_inits(name)
         if inits == 0:
             return inits
-        new_username = self.get_serial(inits,cstart)
+        new_username = self.get_serial(inits,cstart,step=step)
         #print "no legacy usernames for %s were free. created new %s" % (ssn,new_username)
         return new_username
 
 
 
-    def get_serial(self,inits,cstart):
+    def get_serial(self,inits,cstart,step=1):
 
-        foo = ""
         found = False
         db = self._db
         ac = Factory.get('Account')(db)
-
-        while ((not found) and (cstart < 990)):
+        while ((not found) and (cstart <= 999) and (cstart >=0)):
             # xxx999 is reserved for admin use
             uname = "%s%03d" % (inits, cstart)
-            #print "uname = %s" % uname
-            #ac = Account(db)
             ac.clear()
             query = "select * from entity_name where entity_name='%s'" % uname
             db_row = db.query(query)
@@ -309,15 +302,16 @@ class AccountUiTMixin(Account.Account):
             db_row2 = db.query(query2)
 
             if((len(db_row) != 0) or (len(db_row2) != 0)):
-                cstart += 1
-                #try:
+                cstart += step
             else:
                 found = True
-                #ac.find_by_name(uname)
-                #found = True
-                #except Errors.NotFoundError:
-                #print "new username will be: %s" % uname
-        return uname
+
+        if (not found):
+            #did not find free serial...
+            print "CRITICAL: Unable to find serial: inits=%s,cstart=%d,step=%d" % (inits,cstart,step)
+            sys.exit(1)
+                
+        return uname 
 
     def get_uit_inits(self,dname):
        #Gets the first 3 letters based upon the name of the user.
@@ -354,6 +348,33 @@ class AccountUiTMixin(Account.Account):
         # plaintext password. To be used in self.write_db() when/if we implement password history
         self.__plaintext_password = plaintext
         self.__super.set_password(plaintext)
+
+
+
+    # def notify_account_expire(self):
+
+#         today = datetime.datetime.now()
+#         expires=self.expire_date
+#         exp = datetime.datetime(expires.year,expires.month,expires.day)
+#         notify_date = exp - datetime.timedelta(days=7) 
+#         notify_when = notify_date.date()
+
+#         if ((not self.is_expired) and (notify_when >= today)):
+#             template = account_expire.tmpl
+#             recipient = account.get_primary_email()
+#             if (not recipient):
+#                 recipient = 'bas-admins@cc.uit.no'
+            
+#             subst = {}
+#             subst['USERNAME'] = self.account_name
+#             subst['EXPIRE_DATE'] = self.expire_date
+#             subst['SUBJECT'] = 'Warning: Account %s will be closed soon' % (self.account_name)
+#             debug = True
+#             msg = Utils.mail_template(recipient,template,sender,substitute=substitution,debug=debug)
+#             if debug:
+#                 print msg
+                
+            
 
 
 
