@@ -61,6 +61,7 @@ from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import Email
 
 #from Cerebrum.modules import ADAccount
@@ -69,14 +70,20 @@ from Cerebrum.modules.no.uit import Email
 
 
 max_nmbr_users = 20000
+logger_name = cereconf.DEFAULT_LOGGER_TARGET
+
+default_user_file = cereconf.AD_DEFAULT_USER_FILE
+default_group_file = cereconf.AD_DEFAULT_GROUP_FILE
+
 
 
 
 class ad_export:
 
-    def __init__(self, outfile):
-        self.outfile = outfile
-        self.userlist = None
+    def __init__(self, userfile,groupfile):
+        self.userfile = userfile
+        self.groupfile = groupfile        
+        self.userlist = {}
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         #ad_object = ADObject.ADObject(self.db)
@@ -87,9 +94,21 @@ class ad_export:
         self.account = Factory.get('Account')(self.db)
         self.person = Factory.get('Person')(self.db)
         self.posixuser = pu = PosixUser.PosixUser(self.db)
-        self.logger = Factory.get_logger("console")
+        self.logger = Factory.get_logger(logger_name)
 
+        self.dont_touch_filter = ['users']
 
+        self.logger.info("Start caching of names")
+        self.name_cache = self.person.getdict_persons_names( name_types=(self.co.name_first,self.co.name_last,self.co.name_work_title))
+        self.logger.info("Start caching of names done")
+
+    def get_group(self,id):
+        gr = PosixGroup.PosixGroup(self.db)
+        if isinstance(id, int):
+            gr.find(id)
+        else:
+            gr.find_by_name(id)
+        return gr
 
     def calculate_homepath(self,username):
         server = cereconf.AD_FILESERVER
@@ -107,22 +126,35 @@ class ad_export:
         profile_share = "ts_profiles"
         path = "\\\\%s\\%s\\%s\\%s\\%s" % (server,profile_share,username[:1],username[:2],username)
         return path
-    
 
-
+ 
 
     def build_export(self,type):
 
+        self.logger.info("Dispatch retreivers for %s info..." % (type))
+        count = 0
+        if type in ['user','adminuser']:
+            self.build_user_export(type)
+        elif type in ['group','admingroup']:
+            self.build_group_export(type)
+        else:
+            self.logger.critical("invalid buildtype to build_export: %s" % (type))
+            sys.exit(1)
+
+
+    def build_user_export(self,type):
+
         #retreive info from cerebrum
 
-        self.logger.info("Retreiving info...")
+        self.logger.info("Retreiving %s info..." % (type))
         count = 0
-        for uname in self.userlist:
+        for uname in self.userlist[type]:
             count +=1
             if (count%500 == 0):
                 self.logger.info("Processed %d accounts" % count)
-            entry = self.userlist[uname]
+            entry = self.userlist[type][uname]
             acc_id = entry['entity_id']
+            ad_ou = entry['ou']
             try:
                 self.posixuser.clear()
                 self.posixuser.find(acc_id)
@@ -130,15 +162,15 @@ class ad_export:
                 logger.error("User %s not a posixuser, skipping from Active Dir export" % (uname))
                 continue
 
-            self.person.clear()
-            self.person.find(self.posixuser.owner_id)
+            #self.person.clear()
+            #self.person.find(self.posixuser.owner_id)
 
             expire_date = self.posixuser.expire_date.Format('%Y-%m-%d')
             try:
                 email = self.posixuser.get_primary_mailaddress()
             except Errors.NotFoundError,m:
                 self.logger.error("Failed to get primary email for %s" % (self.posixuser.account_name))
-                mail = ""
+                email = ""
             posix_uid = self.posixuser.posix_uid
             posix_gid = self.posixuser.gid_id
             homedrive = cereconf.AD_HOME_DRIVE
@@ -146,13 +178,25 @@ class ad_export:
             profilepath = self.calculate_profilepath(uname)
             tsprofilepath = self.calculate_tsprofilepath(uname)
 
-            first_name = self.person.get_name(self.co.system_cached,self.co.name_first)
-            last_name = self.person.get_name(self.co.system_cached,self.co.name_last)
 
-            try:
-                worktitle = self.person.get_name(self.co.system_lt,self.co.name_work_title)
-            except Errors.NotFoundError:
-                worktitle = ''
+            #first_name = self.person.get_name(self.co.system_cached,self.co.name_first)
+            #last_name = self.person.get_name(self.co.system_cached,self.co.name_last)
+
+            #try:
+            #    worktitle = self.person.get_name(self.co.system_lt,self.co.name_work_title)
+            #except Errors.NotFoundError:
+            #    worktitle = ''
+
+            namelist = self.name_cache.get(self.posixuser.owner_id)
+            #print "Namecache for account=%s, owner=%s :%s" % (self.posixuser.account_name,self.posixuser.owner_id,namelist)
+            first_name = namelist.get(int(self.co.name_first))
+            last_name = namelist.get(int(self.co.name_last))
+            worktitle = namelist.get(int(self.co.name_work_title))
+            if not worktitle:
+                worktitle=""
+            #print "WorkTitle: %s, %d" % (self.co.name_work_title,int(self.co.name_work_title))
+            #print "names for for account=%s, owner=%s:: first=%s, last=%s, title=%s" % (self.posixuser.account_name,self.posixuser.owner_id,
+            #                                                                             first_name,last_name,worktitle)
 
             # Check quarantines, and set to True if exists
             qu = self.posixuser.get_entity_quarantine()
@@ -180,113 +224,216 @@ class ad_export:
             entry['cant_change_password'] = cereconf.AD_CANT_CHANGE_PW
             entry['posixuid'] = posix_uid
             entry['posixgid'] = posix_gid
+            entry['ou'] = ad_ou
+
+
+
+    def build_group_export(self,type):
+
+        self.logger.info("Retreiving %s info..." % (type))
+        count = 0
+        dellist = []
+        for gname in self.userlist[type]:
+            if gname in self.dont_touch_filter:
+                self.logger.error("Reserved AD group name '%s', skip" % (gname))
+                dellist.append((type,gname))
+                continue
+            entry = self.userlist[type][gname]
+            gid = entry['entity_id']
+            try:
+                gr = self.get_group(entry['entity_id'])
+            except AttributeError:                
+                self.logger.error("Group %s is not a posix group!")
+                dellist.append((type,gname))
+                continue
+            except Errors.NotFoundError:
+                dellist.append((type,gname))
+                self.logger.error("Group %s (id=%s) not found, not a posixgroup?" % (gname,gid))
+                continue
+            count +=1
+            if (count%500 == 0):
+                self.logger.info("Processed %d %s" % (count,type))
+            ou = entry['ou']
+            self.logger.info("Get %s info: %s -> %s:: %s" % (type,gid,ou,gr.group_name))
+            member_tuple_list = gr.get_members(get_entity_name=True)
+            members=[]
+            for item in member_tuple_list:
+                members.append(item[1])
+            memberstr = ','.join(members)
+            entry['description']= gr.description
+            entry['members']=memberstr
+            entry['posixgid']=str(gr.posix_gid)
+
+        for delitem in dellist:
+            type,gname = delitem
+            del(self.userlist[type][gname])
+            
 
 
 
     def write_export(self):
 
         try:
-            fh = open(self.outfile,'w+')
+            user_fh = open(self.userfile,'w+')
         except IOError,m:
-            print "Cannot create %s" % (self.outfile)
+            print "Cannot create userfile %s" % (self.userfile)
             sys.exit(1)
-            
-        line = None
-        keys = self.userlist.keys()
-        keys.sort()
-        for uname in keys:
-            entry = self.userlist[uname]
-            
-            values = [ uname,
-                       entry['name_first'],
-                       entry['name_last'],
-                       entry['title'],
-                       entry['dept'],
-                       entry['email'],
-                       entry['expire'],
-                       entry['homepath'],                       
-                       entry['homedrive'],                       
-                       entry['profilepath'],
-                       entry['tsprofilepath'],
-                       str(entry['acc_disabled']),
-                       str(entry['cant_change_password']),
-                       str(entry['posixuid']),
-                       str(entry['posixgid']),
-                       ]
-            #print "values=%s" % values
-            line = ";".join(values)
-            #print "line=%s" % line
-            fh.write("%s%s" % (line,'\n'))
 
-        fh.close()
-        
+        try:
+            group_fh = open(self.groupfile,'w+')
+        except IOError,m:
+            print "Cannot create groupfile %s" % (self.groupfile)
+            sys.exit(1)
+
+        topkeys = self.userlist.keys()
+        for type in topkeys:
+            if type in ['user','adminuser']:
+                fileobj = user_fh
+            elif type in ['group','admingroup']:
+                fileobj = group_fh
+            myUserlist = self.userlist[type]
+            line = None
+            keys = myUserlist.keys()
+            keys.sort()            
+            for name in keys:
+                entry = myUserlist[name]
+                if type in ['user','adminuser']:
+                    values = [ name,
+                               entry['name_first'],
+                               entry['name_last'],
+                               entry['title'],
+                               entry['dept'],
+                               entry['email'],
+                               entry['expire'],
+                               entry['homepath'],                       
+                               entry['homedrive'],                       
+                               entry['profilepath'],
+                               entry['tsprofilepath'],
+                               str(entry['acc_disabled']),
+                               str(entry['cant_change_password']),
+                               str(entry['posixuid']),
+                               str(entry['posixgid']),
+                               str(entry['ou']),
+                               ]
+                elif type in ['group','admingroup']:
+                    values = [name,
+                              entry['description'],
+                              entry['members'],
+                              entry['posixgid'],
+                              entry['ou']
+                              ]
+                    
+                #print "DEBUG: type=%s, values=%s" % (type,values)
+                line = ";".join(values)
+                #print "line=%s" % line
+                fileobj.write("%s%s" % (line,'\r\n')) # want a dos crlf !
+
+        user_fh.close()
+        group_fh.close()
         
     def get_objects(self,entity_type):
         #Get all objects with spread ad, in a hash identified 
         #by name with the cerebrum id and ou.
         global max_nmbr_users
         grp_postfix = ''
+        self.logger.info("Start retrival of %s objects from Cerebrum" % (entity_type))
         if entity_type == 'user':
             namespace = int(self.co.account_namespace)
-            spread = int(self.co.spread_uit_fd)
-        else:
+            spreadlist = [int(self.co.spread_uit_fd)]
+            cbou = cereconf.AD_USEROU
+        elif entity_type=='adminuser':
+            namespace = int(self.co.account_namespace)
+            spreadlist = [int(self.co.spread_uit_ad_lit_admin)]
+            cbou = cereconf.AD_ADMINOU
+        elif entity_type=='group':
             namespace = int(self.co.group_namespace)
-            spread = int(self.co.spread_uit_fd)
+            spreadlist = [int(self.co.spread_uit_ad_group)]
+            cbou = cereconf.AD_GROUPOU
+        elif entity_type=='admingroup':
+            namespace = int(self.co.group_namespace)
+            spreadlist = [int(self.co.spread_uit_ad_lit_admingroup)]
+            cbou = cereconf.AD_ADMINOU
+        else:
+            self.logger.error("Invalid type to get_objects(): %s" % (entity_type))
+            sys.exit(1)
+            
         ulist = {}
-        count = 0    
-    
-        for row in self.ent_name.list_all_with_spread(spread):
-            count = count+1
-            if count > max_nmbr_users: break
-            self.ent_name.clear()
-            self.ent_name.find(row['entity_id'])
-            name = self.ent_name.get_name(namespace)
-            if entity_type == 'user':
-                cbou = '%s' % cereconf.AD_LDAP
-                #self.logger.debug("Retreived id %d from spread list" % (row['entity_id']))
-                ulist[name]={'entity_id': int(row['entity_id']), 'ou': cbou}   
-            else:
-                cbou = 'CN=Users,%s' % cereconf.AD_LDAP            
-                ulist['%s%s' % (name,cereconf.AD_GROUP_POSTFIX)]=(int(row['entity_id']), cbou)
+        count = 0
+
+        for spread in spreadlist:
+            for row in self.ent_name.list_all_with_spread(spread):
+                count = count+1
+                if count > max_nmbr_users: break
+                self.ent_name.clear()
+                self.ent_name.find(row['entity_id'])
+                name = self.ent_name.get_name(namespace)
+                if entity_type == 'user':
+                    #self.logger.debug("Retreived id %d from spread list" % (row['entity_id']))
+                    ulist[name]={'entity_id': int(row['entity_id']), 'ou': cbou}   
+                elif entity_type == 'adminuser':
+                    #self.logger.debug("Retreived id %d from spread list" % (row['entity_id']))
+                    ulist[name]={'entity_id': int(row['entity_id']), 'ou': cbou}   
+                elif entity_type=='group':
+                    ulist['%s%s' % (name,cereconf.AD_GROUP_POSTFIX)]={ 'entity_id': int(row['entity_id']), 'ou': cbou}
+                elif entity_type=='admingroup':
+                    if name.startswith('role:'):
+                        name=name[5:]
+                    ulist['%s%s' % (name,cereconf.AD_GROUP_POSTFIX)]={ 'entity_id': int(row['entity_id']), 'ou': cbou}
+                else:
+                    self.logger.critical("Unknown type in get_objects(): %s" % (entity_type))
+                    sys.exit(1)
         self.logger.info("Found %s %s objects in Cerebrum" % (count,entity_type))
-        self.userlist = ulist
+        self.userlist[entity_type] = ulist
         return
 
 
 
 def usage(exitcode=0):
     print """Usage: [options]
-    -o output file
-    --disk_spread spread (mandatory)
+    -h | --help show this message
+    -u | --user_file : filename to write userinfo to
+    -g | --group_file: filename to write groupinfo to
+    -l | --logger_name: logger target
+    --disk_spread spread (not used)
     """
     sys.exit(exitcode)
 
 
 
-if __name__ == '__main__':
+def main():
+    global logger_name
+    global default_user_file
+    global default_group_file
+
+    what = 'user,adminuser,group,admingroup'    
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o:',
-                                   ['disk_spread='])
+        opts, args = getopt.getopt(sys.argv[1:], 'u:g:l:w:h',
+                                   ['disk_spread=','user_file=', 'group_file=' 'logger_name=','what=','help'])
     except getopt.GetoptError:
         usage(1)
     disk_spread = None
     outfile = None
     for opt, val in opts:
-        if opt == '-o':
-            outfile = val
-        elif opt == '--disk_spread':            
-            # not used at UiT
-            pass
-            #disk_spread = getattr(co, val)  # TODO: Need support in Util.py
+        if opt in ['-u', '--user_file']:
+            default_user_file = val
+        elif opt in ['-g', '--group_file']:
+            default_group_file = val
+        elif opt in ['-h', '--help']:
+            usage(0)
+        elif opt in ['-w', '--what']:
+            what=val
+        elif opt in [ '-l', '--logger_name']:
+            logger_name = val
             
-    #    if not disk_spread:
-    #       usage(1)
 
-    if (not outfile):
-        usage(1)
+    what = what.split(',')
+    worker = ad_export(default_user_file,default_group_file)
+    for item in what:
+        worker.get_objects(item)
+        worker.build_export(item)
 
-    worker = ad_export(outfile)
-    worker.get_objects('user')
-    worker.build_export('user')
     worker.write_export()
 
+
+if __name__ == '__main__':
+    main()
