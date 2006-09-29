@@ -40,9 +40,12 @@ account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
+delete_users = 0
+delete_groups = 0
+
 def quick_user_sync():
 
-    answer=cl.get_events('fd',(clco.account_password,clco.quarantine_mod))
+    answer=cl.get_events('%s' % (cereconf.AD_NETBIOS_DOMAIN),(clco.account_password,clco.quarantine_mod))
 
     for ans in answer:
         chg_type = ans['change_type_id']
@@ -52,11 +55,11 @@ def quick_user_sync():
             change_params = pickle.loads(ans['change_params'])
             if change_pw(ans['subject_entity'],change_params):
                 changed = True
-                pass
         else:
             logger.info("unknown chg_type %i" % chg_type)
         # do a check on change_pw success??
-        cl.confirm_event(ans)
+        if changed:
+            cl.confirm_event(ans)
         
     cl.commit_confirmations()    
 
@@ -68,7 +71,9 @@ def change_pw(account_id,pw_params):
     except Errors.NotFoundError:
         logger.debug("Account_ID %s not found! Account deleted?" % account_id)
         return True
-    if account.has_spread(int(co.spread_uit_fd)):
+    if (account.has_spread(int(co.spread_uit_fd)) or
+        account.has_spread(int(co.spread_uit_ad_admin)) or
+        account.has_spread(int(co.spread_uit_ad_lit_admin))):
         pw=pw_params['password']
         pw=pw.replace('%','%25')
         pw=pw.replace('&','%26')
@@ -76,6 +81,7 @@ def change_pw(account_id,pw_params):
         sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
         returnans = sock.read()
         if  returnans == ['210 OK']:
+            logger.info("Changed passord for %s in %s" % (account.account_name,cereconf.AD_DOMAIN))
 	    return True
         else:
             logger.error("Failed change password for %s:%s" % (user, returnans))
@@ -101,12 +107,23 @@ def id_to_name(id,entity_type):
     return obj_name
     
         
+def get_args():
+    global delete_users
+    global delete_groups
+    for arg in sys.argv:
+        if arg == '--delete_users':
+            delete_users = 1
+        elif arg == '--delete_groups':
+            delete_groups = 1
+
+
 if __name__ == '__main__':
     try:
         sock = adutils.SocketCom()
     except Exception,m:
         logger.error("Failed to connect AD server: %s" % m)
-        sys.exit(1)        
+        sys.exit(1)
+    arg = get_args()    
     quick_user_sync()
     sock.close()
     
