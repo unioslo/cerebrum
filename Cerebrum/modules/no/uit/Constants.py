@@ -260,17 +260,24 @@ class Constants(Constants.Constants):
                                          'Person included in LDAP directory')             # uit
     #spread_uit_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,           # uit
     #                                 'OU included in LDAP directory')                    # uit
-    spread_uit_ad_account = _SpreadCode('AD_account', Constants.Constants.entity_account,'account included in Active Directory')
-    spread_uit_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group,'group included in Active Directory') # uit
+    spread_uit_ad_account = _SpreadCode('AD_account',
+                                        Constants.Constants.entity_account,'account included in Active Directory')
+    spread_uit_ad_group = _SpreadCode('AD_group',
+                                      Constants.Constants.entity_group,'group included in Active Directory') # uit
 
-    #spread_uit_ua = _SpreadCode('UA@uit', Constants.Constants.entity_person,                                             # uit
-    #                            'Person exported to UA')                                                                 # uit
-    spread_uit_imap = _SpreadCode('IMAP@uit', Constants.Constants.entity_account,         # uit
-                                  'IMAP account')                                         # uit
+    spread_uit_ad_lit_admin = _SpreadCode('AD_litadmin',
+                                          Constants.Constants.entity_account,'AD admin local IT') # uit
+    spread_uit_ad_admin = _SpreadCode('AD_admin',
+                                      Constants.Constants.entity_account,'AD admin central IT') # uit
+    
+    spread_uit_ad_lit_admingroup = _SpreadCode('AD_group_litadmn',
+                                               Constants.Constants.entity_group,'AD admingroup for local IT') # uit
 
                                   
     # Email constants: A uit value earlier stored in Cerebrum/modules/Email.py
     # moved here to prevent loosing a constant when checking out a newer Email.py from cvs
+    spread_uit_imap = _SpreadCode('IMAP@uit', Constants.Constants.entity_account,         # uit
+                                  'IMAP account')                                         # uit        
     email_server_type_exchange_imap= _EmailServerTypeCode(
             'exchange_imap',
             "Server is an Exchange server, which keeps mailboxes in a Microsoft spesific format")
@@ -298,6 +305,7 @@ class Constants(Constants.Constants):
                                             'Sommerskolen er ferdig for i år')
     quarantine_auto_emailonly = _QuarantineCode('auto_emailonly','Ikke ordinær student, tilgang')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 'Ikke aktiv student, utestengt')
+    quarantine_sut_disk_usage = _QuarantineCode('sut_disk',"Bruker for mye disk på sut")
     auth_type_md4_nt =  _AuthenticationCode('MD4-NT',
                                             "MD4-derived password hash with Microsoft-added security.")
     auth_type_md5_crypt_hex = _AuthenticationCode('MD5-crypt2',
