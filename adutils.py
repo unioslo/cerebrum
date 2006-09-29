@@ -57,13 +57,14 @@ class SocketCom(object):
     def connect(self):    
         try:
             self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            logger.debug("Trying to connect to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
-            logger.debug("Connected")
+            logger.debug("Connected to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             logger.debug(">> %s" % self.sockobj.recv(8192).strip())
             logger.debug("<< Authenticating")
             self.sockobj.send(cereconf.AD_PASSWORD)
             self.read()
-            logger.debug("Connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))    
+            logger.debug("Reading from %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))    
         except Exception,m:
             logger.fatal("Failed connecting to:%s %s: Reason:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT, m))
             raise 
@@ -226,33 +227,6 @@ def id_to_ou_path(ou_id,ourootname):
 
     crbrm_ou = crbrm_ou.replace(ourootname,cereconf.AD_LDAP)
     return crbrm_ou
-
-def find_home_dir(account_id, account_name, disk_spread):
-
-    return '\\\\fdtop.fd.uit.no\\share\\homes\\%s' % (account_name)
-
-#     try:
-#         account.clear()
-#         account.find(account_id)
-#         disk.clear()
-#         disk_id=account.get_home(disk_spread)
-#         disk.find(disk_id['disk_id'])
-#         try:
-#             moho.clear()        
-#             moho.find(disk.host_id)     
-#             home_srv = moho.mount_name                  
-#         except Errors.NotFoundError:
-#             host.clear()
-#             host.find(disk.host_id)
-#             home_srv = host.name
-#         return "\\\\%s\\%s" % (home_srv,account_name)
-#     except Errors.NotFoundError:
-#         logger.debug("Failure finding the disk of account: %s" % account_id)
-        
-
-def find_profile_path(account_id,account_name,disk_spread):
-    return '\\\\fdtop.fd.uit.no\\share\\profiles\\%s' % (account_name)
-
 
 def find_login_script(account):
     #This value is a specific UIT standard.
