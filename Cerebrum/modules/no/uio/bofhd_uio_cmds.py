@@ -6919,6 +6919,9 @@ class BofhdExtension(object):
         # _ChangeTypeCode.__doc__
         if row['change_params']:
             params = pickle.loads(row['change_params'])
+            # Want more info if new expire date is set
+            if params.has_key('expire_date'):
+                msg += ', new expire_date set: %s' % params['expire_date'].date
         else:
             params = {}
 
