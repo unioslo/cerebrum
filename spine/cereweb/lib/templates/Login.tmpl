@@ -17,6 +17,9 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 ## Login template
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
 
 #def login($username, $messages)
 <?xml version='1.0' ?>
@@ -34,18 +37,10 @@
         #end for
         <form method="POST">
           <div>
-            <label for="username">
-              Username:
-            </label>
-            <input type="text" name="username"
-                   id="username" value="$username" />
+            $form_widgets.input("username","Username","$username")
           </div>
           <div>
-            <label for="password">
-              Password:
-            </label>
-            <input type="password" name="password"
-                   id="password" />
+            $form_widgets.password('password', 'Password')
           </div>
           <input type="submit" value="Login" />
         </form>
