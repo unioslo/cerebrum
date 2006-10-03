@@ -64,6 +64,12 @@
     <input type="text" name="$name" id="$name" value="$_($value)" /><br />
 #end def
 
+## Create input and labels from given arguments while hiding the value (typically passwords)
+#def password($name, $label, $value="")
+    <label for="$name">$_($label):</label>
+    <input type="password" name="$name" id="$name" value="$_($value)" /><br />
+#end def
+
 ## Creates a drop-down list with true or false.
 #def boolWidget($name, $label, $default=True)
     #set types = (("True", "True"), ("False", "False"))
