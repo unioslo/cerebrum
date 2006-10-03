@@ -55,7 +55,11 @@ DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
 POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
 POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"
 
-# User by run_pribileged_command.py:
+DEBUG_HOSTLIST = None
+"""If set, a list of hostnames which are safe to run commands on
+during debugging."""
+
+# Used by run_privileged_command.py:
 CREATE_USER_SCRIPT= '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
 RMUSER_SCRIPT = '/cerebrum/sbin/aruser'

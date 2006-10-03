@@ -328,6 +328,63 @@ def read_password(user, system):
     finally:
         f.close()
 
+
+def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
+    """Run command and copy stdout to logger.debug and stderr to
+    logger.error.  cmd may be a sequence.  connect_to is a list of
+    servers which will be contacted.  If debug_hostlist is set and
+    does not contain these servers, the command will not be run and
+    success is always reported.
+
+    Return the exit code if the process exits normally, or the
+    negative signal value if the process was killed by a signal.
+
+    """
+    # select on pipes and Popen3 only works in Unix.
+    from select import select
+    from popen2 import Popen3
+    EXIT_SUCCESS = 0
+    if cereconf.DEBUG_HOSTLIST is not None:
+        for srv in connect_to:
+            if srv not in cereconf.DEBUG_HOSTLIST:
+                logger.debug("Won't connect to %s, won't spawn %r",
+                             srv, cmd)
+                return EXIT_SUCCESS
+
+    proc = Popen3(cmd, capturestderr=True, bufsize=10240)
+    pid = proc.pid
+    if log_exit_status:
+        logger.debug('Spawned %r, pid %d', cmd, pid)
+    proc.tochild.close()
+    logger = Factory.get_logger()
+    descriptor = {proc.fromchild: logger.debug,
+                  proc.childerr: logger.error}
+    while descriptor:
+        # select() is called for _every_ line, since we can't inspect
+        # the buffering in Python's file object.  This works OK since
+        # select() will return "readable" for an unread EOF, and
+        # Python won't read the EOF until the buffers are exhausted.
+        ready, x, x = select(descriptor.keys(), [], [])
+        for fd in ready:
+            line = fd.readline()
+            if line == '':
+                fd.close()
+                del descriptor[fd]
+            else:
+                descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
+    status = proc.wait()
+    if log_exit_status:
+        if status == EXIT_SUCCESS:
+            logger.debug("[%d] Completed successfully", pid)
+        else:
+            logger.error("[%d] Return value was %d from command %r",
+                         pid, status, cmd)
+    if status & 0xFF:
+        # The process was killed by a signal.
+        return -(status & 0xFF)
+    return status >> 8
+
+
 def pgp_encrypt(message, keyid):
     cmd = [cereconf.PGPPROG]
     cmd.extend(cereconf.PGP_ENC_OPTS)
