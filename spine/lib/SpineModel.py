@@ -72,10 +72,6 @@ import Cereweb
 
 # Auth
 import Auth
-import AuthTargetSuper
-import AuthTargetCommands
-import AuthTargetEntity
-import AuthTargetSpread
 
 # CerebrumHandler / Transaction
 import CerebrumHandler
