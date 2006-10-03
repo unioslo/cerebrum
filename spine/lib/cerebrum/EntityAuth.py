@@ -32,7 +32,7 @@ class EntityAuth(object): # Mixin for Entity
         ``operator`` is the entity doing the ``operation``
 
         operator  - Entity
-        operation_type - AuthOperation
+        operation_type - AuthOperationCode
 
         If one of the following returns true, he has permission to perform
         the given operation:
@@ -60,7 +60,7 @@ class EntityAuth(object): # Mixin for Entity
         # sjekker så om operation_type tilhører en av operation_set'ene vi finner
         for auth_role in searcher.search():
             print auth_role, operation_type, auth_role.get_operation_set()
-            searcher = registry.AuthOperationSearcher(self.get_database())
+            searcher = registry.AuthOperationCodeSearcher(self.get_database())
             searcher.set_operation_type(operation_type)
             searcher.set_operation_set(auth_role.get_operation_set())
             if searcher.search():
