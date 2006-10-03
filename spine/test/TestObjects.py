@@ -31,42 +31,46 @@ def debug(func):
     
 
 class TestEntity(object):
-    def __init__(self, session, id=None):
+    def __init__(self, _session, _id=None):
         self._keep = False
-        self.session = session
-        self.open = False
-        self.get_attr = "get_entity"
-        if id:
-            self.id = id
+        self._session = _session
+        self._open = False
+        self._get_attr = "get_entity"
+        if _id:
+            self._id = _id
         else:
-            self._create_obj()
+            self._id = self._create_obj()
 
     def __del__(self):
+        if not hasattr(self, '_session') or not hasattr(self, '_id'):
+            return # Object not initialized properly.
         if not self._keep:
             obj = self._get_obj()
             obj.delete()
             self._commit()
         
     def _get_tr(self):
-        if not self.open:
-            self.tr = self.session.new_transaction()
-            self.open = True
+        if not self._open:
+            self.tr = self._session.new_transaction()
+            self._open = True
         return self.tr
 
-    def _get_obj(self):
-        tr = self._get_tr()
-        attr = getattr(tr, self.get_attr)
-        return attr(self.id)
+    def _get_obj(self, tr=None):
+        tr = tr or self._get_tr()
+        attr = getattr(tr, self._get_attr)
+        return attr(self._id)
 
     def _commit(self, tr=None):
         if tr:
             assert tr is self.tr
-        if self.open:
-            self.open = False
+        if self._open:
+            self._open = False
             self.tr.commit()
 
     def __getattr__(self, attr):
         """ Decorate the method calls so we can make sure all changes are commited. """
+        if attr.startswith("_"):
+            super(TestEntity, self).__getattribute__(attr)
         obj = self._get_obj()
         f = getattr(obj, attr)
         def w(*args, **kwargs):
@@ -75,14 +79,13 @@ class TestEntity(object):
             return r
         return w
 
-class DummyPerson(TestEntity):
-    def __init__(self, session, id=None):
-        super(DummyPerson, self).__init__(session, id)
-        self.get_attr = "get_person"
+    def keep(self):
+        self._keep = True
 
-    def __del__(self):
-        if not self._keep:
-            super(DummyPerson, self).__del__()
+class DummyPerson(TestEntity):
+    def __init__(self, _session, _id=None):
+        super(DummyPerson, self).__init__(_session, _id)
+        self._get_attr = "get_person"
 
     def _create_obj(self):
         tr = self._get_tr()
@@ -93,23 +96,27 @@ class DummyPerson(TestEntity):
         fn = "unit_%s" % id(self)
         ln = "test_%s" % id(self)
         person = cmds.create_person(date, gender, fn, ln, source)
-        self.id = person.get_id()
+        _id = person.get_id()
         self._commit()
+        return _id
 
 class DummyGroup(TestEntity):
-    def __init__(self, session, id=None):
-        super(DummyGroup, self).__init__(session, id)
-        self.get_attr = "get_group"
+    def __init__(self, _session, _id=None):
+        super(DummyGroup, self).__init__(_session, _id)
+        self._get_attr = "get_group"
 
     def _create_obj(self):
         tr = self._get_tr()
-        name = 'unittest_gr%s' % id(self)
+        name = 'tgr%s' % str(id(self))[1:6]
         group = tr.get_commands().create_group(name)
-        self.id = group.get_id()
+        _id = group.get_id()
         self._commit()
+        return _id
 
     def __del__(self):
-        if not self._keep:
+        if not hasattr(self, '_session'):
+            return
+        if not self._keep and self._id:
             group = self._get_obj()
             for gm in group.get_group_members():
                 member = gm.get_member()
@@ -129,13 +136,15 @@ class DummyGroup(TestEntity):
         self._commit()
 
 class DummyAccount(TestEntity):
-    def __init__(self, session, owner, id=None):
+    def __init__(self, _session, owner, _id=None):
         self.owner = owner
-        super(DummyAccount, self).__init__(session)
-        self.get_attr = "get_account"
+        super(DummyAccount, self).__init__(_session)
+        self._get_attr = "get_account"
 
     def __del__(self):
-        if not self._keep:
+        if not hasattr(self, '_session'):
+            return
+        if not self._keep and self._id:
             obj = self._get_obj()
             if obj.is_posix():
                 obj.demote_posix()
@@ -143,7 +152,7 @@ class DummyAccount(TestEntity):
             groups = self._get_obj().get_groups()
             for group in groups:
                 for i in group.get_group_members():
-                    if i.get_member().get_id() == self.id:
+                    if i.get_member().get_id() == self._id:
                         group.remove_member(i)
             self._commit()
             super(DummyAccount, self).__del__()
@@ -151,11 +160,12 @@ class DummyAccount(TestEntity):
     def _create_obj(self):
         tr = self._get_tr()
         c = tr.get_commands()
-        name = 'unittest_ac%s' % id(self)
+        name = 'tac%s' % str(id(self))[1:6]
         date = tr.get_commands().get_date_none()
         account = c.create_account(name, self.owner._get_obj(), date)
-        self.id = account.get_id()
+        _id = account.get_id()
         self._commit()
+        return _id
 
     def promote_posix(self, gid):
         tr = self._get_tr()
