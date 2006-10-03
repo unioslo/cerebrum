@@ -21,7 +21,7 @@
 category:metainfo;
 name=bofhd_auth;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:drop;
 DROP TABLE auth_role;
@@ -57,7 +57,8 @@ category:main;
 CREATE TABLE auth_operation_set (
   op_set_id        NUMERIC(12,0)
                      CONSTRAINT auth_operation_set_pk PRIMARY KEY,
-  name             CHAR VARYING(30)
+  name             CHAR VARYING(30),
+  description      CHAR VARYING(512)
 );
 
 /* Contains a set of operations within an auth_operation_set */
