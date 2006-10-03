@@ -126,7 +126,7 @@ def update_methods(transaction, id, **vargs):
 
     # Add new operations.
     for id in new:
-        op_set.add_operation(transaction.get_auth_operation(id))
+        op_set.add_operation(transaction.get_auth_operation_code(id))
 
     msg = _("Operation set '%s' updated successfully.") % op_set.get_name()
     commit_url(transaction, 'view?id=%i' % op_set.get_id(), msg=msg)
@@ -167,7 +167,7 @@ def _view_user(transaction, entity):
 def get_all_operations(transaction):
     """Return a javascript JSON array with all operations."""
     ops = {}
-    for op in transaction.get_auth_operation_searcher().search():
+    for op in transaction.get_auth_operation_code_searcher().search():
         cls = op.get_op_class()
         if cls not in ops.keys():
             ops[cls] = [(op.get_op_method(), op.get_id())]
