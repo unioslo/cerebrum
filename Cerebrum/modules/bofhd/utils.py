@@ -25,6 +25,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Errors
 import xmlrpclib
+from mx import DateTime
 
 class _BofhdRequestOpCode(Constants._CerebrumCode):
     "Mappings stored in the auth_role_op_code table"
@@ -316,7 +317,8 @@ class BofhdRequests(object):
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]), cols)
 
     def get_requests(self, request_id=None, operator_id=None, entity_id=None,
-                     operation=None, destination_id=None, given=False):
+                     operation=None, destination_id=None, given=False,
+                     only_runnable=False):
         cols = {}
         if request_id is not None:
             cols['request_id'] = request_id
@@ -328,14 +330,16 @@ class BofhdRequests(object):
             cols['operation'] = int(operation)
         if destination_id is not None:
             cols['destination_id'] = int(destination_id)
+        where = ["%s = :%s" % (x, x) for x in cols.keys()]
+        if only_runnable:
+            cols['now'] = DateTime.now()
+            where.append("run_at <= :now")
         qry = """
         SELECT request_id, requestee_id, run_at, operation, entity_id,
                destination_id, state_data
         FROM [:table schema=cerebrum name=bofhd_request]
         WHERE """
-        ret = self._db.query(qry + " AND ".join(
-            ["%s=:%s" % (x, x) for x in cols.keys()]),
-                             cols)
+        ret = self._db.query(qry + " AND ".join(where), cols)
         if given:
             group = Factory.get('Group')(self._db)
             tmp = []
