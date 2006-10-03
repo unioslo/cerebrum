@@ -37,7 +37,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum import Constants
-from Cerebrum.Utils import Factory, read_password
+from Cerebrum.Utils import Factory, read_password, spawn_and_log_output
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
@@ -53,8 +53,6 @@ logger = Factory.get_logger("cronjob")
 max_requests = 999999
 ou_perspective = None
 
-# Hosts to connect to, set to None in a production environment:
-debug_hostlist = None
 SUDO_CMD = "/usr/bin/sudo"
 ldapconns = None
 
@@ -155,10 +153,8 @@ def get_email_hardquota(user_id):
 
 def get_email_server(account_id):
     """Return Host object for account's mail server."""
-    et = Email.EmailTarget(db)
-    et.find_by_entity(account_id)
     est = Email.EmailServerTarget(db)
-    est.find(et.email_target_id)
+    est.find_by_entity(account_id)
     server = Email.EmailServer(db)
     server.find(est.email_server_id)
     return server
@@ -220,20 +216,13 @@ def connect_cyrus(host=None, username=None, as_admin=True):
         return "%s\0%s\0%s" % (username or cereconf.CYRUS_ADMIN,
                                cereconf.CYRUS_ADMIN, cyrus_pw)
 
-    if host is None:
-        assert username is not None
-        try:
-            acc = get_account(name=username)
-            host = get_email_server(acc.entity_id).name
-        except Errors.NotFoundError:
-            raise CyrusConnectError("connect_cyrus: unknown user " + username)
     if as_admin:
         username = cereconf.CYRUS_ADMIN
-    imapconn = imaplib.IMAP4_SSL(host=host)
+    imapconn = imaplib.IMAP4_SSL(host=host.name)
     try:
         imapconn.authenticate('PLAIN', auth_plain_cb)
     except imapconn.error, e:
-        raise CyrusConnectError("%s@%s: %s" % (username, host, e))
+        raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     return imapconn
 
 
@@ -288,7 +277,7 @@ def process_requests(types):
         for op, process, delay in operations[t]:
             set_operator()
             start_time = time.time()
-            for r in br.get_requests(operation=op):
+            for r in br.get_requests(operation=op, only_runnable=True):
                 reqid = r['request_id']
                 logger.debug("Req: %s %d at %s, state %r",
                              op, reqid, r['run_at'], r['state_data'])
@@ -315,13 +304,12 @@ def process_requests(types):
 
 def proc_email_create(r):
     hq = get_email_hardquota(r['entity_id'])
-    servername = None
+    es = None
     if r['destination_id']:
         es = Email.EmailServer(db)
         es.find(r['destination_id'])
-        servername = es.name
-    return (cyrus_create(r['entity_id'], host=servername) and
-            cyrus_set_quota(r['entity_id'], hq, host=servername))
+    return (cyrus_create(r['entity_id'], host=es) and
+            cyrus_set_quota(r['entity_id'], hq, host=es.name))
 
 
 def proc_email_hquota(r):
@@ -359,7 +347,7 @@ def proc_email_delete(r):
     if not account.is_deleted():
         generation += 1
         update_gen = True
-    if cyrus_delete(server.name, uname, generation):
+    if cyrus_delete(server, uname, generation):
         if update_gen:
             account.populate_trait(const.trait_account_generation,
                                    numval=generation)
@@ -420,6 +408,13 @@ def cyrus_create(user_id, host=None):
     except Errors.NotFoundError:
         logger.error("cyrus_create: %d not found", user_id)
         return False
+    if host is None:
+        host = get_email_server(user_id)
+    if not (cereconf.DEBUG_HOSTLIST is None or
+            host.name in cereconf.DEBUG_HOSTLIST):
+        logger.info("cyrus_create(%s, %s): skipping", uname, host.name)
+        return False
+
     try:
         cyradm = connect_cyrus(host=host, username=uname)
         cyr = connect_cyrus(host=host, username=uname, as_admin=False)
@@ -451,15 +446,18 @@ def cyrus_create(user_id, host=None):
 
 
 def cyrus_delete(host, uname, generation):
-    logger.debug("will delete %s from %s", uname, host)
+    if not (cereconf.DEBUG_HOSTLIST is None or
+            host.name in cereconf.DEBUG_HOSTLIST):
+        logger.info("cyrus_delete(%s, %s): skipping", uname, host.name)
+        return False
     # Backup Cyrus data before deleting it.
-    if not archive_cyrus_data(uname, host, generation):
+    if not archive_cyrus_data(uname, host.name, generation):
         logger.error("bofh_email_delete: Archival of Cyrus data failed.")
         return False
     try:
         cyradm = connect_cyrus(host=host)
     except CyrusConnectError, e:
-        logger.error("bofh_email_delete: %s: %s" % (host, e))
+        logger.error("bofh_email_delete: %s: %s" % (host.name, e))
         return False
     res, listresp = cyradm.list("user.", pattern=uname)
     if res <> 'OK' or listresp[0] == None:
@@ -493,6 +491,13 @@ def cyrus_set_quota(user_id, hq, host=None):
         uname = get_account(user_id).account_name
     except Errors.NotFoundError:
         logger.error("cyrus_set_quota: %d: user not found", user_id)
+        return False
+    if host is None:
+        host = get_email_server(user_id)
+    if not (cereconf.DEBUG_HOSTLIST is None or
+            host.name in cereconf.DEBUG_HOSTLIST):
+        logger.info("cyrus_set_quota(%s, %d, %s): skipping",
+                    uname, hq, host.name)
         return False
     try:
         cyradm = connect_cyrus(username=uname, host=host)
@@ -603,57 +608,6 @@ def is_ok_batch_time(now):
         if now > times[0] and now < times[1]:
             return True
     return False
-
-
-def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
-    """Run command and copy stdout to logger.debug and stderr to
-    logger.error.  cmd may be a sequence.  connect_to is a list of
-    servers which will be contacted.  If debug_hostlist is set and
-    does not contain these servers, the command will not be run and
-    success is always reported.
-
-    Return the exit code if the process exits normally, or the
-    negative signal value if the process was killed by a signal.
-
-    """
-    # select on pipes and Popen3 only works in Unix.
-    from select import select
-    from popen2 import Popen3
-    if log_exit_status:
-        logger.debug('Spawning %r', cmd)
-    if debug_hostlist is not None:
-        for srv in connect_to:
-            if srv not in debug_hostlist:
-                logger.debug("Won't connect to %s, won't spawn", srv)
-                return EXIT_SUCCESS
-
-    proc = Popen3(cmd, capturestderr=True, bufsize=10240)
-    proc.tochild.close()
-    descriptor = {proc.fromchild: logger.debug,
-                  proc.childerr: logger.error}
-    while descriptor:
-        # select() is called for _every_ line, since we can't inspect
-        # the buffering in Python's file object.  This works OK since
-        # select() will return "readable" for an unread EOF, and
-        # Python won't read the EOF until the buffers are exhausted.
-        ready, x, x = select(descriptor.keys(), [], [])
-        for fd in ready:
-            line = fd.readline()
-            if line == '':
-                fd.close()
-                del descriptor[fd]
-            else:
-                descriptor[fd]("[%d] %s" % (proc.pid, line.rstrip()))
-    status = proc.wait()
-    if log_exit_status:
-        if status == EXIT_SUCCESS:
-            logger.debug("%s: Completed successfully", cmd[0])
-        else:
-            logger.error("%s: Return value was %d", cmd[0], status)
-    if status & 0xFF:
-        # The process was killed by a signal.
-        return -(status & 0xFF)
-    return status >> 8
 
 
 def proc_move_user(r):
