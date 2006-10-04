@@ -29,7 +29,7 @@ from lib.Search import SearchHandler, setup_searcher
 from lib.templates.AllocationSearchTemplate import AllocationSearchTemplate
 from lib.templates.AllocationViewTemplate import AllocationViewTemplate
 from lib.templates.AllocationEditTemplate import AllocationEditTemplate
-#from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
+from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
 
 def search(transaction, **vargs):
     """Search for allocations and displays result and/or searchform."""
@@ -124,7 +124,7 @@ def save(transaction, id, title="", description="", owner=None,
 save = transaction_decorator(save)
 save.exposed = True
 
-def create(transaction, title="", description="", owner=None, science=None):
+def create(transaction, project=None, allocation_name=None):
     """Creates a page with the form for creating a allocation"""
     page = Main()
     page.title = _("Create a new allocation")
@@ -132,28 +132,22 @@ def create(transaction, title="", description="", owner=None, science=None):
 
     # Store given create parameters in create-form
     values = {}
-    values['title'] = title
-    values['description'] = description
-    values['owner'] = owner
-    values['science'] = science
 
     create = AllocationCreateTemplate(searchList=[{'formvalues': values}])
 
-    content = create.form(transaction)
+    content = create.form(transaction, project, allocation_name)
     page.content = lambda: content
     return page
 create = transaction_decorator(create)
 create.exposed = True
 
-def make(transaction, title="", description="", owner=None, science=None):
+def make(transaction, project=None, allocation_name="", period=None, status=None, credits=0):
     """Creates the allocation."""
 
-    science = transaction.get_science(science)
-    # XXX owner
+    status = transaction.get_allocation_status(status)
     
     cmd = transaction.get_commands()
-    allocation = cmd.create_allocation(owner, science,
-                                 title, description)
+    allocation = cmd.create_allocation(authority, allocation_name, period, status)
 
     commit(transaction, host, msg=_("Allocation successfully created."))
 make = transaction_decorator(make)
