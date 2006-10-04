@@ -20,6 +20,10 @@
 #from lib.WorkList import remember_link
 #extends EntityViewTemplate
 
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+#attr $formvalues = {}
+
 ## Main method for creating the project view page.
 #def view($transaction, $project)
 #set $id = $project.get_id()
@@ -42,6 +46,7 @@
     $viewInfo($project)
     ##$addNote($project)
     ##$viewNotes($project)
+    $addAllocationName($project, $transaction)
     $viewAllocations($project)
     $viewHistoryLog($project)
 
@@ -68,11 +73,16 @@
 
 #set $allallocationnames = $project.get_allocation_names()
 #set $project_id = $project.get_id()
-<div class="projectallocationnames">
+<div class="accountgroups">
     <h3>$_('Allocation Names')</h3>
     <ul>
     #for $allocationname in $allallocationnames
-       <li> $allocationname.get_name()
+	#set aname = $allocationname.get_name()
+	#set delete_aname = "remove_allocation_name?id=%i&allocation_name=%s" % ( $project_id, $aname )
+	#set create_allocation = "/allocation/create?project=%i&allocation_name=%s" % ( $project_id, $aname )
+       <li> $aname
+            <a href="$delete_aname">[Delete]</a>
+            <a href="$create_allocation">[create allocation]</a>
        <ul>
 	#for allocation in $allocationname.get_allocations()
 	  <li>$allocation.get_period().get_name()
@@ -88,5 +98,25 @@
        </li>
     #end for
     </ul>
+</div>
+#end def
+
+#def addAllocationName($project, $transaction)
+<div class="view_add" id="allocationname_form"> ##style="display:none;"
+    <a name="allocationname"/>
+    <form action="/project/add_allocation_name" type="POST">
+	#set $fv = $formvalues
+	#set $searcher = $transaction.get_allocation_authority_searcher()
+	#set $authorities = [($type.get_name(), $type.get_name()) 
+				for $type in $searcher.search()]
+
+	<h3>$_('Add allocation name')</h3>
+	<input type="hidden" name="id" value="$project.get_id()"/>
+	$form_widgets.input("allocation_name", "Allocation Name")
+	$form_widgets.generate_loption("authority", "Allocation Authority",
+                                $authorities, $fv.get("authority", "notur"))
+        <input type="submit" value="$_('Add')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="extid_cancel" />
+    </form>
 </div>
 #end def

@@ -87,6 +87,26 @@ def view(transaction, id):
 view = transaction_decorator(view)
 view.exposed = True
 
+def add_allocation_name(transaction, id, allocation_name, authority):
+    project = transaction.get_project(int(id))
+    authority = transaction.get_allocation_authority(authority)
+    project.add_allocation_name(allocation_name, authority)
+
+    msg = _("Allocation name successfully added.")
+    commit(transaction, project, msg=msg)
+add_allocation_name = transaction_decorator(add_allocation_name)
+add_allocation_name.exposed = True
+
+def remove_allocation_name(transaction, id, allocation_name):
+    project = transaction.get_project(int(id))
+    project.remove_allocation_name(allocation_name)
+    msg = _("Allocation name successfully removed.")
+    
+    commit(transaction, project, msg=msg)
+remove_allocation_name = transaction_decorator(remove_allocation_name)
+remove_allocation_name.exposed = True
+
+
 def edit(transaction, id):
     """Creates a page with the form for editing a project."""
     project = transaction.get_project(int(id))
