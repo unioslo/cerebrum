@@ -59,9 +59,10 @@
 #end def    
 
 ## Creates inputs and labels from given arguments.
-#def input($name, $label, $value="")
+#def input($name, $label, $value="", $text="", $type="text")
     <label for="$name">$_($label):</label>
-    <input type="text" name="$name" id="$name" value="$_($value)" /><br />
+    <input type="$type" name="$name" id="$name" value="$_($value)">$text</input>
+    <br />
 #end def
 
 ## Create input and labels from given arguments while hiding the value (typically passwords)
