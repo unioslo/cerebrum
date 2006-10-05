@@ -62,7 +62,7 @@ class Group(Entity):
         'creator':'creator_id'
     }
     db_constants = Entity.db_constants.copy()
-    db_constants['entity_name'] = ValueDomainHack('group_names')
+    db_constants['entity_name'] = ValueDomainHack('group')
 
     cerebrum_attr_aliases = {'name':'group_name'}
     cerebrum_class = Factory.get('Group')

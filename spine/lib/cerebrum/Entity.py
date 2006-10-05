@@ -25,6 +25,7 @@ from CerebrumClass import CerebrumClass
 
 from Types import EntityType, ValueDomain
 from EntityAuth import EntityAuth
+import cereconf
 
 from SpineLib import Registry
 registry = Registry.get_registry()
@@ -32,8 +33,8 @@ registry = Registry.get_registry()
 type_cache = {}
 
 class ValueDomainHack(dict):
-    def __init__(self, var):
-        self.var = var
+    def __init__(self, entity_type):
+        self.var = cereconf.ENTITY_TYPE_NAMESPACE[entity_type]
         self['value_domain'] = None
 
     def fix(self):

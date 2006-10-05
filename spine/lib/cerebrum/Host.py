@@ -42,7 +42,7 @@ class Host(Entity):
         'id':'host_id'
     }
     db_constants = Entity.db_constants.copy()
-    db_constants['entity_name'] = ValueDomainHack('host_names')
+    db_constants['entity_name'] = ValueDomainHack('host')
 
     cerebrum_class = Factory.get('Host')
     entity_type = 'host'

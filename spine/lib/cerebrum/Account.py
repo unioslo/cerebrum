@@ -71,7 +71,7 @@ class Account(Entity):
         'creator':'creator_id'
     }
     db_constants = Entity.db_constants.copy()
-    db_constants['entity_name'] = ValueDomainHack('account_names')
+    db_constants['entity_name'] = ValueDomainHack('account')
 
     cerebrum_attr_aliases = {'name':'account_name'}
     cerebrum_class = Factory.get('Account')
