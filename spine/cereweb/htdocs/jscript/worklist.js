@@ -20,7 +20,6 @@
 
 /* TODO:
     - opera: encoding-bug with רזו when sending request to add element
-    - firefox: innerHTML-bug with urls are encoded
     - make clever actions when several are selected
 */
 
@@ -285,7 +284,6 @@ function WL_action_pattern(first, rest, selected) {
 
 // Replaces the regex with value in the action.
 function WL_action_replaceHTML(action, regex, value) {
-    //FIXME: doesnt work in firefox, since the urls in innerHTML is encoded.
     action.innerHTML = action.innerHTML.replace(regex, value);
 }
 
