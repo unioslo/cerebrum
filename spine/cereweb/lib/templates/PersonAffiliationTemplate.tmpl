@@ -71,7 +71,7 @@
     <h3>$_('Add an affiliation')</h3>
     <input type="hidden" name="id" value="$person.get_id()" />
     #set $searcher = $tr.get_person_affiliation_status_searcher()
-    #set $status = [($i.get_affiliation().get_name(), $i.get_name())
+    #set $status = [($i.get_id(), "%s: %s" % ($i.get_affiliation().get_name(), $i.get_name()))
                         for $i in $searcher.search()]
     #set $ous = $tr.get_ou_searcher().search()
     #set $ous = [($i.get_id(), $i.get_name()) for $i in $ous]
