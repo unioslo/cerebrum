@@ -26,19 +26,24 @@
 all: 
 	$(MAKE) -C server $@
 	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
 
 install: install-lib
 	$(MAKE) -C server $@
 	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
 
 install-lib:
 	$(MAKE) -C server $@
 	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
 
 clean:
 	$(MAKE) -C server $@
 	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
 
 distclean: clean
 	$(MAKE) -C server $@
 	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
