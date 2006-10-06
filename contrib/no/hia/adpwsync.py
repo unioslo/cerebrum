@@ -29,7 +29,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import CLHandler
 from Cerebrum import Person
-import adutils
+from Cerebrum.modules.no.hia import ADUtils
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -112,7 +112,7 @@ def get_args():
 
 
 if __name__ == '__main__':
-    sock = adutils.SocketCom()  
+    sock = ADUtils.SocketCom()  
     arg = get_args()    
     quick_user_sync()
     sock.close()

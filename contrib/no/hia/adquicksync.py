@@ -30,7 +30,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import CLHandler
 from Cerebrum import Person
-import adutils
+from Cerebrum.modules.no.hia import ADUtils
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -120,7 +120,7 @@ def change_quarantine(entity_id):
     account.clear()
     account.find(entity_id)
     if account.has_spread(int(co.spread_hia_ad_account)):	
-    	if adutils.chk_quarantine(entity_id):
+    	if ADUtils.chk_quarantine(entity_id):
 	    print "User got quarantine"
 	    del_spread(entity_id,co.spread_hia_ad_account,0)
     	else:
@@ -162,7 +162,7 @@ def add_spread(entity_id,spread):
                 'WARNING: Failed creating new user ', account_name
 
         if sock.read() == ['210 OK']:            
-            (full_name, account_disable) = adutils.get_user_info(entity_id,account_name)
+            (full_name, account_disable) = ADUtils.get_user_info(entity_id,account_name)
             sock.send('ALTRUSR&%s/%s&fn&%s&dis&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, account_name, full_name, account_disable, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW ))  
             if sock.read() == ['210 OK']:
                 #Make sure that the user is in the groups he should be.
@@ -227,7 +227,7 @@ def del_spread(entity_id,spread,delete=delete_users):
             if ldap[0:3] != "210":
                 print 'WARNING: Error getting WinNT from LDAP path for', user
             else:
-                if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[4:]):
+                if cereconf.AD_LOST_AND_FOUND not in ADUtils.get_ad_ou(ldap[4:]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
                         ldap[4:], cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() != ['210 OK']:
@@ -245,7 +245,7 @@ def del_spread(entity_id,spread,delete=delete_users):
             if ldap[0][0:3] != "210":
                 print 'WARNING: Error Transforming WinNT to LDAP for', group_n
             else:
-                if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[0]):
+                if cereconf.AD_LOST_AND_FOUND not in ADUtils.get_ad_ou(ldap[0]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
                         ldap[0], cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() == ['210 OK']:
@@ -325,7 +325,7 @@ def get_args():
 
 
 if __name__ == '__main__':
-    sock = adutils.SocketCom()  
+    sock = ADUtils.SocketCom()  
     arg = get_args()    
     quick_user_sync()
     sock.close()
