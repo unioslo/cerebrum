@@ -23,9 +23,9 @@ import binascii
 import string
 
 import cerebrum_path
-from Cerebrum.modules import notesutils
+from Cerebrum.modules import NotesUtils
 
-sock = notesutils.SocketCom()
+sock = NotesUtils.SocketCom()
 users=[]
 IDFILEDIR="/cerebrum/dumps/Notes-IDs/"
 
@@ -38,13 +38,13 @@ while line[3]=='-':
    line=sock.readline()
 
 for user in users:
-   sock.send('GETIDFILE&'+user+'\n')
-   (rest,idfile)=string.split(sock.readline(),'&')
-   idfile=binascii.a2b_hex(idfile)
-   filename=IDFILEDIR+user+".id"
-   file=open(filename, 'w')
-   file.write(idfile)
-   file.close
+   if sock.send('GETIDFILE&'+user+'\n'):
+      (rest,idfile)=string.split(sock.readline(),'&')
+      idfile=binascii.a2b_hex(idfile)
+      filename=IDFILEDIR+user+".id"
+      file=open(filename, 'w')
+      file.write(idfile)
+      file.close
 
 sock.send('QUIT\n')
 sock.close()

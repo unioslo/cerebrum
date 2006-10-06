@@ -30,7 +30,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import CLHandler
-from Cerebrum.modules import notesutils
+from Cerebrum.modules import NotesUtils
 
 
 db = Factory.get('Database')()
@@ -95,7 +95,7 @@ def quick_sync():
     cl.commit_confirmations()    
 
 def change_quarantine(entity_id):
-    if notesutils.chk_quarantine(entity_id):
+    if NotesUtils.chk_quarantine(entity_id):
         delundel_user(entity_id,'splatt')
     else:
         delundel_user(entity_id,'unsplat')
@@ -112,11 +112,11 @@ def change_pw(account_id,pw_params):
 
 def add_user(account_id):               
     account_name =id_to_name(account_id)        
-    pri_ou = notesutils.get_primary_ou(account_id)
+    pri_ou = NotesUtils.get_primary_ou(account_id)
     if not pri_ou:
         oustr="OU1&%s" % (cereconf.NOTES_DEFAULT_OU)
     else:
-        ou = notesutils.get_cerebrum_ou_path(pri_ou)
+        ou = NotesUtils.get_cerebrum_ou_path(pri_ou)
         if ou:
             oustr = ""
             i=0
@@ -131,7 +131,7 @@ def add_user(account_id):
     if name:    
         sock.send('CREATEUSR&ShortName&%s&FirstName&%s&LastName&%s&%s\n' % (account_name,name[0],name[1],oustr))
         sock.read()             
-    if notesutils.chk_quarantine(account_id):
+    if NotesUtils.chk_quarantine(account_id):
         delundel_user(account_id,'splatt')      
 
 def delundel_user(account_id,status):
@@ -173,7 +173,7 @@ def id_to_name(id):
 
 
 if __name__ == '__main__':
-    sock = notesutils.SocketCom()  
+    sock = NotesUtils.SocketCom()  
     quick_sync()
     sock.close()
 
