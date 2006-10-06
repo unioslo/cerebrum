@@ -7,12 +7,14 @@ import string
 import cerebrum_path
 import cereconf
 import pickle
-import adutils
+
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules import MountHost
+from Cerebrum.modules import ADUtils
+
 db = Factory.get('Database')()
 db.cl_init(change_program="ad_full")
 co = Factory.get('Constants')(db)
@@ -120,7 +122,7 @@ def fetch_ad_data():
 
     #Opening socket. 
     adusers = {}
-    sock = adutils.SocketCom()          
+    sock = ADUtils.SocketCom()          
     sock.send('LUSERS&LDAP://%s&1\n' % (cereconf.AD_LDAP))
     receive = sock.readgrp(out=0).splitlines()
     for line in receive[1:-2]:
@@ -175,7 +177,7 @@ def full_sync(delete_users, disk_spread, dry_run):
 
 def perform_changes(changelist, dry_run):
 
-    sock = adutils.SocketCom()
+    sock = ADUtils.SocketCom()
 
     for chg in changelist:
  	if chg['type'] == 'NEWUSR':

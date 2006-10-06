@@ -31,7 +31,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum import Person
 from Cerebrum.modules import CLHandler
-import adutils
+from Cerebrum.modules import ADUtils
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -219,7 +219,7 @@ def move_account(entity_id):
 	account_name = id_to_name(entity_id, 'user')
 	if not account_name:
 	    return False
-	home = adutils.find_home_dir(entity_id, account_name, disk_spread)
+	home = ADUtils.find_home_dir(entity_id, account_name, disk_spread)
        	sock.send('ALTRUSR&%s/%s&hdir&%s\n' % (cereconf.AD_DOMAIN,
                                                account_name, home))
 	if sock.read() != ['210 OK']:
@@ -239,7 +239,7 @@ def change_quarantine(entity_id):
 		return False
 
 	if account.has_spread(int(co.spread_uio_ad_account)):
-		if adutils.chk_quarantine(entity_id):
+		if ADUtils.chk_quarantine(entity_id):
 			del_spread(entity_id, co.spread_uio_ad_account, delete=False)
 		else:
 			add_spread(entity_id, co.spread_uio_ad_account)
@@ -274,7 +274,7 @@ def build_user(entity_id):
 
         if sock.read() == ['210 OK']:
             (full_name, account_disable, home_dir, 
-			cereconf.AD_HOME_DRIVE) = adutils.get_user_info(entity_id,
+			cereconf.AD_HOME_DRIVE) = ADUtils.get_user_info(entity_id,
 									account_name, disk_spread)
 
             sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s'+
@@ -314,12 +314,12 @@ def add_spread(entity_id, spread):
 	    ou.clear()
     	    ou.find(cereconf.AD_CERE_ROOT_OU_ID)
     	    ourootname='OU=%s' % ou.acronym
-            pri_ou = adutils.get_primary_ou(entity_id)
+            pri_ou = ADUtils.get_primary_ou(entity_id)
             if not pri_ou:
                 logger.debug("No account_type information for object %s" % id)
                 ad_ou='CN=Users,%s' % (cereconf.AD_LDAP)
             else:
-                ad_ou = adutils.id_to_ou_path(pri_ou, ourootname)
+                ad_ou = ADUtils.id_to_ou_path(pri_ou, ourootname)
 
 
         sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, account_name))
@@ -345,7 +345,7 @@ def add_spread(entity_id, spread):
                 logger.debug('Failed creating new user %s' % account_name)
 
         if sock.read() == ['210 OK']:
-            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE) = adutils.get_user_info(entity_id, account_name, disk_spread)
+            (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE) = ADUtils.get_user_info(entity_id, account_name, disk_spread)
 
             sock.send(('ALTRUSR&%s/%s&fn&%s&dis&%s&hdir&%s&hdr&%s'+
                        '&pexp&%s&ccp&%s\n') % (cereconf.AD_DOMAIN,
@@ -467,7 +467,7 @@ def del_spread(entity_id, spread, delete=delete_users):
                 logger.debug('Error getting WinNT from LDAP path for %s' 
 			%  user)
             else:
-                if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[4:]):
+                if cereconf.AD_LOST_AND_FOUND not in ADUtils.get_ad_ou(ldap[4:]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
                         ldap[4:], cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() != ['210 OK']:
@@ -488,7 +488,7 @@ def del_spread(entity_id, spread, delete=delete_users):
             if ldap[0][0:3] != "210":
                 logger.debug('Error Transforming WinNT to LDAP for %s' % group_n)
             else:
-                if cereconf.AD_LOST_AND_FOUND not in adutils.get_ad_ou(ldap[0]):
+                if cereconf.AD_LOST_AND_FOUND not in ADUtils.get_ad_ou(ldap[0]):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % (
                         ldap[0], cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() == ['210 OK']:
@@ -672,7 +672,7 @@ if __name__ == '__main__':
             disk_spread = getattr(co, val)  # TODO: Need support in Util.py
     if not disk_spread:
         usage(1)
-    sock = adutils.SocketCom()
+    sock = ADUtils.SocketCom()
     quick_user_sync()
     sock.close()
 

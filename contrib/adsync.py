@@ -27,13 +27,13 @@ import getopt
 
 import cerebrum_path
 import cereconf
-import adutils
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import ADAccount
 from Cerebrum.modules import ADObject
+from Cerebrum.modules import ADUtils
 
 
 db = Factory.get('Database')()
@@ -63,7 +63,7 @@ def full_user_sync():
     cbusers = {}
     cbusers = get_objects('user')
     # Initialize socket, to avoid timeout.      
-    sock = adutils.SocketCom()          
+    sock = ADUtils.SocketCom()          
     sock.send('LUSERS&LDAP://%s&0\n' % (cereconf.AD_LDAP))
     receive = sock.readgrp(out=0).splitlines()
     for line in receive[1:-2]:
@@ -105,7 +105,7 @@ def full_user_sync():
                     (adusrinfo['name'],cbusrid[1]))
 
             (full_name, account_disable, home_dir, homedrive, login_script) \
-                = adutils.get_user_info(cbusrid[0],adusrinfo['name'], disk_spread)
+                = ADUtils.get_user_info(cbusrid[0],adusrinfo['name'], disk_spread)
             try:
                 if ((full_name, account_disable, homedrive, str(home_dir), \
                 cereconf.AD_CANT_CHANGE_PW, cereconf.AD_PASSWORD_EXPIRE) \
@@ -137,7 +137,7 @@ def full_user_sync():
                     logger.warn("Error deleting %s" % adusrinfo['name'])
             else:
                 if cereconf.AD_LOST_AND_FOUND not in \
-                    adutils.get_ad_ou(ldappath):
+                    ADUtils.get_ad_ou(ldappath):
                     sock.send('ALTRUSR&%s/%s&dis&1\n' % 
                     (cereconf.AD_DOMAIN, adusrinfo['name']))
                     if sock.read() != ['210 OK']:
@@ -160,7 +160,7 @@ def full_user_sync():
             passw=passw.replace('%','%25')
             passw=passw.replace('&','%26')
             (full_name, account_disable, home_dir, homedrive, login_script) \
-            = adutils.get_user_info(cbusrid[0], user, disk_spread)
+            = ADUtils.get_user_info(cbusrid[0], user, disk_spread)
             sock.send('ALTRUSR&%s/%s&pass&%s&fn&%s&dis&%s&hdir&%s&hdr&%s&ls&%s&pexp&%s&ccp&%s\n' % (    cereconf.AD_DOMAIN, 
                         user, 
                         passw, 
@@ -189,7 +189,7 @@ def full_group_sync():
     cbgroups = {}
     cbgroups = get_objects('group')
     # Initialize socket, to avoid timeout.      
-    sock = adutils.SocketCom()          
+    sock = ADUtils.SocketCom()          
     sock.send('LGROUPS&LDAP://%s\n' % (cereconf.AD_LDAP))
     receive = sock.readgrp().splitlines()       
     for line in receive[1:-1]:
@@ -251,7 +251,7 @@ def full_group_sync():
                     logger.warn("Error deleting %s" % grpname)
             else:
                 if cereconf.AD_LOST_AND_FOUND not in \
-                    adutils.get_ad_ou(ldappath):
+                    ADUtils.get_ad_ou(ldappath):
                     sock.send('MOVEOBJ&%s&LDAP://OU=%s,%s\n' % \
                     (ldappath, cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP))
                     if sock.read() != ['210 OK']:
