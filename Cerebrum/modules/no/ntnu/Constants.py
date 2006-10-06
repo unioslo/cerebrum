@@ -26,12 +26,15 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _EntityExternalIdCode, \
-     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode,_AuthenticationCode
+     _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode, \
+     _AuthenticationCode, _PersonNameCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.Email import \
      _EmailSpamLevelCode, _EmailSpamActionCode, _EmailDomainCategoryCode
 
 class Constants(Constants.Constants):
+
+    name_display = _PersonNameCode('DISPLAY', 'Display name')
 
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
@@ -71,6 +74,8 @@ class Constants(Constants.Constants):
         "PGP encrypted password for the system win_ntnu_no")
     auth_type_blowfish =  _AuthenticationCode('Blowfish',
         "Blowfish-encrypted password")
+    auth_type_ssha = _AuthenticationCode('SSHA', "A salted SHA1-encrypted password. More info in RFC 2307 and at <URL:http://www.openldap.org/faq/data/cache/347.html>")
+    
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Ansatt ved NTNU (i følge Kjernen)')
