@@ -1,0 +1,48 @@
+Hei,
+
+Her er en liten introduksjon til scripting mot spine.
+
+== Klargjøring av miljøet ==
+
+Det første dere trenger er en maskin som har installert python >= 2.2 og
+omniORB.  Jeg anbefaler pointy.itea.ntnu.no, da det å bruke denne gjør
+at vi slipper å sørge for at dere har en oppdatert "ior-fil".  Mer om
+dette senere.  Deretter må dere laste ned spine fra sourceforge. [1]
+
+Når spine blir installert på vanlig måte, så blir filen "SpineCore.idl"
+og filen "SpineClient.py" liggende i samme katalog.  Siden vi ikke har
+tenkt å installere spine, må vi gjøre dette manuelt.  En måte er å lage
+en symbolsk lenke, slik som i [2].
+
+Når det over er gjort, er det bare å sørge for at SpineClient.py ligger
+i PYTHONPATH [3], så kan man begynne å skrive spine-klienter.
+
+== IOR-filen ==
+
+Som nevnt tidligere må man ha en oppdatert "ior-fil".  Denne filen kan
+sees på som en URI som peker oss til riktig CORBA-tjener.  På pointy
+kjører steinarh en temmelig stabil spine-instans som identifiseres av
+filen /tmp/steinarh_spine.ior .
+
+== Autentifisering == 
+
+Brukernavn og passord for steinarh sin spine er "bootstrap_account" og
+"blapp".
+
+== Eksempelklient ==
+
+For en minimal klient, se spine/examples/python/client/client1.py.  På
+pointy kan dette skriptet kjøres som i [4].  
+
+Se spine/ceresync og spine/cereweb for mer omfattende eksempler.  For å
+få en kommentert idl-fil, se examples/python/get_docs.  For å kjøre
+denne må man først kopiere client.conf.template til client.conf, og
+konfigurere.  Sett cache=false, og lenk opp SpineCore.idl filen til
+get_docs-katalogen, tilsvarende [2].  Deretter skal det være bare å
+kjøre skriptet og få en commented.idl fil i katalogen.
+
+[1]. export CVSROOT=:pserver:anonymous@cerebrum.cvs.sourceforge.net:/cvsroot/cerebrum/ 
+     cvs login; cvs co -d ~/spine cerebrum/spine; cd ~/spine
+[2]. cd ~/spine/client; ln -s ../lib/server/idl/SpineCore.idl .
+[3]. export PYTHONPATH=~/spine/client:$PYTHONPATH
+[4]. python client1.py bootstrap_account blapp /tmp/steinarh_spine.ior
