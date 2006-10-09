@@ -20,7 +20,6 @@
 
 import mx.DateTime
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.Date import Date
 
@@ -83,26 +82,26 @@ def get_quarantine(self, type):
     elif len(result) > 1:
         raise TooManyMatchesError('Entity has more than one quarantine of the given type.')
     return result[0]
-
-Entity.register_method(Method('get_quarantine', EntityQuarantine, args=[('type', QuarantineType)], exceptions=[NotFoundError, TooManyMatchesError]), get_quarantine)
+get_quarantine.signature = EntityQuarantine
+get_quarantine.signature_args = [QuarantineType]
+get_quarantine.signature_exceptions = [NotFoundError, TooManyMatchesError]
 
 def get_quarantines(self):
     s = registry.EntityQuarantineSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
-
-Entity.register_method(Method('get_quarantines', [EntityQuarantine]), get_quarantines)
+get_quarantines.signature = [EntityQuarantine]
 
 def get_all_quarantines(self):
     q = self.get_quarantines()
     if self.get_type().get_name() == 'account':
         q += self.get_owner().get_all_quarantines()
     return q
-
-Entity.register_method(Method('get_all_quarantines', [EntityQuarantine]), get_all_quarantines)
+get_all_quarantines.signature = [EntityQuarantine]
 
 def get_active_quarantines(self):
     return [i for i in self.get_quarantines() if i.is_active()]
+get_active_quarantines.signature = [EntityQuarantine]
 
 def is_quarantined(self):
     import Cerebrum.QuarantineHandler
@@ -111,15 +110,14 @@ def is_quarantined(self):
     qh = Cerebrum.QuarantineHandler.QuarantineHandler(self.get_database(), quarantines)
 
     return qh.should_skip() or qh.is_locked()
-
-Entity.register_method(Method('is_quarantined', bool), is_quarantined)
+is_quarantined.signature = bool
 
 def add_quarantine(self, type, description, start, end, disable_until):
     """Add a quarantine to the entity.
 
     If start date is false the current time is set as start-date.
     """
-    
+
     db = self.get_database()
     obj = self._get_cerebrum_obj()
 
@@ -130,7 +128,7 @@ def add_quarantine(self, type, description, start, end, disable_until):
         start = start._value
     else:
         start = mx.DateTime.now()
-        
+
     if end:
         end = end._value
     if disable_until:
@@ -139,15 +137,20 @@ def add_quarantine(self, type, description, start, end, disable_until):
     obj.add_entity_quarantine(type.get_id(), db.change_by, description, start, end)
     if disable_until:
         obj.disable_entity_quarantine(type.get_id(), disable_until)
-
-Entity.register_method(Method('add_quarantine', None, args=[('type', QuarantineType), ('description', str), ('start', Date), ('end', Date), ('disable_until', Date)], exceptions=[AlreadyExistsError], write=True), add_quarantine)
+add_quarantine.signature = None
+add_quarantine.signature_args=[QuarantineType, str, Date, Date, Date]
+add_quarantine.signature_exceptions=[AlreadyExistsError]
+add_quarantine.signature_write=True
 
 def remove_quarantine(self, type):
     db = self.get_database()
     obj = self._get_cerebrum_obj()
     obj.delete_entity_quarantine(type.get_id())
+remove_quarantine.signature = None
+remove_quarantine.signature_args=[('type', QuarantineType)]
+remove_quarantine.signature_write=True
 
-Entity.register_method(Method('remove_quarantine', None, args=[('type', QuarantineType)], write=True), remove_quarantine)
+Entity.register_methods([get_quarantine, get_quarantines, get_all_quarantines, get_active_quarantines, is_quarantined, add_quarantine])
 
 
 # arch-tag: 07667d91-f0b5-4152-8e83-36994ffa9b8e
