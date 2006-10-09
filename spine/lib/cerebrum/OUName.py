@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.Builder import Method
 
 from SpineLib import Registry
 
@@ -62,8 +61,10 @@ def create_name(self, name, language):
     OUName._create(db, self.get_id(), language, name)
     n = OUName(self, language)
     return n
-OU.register_method(Method('create_name', OUName, 
-    args=[('name', str), ('language', LanguageType)], write=True),
-    create_name)
+create_name.signature = OUName
+create_name.signature_args = [str, LanguageType]
+create_name.signature_write = True
+
+OU.register_methods([create_name])
 
 # arch-tag: 841ed6f0-e7d7-11d9-8d7b-6f95ec48c53b

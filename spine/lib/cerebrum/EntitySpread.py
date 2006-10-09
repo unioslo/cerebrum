@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Entity import Entity
@@ -49,21 +48,24 @@ def get_spreads(self):
     s = registry.EntitySpreadSearcher(self.get_database())
     s.set_entity(self)
     return [i.get_spread() for i in s.search()]
-
-Entity.register_method(Method('get_spreads', [Spread]), get_spreads)
+get_spreads.signature = [Spread]
 
 def add_spread(self, spread):
     obj = self._get_cerebrum_obj()
     obj.add_spread(spread.get_id())
     obj.write_db()
-
-Entity.register_method(Method('add_spread', None, args=[('spread', Spread)], write=True), add_spread)
+add_spread.signature = None
+add_spread.signature_args = [Spread]
+add_spread.signature_write = True
 
 def delete_spread(self, spread):
     obj = self._get_cerebrum_obj()
     obj.delete_spread(spread.get_id())
     obj.write_db()
+delete_spread.signature = None
+delete_spread.signature_args = [Spread]
+delete_spread.signature_write = True
 
-Entity.register_method(Method('delete_spread', None, args=[('spread', Spread)], write=True), delete_spread)
+Entity.register_methods([add_spread, get_spreads, delete_spread])
 
 # arch-tag: 225423b6-e786-4494-90a1-2b33ba481a92

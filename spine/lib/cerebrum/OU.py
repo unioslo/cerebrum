@@ -21,7 +21,7 @@
 from Cerebrum.Utils import Factory
 import Cerebrum
 
-from SpineLib.Builder import Attribute, Method
+from SpineLib.Builder import Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import DatabaseError
 from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr

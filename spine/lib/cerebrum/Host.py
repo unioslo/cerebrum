@@ -20,7 +20,6 @@
 
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.Builder import Method
 
 from Entity import Entity, ValueDomainHack
 from Types import EntityType
@@ -53,8 +52,11 @@ def create(self, name, description):
     db = self.get_database()
     new_id = Host._create(db, name, description)
     return Host(db, new_id)
+create.signature = Host
+create.signature_name = 'create_host'
+create.signature_args = [str, str]
+create.signature_write = True
     
-args = [('name', str), ('description', str)]
-Commands.register_method(Method('create_host', Host, args=args, write=True), create)
+Commands.register_methods([create])
 
 # arch-tag: bdad7df2-98cb-43f6-ab57-a9ae34a1c912

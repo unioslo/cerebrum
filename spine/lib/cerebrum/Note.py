@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Attribute, Method
+from SpineLib.Builder import Attribute
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.Date import Date
 
@@ -66,20 +66,23 @@ def add_note(self, subject, description):
     e.entity_id = self.get_id()
 
     e.add_note(db.change_by, subject, description)
-
-Entity.register_method(Method('add_note', None, args=[('subject', str), ('description', str)], write=True), add_note)
+add_note.signature = None
+add_note.signature_args = [str, str]
+add_note.signature_write = True
 
 def remove_note(self, note):
     note.delete()
-
-Entity.register_method(Method('remove_note', None, args=[('note', Note)], write=True), remove_note)
+remove_note.signature = None
+remove_note.signature_write = True
+remove_note.signature_args = [Note]
 
 def get_notes(self):
     s = registry.NoteSearcher(self.get_database())
     s.set_entity(self)
     s.order_by_desc(s, 'create_date')
     return s.search()
+get_notes.signature = [Note]
 
-Entity.register_method(Method('get_notes', [Note]), get_notes)
+Entity.register_methods([add_note, remove_note, get_notes])
 
 # arch-tag: d6c21535-3c25-41b7-b8f3-5cdb69d7f90d

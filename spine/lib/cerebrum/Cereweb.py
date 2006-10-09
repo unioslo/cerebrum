@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
 from SpineLib.Date import Date
 
@@ -98,9 +97,10 @@ def create_motd(self, subject, message):
     id = int(db.nextval('cereweb_seq'))
     CerewebMotd._create(db, id, creator=db.change_by, subject=subject, message=message)
     return CerewebMotd(db, id)
-
-Commands.register_method(Method('create_cereweb_motd', CerewebMotd, write=True,
-            args=[('subject', str), ('message', str)]), create_motd)
+create_motd.signature = [CerewebMotd]
+create_motd.signature_write = True
+create_motd.signature_name = 'create_cereweb_motd'
+create_motd.signature_args = [str, str]
 
 def create_option(self, entity, section, key, value):
     """Create a new option.
@@ -112,8 +112,10 @@ def create_option(self, entity, section, key, value):
     CerewebOption._create(db, id, entity, section, key, value)
     return CerewebOption(db, id)
 
-Commands.register_method(Method('create_cereweb_option', CerewebOption,
-                         write=True, args=[('entity', Entity), ('section', str),
-                         ('key', str), ('value', str)]), create_option)
+create_option.signature = CerewebOption
+create_option.signature_name = 'create_cereweb_option'
+create_option.signature_write=True
+create_option.signature_args=[Entity, str, str, str]
 
+Commands.register_methods([create_motd, create_option])
 # arch-tag: f21ea724-a469-4ef8-87bf-1eae1493717c

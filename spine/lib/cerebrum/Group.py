@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.Utils import Factory
-from SpineLib.Builder import Method, Attribute
+from SpineLib.Builder import Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.Date import Date
 from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError

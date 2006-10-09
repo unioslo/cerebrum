@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Attribute, Method
+from SpineLib.Builder import Attribute
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from SpineLib import Registry

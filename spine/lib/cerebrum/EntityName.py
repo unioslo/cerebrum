@@ -20,7 +20,6 @@
 
 import Cerebrum.Errors
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Entity import Entity
@@ -58,8 +57,9 @@ def get_entity_name(self, value_domain):
     if not len(result) == 1:
         raise Cerebrum.Errors.NotFoundError # FIXME: Raise SpineException?
     return result[0]
+get_entity_name.signature = EntityName
+get_entity_name.signature_args = [ValueDomain]
 
-m = Method('get_entity_name', EntityName, args=[('value_domain', ValueDomain)])
-Entity.register_method(m, get_entity_name)
+Entity.register_methods([get_entity_name])
 
 # arch-tag: 7afc3199-1c56-4142-9895-d3c54d9a58af

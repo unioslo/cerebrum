@@ -20,7 +20,6 @@
 
 from Cerebrum.extlib import sets
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Entity import Entity
@@ -52,8 +51,7 @@ def get_group_members(self):
     s = registry.GroupMemberSearcher(self.get_database())
     s.set_group(self)
     return s.search()
-
-Group.register_method(Method('get_group_members', [GroupMember]), get_group_members)
+get_group_members.signature = [GroupMember]
 
 UnionType = 'union'
 IntersectionType = 'intersection'
@@ -100,8 +98,7 @@ def get_groups(self):
     get(self)
 
     return [i for i in group_members if self in _get_members(i, group_members)]
-
-Entity.register_method(Method('get_groups', [Group]), get_groups)
+get_groups.signature = [Group]
 
 def get_direct_groups(self):
     groups = sets.Set(get_groups(self))
@@ -111,8 +108,7 @@ def get_direct_groups(self):
     searcher.set_operation(union)
     groups.intersection_update([i.get_group() for i in searcher.search()])
     return list(groups)
-
-Entity.register_method(Method('get_direct_groups', [Group]), get_direct_groups)
+get_direct_groups.signature = [Group]
 
 def get_members(self):
     """
@@ -135,22 +131,24 @@ def get_members(self):
     members = list(_get_members(self, group_members))
     members.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
     return members
-
-
-Group.register_method(Method('get_members', [Entity]), get_members)
+get_members.signature = [Entity]
 
 def add_member(self, entity, operation):
     obj = self._get_cerebrum_obj()
     obj.add_member(entity.get_id(), entity.get_type().get_id(), operation.get_id())
     obj.write_db()
-
-Group.register_method(Method('add_member', None, args=[('entity', Entity), ('operation', GroupMemberOperationType)], write=True), add_member)
+add_member.signature = None
+add_member.signature_args=[Entity, GroupMemberOperationType]
+add_member.signature_write=True
 
 def remove_member(self, group_member):
     obj = self._get_cerebrum_obj()
     obj.remove_member(group_member.get_member().get_id(), group_member.get_operation().get_id())
     obj.write_db()
+remove_member.signature = None
+remove_member.signature_args=[GroupMember]
+remove_member.signature_write=True
 
-Group.register_method(Method('remove_member', None, args=[('group_member', GroupMember)], write=True), remove_member)
-
+Entity.register_methods([get_groups, get_direct_groups])
+Group.register_methods([get_group_members, get_members, add_member, remove_member])
 # arch-tag: 62cc34ca-6553-4fcc-bed2-70c0d7dcf6e9

@@ -1,5 +1,5 @@
 from SpineLib.DumpClass import DumpClass, Struct
-from SpineLib.Builder import Attribute, Builder, Method
+from SpineLib.Builder import Attribute, Builder
 from SpineLib.DatabaseClass import DatabaseTransactionClass
 from SpineLib import Registry
 registry = Registry.get_registry()

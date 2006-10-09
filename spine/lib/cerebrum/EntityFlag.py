@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Entity import Entity
@@ -46,7 +45,8 @@ def get_flags(self):
     s = registry.EntityFlagSearcher(self.get_database())
     s.set_entity(self)
     return s.search()
+get_flags.signature = [EntityFlag]
 
-Entity.register_method(Method('get_flags', [EntityFlag]), get_flags)
+Entity.register_methods([get_flags])
 
 # arch-tag: 04b59b5d-a443-426e-8b3e-743a137b629c

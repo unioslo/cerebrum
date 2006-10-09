@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.Builder import Method
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 
@@ -49,8 +48,7 @@ def get_names(self):
     s = registry.PersonNameSearcher(self.get_database())
     s.set_person(self)
     return s.search()
-
-Person.register_method(Method('get_names', [PersonName]), get_names)
+get_names.signature = [PersonName]
 
 def set_name(self, name, name_type, source_system):
     obj = self._get_cerebrum_obj()
@@ -64,22 +62,25 @@ def set_name(self, name, name_type, source_system):
     for i in self.get_names():
         i.get_name()
         del i._name
-
-Person.register_method(Method('set_name', None, args=[('name', str), ('name_type', NameType), ('source_system', SourceSystem)], write=True), set_name)
+set_name.signature = None
+set_name.signature_args = [str, NameType, SourceSystem]
+set_name.signature_write = True
 
 def remove_name(self, name_type, source_system):
     obj = self._get_cerebrum_obj()
     obj._delete_name(source_system.get_id(), name_type.get_id())
-
-Person.register_method(Method('remove_name', None, args=[("name_type", NameType), ('source_system', SourceSystem)], write=True), remove_name)
+remove_name.signature = None
+remove_name.signature_args = [NameType, SourceSystem]
+remove_name.signature_write = True
 
 def get_cached_full_name(self):
     db = self.get_database()
     cached = SourceSystem(db, name='Cached')
     full = NameType(db, name='FULL')
     return PersonName(db, self, full, cached).get_name()
+get_cached_full_name.signature = str
+get_cached_full_name.signature_exceptions= [NotFoundError]
 
-Person.register_method(Method('get_cached_full_name', str, exceptions=[NotFoundError]), get_cached_full_name)
-
+Person.register_methods([remove_name, set_name, get_names, get_cached_full_name])
 
 # arch-tag: 6a0ecb31-a1a6-4581-ad50-c9e53323041b

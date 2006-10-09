@@ -21,7 +21,6 @@
 from Cerebrum.Utils import Factory
 
 from SpineLib.DatabaseClass import DatabaseAttr
-from SpineLib.Builder import Method
 from SpineLib.Date import Date
 
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
