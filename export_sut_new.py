@@ -89,14 +89,33 @@ def main():
     day=date[2]
     today="%s-%02d-%02d" %(year,month,day)
 
+    # query = """
+#     SELECT DISTINCT en.entity_name, aa.auth_data, pu.posix_uid,pn.name
+#     FROM entity_name en
+#     LEFT JOIN entity_quarantine eq
+#     ON en.entity_id=eq.entity_id,
+#     entity_spread es, account_authentication aa, posix_user pu, account_home ah, account_info ai,person_name pn
+#     WHERE eq.entity_id IS NULL
+#     AND es.spread=%s
+#     AND es.entity_id = en.entity_id
+#     AND aa.account_id=en.entity_id
+#     AND aa.method=%s
+#     AND pu.account_id = en.entity_id
+#     AND ah.account_id=en.entity_id
+#     AND ah.spread=%s
+#     AND ai.account_id = en.entity_id
+#     AND ai.expire_date >'%s'
+#     AND ai.owner_id = pn.person_id
+#     AND pn.name_variant=%s
+#     AND pn.source_system=%s
+#     """ % (int(co.spread_uit_sut_user),int(co.auth_type_md5_crypt),int(co.spread_uit_sut_user),today,int(co.name_full),int(co.system_cached))
     query = """
-    SELECT DISTINCT en.entity_name, aa.auth_data, pu.posix_uid,pn.name
+    SELECT DISTINCT en.entity_name, aa.auth_data, pu.posix_uid,pn.name, eq.quarantine_type
     FROM entity_name en
     LEFT JOIN entity_quarantine eq
     ON en.entity_id=eq.entity_id,
     entity_spread es, account_authentication aa, posix_user pu, account_home ah, account_info ai,person_name pn
-    WHERE eq.entity_id IS NULL
-    AND es.spread=%s
+    WHERE es.spread=%s
     AND es.entity_id = en.entity_id
     AND aa.account_id=en.entity_id
     AND aa.method=%s
@@ -115,11 +134,17 @@ def main():
     print "startin query...%s" % query
     db.row = db.query(query)
     for row in db.row:
-        entries.append({'name' : row['entity_name'],'password' : row['auth_data'],'uid' : row['posix_uid'],'gecos' : row['name']})
+        print "quarantine_type=%s" % row['quarantine_type']
+        if row['quarantine_type']==None:
+            quarantine='False'
+        else:
+            quarantine='True'
+        print "quarantine=%s" % quarantine
+        entries.append({'name' : row['entity_name'],'password' : row['auth_data'],'uid' : row['posix_uid'],'gecos' : row['name'],'quarantine' : quarantine})
     for entry in entries:
         file_path="/its/home/%s/%s/%s" % (entry['name'][0],entry['name'][0:2],entry['name'])
         
-        file_handle.writelines("%s:%s:%s:%s:%s:%s:/bin/bash\n" % (entry['name'],entry['password'],entry['uid'],entry['uid'],account.simplify_name(entry['gecos'],as_gecos=1),file_path,))
+        file_handle.writelines("%s:%s:%s:%s:%s:%s:/bin/bash:%s\n" % (entry['name'],entry['password'],entry['uid'],entry['uid'],account.simplify_name(entry['gecos'],as_gecos=1),file_path,entry['quarantine']))
     file_handle.close()
     print "done"
 def usage():
