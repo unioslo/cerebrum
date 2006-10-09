@@ -1,8 +1,12 @@
 [spine]
+idl: SpineCore.idl
+use_ssl: false
+
+[cache]
 cache: false
 cache_dir: /tmp/spine
-idl: SpineCore.idl
-use_ssl: true
+idl_file: SpineIDL.idl
+md5_file: SpineIDL.md5
 
 [corba]
 url: http://localhost/spine.ior
