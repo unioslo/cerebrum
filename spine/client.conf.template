@@ -1,0 +1,12 @@
+[SpineClient]
+url: http://localhost/spine.ior
+idl_path: /tmp/spine/
+
+use_ssl: false
+ca_file: CA.crt
+key_file: client.pem
+key_password: client
+
+[login]
+username: user
+password: pass
