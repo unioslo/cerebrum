@@ -33,7 +33,7 @@ class CreateDeleteTest(unittest.TestCase):
 
     def testGroup(self):
         tr = self.session.new_transaction()
-        name = 'unittest%s' % id(self)
+        name = 'test%s' % str(id(self))[2:6]
         group = tr.get_commands().create_group(name)
         assert name == group.get_name()
         group.delete()
@@ -64,7 +64,7 @@ class CreateDeleteTest(unittest.TestCase):
         tr = self.session.new_transaction()
         owner, ownername = self.__create_person(tr)
         expire_date = tr.get_commands().get_date_now()
-        name = 'unittest%s' % id(self)
+        name = 'test%s' % str(id(self))[2:6]
         account = tr.get_commands().create_account(name, owner, expire_date)
         assert name == account.get_name()
         account.delete()
@@ -73,7 +73,7 @@ class CreateDeleteTest(unittest.TestCase):
         tr.rollback()
 
     def testOU(self):
-        assert 0 # FIXME: Implement delete() in Cerebrum for stedkode first
+        assert 0 # Not Implemented
         tr = self.session.new_transaction()
         name = 'unittest%s' % id(tr)
         c = tr.get_commands()
@@ -84,6 +84,8 @@ class CreateDeleteTest(unittest.TestCase):
         assert name == ou.get_name()
         ou.delete()
         self.assertRaises(Spine.Errors.ObjectDeletedError, ou.get_name)
+
+        tr.rollback()
 
     def __create_host(self, transaction):
         name = 'unittest%s' % id(self)
@@ -104,7 +106,7 @@ class CreateDeleteTest(unittest.TestCase):
         tr = self.session.new_transaction()
 
         host, hostname = self.__create_host(tr)
-        name = 'unittest%s' % id(self)
+        name = 'test%s' % str(id(self))[2:6]
 
         disk = tr.get_commands().create_disk(host, name, name)
         assert disk.get_host().get_id() == host.get_id()

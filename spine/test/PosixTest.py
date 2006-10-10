@@ -30,35 +30,6 @@ class PosixTest(SpineObjectTest):
     def createObject(self): pass
     def deleteObject(self): pass
 
-    def ftestDeadlock(self):
-        tr = self.session.new_transaction()
-        account, name = self.__create_account(tr)
-        assert name == account.get_name()
-        assert account.is_posix() == False
-        
-        group = self.__join_posix_group(tr, account)
-        gid = group.get_id()
-        shells = self.__get_posix_shell(tr)
-        shell_name = shells[0].get_name()
-        
-        uid = tr.get_commands().get_free_uid()
-        account.promote_posix(uid, group, shells[0])
-        tr.commit()
-
-        tr = self.session.new_transaction()
-        account = tr.get_commands().get_account_by_name(name)
-        assert account.is_posix() == True
-        assert account.get_posix_uid() != None
-        assert account.get_shell().get_name() == shell_name
-        assert account.get_primary_group().get_id() == gid
-
-        account.demote_posix()
-        group.remove_member(account)
-        group.demote_posix()
-        group.delete()
-        account.delete()
-        tr.commit()
-
     def testCreateDeletePerson(self):
         p = DummyPerson(self.session)
 
