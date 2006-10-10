@@ -29,14 +29,7 @@ import config
 
 import SpineClient
 
-url = config.conf.get('SpineClient', 'url')
-idl_path = config.conf.get('SpineClient', 'idl_path')
-use_ssl = config.conf.getboolean('SpineClient', 'use_ssl')
-ca_file = config.conf.get('SpineClient', 'ca_file')
-key_file = config.conf.get('SpineClient', 'key_file')
-key_password = config.conf.get('SpineClient', 'key_password')
-
-Spine = SpineClient.SpineClient(url, use_ssl, ca_file, key_file, key_password, idl_path)
+Spine = SpineClient.SpineClient(config=config.conf)
 
 def login(username='', password='', redirect='/index', msg=''):
     error = None
