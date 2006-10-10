@@ -34,12 +34,20 @@ Brukernavn og passord for steinarh sin spine er "bootstrap_account" og
 For en minimal klient, se spine/examples/python/client/client1.py.  På
 pointy kan dette skriptet kjøres som i [4].  
 
-Se spine/ceresync og spine/cereweb for mer omfattende eksempler.  For å
-få en kommentert idl-fil, se examples/python/get_docs.  For å kjøre
+Videre kan dere se på spine/examples/tutorial/ hvor tutXX.py viser hvordan man
+gjør noen vanlige operasjoner.
+
+Til slutt har vi spine/ceresync og spine/cereweb som er eksisterende klienter
+og kan ansees som mer omfattende eksempler.
+
+== Dokumentasjon ==
+
+For å få en kommentert idl-fil (inneholder definisjon av alle klasser,
+metoder osv. som spine eksporterer), se examples/python/get_docs.  For å kjøre
 denne må man først kopiere client.conf.template til client.conf, og
 konfigurere.  Sett cache=false, og lenk opp SpineCore.idl filen til
-get_docs-katalogen, tilsvarende [2].  Deretter skal det være bare å
-kjøre skriptet og få en commented.idl fil i katalogen.
+get_docs-katalogen, tilsvarende [2].  Deretter skal det være bare å kjøre
+skriptet og få en commented.idl fil i katalogen.
 
 [1]. export CVSROOT=:pserver:anonymous@cerebrum.cvs.sourceforge.net:/cvsroot/cerebrum/ 
      cvs login; cvs co -d ~/spine cerebrum/spine; cd ~/spine
