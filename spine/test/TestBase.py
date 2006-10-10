@@ -21,12 +21,22 @@
 
 import os, sys, traceback, unittest
 from test import test_support
-sys.path.append(os.path.join(os.path.dirname(__file__), '../examples/python/cached_idl/'))
-import Spine
+try:
+    import SpineClient
+except ImportError:
+    print >> sys.stderr, \
+    "Fatal error in TestBase.py: \n\t\
+            Couldn't import SpineClient.  Make sure PYTHONPATH is correct."
+    sys.exit(1)
+import ConfigParser
 
-username = Spine.conf.get('login', 'username')
-password = Spine.conf.get('login', 'password')
-spine = Spine.connect()
+conf = ConfigParser.ConfigParser()
+conf.read(('../client.conf.template', '../client.conf', 'client.conf'))
+
+username  = conf.get('login', 'username')
+password  = conf.get('login', 'password')
+
+spine = SpineClient.SpineClient(config=conf).connect()
 
 class SpineObjectTest(unittest.TestCase):
     """
@@ -37,13 +47,13 @@ class SpineObjectTest(unittest.TestCase):
     """
 
     def setUp(self):
+        self.open = False
         self.session = spine.login(username, password)
-        self.tr = self.session.new_transaction()
+        self.tr = self.get_tr()
         self.createObject()
 
     def tearDown(self):
-        self.deleteObject()
-        self.tr.commit()
+        self.rollback()
         self.session.logout()
 
     def createObject(self):
@@ -51,3 +61,24 @@ class SpineObjectTest(unittest.TestCase):
 
     def deleteObject(self):
         raise RuntimeError('Subclass does not implement the deleteObject method.')
+
+
+    def get_tr(self):
+        if not self.open:
+            self.tr = self.session.new_transaction()
+            self.open = True
+        return self.tr
+
+    def commit(self):
+        if self.open:
+            self.tr.commit()
+            self.open = False
+
+    def rollback(self):
+        if self.open:
+            self.tr.rollback()
+            self.open = False
+
+def create_name(obj):
+    n = str(id(obj))
+    return 'tn%s' % n[3:8]
