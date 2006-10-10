@@ -820,7 +820,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             type_str += " AND source_system = %d" % int(source_system)
 
         return self.query("""
-        SELECT DISTINCT person_id, name_variant, name
+        SELECT DISTINCT person_id, name_variant, name, source_system
         FROM [:table schema=cerebrum name=person_name]
         WHERE name_variant %s""" % type_str)
 
