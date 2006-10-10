@@ -31,11 +31,22 @@ from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
 from Cerebrum.modules.PosixUser import _PosixShellCode
 from Cerebrum.modules.Email import \
      _EmailSpamLevelCode, _EmailSpamActionCode, _EmailDomainCategoryCode
+from Cerebrum.modules.EntityTrait import \
+     _EntityTraitCode
 
 class Constants(Constants.Constants):
 
     name_display = _PersonNameCode('DISPLAY', 'Display name')
 
+    trait_guest_owner = _EntityTraitCode(
+        'guest_owner', Constants.Constants.entity_account,
+        "When a guest account is requested a group must be set as "
+        "owner for the account for the given time.")
+
+    trait_group_owner = _EntityTraitCode(
+        'group_owner', Constants.Constants.entity_group,
+        "Owner of an user administered group")
+        
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
         'Norwegian birth number')
