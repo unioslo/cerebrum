@@ -19,7 +19,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import Spine
+import sys
+import ConfigParser
+try:
+    import SpineClient
+except ImportError:
+    print "Please make sure SpineClient is in your PYTHONPATH."
+    sys.exit(1)
+
+conf = ConfigParser.ConfigParser()
+conf.read('client.conf')
+
+username = conf.get('login', 'username')
+password = conf.get('login', 'password')
+
 
 def mult(a, b):
     r=[]
@@ -64,7 +77,7 @@ def get_name_first(g=None):
 def get_name_last():
     return random.choice(name_2).capitalize()
 
-t=Spine.connect().login("bootstrap_account", "blapp").new_transaction()
+t=SpineClient.SpineClient(config=conf).connect().login(username, password).new_transaction()
 comm=t.get_commands()
 accountnamevaluedomain=t.get_value_domain("account_names")
 sourcesystem=t.get_source_system('Manual') #it's not
