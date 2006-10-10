@@ -54,9 +54,26 @@ path = os.path.dirname(os.path.realpath(__file__))
 
 class SpineClient:
     spine_core = os.path.join(path, 'SpineCore.idl')
-    def __init__(self, ior_url, use_ssl=False, ca_file=None, key_file=None, ssl_password=None, idl_path=path, automatic=True):
+    def __init__(self, ior_url=None,
+                       use_ssl=None,
+                       ca_file=None,
+                       key_file=None,
+                       ssl_password=None,
+                       idl_path=None,
+                       automatic=True,
+                       config=None):
         if not os.path.exists(self.spine_core):
             raise IOError, '%s not found' % spine_core
+
+        if config:
+            # Use config-object for default values but allow override.
+            ior_url = ior_url or config.get('SpineClient', 'url')
+            idl_path = idl_path or config.get('SpineClient', 'idl_path')
+            ca_file = ca_file or config.get('SpineClient', 'ca_file')
+            key_file = key_file or config.get('SpineClient', 'key_file')
+            ssl_password = ssl_password or config.get('SpineClient', 'key_password')
+            if use_ssl is None:
+                use_ssl      = config.getboolean('SpineClient', 'use_ssl')
 
         if idl_path not in sys.path:
             sys.path.append(idl_path)
