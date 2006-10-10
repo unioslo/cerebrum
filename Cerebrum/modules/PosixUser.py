@@ -271,6 +271,7 @@ class PosixUser(Account_class):
     def get_gecos(self):
         """Returns the gecos string of this object.  If self.gecos is
         not set, gecos is a washed version of the persons cached fullname"""
+        default_gecos_name = getattr(self.const, cereconf.DEFAULT_GECOS_NAME)
         if self.gecos is not None:
             return self.gecos
         if self.owner_type == int(self.const.entity_group):
@@ -281,7 +282,7 @@ class PosixUser(Account_class):
         p.find(self.owner_id)
         try:
             ret = p.get_name(self.const.system_cached,
-                             self.const.name_full)
+                             default_gecos_name)
             return self.simplify_name(ret, as_gecos=1)
         except Errors.NotFoundError:
             pass
