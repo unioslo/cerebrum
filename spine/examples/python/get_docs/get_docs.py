@@ -21,16 +21,24 @@
 """
 This is an example that fetches the commented IDL source code from Spine.
 Comments are in Doxygen format.  It relies on the cached IDL client example.
+Make sure PYTHONPATH contains the path to SpineClient.py and that
+SpineCore.idl is in the same directory as SpineClient.py.
 """
 
 import os, sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../cached_idl/'))
-import Spine
+import SpineClient
+
+if len(sys.argv) != 2:
+    print "Usage: %s <file.ior>" % sys.argv[0]
+    sys.exit(1)
+
+ior_file = sys.argv[1]
+tmp_dir = os.path.expanduser('~/tmp')
 
 print 'Connecting to Spine...'
-c = Spine.connect()
+spine = SpineClient.SpineClient(ior_file, idl_path=tmp_dir).connect()
 print 'Fetching commented IDL source...'
-src = c.get_idl_commented()
+src = spine.get_idl_commented()
 print 'Saving...'
 f = open('commented.idl', 'w')
 f.write(src)
