@@ -26,6 +26,7 @@ import ConfigParser
 
 from omniORB import CORBA, importIDL, importIDLString
 
+print >> sys.stderr, "DeprecationWarning:cached_idl:Spine, please use SpineClient"
 
 conf = ConfigParser.ConfigParser()
 conf.read(('client.conf.template', 'client.conf'))
