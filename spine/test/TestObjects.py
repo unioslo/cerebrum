@@ -20,7 +20,6 @@
 #
 
 import unittest
-from TestBase import *
 
 def debug(func):
     fname = func.__module__, func.func_name
