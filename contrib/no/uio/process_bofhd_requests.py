@@ -309,7 +309,7 @@ def proc_email_create(r):
         es = Email.EmailServer(db)
         es.find(r['destination_id'])
     return (cyrus_create(r['entity_id'], host=es) and
-            cyrus_set_quota(r['entity_id'], hq, host=es.name))
+            cyrus_set_quota(r['entity_id'], hq, host=es))
 
 
 def proc_email_hquota(r):
@@ -379,7 +379,7 @@ def proc_email_move(r):
         logger.debug("E-mail delivery not stopped for %s", acc.account_name)
         return False
     # Disable quota while copying so the move doesn't fail
-    cyrus_set_quota(acc.entity_id, 0, host=new_server.name)
+    cyrus_set_quota(acc.entity_id, 0, host=new_server)
     if not move_email(acc, old_server, new_server):
         return False
     
@@ -390,7 +390,7 @@ def proc_email_move(r):
     est.write_db()
     # Now set the correct quota.
     hq = get_email_hardquota(acc.entity_id)
-    cyrus_set_quota(acc.entity_id, hq, host=new_server.name)
+    cyrus_set_quota(acc.entity_id, hq, host=new_server)
     # We need to delete this request before adding the delete to avoid
     # triggering the conflicting request test.
     br = BofhdRequests(db, const)
