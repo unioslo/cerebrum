@@ -344,6 +344,7 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     from select import select
     from popen2 import Popen3
     EXIT_SUCCESS = 0
+    logger = Factory.get_logger()
     if cereconf.DEBUG_HOSTLIST is not None:
         for srv in connect_to:
             if srv not in cereconf.DEBUG_HOSTLIST:
@@ -356,7 +357,6 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     if log_exit_status:
         logger.debug('Spawned %r, pid %d', cmd, pid)
     proc.tochild.close()
-    logger = Factory.get_logger()
     descriptor = {proc.fromchild: logger.debug,
                   proc.childerr: logger.error}
     while descriptor:
