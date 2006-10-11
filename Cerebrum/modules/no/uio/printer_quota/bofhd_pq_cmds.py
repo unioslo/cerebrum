@@ -421,7 +421,7 @@ The currently defined id-types are:
                 'pageunits_free': r['pageunits_free'],
                 'pageunits_accum': r['pageunits_accum'],
                 'pageunits_paid': r['pageunits_paid'],
-                'kroner': r['kroner']}
+                'kroner': float(r['kroner'])}
             if not r['update_by']:
                 r['update_by'] = r['update_program']
             tmp['update_by'] = r['update_by'][:10]
