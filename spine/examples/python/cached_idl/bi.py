@@ -58,12 +58,12 @@ class Session(object):
         print "Loggin in..."
         self.username = username or conf.get('login', 'username')
         self.password = password or conf.get('login', 'password')
-        ior_file = ior_file or conf.get('corba', 'url')
-        cache_dir = conf.get('cache', 'cache_dir')
+        ior_file = ior_file or conf.get('SpineClient', 'url')
+        cache_dir = conf.get('SpineClient', 'idl_path')
         self.spine = SpineClient.SpineClient(ior_file, idl_path=cache_dir).connect()
         self.session = self.spine.login(self.username, self.password)
         self.tr = self.session.new_transaction()
-        self.cmds = self.tr.get_commands()
+        self.c = self.tr.get_commands()
     
     def __del__(self):
         print "Logging out..."
@@ -77,3 +77,5 @@ class Session(object):
         g.add_member(a.get_id())
         return p,g,a
 s = Session()
+tr = s.tr
+c = s.c
