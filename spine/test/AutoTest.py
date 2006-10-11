@@ -23,6 +23,7 @@ import cStringIO
 import unittest
 from test import test_support
 from TestBase import *
+import SpineIDL
 
 __all__ = []
 
@@ -81,7 +82,7 @@ def _create_testclass_base(cls_name):
         proper exception."""
         for attr in dir(self.search_obj):
             if attr.startswith('get_') and not attr in ['get_dumpers', 'get_search_objects']:
-                self.assertRaises(Spine.Errors.ClientProgrammingError, getattr(self.search_obj, attr))
+                self.assertRaises(SpineIDL.Errors.ClientProgrammingError, getattr(self.search_obj, attr))
     testclass.testSearchObject = testSearchObject
 
     def testDump(self):
@@ -93,7 +94,7 @@ def _create_testclass_base(cls_name):
             if attr.startswith('mark'):
                 try:
                     getattr(dumper, attr)()
-                except Spine.Errors.NotFoundError:
+                except SpineIDL.Errors.NotFoundError:
                     print >> log, 'Note: Test of dump, mark method %s, did not have the required data.' % (attr)
         for obj in dumper.dump():
             for attr in dir(obj):
@@ -117,7 +118,7 @@ def _create_testmethod(method_name):
         """Tests %s on %s""" % (method_name, self.obj.__class__.__name__)
         try:
             getattr(self.obj, method_name)()
-        except Spine.Errors.NotFoundError: # If we don't have data available, the test shouldn't fail
+        except SpineIDL.Errors.NotFoundError: # If we don't have data available, the test shouldn't fail
             print >> log, 'Note: Test on %s did not have the required data.' % (method_name)
     return test
 
