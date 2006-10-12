@@ -21,6 +21,7 @@
 
 import unittest
 from TestBase import *
+import TestObjects
 
 class TransactionTest(unittest.TestCase):
     def setUp(self):
@@ -112,8 +113,9 @@ class TransactionTest(unittest.TestCase):
         stored."""
         transaction = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 1
-        account = transaction.get_account_searcher().search()[0]
-        new_name = str(id(account))
+        _account = TestObjects.DummyAccount(self.session)
+        account = _account._get_obj(transaction)
+        new_name = "tac%s" % str(id(account))[-4:]
         id_1 = account.get_id()
         name = account.get_name()
         account.set_name(new_name)
@@ -147,12 +149,14 @@ class MultipleTransactionTest(unittest.TestCase):
         assert len(self.session.get_transactions()) == 1
         transaction_2 = self.session.new_transaction()
         assert len(self.session.get_transactions()) == 2
-        search = transaction_1.get_account_searcher().search()
-        assert len(search) >= 2 # We need two accounts to continue the test
-        account_1 = search[0]
-        test_name = str(id(account_1))
-        test_name2 = str(id(account_1) + 1)
-        account_2 = search[1]
+
+        _account_1 = TestObjects.DummyAccount(self.session)
+        account_1 = _account_1._get_obj(transaction_1)
+        _account_2 = TestObjects.DummyAccount(self.session)
+        account_2 = _account_2._get_obj(transaction_2)
+        
+        test_name = "tac%s" % str(id(account_1))[-4:]
+        test_name2 = "tac%s" % str(id(account_1) + 1)[-4:]
         id_1 = account_1.get_id()
         id_2 = account_2.get_id()
         name_1 = account_1.get_name()
@@ -215,7 +219,7 @@ class MultipleTransactionTest(unittest.TestCase):
         assert len(self.session.get_transactions()) == 2
         account_2 = transaction_2.get_account(id_1)
 
-        #self.assertRaises(Spine.Errors.AlreadyLockedError, account_2.get_name)
+        #self.assertRaises(SpineIDL.Errors.AlreadyLockedError, account_2.get_name)
         
         transaction_1.commit()
         assert len(self.session.get_transactions()) == 1
@@ -225,7 +229,7 @@ class MultipleTransactionTest(unittest.TestCase):
 
         account_2.set_name(test_name2)
 
-        #self.assertRaises(Spine.Errors.AlreadyLockedError, account_1.get_name)
+        #self.assertRaises(SpineIDL.Errors.AlreadyLockedError, account_1.get_name)
 
         self.assertEquals(account_2.get_name(), test_name2)
         transaction_2.commit()

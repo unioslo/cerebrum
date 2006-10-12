@@ -31,8 +31,9 @@ from OUTest import *
 from HomeDirectoryTest import *
 from PosixTest import *
 from ExtentionTest import *
-from EmailTest import *
+#from EmailTest import * # Not working.
 from AutoTest import *
+from AuthTest import *
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,6 +24,7 @@ from omniORB import CORBA
 import random
 import unittest
 from TestBase import *
+import SpineIDL
 
 class EmailDomainTest(SpineObjectTest):
     """Tests the e-mail module implementation in Spine."""
@@ -159,7 +160,7 @@ class EmailTargetTest(SpineObjectTest):
         assert len(self.et.get_addresses()) == 0
 
     def testGetPrimaryAddress(self):
-        self.assertRaises(Spine.Errors.NotFoundError, self.et.get_primary_address)
+        self.assertRaises(SpineIDL.Errors.NotFoundError, self.et.get_primary_address)
 
 class EmailAddressTest(SpineObjectTest):
     def createObject(self):

@@ -21,6 +21,7 @@
 
 import unittest
 from TestBase import *
+import SpineIDL
 
 class OUTest(SpineObjectTest):
     """Tests the OU implementation in Spine."""
@@ -33,12 +34,13 @@ class OUTest(SpineObjectTest):
         return i
 
     def createObject(self):
+        self.tr = self.session.new_transaction()
         self.institusjon = self.__find_available_stedkode_institusjon()
         c = self.tr.get_commands()
         try:
             self.ou = c.create_ou('Unit-test', self.institusjon, 1, 1, 1)
         except TypeError:
-            raise Spine.Errors.DatabaseError # Stedkode mixin isn't loaded, we raise to make our test succeed
+            raise SpineIDL.Errors.DatabaseError # Stedkode mixin isn't loaded, we raise to make our test succeed
 
 
     def deleteObject(self):
@@ -49,7 +51,7 @@ class OUTest(SpineObjectTest):
         raises a DatabaseError when trying to create an OU which violates the
         unique constraint on stedkode."""
         c = self.tr.get_commands()
-        self.assertRaises(Spine.Errors.AlreadyExistsError, c.create_ou,
+        self.assertRaises(SpineIDL.Errors.AlreadyExistsError, c.create_ou,
                 'Unit-test', self.institusjon, 1, 1, 1)
 
 if __name__ == '__main__':

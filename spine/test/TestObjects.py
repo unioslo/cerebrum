@@ -20,7 +20,6 @@
 #
 
 import unittest
-import SpineIDL
 
 def debug(func):
     fname = func.__module__, func.func_name
@@ -53,7 +52,7 @@ class DummyEntity(object):
         try:
             obj = self._get_obj()
             return True
-        except SpineIDL.Errors.NotFoundError:
+        except:
             return False
     
     def _get_tr(self):
@@ -100,7 +99,7 @@ class DummyGroup(DummyEntity):
 
     def _create_obj(self):
         tr = self._get_tr()
-        name = 'tgr%s' % str(id(self))[1:6]
+        name = 'tgr%s' % str(id(self))[-4:]
         group = tr.get_commands().create_group(name)
         _id = group.get_id()
         self._commit()
@@ -196,7 +195,7 @@ class DummyAccount(DummyEntity):
     def _create_obj(self):
         tr = self._get_tr()
         c = tr.get_commands()
-        name = 'tac%s' % str(id(self))[1:6]
+        name = 'tac%s' % str(id(self))[-4:]
         date = tr.get_commands().get_date_none()
         owner = tr.get_person(self._owner_id)
         account = c.create_account(name, owner, date)
@@ -244,3 +243,16 @@ class DummyDisk(DummyEntity):
         did = disk.get_id()
         self._commit()
         return did
+
+class DummyOU(DummyEntity):
+    def __init__(self, _session, id=None):
+        super(DummyOU, self).__init__(_session, id)
+        self._get_attr = "get_ou"
+
+    def _create_obj(self):
+        tr, c = self._get_trc()
+        name = 'testou'
+        ou = c.create_ou(name, 0,0,0,0)
+        oid = ou.get_id()
+        self._commit()
+        return oid

@@ -88,6 +88,7 @@ def create_ou(self, name, institusjon, fakultet, institutt, avdeling):
 create_ou.signature = OU
 create_ou.signature_args = [str, int, int, int, int]
 create_ou.signature_write = True
+create_ou.signature_exceptions = [AlreadyExistsError]
 Commands.register_methods([create_ou])
 
 # arch-tag: 975c6be6-e251-11d9-9880-98d92f1bc0af

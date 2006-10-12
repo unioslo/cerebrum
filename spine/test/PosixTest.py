@@ -38,13 +38,13 @@ class PosixTest(SpineObjectTest):
 
     def testCreateDeleteAccount(self):
         p = DummyPerson(self.session)
-        a = DummyAccount(self.session, p)
+        a = DummyAccount(self.session, p.get_id())
 
     def testCreateDeleteAccountWithGroup(self):
         p = DummyPerson(self.session)
-        a = DummyAccount(self.session, p)
+        a = DummyAccount(self.session, p.get_id())
         g = DummyGroup(self.session)
-        g.add_member(a.get_id())
+        g._add_member(a.get_id())
 
     def testPromoteDemoteGroup(self):
         g = DummyGroup(self.session)
@@ -58,12 +58,12 @@ class PosixTest(SpineObjectTest):
 
     def testPromoteDemotePosixAccount(self):
         p = DummyPerson(self.session)
-        a = DummyAccount(self.session, p)
+        a = DummyAccount(self.session, p.get_id())
         g = DummyGroup(self.session)
         assert a.is_posix() == False
         g.promote_posix()
-        g.add_member(a.get_id())
-        a.promote_posix(g.get_id())
+        g._add_member(a.get_id())
+        a._promote_posix(g.get_id())
         assert a.is_posix() == True
         a.demote_posix()
         assert a.is_posix() == False
@@ -71,12 +71,12 @@ class PosixTest(SpineObjectTest):
 
     def testPromotePosixAccount(self):
         p = DummyPerson(self.session)
-        a = DummyAccount(self.session, p)
+        a = DummyAccount(self.session, p.get_id())
         g = DummyGroup(self.session)
         assert a.is_posix() == False
         g.promote_posix()
-        g.add_member(a.get_id())
-        a.promote_posix(g.get_id())
+        g._add_member(a.get_id())
+        a._promote_posix(g.get_id())
         assert a.is_posix() == True
 
 if __name__ == '__main__':

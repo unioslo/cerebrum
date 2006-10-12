@@ -29,11 +29,14 @@ class AuthTest(SpineObjectTest):
     def createObject(self):
         """SpineObjectTest.setUp connects to the server, creates a
         transaction and calls this method"""
-        pass
+        self.tr = self.session.new_transaction()
 
     def deleteObject(self):
         """SpineObjectTest.tearDown calls this method, commits the transaction then logs out"""
-        pass
+        try:
+            self.tr.rollback()
+        except:
+            pass
 
     def testAuthOperationSearcher(self):
         searcher = self.tr.get_auth_operation_searcher()
@@ -48,6 +51,7 @@ class AuthTest(SpineObjectTest):
 
 class AuthOperationSetTest(AuthTest):
     def createObject(self):
+        super(AuthOperationSetTest, self).createObject()
         self.op_code_1 = self.tr.get_auth_operation_code('add_disks')
         self.op_code_2 = self.tr.get_auth_operation_code('create_user')
         self.op_code_3 = self.tr.get_auth_operation_code('create_group')

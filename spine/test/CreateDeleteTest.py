@@ -21,6 +21,7 @@
 
 import unittest
 from TestBase import *
+import SpineIDL
 
 
 class CreateDeleteTest(unittest.TestCase):
@@ -37,7 +38,7 @@ class CreateDeleteTest(unittest.TestCase):
         group = tr.get_commands().create_group(name)
         assert name == group.get_name()
         group.delete()
-        self.assertRaises(Spine.Errors.ObjectDeletedError, group.get_name)
+        self.assertRaises(SpineIDL.Errors.ObjectDeletedError, group.get_name)
 
         tr.rollback()
 
@@ -56,7 +57,7 @@ class CreateDeleteTest(unittest.TestCase):
         person, name = self.__create_person(tr)
         assert name == person.get_cached_full_name()
         person.delete()
-        self.assertRaises(Spine.Errors.ObjectDeletedError, person.get_cached_full_name)
+        self.assertRaises(SpineIDL.Errors.ObjectDeletedError, person.get_cached_full_name)
 
         tr.rollback()
 
@@ -68,12 +69,11 @@ class CreateDeleteTest(unittest.TestCase):
         account = tr.get_commands().create_account(name, owner, expire_date)
         assert name == account.get_name()
         account.delete()
-        self.assertRaises(Spine.Errors.ObjectDeletedError, account.get_name)
+        self.assertRaises(SpineIDL.Errors.ObjectDeletedError, account.get_name)
 
         tr.rollback()
 
     def testOU(self):
-        assert 0 # Not Implemented
         tr = self.session.new_transaction()
         name = 'unittest%s' % id(tr)
         c = tr.get_commands()
@@ -83,7 +83,7 @@ class CreateDeleteTest(unittest.TestCase):
                 ou = c.create_ou(name, 1, 1, 1, 1) # For the stedkode mixin
         assert name == ou.get_name()
         ou.delete()
-        self.assertRaises(Spine.Errors.ObjectDeletedError, ou.get_name)
+        self.assertRaises(SpineIDL.Errors.ObjectDeletedError, ou.get_name)
 
         tr.rollback()
 
@@ -98,7 +98,7 @@ class CreateDeleteTest(unittest.TestCase):
         assert host.get_name() == name
         assert host.get_description() == name
         host.delete()
-        self.assertRaises(Spine.Errors.ObjectDeletedError, host.get_name)
+        self.assertRaises(SpineIDL.Errors.ObjectDeletedError, host.get_name)
 
         tr.rollback()
 

@@ -49,11 +49,10 @@ class SpineObjectTest(unittest.TestCase):
     def setUp(self):
         self.open = False
         self.session = spine.login(username, password)
-        self.tr = self.get_tr()
         self.createObject()
 
     def tearDown(self):
-        self.rollback()
+        self.deleteObject()
         self.session.logout()
 
     def createObject(self):

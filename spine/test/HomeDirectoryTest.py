@@ -21,7 +21,9 @@
 
 import unittest
 from TestBase import *
+from TestObjects import *
 from omniORB import CORBA
+import SpineIDL
 
 class HomeDirectoryTest(unittest.TestCase):
     """Test homedirectory and accounthome in spine."""
@@ -32,42 +34,14 @@ class HomeDirectoryTest(unittest.TestCase):
     def tearDown(self):
         self.session.logout()
 
-    def __create_person(self, transaction):
-        commands = transaction.get_commands()
-        date = commands.get_date_now()
-        gender = transaction.get_gender_type('M')
-        source = transaction.get_source_system('Manual')
-        name = 'unittest%s' % id(self)
-        return commands.create_person(date, gender, name, source)
-
-    def __create_account(self, tr):
-        owner = self.__create_person(tr)
-        date = tr.get_commands().get_date_none()
-        name = 'unittest_ac%s' % id(self)
-        account = tr.get_commands().create_account(name, owner, date)
-
-        searcher = tr.get_spread_searcher()
-        searcher.set_entity_type(account.get_type())
-        spread = searcher.search()[0]
-        account.add_spread(spread)
-        
-        return account, name
-
-    def __create_disk_with_host(self, tr):
-        host_name = 'unittest_h%s' % id(self)
-        disk_path = 'unittest_d%s' % id(self)
-        host = tr.get_commands().create_host(host_name, host_name)
-        disk = tr.get_commands().create_disk(host, disk_path, disk_path)
-        return disk, disk_path
-        
     def testSetHomedir(self):
+        _account = DummyAccount(self.session)
+        _account._add_spread()
+        _disk = DummyDisk(self.session)
         tr = self.session.new_transaction()
-        account, a_name = self.__create_account(tr)
-        disk, path = self.__create_disk_with_host(tr)
+        account = _account._get_obj(tr)
+        disk = _disk._get_obj(tr)
         
-        assert a_name == account.get_name()
-        assert path == disk.get_path()
-    
         home = "localhost:/home/www"
         spread = account.get_spreads()[0]
         account.set_homedir(spread, home, None)
@@ -81,12 +55,12 @@ class HomeDirectoryTest(unittest.TestCase):
         assert home != account.get_homedir(spread).get_path()
         assert (disk.get_path() == 
                 account.get_homedir(spread).get_disk().get_path())
-        
-        tr.rollback()
+        tr.commit()
 
     def testRemoveHomedir(self):
-        tr = self.session.new_transaction()
-        account, a_name = self.__create_account(tr)
+        _account = DummyAccount(self.session)
+        _account._add_spread()
+        account = _account._get_obj()
         
         home = "localhost:/home/www"
         spread = account.get_spreads()[0]
@@ -96,14 +70,14 @@ class HomeDirectoryTest(unittest.TestCase):
 
         account.remove_homedir(spread)
 
-        self.assertRaises(Spine.Errors.NotFoundError,
+        self.assertRaises(SpineIDL.Errors.NotFoundError,
                           account.get_homedir, spread)
 
-        tr.rollback()
         
     def testGetHomes(self):
-        tr = self.session.new_transaction()
-        account, a_name = self.__create_account(tr)
+        _account = DummyAccount(self.session)
+        _account._add_spread()
+        account = _account._get_obj()
         
         home = "localhost:/home/www"
         spread = account.get_spreads()[0]
@@ -116,8 +90,6 @@ class HomeDirectoryTest(unittest.TestCase):
         account.remove_homedir(spread)
 
         assert account.get_homes() == []
-        
-        tr.rollback()
         
 if __name__ == '__main__':
     unittest.main()

@@ -52,7 +52,8 @@ untestable_cls_methods = [
 untestable_methods = [
     'get_quarantine',
     'get_entity_name',
-    'get_external_id'
+    'get_contact_info',
+    'get_external_id',
     'get_address'
 ]
 

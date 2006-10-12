@@ -20,7 +20,9 @@
 #
 
 import unittest
+import TestObjects
 from TestBase import *
+import SpineIDL
 
 SPINE_DEFAULT_CHARSET='iso-8859-1'
 
@@ -51,18 +53,18 @@ class SessionTest(unittest.TestCase):
         verify that the data can be fetched correctly from it."""
         self.session.set_encoding('iso-8859-1')
         transaction = self.session.new_transaction()
-        ous = transaction.get_ou_searcher().search()
-        assert len(ous) >= 1 # We need an OU to perform the test
-        ou = ous[0]
+        _ou = TestObjects.DummyOU(self.session)
+        ou = _ou._get_obj(transaction)
         ou.set_name('זרו')
         self.session.set_encoding('UTF-8')
         assert ou.get_name() == 'זרו'.decode('iso-8859-1').encode('UTF-8')
         transaction.rollback()
+        del _ou
 
     def testInvalidEncoding(self):
         """Tests that it is impossible to set an invalid encoding, and that the
         expected exception is raised."""
-        self.assertRaises(Spine.Errors.NotFoundError, self.session.set_encoding, 'fisk')
+        self.assertRaises(SpineIDL.Errors.NotFoundError, self.session.set_encoding, 'fisk')
 
 if __name__ == '__main__':
     unittest.main()
