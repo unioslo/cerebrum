@@ -150,7 +150,11 @@ class Stedkode(OU):
         return is_new
 
     def delete(self):
-        raise NotImplementedError
+        if self.__in_db:
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=stedkode]
+            WHERE ou_id=:ou_id""", {'ou_id': self.entity_id})
+        self.__super.delete()
 
     def find(self, ou_id):
         self.__super.find(ou_id)

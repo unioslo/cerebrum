@@ -130,6 +130,14 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         self.write_db()
         self.find(self.entity_id)
 
+    def delete(self):
+        if self.__in_db:
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=ou_info]
+            WHERE ou_id = :ou_id""", {'ou_id': self.entity_id})
+            self._db.log_change(self.entity_id, self.const.ou_del, None)
+        self.__super.delete()
+
     def find(self, ou_id):
         """Associate the object with the OU whose identifier is OU_ID.
 
@@ -170,7 +178,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE ou_id=:ou_id AND  perspective=:perspective""",
                             {'ou_id': self.entity_id,
                              'perspective': int(perspective)})
-    # end get_parent
 
     def _get_item_languages(self, item_name, merge):
         """

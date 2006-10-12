@@ -196,6 +196,7 @@ class CLConstants(Constants.Constants):
     ou_set_parent = _ChangeTypeCode(
         'ou', 'set_parent', 'parent for %(subject)s set to %(dest)s',
         ('perspective=%(int:perspective)s',))
+    ou_del = _ChangeTypeCode('ou', 'del', 'deleted OU %(subject)s')
     person_create = _ChangeTypeCode('person', 'create', 'created %(subject)s')
     person_update = _ChangeTypeCode('person', 'update', 'update %(subject)s')
     person_name_del = _ChangeTypeCode(
