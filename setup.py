@@ -98,13 +98,13 @@
 
 # To install python modules in standard locations, and cerebrum files
 # under /cerebrum, run like:
-#  python2.2 setup.py install install_data --install-dir=/cerebrum
+#  python setup.py install install_data --install-dir=/cerebrum
 #
 # To get the files in /etc under /cerebrum/etc, add:
 #  --root=/cerebrum
 #
 # To build dist file:
-#  python2.2 setup.py sdist
+#  python setup.py sdist
 
 import os
 import sys

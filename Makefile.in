@@ -40,11 +40,11 @@ testrun: all
 	$(MAKE) -C testsuite testrun 2>&1   | tee testsuite/log-testrun.out
 
 check: all
-	PYTHONPATH=`pwd` python2.2 testsuite/Run.py  -v 2>&1 | \
+	PYTHONPATH=`pwd` python testsuite/Run.py  -v 2>&1 | \
 	  tee testsuite/log-check.out
 
 dbcheck: all
-	PYTHONPATH=`pwd` python2.2 testsuite/Run.py -v Cerebrum.tests.SQLDriverTestCase.suite 2>&1 | \
+	PYTHONPATH=`pwd` python testsuite/Run.py -v Cerebrum.tests.SQLDriverTestCase.suite 2>&1 | \
 	  tee testsuite/log-check.out
 
 fullcheck: bootstrap check testrun
