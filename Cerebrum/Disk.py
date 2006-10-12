@@ -289,11 +289,12 @@ class Host(EntityName, Entity_class):
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=host_info]
-              (entity_type, host_id, description)
-            VALUES (:e_type, :host_id, :description)
+              (entity_type, host_id, name, description)
+            VALUES (:e_type, :host_id, :name, :description)
                     """,
                          {'e_type': int(self.const.entity_host),
                           'host_id': self.entity_id,
+                          'name': self.name,
                           'description': self.description})
             self._db.log_change(self.entity_id, self.const.host_add, None,
                                 change_params={'name': self.name})
@@ -301,10 +302,11 @@ class Host(EntityName, Entity_class):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=host_info]
-            SET description=:description
+            SET description=:description, name=:name
             WHERE host_id=:host_id""",
                          {'host_id': self.entity_id,
-                          'description': self.description})
+                          'description': self.description,
+                          'name': self.name})
             self._db.log_change(self.entity_id, self.const.host_mod, None,
                                 change_params={'name': self.name})
             if 'name' in self.__updated:
