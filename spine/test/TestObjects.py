@@ -20,6 +20,7 @@
 #
 
 import unittest
+import SpineIDL
 
 def debug(func):
     fname = func.__module__, func.func_name
@@ -28,8 +29,7 @@ def debug(func):
         return func(*args, **kwargs)
     return decorator
     
-
-class TestEntity(object):
+class DummyEntity(object):
     def __init__(self, _session, _id=None):
         self._keep = False
         self._session = _session
@@ -43,16 +43,28 @@ class TestEntity(object):
     def __del__(self):
         if not hasattr(self, '_session') or not hasattr(self, '_id'):
             return # Object not initialized properly.
-        if not self._keep:
+        elif not self._keep and self._exists():
             obj = self._get_obj()
             obj.delete()
             self._commit()
         
+    def _exists(self):
+        self._commit()
+        try:
+            obj = self._get_obj()
+            return True
+        except SpineIDL.Errors.NotFoundError:
+            return False
+    
     def _get_tr(self):
         if not self._open:
             self.tr = self._session.new_transaction()
             self._open = True
         return self.tr
+
+    def _get_trc(self):
+        tr = self._get_tr()
+        return tr, tr.get_commands()
 
     def _get_obj(self, tr=None):
         tr = tr or self._get_tr()
@@ -69,7 +81,7 @@ class TestEntity(object):
     def __getattr__(self, attr):
         """ Decorate the method calls so we can make sure all changes are commited. """
         if attr.startswith("_"):
-            super(TestEntity, self).__getattribute__(attr)
+            super(DummyEntity, self).__getattribute__(attr)
         obj = self._get_obj()
         f = getattr(obj, attr)
         def w(*args, **kwargs):
@@ -81,25 +93,7 @@ class TestEntity(object):
     def keep(self):
         self._keep = True
 
-class DummyPerson(TestEntity):
-    def __init__(self, _session, _id=None):
-        super(DummyPerson, self).__init__(_session, _id)
-        self._get_attr = "get_person"
-
-    def _create_obj(self):
-        tr = self._get_tr()
-        cmds = tr.get_commands()
-        date = cmds.get_date_now()
-        gender = tr.get_gender_type('M')
-        source = tr.get_source_system('Manual')
-        fn = "unit_%s" % id(self)
-        ln = "test_%s" % id(self)
-        person = cmds.create_person(date, gender, fn, ln, source)
-        _id = person.get_id()
-        self._commit()
-        return _id
-
-class DummyGroup(TestEntity):
+class DummyGroup(DummyEntity):
     def __init__(self, _session, _id=None):
         super(DummyGroup, self).__init__(_session, _id)
         self._get_attr = "get_group"
@@ -115,7 +109,7 @@ class DummyGroup(TestEntity):
     def __del__(self):
         if not hasattr(self, '_session'):
             return
-        if not self._keep and self._id:
+        elif not self._keep and self._exists():
             group = self._get_obj()
             for gm in group.get_group_members():
                 member = gm.get_member()
@@ -127,23 +121,56 @@ class DummyGroup(TestEntity):
                 group.demote_posix()
             super(DummyGroup, self).__del__()
 
-    def add_member(self, aid):
+    def _add_member(self, aid):
         tr = self._get_tr()
         union_type = tr.get_group_member_operation_type("union")
         account = tr.get_account(aid)
-        self._get_obj().add_member(account, union_type)
+        self.add_member(account, union_type)
         self._commit()
 
-class DummyAccount(TestEntity):
-    def __init__(self, _session, owner, _id=None):
-        self.owner = owner
+class DummyPerson(DummyEntity):
+    def __init__(self, _session, _id=None):
+        super(DummyPerson, self).__init__(_session, _id)
+        self._get_attr = "get_person"
+
+    def __del__(self):
+        if not hasattr(self, '_session') or not hasattr(self, '_id'):
+            super(DummyPerson, self).__del__()
+        elif not self._keep and self._exists():
+            obj = self._get_obj()
+            for account in obj.get_accounts():
+                account.delete()
+            self._commit()
+            super(DummyPerson, self).__del__()
+
+    def _create_obj(self):
+        tr = self._get_tr()
+        cmds = tr.get_commands()
+        date = cmds.get_date_now()
+        gender = tr.get_gender_type('M')
+        source = tr.get_source_system('Manual')
+        fn = "unit_%s" % id(self)
+        ln = "test_%s" % id(self)
+        person = cmds.create_person(date, gender, fn, ln, source)
+        _id = person.get_id()
+        self._commit()
+        return _id
+
+class DummyAccount(DummyEntity):
+    def __init__(self, _session, owner_id=None, _id=None):
+        if owner_id:
+            self._owner_id = owner_id
+        else:
+            _owner = DummyPerson(_session)
+            _owner.keep()
+            self._owner_id = _owner.get_id()
         super(DummyAccount, self).__init__(_session)
         self._get_attr = "get_account"
 
     def __del__(self):
-        if not hasattr(self, '_session'):
-            return
-        if not self._keep and self._id:
+        if not hasattr(self, '_session') or not hasattr(self, '_id'):
+            super(DummyAccount, self).__del__()
+        elif not self._keep and self._exists():
             obj = self._get_obj()
             if obj.is_posix():
                 obj.demote_posix()
@@ -156,20 +183,64 @@ class DummyAccount(TestEntity):
             self._commit()
             super(DummyAccount, self).__del__()
 
+    def _add_spread(self):
+        tr, c = self._get_trc()
+        obj = self._get_obj(tr)
+        searcher = tr.get_spread_searcher()
+        type = obj.get_type()
+        searcher.set_entity_type(type)
+        spread = searcher.search()[0]
+        obj.add_spread(spread)
+        self._commit(tr)
+
     def _create_obj(self):
         tr = self._get_tr()
         c = tr.get_commands()
         name = 'tac%s' % str(id(self))[1:6]
         date = tr.get_commands().get_date_none()
-        account = c.create_account(name, self.owner._get_obj(), date)
+        owner = tr.get_person(self._owner_id)
+        account = c.create_account(name, owner, date)
         _id = account.get_id()
         self._commit()
         return _id
 
-    def promote_posix(self, gid):
+    def _promote_posix(self, gid):
         tr = self._get_tr()
         uid = tr.get_commands().get_free_uid()
         group = tr.get_group(gid)
         shell = tr.get_posix_shell('bash')
-        self._get_obj().promote_posix(uid, group, shell)
+        self.promote_posix(uid, group, shell)
         self._commit(tr)
+
+class DummyHost(DummyEntity):
+    def __init__(self, _session, id=None):
+        super(DummyHost, self).__init__(_session, id)
+        self._get_attr = "get_host"
+
+    def _create_obj(self):
+        tr, c = self._get_trc()
+        host_name = 'unittest_h%s' % id(self)
+        host = c.create_host(host_name, host_name)
+        hid = host.get_id()
+        self._commit()
+        return hid
+
+class DummyDisk(DummyEntity):
+    def __init__(self, _session, host_id=None, id=None):
+        if host_id:
+            self._host_id = host_id
+        else:
+            host = DummyHost(_session)
+            host.keep()
+            self._host_id = host.get_id()
+        super(DummyDisk, self).__init__(_session, id)
+        self._get_attr = "get_disk"
+
+    def _create_obj(self):
+        tr, c = self._get_trc()
+        host = tr.get_host(self._host_id)
+        disk_path = 'unittest_d%s' % id(self)
+        disk = c.create_disk(host, disk_path, disk_path)
+        did = disk.get_id()
+        self._commit()
+        return did
