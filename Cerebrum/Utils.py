@@ -311,14 +311,21 @@ def latin1_to_iso646_60(s, substitute=''):
 
     return _lat1_646_subst(xlate_match, str(s).translate(_lat1_646_tr))
 
-def read_password(user, system):
+def read_password(user, system, host=None):
     """Read the password 'user' needs to authenticate with 'system'.
     It is stored as plain text in DB_AUTH_DIR.
 
     """
     import os
+    fmt = ['passwd-%s@%s']
+    var = [user.lower(),system.lower()]
+    if host is not None:
+        fmt.append('@%s')
+        var.append(host.lower())
+    format_str = ''.join(fmt)
+    format_var = tuple(var)
     filename = os.path.join(cereconf.DB_AUTH_DIR,
-                            'passwd-%s@%s' % (user.lower(), system.lower()))
+                            format_str % format_var)
     f = file(filename)
     try:
         # .rstrip() removes any trailing newline, if present.
