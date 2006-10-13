@@ -63,7 +63,7 @@ class LockingTest(unittest.TestCase):
 
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 1
-        account_2.set_name('Test')
+        account_2.set_name('test')
         transaction_2.rollback()
         assert len(self.session.get_transactions()) == 0
 
@@ -76,7 +76,7 @@ class LockingTest(unittest.TestCase):
         assert len(self.session.get_transactions()) == 2
 
         account_1 = transaction_1.get_account_searcher().search()[0]
-        account_1.set_name('Test')
+        account_1.set_name('test')
         account_2 = transaction_2.get_account(account_1.get_id())
 
         transaction_1.rollback()
@@ -94,12 +94,12 @@ class LockingTest(unittest.TestCase):
         assert len(self.session.get_transactions()) == 2
 
         account_1 = transaction_1.get_account_searcher().search()[0]
-        account_1.set_name('Test')
+        account_1.set_name('test')
         account_2 = transaction_2.get_account(account_1.get_id())
 
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 1
-        account_2.set_name('Test')
+        account_2.set_name('test')
         transaction_2.rollback()
         assert len(self.session.get_transactions()) == 0
 
@@ -114,8 +114,8 @@ class LockingTest(unittest.TestCase):
 
         assert account_2.get_id() == account_1.get_id() # The accounts should be the same
 
-        account_1.set_name('Test') # Write lock
-        account_2.set_name('Test2') # Should work just fine (already write locked by us)
+        account_1.set_name('test') # Write lock
+        account_2.set_name('test2') # Should work just fine (already write locked by us)
 
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 0
@@ -129,8 +129,8 @@ class LockingTest(unittest.TestCase):
 
         assert account_2.get_id() == account_1.get_id() # The accounts should be the same
 
-        account_2.set_name('Test2') # Write lock
-        account_1.set_name('Test') # Should work just fine (already write locked by us)
+        account_2.set_name('test2') # Write lock
+        account_1.set_name('test') # Should work just fine (already write locked by us)
 
         transaction_1.rollback()
         assert len(self.session.get_transactions()) == 0
