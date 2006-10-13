@@ -160,9 +160,8 @@ class DummyAccount(DummyEntity):
         if owner_id:
             self._owner_id = owner_id
         else:
-            _owner = DummyPerson(_session)
-            _owner.keep()
-            self._owner_id = _owner.get_id()
+            self._owner = DummyPerson(_session)
+            self._owner_id = self._owner.get_id()
         super(DummyAccount, self).__init__(_session)
         self._get_attr = "get_account"
 
@@ -181,6 +180,10 @@ class DummyAccount(DummyEntity):
                         group.remove_member(i)
             self._commit()
             super(DummyAccount, self).__del__()
+
+        if hasattr(self, '_owner'):
+            del self._owner
+
 
     def _add_spread(self):
         tr, c = self._get_trc()
@@ -229,9 +232,8 @@ class DummyDisk(DummyEntity):
         if host_id:
             self._host_id = host_id
         else:
-            host = DummyHost(_session)
-            host.keep()
-            self._host_id = host.get_id()
+            self._host = DummyHost(_session)
+            self._host_id = self._host.get_id()
         super(DummyDisk, self).__init__(_session, id)
         self._get_attr = "get_disk"
 
@@ -243,6 +245,11 @@ class DummyDisk(DummyEntity):
         did = disk.get_id()
         self._commit()
         return did
+
+    def __del__(self):
+        super(DummyDisk, self).__del__()
+        if hasattr(self, '_host'):
+            del self._host
 
 class DummyOU(DummyEntity):
     def __init__(self, _session, id=None):
