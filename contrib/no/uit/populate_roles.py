@@ -207,9 +207,14 @@ class ITRole(object):
             return new_ac.account_name            
         elif len(accounts) == 1:
             # sync account to person's primary account. expire date that is...
+            logger.info("Sync expire date to primary account for account %s (id=%s)" % (accounts[0]['name'],accounts[0]['account_id']))
+            new_ac.clear()
+            new_ac.find(accounts[0]['account_id'])
+            new_ac.expire_date = default_expire_date
+            new_ac.write_db()            
             return accounts[0]['name']
         else:
-            logger.error("TOO MANY ACCOUNTS FOUND for %s!" % (person_id))
+            logger.error("TOO MANY ACCOUNTS FOUND for with spread_uit_ad_lit_admin for %s!" % (person_id))
             raise Errors.IntegretyError
             
 
