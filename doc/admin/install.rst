@@ -322,7 +322,7 @@ by accessing the data trough a python program. A file which you would
 use to add or update information about name, address and fax number to
 an Organizational Unit should look something like this::
 
-  #!/usr/bin/env python2.2
+  #!/usr/bin/env python
   import cerebrum_path
 
   from Cerebrum import Errors
