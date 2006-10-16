@@ -614,9 +614,6 @@ CREATE TABLE host_info
 		  CHECK (entity_type = [:get_constant name=entity_host]),
   host_id	NUMERIC(12,0)
 		CONSTRAINT host_info_pk PRIMARY KEY,
-  name		CHAR VARYING(80)
-		NOT NULL
-		CONSTRAINT host_info_name_u UNIQUE,
   description	CHAR VARYING(512)
 		NOT NULL,
   CONSTRAINT host_info_entity_id
