@@ -695,6 +695,31 @@ class EmailAddress(EmailEntity):
         domain.find_by_domain(dp)
         self.find_by_local_part_and_domain(lp, domain.email_domain_id)
 
+    def validate_localpart(self, localpart):
+        """Check that localpart is syntactically correct.  This is a
+        subset (simplification) of RFC 2821 syntax, so e.g. quotes
+        (neither quotation marks nor backslash) or comments (in
+        parentheses) are not allowed.
+
+        """
+        # TBD: Should populate() etc. call this function?  If so, it
+        # would need to throw an exception.  Which one?
+
+        # 64 characters should be enough for everybody.
+        # (RFC 2821 4.5.3.1)
+        if len(localpart) > 64:
+            return False
+        # Only allow US-ASCII, and no SPC or DEL either.
+        if re.search(r'[^!-~]', localpart):
+            return False
+        # No empty atoms
+        if localpart.count(".."):
+            return False
+        # No "specials" (RFC 2822 3.2.1)
+        if re.search(r'[()<>[]:;@\\,]', localpart):
+            return False
+        return True
+
     # FIXME: Can anyone explain what this can be used for?
     def list_email_addresses(self):
         """Return address_id of all EmailAddress in database"""
