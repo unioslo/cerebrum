@@ -344,7 +344,7 @@ The currently defined id-types are:
             'has_blocked_quota': ppq_info['has_blocked_quota'],
             'paid_quota': int(math.floor(1/printer_quota.PAGE_COST *
                                          float(ppq_info['kroner']))),
-            'kroner': ppq_info['kroner'],
+            'kroner': float(ppq_info['kroner']),
             'free_quota': ppq_info['free_quota'],
             'accum_quota': ppq_info['accum_quota'],
             'tot_available': total
