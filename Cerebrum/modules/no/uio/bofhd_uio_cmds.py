@@ -1935,6 +1935,9 @@ class BofhdExtension(object):
            dom not in cereconf.LDAP['rewrite_email_domain']:
             raise CerebrumError, \
                   "E-mail address (%s) can't contain upper case letters" % addr
+        ea = Email.EmailAddress(self.db)
+        if not ea.validate_localpart(lp):
+            raise CerebrumError, "Invalid localpart '%s'" % lp
         return lp, dom
 
     def _get_mailman_list(self, listname):
@@ -6870,6 +6873,10 @@ class BofhdExtension(object):
                 return disk.path
             except Errors.NotFoundError:
                 return "deleted_disk:%s" % val
+        elif format == 'date':
+            return val.date
+        elif format == 'timestamp':
+            return str(val)
         elif format == 'entity':
             return self._get_entity_name(None, int(val))
         elif format == 'extid':
@@ -6919,9 +6926,6 @@ class BofhdExtension(object):
         # _ChangeTypeCode.__doc__
         if row['change_params']:
             params = pickle.loads(row['change_params'])
-            # Want more info if new expire date is set
-            if params.has_key('expire_date'):
-                msg += ', new expire_date set: %s' % params['expire_date'].date
         else:
             params = {}
 
