@@ -244,7 +244,6 @@ class execute:
         #update ou and affiliation (setting of account_type)
         self.OU.clear()
         self.OU.find_stedkode(ou[0:2],ou[2:4],ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
-        print "owner_id=%s" % self.account.owner_id
         #my_account_types = self.account.get_account_types()
         if(affiliation=="MANUELL"):
             self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=400)
@@ -271,7 +270,6 @@ class execute:
             self.account.set_home_dir(int(new_spread))
 
         # update quarantine if appropriate.
-        print "source_system=%s" % self.person.get_external_id()
 
         self.update_email(self.account,bruker_epost)
         if aproved !='Yes':
@@ -355,7 +353,6 @@ class execute:
         self.logger.info("Processing account for person: name=%s %s , id_type=%s, id=%s" % (fornavn,etternavn,external_id_type,external_id))
         try:
             account_list = self.person.get_accounts(filter_expired=False)
-            print "----%s" %  account_list[0][0]
             self.account.find(account_list[0][0])
             #account_types = self.account.get_account_types(filter_expired=False)
             #for account_type in account_types:
@@ -470,7 +467,6 @@ class execute:
                 ad_email="%s" % bruker_epost
             else:
                 no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
-                no_mailbox_domain = "mailbox.uit.no"
                 self.logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
                 ad_email= "%s@%s" % (account_obj.account_name,no_mailbox_domain)
                 self.logger.warning("ad_email = %s" % ad_email)
