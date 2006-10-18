@@ -244,7 +244,7 @@ class execute:
         #update ou and affiliation (setting of account_type)
         self.OU.clear()
         self.OU.find_stedkode(ou[0:2],ou[2:4],ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
-
+        print "owner_id=%s" % self.account.owner_id
         #my_account_types = self.account.get_account_types()
         if(affiliation=="MANUELL"):
             self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=400)
@@ -252,7 +252,6 @@ class execute:
             self.account.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=350)
         else:
             raise errors.ValueError("invalid affiliation: %s in guest database" % (affiliation))
-
         #update spread
         old_spreads = self.account.get_spread()
         if (spreads):
@@ -273,6 +272,8 @@ class execute:
 
         # update quarantine if appropriate.
         print "source_system=%s" % self.person.get_external_id()
+
+        self.update_email(self.account,bruker_epost)
         if aproved !='Yes':
             # if this person ONLY comes from sys-x, set quarantine
             #self.person.find(self.account.owner_id)
@@ -295,10 +296,10 @@ class execute:
         except ValueError,m:
             self.logger.error("data_list:%s##%s" % (data_list,m))
             sys.exit(1)
-        posix_user = PosixUser.PosixUser(self.db)
+        self.posix_user = PosixUser.PosixUser(self.db)
         group = Factory.get('Group')(self.db)
         self.person.clear()
-        posix_user.clear()
+        self.posix_user.clear()
         group.clear()
         self.OU.clear()
         my_accounts = None
@@ -312,7 +313,7 @@ class execute:
 
         if (aproved != 'Yes'):
             self.logger.error("Person %s %s (id=%s) not approved! Do not create account" % (fornavn, etternavn, id))
-            return 1,bruker_epost
+            return 1
         else:
             #person is approved!
             if (personnr != ""):
@@ -323,12 +324,12 @@ class execute:
                     fnr = fodselsnr.personnr_ok(personnr)
                 except fodselsnr.InvalidFnrError:
                     self.logger.warn("Ugyldig fødselsnr: %s" % personnr)
-                    return 1,bruker_epost
+                    return 1
 
-                (year,mon,day) = fodselsnr.fodt_dato(fnr)
-                gender = self.constants.gender_male
-                if(fodselsnr.er_kvinne(fnr)):
-                    gender = self.constants.gender_female
+                #(year,mon,day) = fodselsnr.fodt_dato(fnr)
+                #gender = self.constants.gender_male
+                #if(fodselsnr.er_kvinne(fnr)):
+                #    gender = self.constants.gender_female
 
                 try:
                     self.person.find_by_external_id(external_id_type,external_id)
@@ -341,22 +342,21 @@ class execute:
                 external_id_type = self.constants.externalid_sys_x_id
                 external_id = id
                 date_field = fodsels_dato.split(".")
-                year = date_field[2]
-                mon =  date_field[1]
-                day =  date_field[0]
-                if(gender=='M'):
-                    gender = self.constants.gender_male
-                elif(gender=='F'):
-                    gender = self.constants.gender_female
+                #year = date_field[2]
+                #mon =  date_field[1]
+                #day =  date_field[0]
+                #if(gender=='M'):
+                #    gender = self.constants.gender_male
+                #elif(gender=='F'):
+                #    gender = self.constants.gender_female
                 self.person = self.get_sysX_person(id)
 
 
         self.logger.info("Processing account for person: name=%s %s , id_type=%s, id=%s" % (fornavn,etternavn,external_id_type,external_id))
         try:
             account_list = self.person.get_accounts(filter_expired=False)
+            print "----%s" %  account_list[0][0]
             self.account.find(account_list[0][0])
-            self.update_account(data_list)
-            return account_list[0][0], bruker_epost
             #account_types = self.account.get_account_types(filter_expired=False)
             #for account_type in account_types:
             #    #print "account_type[affiliation] = %s" % account_type['affiliation']
@@ -364,12 +364,10 @@ class execute:
             #        or (account_type['affiliation']==self.constants.affiliation_tilknyttet)):
             #        self.update_account(data_list)
         except Errors.NotFoundError:
-            pass
+            self.logger.error("value %s is not an account entity." % account_list[0][0])
+            return 1
         except IndexError:
-            pass
-             
-
-        if(len(account_list) == 0):
+            print "creating new account"
             self.logger.debug("create new account")
             spread_list = string.split(spreads,",")
             spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
@@ -388,68 +386,119 @@ class execute:
 
             bootstrap_inst = self.account.search(name=cereconf.INITIAL_ACCOUNTNAME)
             bootstrap_id=bootstrap_inst[0]['account_id']
-            posix_user.populate(name = username,
+            self.posix_user.populate(name = username,
                                 owner_id = self.person.entity_id,
                                 owner_type = self.constants.entity_person,
                                 np_type = None,
                                 creator_id = bootstrap_id,
                                 expire_date = expire_date,
-                                posix_uid = posix_user.get_free_uid(),
+                                posix_uid = self.posix_user.get_free_uid(),
                                 gid_id = group.entity_id,
                                 gecos = full_name,
                                 shell = self.constants.posix_shell_bash
                                 )
             try:
-                posix_user.write_db()
+                self.posix_user.write_db()
                 
                 # add the correct spreads to the account
                 for spread in spread_list:
                     #print "%s,%s,%s" % (posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
-                    posix_user.add_spread(int(self.constants.Spread(spread)))
-                    posix_user.set_home_dir(int(self.constants.Spread(spread)))
+                    self.posix_user.add_spread(int(self.constants.Spread(spread)))
+                    self.posix_user.set_home_dir(int(self.constants.Spread(spread)))
                 
                     
                 #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
-                posix_user.set_password(posix_user.make_passwd(username))
-                posix_user.write_db()
+                self.posix_user.set_password(self.posix_user.make_passwd(username))
+                self.posix_user.write_db()
                 # lets set the account_type table
                 # need: oi_id, affiliation and priority
                 self.OU.find_stedkode(ou[0:2],ou[2:4],ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
 
                 if(affiliation=="MANUELL"):
-                    posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=400)
+                    self.posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=400)
                 elif(affiliation=="TILKNYTTET"):
-                    posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=350)
+                    self.posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)),priority=350)
                 else:
                     raise errors.ValueError("invalid affiliation: %s in guest database" % (affiliation))
-
-
+                self.posix_user.write_db()
+                
                 #posix_user.set_account_type(self.OU.ou_id,int(self.constants.PersonAffiliation(affiliation)))
                 if(bruker_epost !=""):
                     self.send_mail(bruker_epost,username,spread_list)
 
-                if(bruker_epost==''):
-                    if "AD_account" in spread_list:
-                        domain ="%s" % cereconf.NO_MAILBOX_DOMAIN
-                    else:
-                        domain="student.uit.no"
-                    bruker_epost="%s@%s" % (username,domain)
+                #if(bruker_epost==''):
+                #    if "AD_account" in spread_list:
+                #        domain ="%s" % cereconf.NO_MAILBOX_DOMAIN
+                #    else:
+                #        domain="student.uit.no"
+                #    bruker_epost="%s@%s" % (username,domain)
 
                     
-                if("AD_account" in spread_list):
+                #if("AD_account" in spread_list):
                     #only send email to nybruker@asp.uit.no if AD_account is one of the chosen spreads.
                     # removed by request from ASP team, may be inserted againg in the future
                     #self.send_ad_email(full_name,personnr,ou,affiliation_status,expire_date,hjemmel,kontaktinfo,bruker_epost,ansvarlig_epost)
-                    pass
+                #    pass
                 self.confirm_registration(personnr,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,username)
-                return  posix_user.entity_id,bruker_epost
+                self.account = self.posix_user
+                #return  posix_user.entity_id,bruker_epost
             except Errors:
                 self.logger.error("Error in creating posix account for person %s" % personnr)
-                return 1,bruker_epost
+                return 1
  
-            posix_user.write_db()
+
+        self.update_account(data_list)
+
+
+
+
+    def update_email(self,account_obj,bruker_epost):
+        em = Email.email_address(self.db)
+        ad_email = em.get_employee_email(account_obj.entity_id,self.db)
+        if (len(ad_email)>0):
+            ad_email = ad_email[account_obj.account_name]
         else:
-            logger.error("Should never get here: New account, but account_list not empty")
+            # no email in ad_email table for this account.
+            
+            # IF this account has a student affiliation. do not update primary email address with an invalid code.
+            # IF this account does NOT have a student affiliation. update the email primary address with the invalid code.
+            acc_type = account_obj.list_accounts_by_type(account_id=account_obj.entity_id,
+                                                         affiliation=self.constants.affiliation_student)
+            if (len(acc_type)>0):
+                ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
+            elif(bruker_epost!=""):
+                ad_email="%s" % bruker_epost
+            else:
+                no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
+                no_mailbox_domain = "mailbox.uit.no"
+                self.logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
+                ad_email= "%s@%s" % (account_obj.account_name,no_mailbox_domain)
+                self.logger.warning("ad_email = %s" % ad_email)
+        
+        current_email = ""
+        try:
+            current_email = account_obj.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            # no current primary mail.
+            pass
+    
+        if (current_email.lower() != ad_email.lower()):
+            # update email!
+            self.logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
+            try:
+                em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
+            except Exception:
+                self.logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
+                sys.exit(2)
+        else:
+            #current email = ad_email :=> we need to do nothing. all is ok....
+            self.logger.debug("Email update not needed old='%s', new='%s'" % ( current_email, ad_email))
+            pass
+        
+        # end update_mail()
+
+
+        
 
 
     def send_ad_email(self,name,ssn,ou,type,expire_date,why,contact_data,external_email,registrator_email):
@@ -640,17 +689,17 @@ def main():
         #Therefore we need to traverse the list again and generate
         #accounts.
         for line in data:
-            ret,bruker_epost = x_create.create_account(line)
+            x_create.create_account(line)
             #print "ret = %s,epost=%s" % (ret,bruker_epost)
-            x_create.db.commit()
-            if ((ret != 1) and (bruker_epost != "")):
-                email_class = Email.email_address(x_create.db)
-                email_class.process_mail(ret,"defaultmail",bruker_epost)
-                email_class.db.commit()
-            else:
-                x_create.logger.warn("Failed to update email on account_id=%s, email=%s" % (ret,bruker_epost))
+            #x_create.db.commit()
+            #if ((ret != 1) and (bruker_epost != "")):
+            #    email_class = Email.email_address(x_create.db)
+            #    email_class.process_mail(ret,"defaultmail",bruker_epost)
+            #    email_class.db.commit()
+            #else:
+            #    x_create.logger.warn("Failed to update email on account_id=%s, email=%s" % (ret,bruker_epost))
                
-        x_create.db.commit()
+        #x_create.db.commit()
         
                                
 def usage():
