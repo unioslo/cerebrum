@@ -50,9 +50,12 @@ class SpineImpl(SpineCore__POA.Spine):
 
     def __init__(self):
         self.sessions = {}
+        self._db = None
 
     def get_database(self):
-        return Database.SpineDatabase()
+        if self._db: self._db.close()
+        self._db = Database.SpineDatabase()
+        return self._db
 
     def get_idl(self):
         return Session.idl_source
@@ -81,7 +84,7 @@ class SpineImpl(SpineCore__POA.Spine):
                 raise exception
 
         try:
-           account = get_account_by_name(self, username)
+            account = get_account_by_name(self, username)
         except:
             import traceback
             traceback.print_exc()
