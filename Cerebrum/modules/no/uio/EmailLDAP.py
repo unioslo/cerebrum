@@ -112,5 +112,36 @@ class EmailLDAPUiOMixin(EmailLDAP):
             if glob_addr.has_key(dom) and glob_addr[dom].has_key(lp):
                 continue
             self.targ2addr.setdefault(t_id, []).append(addr)
+
+
+    def read_target_auth_data(self):
+        a = Factory.get('Account')(self._db)
+        # Same as default, but omit co.quarantine_auto_emailonly
+        quarantines = {}
+        now = mx.DateTime.now()
+        for row in a.list_entity_quarantines(
+                entity_types = self.const.entity_account):
+            if (row['start_date'] <= now
+                and (row['end_date'] is None or row['end_date'] >= now)
+                and (row['disable_until'] is None
+                     or row['disable_until'] < now)
+                and not (int(row['quarantine_type']) == int(self.const.quarantine_auto_emailonly))):
+                # The quarantine in this row is currently active.
+                quarantines[int(row['entity_id'])] = "*locked"
+        for row in a.list_account_authentication():
+            account_id = int(row['account_id'])
+            self.e_id2passwd[account_id] = (
+                row['entity_name'],
+                quarantines.get(account_id) or row['auth_data'])
+        for row in a.list_account_authentication(self.const.auth_type_crypt3_des):
+            # *sigh* Special-cases do exist. If a user is created when the
+            # above for-loop runs, this loop gets a row more. Before I ignored
+            # this, and the whole thing went BOOM on me.
+            account_id = int(row['account_id'])
+            if not self.e_id2passwd.get(account_id, (0, 0))[1]:
+                self.e_id2passwd[account_id] = (
+                    row['entity_name'],
+                    quarantines.get(account_id) or row['auth_data'])
+
                 
 # arch-tag: 7bb4c2b7-8112-4bd0-85dd-0112db222638
