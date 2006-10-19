@@ -6300,7 +6300,14 @@ class BofhdExtension(object):
                     for k, v in repl.items():
                         f = f.replace(k, v)
                     msg += ", " + f
-        by = row['change_program'] or self._get_entity_name(None, row['change_by'])
+        changed_by=row['change_by']
+        try:
+            changed_by = self._get_entity_name(None, row['change_by'])
+        except Errors.NotFoundError:
+            changed_by = "NotFound"
+        except Exception,m:
+            changed_by = m
+        by = row['change_program'] or changed_by
         return "%s [%s]: %s" % (row['tstamp'], by, msg)
 
     def _lookup_old_uid(self, account_id):
