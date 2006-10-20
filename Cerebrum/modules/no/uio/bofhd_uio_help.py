@@ -349,7 +349,7 @@ affiliation status codes"""],
         ['date', 'Enter date of birth(YYYY-MM-DD)',
          "The legal date format is 2003-12-31"],
     'disk':
-        ['disk', 'Enter disk',
+        ['/path/to/disk', 'Enter disk',
          "Enter the path to the disk without trailing slash or username.  "
          "Example:\n"
          "  /usit/sauron/u1\n\n"
