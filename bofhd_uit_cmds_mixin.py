@@ -1,4 +1,6 @@
 
+import cerebrum_path
+import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.modules.no.fodselsnr import personnr_ok, InvalidFnrError
@@ -192,5 +194,31 @@ class BofhdUiTExtension(BofhdExtension):
         else:
             raise CerebrumError, "ProgrammingError: invalid args length from prompt_func: %d" % len(all_args)            
 
+
+
+    all_commands['misc_find_potenial_username'] = Command(
+        ('misc', 'view_changelog'), prompt_func=uit_legacy_user_func,
+        fs=FormatSuggestion("Created uid=%i", ("uid",)),
+        perm_filter='can_create_user')
+
+
+    # user history
+    all_commands['user_history'] = Command(
+        ("user", "history"), AccountName()) 
+    def user_history(self, operator, accountname):
+        account = self._get_account(accountname)
+        self._check_group_membership(operator.get_entity_id(),cereconf.ORAKEL_GROUP)
+        ret = []
+        for r in self.db.get_log_events(0, subject_entity=account.entity_id):
+            ret.append(self._format_changelog_entry(r))
+        return "\n".join(ret)
+
+
+    def _check_group_membership(self,entity_id,gname):
+        if self.ba.is_group_member(entity_id,gname):
+            return True        
+        else:
+            raise  PermissionDenied("Access denied")
+        
 
 # arch-tag: 85db404e-b4f2-11da-8c86-8173ccfa4bd5
