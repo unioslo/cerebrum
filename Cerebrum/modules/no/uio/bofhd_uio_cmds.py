@@ -276,7 +276,11 @@ class BofhdExtension(object):
         hosts = {}
         disk = Utils.Factory.get("Disk")(self.db)
         for r in acc.get_homes():
-            disk_id = int(r['disk_id'])
+            # Disk for archived users may not exist anymore
+            try:
+                disk_id = int(r['disk_id'])
+            except TypeError:
+                continue
             if not disk_id in disks:
                 disk.clear()
                 disk.find(disk_id)
