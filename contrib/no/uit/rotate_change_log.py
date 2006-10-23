@@ -82,6 +82,9 @@ class access_log:
 
     def delete_change_ids(self,id_list):
         try:
+            # we've had some trouble deleting entries from the change_log table when other scripts also tries
+            # to update it. adding a lock table command to prevent this.
+            self.db.query("lock table change_log")
             for row in id_list:
                 self.file_handle.writelines("%s,%s,%s,%s,%s,%s,%s,%s\n" % (row['tstamp'],row['change_id'],row['subject_entity'],row['change_type_id'],row['dest_entity'],row['change_params'],row['change_by'],row['change_program']))
                 self.db.remove_log_event(row['change_id'])
