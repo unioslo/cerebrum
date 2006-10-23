@@ -304,7 +304,7 @@ class Group(EntityQuarantine, EntityName, Entity_class):
         WHERE member_id=:member_id""", {'member_id': entity_id})
 
     def list_members(self, spread=None, member_type=None, get_entity_name=False,
-                     filter_expired=True):
+                     filter_expired=True, not_member_type=None):
         """Return a list of lists indicating the members of the group.
 
         The top-level list returned is on the form
@@ -319,6 +319,9 @@ class Group(EntityQuarantine, EntityName, Entity_class):
         if member_type is not None:
             extwhere = "member_type=:member_type AND "
             member_type = int(member_type)
+        if not_member_type is not None:
+            extwhere += "member_type <> :not_member_type AND "
+            not_member_type = int(not_member_type)
         if spread is not None:
             extfrom = """
             JOIN [:table schema=cerebrum name=entity_spread] es
@@ -369,6 +372,7 @@ class Group(EntityQuarantine, EntityName, Entity_class):
             {'g_id': self.entity_id,
              'spread': spread,
              'member_type': member_type,
+             'not_member_type': not_member_type,
              'group_dom': int(self.const.group_namespace),
              'account_dom': int(self.const.account_namespace),
              'entity_group': int(self.const.entity_group),
@@ -416,7 +420,7 @@ class Group(EntityQuarantine, EntityName, Entity_class):
             
         member_accounts = self.list_members(
             get_entity_name=get_entity_name, spread=spread,
-            member_type=self.const.entity_account,
+            not_member_type=self.const.entity_group,
             filter_expired=filter_expired)
         # select wanted fields
         member_accounts = [format_accounts(accounts)
