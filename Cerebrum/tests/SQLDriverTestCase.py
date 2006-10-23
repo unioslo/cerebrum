@@ -55,6 +55,13 @@ class SQLDriverTestCase(unittest.TestCase):
             self.db.execute("""
             INSERT INTO [:table schema=cerebrum name=test_db_date]
             VALUES ([:now], [:now])""")
+            self.db.execute("""
+            CREATE TABLE [:table schema=cerebrum name=test_db_num] (
+                int_num NUMERIC(6,0),
+                float_num NUMERIC(6,2) )""")
+            self.db.execute("""
+            INSERT INTO [:table schema=cerebrum name=test_db_num]
+            VALUES (42, 12.34)""")
         except:
             self.tearDown()
             raise
@@ -133,6 +140,13 @@ class SQLDriverTestCase(unittest.TestCase):
         except self.db.DatabaseError, e:
             self.fail()
 
+    def testNumericRetval(self):
+        row = self.db.query_1("""
+        SELECT int_num, float_num
+        FROM [:table schema=cerebrum name=test_db_num""")
+        self.failIf(row['int_num'] != 42 or (not isinstance(row['int_num'], (int, long))))
+        self.failIf(row['float_num'] != 12.34)
+
     def tearDown(self):
         self.db.commit()  # Prevents RelationForgetRelation
         self.db.execute("""
@@ -141,6 +155,8 @@ class SQLDriverTestCase(unittest.TestCase):
         DROP TABLE [:table schema=cerebrum name=test_db_dict]""")
         self.db.execute("""
         DROP TABLE [:table schema=cerebrum name=test_db_date]""")
+        self.db.execute("""
+        DROP TABLE [:table schema=cerebrum name=test_db_num]""")
         self.db.commit()
         self.db.close()
 
@@ -154,6 +170,7 @@ class SQLDriverTestCase(unittest.TestCase):
         suite.addTest(SQLDriverTestCase("testUTF8TextParam"))
         suite.addTest(SQLDriverTestCase("testUTF8TextStatement"))
         suite.addTest(SQLDriverTestCase("testRepeatedParam"))
+        suite.addTest(SQLDriverTestCase("testNumericRetval"))
         return suite
     suite=staticmethod(suite)
 
