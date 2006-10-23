@@ -266,6 +266,18 @@ public class JBofh {
         }
         if(args.size() == 0) return true;
         try {
+            if(script_file != null) {
+                StringBuffer sb = new StringBuffer();
+                for(Iterator iterator = args.iterator(); iterator.hasNext();) {
+                    sb.append(iterator.next());
+                    if(iterator.hasNext()) sb.append(" ");
+                }
+                try {
+                    script_file.write(((String) props.get("console_prompt"))+sb.toString()+"\n");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
             runCommand(args, false);
         } catch (BofhdException be) {
             showMessage(be.getMessage(), true);
