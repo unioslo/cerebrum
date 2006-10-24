@@ -253,13 +253,15 @@ class PPQUtil(object):
         self.ppq._set_status_attr(new_id, tmp)
         return True
 
-    def truncate_log(self, person_id, to_date, update_program):
+    def truncate_log(self, person_id, to_date, update_program, reset_balance=False):
         """Removes all jobs by person_id with tstamp < to_date, and
         replaces the last removed job with balance.  Returns a tuple
         (removed, new_status) where removed contains all the
         database-rows that was removed, and new_status is a tuple
         (job_id, free, aid, total, kroner) for the newly inserted
-        record."""
+        record.  reset_balance should only be used if you for some
+        reason do not want removed prints to be reflected in the
+        current account status"""
 
         tmp_person_id = person_id
         if person_id is None:
@@ -309,14 +311,26 @@ class PPQUtil(object):
                 last_id = long(row['job_id'])
                 last_tstamp = row['tstamp']
         if last_id is not None:
+            tmp_pageunits_free = pageunits_free
+            tmp_pageunits_paid = pageunits_paid
+            tmp_pageunits_accum = pageunits_accum
+            tmp_pageunits_total = pageunits_total
+            if reset_balance:
+                self.ppq._alter_quota(
+                    person_id, pageunits_free=-pageunits_free,
+                    pageunits_total=-(pageunits_free+pageunits_paid+pageunits_accum),
+                    pageunits_accum=-pageunits_accum)
+                tmp_pageunits_total = tmp_pageunits_free = tmp_pageunits_paid = \
+                                      tmp_pageunits_accum = 0
+
             self.ppq._add_transaction(
                 self.const.pqtt_balance, person_id, None, update_program,
-                pageunits_free=pageunits_free, pageunits_paid=pageunits_paid,
-                pageunits_accum=pageunits_accum,
+                pageunits_free=tmp_pageunits_free, pageunits_paid=tmp_pageunits_paid,
+                pageunits_accum=tmp_pageunits_accum,
                 kroner=kroner, _do_not_alter_quota=True,
-                description='truncate_log', tstamp = last_tstamp,
+                description='truncate_log', tstamp = to_date,
                 _override_job_id=last_id,
-                _override_pageunits_total=pageunits_total)
+                _override_pageunits_total=tmp_pageunits_total)
         return rows, (last_id, pageunits_free, pageunits_paid,
                       pageunits_total, kroner)
 

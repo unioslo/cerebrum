@@ -326,12 +326,17 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'job_id': int(job_id)})
         
 
-    def get_quoata_status(self, has_quota_filter=None):
+    def get_quoata_status(self, has_quota_filter=None, person_id=None):
+        where = []
         if has_quota_filter is not None:
             if has_quota_filter:
-                where = "WHERE has_quota='T'"
+                where.append("WHERE has_quota='T'")
             else:
-                where = "WHERE has_quota='F'"
+                where.append("WHERE has_quota='F'")
+        if person_id:
+            where.append("person_id=%i" % person_id)
+        if where:
+            where = "WHERE %s" % (" AND ".join(where))
         else:
             where = ""
         return self.query(
@@ -434,7 +439,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         return ret
 
     def get_pagecount_stats(self, tstamp_from, tstamp_to,
-                            group_by=('stedkode',)):
+                            group_by=('stedkode',), person_id=None):
         binds = {'tstamp_from': tstamp_from,
                  'tstamp_to': tstamp_to}
         if group_by:
@@ -442,18 +447,21 @@ class PaidPrinterQuotas(DatabaseAccessor):
             group_by = "GROUP BY " + ", ".join(group_by)
         else:
             group_by = extra_cols = ""
+        where = ""
+        if person_id:
+            where = " AND person_id=%i" % person_id
         qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
                   sum(pageunits_accum) AS accum, sum(kroner) AS kroner,
                   sum(pageunits_paid) AS paid, sum(pageunits_total) AS total %s
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
              [:table schema=cerebrum name=paid_quota_printjob] pqp
         WHERE pqh.job_id=pqp.job_id AND tstamp >= :tstamp_from AND
-              tstamp < :tstamp_to
-        %s""" % (extra_cols, group_by)
+              tstamp < :tstamp_to %s
+        %s""" % (extra_cols, where, group_by)
         return self.query(qry, binds)
 
     def get_payment_stats(self, tstamp_from, tstamp_to,
-                          group_by=('transaction_type',)):
+                          group_by=('transaction_type',), person_id=None):
         binds = {'tstamp_from': tstamp_from,
                  'tstamp_to': tstamp_to}
         if group_by:
@@ -461,6 +469,9 @@ class PaidPrinterQuotas(DatabaseAccessor):
             group_by = "GROUP BY " + ", ".join(group_by)
         else:
             group_by = extra_cols = ""
+        where = ""
+        if person_id:
+            where = " AND person_id=%i" % person_id
         qry = """SELECT count(*) AS jobs, sum(pageunits_free) AS free,
             sum(pageunits_accum) AS accum,
             sum(pageunits_paid) AS paid, sum(kroner) AS kroner,
@@ -468,8 +479,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
         FROM [:table schema=cerebrum name=paid_quota_history] pqh,
              [:table schema=cerebrum name=paid_quota_transaction] pqt
         WHERE pqh.job_id=pqt.job_id AND tstamp >= :tstamp_from AND
-              tstamp < :tstamp_to
-        %s""" % (extra_cols, group_by)
+              tstamp < :tstamp_to %s
+        %s""" % (extra_cols, where, group_by)
         return self.query(qry, binds)
 
     
