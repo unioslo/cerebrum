@@ -19,11 +19,9 @@ ac = Factory.get('Account')(db)
 
 logger = Factory.get_logger("cronjob")
 
-def truncate_log(days, logfilename, person_id=None):
+def truncate_log(to_date, logfilename, person_id=None):
     pq_util = PPQUtil.PPQUtil(db)
     ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
-    to_date = time.strftime('%Y-%m-%d', time.localtime(
-        time.time()-3600*24*days))
     to_date = DateTime.Date(*([ int(x) for x in (to_date+'-0-0-0').split('-')]))
     from_date = DateTime.Date(1980,1,1,1,1,1)
     persons = {}
@@ -42,7 +40,7 @@ def truncate_log(days, logfilename, person_id=None):
     out.write("Truncate job started at %s\n" % time.asctime())
     for person_id in persons.keys() + [None]:
         removed, new_status = pq_util.truncate_log(
-            person_id, to_date, 'quota_tools')
+            person_id, to_date, 'quota_tools', reset_balance=(person_id is None))
         if not removed:
             continue
         logger.debug("removed %i entries for %s" % (
@@ -188,10 +186,10 @@ def main():
         elif opt in ('--truncate',):
             if not truncate_log:
                 usage(1)
-            if val.find('-') != -1:
-                val = (time.time() - time.mktime(
-                    time.strptime(val, '%Y-%m-%d')))/(3600*24)
-            truncate_log(int(val), truncate_fname, person_id=person_id)
+            if val.find('-') == -1:
+                val = time.time() - 3600*24*int(val)
+                val = time.strftime('%Y-%m-%d', time.localtime(val))
+            truncate_log(val, truncate_fname, person_id=person_id)
         elif opt in ('--migrate-to-1-1',):
             migrate_to_1_1()
     if not opts:
@@ -201,7 +199,7 @@ def usage(exitcode=0):
     print """Usage: [options]
     --truncate-log fname : log truncated data to this file [required]
     --person-id person_id : only remove this persons jobs (for debuging)
-    --truncate days : truncate jobs older than this # of days
+    --truncate days | YYYY-MM-DD : truncate jobs older than this # of days
     --noia-check : assert that contents of paid_quota_status is correct
     """
     sys.exit(exitcode)
