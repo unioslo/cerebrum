@@ -55,7 +55,10 @@ class sut:
             self.account.clear()
             try:
                 self.account.find_by_name(row['username'])
-                self.account.add_entity_quarantine(self.constants.quarantine_sut_disk_usage,self.default_creator_id,start=self.quarantine_date)
+                quarantines=''
+                quarantines = self.account.get_entity_quarantine(type=self.constants.quarantine_sut_disk_usage)
+                if len(quarantines==0):
+                    self.account.add_entity_quarantine(self.constants.quarantine_sut_disk_usage,self.default_creator_id,start=self.quarantine_date)
                 #print "row=%s" % row
             except:
                 self.logger.warn("unable to set disk quarantine for user %s in BAS." % (row['username']))
