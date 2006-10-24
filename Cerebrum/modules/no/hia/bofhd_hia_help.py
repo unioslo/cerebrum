@@ -366,7 +366,19 @@ printer."""],
     'string_filename':
         ['filename', 'Enter filename'],
     'string_group_filter':
-        ['filter', 'Enter filter'],
+        ['filter', 'Enter filter',
+         """Enter a comma-separated list of filters.  There are four filter types:
+  'name'   - Name of group
+  'desc'   - Description text of group
+  'expire' - Include expired groups (default "no")
+  'spread' - List only groups with specified spread
+
+A filter is entered on the format 'type:value'.  If you leave out the
+type, 'name' is assumed.  The values for 'name' and 'desc' can contain
+wildcards (* and ?).
+
+Example:
+  pc*,spread:AD_group  - list all AD groups whose names start with 'pc'"""],
     'string_host':
         ['hostname', 'Enter hostname.  Example: ulrik'],
     'string_new_priority':

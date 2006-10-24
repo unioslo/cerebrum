@@ -1032,11 +1032,11 @@ class BofhdExtension(object):
             return "%s unchanged" % str(catcode)
 
     def _get_boolean(self, onoff):
-        if onoff.lower() == 'on':
+        if onoff.lower() in ('on', 'true', 'yes'):
             return True
-        elif onoff.lower() == 'off':
+        elif onoff.lower() in ('off', 'false', 'no'):
             return False
-        raise CerebrumError, "Enter one of ON or OFF"
+        raise CerebrumError, "Enter one of ON or OFF, not %s" % onoff
 
     def _onoff(self, enable):
         if enable:
@@ -2100,6 +2100,43 @@ class BofhdExtension(object):
             ret.extend(unsorted)
         return ret
 
+    all_commands['group_search'] = Command(
+        ("group", "search"), SimpleString(help_ref="string_group_filter"),
+        fs=FormatSuggestion("%8i %-16s %s", ("id", "name", "desc"),
+                            hdr="%8s %-16s %s" % ("Id", "Name", "Description")),
+        perm_filter='can_search_group')
+    def group_search(self, operator, filter=""):
+        group = self.Group_class(self.db)
+        if filter == "":
+            raise CerebrumError, "No filter specified"
+        filters = {'name': None,
+                   'desc': None,
+                   'spread': None,
+                   'expired': "no"}
+        rules = filter.split(",")
+        for rule in rules:
+            if rule.count(":"):
+                filter_type, pattern = rule.split(":")
+            else:
+                filter_type = 'name'
+                pattern = rule
+            if filter_type not in filters:
+                raise CerebrumError, "Unknown filter type: %s" % filter_type
+            filters[filter_type] = pattern
+        if filters['name'] == '*' and len(rules) == 1:
+            raise CerebrumError, "Please provide a more specific filter"
+        filter_expired = not self._get_boolean(filters['expired'])
+        ret = []
+        for r in group.search(spread=filters['spread'],
+                              name=filters['name'],
+                              description=filters['desc'],
+                              filter_expired=filter_expired):
+            ret.append({'id': r['group_id'],
+                        'name': r['name'],
+                        'desc': r['description'],
+                        })
+        return ret
+
     # group list_all
     all_commands['group_list_all'] = Command(
         ("group", "list_all"), SimpleString(help_ref="string_group_filter", optional=True),
@@ -2203,29 +2240,6 @@ class BofhdExtension(object):
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.delete()
         return "Ok, demoted group."
-    
-    # group search
-    all_commands['group_search'] = Command(
-        ("group", "search"), GroupSearchType(optional=True),
-        fs=FormatSuggestion("%8i %s", ("id", "name"), hdr="%8s %s" % ("Id", "Name")),
-        perm_filter='can_search_group')
-    def group_search(self, operator, filter={}):
-        # FIXME: Check filters to avoid "Search all" for all
-        group = self.Group_class(self.db)
-        ret = []
-        # unpack filters (security.. hehe) 
-        filter_name = filter.get('name', None)
-        filter_desc = filter.get('desc',  None)
-        filter_spread = filter.get('spread',  None)
-        for r in group.search(filter_spread=filter_spread,  
-                              filter_name=filter_name,
-                              filter_desc=filter_desc):
-            ret.append({'id': r.group_id,
-                        'name': r.name,
-                        'desc': r.description,
-                      })
-        return ret
-
     
     # group set_expire
     all_commands['group_set_expire'] = Command(
