@@ -543,7 +543,7 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
     # Turn off quota for anyone that has quota and that we didn't
     # process
     logger.info("Turn off quota for those who still has quota")
-    for row in ppq.get_quoata_status(has_quota_filter=True):
+    for row in ppq.get_quota_status(has_quota_filter=True):
         if not processed_pids.has_key(int(row['person_id'])):
             set_quota(int(row['person_id']), has_quota=False)
 

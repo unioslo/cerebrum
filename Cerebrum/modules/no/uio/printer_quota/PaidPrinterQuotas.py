@@ -326,7 +326,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
             'job_id': int(job_id)})
         
 
-    def get_quoata_status(self, has_quota_filter=None, person_id=None):
+    def get_quota_status(self, has_quota_filter=None, person_id=None):
         where = []
         if has_quota_filter is not None:
             if has_quota_filter:

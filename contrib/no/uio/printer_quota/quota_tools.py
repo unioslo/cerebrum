@@ -65,7 +65,7 @@ def noia_check():
     # with status.  Unfortunately summing kroner has no meaning.
 
     person_stats = {}
-    for row in ppq.get_quoata_status():
+    for row in ppq.get_quota_status():
         pid = row['person_id'] and long(row['person_id']) or 'NULL'
         person_stats[pid] = {'free': int(row['free_quota']),
                              'kroner': float(row['kroner']),
