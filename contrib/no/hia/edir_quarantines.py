@@ -69,6 +69,14 @@ def main():
             
         for event in cl_events:
             if event['change_type_id'] in [constants.quarantine_del,
+                                           constants.quarantine_mod,
+                                           constants.quarantine_add]:
+                en = Factory.get('Entity')(db)
+                en.find(event['subject_entity'])
+                if en.entity_type <> constants.entity_account:
+                    logger.info('We cannot handle quarantine events for non-account entities yet.')
+                    continue
+            if event['change_type_id'] in [constants.quarantine_del,
                                            constants.quarantine_mod]:
                 account = Factory.get('Account')(db)
                 try:
