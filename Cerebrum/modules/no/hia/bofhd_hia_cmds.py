@@ -2528,10 +2528,13 @@ class BofhdExtension(object):
                     continue
                 
                 address = address[0]
-                alines = address['address_text'].split("\n")+[""]
+                mapping['address_line2'] = ""
+                mapping['address_line3'] = ""
+                if address['address_text']:
+                    alines = address['address_text'].split("\n")+[""]
+                    mapping['address_line2'] = alines[0]
+                    mapping['address_line3'] = alines[1]
                 mapping['address_line1'] = fullname
-                mapping['address_line2'] = alines[0]
-                mapping['address_line3'] = alines[1]
                 mapping['zip'] = address['postal_number']
                 mapping['city'] = address['city']
                 mapping['country'] = address['country']
