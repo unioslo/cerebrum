@@ -2011,7 +2011,7 @@ class BofhdExtension(object):
                                                      ed.email_domain_id)
                     raise CerebrumError, ("Can't add list %s, as the "
                                           "address %s is already in use"
-                                          ) % (newaddr, addr)
+                                          ) % (listname, addr)
                 except Errors.NotFoundError:
                     pass
                 if not found_target:
@@ -4346,13 +4346,14 @@ class BofhdExtension(object):
         has_aff = False
         for a in person.get_affiliations():
             if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
-                if a['status'] <> aff_status:
-                    raise CerebrumError, \
-                          "Person has conflicting aff_status for this ou/affiliation combination"
-                has_aff = True
-                break
+                if a['status'] == aff_status:
+                    has_aff = True
+                elif a['source_system'] == self.const.system_manual:
+                    raise CerebrumError, ("Person has conflicting aff_status "
+                                          "for this OU/affiliation combination")
         if not has_aff:
-            self.ba.can_add_affiliation(operator.get_entity_id(), person, ou, aff, aff_status)
+            self.ba.can_add_affiliation(operator.get_entity_id(),
+                                        person, ou, aff, aff_status)
             if (aff == self.const.affiliation_ansatt or
                 aff == self.const.affiliation_student):
                 raise PermissionDenied(
