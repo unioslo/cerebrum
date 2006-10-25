@@ -30,16 +30,26 @@ The format of cereconf.QUARANTINE_RULES is
          'sort_num': unique_number
        } ] }
 
-I.e, a dict of quarantine_code_str points to a list of dicts (for
-backwards-compatibility, the list part may be skipped).
+I.e, a dict where the quarantine name is the key, and the value is a
+list of dicts.  (If only one dict is required, it can be used as the
+value on its own.)
 
-The 'spread' attribute in the inner dict is optinal.  If set, the
-quarantine rule will only apply when the user has the spread in
-question.  A spread value '*' or absence of spread attr matches any
-spread.
+The 'spread' attribute in the inner dict is optional.  If set, the
+quarantine rule will only apply when the quarantine handler has been
+initialised to include this spread (or spreads, if the value is a
+list).  The dict with spread name '*' or without a spread key holds
+the default values.
 
-If multiple quarantines match, they are ordered by sort_num.  If
-sort_num is not set, int(QuarantineCode) is used.
+When evaluating the quarantine behaviour, e.g. 'shell', the dicts for
+the spreads (which are specified when initialising the
+QuarantineHandler object) are matched in order until one which
+specifies 'shell' is found.  The order is the integer value of the
+quarantine code which is essentially random.  A specific order can be
+set using the 'sort_num' key, if so, all dicts must contain a unique
+'sort_num' value.  If the handler was initialised with an empty list
+of spreads, only the default values will be used.
+
+
 """
 
 import cereconf
@@ -110,8 +120,8 @@ class QuarantineHandler(object):
             spread2settings = self.qc2rules[int(q)]
             # Note that for each spread, we only extract the first
             # matching setting.  Otherwise it would not be possible to
-            # have a quarantine that did not lock the acount for a
-            # spesific spread.
+            # have a quarantine that did not lock the account for a
+            # specific spread.
             for spread in self.spreads:
                 if spread2settings.has_key(spread):
                     ret.append((spread2settings[spread], int(q)))
