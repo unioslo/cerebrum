@@ -46,14 +46,14 @@ def make_groups_list(flat, grps):
             group.clear()
             group.find_by_name(i[1])
             tmp = group.get_members(get_entity_name=True)
-            members[i[1]] = string.join([x[1] for x in tmp], ':')
+            members[i[1]] = string.join([x[1] for x in tmp], ',')
     else:
         for i in grps:
             group.clear()
             group.find_by_name(i[1])
             tmp = group.list_members(get_entity_name=True)
             # TODO: fix this!!
-            members[i[1]] = string.join([x[2] for x in tmp[0]], ':')
+n            members[i[1]] = string.join([x[2] for x in tmp[0]], ',')
     return members
     
 def main():
@@ -99,7 +99,7 @@ def main():
     stream = open(outfile, 'w')
 
     for k, v in groups_and_members.iteritems():
-        stream.write(k + ':' + v)
+        stream.write(k + ';' + v)
         stream.write('\n')
     stream.close()
     logger.info("All done.")
