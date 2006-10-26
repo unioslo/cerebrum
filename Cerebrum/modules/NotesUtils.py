@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
@@ -72,9 +73,9 @@ class SocketCom(object):
            tmp.append("XXXXXXXX")
            tmp=string.join(tmp,"&")
            logger.debug("<< %s", tmp)
-        self.sockobj.send(message)
-
-
+        if self.sockobj.send(message) == len(message):
+            return True
+        return False
 
     def readline(self, out=True):
         while True:
