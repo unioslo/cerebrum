@@ -106,9 +106,11 @@ def change_pw(account_id,pw_params):
     user = id_to_name(account_id)
     pw=string.replace(pw,'%','%25')
     pw=string.replace(pw,'&','%26')
-    sock.send('CHPASS&ShortName&%s&pass&%s\n' % (user,pw))
-    sock.read()
-
+    if sock.send('CHPASS&ShortName&%s&pass&%s\n' % (user,pw)):
+        sock.read()
+    else:
+        logger.error('Could not change password for %s!', user)
+        
 
 def add_user(account_id):               
     account_name =id_to_name(account_id)        
@@ -129,8 +131,11 @@ def add_user(account_id):
 
     name=get_names(account_id)   
     if name:    
-        sock.send('CREATEUSR&ShortName&%s&FirstName&%s&LastName&%s&%s\n' % (account_name,name[0],name[1],oustr))
-        sock.read()             
+        if sock.send('CREATEUSR&ShortName&%s&FirstName&%s&LastName&%s&%s\n' % (account_name,name[0],name[1],oustr)):
+            sock.read()
+        else:
+            logger.error('Something went wrong, could not create user %s', account_name)
+            return
     if NotesUtils.chk_quarantine(account_id):
         delundel_user(account_id,'splatt')      
 
@@ -138,8 +143,10 @@ def delundel_user(account_id,status):
     account_name = id_to_name(account_id)
     name=get_names(account_id)
     if name:                    
-        sock.send('DELUNDELUSR&ShortName&%s&FirstName&%s&LastName&%s&Status&%s\n' % (account_name,name[0],name[1],status))
-        sock.read()
+        if sock.send('DELUNDELUSR&ShortName&%s&FirstName&%s&LastName&%s&Status&%s\n' % (account_name,name[0],name[1],status)):
+            sock.read()
+        else:
+            logger.warn('Could not remove user %s!', account_name)
 
 
 

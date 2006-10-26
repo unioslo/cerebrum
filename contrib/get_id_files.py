@@ -21,17 +21,24 @@
 
 import binascii
 import string
+import sys
 
 import cerebrum_path
 from Cerebrum.modules import NotesUtils
+from Cerebrum.Utils import Factory
 
 sock = NotesUtils.SocketCom()
+logger = Factory.get_logger("cronjob")
 users=[]
 IDFILEDIR="/cerebrum/dumps/Notes-IDs/"
 
-sock.send('LISTNEWIDFILES\n')
-line=sock.readline()
-
+if sock.send('LISTNEWIDFILES\n'):
+   line=sock.readline()
+   logger.info('Getting new ID-files')
+else:
+   logger.error('Could not get ID-files.')
+   sys.exit(1)
+   
 while line[3]=='-':
    (rest,uname)=string.split(line,'&')
    users.append(uname)
@@ -47,6 +54,7 @@ for user in users:
       file.close
 
 sock.send('QUIT\n')
+logger.info("All done")
 sock.close()
 
 # arch-tag: 634835da-c21f-11d9-871c-d27e444cb439
