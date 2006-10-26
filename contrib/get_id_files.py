@@ -52,6 +52,7 @@ for user in users:
       file=open(filename, 'w')
       file.write(idfile)
       file.close
+      logger.info("Wrote ID-file for %s", user)
 
 sock.send('QUIT\n')
 logger.info("All done")
