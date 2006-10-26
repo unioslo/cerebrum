@@ -330,9 +330,9 @@ class PaidPrinterQuotas(DatabaseAccessor):
         where = []
         if has_quota_filter is not None:
             if has_quota_filter:
-                where.append("WHERE has_quota='T'")
+                where.append("has_quota='T'")
             else:
-                where.append("WHERE has_quota='F'")
+                where.append("has_quota='F'")
         if person_id:
             where.append("person_id=%i" % person_id)
         if where:
