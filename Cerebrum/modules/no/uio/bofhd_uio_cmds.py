@@ -1198,6 +1198,7 @@ class BofhdExtension(object):
                     used, limit = cyrus.lq("user", acc.account_name)
                     if used is None:
                         used = 'N/A'
+                        limit = None
                     else:
                         used = str(used/1024)
                         limit = limit/1024
@@ -1478,7 +1479,9 @@ class BofhdExtension(object):
         else:
             raise CerebrumError, "%s already exists" % addr
         et = Email.EmailTarget(self.db)
-        et.populate(self.const.email_target_pipe, alias="|"+cmd,
+        if not cmd.startswith('|'):
+            cmd = '|' +  cmd
+        et.populate(self.const.email_target_pipe, alias=cmd,
                     using_uid=acc.entity_id)
         et.write_db()
         ea.clear()
@@ -1528,6 +1531,8 @@ class BofhdExtension(object):
         et.find(ea.email_addr_target_id)
         if et.email_target_type != self.const.email_target_pipe:
             raise CerebrumError, "%s is not connected to a pipe target" % addr
+        if not cmd.startswith('|'):
+            cmd = '|' +  cmd
         et.email_target_alias = cmd
         et.write_db()
         return "OK, edited %s" % addr
