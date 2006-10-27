@@ -178,9 +178,9 @@ class AccountType(object):
         rows = self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
-        FROM [:table schema=cerebrum name=account_type] at,
-             [:table schema=cerebrum name=person_affiliation_source] pas,
-             [:table schema=cerebrum name=account_info] ai
+        FROM [:table schema=cerebrum name=person_affiliation_source] pas,
+             [:table schema=cerebrum name=account_info] ai,
+             [:table schema=cerebrum name=account_type] at
              %s
         WHERE at.person_id=pas.person_id AND
               at.ou_id=pas.ou_id AND
