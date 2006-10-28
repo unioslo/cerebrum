@@ -53,7 +53,7 @@ def make_groups_list(flat, grps):
             group.find_by_name(i[1])
             tmp = group.list_members(get_entity_name=True)
             # TODO: fix this!!
-n            members[i[1]] = string.join([x[2] for x in tmp[0]], ',')
+            members[i[1]] = string.join([x[2] for x in tmp[0]], ',')
     return members
     
 def main():
