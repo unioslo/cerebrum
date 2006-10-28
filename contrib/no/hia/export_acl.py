@@ -265,7 +265,7 @@ def get_primary_account(person, account):
         account.find(acc_id)
         return account.account_name
     except Errors.NotFoundError:
-        logger.warn("No account for person with internal id %s",
+        logger.info("No account for person with internal id %s",
                     person.entity_id)
     # yrt
 
@@ -598,7 +598,7 @@ def fnr_to_external_id(fnr, person, person_info):
                                    fnr,
                                    const.AuthoritativeSystem("FS"))
     except Errors.NotFoundError:
-        # logger.warn("fnr %s is in FS, but not in Cerebrum", fnr)
+        logger.info("fnr %s is in FS, but not in Cerebrum", fnr)
         return None, None
     # yrt
 
@@ -663,7 +663,7 @@ def output_kull_relations(kull_info, person_info, fs):
                      len(tmpseq), studieprogram_kode, terminkode, arstall)
         students = remap_fnrs(tmpseq, person, person_info)
         if not students:
-            logger.warn("No students for kull %s. No groups will be generated",
+            logger.info("No students for kull %s. No groups will be generated",
                         internal_id)
             continue
         # fi
@@ -729,7 +729,7 @@ def output_ue_relations(ue_info, person_info, fs):
             fs.undervisning.list_studenter_underv_enhet(**parameters),
             person, person_info)
         if not students:
-            logger.warn("No students for UE %s. No groups will be generated",
+            logger.info("No students for UE %s. No groups will be generated",
                         internal_id)
             continue
         # fi
