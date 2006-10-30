@@ -42,7 +42,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
-from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU
+from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU, DataAddress
 
 db = Factory.get('Database')()
 db.cl_init(change_program='import_HR')
@@ -305,6 +305,25 @@ def parse_data(parser, source_system, person, group, gen_groups, old_affs):
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
         affiliations, work_title = determine_affiliations(xmlperson,
                                                           source_system)
+
+        # If the person has primary_ou set, we set the besok/post
+        # address in the xmlperson unless it is already set
+        if hasattr(xmlperson, 'primary_ou'):
+            sko_dta = get_sko(xmlperson.primary_ou[1:], source_system)
+            for src_key, kind in (
+                ('addr_street', DataAddress.ADDRESS_BESOK),
+                ('addr_post', DataAddress.ADDRESS_POST)):
+                if xmlperson.get_address(kind) is not None:
+                    continue
+                addr = sko_dta[src_key]
+                if addr is None:
+                    continue
+                xmlperson.add_address(
+                    DataAddress(kind = kind,
+                                street = addr['address_text'],
+                                zip = addr['postal_number'],
+                                city = addr['city'],
+                                country = addr['country'] or ''))
         status, p_id = xml2db.store_person(xmlperson, affiliations, work_title)
 
         if gen_groups == 1:

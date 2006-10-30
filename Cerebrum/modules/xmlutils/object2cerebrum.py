@@ -151,8 +151,10 @@ class XML2Cerebrum:
         # addresses (e.g. ADDRESS_POST) have to be derived from the addresses
         # of the "corresponding" OUs. This breaks quite a few abstractions in
         # this code.
-        # 
-        for addr_kind in (DataAddress.ADDRESS_POST, DataAddress.ADDRESS_PRIVATE):
+        #
+        
+        for addr_kind in (DataAddress.ADDRESS_BESOK, DataAddress.ADDRESS_POST,
+                          DataAddress.ADDRESS_PRIVATE):
             addr = xmlperson.get_address(addr_kind)
             if not addr:
                 continue
