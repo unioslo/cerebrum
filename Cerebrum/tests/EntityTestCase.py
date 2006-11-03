@@ -88,15 +88,6 @@ class EntityTestCase(Entity_createTestCase):
         entity = self.entity_class(self.Cerebrum)
         self.assertRaises(Errors.NotFoundError, entity.find, self.entity_id)
 
-    def suite():
-        suite = unittest.TestSuite()
-        suite.addTest(EntityTestCase("testCreateEntity"))
-        suite.addTest(EntityTestCase("testCompareEntity"))
-        suite.addTest(EntityTestCase("testDeleteEntity"))
-        return suite
-    suite = staticmethod(suite)
-
-
 class EntityName_createTestCase(Entity_createTestCase):
     entity_class = EntityName
     test_name = "foobar3"
@@ -111,7 +102,10 @@ class EntityName_createTestCase(Entity_createTestCase):
             raise
 
     def tearDown(self):
-        self.entity.delete_entity_name(self.co.account_namespace)
+        try:
+            self.entity.delete_entity_name(self.co.account_namespace)
+        except Errors.NotFoundError:
+            pass # Already deleted.
         super(EntityName_createTestCase, self).tearDown()
 
 class EntityNameTestCase(EntityName_createTestCase):
@@ -134,15 +128,6 @@ class EntityNameTestCase(EntityName_createTestCase):
         self.entity.delete_entity_name(self.co.account_namespace)
         self.assertRaises(Errors.NotFoundError,
                           self.entity.get_name, self.co.account_namespace)
-
-    def suite():
-        suite = unittest.TestSuite()
-        suite.addTest(EntityNameTestCase("testEntityGetName"))
-        suite.addTest(EntityNameTestCase("testEntityFindByName"))
-        suite.addTest(EntityNameTestCase("testEntityDeleteName"))
-        return suite
-    suite = staticmethod(suite)
-
 
 class EntityContactInfo_createTestCase(Entity_createTestCase):
     entity_class = EntityContactInfo
@@ -188,14 +173,6 @@ class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
         self.failIf(self.entity.get_contact_info(self.test_ci['src'],
                                                  self.test_ci['type']),
                     "EntityContactInfo won't go away.")
-
-    def suite():
-        suite = unittest.TestSuite()
-        suite.addTest(EntityContactInfoTestCase("testEntityGetContactInfo"))
-        suite.addTest(EntityContactInfoTestCase("testEntityDeleteContactInfo"))
-        return suite
-    suite = staticmethod(suite)
-
 
 class EntityAddress_createTestCase(Entity_createTestCase):
     entity_class = EntityAddress
@@ -250,30 +227,8 @@ class EntityAddressTestCase(EntityAddress_createTestCase):
                                                    self.test_a['type']),
                     "EntityAddress won't go away.")
 
-    def suite():
-        suite = unittest.TestSuite()
-        suite.addTest(EntityAddressTestCase("testEntityGetAddress"))
-        suite.addTest(EntityAddressTestCase("testEntityDeleteAddress"))
-        return suite
-    suite = staticmethod(suite)
-
-def suite():
-    """Returns a suite containing all the test cases in this module.
-       It can be a good idea to put an identically named factory function
-       like this in every test module. Such a naming convention allows
-       automation of test discovery.
-    """
-
-    suite1 = EntityTestCase.suite()
-    suite2 = EntityNameTestCase.suite()
-    suite3 = EntityContactInfoTestCase.suite()
-    suite4 = EntityAddressTestCase.suite()
-
-    return unittest.TestSuite((suite1, suite2, suite3, suite4))
-
-
 if __name__ == '__main__':
     # When this module is executed from the command-line, run all its tests
-    unittest.main(defaultTest='suite')
+    unittest.main()
 
 # arch-tag: a8757454-083c-43da-af74-d6ec784759cc
