@@ -471,7 +471,7 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
         if not (first and last):
             logger.warn("No name information for %s is available. %d "
                         "entry(ies) will be skipped",
-                        leftpnr, len(old_dict[leftpnr]))
+                        leftpnr[:-1], len(old_dict[leftpnr]))
             continue
         # fi
                         
