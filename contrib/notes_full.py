@@ -4,7 +4,7 @@
 import getopt
 import sys
 import cerebrum_path
-from Cerebrum.modules import notesutils
+from Cerebrum.modules import NotesUtils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
@@ -60,7 +60,7 @@ def fetch_cerebrum_data(spread):
                         aid2ainfo[account_id]['uname'])
         ou_id = int(row['ou_id'])
         if ou_id not in ou_path:
-            path = notesutils.get_cerebrum_ou_path(ou_id)
+            path = NotesUtils.get_cerebrum_ou_path(ou_id)
             if not path:
                 # can be None or empty list
                 ou_path[ou_id] = 'ANDRE'
@@ -89,7 +89,7 @@ def fetch_cerebrum_data(spread):
 
 
 def read_from_notes():
-    sock = notesutils.SocketCom()
+    sock = NotesUtils.SocketCom()
     userdict = {}
 
     resp, lines = notes_cmd(sock, 'LUSERS')
@@ -107,7 +107,7 @@ def read_from_notes():
 
 
 def compare_users(notesdata, cerebrumdata):
-    sock = notesutils.SocketCom()
+    sock = NotesUtils.SocketCom()
 
     for user in cerebrumdata:
         if user['uname'] not in notesdata:
