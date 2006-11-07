@@ -140,6 +140,15 @@ class Constants(Constants.Constants):
     spread_nis_ng = _SpreadCode(
         'netgroup@nis', Constants.Constants.entity_group,
         'Net group in NIS')
+    spread_nis_ans_account = _SpreadCode(
+        'account@nisans', Constants.Constants.entity_account,
+        'Account in NIS')
+    spread_nis_ans_fg = _SpreadCode(
+        'fgroup@nisans', Constants.Constants.entity_group,
+        'File group in NIS')
+    spread_nis_ans_ng = _SpreadCode(
+        'netgroup@nisans', Constants.Constants.entity_group,
+        'Net group in NIS')
     spread_email_account = _SpreadCode(
         'account@imap', Constants.Constants.entity_account,
         'Email account at HiOf')
