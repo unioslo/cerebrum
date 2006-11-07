@@ -67,6 +67,9 @@ import Stedkode
 import Email
 import EmailTypes
 
+# View
+import View
+
 # Cereweb
 import Cereweb
 
