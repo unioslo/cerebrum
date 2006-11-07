@@ -48,7 +48,7 @@ optimal = False
 def get_db_entr():
     for row in person.list_contact_info(source_system = \
 					co.AuthoritativeSystem('PBX')):
-	db_key,cont_type = int(row.entity_id),int(row.contact_type)
+	db_key,cont_type = int(row['entity_id']),int(row['contact_type'])
 	db_value = row['contact_value']
 	if not db_list.has_key(db_key):
 	    db_list[db_key] = {}
@@ -72,7 +72,11 @@ def get_ldif_info(ldif_file):
 		uname = val['uid'][0].split('@')[0]
 		if '/' in uname:
 		    uname = uname.split('/')[0]
-		acc.find_by_name(uname)
+                acc.find_by_name(uname)
+                if not acc.owner_type == int(co.entity_person):
+                    logger.debug("Owner (%d) for '%s' is not a person" % 
+                                 (acc.owner_id,uname))
+                    continue
 		pers_id = acc.owner_id
 	    except Errors.NotFoundError:
 		logger.debug("Could not find person: %s" % uname) 
