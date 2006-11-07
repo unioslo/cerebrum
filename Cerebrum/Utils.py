@@ -319,7 +319,10 @@ def read_password(user, system, host=None):
     import os
     fmt = ['passwd-%s@%s']
     var = [user.lower(),system.lower()]
-    if host is not None:
+    # "hosts" starting with a '/' are local sockets, and should use
+    # this host's password files, i.e. don't qualify password filename
+    # with hostname.
+    if host is not None and not host.startswith("/"):
         fmt.append('@%s')
         var.append(host.lower())
     format_str = ''.join(fmt)
