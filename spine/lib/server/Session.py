@@ -30,7 +30,7 @@ import cereconf
 from Corba import create_idl_source, convert_to_corba, register_spine_class, drop_associated_objects
 import Communication
 import SessionHandler
-import Authorization
+from Authorization import Authorization
 
 from Cerebrum.spine.SpineLib import Builder
 
@@ -123,6 +123,7 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         self.counter = count()
         self.client = client
         self._transactions = {}
+        self.authorization = Authorization(client)
 
     def reset_timeout(self):
         """This method resets the timeout of this session in its session handler."""
@@ -134,8 +135,8 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         transaction = Transaction(self)
         corba_obj = convert_to_corba(transaction, transaction, Transaction)
         self._transactions[transaction] = corba_obj
-
-        transaction.authorization = Authorization.Authorization(transaction.get_database(), [])
+        transaction.authorization = self.authorization
+        
         return corba_obj
 
     def get_encoding(self):
