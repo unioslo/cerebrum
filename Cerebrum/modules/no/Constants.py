@@ -50,4 +50,45 @@ class ConstantsHigherEdu(Constants.Constants):
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
     perspective_sap = _OUPerspectiveCode('SAP', 'SAP')
 
+class ConstantsUniversityColleges(Constants.Constants):
+
+    ## Source systems
+    system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
+    system_override = _AuthoritativeSystemCode('Override',
+                                               'Override information fetched from proper authoritative systems')
+    system_manual =  _AuthoritativeSystemCode('MANUELL',
+                                              'Manually added information')
+
+    ## Non-personal account codes
+    account_test = _AccountCode('testbruker', 'Testkonto')
+    account_kurs = _AccountCode('kursbruker', 'Kurskonto')
+    account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
+    account_felles  = _AccountCode('fellesbruker','Fellesbruker')
+    account_system  = _AccountCode('systembruker', 'Systembruker') 
+
+    ## SAP-spesifikke navnekonstanter
+    name_middle = _PersonNameCode('MIDDLE', 'Mellomnavn')
+    name_initials = _PersonNameCode('INITIALS', 'Initialer')
+
+    ## SAP-spesifikke kommtypekonstater
+    contact_phone_cellular = _ContactInfoCode("CELLPHONE",
+                                              "Mobiltelefonnr")
+    contact_phone_cellular_private = _ContactInfoCode(
+                                       "PRIVCELLPHONE",
+                                       "Privat mobiltefonnr")
+    ## Landkonstanter for SAP
+    country_no = _CountryCode("NO", "Norway", "47", "Norway")
+    country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
+    country_fi = _CountryCode("FI", "Finland", "358", "Finland")
+    country_se = _CountryCode("SE", "Sweden", "46", "Sweden")
+    country_us = _CountryCode("US", "USA", "1", "United states of America")
+    country_nl = _CountryCode("NL", "The Netherlands", "31", "The Netherlands")
+    country_de = _CountryCode("DE", "Germany", "49", "Germany")
+    country_au = _CountryCode("AU", "Australia", "61", "Australia")
+    country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
+    country_it = _CountryCode("IT", "Italy", "39", "Italy")
+    country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
+    country_at = _CountryCode("AT", "Austria", "43", "Austria")
+
+
 # arch-tag: 4ba57e9c-75bd-40b6-8d6c-1340312241bb
