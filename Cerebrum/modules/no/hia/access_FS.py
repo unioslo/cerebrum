@@ -22,6 +22,36 @@ import time
 from Cerebrum.modules.no import access_FS
 
 class HiAStudent(access_FS.Student):
+    def list_aktiv_ny_ikke_i_bruk(self):
+	""" Hent opplysninger om studenter definert som aktive 
+	ved HiA. En aktiv student er en student som har et gyldig
+        opptak til et studieprogram der studentstatuskode er 'AKTIV'
+        eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
+        ikke satt."""
+	qry = """
+        SELECT DISTINCT
+          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
+          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
+          sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
+          s.studentnr_tildelt
+        FROM fs.studieprogramstudent sps, fs.person p,
+             fs.student s
+        WHERE p.fodselsdato = sps.fodselsdato AND
+          p.personnr = sps.personnr AND
+          p.fodselsdato = s.fodselsdato AND
+          p.personnr = s.personnr AND
+          %s AND
+          sps.status_privatist = 'N' AND
+          sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
+          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
+          """ % (self._is_alive())
+        return self.db.query(qry)
+    
     def list_aktiv(self):
 	""" Hent opplysninger om studenter definert som aktive 
 	ved HiA. En aktiv student er enten med i et aktivt kull og
@@ -120,6 +150,26 @@ class HiAUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
+    def list_studenter_kull_ny_ikke_i_bruk(self, studieprogramkode, terminkode, arstall):
+        """Hent alle studentene som er oppført på et gitt kull."""
+
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            studieprogramkode = :studieprogramkode AND
+            terminkode_kull = :terminkode_kull AND
+            arstall_kull = :arstall_kull
+        """
+
+        return self.db.query(query, {"studieprogramkode" : studieprogramkode,
+                                     "terminkode_kull"   : terminkode,
+                                     "arstall_kull"      : arstall})
+
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
@@ -137,7 +187,6 @@ class HiAUndervisning(access_FS.Undervisning):
         return self.db.query(query, {"studieprogramkode" : studieprogramkode,
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
-    # end list_studenter_kull
 
 
 class HiAEVU(access_FS.EVU):
