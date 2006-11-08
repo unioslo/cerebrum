@@ -32,7 +32,6 @@ import sys
 import time
 import os
 import email.Generator, email.Message
-import cyruslib
 import pickle
 from mx import DateTime
 try:
@@ -1189,6 +1188,7 @@ class BofhdExtension(object):
                 pw = self.db._read_password(cereconf.CYRUS_HOST,
                                             cereconf.CYRUS_ADMIN)
                 try:
+                    import cyruslib
                     cyrus = cyruslib.CYRUS(es.name)
                     cyrus.login(cereconf.CYRUS_ADMIN, pw)
                     # TODO: use imaplib instead of cyruslib, and do
@@ -5796,7 +5796,11 @@ class BofhdExtension(object):
             default_dest_quota = disk.get_default_quota()
             current_quota = None
             dq = DiskQuota(self.db)
-            ah = account.get_home(spread)
+            try:
+                ah = account.get_home(spread)
+            except Errors.NotFoundError:
+                raise CerebrumError, "Cannot move %s, account has no home" % (
+                    account.account_name)
             try:
                 dq_row = dq.get_quota(ah['homedir_id'])
             except Errors.NotFoundError:
