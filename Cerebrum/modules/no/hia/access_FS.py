@@ -160,7 +160,7 @@ class HiAUndervisning(access_FS.Undervisning):
             fs.studieprogramstudent
         WHERE
             studentstatkode IN ('AKTIV', 'PERMISJON') AND
-            NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
             studieprogramkode = :studieprogramkode AND
             terminkode_kull = :terminkode_kull AND
             arstall_kull = :arstall_kull
