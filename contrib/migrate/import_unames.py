@@ -129,7 +129,7 @@ def check_uname(uname):
 
     if not uname.islower():
         uname = uname.lower()
-    if len(uname) > 9 or len(uname) < 3:
+    if len(uname) > 12 or len(uname) < 3:
         logger.error("Uname too short or too long %s.", uname)
         return None
 
