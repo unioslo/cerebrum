@@ -70,13 +70,15 @@ def process_line(infile):
             continue
         fnr, uname, lname, fname = fields
         if not fnr == "":
-            person_id = process_person(fnr)
-            if person_id:
-                logger.debug("Processing user with person: %s", uname)
-                account_id = process_user(person_id, uname)
-            else:
-                logger.error("Bad fnr: %s Skipping", line.strip())
-                continue
+            uname = check_uname(uname)
+            if uname:
+                person_id = process_person(fnr)
+                if person_id:
+                    logger.debug("Processing user with person: %s", uname)
+                    account_id = process_user(person_id, uname)
+                else:
+                    logger.error("Bad fnr: %s Skipping", line.strip())
+                    continue
         else:
             logger.debug("Processing user without person: %s", uname)
             account_id = process_user(None, uname)
@@ -119,11 +121,7 @@ def process_person(fnr):
     return e_id
 
 
-    
-def process_user(owner_id, uname):
-    """
-    Locate account_id of account UNAME owned by OWNER_ID.
-    """
+def check_uname(uname):
     legal_chars = string.ascii_letters + string.digits    
     if uname == "":
         logger.warn("Nothing to do here.")
@@ -132,15 +130,21 @@ def process_user(owner_id, uname):
     if not uname.islower():
         uname = uname.lower()
     if len(uname) > 9 or len(uname) < 3:
-        logger.error("Uname too short or too long %s!", uname)
+        logger.error("Uname too short or too long %s.", uname)
         return None
 
     # check uname for special and non-ascii characters 
     for u in uname:
         if u not in legal_chars:
-            logger.error("Bad uname %s!", uname)
+            logger.error("Bad uname %s.", uname)
             return None
+    return uname
         
+    
+def process_user(owner_id, uname):
+    """
+    Locate account_id of account UNAME owned by OWNER_ID.
+    """
     owner_type = constants.entity_person
     np_type = None
     try:
