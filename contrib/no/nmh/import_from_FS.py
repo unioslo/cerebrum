@@ -81,7 +81,7 @@ def write_person_info(outfile):
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1*KiB)
+    f.set_minimum_size_limit(0)
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR)) 
     for o in ouer:
