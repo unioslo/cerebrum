@@ -24,7 +24,11 @@ Constants common for higher education institutions in Norway.
 from Cerebrum import Constants
 from Cerebrum.Constants import _EntityExternalIdCode, \
                                _AuthoritativeSystemCode, \
-                               _OUPerspectiveCode
+                               _OUPerspectiveCode, \
+                               _AccountCode, \
+                               _PersonNameCode, \
+                               _ContactInfoCode, \
+                               _CountryCode
 
 class ConstantsCommon(Constants.Constants):
 
