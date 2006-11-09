@@ -128,7 +128,7 @@ def write_ou_info(outfile):
     f.close()
 
 def write_evukurs_info(outfile):
-    """Skriv data om alle EVU-kurs"
+    """Skriv data om alle EVU-kurs"""
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(1*KiB)
     f.write(xml.xml_hdr + "<data>\n")
@@ -140,6 +140,7 @@ def write_evukurs_info(outfile):
     # end write_evukurs_info
     
 def write_role_info(outfile):
+    """Skriv data om alle registrerte roller"""
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
