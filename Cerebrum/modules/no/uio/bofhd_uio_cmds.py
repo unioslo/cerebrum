@@ -32,6 +32,7 @@ import sys
 import time
 import os
 import email.Generator, email.Message
+import imaplib
 import pickle
 from mx import DateTime
 try:
@@ -121,7 +122,6 @@ class BofhdExtension(object):
         self.fixup_imaplib()
 
     def fixup_imaplib(self):
-        import imaplib
         def nonblocking_open(self, host=None, port=None):
             import socket
             import select
@@ -1187,21 +1187,17 @@ class BofhdExtension(object):
             if es.email_server_type == self.const.email_server_type_cyrus:
                 pw = self.db._read_password(cereconf.CYRUS_HOST,
                                             cereconf.CYRUS_ADMIN)
+                used = 'N/A'; limit = None
                 try:
-                    import cyruslib
-                    cyrus = cyruslib.CYRUS(es.name)
+                    cyrus = imaplib.IMAP4(es.name)
                     cyrus.login(cereconf.CYRUS_ADMIN, pw)
-                    # TODO: use imaplib instead of cyruslib, and do
-                    # quotatrees properly.  cyruslib doesn't check to
-                    # see if it's a STORAGE quota or something else.
-                    # not very important for us, though.
-                    used, limit = cyrus.lq("user", acc.account_name)
-                    if used is None:
-                        used = 'N/A'
-                        limit = None
-                    else:
-                        used = str(used/1024)
-                        limit = limit/1024
+                    res, quotas = cyrus.getquota("user." + acc.account_name)
+                    if res == "OK":
+                        for line in quotas:
+                            folder, qtype, qused, qlimit = line.split()
+                            if qtype == "(STORAGE":
+                                used = str(int(qused)/1024)
+                                limit = int(qlimit.rstrip(")"))/1024
                 except TimeoutException:
                     used = 'DOWN'
                 except ConnectException, e:
