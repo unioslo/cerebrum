@@ -58,22 +58,25 @@ def _ext_cols(db_rows):
 
 def write_person_info(outfile):
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(1*MiB)
+    f.set_minimum_size_limit(0)
     f.write(xml.xml_hdr + "<data>\n")
 
-    #Aktive ordinære studenter ved NMH
+    # Aktive fagpersoner ved NMH
+    cols, fagperson = _ext_cols(fs.undervisning.list_fagperson_semester())
+    for p in fagperson:
+        f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
+    # Aktive ordinære studenter ved NMH
     cols, student = _ext_cols(fs.student.list_aktiv())
     for a in student:
-	fix_float(a)
-        f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
+        f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols), 'aktiv') + "\n")
     # Eksamensmeldinger
     cols, student = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in student:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
-    #EVU-studenter ved NMH
+    # EVU-studenter ved NMH
     cols, student = _ext_cols(fs.evu.list())
     for e in student:
-        f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
+        f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
 
     f.write("</data>\n")
     f.close()
@@ -153,7 +156,7 @@ def write_role_info(outfile):
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(100*KiB)
+    f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in ('current', 'next'):
         cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
@@ -168,7 +171,7 @@ def write_undenh_student(outfile):
     Tar med data for alle undervisingsenheter i inneværende+neste
     semester."""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(10*KiB)
+    f.set_minimum_size_limit(5*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     for semester in ('current', 'next'):
         cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
@@ -191,7 +194,7 @@ def write_undenh_student(outfile):
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(50*KiB)
+    f.set_minimum_size_limit(10*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
     for t in dta:
