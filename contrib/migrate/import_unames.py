@@ -202,7 +202,7 @@ def main():
 
     fnr2person_id = dict()
     for p in person.list_external_ids(id_type=constants.externalid_fodselsnr):
-        fnr2person_id[p['external_id']] = p['person_id']
+        fnr2person_id[p['external_id']] = p['entity_id']
 
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
