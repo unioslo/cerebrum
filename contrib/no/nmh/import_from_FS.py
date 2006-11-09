@@ -30,7 +30,7 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
-from Cerebrum.modules.no.hia.access_FS import FS
+from Cerebrum.modules.no.nmh.access_FS import FS
 from Cerebrum.Utils import Factory
 
 default_person_file = "/cerebrum/dumps/FS/person.xml"
@@ -61,16 +61,16 @@ def write_person_info(outfile):
     f.set_minimum_size_limit(1*MiB)
     f.write(xml.xml_hdr + "<data>\n")
 
-    #Aktive ordinære studenter ved HiA
+    #Aktive ordinære studenter ved NMH
     cols, student = _ext_cols(fs.student.list_aktiv())
-    for a in hiastudent:
+    for a in student:
 	fix_float(a)
         f.write(xml.xmlify_dbrow(a,xml.conv_colnames(cols),'aktiv') + "\n")
     # Eksamensmeldinger
     cols, student = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in student:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
-    #EVU-studenter ved HiA
+    #EVU-studenter ved NMH
     cols, student = _ext_cols(fs.evu.list())
     for e in student:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
@@ -263,7 +263,7 @@ def fix_float(row):
 def usage(exitcode=0):
     print """Usage: [options]
     --studprog-file name: override studprog xml filename
-    --personinfo-file: override hia person xml filename
+    --personinfo-file: override person xml filename
     --roleinfo-file: override role xml filename
     --undenh-file: override 'topics' file
     --emneinfo-file: override emne info
