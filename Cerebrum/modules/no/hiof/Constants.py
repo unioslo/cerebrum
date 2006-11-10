@@ -24,31 +24,19 @@ The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
-from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode, \
                                _SpreadCode, \
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode, \
-                               _EntityExternalIdCode, \
                                _AccountCode, \
                                _PersonNameCode, \
                                _ContactInfoCode, \
                                _CountryCode
+from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 
-class Constants(Constants.Constants):
-    system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
-    system_override = _AuthoritativeSystemCode('Override',
-                                               'Override information fetched from proper authoritative systems')
-    system_manual =  _AuthoritativeSystemCode('MANUELL',
-                                              'Manually added information')
-
-    account_test = _AccountCode('testbruker', 'Testkonto')
-    account_kurs = _AccountCode('kursbruker', 'Kurskonto')
-    account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
-    account_felles  = _AccountCode('fellesbruker','Fellesbruker')
-    account_system  = _AccountCode('systembruker', 'Systembruker') 
+class Constants(ConstantsUniversityColleges):
 ## AFFILIATIONS FOR ANSATTE
     affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt ved HiOf')
     affiliation_status_ansatt_manuell = _PersonAffStatusCode(
@@ -132,59 +120,32 @@ class Constants(Constants.Constants):
 
 ## DEFINISJON AV SPREAD
     spread_nis_account = _SpreadCode(
-        'account@nis', Constants.Constants.entity_account,
+        'account@nis', ConstantsUniversityColleges.entity_account,
         'Account in NIS')
     spread_nis_fg = _SpreadCode(
-        'fgroup@nis', Constants.Constants.entity_group,
+        'fgroup@nis', ConstantsUniversityColleges.entity_group,
         'File group in NIS')
     spread_nis_ng = _SpreadCode(
-        'netgroup@nis', Constants.Constants.entity_group,
+        'netgroup@nis', ConstantsUniversityColleges.entity_group,
         'Net group in NIS')
     spread_nis_ans_account = _SpreadCode(
-        'account@nisans', Constants.Constants.entity_account,
+        'account@nisans', ConstantsUniversityColleges.entity_account,
         'Account in NIS')
     spread_nis_ans_fg = _SpreadCode(
-        'fgroup@nisans', Constants.Constants.entity_group,
+        'fgroup@nisans', ConstantsUniversityColleges.entity_group,
         'File group in NIS')
     spread_nis_ans_ng = _SpreadCode(
-        'netgroup@nisans', Constants.Constants.entity_group,
+        'netgroup@nisans', ConstantsUniversityColleges.entity_group,
         'Net group in NIS')
     spread_email_account = _SpreadCode(
-        'account@imap', Constants.Constants.entity_account,
+        'account@imap', ConstantsUniversityColleges.entity_account,
         'Email account at HiOf')
     spread_ldap_person = _SpreadCode(
-        'person@ldap', Constants.Constants.entity_person, 
+        'person@ldap', ConstantsUniversityColleges.entity_person, 
         'Person included in LDAP directory')
     spread_ad_account = _SpreadCode(
-        'account@ad', Constants.Constants.entity_account,
+        'account@ad', ConstantsUniversityColleges.entity_account,
         'Account included in Active Directory')
     spread_ad_group = _SpreadCode(
-        'group@ad', Constants.Constants.entity_group,
+        'group@ad', ConstantsUniversityColleges.entity_group,
         'group included in Active Directory')   
-
-## SAP-spesifikke navnekonstanter
-    name_middle = _PersonNameCode('MIDDLE', 'Middle name')
-    name_initials = _PersonNameCode('INITIALS', 'Initials')
-
-## SAP-spesifikke kommtypekonstater
-    contact_phone_cellular = _ContactInfoCode("CELLPHONE",
-                                              "Person's cellular phone")
-    contact_phone_cellular_private = _ContactInfoCode(
-                                       "PRIVCELLPHONE",
-                                       "Person's private cellular phone")
-
-## Landkonstanter for SAP
-    country_no = _CountryCode("NO", "Norway", "47", "Norway")
-    country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
-    country_fi = _CountryCode("FI", "Finland", "358", "Finland")
-    country_se = _CountryCode("SE", "Sweden", "46", "Sweden")
-    country_us = _CountryCode("US", "USA", "1", "United states of America")
-    country_nl = _CountryCode("NL", "The Netherlands", "31", "The Netherlands")
-    country_de = _CountryCode("DE", "Germany", "49", "Germany")
-    country_au = _CountryCode("AU", "Australia", "61", "Australia")
-    country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
-    country_it = _CountryCode("IT", "Italy", "39", "Italy")
-    country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
-    country_at = _CountryCode("AT", "Austria", "43", "Austria")
-
-# arch-tag: b941f1fc-c641-11da-9d35-75aad02b30cc
