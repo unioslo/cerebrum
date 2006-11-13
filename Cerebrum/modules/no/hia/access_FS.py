@@ -22,7 +22,7 @@ import time
 from Cerebrum.modules.no import access_FS
 
 class HiAStudent(access_FS.Student):
-    def list_aktiv_ny_ikke_i_bruk(self):
+    def list_aktiv(self):
 	""" Hent opplysninger om studenter definert som aktive 
 	ved HiA. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
@@ -52,7 +52,7 @@ class HiAStudent(access_FS.Student):
           """ % (self._is_alive())
         return self.db.query(qry)
     
-    def list_aktiv(self):
+    def list_aktiv_deprecated(self):
 	""" Hent opplysninger om studenter definert som aktive 
 	ved HiA. En aktiv student er enten med i et aktivt kull og
         har et gyldig studierett eller har en forekomst i registerkort 
@@ -150,7 +150,7 @@ class HiAUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
-    def list_studenter_kull_ny_ikke_i_bruk(self, studieprogramkode, terminkode, arstall):
+    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
         query = """
@@ -170,7 +170,7 @@ class HiAUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
 
-    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
+    def list_studenter_kull_deprecated(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
         query = """
