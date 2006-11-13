@@ -246,10 +246,12 @@ class XMLPerson2Object(XMLEntity2Object):
             # od
         # fi
         result.reserved = to_reserve
-        result.primary_ou = ("185",
-                             extract("fakultetnr_for_lonnsslip"),
-                             extract("instituttnr_for_lonnsslip"),
-                             extract("gruppenr_for_lonnsslip"))
+        tmp = element.get("fakultetnr_for_lonnsslip")
+        if tmp:
+            result.primary_ou = ("185",
+                                 extract("fakultetnr_for_lonnsslip"),
+                                 extract("instituttnr_for_lonnsslip"),
+                                 extract("gruppenr_for_lonnsslip"))
 
         if not (result.get_name(result.NAME_FIRST) and
                 result.get_name(result.NAME_LAST)):
