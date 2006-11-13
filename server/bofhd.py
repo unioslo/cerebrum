@@ -922,12 +922,24 @@ if __name__ == '__main__':
                            '%s/ca.pem' % cereconf.DB_AUTH_DIR,
                            SSL.verify_none)
         ctx.set_tmp_dh('%s/dh1024.pem' % cereconf.DB_AUTH_DIR)
+
         if multi_threaded:
-            server = ThreadingSSLBofhdServer(
-                ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
+            # UiO has a locally patched M2Crypto that provides a
+            # timeout mechanism for M2Crypto's SSLServer.  The easiest
+            # way to detect this patch is the following look-up:
+            if hasattr(SSL.Connection, "set_default_client_timeout"):
+                server = ThreadingSSLBofhdServer(
+                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
+            else:
+                server = ThreadingSSLBofhdServer(
+                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
         else:
-            server = SSLBofhdServer(
-                ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
+            if hasattr(SSL.Connection, "set_default_client_timeout"):
+                server = SSLBofhdServer(
+                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
+            else:
+                server = SSLBofhdServer(
+                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
     else:
         if multi_threaded:
             server = ThreadingBofhdServer(
