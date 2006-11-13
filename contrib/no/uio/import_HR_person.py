@@ -315,14 +315,16 @@ def parse_data(parser, source_system, person, group, gen_groups, old_affs):
                 ('addr_post', DataAddress.ADDRESS_POST)):
                 if xmlperson.get_address(kind) is not None:
                     continue
+                if not sko_dta:
+                    continue
                 addr = sko_dta[src_key]
                 if addr is None:
                     continue
                 xmlperson.add_address(
                     DataAddress(kind = kind,
                                 street = addr['address_text'],
-                                zip = addr['postal_number'],
-                                city = addr['city'],
+                                zip = addr['postal_number'] or '',
+                                city = addr['city'] or '',
                                 country = addr['country'] or ''))
         status, p_id = xml2db.store_person(xmlperson, affiliations, work_title)
 
