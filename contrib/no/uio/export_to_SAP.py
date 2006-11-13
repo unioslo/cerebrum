@@ -21,6 +21,9 @@
 
 import sys, time, getopt
 
+import mx.DateTime
+import shutil
+
 import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory, AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
@@ -47,7 +50,7 @@ OPTIONS:
         -a, --all
              alias for including all id-types
         -f, --file <filename>
-             filename to export to.
+             filename to export to. '.xml' will automatically be appended
 
 This script exports some employee data to SAP.
 
@@ -68,6 +71,10 @@ An example of a person element might look something like this:
 
 The elements for which we have no values are left empty. If no data items
 for a given employee have values, we skip that employee altogether.
+
+Note that a datestamped copy of the 'main' export-file will also be
+generated, in the same directory and with basically the same name as
+the 'main' export-file.
 
 """ % str(selectors.keys())
 
@@ -181,7 +188,6 @@ def generate_export(writer, id_list):
     writer.startElement("bas2sap")
 
     generate_static_headers(writer)
-
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")(db)
@@ -268,7 +274,7 @@ def main(argv=None):
     # Which ids we want to export
     id_list = list()
     # XML-filename
-    output_file = None
+    output_filename = None
 
     for option, value in options:
         if option in ("-i", "--id"):
@@ -280,7 +286,7 @@ def main(argv=None):
                 id_list.append(value)
 
         elif option in ("-f", "--file"):
-            output_file = value
+            output_filename = value
 
     # Option "--all" overrides specific id-lists
     for option, value in options:
@@ -292,7 +298,13 @@ def main(argv=None):
         logger.warn("No IDs specified for export. No XML file generated")
         return 2
 
-    stream = AtomicFileWriter(output_file, "w")
+    # Make preparations for later copying; make sure we have proper filenames
+    now = mx.DateTime.now()
+    date_string = "%04i%02i%02i" % (now.year , now.month , now.day)
+    output_dated_filename = output_filename + "_" + date_string + ".xml"
+    output_filename = output_filename + ".xml"
+
+    stream = AtomicFileWriter(output_filename, "w")
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level = 2,
                                    # Human-readable output
@@ -301,9 +313,9 @@ def main(argv=None):
     generate_export(writer, id_list)
     stream.close()
 
+    # Copy file to a date-specific file as well, for archival purposes
+    shutil.copyfile(output_filename, output_dated_filename)
+
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-# arch-tag: 847aacd7-5551-48b3-8d11-5fab60dcb87e
