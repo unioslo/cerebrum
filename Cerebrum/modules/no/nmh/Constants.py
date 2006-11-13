@@ -56,6 +56,11 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet = _PersonAffiliationCode(
         'TILKNYTTET',
         ('Personer tilknyttet NMH og registrert i SAP med utvalgte stillingskoder'))
+    ## Fram til SAP er i produksjon hos NMH er fagpersoner å regne
+    ## som ansatte og skal behandles deretter (ved f.eks. eksport til LDAP)
+    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'fagperson',
+        'Personer registrert i FS som fagpersoner')
     affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
         affiliation_tilknyttet, 'pensjonist',
         'Personer registrert i SAP som pensjonister')
