@@ -20,8 +20,6 @@
 
 /* SQL script for migrating a bofhd_auth 1.0 to 1.1 */
 
-/* The field for pickled session data is way too small */
-
 category:pre;
 ALTER TABLE auth_operation_set 
   ADD COLUMN description CHAR VARYING(512);
