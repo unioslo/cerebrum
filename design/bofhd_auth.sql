@@ -21,7 +21,7 @@
 category:metainfo;
 name=bofhd_auth;
 category:metainfo;
-version=1.1;
+version=1.2;
 
 category:drop;
 DROP TABLE auth_role;
@@ -44,7 +44,7 @@ category:code;
 CREATE TABLE auth_op_code (
   code             NUMERIC(6,0)
                      CONSTRAINT auth_op_code_pk PRIMARY KEY,
-  code_str         CHAR VARYING(16)
+  code_str         CHAR VARYING(64)
                      NOT NULL
                      CONSTRAINT auth_op_codestr_u UNIQUE,
   description      CHAR VARYING(512)
