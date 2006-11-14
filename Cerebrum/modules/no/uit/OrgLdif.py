@@ -31,7 +31,7 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.OrgLDIF import *
 
 class OrgLdifUitMixin(OrgLDIF):
-    
+
 
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
@@ -43,28 +43,33 @@ class OrgLdifUitMixin(OrgLDIF):
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
 
+
     def make_ou_entry(self, ou_id, parent_dn):
         # Changes from superclass:
-        # Only output OUs with katalog_merke == 'T'.
+        # If Stedkode is used, only output OUs with katalog_merke == 'T'.
         # Add object class norEduOrgUnit and its attributes norEduOrgAcronym,
-        # cn, norEduOrgUnitUniqueNumber, norEduOrgUniqueNumber.
-        # If a DN is not unique, prepend the norEduOrgUnitUniqueNumber.
+        # cn, norEduOrgUnitUniqueIdentifier, norEduOrgUniqueIdentifier.
+        # If a DN is not unique, prepend the norEduOrgUnitUniqueIdentifier.
         self.ou.clear()
         self.ou.find(ou_id)
-        if self.ou.katalog_merke != 'T':
+        if getattr(self.ou, 'katalog_merke', 'T') != 'T':
             return parent_dn, None
         ou_names = [iso2utf((n or '').strip()) for n in (self.ou.acronym,
                                                          self.ou.short_name,
                                                          self.ou.display_name)]
         acronym  = ou_names[0]
         ou_names = filter(None, ou_names)
+        ldap_ou_id = self.get_orgUnitUniqueID()
         entry = {
-            'objectClass': ['top', 'organizationalUnit', 'norEduOrg','eduOrg'],
-            #'norEduOrgUnitUniqueNumber': (self.get_orgUnitUniqueNumber(),),
-            #'norEduOrgUniqueNumber':     self.norEduOrgUniqueNumber,
-            #'norEduOrgNIN' : self.norEduOrgNIN,
+            'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit','norEduOrg','eduOrg'],
+            self.FEIDE_attr_ou_id:  (ldap_ou_id,),
+            self.FEIDE_attr_org_id: self.norEduOrgUniqueID,
             'ou': ou_names,
             'cn': ou_names[-1:]}
+        if self.FEIDE_class_obsolete:
+            entry['objectClass'].append(self.FEIDE_class_obsolete)
+            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+            entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
         if acronym:
             entry['norEduOrgAcronym'] = (acronym,)
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
@@ -74,6 +79,7 @@ class OrgLdifUitMixin(OrgLDIF):
         self.fill_ou_entry_contacts(entry)
         self.update_ou_entry(entry)
         return dn, entry
+
 
 
     def generate_person(self, outfile, alias_outfile, use_mail_module):
@@ -140,7 +146,26 @@ class OrgLdifUitMixin(OrgLDIF):
         #print "entry=%s " % entry
         outfile.write(entry_string(self.org_dn, entry))
 
-
+    def update_org_object_entry(self, entry):
+        # Changes from superclass:
+        # Add object class norEduOrg and its attr norEduOrgUniqueIdentifier,
+        # and optionally eduOrgHomePageURI, labeledURI and labeledURIObject.
+        # Also add attribute federationFeideSchemaVersion if appropriate.
+        entry['objectClass'].append('norEduOrg')
+        entry['norEduOrgNIN']=self.norEduOrgNIN
+        entry[self.FEIDE_attr_org_id] = self.norEduOrgUniqueID
+        if self.FEIDE_class_obsolete:
+            entry['objectClass'].append(self.FEIDE_class_obsolete)
+            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+        if self.FEIDE_schema_version > '1.1' and self.extensibleObject:
+                entry['objectClass'].append(self.extensibleObject)
+                entry['norEduOrgSchemaVersion']= (self.FEIDE_schema_version,)
+        uri = entry.get('labeledURI') or entry.get('eduOrgHomePageURI')
+        if uri:
+            entry.setdefault('eduOrgHomePageURI', uri)
+            if entry.setdefault('labeledURI', uri):
+                if self.FEIDE_schema_version <= '1.1':
+                    entry['objectClass'].append('labeledURIObject')
 
     def make_person_entry(self, row):
         # Return (dn, person entry, alias_info) for a person to output,
