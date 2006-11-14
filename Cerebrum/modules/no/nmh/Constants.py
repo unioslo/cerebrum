@@ -87,7 +87,7 @@ class Constants(Constants.Constants):
     ## Brukerrelaterte spread
     spread_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
-        'Brukeren kjent i AD ved NMH"')
+        'Brukeren kjent i AD ved NMH')
     spread_exchange_account = _SpreadCode(
         'account@exchange', Constants.Constants.entity_account,
         'Brukeren kjent i AD ved NMH')
