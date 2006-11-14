@@ -47,13 +47,14 @@ class norEduLDIFMixin(OrgLDIF):
                         and 'extensibleObject') or None
 
     FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.1')
-    FEIDE_obsolete_version = None
+    FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
     if isinstance(FEIDE_schema_version, (tuple, list)):
         FEIDE_obsolete_version = min(*FEIDE_schema_version)
         FEIDE_schema_version   = max(*FEIDE_schema_version)
     FEIDE_attr_org_id, FEIDE_attr_ou_id = {
         '1.1': ('norEduOrgUniqueNumber',     'norEduOrgUnitUniqueNumber'),
         '1.3': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
+        '1.4': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
         }[FEIDE_schema_version]
     FEIDE_class_obsolete = None
     if FEIDE_obsolete_version <= '1.1' < FEIDE_schema_version:
@@ -66,7 +67,7 @@ class norEduLDIFMixin(OrgLDIF):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.norEduOrgUniqueID = ("000%05d" # Note: 000 = Norway in FEIDE.
-                                  % cereconf.DEFAULT_INSTITUSJONSNR,)
+                                  % int(cereconf.DEFAULT_INSTITUSJONSNR),)
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
