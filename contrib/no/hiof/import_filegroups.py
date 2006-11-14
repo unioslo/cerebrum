@@ -118,8 +118,6 @@ def process_members(gname,mem):
 				    constants.group_memberop_union):
 		group.add_member(account_member.entity_id, constants.entity_account,
 				 constants.group_memberop_union)
-#	    else: 
-#		logger.debug5("User |%s| alredy a member of |%s|.", member, gname) 
 	    group.write_db()
 	    if not dryrun:
 		db.commit()
