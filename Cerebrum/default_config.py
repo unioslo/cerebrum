@@ -178,6 +178,8 @@ AD_PASSWORD = 'hallo\n'
 AD_LOST_AND_FOUND = 'lost-n-found'
 #A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.
 AD_DEFAULT_OU = '0'
+AD_DEFAULT_GROUP_OU = 'OU=grupper'
+AD_DEFAULT_USER_OU = 'OU=brukere'
 AD_CERE_ROOT_OU_ID = '682'
 AD_DONT_TOUCH = ('Group Policy Creator Owners',
                  'DnsUpdateProxy',
@@ -195,6 +197,10 @@ AD_DONT_TOUCH = ('Group Policy Creator Owners',
                  'TsInternetUser')
 # Necessary if groups and users have different namespaces in Cerebrum.
 AD_GROUP_POSTFIX = '-gruppe'
+#Default values is sAMAccountName, distinguishedName
+AD_ATTRIBUTES = ("displayName","homeDrive","homeDirectory")
+#Must always have ACCOUNTDISABLE.
+AD_ACCOUNT_CONTROL = {'ACCOUNTDISABLE':True, 'DONT_EXPIRE_PASSWORD':True}
 AD_HOME_DRIVE = 'M:'
 AD_PASSWORD_EXPIRE = '0'
 AD_CANT_CHANGE_PW = '0'
