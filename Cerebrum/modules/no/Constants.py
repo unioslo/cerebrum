@@ -49,6 +49,9 @@ class ConstantsHigherEdu(Constants.Constants):
     externalid_sap_ansattnr = _EntityExternalIdCode('SAP_NR',
                                                     Constants.Constants.entity_person,
                                                     'SAP employee number')
+    externalid_uname = _EntityExternalIdCode('UNAME',
+                                             Constants.Constants.entity_person,
+                                             'User name (external system)')
 
     # OU-structure perspectives
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
