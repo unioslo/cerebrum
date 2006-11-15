@@ -27,13 +27,37 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 	# Prepare to include eduPersonAffiliation, taken from OrgLDIF.
 	self.org_ldif = Factory.get('OrgLDIF')(self.db, self.logger)
 	self.org_ldif.init_eduPersonAffiliation_lookup()
-	return self.__super.init_user(*args, **kwargs)
+	self.steder = {}
+	self.__super.init_user(*args, **kwargs)
+
+	self.account_aff = account_aff = {}
+	for arow in self.posuser.list_accounts_by_type():
+	    val = (arow['affiliation'], int(arow['ou_id']))
+	    account_id = int(arow['account_id'])
+	    if account_id in account_aff:
+		account_aff[account_id].append(val)
+	    else:
+		account_aff[account_id] = [val]
 
     def auth_methods(self, auth_meth= None):
 	# Also fetch NT password, for attribute sambaNTPassword.
 	meth = self.__super.auth_methods(auth_meth)
 	meth.append(int(self.const.auth_type_md4_nt))
 	return meth
+
+    def id2stedkode(self, ou_id):
+	try:
+	    return self.steder[ou_id]
+	except KeyError:
+	    ou = self.org_ldif.ou
+	    ou.clear()
+	    try:
+		ou.find(ou_id)
+	    except Errors.NotFoundError:
+		raise CerebrumError, "Stedkode unknown for ou_id %d" % ou_id
+	    ret = self.steder[ou_id] = \
+		  "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+	    return ret
 
     def update_user_entry(self, account_id, entry, row):
 	# Add eduPersonAffiliation and sambaNTPassword
@@ -46,6 +70,15 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 		self.org_ldif.eduPersonAff_selector, owner_id, added))
 	    if added:
 		entry['eduPersonAffiliation'] = added
+
+        # uioAffiliation, uioPrimaryAffiliation
+        affs = ["%s@%s" % ((self.const.PersonAffiliation(arow[0]),
+                            self.id2stedkode(arow[1])))
+                for arow in self.account_aff.get(account_id, ())]
+        if affs:
+            entry['uioAffiliation'] = affs
+            entry['uioPrimaryAffiliation'] = (affs[0],)
+            added = True
 
 	# sambaNTPassword (used by FreeRadius)
 	try:
