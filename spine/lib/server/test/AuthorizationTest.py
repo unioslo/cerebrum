@@ -19,128 +19,189 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
 
-import os, sys, traceback
+import sys
+from unittest import TestCase, main
 from pmock import *
-from unittest import TestCase
-import unittest
 
-sys.path.append("..")
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpSet
+from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
+from Cerebrum.Utils import Factory
 
-import Authorization
-from Cerebrum.spine.Account import Account
+Account = Factory.get("Account")
+Person = Factory.get("Person")
+
 from Cerebrum.spine.Types import CodeType
 
-class SuperUserTest(TestCase):
-    """
-    Test that the superuser can do everything.
-    """
+from MockDB import *
 
+sys.path.append("..")
+import Authorization
+
+class MockDBTestCase(TestCase):
     def setUp(self):
-        a = Mock()
-        a.expects(at_least_once()).get_id().will(return_value(2))
-        a.expects(at_least_once()).is_superuser().will(return_value(True))
-
-        self.account = a
-
-    def test(self):
-        """Make sure the testsystem works."""
-        pass
-        
-
-    def testMockAccount(self):
-        """Make sure the mock account behaves properly."""
-        self.assertTrue(self.account.get_id() == 2)
-        self.assertTrue(self.account.is_superuser())
-        self.account.verify()
-
-    def testCheckPermission(self):
-        """Permission check on a superuser is done first, so the arguments
-           for the check_permission call doesn't matter."""
-        auth_obj = Authorization.Authorization(self.account)
-        self.assertTrue(auth_obj.check_permission(None, None))
-        self.account.verify()
-
-class UserTest(TestCase):
-    """
-    Test that a regular user can do some stuff, but not all.
-    """
-
-    def setUp(self):
-        self.userid = 120
-        a = Mock()
-        a.expects(at_least_once()).get_id().will(return_value(self.userid))
-        a.expects(at_least_once()).is_superuser().will(return_value(False))
-        self.auth_obj = Authorization.Authorization(a)
-        self.account = a
+        self.db = MockDB()
 
     def tearDown(self):
-        self.account.verify()
+        self.db.verify()
 
-    def testPublicMethod(self):
-        """Some methods are considered public and should always return True"""
-        class T(object):
-            def pm(self):
-                pass
-            pm.signature_public = True
-        obj = T()
+class TestMockDB(MockDBTestCase):
+    def testBofhdAuth_setup(self):
+        self.db._init_bofhdauth()
+        BofhdAuth(self.db)
 
-        self.assertTrue(self.auth_obj.check_permission(obj, 'pm'))
+    def testSeq_increments(self):
+        self.db._init_seq()
 
-    def testPublicObject(self):
-        """Some objects are considered public and should always return True"""
-        class T(object):
-            def pm(self):
-                pass
-        T.signature_public = True
-        obj = T()
+        self.assertEquals(1000, self.db.nextval('entity_id_seq'))
+        self.assertEquals(1001, self.db.nextval('entity_id_seq'))
+        self.assertEquals(1002, self.db.nextval('entity_id_seq'))
 
-        self.assertTrue(self.auth_obj.check_permission(obj, 'pm'))
+    def testSeq_uninitialized(self):
+        try:
+            self.db.nextval('test_seq')
+            self.fail(), "Didn't raise exception."
+        except TypeError:
+            pass
 
-    def testPrivateMethod(self):
-        """Some methods are considered private even if their objects are public"""
-        class T(object):
-            def pm(self):
-                pass
-            pm.signature_public = False
-        T.signature_public = True
+class AuthorizationTest(MockDBTestCase):
+    def setUp(self):
+        super(AuthorizationTest, self).setUp()
+        self.userid = 120 # The userID for our regular user.
+        self.ownerid = 119 # The owner of our regular user.
+        self.account = self.db._get_user(self.userid, self.ownerid)
 
-        obj = T()
+        self.auth_obj = Authorization.Authorization(self.account, database=self.db)
 
-        self.assertFalse(self.auth_obj.check_permission(obj, 'pm'))
+    def tearDown(self):
+        super(AuthorizationTest, self).tearDown()
 
-    def testCodeValue(self):
-        """Methods on objects that are derived from CodeType are public"""
-        class Phony(object):
-            def getClass(self):
-                return CodeType
-            def pm(self):
-                pass
-            __class__ = property(getClass)
+class BofhdAuthTest(AuthorizationTest):
+    def setUp(self):
+        super(BofhdAuthTest, self).setUp()
+        self.db._init_bofhdauth()
+        self.ba = BofhdAuth(self.db)
 
-        obj = Phony()
-        self.assertTrue(self.auth_obj.check_permission(obj, 'pm'))
+    def testSuperUser_member_of_bootstrap_group(self):
+        self.db._superuser(self.userid)
+        self.assertTrue(self.auth_obj.is_superuser(self.ba))
 
-    def testSetOwnPassword(self):
-        """A user should be able to set his/her own password."""
-        class PhonyAccount(Mock):
-            def getClass(self):
-                return Account
-            __class__ = property(getClass)
-        account = PhonyAccount()
-        account.expects(once()).get_id().will(return_value(self.userid))
-        self.assertTrue(self.auth_obj.check_permission(account, 'set_password'))
+    def testSuperUser_not_superuser(self):
+        self.db._superuser(None)
+        self.assertFalse(self.auth_obj.is_superuser(self.ba))
 
     def testSetOtherPassword(self):
         """A user should not be able to set someone elses password."""
-        class PhonyAccount(Mock):
-            def getClass(self):
-                return Account
-            __class__ = property(getClass)
-        account = PhonyAccount()
-        account.expects(once()).get_id().will(return_value(self.userid + 1))
-        self.assertFalse(self.auth_obj.check_permission(account, 'set_password'))
+        target = self.db._getAccount(self.userid + 1)
+        operation = 'Account.set_password'
 
-    # TODO: Test more.
+        self.assertFalse(self.auth_obj.has_user_access(operation, target))
+
+    def testSetOwnPassword(self):
+        """A user should be able to set his/her own password."""
+        target = self.db._getAccount(self.userid)
+        operation = 'Account.set_password'
+        op = self.db._get_op(operation)
+
+        self.db._add_opset_byname('own_account')
+        self.db._add_ops_to_set('own_account', [op])
+        self.assertTrue(self.auth_obj.has_user_access(op, target))
+
+    def testChangeOwnPerson(self):
+        target = self.db._getPerson(self.ownerid)
+        operation = 'Person.set_display_name'
+        op = self.db._get_op(operation)
+
+        self.db._add_opset_byname('own_account')
+        self.db._add_ops_to_set('own_account', [op])
+        self.auth_obj.has_user_access(operation, target)
+
+    def testHasAccess(self):
+        target_id = self.userid + 10
+        op_name = 'Account.set_password'
+        self.op = self.db._get_op(op_name)
+        self.db._add_opset('orakel', self.db._stub)
+        self.db._add_ops_to_set('orakel', [self.op], self.db._stub)
+        self.db._add_op_role(self.userid, 'orakel', target_id, self.db._stub)
+        self.db._add_group_member(self.userid) # Stubs out group stuff.
+        self.db._grant_access_to_entity_via_ou((self.userid,), hash(op_name), target_id)
+
+        target = self.db._getAccount(target_id)
+        self.assertTrue(self.auth_obj.has_access(self.op, target, self.ba))
+
+    def testHasAccessThroughGroup(self):
+        group_id = self.userid + 5
+        target_id = self.userid + 10
+        op_name = 'Account.set_password'
+        self.op = self.db._get_op(op_name)
+        self.db._add_opset('orakel', self.db._stub)
+        self.db._add_ops_to_set('orakel', [self.op], self.db._stub)
+        self.db._add_group_member(group_id, self.userid)
+        self.db._add_op_role(group_id, 'orakel', target_id, self.db._stub)
+        target = self.db._getAccount(target_id)
+        self.db._grant_access_to_entity_via_ou((self.userid, group_id), hash(op_name), target_id)
+        self.assertTrue(self.auth_obj.has_access(self.op, target, self.ba))
+
+class NonBofhdAuthTest(AuthorizationTest):
+    """Tests that do not depend on the contents of the database."""
+    def setUp(self):
+        super(NonBofhdAuthTest, self).setUp()
+        self.db._init_bofhdauth(method=self.db._stub)
+        self.db._no_superuser(method=self.db._stub)
+        self.db._add_op_role(None, method=self.db._stub)
+        self.obj = Mock()
+        self.obj.pm = lambda x: x
+
+    def tearDown(self):
+        super(NonBofhdAuthTest, self).tearDown()
+
+    def testPublicMethod(self):
+        """Methods that have the signature_public attr set to True should
+        always return true."""
+        self.obj.pm.signature_public = True
+        self.assertTrue(self.auth_obj.is_public(self.obj.__class__,
+                                                self.obj, self.obj.pm))
+
+    def testPublicObject(self):
+        """Objects that have the signature_public attr set to True should
+        return true."""
+        self.obj.signature_public = True
+
+        self.assertTrue(self.auth_obj.is_public(self.obj.__class__,
+                                                self.obj, self.obj.pm))
+
+    def testPrivateMethod(self):
+        """Methods that have the signature_public attr set to False should
+        ignore the objects signature_public attr."""
+        self.obj.signature_public = True
+        self.obj.pm.signature_public = False
+
+        self.assertFalse(self.auth_obj.is_public(self.obj.__class__,
+                                                self.obj, self.obj.pm))
+
+    def testCodeValue(self):
+        """Methods on objects that are derived from CodeType are public"""
+        self.obj.__class__ = CodeType
+        self.obj.pm
+
+        self.assertTrue(self.auth_obj.is_public(self.obj.__class__,
+                                                self.obj, self.obj.pm))
+
+class HasCommandAccessTest(AuthorizationTest):
+    def setUp(self):
+        super(HasCommandAccessTest, self).setUp()
+        self.db._add_opset_byname('public', method=self.db._stub)
+        self.op = self.db._get_op('Commands.get_account_by_name')
+
+    def testPublicCommand(self):
+        self.db._add_ops_to_set('public', [self.op])
+        self.assertTrue(self.auth_obj.has_access_to_command(self.op))
+
+    def testUserAccessCommand(self):
+        self.db._add_ops_to_set('public', method=self.db._stub)
+        self.db._add_op_role(self.userid, 'orakel', self.userid)
+        self.db._add_opset_byname('orakel', self.db._stub)
+        self.db._add_ops_to_set('orakel', [self.op])
+        self.assertTrue(self.auth_obj.has_access_to_command(self.op))
 
 if __name__ == '__main__':
-    unittest.main()
+    main()

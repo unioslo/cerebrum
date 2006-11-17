@@ -18,42 +18,34 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, BofhdAuthRole
+from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
+Entity = Factory.get("Entity")
+Account = Factory.get("Account")
+Person = Factory.get("Person")
+Group = Factory.get("Group")
+
 from Cerebrum.spine.Types import CodeType
-from Cerebrum.spine.Entity import Entity
-from Cerebrum.spine.Account import Account
-from Cerebrum.spine.Person import Person
 from Cerebrum.spine.Commands import Commands
 from Cerebrum.spine.EntityAuth import EntityAuth
 from Cerebrum.spine.SpineLib import Database
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd import auth, utils
 import sets
 
 class Authorization(object):
-    def __init__(self, account):
-        self._db = Database.SpineDatabase()
+    def __init__(self, account, database=None):
+        self._db = database or Database.SpineDatabase()
         self.account = account
-        self.account_id = self.account.get_id()
 
     def __del__(self):
         self._db.close()
 
-    def check_permission(self, obj, method_name, *args):
-        """Checks whether the owner of the session has access to run the
-        specified method on the given object with the args provided.  See
-        https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
-        for en dokumentasjon av autorisasjonssjekken"""
-
-        bofhdauth = auth.BofhdAuth(self._db)
-
-        if self.account.is_superuser() or bofhdauth.is_superuser(self.account):
+    def is_superuser(self, bofhdauth):
+        if bofhdauth.is_superuser(self.account.entity_id):
             return True
 
-        m = getattr(obj, method_name) 
-        cls = obj.__class__ 
-        operation = utils._AuthRoleOpCode("%s.%s" % (cls.__name__, method_name))
-
+    def is_public(self, cls, obj, m):
         # Is the method public?
         if hasattr(m, 'signature_public'):
             if m.signature_public is True:
@@ -66,51 +58,83 @@ class Authorization(object):
         if issubclass(cls, CodeType):
             return True
 
+    def check_permission(self, obj, method_name, *args):
+        """Checks whether the owner of the session has access to run the
+        specified method on the given object with the args provided.  See
+        https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
+        for en dokumentasjon av autorisasjonssjekken"""
+
+        bofhdauth = BofhdAuth(self._db)
+        if self.is_superuser(bofhdauth): return True
+
+        m = getattr(obj, method_name) 
+        cls = obj.__class__ 
+        operation = AuthRoleOpCode("%s.%s" % (cls.__name__, method_name))
+
+        if self.is_public(cls, obj, m): return True
+
         # Could the method escalate the righs of account?
         # FIXME: A TEST MUST BE IMPLEMENTED!
 
-        ## Does the object have it's own check_permission?
-        ## m.check_permission overrides obj.check_permission
-        ## FIXME: Should these be able to DENY permission?
-        ## FIXME: We need to define an interface for this.
-        #if hasattr(m, 'check_permission'):
-        #    m.check_permission(self.account, args) and return True
-        #elif hasattr(obj, 'check_permission'):
-        #    obj.check_permission(self.account, method_name) and return True
-
+        # Command objects are not entities and must be handled separately.
+        if isinstance(object, Commands) and has_access_to_command(operation):
+            return True
+        
         # Does self.account have user access to this object?
-        if self.has_user_access(operation, obj):
+        if self.has_user_access(operation, obj, bofhdauth):
             return True
 
         # Har brukeren tilgang til å utføre operasjonen som konsekvens av tilgangsnivå
         ## Har brukeren tilgang til objektet som følge av tilknytning? True = Success. 
 
-        if self.has_access(operation, obj):
+        if self.has_access(operation, obj, bofhdauth=bofhdauth):
             return True
+
         return False 
 
-    def has_user_access(self, operation, object):
+    def has_access_to_command(self, operation):
+        # Test public commands.
+        op_set = BofhdAuthOpSet(self._db)
+        op_set.find_by_name('public')
+        operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+        if operation in operations:
+            return True
+
+        op_role = BofhdAuthRole(self._db)
+        roles = op_role.list(entity_ids=self.account.entity_id)
+        for s, set, t in roles:
+            op_set.find(set)
+            operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+            if operation in operations:
+                return True
+        
+    def has_user_access(self, operation, target):
         ok = False
 
-        if isinstance(object, Account):
-            ok = object.get_id() == self.account_id
-            # account.owner_id() == group && self.account_id in group.members
-        elif isinstance(object, Person):
-            ok = self.account.get_owner().get_id() == object.get_id()
-        elif isinstance(object, Commands): # A subset of Commands is public.
-            ok = True
+        if isinstance(target, Account):
+            ok = target.entity_id == self.account.entity_id
+            # account.owner_id() == group && self.account.entity_id in group.members
+        elif isinstance(target, Person):
+            ok = self.account.owner_id == target.entity_id
 
         if ok:
-            op_set = auth.BofhdAuthOpSet(self._db)
+            op_set = BofhdAuthOpSet(self._db)
             op_set.find_by_name('own_account')
-            if operation in [utils._AuthRoleOpCode(x[0]) for x in op_set.list_operations()]:
+            operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+            if operation in operations:
                 return True
 
-    def has_access(self, operation, object):
-        if isinstance(object, Entity):
-            return False
-        elif isinstance(object, Commands):
-            return False
-        else:
-            return False
+    def has_access(self, operation, target, bofhdauth):
+        # Find out who has access to target
+        # Intersect with self.account and it's groups, etc.
+        # If not null, find out what operations self.account has access to on target
+        # Intersect with operation
+        if isinstance(target, Account) or isinstance(target, Person):
+            # Is operator allowed to perform 'operation' on one of the OUs
+            # associated with the target?
+            if bofhdauth._has_access_to_entity_via_ou(
+                    self.account.entity_id, operation, target):
+                return True
+
+
 # arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525
