@@ -171,6 +171,9 @@ class _CerebrumCode(DatabaseAccessor):
                            "This code value's description.")
 
     def __int__(self):
+        if not cereconf.CACHE_CONSTANTS:
+            self.int = None
+
         if self.int is None:
             self.int = int(self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
                                             (self._lookup_code_column,
