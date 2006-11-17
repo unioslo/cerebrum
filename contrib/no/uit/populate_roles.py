@@ -1,3 +1,4 @@
+#!/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2003, 2004 University of Oslo, Norway
@@ -193,8 +194,14 @@ class ITRole(object):
                             shell = const.posix_shell_bash
                             )
             new_ac.write_db()
+
+            # AD litadmin spread
             new_ac.add_spread(const.spread_uit_ad_lit_admin)
             new_ac.set_home_dir(const.spread_uit_ad_lit_admin)
+
+            # also add SUT spread
+            new_ac.add_spread(const.spread_uit_sut_user)
+            new_ac.set_home_dir(const.spread_uit_sut_user)
 
             password = new_ac.make_passwd(new_username)
             new_ac.set_password(password)
@@ -211,6 +218,10 @@ class ITRole(object):
             new_ac.clear()
             new_ac.find(accounts[0]['account_id'])
             new_ac.expire_date = default_expire_date
+            if not new_ac.has_spread(const.spread_uit_sut_user):
+                new_ac.add_spread(const.spread_uit_sut_user)
+                new_ac.set_home_dir(const.spread_uit_sut_user)
+                logger.info("Added %s spread to account %s" % (const.spread_uit_sut_user,accounts[0]['name']))
             new_ac.write_db()            
             return accounts[0]['name']
         else:
