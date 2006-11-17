@@ -257,8 +257,11 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         SELECT op_target_id, entity_id, target_type, attr
         FROM [:table schema=cerebrum name=auth_op_target]
         %s
-        ORDER BY entity_id""" % ewhere, locals())
-
+        ORDER BY entity_id""" % ewhere, {
+            'entity_id': getattr(self, 'entity_id', None),
+            'target_id': getattr(self, 'target_id', None),
+            'target_id': getattr(self, 'target_id', None),
+            'attr': getattr(self, 'attr', None)})
 
 class BofhdAuthRole(DatabaseAccessor):
     """Methods for updating the auth_role table with information
@@ -296,7 +299,9 @@ class BofhdAuthRole(DatabaseAccessor):
         return self.query("""
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
-        WHERE (%s)""" % " AND ".join(ewhere), locals())
+        WHERE (%s)""" % " AND ".join(ewhere), {
+            'op_set_id': getattr(self, 'op_set_id', None),
+            'op_target_id': getattr(self, 'op_target_id', None)})
 
     def list_owners(self, target_ids):
         """Return info about who owns the given target_ids"""
@@ -335,8 +340,8 @@ class BofhdAuth(DatabaseAccessor):
                                            size=500,
                                            timeout=60*60)
 
-    def is_superuser(self, operator, query_run_any=False):
-        if operator in self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
+    def is_superuser(self, operator_id, query_run_any=False):
+        if operator_id in self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
             return True
         return False
 
