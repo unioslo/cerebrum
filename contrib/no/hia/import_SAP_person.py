@@ -161,14 +161,28 @@ def match_external_ids(person, sap_id, no_ssn, const):
     # A mismatch in SSN means that Cerebrum's data has to be updated.
     # 
     if (cerebrum_no_ssn and cerebrum_no_ssn != no_ssn):
+        person_id_cerebrum = check_no_ssn(person, no_ssn, const)
+        if person.entity_id != person_id_cerebrum:
+            logger.error("Should update NO_SSN for %s, but another person (%s) with NO_SSN (%s) exists in Cerebrum", person_id_cerebrum, sap_id, no_ssn)
+            return False
         logger.info("NO_SSN in Cerebrum != NO_SSN in datafile. Updating "
-                     "«%s» -> «%s»", cerebrum_no_ssn, no_ssn)
+                    "«%s» -> «%s»", cerebrum_no_ssn, no_ssn)
     # fi
 
     return True
 # end match_external_ids
         
 
+def check_no_ssn(person, no_ssn, const):
+    person_id_current = person.entity_id
+    person_id_cerebrum = None
+    person.clear()
+    try:
+        person.find_by_external_id(const.externalid_fodselsnr, no_ssn,
+                                   entity_type=const.entity_person)
+    except Errors.NotFoundError:
+        return None
+    return person.entity_id
 
 def populate_external_ids(db, person, fields, const):
     """
