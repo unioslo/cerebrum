@@ -305,7 +305,7 @@ class execute:
 
         num_new_list = []
         num_old_list = []
-        spread_list = string.split(spreads,",")
+        #spread_list = string.split(spreads,",")
 
 
 
@@ -366,7 +366,10 @@ class execute:
         except IndexError:
             print "creating new account"
             self.logger.debug("create new account")
-            spread_list = string.split(spreads,",")
+            if(spreads):
+                spread_list = string.split(spreads,",")
+            else:
+                spread_list=[]
             spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
 
             full_name = "%s %s" % (fornavn,etternavn)
@@ -402,8 +405,7 @@ class execute:
                     #print "%s,%s,%s" % (posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
                     self.posix_user.add_spread(int(self.constants.Spread(spread)))
                     self.posix_user.set_home_dir(int(self.constants.Spread(spread)))
-                
-                    
+                                        
                 #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
                 self.posix_user.set_password(self.posix_user.make_passwd(username))
                 self.posix_user.write_db()
@@ -695,7 +697,7 @@ def main():
             #else:
             #    x_create.logger.warn("Failed to update email on account_id=%s, email=%s" % (ret,bruker_epost))
                
-        #x_create.db.commit()
+        x_create.db.commit()
         
                                
 def usage():
