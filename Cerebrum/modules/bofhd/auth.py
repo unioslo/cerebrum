@@ -258,10 +258,10 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         FROM [:table schema=cerebrum name=auth_op_target]
         %s
         ORDER BY entity_id""" % ewhere, {
-            'entity_id': getattr(self, 'entity_id', None),
-            'target_id': getattr(self, 'target_id', None),
-            'target_id': getattr(self, 'target_id', None),
-            'attr': getattr(self, 'attr', None)})
+            'entity_id': entity_id,
+            'target_id': target_id,
+            'target_id': target_id,
+            'attr': attr})
 
 class BofhdAuthRole(DatabaseAccessor):
     """Methods for updating the auth_role table with information
@@ -300,8 +300,8 @@ class BofhdAuthRole(DatabaseAccessor):
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]
         WHERE (%s)""" % " AND ".join(ewhere), {
-            'op_set_id': getattr(self, 'op_set_id', None),
-            'op_target_id': getattr(self, 'op_target_id', None)})
+            'op_set_id': op_set_id,
+            'op_target_id': op_target_id})
 
     def list_owners(self, target_ids):
         """Return info about who owns the given target_ids"""
