@@ -31,6 +31,8 @@ import string
 import os
 import urllib
 import datetime
+import mx
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -162,6 +164,8 @@ class execute:
         self.person.populate(self.db.Date(int(year),int(mon),int(day)),gender)
         
         self.person.affect_names(self.constants.system_x,self.constants.name_first,self.constants.name_last,self.constants.name_full)
+        fornavn=fornavn.strip()
+        etternavn=etternavn.strip()
         self.person.populate_name(self.constants.name_first,fornavn)
         self.person.populate_name(self.constants.name_last,etternavn)
 
@@ -228,14 +232,16 @@ class execute:
         id,fodsels_dato,personnr,gender,fornavn,etternavn,ou,affiliation,affiliation_status,expire_date,spreads,hjemmel,kontaktinfo,ansvarlig_epost,bruker_epost,national_id,aproved = data_list.split(self.split_char)
         # need to check and update the following data: affiliation,expire_date,gecos,ou and spread
         # if the entry in sys-x is no longer aproved, a quarantine on any accounts given through sys-x must be set.
-        
-        #update expire_date
-        my_date= expire_date.split("-")
-        if (self.account.is_expired() and (datetime.date(int(my_date[0]),int(my_date[1]),int(my_date[2])) > datetime.date.today())):
-            # This account is expired in cerebrum. expire_date from the guest database
-            # is set in the future. need to update expire_date in the database
-            self.logger.info("updating expire date to: %s" % expire_date)
-            self.account.expire_date = expire_date
+
+        # Update expire if needed
+        current_expire =  self.account.expire_date
+        new_expire = mx.DateTime.DateFrom(expire_date)
+        today =  mx.DateTime.today()
+        if ((new_expire > today) and (new_expire > current_expire)):
+            # This account is expired in cerebrum => update expire
+            # or if our expire is further out than current expire => update
+            self.logger.info("updating expire date old='%s' new='%s'" % (current_expire,new_expire))
+            self.account.expire_date = new_expire
 
         # update gecos
         full_name = "%s %s" % (fornavn,etternavn) # check if equal first? # check name from personobject? to 
