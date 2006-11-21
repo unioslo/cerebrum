@@ -314,7 +314,7 @@ class Find(object):
         subnet_def = self._find_subnet(subnet)
         a_ip = self._find_available_ip(subnet_def)
         if not a_ip:
-            raise ValueError, "No available ip on that subnet"
+            raise CerebrumError, "No available ip on that subnet"
         if first is not None:
             a_ip = [i for i in a_ip if i >= first]
         return [IPCalc.long_to_ip(t) for t in a_ip]
