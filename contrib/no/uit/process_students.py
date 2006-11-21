@@ -171,7 +171,6 @@ class AccountUtil(object):
     
     def _update_email(account_obj):
         # The UIT way of handling student email
-        print "updating email"
         student_email = "%s@student.uit.no" % (account_obj.account_name)
         current_email = ""
         try:
@@ -191,7 +190,6 @@ class AccountUtil(object):
                 only_tilknyttet = 1
 
         if only_tilknyttet == 0 and current_email =="":
-            print "chec aff=%s" % acc_aff['affiliation']
             student_email = "%s@mailbox.uit.no" % (account_obj.account_name)
             logger.debug("account:%s only has a tilknyttet affiliation, use %s@mailbox.uit.no" % (account_obj.account_name,account_obj.account_name))
 
