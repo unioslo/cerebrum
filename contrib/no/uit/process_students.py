@@ -27,6 +27,7 @@ import sys
 import os
 import pickle
 import traceback
+import mx
 from time import localtime, strftime, time
 
 import cerebrum_path
@@ -170,7 +171,7 @@ class AccountUtil(object):
     
     def _update_email(account_obj):
         # The UIT way of handling student email
-
+        print "updating email"
         student_email = "%s@student.uit.no" % (account_obj.account_name)
         current_email = ""
         try:
@@ -190,6 +191,7 @@ class AccountUtil(object):
                 only_tilknyttet = 1
 
         if only_tilknyttet == 0 and current_email =="":
+            print "chec aff=%s" % acc_aff['affiliation']
             student_email = "%s@mailbox.uit.no" % (account_obj.account_name)
             logger.debug("account:%s only has a tilknyttet affiliation, use %s@mailbox.uit.no" % (account_obj.account_name,account_obj.account_name))
 
@@ -315,6 +317,7 @@ class AccountUtil(object):
                 logger.debug("Used dfg: "+str(dta))
                 accounts[account_id].append_group(dta)
             elif c_id == 'expire':
+                logger.debug("Updated expire:" + str(dta))
                 user.expire_date = dta
             elif c_id == 'disk':
                 current_disk_id, disk_spread, new_disk = dta
@@ -420,7 +423,16 @@ class AccountUtil(object):
             if (ac.get_gid() is None): # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
 
-        if ac.get_expire_date() != default_expire_date:
+        ## MAY BE WRONG! What if another sourcesys has set another date (further out)?
+        #if ac.get_expire_date() != default_expire_date:
+        #    changes.append(('expire', default_expire_date))
+        ## new update expire method
+        current_expire = mx.DateTime.DateFrom(ac.get_expire_date())
+        new_expire = mx.DateTime.DateFrom(default_expire_date)
+        today = mx.DateTime.today()
+        if ((new_expire > today) and (new_expire > current_expire)):
+            # If account is expired in cerebrum => update expire
+            # or if our expire is further out than current expire => update
             changes.append(('expire', default_expire_date))
 
         # Set/change homedir
