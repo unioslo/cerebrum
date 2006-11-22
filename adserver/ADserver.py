@@ -4,20 +4,17 @@ import logging
 import SimpleXMLRPCServer
 import SocketServer
 import BaseHTTPServer
-import SimpleHTTPServer
-import socket, os, sys, getopt
-from OpenSSL import SSL
-
+import socket, sys, getopt
 import win32serviceutil
 import win32service
 import win32event
+import base64
+import traceback
+from OpenSSL import SSL
+from ADobject import Search
+from ADconstants import Constants
 
-import Constants
-from ADObject import Account
-from ADObject import Group
-from ADObject import Search
-
-const = Constants.Constants()
+const = Constants()
 
 #Starting logger.
 loglevel = getattr(logging, const.loglevel)
@@ -32,35 +29,11 @@ class Server(Search):
 	def __init__(self):
 		pass
 
-	def getvalue(self, klasse, attr):
-		#Overrides the values in the Objects presented by XMLRPC.
-		return getattr(getattr(self,klasse) , value)
-
-
-	def setvalue(self, klasse, attr, value):
-		#Overrides the values in the Objects presented by XMLRPC.
-		setattr(getattr(self, klasse) , attr , value)
-		return 1
-
-
-	def runmethod(self, klass, deff, param1=None, param2=None):
-		newobj = getattr(getattr(self, klass), deff)
-		if param1 == None:
-			return newobj()
-		elif param2 == None:
-			return newobj(param1)	
-		else:
-			return newobj(param1, param2)
-
-
 	def response(self,string):
 		return string
 
-
 	def location(self):
 		return win32com.client.GetObject('LDAP://rootDSE').Get("defaultNamingContext")
-
-
 
 
 
@@ -89,8 +62,8 @@ class SecureXMLRPCServer(BaseHTTPServer.HTTPServer,SimpleXMLRPCServer.SimpleXMLR
         self.server_activate()
 
     def verify_request(self,request, client_address):
-	#overrides method in socket class, to check if request comes 
-	#from valid ip.
+    	#overrides method in socket class, to check if request comes 
+		#from valid ip.
         if client_address[0] in const.ACCESSLIST:
             return 1
         else:
@@ -102,7 +75,8 @@ class SecureXMLRPCServer(BaseHTTPServer.HTTPServer,SimpleXMLRPCServer.SimpleXMLR
 class SecureXMLRpcRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
     """Secure XML-RPC request handler class.
 
-    It it very similar to SimpleXMLRPCRequestHandler but it uses HTTPS for transporting XML data.
+       It it very similar to SimpleXMLRPCRequestHandler but it 
+       uses HTTPS for transporting XML data.
     """
     def setup(self):
         self.connection = self.request
@@ -112,22 +86,42 @@ class SecureXMLRpcRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
     def do_POST(self):
         """Handles the HTTPS POST request.
 
-        It was copied out from SimpleXMLRPCServer.py and modified to shutdown the socket cleanly.
+           It was copied out from SimpleXMLRPCServer.py and modified 
+		   to shutdown the socket cleanly. In the Cerebrum installation 
+		   functionality to handle basic HTTP Autorization is added.
         """
 
         try:
             # get arguments
             data = self.rfile.read(int(self.headers["content-length"]))
-            # In previous versions of SimpleXMLRPCServer, _dispatch
-            # could be overridden in this class, instead of in
-            # SimpleXMLRPCDispatcher. To maintain backwards compatibility,
-            # check to see if a subclass implements _dispatch and dispatch
-            # using that method if present.
-            response = self.server._marshaled_dispatch(
-                    data, getattr(self, '_dispatch', None)
-                )
+            if const.LOGTRAFFIC:
+                print "RECEIVE:\n%s" % data
+                logging.debug("RECEIVE:\n%s" % data)
+			#Checking Authorization header, for authentication data.
+            [user,pw] = \
+                base64.b64decode(self.headers['Authorization'][6:]).split(':')
+
+            if authenticateAD(user,pw):            
+                # In previous versions of SimpleXMLRPCServer, _dispatch
+                # could be overridden in this class, instead of in
+                # SimpleXMLRPCDispatcher. To maintain backwards compatibility,
+                # check to see if a subclass implements _dispatch and dispatch
+                # using that method if present.
+                response = self.server._marshaled_dispatch(
+                        data, getattr(self, '_dispatch', None)
+                    )
+                if const.LOGTRAFFIC:
+                    print "SEND:\n%s" % response
+                    logging.debug("SEND:\n%s" % response)
+
+        except RuntimeError:
+            logging.critical("Autorization Failed for user: %s" % user)
+            self.send_response(401)
+            self.end_headers()			
         except: # This should only happen if the module is buggy
             # internal error, report as HTTP server error
+            print traceback.print_exc()
+            logging.critical(traceback.print_exc())
             self.send_response(500)
             self.end_headers()
         else:
@@ -179,6 +173,7 @@ class Service(win32serviceutil.ServiceFramework):
 		return
 
 
+
 def runServer():
 
 	adsiserver = Server()
@@ -213,19 +208,36 @@ def runServer():
 	logging.info("Server EXITED")
 
 
+def authenticateAD(Uname, Pword):
+
+	ADS_SECURE_AUTHENTICATION = 1
+
+	if Uname == const.AUTH:
+		try:
+			adsi = win32com.client.Dispatch('ADsNameSpaces')
+			ldap = adsi.GetObject("","LDAP:")
+			ldap.OpenDSObject('LDAP://%s' % const.AD_LDAP_ROOT, 
+								  const.AUTH, Pword, ADS_SECURE_AUTHENTICATION)
+		except:
+			pass
+		else:
+			return True
+
+	raise RuntimeError, "Authorization failed"
+	return False
+
 
 def usage():
-	print """Usage: [options]
-	--debug|--service
+	print sys.argv[0]
+	print """Usage: 
+	[--debug | --service [options] [install|remove|start|stop]]
 	"""
 
 
 def main():
 
-	if sys.argv[1] == '--debug':
-		#Running in debug mode.
 		try:
-			opts, args = getopt.getopt(sys.argv[1:], '',['debug'])
+			opts, args = getopt.getopt(sys.argv[1:], '',['debug','service','startup'])
 		except getopt.GetoptError:
 			usage()
 			sys.exit()
@@ -233,11 +245,14 @@ def main():
 		for opt, val in opts:
 			if opt == '--debug':
 				runServer()
-
-	else:
-		#Giving control to the Pythonservice
-		win32serviceutil.HandleCommandLine(Service)			
-
+			elif opt == '--service':
+				sys.argv.remove('--service')
+				#Giving control to the Pythonservice
+				win32serviceutil.HandleCommandLine(Service)
+			elif opt == '--startup':
+				pass						
+			else:
+				usage()	
 
 if __name__ == '__main__':
 	main()

@@ -1,10 +1,10 @@
 import win32com.client
 import pythoncom
 import logging
-import Constants
 import sys, os
+import ADconstants
 
-const = Constants.Constants()
+const = ADconstants.Constants()
 
 	
 class ADObject(object):

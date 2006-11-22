@@ -15,6 +15,10 @@ class Constants(object):
 		self.LISTEN_PORT = 8000
 		self.UNSECURE = False
 		self.ACCESSLIST = ('129.240.2.126')
+		#User in AD used to check basic HTML authentication.
+		self.AUTH = 'cerebrum'
+		#Must run under loglevel DEBUG or in DEBUG mode.
+		self.LOGTRAFFIC = False
 
 		#Logger options.
 		self.loglevel = 'DEBUG'
