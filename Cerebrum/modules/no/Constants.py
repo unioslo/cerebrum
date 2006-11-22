@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,7 +28,11 @@ from Cerebrum.Constants import _EntityExternalIdCode, \
                                _AccountCode, \
                                _PersonNameCode, \
                                _ContactInfoCode, \
-                               _CountryCode
+                               _CountryCode, \
+                               _QuarantineCode, \
+                               _SpreadCode,\
+                               _PersonAffiliationCode,\
+                               _PersonAffStatusCode
 
 class ConstantsCommon(Constants.Constants):
 
@@ -66,6 +70,63 @@ class ConstantsUniversityColleges(Constants.Constants):
     system_manual =  _AuthoritativeSystemCode('MANUELL',
                                               'Manually added information')
 
+
+    ## Affiliations for employees
+    affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt')
+    affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
+        affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
+    affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
+        affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
+    
+    ## Affiliations for students
+    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
+    affiliation_status_student_evu = _PersonAffStatusCode(
+        affiliation_student, 'evu', 'Student, etter og videre utdanning')
+    affiliation_status_student_aktiv = _PersonAffStatusCode(
+        affiliation_student, 'aktiv', 'Student, aktiv')
+
+    ## Affiliation for associated people
+    affiliation_tilknyttet = _PersonAffiliationCode('TILKNYTTET',
+                                                    'Assosiert, reg. i kildesystem')
+    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                                   'fagperson',
+                                                                   'Registrert i FS, fagperson')
+    affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                                    'pensjonist',
+                                                                    'Registrert i HR, pensjonist')
+    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                               'bilag',
+                                                               'Registrert i HR, bilagslønnet')
+    affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                               'gjest',
+                                                               'Registrert i HR, gjest')
+    affiliation_status_tilknyttet_gjestefors = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                                    'gjesteforsker',
+                                                                    'Registrert i HR, gjesteforsker')    
+
+    ## quarantine definitions
+    quarantine_generell = _QuarantineCode('generell',
+                                          'Generell sperring')
+    quarantine_teppe = _QuarantineCode('teppe',
+                                       'Kalt inn til samtale')
+    quarantine_kunepost = _QuarantineCode('kunepost',
+                                           'Tilgang kun til e-post')
+    quarantine_svaktpassord = _QuarantineCode('svaktpassord',
+                                               'For dårlig passord')
+    quarantine_system = _QuarantineCode('system',
+                                        'Systembrukar som ikke skal logge inn')
+    ## Cerebrum (internal), used by automagic only
+    quarantine_auto_passord = _QuarantineCode('auto_passord',
+                                             'Passord ikke skiftet trass pålegg')
+    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
+                                              'Ikke aktiv student, utestengt')
+    quarantine_auto_kunepost = _QuarantineCode('auto_kunepost',
+                                               'Privatist, kun tilgang til e-post')
+    quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
+                                             'Sted ugyldig i autoritativ kildesystem')    
+    quarantine_ou_remove = _QuarantineCode('ou_remove',
+                                           'Sted fjernet fra autoritativ kildesystem')
+    
     ## Non-personal account codes
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker', 'Kurskonto')
@@ -73,17 +134,17 @@ class ConstantsUniversityColleges(Constants.Constants):
     account_felles  = _AccountCode('fellesbruker','Fellesbruker')
     account_system  = _AccountCode('systembruker', 'Systembruker') 
 
-    ## SAP-spesifikke navnekonstanter
+    ## SAP name constants
     name_middle = _PersonNameCode('MIDDLE', 'Mellomnavn')
     name_initials = _PersonNameCode('INITIALS', 'Initialer')
 
-    ## SAP-spesifikke kommtypekonstater
+    ## SAP comm. constants
     contact_phone_cellular = _ContactInfoCode("CELLPHONE",
                                               "Mobiltelefonnr")
     contact_phone_cellular_private = _ContactInfoCode(
                                        "PRIVCELLPHONE",
                                        "Privat mobiltefonnr")
-    ## Landkonstanter for SAP
+    ## SAP country constants
     country_no = _CountryCode("NO", "Norway", "47", "Norway")
     country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
     country_fi = _CountryCode("FI", "Finland", "358", "Finland")
@@ -97,5 +158,18 @@ class ConstantsUniversityColleges(Constants.Constants):
     country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
     country_at = _CountryCode("AT", "Austria", "43", "Austria")
 
+    ## Spread definitions - user related
+    spread_ldap_account = _SpreadCode(
+        'account@ldap', Constants.Constants.entity_account,
+        'Brukeren kjent i LDAP (FEIDE)')
+    spread_lms_account = _SpreadCode(
+        'account@lms', Constants.Constants.entity_account,
+        'Brukeren kjent i LMSen')
 
-# arch-tag: 4ba57e9c-75bd-40b6-8d6c-1340312241bb
+    ## Spread definitions - person related
+    spread_ldap_person = _SpreadCode(
+        'person@ldap', Constants.Constants.entity_person,
+        'Person kjent i organisasjonstreet (FEIDE-person)')
+    spread_lms_person = _SpreadCode(
+        'person@lms', Constants.Constants.entity_person,
+        'Person kjent i organisasjonens LMS')    
