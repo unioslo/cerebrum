@@ -34,10 +34,11 @@ from Cerebrum.modules import Email
 def usage():
     print """Usage: import_host_disk.py -h hostname -d diskpath
                     import_host_disk.py -f filename
-    -d, --disk    : register a disk in cerebrum
-    -h, --host    : register a host in cerebrum
-    -f, --file    : parse file and register hosts/disks in cerebrum
-                    [hostname:disk_path\n | hostname]
+    -d, --disk         : register a disk in cerebrum
+    -h, --host         : register a host in cerebrum
+    -e, --email-server : register email servers in cerebrum  
+    -f, --file         : parse file and register hosts/disks in cerebrum
+                         [hostname:disk_path\n | hostname]
     """
     sys.exit(0)
 
@@ -55,6 +56,25 @@ def register_host(hname):
         sys.exit(2)
     db.commit()
 
+def register_email_server(email_srv_type, email_srv_name, description):
+    email_server = Email.EmailServer(db)
+    if email_srv_type == 'nfs':
+        email_srv_type = const.email_server_type_nfsmbox
+    else:
+        # feel free to implement support for other srv_types 
+        logger.error("Unknow email server type")
+    host = Factory.get('Host')(db)
+    try:
+        host.find_by_name(email_srv_name)
+    except Errors.NotFoundError:        
+        email_server.populate(email_srv_type, name=email_srv_name, description=description)
+    try:
+        email_server.write_db()
+        logger.debug("Registered email server %s", email_srv_name)
+    except Errors.DatabaseException:
+        logger.error("Could not write to the Cerebrum-database")
+        sys.exit(3)
+        
 def register_disk(host_name, disk_path):
     disk = Factory.get('Disk')(db)
     host = Factory.get('Host')(db)            
@@ -74,10 +94,15 @@ def register_disk(host_name, disk_path):
             logger.error("Could not write to the Cerebrum-database")
             sys.exit(2)
 
-def process_line(infile):
+def process_line(infile, emailsvr):
     stream = open(infile, 'r')        
     host = disk = None
-	
+    if emailsvr:
+        for l in stream:
+            type, name, description = string.split(l.strip(),":")
+            register_email_server(type, name, description)
+        return None
+        stream.close()
     for l in stream:
 	if ':' in l.strip():
            hostname, disk = string.split(l.strip(), ":")
@@ -90,7 +115,7 @@ def process_line(infile):
     stream.close()
 
 def main():
-    global db, logger
+    global db, logger, const, emailsrv
     
     logger = Factory.get_logger("console")    
     db = Factory.get("Database")()
@@ -101,14 +126,16 @@ def main():
     creator.clear()
     creator.find_by_name('bootstrap_account')
     infile = None
+    emailsrv = False
     disk_in = host_in = False
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:h:d:',
+                                   'f:h:d:e',
                                    ['file=',
                                     'disk=',
-                                    'host='])
+                                    'host=',
+                                    'email-server'])
     except getopt.GetoptError:
         usage()
 
@@ -124,16 +151,22 @@ def main():
             disk_path = val
         elif opt in ('-f', '--file'):
             infile = val
-
+        elif opt in ('-e', '--email-server'):
+            emailsrv = True
+            
     if not (host_in or disk_in) and infile == None:
         usage()
 
     if infile and (host_in or disk_in):
         logger.error('Cannot use both -h and -f options.')
         sys.exit(1)
+
+    if emailsrv and infile == None:
+        logger.error('You may only register email servers from file')
+        usage()
         
     if infile:
-        process_line(infile)
+        process_line(infile, emailsrv)
 
     if host_in: 
         register_host(host_name)
