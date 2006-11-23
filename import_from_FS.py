@@ -65,6 +65,14 @@ def write_uit_person_info(outfile):
     f.set_minimum_size_limit(500*KiB)
     f.write(xml.xml_hdr + "<data>\n")
 
+
+    # Studenter med opptak
+    cols, students = _ext_cols(fs.student.list())
+    for s in students:
+	# The Oracle driver thinks the result of a union of ints is float
+        fix_float(s)
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
+
     # Fagpersoner
     cols, fagpersoner = _ext_cols(fs.undervisning.list_fagperson_semester())
     for p in fagpersoner:
@@ -85,12 +93,17 @@ def write_uit_person_info(outfile):
     cols, uittilbud = uitfs.GetTilbud(cereconf.DEFAULT_INSTITUSJONSNR)
     for t in uittilbud:
         f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
+
+    #Personer som har drgrad opptak ved Uit
+    cols,uitdrgrad = _ext_cols(fs.student.list_drgrad())
+    for p in uitdrgrad:
+        f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'drgrad') + "\n")
     
     #EVU-studenter ved Uit
     cols, uitevu = uitfs.GetDeltaker()
     for e in uitevu:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
-        #print "%s\n" % xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu')
+        
     f.write("</data>\n")
     f.close()
 
