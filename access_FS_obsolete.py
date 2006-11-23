@@ -341,7 +341,7 @@ SELECT DISTINCT
    versjonskode, terminkode, arstall, terminnr,
    etterutdkurskode, kurstidsangivelsekode
 FROM fs.personrolle 
-WHERE dato_fra < SYSDATE AND
+WHERE dato_fra < SYSDATE + 180 AND
       NVL(dato_til,SYSDATE) >= sysdate"""
         return (self._get_cols(qry), self.db.query(qry))
 
