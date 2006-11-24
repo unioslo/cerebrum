@@ -1,89 +1,142 @@
-import operator
+#!/bin/env python
+
+import datetime
+import getopt
+import sys
+
+
 import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum import Errors
 
 
-db = Factory.get("Database")()
-db.cl_init(change_program ='fix_homedir')
-account = Factory.get("Account")(db)
-oneAccount = Factory.get("Account")(db)
-const = Factory.get("Constants")(db)
+logger_name = 'console'
+logger = None
 
-spreads_to_set = [13,9]  # 13= NIS_user@uit og 11=LDAP_person , 9 = IMAPuser elns
+class Changer:
+    global logger
+
+
+    def __init__(self):
+        self.db=Factory.get('Database')()
+        self.co=Factory.get('Constants')(self.db)
+        self.account=Factory.get('Account')(self.db)
+        self.person=Factory.get('Person')(self.db)
+        self.logger=Factory.get_logger(logger_name)
+        self.db.cl_init(change_program ='fix_homedir')
+        self.count=0
+
+
+    def fix_homedir(self,account_name=None):
+
+        if account_name:            
+            self.updateOneAccount(account_name)
+        else:
+            self.account.clear()
+            a_list = self.account.list(filter_expired=False)
+            for ac in a_list:
+                #self.logger.debug("account: %s, keys=%s" % (ac,ac.keys()))
+                self.updateOneAccount(ac['account_id'])
+            
+
+
+    def updateOneAccount(self,acc):
+        self.account.clear()
+
+        try:
+            if isinstance(acc,str):
+                self.account.find_by_name(acc)
+            else:
+                #assuming int
+                self.account.find(acc)
+        except Errors.NotFoundError:
+            self.logger.error("Account %s not found!" % acc)
+            return None
         
-def get_all_accounts(account):
-    return account.list()
+        self.logger.info("Working on account %s(ID=%d)" % (self.account.account_name,self.account.entity_id ))
+        
+        spreads = self.account.get_spread()
+        for sprd in spreads:   # for hvert spread vi skal sette
+            s = sprd['spread']
+            try:
+                home = self.account.get_home(s)
+            except Errors.NotFoundError:
+                self.logger.error("Account %s has spread %s, but no home for that spread" % (self.account.account_name,s))
+                continue
+            if not home['home']:
+                self.logger.debug("home for spread %d: home=%s, update needed" % (s,home['home']))
+                self.account.set_home_dir(s)
+                self.count+=1
+                try:
+                    self.account.write_db()
+                except Exception,m:
+                    self.logger.error("Failed updating DB: %s",m)
+                
+            
+                
 
+    def commit(self):
+        self.db.commit()
+        self.logger.info("Commited all changes to database")
+        self.logger.info("Updated %d entries" % (self.count))
 
-def get_homedir_id(objAccount,spread):
-    # sjekk om denne konto id har en konto for denne spread,
-    # hvis ja, returner homedir_id
-    # hvis nei returner None
-    ret = None
-    try:
-        home = objAccount.get_home(spread)
-        if (len(home)>0):
-            ret = home['homedir_id']
-    except Errors.NotFoundError:
-        pass
+    def rollback(self):
+        self.db.rollback()
+        self.logger.info("DRYRUN: Rolled back all changes")
+        self.logger.info("Would update %d entries" % (self.count))
 
-    return ret
-
-def set_home_dir(objAccount,spread):
-    print "Calling set_home_dir with account %s %s" % (objAccount.account_name,spread)
-    path_prefix = "/its/home"
-    homeid = get_homedir_id(objAccount,spread)
-    account_name = objAccount.account_name
-    homepath = ('%s/%s/%s/%s') % (path_prefix,account_name[0],account_name[0:2],account_name)
-    print "setting %s as home path for %s on homedir_id='%s', spread=%d" % (homepath,account_name,homeid,spread)
-    newid = -1
-    if (homeid == None):
-        print "Inserting new homedir_id"
-        newid = objAccount.set_homedir(home=homepath,status=const.home_status_not_created)
-    else:
-        print "Updating homedir_id=%s" % (homeid)
-        newid = objAccount.set_homedir(current_id=homeid,home=homepath,status=const.home_status_not_created)
-        newid = homeid
-
-    print "Homedir_id before='%s' and after='%s'" % (homeid, newid)
-    # update homedir for the spread
-    objAccount.set_home(spread,newid)    
-    
-
-
-def updateOneAccount(account_id):
-    oneAccount.clear()
-    print "\nWorking on account_id=%d" % (account_id)
-    oneAccount.find(account_id)
-    for s in spreads_to_set:   # for hvert spread vi skal sette
-        if (oneAccount.has_spread(s)): # har denne kontoen dette spread?
-            set_home_dir(oneAccount,s)   # sett hjemmekatalog for denne kontoen og dette spread
-
-                                                    
    
+def usage(exitcode=0):
+    print """Usage: extend_account.py -a name [-h] [-d] [-l loggername] 
+    -h | --help : show this message
+    -d | --dryrun : do not commit changes to database
+    -a | --account <name> : work only on this account
+    -l | --logger_name <name> : logger target to use
 
-def main(aid = None):
-    if (aid == None):
-        accounts = get_all_accounts(account)
-        i = 0
-        for a in accounts:  # spring gjennom gjennom alle kontoer
-            i += 1
-            updateOneAccount(a['account_id'])
-            if (operator.mod(i,1000) == 0):
-                print "Committing after %i" % (i)
-                db.commit()
-    else:
-        updateOneAccount(aid)
+    This program fixes inconsistensies in how homedir should be set for accounts.
+    We want all our account to have homedir on this form:
+    username=bto001 => homeDirectory: /its/home/b/bt/bto001
+
+    """
+    sys.exit(exitcode)
+
+
+
+def main():
+    global logger_name
+
     
-    db.commit()
+    dryrun = False
+    account_name = None
+    today = datetime.date.today()
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hda:l:',
+                                   ['help','dryrun','account=','logger_name='])
+    except getopt.GetoptError:
+        usage(1)
 
+    for opt, val in opts:
+        if opt in ['-h', '--help']:
+            usage(0)
+        elif opt in ['-d', '--dryrun']:
+            dryrun=True
+        elif opt in ['-a', '--account']:
+            account_name=val
+        elif opt in [ '-l', '--logger_name']:
+            logger_name = val
 
+    worker=Changer()
+    worker.fix_homedir(account_name)
+
+    if dryrun:
+        worker.rollback()
+    else:
+        worker.commit()
+       
 if __name__ == '__main__':
     main()
-    #main(110643)
-#    main(1626)
-                
- 
+
+
+
 # arch-tag: 40f1a58e-b42c-11da-994d-6a4c888f0a6f
