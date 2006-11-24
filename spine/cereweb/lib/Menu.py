@@ -115,9 +115,9 @@ class Menu:
         """Adds a menu item"""
         self.children.append(menuitem)        
     
-    def addItem(self, *args):
+    def addItem(self, *args, **vargs):
         """Creates a menu item, adds it, and returns it"""
-        item = MenuItem(*args)
+        item = MenuItem(*args, **vargs)
         self.addMenuItem(item)
         return item
 
@@ -145,11 +145,12 @@ class Menu:
         return str(self)    
 
 class MenuItem(Menu):                
-    def __init__(self,name,label,url):
+    def __init__(self,name,label,url,cssid=None):
          Menu.__init__(self)
          self.name = name
          self.label = label
          self.url = url
+         self.cssid = cssid
          self.open = False
          
     def getUrl(self):     
@@ -173,7 +174,10 @@ class MenuItem(Menu):
         if url is None:
             # we can't use this item without a link
             return None
-        link = html.Anchor(self.label, href=url)
+        if not self.cssid:
+            link = html.Anchor(self.label, href=url)
+        else:
+            link = html.Anchor(self.label, href=url, id=self.cssid)
         # Dirty trick to insert at the beginning
         # of the div.
         div._content.insert(0, link)
