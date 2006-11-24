@@ -491,8 +491,8 @@ class execute:
             self.logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
             try:
                 em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
-            except Exception:
-                self.logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
+            except Exception,m:
+                self.logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s,error:%s" % (account_obj.entity_id,ad_email,m))
                 sys.exit(2)
         else:
             #current email = ad_email :=> we need to do nothing. all is ok....
