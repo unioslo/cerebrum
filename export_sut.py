@@ -98,7 +98,7 @@ def export_sut(out_file):
         full_name = row['name']
         ssn = row['external_id']
         if((len(ssn)!=11)and(row['id_type'==const.externalid_sys_x_id])):
-            print "foreigner"
+            #print "foreigner"
             fodt="010170"
             pnr="%i" % (10000+int(ssn))
         else:
