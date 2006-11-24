@@ -45,7 +45,7 @@ import person
 import quarantine
 import worklist
 import permissions
-
+import user_client
 
 def index(transaction):
     page = Main()
