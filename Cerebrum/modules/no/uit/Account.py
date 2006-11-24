@@ -87,22 +87,7 @@ class AccountUiTMixin(Account.Account):
         return username
 
 
-    
-    
-    def get_homedir_id(self,spread):
-        # sjekk om denne konto id har en konto for denne spread,
-        # returner homedir_id eller None
-        ret = None
-        try:
-            home = self.get_home(spread)
-            if (len(home)>0):
-                ret = home['homedir_id']
-        except Errors.NotFoundError:
-            pass
-        return ret
 
-    
-    
     def encrypt_password(self, method, plaintext, salt=None):
         """Returns the plaintext encrypted according to the specified
         method.  A mixin for a new method should not call super for
@@ -206,30 +191,36 @@ class AccountUiTMixin(Account.Account):
                 s.append(random.choice(saltchars))
             salt = "$1$" + "".join(s)
         return crypt.crypt(plaintext, salt)
-        
 
-    
+
+
     def set_home_dir(self, spread):
-        #print "Calling set_home_dir for account_id=%s, spread=%s" % (self.account_name,spread)
         path_prefix = cereconf.UIT_DEFAULT_HOMEPATH_PREFIX
-        homeid = self.get_homedir_id(spread)
         account_name = self.account_name
-        homepath = ('%s/%s/%s/%s') % (path_prefix,account_name[0],account_name[0:2],account_name)
-        #print "setting %s as home path for %s on homedir_id='%s', spread=%d" % (homepath,account_name,homeid,spread)
-        newid = -1
-        if (homeid == None):
-            #print "Inserting new homedir_id"
-            newid = self.set_homedir(home=homepath,status=self.const.home_status_not_created)
+        new_path = ('%s/%s/%s/%s') % (path_prefix,account_name[0],account_name[0:2],account_name)
+        #print "Try setting %s as home path for account '%s' spread='%d'" % (new_path,account_name,spread)
+        create_new = False
+        new_id = None
+        try:
+            old_home=self.get_home(spread)
+        except Errors.NotFoundError:
+            #create new home
+            #print "No home for this spread, create!"
+            h_id = self.set_homedir(home=new_path,status=self.const.home_status_not_created)
+            self.set_home(spread,h_id)
         else:
-            #print "Updating homedir_id=%s" % (homeid)
-            newid = self.set_homedir(current_id=homeid,home=homepath,status=self.const.home_status_not_created)
-            newid = homeid
+            old_path = old_home['home']
+            old_id = old_home['homedir_id']
+            if old_path != new_path:
+                # update needed for this spread!
+                print "old home (%s) not equal to new (%s), update homedir entry" % (old_path,new_path)                
+                self.set_homedir(current_id=old_id,home=new_path)
+            else:
+                pass
+                #print "no update needed"
+
+        #print "Finish"
             
-        #print "Homedir_id before='%s' and after='%s'" % (homeid, newid)
-        # update homedir for the spread
-        self.set_home(spread,newid)
-
-
 
     def get_uit_uname(self,fnr,name,Regime=None):
         ssn = fnr
