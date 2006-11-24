@@ -21,6 +21,7 @@
 
 import sys
 import pickle
+import getopt
 
 import cerebrum_path
 import cereconf
@@ -38,7 +39,13 @@ entity = Entity.Entity(db)
 entityname = Entity.EntityName(db)
 account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+
+
+
+logger_name=cereconf.DEFAULT_LOGGER_TARGET
+
+logger=None
+sock=None
 
 delete_users = 0
 delete_groups = 0
@@ -105,25 +112,55 @@ def id_to_name(id,entity_type):
     name = entityname.get_name(namespace)
     obj_name = "%s%s" % (name,grp_postfix)
     return obj_name
-    
+
+
+def usage(exit_code=0):
+    print """
+
+    usage stuff here
+
+
+    """
+    sys.exit(exit_code)
         
 def get_args():
     global delete_users
     global delete_groups
-    for arg in sys.argv:
-        if arg == '--delete_users':
-            delete_users = 1
-        elif arg == '--delete_groups':
-            delete_groups = 1
+    global logger_name
 
-
-if __name__ == '__main__':
     try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hl:',
+                                   ['help','delete_users', 'delete_groups', 'logger_name='])
+    except getopt.GetoptError:
+        usage(1)
+
+    for opt, val in opts:
+        if opt == '--delete_users':
+            delete_users = 1
+        elif opt == '--delete_groups':
+            delete_groups = 1
+        elif opt in ('-l','--logger_name'):
+            logger_name = val
+        elif opt in ('-h','--help'):
+            usage(0)
+
+    
+
+
+def main():
+    global logger
+    global sock
+    arg = get_args()
+    logger = Factory.get_logger('console')
+    try:
+        logger.info("Initializing communication")
         sock = adutils.SocketCom()
     except Exception,m:
         logger.error("Failed to connect AD server: %s" % m)
         sys.exit(1)
-    arg = get_args()    
+
     quick_user_sync()
     sock.close()
-    
+
+if __name__ == '__main__':
+    main()
