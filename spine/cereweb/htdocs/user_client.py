@@ -24,7 +24,6 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
-from lib.templates.UserClientTemplate import UserClientTemplate
 from lib.templates.InsightTemplate import InsightTemplate
 
 def index(transaction):
