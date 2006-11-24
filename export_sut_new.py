@@ -131,22 +131,22 @@ def main():
 
     
     
-    print "startin query...%s" % query
+    #print "startin query...%s" % query
     db.row = db.query(query)
     for row in db.row:
-        print "quarantine_type=%s" % row['quarantine_type']
+        #print "quarantine_type=%s" % row['quarantine_type']
         if row['quarantine_type']==None:
             quarantine='False'
         else:
             quarantine='True'
-        print "quarantine=%s" % quarantine
+        #print "quarantine=%s" % quarantine
         entries.append({'name' : row['entity_name'],'password' : row['auth_data'],'uid' : row['posix_uid'],'gecos' : row['name'],'quarantine' : quarantine})
     for entry in entries:
         file_path="/its/home/%s/%s/%s" % (entry['name'][0],entry['name'][0:2],entry['name'])
         
         file_handle.writelines("%s:%s:%s:%s:%s:%s:/bin/bash:%s\n" % (entry['name'],entry['password'],entry['uid'],entry['uid'],account.simplify_name(entry['gecos'],as_gecos=1),file_path,entry['quarantine']))
     file_handle.close()
-    print "done"
+    #print "done"
 def usage():
     print """This program exports SUT account to a file
     Data should be copied to the SUT servers for distributuion.
