@@ -18,6 +18,8 @@ class delete:
         delete_tables.append({'group_member':'member_id'})
         delete_tables.append({'account_info':'account_id'})
         delete_tables.append({'entity_spread':'entity_id'})
+        delete_tables.append({'entity_quarantine':'entity_id'})
+        delete_tables.append({'entity_info':'entity_id'})
 
         delete_mail_tables=[]
         delete_mail_tables.append({'email_target_server':'target_id'})
@@ -38,7 +40,7 @@ class delete:
 
         if target_id !=None:
             for delete_mail_entry in delete_mail_tables:
-                value = delete_mail_entry .values()
+                value = delete_mail_entry.values()
                 key = delete_mail_entry.keys()
                 query="delete from %s where %s =%s" % (key[0],value[0],target_id)
                 print "query=%s" % query
@@ -77,7 +79,7 @@ def main():
             if(line[0] != '\n'):
                 foo=line.split(",")
                 #print "foo=%s" % foo
-                account_id = foo[1]
+                account_id = foo[0]
                 print "ac=%s" % account_id
                 query ="select target_id from email_target where entity_id=%s" % account_id
                 print "query =%s " % query
