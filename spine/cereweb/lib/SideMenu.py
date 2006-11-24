@@ -21,10 +21,6 @@
 import Menu
 from gettext import gettext as _
 
-class MenuItem(Menu.MenuItem):
-    def __init__(self, *args, **kwargs):
-        Menu.MenuItem.__init__(self, *args, **kwargs)
-
 class SideMenu(Menu.Menu):
     def __init__(self):
         Menu.Menu.__init__(self)
