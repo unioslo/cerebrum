@@ -27,6 +27,17 @@ class delete:
         delete_mail_tables.append({'email_address':'target_id'})
         delete_mail_tables.append({'email_target':'target_id'})
 
+        if target_id !=None:
+            for delete_mail_entry in delete_mail_tables:
+                value = delete_mail_entry.values()
+                key = delete_mail_entry.keys()
+                query="delete from %s where %s =%s" % (key[0],value[0],target_id)
+                print "query=%s" % query
+                try:
+                    db.query(query)
+                except:
+                    print "error deleting email_data for account_id: %s" % account_id
+
         for entry in delete_tables:
             value = entry.values()
             key= entry.keys()
@@ -38,16 +49,7 @@ class delete:
                 print "error deleting account for account_id: %s" % account_id
 
 
-        if target_id !=None:
-            for delete_mail_entry in delete_mail_tables:
-                value = delete_mail_entry.values()
-                key = delete_mail_entry.keys()
-                query="delete from %s where %s =%s" % (key[0],value[0],target_id)
-                print "query=%s" % query
-                try:
-                    db.query(query)
-                except:
-                    print "error deleting email_data for account_id: %s" % account_id
+       
             #query = "delete from %s where entity_id"
         #query="delete from entity_name where entity_id=%s" % account_id
         #res = db.query(query)
