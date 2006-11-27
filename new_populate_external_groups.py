@@ -44,7 +44,7 @@ else:
 
 # Define all global variables, to avoid pychecker warnings.
 db = logger = fnr2account_id = const = None
-
+logger_name = cereconf.DEFAULT_LOGGER_TARGET
 
 ###
 ### Struktur FS-grupper i Cerebrum
@@ -904,7 +904,7 @@ def prefetch_primaryusers():
         p_id = int(row['entity_id'])
         fnr = row['external_id']
         src_sys = int(row['source_system'])
-        print "LOADED: p_id: %s, fnr: '%s', src_sys: %s" % (row['entity_id'],row['external_id'],row['source_system'])
+        #print "LOADED: p_id: %s, fnr: '%s', src_sys: %s" % (row['entity_id'],row['external_id'],row['source_system'])
         if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
@@ -922,24 +922,26 @@ def prefetch_primaryusers():
             # if the old row has an entry in fnr2account_id, delete
             # it.
             if fnr2account_id.has_key(fnr):
-                print "deleting fnr=%s"
+                #print "deleting fnr=%s"
                 del fnr2account_id[fnr]
         fnr_source[fnr] = (p_id, src_sys)
         if personid2accountid.has_key(p_id):
             account_ids = personid2accountid[p_id]
 ##             for acc in account_ids:
 ##                 account_id2fnr[acc] = fnr
-            print "adding fnr=%s: %s" % (fnr,account_ids)
+            #print "adding fnr=%s: %s" % (fnr,account_ids)
             fnr2account_id[fnr] = account_ids
         else:
-            print "dropping fnr=%s, not in personis2accountid" % (fnr)
+            pass
+            #print "dropping fnr=%s, not in personis2accountid" % (fnr)
     del fnr_source
-    print fnr2account_id
+    #print fnr2account_id
     logger.debug("Ferdig: prefetch_primaryusers()")
 
 def init_globals():
     global db, const, logger, fnr2account_id
     global dump_dir, dryrun, immediate_evu_expire
+    global logger_name
 
     # Håndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
@@ -947,14 +949,13 @@ def init_globals():
 
     dump_dir = '/cerebrum/var/dumps/FS'
     dryrun = False
-    #logger = Factory.get_logger("console")
-    logger = Factory.get_logger("cronjob")
     immediate_evu_expire = False
 
     opts, rest = getopt.getopt(sys.argv[1:],
-                               "d:r",
+                               "d:rl:",
                                ["dump-dir=", "dryrun",
-                                "immediate-evu-expire",])
+                                "immediate-evu-expire",
+                                "logger_name="])
     for option, value in opts:
         if option in ("-d", "--dump-dir"):
             dump_dir = value
@@ -962,9 +963,10 @@ def init_globals():
             dryrun = True
         elif option in ("--immediate-evu-expire",):
             immediate_evu_expire = True
-        # fi
-    # od
+        elif option in ('-l','--logger_name'):
+            logger_name=value
 
+    logger = Factory.get_logger(logger_name)
     db = Factory.get("Database")()
     db.cl_init(change_program='pop_extern_grps')
     const = Factory.get("Constants")(db)
@@ -974,7 +976,6 @@ def init_globals():
 
 def main():
     init_globals()
-    print "continuing main"
     # Opprett objekt for "internal:uit.no:fs:{supergroup}"
     fs_super = fs_supergroup()
 
@@ -988,7 +989,6 @@ def main():
         if el_name == 'undenhet':
             fs_super.add('undenh', attrs)
 
-    print "about to read xml files"
     logger.info("Leser XML-fil: underv_enhet.xml")
     access_FS.underv_enhet_xml_parser(
         os.path.join(dump_dir, 'underv_enhet.xml'),
@@ -1023,7 +1023,7 @@ def main():
             for undenh in fs_super.list_matches_1('undenh', attrs,
                                                   'student'):
                 undenh.add(attrs)
-    print "about to read student_undenh xml files"
+                
     logger.info("Leser XML-fil: student_undenh.xml")
     access_FS.student_undenh_xml_parser(
         os.path.join(dump_dir, 'student_undenh.xml'),
@@ -1057,15 +1057,14 @@ def main():
     # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
     # for disse.
     def create_studieprog_helper(el_name, attrs):
-        print "inside create_studieprog_helper"
         if el_name == 'studprog' and attrs.get('status_utgatt') <> 'J':
             fs_super.add('studieprogram', attrs)
-    print "about to read studieprog xml files"
+
     logger.info("Leser XML-fil: studieprog.xml")
     access_FS.studieprog_xml_parser(
         os.path.join(dump_dir, 'studieprog.xml'),
         create_studieprog_helper)
-    print "done with studieprog.xml"
+
     # Meld forelesere og studieledere inn i passende
     # undervisningsenhet/EVU-kurs -gruppene
     def rolle_helper(el_name, attrs):
@@ -1081,7 +1080,7 @@ def main():
         logger.info("har rolle og target=%s" % target)
         logger.info("attrs = %s" % attrs)
         if target in ('undenh', 'stprog'):
-            print "target=%s" % target
+            #print "target=%s" % target
             #logger.debug("target=%s" % target)
             #UIT: endret denne linja: if rolle == 'FORELESER':
             if rolle in ['FORELESER','ANSVLEDER', 'HOVEDLÆRER', 'KONTAKTPER', 'LÆRER', 'SEMINARLÆR', 'VEILEDER']:
@@ -1100,12 +1099,12 @@ def main():
                 logger.info("logger=%s" % rolle)
                 for ue_studieleder in fs_super.list_matches('undenh', attrs,
                                                             'studieleder'):
-                    logger.info("2.adding: %s" % attrs)
+                    logger.debug("2.adding: %s" % attrs)
                     ue_studieleder.add(attrs)
                 for stpr_studieleder in fs_super.list_matches('studieprogram',
                                                               attrs,
                                                               'studieleder'):
-                    logger.info("3.adding: %s" % attrs)
+                    logger.debug("3.adding: %s" % attrs)
                     stpr_studieleder.add(attrs)
             # fi
         elif target in ('evu',):
@@ -1121,11 +1120,9 @@ def main():
         # fi
 
     # end rolle_helper
-            
-    print "reading roles.xml"
+    
     xmlfile = "roles.xml"
     logger.info("Leser XML-fil: %s", xmlfile)
-    print "xml parser"
     access_FS.roles_xml_parser(os.path.join(dump_dir, xmlfile),
                                rolle_helper)
     logger.info("Ferdig med %s", xmlfile)
