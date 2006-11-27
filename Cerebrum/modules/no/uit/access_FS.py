@@ -346,6 +346,8 @@ class FS(access_FS.FS):
 class person_xml_parser(access_FS.non_nested_xml_parser):
     "Parserklasse for person.xml."
     elements = {'data': False,
+                'opptak':False,
+                'drgrad':True,
                 'aktiv': True,
                 'tilbud': True,
                 'fagperson': True,
