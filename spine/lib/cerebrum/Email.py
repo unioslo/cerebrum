@@ -259,14 +259,13 @@ class EmailTarget(DatabaseClass):
         DatabaseAttr('entity', table, Entity, write=True, exceptions=[SpineExceptions.AlreadyExistsError]),
         DatabaseAttr('alias_value', table, str, write=True),
         # FIXME: should be PosixUser
-        DatabaseAttr('using', table, Account, write=True), 
+        DatabaseAttr('using_uid', table, Account, write=True), 
     )
     db_attr_aliases = {
         table : {
             'id' : 'target_id',
             'type' : 'target_type',
-            'entity' : 'entity_id',
-            'using': 'using_uid',
+            'entity' : 'entity_id'
         }
     }
 
