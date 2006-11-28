@@ -142,7 +142,7 @@ class BofhdExtension(object):
         ("mac", "MAC\tDARWIN"),
         ("other", "OTHER\tOTHER"),
         ("dhcp", "DHCP\tDHCP"),
-        ("netapp", "NETAPP\tNETAPP")
+        ("netapp", "NETAPP\tONTAP")
         )
 
     def __new__(cls, *arg, **karg):
@@ -245,7 +245,7 @@ class BofhdExtension(object):
              'Enter the host name for this operation'],
             'host_name_alias':
             ['alias_name', 'Enter new alias',
-             'Enter the host name for this operation'],
+             'Enter the alias name for this operation'],
             'host_name_repeat':
             ['host_name_repeat', 'Enter host name(s)',
              'To specify 20 names starting at pcusitN+1, where N is '
