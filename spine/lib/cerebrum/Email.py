@@ -257,7 +257,7 @@ class EmailTarget(DatabaseClass):
     slots = (
         DatabaseAttr('type', table, EmailTargetType, write=True),
         DatabaseAttr('entity', table, Entity, write=True, exceptions=[SpineExceptions.AlreadyExistsError]),
-        DatabaseAttr('alias', table, str, write=True),
+        DatabaseAttr('alias_value', table, str, write=True),
         # FIXME: should be PosixUser
         DatabaseAttr('using', table, Account, write=True), 
     )
@@ -266,7 +266,6 @@ class EmailTarget(DatabaseClass):
             'id' : 'target_id',
             'type' : 'target_type',
             'entity' : 'entity_id',
-            'alias' : 'alias_value',
             'using': 'using_uid',
         }
     }
