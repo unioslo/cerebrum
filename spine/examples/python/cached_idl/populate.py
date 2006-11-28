@@ -80,6 +80,7 @@ def get_name_last():
 t=SpineClient.SpineClient(config=conf).connect().login(username, password).new_transaction()
 comm=t.get_commands()
 accountnamevaluedomain=t.get_value_domain("account_names")
+accounttarget=t.get_email_target_type("account")
 sourcesystem=t.get_source_system('Manual') #it's not
 lastnametype=t.get_name_type("LAST")
 firstnametype=t.get_name_type("FIRST")
@@ -87,8 +88,9 @@ fullnametype=t.get_name_type("FULL")
 bashshell=t.get_posix_shell("bash")
 #usersgroup=comm.get_group_by_name("bootstrap_group")
 unionoperation=t.get_group_member_operation_type("union")
-studspread=t.get_spread("user@stud")
+ansattspread=t.get_spread("user@ansatt")
 adspread=t.get_spread("user@ntnu_ad")
+emaildomain=comm.get_email_domain_by_name("ntnu.no")
 
 
 def get_host(t, name):
@@ -133,7 +135,7 @@ def create_random():
    names=comm.suggest_usernames(fn, ln)
    a=comm.create_account(names[0], p, comm.get_date(2010, 12, 31))
    #a.promote_ad(loginscript, homedir)
-   a.add_spread(studspread)
+   a.add_spread(ansattspread)
    a.add_spread(adspread)
    # Prefix group names with "g"
    g=comm.create_group("g_" + names[0])
@@ -141,8 +143,15 @@ def create_random():
    #g.promote_ad()
    g.add_member(a, unionoperation)
    a.promote_posix(comm.get_free_uid(), g, bashshell)
-   #a.set_homedir(studspread, "/home/%s" % names[0], None)
-   a.set_homedir(studspread, "", random.choice(disks))
+   #a.set_homedir(ansattspread, "/home/%s" % names[0], None)
+   a.set_homedir(ansattspread, "", random.choice(disks))
+   et = comm.create_email_target(accounttarget)
+   et.set_entity(a)
+   try:
+      addr = comm.create_email_address(("%s.%s" % (fn, ln)).lower(), emaildomain, et)
+      et.set_primary_address(addr)
+   except:
+      pass
 
 import time
 
