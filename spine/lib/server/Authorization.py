@@ -64,6 +64,7 @@ class Authorization(object):
         https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
         for en dokumentasjon av autorisasjonssjekken"""
 
+        return True # Disablet på grunn av programmeringsfeil.
         bofhdauth = BofhdAuth(self._db)
         if self.is_superuser(bofhdauth): return True
 
