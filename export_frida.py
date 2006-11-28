@@ -63,6 +63,7 @@ import string
 import locale
 import cerebrum_path
 import cereconf
+from xml.sax import make_parser
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
@@ -91,6 +92,46 @@ logger = None
 #UIT:
 # Added by kenneth
 # date 27.10.2005
+person_list=[] # baaaad boy. you should not use global lists :(
+class pers_handler(xml.sax.ContentHandler):
+
+    def __init__(self,file_name,call_back_function):
+        self.person_list=[]
+        self.call_back_function = call_back_function
+
+    def startElement(self, name, attrs):
+        if name == 'tils':
+            self.tils_attrs={}
+            for k in attrs.keys():
+                self.tils_attrs[k] = attrs.get(k)
+        if name=='person':
+            self.person_attrs={}
+            for k in attrs.keys():
+                self.person_attrs[k] = attrs.get(k)
+            #print self.person_attrs
+        return 
+
+    def characters(self, ch):
+        self.var = None
+        tmp = ch.encode('iso8859-1').strip()
+        if tmp:
+            self.var = tmp
+            self._elemdata.append(tmp)
+
+
+    def endElement(self,name):
+        if name=='person':
+            self.call_back_function(self,name)
+        elif name=='tils':
+            self.person_attrs['tils']=self.tils_attrs
+
+
+def person_helper(obj,element):
+
+    if element=='person':
+        person_list.append(obj.person_attrs)
+
+
 class system_xRepresentation(object):
     """This class gets information about persons from system_x that has
     a frida spread. All these persons will have a 'gjest' identification withtouth
@@ -117,7 +158,7 @@ class system_xRepresentation(object):
     """
 
     
-    def execute(self,writer,system_source):
+    def execute(self,pobj,writer,system_source):
         db = Factory.get('Database')()
         person = Factory.get('Person')(db)
         account = Factory.get('Account')(db)
@@ -126,10 +167,10 @@ class system_xRepresentation(object):
 
 
         current_source_system= const.system_x
-
-        # Get all persons that come from SysX _and_ has a norwegian SSN! 
+        # Get all persons that come from SysX  ONLY, _and_ has a norwegian SSN! 
         entities = person.list_external_ids(source_system=const.system_x,id_type=const.externalid_fodselsnr,entity_type=8)
         for entity in entities:
+
             account.clear()
             person.clear()
             stedkode.clear()
@@ -146,6 +187,9 @@ class system_xRepresentation(object):
                              
 
             external_id = entity['external_id']
+
+           
+
             person_attrs = {"fnr":external_id,"reservert":"N"}
             account_name = account.account_name            
             
@@ -205,6 +249,25 @@ class system_xRepresentation(object):
             dato_fra ="%s-%s-%s" % (create_date.year,create_date.month,create_date.day)
             writer.data(dato_fra)
             writer.endElement("datoFra")
+
+             # traverse through the global list and check if the external_id already exists there.
+            # if it does, then set the guest field dato_til to that persons tils.fra_dato
+            # result is that all guests who now come as an employee will have the guest.dato_til
+            # set to that persons start date as an employee.
+            for i in person_list:
+                existing_person_ssn="%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
+                if external_id==existing_person_ssn:
+                    print "gjeste:%s%s%s%s == ansatt:%s" % (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'],external_id)
+                    temp_dato= i['tils']['dato_fra']
+                    dato_list=temp_dato.split("/")
+                    dato_til_mnd=dato_list[0]
+                    dato_til_dag=dato_list[1]
+                    dato_til_aar = dato_list[2]
+                    dato_til="%s-%s-%s" % (dato_til_aar,dato_til_mnd,dato_til_dag)
+                    if dato_til > dato_fra:
+                        writer.startElement("datoTil")
+                        writer.data(str(dato_til))
+                        writer.endElement("datoTil")
 
             writer.startElement("gjestebetegnelse")
             writer.data(aff_str.status_str)
@@ -1240,7 +1303,7 @@ def output_people(writer, db, person_file):
 
     parser.parse()
     system_x_parser = system_xRepresentation()
-    system_x_parser.execute(writer = writer,system_source = constants.system_x)
+    system_x_parser.execute(person_file,writer = writer,system_source = constants.system_x)
     #writer.endElement("NorPersons")
     writer.endElement("personer")
 # end output_people    
@@ -1389,6 +1452,11 @@ def main():
 
     logger = Factory.get_logger(logger_name)
     if (sted_file != 0 and output_file != 0 and person_file != 0):
+        person_parser=make_parser()
+        current_person_handler=pers_handler(person_file,person_helper)
+        person_parser.setContentHandler(current_person_handler)
+        person_parser.parse(person_file)
+
         logger.info( "Generating FRIDA export")
         output_xml(output_file = output_file,
                    data_source = data_source,
