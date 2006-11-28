@@ -97,8 +97,22 @@ def create_email_domain(self, name, description):
 create_email_domain.signature = EmailDomain
 create_email_domain.signature_write = True
 create_email_domain.signature_args = [str, str]
-create_email_domain.exceptions = exceptions=[SpineExceptions.AlreadyExistsError]
+create_email_domain.signature_exceptions = [SpineExceptions.AlreadyExistsError]
 Commands.create_email_domain = create_email_domain
+
+def get_email_domain_by_name(self, name):
+    s = registry.EmailDomainSearcher(self.get_database())
+    s.set_name(name)
+    domains=s.search()
+    if len(domains) == 0:
+        raise SpineExceptions.NotFoundError('There is no email domain %s' % name)
+    elif len(domains) > 1:
+        raise SpineExceptions.TooManyMatchesError('There are several email domains with the name %s' % name)
+    return domains[0]
+get_email_domain_by_name.signature = EmailDomain
+get_email_domain_by_name.signature_args = [str]
+get_email_domain_by_name.signature_exceptions = [SpineExceptions.NotFoundError, SpineExceptions.TooManyMatchesError]
+Commands.get_email_domain_by_name = get_email_domain_by_name
 
 table = 'email_domain_category'
 class EmailDomainCategorization(DatabaseClass):
