@@ -19,12 +19,26 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
 
-from unittest import main
+from unittest import TestCase, main
+from MockDB import *
+from pmock import Mock
 
-from AuthorizationUsabilityTest import *
-from AuthorizationTest import *
-from BofhdAuthTest import *
-from AccountTest import *
+import sys
+sys.path.append("..")
+import Authorization
+from spine_constants import operation_sets
+
+class UserTest(TestCase):
+    def setUp(self):
+        # Initialize the mockdatabase with permissiondata.
+        self.db = MockDB(operation_sets)
+        self.db._init_bofhdauth()
+        self.db._no_superuser()
+        self.ac = self.db._getAccount(100)
+        self.ao = Authorization.Authorization(self.ac, database=self.db)
+
+    def testChangePassword(self):
+        self.assertTrue(self.ao.has_permission(self.ac, 'set_password'))
 
 if __name__ == '__main__':
     main()

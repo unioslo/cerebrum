@@ -21,7 +21,7 @@
 from unittest import TestCase, main
 
 from MockDB import *
-from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpSet
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpSet, BofhdAuthOpTarget
 
 class TestBofhdAuthOpSet(TestCase):
     def setUp(self):
@@ -35,12 +35,14 @@ class TestBofhdAuthOpSet(TestCase):
         pass
 
     def testFind(self):
-        id = self.db._add_opset('test')
-        self.os.find(id)
+        name = 'test'
+        self.db._add_opset(name, [])
+        myid = hash(name)
+        self.os.find(myid)
 
     def testFindByName(self):
         name = 'test'
-        self.db._add_opset_byname(name)
+        self.db._add_opset(name, [])
         self.os.find_by_name(name)
 
     def testWriteDB_not_updated(self):
@@ -54,10 +56,12 @@ class TestBofhdAuthOpSet(TestCase):
         self.os.write_db()
 
     def testDelete(self):
-        id = self.db._add_opset('test')
-        self.db._delete_auth_op(id)
+        name = 'test'
+        myid = hash(name)
+        self.db._add_opset(name, [])
+        self.db._delete_auth_op(myid)
 
-        self.os.find(id)
+        self.os.find(myid)
         self.os.delete()
 
 class TestBofhdAuth(TestCase):
@@ -116,6 +120,14 @@ class TestBofhdAuth(TestCase):
         uid = 120
         self.db._superuser(uid)
         self.assertTrue(self.ba.is_superuser(uid))
+
+class BofhdAuthOpTargetTest(TestCase):
+    def setUp(self):
+        self.db = MockDB()
+        self.bt = BofhdAuthOpTarget(self.db)
+
+    def tearDown(self):
+        self.db.verify()
 
 if __name__ == '__main__':
     main()

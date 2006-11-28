@@ -18,13 +18,36 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
+from unittest import TestCase, main
 
-from unittest import main
+from MockDB import *
+from Cerebrum.spine.Account import Account
 
-from AuthorizationUsabilityTest import *
-from AuthorizationTest import *
-from BofhdAuthTest import *
-from AccountTest import *
+class AccountTest(TestCase):
+    def setUp(self):
+        self.aid = MockDB.account['id']
+        self.db = MockDB()
+        self.db._add_account(MockDB.account)
+        self.ac = Account(self.db, self.aid)
+
+    def test_setUp_and_tearDown(self):
+        pass
+
+    def test_get_id(self):
+        assert self.aid == self.ac.get_id()
+
+    def test_value_domain(self):
+        # self.ac._get_sql forces ValueDomainHack to be run
+        self.ac._get_sql()
+
+    def test_get_name(self):
+        assert self.ac.get_name() == 'testuser'
+
+    def test_is_superuser(self):
+        self.assertFalse(self.ac.is_superuser())
+
+    def tearDown(self):
+        self.db.verify()
 
 if __name__ == '__main__':
     main()

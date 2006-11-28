@@ -27,9 +27,6 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpSet
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
 from Cerebrum.Utils import Factory
 
-Account = Factory.get("Account")
-Person = Factory.get("Person")
-
 from Cerebrum.spine.Types import CodeType
 
 from MockDB import *
@@ -100,41 +97,35 @@ class BofhdAuthTest(AuthorizationTest):
         """A user should be able to set his/her own password."""
         target = self.db._getAccount(self.userid)
         operation = 'Account.set_password'
+        self.db._add_opset('own_account', [operation])
         op = self.db._get_op(operation)
 
-        self.db._add_opset_byname('own_account')
-        self.db._add_ops_to_set('own_account', [op])
         self.assertTrue(self.auth_obj.has_user_access(op, target))
 
     def testChangeOwnPerson(self):
-        target = self.db._getPerson(self.ownerid)
         operation = 'Person.set_display_name'
-        op = self.db._get_op(operation)
+        self.db._add_opset('own_account', [operation])
 
-        self.db._add_opset_byname('own_account')
-        self.db._add_ops_to_set('own_account', [op])
-        self.auth_obj.has_user_access(operation, target)
+        self.auth_obj.has_user_access(operation, self.account)
 
     def testHasAccess(self):
         target_id = self.userid + 10
         op_name = 'Account.set_password'
+        self.db._add_opset('orakel', [op_name])
         self.op = self.db._get_op(op_name)
-        self.db._add_opset('orakel', self.db._stub)
-        self.db._add_ops_to_set('orakel', [self.op], self.db._stub)
         self.db._add_op_role(self.userid, 'orakel', target_id, self.db._stub)
         self.db._add_group_member(self.userid) # Stubs out group stuff.
         self.db._grant_access_to_entity_via_ou((self.userid,), hash(op_name), target_id)
-
         target = self.db._getAccount(target_id)
+
         self.assertTrue(self.auth_obj.has_access(self.op, target, self.ba))
 
     def testHasAccessThroughGroup(self):
         group_id = self.userid + 5
         target_id = self.userid + 10
         op_name = 'Account.set_password'
+        self.db._add_opset('orakel', [op_name])
         self.op = self.db._get_op(op_name)
-        self.db._add_opset('orakel', self.db._stub)
-        self.db._add_ops_to_set('orakel', [self.op], self.db._stub)
         self.db._add_group_member(group_id, self.userid)
         self.db._add_op_role(group_id, 'orakel', target_id, self.db._stub)
         target = self.db._getAccount(target_id)
@@ -189,18 +180,17 @@ class NonBofhdAuthTest(AuthorizationTest):
 class HasCommandAccessTest(AuthorizationTest):
     def setUp(self):
         super(HasCommandAccessTest, self).setUp()
-        self.db._add_opset_byname('public', method=self.db._stub)
-        self.op = self.db._get_op('Commands.get_account_by_name')
+        op_name = 'Commands.get_account_by_name'
+        self.db._add_opset('public', [op_name])
+        self.op = self.db._get_op(op_name)
 
     def testPublicCommand(self):
-        self.db._add_ops_to_set('public', [self.op])
         self.assertTrue(self.auth_obj.has_access_to_command(self.op))
 
     def testUserAccessCommand(self):
-        self.db._add_ops_to_set('public', method=self.db._stub)
+        self.db._add_opset('public', []) # overwrites existing opset
         self.db._add_op_role(self.userid, 'orakel', self.userid)
-        self.db._add_opset_byname('orakel', self.db._stub)
-        self.db._add_ops_to_set('orakel', [self.op])
+        self.db._add_opset('orakel', [self.op])
         self.assertTrue(self.auth_obj.has_access_to_command(self.op))
 
 if __name__ == '__main__':
