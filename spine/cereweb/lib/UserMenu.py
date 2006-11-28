@@ -19,9 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import Menu
+from SideMenu import SideMenu
 from gettext import gettext as _
 
-class UserMenu(Menu.Menu):
+class UserMenu(SideMenu):
     def __init__(self):
         Menu.Menu.__init__(self)
         self.addItem("passwd", _("Set Password"), "#password", cssid='pass_set')
+        SideMenu.makeLogout(self)
