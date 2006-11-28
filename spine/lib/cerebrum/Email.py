@@ -418,6 +418,7 @@ def create_email_address(self, local_part, domain, target):
 create_email_address.signature = EmailAddress
 create_email_address.signature_write = True
 create_email_address.signature_args = [str, EmailDomain, EmailTarget]
+Commands.create_email_address = create_email_address
   
 def full_address(self):
     """
