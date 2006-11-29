@@ -32,7 +32,7 @@
 <div class="view_content">
 
     ## Content
-    ##$viewInfo($account)
+    $viewInfo($account)
     $setVacation($account)
     $setMailforward($account)
 
@@ -47,21 +47,6 @@
         FV_register('note_form', 'note_add', null, 'note_cancel');
         //-->
     </script>
-</div>
-#end def
-
-## Show nice businessCard-like info about person/account
-#def viewInfo($account)
-<div class="view_info">
-    <div class="info">
-        <em>$_('Name'):</em> $account.get_name()
-    </div>
-    <div class="info">
-        <em>$_('Owned by'):</em> $object_link($account.get_owner())
-    </div>
-    <div class="info">
-        <em>$_('Expire date'):</em> $strftime($account.get_expire_date())
-    </div>
 </div>
 #end def
 
