@@ -184,7 +184,7 @@ class LdapBack:
                 self.indirectory.append(dn)
             for entry in self.insync:
                 try:
-                    self.inderectory.remove(entry)
+                    self.indirectory.remove(entry)
                 except:
                     info("Info: Didn't find entry: %s." % entry)
             self.indirectory.sort(self._cmp)
