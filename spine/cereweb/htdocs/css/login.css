@@ -1,0 +1,33 @@
+BODY {
+	color:  black;
+	background-color: white;
+}
+
+TABLE {
+	font-size: 14px;
+	} 
+
+.frametable {
+	color: black;
+	border: thin dotted black;
+	background-color: white;
+	}
+
+.logintable {
+	color: black;
+	border: thin solid black;
+	background-color: #aac1df;
+	}
+
+.heading1 {
+	color: black;
+	font: italic
+	small-caps 900 20px arial;
+	text-align: center;
+	}
+
+.errortd {
+	color: red;
+	background-color: #aac1df;
+	text-align: center;
+	}
