@@ -39,23 +39,23 @@ index = transaction_decorator(index)
 index.exposed = True
 
 def set_password(transaction, **vargs):
-	myId = vargs.get('id')
-	pass1 = vargs.get('passwd1')
-	pass2 = vargs.get('passwd2')
-	if myId and pass1 and pass2 and pass1 == pass2:
-	  account = transaction.get_account(int(myId))
-	  account.set_password(pass1)
-	  transaction.commit()
-	elif (not myId):
-		print 'not myId'
-	elif (not pass1):
-		print 'not pass1'
-	elif ( not pass2):
-		print 'not pass2'
-	elif ( not pass1 == pass2 ):
-		print 'pass1 != pass2'
-
-	utils.redirect('/user_client')
+    myId = vargs.get('id')
+    pass1 = vargs.get('passwd1')
+    pass2 = vargs.get('passwd2')
+    if myId and pass1 and pass2 and pass1 == pass2:
+        account = transaction.get_account(int(myId))
+        account.set_password(pass1)
+        transaction.commit()
+        queue_message("Password changed successfully")
+    elif (not myId):
+        queue_message("Account-Id missing.",error=True)
+    elif (not pass1):
+        queue_message("Password 1 missing.",error=True)
+    elif ( not pass2):
+        queue_message("Password 2 missing.",error=True)
+    elif ( not pass1 == pass2 ):
+        queue_message("Passwords doesn't match",error=True)
+    utils.redirect('/user_client')
 set_password = transaction_decorator(set_password)
 set_password.exposed = True
 
