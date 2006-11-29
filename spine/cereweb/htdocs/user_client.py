@@ -25,10 +25,10 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
-from lib.templates.InsightTemplate import InsightTemplate
+from lib.templates.UserTemplate import UserTemplate
 
 def index(transaction):
-    page = InsightTemplate()
+    page = UserTemplate()
     username = cherrypy.session.get('username', '')
     account = transaction.get_commands().get_account_by_name(username)
     page.tr = transaction
@@ -37,6 +37,18 @@ def index(transaction):
     return [res]
 index = transaction_decorator(index)
 index.exposed = True
+
+def mail(transaction):
+    page = UserTemplate()
+    username = cherrypy.session.get('username', '')
+    account = transaction.get_commands().get_account_by_name(username)
+    page.tr = transaction
+    page.account = account
+    page.setFocus("mail")
+    res = str(page)
+    return [res]
+mail = transaction_decorator(mail)
+mail.exposed = True
 
 def set_password(transaction, **vargs):
     myId = vargs.get('id')
@@ -48,11 +60,11 @@ def set_password(transaction, **vargs):
         transaction.commit()
         queue_message("Password changed successfully")
     elif (not myId):
-        queue_message("Account-Id missing.",error=True)
+        queue_message("Account-Id missing. Missing transaction?",error=True)
     elif (not pass1):
-        queue_message("Password 1 missing.",error=True)
+        queue_message("Passwords doesn't match",error=True)
     elif ( not pass2):
-        queue_message("Password 2 missing.",error=True)
+        queue_message("Passwords doesn't match.",error=True)
     elif ( not pass1 == pass2 ):
         queue_message("Passwords doesn't match",error=True)
     utils.redirect('/user_client')

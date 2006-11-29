@@ -25,5 +25,20 @@ from gettext import gettext as _
 class UserMenu(SideMenu):
     def __init__(self):
         Menu.Menu.__init__(self)
-        self.addItem("passwd", _("Set Password"), "#password", cssid='pass_set')
-        SideMenu.makeLogout(self)
+        self.makeMain()
+        self.makeMail()
+        self.makeGroup()
+        self.makeLogout()
+        self.setFocus("main/passwd")
+
+    def makeMain(self):
+        self.mainmenu = self.addItem("main", _("Main"), "/user_client")
+        self.mainmenu.addItem("passwd", _("Password"), "/user_client/#password", cssid="pass_set")
+
+    def makeMail(self):
+        self.mailmenu = self.addItem("mail", _("Mail"), "/user_client/mail")
+        self.mailmenu.addItem("vacation", _("Vacation"), "/user_client/mail/#vacation")
+        self.mailmenu.addItem("forward", _("Mailforward"), "/user_client/mail/#forward")
+
+    def makeGroup(self):
+        pass
