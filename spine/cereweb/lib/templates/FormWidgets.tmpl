@@ -58,6 +58,29 @@
     $generate_loption($name, $label, $codes, $selected)                 
 #end def    
 
+#def td2input( $name, $label, $value, $text="", $type="text", $tdattrs={'align': {'left': 'left','right' :'left'}} )
+	#for $attr in $tdattrs.keys():
+		<td $attr="$tdattrs[$attr]['left']">
+    		<label for="$name">$_($label):</label>
+		</td>
+		<td $attr="$tdattrs[$attr]['right']">
+    		<input type="$type" name="$name" id="$name" value="$_($value)">$text</input>
+		</td>
+	#end for
+#end def	
+
+
+#def td2password( $name, $label, $text="", $value="",$tdattrs={'align': {'left': 'left','right' :'left'}} )
+	#for $attr in $tdattrs.keys():
+		<td $attr="$tdattrs[$attr]['left']">
+    		<label for="$name">$_($label):</label>
+		</td>
+		<td $attr="$tdattrs[$attr]['right']">
+    		<input type="password" name="$name" id="$name" value="$_($value)">$text</input>
+		</td>
+	#end for
+#end def
+
 ## Creates inputs and labels from given arguments.
 #def input($name, $label, $value="", $text="", $type="text")
     <label for="$name">$_($label):</label>
