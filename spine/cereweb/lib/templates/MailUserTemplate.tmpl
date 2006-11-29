@@ -1,0 +1,83 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.UserMenu import UserMenu
+#from lib.utils import object_link, strftime
+#from lib.WorkList import remember_link
+#from EmailTargetTemplate import EmailTargetTemplate
+#from FormWidgets import FormWidgets
+#extends UserTemplate
+
+#attr $form_widgets = FormWidgets()
+
+## Main method for creating the view of person/account.
+#def view($transaction, $account)
+#set $id = $account.get_id()
+#set $commands = $transaction.get_commands()
+<div class="view_content">
+
+    ## Content
+    ##$viewInfo($account)
+    $setVacation($account)
+    $setMailforward($account)
+
+    ## Register divs and links to flip visibility.
+    <script language="JavaScript">
+        <!--
+        FV_register('pass_form', 'pass_set', null, 'pass_cancel');
+        FV_register('home_form', 'home_set', null, 'home_cancel');
+        FV_register('email_form', 'email_add', null, 'email_cancel');
+        FV_register('group_form', 'group_join', null, 'group_cancel');
+        FV_register('spread_form', 'spread_add', null, 'spread_cancel');
+        FV_register('note_form', 'note_add', null, 'note_cancel');
+        //-->
+    </script>
+</div>
+#end def
+
+## Show nice businessCard-like info about person/account
+#def viewInfo($account)
+<div class="view_info">
+    <div class="info">
+        <em>$_('Name'):</em> $account.get_name()
+    </div>
+    <div class="info">
+        <em>$_('Owned by'):</em> $object_link($account.get_owner())
+    </div>
+    <div class="info">
+        <em>$_('Expire date'):</em> $strftime($account.get_expire_date())
+    </div>
+</div>
+#end def
+
+#def setVacation($account)
+<div class="set_vacation" id="id=vacation_form" style="display:always;">
+    method setVacation not implemented yet
+</div>
+#end def
+
+#def setMailforward($account)
+<div class="set_mailforward" id="mailforward_form" style="display:always;">
+    method setMailforward not implemented yet
+</div>
+#end def
+
+#def content()
+$view($tr, $account)
+#end def
+
