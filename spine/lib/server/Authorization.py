@@ -22,11 +22,11 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, BofhdAuthRole
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
-Entity = Factory.get("Entity")
-Account = Factory.get("Account")
-Person = Factory.get("Person")
-Group = Factory.get("Group")
 
+from Cerebrum.spine.Entity import Entity
+from Cerebrum.spine.Account import Account
+from Cerebrum.spine.Person import Person
+from Cerebrum.spine.Group import Group
 from Cerebrum.spine.Types import CodeType
 from Cerebrum.spine.Commands import Commands
 from Cerebrum.spine.EntityAuth import EntityAuth
@@ -42,7 +42,7 @@ class Authorization(object):
         self._db.close()
 
     def is_superuser(self, bofhdauth):
-        if bofhdauth.is_superuser(self.account.entity_id):
+        if bofhdauth.is_superuser(self.account.get_id()):
             return True
 
     def is_public(self, cls, obj, m):
@@ -58,13 +58,12 @@ class Authorization(object):
         if issubclass(cls, CodeType):
             return True
 
-    def check_permission(self, obj, method_name, *args):
+    def has_permission(self, obj, method_name, *args):
         """Checks whether the owner of the session has access to run the
         specified method on the given object with the args provided.  See
         https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
         for en dokumentasjon av autorisasjonssjekken"""
 
-        return True # Disablet p� grunn av programmeringsfeil.
         bofhdauth = BofhdAuth(self._db)
         if self.is_superuser(bofhdauth): return True
 
@@ -78,11 +77,11 @@ class Authorization(object):
         # FIXME: A TEST MUST BE IMPLEMENTED!
 
         # Command objects are not entities and must be handled separately.
-        if isinstance(object, Commands) and has_access_to_command(operation):
+        if isinstance(obj, Commands) and self.has_access_to_command(operation):
             return True
         
         # Does self.account have user access to this object?
-        if self.has_user_access(operation, obj, bofhdauth):
+        if self.has_user_access(operation, obj):
             return True
 
         # Har brukeren tilgang til å utføre operasjonen som konsekvens av tilgangsnivå
@@ -102,7 +101,7 @@ class Authorization(object):
             return True
 
         op_role = BofhdAuthRole(self._db)
-        roles = op_role.list(entity_ids=self.account.entity_id)
+        roles = op_role.list(entity_ids=self.account.get_id())
         for s, set, t in roles:
             op_set.find(set)
             operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
@@ -113,10 +112,10 @@ class Authorization(object):
         ok = False
 
         if isinstance(target, Account):
-            ok = target.entity_id == self.account.entity_id
+            ok = target.get_id() == self.account.get_id()
             # account.owner_id() == group && self.account.entity_id in group.members
         elif isinstance(target, Person):
-            ok = self.account.owner_id == target.entity_id
+            ok = self.account.get_owner().get_id() == target.get_id()
 
         if ok:
             op_set = BofhdAuthOpSet(self._db)
@@ -133,8 +132,10 @@ class Authorization(object):
         if isinstance(target, Account) or isinstance(target, Person):
             # Is operator allowed to perform 'operation' on one of the OUs
             # associated with the target?
+            ceTarget = Factory.get("Account")(self._db)
+            ceTarget.find(target.get_id())
             if bofhdauth._has_access_to_entity_via_ou(
-                    self.account.entity_id, operation, target):
+                    self.account.get_id(), operation, ceTarget):
                 return True
 
 

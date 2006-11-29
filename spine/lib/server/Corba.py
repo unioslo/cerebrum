@@ -263,7 +263,7 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
             transaction.check_lost_locks()
 
             # Authorization
-            if not transaction.authorization.check_permission(self.spine_object, method_name, corba_args):
+            if not transaction.authorization.has_permission(self.spine_object, method_name, corba_args):
                 raise AccessDeniedError('Your are not authorized to perform the requested operation.')
 
             # Lock the object if it should be locked

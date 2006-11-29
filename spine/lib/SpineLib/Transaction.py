@@ -35,6 +35,7 @@ __all__ = ['Transaction']
 
 class Transaction(Builder.Builder):
     _ignore_Transaction = True
+    signature_public = True
     
     def __init__(self, session):
         handler = LockHandler.get_handler()
@@ -199,6 +200,7 @@ class Transaction(Builder.Builder):
             m.signature_name = method_name
             m.signature_named_args = args
             m.signature_exceptions = [NotFoundError]
+            m.signature_public = True
             Transaction.register_methods([m])
         super(Transaction, cls).build_methods()
     build_methods = classmethod(build_methods)

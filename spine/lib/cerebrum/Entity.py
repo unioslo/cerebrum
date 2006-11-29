@@ -41,7 +41,7 @@ class ValueDomainHack(dict):
         var = self.var
         self.var = None
         import Cerebrum.Utils
-        db = Cerebrum.Utils.Factory.get('Database')()
+        db = registry.db or Cerebrum.Utils.Factory.get('Database')()
         self['value_domain'] = ValueDomain(db, name=var).get_id()
 
         if not type_cache:

@@ -58,5 +58,6 @@ class Date(Builder):
             return str(self._value)
 
     to_string.signature = str
+Date.signature_public = True
 
 # arch-tag: 57d51c14-a6c9-4913-a011-1f7222ad79b5

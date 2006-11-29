@@ -22,6 +22,7 @@ import sets
 
 import Cerebrum.Errors
 
+import Registry
 import Builder
 import SpineExceptions
 
@@ -113,6 +114,8 @@ class DatabaseTransactionClass(Builder.Builder, Caching):
 
     def __init__(self, db, *args, **vargs):
         self._database = db
+        r = Registry.get_registry()
+        r.map['db'] = self._database
         super(DatabaseTransactionClass, self).__init__(*args, **vargs)
 
     def get_database(self):

@@ -184,7 +184,7 @@ class HasCommandAccessTest(AuthorizationTest):
         self.db._add_opset('public', [op_name])
         self.op = self.db._get_op(op_name)
 
-    def testPublicCommand(self):
+    def testPublicCommand_has_access_to_command(self):
         self.assertTrue(self.auth_obj.has_access_to_command(self.op))
 
     def testUserAccessCommand(self):
@@ -192,6 +192,19 @@ class HasCommandAccessTest(AuthorizationTest):
         self.db._add_op_role(self.userid, 'orakel', self.userid)
         self.db._add_opset('orakel', [self.op])
         self.assertTrue(self.auth_obj.has_access_to_command(self.op))
+
+    def testPublicCommand_has_permission(self):
+        from Cerebrum.spine.Commands import Commands
+        op = 'get_account_by_name'
+        class C(object):
+            def _getClass(self):
+                return Commands
+            __class__ = property(_getClass)
+        setattr(C, op, lambda: op)
+        self.db._init_bofhdauth()
+        self.db._no_superuser(method=self.db._stub)
+
+        self.assertTrue(self.auth_obj.has_permission(C(), op))
 
 if __name__ == '__main__':
     main()

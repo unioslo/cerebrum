@@ -30,6 +30,7 @@ class Registry(object):
 
     def register_class(self, cls):
         name = cls.__name__
+        public = getattr(cls, 'signature_public', False)
 
         assert not name in self.map
 
@@ -38,10 +39,14 @@ class Registry(object):
 
         if issubclass(cls, Searchable) and issubclass(cls, Builder):
             cls.build_search_class()
+            if public:
+                cls.search_class.signature_public = public
             self.register_class(cls.search_class)
 
         if issubclass(cls, Dumpable) and issubclass(cls, Builder):
             cls.build_dumper_class()
+            if public:
+                cls.dumper_class.signature_public = public
             self.register_class(cls.dumper_class)
 
         self.map[name] = cls

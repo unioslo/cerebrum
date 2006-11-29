@@ -36,6 +36,8 @@ class CerewebOption(DatabaseClass):
 
     Cereweb-specific options where both key and value is string.
     """
+
+    signature_public = True
     
     primary = (
         DatabaseAttr('id', option_table, int),
@@ -66,6 +68,8 @@ class CerewebMotd(DatabaseClass):
     Cereweb-specific message of the day. No writeable attributes, to
     avoid the need to have change-dates and info about who changed it.
     """
+
+    signature_public = True
     
     primary = (
         DatabaseAttr('id', motd_table, int),
@@ -85,6 +89,7 @@ class CerewebMotd(DatabaseClass):
     delete.signature = None
     delete.signature_name = 'delete'
     delete.signature_write = True
+    delete.signature_public = False
 
 registry.register_class(CerewebMotd)
 
@@ -101,6 +106,7 @@ create_motd.signature = [CerewebMotd]
 create_motd.signature_write = True
 create_motd.signature_name = 'create_cereweb_motd'
 create_motd.signature_args = [str, str]
+create_motd.signature_public = False
 
 def create_option(self, entity, section, key, value):
     """Create a new option.
@@ -111,7 +117,6 @@ def create_option(self, entity, section, key, value):
     id = int(db.nextval('cereweb_seq'))
     CerewebOption._create(db, id, entity, section, key, value)
     return CerewebOption(db, id)
-
 create_option.signature = CerewebOption
 create_option.signature_name = 'create_cereweb_option'
 create_option.signature_write=True
