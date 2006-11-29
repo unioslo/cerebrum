@@ -152,8 +152,14 @@
         <a name="password" />
         <h3>$_('Set password')</h3>
         <input type="hidden" name="id" value="$account.get_id()" />
-        $form_widgets.password('passwd1', 'Password')
-        $form_widgets.password('passwd2', 'Retype password')
+        <table>
+        <tr>
+        $form_widgets.td2password('passwd1', 'Password')
+        </tr>
+        <tr>
+        $form_widgets.td2password('passwd2', 'Retype password')
+        </tr>
+        </table>
         <input type="submit" value="$_('Set password')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="pass_cancel" />
     </form>
