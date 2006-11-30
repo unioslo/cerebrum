@@ -66,25 +66,8 @@
 
 #def setPassword($account)
 <div class="view_add" id="pass_form" style="display:always;">
-    <table border=0>
-    <tr><td>
-    <form action="set_password" type="POST">
-        <a name="password" />
-        <h3>$_('Set password')</h3>
-        <input type="hidden" name="id" value="$account.get_id()" />
-        <table>
-        <tr>
-            $form_widgets.td2password('passwd1', 'Password')
-        </tr>
-        <tr>
-            $form_widgets.td2password('passwd2', 'Retype password')
-        </tr>
-        </table>
-        <input type="submit" value="$_('Set password')" />&nbsp;
-        <input type="button" value="$_('Cancel')" id="pass_cancel" />
-    </form>
-    </tr></td>
-    </table>
+    <h3>$_('Set password')</h3>
+    $form_widgets.changePassword($account.get_id())
 </div>
 #end def
 

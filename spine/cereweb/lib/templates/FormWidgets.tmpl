@@ -81,6 +81,22 @@
 	#end for
 #end def
 
+#def changePassword($aid)
+<form action="set_password" type="POST">
+<input type="hidden" name="id" value="$aid" />
+<table>
+<tr>
+            $td2password('passwd1', 'Password')
+</tr>
+<tr>
+            $td2password('passwd2', 'Repeat password')
+</tr>
+</table>
+<input type="submit" value="$_('Set password')" />&nbsp;
+<input type="button" value="$_('Cancel')" id="pass_cancel" />&nbsp;
+</form>
+#end def
+
 ## Creates inputs and labels from given arguments.
 #def input($name, $label, $value="", $text="", $type="text")
     <label for="$name">$_($label):</label>
