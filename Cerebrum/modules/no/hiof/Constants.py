@@ -28,20 +28,20 @@ from Cerebrum import Constants
 from Cerebrum.Constants import _SpreadCode, \
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode
-
+from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
 
     ## Affiliations for students
     affiliation_status_student_tilbud = _PersonAffStatusCode(
-        affiliation_student, 'tilbud', 'Student, tilbud')
+        ConstantsUniversityColleges.affiliation_student, 'tilbud', 'Student, tilbud')
     affiliation_status_student_privatist = _PersonAffStatusCode(
-        affiliation_student, 'privatist', 'Student, privatist')
+        ConstantsUniversityColleges.affiliation_student, 'privatist', 'Student, privatist')
 
    ## Affiliations for associated people
     affiliation_status_tilknyttet_timelonnet = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'timelonnet',
+        ConstantsUniversityColleges.affiliation_tilknyttet, 'timelonnet',
         'Personer registrert i SAP som timelønnet')
 
     ## Affiliations for others
