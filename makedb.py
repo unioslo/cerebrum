@@ -56,6 +56,9 @@ def usage(exitcode=0):
         Only perform this stage in the files.
   -d | --debug
   -c file | --country-file=file
+  --add-spine-auth-codes
+        Populate the database with auth_codes from spine.  Requires
+        bofhd_auth.sql version 1.2 or higher.
 
 If one or more 'sql-file' arguments are given, each phase will include
 only statements from those files.  The statements for core Cerebrum
@@ -70,7 +73,8 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'dc:',
                                    ['debug', 'help', 'drop', 'update-codes',
                                     'only-insert-codes', 'country-file=',
-                                    'extra-file=', 'stage='])
+                                    'extra-file=', 'stage=',
+                                    'add-spine-auth-codes'])
     except getopt.GetoptError:
         usage(1)
 
@@ -108,6 +112,9 @@ def main():
             extra_files.append(val)
         elif opt in ('-c', '--country-file'):
             read_country_file(val, db)
+            sys.exit()
+        elif opt == '--add-spine-auth-codes':
+            add_spine_auth_codes(db)
             sys.exit()
 
     # By having two leading spaces in the '  insert' literal below, we
@@ -168,6 +175,35 @@ def read_country_file(fname, db):
             code_obj = Constants._CountryCode(code_str, country, phone_prefix,
                                               description=country)
             code_obj.insert()
+    db.commit()
+
+def add_spine_auth_codes(db):
+    from Cerebrum import Constants
+    from sets import Set
+    # Hack to make sure we import the correct Builder
+    sys.path.remove(sys.path[0])
+    reload(Cerebrum)
+    from Cerebrum.spine.SpineLib import Builder
+    from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+
+    # Create a dummy Constants object in order to ensure that the .sql
+    # attribute of Constants._CerebrumCode is present.  FIXME: This is
+    # seriously ugly.
+    foo = Constants.Constants(db)
+
+    auth_op_codes = Set()
+    # Get the methods from spine
+    for cls in Builder.get_builder_classes():
+        for method in Builder.get_builder_methods(cls):
+            name, data_type, write, args, exceptions = Builder.get_method_signature(method)
+            code = "%s.%s" % (cls.__name__, name)
+            assert len(code) <= 64, code
+            auth_op_codes.add(code)
+
+    for code_str in auth_op_codes:
+        code_obj = _AuthRoleOpCode(
+            code_str, 'Autoimported from madedb.py:add_spine_auth_codes')
+        code_obj.insert()
     db.commit()
 
 def insert_code_values(db, delete_extra_codes=False):
