@@ -39,6 +39,7 @@ class UserMenu(SideMenu):
         self.mailmenu = self.addItem("mail", _("Mail"), "/user_client/mail")
         self.mailmenu.addItem("vacation", _("Vacation"), "/user_client/mail/#vacation")
         self.mailmenu.addItem("forward", _("Mailforward"), "/user_client/mail/#forward")
+        self.mailmenu.addItem("spamlevel", _("Spam level"), "/user_client/mail/#spamlevel")
 
     def makeGroup(self):
         pass
