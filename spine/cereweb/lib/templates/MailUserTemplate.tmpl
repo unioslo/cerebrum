@@ -25,6 +25,7 @@
 
 #attr $form_widgets = FormWidgets()
 
+
 ## Main method for creating the view of person/account.
 #def view($transaction, $account)
 #set $id = $account.get_id()
@@ -33,8 +34,8 @@
 
     ## Content
     $viewInfo($account)
-    $setVacation($account)
-    $setMailforward($account)
+    $viewVacation($vacations)
+    $viewMailforward($forwards)
 
     ## Register divs and links to flip visibility.
     <script language="JavaScript">
@@ -50,15 +51,39 @@
 </div>
 #end def
 
-#def setVacation($account)
-<div class="set_vacation" id="id=vacation_form" style="display:always;">
-    method setVacation not implemented yet
+#def viewVacation($vacations)
+<div class="view_vacation" id="id=vacation_form" style="display:always;">
+Vacations:<br>
+#if $len($vacations) > 0
+    #for $vacation in $vacations
+        start: $vacation['start_date']<br>
+        end:   $vacation['end_date'] <br>
+        Message: $vacation['text']<br>
+        <a href=#delete?id=$vacation['id']> Delete </a>
+    #end for
+#else
+    No vacations registered.
+#end if
+<br>
+<a href=#newVacation>Set new vacation</a>
 </div>
 #end def
 
-#def setMailforward($account)
-<div class="set_mailforward" id="mailforward_form" style="display:always;">
-    method setMailforward not implemented yet
+#def viewMailforward($forwards)
+<div class="view_mailforward" id="mailforward_form" style="display:always;">
+Forwards:<br>
+#if $len($forwards) > 0
+    #for $forward in $forwards
+        Start: $forward['start_date']<br>
+        End:   $forward['end_date'] <br>
+        Target: $forward['address']<br>
+        <a href=#delete?id=$forward['id']> Delete </a>
+    #end for
+#else
+    No forwards registered
+#end if
+<br>
+<a href=#newForward>Set new forward</a>
 </div>
 #end def
 
