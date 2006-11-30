@@ -90,7 +90,10 @@ def get_forwards(tr,acc):
 def get_email_target_search_helper(transaction, account, searcher):
     ts = transaction.get_email_target_searcher()
     ts.set_entity(account)
-    target = ts.search()[0]
+    target = ts.search()
+    if not target: 
+        return (None,[])
+    target = target[0]
     target_id = target.get_id()
     searcher.set_target(target)
     return (target_id,searcher.search())
