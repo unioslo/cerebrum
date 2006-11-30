@@ -81,8 +81,7 @@ def get_forwards(tr,acc):
             end_date = end_date.to_string()
         else:
             end_date = ''
-        address = 'hardkodet@ntnu.no'
-        # address = forward.get_forward_to()
+        address = forward.get_forward_to()
         enabled = forward.get_enable()
         forwards.append({'id':target_id,'start_date':start_date,'end_date':end_date,'address':address,'enabled':enabled})
     return forwards
