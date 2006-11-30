@@ -45,12 +45,26 @@ def get_user_info(transaction,username):
     my_id = account.get_id()
     username = account.get_name()
     owner = account.get_owner()
-    fullname = owner.get_cached_full_name()
+    owner_type = account.get_owner_type().get_name()
+    if owner_type == 'person':
+        fullname = owner.get_cached_full_name()
+    else:
+        fullname = owner.get_name()
     expire_date = account.get_expire_date().strftime('%Y-%m-%d')
     birthdate = owner.get_birth_date().strftime('%Y-%m-%d')
     is_quaratined = owner.is_quarantined()
     user = {'id':my_id,'username':username,'fullname':fullname,'expire_date':expire_date,
-            'birthdate':birthdate,'quarantined':is_quaratined}
+            'birthdate':birthdate,'quarantined':is_quaratined,'external_id': []}
+    if account.get_owner_type().get_name() == 'person':
+        extsearcher = transaction.get_entity_external_id_searcher()
+        extsearcher.set_entity(owner)
+        extids = extsearcher.search()
+        for extid in extids:
+            extid_type = extid.get_id_type().get_name()
+            extid_type_description = extid.get_id_type().get_description()
+            external_id = extid.get_external_id()
+            extdict = {'extid_type': extid_type,'extid_type_description':extid_type_description,'external_id': external_id}
+            user['external_id'].append(extdict)
     return user
 
 def mail(transaction):
