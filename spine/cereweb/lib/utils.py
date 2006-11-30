@@ -199,4 +199,29 @@ def commit_url(transaction, url, msg='', error='', link=''):
             queue_message(msg, link=link)
     raise cherrypy.HTTPRedirect(url)
 
+def struct2dict(struct):
+    """Converts a SpineStruct to a python dictionary."""
+    d = {}
+    for attr in dir(struct):
+        if attr.startswith('_'):
+            continue
+        d[attr] = getattr(struct, attr)
+    return d
+
+def get_account(transaction, account_id=None, account_name=None):
+    """Returns a dictionary with the information about the
+    given account."""
+    account = {}
+
+    assert account_id or account_name
+    searcher = transaction.get_account_searcher()
+    if account_id:
+        searcher.set_id(account_id)
+    else:
+        searcher.set_name(account_id)
+    acc_struct = searcher.dump()
+    if acc_struct:
+        account = struct2dict(acc_struct[0])
+    return account
+
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6
