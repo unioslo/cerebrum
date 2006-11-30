@@ -44,14 +44,25 @@ conf.read(('client.conf.template', 'client.conf'))
 
 try:
     import SpineClient
-    from TestObjects import *
 except:
-    print >> sys.stderr, "\n".join(
-       ("Importing SpineClient or TestObjects failed.",
-        "Please make sure cerebrum/spine/test and",
-        "cerebrum/spine/client is in your PYTHONPATH",
-        "environment variable."))
+    print >> sys.stderr, """Importing SpineClient failed.
+Please make sure cerebrum/spine/client is in your PYTHONPATH
+environment variable.  Example:
+export PYTHONPATH=$PYTHONPATH:~/cerebrum/spine/client/"""
     sys.exit(1)
+
+def _login(username=None, password=None):
+    global wrapper, __s, tr, c
+    wrapper = Session(username=username, password=password)
+    __s = wrapper.session
+    tr = wrapper.tr
+    c = wrapper.c
+
+def _new_transaction():
+    global wrapper, tr, c
+    wrapper.new_transaction()
+    tr = wrapper.tr
+    c = wrapper.c
         
 class Session(object):
     def __init__(self, ior_file=None, username=None, password=None):
@@ -62,20 +73,16 @@ class Session(object):
         cache_dir = conf.get('SpineClient', 'idl_path')
         self.spine = SpineClient.SpineClient(ior_file, idl_path=cache_dir).connect()
         self.session = self.spine.login(self.username, self.password)
+        self.new_transaction()
+
+    def new_transaction(self):
         self.tr = self.session.new_transaction()
         self.c = self.tr.get_commands()
-    
+
     def __del__(self):
         print "Logging out..."
-        self.tr.rollback()
+        for i in self.session.get_transactions():
+            i.rollback()
         self.session.logout()
 
-    def pga(self):
-        p = DummyPerson(self.session)
-        a = DummyAccount(self.session, p)
-        g = DummyGroup(self.session)
-        g.add_member(a.get_id())
-        return p,g,a
-s = Session()
-tr = s.tr
-c = s.c
+_login()
