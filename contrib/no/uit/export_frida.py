@@ -164,8 +164,8 @@ class system_xRepresentation(object):
         account = Factory.get('Account')(db)
         const = Factory.get('Constants')(db)
         stedkode = Stedkode.Stedkode(db)
-
-
+        
+        print "start processing guests"
         current_source_system= const.system_x
         # Get all persons that come from SysX  ONLY, _and_ has a norwegian SSN! 
         entities = person.list_external_ids(source_system=const.system_x,id_type=const.externalid_fodselsnr,entity_type=8)
@@ -209,73 +209,81 @@ class system_xRepresentation(object):
 
 
             # Got info, output!
-            writer.startElement("person",person_attrs)
-
-            writer.startElement("etternavn")
-            writer.data(etternavn)
-            writer.endElement("etternavn")
-
-            writer.startElement("fornavn")
-            writer.data(fornavn)
-            #writer.endElement("givenName")
-            writer.endElement("fornavn")
-
-            writer.startElement("brukernavn")
-            writer.data(account_name)
-            writer.endElement("brukernavn")
-            writer.startElement("gjester")
-            writer.startElement("gjest")
-
-            writer.startElement("institusjonsnr")
-            stedkode.find(aff_id)
-            writer.data(str(stedkode.institusjon))
-            writer.endElement("institusjonsnr")
-
-            writer.startElement("avdnr")
-            writer.data(str(stedkode.fakultet))
-            writer.endElement("avdnr")
-
-            writer.startElement("undavdnr")
-            writer.data(str(stedkode.institutt))
-            writer.endElement("undavdnr")
-
-            writer.startElement("gruppenr")
-            writer.data(str(stedkode.avdeling))
-            writer.endElement("gruppenr")
-
-            writer.startElement("datoFra")
-            create_date = aff[0]['create_date']
-
-            dato_fra ="%s-%s-%s" % (create_date.year,create_date.month,create_date.day)
-            writer.data(dato_fra)
-            writer.endElement("datoFra")
-
-             # traverse through the global list and check if the external_id already exists there.
-            # if it does, then set the guest field dato_til to that persons tils.fra_dato
-            # result is that all guests who now come as an employee will have the guest.dato_til
-            # set to that persons start date as an employee.
+            found=False
             for i in person_list:
                 existing_person_ssn="%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
                 if external_id==existing_person_ssn:
-                    print "gjeste:%s%s%s%s == ansatt:%s" % (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'],external_id)
-                    temp_dato= i['tils']['dato_fra']
-                    dato_list=temp_dato.split("/")
-                    dato_til_mnd=dato_list[0]
-                    dato_til_dag=dato_list[1]
-                    dato_til_aar = dato_list[2]
-                    dato_til="%s-%s-%s" % (dato_til_aar,dato_til_mnd,dato_til_dag)
-                    if dato_til > dato_fra:
-                        writer.startElement("datoTil")
-                        writer.data(str(dato_til))
-                        writer.endElement("datoTil")
+                    found=True
+            if (found==False):
+                writer.startElement("person",person_attrs)
 
-            writer.startElement("gjestebetegnelse")
-            writer.data(aff_str.status_str)
-            writer.endElement("gjestebetegnelse")
+                writer.startElement("etternavn")
+                writer.data(etternavn)
+                writer.endElement("etternavn")
+
+                writer.startElement("fornavn")
+                writer.data(fornavn)
+                #writer.endElement("givenName")
+                writer.endElement("fornavn")
+
+                writer.startElement("brukernavn")
+                writer.data(account_name)
+                writer.endElement("brukernavn")
+                writer.startElement("gjester")
+                writer.startElement("gjest")
+
+                writer.startElement("institusjonsnr")
+                stedkode.clear()
+                stedkode.find(aff_id)
+                writer.data(str(stedkode.institusjon))
+                writer.endElement("institusjonsnr")
+
+                writer.startElement("avdnr")
+                writer.data(str(stedkode.fakultet))
+                writer.endElement("avdnr")
+                    
+                writer.startElement("undavdnr")
+                writer.data(str(stedkode.institutt))
+                writer.endElement("undavdnr")
+                    
+                writer.startElement("gruppenr")
+                writer.data(str(stedkode.avdeling))
+                writer.endElement("gruppenr")
+                    
+                writer.startElement("datoFra")
+                create_date = aff[0]['create_date']
+
+                dato_fra ="%s-%s-%s" % (create_date.year,create_date.month,create_date.day)
+                writer.data(dato_fra)
+                writer.endElement("datoFra")
+
+#              # traverse through the global list and check if the external_id already exists there.
+#             # if it does, then set the guest field dato_til to that persons tils.fra_dato
+#             # result is that all guests who now come as an employee will have the guest.dato_til
+#             # set to that persons start date as an employee.
+#             for i in person_list:
+#                 existing_person_ssn="%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
+#                 if external_id==existing_person_ssn:
+#                     print "gjeste:%s%s%s%s == ansatt:%s" % (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'],external_id)
+#                     temp_dato= i['tils']['dato_fra']
+#                     dato_list=temp_dato.split("/")
+#                     dato_til_mnd=dato_list[0]
+#                     dato_til_dag=dato_list[1]
+#                     dato_til_aar = dato_list[2]
+#                     dato_til="%s-%s-%s" % (dato_til_aar,dato_til_mnd,dato_til_dag)
+#                     if dato_til > dato_fra:
+#                         writer.startElement("datoTil")
+#                         writer.data(str(dato_til))
+#                         writer.endElement("datoTil")
+
+                writer.startElement("gjestebetegnelse")
+                writer.data(aff_str.status_str)
+                writer.endElement("gjestebetegnelse")
             
-            writer.endElement("gjest")
-            writer.endElement("gjester")
-            writer.endElement("person")
+                writer.endElement("gjest")
+                writer.endElement("gjester")
+                writer.endElement("person")
+        print "end processing guests"
         #generate XML data
 
 
