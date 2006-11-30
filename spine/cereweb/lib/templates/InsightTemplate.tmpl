@@ -116,17 +116,30 @@
     <form action="set_password" type="POST">
         <a name="password" />
         <h3>$_('Set password')</h3>
+		<p>
         <input type="hidden" name="id" value="$account.get_id()" />
-        <table>
+        <table border="0">
         <tr>
         $form_widgets.td2password('passwd1', 'Password')
         </tr>
         <tr>
         $form_widgets.td2password('passwd2', 'Retype password')
         </tr>
-        </table>
-        <input type="submit" value="$_('Set password')" />&nbsp;
+		<tr>
+			<td colspan="2">
+				&nbsp;
+			</td>
+		</tr>
+		<tr>
+		<td align="center">
+        <input type="submit" value="$_('Set password')" />
+		</td>
+		<td align="center">
         <input type="button" value="$_('Cancel')" id="pass_cancel" />
+		</td>
+		</tr>
+        </table>
+		</p>
     </form>
     </tr></td>
     </table>
