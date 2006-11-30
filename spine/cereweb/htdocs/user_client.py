@@ -31,7 +31,7 @@ from lib.templates.MailUserTemplate import MailUserTemplate
 def index(transaction):
     page = UserTemplate()
     username = cherrypy.session.get('username', '')
-    account = transaction.get_commands().get_account_by_name(username)
+    account = get_user_info(transaction,username)
     page.tr = transaction
     page.account = account
     res = str(page)
@@ -39,12 +39,26 @@ def index(transaction):
 index = transaction_decorator(index)
 index.exposed = True
 
+def get_user_info(transaction,username):
+    user = {}
+    account = transaction.get_commands().get_account_by_name(username)
+    my_id = account.get_id()
+    username = account.get_name()
+    owner = account.get_owner()
+    fullname = owner.get_cached_full_name()
+    expire_date = account.get_expire_date().strftime('%Y-%m-%d')
+    birthdate = owner.get_birth_date().strftime('%Y-%m-%d')
+    is_quaratined = owner.is_quarantined()
+    user = {'id':my_id,'username':username,'fullname':fullname,'expire_date':expire_date,
+            'birthdate':birthdate,'quarantined':is_quaratined}
+    return user
+
 def mail(transaction):
     page = MailUserTemplate()
     username = cherrypy.session.get('username', '')
     account = transaction.get_commands().get_account_by_name(username)
     page.tr = transaction
-    page.account = account
+    page.account = get_user_info(transaction,username)
     page.vacations = get_vacations(transaction,account)
     page.forwards = get_forwards(transaction,account)
 
