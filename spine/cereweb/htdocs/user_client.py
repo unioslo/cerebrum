@@ -46,15 +46,17 @@ def get_user_info(transaction,username):
     username = account.get_name()
     owner = account.get_owner()
     owner_type = account.get_owner_type().get_name()
+    expire_date = ''
     if owner_type == 'person':
         fullname = owner.get_cached_full_name()
+        birthdate = owner.get_birth_date().strftime('%Y-%m-%d')
+        is_quarantined = owner.is_quarantined()
     else:
         fullname = owner.get_name()
-    expire_date = account.get_expire_date().strftime('%Y-%m-%d')
-    birthdate = owner.get_birth_date().strftime('%Y-%m-%d')
-    is_quaratined = owner.is_quarantined()
+        birthdate = ''
+        is_quarantined = ''
     user = {'id':my_id,'username':username,'fullname':fullname,'expire_date':expire_date,
-            'birthdate':birthdate,'quarantined':is_quaratined,'external_id': []}
+            'birthdate':birthdate,'quarantined':is_quarantined,'external_id': []}
     if account.get_owner_type().get_name() == 'person':
         extsearcher = transaction.get_entity_external_id_searcher()
         extsearcher.set_entity(owner)
