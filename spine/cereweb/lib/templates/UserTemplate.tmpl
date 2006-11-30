@@ -48,16 +48,14 @@ Your information:
         <em>$_('Expire date'):</em> $account['expire_date']
     </div>
 
-    ## If external_id is populated, it's a list with dicts to play with
-    #if $account['external_id'] > 0
-        #for $extid in $account['external_id']
-            #for $key in $extid.keys()
-                <div class="info">
-                    <em>$_($key):</em> $extid[$key]
-                </div>
-            #end for
+    ## If external_id is populated, we have a list with dicts to play with
+    #for $extid in $account['external_id']
+        #for $key in $extid.keys()
+            <div class="info">
+                <em>$_($key):</em> $extid[$key]
+            </div>
         #end for
-    #end if
+    #end for
 </div>
 #end def
 
