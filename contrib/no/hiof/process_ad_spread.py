@@ -1,0 +1,201 @@
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+"""Dette scriptet går gjennom alle personer som har spread til et av
+HIOFs tre AD-domener.  Scriptet har noen oppgaver:
+
+* Beregne profile-path/OU-plassering dersom slik verdi ikke er
+  beregnet tidligere
+* Oppdatere eksisterende verdi dersom tilknyttingsforhold e.l. er
+  endret (dette er ikke implemetert enda, da en spec må skrives
+  først).
+
+Usage: process_AD.py [options]
+-p fname : xml-fil med person informasjon
+-s fname : xml-fil med studieprogram informasjon
+"""
+
+import getopt
+import sys
+import cerebrum_path
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.hiof import ADMappingRules
+from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
+
+db = Factory.get('Database')()
+db.cl_init(change_program="process_ad")
+co = Factory.get('Constants')(db)
+ac = Factory.get('Account')(db)
+person = Factory.get('Person')(db)
+
+logger = Factory.get_logger("cronjob")
+
+class StudieInfo(object):
+    """Parse student-info."""
+
+    def __init__(self, person_fname, stprog_fname):
+        self._person_fname = person_fname
+        self._stprog_fname = stprog_fname
+        # Bruker lazy-initalizing av data-dictene slik at vi slipper å
+        # parse XML-filen medmindre vi trenger å slå opp i den
+        self.fnr2stproginfo = None
+        self.studieprog2sko = None
+        
+    def get_persons_studieprogrammer(self, fnr):
+        if self.fnr2stproginfo is None:
+            self.fnr2stproginfo = self._parse_studinfo()
+        return self.fnr2stproginfo.get(fnr)
+
+    def get_studprog_sko(self, studieprog):
+        if self.studieprog2sko is None:
+            self.studieprog2sko = self._parse_studieprog()
+        return self.studieprog2sko.get(studieprog)
+
+    def _parse_studinfo(self):
+        logger.debug("Parsing %s" % self._person_fname)
+        fnr2stproginfo = {}
+        def got_aktiv(dta, elem_stack):
+            entry = elem_stack[-1][-1]
+            fnr = "%06i%05i" % (int(entry['fodselsdato']), int(entry['personnr']))
+            fnr2stproginfo.setdefault(fnr, []).append(entry)
+
+        cfg = [(['data', 'aktiv'], got_aktiv)]
+        GeneralXMLParser(cfg, self._person_fname)
+        return fnr2stproginfo
+
+    def _parse_studieprog(self):
+        logger.debug("Parsing %s" % self._stprog_fname)
+        stprog2sko = {}
+        def got_aktiv(dta, elem_stack):
+            entry = elem_stack[-1][-1]
+            sko = "%02i%02i%02i" % (int(entry['faknr_studieansv']),
+                                    int(entry['instituttnr_studieansv']),
+                                    int(entry['gruppenr_studieansv']))
+            stprog2sko[entry['studieprogramkode']] = sko
+
+        cfg = [(['data', 'studprog'], got_aktiv)]
+        GeneralXMLParser(cfg, self._stprog_fname)
+        return stprog2sko
+
+class Job(object):
+    """Oppdater profile_path, ou og homedir-path for kontoen dersom
+    verdiene ikke allerede er satt """
+
+    class CalcError(Exception):
+        pass
+
+    def __init__(self, student_info):
+        self._student_info = student_info
+        self.entity_id2profile_path = {}
+        for row in ac.list_traits(co.trait_ad_profile_path):
+            self.entity_id2profile_path[int(row['entity_id'])] = row['strval']
+        logger.debug("Found %i profile-path traits" % len(self.entity_id2profile_path))
+
+        self.entity_id2account_ou = {}
+        for row in ac.list_traits(co.trait_ad_account_ou):
+            self.entity_id2account_ou[int(row['entity_id'])] = row['strval']
+        logger.debug("Found %i ou traits" % len(self.entity_id2account_ou))
+
+        self._adm_rules = ADMappingRules.Adm()
+        self._fag_rules = ADMappingRules.Fag()
+        self._stud_rules = ADMappingRules.Student()
+        
+        for spread in (co.spread_ad_account_fag,
+                       co.spread_ad_account_adm,
+                       co.spread_ad_account_stud):
+            self.process_spread(spread)
+        
+    def process_spread(self, spread):
+        logger.debug("Process accounts with spread=%s" % spread)
+        for row in ac.list_account_home(
+            home_spread=spread, account_spread=spread, filter_expired=True, include_nohome=True):
+            entity_id = int(row['account_id'])
+            if not (self.entity_id2profile_path.has_key(entity_id) and
+                    self.entity_id2account_ou.has_key(entity_id)):
+                ac.clear()
+                ac.find(entity_id)
+                try:
+                    canonical_name, profile_path, home = self.calc_home(entity_id, spread)
+                    logger.debug("Calculated values for %i: cn=%s, pp=%s, home=%s" % (
+                        entity_id, canonical_name, profile_path, home))
+                except Job.CalcError, v:
+                    logger.warn(v)
+                    continue
+                except ADMappingRules.MappingError, v:
+                    logger.warn(v)
+                    continue
+                ac.populate_trait(co.trait_ad_profile_path, strval=profile_path)
+                ac.populate_trait(co.trait_ad_account_ou, strval=canonical_name)
+                ac.write_db()
+                homedir_id = ac.set_homedir(home=home, status=co.home_status_not_created) # TODO: status
+                ac.set_home(spread, homedir_id)
+                db.commit()
+
+    def calc_home(self, entity_id, spread):
+        if spread == co.spread_ad_account_stud:
+            return self.calc_stud_home(ac)
+
+        # Henter sted fra affiliation med høyest prioritet uavhengig
+        # av dens type.
+        affs = ac.get_account_types()
+        if not affs:
+            raise Job.CalcError("No affs for entity: %i" % entity_id)
+        sko = self._get_ou_sko(affs[0]['ou_id'])
+        if spread == co.spread_ad_account_fag:
+            rules = self._fag_rules
+        if spread == co.spread_ad_account_adm:
+            rules = self._adm_rules
+        return (rules.getCanonicalName(sko, ac.account_name),
+                rules.getProfilePath(sko, ac.account_name),
+                rules.getHome(sko, ac.account_name))
+
+    def calc_stud_home(self, ac):
+        if int(ac.owner_type) != int(co.entity_person):
+            raise Job.CalcError("Cannot update account for non-person owner of entity: %i" % entity_id)
+        person.clear()
+        person.find(ac.owner_id)
+        # TODO: bytt ut med source_system=co.system_fs så snart mer data er migrert
+        rows = person.get_external_id(id_type=co.externalid_fodselsnr, source_system=co.system_migrate)
+        if not rows:
+            raise Job.CalcError("No FS-fnr for entity: %i" % ac.entity_id)
+        fnr = rows[0]['external_id']
+        
+        stprogs = self._student_info.get_persons_studieprogrammer(fnr)
+        if not stprogs:
+            raise Job.CalcError("Ikke noe studieprogram for %s" % fnr)
+        # Velger foreløbig det første studieprogrammet i listen...
+        sko = self._student_info.get_studprog_sko(stprogs[0]['studieprogramkode'])
+        if not sko:
+            raise Job.CalcError("Ukjent sko for %s" % stprogs[0]['studieprogramkode'])
+        studinfo = "".join((stprogs[0]['arstall_kull'][-2:],
+                            stprogs[0]['terminkode_kull'][0],
+                            stprogs[0]['studieprogramkode'])).lower()
+        return (self._stud_rules.getCanonicalName(sko, studinfo, ac.account_name),
+                self._stud_rules.getProfilePath(sko, ac.account_name),
+                self._stud_rules.getHome(sko, ac.account_name))
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 's:p:', ['help'])
+    except getopt.GetoptError:
+        usage(1)
+
+    for opt, val in opts:
+        if opt in ('--help',):
+            usage()
+        elif opt in ('-s',):
+            stprog_file = val
+        elif opt in ('-p',):
+            person_file = val
+    if not opts:
+        usage(1)
+    si = StudieInfo(person_file, stprog_file)
+    Job(si)
+
+def usage(exitcode=0):
+    print __doc__
+    sys.exit(exitcode)
+
+if __name__ == '__main__':
+    main()
