@@ -26,40 +26,20 @@
 #attr $form_widgets = FormWidgets()
 
 
-## Main method for creating the view of person/account.
-#def view($transaction, $account)
-#set $id = $account.get_id()
-#set $commands = $transaction.get_commands()
-<div class="view_content">
-
-    ## Content
-    $viewInfo($account)
-    $viewVacation($vacations)
-    $viewMailforward($forwards)
-
-    ## Register divs and links to flip visibility.
-    <script language="JavaScript">
-        <!--
-        FV_register('pass_form', 'pass_set', null, 'pass_cancel');
-        FV_register('home_form', 'home_set', null, 'home_cancel');
-        FV_register('email_form', 'email_add', null, 'email_cancel');
-        FV_register('group_form', 'group_join', null, 'group_cancel');
-        FV_register('spread_form', 'spread_add', null, 'spread_cancel');
-        FV_register('note_form', 'note_add', null, 'note_cancel');
-        //-->
-    </script>
-</div>
-#end def
 
 #def viewVacation($vacations)
 <div class="view_vacation" id="id=vacation_form" style="display:always;">
 Vacations:<br>
 #if $len($vacations) > 0
     #for $vacation in $vacations
+    <span class=#if $vacation['enabled']==1 then "enabled" else "disabled" #>
         start: $vacation['start_date']<br>
         end:   $vacation['end_date'] <br>
         Message: $vacation['text']<br>
-        <a href=#delete?id=$vacation['id']> Delete </a>
+        <a href=#delete?id=$vacation['id']> Delete </a><br>
+        <a href=#change?id=$vacation['id']> Edit </a><br>
+        <a href=#disable?id=$vacation['id']> Disable </a>
+    </span>
     #end for
 #else
     No vacations registered.
@@ -69,15 +49,19 @@ Vacations:<br>
 </div>
 #end def
 
-#def viewMailforward($forwards)
+#def viewMailForward($forwards)
 <div class="view_mailforward" id="mailforward_form" style="display:always;">
 Forwards:<br>
 #if $len($forwards) > 0
     #for $forward in $forwards
+    <span class=#if $forward['enabled']==1 then "enabled" else "disabled" #>
         Start: $forward['start_date']<br>
         End:   $forward['end_date'] <br>
         Target: $forward['address']<br>
-        <a href=#delete?id=$forward['id']> Delete </a>
+        <a href=#delete?id=$forward['id']> Delete </a><br>
+        <a href=#change?id=$forward['id']> Edit </a><br>
+        <a href=#disable?id=$forward['id']> Delete </a>
+    </span>
     #end for
 #else
     No forwards registered
@@ -87,7 +71,30 @@ Forwards:<br>
 </div>
 #end def
 
-#def content()
-$view($tr, $account)
+#def createVacation()
 #end def
 
+#def createMailForward()
+#end def
+
+#def content()
+<div class="view_content">
+
+    ## Content
+    $viewInfo($account)
+    $viewVacation($vacations)
+    $viewMailForward($forwards)
+    $createVacation()
+    $createMailForward()
+
+    ## Register divs and links to flip visibility.
+    <script language="JavaScript">
+        <!--
+        FV_register('edit_vacation_form', 'pass_set', null, 'pass_cancel');
+        FV_register('edit_forward_form', 'pass_set', null, 'pass_cancel');
+        FV_register('create_vacation_form', 'pass_set', null, 'pass_cancel');
+        FV_register('create_forward_form', 'pass_set', null, 'pass_cancel');
+        //-->
+    </script>
+</div>
+#end def
