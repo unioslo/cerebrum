@@ -27,10 +27,14 @@ from templates.WorkListTemplate import WorkListTemplate
 def remember_args(object):
     import SpineIDL
     
-    id = object.get_id()
-    type = utils._spine_type(object).capitalize()
+    if type(object) == type({}):
+        id = object['id']
+        object_type = object['object_type'].capitalize()
+    else:
+        id = object.get_id()
+        object_type = utils._spine_type(object).capitalize()
     
-    if type == 'Person':
+    if object_type == 'Person':
         name_str = None
         for name in object.get_names():
             if name.get_name_variant().get_name() == "FULL":
@@ -38,17 +42,19 @@ def remember_args(object):
                 break
         if not name_str:
             name_str = 'Not available'
-    elif type == 'Disk':
+    elif object_type == 'Disk':
         name_str = object.get_path()
-    elif type == 'Project':
+    elif object_type == 'Project':
         name_str = object.get_title()
-    elif type == 'Allocation':
+    elif object_type == 'Allocation':
         # XXX often not unique
         name_str = object.get_allocation_name().get_name()
+    elif object_type == 'Account':
+        name_str = object['name']
     else:
         name_str = object.get_name()
 
-    return id, type, name_str, "%s: %s" % (type, name_str)
+    return id, object_type, name_str, "%s: %s" % (object_type, name_str)
 
 def remember_link(object, text='remember', _class=None):
     id, type, name, display_name = remember_args(object)

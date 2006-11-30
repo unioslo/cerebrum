@@ -33,7 +33,9 @@ def _spine_type(object):
     For instance, _spine_type(some_account) -> "account" while
     _spine_type(some_spine_email_domain) -> EmailDomain
     """
-    if object._is_a("IDL:SpineIDL/SpineEntity:1.0"):
+    if type(object) == type({}):
+        return object['object_type']
+    elif object._is_a("IDL:SpineIDL/SpineEntity:1.0"):
         return object.get_type().get_name()
     else:
         # split up "IDL:SpineIDL/SpineEntity:1.0"
@@ -51,14 +53,18 @@ def object_url(object, method="view", **params):
     
     Any additional keyword arguments will be appended to the query part.
     """
-    type = _spine_type(object)
-    params["id"] = object.get_id()
+    object_type = _spine_type(object)
 
-    if type == 'emaildomain':
-        type = 'email'
+    if type(object) == type({}):
+        params["id"] = object['id']
+    else:
+        params["id"] = object.get_id()
+
+    if object_type == 'emaildomain':
+        object_type = 'email'
 
     # FIXME: urlencode will separate with & - not &amp; or ?
-    return "/%s/%s?%s" % (type, method, urllib.urlencode(params))
+    return "/%s/%s?%s" % (object_type, method, urllib.urlencode(params))
 
 
 def object_link(object, text=None, method="view", _class="", **params):
@@ -93,6 +99,8 @@ def object_link(object, text=None, method="view", _class="", **params):
             text = object.get_allocation_name().get_name()
         elif hasattr(object, "get_name"):
             text = object.get_name()   
+        elif type == 'account':
+            text = object['name']
         else:
             text = str(object)
             text.replace("<", "&lt;")
@@ -220,8 +228,12 @@ def get_account(transaction, account_id=None, account_name=None):
     else:
         searcher.set_name(account_id)
     acc_struct = searcher.dump()
+    acc_objects = searcher.search()
     if acc_struct:
         account = struct2dict(acc_struct[0])
+        acc_object = acc_objects[0]
+    account['is_posix'] = acc_object.is_posix()
+    account['object_type'] = _spine_type(acc_object)
     return account
 
 # arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6
