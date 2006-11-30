@@ -25,10 +25,46 @@
 
 #attr $form_widgets = FormWidgets()
 
-## Main method for creating the view of person/account.
-#def view($transaction, $account)
-#set $id = $account.get_id()
-#set $commands = $transaction.get_commands()
+## Show nice businessCard-like info about person/account
+#def viewInfo($account)
+Your information:
+<div class="view_info">
+    <div class="info">
+        <em>$_('Name'):</em> $account['username']
+    </div>
+    <div class="info">
+        <em>$_('Owned by'):</em> $account['fullname']
+    </div>
+    <div class="info">
+        <em>$_('Birthdate'):</em> $account['birthdate']
+    </div>
+    #if $account['quarantined'] == 1
+    <div class="info">
+        <em>This account has been set a quarantine.</em> 
+    </div>
+    #end if
+
+    <div class="info">
+        <em>$_('Expire date'):</em> $account['expire_date']
+    </div>
+</div>
+#end def
+
+#def setPassword($account)
+<div class="view_add" id="pass_form" style="display:always;">
+    <h3>$_('Set password')</h3>
+    $form_widgets.changePassword($account['id'])
+</div>
+#end def
+
+#def prepare_page()
+#set self.menu = UserMenu()
+#end def
+
+#def bottom()
+#end def
+
+#def content()
 <div class="view_content">
 
     ## Content
@@ -39,45 +75,7 @@
     <script language="JavaScript">
         <!--
         FV_register('pass_form', 'pass_set', null, 'pass_cancel');
-        FV_register('home_form', 'home_set', null, 'home_cancel');
-        FV_register('email_form', 'email_add', null, 'email_cancel');
-        FV_register('group_form', 'group_join', null, 'group_cancel');
-        FV_register('spread_form', 'spread_add', null, 'spread_cancel');
-        FV_register('note_form', 'note_add', null, 'note_cancel');
         //-->
     </script>
 </div>
-#end def
-
-## Show nice businessCard-like info about person/account
-#def viewInfo($account)
-<div class="view_info">
-    <div class="info">
-        <em>$_('Name'):</em> $account.get_name()
-    </div>
-    <div class="info">
-        <em>$_('Owned by'):</em> $object_link($account.get_owner())
-    </div>
-    <div class="info">
-        <em>$_('Expire date'):</em> $strftime($account.get_expire_date())
-    </div>
-</div>
-#end def
-
-#def setPassword($account)
-<div class="view_add" id="pass_form" style="display:always;">
-    <h3>$_('Set password')</h3>
-    $form_widgets.changePassword($account.get_id())
-</div>
-#end def
-
-#def content()
-$view($tr, $account)
-#end def
-
-#def prepare_page()
-#set self.menu = UserMenu()
-#end def
-
-#def bottom()
 #end def
