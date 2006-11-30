@@ -26,6 +26,7 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.templates.UserTemplate import UserTemplate
+from lib.templates.MailUserTemplate import MailUserTemplate
 
 def index(transaction):
     page = UserTemplate()
@@ -39,16 +40,60 @@ index = transaction_decorator(index)
 index.exposed = True
 
 def mail(transaction):
-    page = UserTemplate()
+    page = MailUserTemplate()
     username = cherrypy.session.get('username', '')
     account = transaction.get_commands().get_account_by_name(username)
     page.tr = transaction
     page.account = account
+    page.vacations = get_vacations(transaction,account)
+    page.forwards = get_forwards(transaction,account)
+
     page.setFocus("mail")
     res = str(page)
     return [res]
 mail = transaction_decorator(mail)
 mail.exposed = True
+
+def get_vacations(tr,acc):
+    vacations = []
+    vs = tr.get_email_vacation_searcher()
+    target_id, vacs = get_email_target_search_helper(tr, acc, vs)
+    for vacation in vacs:
+        start_date = vacation.get_start_date().to_string()
+        end_date = vacation.get_end_date()
+        if end_date:
+            end_date = end_date.to_string()
+        else:
+            end_date = ''
+        text = vacation.get_vacation_text()
+        enabled = vacation.get_enable()
+        vacations.append({'id':target_id,'start_date':start_date,'end_date':end_date,'text':text,'enabled':enabled})
+    return vacations
+
+def get_forwards(tr,acc):
+    forwards = []
+    vs = tr.get_email_forward_searcher()
+    target_id, fwds = get_email_target_search_helper(tr, acc, vs)
+    for forward in fwds:
+        start_date = forward.get_start_date().to_string()
+        end_date = forward.get_end_date()
+        if end_date:
+            end_date = end_date.to_string()
+        else:
+            end_date = ''
+        address = 'hardkodet@ntnu.no'
+        # address = forward.get_forward_to()
+        enabled = forward.get_enable()
+        forwards.append({'id':target_id,'start_date':start_date,'end_date':end_date,'address':address,'enabled':enabled})
+    return forwards
+
+def get_email_target_search_helper(transaction, account, searcher):
+    ts = transaction.get_email_target_searcher()
+    ts.set_entity(account)
+    target = ts.search()[0]
+    target_id = target.get_id()
+    searcher.set_target(target)
+    return (target_id,searcher.search())
 
 def set_password(transaction, **vargs):
     myId = vargs.get('id')
