@@ -1,0 +1,451 @@
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+import cerebrum_path
+import cereconf
+import xmlrpclib
+
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+
+
+class ADutil(object):
+
+	def __init__(self):
+
+		self.db = Factory.get('Database')()
+		self.co = Factory.get('Constants')(self.db)
+		self.server = xmlrpclib.Server("https://%s@%s:%i" %
+								  (cereconf.AD_PASSWORD,
+								   cereconf.AD_SERVER_HOST,
+								   cereconf.AD_SERVER_PORT))
+		self.logger = Factory.get_logger("cronjob")
+		self.db.cl_init(change_program="adutilities")
+
+
+	def fetch_cerebrum_data(self, spread):
+		"""For all accounts that has spread, returns a list of dicts
+		with the same keys as defined in the AD_ATTRIBUTES list.
+		This method is left empty, each institution will override this
+		method with local settings.
+		Mandatory values in list is: sAMAccountName and distinguishedName
+		OU is optional, the OU can also be overridden with the get_default_OU
+		method.
+		"""
+
+	def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
+		
+		if dry_run:
+			print('server.%s(%s,%s,%s)' % (command, arg1, arg2, arg3))
+		    #Assume success on all changes.
+			return (True, command)
+		else:
+			cmd = getattr(self.server, command)
+			if arg1 == None:
+				ret = cmd()
+			elif arg2 == None:
+				ret = cmd(arg1)
+			elif arg3 == None:
+				ret = cmd(arg1, arg2)
+			else:
+				ret = cmd(arg1, arg2, arg3)
+				
+			return ret
+
+	def get_default_ou(self, change = None):
+		#Returns default OU in AD.
+   		return "CN=Users,%s" % cereconf.AD_LDAP
+
+
+	def move_object(self, chg, dry_run):
+		ret = self.run_cmd('moveObject', dry_run, chg['OU'])
+		if not ret[0]:
+			self.logger.warning("moveObject on %s failed: %r" % \
+						   (chg['distinguishedName'], ret))
+
+
+	def delete_object(self, chg, dry_run):
+		ret = self.run_cmd('deleteObject', dry_run)
+		if not ret[0]:
+			self.logger.warning("%s on %s failed: %r" % \
+						   (chg['type'], chg['distinguishedName'], ret))
+
+
+	def create_object(self, chg, dry_run):
+		ret = self.run_cmd('createObject', dry_run, 'Group', chg['OU'], 
+					  chg['sAMAccountName'])
+		if not ret[0]:
+			self.logger.warn(ret[1])
+		
+
+	def alter_object(self, chg, dry_run):
+
+		distName = chg['distinguishedName']				
+	    #Already binded,we do not want too sync the defaultvalues
+		del chg['type']				
+		del chg['distinguishedName']
+
+		ret = self.run_cmd('putProperties', dry_run, chg)
+		if not ret[0]:
+			self.logger.warning("putproperties on %s failed: %r" % \
+						   (distName, ret))
+
+			ret = self.run_cmd('setObject', dry_run)
+			if not ret[0]:
+				self.logger.warning("setObject on %s failed: %r" % \
+							   (distName, ret))		
+
+
+	def perform_changes(self, changelist, dry_run):
+
+		for chg in changelist:		
+
+			if chg['type'] == 'create_object':
+				self.create_object(chg, dry_run)
+			else:
+				ret = self.run_cmd('bindObject', dry_run,
+								   chg['distinguishedName'])
+				if not ret[0]:
+					self.logger.warning("bindObject on %s failed: %r" % \
+								   (chg['distinguishedName'], ret))
+				else:
+					exec('self.' + chg['type'] + '(chg, dry_run)')
+					    
+
+	def full_sync(self, type, delete, spread, dry_run, user_spread=None):
+    
+	    #Fetch AD-data.	
+		addump = self.fetch_ad_data()		
+		self.logger.info("Fetched %i ad-%ss" % (len(adgroups), type))	
+
+	    #Fetch cerebrum data.
+		cerebrumdump = self.fetch_cerebrum_data(spread)
+		self.logger.info("Fetched %i %ss" % (len(cerebrumgroups), type))
+
+        #compare cerebrum and ad-data.
+		changelist = self.compare(delete, cerebrumdump, addump)
+		self.logger.info("Found %i number of changes" % len(changelist))
+
+		#Cleaning up.
+		addump = None
+		if type == 'user':
+			cerebrumdump = None			
+
+        #Perform changes.
+		self.perform_changes(changelist, dry_run)
+		
+		if type == 'group':
+			self.sync_groups(cerebrumdump, group_spread,
+							 user_spread, dry_run)
+
+
+class ADgroupUtil(ADutil):
+
+	def __init__(self):
+		super(ADuserUtil, self).__init__()
+		self.group = Factory.get('Group')(self.db)
+
+	
+	def fetch_cerebrum_data(self, spread):
+		return self.group.search(spread)
+
+
+	def fetch_ad_data(self):
+		return self.server.listObjects('group', True)
+
+
+	def sync_groups(cerebrumgroups, group_spread, user_spread, dry_run):
+	    #To reduce traffic, we send current list of groupmembers to AD, and the
+	    #server ensures that each group have correct members.   
+
+		for (grp_id, grp_name, grp_desc) in cerebrumgroups:
+		    #Only interested in union members(believe this is only type in use)
+
+			self.group.clear()
+			self.group.find(grp_id)				 
+			user_memb = self.group.list_members(
+				spread=user_spread, get_entity_name=True)
+			group_memb = self.group.list_members(
+				spread=group_spread, get_entity_name=True)
+			members = []
+			for usr in user_memb[0]:
+		        #TODO: How to treat quarantined users???, some exist in AD, 
+		        #others do not. They generate errors when not in AD. We still
+		        #want to update group membership if in AD.
+
+				members.append(usr[2])
+
+			for grp in group_memb[0]:
+				members.append('%s%s' % (grp[2],cereconf.AD_GROUP_POSTFIX))
+	
+			dn = self.server.findObject('%s%s' %
+								   (grp_name, cereconf.AD_GROUP_POSTFIX))
+			if not dn:
+				self.logger.debug("unknown group: %s%s" % (grp_name, 
+												cereconf.AD_GROUP_POSTFIX))	
+			else:
+				self.server.bindObject(dn)
+				res = self.server.syncMembers(members, False, False)
+				if not res[0]:
+					self.logger.debug("syncMembers %s failed for:%r" %
+									  (dn, res[1:]))
+
+
+	def compare(delete_groups,cerebrumgrp,adgrp):
+
+		changelist = []	 	
+
+		for (grp_id, grp, description) in cerebrumgrp:
+
+    	    #Checking for correct OU.
+			if cerebrumgrp[grp].has_key('OU'):
+				ou = cerebrumgrp[grp]['OU']
+			else:
+				ou = self.get_default_ou(grp_id)
+			
+			if 'CN=%s%s,%s,%s' % (grp, cereconf.AD_GROUP_POSTFIX, ou) in adgrp:
+				adgrp.remove('CN=%s%s,%s,%s' % \
+							 (grp, cereconf.AD_GROUP_POSTFIX, ou))
+			else:
+			    #Group not in AD,or wrong OU create.
+
+				ou_in_ad = self.server.findObject(grp)
+
+				if not ou_in_ad:
+					#Not in AD, create.
+					changelist.append({'type': 'create_object',
+									   'sAMAccountName' : '%s%s' %
+									   (grp, cereconf.AD_GROUP_POSTFIX),
+									   'OU' : ou,
+									   'description' : description})
+				else:
+					#In AD, wrong OU.
+					changelist.append({'type' : 'move_object',
+									   'distinguishedName' : \
+									   adusrs[usr]['distinguishedName'],
+									   'OU' : ou})
+
+ 	
+	    #The remaining groups is surplus in AD.
+		for adg in adgrp:
+			if adg.find(cereconf.AD_DO_NOT_TOUCH) >= 0:			
+				pass
+			elif adg.find('CN=Builtin,%s' % cereconf.AD_LDAP) >= 0:
+				pass
+			else:
+				changelist.append({'type' : 'delete_object', 
+								'distinguishedName' : adg}) 
+
+		return changelist
+
+
+
+
+class ADuserUtil(ADutil):
+
+
+	def __init__(self):
+		super(ADuserUtil, self).__init__()
+		self.ac = Factory.get('Account')(self.db)
+
+		
+	def fetch_ad_data(self, dry_run):
+	    #Setting the userattributes to be fetched.
+		self.server.setUserAttributes(cereconf.AD_ATTRIBUTES, cereconf.AD_ACCOUNT_CONTROL)
+
+		return self.server.listObjects('user', True)
+
+
+	def fetch_cerebrum_data(self, spread, disk_spread):
+		"""Each institution will have an individual mix-in of this function.
+		The format is a list of accountNames from Cerebrum with a dict
+		corresponding to the fields to be changed in AD. In addition the field
+		OU and AccountControl items are threated especially.
+		"""
+		pass
+	
+
+	def get_home_drive(self, change_dict):
+		#Returns default home drive in AD.
+		return cereconf.AD_HOME_DRIVE
+
+
+	def create_object(self, chg, dry_run):	
+
+   		if chg.has_key('OU'):
+			ou = chg['OU']
+		else:
+			ou = get_default_ou(chg)
+
+		ret = self.run_cmd('createObject', dry_run, 'User', ou,
+							  chg['sAMAccountName'])
+				
+		if not ret[0]:
+			self.logger.warning("create user %s failed: %r" % \
+						   (chg['sAMAccountName'], ret))
+		else:
+			if not dry_run:
+				self.logger.info("created user %s" % ret)
+
+			pw = unicode(ac.make_passwd(chg['sAMAccountName']), 'iso-8859-1')
+
+   			ret = self.run_cmd('setPassword', dry_run, pw)
+			if not ret[0]:
+				self.logger.warning("setPassword on %s failed: %s" % \
+							   (chg['sAMAccountName'], ret))
+
+			else:
+			    #Important not to enable a new account if setPassword
+			    #fail, it will have a blank password.
+
+				uname = ""
+				del chg['type']
+				if chg.has_key('distinguishedName'):
+				   	del chg['distinguishedName']
+				if chg.has_key('sAMAccountName'):
+					uname = chg['sAMAccountName']		
+					del chg['sAMAccountName']			
+				
+				#Setting default for undefined AD_ACCOUNT_CONTROL values.
+				for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
+					if not chg.has_key(acc):
+						chg[acc] = value				
+
+				ret = self.run_cmd('putProperties', dry_run, chg)
+				if not ret[0]:
+					self.logger.warning("putproperties on %s failed: %r" % \
+								   (uname, ret))
+
+				ret = self.run_cmd('setObject', dry_run)
+				if not ret[0]:
+					self.logger.warning("setObject on %s failed: %r" % \
+								   (uname, ret))
+
+
+	def compare(self, delete_users,cerebrumusrs,adusrs):
+	    #Keys in dict from cerebrum must match fields to be populated in AD.
+
+		changelist = []	 	
+
+
+		for usr, dta in adusrs.items():
+			changes = {}    	
+			if cerebrumusrs.has_key(usr):
+			    #User is both places, we want to check correct data.
+
+				#Checking for correct OU.
+				if cerebrumusrs[usr].has_key('OU'):
+					ou = cerebrumusrs[usr]['OU']
+				else:
+					ou = self.get_default_ou(cerebrumusrs[usr])
+					
+				if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
+					changes['type'] = 'move_object'
+					changes['OU'] = ou
+					changes['distinguishedName'] = \
+								adusrs[usr]['distinguishedName']
+					#Submit list and clean.
+					changelist.append(changes)
+					changes = {}
+					
+				for attr in cereconf.AD_ATTRIBUTES:
+			
+				    #Catching special cases.
+		 		    #Check against home drive.
+					if attr == 'homeDrive':
+						default_home_drive = self.get_home_drive(cerebrumusrs[usr])		
+						if adusrs[usr].has_key('homeDrive'):
+							if adusrs[usr]['homeDrive'] != default_home_drive:
+								changes['homeDrive'] = default_home_drive
+							
+					#Treating general cases
+					else:
+						if cerebrumusrs[usr].has_key(attr) and \
+							   adusrs[usr].has_key(attr):	
+							if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
+								changes[attr] = cerebrumusrs[usr][attr]	
+						else:
+							if cerebrumusrs[usr].has_key(attr):
+								changes[attr] = cerebrumusrs[usr][attr]	
+							elif adusrs[usr].has_key(attr):
+								changes[attr] = ''	
+		
+				for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
+					if cerebrumusrs[usr].has_key(acc):
+						if adusrs[usr].has_key(acc) and \
+							   adusrs[usr][acc] == cerebrumusrs[usr][acc]:
+							pass
+						else:
+							changes[acc] = cerebrumusrs[usr][acc]	
+
+					else: 
+						if adusrs[usr].has_key(acc) and adusrs[usr][acc] == \
+							   value:
+							pass
+						else:
+							changes[acc] = value
+						
+			    #Submit if any changes.
+				if len(changes):
+					changes['distinguishedName'] = \
+							adusrs[usr]['distinguishedName']
+					changes['type'] = 'alter_object'
+
+				#after processing we delete from array.
+				del cerebrumusrs[usr]
+
+			else:	   	
+	    	    #Account not in Cerebrum, but in AD.
+				if adusrs[usr]['distinguishedName'].find(cereconf.AD_DO_NOT_TOUCH) >= 0:
+					pass
+				elif adusrs[usr]['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) >= 0:
+		    	    #Account do not have AD_spread, but is in AD to 
+		    	    #register password changes, do nothing.
+					pass
+
+				else:
+		    	    #ac.is_deleted() or ac.is_expired() pluss a small rest of 
+		    	    #accounts created in AD, but that do not have AD_spread. 
+					if delete_users == True:
+						changes['type'] = 'delete_object'
+						changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+					else:
+					    #Disable account.
+						if adusrs[usr]['ACCOUNTDISABLE'] == False:
+							changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+							changes['type'] = 'alter_object'
+							changes['ACCOUNTDISABLE'] = True
+						    #commit changes
+							changelist.append(changes)
+							changes = {} 
+   					    #Moving account.
+						if adusrs[usr]['distinguishedName'] != "LDAP://CN=%s,OU=%s,%s" % (usr, cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP):
+							changes['type'] = 'move_object'
+							changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+							changes['OU'] = "OU=%s,%s" % \
+								(cereconf.AD_LOST_AND_FOUND,cereconf.AD_LDAP)
+
+							
+		    #Finished processing user, register changes if any.
+			if len(changes):
+				changelist.append(changes)
+
+	
+        #The remaining items in cerebrumusrs is not in AD, create user.
+		for cusr, cdta in cerebrumusrs.items():
+			changes={}
+		    #TBD: Should quarantined users be created?
+			if cerebrumusrs[cusr]['ACCOUNTDISABLE']:
+			    #Quarantined, do not create.
+				pass	
+			else:
+				#New user, create.
+				changes = cdta
+				changes['type'] = 'create_object'
+				changes['sAMAccountName'] = cusr
+				changelist.append(changes)
+				if not cerebrumusrs[cusr].has_key('homeDrive'):
+					changes['homeDrive'] = self.get_home_drive(cdta)
+
+		return changelist
+
