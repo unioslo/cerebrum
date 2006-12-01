@@ -47,7 +47,7 @@ class process:
 def main():
     try:
         opts,args = getopt.getopt(sys.argv[1:], 's:n:t:',['ssn=','name=','type='])
-    except gtopt.GetoptError, e:
+    except getopt.GetoptError, e:
         usage(str(e))
 
     ssn = ''
