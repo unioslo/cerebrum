@@ -40,27 +40,34 @@
 ## Used to position the frames correctly, so they dont overlap eachother.
 #set $menuwidth = 7
 #set $bottomheight = 9
+#set $paddingtop = 1
 
 body {
-  margin: 0;
+  color: black;
   background: white;
+  margin: 0;
 }
 
 div.page_menu, div.page_bottom {
+  margin-top: 2em;
+  margin-left: 1em;
+  padding-bottom: 1em;
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  padding-top: 0.1em;
   position: absolute;
-  ##background: white;
   /* If scrolling is needed: */
   overflow: hidden; 
 }
 
 div.page_menu {
   /* Placed in the upper left corner */
-  width: ${menuwidth}em;
-  height: auto;
-  top: 0;
-  right: auto;
   bottom: auto;
+  height: auto;
   left: 0;
+  right: auto;
+  top: 0;
+  width: ${menuwidth}em;
 }
 
 div.page_bottom {
@@ -82,10 +89,12 @@ div.page_bottom {
 
 /* The actual content area. */
 #set $realpadding = 1
-#set $paddingleft = $menuwidth + $realpadding
+#set $paddingleft = $menuwidth + $realpadding + 1
 #set $paddingbottom = $bottomheight + $realpadding  
 div.page_content {
-  padding-top: 0em;
+  border: 1px dotted grey;
+  margin: 0.5em 0.5em 0.5em 0.5em;
+  padding-top: ${paddingtop}em;
   padding-right: ${realpadding}em; 
   padding-left: ${paddingleft}em; 
   padding-bottom: ${paddingbottom}em;

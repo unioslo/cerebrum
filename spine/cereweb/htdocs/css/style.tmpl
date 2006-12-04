@@ -22,6 +22,7 @@
 #def shrink($name)
 html>body $name {
     /* display: table; /* Breaks konqueror */
+	color: black;
     width: auto;
 }
 $name {
@@ -71,6 +72,8 @@ $name h3 {
 
 ## Main title on the all pages.
 div.title {
+	color: black;
+	background-color: white;
     overflow: visible;
     border-bottom: 1px solid gray;
     margin-bottom: 0.7em;
@@ -171,18 +174,59 @@ div.actions_right {
     float: right;
 }
 
-$shrink("div.view_info")
+## $shrink("div.view_info")
+
+html>body div.view_info {
+  background: #d9e2ef;
+  border: 1px solid black;
+  color: black;
+  width: 500px;
+  font-size: 15px;
+  margin-bottom: 0.2em;
+  text-align: left;
+  white-space: normal;
+}
+
+div.tableheader {
+  background: #aac1df;
+  color: black;
+  padding: 0.3em 0.5em 0.3em 0.5em;
+  width: auto;
+  font-size: 18px;
+  margin-bottom: 0.4em;
+}
+
+div.td_lead_info{
+  padding: 0 0.5em 0 0.5em;
+  width: auto;
+  border-bottom: 1px dashed grey;
+  font-style: oblique;
+  font-weight: bold;
+}
+
+div.td_passwd_info {
+padding: 0 0.5em 0 0.5em;
+width: auto;
+font-style: oblique;
+font-weight: bold;
+}
 
 div.view_content div.info {
-    white-space: normal;
-    padding: 0 0.5em 0 0.5em;
-    margin-bottom: 0.2em;
-    border-bottom: 1px dashed gray;
+  padding: 0 0.5em 0 0.5em;
+  width: auto;
+  border-bottom: 1px dashed gray;
 }
 
 div.view_content div.info span.deceased {
     font-weight: bold;
     color: #f00;
+}
+
+div.page_menu {
+  background: #aac1df;
+  border: 1px solid grey;
+  color: black;
+	/* background: #d9e2ef; */
 }
 
 ## Box containing form for adding/setting items on view-pages.
