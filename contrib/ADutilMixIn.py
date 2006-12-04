@@ -116,11 +116,11 @@ class ADutil(object):
     
 	    #Fetch AD-data.	
 		addump = self.fetch_ad_data()		
-		self.logger.info("Fetched %i ad-%ss" % (len(adgroups), type))	
+		self.logger.info("Fetched %i ad-%ss" % (len(addump), type))	
 
 	    #Fetch cerebrum data.
 		cerebrumdump = self.fetch_cerebrum_data(spread)
-		self.logger.info("Fetched %i %ss" % (len(cerebrumgroups), type))
+		self.logger.info("Fetched %i %ss" % (len(cerebrumdump), type))
 
         #compare cerebrum and ad-data.
 		changelist = self.compare(delete, cerebrumdump, addump)
@@ -135,14 +135,14 @@ class ADutil(object):
 		self.perform_changes(changelist, dry_run)
 		
 		if type == 'group':
-			self.sync_groups(cerebrumdump, group_spread,
+			self.sync_groups(cerebrumdump, spread,
 							 user_spread, dry_run)
 
 
 class ADgroupUtil(ADutil):
 
 	def __init__(self):
-		super(ADuserUtil, self).__init__()
+		super(ADgroupUtil, self).__init__()
 		self.group = Factory.get('Group')(self.db)
 
 	
@@ -154,7 +154,7 @@ class ADgroupUtil(ADutil):
 		return self.server.listObjects('group', True)
 
 
-	def sync_groups(cerebrumgroups, group_spread, user_spread, dry_run):
+	def sync_groups(self, cerebrumgroups, group_spread, user_spread, dry_run):
 	    #To reduce traffic, we send current list of groupmembers to AD, and the
 	    #server ensures that each group have correct members.   
 
@@ -191,25 +191,22 @@ class ADgroupUtil(ADutil):
 									  (dn, res[1:]))
 
 
-	def compare(delete_groups,cerebrumgrp,adgrp):
+	def compare(self, delete_groups, cerebrumgrp, adgrp):
 
 		changelist = []	 	
 
 		for (grp_id, grp, description) in cerebrumgrp:
 
-    	    #Checking for correct OU.
-			if cerebrumgrp[grp].has_key('OU'):
-				ou = cerebrumgrp[grp]['OU']
-			else:
-				ou = self.get_default_ou(grp_id)
+			ou = self.get_default_ou(grp_id)
 			
-			if 'CN=%s%s,%s,%s' % (grp, cereconf.AD_GROUP_POSTFIX, ou) in adgrp:
-				adgrp.remove('CN=%s%s,%s,%s' % \
+			if 'CN=%s%s,%s' % (grp, cereconf.AD_GROUP_POSTFIX, ou) in adgrp:
+				adgrp.remove('CN=%s%s,%s' % \
 							 (grp, cereconf.AD_GROUP_POSTFIX, ou))
 			else:
 			    #Group not in AD,or wrong OU create.
 
-				ou_in_ad = self.server.findObject(grp)
+				ou_in_ad = self.server.findObject('%s%s' %
+											(grp,cereconf.AD_GROUP_POSTFIX))
 
 				if not ou_in_ad:
 					#Not in AD, create.
@@ -221,8 +218,7 @@ class ADgroupUtil(ADutil):
 				else:
 					#In AD, wrong OU.
 					changelist.append({'type' : 'move_object',
-									   'distinguishedName' : \
-									   adusrs[usr]['distinguishedName'],
+									   'distinguishedName' : ou_in_ad,
 									   'OU' : ou})
 
  	

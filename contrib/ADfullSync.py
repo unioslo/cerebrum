@@ -152,8 +152,12 @@ class adfusync(ADutilMixIn.ADuserUtil):
 
 
 class adfgsync(ADutilMixIn.ADgroupUtil):
-	#Groupsync MixIn.
-	pass
+	#Groupsync Mixin
+
+	def get_default_ou(self, change = None):
+		#Returns default OU in AD.
+   		return "OU=grupper,%s" % cereconf.AD_LDAP
+
 
 
 def usage(exitcode=0):
@@ -218,7 +222,7 @@ def main():
 	if group_sync:
 		ADfullGroup = adfgsync()
 		ADfullGroup.full_sync('group', delete_objects, group_spread,
-							  user_spread, dry_run)
+							  dry_run, user_spread)
 
 if __name__ == '__main__':
     main()
