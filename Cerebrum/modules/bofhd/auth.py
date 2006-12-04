@@ -260,7 +260,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         ORDER BY entity_id""" % ewhere, {
             'entity_id': entity_id,
             'target_id': target_id,
-            'target_id': target_id,
+            'target_type': target_type,
             'attr': attr})
 
 class BofhdAuthRole(DatabaseAccessor):
