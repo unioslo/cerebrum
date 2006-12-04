@@ -371,8 +371,8 @@ automatically generated from FS.''')
 
     trait_email_server_weight = _EntityTraitCode(
         'em_server_weight', Constants.Constants.entity_host,
-        """The relative weight of this server when assigning new users to
-        an e-mail server.""")
+        "The relative weight of this server when assigning new users to "
+        "an e-mail server.")
 
     # TBD: These may fit better into mod_disk_quota as actual mixin
     # tables for disk_info and host_info
