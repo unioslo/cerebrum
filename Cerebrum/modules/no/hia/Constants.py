@@ -26,20 +26,28 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode, \
-                               _SpreadCode, \
-                               _QuarantineCode,\
-                               _PersonAffiliationCode, \
-                               _PersonAffStatusCode, \
-                               _AccountCode, \
-                               _PersonNameCode, \
-                               _ContactInfoCode, \
-                               _CountryCode
+     _OUPerspectiveCode, _SpreadCode, \
+     _QuarantineCode, _EntityExternalIdCode, _PersonAffiliationCode, \
+     _PersonAffStatusCode, _AccountCode, _PersonNameCode, \
+     _ContactInfoCode, _CountryCode
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
+    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
+                                                 Constants.Constants.entity_person,
+                                                 'Norwegian birth number')
+    externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
+                                                 Constants.Constants.entity_person,
+                                                 'Norwegian student number')
+    externalid_sap_ansattnr = _EntityExternalIdCode('HiA_SAP_EMP#',
+                                                    Constants.Constants.entity_person,
+                                                    'HiA SAP employee number')
+
+    system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_fs_derived = _AuthoritativeSystemCode('FS-auto',
                                                  'Utledet av FS data')
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
+    system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
     system_pbx = _AuthoritativeSystemCode('PBX', 'PBX')
     # TBD: system_override should probably reside in
     # Cerebrum/Constants.py...
@@ -49,6 +57,8 @@ class Constants(Constants.Constants):
                                                'Override information fetched from proper authoritative systems')
     system_manual =  _AuthoritativeSystemCode('MANUELL',
                                               'Manually added information')
+
+    perspective_fs = _OUPerspectiveCode('FS', 'FS')
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker', 'Kurskonto')
@@ -87,6 +97,9 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet = _PersonAffiliationCode(
         'TILKNYTTET',
         ('Personer tilknyttet HiA og registrert i SAP med utvalgte stillingskoder'))
+    affiliation_status_tilknyttet_feide = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'feide',
+        'Personer uten reg. i kildesystem som må ha tilgang til FEIDE-baserte tjenester')
     affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
         affiliation_tilknyttet, 'pensjonist',
         'Personer registrert i SAP som pensjonister')
