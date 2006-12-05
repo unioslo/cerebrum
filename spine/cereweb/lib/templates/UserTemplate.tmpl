@@ -111,22 +111,20 @@
 
     ## If external_id is populated, we have a list with dicts to play with
     #for $extid in $account['external_id']
-        #for $key in $extid.keys()
-			
-            <div class="info">
-		<tr>
-			<td>
-				<div class="td_lead_info">
-                	$_($key):
-            	</div>
-			</td>
+      #if $extid['extid_type'] == "NO_BIRTHNO"
+        <tr>
+        <td>
+            <div class="td_lead_info">
+            $_($extid['extid_type_description'])
+            </div>
+        </td>
 			<td>
 				<div class="info">
-					$extid[$key]
+                    $_($extid['external_id'])
             	</div>
-			</td>
-		</tr>
-        #end for
+            </td>
+        </tr>
+      #end if
     #end for
 	</table>
 </div>
