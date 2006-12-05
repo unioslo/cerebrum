@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
+__doc__ = """
 This file is a HiA-specific extension of Cerebrum. It contains code which
 imports historical data about file and net groups from HiA-nis (both 
 common and employee-nis). The script will attempt to assign the given
@@ -28,6 +28,7 @@ registered. The groups registered may be assigned one or more of the
 spreads (single spread per read file): spread_nis_ng, spread_ans_nis_ng.
 Has to be run twice in order to create all groups and assign memberships
 correctly :/.
+
 The files read are formated as:
 <gname>:<desc>:<mgroup*|maccount*>
 
@@ -36,7 +37,7 @@ desc - description of the group (usually what it is used for)
 mgroup - name(s) of group(s) that are members 
 maccount - user names of the groups account members
 
-* - zero or more 
+* - zero or more, comma-separated
 """
  
 import string
@@ -53,6 +54,7 @@ from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Utils import Factory
+
 
 def process_line(infile, spread):
     """
@@ -72,6 +74,7 @@ def process_line(infile, spread):
 	 gname, desc, mem = fields
 	 if not gname == "":
 		 process_group(sp, gname, desc, mem)
+
 
 def process_group(sp, name, description = None, members = None):
     """
@@ -97,6 +100,7 @@ def process_group(sp, name, description = None, members = None):
 	if not dryrun:
 	    db.commit()
 	    logger.debug5("Added spread |%s| to group |%s|.", sp, name)
+
 
 def process_members(gname,mem):
     """
@@ -132,16 +136,17 @@ def process_members(gname,mem):
 			logger.debug3("Added group |%s| to group |%s|.", member, gname)
 	    except Errors.NotFoundError:
 		logger.warn("Group |%s| not found!", member)
-	    logger.error("Trying to assign membership to a non-existing entity |%s|", member)
-	    continue 
+                logger.error("Trying to assign membership to a non-existing entity |%s|", member)
+                
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print """Usage: %s
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     -s, --spread (spread_nis_ng|spread_ans_nis_ng)
-    """
-# end usage
+    -h, --help    . Print this message and exit
+    """ % __file__.split("/")[-1]
+
 
 def main():
     global db, constants, account_init, account_member, group, spread, posixgroup
@@ -152,13 +157,10 @@ def main():
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:d:s',
-                                   ['file=',
-                                    'dryrun',
-				    'spread='])
+                                   'f:d:sh',
+                                   ['file=', 'dryrun', 'spread=', 'help'])
     except getopt.GetoptError:
         usage()
-    # yrt
 
     dryrun = False
     for opt, val in opts:
@@ -170,8 +172,9 @@ def main():
 	    spread = val
 	    if (spread not in ['spread_nis_ng','spread_ans_nis_ng']):
 		usage()
-        # fi
-    # od
+        elif opt in ('-h', '--help'):
+            usage()
+            sys.exit(0)
 
     db = Factory.get('Database')()
     db.cl_init(change_program='import_uname')
@@ -192,13 +195,7 @@ def main():
 	usage()
     process_line(infile,spread)
 
-# end main	
 
 if __name__ == '__main__':
     main()
-# fi
-
-
-
-
-# arch-tag: 99c229d9-2f01-4555-8d39-1d7e928ec71e
+    
