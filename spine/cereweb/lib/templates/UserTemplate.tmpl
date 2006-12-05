@@ -27,42 +27,136 @@
 
 ## Show nice businessCard-like info about person/account
 #def viewInfo($account)
-Your information:
+## <b>Your information:</b>
+<p>
 <div class="view_info">
-    <div class="info">
-        <em>$_('Name'):</em> $account['username']
-    </div>
-    <div class="info">
-        <em>$_('Owned by'):</em> $account['fullname']
-    </div>
-    <div class="info">
-        <em>$_('Birthdate'):</em> $account['birthdate']
-    </div>
+	<table border="0" width="100%">
+		<tr>
+			<th colspan="2">
+				<div class="tableheader">
+					Your information:
+				</div>
+			</th>
+		</tr>
+		<tr>
+			<td>
+				<div class="td_lead_info">
+        			$_('Name'):
+				</div>
+			</td>
+			<td>
+				<div class="info">
+					$account['username']
+				</div>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<div class="td_lead_info">
+        			$_('Owned by'):
+				</div>
+			</td>
+			<td>
+				<div class="info">
+					$account['fullname']
+				</div>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<div class="td_lead_info">
+        			$_('Birthdate'):
+				</div>
+			</td>
+			<td>
+				<div class="info">
+					#if $account['birthdate']:
+						$account['birthdate']
+					#else:
+						&nbsp;
+					#end if
+				</div>
+			</td>	
+		</tr>
     #if $account['quarantined'] == 1
-    <div class="info">
-        <em>This account has been set a quarantine.</em> 
-    </div>
+		<tr>
+			<td colspan="2">
+				<div class="info">
+        			<em>This account has been set a quarantine.</em> 
+				</div>
+		</td>
+		</tr>
     #end if
+		<tr>
+			<td>
+    			## <div class="external_id">
+				<div class="td_lead_info">
+        			$_('Expire date'):
+					</div>
+    			## </div>
+			</td>
+			<td>
+				## <div class="external_id">
+				<div class="info">
+					#if $account['expire_date']:
+						$account['expire_date']
+					#else:
+						&nbsp;
+					#end if
+				</div>
+				## </div>
 
-    <div class="external_id">
-        <em>$_('Expire date'):</em> $account['expire_date']
-    </div>
+			</td>
+		</tr>
 
     ## If external_id is populated, we have a list with dicts to play with
     #for $extid in $account['external_id']
         #for $key in $extid.keys()
+			
             <div class="info">
-                <em>$_($key):</em> $extid[$key]
-            </div>
+		<tr>
+			<td>
+				<div class="td_lead_info">
+                	$_($key):
+            	</div>
+			</td>
+			<td>
+				<div class="info">
+					$extid[$key]
+            	</div>
+			</td>
+		</tr>
         #end for
     #end for
+	</table>
 </div>
+</p>
 #end def
 
 #def setPassword($account)
 <div class="view_add" id="pass_form" style="display:always;">
-    <h3>$_('Set password')</h3>
-    $form_widgets.changePassword($account['id'])
+	<p>
+	<div class="view_info">
+	<table width="100%">
+	<tr>
+    ## <h3>$_('Set password')</h3>
+		<th>
+			<div class="tableheader">
+				$_('Set password')
+			</div>
+		</td>
+		</th>
+	</tr>
+	<tr>
+		<td>
+			<div class="td_passwd_info">
+    			$form_widgets.changePassword($account['id'])
+			</div>
+		</td>
+	</tr>
+	</table>
+	</div>
+	</p>
 </div>
 #end def
 
