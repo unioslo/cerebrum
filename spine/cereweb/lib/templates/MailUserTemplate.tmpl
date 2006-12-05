@@ -36,9 +36,9 @@ Vacations:<br>
         start: $vacation['start_date']<br>
         end:   $vacation['end_date'] <br>
         Message: $vacation['text']<br>
-        <a href=#delete?id=$vacation['id']> Delete </a><br>
-        <a href=#change?id=$vacation['id']> Edit </a><br>
-        <a href=#disable?id=$vacation['id']> Disable </a>
+        <a href=#delete&id=$vacation['id']> Delete </a><br>
+        <a href=#change&id=$vacation['id']> Edit </a><br>
+        <a href=#disable&id=$vacation['id']> Disable </a>
     </span>
     #end for
 #else
@@ -58,9 +58,9 @@ Forwards:<br>
         Start: $forward['start_date']<br>
         End:   $forward['end_date'] <br>
         Target: $forward['address']<br>
-        <a href=#delete?id=$forward['id']> Delete </a><br>
-        <a href=#change?id=$forward['id']> Edit </a><br>
-        <a href=#disable?id=$forward['id']> Delete </a>
+        <a href=#delete&id=$forward['id']> Delete </a><br>
+        <a href=#change&id=$forward['id']> Edit </a><br>
+        <a href=#disable&id=$forward['id']> Delete </a>
     </span>
     #end for
 #else
