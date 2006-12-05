@@ -50,7 +50,10 @@ def remember_args(object):
         # XXX often not unique
         name_str = object.get_allocation_name().get_name()
     elif object_type == 'Account':
-        name_str = object['name']
+        if type(object_type) == type({}):
+            name_str = object['name']
+        else:
+            name_str = object.get_name()
     else:
         name_str = object.get_name()
 
