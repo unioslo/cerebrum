@@ -215,7 +215,7 @@ class AccountUtil(object):
                 for i in affiliations:
                     #print "AFF-> %s" % i
                     #print "affiliation=>>%s, delete_date=%s" % (i.affiliation,i.deleted_date)
-                    if((i.affiliation==const.affiliation_ansatt) and (i.deleted_date==None)):
+                    if(((i.affiliation==const.affiliation_ansatt) and (i.deleted_date==None))or ((i.affiliation==const.affiliation_tilknyttet) and (i.deleted_date==None) and (i.source_system==const.system_x))):
                         update_primary_email=False
                         #print "has employee affiliation. do not update primary email"
                         #print "affiliation=%s,create_date=%s,delete_date=%s" % (i.affiliation,i.create_date,i.deleted_date)
