@@ -113,10 +113,10 @@
     #for $extid in $account['external_id']
       #if $extid['extid_type'] == "NO_BIRTHNO"
         <tr>
-        <td>
-            <div class="td_lead_info">
-            $_($extid['extid_type_description'])
-            </div>
+        	<td>
+				<div class="td_lead_info">
+					$_($extid['extid_type_description']+":")
+				</div>
         </td>
 			<td>
 				<div class="info">
@@ -140,7 +140,7 @@
     ## <h3>$_('Set password')</h3>
 		<th>
 			<div class="tableheader">
-				$_('Set password')
+				$_('Set password:')
 			</div>
 		</td>
 		</th>
