@@ -28,47 +28,168 @@
 
 
 #def viewVacation($vacations)
-<div class="view_vacation" id="id=vacation_form" style="display:always;">
-Vacations:<br>
+<p>
+## <div class="view_vacation" id="id=vacation_form" style="display:always;">
+<div class="view_info" id="id=vacation_form" style="display:always;">
+<table width="100%">
+	<tr>
+		<th colspan="2">
+			<div class="tableheader">
+				Vacations:
+			</div>
+		</th>
+	</tr>
 #if $len($vacations) > 0
     #for $vacation in $vacations
     <span class=#if $vacation['enabled']==1 then "enabled" else "disabled" #>
-        start: $vacation['start_date']<br>
-        end:   $vacation['end_date'] <br>
-        Message: $vacation['text']<br>
-        <a href=#delete&id=$vacation['id']> Delete </a><br>
-        <a href=#change&id=$vacation['id']> Edit </a><br>
-        <a href=#disable&id=$vacation['id']> Disable </a>
+	<tr>
+		<td>
+			<div class="td_lead_info">
+				Start:
+			</div>
+		</td>
+		<td>
+			<div class="info">
+				$vacation['start_date']
+			</div>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<div class="td_lead_info">
+				End:
+			</div>
+		</td>
+		<td>
+			<div class="info">
+				$vacation['end_date']
+			</div>
+		</td>
+	<tr>
+		<td>
+			<div class="td_lead_info">
+				Message:
+			</div>
+		</td>
+		<td>
+			<div class="info">
+				$vacation['text']
+			</div>
+		</div>
+	</tr>
+	<tr>
+		<td colspan="2">
+			<div class="info">
+				<a href=#delete?id=$vacation['id']> Delete </a>&nbsp;
+				<a href=#change?id=$vacation['id']> Edit </a>&nbsp;
+				<a href=#disable?id=$vacation['id']> Disable </a>
+			</div>
+		</td>
+	</tr>
     </span>
     #end for
 #else
-    No vacations registered.
+	<tr>
+    	<td colspan="2">
+			<div class="info">
+				No vacations registered.
+			</div>
+		</td>
+	</tr>
 #end if
-<br>
-<a href=#newVacation>Set new vacation</a>
+	<tr>
+		<td colspan="2">
+			<div class="info">
+				<a href=#newVacation>Set new vacation</a>
+			</div>
+		</td>
+	</tr>
+</table>
 </div>
+</p>
 #end def
 
 #def viewMailForward($forwards)
-<div class="view_mailforward" id="mailforward_form" style="display:always;">
-Forwards:<br>
+<p>
+## <div class="view_mailforward" id="mailforward_form" style="display:always;">
+<div class="view_info" id="mailforward_form" style="display:always;">
+<table width="100%">
+	<tr>
+		<th colspan="2">
+			<div class="tableheader">
+				Forwards:
+			</div>
+		</th>
+	</tr>
 #if $len($forwards) > 0
     #for $forward in $forwards
     <span class=#if $forward['enabled']==1 then "enabled" else "disabled" #>
-        Start: $forward['start_date']<br>
-        End:   $forward['end_date'] <br>
-        Target: $forward['address']<br>
-        <a href=#delete&id=$forward['id']> Delete </a><br>
-        <a href=#change&id=$forward['id']> Edit </a><br>
-        <a href=#disable&id=$forward['id']> Delete </a>
+	<tr>
+		<td>
+			<div class="td_lead_info">
+        		Start:
+			</div>
+		</td>
+		<td>
+			<div class="info">
+				$forward['start_date']
+			</div>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<div class="td_lead_info">
+        End:
+			</div>
+		</td>
+		<td>
+			<div class="info">
+				$forward['end_date']
+			</div>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<div class="td_lead_info">
+        		Target:
+			</div>
+		</td>
+		<td>
+			<div class="info">
+				$forward['address']
+			</div>
+		</td>
+	</tr>
+	<tr>
+		<td colspan="2">
+			<div class="info">
+				<a href=#delete?id=$forward['id']> Delete </a>&nbsp;
+				<a href=#change?id=$forward['id']> Edit </a>&nbsp;
+				<a href=#disable?id=$forward['id']> Delete </a>
+			</div>
+		</td>
+	</tr>
     </span>
     #end for
 #else
-    No forwards registered
+	<tr>
+		<td colspan="2">
+			<div class="info">
+				No forwards registered
+			</div>
+		</td>
+	</tr>
 #end if
-<br>
-<a href=#newForward>Set new forward</a>
+	<tr>
+		<td colspan="2">
+			<div class="info">
+				<a href=#newForward>Set new forward</a>
+			</div>
+		</td>
+	</tr>
+</table>
 </div>
+</p>
 #end def
 
 #def createVacation()
