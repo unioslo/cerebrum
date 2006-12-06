@@ -1,0 +1,270 @@
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+__doc__ = """
+This program imports historical data about file and net groups
+from. The script will attempt to assign the given (option) spread to a
+group, creating the group if it is not already registered.
+
+The files read are formated as:
+<gname>:<desc>:<mgroup*|maccount*>
+
+gname - name of the group to be registered/updated
+desc - description of the group (usually what it is used for)
+mgroup - name(s) of group(s) that are members 
+maccount - user names of the groups account members
+
+* - zero or more, comma-separated
+"""
+ 
+import string
+import os
+import getopt
+import sys
+import time
+
+import cerebrum_path
+import cereconf
+
+from Cerebrum import Group
+from Cerebrum import Entity
+from Cerebrum import Errors
+from Cerebrum.modules import PosixGroup
+from Cerebrum.Utils import Factory
+from Cerebrum.Constants import _SpreadCode
+
+
+valid_groupname_chars = string.ascii_letters + string.digits + '-_.'
+unknown_entities = {}
+
+db = Factory.get('Database')()
+db.cl_init(change_program='import_groups')
+constants = Factory.get('Constants')(db)
+logger = Factory.get_logger("console")
+
+account_init = Factory.get('Account')(db)
+account_init.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+default_creator_id = account_init.entity_id
+
+person = Factory.get('Person')(db)
+group = Factory.get('Group')(db)
+account_member = Factory.get('Account')(db)
+group_member = Factory.get('Group')(db)
+posixgroup = PosixGroup.PosixGroup(db)
+    
+
+def read_filelines(infile):
+    """Reads file and does basic verification of contents. Returns an
+    array consisting of group-data, where each entry is a dictionary
+    containing group-name, group description and group memberships.
+
+    """    
+    group_data = []
+
+    stream = open(infile, 'r')
+    for line in stream:
+        line = line.rstrip('\r\n')
+        logger.debug5("Processing line: '%s'", line)
+
+        fields = string.split(line.strip(), ":")
+        if len(fields) < 3:
+            logger.error("Bad line: %s. Skipping", line)
+            continue
+
+        current_group = {}
+        current_group['name'] = fields[0]
+        current_group['description'] = fields[1]
+        current_group['members'] = fields[2]
+
+        # Validity checks for groupnames. Invalids will NOT be imported to Cerebrum
+        if current_group['name'] == "":
+            logger.error("Empty groupname in line '%s'. Skipping" % line)
+            continue
+        for char in current_group['name']:
+            if char not in valid_groupname_chars:
+                logger.error("Invalid character '%s' found in groupname '%s'. Skipping" %
+                             (char, current_group['name']))
+                continue
+
+        group_data.append(current_group)
+
+    return group_data
+
+
+def create_group(groupname, description, spread):
+    """Scan file for groupnames, create any that don't exist
+    already. For all groups, add 'spread' if the groups doesn't have
+    that spread already.
+
+    """
+    logger.debug5("Processing group: '%s' (desc: '%s')" % (groupname, description))
+
+    try:
+        group.clear()
+        group.find_by_name(groupname)
+        logger.debug5("Group '%s' exists.", groupname)
+    except Errors.NotFoundError:	
+        group.populate(default_creator_id, constants.group_visibility_all,
+                       groupname, description,
+                       time.strftime("%Y-%m-%d", time.localtime()))
+        group.write_db()
+        if not dryrun:
+            db.commit()
+            logger.info("Created group '%s'.", name)
+
+    if not group.has_spread(int(spread)):
+        group.add_spread(int(spread))
+        group.write_db()
+        if not dryrun:
+            db.commit()
+            logger.debug5("Added spread '%s' to group '%s'.", spread, name)
+
+
+
+def assign_memberships(groupname, members):
+    """
+    Assign membership for groups and users.
+    """
+
+    if members == "":
+        logger.warn("Group '%s' has no members" % groupname)
+        return
+    
+    member_list = string.split(members.strip(),",")
+    
+    group.clear()
+    try:
+        group.find_by_name(groupname)
+    except Errors.NotFoundError:	
+        logger.error("Unable to find group '%s'; why wasn't it created earlier?" %
+                     groupname)
+        return
+        
+    logger.debug5("Adding members to group: '%s'" % groupname)
+
+    for member in member_list:
+        logger.debug5("Looking at potential member: '%s'" % member)
+        addee = None
+        entity_type = None
+
+	try:
+	    account_member.clear()
+	    account_member.find_by_name(member)
+            addee = account_member
+            entity_type = constants.entity_account
+
+	except Errors.NotFoundError:
+            logger.debug3("Didn't find user with name '%s'" % member)
+            try:
+                # TODO 2006-12-05 amveha - Test this properly; haven't got suitable data at the moment
+                person.clear()
+                person.find_by_external_id(constants.externalid_uname, member)
+                addee = person.get_primary_account()
+                entity_type = constants.entity_account
+                logger.debug3("Found account '%s' for user with external name '%s'" % (addee.name, member))
+
+            except Errors.NotFoundError:
+                logger.debug3("Didn't find user with external name '%s'" % member)
+                try:
+                    group_member.clear()
+                    group_member.find_by_name(member)
+                    addee = group_member
+                    entity_type = constants.entity_group
+                except Errors.NotFoundError:
+                    logger.debug3("Didn't find group with name '%s'", member)
+                    logger.error("Trying to assign membership for a non-existing " +
+                                 "entity '%s' to group '%s'" % (member, groupname))
+                    unknown_entities[member] = 1 # Add to hash, so we can report all later
+                    continue
+            
+        if not group.has_member(addee.entity_id, entity_type, constants.group_memberop_union):
+            group.add_member(addee.entity_id, entity_type, constants.group_memberop_union)
+
+            group.write_db()
+            if not dryrun:
+                db.commit()
+                logger.info("Added '%s' to group '%s'.", member, groupname)
+        else:
+            logger.debug3("%s '%s' already member of  group '%s'." %
+                          (entity_type, member, groupname))
+            
+
+def usage():
+    print """Usage: %s
+    -d, --dryrun  : Run a fake import. Rollback after run.
+    -f, --file    : File to parse.
+    -s, --spread  : Spread that new groups should have
+    -h, --help    . Print this message and exit
+    """ % __file__.split("/")[-1]
+
+
+def main():
+    global dryrun
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   'f:d:sh',
+                                   ['file=', 'dryrun', 'spread=', 'help'])
+    except getopt.GetoptError:
+        usage()
+
+    opt_spread = None
+    dryrun = False
+    for opt, val in opts:
+        if opt in ('-d', '--dryrun'):
+            dryrun = True
+        elif opt in ('-f', '--file'):
+            infile = val
+	elif opt in ('-s','--spread'):
+	    opt_spread = val
+        elif opt in ('-h', '--help'):
+            usage()
+            sys.exit(0)
+
+    try:
+        spread = getattr(constants, opt_spread)
+        if not isinstance(spread, _SpreadCode):
+            raise AttributeError
+    except AttributeError:
+        logger.error("Unable to find valid spread named '%s'" % opt_spread)
+        sys.exit(1)
+
+    groups = read_filelines(infile)
+
+    # First all groups are created...
+    for current_group in groups:
+        create_group(current_group['name'], current_group['description'], spread)
+
+    # ... then assign memberships in them
+    # Important since groups can be members of groups
+    for current_group in groups:
+        assign_memberships(current_group['name'], current_group['members'])
+
+    if unknown_entities:
+        unknown_entities_keys = unknown_entities.keys()
+        unknown_entities_keys.sort()
+        logger.error("The following enitities were assigned memberships, " +
+                     "but are unknown to Cerebrum: '%s'" % " ".join(unknown_entities_keys))
+
+
+if __name__ == '__main__':
+    main()
+    
