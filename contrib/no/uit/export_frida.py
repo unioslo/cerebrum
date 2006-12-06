@@ -229,6 +229,13 @@ class system_xRepresentation(object):
                 writer.startElement("brukernavn")
                 writer.data(account_name)
                 writer.endElement("brukernavn")
+
+                my_email= account.get_primary_mailaddress()
+                writer.startElement("epost")
+                writer.data(my_email)
+                writer.endElement("epost")
+
+                
                 writer.startElement("gjester")
                 writer.startElement("gjest")
 
