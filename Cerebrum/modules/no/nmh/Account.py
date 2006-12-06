@@ -38,6 +38,8 @@ class AccountNMHMixin(Account.Account):
     """
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
                  expire_date):
+        # Override Account.populate in order to register 'primary e-mail
+        # address
         self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
                               expire_date)
         # register "primary" e-mail address as entity_contact
@@ -47,7 +49,11 @@ class AccountNMHMixin(Account.Account):
                                    type=self.const.contact_email,
                                    value=c_val, description=desc)
 
-        
+    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
+        # Override Account.suggest_unames as NMH allows up to 12 chars
+        # in unames
+        return self.__super.suggest_unames(domain, fname, lname, maxlen=12)
+    
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
         # plaintext password
