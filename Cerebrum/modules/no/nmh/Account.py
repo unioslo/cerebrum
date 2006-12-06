@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003-2005 University of Oslo, Norway
+# Copyright 2006 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,16 +19,12 @@
 
 """"""
 
-import random
-import string
 
-import re
 import cereconf
-from mx import DateTime
+
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import PasswordHistory
-from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
 
 class AccountNMHMixin(Account.Account):
@@ -40,24 +36,17 @@ class AccountNMHMixin(Account.Account):
     the policies as stated by the Indigo-project.
 
     """
-    def register_email_contact(self, uname):
+    def populate(self, name, owner_type, owner_id, np_type, creator_id,
+                 expire_date):
+        self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
+                              expire_date)
         # register "primary" e-mail address as entity_contact
-        db = Factory.get('Database')()
-        person = Factory.get('Person')(db)
-        constants = Factory.get('Constants')(db)
-        account = Factory.get('Account')(db)
-        account.clear()
-        try:
-            account.find_by_name(uname)
-        except Errors.NotFoundError:
-            return False
-        c_val = uname + '@nmh.uio.no'
+        c_val = name + '@nmh.uio.no'
         desc = "E-mail address exported to LDAP"
-        account.add_contact_info(constants.system_override,
-                                 constants.contact_email,
-                                 c_val, description=desc)
-        account.write_db()
-        return True
+        self.populate_contact_info(self.const.system_cached,
+                                   type=self.const.contact_email,
+                                   value=c_val, description=desc)
+
         
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
