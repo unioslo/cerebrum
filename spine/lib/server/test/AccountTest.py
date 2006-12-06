@@ -21,20 +21,23 @@
 from unittest import TestCase, main
 
 from MockDB import *
+import TestData
+
 from Cerebrum.spine.Account import Account
 
 class AccountTest(TestCase):
     def setUp(self):
-        self.aid = MockDB.account['id']
         self.db = MockDB()
-        self.db._add_account(MockDB.account)
-        self.ac = Account(self.db, self.aid)
+        self.ac_dict = TestData.accounts['user']
+        self.id = self.ac_dict['id']
+        self.db._add_account(self.ac_dict)
+        self.ac = Account(self.db, self.id)
 
     def test_setUp_and_tearDown(self):
         pass
 
     def test_get_id(self):
-        assert self.aid == self.ac.get_id()
+        assert self.id == self.ac.get_id()
 
     def test_value_domain(self):
         # self.ac._get_sql forces ValueDomainHack to be run
@@ -45,9 +48,6 @@ class AccountTest(TestCase):
 
     def test_is_superuser(self):
         self.assertFalse(self.ac.is_superuser())
-
-    def tearDown(self):
-        self.db.verify()
 
 if __name__ == '__main__':
     main()

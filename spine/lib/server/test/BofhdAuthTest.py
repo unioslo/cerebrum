@@ -20,6 +20,7 @@
 #
 from unittest import TestCase, main
 
+import TestData
 from MockDB import *
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, BofhdAuthOpSet, BofhdAuthOpTarget
 
@@ -51,7 +52,6 @@ class TestBofhdAuthOpSet(TestCase):
     def testWriteDB_updated(self):
         name = 'test'
         self.db._insert_auth_op(name)
-
         self.os.populate(name)
         self.os.write_db()
 
@@ -77,19 +77,18 @@ class TestBofhdAuth(TestCase):
         pass
 
     def testNoCaching(self):
-        db1 = MockDB()
-        db2 = MockDB()
-        db1._init_bofhdauth(value_domain=3, method=db1._stub)
-        db2._init_bofhdauth(value_domain=4, method=db2._stub)
+        db1 = MockDB(value_domain=3)
+        db2 = MockDB(value_domain=4)
 
         # The following methods should not be called, but will be called if ba2
         # uses cached values from ba1.
-        db2._stub("""query_1('
+        sql, args = db2._parse_sql("""
         SELECT entity_id
         FROM [:table schema=cerebrum name=entity_name]
-        WHERE value_domain=:domain AND entity_name=:name', {'domain': 3, 'name': 'bootstrap_group'})""", 19)
+        WHERE value_domain=:domain AND entity_name=:name', {'domain': 3, 'name': 'bootstrap_group'}""")
+        db2._add_sql(sql, args, 19)
 
-        db2._stub("""query_1('
+        sql, args = db2._parse_sql("""
         SELECT gi.description, gi.visibility, gi.creator_id,
                gi.create_date, gi.expire_date, en.entity_name
         FROM [:table schema=cerebrum name=group_info] gi,
@@ -97,7 +96,9 @@ class TestBofhdAuth(TestCase):
         WHERE
           gi.group_id=:g_id AND
           en.entity_id=gi.group_id AND
-          en.value_domain=:domain', {'domain': 3, 'g_id': 19})""", ['', MockDB.CONST['visibility'], MockDB.CONST['bootstrap_user'], '2005-09-30', '', 'bootstrap_group'])
+          en.value_domain=:domain', {'domain': 3, 'g_id': 19}""")
+        res = ['', TestData.types['visibility'], TestData.types['bootstrap_user'], '2005-09-30', '', 'bootstrap_group']
+        db2._add_sql(sql, args, res)
 
         ba1 = BofhdAuth(db1)
         assert ba1.const.group_namespace.int == 3

@@ -26,15 +26,13 @@ from pmock import Mock
 import sys
 sys.path.append("..")
 import Authorization
-from spine_constants import operation_sets
+import TestData
 
 class UserTest(TestCase):
     def setUp(self):
         # Initialize the mockdatabase with permissiondata.
-        self.db = MockDB(operation_sets)
-        self.db._init_bofhdauth()
-        self.db._no_superuser()
-        self.ac = self.db._getAccount(100)
+        self.db = MockDB(TestData.operation_sets)
+        self.ac = self.db._add_account(TestData.accounts['user'])
         self.ao = Authorization.Authorization(self.ac, database=self.db)
 
     def testChangePassword(self):
