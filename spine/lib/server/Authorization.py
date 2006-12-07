@@ -32,7 +32,6 @@ from Cerebrum.spine.Types import CodeType
 from Cerebrum.spine.Commands import Commands
 from Cerebrum.spine.EntityAuth import EntityAuth
 from Cerebrum.spine.SpineLib import Database
-import sets
 
 class Authorization(object):
     def __init__(self, account, database=None):
@@ -65,6 +64,19 @@ class Authorization(object):
         # Command objects are not entities and must be handled separately.
         if isinstance(obj, Commands) and self.has_access_to_command(operation):
             return True
+
+        # Searcher and Dumper objects are not entities and must be handled
+        # separately.  Since they are harmless until they are asked to
+        # return the search results, we check if the method_name is one of
+        # the methods that returns anything.  If it isn't, go ahead and
+        # run the method.
+
+        if cls.__name__.endswith('Searcher'):
+            if method_name not in ['search', 'dump', 'dump_rows']:
+                return True
+        if cls.__name__.endswith('Dumper'):
+            if method_name not in ['dump', 'get_objects']:
+                return True
         
         # Does self.account have user access to this object?
         if self.has_user_access(operation, obj):
