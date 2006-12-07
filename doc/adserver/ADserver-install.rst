@@ -32,10 +32,43 @@ installation.
 * Edit the LISTEN_HOST to the local domain controller.
 * Edit LISTEN_PORT to the portnumber specified on the cerebrum server. 
 * Edit ACCESSLIST to the ip-address of the cerebrum server.
-* Edit AUTH to a valid user in Active Directory. The server is not running in 
-  the context of this user. The server use the password specified in the 
-  basic HTML autentication header sent from the cerebrum server to allow access.
+* Edit AUTH to a valid user in Active Directory. The default user is Cerebrum. 
+  The server is not running in the context of this user, but the server use the password 
+  specified in the basic HTML autentication header sent from the cerebrum server 
+  to allow access.
 * Configure the logger. 
+
+
+ 
+
+
+
+Special settings on the Domain Controller:
+=============================================
+
+* Create a user called cerebrum in AD, place the user in the Builtin OU or the OU specified in the 
+  AD_DO_NOT_TOUCH variable in cerebrum. This user must be the same user specified in the 
+  AUTH constant on AD-server. The password on the user must match the password used in the 
+  HTML autentication header sent from Cerebrum. 
+ 
+* Domain Functional level must be above 2000mixed mode to allow groups as groupmembers.
+
+* The Group Policy Setting in Default Domain Policy: 
+  Computer Configuration -> Windows Settings Security Settings -> Account Policy -> 
+  Password Policy -> Password must meet complexity requirements should be disabled, or changing of 
+  password might fail.
+
+* The Group Policy Setting in Default Domain Policy: User Configuration -> Windows Settings -> 
+  Administrative Template -> System -> Ctrl+Alt+Del Options -> 
+  Remove Change Password should be disabled  
+
+* Create an OU matching the AD_DO_NOT_TOUCH value in cerebrum, 
+  default value is 'Cerebrum_dont_touch'.
+
+* Create an OU matching the AD_LOST_AND_FOUND value in cerebrum, 
+  default value is 'lost-n-found'. This is the place where deleted objects is placed if 
+  syncronication is run without the delete option.
+
 
 ==============================================
 Running the ADserver.
