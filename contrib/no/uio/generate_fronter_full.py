@@ -1118,10 +1118,14 @@ def process_kurs2enhet():
 
             # Alle eksporterte kurs skal i alle fall ha ett fellesrom og
             # ett lærerrom.
-            register_room("%s - Fellesrom" % emnekode.upper(),
+            if multi_termin:
+                term_title = "%s-%s-%s" % (aar, termk, termnr)
+            else:
+                term_title = "%s-%s" % (aar, termk)
+            register_room("%s - Fellesrom %s" % (emnekode.upper(), term_title),
                           "ROOM/Felles:%s" % struct_id,
                           enhet_node)
-            register_room("%s - Lærerrom" % emnekode.upper(),
+            register_room("%s - Lærerrom %s" % (emnekode.upper(), term_title),
                           "ROOM/Larer:%s" % struct_id,
                           enhet_node)
 
@@ -1170,7 +1174,7 @@ def process_kurs2enhet():
                 process_single_enhet_id(enhet_id, struct_id,
                                         emnekode, groups,
                                         enhet_node, undervisning_node,
-                                        termin_suffix)
+                                        " %s%s" % (term_title, termin_suffix))
         elif ktype == fronter.EVU_PREFIX.lower():
             # EVU-kurs er modellert helt uavhengig av semester-inndeling i
             # FS, slik at det alltid vil være nøyaktig en enhet-ID for
