@@ -799,7 +799,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     '  ON ah.account_id=ai.account_id')
             tables.append(
                 'LEFT JOIN ([:table schema=cerebrum name=homedir] hd' +
-                '           JOIN [:table schema=cerebrum name=disk_info] d'+
+                '           LEFT JOIN [:table schema=cerebrum name=disk_info] d'+
                 '           ON d.disk_id = hd.disk_id)'+
                 'ON hd.homedir_id=ah.homedir_id')
         else:
@@ -822,7 +822,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         return self.query("""
         SELECT ai.account_id, en.entity_name, hd.home,
-               ah.spread AS home_spread, d.path, hd.homedir_id,
+               ah.spread AS home_spread, d.path, hd.homedir_id, ai.owner_id,
                hd.status, ai.expire_date, ai.create_date, d.disk_id, d.host_id
         FROM %s
         WHERE %s""" % (tables, where), {
