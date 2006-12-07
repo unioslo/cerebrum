@@ -20,6 +20,7 @@ own_account = [ # {{{
         'Account.get_id',
         'Account.get_name',
         'Account.get_owner',
+        'Account.get_owner_type',
         'Account.get_spreads',
         'Account.is_expired',
         'Account.is_posix',
@@ -86,4 +87,4 @@ operation_sets = {
       'codestrs': Set(own_account + own_person + orakel)},
 }
 
-# vim: foldmethod=marker
+# vim: foldmethod=marker nowrap
