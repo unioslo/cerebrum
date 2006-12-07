@@ -19,6 +19,8 @@ class MappingError(Exception):
     pass
 
 class Adm(object):
+    DOMAIN_NAME = "adm.hiof.no"
+    DOMAIN_DN = "DC=adm,DC=hiof,DC=no"
     mapping = {
         '10': 'olivia',
         '20': 'tora',
@@ -26,9 +28,9 @@ class Adm(object):
         '35': 'katta'
         }
 
-    def getCanonicalName(self, sko, uname):
+    def getDN(self, sko, uname):
         serv = Adm.mapping[sko[-2:]].capitalize()
-        return "adm.hiof.no/Ansatte %s/%s" % (serv, uname)
+        return "CN=%s,CN=Ansatte %s,%s" % (uname, serv, Adm.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         serv = Adm.mapping[sko[-2:]]
@@ -39,6 +41,8 @@ class Adm(object):
         return r"\\%s\%s" % (serv, uname)
 
 class Fag(object):
+    DOMAIN_NAME = "fag.hiof.no"
+    DOMAIN_DN = "DC=fag,DC=hiof,DC=no"
     sted_mapping = {
         ('*', '*', '10'): 'Halden',
         ('*', '*', '20'): 'Sarp',
@@ -99,43 +103,45 @@ class Fag(object):
     def _getAvdeling(self, sko):
         return self._findBestMatch(sko, Fag.avdeling_mapping)
     
-    def getCanonicalName(self, sko, uname):
+    def getDN(self, sko, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Canon', tmp['All'])
         sted = self._getSted(sko)
-        return "fag.hiof.no/Ansatte/%s/%s/%s" % (sted, avdeling, uname)
+        return "CN=%s,CN=%s,CN=%s,CN=Ansatte,%s" % (uname, avdeling, sted, Fag.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
-        return r"\\fag.hiof.no\Profile\%s\%s" % (avdeling, uname)
+        return r"\\%s\Profile\%s\%s" % (Fag.DOMAIN_NAME, avdeling, uname)
 
     def getHome(self, sko, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
-        return r"\\fag.hiof.no\Home\%s\%s" % (avdeling, uname)
+        return r"\\%s\Home\%s\%s" % (Fag.DOMAIN_NAME, avdeling, uname)
 
 class Student(Fag):
-    def getCanonicalName(self, sko, studieprogram, uname):
+    DOMAIN_NAME = "stud.hiof.no"
+    DOMAIN_DN = "DC=stud,DC=hiof,DC=no"
+    def getDN(self, sko, studieprogram, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
-        return "stud.hiof.no/Studenter/%s/%s/%s" % (avdeling, studieprogram, uname)
+        return "CN=%s,OU=%s,OU=%s,OU=Studenter,%s" % (uname, studieprogram, avdeling, Student.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
-        return r"\\stud.hiof.no\Profile\%s\%s" % (avdeling, uname)
+        return r"\\%s\Profile\%s\%s" % (Student.DOMAIN_NAME, avdeling, uname)
 
     def getHome(self, sko, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
-        return r"\\stud.hiof.no\Home\%s\%s" % (avdeling, uname)
+        return r"\\%s\Home\%s\%s" % (Student.DOMAIN_NAME, avdeling, uname)
 
 class MappingTests(unittest.TestCase, object):
     def testFag(self):
         fag = Fag()
-        self.assertEqual(fag.getCanonicalName("260020", "uname"),
-                         'fag.hiof.no/Ansatte/Sarp/IR/uname')
+        self.assertEqual(fag.getDN("260020", "uname"),
+                         'CN=uname,CN=IR,CN=Sarp,CN=Ansatte,DC=fag,DC=hiof,DC=no')
         self.assertEqual(fag.getProfilePath("260020", "uname"),
                          r'\\fag.hiof.no\Profile\IR\uname')
         self.assertEqual(fag.getHome("260020", "uname"),
@@ -143,8 +149,8 @@ class MappingTests(unittest.TestCase, object):
 
     def testStudent(self):
         s = Student()
-        self.assertEqual(s.getCanonicalName("260020", "stprog", "uname"),
-                         'stud.hiof.no/Studenter/IR/stprog/uname')
+        self.assertEqual(s.getDN("260020", "stprog", "uname"),
+                         'CN=uname,OU=stprog,OU=IR,OU=Studenter,DC=stud,DC=hiof,DC=no')
         self.assertEqual(s.getProfilePath("260020", "uname"),
                          r'\\stud.hiof.no\Profile\IR\uname')
         self.assertEqual(s.getHome("260020", "uname"),
@@ -152,8 +158,8 @@ class MappingTests(unittest.TestCase, object):
 
     def testAdm(self):
         adm = Adm()
-        self.assertEqual(adm.getCanonicalName("983020", "uname"),
-                         'adm.hiof.no/Ansatte Tora/uname')
+        self.assertEqual(adm.getDN("983020", "uname"),
+                         'CN=uname,CN=Ansatte Tora,DC=adm,DC=hiof,DC=no')
         self.assertEqual(adm.getProfilePath("983020", "uname"),
                          r'\\tora\uname\profile')
         self.assertEqual(adm.getHome("983020", "uname"),
