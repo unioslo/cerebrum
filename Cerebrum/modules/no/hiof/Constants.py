@@ -28,6 +28,8 @@ from Cerebrum import Constants
 from Cerebrum.Constants import _SpreadCode, \
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode
+from Cerebrum.modules.EntityTrait import \
+     _EntityTraitCode
 from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
@@ -109,3 +111,9 @@ class Constants(Constants.Constants):
     spread_ad_group_stud = _SpreadCode(
         'group@ad_stud', Constants.Constants.entity_group,
         'Group included in domain STUD in Active Directory')        
+    trait_ad_profile_path = _EntityTraitCode(
+        'ad_profile_path', Constants.Constants.entity_account,
+        "AD profile path for account")
+    trait_ad_account_ou = _EntityTraitCode(
+        'ad_account_ou', Constants.Constants.entity_account,
+        "AD OU for account")
