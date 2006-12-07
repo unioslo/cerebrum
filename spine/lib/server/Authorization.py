@@ -23,6 +23,7 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, BofhdAuthRole
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
 
+from Cerebrum.spine.EntityExternalId import EntityExternalId
 from Cerebrum.spine.Entity import Entity
 from Cerebrum.spine.Account import Account
 from Cerebrum.spine.Person import Person
@@ -36,40 +37,25 @@ import sets
 class Authorization(object):
     def __init__(self, account, database=None):
         self._db = database or Database.SpineDatabase()
+        self.bofhdauth = BofhdAuth(self._db)
         self.account = account
+        self.superuser = self.is_superuser()
 
     def __del__(self):
         self._db.close()
-
-    def is_superuser(self, bofhdauth):
-        if bofhdauth.is_superuser(self.account.get_id()):
-            return True
-
-    def is_public(self, cls, obj, m):
-        # Is the method public?
-        if hasattr(m, 'signature_public'):
-            if m.signature_public is True:
-                return True
-            else:    # m.signature_public is False, which
-                pass # overrides obj.signature_public
-        elif getattr(obj, 'signature_public', False) is True:
-            return True
-        # CodeTypes are public.
-        if issubclass(cls, CodeType):
-            return True
 
     def has_permission(self, obj, method_name, *args):
         """Checks whether the owner of the session has access to run the
         specified method on the given object with the args provided.  See
         https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
-        for en dokumentasjon av autorisasjonssjekken"""
+        for a description (in Norwegian)"""
 
-        bofhdauth = BofhdAuth(self._db)
-        if self.is_superuser(bofhdauth): return True
+        if self.superuser: return True
 
         m = getattr(obj, method_name) 
         cls = obj.__class__ 
         operation = AuthRoleOpCode("%s.%s" % (cls.__name__, method_name))
+
 
         if self.is_public(cls, obj, m): return True
 
@@ -87,7 +73,7 @@ class Authorization(object):
         # Har brukeren tilgang til å utføre operasjonen som konsekvens av tilgangsnivå
         ## Har brukeren tilgang til objektet som følge av tilknytning? True = Success. 
 
-        if self.has_access(operation, obj, bofhdauth=bofhdauth):
+        if self.has_access(operation, obj):
             return True
 
         return False 
@@ -111,11 +97,14 @@ class Authorization(object):
     def has_user_access(self, operation, target):
         ok = False
 
+        account_id = self.account.get_id()
+        owner_id = self.account.get_owner().get_id() 
         if isinstance(target, Account):
-            ok = target.get_id() == self.account.get_id()
-            # account.owner_id() == group && self.account.entity_id in group.members
+            ok = account_id == target.get_id() 
         elif isinstance(target, Person):
-            ok = self.account.get_owner().get_id() == target.get_id()
+            ok = owner_id == target.get_id()
+        elif isinstance(target, EntityExternalId):
+            ok = owner_id == target.get_entity().get_id()
 
         if ok:
             op_set = BofhdAuthOpSet(self._db)
@@ -124,19 +113,32 @@ class Authorization(object):
             if operation in operations:
                 return True
 
-    def has_access(self, operation, target, bofhdauth):
-        # Find out who has access to target
-        # Intersect with self.account and it's groups, etc.
-        # If not null, find out what operations self.account has access to on target
-        # Intersect with operation
+    def has_access(self, operation, target):
         if isinstance(target, Account) or isinstance(target, Person):
             # Is operator allowed to perform 'operation' on one of the OUs
             # associated with the target?
             ceTarget = Factory.get("Account")(self._db)
             ceTarget.find(target.get_id())
-            if bofhdauth._has_access_to_entity_via_ou(
+            if self.bofhdauth._has_access_to_entity_via_ou(
                     self.account.get_id(), operation, ceTarget):
                 return True
+
+    def is_superuser(self):
+        if self.bofhdauth.is_superuser(self.account.get_id()):
+            return True
+
+    def is_public(self, cls, obj, m):
+        # Is the method public?
+        if hasattr(m, 'signature_public'):
+            if m.signature_public is True:
+                return True
+            else:    # m.signature_public is False, which
+                pass # overrides obj.signature_public
+        elif getattr(obj, 'signature_public', False) is True:
+            return True
+        # CodeTypes are public.
+        if issubclass(cls, CodeType):
+            return True
 
 
 # arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525
