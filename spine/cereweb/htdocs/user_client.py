@@ -57,10 +57,8 @@ def get_user_info(transaction,username):
         is_quarantined = ''
     user = {'id':my_id,'username':username,'fullname':fullname,'expire_date':expire_date,
             'birthdate':birthdate,'quarantined':is_quarantined,'external_id': []}
-    if account.get_owner_type().get_name() == 'person':
-        extsearcher = transaction.get_entity_external_id_searcher()
-        extsearcher.set_entity(owner)
-        extids = extsearcher.search()
+    if owner_type == 'person':
+        extids = owner.get_external_ids()
         for extid in extids:
             extid_type = extid.get_id_type().get_name()
             extid_type_description = extid.get_id_type().get_description()
