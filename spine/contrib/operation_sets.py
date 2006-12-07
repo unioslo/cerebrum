@@ -57,6 +57,10 @@ own_person = [ # {{{
         'Person.get_type',
         'Person.is_quarantined',
 ] # }}}
+own_external_id = [ # {{{
+        'EntityExternalId.get_id_type',
+        'EntityExternalId.get_external_id',
+] # }}}
 public_commands = [ # {{{
         'Commands.find_email_address',
         'Commands.get_account_by_name', 
@@ -78,7 +82,7 @@ orakel = [ # {{{
 operation_sets = {
     'own_account': {
       'desc': 'operations all users should be allowed to do with their own account',
-      'codestrs': Set(own_account + own_person)},
+      'codestrs': Set(own_account + own_person + own_external_id)},
     'public': {
       'desc': 'operations all users should be allowed to do',
       'codestrs': Set(public_commands)},

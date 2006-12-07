@@ -6,6 +6,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Constants
 from sets import Set
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
@@ -20,11 +21,19 @@ if db_user is None:
 def create_op_set(set_name, op_codestrs):
     db = Factory.get('Database')(user=db_user)
     auth_op_set = BofhdAuthOpSet(db)
-    auth_op_set.populate(set_name)
-    auth_op_set.write_db()
+    try:
+        auth_op_set.find_by_name(set_name)
+        # Get the auth_op_codes already in the set.
+        existing = [x[0] for x in auth_op_set.list_operations()]
+    except NotFoundError, e:
+        auth_op_set.populate(set_name)
+        auth_op_set.write_db()
+        existing = []
     for codestr in op_codestrs:
         code = _AuthRoleOpCode(codestr)
-        auth_op_set.add_operation(int(code))
+        if not int(code) in existing:
+            auth_op_set.add_operation(int(code))
+            existing.append(int(code))
     db.commit()
 
 if __name__ == '__main__':
