@@ -1004,12 +1004,13 @@ class StudieInfo(FSObject):
         return self.db.query(qry) 
 
 class FS(object):
+
     def __init__(self, db=None, user=None, database=None):
         if db is None:
-            # TBD: Should user and database have default values in
-            # cereconf?
-            db = Database.connect(user = user, service = database,
-                                  DB_driver = 'Oracle')
+            user = user or cereconf.FS_USER
+            database = database or cereconf.FS_DATABASE_NAME
+            db = Database.connect(user=user, service=database,
+                                  DB_driver = 'DCOracle2')
         self.db = db
         self.person = Person(db)
         self.student = Student(db)

@@ -747,7 +747,8 @@ class Factory(object):
                       'PosixGroup' : 'CLASS_POSIX_GROUP',
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
-                      'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD'}
+                      'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
+                      'FS': 'CLASS_FS',}
         if Factory.class_cache.has_key(comp):
             return Factory.class_cache[comp]
         try:
