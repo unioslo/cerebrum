@@ -147,7 +147,7 @@ class AccountType(object):
                               status=None, filter_expired=True,
                               account_id=None, person_id=None,
                               primary_only=False, person_spread=None,
-                              fetchall=True):
+                              account_spread=None, fetchall=True):
         """Return information about the matching accounts."""
         join = extra = ""
         if affiliation is not None:
@@ -166,6 +166,8 @@ class AccountType(object):
             extra += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
         if account_id:
             extra += " AND ai.account_id=:account_id"
+        if person_spread is not None and account_spread is not None:
+            raise Errors.CerebrumError, 'Illegal to use both person and account spread in query'
         if person_spread is not None:
             if isinstance(person_spread, (list, tuple)):
                 person_spread = "IN (%s)" % \
@@ -175,6 +177,16 @@ class AccountType(object):
             join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
                     " ON es.entity_id = at.person_id" \
                     " AND es.spread " + person_spread
+        if account_spread is not None:
+            if isinstance(account_spread, (list, tuple)):
+                account_spread = "IN (%s)" % \
+                    ", ".join(map(str, map(int, account_spread)))
+            else:
+                account_spread = "= %d" % int(account_spread)
+            join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
+                    " ON es.entity_id = at.account_id" \
+                    " AND es.spread " + account_spread
+			
         rows = self.query("""
         SELECT DISTINCT at.person_id, at.ou_id, at.affiliation, at.account_id,
                         at.priority
