@@ -1,3 +1,22 @@
+#
+# Copyright 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import win32com.client
 import pythoncom
 import logging
@@ -9,15 +28,12 @@ const = ADconstants.Constants()
 	
 class ADObject(object):
 
-	def __init__(self):
+	def __init__(self, *args, **kwargs):
+		super(ADObject, self).__init__(*args, **kwargs)
 		self.Object = None	
 		self.distinguishedName = None
 		self.type = None
 
-	def _init_values(self):
-		self.Object = None	
-		self.distinguishedName = None
-		self.type = None
 
 	def _log_exception(self, ltype, function, name=None):
 		logtype = getattr(logging, ltype)
@@ -67,6 +83,7 @@ class ADObject(object):
 
 		logging.debug("Binded to %s" % self.distinguishedName)
 		return (True, "Binded to %s" % self.distinguishedName)
+
 
 	def rebindObject(self):
 		return self.bindObject(self.distinguishedName)
@@ -227,7 +244,8 @@ class Account(ADObject):
 	PASSWORD_EXPIRED=8388608	
 	TRUSTED_TO_AUTH_FOR_DELEGATION=16777216
 
-	def __init__(self):
+	def __init__(self, *args, **kwargs):
+		super(Account, self).__init__(*args, **kwargs)
 		self.userAttributes = None
 		self.userAccountControl = None
 
@@ -273,7 +291,12 @@ class Account(ADObject):
 
 
 	def putProperties(self,accprop = {}):
-	#sets properties on account. Rember to call SetObject afterwards.
+		#sets properties on account. Rember to call SetObject afterwards.
+
+		ADS_PROPERTY_CLEAR = 1
+		ADS_PROPERTY_UPDATE = 2
+		ADS_PROPERTY_APPEND = 3
+		ADS_PROPERTY_DELETE = 4
 
 		retur = self.checkObject('putProperties')
 		if not retur[0]: 
@@ -286,9 +309,15 @@ class Account(ADObject):
 
 	 		if prop in self.userAttributes:
 				try:
-					logging.debug('putProperty %s=%s for %s' % \
-						(prop,accprop[prop],self.distinguishedName))
-					self.Object.Put(prop,accprop[prop])
+					logging.debug('putProperty %s %s for %s' % \
+						(prop, accprop[prop], self.distinguishedName))
+					if accprop[prop] == "":
+						self.Object.PutEx(ADS_PROPERTY_CLEAR, prop, 0)
+					elif type(accprop[prop]) == list:
+						self.Object.PutEx(ADS_PROPERTY_UPDATE, \
+											prop, accprop[prop])
+					else:
+						self.Object.Put(prop, accprop[prop])
 				except pythoncom.com_error:
 					return self._log_exception('warn','setProperty %s=%s' % \
 					(prop,accprop[prop]))
@@ -337,10 +366,8 @@ class Account(ADObject):
 
 class Group(ADObject):
 
-
-	def __init__(self):
-		pass
-
+	def __init__(self, *args, **kwargs):
+		super(Group, self).__init__(*args, **kwargs)
 
 	def addremoveMembers(self, memberList, LDAPPath, remove):
 		#Takes a list of users and add/remove to group.
@@ -515,14 +542,10 @@ class Group(ADObject):
 			return True
 
 
-class Search(Account, Group):
+class Search(ADObject):
 
-	def __init__(self):
-		self.objCom = None
-		self.objConnection = None
-
-
-	def _setFilter(self):
+	def __init__(self, *args, **kwargs):
+		super(Search, self).__init__(*args, **kwargs)
 		self.objConnection=win32com.client.Dispatch('ADODB.Connection')
 		self.objConnection.Provider = 'ADsDSOObject'
 		self.objConnection.Open('Active Directory provider')
@@ -562,9 +585,8 @@ class Search(Account, Group):
 				if self.userAccountControl != None:
 					fields = '%s,userAccountControl' % fields
 			
-
 		self.objCom.CommandText = ("SELECT '%s' FROM 'LDAP://%s' where %s" % (fields, OU, objecttype))
-		
+
 		try:
 			(objRS, success) = self.objCom.Execute()
 		except pythoncom.com_error, (hr, exc_msg, exc, arg_err):
@@ -577,7 +599,7 @@ class Search(Account, Group):
 				properties['distinguishedName'] = objRS.Fields('distinguishedName').Value
 				if self.userAttributes != None:
 					for uAtt in self.userAttributes:
-						if objRS.Fields(uAtt).Value:
+						if objRS.Fields(uAtt).Value !=  None:
 							properties[uAtt] = objRS.Fields(uAtt).Value
 	
 				if self.userAccountControl != None:
@@ -591,9 +613,9 @@ class Search(Account, Group):
 							properties[uAC] = False
  
 
-
 				dictofobjects[objRS.Fields('sAMAccountName').Value] = properties
 				objRS.MoveNext()
+
 			logging.debug("dictObject:\n%s" % dictofobjects)
 			return dictofobjects		
 			

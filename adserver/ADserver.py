@@ -1,3 +1,22 @@
+#
+# Copyright 2003 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import win32com.client
 import pythoncom
 import logging
@@ -11,7 +30,7 @@ import win32event
 import base64
 import traceback
 from OpenSSL import SSL
-from ADobject import Search
+import ADobject
 from ADconstants import Constants
 
 const = Constants()
@@ -24,12 +43,12 @@ logging.basicConfig(level = loglevel,
 		filemode = const.logfilemode)
 
 
-class Server(Search):
+class Server(ADobject.Group, ADobject.Account, ADobject.Search):
 	
-	def __init__(self):
-		pass
+	def __init__(self, *args, **kwargs):
+		super(Server, self).__init__(*args, **kwargs)
 
-	def response(self,string):
+	def response(self, string):
 		return string
 
 	def location(self):
@@ -137,6 +156,8 @@ class SecureXMLRpcRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             self.connection.shutdown() # Modified here!
 
 
+
+
 ####################################################
 #
 # Service things.
@@ -173,6 +194,24 @@ class Service(win32serviceutil.ServiceFramework):
 		return
 
 
+def authenticateAD(Uname, Pword):
+
+	ADS_SECURE_AUTHENTICATION = 1
+
+	if Uname == const.AUTH:
+		try:
+			adsi = win32com.client.Dispatch('ADsNameSpaces')
+			ldap = adsi.GetObject("","LDAP:")
+			ldap.OpenDSObject('LDAP://%s' % const.AD_LDAP_ROOT, 
+						  const.AUTH, Pword, ADS_SECURE_AUTHENTICATION)
+		except:
+			pass
+		else:
+			return True
+
+		raise RuntimeError, "Authorization failed"
+		return False
+
 
 def runServer():
 
@@ -194,11 +233,6 @@ def runServer():
 		print "Serving HTTPS on", sa[0], "port", sa[1]
 		logging.info("Serving HTTPS on %s port %s" % (sa[0], sa[1]))
 
-    #Initializing values for server, initializing in __init__ do not work
-    #across xmlrpc.  	
-	adsiserver._setFilter()
-	adsiserver._init_values()	
-	
     #Go into the main listener loop
 	try:
 		server.serve_forever()
@@ -208,27 +242,8 @@ def runServer():
 	logging.info("Server EXITED")
 
 
-def authenticateAD(Uname, Pword):
-
-	ADS_SECURE_AUTHENTICATION = 1
-
-	if Uname == const.AUTH:
-		try:
-			adsi = win32com.client.Dispatch('ADsNameSpaces')
-			ldap = adsi.GetObject("","LDAP:")
-			ldap.OpenDSObject('LDAP://%s' % const.AD_LDAP_ROOT, 
-								  const.AUTH, Pword, ADS_SECURE_AUTHENTICATION)
-		except:
-			pass
-		else:
-			return True
-
-	raise RuntimeError, "Authorization failed"
-	return False
-
 
 def usage():
-	print sys.argv[0]
 	print """Usage: 
 	[--debug | --service [options] [install|remove|start|stop]]
 	"""
