@@ -18,25 +18,17 @@ class ADutil(object):
         self.db = db
         self.co = co
         if url is None:
-            url = "https://%s@%s:%i" % ('cerebrum', host, port)
+            password = read_password("cerebrum", host)
+            url = "https://%s:%s@%s:%i" % ('cerebrum', password, host, port)
         else:
             host = url[url.find("//")+2:]
             if host.find("@") != -1:
                 host = host[host.find("@")+1]
             host = host[:host.find(":")]
-        password = read_password("cerebrum", host)
+            password = read_password("cerebrum", host)
         self.server = xmlrpclib.Server(url)
         self.logger = logger
 
-    def fetch_cerebrum_data(self, spread):
-        """For all accounts that has spread, returns a list of dicts
-        with the same keys as defined in the AD_ATTRIBUTES list.
-        This method is left empty, each institution will override this
-        method with local settings.
-        Mandatory values in list is: sAMAccountName and distinguishedName
-        OU is optional, the OU can also be overridden with the get_default_OU
-        method.
-        """
 
     def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
         
@@ -94,7 +86,7 @@ class ADutil(object):
         if not ret[0]:
             self.logger.warning("putproperties on %s failed: %r" % \
                            (distName, ret))
-
+        else:
             ret = self.run_cmd('setObject', dry_run)
             if not ret[0]:
                 self.logger.warning("setObject on %s failed: %r" % \
@@ -118,16 +110,18 @@ class ADutil(object):
                         
 
     def full_sync(self, type, delete, spread, dry_run, user_spread=None):
-    
+
+        self.logger.info("Starting %s-sync(delete = %s, dry_run = %s)" % \
+                        (type, dry_run, delete))     
         #Fetch AD-data.     
         addump = self.fetch_ad_data()       
         self.logger.info("Fetched %i ad-%ss" % (len(addump), type))     
 
         #Fetch cerebrum data.
         cerebrumdump = self.fetch_cerebrum_data(spread)
-        self.logger.info("Fetched %i %ss" % (len(cerebrumdump), type))
+        self.logger.info("Fetched %i cerebrum %ss" % (len(cerebrumdump), type))
 
-    #compare cerebrum and ad-data.
+        #compare cerebrum and ad-data.
         changelist = self.compare(delete, cerebrumdump, addump)
         self.logger.info("Found %i number of changes" % len(changelist))
 
@@ -136,12 +130,15 @@ class ADutil(object):
         if type == 'user':
             cerebrumdump = None             
 
-    #Perform changes.
+        #Perform changes.
         self.perform_changes(changelist, dry_run)
         
         if type == 'group':
+            self.logger.info("Starting sync of group members")
             self.sync_groups(cerebrumdump, spread,
                              user_spread, dry_run)
+
+        self.logger.info("Finished %s-sync" % type)
 
 
 class ADgroupUtil(ADutil):
@@ -166,6 +163,7 @@ class ADgroupUtil(ADutil):
         for (grp_id, grp_name, grp_desc) in cerebrumgroups:
             #Only interested in union members(believe this is only type in use)
 
+            grp_name = unicode(grp_name, 'ISO-8859-1')
             self.group.clear()
             self.group.find(grp_id)              
             user_memb = self.group.list_members(
@@ -183,7 +181,7 @@ class ADgroupUtil(ADutil):
             for grp in group_memb[0]:
                 members.append('%s%s' % (grp[2],cereconf.AD_GROUP_POSTFIX))
     
-            dn = self.server.findObject('%s%s' %
+            dn = self.server.findObject('%s%s' % \
                                    (grp_name, cereconf.AD_GROUP_POSTFIX))
             if not dn:
                 self.logger.debug("unknown group: %s%s" % (grp_name, 
@@ -203,6 +201,7 @@ class ADgroupUtil(ADutil):
         for (grp_id, grp, description) in cerebrumgrp:
 
             ou = self.get_default_ou(grp_id)
+            grp = unicode(grp,'ISO-8859-1')
             
             if 'CN=%s%s,%s' % (grp, cereconf.AD_GROUP_POSTFIX, ou) in adgrp:
                 adgrp.remove('CN=%s%s,%s' % \
@@ -210,13 +209,14 @@ class ADgroupUtil(ADutil):
             else:
                 #Group not in AD,or wrong OU create.
 
-                ou_in_ad = self.server.findObject('%s%s' %
-                                            (grp,cereconf.AD_GROUP_POSTFIX))
+                ou_in_ad = self.server.findObject('%s%s' % \
+												  (grp,cereconf.AD_GROUP_POSTFIX))
+				
 
                 if not ou_in_ad:
                     #Not in AD, create.
                     changelist.append({'type': 'create_object',
-                                       'sAMAccountName' : '%s%s' %
+                                       'sAMAccountName' : '%s%s' % \
                                        (grp, cereconf.AD_GROUP_POSTFIX),
                                        'OU' : ou,
                                        'description' : description})
@@ -257,11 +257,17 @@ class ADuserUtil(ADutil):
         return self.server.listObjects('user', True)
 
 
-    def fetch_cerebrum_data(self, spread, disk_spread):
-        """Each institution will have an individual mix-in of this function.
-        The format is a list of accountNames from Cerebrum with a dict
-        corresponding to the fields to be changed in AD. In addition the field
-        OU and AccountControl items are threated especially.
+
+    def fetch_cerebrum_data(self, spread):
+        """return a dict of dicts with the sAMAccountName as key. The key contain a
+		dict with the keys found in the AD_ATTRIBUTES list. This method is left empty for
+		each institution to override with local settings.
+		
+        Mandatory values in dict is: distinguishedName.
+        The value OU is optional, and is not an AD_ATTRIBUTE value, if OU is present it will 
+		override the get_default_OU method. if homeDrive attribute is present it will override
+		the get_homedrive method. If the value of an AD_ATTRIBUTE in the dict is a list it is
+		assumed to be a multivalued attribute in AD when syncronizing.  
         """
         pass
     
@@ -362,13 +368,34 @@ class ADuserUtil(ADutil):
                     #Treating general cases
                     else:
                         if cerebrumusrs[usr].has_key(attr) and \
-                               adusrs[usr].has_key(attr):   
-                            if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
-                                changes[attr] = cerebrumusrs[usr][attr] 
+                               adusrs[usr].has_key(attr):
+                            if isinstance(cerebrumusrs[usr][attr], (list)):
+                                #Multivalued, it is assumed that a multivalue in cerebrumusrs
+                                #always is represented as a list.
+                                Mchange = False
+								
+                                if isinstance(adusrs[usr][attr],(str,int,long,unicode)):
+                                    #Transform single-value to a list for comparison.
+                                    val2list = []
+                                    val2list.append(adusrs[usr][attr])
+                                    adusrs[usr][attr] = val2list
+									
+                                for val in cerebrumusrs[usr][attr]:
+                                    if val not in adusrs[usr][attr]:
+										Mchange = True
+										
+                                if Mchange:
+                                    changes[attr] = cerebrumusrs[usr][attr]
+                            else:
+                                if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
+                                    changes[attr] = cerebrumusrs[usr][attr] 
                         else:
                             if cerebrumusrs[usr].has_key(attr):
-                                changes[attr] = cerebrumusrs[usr][attr] 
+								#A blank value in cerebrum and <not set> in AD -> do nothing. 
+								if cerebrumusrs[usr][attr] != "": 
+									changes[attr] = cerebrumusrs[usr][attr] 
                             elif adusrs[usr].has_key(attr):
+								#Delete value
                                 changes[attr] = ''      
         
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
@@ -388,8 +415,7 @@ class ADuserUtil(ADutil):
                         
                 #Submit if any changes.
                 if len(changes):
-                    changes['distinguishedName'] = \
-                            adusrs[usr]['distinguishedName']
+                    changes['distinguishedName'] = 'CN=%s,%s' % (usr,ou)
                     changes['type'] = 'alter_object'
 
                 #after processing we delete from array.
