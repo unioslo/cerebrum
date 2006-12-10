@@ -1,0 +1,238 @@
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+import getopt, sys
+import cerebrum_path
+import cereconf
+
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum import Entity
+from Cerebrum.modules import MountHost
+from Cerebrum.modules import ADutilMixIn
+
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+logger = Factory.get_logger("cronjob")
+
+
+
+class ADfuSync(ADutilMixIn.ADuserUtil):
+
+	def __init__(self, *args, **kwargs):
+
+		super(ADfuSync, self).__init__(*args, **kwargs)
+		self.person = Factory.get('Person')(self.db)
+		self.qua = Entity.EntityQuarantine(self.db)
+		self.ou =  Factory.get('OU')(self.db)
+		
+	def fetch_cerebrum_data(self, spread):
+		"""For all accounts that has spread, returns a list of dicts with
+		the keys: uname, fullname, account_id, person_id, host_name
+		"""
+
+	    #Fetch the mapping person_id to full_name.
+		pid2name = self.person.getdict_persons_names(name_types = \
+													 (co.name_full,co.name_first,co.name_last))
+			
+		self.logger.info("Fetched %i person names" % len(pid2name))
+
+
+		#Hack OU-akronym.
+		id2ou = {2277 : {'acronym' : 'ALN'},
+				 2278 : {'acronym' : 'GIS'},
+				 2279 : {'acronym' : 'GOD'},
+				 2280 : {'acronym' : 'SKJ'},
+				 2282 : {'acronym' : 'VBS'},
+				 2283 : {'acronym' : 'VUS'},
+				 2284 : {'acronym' : 'VIG'}} 
+
+		#Fetching OUid2name mapping.
+		for row in self.ou.list_all():
+			if id2ou.has_key(row['ou_id']):
+				id2ou[row['ou_id']]['name'] = row['name']
+				
+		self.logger.info("Fetched %i OUs" % len(id2ou))
+
+		accinfo = {}
+   		miss_OU = 0
+
+		#Fetching accountinfo with AD-spread sorting on affiliation and OU.
+		for row in self.ac.list_accounts_by_type(account_spread=spread):
+
+			if row['affiliation'] == co.affiliation_ansatt:
+				accinfo[row['account_id']] = {'OU' : 'OU=Tilsette,%s' % cereconf.AD_LDAP,
+										   'title' : 'Tilsett',
+										   'url' : ['https://portal.skule.giske.no/skule/%s/tilsette'
+											% id2ou[row['ou_id']]['acronym'],'http://www.uio.no'],
+											#Constraint i AD, homeMDB must be valid LDAP path.  
+											#'homeMDB' : ['CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no']}
+											'homeMDB' : 'OU=Skoler,DC=cerebrum,DC=no'}
+			else:
+				if id2ou.has_key(row['ou_id']):
+					accinfo[row['account_id']] = {'OU' : 'OU=Elever,OU=%s,%s' %
+											(id2ou[row['ou_id']]['acronym'], cereconf.AD_LDAP),
+											'title' : 'Elev',
+											'url' : ['https://portal.skule.giske.no/skule/%s/elever'
+											% id2ou[row['ou_id']]['acronym']],
+											#Constraint i AD, homeMDB must be valid LDAP path.	  
+											#'homeMDB' : 'CN=Elever (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
+											'homeMDB' : 'OU=Skoler,DC=cerebrum,DC=no'}	  
+				else:
+					miss_OU = miss_OU + 1
+					#self.logger.info('%s missing OU info, skipping' % row['account_id'])
+					continue
+
+			if id2ou.has_key(row['ou_id']):
+				accinfo[row['account_id']]['department'] = 	unicode(id2ou[row['ou_id']]['name'],'ISO-8859-1')
+
+			if pid2name.has_key(row['person_id']):
+				accinfo[row['account_id']]['sn'] = unicode(pid2name[row['person_id']][int(co.name_last)],'ISO-8859-1')
+				accinfo[row['account_id']]['givenName'] = unicode(pid2name[row['person_id']][int(co.name_first)],'ISO-8859-1')
+				accinfo[row['account_id']]['displayName'] = unicode(pid2name[row['person_id']][int(co.name_full)],'ISO-8859-1')
+
+		self.logger.info("Fetched %i accounts with AD spread" % len(accinfo))
+		self.logger.info('%i accounts missing OU info' % miss_OU)
+		pid2name = None 
+				
+	    #Filter quarantined users.
+		qcount = 0
+		for row in self.qua.list_entity_quarantines(only_active=True,
+													entity_types=co.entity_account):
+			if not accinfo.has_key(int(row['entity_id'])):
+				continue
+			else:
+				accinfo[int(row['entity_id'])]['ACCOUNTDISABLE'] = True
+				qcount = qcount +1
+					
+
+		self.logger.info("Fetched %i quarantined accounts" % qcount)
+
+
+  		#Building return.
+		retur = {}
+		
+		for row in self.ac.list_names(co.account_namespace):
+			e_name = row['entity_name']
+			if accinfo.has_key(row['entity_id']):
+				retur[e_name] = accinfo[row['entity_id']]
+				retur[e_name]['company'] = 'Giske kommune'
+				retur[e_name]['co'] = 'Norway'
+				retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE
+				#retur[e_name]['uPNSuffixes'] = '@skule.giske.no'
+				retur[e_name]['userPrincipalName'] = '%s@skule.giske.no' % e_name
+				retur[e_name]['mailNickname'] = e_name
+				retur[e_name]['mDBUseDefaults'] = True
+				#Constraint in AD, msRTCSIP-PrimaryHomeServer must be a valid distinguishedName in AD.
+				#retur[e_name]['msRTCSIP-PrimaryHomeServer'] = ['CN=LC Service,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=skule,DC=giske,DC=no']
+				retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'OU=Skoler,DC=cerebrum,DC=no'
+
+				#Filtering roles on title field defined earlier.
+				if retur[e_name]['title'] == 'Elev':
+					retur[e_name]['profilePath'] = '\\\\vipe\\profiler\\%s' % e_name
+					retur[e_name]['homeDirectory'] = '\\\\vipe\\elever\\%s' % e_name
+					retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
+				elif retur[e_name]['title'] == 'Tilsett':
+					retur[e_name]['profilePath'] = '\\\\spurv\\profiler\\%s' % e_name
+					retur[e_name]['homeDirectory'] = '\\\\spurv\\tilsette\\%s' % e_name
+				else:
+					self.logger.info("unknown title field: %s" % retur[e_name]['title'])
+
+				if accinfo[int(row['entity_id'])].has_key('ACCOUNTDISABLE'):
+					#The Account field is present, account disabled.
+					retur[e_name]['msExchHideFromAddressList'] = True
+					retur[e_name]['msRTCSIP-UserEnabled'] = False
+				else:
+					#Missing ACCOUNTDISABLE field, not disabled.
+					retur[e_name]['ACCOUNTDISABLE'] = False
+					retur[e_name]['msExchHideFromAddressLists'] = False
+					retur[e_name]['msRTCSIP-UserEnabled'] = True
+
+		return retur
+
+
+
+class ADfgSync(ADutilMixIn.ADgroupUtil):
+	#Groupsync
+
+	def __init__(self, *args, **kwargs):
+		super(ADfgSync, self).__init__(*args, **kwargs)
+		
+	def get_default_ou(self, change = None):
+		#Returns default OU in AD.
+   		return "OU=Grupper,%s" % cereconf.AD_LDAP
+
+	def fetch_cerebrum_data(self, spread):		
+		all_groups = []
+		for (grp_id, grp, description) in self.group.search(spread):
+			all_groups.append((grp_id, grp.replace(':','_'), description))
+
+		return all_groups
+
+
+def usage(exitcode=0):
+    print """Usage:
+	[--user_sync | --group_sync]
+    [--delete_objects]
+    [--disk_spread spread] 
+    [--user_spread spread]
+    [--dry_run]
+    [--help]
+    """
+
+    sys.exit(exitcode)
+
+
+def main():
+
+	try:
+		opts, args = getopt.getopt(sys.argv[1:], '', ['user_sync',
+													  'group_sync',
+													  'delete_objects',
+													  'user_spread',
+													  'group_spread',
+													  'help',
+													  'dry_run'])
+
+	except getopt.GetoptError:
+		usage(1)
+
+	delete_objects = False
+	user_spread = co.spread_ad_acc
+	group_spread = co.spread_ad_grp
+	dry_run = False	
+	user_sync = False
+	group_sync = False
+	
+	for opt, val in opts:
+		if opt == '--delete_objects':
+			delete_users = True
+		elif opt == '--user_sync':
+			user_sync = True
+		elif opt == '--group_sync':
+			group_sync = True
+		elif opt == '--disk_spread':
+			disk_spread = getattr(co, val)  # TODO: Need support in Util.py
+		elif opt == '--user_spread':
+			user_spread = getattr(co, val)  # TODO: Need support in Util.py
+   		elif opt == '--group_spread':
+			group_spread = getattr(co, val)  # TODO: Need support in Util.py
+		elif opt == '--help':
+			usage(1)
+		elif opt == '--dry_run':
+			dry_run = True
+
+  	if user_sync:
+		ADfullUser = ADfuSync(db, co, logger)	
+		#ADfullUser.fetch_cerebrum_data(user_spread)
+		ADfullUser.full_sync('user', delete_objects, user_spread, dry_run)
+
+
+
+	if group_sync:
+		ADfullGroup = ADfgSync(db, co, logger)
+		ADfullGroup.full_sync('group', delete_objects, group_spread,
+							  dry_run, user_spread)
+
+if __name__ == '__main__':
+    main()
