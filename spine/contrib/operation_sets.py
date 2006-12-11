@@ -4,6 +4,11 @@ from sets import Set
 
 # This is the auth_operation_sets and auth_operations used at NTNU.
 
+view_account = [ # {{{
+        'Account.get_id',
+        'Account.get_name',
+        'Account.get_description',
+] # }}}
 own_account = [ # {{{
         'Account.get_accounts',
         'Account.get_address',
@@ -89,6 +94,9 @@ operation_sets = {
     'orakel': {
       'desc': 'operations that the orakel-group should be allowed to do on users in a given affiliation',
       'codestrs': Set(own_account + own_person + orakel)},
+    'view_account': {
+      'desc': 'operations that a user should be able to run on its creator',
+      'codestrs': Set(view_account)},
 }
 
 # vim: foldmethod=marker nowrap
