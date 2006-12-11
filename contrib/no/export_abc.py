@@ -22,10 +22,10 @@
 
 """Export person information in ABC Enterprise format.
 
-This file is an extension of Cerebrum. It generates an XML file containing all
-the information necessary for access control systems at various institutions
-(adgangskontrollsystem). Such a file can be generated for any of the Norwegian
-institutions using FS and Cerebrum.
+This file is an extension of Cerebrum. It generates an XML file containing
+person and OU information which may be used for e.g. access control systems at
+various institutions (adgangskontrollsystem). Such a file can be generated for
+any of the Norwegian institutions using FS and Cerebrum.
 
 The XML description and schema are available here:
 
@@ -96,45 +96,6 @@ def make_id(*rest):
 
     return ":".join([str(x) for x in rest])
 # end make_id
-
-
-
-def person_get_item(getter, item_variant,
-                    srcs = cereconf.SYSTEM_LOOKUP_ORDER + ("system_cached",)):
-    """Fetch a suitable version of a person's attribute (name, id, etc.).
-
-    Walk through cereconf.SYSTEM_LOOKUP_ORDER and return the first found
-    item of the specified kind.
-    """
-
-    for system in srcs:
-        try:
-            item = getter(getattr(constants, system), item_variant)
-            if not item:
-                continue
-            elif type(item) == type(list()):
-                item = item[0]
-
-            return item
-        except Errors.NotFoundError:
-            pass
-
-    return ""
-# end person_get_item
-
-
-
-def get_primary_account(person, account):
-    acc_id = person.get_primary_account()
-    try:
-        account.clear()
-        account.find(acc_id)
-        return account.account_name
-    except Errors.NotFoundError:
-        logger.info("No account for person with internal id %s",
-                    person.entity_id)
-    return None
-# end get_primary_account
 
 
 
@@ -277,6 +238,7 @@ def ou_id2sko(ou_id):
 
 
 
+
 def prepare_kull():
     """Register all 'kull' groups.
 
@@ -353,55 +315,102 @@ def prepare_ue():
 
 
 
+def cache_person_info(db_person, db_account):
+    """Fetch all person info for all people for this export.
+
+    This is a potential memory hog.
+
+    Returns a 4-tuple:
+
+    * person_id -> names, where names is a dictionary indexed by name type
+    * person_id -> eids, where eids is a dictionary external_id -> value
+    * fnr -> primary uname
+    * uname -> email
+    """
+
+    logger.debug("Populating all person caches")
+    logger.debug("person-id -> names")
+
+    person_id2names = db_person.getdict_persons_names(
+        name_types=(constants.name_full, constants.name_last,
+                    constants.name_first, constants.name_work_title))
+
+    logger.debug("person-id -> external ids")
+    seq = db_person.list_external_ids(entity_type=constants.entity_person)
+    tmp = dict()
+    for entity_id, id_type, junk, external_id in seq:
+        key = int(entity_id)
+        tmp.setdefault(key, dict())[int(id_type)] = external_id
+    person_id2external_ids = tmp
+
+    logger.debug("fnr -> primary uname")
+    fnr2uname = db_person.getdict_external_id2primary_account(
+        constants.externalid_fodselsnr)
+
+    if with_email:
+        logger.debug("uname -> e-mail")
+        uname2mail = db_account.getdict_uname2mailaddr()
+    else:
+        uname2mail = dict()
+    
+    logger.debug("person caching complete")
+    return person_id2names, person_id2external_ids, fnr2uname, uname2mail
+# end cache_person_info
+
+
+
 def output_people():
     """Output all information about people."""
     
     person = Factory.get("Person")(cerebrum_db)
     account = Factory.get("Account")(cerebrum_db)
 
-    logger.debug("caching email/account information")
-    uname2mail = account.getdict_uname2mailaddr()
+    # IVR 2006-12-10 Although no caching is necessary strictly speaking, this
+    # function takes over 3 hours to complete at UiO. This is unacceptable,
+    # and we trade some of the clarity and memory for running time.
+    (person_id2name,
+     person_id2external_ids,
+     fnr2uname,
+     uname2mail) = cache_person_info(person, account)
 
     # cache for person_id -> external-IDs
     person_info = dict()
     fnr_const = int(constants.externalid_fodselsnr)
 
     for row in person.list_persons():
-        id = row["person_id"]
-        try:
-            person.clear()
-            person.find(id)
-        except Errors.NotFoundError:
-            logger.warn("Person (%s) reported by list_persons(), "
-                        "but find() failed", id)
-            continue
+        id = int(row["person_id"])
+        birth_date = row["birth_date"]
 
+        name_collection = dict()
         # We have to delay person output, until we are sure that a few key
         # attributes are present
-        name_collection = dict()
+        names = person_id2name.get(id, {})
         for tmp, xml_name in ((constants.name_full, "fn"),
                               (constants.name_last, "family"),
                               (constants.name_first, "given")):
-            name = person_get_item(person.get_name, tmp)
+            name = names.get(int(tmp))
             if name:
                 name_collection[xml_name] = name
 
         id_collection = dict()
+        ids = person_id2external_ids.get(id, {})
         for tmp in constants.fetch_constants(constants.EntityExternalId):
-            value = person_get_item(person.get_external_id, tmp)
+            value = ids.get(int(tmp))
             if value:
-                id_collection[int(tmp)] = (tmp, value["external_id"])
+                id_collection[int(tmp)] = (tmp, value)
 
         if ("fn" not in name_collection) or (fnr_const not in id_collection):
             logger.debug("Person (%s) lacks some name/ID attributes. Skipped",
                          id)
+            logger.debug("name_collection %s; id_collection: %s",
+                         name_collection, id_collection)
             continue
         
         # Cache the mapping. It does not really matter which external ID we
         # use to identify people, but since FNR is ubiquitous, we settle for
         # that.
-        person_info[int(id)] = (constants.externalid_fodselsnr,
-                                id_collection[fnr_const][1])
+        current_fnr = id_collection[fnr_const][1]
+        person_info[int(id)] = (constants.externalid_fodselsnr, current_fnr)
 
         #
         # we start with the IDs
@@ -420,7 +429,7 @@ def output_people():
         for xml_name, value in name_collection.items():
             out(xml_name, value)
 
-        work_title = person_get_item(person.get_name, constants.name_work_title)
+        work_title = names.get(int(constants.name_work_title))
         if work_title:
             out("partname", work_title, {"partnametype": get_name_type("work")})
           
@@ -431,16 +440,16 @@ def output_people():
         # ... then the "rest"
         # (date == YYYY-MM-DD).
         # FIXME: Should we skip people without birth dates?
-        if person.birth_date:
-            out("birthdate", person.birth_date.date)
+        if birth_date:
+            out("birthdate", birth_date.date)
 
-        primary_uname = get_primary_account(person, account)
+        primary_uname = fnr2uname.get(current_fnr)
         for value, contact_type in ((primary_uname, "uname"),
                                     (uname2mail.get(primary_uname), "email")):
             if value:
                 out("contactinfo", value, {"contacttype":
                                            get_contact_type(contact_type)})
-
+                
         xmlwriter.endElement("person")
 
     return person_info
@@ -586,8 +595,7 @@ def output_pay_relation(person_info):
             logger.debug("Missing external ID in Cerebrum for FS fnr %s", fnr)
             continue
 
-        output_elem("personid", peid, {"personidtype":
-                                       get_person_id_type(id_type)})
+        out("personid", peid, {"personidtype": get_person_id_type(id_type)})
 
     xmlwriter.endElement("object")
     xmlwriter.endElement("relation")
@@ -639,8 +647,7 @@ def output_affiliation_relation(affiliation, status, sko, people, person_info):
             continue
             
         idtype, value = person_info[pid]
-        output_elem("personid", value, {"personidtype":
-                                        get_person_id_type(idtype)})
+        out("personid", value, {"personidtype": get_person_id_type(idtype)})
 
     xmlwriter.endElement("object")
     xmlwriter.endElement("relation")
@@ -691,7 +698,7 @@ def output_affiliations(person_info):
 
 
 
-def output_kull_relations(kull_info, person_info, fs):
+def output_kull_relations(kull_info, person_info):
     """Output all relations representing 'kull'.
 
     Each 'kull' is represented by two <relation>s: one to link 'kull' up
@@ -708,8 +715,6 @@ def output_kull_relations(kull_info, person_info, fs):
         tmpseq = fs_db.undervisning.list_studenter_kull(studieprogram_kode,
                                                         terminkode,
                                                         arstall)
-        logger.debug("FS returned %d students for %s:%s:%s",
-                     len(tmpseq), studieprogram_kode, terminkode, arstall)
         students = remap_fnrs(tmpseq, person, person_info)
         if not students:
             logger.info("No students for kull %s. No groups will be generated",
@@ -792,13 +797,12 @@ def output_ue_relations(ue_info, person_info):
         # Output a relation linking UE and its people:
         xmlwriter.startElement("relation", {"relationtype": "ue-people"})
         xmlwriter.startElement("subject")
-        output_elem("groupid", xml_id, {"groupidtype": get_group_id_type("ue")})
+        out("groupid", xml_id, {"groupidtype": get_group_id_type("ue")})
         xmlwriter.endElement("subject")
         xmlwriter.startElement("object")
         for item in students:
             id_type, peid = item
-            output_elem("personid", peid, 
-                        {"personidtype": get_person_id_type(id_type)})
+            out("personid", peid, {"personidtype": get_person_id_type(id_type)})
 
 
         xmlwriter.endElement("object")
@@ -833,7 +837,7 @@ def generate_report(orgname):
 
     output_affiliations(person_info)
 
-    output_kull_relations(ue_info, person_info)
+    output_kull_relations(kull_info, person_info)
 
     output_ue_relations(ue_info, person_info)
     
@@ -844,7 +848,7 @@ def generate_report(orgname):
 
 
 def main():
-    global cerebrum_db, constants, fs_db, xmlwriter, logger
+    global cerebrum_db, constants, fs_db, xmlwriter, logger, with_email
 
     logger = Factory.get_logger("cronjob")
     logger.info("generating ABC export")
@@ -853,16 +857,20 @@ def main():
     cerebrum_db = Factory.get("Database")()
     constants = Factory.get("Constants")(cerebrum_db)
 
-    options, rest = getopt.getopt(sys.argv[1:], "f:i:",
-                                  ["--out-file=",
-                                   "institution="])
+    options, rest = getopt.getopt(sys.argv[1:], "f:i:e",
+                                  ["out-file=",
+                                   "institution=",
+                                   "with-email"])
 
     filename = institution = None
+    with_email = False
     for option, value in options:
         if option in ("-f", "--out-file",):
             filename = value
         elif option in ("-i", "--institution",):
             institution = value
+        elif option in ("-e", "--with-email",):
+            with_email = True
 
     _cache_id_types()
     fs_db = Factory.get("FS")()
@@ -882,9 +890,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    
-    
-
-            
-
