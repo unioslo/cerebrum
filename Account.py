@@ -222,7 +222,123 @@ class AccountUiTMixin(Account.Account):
         #print "Finish"
             
 
+
     def get_uit_uname(self,fnr,name,Regime=None):
+        """ UiT function that generates a username.
+        It checks our legacy_users table for entries from our legacy systems
+        
+        Input:
+        fnr=Norwegian Fødselsnr, 11 digits
+        name=Name of the person we are generating a username for
+        Regime=Optional
+
+        Returns:
+        a username on the form 'abc012' <three letters><tree digits>
+
+
+        When we get here we know that this person does not have any account
+        in BAS from before! That is someone else's responibility, sp no need
+        to check for that.
+
+        We must check:
+        legacy_user => any entries where ssn matches fnr param?
+          yes:
+            if one or more usernames
+              use first that matches username format
+              if none matches username
+                format genereate new
+            else genereate new username            
+          no:
+            generate new username,
+
+        """
+        # assume not found in 
+        create_new = True
+
+        if Regime=="ADMIN":
+            cstart=999
+            step=-1
+            legacy_type='SYS'
+        else:
+            cstart=0
+            step=1
+            legacy_type='P'
+            
+        legacy_sql = """
+        SELECT user_name FROM [:table schema=cerebrum name=legacy_users]
+        WHERE ssn=:ssn and type=:type
+        ORDER BY source,user_name
+        """
+        legacy_binds = { 'ssn': fnr,
+                         'type': legacy_type}
+
+        legacy_data=self._db.query(legacy_sql,legacy_binds)
+
+        new_ac=Factory.get('Account')(self._db)
+        p = Factory.get('Person')(self._db)
+        try:
+            p.find_by_external_id(self.const.externalid_fodselsnr,fnr)
+        except Errors.NotFoundError:
+            try:
+                p.find_by_external_id(self.const.externalid_sys_x_id,fnr)
+            except Errors.NotFoundError:
+                raise Errors.ProgrammingError("Trying to create account for person:%s that does not exist!" % fnr)
+            else:
+                person_id = p.entity_id
+
+        except Exception,m:
+            print m
+            raise Errors.ProgrammingError("Unhandled exception: %s",str(m))
+        else:
+            person_id = p.entity_id
+
+        person_accounts = self.list_accounts_by_owner_id(person_id,filter_expired=False)
+        
+        
+        # regexp for checking username format
+        p=re.compile('^[a-z]{3}[0-9]{3}$')
+
+        for legacy_row in legacy_data:
+            legacy_username=legacy_row['user_name']            
+            if not p.match(legacy_username):
+                # legacy username not in <three letters><three digits> format
+                #print "Found UNusable legacy username: '%s', skipping" % (legacy_username)
+                continue
+
+            # valid username found in legacy for this ssn
+            # check that its not already used in BAS!
+            new_ac.clear()
+            try:
+                cb_acc=new_ac.find_by_name(legacy_username)
+            except Errors.NotFoundError:
+                # legacy username not found in BAS.
+                #print "Legacy '%s' found, and free. using..." % (legacy_username)
+                username = legacy_username
+                create_new=False
+                break
+            else:
+                # legacy_username tied to fnr already used in BAS. We have an error situation!
+                if new_ac.owner_id==person_id:
+                    #and used by same person
+                    raise Errors.ProgrammingError("Person %s already has account %s in BAS!" %(fnr,new_ac.account_name))
+                else:
+                    #and used by another person!
+                    raise Errors.IntegretyError("Legacy account %s not owned by person %s in BAS!" (legacy_username,fnr))
+             
+        if create_new:
+            # getting here implies that  person does not have a previous account in BAS
+            # create a new username
+            inits = self.get_uit_inits(name)
+            if inits == 0:
+                return inits
+            new_username = self.get_serial(inits,cstart,step=step)
+            username=new_username
+            
+        return username
+
+
+
+    def get_uit_uname_old(self,fnr,name,Regime=None):
         ssn = fnr
         step=1
         if Regime == None:
