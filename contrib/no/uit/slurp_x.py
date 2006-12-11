@@ -91,9 +91,7 @@ class execute:
         external_id_type = self.constants.externalid_sys_x_id
         try:
             p.find_by_external_id(external_id_type,sysX_id)
-            print "SysX person (%s) found" % (sysX_id)
         except Errors.NotFoundError:
-            print "SysX person NOT found with sysX id=(%s) " % sysX_id
             pass
         return p
 
@@ -275,9 +273,10 @@ class execute:
             # also check and update homedir for each spread!
             self.account.set_home_dir(int(new_spread))
 
-        # update quarantine if appropriate.
+
 
         self.update_email(self.account,bruker_epost)
+        # update quarantine if appropriate.
         if aproved !='Yes':
             # if this person ONLY comes from sys-x, set quarantine
             #self.person.find(self.account.owner_id)
@@ -337,10 +336,12 @@ class execute:
 
                 try:
                     self.person.find_by_external_id(external_id_type,external_id)
+                    print "found person:%s" % self.person.entity_id
                 except Errors.NotFoundError:
                     # person not found with norwegian ssn, try to locate with sysX id.
                     if (national_id != "NO"):
                         self.person = self.get_sysX_person(id)
+                        print "unable to find person with ssn. using sysx_id:%s" % id
             else:
                 # foreigner without norwegian ssn, use SysX-id as external-id.
                 external_id_type = self.constants.externalid_sys_x_id
@@ -359,6 +360,7 @@ class execute:
         self.logger.info("Processing account for person: name=%s %s , id_type=%s, id=%s" % (fornavn,etternavn,external_id_type,external_id))
         try:
             account_list = self.person.get_accounts(filter_expired=False)
+
             self.account.find(account_list[0][0])
             #account_types = self.account.get_account_types(filter_expired=False)
             #for account_type in account_types:
@@ -379,7 +381,7 @@ class execute:
             spread_list.append('ldap@uit') # <- default spread for ALL sys_x users/accounts.
 
             full_name = "%s %s" % (fornavn,etternavn)
-            if(national_id !='NO'):
+            if((national_id !='NO') and (personnr=='')):
                 username = self.account.get_uit_uname(id,full_name,'AD')
             else:
                 if('AD_account' in spread_list):
@@ -462,6 +464,7 @@ class execute:
         ad_email = em.get_employee_email(account_obj.entity_id,self.db)
         if (len(ad_email)>0):
             ad_email = ad_email[account_obj.account_name]
+            print "ad_email: %s" % ad_email
         else:
             # no email in ad_email table for this account.
             
@@ -524,6 +527,7 @@ ekstern epost: %s
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: nybruker2@asp.uit.no\n")
+        p.write("Return-Path: bas-admin@cc.uit.no\n")
         p.write("Bcc: kenneth.johansen@cc.uit.no\n")
         p.write("subject: Registrering av ny AD bruker\n")
         p.write("\n")
@@ -555,6 +559,7 @@ Ansvarlig epost: %s
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: sys-x-admin@cc.uit.no\n")
+        p.write("Return-Path: bas-admin@cc.uit.no\n")
         p.write("subject: Registrering av utenlandsk bruker\n")
         p.write("\n")
         p.write("%s" % verify_message)
@@ -591,6 +596,7 @@ Personen har fått tildelt brukernavnet:%s
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: %s\n" % ansvarlig_epost)
+        p.write("Return-Path: bas-admin@cc.uit.no\n")
         p.write("Bcc: kenneth.johansen@cc.uit.no\n")
         p.write("subject: Ny bruker er nå behandlet.\n")
         p.write("\n")
@@ -645,6 +651,7 @@ If you have any questions you can either contact orakel@uit.no or bas-admin@cc.u
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: %s\n" % email_address)
+        p.write("Return-Path: bas-admin@cc.uit.no\n")
         p.write("Bcc: kenneth.johansen@cc.uit.no\n")
         p.write("subject: Registrering av bruker\n")
         p.write("\n")
