@@ -31,6 +31,8 @@ from Cerebrum.Constants import _SpreadCode, \
 
 
 class Constants(Constants.Constants):
+    ## employees - affiliation definition
+    affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt ved NMH')
     ## affiliations for employees
     affiliation_status_ansatt_ovlaerer = _PersonAffStatusCode(
         affiliation_ansatt, 'ans_ovlaerer', 'Ansatt ved NMH, øvingslærer.')
