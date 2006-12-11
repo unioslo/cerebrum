@@ -65,18 +65,10 @@ class Authorization(object):
         if isinstance(obj, Commands) and self.has_access_to_command(operation):
             return True
 
-        # Searcher and Dumper objects are not entities and must be handled
-        # separately.  Since they are harmless until they are asked to
-        # return the search results, we check if the method_name is one of
-        # the methods that returns anything.  If it isn't, go ahead and
-        # run the method.
-
-        if cls.__name__.endswith('Searcher'):
-            if method_name not in ['search', 'dump', 'dump_rows']:
-                return True
-        if cls.__name__.endswith('Dumper'):
-            if method_name not in ['dump', 'get_objects']:
-                return True
+        # Searcher and Dumper objects are harmless until they are asked to
+        # return anything.  At which point, they are handled by can_return.
+        if cls.__name__.endswith('Searcher') or cls.__name__.endswith('Dumper'):
+            return True
         
         # Does self.account have user access to this object?
         if self.has_user_access(operation, obj):
@@ -89,6 +81,25 @@ class Authorization(object):
             return True
 
         return False 
+
+    def can_return(self, value):
+        if not value:
+            return True
+        
+        if type(value) == type([]):
+            for v in value[:]:
+                if not self.can_return(v):
+                    value.remove(v)
+
+        if not type(value) in [Account, Person, Group, Entity]:
+            return True
+
+        if value.get_id() == self.account.get_id():
+            return True
+        elif value.get_id() == self.account.get_owner().get_id():
+            return True
+
+        return False
 
     def has_access_to_command(self, operation):
         # Test public commands.
