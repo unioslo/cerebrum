@@ -130,15 +130,23 @@ def queue_message(message, error=False, link=''):
     object the action was on, should be a string linking to
     the object.
     """
+    # When we're called through _cpOnErrors, the cherrypy.session
+    # isn't set up properly.  The workaround is to access the
+    # session dict through the request object.
+    if not hasattr(cherrypy.session, 'sessionStorage'):
+        sessionData = cherrypy.request._session.sessionData
+    else:
+        sessionData = cherrypy.session
+
     timestamp = mx.DateTime.now()
-    if 'messages' not in cherrypy.session:
-        cherrypy.session['messages'] = [(message, error)]
+    if 'messages' not in sessionData:
+        sessionData['messages'] = [(message, error)]
     else:
-        cherrypy.session['messages'].append((message, error))
-    if 'al_messages' not in cherrypy.session:
-        cherrypy.session['al_messages'] = [(message, error, link, timestamp)]
+        sessionData['messages'].append((message, error))
+    if 'al_messages' not in sessionData:
+        sessionData['al_messages'] = [(message, error, link, timestamp)]
     else:
-        cherrypy.session['al_messages'].append((message, error, link, timestamp))
+        sessionData['al_messages'].append((message, error, link, timestamp))
 
 def strftime(date, format="%Y-%m-%d", default=''):
     """Returns a string for the date.
