@@ -25,8 +25,9 @@ import sys
 import traceback
 import urllib
 import config
-from utils import redirect
+from utils import redirect, queue_message
 from templates.ErrorTemplate import ErrorTemplate
+from SpineIDL.Errors import *
 
 class SessionError(Exception):
     """Indicates a problem with the connection
@@ -46,7 +47,6 @@ class CustomError(Exception):
 class Redirected(Exception):
     pass # presentere en side for browsere som ikke støtter redirect?
 
-
 def handle(error):
     title, message, tracebk = None, None, None
     path = cherrypy.request.path
@@ -54,7 +54,7 @@ def handle(error):
 
     cherrypy.response.headerMap['Pragma'] = 'no-cache'
     cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
-    
+
     if isinstance(error, SessionError):
         if path not in ('/', '/login'):
             if path.split('/')[-1] not in ('make', 'delete', 'save'):
@@ -66,6 +66,10 @@ def handle(error):
         else:
             redirect('/login')
         return
+    elif isinstance(error, AccessDeniedError):
+        msg = "Sorry, you do not have permissions to do the requested operation."
+        cherrypy.request._session.sessionData['messages'] = [(msg, True)]
+        redirect(referer)
     elif isinstance(error, Redirected):
         title = "Redirection error."
         message = "Your browser does not seem to support redirection."
