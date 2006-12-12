@@ -24,14 +24,14 @@ import cherrypy
 from SideMenu import SideMenu
 from WorkList import WorkList
 from ActivityLog import ActivityLog
-from templates.MainTemplate import MainTemplate
+from templates.FramesTemplate import FramesTemplate
 
-class Main(MainTemplate):
+class Main(FramesTemplate):
     """Creates the main page without any content.
     
     Creates the "static" part of all the webpages like: menu, transaction-box,
     worklist with links and activitylog. The design of the page comes from css
-    and from the MainTemplate, wich is a cheetah-template.
+    and from the FramesTemplate, wich is a cheetah-template.
     """
     
     def __init__(self):
@@ -40,7 +40,7 @@ class Main(MainTemplate):
         cherrypy.response.headerMap['Pragma'] = 'no-cache'
         cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
 
-        MainTemplate.__init__(self)
+        FramesTemplate.__init__(self)
         self.jscripts = []
         self.prepare_page()
         self.prepare_messages()

@@ -16,10 +16,10 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-## Main template
 ## Gives a 'frames style' left menu and a bottom area
 
 #import re
+#import cherrypy
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #implements respond
@@ -77,9 +77,40 @@ FramesTemplate.tmpl:def content
 FramesTemplate.tmpl:def menu
 #end def menu
 
-## Another fake method to be overloaded :)
+## The worklist is in general a list of objects the user is working on.
+## Should be specific to the current active transaction, when finished.
+#def worklist
+<div class="worklist">
+  <h2>Work list:</h2>
+  FramesTemplate.tmpl<br />
+</div>
+#end def worklist
+
+## The activitylog is a log over what the user has done, like adding a member
+## to a group. Should be specific to the current active transaction, when
+## finished.
+#def activitylog
+<div class="activitylog">
+    <h2>Activitylog:</h2>
+    FramesTemplate.tmpl<br />
+</div>
+#end def activitylog
+
+## The bottom "frame" on the page, wich contains transactions, worklist and history.
 #def bottom
-FramesTemplate.tmpl:def bottom
+#set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
+#set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')
+    
+#if $wl or $al
+    <div class="bottom_div">
+    #if $wl
+        $worklist()
+    #end if
+    #if $al
+        $activitylog()
+    #end if
+    </div>
+#end if
 #end def bottom
 
 ### The main page! ###
@@ -95,7 +126,9 @@ $css("default.css")
 $css("style.css")
 $jscript("base.js")
 $jscript("timeout.js")
+#block javascript
 $jscript("worklist.js")
+#end block
 #for $i in $jscripts
 $jscript($i)
 #end for
