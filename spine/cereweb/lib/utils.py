@@ -148,6 +148,17 @@ def queue_message(message, error=False, link=''):
     else:
         sessionData['al_messages'].append((message, error, link, timestamp))
 
+def get_messages():
+    messages = cherrypy.session.get("messages", [])
+    if messages:
+        del cherrypy.session['messages']
+        
+    if 'old_messages' not in cherrypy.session:
+        cherrypy.session['old_messages'] = messages[:]
+    else:
+        cherrypy.session['old_messages'].extend(messages)
+    return messages
+
 def strftime(date, format="%Y-%m-%d", default=''):
     """Returns a string for the date.
 
