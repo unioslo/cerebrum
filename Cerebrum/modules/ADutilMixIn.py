@@ -113,13 +113,14 @@ class ADutil(object):
 
         self.logger.info("Starting %s-sync(delete = %s, dry_run = %s)" % \
                         (type, dry_run, delete))     
-        #Fetch AD-data.     
-        addump = self.fetch_ad_data()       
-        self.logger.info("Fetched %i ad-%ss" % (len(addump), type))     
 
         #Fetch cerebrum data.
         cerebrumdump = self.fetch_cerebrum_data(spread)
         self.logger.info("Fetched %i cerebrum %ss" % (len(cerebrumdump), type))
+
+        #Fetch AD-data.     
+        addump = self.fetch_ad_data()       
+        self.logger.info("Fetched %i ad-%ss" % (len(addump), type))     
 
         #compare cerebrum and ad-data.
         changelist = self.compare(delete, cerebrumdump, addump)
@@ -446,7 +447,8 @@ class ADuserUtil(ADutil):
                             changelist.append(changes)
                             changes = {} 
                         #Moving account.
-                        if adusrs[usr]['distinguishedName'] != "LDAP://CN=%s,OU=%s,%s" % (usr, cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP):
+                        if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
+							   (usr, cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP):
                             changes['type'] = 'move_object'
                             changes['distinguishedName'] = adusrs[usr]['distinguishedName']
                             changes['OU'] = "OU=%s,%s" % \
