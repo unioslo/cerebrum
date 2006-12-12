@@ -32,6 +32,12 @@
     $self.menu.setFocus($string)
 #end def
 
+## This tells us not to load the worklist.js 
+#attr $wl = 0
+## The following hack removes the bottom div (and the worklist)
+#def bottom
+#end def
+
 ## Show nice businessCard-like info about person/account
 #def viewInfo($account)
 ## <b>Your information:</b>
@@ -163,9 +169,6 @@
 	</div>
 	</p>
 </div>
-#end def
-
-#def bottom()
 #end def
 
 #def content()
