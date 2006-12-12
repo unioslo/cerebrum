@@ -33,6 +33,7 @@ class Constants(Constants.Constants):
 
 ## Org. hierarchy perspective
     perspective_ekstens = _OUPerspectiveCode('Ekstens', 'Ekstens')
+    perspective_sats = _OUPerspectiveCode('SATS', 'SATS')
 
 ## Authoritative system codes
     system_sats = _AuthoritativeSystemCode('SATS',
@@ -58,18 +59,36 @@ class Constants(Constants.Constants):
     externalid_skolenr = _EntityExternalIdCode('SKOLENR',
                                                Constants.Constants.entity_ou,
                                                'Skolenummer')
+    externalid_kommunenr = _EntityExternalIdCode('KOMMNR',
+                                                 Constants.Constants.entity_ou,
+                                                 'Kommunenummer')
+    externalid_ou_oid = _EntityExternalIdCode('OUOID',
+                                              Constants.Constants.entity_ou,
+                                              'OU OID')
     externalid_fodselsnr = _EntityExternalIdCode('NO_SSN',
-                                              Constants.Constants.entity_person,
-                                              '11-sifret norsk fødselsnummer.')
+                                                 Constants.Constants.entity_person,
+                                                 '11-sifret norsk fødselsnummer.')
     externalid_elevnr = _EntityExternalIdCode('ELEVNR',
-                                               Constants.Constants.entity_person,
+                                              Constants.Constants.entity_person,
                                               'Unik elevnummer fra SAS.')
     externalid_ansattnr = _EntityExternalIdCode('ANSATTNR',
                                                 Constants.Constants.entity_person,
                                                 'Unik ansattnummer fra SAS')
     externalid_userid = _EntityExternalIdCode('USERID',
-                                                 Constants.Constants.entity_person,
-                                                 'Bruker ID')
+                                              Constants.Constants.entity_person,
+                                              'Bruker ID')
+    externalid_person_oid = _EntityExternalIdCode('POID',
+                                                  Constants.Constants.entity_person,
+                                                  'Person OID')
+    externalid_klasse = _EntityExternalIdCode('kl-ID',
+                                                Constants.Constants.entity_group,
+                                                'Klasse ID')
+    externalid_faggruppe = _EntityExternalIdCode('fg-ID',
+                                              Constants.Constants.entity_group,
+                                              'Faggruppe ID')
+    externalid_klassegruppe = _EntityExternalIdCode('kg-ID',
+                                                  Constants.Constants.entity_group,
+                                                  'klassegruppe ID')
 
 
 ## Spread codes
@@ -78,6 +97,8 @@ class Constants(Constants.Constants):
                                 'Brukeren kan logge inn på Windows PC-er.')
     spread_ad_grp = _SpreadCode('group@ad', Constants.Constants.entity_group,
                                 'Gruppen brukes av Active Directory.')
+    spread_ad_ou = _SpreadCode('ou@ad', Constants.Constants.entity_ou,
+                                'OUen brukes av Active Directory.')
     ## LMS
     spread_lms_acc = _SpreadCode('account@lms', Constants.Constants.entity_account,
                                  'Brukeren kan logge inn på LMS (f.eks. Classfronter).')
@@ -95,30 +116,32 @@ class Constants(Constants.Constants):
                                   'Gruppen brukes i LDAP.')
     
 ## Affiliation codes
-    ## ANSATT
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Personen er registrert som ansatt i SAS.')
     affiliation_status_ansatt_aktiv = _PersonAffStatusCode(affiliation_ansatt,
                                                            'aktiv',
                                                            'Personen har aktiv tilsetting, registrert i SAS.')
-    ## ELEV
     affiliation_elev = _PersonAffiliationCode('ELEV',
                                               'Personen er registrert som elev i SAS.')
     affiliation_status_elev_aktiv = _PersonAffStatusCode(affiliation_elev,
                                                          'aktiv',
                                                          'Eleven har en aktiv tilknytning til skolen, registrert i SAS.')
-    ## FORESATT
     affiliation_foresatt = _PersonAffiliationCode('FORESATT',
                                                   'Foresatt registrert i SAS.')
     affiliation_status_foresatt_aktiv = _PersonAffStatusCode(affiliation_foresatt,
                                                              'aktiv',
                                                              'Foresatt for elev med aktiv tilknytning til skole, registrert i SAS.')
-    ## MANUELL
     affiliation_manuell = _PersonAffiliationCode('MANUELL',
                                                  'Personen er ikke registrert i SAS.')
     affiliation_status_manuell_gjest = _PersonAffStatusCode(affiliation_manuell,
                                                             'gjest',
                                                              'Personen er tilknyttet skolen som gjest.')
+    affiliation_teacher = _PersonAffiliationCode('LÆRER',
+                                                  'Lærer registrert i SAS.')
+    affiliation_status_teacher_aktiv = _PersonAffStatusCode(affiliation_teacher,
+                                                             'aktiv',
+                                                             'Lærer aktiv ved en skole.')
+
 ## Account_type codes
 
     account_test = _AccountCode('test', 'Testkonto')
@@ -126,6 +149,8 @@ class Constants(Constants.Constants):
 ## Contact_types
 
     contact_job_mobile = _ContactInfoCode('JOBMOBILE', 'JOBMOBILE')
+    contact_private_mobile = _ContactInfoCode('PRIVATEMOBILE', 'PRIVATEMOBILE')
+    contact_private_email = _ContactInfoCode('PRIVATEEMAIL', 'PRIVATEEMAIL')
 
 ## Group traits
     trait_group_imported = _EntityTraitCode(
