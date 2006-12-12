@@ -24,8 +24,8 @@
 
 #def viewVacation($vacations)
 <p>
-## <div class="view_vacation" id="id=vacation_form" style="display:always;">
-<div class="view_info" id="id=vacation_form" style="display:always;">
+## <div class="view_vacation" id="vacation_view" style="display:always;">
+<div class="view_info" id="vacation_view" style="display:always;">
 <table width="100%">
 	<tr>
 		<th colspan="2">
@@ -106,8 +106,8 @@
 
 #def viewMailForward($forwards)
 <p>
-## <div class="view_mailforward" id="mailforward_form" style="display:always;">
-<div class="view_info" id="mailforward_form" style="display:always;">
+## <div class="view_mailforward" id="mailforward_view" style="display:always;">
+<div class="view_info" id="mailforward_view" style="display:always;">
 <table width="100%">
 	<tr>
 		<th colspan="2">
@@ -206,10 +206,8 @@
     ## Register divs and links to flip visibility.
     <script language="JavaScript">
         <!--
-        FV_register('edit_vacation_form', 'pass_set', null, 'pass_cancel');
-        FV_register('edit_forward_form', 'pass_set', null, 'pass_cancel');
-        FV_register('create_vacation_form', 'pass_set', null, 'pass_cancel');
-        FV_register('create_forward_form', 'pass_set', null, 'pass_cancel');
+        FV_register('vacation_view', 'vacation_view_set', null);
+        FV_register('mailforward_view', 'mailforward_view_set', null);
         //-->
     </script>
 </div>
