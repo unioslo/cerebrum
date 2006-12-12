@@ -21,6 +21,7 @@
 import time
 import cherrypy
 
+from utils import get_messages
 from SideMenu import SideMenu
 from WorkList import WorkList
 from ActivityLog import ActivityLog
@@ -60,14 +61,7 @@ class Main(FramesTemplate):
         Displays and removes queued messages from the session queue.
         Adds them to the list over old messages.
         """
-        self.messages = cherrypy.session.get("messages", [])
-        if self.messages:
-            del cherrypy.session['messages']
-            
-        if 'old_messages' not in cherrypy.session:
-            cherrypy.session['old_messages'] = self.messages[:]
-        else:
-            cherrypy.session['old_messages'].extend(self.messages)
+        self.messages = get_messages()
         
     def setFocus(self, *args):
         """Wraps the setFocus-method on the menu."""

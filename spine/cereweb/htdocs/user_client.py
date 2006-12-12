@@ -25,6 +25,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
+from lib.utils import get_messages
 from lib.templates.UserTemplate import UserTemplate
 from lib.templates.MailUserTemplate import MailUserTemplate
 
@@ -34,6 +35,7 @@ def index(transaction):
     account = get_user_info(transaction,username)
     page.tr = transaction
     page.account = account
+    page.messages = get_messages()
     res = str(page)
     return [res]
 index = transaction_decorator(index)
@@ -75,6 +77,7 @@ def mail(transaction):
     page.account = get_user_info(transaction,username)
     page.vacations = get_vacations(transaction,account)
     page.forwards = get_forwards(transaction,account)
+    page.messages = get_messages()
 
     page.setFocus("mail")
     res = str(page)
