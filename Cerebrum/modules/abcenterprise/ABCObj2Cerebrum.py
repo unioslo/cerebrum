@@ -107,8 +107,11 @@ class ABCObj2Cerebrum(object):
         return ou
 
     def _conv_const_group(self, group):
-        """Placeholder for furure extensions."""
+        """Set one of the IDs to the group's name."""
         group = self._conv_const_entity(group)
+        for id in group._ids:
+            if id in abcconf.GROUP_NAMES:
+                group.name = group._ids[id]
         return group
         
     def parse_settings(self):
@@ -160,13 +163,10 @@ class ABCObj2Cerebrum(object):
         bearer."""
         for group in iterator:
             new_group = self._conv_const_group(group)
-            if new_group._ids.has_key(abcconf.GROUP_NAME):
-                new_group.name = new_group._ids[abcconf.GROUP_NAME]
+            if new_group.name:
+                self._o2c.store_group(new_group)
             else:
-                # TODO: skip this group
-                pass
-            self._o2c.store_group(new_group)
-
+                self.logger.warning("Error(parse_groups): Group has no name '%s'" % group)
 
     # TODO: cleanup. and lots of it.
     def parse_relations(self, iterator):
@@ -200,7 +200,10 @@ class ABCObj2Cerebrum(object):
                                                                        rel.type, e)
                 self.logger.warning(txt)
                 continue
-               
+            # TBD: object can be empty. deal with it.
+            if rel.object == None or len(rel.object) < 1:
+                self.logger.warning("Error(relations): No object in '%s'. Skipping." % rel)
+                continue
             for obj in rel.object:
                 try:
                     if obj[0] is 'org':

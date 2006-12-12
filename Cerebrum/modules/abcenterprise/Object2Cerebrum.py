@@ -22,7 +22,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Constants
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.extlib.doc_exception import DocstringException
 
 class ABCMultipleEntitiesExistsError(DocstringException):
@@ -32,6 +32,8 @@ class ABCErrorInData(DocstringException):
     """We hit an error in the data."""
 
 class Object2Cerebrum(object):
+
+    __metaclass__ = auto_super
 
     def __init__(self, source_system, logger):
         self.source_system = source_system
@@ -51,10 +53,10 @@ class Object2Cerebrum(object):
         self._ou = None
         self._group = None
 
-
-    def commit(self):
-        """Call db.commit()"""
-        self.db.commit()
+        # Set up the group and affiliation cache
+        # This is updated in store_group and add_group_member.
+        self._groups = dict()
+        self._affiliations = dict()
 
     def rollback(self):
         self.db.rollback()
@@ -72,7 +74,7 @@ class Object2Cerebrum(object):
                                         id_type,
                                         id_dict[id_type])
 
-    def _check_entity(self, entity, data_entity):
+    def _check_entity(self, entity, data_entity): 
         """Check for conflicting entities or return found or None."""
         entities = list()
         for id_type in data_entity._ids.keys():
@@ -85,7 +87,10 @@ class Object2Cerebrum(object):
             if entity_id <> id and entity_id <> None:
                 # There are entities out there with our IDs.
                 # Fat error and exit
-                raise ABCMultipleEntitiesExistsError
+                ou = Factory.get('OU')(self.db)
+                ou.find(id)
+                found = ou.get_external_id(id_type=id_type) 
+                raise ABCMultipleEntitiesExistsError, "found: '%s', current: '%s'" % (found, data_entity)
             entity_id = id
 
         if entity_id:
@@ -96,6 +101,27 @@ class Object2Cerebrum(object):
             # This is fine, write_db() figures it up.
             return None
 
+
+    def _add_entity_addresses(self, entity, addresses):
+        """Add an entity's addresses."""
+        for addr in addresses.keys():
+            #for tag in ("pobox", "street", "postcode", "city", "country"):
+            entity.populate_address(self.source_system, type=addr,
+                                    address_text=addresses[addr].street,
+                                    p_o_box=addresses[addr].pobox,
+                                    postal_number=addresses[addr].postcode,
+                                    city=addresses[addr].city,
+                                    country=addresses[addr].country)
+            entity.write_db()
+
+
+    def _add_entity_contact_info(self, entity, contact_info):
+        """Add contact info for an entity."""
+        for cont in contact_info.keys():
+            entity.populate_contact_info(self.source_system, type=cont,
+                                         value=contact_info[cont])
+            entity.write_db()
+             
         
     def store_ou(self, ou):
         """Pass a DataOU to this function and it gets stored
@@ -117,10 +143,10 @@ class Object2Cerebrum(object):
                           ou.ou_names['sort_name'],
                           None)
         self._add_external_ids(self._ou, ou._ids)
-
-        # Deal with addresses and contacts.
-        
+        self._add_entity_addresses(self._ou, ou._address)
+        self._add_entity_contact_info(self._ou, ou._contacts)
         return (self._ou.write_db(), self._ou.entity_id)
+
 
     def set_ou_parent(self, child_entity_id, perspective, parent):
         """Set a parent ID on an OU. Parent may be an entity_id or a
@@ -133,6 +159,7 @@ class Object2Cerebrum(object):
         self._ou.find(child_entity_id)
         self._ou.set_parent(perspective, parent)
         return self._ou.write_db()
+
 
     def store_person(self, person):
         """Pass a DataPerson to this function and it gets stored
@@ -150,7 +177,7 @@ class Object2Cerebrum(object):
             # This is fine, write_db() figures it out.
 
         if person.birth_date == None:
-            raise ABCErrorInData, "No birthdate in file."
+            raise ABCErrorInData, "No birthdate for person: %s." % person._ids
 
         # Populate the person
         self._person.populate(person.birth_date, person.gender)
@@ -162,7 +189,9 @@ class Object2Cerebrum(object):
                                        person._names[name_type])
         # Deal with addresses and contacts. 
         ret = self._person.write_db()
-        return (ret, self._person.entity_id)
+        self._add_entity_addresses(self._person, person._address)
+        self._add_entity_contact_info(self._person, person._contacts)
+        return ret
 
 
     def store_group(self, group):
@@ -180,8 +209,19 @@ class Object2Cerebrum(object):
         self._group.populate(self.default_creator_id,
                              self.co.group_visibility_all,
                              group.name, description=group.desc)
-        self._group.write_db()
-        return (self._group.write_db(), self._group.entity_id)
+        self._add_external_ids(self._group, group._ids)
+        ret = self._group.write_db()
+        # Add group to "seen" cache.
+        self._groups.setdefault(group.name, [])
+        return ret
+
+
+    def _add_group_cache(self, group, member):
+        if self._groups.has_key(group):
+            if member not in self._groups[group]:
+                self._groups[group].append(member)
+        else:
+            self.logger.warning("Group '%s' is not in the file." % group) 
 
         
     def add_group_member(self, group, entity_type, member):
@@ -199,6 +239,7 @@ class Object2Cerebrum(object):
                 self._group.add_member(self._person.entity_id,
                                        self.co.entity_person,
                                        self.co.group_memberop_union)
+            self._add_group_cache(group[1], self._person.entity_id)
             return self._group.write_db()
 
 
@@ -215,6 +256,64 @@ class Object2Cerebrum(object):
         self._person.add_affiliation(self._ou.entity_id, affiliation,
                                      self.source_system, status)
         ret = self._person.write_db()
+
+        # Submit affiliation data to the cache.
+        self._affiliations.setdefault(self._person.entity_id, [])
+        self._affiliations[self._person.entity_id].append((affiliation,
+                                                           self._ou.entity_id))
         return ret
+
+
+    def _update_groups(self):
+        """Run through the cache and remove people's group membership if it hasn't
+        been seen in this push."""
+        for grp in self._groups.keys():
+            self._group.clear()
+            self._group.find_by_name(grp)
+            for member in self._group.list_members(get_entity_name=True)[0]:
+                if member[2] not in self._groups[grp]:
+                    self._group.remove_member(member[1], self.co.group_memberop_union)
+            self._group.write_db()
+        # See which groups are gone from the file and remove them from the
+        # database if the cache doesn't have them.
+        
+        
+
+    def _update_person_affiliations(self):
+        """Run through the cache and remove people's affiliation if it hasn't
+        been seen in this push."""
+        for row in self._person.list_affiliations(source_system=self.source_system,
+                                                  include_deleted=True):
+            p_id = int(row['person_id'])
+            aff = row['affiliation']
+            ou_id = row['ou_id']
+            if self._affiliations.has_key(p_id):
+                if not (aff, ou_id) in self._affiliations[p_id]:
+                    if not self._person.entity_id == p_id:
+                        self._person.clear()
+                        self._person.find(p_id)
+                    self._person.delete_affiliation(ou_id, aff, self.source_system)
+            else:
+                # Person no longer in the data file
+                if not self._person.entity_id == p_id:
+                    self._person.clear()
+                    self._person.find(p_id)
+                self._person.delete_affiliation(ou_id, aff, self.source_system)
+
+
+    def commit(self):
+        """Do some cleanups and call db.commit()"""
+
+        # TODO:
+        # - Diff OUs as well.
+        
+        # Process the cache before calling commit.
+        self._update_groups()
+        # Update affiliations for people
+        self._update_person_affiliations()
+     
+        self.db.commit()
+
+
 
 # arch-tag: fda7302c-6995-11da-943c-1c905588559b
