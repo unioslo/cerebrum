@@ -126,9 +126,9 @@ $css("default.css")
 $css("style.css")
 $jscript("base.js")
 $jscript("timeout.js")
-#block javascript
+#if $wl
 $jscript("worklist.js")
-#end block
+#end if
 #for $i in $jscripts
 $jscript($i)
 #end for
