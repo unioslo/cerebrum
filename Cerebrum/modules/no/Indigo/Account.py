@@ -21,6 +21,8 @@
 
 import random
 import string
+import sys
+import os
 
 import re
 import cereconf
@@ -33,12 +35,10 @@ from Cerebrum.Utils import Factory
 
 class AccountIndigoMixin(Account.Account):
     """Account mixin class providing functionality specific to Indigo.
-
     The methods of the core Account class that are overridden here,
     ensure that any Account objects generated through
     Cerebrum.Utils.Factory.get() provide functionality that reflects
     the policies as stated by the Indigo-project.
-
     """
     def is_employee(self, uname):
         db = Factory.get('Database')()
@@ -59,15 +59,64 @@ class AccountIndigoMixin(Account.Account):
                 return True
         return False
     
+    def set_password(self, plaintext):
+        # Override Account.set_password so that we get a copy of the
+        # plaintext password
+        self.__plaintext_password = plaintext
+        self.__super.set_password(plaintext)
+
+    def write_db(self):
+        try:
+            plain = self.__plaintext_password
+        except AttributeError:
+            plain = None
+        ret = self.__super.write_db()
+        if plain is not None:
+            ph = PasswordHistory.PasswordHistory(self._db)
+            ph.add_history(self, plain)
+        return ret
+
+    def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
+        return pgp_encrypt(plaintext, cereconf.PGPID)
+
+
+class AccountGiskeMixin(Account.Account):
+    def populate(self, name, owner_type, owner_id, np_type, creator_id,
+                 expire_date):
+        # Override Account.populate in order to register 'primary e-mail
+        # address
+        self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
+                              expire_date)
+        # register "primary" e-mail address as entity_contact
+        c_val = name + cereconf.EMAIL_DEFAULT_DOMAIN
+        desc = "E-mail address exported to LDAP"
+        self.populate_contact_info(self.const.system_cached,
+                                   type=self.const.contact_email,
+                                   value=c_val, description=desc)
+    def make_passwd(self, uname):
+        words = []
+        pwd = []
+        passwd = ""
+        for fname in cereconf.PASSPHRASE_DICTIONARIES:
+            f = file(fname, 'r')
+            for l in f:
+                words.append(l.rstrip())
+                while(1): 
+            number = random.randint(0, len(words)-1)
+            pwd.append(words[number])
+            passwd = ' '.join([a for a in pwd])
+            if len(passwd) >= 14 and len(pwd) > 2:               
+                if len(passwd) <= 20:
+                    return passwd
+                else:
+                    pwd.pop(0)
+
+
+class AccountOfkMixin (Account.Account):
     def make_passwd(self, uname):
         pot = string.ascii_letters + string.digits
         count = 0
         pwd = []
-        ## Project currently has the same rule for passwords.
-
-        #if self.is_employee(uname):
-        #    return self.__super.make_passwd(uname)
-        
         while count < 2:
             pwd.append(string.digits[random.randint(0, len(string.digits)-1)])
             count += 1
@@ -232,26 +281,3 @@ class AccountIndigoMixin(Account.Account):
                         epat.populate(ea.email_addr_id, parent = et)
                     epat.write_db()
                     primary_set = True
-                    
-    def set_password(self, plaintext):
-        # Override Account.set_password so that we get a copy of the
-        # plaintext password
-        self.__plaintext_password = plaintext
-        self.__super.set_password(plaintext)
-
-    def write_db(self):
-        try:
-            plain = self.__plaintext_password
-        except AttributeError:
-            plain = None
-        ret = self.__super.write_db()
-        if plain is not None:
-            ph = PasswordHistory.PasswordHistory(self._db)
-            ph.add_history(self, plain)
-        return ret
-
-    def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
-        return pgp_encrypt(plaintext, cereconf.PGPID)
-
-    
-# arch-tag: 76df902e-68c4-11da-9fea-9dad85604ffa
