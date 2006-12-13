@@ -75,14 +75,22 @@ class Authorization(object):
             return True
 
         # Har brukeren tilgang til å utføre operasjonen som konsekvens av tilgangsnivå
-        ## Har brukeren tilgang til objektet som følge av tilknytning? True = Success. 
+        ## Har brukeren tilgang til objektet som følge av tilknytning? 
 
         if self.has_access(operation, obj):
             return True
 
+        if self.has_access_on_creator(operation, obj):
+            return True
+
+        import pdb
+        pdb.set_trace()
+
         return False 
 
     def can_return(self, value):
+        if self.superuser: return True
+
         if not value:
             return True
         
@@ -90,14 +98,19 @@ class Authorization(object):
             for v in value[:]:
                 if not self.can_return(v):
                     value.remove(v)
+            return True
 
         if not type(value) in [Account, Person, Group, Entity]:
             return True
 
-        if value.get_id() == self.account.get_id():
-            return True
-        elif value.get_id() == self.account.get_owner().get_id():
-            return True
+        if isinstance(value, Account):
+            if value.get_id() == self.account.get_id():
+                return True
+            if self.account.get_creator().get_id() == value.get_id():
+                return True
+        if isinstance(value, Person):
+            if value.get_id() == self.account.get_owner().get_id():
+                return True
 
         return False
 
@@ -145,6 +158,16 @@ class Authorization(object):
             if self.bofhdauth._has_access_to_entity_via_ou(
                     self.account.get_id(), operation, ceTarget):
                 return True
+
+    def has_access_on_creator(self, operation, target):
+        if isinstance(target, Account):
+            if self.account.get_creator().get_id() == target.get_id():
+                op_set = BofhdAuthOpSet(self._db)
+                op_set.find_by_name('view_account')
+                operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+                if operation in operations:
+                    return True
+        return False
 
     def is_superuser(self):
         if self.bofhdauth.is_superuser(self.account.get_id()):
