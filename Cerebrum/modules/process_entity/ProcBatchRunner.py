@@ -127,7 +127,6 @@ class ProcBatchRunner(object):
             if not group_names.has_key(m.group(1)):
                 group_names[m.group(1)] = None
         for name in group_names:
-            print name
             self.proc.process_group(name)
 
 
