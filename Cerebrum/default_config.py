@@ -38,6 +38,9 @@ AUTH_CRYPT_METHODS = ("MD5-crypt",)
 # passwords.
 PASSWORD_DICTIONARIES = ()
 
+# List full path filenames to files containing words used to
+# produce passphrases
+PASSPHRASE_DICTIONARIES = ()
 
 # Look for things like person name by evaluating source systems in in
 # this order
