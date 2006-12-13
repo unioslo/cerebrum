@@ -28,6 +28,10 @@
 #attr $messages = []
 #attr $jscripts = []
 
+## Setting wl to False prevents loading of the worklist.js
+## Used in UserTemplate since regular users don't need it.
+#attr $wl = True
+
 ## Moved definisions of methods up here, because having them in
 ## the html part added lot of empty lines, since we need empty 
 ## lines between em, to keep the code readable :)
