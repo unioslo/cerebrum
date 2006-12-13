@@ -101,9 +101,8 @@ class AccountGiskeMixin(Account.Account):
             f = file(fname, 'r')
             for l in f:
                 words.append(l.rstrip())
-                while(1): 
-            number = random.randint(0, len(words)-1)
-            pwd.append(words[number])
+        while(1): 
+            pwd.append(words[random.randint(0, len(words)-1)])
             passwd = ' '.join([a for a in pwd])
             if len(passwd) >= 14 and len(pwd) > 2:               
                 if len(passwd) <= 20:
