@@ -25,6 +25,7 @@ from lib.Main import Main
 from lib.utils import redirect, redirect_object, queue_message
 from lib.utils import object_link, transaction_decorator
 from lib.utils import strftime,  commit, commit_url
+from lib.utils import legal_date
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.AccountSearchTemplate import AccountSearchTemplate
@@ -58,10 +59,16 @@ def search(transaction, **vargs):
             search.set_name_like(name)
 
         if expire_date:
+            if not legal_date(expire_date):
+                queue_message("Expire date is not a legal date.",error=True)
+                return None
             date = transaction.get_commands().strptime(expire_date, "%Y-%m-%d")
             search.set_expire_date(date)
 
         if create_date:
+            if not legal_date(create_date):
+                queue_message("Created date is not a legal date.", error=True)
+                return None
             date = transaction.get_commands().strptime(create_date, "%Y-%m-%d")
             search.set_create_date(date)
 
@@ -84,7 +91,7 @@ def search(transaction, **vargs):
 
             entityspread.add_join('spread', spreadsearcher, '')
             search.add_intersection('', entityspread, 'entity')
-
+		
         return search.search()
     
     def row(elm):

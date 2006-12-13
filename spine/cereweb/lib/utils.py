@@ -22,6 +22,8 @@ import time
 import urllib
 import mx.DateTime
 import cherrypy
+import re
+from datetime import datetime
 
 def _spine_type(object):
     """Return the type (string) of a Spine object.
@@ -255,4 +257,15 @@ def get_account(transaction, account_id=None, account_name=None):
     account['object_type'] = _spine_type(acc_object)
     return account
 
-# arch-tag: 046d3f6d-3e27-4e00-8ae5-4721aaf7add6
+def legal_date( tocheck ):
+    rest = tocheck.strip()
+    prog = re.compile(r'^([1-9][0-9]{3})-([0-9][1-9])-([0-9][1-9])$')
+    if not prog.match(rest):
+        return False
+    parts = rest.split('-')
+    checkdate = datetime(int(parts[0]),int(parts[1]),int(parts[2]))
+    if checkdate < datetime.min or checkdate > datetime.max:
+        return False
+    return True
+
+# arch-tag: 46d3f6d-3e27-4e00-8ae5-4721aaf7add6
