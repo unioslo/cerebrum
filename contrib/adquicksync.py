@@ -343,6 +343,7 @@ def add_spread(entity_id, spread):
                 sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,account_name,pw))
             else:
                 logger.debug('Failed creating new user %s' % account_name)
+                return False
 
         if sock.read() == ['210 OK']:
             (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE) = ADUtils.get_user_info(entity_id, account_name, disk_spread)
