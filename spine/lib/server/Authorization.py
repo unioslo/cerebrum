@@ -95,7 +95,7 @@ class Authorization(object):
                 if not self.can_return(v):
                     value.remove(v)
             return True # We've filtered.
-        if not cls.__name__.endswith('Dumper'):
+        if not value.__class__.__name__.endswith('Dumper'):
             return True
         else:
             return False
