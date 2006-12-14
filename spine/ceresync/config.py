@@ -1,90 +1,85 @@
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2004, 2005 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+import ConfigParser
 import os
-path = os.path.dirname(os.path.realpath(__file__))
 
-# Corba
-url = 'http://pointy.itea.ntnu.no/~erikgors/spine.ior'
-username = 'bootstrap_account'
-password = 'blapp'
+conf = ConfigParser.SafeConfigParser()
+conf.read(('sync.conf.template', 'sync.conf'))
+sync=conf # compat
 
-# SSL
-use_ssl = False
-ssl_ca_file = 'CA.crt'
-ssl_key_file = 'client.pem'
-ssl_password = 'client'
+def apply_quarantine(obj, typestr):
+    """
+    Apply rules set in the [OBJTYPE_quarantenes] section of the config
+    file. For each quarantene the user may override one atttribute.
+    If no rule exists for a given quarantene, the DEFAULT rule will be used.
+    The format is:
+    [account_quarantenes]
+    nologin: shell="/bin/nologin"
+    DEFAULT: passwd="*"
+    """
+    for q in obj.get_quarantines:
+        try:
+            a=sync.get('%s_quarantenes' % typestr, q.name)
+        except ConfigParser.NoOptionError:
+            try:
+                a=sync.get('%s_quarantenes' % typestr, "DEFAULT")
+            except ConfigParser.NoOptionError:
+                return
+        try:
+            (var, val) = a.split('=')
+            val=eval(val)  # ouch! but needed for strings/ints/etc
+        except ValueError:
+            logging.error("Bad quarantene action \"%s\"" % a)
+        setattr(obj, var, val)
 
-# IDL
-idl_path = os.path.join(path, 'tmp')
-idl_file = os.path.join(path, 'SpineIDL.idl')
-md5_file = os.path.join(path, 'SpineIDL.md5')
-automatic = True
+def apply_override(obj, typestr):
+    """
+    Apply rules set in the [OBJTYPE_override] section of the config file.
+    These values will override any values supplied by the server.
+    The format is:
+    [account_override]
+    homedir: /home/%(name)s
+    """
+    section='%s_override' % typestr
+    attribs = dict([(x,y) for x, y in obj.__dict__.items()
+                    if y not in ('', -1)])
+    for a in sync.options(section):
+        if attribs.has_key(a): del attribs[a]
+    for a in sync.options(section):
+        setattr(obj, a, sync.get(section, a, vars=attribs))
 
-# sync
-unix_type = 'bsd'
+def apply_default(obj, typestr):
+    """
+    Apply rules set in the [OBJTYPE_default] section of the config file.
+    These values will be used if no value is supplied by the server.
+    The format is:
+    [account_default]
+    homedir: /home/%(name)s
+    """
+    section='%s_default' % typestr
+    attribs = dict([(x,y) for x, y in obj.__dict__.items()
+                    if y not in ('', -1)])
+    for a in sync.options(section):
+        # "" or -1 for nonexisting values is an spine-ism
+        if (not obj.__dict__.has_key(a)) or getattr(obj, a) == "" or getattr(obj, a) == -1:
+            setattr(obj, a, sync.get(section, a, vars=attribs))
 
-"""
-# Connection details for ldap sync
-# (preliminary example)
-[ldap]
-host: ldap-master.ntnu.no
-base: dc=ntnu,dc=no
-user_base: ou=users,%(base)s
-group_base: ou=groups,%(base)s
-people_base: ou=people,%(base)s
-realm: ntnu.no
-bind: cn=Manager,dc=ntnu,dc=no
-password: password
-tls: yes
-# Supported hash-typer: sha-1,ssha,md5,smd5,crypt,cleartext
-hash: md5
-#Uri overrised host/tls-settings
-uri: ldaps://ldap-master.ntnu.no
-# Support for SASL/other authentication mechanisms will be added later.
-# Only simple authentication is supported at this stage.
-"""
-
-class Constants(object):
-    def __init__(self, tr):
-        self.account_type = tr.get_entity_type('account')
-        self.group_type = tr.get_entity_type('group')
-        self._person_type = tr.get_entity_type('person')
-
-        self.full_name = tr.get_name_type('FULL')
-        self.first_name = tr.get_name_type('FIRST')
-        self.last_name = tr.get_name_type('LAST')
-        self.source_system = tr.get_source_system('Cached')
-        self.password_type = tr.get_authentication_type('MD5-crypt')
-
-        self.union_type = tr.get_group_member_operation_type('union')
-        self.intersection_type = tr.get_group_member_operation_type('intersection')
-        self.difference_type = tr.get_group_member_operation_type('difference')
-
-
-class UnixConstants(Constants):
-    def __init__(self, tr):
-        super(UnixConstants, self).__init__(tr)
-
-#        self.account_spread = tr.get_spread('user@stud')
-        self.account_spread = tr.get_spread('user@chembio')
-        self.group_spread = tr.get_spread('group@ntnu')
-        self.person_spread = None #tr.get_spread('person@ntnu')
-
-        self.group_format = '%(groupname)s:*:%(gid)s:%(members)s\n'
-
-        if unix_type == 'shadow':
-            self.passwd_files = {
-                'passwd':'%(username)s:*:%(uid)s:%(gid)s:%(gecos)s:%(home)s:%(shell)s\n',
-                'shadow':'%(username)s:%(password)s:%(last)s:%(may)s:%(must)s:%(warn)s:%(expire)s:%(disable)s:%(reserved)s\n'
-            }
-        elif unix_type == 'classic':
-            self.passwd_files = {
-                'passwd':'%(username)s:%(password)s:%(uid)s:%(gid)s:%(gecos)s:%(home)s:%(shell)s\n'
-            }
-        elif unix_type == 'bsd':
-            self.passwd_files = {
-                'master.passwd':'%(username)s:%(password)s:%(uid)s:%(gid)s:%(class)s:%(change)s:%(expire)s:%(gecos)s:%(home)s:%(shell)s\n'
-            }
-
-        # self.passwd_files['smbpasswd'] = '%(username)s:%(uid)s:%(lmhash)s:%(nthash)s:%(nthome)s:%(ntshell)s\n'
-        # self.passwd_files['aliases'] = '%(address)s: %(mod)s %(to)s\n'
-
-# arch-tag: 917620ca-47f8-11da-9bec-051db1a99478
