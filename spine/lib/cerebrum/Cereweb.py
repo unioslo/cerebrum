@@ -102,7 +102,7 @@ def create_motd(self, subject, message):
     id = int(db.nextval('cereweb_seq'))
     CerewebMotd._create(db, id, creator=db.change_by, subject=subject, message=message)
     return CerewebMotd(db, id)
-create_motd.signature = [CerewebMotd]
+create_motd.signature = CerewebMotd
 create_motd.signature_write = True
 create_motd.signature_name = 'create_cereweb_motd'
 create_motd.signature_args = [str, str]
