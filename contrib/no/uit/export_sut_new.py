@@ -127,10 +127,18 @@ def main():
     AND ai.owner_id = pn.person_id
     AND pn.name_variant=%s
     AND pn.source_system=%s
-    """ % (int(co.spread_uit_sut_user),int(co.auth_type_md5_crypt),int(co.spread_uit_sut_user),today,int(co.name_full),int(co.system_cached))
+    UNION
+    select entity_name.entity_name,aa.auth_data,pu.posix_uid,entity_name.entity_name, eq.quarantine_type
+    from group_info gi,account_authentication aa, posix_user pu LEFT JOIN entity_quarantine eq ON pu.account_id=eq.entity_id, entity_name AS en_alias, group_member gm
+    where en_alias.entity_name in='gjeste-brukere'
+    and en_alias.entity_id = gi.group_id
+    and gi.group_id=gm.group_id
+    and gm.member_id=entity_name.entity_id
+    and aa.account_id=gm.member_id
+    and aa.method=%s
+    and pu.account_id = gm.member_id;
+    """ % (int(co.spread_uit_sut_user),int(co.auth_type_md5_crypt),int(co.spread_uit_sut_user),today,int(co.name_full),int(co.system_cached),int(co.auth_type_md5_crypt))
 
-    
-    
     #print "startin query...%s" % query
     db.row = db.query(query)
     for row in db.row:
