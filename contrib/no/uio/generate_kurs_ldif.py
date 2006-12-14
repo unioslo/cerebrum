@@ -1,11 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-import getopt
-import sys
-import cerebrum_path
-import locale
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 """
 Generere LDAP tre med uioEduSection (Undervisningsaktivitet - gruppe,
@@ -20,11 +14,21 @@ role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
 --aktivitetfile fname : xml fil med undervisningsaktiviteter
 --enhetfile fname : xml fil med undervisningsenheter
 --emnefile fname : xml fil med emner
---destfile fname.ldif : trigger generering av ldif fil med angitt navn
+--ldiffile fname.ldif : trigger generering av ldif fil med angitt navn
+--picklefile fname : brukes av person-ldif exporten til å sette eduCourseMember
 """
+
+import getopt
+import pickle
+import sys
+import cerebrum_path
+import locale
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
+ac = Factory.get('Account')(db)
 group = Factory.get('Group')(db)
 
 locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))  # norsk "Ø".lower()
@@ -167,10 +171,12 @@ def gen_undervisningsaktivitet(cgi, sip, out):
     # uioEduCourseSectionName - (FS.undaktivitet.aktivitetsnavn)
     # uioEduCourseOffering - urn:mace:uio.no:section:<noe>
     n = 0
+    ret = {}
     for entry in sip.undervisningsaktiviteter:
         emne = sip.emnekode2info[entry['emnekode']]
-        aktivitet_id = []
-        for persontype in ('aktivitetsansvar', 'student'):
+        aktivitet_id = {}
+        for persontype, role in (('aktivitetsansvar', 'TeachingAssistant'),
+                                 ('student', 'Learner')):
             args = [entry[x] for x in CerebrumGroupInfo.id_key_seq]
             args.extend((entry['aktivitetkode'], persontype))
             args = [x.lower() for x in args]
@@ -178,10 +184,9 @@ def gen_undervisningsaktivitet(cgi, sip, out):
             if entity_id is None:
                 logger.warn("Ikke cerebrum-data for %s" % repr(args))
             else:
-                aktivitet_id.append("%i" % entity_id)
+                aktivitet_id["%i" % entity_id] = role
         if len(aktivitet_id) != 2:
             continue
-        aktivitet_id = "_".join(aktivitet_id)
         out.write("dn: cn=ua-%i,cn=course,dc=uio,dc=no\n" % n)
         out.write("objectClass: top\n")
         out.write("objectClass: uioEduSection\n")
@@ -190,9 +195,11 @@ def gen_undervisningsaktivitet(cgi, sip, out):
         out.write("uioEduCourseLevel: %s\n" % emne['studienivakode'])
         out.write("uioEduCourseName: %s\n" % emne['emnenavn_bokmal'])
         out.write("uioEduCourseSectionName: %s\n" % entry['aktivitetsnavn'])
-        urn = 'urn:mace:uio.no:section:aktivitet-%s' % aktivitet_id
+        urn = 'urn:mace:uio.no:section:aktivitet-%s' % "_".join(aktivitet_id.keys())
         out.write("uioEduCourseOffering: %s\n\n" % urn)
         n += 1
+        ret[urn] = aktivitet_id
+    return ret
 
 def gen_undervisningsenhet(cgi, sip, out):
     # uioEduOffering - Undervisningsenhet (instansiering av et emne)
@@ -202,12 +209,14 @@ def gen_undervisningsenhet(cgi, sip, out):
     # uioEduCourseName - som for Undervisningsaktivitet
     # uioEduCourseOffering - urn:mace:uio.no:offering:<noe>
     n = 0
+    ret = {}
     for entry in sip.undervisningsenheter:
         emne = sip.emnekode2info.get(entry['emnekode'])
         if not emne:
             continue # warned erlier
-        aktivitet_id = []
-        for persontype in ('student', 'enhetsansvar'):
+        aktivitet_id = {}
+        for persontype, role in (('student', 'Learner'),
+                                 ('enhetsansvar', 'Instructor')):
             args = [entry[x] for x in CerebrumGroupInfo.id_key_seq]
             args.append(persontype)
             args = [x.lower() for x in args]
@@ -215,10 +224,9 @@ def gen_undervisningsenhet(cgi, sip, out):
             if entity_id is None:
                 logger.warn("Ikke cerebrum-data for %s" % repr(args))
             else:
-                aktivitet_id.append("%i" % entity_id)
+                aktivitet_id["%i" % entity_id] = role
         if len(aktivitet_id) != 2:
             continue
-        aktivitet_id = "_".join(aktivitet_id)
         out.write("dn: cn=ue-%i,cn=course,dc=uio,dc=no\n" % n)
         out.write("objectClass: top\n")
         out.write("objectClass: uioEduOffering\n")
@@ -226,14 +234,36 @@ def gen_undervisningsenhet(cgi, sip, out):
         out.write("uioEduCourseAdministrator: %s\n" % emne['sko'])
         out.write("uioEduCourseLevel: %s\n" % emne['studienivakode'])
         out.write("uioEduCourseName: %s\n" % emne['emnenavn_bokmal'])
-        urn = 'urn:mace:uio.no:offering:enhet-%s' % aktivitet_id
+        urn = 'urn:mace:uio.no:offering:enhet-%s' % "_".join(aktivitet_id.keys())
         out.write("uioEduCourseOffering: %s\n\n" % urn)
         n += 1
+        ret[urn] = aktivitet_id
+    return ret
+
+def dump_pickle_file(fname, urn_dict1, urn_dict2):
+    urn_dict1.update(urn_dict2)
+    owner_id2urn = {}
+    member_id2owner_id = {}
+    for row in ac.list():
+        member_id2owner_id[int(row['account_id'])] = int(row['owner_id'])
+    for urn, members in urn_dict1.items():
+        for entity_id, role in members.items():
+            entity_id = int(entity_id)
+            group.clear()
+            group.find(entity_id)
+            u, i, d = group.list_members(get_entity_name=True)
+            for row in u:
+                member_id = row[1]
+                owner_id = member_id2owner_id.get(member_id)
+                if owner_id:
+                    owner_id2urn.setdefault(owner_id, []).append("%s@%s" % (role, urn))
+    pickle.dump(owner_id2urn, open(fname, "w"))
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '', [
-            'help', 'aktivitetfile=', 'enhetfile=', 'emnefile=', 'destfile='])
+            'help', 'aktivitetfile=', 'enhetfile=', 'emnefile=', 'ldiffile=',
+            'picklefile='])
     except getopt.GetoptError:
         usage(1)
 
@@ -246,18 +276,21 @@ def main():
             enhetfile = val
         elif opt in ('--emnefile',):
             emnefile = val
-        elif opt in ('--destfile',):
+        elif opt in ('--picklefile',):
+            picklefile = val
+        elif opt in ('--ldiffile',):
             destfile = file(val, "w")
             cgi = CerebrumGroupInfo()
             sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
-            gen_undervisningsaktivitet(cgi, sip, destfile)
-            gen_undervisningsenhet(cgi, sip, destfile)
+            dump_pickle_file(picklefile,
+                             gen_undervisningsaktivitet(cgi, sip, destfile),
+                             gen_undervisningsenhet(cgi, sip, destfile))            
             destfile.close()
     if not opts:
         usage(1)
 
 def usage(exitcode=0):
-    print _doc__
+    print __doc__
     sys.exit(exitcode)
 
 if __name__ == '__main__':
