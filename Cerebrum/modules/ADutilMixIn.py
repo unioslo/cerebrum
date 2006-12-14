@@ -13,7 +13,7 @@ class ADutil(object):
 
     def __init__(self, db, co, logger,
              host=cereconf.AD_SERVER_HOST, port=cereconf.AD_SERVER_PORT,
-             url=None):
+             url=None, ad_ldap=cereconf.AD_LDAP):
 
         self.db = db
         self.co = co
@@ -28,6 +28,7 @@ class ADutil(object):
             password = read_password("cerebrum", host)
         self.server = xmlrpclib.Server(url)
         self.logger = logger
+        self.ad_ldap = ad_ldap
 
 
     def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
@@ -51,7 +52,7 @@ class ADutil(object):
 
     def get_default_ou(self, change = None):
         #Returns default OU in AD.
-        return "CN=Users,%s" % cereconf.AD_LDAP
+        return "CN=Users,%s" % self.ad_ldap
 
 
     def move_object(self, chg, dry_run):
@@ -232,7 +233,7 @@ class ADgroupUtil(ADutil):
         for adg in adgrp:
             if adg.find(cereconf.AD_DO_NOT_TOUCH) >= 0:             
                 pass
-            elif adg.find('CN=Builtin,%s' % cereconf.AD_LDAP) >= 0:
+            elif adg.find('CN=Builtin,%s' % self.ad_ldap) >= 0:
                 pass
             else:
                 changelist.append({'type' : 'delete_object', 
@@ -448,11 +449,11 @@ class ADuserUtil(ADutil):
                             changes = {} 
                         #Moving account.
                         if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
-							   (usr, cereconf.AD_LOST_AND_FOUND, cereconf.AD_LDAP):
+							   (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
                             changes['type'] = 'move_object'
                             changes['distinguishedName'] = adusrs[usr]['distinguishedName']
                             changes['OU'] = "OU=%s,%s" % \
-                                (cereconf.AD_LOST_AND_FOUND,cereconf.AD_LDAP)
+                                (cereconf.AD_LOST_AND_FOUND,self.ad_ldap)
 
                             
             #Finished processing user, register changes if any.
