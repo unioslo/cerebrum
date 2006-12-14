@@ -49,6 +49,7 @@ class Server(ADobject.Group, ADobject.Account, ADobject.Search):
 		super(Server, self).__init__(*args, **kwargs)
 
 	def response(self, string):
+		logging.debug('Received:%s' % string)
 		return string
 
 	def location(self):
@@ -139,8 +140,8 @@ class SecureXMLRpcRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler):
             self.end_headers()			
         except: # This should only happen if the module is buggy
             # internal error, report as HTTP server error
-            print traceback.print_exc()
-            logging.critical(traceback.print_exc())
+            traceback.print_exc()
+            logging.critical(traceback.format_exc())
             self.send_response(500)
             self.end_headers()
         else:
@@ -179,6 +180,12 @@ class Service(win32serviceutil.ServiceFramework):
 		#------------------------------------------------------
 		servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
 		servicemanager.PYS_SERVICE_STARTED,(self._svc_name_, ''))
+
+	        # Redirect stdout and stderr to prevent "IOError: [Errno 9] 
+        	# Bad file descriptor". Windows services don't have functional
+        	# output streams. 
+		import win32traceutil
+        	
 
 		runServer()
 		return
@@ -265,7 +272,7 @@ def main():
 				#Giving control to the Pythonservice
 				win32serviceutil.HandleCommandLine(Service)
 			elif opt == '--startup':
-				pass						
+				pass
 			else:
 				usage()	
 
