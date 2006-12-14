@@ -132,10 +132,12 @@ def queue_message(message, error=False, link=''):
     object the action was on, should be a string linking to
     the object.
     """
-    # When we're called through _cpOnErrors, the cherrypy.session
-    # isn't set up properly.  The workaround is to access the
-    # session dict through the request object.
-    if not hasattr(cherrypy.session, 'sessionStorage'):
+
+    # When we're called through _cpOnErrors in cherrypy 2.1.1, the
+    # cherrypy.session isn't set up properly.  The workaround is to
+    # access the session dict through the request object.
+    if not hasattr(cherrypy.session, 'sessionStorage') and \
+            cherrypy.__version__ == '2.1.1':
         sessionData = cherrypy.request._session.sessionData
     else:
         sessionData = cherrypy.session
