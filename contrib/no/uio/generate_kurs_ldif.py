@@ -23,7 +23,7 @@ import pickle
 import sys
 import cerebrum_path
 import locale
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 logger = Factory.get_logger("cronjob")
@@ -116,7 +116,7 @@ class StudinfoParsers(object):
         for entry in self.undervisningsenheter:
             tmp =  self.emnekode2info.get(entry['emnekode'])
             if not tmp:
-                logger.warn("Enhet for ukjent emne: %s" % entry)
+                logger.info("Enhet for ukjent emne: %s" % entry)
             else:
                 tmp['emnenavn_bokmal'] = entry['emnenavn_bokmal']
     
@@ -130,7 +130,9 @@ class StudinfoParsers(object):
                                     int(entry['gruppenr_reglement']))
             emnekode2info[entry['emnekode']] = {
                 'sko': sko,
-                'studienivakode': entry['studienivakode']
+                'studienivakode': entry['studienivakode'],
+                'institusjonsnr': entry['institusjonsnr'],
+                'versjonskode': entry['versjonskode']
                 }
 
         cfg = [(['data', 'emne'], got_emne)]
@@ -195,6 +197,11 @@ def gen_undervisningsaktivitet(cgi, sip, out):
         out.write("uioEduCourseLevel: %s\n" % emne['studienivakode'])
         out.write("uioEduCourseName: %s\n" % emne['emnenavn_bokmal'])
         out.write("uioEduCourseSectionName: %s\n" % entry['aktivitetsnavn'])
+        out.write("uioEduCourseInstitution: %s\n" % emne['institusjonsnr'])
+        out.write("uioEduCourseVersion: %s\n" % emne['versjonskode'])
+        out.write("uioEduOfferingTermCode: %s\n" % entry['terminkode'])
+        out.write("uioEduOfferingYear: %s\n" % entry['arstall'])
+        out.write("uioEduOfferingTermNumber: %s\n" % entry['terminnr'])
         urn = 'urn:mace:uio.no:section:aktivitet-%s' % "_".join(aktivitet_id.keys())
         out.write("uioEduCourseOffering: %s\n\n" % urn)
         n += 1
@@ -234,6 +241,11 @@ def gen_undervisningsenhet(cgi, sip, out):
         out.write("uioEduCourseAdministrator: %s\n" % emne['sko'])
         out.write("uioEduCourseLevel: %s\n" % emne['studienivakode'])
         out.write("uioEduCourseName: %s\n" % emne['emnenavn_bokmal'])
+        out.write("uioEduCourseInstitution: %s\n" % emne['institusjonsnr'])
+        out.write("uioEduCourseVersion: %s\n" % emne['versjonskode'])
+        out.write("uioEduOfferingTermCode: %s\n" % entry['terminkode'])
+        out.write("uioEduOfferingYear: %s\n" % entry['arstall'])
+        out.write("uioEduOfferingTermNumber: %s\n" % entry['terminnr'])
         urn = 'urn:mace:uio.no:offering:enhet-%s' % "_".join(aktivitet_id.keys())
         out.write("uioEduCourseOffering: %s\n\n" % urn)
         n += 1
@@ -279,7 +291,8 @@ def main():
         elif opt in ('--picklefile',):
             picklefile = val
         elif opt in ('--ldiffile',):
-            destfile = file(val, "w")
+            destfile = SimilarSizeWriter(val, "w")
+            destfile.set_size_change_limit(10)
             cgi = CerebrumGroupInfo()
             sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
             dump_pickle_file(picklefile,
