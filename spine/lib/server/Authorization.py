@@ -56,7 +56,7 @@ class Authorization(object):
         operation = AuthRoleOpCode("%s.%s" % (cls.__name__, method_name))
 
 
-        if self.is_public(cls, obj, m): return True
+        if self.is_public(cls, obj, m, operation): return True
 
         # Could the method escalate the righs of account?
         # FIXME: A TEST MUST BE IMPLEMENTED!
@@ -78,9 +78,6 @@ class Authorization(object):
         ## Har brukeren tilgang til objektet som følge av tilknytning? 
 
         if self.has_access(operation, obj):
-            return True
-
-        if self.has_access_on_creator(operation, obj):
             return True
 
         return False 
@@ -142,21 +139,11 @@ class Authorization(object):
                     self.account.get_id(), operation, ceTarget):
                 return True
 
-    def has_access_on_creator(self, operation, target):
-        if isinstance(target, Account):
-            if self.account.get_creator().get_id() == target.get_id():
-                op_set = BofhdAuthOpSet(self._db)
-                op_set.find_by_name('view_account')
-                operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-                if operation in operations:
-                    return True
-        return False
-
     def is_superuser(self):
         if self.bofhdauth.is_superuser(self.account.get_id()):
             return True
 
-    def is_public(self, cls, obj, m):
+    def is_public(self, cls, obj, m, operation):
         # Is the method public?
         if hasattr(m, 'signature_public'):
             if m.signature_public is True:
@@ -169,5 +156,12 @@ class Authorization(object):
         if issubclass(cls, CodeType):
             return True
 
+       if isinstance(obj, Account):
+           op_set = BofhdAuthOpSet(self._db)
+           op_set.find_by_name('view_account')
+           operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+           if operation in operations:
+               return True
+       return False
 
 # arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525
