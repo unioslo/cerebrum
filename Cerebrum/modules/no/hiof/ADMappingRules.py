@@ -20,7 +20,7 @@ class MappingError(Exception):
 
 class Adm(object):
     DOMAIN_NAME = "adm.hiof.no"
-    DOMAIN_DN = "DC=adm,DC=hiof,DC=no"
+    DOMAIN_DN = ""
     mapping = {
         '10': 'olivia',
         '20': 'tora',
@@ -30,7 +30,7 @@ class Adm(object):
 
     def getDN(self, sko, uname):
         serv = Adm.mapping[sko[-2:]].capitalize()
-        return "CN=%s,CN=Ansatte %s,%s" % (uname, serv, Adm.DOMAIN_DN)
+        return "CN=%s,CN=Ansatte %s%s" % (uname, serv, Adm.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         serv = Adm.mapping[sko[-2:]]
@@ -42,7 +42,7 @@ class Adm(object):
 
 class Fag(object):
     DOMAIN_NAME = "fag.hiof.no"
-    DOMAIN_DN = "DC=fag,DC=hiof,DC=no"
+    DOMAIN_DN = ""
     sted_mapping = {
         ('*', '*', '10'): 'Halden',
         ('*', '*', '20'): 'Sarp',
@@ -107,7 +107,7 @@ class Fag(object):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Canon', tmp['All'])
         sted = self._getSted(sko)
-        return "CN=%s,CN=%s,CN=%s,CN=Ansatte,%s" % (uname, avdeling, sted, Fag.DOMAIN_DN)
+        return "CN=%s,CN=%s,CN=%s,CN=Ansatte%s" % (uname, avdeling, sted, Fag.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         tmp = self._getAvdeling(sko)
@@ -121,11 +121,11 @@ class Fag(object):
 
 class Student(Fag):
     DOMAIN_NAME = "stud.hiof.no"
-    DOMAIN_DN = "DC=stud,DC=hiof,DC=no"
+    DOMAIN_DN = ""
     def getDN(self, sko, studieprogram, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
-        return "CN=%s,OU=%s,OU=%s,OU=Studenter,%s" % (uname, studieprogram, avdeling, Student.DOMAIN_DN)
+        return "CN=%s,OU=%s,OU=%s,OU=Studenter%s" % (uname, studieprogram, avdeling, Student.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         tmp = self._getAvdeling(sko)
