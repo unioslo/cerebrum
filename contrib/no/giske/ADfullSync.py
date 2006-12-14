@@ -39,13 +39,15 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 
 
 		#Hack OU-akronym.
-		id2ou = {2277 : {'acronym' : 'ALN'},
-				 2278 : {'acronym' : 'GIS'},
-				 2279 : {'acronym' : 'GOD'},
-				 2280 : {'acronym' : 'SKJ'},
-				 2282 : {'acronym' : 'VBS'},
-				 2283 : {'acronym' : 'VUS'},
-				 2284 : {'acronym' : 'VIG'}} 
+		
+		id2ou = {1561 : {'acronym' : 'KONG'},
+			     1558 : {'acronym' : 'ALN'},
+				 1559 : {'acronym' : 'GIS'},
+				 1560 : {'acronym' : 'GOD'},
+				 1562 : {'acronym' : 'SKJ'},
+				 1563 : {'acronym' : 'VBS'},
+				 1564 : {'acronym' : 'VUS'},
+				 1565 : {'acronym' : 'VIG'}} 
 
 		#Fetching OUid2name mapping.
 		for row in self.ou.list_all():
@@ -59,25 +61,26 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 
 		#Fetching accountinfo with AD-spread sorting on affiliation and OU.
 		for row in self.ac.list_accounts_by_type(account_spread=spread):
+			#No defined affiliation for lærer.
 
-			if row['affiliation'] == co.affiliation_ansatt:
-				accinfo[row['account_id']] = {'OU' : 'OU=Tilsette,%s' % cereconf.AD_LDAP,
+			if row['affiliation'] == co.affiliation_ansatt or row['affiliation'] == co.affiliation_teacher:
+				accinfo[row['account_id']] = {'OU' : 'OU=TILSETTE,%s' % cereconf.AD_LDAP,
 										   'title' : 'Tilsett',
 										   'url' : ['https://portal.skule.giske.no/skule/%s/tilsette'
 											% id2ou[row['ou_id']]['acronym'],'http://www.uio.no'],
 											#Constraint i AD, homeMDB must be valid LDAP path.  
 											#'homeMDB' : ['CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no']}
-											'homeMDB' : 'OU=Skoler,DC=cerebrum,DC=no'}
+											'homeMDB' : 'OU=SKOLER,DC=cerebrum,DC=no'}
 			else:
 				if id2ou.has_key(row['ou_id']):
-					accinfo[row['account_id']] = {'OU' : 'OU=Elever,OU=%s,%s' %
+					accinfo[row['account_id']] = {'OU' : 'OU=ELEVER,OU=%s,%s' %
 											(id2ou[row['ou_id']]['acronym'], cereconf.AD_LDAP),
 											'title' : 'Elev',
 											'url' : ['https://portal.skule.giske.no/skule/%s/elever'
 											% id2ou[row['ou_id']]['acronym']],
 											#Constraint i AD, homeMDB must be valid LDAP path.	  
 											#'homeMDB' : 'CN=Elever (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
-											'homeMDB' : 'OU=Skoler,DC=cerebrum,DC=no'}	  
+											'homeMDB' : 'OU=SKOLER,DC=cerebrum,DC=no'}	  
 				else:
 					miss_OU = miss_OU + 1
 					#self.logger.info('%s missing OU info, skipping' % row['account_id'])
@@ -125,7 +128,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 				retur[e_name]['mDBUseDefaults'] = True
 				#Constraint in AD, msRTCSIP-PrimaryHomeServer must be a valid distinguishedName in AD.
 				#retur[e_name]['msRTCSIP-PrimaryHomeServer'] = ['CN=LC Service,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=skule,DC=giske,DC=no']
-				retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'OU=Skoler,DC=cerebrum,DC=no'
+				retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'OU=SKOLER,DC=cerebrum,DC=no'
 
 				#Filtering roles on title field defined earlier.
 				if retur[e_name]['title'] == 'Elev':
@@ -160,7 +163,7 @@ class ADfgSync(ADutilMixIn.ADgroupUtil):
 		
 	def get_default_ou(self, change = None):
 		#Returns default OU in AD.
-   		return "OU=Grupper,%s" % cereconf.AD_LDAP
+   		return "OU=GRUPPER,%s" % cereconf.AD_LDAP
 
 	def fetch_cerebrum_data(self, spread):		
 		all_groups = []
