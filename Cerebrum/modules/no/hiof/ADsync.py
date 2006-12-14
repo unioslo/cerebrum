@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-from Cerebrum.modules.no.hiof import ADutilMixIn
+from Cerebrum.modules import ADutilMixIn
 from Cerebrum.Utils import Factory
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
@@ -8,7 +8,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         def apply_quarantines(entity_id, quarantines):
             if not user_dict.has_key(entity_id):
                 return
-            qh = QuarantineHandler.QuarantineHandler(db, quarantines)
+            qh = QuarantineHandler.QuarantineHandler(self.db, quarantines)
             if qh.should_skip():
                 del(user_dict[entity_id])
             if qh.is_locked():
@@ -66,7 +66,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         # Find all users with relevant spread
         #
-        #ac = Factory.get('Account')(db)
         tmp_ret = {}
         for row in self.ac.list_account_home(
             home_spread=disk_spread, account_spread=spread, filter_expired=True, include_nohome=True):
@@ -74,7 +73,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             tmp_ret[int(row['account_id'])] = {
                 'homeDrive': 'N:',
                 'homeDirectory': row['home'],
-                'TEMPownerId': row['owner_id'],  # TODO: API leser den ikke
+                'TEMPownerId': row['owner_id'],
                 'TEMPuname': row['entity_name'],
                 'ACCOUNTDISABLE': False   # if ADutilMixIn used get we could remove this
                 }
@@ -113,7 +112,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for row in self.ac.list_traits(self.co.trait_ad_account_ou):
             v = tmp_ret.get(int(row['entity_id']))
             if v:
-                v['OU'] = row['strval']
+                v['OU'] = row['strval'] + "," + self.ad_ldap
 
         #
         # Set mail adresses
@@ -125,4 +124,33 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             ret[v['TEMPuname']] = v
             del(v['TEMPuname'])
             del(v['TEMPownerId'])
+
+        # Create any missing container-OUs for our users
+        required_ous = {}
+        for v in ret.values():
+            ou = v.get('OU')
+            if ou:
+                required_ous[ou] = True
+        self._make_ou_if_missing(required_ous.keys())
         return ret
+
+    def _make_ou_if_missing(self, required_ous, object_list=None, dryrun=False):
+        if object_list is None:
+            object_list = self.server.listObjects('organizationalUnit')
+        for ou in required_ous:
+            if ou not in object_list:
+                self.logger.debug("Creating missing OU: "+ou)
+                name, parent_ou = ou.split(",", 1)
+                if not parent_ou in object_list:
+                    # Recursively create parent
+                    self._make_ou_if_missing([parent_ou], object_list=object_list)
+                name = name[name.find("=")+1:]
+                self.run_cmd('createObject', dryrun, "organizationalUnit", parent_ou, name)
+
+class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
+    #Groupsync Mixin
+    
+    def get_default_ou(self, change = None):
+        #Returns default OU in AD.
+        return "OU=grupper,%s" % cereconf.ad_ldap
+
