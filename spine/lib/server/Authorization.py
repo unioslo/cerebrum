@@ -90,29 +90,15 @@ class Authorization(object):
 
     def can_return(self, value):
         if self.superuser: return True
-
-        if not value:
-            return True
-        
         if type(value) == type([]):
             for v in value[:]:
                 if not self.can_return(v):
                     value.remove(v)
+            return True # We've filtered.
+        if not cls.__name__.endswith('Dumper'):
             return True
-
-        if not type(value) in [Account, Person, Group, Entity]:
-            return True
-
-        if isinstance(value, Account):
-            if value.get_id() == self.account.get_id():
-                return True
-            if self.account.get_creator().get_id() == value.get_id():
-                return True
-        if isinstance(value, Person):
-            if value.get_id() == self.account.get_owner().get_id():
-                return True
-
-        return False
+        else:
+            return False
 
     def has_access_to_command(self, operation):
         # Test public commands.
