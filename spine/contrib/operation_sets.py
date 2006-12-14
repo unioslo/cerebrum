@@ -7,6 +7,7 @@ from sets import Set
 view_account = [ # {{{
         'Account.get_id',
         'Account.get_name',
+        'Account.get_type',
         'Account.get_description',
 ] # }}}
 own_account = [ # {{{
@@ -14,6 +15,7 @@ own_account = [ # {{{
         'Account.get_address',
         'Account.get_addresses',
         'Account.get_create_date',
+        'Account.get_creator',
         'Account.get_description',
         'Account.get_direct_groups',
         'Account.get_entity_name',
@@ -24,6 +26,7 @@ own_account = [ # {{{
         'Account.get_homedir',
         'Account.get_id',
         'Account.get_name',
+        'Account.get_type',
         'Account.get_owner',
         'Account.get_owner_type',
         'Account.get_spreads',
@@ -62,7 +65,8 @@ own_person = [ # {{{
         'Person.get_type',
         'Person.is_quarantined',
 ] # }}}
-own_external_id = [ # {{{
+public = [ # {{{
+        'CerewebMotd.get_creator',
         'EntityExternalId.get_id_type',
         'EntityExternalId.get_external_id',
 ] # }}}
@@ -87,7 +91,7 @@ orakel = [ # {{{
 operation_sets = {
     'own_account': {
       'desc': 'operations all users should be allowed to do with their own account',
-      'codestrs': Set(own_account + own_person + own_external_id)},
+      'codestrs': Set(own_account + own_person + public)},
     'public': {
       'desc': 'operations all users should be allowed to do',
       'codestrs': Set(public_commands)},
@@ -95,7 +99,7 @@ operation_sets = {
       'desc': 'operations that the orakel-group should be allowed to do on users in a given affiliation',
       'codestrs': Set(own_account + own_person + orakel)},
     'view_account': {
-      'desc': 'operations that a user should be able to run on its creator',
+      'desc': 'operations that everyone should be allowed on everyone',
       'codestrs': Set(view_account)},
 }
 
