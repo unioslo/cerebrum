@@ -20,7 +20,7 @@ logger = Factory.get_logger("cronjob")
 class ADfuSync(ADutilMixIn.ADuserUtil):
 
 	def __init__(self, *args, **kwargs):
-
+		
 		super(ADfuSync, self).__init__(*args, **kwargs)
 		self.person = Factory.get('Person')(self.db)
 		self.qua = Entity.EntityQuarantine(self.db)
@@ -41,7 +41,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 		#Hack OU-akronym.
 		
 		id2ou = {1561 : {'acronym' : 'KONG'},
-			     1558 : {'acronym' : 'ALN'},
+				 1558 : {'acronym' : 'ALN'},
 				 1559 : {'acronym' : 'GIS'},
 				 1560 : {'acronym' : 'GOD'},
 				 1562 : {'acronym' : 'SKJ'},
@@ -69,8 +69,8 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 										   'url' : ['https://portal.skule.giske.no/skule/%s/tilsette'
 											% id2ou[row['ou_id']]['acronym'],'http://www.uio.no'],
 											#Constraint i AD, homeMDB must be valid LDAP path.  
-											#'homeMDB' : ['CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no']}
-											'homeMDB' : 'OU=SKOLER,DC=cerebrum,DC=no'}
+											'homeMDB' : 'CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
+
 			else:
 				if id2ou.has_key(row['ou_id']):
 					accinfo[row['account_id']] = {'OU' : 'OU=ELEVER,OU=%s,%s' %
@@ -79,8 +79,8 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 											'url' : ['https://portal.skule.giske.no/skule/%s/elever'
 											% id2ou[row['ou_id']]['acronym']],
 											#Constraint i AD, homeMDB must be valid LDAP path.	  
-											#'homeMDB' : 'CN=Elever (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
-											'homeMDB' : 'OU=SKOLER,DC=cerebrum,DC=no'}	  
+											'homeMDB' : 'CN=Elever (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
+
 				else:
 					miss_OU = miss_OU + 1
 					#self.logger.info('%s missing OU info, skipping' % row['account_id'])
@@ -122,13 +122,11 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 				retur[e_name]['company'] = 'Giske kommune'
 				retur[e_name]['co'] = 'Norway'
 				retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE
-				#retur[e_name]['uPNSuffixes'] = '@skule.giske.no'
 				retur[e_name]['userPrincipalName'] = '%s@skule.giske.no' % e_name
 				retur[e_name]['mailNickname'] = e_name
 				retur[e_name]['mDBUseDefaults'] = True
-				#Constraint in AD, msRTCSIP-PrimaryHomeServer must be a valid distinguishedName in AD.
-				#retur[e_name]['msRTCSIP-PrimaryHomeServer'] = ['CN=LC Service,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=skule,DC=giske,DC=no']
-				retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'OU=SKOLER,DC=cerebrum,DC=no'
+				#Constraint in AD, must be a valid dn in AD.
+				retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'CN=LC Service,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=skule,DC=giske,DC=no'
 
 				#Filtering roles on title field defined earlier.
 				if retur[e_name]['title'] == 'Elev':
@@ -227,7 +225,6 @@ def main():
 
   	if user_sync:
 		ADfullUser = ADfuSync(db, co, logger)	
-		#ADfullUser.fetch_cerebrum_data(user_spread)
 		ADfullUser.full_sync('user', delete_objects, user_spread, dry_run)
 
 
