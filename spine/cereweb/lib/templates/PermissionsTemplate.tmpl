@@ -200,7 +200,7 @@ return classes, new_methods
 ## Edit page for a specific operation set
 #def edit($op_set)
 <div class="edit">
-    <form action="save" type="POST">
+    <form action="save" method="POST">
         <div class="editform">
             <input type="hidden" name="id" value="$op_set.get_id()" />
             <label for="name">$_('Name'): </label>

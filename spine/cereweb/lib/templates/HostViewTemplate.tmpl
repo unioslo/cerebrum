@@ -67,7 +67,7 @@
 #if $disks
 <div class="hostdisks">
     <h3>$_('Disks')</h3>
-    <form action="disks" type="POST">
+    <form action="disks" method="POST">
         <input type="hidden" name="host" value="$host.get_id()" />
         #for $disk in $disks
         <div>

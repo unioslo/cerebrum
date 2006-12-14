@@ -53,7 +53,7 @@
 #def set($person, $transaction)
 <div class="view_add" id="name_form" style="display:none;">
 <a name="name" />
-<form action="add_name" type="POST">
+<form action="add_name" method="POST">
     #set $name_types = $transaction.get_name_type_searcher().search()
     #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
     <h3>$_('Set a name')</h3>

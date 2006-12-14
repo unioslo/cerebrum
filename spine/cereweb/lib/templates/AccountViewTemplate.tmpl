@@ -155,7 +155,7 @@
 #def viewGroups($account)
 <div class="accountgroups">
     <h3>$_('Groups')</h3>
-    <form action="groups" type="POST">
+    <form action="groups" method="POST">
         <input type="hidden" name="account_id" value="$account.get_id()" />
         $listGroups($account)
         #if not $account.get_groups()
