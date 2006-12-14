@@ -335,7 +335,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                     " FROM [:table schema=cerebrum name=entity_quarantine] eq" \
                     " WHERE oi.ou_id=eq.entity_id)"
         return self.query("""
-        SELECT oi.ou_id FROM [:table schema=cerebrum name=ou_info] oi
+        SELECT oi.ou_id, oi.name, oi.acronym FROM [:table schema=cerebrum name=ou_info] oi
         %s""" % extra)
 
     def get_structure_mappings(self, perspective):
