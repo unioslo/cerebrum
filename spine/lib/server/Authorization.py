@@ -83,9 +83,6 @@ class Authorization(object):
         if self.has_access_on_creator(operation, obj):
             return True
 
-        import pdb
-        pdb.set_trace()
-
         return False 
 
     def can_return(self, value):
