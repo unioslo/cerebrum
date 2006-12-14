@@ -156,12 +156,12 @@ class Authorization(object):
         if issubclass(cls, CodeType):
             return True
 
-       if isinstance(obj, Account):
-           op_set = BofhdAuthOpSet(self._db)
-           op_set.find_by_name('view_account')
-           operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-           if operation in operations:
-               return True
-       return False
+        if isinstance(obj, Account):
+            op_set = BofhdAuthOpSet(self._db)
+            op_set.find_by_name('view_account')
+            operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+            if operation in operations:
+                return True
+        return False
 
 # arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525
