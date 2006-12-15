@@ -63,4 +63,6 @@ demote_posix.signature = None
 demote_posix.signature_write = True
 Group.register_methods([demote_posix])
 
+registry.register_class(Group)
+
 # arch-tag: 1d1d6cc7-0222-42b1-9e43-4953ad046987
