@@ -9,12 +9,12 @@ server.logToScreen = True
 
 [/css]
 staticFilter.on = True
-staticFilter.dir = 'css'
+staticFilter.dir = '/var/www/htdocs/css'
 
 [/img]
 staticFilter.on = True
-staticFilter.dir = 'img'
+staticFilter.dir = '/var/www/htdocs/img'
 
 [/jscript]
 staticFilter.on = True
-staticFilter.dir = 'jscript'
+staticFilter.dir = '/var/www/htdocs/jscript'
