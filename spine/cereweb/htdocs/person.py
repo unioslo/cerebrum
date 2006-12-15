@@ -19,12 +19,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cherrypy
+import re
+import string
 
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import strftime, strptime, commit_url
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
+from lib.utils import legal_date, rollback_url
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.PersonSearchTemplate import PersonSearchTemplate
@@ -65,6 +68,10 @@ def search(transaction, **vargs):
             search.add_intersection('', searcher, 'owner')
             
         if birthdate:
+            if not legal_date( birthdate ):
+                queue_message("Date of birth is not a legal date.",error=True)
+                return None
+
             date = strptime(transaction, birthdate)
             search.set_birth_date(date)
 
@@ -205,17 +212,45 @@ save.exposed = True
 
 def make(transaction, firstname, lastname, gender, birthdate, description=""):
     """Create a new person with the given values."""
-    birthdate = strptime(transaction, birthdate)
-    gender = transaction.get_gender_type(gender)
-    source_system = transaction.get_source_system('Manual')
-    
-    person = transaction.get_commands().create_person(
-               birthdate, gender, firstname, lastname, source_system)
+    err=False
+    msg=''
+    if firstname:
+        rest = re.sub('\-*\ *','',firstname)
+        if not rest.isalpha():
+            msg=_("Firstname contains unlegal characters.")
+            error=True
+    else:
+        msg=_("Firstname is empty.")
+        err=True
+    if not err:
+        if lastname:
+            rest = re.sub('\-*\ *','',lastname)
+            if not rest.isalpha():
+                msg=_("Lastname contains unlegal characters.")
+                err=True
+        else:
+            msg=_("Lastname is empty.")
+            err=True
+    if not err:
+        if birthdate:
+            if not legal_date(birthdate):
+                msg=_("Birthdate is not a legal date.")
+                err=True
+        else:
+            msg=_("Birthdate is empty.")
+            err=True
 
-    if description:
-        person.set_description(description)
-    
-    commit(transaction, person, msg=_("Person successfully created."))
+    if not err:
+        birthdate = strptime(transaction, birthdate)
+        gender = transaction.get_gender_type(gender)
+        source_system = transaction.get_source_system('Manual')
+        person = transaction.get_commands().create_person(
+               birthdate, gender, firstname, lastname, source_system)
+        if description:
+            person.set_description(description)
+        commit(transaction, person, msg=_("Person successfully created."))
+    else:
+       rollback_url('/person/create',msg,err=True)
 make = transaction_decorator(make)
 make.exposed = True
 
