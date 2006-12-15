@@ -31,7 +31,7 @@ class SideMenu(Menu.Menu):
         self.makeHost()
         self.makeDisk()
         self.makeEmail()
-        self.makePermissions()
+        #self.makePermissions()
         self.makeOptions()
         self.makeLogout()
 
