@@ -3,14 +3,28 @@
 from sets import Set
 
 # This is the auth_operation_sets and auth_operations used at NTNU.
-
-view_account = [ # {{{
+public = [ # {{{
+        'CerewebMotd.get_creator',
+        'EntityExternalId.get_id_type',
+        'EntityExternalId.get_external_id',
+        'Commands.find_email_address',
+        'Commands.get_account_by_name', 
+        'Commands.get_date',
+        'Commands.get_date_none', 
+        'Commands.get_date_now',
+        'Commands.get_datetime', 
+        'Commands.get_email_domains_by_category', 
+        'Commands.get_extentions',
+        'Commands.get_group_by_name',
+        'Commands.get_last_changelog_id', 
+        'Commands.has_extention',
+        'Commands.strptime',
         'Account.get_id',
         'Account.get_name',
         'Account.get_type',
         'Account.get_description',
 ] # }}}
-own_account = [ # {{{
+mySelf = [ # {{{
         'Account.get_accounts',
         'Account.get_address',
         'Account.get_addresses',
@@ -34,8 +48,6 @@ own_account = [ # {{{
         'Account.is_posix',
         'Account.is_quarantined',
         'Account.set_password',
-] # }}}
-own_person = [ # {{{
         'Person.get_accounts',
         'Person.get_active_quarantines',
         'Person.get_address',
@@ -65,42 +77,20 @@ own_person = [ # {{{
         'Person.get_type',
         'Person.is_quarantined',
 ] # }}}
-public = [ # {{{
-        'CerewebMotd.get_creator',
-        'EntityExternalId.get_id_type',
-        'EntityExternalId.get_external_id',
-] # }}}
-public_commands = [ # {{{
-        'Commands.find_email_address',
-        'Commands.get_account_by_name', 
-        'Commands.get_date',
-        'Commands.get_date_none', 
-        'Commands.get_date_now',
-        'Commands.get_datetime', 
-        'Commands.get_email_domains_by_category', 
-        'Commands.get_extentions',
-        'Commands.get_group_by_name',
-        'Commands.get_last_changelog_id', 
-        'Commands.has_extention',
-        'Commands.strptime',
-] # }}}
 orakel = [ # {{{
-        'Commands.strptime', # fyll inn ordentlig data her.
+        'Commands.create_cereweb_option', # fyll inn ordentlig data her.
 ] # }}}
 
 operation_sets = {
-    'own_account': {
-      'desc': 'operations all users should be allowed to do with their own account',
-      'codestrs': Set(own_account + own_person + public)},
     'public': {
       'desc': 'operations all users should be allowed to do',
-      'codestrs': Set(public_commands)},
+      'codestrs': public},
+    'mySelf': {
+      'desc': 'operations all users should be allowed to do with their own account',
+      'codestrs': mySelf},
     'orakel': {
       'desc': 'operations that the orakel-group should be allowed to do on users in a given affiliation',
-      'codestrs': Set(own_account + own_person + orakel)},
-    'view_account': {
-      'desc': 'operations that everyone should be allowed on everyone',
-      'codestrs': Set(view_account)},
+      'codestrs': orakel},
 }
 
 # vim: foldmethod=marker nowrap
