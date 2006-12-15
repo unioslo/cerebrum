@@ -68,8 +68,14 @@ def handle(error):
         return
     elif isinstance(error, AccessDeniedError):
         msg = "Sorry, you do not have permissions to do the requested operation."
-        queue_message(msg, error=True)
-        redirect(referer)
+        if cherrypy.config.get('server.showTracebacks'):
+            traceback.print_exc()
+        # Login page doesn't support queue_message
+        if referer.split('?')[0].endswith('login'):
+            redirect('/login?msg=%s' % msg)
+        else:
+            queue_message(msg, error=True)
+            redirect(referer)
     elif isinstance(error, Redirected):
         title = "Redirection error."
         message = "Your browser does not seem to support redirection."
