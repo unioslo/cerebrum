@@ -18,11 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Database
 from Cerebrum.Utils import Factory
 from SpineLib.Builder import Attribute
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.Date import Date
 from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
+from SpineLib.SpineExceptions import ValueError
 
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
@@ -69,14 +71,19 @@ class Group(Entity):
 
     entity_type = 'group'
 
-registry.register_class(Group)
+## Group is registered in PosixGroup
+#registry.register_class(Group)
 
 def create_group(self, name):
     db = self.get_database()
-    new_id = Group._create(db, db.change_by, GroupVisibilityType(db, name='A').get_id(), name)
+    try:
+        new_id = Group._create(db, db.change_by, GroupVisibilityType(db, name='A').get_id(), name)
+    except Cerebrum.Database.IntegrityError:
+        raise ValueError('The given group name could not be created.')
     return Group(db, new_id)
 
 create_group.signature = Group
+create_group.signature_exceptions = [ValueError]
 create_group.signature_args = [str]
 create_group.signature_write = True
 Commands.register_methods([create_group])
