@@ -43,74 +43,11 @@ class Authorization(object):
     def __del__(self):
         self._db.close()
 
-    def has_permission(self, obj, method_name, *args):
-        """Checks whether the owner of the session has access to run the
-        specified method on the given object with the args provided.  See
-        https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
-        for a description (in Norwegian)"""
-
-        if self.superuser: return True
-
-        m = getattr(obj, method_name) 
-        cls = obj.__class__ 
-        operation = AuthRoleOpCode("%s.%s" % (cls.__name__, method_name))
-
-
-        if self.is_public(cls, obj, m, operation): return True
-
-        # Could the method escalate the righs of account?
-        # FIXME: A TEST MUST BE IMPLEMENTED!
-
-        # Command objects are not entities and must be handled separately.
-        if isinstance(obj, Commands) and self.has_access_to_command(operation):
-            return True
-
-        # Searcher and Dumper objects are harmless until they are asked to
-        # return anything.  At which point, they are handled by can_return.
-        if cls.__name__.endswith('Searcher') or cls.__name__.endswith('Dumper'):
+    def is_superuser(self):
+        if self.bofhdauth.is_superuser(self.account.get_id()):
             return True
         
-        # Does self.account have user access to this object?
-        if self.has_user_access(operation, obj):
-            return True
-
-        # Har brukeren tilgang til å utføre operasjonen som konsekvens av tilgangsnivå
-        ## Har brukeren tilgang til objektet som følge av tilknytning? 
-
-        if self.has_access(operation, obj):
-            return True
-
-        return False 
-
-    def can_return(self, value):
-        if self.superuser: return True
-        if type(value) == type([]):
-            for v in value[:]:
-                if not self.can_return(v):
-                    value.remove(v)
-            return True # We've filtered.
-        if not value.__class__.__name__.endswith('Dumper'):
-            return True
-        else:
-            return False
-
-    def has_access_to_command(self, operation):
-        # Test public commands.
-        op_set = BofhdAuthOpSet(self._db)
-        op_set.find_by_name('public')
-        operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-        if operation in operations:
-            return True
-
-        op_role = BofhdAuthRole(self._db)
-        roles = op_role.list(entity_ids=self.account.get_id())
-        for s, set, t in roles:
-            op_set.find(set)
-            operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-            if operation in operations:
-                return True
-        
-    def has_user_access(self, operation, target):
+    def has_user_access(self, operation, target, *args):
         ok = False
 
         account_id = self.account.get_id()
@@ -124,12 +61,12 @@ class Authorization(object):
 
         if ok:
             op_set = BofhdAuthOpSet(self._db)
-            op_set.find_by_name('own_account')
+            op_set.find_by_name('mySelf')
             operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
             if operation in operations:
                 return True
 
-    def has_access(self, operation, target):
+    def has_access(self, operation, target, *args):
         if isinstance(target, Account) or isinstance(target, Person):
             # Is operator allowed to perform 'operation' on one of the OUs
             # associated with the target?
@@ -139,29 +76,67 @@ class Authorization(object):
                     self.account.get_id(), operation, ceTarget):
                 return True
 
-    def is_superuser(self):
-        if self.bofhdauth.is_superuser(self.account.get_id()):
-            return True
-
-    def is_public(self, cls, obj, m, operation):
-        # Is the method public?
-        if hasattr(m, 'signature_public'):
-            if m.signature_public is True:
-                return True
-            else:    # m.signature_public is False, which
-                pass # overrides obj.signature_public
-        elif getattr(obj, 'signature_public', False) is True:
-            return True
-        # CodeTypes are public.
-        if issubclass(cls, CodeType):
-            return True
-
-        if isinstance(obj, Account):
-            op_set = BofhdAuthOpSet(self._db)
-            op_set.find_by_name('view_account')
+        op_role = BofhdAuthRole(self._db)
+        roles = op_role.list(entity_ids=self.account.get_id())
+        for s, set, t in roles:
+            op_set.find(set)
             operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
             if operation in operations:
                 return True
-        return False
+
+    def is_public(self, target, method_name, operation, *args):
+        method = getattr(target, method_name) 
+        if hasattr(method, 'signature_public'):
+            if method.signature_public is True:
+                return True
+            else:    # method.signature_public is False, which
+                pass # overrides target.signature_public
+        elif getattr(target, 'signature_public', False) is True:
+            return True
+        # CodeTypes are public.
+        if issubclass(target.__class__, CodeType):
+            return True
+
+        op_set = BofhdAuthOpSet(self._db)
+        op_set.find_by_name('public')
+        operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+        if operation in operations:
+            return True
+
+    def has_permission(self, target, method_name, *args):
+        """Checks whether the owner of the session has access to run the
+        specified method on the given object with the args provided.  See
+        https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
+        for a description (in Norwegian)"""
+
+        if self.superuser: return True
+
+        # Could the method escalate the righs of account?
+        # FIXME: A TEST MUST BE IMPLEMENTED!
+
+        operation = AuthRoleOpCode("%s.%s" % (target.__class__ .__name__, method_name))
+
+        if self.is_public(target, method_name, operation, *args): return True
+        if self.has_user_access(target, operation, *args): return True
+        if self.has_access(target, operation, *args): return True
+
+        return False 
+
+    def can_return(self, value):
+        if self.superuser: return True
+
+        if type(value) == type([]):
+            for v in value[:]:
+                if not self.can_return(v):
+                    value.remove(v)
+            # We've removed the values that can't be returned from the value list, so
+            # it should be safe to return it.  (It's been changed in place).
+            return True 
+        elif value.__class__.__name__.endswith('Struct'):
+            # Structs contain data and must be filtered before they can be
+            # returned to users.  Not implemented yet.
+            return False
+        else:
+            return True
 
 # arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525
