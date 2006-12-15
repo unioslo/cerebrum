@@ -162,7 +162,7 @@ class AccountUtil(object):
         for spread in profile.get_spreads():
             if int(spread) in posix_spreads:
                 as_posix = True
-        accounts[int(account.entity_id)] = ExistingAccount(fnr, None)
+        accounts[int(account.entity_id)] = ExistingAccount(fnr,mx.DateTime.today())
         AccountUtil.update_account(account.entity_id, fnr, profile, as_posix)
         return account.entity_id
     create_user=staticmethod(create_user)
