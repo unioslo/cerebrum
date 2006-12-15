@@ -19,11 +19,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cherrypy
+import string
 
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect_object, commit
 from lib.utils import object_link, transaction_decorator, commit_url
+from lib.utils import rollback_url, legal_date
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
@@ -210,17 +212,39 @@ save.exposed = True
 
 def make(transaction, name, expire="", description=""):
     """Performs the creation towards the server."""
-    commands = transaction.get_commands()
-    group = commands.create_group(name)
+    err=False
+    msg=''
+    if name:
+        if len(name) < 3:
+            msg=_("Group-name is too short,- min. length is 3 characters.")
+            err=True
+        elif len(name) > 8:
+            msg=_("Group-name is too long,- max. length is 8 characters.")
+            err=True
+        elif not name.isalnum():
+            msg=_("Group-name contains unlegal characters.")
+            err=True
+    else:
+        msg=_("Group-name is empty.")
+        err=True
+    if not err and expire:
+        if not legal_date( expire ):
+            msg=_("Expire-date is not a legal date.")
+            err=True
+    if not err:
+        commands = transaction.get_commands()
+        group = commands.create_group(name)
 
-    if expire:
-        expire = commands.strptime(expire, "%Y-%m-%d")
-        group.set_expire_date(expire)
+        if expire:
+            expire = commands.strptime(expire, "%Y-%m-%d")
+            group.set_expire_date(expire)
 
-    if description:
-        group.set_description(description)
+        if description:
+            group.set_description(description)
     
-    commit(transaction, group, msg=_("Group successfully created."))
+        commit(transaction, group, msg=_("Group successfully created."))
+    else:
+        rollback_url('/group/create', msg, err=True)
 make = transaction_decorator(make)
 make.exposed = True
 
