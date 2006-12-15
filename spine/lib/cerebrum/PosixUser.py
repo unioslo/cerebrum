@@ -30,6 +30,8 @@ from Commands import Commands
 from Types import CodeType, GroupMemberOperationType
 
 Commands.register_extention("posixuser")
+from SpineLib import Registry
+registry = Registry.get_registry()
 
 __all__ = ['PosixUser', 'PosixShell']
 
@@ -50,6 +52,8 @@ class PosixShell(CodeType):
         }
     }
 
+registry.register_class(PosixShell)
+
 def get_gecos(self):
     p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
     try:
@@ -58,8 +62,8 @@ def get_gecos(self):
         raise NotFoundError('Could not find gecos for %s' % self)
 
     return p.get_gecos()
-
-Account.get_gecos = get_gecos
+get_gecos.signature = str
+Account.register_methods([get_gecos])
 
 table = 'posix_user'
 attrs = [
@@ -74,6 +78,9 @@ for attr in attrs:
     Account.register_attribute(attr)
 
 Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
+Account.build_methods()
+Account.build_search_class()
+registry.register_class(Account)
 
 def is_posix(self):
     """Check if a account has been promoted to posix.

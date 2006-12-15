@@ -78,7 +78,8 @@ class Account(Entity):
 
     entity_type = 'account'
 
-registry.register_class(Account)
+## Account is registered in PosixAccount
+#registry.register_class(Account)
 
 
 def is_expired(self):
