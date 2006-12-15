@@ -47,7 +47,7 @@ class Authorization(object):
         if self.bofhdauth.is_superuser(self.account.get_id()):
             return True
         
-    def has_user_access(self, operation, target, *args):
+    def has_user_access(self, target, operation, *args):
         ok = False
 
         account_id = self.account.get_id()
@@ -66,7 +66,7 @@ class Authorization(object):
             if operation in operations:
                 return True
 
-    def has_access(self, operation, target, *args):
+    def has_access(self, target, operation, *args):
         if isinstance(target, Account) or isinstance(target, Person):
             # Is operator allowed to perform 'operation' on one of the OUs
             # associated with the target?
