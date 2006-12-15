@@ -230,6 +230,11 @@ def commit_url(transaction, url, msg='', error='', link=''):
             queue_message(msg, link=link)
     raise cherrypy.HTTPRedirect(url)
 
+def rollback_url( url, msg, err=False):
+	if msg:
+		queue_message( msg, error=err)
+	raise cherrypy.HTTPRedirect(url)
+	
 def struct2dict(struct):
     """Converts a SpineStruct to a python dictionary."""
     d = {}
