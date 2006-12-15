@@ -647,11 +647,11 @@ Notice that it may take a few days before your FRIDA account is activated.
 If you have any questions you can either contact orakel@uit.no or bas-admin@cc.uit.no\n
         """ % (user_name,spreads,user_name,spreads)
 
-        SENDMAIL="/usr/sbin/sendmail -f%s" % (email_address)
+        SENDMAIL="/usr/sbin/sendmail -fbas-admin@cc.uit.no"
         p=os.popen("%s -t" % SENDMAIL, "w")
         p.write("From: bas-admin@cc.uit.no\n")
         p.write("To: %s\n" % email_address)
-        p.write("Return-Path: bas-admin@cc.uit.no\n")
+        p.write("Reply-To: bas-admin@cc.uit.no\n")
         p.write("Bcc: kenneth.johansen@cc.uit.no\n")
         p.write("subject: Registrering av bruker\n")
         p.write("\n")
