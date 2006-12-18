@@ -19,24 +19,35 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-__doc__ = """
-This program imports historical data about file and net groups
-from. The script will attempt to assign the given (option) spread to a
-group, creating the group if it is not already registered.
+__doc__ = """Usage: %s
 
-The files read are formated as:
-<gname>:<desc>:<mgroup*|maccount*>
+    -d, --dryrun  : Run a fake import. Rollback after run.
+    -f, --file    : File to parse.
+    -s, --spread  : Spread that new groups should have
+    -h, --help    . Print this message and exit
+    
+    This program imports historical data about file and net groups
+    from. The script will attempt to assign the given (option) spread
+    to a group, also creating the group if it is not already
+    registered.
 
-gname - name of the group to be registered/updated
-desc - description of the group (usually what it is used for)
-mgroup - name(s) of group(s) that are members 
-maccount - user names of the groups account members
+    The file read needs to be formated as:
+    <gname>:<desc>:<mgroup*|maccount*>
 
-* - zero or more, comma-separated
-"""
+    gname - name of the group to be registered/updated
+    desc - description of the group (usually what it is used for)
+    mgroup - name(s) of group(s) that are members 
+    maccount - user names of the groups account members
+
+    * - zero or more, comma-separated
+
+    Any lines not formatted like this are disregarded in their
+    entirity.
+    
+""" % __file__.split("/")[-1]
+
  
 import string
-import os
 import getopt
 import sys
 import time
@@ -68,13 +79,15 @@ person = Factory.get('Person')(db)
 group = Factory.get('Group')(db)
 account_member = Factory.get('Account')(db)
 group_member = Factory.get('Group')(db)
-posixgroup = PosixGroup.PosixGroup(db)
-    
+
+dryrun = False
+
 
 def read_filelines(infile):
     """Reads file and does basic verification of contents. Returns an
     array consisting of group-data, where each entry is a dictionary
-    containing group-name, group description and group memberships.
+    containing group-name, group description and a string representing
+    group memberships.
 
     """    
     group_data = []
@@ -110,7 +123,7 @@ def read_filelines(infile):
 
 
 def create_group(groupname, description, spread):
-    """Scan file for groupnames, create any that don't exist
+    """Create group based on given data if the group doesn't exist
     already. For all groups, add 'spread' if the groups doesn't have
     that spread already.
 
@@ -128,22 +141,33 @@ def create_group(groupname, description, spread):
         group.write_db()
         if not dryrun:
             db.commit()
-            logger.info("Created group '%s'.", name)
+            logger.info("Created group '%s'.", groupname)
 
     if not group.has_spread(int(spread)):
         group.add_spread(int(spread))
         group.write_db()
         if not dryrun:
             db.commit()
-            logger.debug5("Added spread '%s' to group '%s'.", spread, name)
-
+            logger.debug5("Added spread '%s' to group '%s'.", spread, groupname)
 
 
 def assign_memberships(groupname, members):
-    """
-    Assign membership for groups and users.
-    """
+    """Assign membership in groups for groups and users.
 
+    The function uses a cascading system for looking up entitites
+    represented by the name given for a particular potential member,
+    checking in the following order:
+
+    - Users with the given name as username.
+    - Users with the given name as an external id, typically names
+      that have been 'cleaned up'.
+    - Groups with the given name as groupname.
+
+    Note that this function only assigns memberships for the given
+    members to the given group; it does not remove any users that
+    already might be in the group.
+
+    """
     if members == "":
         logger.warn("Group '%s' has no members" % groupname)
         return
@@ -192,7 +216,7 @@ def assign_memberships(groupname, members):
                     logger.debug3("Didn't find group with name '%s'", member)
                     logger.error("Trying to assign membership for a non-existing " +
                                  "entity '%s' to group '%s'" % (member, groupname))
-                    unknown_entities[member] = 1 # Add to hash, so we can report all later
+                    unknown_entities[member] = 1 # Add to dict, so we can report all later
                     continue
             
         if not group.has_member(addee.entity_id, entity_type, constants.group_memberop_union):
@@ -208,17 +232,10 @@ def assign_memberships(groupname, members):
             
 
 def usage():
-    print """Usage: %s
-    -d, --dryrun  : Run a fake import. Rollback after run.
-    -f, --file    : File to parse.
-    -s, --spread  : Spread that new groups should have
-    -h, --help    . Print this message and exit
-    """ % __file__.split("/")[-1]
+    print __doc__
 
 
 def main():
-    global dryrun
-
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    'f:d:sh',
@@ -227,9 +244,9 @@ def main():
         usage()
 
     opt_spread = None
-    dryrun = False
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
+            global dryrun
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
@@ -262,7 +279,7 @@ def main():
         unknown_entities_keys = unknown_entities.keys()
         unknown_entities_keys.sort()
         logger.error("The following enitities were assigned memberships, " +
-                     "but are unknown to Cerebrum: '%s'" % " ".join(unknown_entities_keys))
+                     "but are unknown to Cerebrum: '%s'" % "', '".join(unknown_entities_keys))
 
 
 if __name__ == '__main__':
