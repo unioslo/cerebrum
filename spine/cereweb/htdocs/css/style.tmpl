@@ -194,6 +194,7 @@ div.tableheader {
   width: auto;
   font-size: 18px;
   margin-bottom: 0.4em;
+  text-align: left;
 }
 
 div.td_lead_info{
@@ -250,6 +251,11 @@ div.create {
     width: 25em;
 }
 
+div.createform table{
+	width: 100%;
+	text-align: left;
+}
+
 div.createform label, div.createform input, div.createform select, div.createform textarea {
     width: 12em;
     float: left;
@@ -257,9 +263,11 @@ div.createform label, div.createform input, div.createform select, div.createfor
 }
 
 div.createform label {
-    text-align: right;
-    width: 11em;
-    padding-right: 12px;
+    /* text-align: right; */
+	width: auto;
+    /* width: 11em; */
+    /* padding-right: 12px; */
+    text-align: left;
 }
 
 div.createform div.radio input {
@@ -428,9 +436,25 @@ div.historylog td, div.activitylog_full td, table.results td, div.memberlists td
 }
 
 ## Styles for email pages.
-div.email_view form { margin: 0; }
-div.email_view h2 { margin: 1em 0 0 0; }
+## div.email_view form { margin: 0; }
+## div.email_view h2 { margin: 1em 0 0 0; }
+div.email_view {
+	background: #d9e2ef;
+	border: 1px solid black;
+	color: black;
+	width: 500px;
+	font-size: 15px;
+	margin-bottom: 0.2em;
+	text-align: left;
+	white-space: normal; 
+}
 
+div.td_lead_email{
+	padding: 0 0.5em 0 0.5em;
+	width: auto;
+	font-style: oblique;
+	font-weight: bold;
+}
 
 ## Actions is links wich perfom action on something, for instance
 ## [delete] on notes. Or [edit] on the view person page.

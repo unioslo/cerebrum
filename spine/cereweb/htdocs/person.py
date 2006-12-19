@@ -215,29 +215,27 @@ def make(transaction, firstname, lastname, gender, birthdate, description=""):
     err=False
     msg=''
     if firstname:
-        rest = re.sub('\-*\ *','',firstname)
-        if not rest.isalpha():
-            msg=_("Firstname contains unlegal characters.")
+        if len(firstname) > 256:
+            msg=_('Firstname is too long( max. 256 characters).')
             error=True
     else:
         msg=_("Firstname is empty.")
         err=True
     if not err:
         if lastname:
-            rest = re.sub('\-*\ *','',lastname)
-            if not rest.isalpha():
-                msg=_("Lastname contains unlegal characters.")
+            if len(lastname) > 256:
+                msg=_('Lastname is too long(max. 256 characters).')
                 err=True
         else:
-            msg=_("Lastname is empty.")
+            msg=_('Lastname is empty.')
             err=True
     if not err:
         if birthdate:
             if not legal_date(birthdate):
-                msg=_("Birthdate is not a legal date.")
+                msg=_('Birthdate is not a legal date.')
                 err=True
         else:
-            msg=_("Birthdate is empty.")
+            msg=_('Birthdate is empty.')
             err=True
 
     if not err:
@@ -250,7 +248,7 @@ def make(transaction, firstname, lastname, gender, birthdate, description=""):
             person.set_description(description)
         commit(transaction, person, msg=_("Person successfully created."))
     else:
-       rollback_url('/person/create',msg,err=True)
+       rollback_url('/person/create', msg, err=True)
 make = transaction_decorator(make)
 make.exposed = True
 

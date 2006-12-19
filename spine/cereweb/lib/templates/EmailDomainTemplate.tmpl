@@ -28,16 +28,39 @@
 #attr $max_addresses = 20
 
 #def create_box($tr)
+<p>
+<div class="createform">
 <div class="email_view">
-    <h2>$_('Create a new email domain')</h2>
+    ## <h2>$_('Create a new email domain')</h2>
     <form action="/email/make" method="POST">
-        #echo $_create($tr)
-        <div>
-            <input type="submit" value="$_('Create')" />&nbsp;
-            <input type="reset" value="$_('Clear')" />
+		<table>
+			<tr>
+				<th colspan="2">
+					<div class="tableheader">
+						$_('Create a new email domain')
+					</div>
+				</th>
+			</tr>
+        	#echo $_create($tr)
+			<tr>
+				<td colspan="2">
+					&nbsp;
+				</td>
+			</tr>
+			<tr>
+				<td align="right">
+            		<input type="submit" value="$_('Create')" />&nbsp;
+				</td>
+				<td align="left">
+            		<input type="reset" value="$_('Clear')" />
+				</td>
+			</tr>
         </div>
+		</table>
     </form>
 </div>
+</div>
+</p>
 #end def
 
 #def create($tr)
@@ -59,14 +82,23 @@
 #def _create($tr)
     #set $cats = $tr.get_email_domain_category_searcher().search()
     #set $cats = [('',''),] + [(i.get_name(), i.get_description()) for i in $cats]
-    $form_widgets.input('name', 'Domain name')
-    $form_widgets.input('description', 'Description')
-    $form_widgets.generate_loption("category", "Category", $cats)
+	<tr>
+    	$form_widgets.td2input('name', 'Domain name',value="")
+	</tr>
+	<tr>
+    	$form_widgets.td2input('description', 'Description',value="")
+	</tr>
+	<tr>
+		<td colspan="2">
+    		$form_widgets.generate_loption("category", "Category", $cats)
+		</td>
+	</tr>
 #end def
 
 #def search_box($tr)
+<p>
 <div class="email_view">
-    <h2>$_('Find email domain')</h2>
+    ##<h2>$_('Find email domain')</h2>
     <form method="POST" action="/email/search">
         #echo $_search($tr, {})
         <div>
@@ -75,6 +107,7 @@
         </div>
     </form>
 </div>
+</p>
 #end def
 
 #def search($tr, $vargs)

@@ -60,16 +60,35 @@ $searcher.set_entity($entity)
 #end def
 
 #def find_email($address="")
+<p>
 <div class="email_view">
-    <h2>$_('Find email target by address')</h2>
+    ## <h2>$_('Find email target by address')</h2>
     <form action="/emailtarget/search" method="POST">
-        <label for="address">$_('Enter an email address:')</label>
-        <br />
-        <input name="address" value="TODO" />
-        ## FIXME: Other ways to search up? For instance target type?
-        <input type="submit" value="$_('Search')" />
+		<table width="100%">
+			<tr>
+				<th>
+					<div class="tableheader">
+						$_('Find email target by address')
+					</div>
+				</th>
+			</tr>
+			<tr>
+				<td>
+					<div class="td_lead_email">
+        				<label for="address">$_('Enter an email address:')</label>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td>
+        			<input name="address" value="TODO" /> &nbsp; <input type="submit" value="$_('Search')" />
+        			## FIXME: Other ways to search up? For instance target type?
+				</td>
+			</tr>
+		</table>
     </form>
 </div>
+</p>
 #end def
 
 #def entity_email($transaction, $entity)

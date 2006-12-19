@@ -25,6 +25,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect, redirect_object, object_link
 from lib.utils import transaction_decorator, commit, commit_url
+from lib.utils import rollback_url
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
@@ -166,13 +167,25 @@ save = transaction_decorator(save)
 save.exposed = True
 
 def make(transaction, name, description, category):
-    domain = transaction.get_commands().create_email_domain(name, description)
+    err=False
+    msg=''
+    if name:
+        rest=name.strip()
+        if not rest.isalnum():
+            msg=_('Domain name contains unlegal characters.')
+            err=True
+    else:
+        msg=_("Domain name is empty.")
+        err=True
+    if not err:
+        domain = transaction.get_commands().create_email_domain(name, description)
+        if category:
+            category = transaction.get_email_domain_category(category)
+            domain.add_to_category(category)
 
-    if category:
-        category = transaction.get_email_domain_category(category)
-        domain.add_to_category(category)
-
-    commit(transaction, domain, msg=_('Email domain successfully created.'))
+        commit(transaction, domain, msg=_('Email domain successfully created.'))
+    else:
+        rollback_url('/email/create', msg, err=True)
 make = transaction_decorator(make)
 make.exposed = True
 
