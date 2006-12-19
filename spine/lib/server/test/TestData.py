@@ -159,4 +159,16 @@ groups = {
     },
 }
 
+ous = {
+    'testou': {
+        'ou_id': 4000,
+        'name': 'testou',
+        'acronym': 'TO',
+        'short_name': 'TO',
+        'display_name': 'Test OU',
+        'sort_name': 'TO',
+        'type': types['ou'],
+    },
+}
+
 # vim: foldmethod=marker nowrap

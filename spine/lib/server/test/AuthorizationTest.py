@@ -137,17 +137,18 @@ class OrakelTest(AuthorizationTestCase):
 
     def test_perm_granted_on_group(self):
         group_id = self.userid + 5
-        target = TestData.accounts['target']
+        target = self.db._add_account(TestData.accounts['target'])
+        target_id = TestData.accounts['target']['id']
         op_name = str(self.op_orakel)
         self.op = self.op_orakel
         self.db._add_group_member(group_id, self.userid)
-        self.db._add_op_role(group_id, 'orakel', target['id'])
-        t = self.db._add_account(target)
-        self.db._grant_access_to_entity_via_ou((self.userid, group_id), hash(op_name), target['id'])
-        self.assertTrue(self.auth_obj.has_access(self.op, t))
+        self.db._add_op_role(group_id, 'orakel', target_id)
+        self.db._grant_access_to_entity_via_ou((self.userid, group_id), hash(op_name), target_id)
+        self.assertTrue(self.auth_obj.has_access(self.op, target))
 
     def test_perm_granted_on_ou(self):
-        self.fail()
+        ou = self.db._add_ou(TestData.ous['testou'])
+        target = self.db._add_account(TestData.accounts['target'])
 
 if __name__ == '__main__':
     main()
