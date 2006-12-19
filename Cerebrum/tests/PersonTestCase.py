@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import unittest
+from mx import DateTime
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum import OU
@@ -92,19 +93,32 @@ class PersonTestCase(Person_createTestCase):
         "Test that one can create a Person"
         self.failIf(getattr(self, "person_id", None) is None)
 
-    def testComparePerson(self):
+    def testComparePerson1(self):
+        "Check that created database object has correct values"
+        birth = self.person_dta['birth']
+        self.person_dta['birth'] = DateTime.DateTime(1970,1,1)
+        person = Person.Person(self.Cerebrum)
+        person.find(self.person_id)
+        new_person = Person.Person(self.Cerebrum)
+        new_person.clear()
+        self._myPopulatePerson(new_person)
+        assert(person == new_person)
+        person.birth_date = self.person_dta['birth']
+        person.gender = self.co.gender_female
+        assert(new_person <> person)
+        self.person_dta['birth'] = birth
+
+    def testComparePerson2(self):
         "Check that created database object has correct values"
         person = Person.Person(self.Cerebrum)
         person.find(self.person_id)
         new_person = Person.Person(self.Cerebrum)
         new_person.clear()
         self._myPopulatePerson(new_person)
-        if(new_person <> person):
-            print "Error: should be equal"
+        assert(person == new_person)
         person.birth_date = self.person_dta['birth']
         person.gender = self.co.gender_female
-        if new_person == person:
-            print "Error: should be different"
+        assert(new_person <> person)
 
     def testDeletePerson(self):
         "Delete the person"
@@ -117,7 +131,8 @@ class PersonTestCase(Person_createTestCase):
     def suite():
         suite = unittest.TestSuite()
         suite.addTest(PersonTestCase("testCreatePerson"))
-        suite.addTest(PersonTestCase("testComparePerson"))
+        suite.addTest(PersonTestCase("testComparePerson1"))
+        suite.addTest(PersonTestCase("testComparePerson2"))
         suite.addTest(PersonTestCase("testDeletePerson"))
         return suite
     suite = staticmethod(suite)
