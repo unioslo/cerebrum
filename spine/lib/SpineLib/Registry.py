@@ -37,17 +37,17 @@ class Registry(object):
         if issubclass(cls, Builder):
             cls.build_methods()
 
-        if issubclass(cls, Searchable) and issubclass(cls, Builder):
-            cls.build_search_class()
-            if public:
-                cls.search_class.signature_public = public
-            self.register_class(cls.search_class)
+            if issubclass(cls, Searchable):
+                cls.build_search_class()
+                if public:
+                    cls.search_class.signature_public = public
+                self.register_class(cls.search_class)
 
-        if issubclass(cls, Dumpable) and issubclass(cls, Builder):
-            cls.build_dumper_class()
-            if public:
-                cls.dumper_class.signature_public = public
-            self.register_class(cls.dumper_class)
+            if issubclass(cls, Dumpable):
+                cls.build_dumper_class()
+                if public:
+                    cls.dumper_class.signature_public = public
+                self.register_class(cls.dumper_class)
 
         self.map[name] = cls
         self.classes.append(cls)
