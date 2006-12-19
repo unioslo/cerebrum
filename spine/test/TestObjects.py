@@ -263,3 +263,50 @@ class DummyOU(DummyEntity):
         oid = ou.get_id()
         self._commit()
         return oid
+
+class DummyEmailDomain(DummyEntity):
+    def __init__(self, _session, id=None):
+        super(DummyEmailDomain, self).__init__(_session, id)
+        self._get_attr = "get_email_domain"
+
+    def _create_obj(self):
+        tr, c = self._get_trc()
+        name = 'testmd'
+        ed = c.create_email_domain(name, "transient testing domain")
+        eid = ed.get_id()
+        self._commit()
+        return eid
+
+class DummyEmailTarget(DummyEntity):
+    def __init__(self, _session, id=None):
+        super(DummyEmailTarget, self).__init__(_session, id)
+        self._get_attr = "get_email_target"
+
+    def _create_obj(self):
+        tr, c = self._get_trc()
+        types = tr.get_email_target_type_searcher().search()
+        assert len(types)
+        et = self.tr.get_commands().create_email_target(types[0])
+        eid = et.get_id()
+        self._commit()
+        return eid
+
+class DummyEmailAddress(DummyEntity):
+    def __init__(self, _session, id=None):
+        super(DummyEmailAddress, self).__init__(_session, id)
+        self._get_attr = "get_email_address"
+
+    def _create_obj(self):
+        tr, c = self._get_trc()
+        self._ed = DummyEmailDomain(self._session)
+        self._et = DummyEmailTarget(self._session)
+        name = 'testaddresss'
+        ea = c.create_email_address(name, self.ed._get_obj(), self.et._get_obj())
+        eid = self.ea.get_id()
+        self._commit()
+        return eid
+
+    def __del__(self):
+        super(DummyDisk, self).__del__()
+        del self._ed
+        del self._et
