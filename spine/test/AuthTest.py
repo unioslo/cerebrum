@@ -27,12 +27,9 @@ class AuthTest(SpineObjectTest):
     we have authority to perform."""
 
     def createObject(self):
-        """SpineObjectTest.setUp connects to the server, creates a
-        transaction and calls this method"""
         self.tr = self.session.new_transaction()
 
     def deleteObject(self):
-        """SpineObjectTest.tearDown calls this method, commits the transaction then logs out"""
         try:
             self.tr.rollback()
         except:
@@ -41,7 +38,6 @@ class AuthTest(SpineObjectTest):
     def testAuthOperationSearcher(self):
         searcher = self.tr.get_auth_operation_searcher()
         sr = searcher.search()
-        self.rollback()
 
     def testJoin(self):
         aos = self.tr.get_auth_operation_searcher()

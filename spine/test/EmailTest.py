@@ -24,86 +24,90 @@ from omniORB import CORBA
 import random
 import unittest
 from TestBase import *
+from TestObjects import *
 import SpineIDL
 
 class EmailDomainTest(SpineObjectTest):
     """Tests the e-mail module implementation in Spine."""
     def createObject(self):
-        c = self.tr.get_commands()
-        name = description = 'unittest_%s' % (id(self) + random.random())
-        self.ed = c.create_email_domain(name, description)
+        self.ed = DummyEmailDomain(self.session)
 
     def deleteObject(self):
-        pass # TODO: Find a way to delete the domains.
+        del self.ed
 
     def testSetName(self):
-        ed_id = self.ed.get_id()
-        name = self.ed.get_name()
+        tr = self.session.new_transaction()
+        ed = self.ed._get_obj(tr)
+        ed_id = ed.get_id()
+        name = ed.get_name()
         new_name = 'unittest_%s' % id(ed_id)
-        self.ed.set_name(new_name)
-        assert self.ed.get_name() == new_name 
-        self.tr.commit()
-        self.tr = self.session.new_transaction()
-        self.ed = self.tr.get_email_domain(ed_id)
-        assert self.ed.get_name() == new_name 
-        self.ed.set_name(name)
+        ed.set_name(new_name)
+        assert ed.get_name() == new_name 
+        tr.commit()
+        tr = self.session.new_transaction()
+        ed = tr.get_email_domain(ed_id)
+        assert ed.get_name() == new_name 
+        ed.set_name(name)
+        tr.commit()
 
     def testAddToCategory(self):
-        ed_id = self.ed.get_id()
-        s = self.tr.get_email_domain_category_searcher().search()
+        tr = self.session.new_transaction()
+        ed = self.ed._get_obj(tr)
+        ed_id = ed.get_id()
+        s = tr.get_email_domain_category_searcher().search()
         assert len(s) # We need an e-mail domain category to run the test
         # Add the domain to the category
         edc = s[0]
         edc_id = edc.get_name()
-        self.ed.add_to_category(edc)
+        ed.add_to_category(edc)
         assert edc.get_id() in [i.get_id() for i in self.ed.get_categories()]
-        self.tr.commit()
+        tr.commit()
 
         # Check that the domain is in the category and remove it from the category
-        self.tr = self.session.new_transaction()
-        self.ed = self.tr.get_email_domain(ed_id)
+        tr = self.session.new_transaction()
+        ed = self.tr.get_email_domain(ed_id)
         edc = self.tr.get_email_domain_category(edc_id)
         assert edc.get_id() in [i.get_id() for i in self.ed.get_categories()]
         self.ed.remove_from_category(edc)
         assert edc.get_id() not in [i.get_id() for i in self.ed.get_categories()]
 
     def testGetPersons(self):
-        s = self.tr.get_person_affiliation_type_searcher()
+        tr = self.session.new_transaction()
+        s = tr.get_person_affiliation_type_searcher()
         for aff_type in s.search():
             assert len(self.ed.get_persons(aff_type)) == 0
 
 class EmailTargetTest(SpineObjectTest):
     def createObject(self):
-        result = self.tr.get_email_target_type_searcher().search()
-        assert len(result)
-        self.et = self.tr.get_commands().create_email_target(result[0])
-        self.et_id = self.et.get_id()
+        self.et = DummyEmailTarget(self.session)
 
     def deleteObject(self):
-        self.et.delete()
+        del self.et
 
     def testType(self):
-        ett_id = self.et.get_type().get_name()
-        result = self.tr.get_email_target_type_searcher().search()
+        tr = self.session.new_transaction()
+        et = self.et._get_obj(tr)
+        ett_id = et.get_type().get_name()
+        result = tr.get_email_target_type_searcher().search()
         for ett in result:
-            if not self.et.get_type()._is_equivalent(ett):
+            if not et.get_type()._is_equivalent(ett):
                 break
         else:
             assert 0 # We didn't find a type that wasn't already the type of the target we test
 
         # Set a new type and commit
-        self.et.set_type(ett)
+        et.set_type(ett)
         new_ett_id = ett.get_name()
-        assert self.et.get_type()._is_equivalent(ett)
-        self.tr.commit()
+        assert et.get_type()._is_equivalent(ett)
+        tr.commit()
         
         # Check that the new type was set, and reset it to the old type
-        self.tr = self.session.new_transaction()
-        self.et = self.tr.get_email_target(self.et_id)
-        assert self.et.get_type().get_name() == new_ett_id
-        ett = self.tr.get_email_target_type(ett_id)
-        self.et.set_type(ett)
-        assert self.et.get_type()._is_equivalent(ett)
+        tr = self.session.new_transaction()
+        et = self.tr.get_email_target(self.et_id)
+        assert et.get_type().get_name() == new_ett_id
+        ett = tr.get_email_target_type(ett_id)
+        et.set_type(ett)
+        assert et.get_type()._is_equivalent(ett)
 
     def testEntity(self):
         entity_id = self.et.get_entity()
@@ -164,24 +168,10 @@ class EmailTargetTest(SpineObjectTest):
 
 class EmailAddressTest(SpineObjectTest):
     def createObject(self):
-        self._skip_different_primaries = False
-        unique = 'unittest_%s' % (id(self.tr) + random.random())
-        result = self.tr.get_email_domain_searcher().search()
-        assert len(result) # We need a domain to perform the test
-        domain = result[0]
-        result = self.tr.get_email_target_searcher().search()
-        assert len(result) # We need a target to perform the test
-        for target in result:
-            if len(target.get_addresses()):
-                break
-        else:
-            self._skip_different_primaries = True
-            target = result[0]
-        self.ea = self.tr.get_commands().create_email_address(unique, domain, target)
-        self.ea_id = self.ea.get_id()
+        self.ea = DummyEmailAddress(self.session)
 
     def deleteObject(self):
-        self.ea.delete()
+        del self.ea
 
     def testSetAsPrimary(self):
         self.ea.set_as_primary()
@@ -217,7 +207,8 @@ class EmailAddressTest(SpineObjectTest):
 
 class EmailDomainCategorizationTest(SpineObjectTest):
     def createObject(self):
-        pass
+        self.tr = self.session.new_transaction()
+
     def deleteObject(self):
         pass
 

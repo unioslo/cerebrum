@@ -22,18 +22,27 @@
 import unittest
 
 # Test classes
+from AuthTest import *
+from AutoTest import *
 from CommunicationTest import *
+from CreateDeleteTest import *
+#from EmailTest import * # Not working.
+from LoginTest import * 
+from ExtentionTest import *
+from HomeDirectoryTest import *
+from LockingTest import *
+from OUTest import *
+from PosixTest import *
 from SessionTest import *
 from TransactionTest import *
-#from LockingTest import *
-from CreateDeleteTest import *
-from OUTest import *
-from HomeDirectoryTest import *
-from PosixTest import *
-from ExtentionTest import *
-#from EmailTest import * # Not working.
-from AutoTest import *
-from AuthTest import *
+#from DumperTest import * # Untested
+#from ExternalIdTest import * # Untested
+#from GroupMemberTest import * # Untested
+#from GroupTest import * # Untested
+#from JoinerTest import * # Untested
+#from LockingTest import * # Untested
+#from MultipleLoginTest import * # Untested
+#from ViewTest import * # Untested
 
 if __name__ == '__main__':
     unittest.main()

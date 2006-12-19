@@ -21,6 +21,7 @@
 
 import cStringIO
 import unittest
+import gc
 from test import test_support
 from TestBase import *
 import SpineIDL
@@ -76,6 +77,7 @@ def _create_testclass_base(cls_name):
     def tearDown(self):
         self.transaction.rollback()
         self.session.logout()
+        gc.collect()
     testclass.tearDown = tearDown
 
     def testSearchObject(self):

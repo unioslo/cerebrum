@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
 
-import os, sys, traceback, unittest
+import os, gc, sys, traceback, unittest
 from test import test_support
 try:
     import SpineClient
@@ -53,6 +53,9 @@ class SpineObjectTest(unittest.TestCase):
 
     def tearDown(self):
         self.deleteObject()
+        gc.collect() # Force garbage collection before we log out.
+        for tr in self.session.get_transactions():
+            tr.rollback()
         self.session.logout()
 
     def createObject(self):
@@ -60,23 +63,6 @@ class SpineObjectTest(unittest.TestCase):
 
     def deleteObject(self):
         raise RuntimeError('Subclass does not implement the deleteObject method.')
-
-
-    def get_tr(self):
-        if not self.open:
-            self.tr = self.session.new_transaction()
-            self.open = True
-        return self.tr
-
-    def commit(self):
-        if self.open:
-            self.tr.commit()
-            self.open = False
-
-    def rollback(self):
-        if self.open:
-            self.tr.rollback()
-            self.open = False
 
 def create_name(obj):
     n = str(id(obj))
