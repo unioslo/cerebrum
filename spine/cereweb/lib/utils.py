@@ -275,4 +275,16 @@ def legal_date( tocheck ):
         return False
     return True
 
+def legal_domain_format( domain ):
+     pat=re.compile( '^(([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.)*([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.[a-zA-Z]{2,3}$')
+     if not pat.match(domain):
+         return False
+     return True
+
+def legal_domain_chars( domain ):
+    rest=re.sub('\-*\.*','',domain)
+    if not rest.isalnum( rest ):
+        return False
+    return True
+
 # arch-tag: 46d3f6d-3e27-4e00-8ae5-4721aaf7add6
