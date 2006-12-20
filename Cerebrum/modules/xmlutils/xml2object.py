@@ -67,16 +67,27 @@ class DataAddress(object):
     ADDRESS_PRIVATE = "private"
     ADDRESS_POST    = "post"
 
+    country2ziplength = {
+        "": 4, "NO": 4, "DK": 4
+        }
+
     def __init__(self, kind, street = (), zip = "", city = "", country = ""):
         self.kind = kind
         if isinstance(street, (list, tuple)):
             self.street = "\n".join(filter(None, map(str.strip, street)))
         else:
             self.street = street.strip()
-        self.zip = zip.strip()
         self.city = city.strip()
         # FIXME: match with something in cerebrum?
-        self.country = country.strip()
+        self.country = country = country.strip()
+        try:
+            izip = int(zip)
+            if izip == 0:
+                self.zip = ""
+            else:
+                self.zip = "%0*d" % (self.country2ziplength[country], izip)
+        except (ValueError, KeyError):
+            self.zip = zip.strip()
         if self.country not in ("CA", "GB", "IT", "NL", "NO", "RU", "SE", "US"):
             # TBD: Log it with the logger framework?
             self.country = None
