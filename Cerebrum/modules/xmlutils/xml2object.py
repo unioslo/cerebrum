@@ -64,13 +64,15 @@ class DataAddress(object):
     """
 
     ADDRESS_BESOK   = "besøk"
-    ADDRESS_INTERN  = "intern"
     ADDRESS_PRIVATE = "private"
     ADDRESS_POST    = "post"
 
-    def __init__(self, kind, street = "", zip = "", city = "", country = ""):
+    def __init__(self, kind, street = (), zip = "", city = "", country = ""):
         self.kind = kind
-        self.street = street.strip()
+        if isinstance(street, (list, tuple)):
+            self.street = "\n".join(filter(None, map(str.strip, street)))
+        else:
+            self.street = street.strip()
         self.zip = zip.strip()
         self.city = city.strip()
         # FIXME: match with something in cerebrum?

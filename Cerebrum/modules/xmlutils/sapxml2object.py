@@ -173,9 +173,9 @@ class XMLOU2Object(XMLEntity2Object):
         # fi
 
         result = DataAddress(kind = xml2kind[kind],
-                             street = (ext("Cnavn") + " " +
-                                       ext("Gatenavn1") + " " +
-                                       ext("Gatenavn2")).strip(),
+                             street = (ext("Cnavn"),
+                                       ext("Gatenavn1"),
+                                       ext("Gatenavn2")),
                              zip = ext("Postnummer"),
                              city = ext("Poststed"),
                              country = ext("Landkode"))
@@ -313,7 +313,8 @@ class XMLPerson2Object(XMLEntity2Object):
 
         sap2intern = { "Fysisk arbeidssted" : DataAddress.ADDRESS_POST,
                        "Bostedsadresse" : DataAddress.ADDRESS_PRIVATE, }
-        street = zip = city = country = addr_kind = ""
+        zip = city = country = addr_kind = ""
+        street = []
 
         for sub in addr_element.getiterator():
             if not sub.text:
@@ -321,7 +322,7 @@ class XMLPerson2Object(XMLEntity2Object):
             value = sub.text.strip().encode("latin1")
 
             if sub.tag in ("Gateadresse", "Adressetillegg"):
-                street += value
+                street.append(value)
             elif sub.tag in ("Postnummer",):
                 zip += value
             elif sub.tag in ("Poststed",):

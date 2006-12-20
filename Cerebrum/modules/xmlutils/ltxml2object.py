@@ -196,8 +196,8 @@ class XMLPerson2Object(XMLEntity2Object):
         extract = lambda y: element.get(y, "").encode("latin1")
         result.address = DataAddress(
             kind = DataAddress.ADDRESS_PRIVATE,
-            street = extract("adresselinje1_privatadresse") + " " +
-                     extract("adresselinje2_privatadresse"),
+            street = (extract("adresselinje1_privatadresse"),
+                      extract("adresselinje2_privatadresse")),
             zip = extract("poststednr_privatadresse"),
             city = extract("poststednavn_privatadresse"))
         
@@ -373,12 +373,23 @@ class XMLOU2Object(XMLEntity2Object):
 
         extract = lambda y: element.get(y, "").encode("latin1")
         for (xmlkind, kind) in (("besok", DataAddress.ADDRESS_BESOK),
-                                ("intern", DataAddress.ADDRESS_INTERN)):
+                                ("intern", DataAddress.ADDRESS_POST)):
+            zip = extract("poststednr_%s_adr" % xmlkind)
+            street = None
+            if xmlkind == "intern":
+                try:
+                    p_o_box = int(extract("stedpostboks"))
+                    if p_o_box and int(zip) // 100 == 3:
+                        street = "Postboks %d Blindern" % p_o_box
+                except ValueError:
+                    pass
+            if street is None:
+                street = (extract("adresselinje1_%s_adr" % xmlkind),
+                          extract("adresselinje2_%s_adr" % xmlkind))
             result.add_address(
                 DataAddress(kind = kind,
-                            street = extract("adresselinje1_%s_adr" % xmlkind) +
-                                     extract("adresselinje2_%s_adr" % xmlkind),
-                            zip = extract("poststednr_%s_adr" % xmlkind),
+                            street = street,
+                            zip = zip,
                             city = extract("poststednavn_%s_adr" % xmlkind),
                             country = extract("landnavn_%s_adr" % xmlkind)))
         # od

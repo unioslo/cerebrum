@@ -261,9 +261,6 @@ class XML2Cerebrum:
         # Hammer in all addresses
         xmladdr2db = self.xmladdr2db
         for addr_kind, addr in xmlou.iteraddress():
-            if addr_kind == DataAddress.ADDRESS_INTERN:
-                continue
-            # fi
             ou.populate_address(self.source_system, xmladdr2db[addr_kind],
                                 address_text = addr.street,
                                 postal_number = addr.zip,
