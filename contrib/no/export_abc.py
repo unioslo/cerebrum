@@ -29,7 +29,7 @@ any of the Norwegian institutions using FS and Cerebrum.
 
 The XML description and schema are available here:
 
-<UR: http://uninettabc.no/?p=publikasjoner&sub=abc-enterprise>
+<URL: http://uninettabc.no/?p=publikasjoner&sub=abc-enterprise>
 
 There are roughly these categories of data being output:
 
@@ -185,18 +185,8 @@ def get_contact_type(name):
 # end get_contact_type
 
 def get_person_id_type(external_id):
-    # #
-    # # <numeric constant> -> xml attribute name for external IDs
-    # for tmp in c.fetch_constants(c.EntityExternalId):
-    #     _id_type_cache[int(tmp)] = str(tmp)
-
     # FIXME: Perhaps we ought to validate whatever is fed in here.
     return str(external_id)
-    
-    if int(external_id) not in _id_type_cache:
-        logger.warn("%d (constant %s) not found in cache",
-                    int(external_id), str(external_id))
-    return _id_type_cache.get(int(external_id), "")
 # end get_person_id_type
 
 def get_affiliation_type(affiliation, status):
