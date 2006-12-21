@@ -295,6 +295,13 @@ def main():
         elif opt in ('--ldiffile',):
             destfile = SimilarSizeWriter(val, "w")
             destfile.set_size_change_limit(10)
+
+            destfile.write("dn: cn=course,dc=uio,dc=no\n")
+            destfile.write("objectClass: top\n")
+            destfile.write("objectClass: uioUntypedObject\n")
+            destfile.write("cn: course\n")
+            destfile.write("description: Kursinformasjon ved UiO.\n\n")
+
             cgi = CerebrumGroupInfo()
             sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
             dump_pickle_file(picklefile,
