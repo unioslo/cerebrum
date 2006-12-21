@@ -1942,8 +1942,7 @@ class BofhdExtension(object):
     def email_delete_list(self, operator, listname):
         et, ea = self.__get_email_target_and_address(listname)
         self.ba.can_email_list_delete(operator.get_entity_id(), ea)
-        self._email_delete_list(operator.get_entity_id(), listname, ea)
-
+        return self._email_delete_list(operator.get_entity_id(), listname, ea)
 
     def _email_delete_list(self, op, listname, ea):
         """Delete the list with no permission checking."""
@@ -1977,8 +1976,8 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
         br = BofhdRequests(self.db, self.const)
-        br.add_request(op, br.now, self.const.bofh_mailman_remove,
-                       list_id, None, listname)
+        br.add_request(op, DateTime.now() + DateTime.DateTimeDelta(0, 1),
+                       self.const.bofh_mailman_remove, list_id, None, listname)
         return result
 
     def _split_email_address(self, addr):
