@@ -1876,6 +1876,9 @@ class BofhdExtension(object):
                 # admins can modify the list) or a database table.
                 raise CerebrumError, ("Won't create list %s, as %s is an "
                                       "existing username") % (listname, lp)
+        if not (self._is_ok_mailman_name(lp) or
+                self.ba.is_postmaster(operator.get_entity_id())):
+            raise CerebrumError, "Illegal mailing list name: %s" % listname
         self._register_list_addresses(listname, lp, dom)
         if admins:
             br = BofhdRequests(self.db, self.const)
@@ -2009,7 +2012,14 @@ class BofhdExtension(object):
             raise CerebrumError, ("Unrecognised pipe command for Mailman list:"+
                                   et.email_target_alias)
         return m.group(2)
-    
+
+    def _is_ok_mailman_name(self, localpart):
+        if not re.match(r'^[a-z0-9-]+$', localpart):
+            raise CerebrumError, "Illegal localpart: %s" % localpart
+        if len(localpart) > 8 or localpart.count('-') or localpart == 'drift':
+            return True
+        return False
+
     def _check_mailman_official_name(self, listname):
         mlist = self._get_mailman_list(listname)
         if mlist is None:
@@ -2184,6 +2194,10 @@ class BofhdExtension(object):
             raise CerebrumError, "RT queue %s already exists" % queuename
         addr_lp, addr_domain_name = self._split_email_address(addr)
         replaced_lists = []
+        if not (addr == queue + "@" + host or
+                self._is_ok_mailman_name(addr_lp) or
+                self.ba.is_postmaster(op)):
+            raise CerebrumError, "Illegal address for queue: %s" % addr
         try:
             et, ea = self.__get_email_target_and_address(addr)
         except CerebrumError:
@@ -2302,6 +2316,9 @@ class BofhdExtension(object):
             raise CerebrumError, "Address already exists (%s)" % address
         except Errors.NotFoundError:
             pass
+        if not (self._is_ok_mailman_name(lp) or
+                self.ba.is_postmaster(operator.get_entity_id())):
+            raise CerebrumError, "Illegal queue address: %s" % address
         ea.clear()
         ea.populate(lp, ed.email_domain_id, et.email_target_id)
         ea.write_db()
