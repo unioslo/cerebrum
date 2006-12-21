@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import pickle
 from Cerebrum.modules.no.OrgLDIF import *
 
 # Replace these characters with spaces in OU RDNs.
@@ -83,4 +84,27 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         return iso2utf(val.replace("\n", sep))
     make_address = staticmethod(make_address)
 
+    def init_person_course(self):
+        """Populate dicts with a person's course information."""
+        timer = self.make_timer("Processing person courses...")
+        fn = "/cerebrum/dumps/LDAP/ownerid2urnlist.pickle"
+        self.ownerid2urnlist = pickle.load(file(fn))
+        timer("...person courses done.") 
+
+    def init_person_dump(self, use_mail_module):
+        """Suplement the list of things to run before printing the
+        list of people."""
+        self.__super.init_person_dump(use_mail_module)
+        self.init_person_course()
+
+    def make_person_entry(self, row):
+        """Add data from person_course to a person entry."""
+        dn, entry, alias_info = self.__super.make_person_entry(row)
+        p_id = int(row['person_id'])
+        if not dn:
+            return dn, entry, alias_info
+        entry['objectClass'].append('eduCourse')
+        if self.ownerid2urnlist.has_key(p_id):
+            entry['eduCourseOffering'] = self.ownerid2urnlist[p_id]
+        return dn, entry, alias_info
 # arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914
