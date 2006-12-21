@@ -132,8 +132,6 @@ def process_user(uname, homedir, spread):
         logger.warn("User %s not in Cerebrum" % uname)
         return
 
-    disk_id = process_home(homedir)
-
     try:
         spread = getattr(constants, spread)
     except AttributeError:
@@ -144,6 +142,9 @@ def process_user(uname, homedir, spread):
         logger.debug("User %s got home %s, %s, %s.", uname, disk_id,
                      home, status)
     except Errors.NotFoundError:
+        disk_id = process_home(homedir)
+        if not disk_id:
+            return 
         homedir_id = account.set_homedir(disk_id=disk_id,
                                          status=constants.home_status_not_created)
         account.set_home(spread, homedir_id)
