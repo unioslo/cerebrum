@@ -71,7 +71,7 @@ def process_line(infile):
     # Iterate over all users
     for line in stream:
         commit_count += 1
-        line.strip()
+        line = line.strip()
         logger.debug5("Processing line: |%s|", line)
 
         fields = string.split(line, ":")
