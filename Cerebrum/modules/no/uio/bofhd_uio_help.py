@@ -142,6 +142,16 @@ command_help = {
         "value",
     "email_quota":
         "Change a user's storage quota for e-mail",
+    "email_rt_add_address":
+        "Add a valid address for RT queue",
+    "email_rt_create":
+        "Create an e-mail target for Request Tracker",
+    "email_rt_delete":
+        "Delete Request Tracker addresses",
+    "email_rt_primary_address":
+        "Change which address to rewrite to",
+    "email_rt_remove_address":
+        "Remove a valid address from the RT target",
     "email_spam_action":
         "How to handle user's spam",
     "email_spam_level":
@@ -526,6 +536,10 @@ printer."""],
     'quarantine_type':
         ['qtype', 'Enter quarantine type',
           "'quarantine list' lists defined quarantines"],
+    'rt_queue':
+        ['queue', 'Enter name of RT queue',
+         "Format is <queue>@<host>.  If <host> is the default host, it can be "
+         "omitted."],
     'spam_action':
         ['spam action', 'Enter spam action',
           """Choose one of

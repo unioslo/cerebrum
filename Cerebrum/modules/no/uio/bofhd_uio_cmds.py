@@ -83,6 +83,50 @@ class TimeoutException(Exception):
 class ConnectException(Exception):
     pass
 
+class RTQueue(Parameter):
+    _type = 'rtQueue'
+    _help_ref = 'rt_queue'
+
+# TODO: move more UiO cruft from bofhd/auth.py in here
+class UiOAuth(BofhdAuth):
+    """Authorisation.  UiO specific operations and business logic."""
+
+    def can_rt_create(self, operator, domain=None, query_run_any=False):
+        if self.is_superuser(operator, query_run_any):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator,
+                                                      self.const.auth_rt_create)
+        return self._query_maildomain_permissions(operator,
+                                                  self.const.auth_rt_create,
+                                                  domain, None)
+
+    can_rt_delete = can_rt_create
+
+    def can_rt_replace_mailman(self, operator, domain=None,
+                               query_run_any=False):
+        if self.is_superuser(operator, query_run_any):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator,
+                                                      self.const.auth_rt_replace)
+        return self._query_maildomain_permissions(operator,
+                                                  self.const.auth_rt_replace,
+                                                  domain, None)
+
+    def can_rt_address_add(self, operator, domain=None, query_run_any=False):
+        if self.is_superuser(operator, query_run_any):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(operator,
+                                                      self.const.auth_rt_addr_add)
+        return self._query_maildomain_permissions(operator,
+                                                  self.const.auth_rt_addr_add,
+                                                  domain, None)
+
+    can_rt_address_remove = can_rt_address_add
+
+
 class BofhdExtension(object):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""
@@ -104,7 +148,7 @@ class BofhdExtension(object):
         for t in person.list_person_name_codes():
             self.name_codes[int(t['code'])] = t['description']
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
-        self.ba = BofhdAuth(self.db)
+        self.ba = UiOAuth(self.db)
         aos = BofhdAuthOpSet(self.db)
         self.num2op_set_name = {}
         for r in aos.list():
@@ -619,11 +663,16 @@ class BofhdExtension(object):
                     continue
                 if r['entity_id'] is None:
                     target_name = "N/A"
+                elif r['target_type'] == self.const.auth_target_type_maildomain:
+                    # FIXME: EmailDomain is not an Entity.
+                    ed = Email.EmailDomain(self.db)
+                    ed.find(r['entity_id'])
+                    target_name = ed.email_domain_name
                 else:
                     try:
                         ety = self._get_entity(id=r['entity_id'])
                         target_name = self._get_name_from_object(ety)
-                    except Errors.NotFoundError:
+                    except (Errors.NotFoundError, ValueError):
                         self.logger.warn("Non-existing entity in "
                                          "auth_op_target %s:%d" %
                                          (r['target_type'], r['entity_id']))
@@ -717,14 +766,8 @@ class BofhdExtension(object):
     def email_add_address(self, operator, uname, address):
         et, acc = self.__get_email_target_and_account(uname)
         ttype = et.email_target_type
-        if ttype not in (self.const.email_target_Mailman,
-                         self.const.email_target_forward,
-                         self.const.email_target_file,
-                         self.const.email_target_multi,
-                         self.const.email_target_pipe,
-                         self.const.email_target_account):
-            raise CerebrumError, ("Can't add e-mail address to target "
-                                  "type %s" % self.const.EmailTarget(ttype))
+        if et.email_target_type == self.const.email_target_deleted:
+            raise CerebrumError, "Can't add e-mail address to deleted target"
         ea = Email.EmailAddress(self.db)
         lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
@@ -744,36 +787,25 @@ class BofhdExtension(object):
     # email remove_address <account> <address>+
     all_commands['email_remove_address'] = Command(
         ('email', 'remove_address'),
-        AccountName(help_ref='account_name'),
-        EmailAddress(help_ref='email_address', repeat=True),
+        AccountName(), EmailAddress(repeat=True),
         perm_filter='can_email_address_delete')
     def email_remove_address(self, operator, uname, address):
         et, acc = self.__get_email_target_and_account(uname)
-        ttype = et.email_target_type
-        if ttype not in (self.const.email_target_Mailman,
-                         self.const.email_target_account,
-                         self.const.email_target_forward,
-                         self.const.email_target_pipe,
-                         self.const.email_target_multi,
-                         self.const.email_target_deleted):
-            raise CerebrumError, ("Can't remove e-mail address from target "
-                                  "type %s" % self.const.EmailTarget(ttype))
-        if address.count('@') != 1:
-            raise CerebrumError, "Malformed e-mail address (%s)" % address
+        lp, dom = self._split_email_address(address)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_address_add(operator.get_entity_id(),
+                                      account=acc, domain=ed)
+        return self._remove_email_address(et, address)
+
+    def _remove_email_address(self, et, address):
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_address(address)
         except Errors.NotFoundError:
-            raise CerebrumError, "No such e-mail address (%s)" % address
-        if ((ttype == int(self.const.email_target_Mailman) and
-             self._get_mailman_list(uname) <> self._get_mailman_list(address))
-            and ea.get_target_id() <> et.email_target_id):
-            raise CerebrumError, ("Address <%s> is not associated with %s" %
-                                  (address, uname))
-        ed = Email.EmailDomain(self.db)
-        ed.find(ea.email_addr_domain_id)
-        self.ba.can_email_address_add(operator.get_entity_id(),
-                                      account=acc, domain=ed)
+            raise CerebrumError, "No such e-mail address <%s>" % address
+        if ea.get_target_id() != et.email_target_id:
+            raise CerebrumError, ("<%s> is not associated with that target" %
+                                  address)
         addresses = et.get_addresses()
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
@@ -781,7 +813,6 @@ class BofhdExtension(object):
             primary = epat.email_primaddr_id
         except Errors.NotFoundError:
             primary = None
-
         if primary == ea.email_addr_id:
             if len(addresses) == 1:
                 # We're down to the last address, remove the primary
@@ -796,6 +827,7 @@ class BofhdExtension(object):
         # clean up and remove the target.
         et.delete()
         return "OK, also deleted e-mail target"
+
 
     # email reassign_address <address> <destination>
     all_commands['email_reassign_address'] = Command(
@@ -1055,6 +1087,11 @@ class BofhdExtension(object):
          "Save as:          %s",
          ("file_name", "file_runas")),
         # target_type == pipe
+        # ... special case for RT
+        ("RT queue:         %s on %s\n"+
+         "Action:           %s",
+         ("rt_queue", "rt_host", "rt_action")),
+        # ... other pipes
         ("Command:          %s\n"+
          "Run as:           %s",
          ("pipe_cmd", "pipe_runas")),
@@ -1094,7 +1131,8 @@ class BofhdExtension(object):
         if ttype != self.const.email_target_Mailman:
             # We want to split the valid addresses into three
             # for Mailman, so there is special code for it there.
-            addrs = self.__get_valid_email_addrs(et) or ["<none>"]
+            addrs = self.__get_valid_email_addrs(et, special=True, sort=True)
+            if not addrs: addrs = ["<none>"]
             ret.append({'valid_addr_1': addrs[0]})
             for addr in addrs[1:]:
                 ret.append({"valid_addr": addr})
@@ -1130,14 +1168,15 @@ class BofhdExtension(object):
             ret += self._email_info_forwarding(et, addrs)
         return ret
 
-    def __get_valid_email_addrs(self, et, special=False):
+    def __get_valid_email_addrs(self, et, special=False, sort=False):
         """Return a list of all valid e-mail addresses for the given
         EmailTarget.  Keep special domain names intact if special is
         True, otherwise re-write them into real domain names."""
-        addrs = []
-        for r in et.get_addresses(special=special):
-            addrs.append(r['local_part'] + '@' + r['domain'])
-        return addrs
+        addrs = [(r['local_part'], r['domain'])       
+                 for r in et.get_addresses(special=special)]
+        if sort:
+            addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
+        return ["%s@%s" % a for a in addrs]
 
     def _email_info_basic(self, acc, et):
         info = {}
@@ -1273,7 +1312,7 @@ class BofhdExtension(object):
         # now find all e-mail addresses
         et.clear()
         et.find(ea.email_addr_target_id)
-        addrs = self.__get_valid_email_addrs(et)
+        addrs = self.__get_valid_email_addrs(et, sort=True)
         ret += self._email_info_spam(et)
         ret += self._email_info_forwarding(et, addrs)
         aliases = []
@@ -1345,10 +1384,13 @@ class BofhdExtension(object):
                  'file_runas': account_name}]
 
     def _email_info_pipe(self, addr, et):
+        m = re.match(self._rt_patt, et.get_alias())
+        if m:
+            return [{'rt_action': m.group(1),
+                     'rt_queue': m.group(2),
+                     'rt_host': m.group(3)}]
         acc = self._get_account(et.email_target_using_uid, idtype='id')
-        data = [{'pipe_cmd': et.get_alias(),
-                 'pipe_runas': acc.account_name}]
-        return data
+        return [{'pipe_cmd': et.get_alias(), 'pipe_runas': acc.account_name}]
 
     def _email_info_forward(self, addr, et):
         data = []
@@ -1416,6 +1458,9 @@ class BofhdExtension(object):
     def email_primary_address(self, operator, addr):
         self.ba.is_postmaster(operator.get_entity_id())
         et, ea = self.__get_email_target_and_address(addr)
+        return self._set_email_primary_address(et, ea, addr)
+
+    def _set_email_primary_address(self, et, ea, addr):
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
             epat.find(et.email_target_id)
@@ -1892,21 +1937,22 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_list_delete")
     def email_delete_list(self, operator, listname):
-        lp, dom = self._split_email_address(listname)
-        ed = self._get_email_domain(dom)
-        op = operator.get_entity_id()
-        self.ba.can_email_list_delete(op, ed)
+        et, ea = self.__get_email_target_and_address(listname)
+        self.ba.can_email_list_delete(operator.get_entity_id(), ea)
+        self._email_delete_list(operator.get_entity_id(), listname, ea)
+
+
+    def _email_delete_list(self, op, listname, ea):
+        """Delete the list with no permission checking."""
+
         listname = self._check_mailman_official_name(listname)
-        # All OK, let's nuke it all.
         result = []
         et = Email.EmailTarget(self.db)
-        ea = Email.EmailAddress(self.db)
         epat = Email.EmailPrimaryAddressTarget(self.db)
-        ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
         list_id = ea.email_addr_id
         for interface in self._interface2addrs.keys():
-            alias = self._mailman_pipe % { 'interface': interface,
-                                           'listname': listname }
+            alias = self._mailman_pipe % {'interface': interface,
+                                          'listname': listname}
             try:
                 et.clear()
                 et.find_by_alias(alias)
@@ -1922,7 +1968,8 @@ class BofhdExtension(object):
                     ea.clear()
                     ea.find_by_address(addr)
                     ea.delete()
-                    result.append({'address': addr})
+                    if interface == "post":
+                        result.append({'address': addr})
                 et.delete()
             except Errors.NotFoundError:
                 pass
@@ -2110,14 +2157,206 @@ class BofhdExtension(object):
             ea.delete()
         return result
 
-    # email create_rt queue address [host]
-    # email delete_rt queue
+    _rt_pipe = ("|/local/bin/rt-mailgate --action %(action)s --queue %(queue)s "
+                "--url https://%(host)s/")
+    # This assumes that the only RE meta character in _rt_pipe is the
+    # leading pipe.
+    _rt_patt = "^\\" + _rt_pipe % {'action': '(\S+)',
+                                   'queue': '(\S+)',
+                                   'host': '(\S+)'} + "$"
 
-    # email add_rt_address queue address
-    # email remove_rt_address queue address
-    #   duplicates email {add,remove}_address.  not necessary until
-    #   someone other than postmaster needs this privelege.
+    # email rt_create queue[@host] address [force]
+    all_commands['email_rt_create'] = Command(
+        ("email", "rt_create"),
+        RTQueue(), EmailAddress(),
+        YesNo(help_ref="yes_no_force", optional=True),
+        perm_filter='can_rt_create')
+    def email_rt_create(self, operator, queuename, addr, force="No"):
+        queue, host = self._resolve_rt_name(queuename)
+        rt_dom = self._get_email_domain(host)
+        op = operator.get_entity_id()
+        self.ba.can_rt_create(op, domain=rt_dom)
+        try:
+            self._get_rt_email_target(queue, host)
+        except CerebrumError:
+            pass
+        else:
+            raise CerebrumError, "RT queue %s already exists" % queuename
+        addr_lp, addr_domain_name = self._split_email_address(addr)
+        replaced_lists = []
+        try:
+            et, ea = self.__get_email_target_and_address(addr)
+        except CerebrumError:
+            pass
+        else:
+            if et.email_target_type == self.const.email_target_Mailman:
+                self.ba.can_rt_replace_mailman(op, domain=rt_dom)
+                if not self._get_boolean(force):
+                    raise CerebrumError, ("Address <%s> is an existing mailing "
+                                          "list, please use force" % addr)
+                replaced_lists = [x['address'] for x in
+                                  self._email_delete_list(op, addr, ea)]
+            else:
+                raise CerebrumError, "Address <%s> is in use" % addr
+        acc = self._get_account("exim")
+        et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
+        cmd = self._rt_pipe % {'action': "correspond",
+                               'queue': queue, 'host': host}
+        et.populate(self.const.email_target_pipe, alias=cmd,
+                    using_uid=acc.entity_id)
+        et.write_db()
+        addr_dom = self._get_email_domain(addr_domain_name)
+        # Add primary address
+        ea.populate(addr_lp, addr_dom.email_domain_id, et.email_target_id)
+        ea.write_db()
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        epat.populate(ea.email_addr_id, parent=et)
+        epat.write_db()
+        for alias in replaced_lists:
+            if alias == addr:
+                continue
+            lp, dom = self._split_email_address(alias)
+            alias_dom = self._get_email_domain(dom)
+            ea.clear()
+            ea.populate(lp, alias_dom.email_domain_id, et.email_target_id)
+            ea.write_db()
+        # Add RT internal address
+        if addr_lp != queue and addr_domain_name != host:
+            ea.clear()
+            ea.populate(queue, rt_dom.email_domain_id, et.email_target_id)
+            ea.write_db()
+
+        # Moving on to the comment address
+        et.clear()
+        cmd = self._rt_pipe % {'queue': queue, 'action': "comment",
+                               'host': host}
+        et.populate(self.const.email_target_pipe, alias=cmd,
+                    using_uid=acc.entity_id)
+        et.write_db()
+        ea.clear()
+        ea.populate("%s-comment" % queue, rt_dom.email_domain_id,
+                    et.email_target_id)
+        ea.write_db()
+        msg = "RT queue %s on %s added" % (queue, host)
+        if replaced_lists:
+            msg += ", replacing mailing list(s) %s" % ", ".join(replaced_lists)
+        return msg
+
+    # email rt_delete queue[@host]
+    all_commands['email_rt_delete'] = Command(
+        ("email", "rt_delete"),
+        RTQueue(),
+        fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
+        perm_filter='can_rt_delete')
+    def email_rt_delete(self, operator, queuename):
+        queue, host = self._resolve_rt_name(queuename)
+        rt_dom = self._get_email_domain(host)
+        self.ba.can_rt_delete(operator.get_entity_id(), domain=rt_dom)
+        et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        result = []
+        for action in ("correspond", "comment"):
+            alias = self._rt_pipe % { 'action': action, 'queue': queue,
+                                      'host': host }
+            try:
+                et.clear()
+                et.find_by_alias(alias)
+                epat.clear()
+                try:
+                    epat.find(et.email_target_id)
+                except Errors.NotFoundError:
+                    pass
+                else:
+                    epat.delete()
+                for r in et.get_addresses():
+                    addr = '%(local_part)s@%(domain)s' % r
+                    ea.clear()
+                    ea.find_by_address(addr)
+                    ea.delete()
+                    result.append({'address': addr})
+                et.delete()
+            except Errors.NotFoundError:
+                pass
+        if not result:
+            raise CerebrumError, ("RT queue %s on host %s not found" %
+                                  (queue, host))
+        return result
+
+    # email rt_add_address queue[@host] address
+    all_commands['email_rt_add_address'] = Command(
+        ('email', 'rt_add_address'),
+        RTQueue(), EmailAddress(),
+        perm_filter='can_rt_address_add')
+    def email_rt_add_address(self, operator, queuename, address):
+        queue, host = self._resolve_rt_name(queuename)
+        rt_dom = self._get_email_domain(host)
+        self.ba.can_rt_address_add(operator.get_entity_id(), domain=rt_dom)
+        et = self._get_rt_email_target(queue, host)
+        lp, dom = self._split_email_address(address)
+        ed = self._get_email_domain(dom)
+        ea = Email.EmailAddress(self.db)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            raise CerebrumError, "Address already exists (%s)" % address
+        except Errors.NotFoundError:
+            pass
+        ea.clear()
+        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.write_db()
+        return ("OK, added '%s' as e-mail address for '%s'" %
+                (address, queuename))
+
+    # email rt_remove_address queue address
+    all_commands['email_rt_remove_address'] = Command(
+        ('email', 'rt_remove_address'),
+        RTQueue(), EmailAddress(),
+        perm_filter='can_email_address_delete')
+    def email_rt_remove_address(self, operator, queuename, address):
+        queue, host = self._resolve_rt_name(queuename)
+        rt_dom = self._get_email_domain(host)
+        self.ba.can_rt_address_remove(operator.get_entity_id(), domain=rt_dom)
+        et = self._get_rt_email_target(queue, host)
+        return self._remove_email_address(et, address)
     
+    # email rt_primary_address address
+    all_commands['email_rt_primary_address'] = Command(
+        ("email", "rt_primary_address"),
+        RTQueue(), EmailAddress(),
+        fs=FormatSuggestion([("New primary address: '%s'", ("address", ))]),
+        perm_filter="can_rt_address_add")
+    def email_rt_primary_address(self, operator, queuename, address):
+        queue, host = self._resolve_rt_name(queuename)
+        self.ba.can_rt_address_add(operator.get_entity_id(),
+                                   domain=self._get_email_domain(host))
+        rt = self._get_rt_email_target(queue, host)
+        et, ea = self.__get_email_target_and_address(address)
+        if rt.email_target_id != et.email_target_id:
+            raise CerebrumError, \
+                  ("Address <%s> is not associated with RT queue %s" %
+                   (address, queuename))
+        return self._set_email_primary_address(et, ea, address)
+
+    def _resolve_rt_name(self, queuename):
+        """Return queue and host of RT queue as tuple."""
+        if queuename.count('@') == 0:
+            # Use the default host
+            return queuename, "hjelp.uio.no"
+        elif queuename.count('@') > 1:
+            raise CerebrumError, "Invalid RT queue name: %s" % queuename
+        return queuename.split('@')
+
+    def _get_rt_email_target(self, queue, host):
+        et = Email.EmailTarget(self.db)
+        try:
+            et.find_by_alias(self._rt_pipe % { 'action': "correspond",
+                                               'queue': queue, 'host': host })
+        except Errors.NotFoundError:
+            raise CerebrumError, ("Unknown RT queue %s on host %s" %
+                                  (queue, host))
+        return et
+
     # email migrate
     all_commands['email_migrate'] = Command(
         ("email", "migrate"),

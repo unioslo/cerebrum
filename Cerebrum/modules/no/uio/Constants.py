@@ -43,6 +43,8 @@ from Cerebrum.modules.Email import \
      _EmailDomainCategoryCode
 from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
+from Cerebrum.modules.bofhd.utils import \
+     _AuthRoleOpCode
 
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
@@ -395,5 +397,14 @@ automatically generated from FS.''')
     trait_account_generation = _EntityTraitCode(
         'ac_generation', Constants.Constants.entity_account,
         "When a users homedir is archived, this value is increased.")
+
+    # bofhd constants
+    auth_rt_create = _AuthRoleOpCode(
+        'rt_create', 'Create e-mail target for Request Tracker')
+    auth_rt_replace = _AuthRoleOpCode(
+        'rt_replace', 'Replace existing mailing list with Request Tracker')
+    auth_rt_addr_add = _AuthRoleOpCode(
+        'rt_addr_add', 'Add e-mail address to Request Tracker target')
+
 
 # arch-tag: 2b7d46eb-fc77-4ce2-a691-0d49cbf3e597
