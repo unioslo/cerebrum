@@ -230,7 +230,7 @@ class XML2Cerebrum:
             pass
         else:
             #
-            # Although it is impossible for an OU *not* to be in cash when we
+            # Although it is impossible for an OU *not* to be in cache when we
             # find its sko in find_stedkode() above, *IF* the data source
             # duplicates an OU (clear error in the data source), then this
             # situation still may happen.

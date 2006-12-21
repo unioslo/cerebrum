@@ -131,7 +131,7 @@ class XMLOU2Object(XMLEntity2Object):
         # fi
 
         priority = element.find("Stedprio")
-        if priority is not None:
+        if priority is not None and priority.text is not None:
             priority = int(priority.text)
         # fi
 
@@ -191,10 +191,6 @@ class XMLOU2Object(XMLEntity2Object):
                      "Langnavn" : DataOU.NAME_LONG, }
 
         language = sub.findtext(".//Sap_navn_spraak")
-        # FIXME: This is alphaware. We'll need an explicit table keeping track
-        # of the allowed 2-char language codes.
-        assert language is None or language in ("EN", "NO")
-
         # Accumulate the results. One <stednavn> gives rise to several
         # DataName instances.
         result = list()
@@ -324,12 +320,12 @@ class XMLPerson2Object(XMLEntity2Object):
             if sub.tag in ("Gateadresse", "Adressetillegg"):
                 street.append(value)
             elif sub.tag in ("Postnummer",):
-                zip += value
+                zip = value
             elif sub.tag in ("Poststed",):
-                city += value
+                city = value
             elif sub.tag in ("Landkode",):
-                country += value
-            # NB! yes, "AdressType". Don't ask me who made that one up.
+                country = value
+            # NB! Note the spelling.
             elif sub.tag in ("AdressType",):
                 addr_kind = sap2intern.get(value, "")
             # fi

@@ -212,6 +212,9 @@ class DataName(object):
         self.language = lang
         if self.language:
             self.language = self.language.lower()
+            if self.language not in ("en", "it", "nl", "no", "nn",
+                                     "ru", "sv",):
+                raise ValueError, "Unknown language code " + lang
     # end __init__
 # end DataName
 

@@ -366,9 +366,9 @@ class XMLOU2Object(XMLEntity2Object):
                                             (result.NAME_SHORT,
                                              ("forkstednavn",),
                                              "no")):
-            result.add_name(DataName(name_kind,
-                                     self._pull_name(element, *candidates),
-                                     lang))
+            value = self._pull_name(element, *candidates)
+            if value:
+                result.add_name(DataName(name_kind, value, lang))
         # od
 
         extract = lambda y: element.get(y, "").encode("latin1")
