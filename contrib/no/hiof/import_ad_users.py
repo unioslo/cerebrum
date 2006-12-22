@@ -44,17 +44,18 @@ Tasks:
 * set homedir?
 * Check (and set) affiliation? 
 
-
 """
 
 import getopt
 import sys
 
 import cerebrum_path
-#import cereconf
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+
+
+# Globals
+SPREAD_PREFIX = 'spread_ad_account_' 
 
 
 
@@ -70,8 +71,8 @@ def attempt_commit():
 
 def process_line(infile):
     """
-    Scan all lines in INFILE and create corresponding account/group entries
-    in Cerebrum.
+    Scan all lines in INFILE, check the format and extract the
+    relevant information.
     """
 
     stream = open(infile, 'r')
@@ -87,7 +88,7 @@ def process_line(infile):
             tmp = line.split(';')
             uname, homedir = [x.strip() for x in tmp[0].split(':')]
             ou, domain = process_ou_dc(tmp[1].split(','))
-            spread = 'spread_ad_account_' + domain
+            spread = SPREAD_PREFIX + domain
         except:
             logger.warn("Suspicious line: %s" % line)
             continue
@@ -100,7 +101,7 @@ def process_line(infile):
         if homedir.endswith('$'):
             homedir = homedir[:-1]
 
-        process_user(uname, homedir, spread)
+        process_user(uname, homedir, spread, ou, domain)
 
         if commit_count % commit_limit == 0:
             attempt_commit()
@@ -109,6 +110,9 @@ def process_line(infile):
 
 
 def process_ou_dc(ou_dc_list):
+    """
+    Return the relevant OU and domain information. 
+    """
     ou = []
     dc = []
     for x in ou_dc_list:
@@ -116,15 +120,22 @@ def process_ou_dc(ou_dc_list):
             ou.append(x.split('=')[1])
         if x.startswith('DC='):
             dc.append(x.split('=')[1])
+    # Most significant OU is last in the list. Reverse before joining
+    # to string.
+    ou.reverse()
     return '/'.join(ou), dc[0]
 
 
-def process_user(uname, homedir, spread):
+def process_user(uname, homedir, spread, ou, domain):
     """
     Check if given user exists in Cerebrum, and warn if not.
-    If user exist register homedir
+    If user exist register homedir. Set OU and profile path traits.
     """
 
+    ## Note that we do not check if users have homedir, ou or profile
+    ## path before setting them. This is an import script, so the data
+    ## imported will override previous data.
+    
     account.clear()
     try:
         account.find_by_name(uname)
@@ -132,26 +143,33 @@ def process_user(uname, homedir, spread):
         logger.warn("User %s not in Cerebrum" % uname)
         return
 
+    ## TBD: What to to with OU for users in adm domain? It is not defined
+    account.populate_trait(constants.trait_ad_account_ou, strval=ou)
+    logger.debug("OU trait (%s) for account %s is set" % (ou, uname))
+
     try:
         spread = getattr(constants, spread)
     except AttributeError:
         logger.error("No spread %s defined" % spread)
+        return
     
-    try:
-        disk_id, home, status = account.get_home(spread)
-        logger.debug("User %s got home %s, %s, %s.", uname, disk_id,
-                     home, status)
-    except Errors.NotFoundError:
-        disk_id = process_home(homedir)
-        if not disk_id:
-            return 
-        homedir_id = account.set_homedir(disk_id=disk_id,
-                                         status=constants.home_status_not_created)
-        account.set_home(spread, homedir_id)
-        account.write_db()
-        logger.debug3("User %s got new home %s", uname, homedir)
-            
-    
+    disk_id = process_home(homedir)
+    if not disk_id:
+        return
+
+    homedir_id = account.set_homedir(disk_id=disk_id,
+                                     status=constants.home_status_not_created)
+    account.set_home(spread, homedir_id)
+    account.write_db()
+    logger.debug3("User %s got new home %s", uname, homedir)
+
+    # Create Profile path and set trait
+    if domain == 'adm':
+        profile_path = homedir + '\\profile'
+    else:
+        profile_path = homedir.replace('\\home\\', '\\profile\\')
+    account.populate_trait(constants.trait_ad_profile_path, strval=profile_path)
+
 
 def process_home(homedir):
     """
