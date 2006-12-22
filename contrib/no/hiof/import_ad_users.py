@@ -94,7 +94,7 @@ def process_line(infile):
             continue
 
         if not homedir:
-            logger.warn("No homedir given")
+            logger.warn("No homedir given for user " + uname)
             continue
 
         # søppel som må strippes vekk
