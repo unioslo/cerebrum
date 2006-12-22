@@ -40,6 +40,17 @@
     <br />  
 #end def
 
+#def generate_td2loption($name, $label, $types, $selected=None,$tdattrs={'align': {'left': 'left','right' :'left'}})
+	#for $attr in $tdattrs.keys()
+		<td $attr="$tdattrs[$attr]['left']">
+			<label for="$name">$_($label):</label>
+		</td>
+		<td $attr="$tdattrs[$attr]['right']">
+			$generate_option($name, $types, $selected)
+		</td>
+	#end for
+#end def
+
 ## Generate a drop-down list for selecting a Cerebrum code
 ## Example (choosing perspective):
 ## 

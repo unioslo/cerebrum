@@ -19,13 +19,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cherrypy
+import sys
 
 import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect, redirect_object, object_link
 from lib.utils import transaction_decorator, commit, commit_url
-from lib.utils import rollback_url
+from lib.utils import rollback_url, legal_domain_format
+from lib.utils import legal_domain_chars
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
@@ -98,7 +100,7 @@ search.exposed = True
 
 def create(transaction):
     page = Main()
-    page.title = _("Create email domain")
+    page.title = _("Email domains")
     page.setFocus("email/create")
     content = EmailDomainTemplate().create(transaction)
     page.content = lambda: content
@@ -167,17 +169,38 @@ save = transaction_decorator(save)
 save.exposed = True
 
 def make(transaction, name, description, category):
-    err=False
     msg=''
     if name:
-        rest=name.strip()
-        if not rest.isalnum():
-            msg=_('Domain name contains unlegal characters.')
-            err=True
+        if not legal_domain_format(name):
+            msg=_('Domain-name is not a legal name.')
+        if not msg:
+            if not legal_domain_chars(name):
+                msg=_('Domain-name contains unlegal characters.')
     else:
-        msg=_("Domain name is empty.")
-        err=True
-    if not err:
+        msg=_('Domain name is empty.')
+
+    import_err=False
+    mx_exists=False
+    if not msg:
+        try:
+            sys.path.append('/home/kandal/python/dnspython-1.5.0')
+            import dns.resolver
+        except ImportError:
+            import_err=True
+        else:
+            try:
+                answers=dns.resolver.query( name, 'MX')
+            except dns.resolver.NXDOMAIN:
+                pass
+            else:
+                mx_exists=True
+    
+    if not msg and import_err:
+        msg=_('DNS-library not installed. DNS-query cannot be executed.')
+    if not msg and not mx_exists:
+        msg=_('Domain-name is not registered in DNS.')
+
+    if not msg:
         domain = transaction.get_commands().create_email_domain(name, description)
         if category:
             category = transaction.get_email_domain_category(category)

@@ -283,7 +283,7 @@ def legal_domain_format( domain ):
 
 def legal_domain_chars( domain ):
     rest=re.sub('\-*\.*','',domain)
-    if not rest.isalnum( rest ):
+    if not rest.isalnum():
         return False
     return True
 

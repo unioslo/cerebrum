@@ -206,10 +206,10 @@ div.td_lead_info{
 }
 
 div.td_passwd_info {
-padding: 0 0.5em 0 0.5em;
-width: auto;
-font-style: oblique;
-font-weight: bold;
+	padding: 0 0.5em 0 0.5em;
+	width: auto;
+	font-style: oblique;
+	font-weight: bold;
 }
 
 div.view_content div.info {
@@ -255,16 +255,28 @@ div.createform table{
 	width: 100%;
 	text-align: left;
 }
-
+/*
 div.createform label, div.createform input, div.createform select, div.createform textarea {
     width: 12em;
     float: left;
     margin-bottom: 0.4em;
 }
+*/
+
+div.createform input, div.createform textarea {
+	float: left;
+	width: auto;
+	margin-bottom: 0.4em;
+}
+
+div.createform select {
+	width: 12em;
+	float: left;
+	margin-bottom: 0.4em;
+}
 
 div.createform label {
     /* text-align: right; */
-	width: auto;
     /* width: 11em; */
     /* padding-right: 12px; */
     text-align: left;
@@ -449,12 +461,21 @@ div.email_view {
 	white-space: normal; 
 }
 
-div.td_lead_email{
+div.email_view select {
+	width: 13em;
+}
+
+div.email_view table {
+	width: 100%;
+}
+
+div.td_email_view {
 	padding: 0 0.5em 0 0.5em;
 	width: auto;
 	font-style: oblique;
 	font-weight: bold;
 }
+
 
 ## Actions is links wich perfom action on something, for instance
 ## [delete] on notes. Or [edit] on the view person page.
