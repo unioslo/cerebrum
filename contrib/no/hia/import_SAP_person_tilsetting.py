@@ -118,13 +118,13 @@ def populate_tilsetting(person, ou, fields, const):
     # fi
 
     if not locate_person(person, sap_id, const):
-        logger.warn("Aiee! Cannot locate person with SAP id «%s»",
+        logger.info("Aiee! Cannot locate person with SAP id «%s»",
                     sap_id)
         return False
     # fi
 
     if not locate_ou(ou, orgeh, fo_kode, const):
-        logger.warn("Aiee! Cannot locate OU with SAP id «%s-%s»",
+        logger.info("Aiee! Cannot locate OU with SAP id «%s-%s»",
                     orgeh, fo_kode)
         return False
     # fi
@@ -184,7 +184,7 @@ def process_tilsettinger(filename, db):
         # fi
 
         if not populate_tilsetting(person, ou, fields, const):
-            logger.warn("Skipping employment record «%s»", entry.strip())
+            logger.debug("Skipping employment record «%s»", entry.strip())
             continue
         # fi
 
