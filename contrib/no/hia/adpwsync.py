@@ -56,10 +56,9 @@ def quick_user_sync():
         if chg_type == clco.account_password:
             change_params = pickle.loads(ans['change_params'])
             if change_pw(ans['subject_entity'],change_params):
+                cl.confirm_event(ans)
         else:
             logger.info("unknown chg_type %i" % chg_type)
-
-        cl.confirm_event(ans)
         
     cl.commit_confirmations()    
 
