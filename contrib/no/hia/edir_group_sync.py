@@ -71,34 +71,49 @@ from Cerebrum.modules import CLHandler
 
 def group_mod(mod_type, group_id, member_id):
     group = Factory.get("Group")(db)
+    grp = Factory.get("Group")(db)
+    acc = Factory.get("Account")(db)
+    ent_name = ""
+    ent_type = "account"
+    edir_group = False
     group.clear()
     group.find(group_id)
-    group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name 
-    
+
+    for row in group.get_spread():
+        if int(constants.spread_hia_novell_group) == row['spread']:
+            edir_group = True
+    if not edir_group:
+        logger.debug("Skipping, group %s not in eDir", group.group_name)
+        return
+
+    group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
     op = constants.group_memberop_union
-## TODO: fix this so that other group objects may be added
-##    subj_ent = Factory.get('Entity')(db)
-##    try:
-##        subj_ent.find(member_id)
-##    except Errors.NotFoundError:
-##        logger.error('Could not find entity %s.', member_id)
-##        return
-    account = Factory.get('Account')(db)
+    subj_ent = Factory.get('Entity')(db)
+    subj_ent.clear()
     try:
-        account.find(member_id)
+        subj_ent.find(member_id)
     except Errors.NotFoundError:
-        logger.error('Could not find account %s.', member_id)
+        logger.warn('No such entity %s.', member_id)
+        return
+    if subj_ent.entity_type == constants.entity_account:
+        acc.find(member_id)
+        ent_name = acc.account_name
+    elif subj_ent.entity_type == constants.entity_group:
+        grp.find(member_id)
+        ent_type = "group"
+        ent_name = cereconf.NW_GROUP_PREFIX + '-' + grp.group_name
+    else:
+        logger.warn("Only groups or accounts may be members!")
         return
 
     if mod_type == constants.group_add:
         logger.info('Adding to group')
-        edir_util.group_modify('add', group_name, account.account_name)
-        logger.info('New member %s added to %s' % (account.account_name, group_name))
+        edir_util.group_modify('add', group_name, ent_name, ent_type)
+        logger.info('New member %s added to %s' % (ent_name, group_name))
     elif mod_type == constants.group_rem:
         logger.info('Removing from group')
-        edir_util.group_modify('delete', group_name,account.account_name)
-        logger.info('Member %s removed from %s' % (account.account_name, group_name))
-
+        edir_util.group_modify('delete', group_name, ent_name, ent_type)
+        logger.info('Member %s removed from %s' % (ent_name, group_name))
 
         
 def main():
@@ -129,7 +144,7 @@ def main():
             sys.exit(0)
             
         for event in cl_events:
-            if event['change_type_id'] in [constants.group_add, constants.group_rem]:
+            if event['change_type_id'] in [constants.group_add, constants.group_rem,]:
                 group_mod(event['change_type_id'],
                           event['dest_entity'],
                           event['subject_entity'])
