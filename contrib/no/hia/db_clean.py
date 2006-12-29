@@ -232,8 +232,11 @@ keep_togglers = [
     {'columns': ('subject_entity', ),
      'triggers': (co.entity_addr_add, co.entity_addr_del)},
     ]
+    if never_forget_homedir:
+        toggleable = 0
+    else:
+        toggleable = 1
 
-if not never_forget_homedir:
     keep_togglers.extend([
         # Account homedir  (obsolete)
         {'columns': ('subject_entity', ),
