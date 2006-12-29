@@ -54,24 +54,27 @@ class EdirUtils:
         self.__ldap_handle.ldap_add_object(dn, attrdict)
 
 ## GROUP:  add/remove group_member.
-    def group_modify(self, mod_type, group_name, member_name):
+    def group_modify(self, mod_type, group_name, member_name, member_type):
         """Add an existing account object to a group in eDir."""
         attr_g = {}
         attr_m = {}
-        ## TODO: should support group-object members
         ldap_group = self._find_object(group_name, self.c_group)
-        ldap_account = self._find_object(member_name, self.c_person)
+        if member_type == "account":
+            ldap_member = self._find_object(member_name, self.c_person)
+        elif member_type == "group":
+            ldap_member = self._find_object(member_name, self.c_group)
         if ldap_group:
             (ldap_group_dn, group_attr) = ldap_group[0]
-            if ldap_account:
-                (ldap_account_dn, ldap_attr) = ldap_account[0]
-                attr_g['member'] = [ldap_account_dn]
+            if ldap_member:
+                (ldap_member_dn, ldap_attr) = ldap_member[0]
+                attr_g['member'] = [ldap_member_dn]
                 if mod_type == 'add':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
                 elif mod_type == 'delete':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
                 attr_m['groupMembership'] = [ldap_group_dn]
-                attr_m['securityEquals'] = [ldap_group_dn]
+                if member_type == 'account':
+                    attr_m['securityEquals'] = [ldap_group_dn]
                 if mod_type == 'add':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_m)
                 elif mod_type == 'delete':
