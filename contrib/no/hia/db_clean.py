@@ -166,6 +166,9 @@ keep_togglers = [
     # Account updates
     {'columns': ('subject_entity', ),
      'triggers': (co.account_mod, )},
+    # Account updates
+    {'columns': ('subject_entity', ),
+     'triggers': (co.posix_demote, )},    
     # Account passwords
     {'columns': ('subject_entity', ),
      'triggers': (co.account_password, )},
@@ -196,11 +199,11 @@ keep_togglers = [
     {'columns': ('subject_entity', ),
      'change_params': ('name_variant', 'src', ),
      'triggers': (co.person_name_del, co.person_name_add, co.person_name_mod)},
-    # Person external id
-#    {'columns': ('subject_entity', ),
-#     'change_params': ('id_type', 'src'),
-#     'triggers': (co.person_ext_id_del, co.person_ext_id_mod,
-#                  co.person_ext_id_add)},
+    # Person (entity) external id
+    {'columns': ('subject_entity', ),
+     'change_params': ('id_type', 'src'),
+     'triggers': (co.entity_ext_id_del, co.entity_ext_id_mod,
+                  co.entity_ext_id_add)},
     # Person affiliation
     # TBD: The CL data could preferably contain more data
     {'columns': ('subject_entity', ),
@@ -237,9 +240,16 @@ if not never_forget_homedir:
          'triggers': (co.account_move, )},
         # Account homedir
         {'columns': ('subject_entity', ),
+         'toggleable': toggleable,
          'change_params': ('spread', ),
          'triggers': (co.account_home_updated, co.account_home_added,
-                      co.account_home_removed)}
+                      co.account_home_removed)},
+        # Set/update homedir
+        {'columns': ('subject_entity', ),
+         'toggleable': toggleable,
+         'change_params': ('homedir_id', ),
+         'triggers': (co.homedir_add, co.homedir_update, co.homedir_remove)}
+        ])        
         ])
 
 
