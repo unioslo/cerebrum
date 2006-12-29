@@ -249,7 +249,6 @@ if not never_forget_homedir:
          'toggleable': toggleable,
          'change_params': ('homedir_id', ),
          'triggers': (co.homedir_add, co.homedir_update, co.homedir_remove)}
-        ])        
         ])
 
 
