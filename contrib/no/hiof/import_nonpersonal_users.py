@@ -26,7 +26,7 @@ it should be run only once (about right after the database has been
 created).
 
 The input format for this job is a file with one line per
-account. Each line has four fields separated by ':'.
+account. Each line has four fields separated by ';'.
 
 <uname>
 """
@@ -52,8 +52,6 @@ def attempt_commit():
     else:
         db.commit()
         logger.debug("Committed all changes")
-    # fi
-# end attempt_commit
 
 
 
@@ -88,10 +86,7 @@ def process_line(infile):
         if not account_id:
             logger.warn("Couldn't create account %s", uname)
             
-        
-    # od
     stream.close()
-# end process_line
 
 
 def process_group(gname):
@@ -127,6 +122,8 @@ def process_account(owner_group_id, uname):
         logger.warn("User %s exists in Cerebrum", uname)
         return None
     except Errors.NotFoundError:
+        if account.illegal_name(uname):
+            return None
         account.populate(uname,
                          owner_type,
                          owner_group_id,
@@ -142,11 +139,10 @@ def process_account(owner_group_id, uname):
 
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print """Usage: import_nonpersonal_users.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
-# end usage
 
 
 
@@ -164,7 +160,6 @@ def main():
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
-    # yrt
 
     dryrun = False
     for opt, val in opts:
@@ -172,12 +167,9 @@ def main():
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
-        # fi
-    # od
 
     if infile is None:
         usage()
-    # fi
 
     db = Factory.get('Database')()
     db.cl_init(change_program='import_uname')
@@ -190,13 +182,9 @@ def main():
     process_line(infile)
 
     attempt_commit()
-# end main
-
-
 
 
 
 if __name__ == '__main__':
     main()
-# fi
 
