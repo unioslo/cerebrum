@@ -42,8 +42,9 @@ co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
 # TBD: Do we *ever* need to supply the perspective explicitely, even if we
 # always supply source_system?
-source2perspective = { co.system_lt  : co.perspective_lt,
-                       co.system_sap : co.perspective_sap }
+source2perspective = {co.system_lt: co.perspective_lt,
+                      co.system_sap: co.perspective_sap,
+                      co.system_fs: co.perspective_fs,}
 
 
 
