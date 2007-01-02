@@ -97,7 +97,7 @@ class data:
                 (first_name,last_name) = string.split(name[162],' ',1)
                 uid = self.account.get_account_name()
                 email = self.account.get_primary_mailaddress()
-                crypt = self.account.get_account_authentication(self.constants.auth_type_md5_b64)
+                crypt = self.account.get_account_authentication(self.constants.auth_type_md5_crypt)
                 self.person.clear()
                 self.person.find(self.account.owner_id)
                 person_affiliations= self.person.get_affiliations()

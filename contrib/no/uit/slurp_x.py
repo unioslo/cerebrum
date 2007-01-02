@@ -470,10 +470,17 @@ class execute:
             
             # IF this account has a student affiliation. do not update primary email address with an invalid code.
             # IF this account does NOT have a student affiliation. update the email primary address with the invalid code.
-            acc_type = account_obj.list_accounts_by_type(account_id=account_obj.entity_id,
-                                                         affiliation=self.constants.affiliation_student)
-            if (len(acc_type)>0):
+            #acc_type = account_obj.list_accounts_by_type(account_id=account_obj.entity_id,
+            #                                             affiliation=self.constants.affiliation_student)
+            
+            person_aff =  self.person.list_affiliations(person_id=self.person.entity_id,affiliation=self.constants.affiliation_student)
+            print "person_aff=%s" % person_aff
+            if(len(person_aff)>0):
+                acc_type="True"
+                print "%s has student affiliation" % account_obj.entity_id
                 ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
+            #if (len(acc_type)>0):
+            #    ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
             elif(bruker_epost!=""):
                 ad_email="%s" % bruker_epost
             else:
