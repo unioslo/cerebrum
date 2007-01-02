@@ -800,6 +800,8 @@ class BofhdExtension(object):
         ("host", "rename"), HostId(), HostId(), Force(optional=True),
         perm_filter='is_dns_superuser')
     def host_rename(self, operator, old_id, new_id, force=False):
+        if old_id == "" or new_id == "" :
+            raise CerebrumError, "Cannot rename without both an old and a new name."
         self.ba.assert_dns_superuser(operator.get_entity_id())
         lastpart = new_id.split(".")[-1]
         # Rename by IP-number
