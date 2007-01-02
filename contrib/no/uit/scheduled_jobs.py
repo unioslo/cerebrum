@@ -35,12 +35,22 @@ def get_jobs():
     contrib_uit='/cerebrum/share/cerebrum/contrib/no/uit'
     dumps='/cerebrum/var/dumps'
     source='/cerebrum/var/source'
+    log_dir = '/cerebrum/var/log/cerebrum'
     date = time.localtime()
     year = date[0]
     month = date[1]
     day = date[2]
     time_stamp= "%02d%02d%02d" % (year,month,day)
-    print "time_stamp =%s" % time_stamp
+
+
+    #threshold_date is used by rotate_change_log
+    time_float = time.mktime(date)-(60*60*24*30) # (60*60*24*30) => 1 month
+    new_time = time.gmtime(time_float)
+    nt_year = new_time[0]
+    nt_month = new_time[1]
+    nt_day = new_time[2]
+    threshold_date="%02d%02d%02d" % (nt_year,nt_month,nt_day)
+    
     return {
         ##################################
         # generate import files          #
@@ -69,20 +79,24 @@ def get_jobs():
 
         # generate import files for employees
 
-        'get_user_info' : Action(pre=None,
-                                 call=System('%s/get_user_info.py' % contrib_uit),
-                                 max_freq=60),
+        #'get_user_info' : Action(pre=None,
+        #                         call=System('%s/get_user_info.py' % contrib_uit),
+        #                         max_freq=60),
         
-        'get_slp4_data' : Action(pre = ['get_user_info'],
+        'get_slp4_data' : Action(pre =None,
                                  call=System('%s/get_slp4_data.py' % contrib_uit),
                                  max_freq=60),
 
-        'parse_user_info' : Action(pre=['get_slp4_data'],
-                                   call=System('%s/parse_user_info.py' % contrib_uit,
-                                   params=['-e']),
+        'import_stillingskoder': Action(pre=['get_slp4_data'],
+                                   call=System('%s/import_stillingskoder.py' % contrib_uit),
                                    max_freq=60),
 
-        'generate_persons' : Action(pre=['parse_user_info'],
+        #'parse_user_info' : Action(pre=['import_stillingskoder'],
+        #                           call=System('%s/parse_user_info.py' % contrib_uit,
+        #                           params=['-e']),
+        #                           max_freq=60),
+
+        'generate_persons' : Action(pre=['import_stillingskoder'],
                                     call=System('%s/generate_persons.py' % contrib_uit,
                                     params=['-t','AD']),
                                     max_freq=60),
@@ -103,14 +117,14 @@ def get_jobs():
 
         'import_FS' : Action(pre=['merge_xml_files'],
                              call=System('%s/import_FS.py' % contrib_uit,
-                                         params=['-s','%s/FS/studieprog.xml' % dumps,'-p','%s/FS/merged_persons.xml' % dumps,'-g']),max_freq=60),
+                                         params=['-s','%s/FS/studieprog.xml' % dumps,'-p','%s/FS/merged_persons.xml' % dumps,'-g','-d']),max_freq=60),
 
 
         # import employee data to cerebrum
 
         'import_LT' : Action(pre=['generate_persons'],
                              call=System('%s/import_LT.py' % contrib_uit,
-                                         params=['-p','%s/employees/uit_persons_%s.xml'% (dumps,time_stamp)]),
+                                         params=['-d','-p','%s/employees/uit_persons_%s.xml'% (dumps,time_stamp)]),
                              max_freq=60),
 
         # import ou data to cerebrum
@@ -168,19 +182,54 @@ def get_jobs():
                                max_freq=60,
                                post=['export_ldap_copy']),
         
-        'export_sut' : Action(pre=None,
-                              call=System('%s/export_sut.py' % contrib_uit,
-                                           params=['-s','%s/sut/uit_persons_%s' % (dumps,time_stamp)]),
-                              post=['copy_export_sut'],
+        #'export_sut' : Action(pre=None,
+        #                      call=System('%s/export_sut.py' % contrib_uit,
+        #                                   params=['-s','%s/sut/uit_persons_%s' % (dumps,time_stamp)]),
+        #                      post=['copy_export_sut'],
+        #                      max_freq=60),
+
+
+        'export_sut_new' : Action(pre=None,
+                              call=System('%s/export_sut_new.py' % contrib_uit,
+                                           params=['-s','%s/sut/uit_persons_new_%s' % (dumps,time_stamp)]),
+                              post=['copy_export_sut_new'],
                               max_freq=60),
 
-        'copy_export_sut' : Action(pre=None,
+
+        'export_sut_uid' : Action(pre=None,
+                                  call=System('%s/export_sut_new.py' % contrib_uit,
+                                              params=['-s','%s/sut/uit_persons_new_%s' % (dumps,time_stamp)]),
+                                  post=['copy_export_uid']),
+                                  
+
+        'export_sut_uid' : Action(pre=None,
+                              call=System('%s/generate_uid.py' % contrib_uit,
+                                           params=['-u','%s/sut/posixuser_uid' % (dumps)]),
+                              post=['copy_export_uid'],
+                              max_freq=60),
+
+
+
+        'copy_export_uid' : Action(pre=None,
                                    call=System('/usr/bin/scp',
-                                               params=['%s/sut/uit_persons_%s' % (dumps,time_stamp) ,'root@flam.student.uit.no:/its/apache/data/sliste.dta']),
-                                   max_freq=60),
+                                               params=['%s/sut/posixuser_uid' % (dumps) ,'root@picknose.student.uit.no:scripts/data/uid_export.dta']),
+                                       max_freq=60),
+
+
+
+        'copy_export_sut_new' : Action(pre=None,
+                                   call=System('/usr/bin/scp',
+                                               params=['%s/sut/uit_persons_new_%s' % (dumps,time_stamp) ,'root@scorch.student.uit.no:scripts/data/sut.export']),
+                                       max_freq=60),
+
+        
+        #'copy_export_sut' : Action(pre=None,
+        #                           call=System('/usr/bin/scp',
+        #                                       params=['%s/sut/uit_persons_%s' % (dumps,time_stamp) ,'root@flam.student.uit.no:/its/apache/data/sliste.dta']),
+        #                           max_freq=60),
 
         'export_ldap_copy' : Action(pre=None,
-                                    call=System('%s/ldapmodify.py' % contrib_uit),
+                                   call=System('%s/ldapmodify.py' % contrib_uit),
                                     max_freq=60,
                                     post=None),
         
@@ -190,13 +239,12 @@ def get_jobs():
                                     post=None),
 
         'export_fd' : Action(pre=None,
-                              call=System('%s/export_fd.py' % contrib_uit,
-                                           params=['-o','%s/FD/fd_export_%s.txt' % (dumps,time_stamp)]),
+                              call=System('%s/export_fd.py' % contrib_uit),
                               post=['copy_export_fd'],
                               max_freq=60),
 
         'copy_export_fd' : Action(pre=None,
-                                   call=System('%s/copy_fd_export.sh' % contrib_uit),
+                                   call=System('%s/copy_omni_export.sh' % '/cerebrum/bin'),
                                    max_freq=60),
 
         ###############
@@ -229,35 +277,76 @@ def get_jobs():
 
         'daily_export_all' : Action(pre=['daily_process_all'],
                                     call=None,
-                                    post=['export_fd','export_ldap','export_sut','generate_fronter_groups','export_frida']),
+                                    post=['export_fd','export_ldap','export_sut_new','generate_fronter_groups','export_frida','export_sut_uid']),
+
+        'update_FS_mailadr' : Action(pre=['daily_process_all'],
+                                     call=System('%s/../update_FS_mailadr.py' % contrib_uit,
+                                                 params=['-e']),
+                                     post=None),
 
         'full_pupp' : Action(pre=None,
                              call=None,
                              when=When(time=[Time(min=[00],hour=[02])]),
-                             post=['daily_process_all','daily_export_all']),
+                             post=['daily_process_all','daily_export_all','update_FS_mailadr']),
 
         
         'run_export_ldap' : Action(pre=None,
                                    call=System('%s/export_ldap.py' % contrib_uit),
-                                   max_freq=60*5,when=When(freq=10*60),
+                                   max_freq=60*5,when=When(freq=10*60),notwhen = When(time=Time(hour=[2])),
                                    post=['export_ldap_copy']),
 
-        'run_export_sut' : Action(pre=None,
-                                  call=System('%s/export_sut.py' % contrib_uit,
-                                              params=['-s','%s/sut/uit_persons_%s' % (dumps,time_stamp)]),
-                                  max_freq=60*5,when=When(freq=10*60),
-                                  post=['copy_export_sut']),
+        # run_export_sut is no longer needed. # kenneth 17 august 2006
+        #'run_export_sut' : Action(pre=None,
+        #                          call=System('%s/export_sut.py' % contrib_uit,
+        #                                      params=['-s','%s/sut/uit_persons_%s' % (dumps,time_stamp)]),
+        #                          max_freq=60*5,when=When(freq=10*60),notwhen = When(time=Time(hour=[2])),
+        #                          post=['copy_export_sut']),
+
+        'run_export_sut_new' : Action(pre=None,
+                                  call=System('%s/export_sut_new.py' % contrib_uit,
+                                              params=['-s','%s/sut/uit_persons_new_%s' % (dumps,time_stamp)]),
+                                  max_freq=60*10,when=When(freq=60*60),notwhen = When(time=Time(hour=[2])),
+                                  post=['copy_export_sut_new']),
+
+        'run_export_sut_uid' : Action(pre=None,
+                                      call=System('%s/generate_uid.py' % contrib_uit,
+                                                  params=['-u','%s/sut/posixuser_uid' % (dumps)]),
+                                      when=When(time=[Time(min=[00],hour=[03])]),
+                                      post=['copy_export_uid'],
+                                      ),
+
+        #'run_uid_export' : Action(pre=None,
+        #                          call=System('%s/generate_uid.py' % contrib_uit,
+        #                                      params=['-u','%s/sut/posixuser_uid' % (dumps)]),
+        #                          when=When(time=[Time(min=[00],hour=[03])]),
+        #                          post=['copy_export_sut_new']),
+
+        
        
         'run_slurp' : Action(pre=None,
                              call=System('%s/slurp_x.py' % contrib_uit,
                                          params=['-s','%s/System_x/guest_data' % (dumps),'-u']),
-                             when=When(time=[Time(min=[00],hour=[06])]),
+                             when=When(time=[Time(min=[00],hour=[01])]),
                              post=None),
 
         'run_fd_sync' : Action(pre=None,
                              call=System('%s/adpwsync.py' % contrib_uit),
-                             max_freq=60*5,when=When(freq=10*60),
-                             post=None)
+                             max_freq=60*3,when=When(freq=5*60),notwhen = When(time=Time(hour=[2,3])),
+                             post=None),
+
+        'run_sut_disk_quarantine' : Action(pre=None,
+                                           call=System('%s/disk_quota.py' % contrib_uit,
+                                                       params=['-h','scorch.student.uit.no','-d','cerebrum','-D','admin']),
+                                           when=When(time=[Time(min=[00],hour=[05])]),
+                                           post=None),
+                                           
+
+        'run_rotate_change_log' : Action(pre=None,
+                                            call=System('%s/rotate_change_log.py' % contrib_uit,
+                                                        params=['-D','%s' % (threshold_date),'-d','%s/change_log_%s.bz2' % (log_dir,time_stamp),'-c','account_type_FS,fix_acc_type,fix_group_spread,fix_homedir,fnr_update,import_FS,import_LT,import_OU,join_persons,makedb,manual_entry,pop_extern_grps,process_empl,process_students,slurp_x,uit_functions']),
+                                            when=When(time=[Time(min=[00],hour=[05])]),
+                                            post=None)
+        
 
         # Kast gamle changelog entries hver lørdag kl 06:00
         #'db_clean_changelog' = Action(pre=None,
