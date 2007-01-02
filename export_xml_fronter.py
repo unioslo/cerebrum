@@ -43,6 +43,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.no.uit.Email import email_address
 
 db = const = logger = None
+logger_name = cereconf.DEFAULT_LOGGER_TARGET
 fxml = None
 romprofil_id = {}
 
@@ -50,25 +51,22 @@ romprofil_id = {}
 #logger = logging.getLogger("console")
 
 #logger = Factory.get_logger("console")
-logger = Factory.get_logger("cronjob")
+#logger = Factory.get_logger("cronjob")
 
 
 def init_globals():
-    global db, const, logger
+    global db, const, logger,logger_name
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     
-    #logger = Factory.get_logger("console")
-    #logging.fileConfig(cereconf.LOGGING_CONFIGFILE_NEW)
-    #logger = logging.getLogger("console")
-   
     cf_dir = os.path.join(cereconf.DUMPDIR, 'Fronter')
     log_dir = os.path.join(cereconf.CB_PREFIX,'var','log')
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h:',
+        opts, args = getopt.getopt(sys.argv[1:], 'h:l:',
                                    ['host=', 'rom-profil=',
-                                    'debug-file=', 'debug-level='])
+                                    'debug-file=', 'debug-level=',
+                                    'logger_name='])
     except getopt.GetoptError:
         usage(1)
     debug_file = os.path.join(log_dir, "x-import.log")
@@ -84,8 +82,13 @@ def init_globals():
         elif opt == 'rom-profil':
             profil_navn, profil_id = val.split(':')
             romprofil_id[profil_navn] = profil_id
+        elif opt in ('-l','--logger_name'):
+            logger_name=val
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
+
+
+    logger = Factory.get_logger(logger_name)
 
     host_profiles = {'uit': {'emnerom': 128, # old value 1520
                              'studieprogram': 128},# old value 1521

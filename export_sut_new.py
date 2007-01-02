@@ -130,7 +130,7 @@ def main():
     UNION
     select entity_name.entity_name,aa.auth_data,pu.posix_uid,entity_name.entity_name, eq.quarantine_type
     from group_info gi,account_authentication aa, posix_user pu LEFT JOIN entity_quarantine eq ON pu.account_id=eq.entity_id, entity_name AS en_alias, group_member gm
-    where en_alias.entity_name in='gjeste-brukere'
+    where en_alias.entity_name ='gjeste-brukere'
     and en_alias.entity_id = gi.group_id
     and gi.group_id=gm.group_id
     and gm.member_id=entity_name.entity_id
