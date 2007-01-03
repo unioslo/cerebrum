@@ -221,7 +221,7 @@ class DummyHost(DummyEntity):
 
     def _create_obj(self):
         tr, c = self._get_trc()
-        host_name = 'unittest_h%s' % id(self)
+        host_name = 'h%s.test.ntnu.no' % id(self)
         host = c.create_host(host_name, host_name)
         hid = host.get_id()
         self._commit()
