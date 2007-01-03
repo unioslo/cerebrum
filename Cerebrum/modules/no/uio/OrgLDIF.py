@@ -103,8 +103,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         p_id = int(row['person_id'])
         if not dn:
             return dn, entry, alias_info
-        entry['objectClass'].append('eduCourse')
         if self.ownerid2urnlist.has_key(p_id):
-            entry['eduCourseOffering'] = self.ownerid2urnlist[p_id]
+            entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
         return dn, entry, alias_info
 # arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914
