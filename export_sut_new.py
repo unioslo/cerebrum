@@ -137,7 +137,7 @@ def main():
     and aa.account_id=gm.member_id
     and aa.method=%s
     and pu.account_id = gm.member_id;
-    """ % (int(co.spread_uit_sut_user),int(co.auth_type_md5_crypt),int(co.spread_uit_sut_user),today,int(co.name_full),int(co.system_cached),int(co.auth_type_md5_crypt))
+    """ % (int(co.spread_uit_fd),int(co.auth_type_md5_crypt),int(co.spread_uit_fd),today,int(co.name_full),int(co.system_cached),int(co.auth_type_md5_crypt))
 
     #print "startin query...%s" % query
     db.row = db.query(query)
