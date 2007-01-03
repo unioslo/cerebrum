@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import Cerebrum.Database
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -26,6 +27,7 @@ from Types import EntityType
 from Commands import Commands
 
 from SpineLib import Registry
+from SpineLib.SpineExceptions import ValueError
 registry = Registry.get_registry()
 
 __all__ = ['Host']
@@ -50,12 +52,17 @@ registry.register_class(Host)
 
 def create(self, name, description):
     db = self.get_database()
-    new_id = Host._create(db, name, description)
+    try:
+        new_id = Host._create(db, name, description)
+    except Cerebrum.Database.IntegrityError:
+        raise ValueError('Invalid host name.')
     return Host(db, new_id)
 create.signature = Host
 create.signature_name = 'create_host'
 create.signature_args = [str, str]
 create.signature_write = True
+create.signature_exceptions = [ValueError]
+
     
 Commands.register_methods([create])
 
