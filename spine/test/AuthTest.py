@@ -48,9 +48,12 @@ class AuthTest(SpineObjectTest):
 class AuthOperationSetTest(AuthTest):
     def createObject(self):
         super(AuthOperationSetTest, self).createObject()
-        self.op_code_1 = self.tr.get_auth_operation_code('add_disks')
-        self.op_code_2 = self.tr.get_auth_operation_code('create_user')
-        self.op_code_3 = self.tr.get_auth_operation_code('create_group')
+        try:
+            self.op_code_1 = self.tr.get_auth_operation_code_searcher().search()[0]
+            self.op_code_2 = self.tr.get_auth_operation_code_searcher().search()[1]
+            self.op_code_3 = self.tr.get_auth_operation_code_searcher().search()[2]
+        except IndexError, e:
+            self.fail('No AuthOpCodes in the database.')
         self.ops = self.tr.get_commands().create_auth_operation_set('test','test')
     
     def testCreate(self):
