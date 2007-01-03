@@ -4,6 +4,17 @@ from sets import Set
 
 # This is the auth_operation_sets and auth_operations used at NTNU.
 public = [ # {{{
+	'AccountSearcher.set_search_limit',
+	'AccountSearcher.set_name_like',
+	'AccountSearcher.search',
+	'PersonSearcher.set_search_limit',
+	'PersonSearcher.search',
+        'PersonNameSearcher.set_name_variant',
+        'PersonNameSearcher.set_source_system',
+	'DiskSearcher.search',
+	'GroupSearcher.set_search_limit',
+	'GroupSearcher.set_name_like',
+	'GroupSearcher.search',
         'CerewebMotd.get_creator',
         'EntityExternalId.get_id_type',
         'EntityExternalId.get_external_id',
@@ -23,14 +34,36 @@ public = [ # {{{
         'Account.get_name',
         'Account.get_type',
         'Account.get_description',
+        'Group.get_id',
+        'Group.get_name',
+        'Group.get_type',
+        'Group.get_description',
+        'Group.get_description',
+        'Group.is_posix',
+        'Person.get_type',
+        'Person.get_id',
+	'Disk.get_id',
+	'Disk.get_host',
+	'Disk.get_path',
+	'Host.get_name',
+	'AccountAuthentication.get_method',
+	'EmailTargetTypeSearcher.search',
+	'EmailTargetSearcher.set_entity',
+	'EmailTargetSearcher.search',
+	'SpreadSearcher.search',
+	'GroupMemberOperationTypeSearcher.search',
 ] # }}}
 mySelf = [ # {{{
         'Account.get_accounts',
+        'Account.get_homes',
+        'Account.get_authentications',
         'Account.get_address',
         'Account.get_addresses',
         'Account.get_create_date',
         'Account.get_creator',
-        'Account.get_description',
+        'Account.get_posix_uid',
+        'Account.get_history',
+        'Account.get_primary_group',
         'Account.get_direct_groups',
         'Account.get_entity_name',
         'Account.get_expire_date',
@@ -38,15 +71,15 @@ mySelf = [ # {{{
         'Account.get_external_ids',
         'Account.get_groups',
         'Account.get_homedir',
-        'Account.get_id',
-        'Account.get_name',
-        'Account.get_type',
         'Account.get_owner',
         'Account.get_owner_type',
         'Account.get_spreads',
+        'Account.get_gecos',
+        'Account.get_shell',
         'Account.is_expired',
         'Account.is_posix',
         'Account.is_quarantined',
+        'Account.get_quarantines',
         'Account.set_password',
         'Person.get_accounts',
         'Person.get_active_quarantines',
@@ -68,23 +101,26 @@ mySelf = [ # {{{
         'Person.get_external_ids',
         'Person.get_gender',
         'Person.get_groups',
-        'Person.get_id',
         'Person.get_names',
         'Person.get_primary_account',
         'Person.get_quarantine',
         'Person.get_quarantines',
         'Person.get_spreads',
-        'Person.get_type',
         'Person.is_quarantined',
 ] # }}}
+private = [ # {{{
+        'Commands.create_cereweb_option', 
+] # }}}
 orakel = [ # {{{
-        'Commands.create_cereweb_option', # fyll inn ordentlig data her.
 ] # }}}
 
 operation_sets = {
     'public': {
       'desc': 'operations all users should be allowed to do',
       'codestrs': public},
+    'private': {
+      'desc': 'operations only trusted users should be allowed to do',
+      'codestrs': private},
     'mySelf': {
       'desc': 'operations all users should be allowed to do with their own account',
       'codestrs': mySelf},
@@ -92,5 +128,3 @@ operation_sets = {
       'desc': 'operations that the orakel-group should be allowed to do on users in a given affiliation',
       'codestrs': orakel},
 }
-
-# vim: foldmethod=marker nowrap
