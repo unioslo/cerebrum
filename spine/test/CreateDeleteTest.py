@@ -88,7 +88,7 @@ class CreateDeleteTest(unittest.TestCase):
         tr.rollback()
 
     def __create_host(self, transaction):
-        name = 'unittest%s' % id(self)
+        name = 'unittest%s.ntnu.no' % id(self)
         return transaction.get_commands().create_host(name, name), name
 
     def testHost(self):
