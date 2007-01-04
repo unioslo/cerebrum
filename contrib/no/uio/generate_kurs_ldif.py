@@ -200,7 +200,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
         out.write("uioEduCourseSectionName: %s\n" % entry['aktivitetsnavn'])
         out.write("uioEduCourseInstitution: %s\n" % emne['institusjonsnr'])
         out.write("uioEduCourseVersion: %s\n" % emne['versjonskode'])
-        out.write("uioEduCourseSectionCode: %s" % entry['aktivitetkode'])
+        out.write("uioEduCourseSectionCode: %s\n" % entry['aktivitetkode'])
         out.write("uioEduOfferingTermCode: %s\n" % entry['terminkode'])
         out.write("uioEduOfferingYear: %s\n" % entry['arstall'])
         out.write("uioEduOfferingTermNumber: %s\n" % entry['terminnr'])
