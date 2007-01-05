@@ -59,14 +59,19 @@ class Changer:
         spreads = self.account.get_spread()
         for sprd in spreads:   # for hvert spread vi skal sette
             s = sprd['spread']
+            do_write=False
             try:
                 home = self.account.get_home(s)
             except Errors.NotFoundError:
-                self.logger.error("Account %s has spread %s, but no home for that spread" % (self.account.account_name,s))
-                continue
-            if not home['home']:
-                self.logger.debug("home for spread %d: home=%s, update needed" % (s,home['home']))
+                self.logger.warn("Account %s has spread %s, but no home for that spread, create" % (self.account.account_name,s))
                 self.account.set_home_dir(s)
+                do_write=True 
+            else:
+                if not home['home']:
+                    self.logger.debug("home for spread %d: home=%s, update needed" % (s,home['home']))
+                    self.account.set_home_dir(s)                    
+                    do_write=True
+            if do_write:
                 self.count+=1
                 try:
                     self.account.write_db()
