@@ -162,7 +162,15 @@ def match_external_ids(person, sap_id, no_ssn, const):
     # 
     if (cerebrum_no_ssn and cerebrum_no_ssn != no_ssn):
         person_id_cerebrum = check_no_ssn(person, no_ssn, const)
-        if person.entity_id != person_id_cerebrum:
+
+        # *IF* there is a person in cerebrum that already holds no_ssn, AND
+        # it's a different person than the one we've associated with sap_id,
+        # then we cannot update fnrs, because then two different people would
+        # share the same fnr. However, if the fnr did not exist in cerebrum
+        # before, person_id_cerebrum would be None (and different from
+        # person.entity_id). Both branches of the test are necessary.
+        if ((person_id_cerebrum is not None) and
+            person.entity_id != person_id_cerebrum):
             logger.error("Should update NO_SSN for %s, but another person (%s) with NO_SSN (%s) exists in Cerebrum", person_id_cerebrum, sap_id, no_ssn)
             return False
         logger.info("NO_SSN in Cerebrum != NO_SSN in datafile. Updating "
