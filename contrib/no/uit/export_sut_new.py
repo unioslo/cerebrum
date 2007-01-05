@@ -115,13 +115,13 @@ def main():
     LEFT JOIN entity_quarantine eq
     ON en.entity_id=eq.entity_id,
     entity_spread es, account_authentication aa, posix_user pu, account_home ah, account_info ai,person_name pn
-    WHERE es.spread=%s
+    WHERE ( es.spread=%s OR es.spread=%s)
     AND es.entity_id = en.entity_id
     AND aa.account_id=en.entity_id
     AND aa.method=%s
     AND pu.account_id = en.entity_id
     AND ah.account_id=en.entity_id
-    AND ah.spread=%s
+    AND (ah.spread=%s OR ah.spread=%s)
     AND ai.account_id = en.entity_id
     AND ai.expire_date >'%s'
     AND ai.owner_id = pn.person_id
@@ -137,7 +137,7 @@ def main():
     and aa.account_id=gm.member_id
     and aa.method=%s
     and pu.account_id = gm.member_id;
-    """ % (int(co.spread_uit_fd),int(co.auth_type_md5_crypt),int(co.spread_uit_fd),today,int(co.name_full),int(co.system_cached),int(co.auth_type_md5_crypt))
+    """ % (int(co.spread_uit_sut_user),int(co.spread_uit_fd),int(co.auth_type_md5_crypt),int(co.spread_uit_sut_user),int(co.spread_uit_fd),today,int(co.name_full),int(co.system_cached),int(co.auth_type_md5_crypt))
 
     #print "startin query...%s" % query
     db.row = db.query(query)
