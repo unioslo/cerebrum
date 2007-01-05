@@ -1132,13 +1132,7 @@ def process_kurs2enhet():
             for enhet_id in fronter.kurs2enhet[kurs_id]:
                 termin_suffix = ""
                 if multi_termin:
-                    # Finn 'terminkode' og 'arstall' fra enhet_id, og
-                    # bruk dette som tittelsuffiks for enhetens
-                    # aktivitetsrom.
-                    ue_id = enhet_id.split(":")
-                    termin_suffix = " %s %s" % (ue_id[4].upper(), # terminkode
-                                                ue_id[5], # aar
-                                                )
+                    pass # term-suffix now added above for all courses
                 enhans = "uio.no:fs:%s:enhetsansvar" % enhet_id.lower()
                 enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
                 # De ansvarlige for undervisningsenhetene som hører til et
