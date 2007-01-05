@@ -323,7 +323,7 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag in ("Postnummer",):
                 zip = value
                 # IVR 2007-01-04 FIXME: 8 is the length of the field in the
-                # database. It's a bit ugly to do things this, though.
+                # database. It's a bit ugly to do things this way, though.
                 if len(zip) > 8:
                     return None
             elif sub.tag in ("Poststed",):
