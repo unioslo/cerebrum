@@ -28,7 +28,7 @@ Options:
     --max-change=<percentage>   Max acceptable percentage for change
                                 in number of persons with a home page,
                                 unless the database has no home pages.
-    --force                     Same as --max-change=100."""
+    --force             Same as --max-change=100 --logger-name=console."""
 
 # The code wastes some time in order to use the standard API:
 # - populate_contact_info()+write_db() reads URLs for each person
@@ -60,6 +60,8 @@ max_change = 5
 
 def main():
     global max_change
+    logger = Factory.get_logger(
+        "--force" in sys.argv and "console" or "cronjob")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "", ("force", "max-change="))
     except getopt.GetoptError, e:
@@ -115,14 +117,15 @@ def main():
                                         entity_type=co.entity_person):
         has_old_URL[int(row['entity_id'])] = True
 
+    old_count = len(has_old_URL)
+    new_count = len(person2URLs)
     if max_change < 100:
-        old_count = len(has_old_URL)
-        new_count = len(person2URLs)
         if old_count != 0 and abs(100*new_count//old_count - 100) > max_change:
             sys.exit("""
 Exiting, too big change in number of people with home pages: %d -> %d.
 Use the '--force' argument to force this change."""
                      % (old_count, new_count))
+    logger.info("DB had %d URLs, will have %d URLs." % (new_count, old_count))
 
     # Insert person2URLs in database; delete them from variable has_old_URL
     for person_id, new in person2URLs.iteritems():
