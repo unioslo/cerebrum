@@ -133,7 +133,8 @@ class XMLOU2Object(XMLEntity2Object):
         priority = element.find("Stedprio")
         if priority is not None and priority.text is not None:
             priority = int(priority.text)
-        # fi
+        else:
+            return None
 
         comm2const = { "E-post adresse" : DataContact.CONTACT_EMAIL,
                        "Telefax"        : DataContact.CONTACT_FAX,
@@ -321,6 +322,10 @@ class XMLPerson2Object(XMLEntity2Object):
                 street.append(value)
             elif sub.tag in ("Postnummer",):
                 zip = value
+                # IVR 2007-01-04 FIXME: 8 is the length of the field in the
+                # database. It's a bit ugly to do things this, though.
+                if len(zip) > 8:
+                    return None
             elif sub.tag in ("Poststed",):
                 city = value
             elif sub.tag in ("Landkode",):
