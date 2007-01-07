@@ -437,8 +437,8 @@ def output_affiliation_relation(affiliation, status, sko, people, person_info):
     for person in people:
         pid = int(person["person_id"])
         if pid not in person_info:
-            logger.warn("person_id %d is in Cerebrum, but (s)he has no "
-                        "external id in cached data", pid)
+            logger.debug("person_id %d is in Cerebrum, but (s)he has no "
+                         "external id in cached data", pid)
             continue
         # fi
             
