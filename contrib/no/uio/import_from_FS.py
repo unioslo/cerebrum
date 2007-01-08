@@ -29,7 +29,7 @@ import cereconf
 
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.Utils import XMLHelper
+from Cerebrum.Utils import XMLHelper, FileChangeTooBigError
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
@@ -416,31 +416,34 @@ def main():
             db_service = val
     assert_connected(user=db_user, service=db_service)
     for o, val in opts:
-        if o in ('-p',):
-            write_person_info(person_file)
-        elif o in ('-t',):
-            write_topic_info(topics_file)
-        elif o in ('-b',):
-            write_betalt_papir_info(betalt_papir_file)
-        elif o in ('-s',):
-            write_studprog_info(studprog_file)
-        elif o in ('-f',):
-            write_fnrupdate_info(fnrupdate_file)
-        elif o in ('-e',):
-            write_emne_info(emne_file)
-        elif o in ('-r',):
-            write_regkort_info(regkort_file)
-        elif o in ('-o',):
-            write_ou_info(ou_file)
-	elif o in ('-k',):
-	    write_personrole_info(role_file)
-        # We want misc-* to be able to produce multiple file in one script-run
-        elif o in ('--misc-func',):
-            misc_func = val
-        elif o in ('--misc-tag',):
-            misc_tag = val
-        elif o in ('--misc-file',):
-            write_misc_info(val, misc_tag, misc_func)
+        try:
+            if o in ('-p',):
+                write_person_info(person_file)
+            elif o in ('-t',):
+                write_topic_info(topics_file)
+            elif o in ('-b',):
+                write_betalt_papir_info(betalt_papir_file)
+            elif o in ('-s',):
+                write_studprog_info(studprog_file)
+            elif o in ('-f',):
+                write_fnrupdate_info(fnrupdate_file)
+            elif o in ('-e',):
+                write_emne_info(emne_file)
+            elif o in ('-r',):
+                write_regkort_info(regkort_file)
+            elif o in ('-o',):
+                write_ou_info(ou_file)
+            elif o in ('-k',):
+                write_personrole_info(role_file)
+            # We want misc-* to be able to produce multiple file in one script-run
+            elif o in ('--misc-func',):
+                misc_func = val
+            elif o in ('--misc-tag',):
+                misc_tag = val
+            elif o in ('--misc-file',):
+                write_misc_info(val, misc_tag, misc_func)
+        except FileChangeTooBigError, msg:
+            logger.error("Manual intervention required: %s" % msg)
 
     logger.info("Import from FS done")
 
