@@ -48,7 +48,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
-fnr2person_id = dict()
 
 
 def attempt_commit():
@@ -188,7 +187,7 @@ def usage():
 
 
 def main():
-    global db, constants, account, person
+    global db, constants, account, person, fnr2person_id
     global default_creator_id, default_group_id
     global dryrun, logger
 
@@ -220,6 +219,7 @@ def main():
     group = Factory.get('Group')(db)
     person = Factory.get('Person')(db)
 
+    fnr2person_id = dict()
 
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
