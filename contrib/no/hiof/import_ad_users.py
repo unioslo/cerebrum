@@ -46,6 +46,8 @@ Tasks:
 
 """
 
+
+
 import getopt
 import sys
 
@@ -163,12 +165,20 @@ def process_user(uname, homedir, spread, ou, domain):
     account.write_db()
     logger.debug3("User %s got new home %s", uname, homedir)
 
+    # Handle spread
+    if not account.has_spread(spread):
+        account.add_spread(spread)
+        account.write_db()
+        logger.debug("Added spread %s for user %s", spread, uname)
+
     # Create Profile path and set trait
     if domain == 'adm':
         profile_path = homedir + '\\profile'
     else:
         profile_path = homedir.replace('\\home\\', '\\profile\\')
     account.populate_trait(constants.trait_ad_profile_path, strval=profile_path)
+    logger.debug("profile path (%s) trait for account %s is set" % (
+        profile_path, uname))
 
 
 def process_home(homedir):
@@ -204,7 +214,7 @@ def process_home(homedir):
 
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print """Usage: import_ad_users.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
