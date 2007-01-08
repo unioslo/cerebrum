@@ -46,6 +46,7 @@ class ADObject(object):
 			(function, self.type, name ,sys.exc_info()[1][1]))
 
 
+
 	def checkObject(self, func='check_object'):
 		if self.Object == None:
 			logging.warn("Object is None in %s" % func)
@@ -54,7 +55,7 @@ class ADObject(object):
 			return (True, "checkObject")
 
 
-	def bindObject(self,LDAPAccount):
+	def bindObject(self, LDAPAccount):
 		try:
 			self.Object=win32com.client.GetObject('LDAP://%s' \
 				% LDAPAccount)
@@ -197,7 +198,7 @@ class ADObject(object):
 			AccountObject = self.Object.Create(objType,'%s%s' \
 				% (typePrefix, Name))
 			if objType != 'organizationalUnit':
-				AccountObject.Put("sAMAccountname", Name)
+				AccountObject.Put("sAMAccountName", Name)
 			AccountObject.SetInfo()
 			logging.debug('createObject %s%s,%s' % (typePrefix, Name, OU))
 

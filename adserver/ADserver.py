@@ -30,10 +30,9 @@ import win32event
 import base64
 import traceback
 from OpenSSL import SSL
-import ADobject
-from ADconstants import Constants
+import ADconstants
 
-const = Constants()
+const = ADconstants.Constants()
 
 #Starting logger.
 loglevel = getattr(logging, const.loglevel)
@@ -43,10 +42,10 @@ logging.basicConfig(level = loglevel,
 		filemode = const.logfilemode)
 
 
-class Server(ADobject.Group, ADobject.Account, ADobject.Search):
+class baseServer(ADconstants.MixIn):
 	
-	def __init__(self, *args, **kwargs):
-		super(Server, self).__init__(*args, **kwargs)
+	def __init__(self, *args, **kwargs):		
+		super(baseServer, self).__init__(*args, **kwargs)
 
 	def response(self, string):
 		logging.debug('Received:%s' % string)
@@ -54,7 +53,6 @@ class Server(ADobject.Group, ADobject.Account, ADobject.Search):
 
 	def location(self):
 		return win32com.client.GetObject('LDAP://rootDSE').Get("defaultNamingContext")
-
 
 
 ########################################
@@ -222,7 +220,9 @@ def authenticateAD(Uname, Pword):
 
 def runServer():
 
-	adsiserver = Server()
+
+	adsiserver = baseServer()
+
 	server_address = (const.LISTEN_HOST, const.LISTEN_PORT) 
     
 	if const.UNSECURE:
@@ -241,6 +241,7 @@ def runServer():
 		logging.info("Serving HTTPS on %s port %s" % (sa[0], sa[1]))
 
     #Go into the main listener loop
+	#TODO:Start new thread so that the service interface still has control.
 	try:
 		server.serve_forever()
 	finally:
