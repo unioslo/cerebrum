@@ -40,7 +40,6 @@ Example of use:
 
 import getopt
 import sys
-import string
 
 import cerebrum_path
 import cereconf
@@ -74,7 +73,7 @@ def process_line(infile):
         line = line.strip()
         logger.debug5("Processing line: |%s|", line)
 
-        fields = string.split(line, ":")
+        fields = line.split(":")
         if len(fields) != 7:
             logger.error("Bad line: %s. Skipping", line)
             continue
@@ -99,16 +98,22 @@ def process_line(infile):
             continue
         
         try:
-            disk_id, home, status = account.get_home(spread)
-            logger.debug("User %s got home %s, %s, %s.", uname, disk_id,
-                         home, status)
+            tmp = account.get_home(spread)
+            logger.debug3("User %s got home %s, %s, %s.", uname,
+                          disk_id, home, tmp['status'])
         except Errors.NotFoundError:
             homedir_id = account.set_homedir(disk_id=disk_id,
                                              status=co.home_status_not_created)
             account.set_home(spread, homedir_id)
             account.write_db()
             logger.debug3("User %s got new home %s", uname, home)
-            
+
+        # Handle spread
+        if not account.has_spread(spread):
+            account.add_spread(spread)
+            account.write_db()
+            logger.debug("Added spread %s for user %s", spread, uname)
+
         if commit_count % commit_limit == 0:
             attempt_commit()
 
@@ -119,7 +124,7 @@ def process_home(home):
     return disk_id.
     """
     
-    fields = string.split(home.strip(), "/")
+    fields = home.strip().split("/")
 
     path = '/'.join(home.split('/')[:-1])
     try:
@@ -139,6 +144,7 @@ def process_home(home):
 def usage():
     print """Usage: import_homes.py
     -h, --help   : Show this
+    -d, --dryrun : Fake run
     -f, --file   : File to parse.
     -s, --spread : spread
     -h, --host   : host disks belongs to
