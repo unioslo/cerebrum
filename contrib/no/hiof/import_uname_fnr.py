@@ -46,9 +46,9 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
 
+fnr2person_id = dict()
 
 
 def attempt_commit():
@@ -62,7 +62,7 @@ def attempt_commit():
 
 def process_lines(infile):
     """
-    Scan all lines in INFILE and create corresponding account/e-mail entries
+    Scan all lines in INFILE and create corresponding account entries
     in Cerebrum.
     """
 
@@ -73,7 +73,7 @@ def process_lines(infile):
     # Iterate over all persons:
     for line in stream:
         commit_count += 1
-        logger.debug5("\nProcessing line: |%s|", line.strip())
+        logger.debug5("Processing line: |%s|", line.strip())
 
         fields = string.split(line.strip(), ";")
         if len(fields) != 2:
@@ -106,19 +106,15 @@ def process_person(fnr):
     FNR.
     """
 
-    logger.debug("Processing person %s", fnr)
-
     try:
         fodselsnr.personnr_ok(fnr)
     except fodselsnr.InvalidFnrError:
-        #logger.warn("Bad no_ssn |%s|", fnr)
         return None
         
+    # If person already exists, return entity_id
     if fnr2person_id.has_key(fnr):
-        logger.debug("Person with fnr %s exists in Cerebrum", fnr)
         return fnr2person_id[fnr]
 
-    # If person already exists, skip
     try:
         person.clear()
         person.find_by_external_id(constants.externalid_fodselsnr, fnr)
@@ -183,7 +179,7 @@ def process_user(owner_id, uname):
 
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print """Usage: import_uname_fnr.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
@@ -192,7 +188,7 @@ def usage():
 
 
 def main():
-    global db, constants, account, person, fnr2person_id
+    global db, constants, account, person
     global default_creator_id, default_group_id
     global dryrun, logger
 
@@ -224,7 +220,6 @@ def main():
     group = Factory.get('Group')(db)
     person = Factory.get('Person')(db)
 
-    fnr2person_id = dict()
 
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
@@ -240,5 +235,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: 9af8804e-cf88-11da-871a-03531199ed1e
