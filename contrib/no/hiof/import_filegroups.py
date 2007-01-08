@@ -39,8 +39,6 @@ maccount - user names of the groups account members
 * - zero or more 
 """
  
-import string
-import os
 import getopt
 import sys
 import time
@@ -48,11 +46,10 @@ import time
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Group
-from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Utils import Factory
+
 
 def process_line(infile, spread):
     """
@@ -63,14 +60,15 @@ def process_line(infile, spread):
     for line in stream:
 	 logger.debug5("Processing line: |%s|", line.strip())
 
-         fields = string.split(line.strip(), ":")
+         fields = line.strip().split(":")
          if len(fields) < 4:
              logger.error("Bad line: %s. Skipping", line)
              continue
 
 	 gname, desc, gid, mem = fields
-	 if not gname == "":
-		 process_group(sp, gname, gid, desc, mem)
+	 if gname:
+             process_group(sp, gname, gid, desc, mem)
+
 
 def process_group(sp, name, gid, description = None, members = None):
     """
@@ -80,7 +78,7 @@ def process_group(sp, name, gid, description = None, members = None):
     try:
    	 posixgroup.clear()
    	 posixgroup.find_by_name(name)
-	 logger.debug5("Group |%s| exists.", name)
+	 logger.debug4("Group |%s| exists.", name)
     except Errors.NotFoundError:	
 	 posixgroup.populate(default_creator_id, constants.group_visibility_all,
 			     name, description, time.strftime("%Y-%m-%d", time.localtime()), None, int(gid))
@@ -97,17 +95,18 @@ def process_group(sp, name, gid, description = None, members = None):
 		     group.write_db()
 		     if not dryrun:
 			 db.commit()
-			 logger.debug5("Added spread |%s| to group |%s|.", sp, name)
+			 logger.debug3("Added spread |%s| to group |%s|.", sp, name)
 	     except Errors.NotFoundError:
 		 logger.error("Group |%s| not found!", name)
-    if members != "":
+    if members:
 	process_members(name,members)
 
-def process_members(gname,mem):
+
+def process_members(gname, mem):
     """
     Assign membership for groups and users.
     """
-    mem_list = string.split(mem.strip(),",")
+    mem_list = mem.strip().split(",")
     group.clear()
     group.find_by_name(gname)
     for member in mem_list:
@@ -149,7 +148,7 @@ def usage():
     -f, --file    : File to parse.
     -s, --spread (spread_nis_fg|spread_ans_nis_fg)
     """
-# end usage
+
 
 def main():
     global db, constants, account_init, account_member, group, spread, posixgroup
@@ -166,7 +165,6 @@ def main():
 				    'spread='])
     except getopt.GetoptError:
         usage()
-    # yrt
 
     dryrun = False
     for opt, val in opts:
@@ -178,11 +176,9 @@ def main():
 	    spread = val
 	    if (spread not in ['spread_nis_fg','spread_nis_ans_fg']):
 		usage()
-        # fi
-    # od
 
     db = Factory.get('Database')()
-    db.cl_init(change_program='import_uname')
+    db.cl_init(change_program='import_fg')
     constants = Factory.get('Constants')(db)
     account_init = Factory.get('Account')(db)
     account_init.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -200,13 +196,7 @@ def main():
 	usage()
     process_line(infile, spread)
 
-# end main	
 
 if __name__ == '__main__':
     main()
-# fi
 
-
-
-
-# arch-tag: eb4babd1-47cd-43ec-bfa6-b64e1e5f1562
