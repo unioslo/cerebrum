@@ -28,20 +28,17 @@ created).
 The input format for this job is a file with one line per
 account. Each line has four fields separated by ';'.
 
-<uname>
+<uname>;<group>
 """
 
 import getopt
 import sys
-import string
 
 import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-
-
 
 
 
@@ -52,7 +49,6 @@ def attempt_commit():
     else:
         db.commit()
         logger.debug("Committed all changes")
-
 
 
 def process_line(infile):
@@ -66,7 +62,7 @@ def process_line(infile):
     for line in stream:
         logger.debug5("Processing line: |%s|", line.strip())
 
-        fields = string.split(line.strip(), ";")
+        fields = line.strip().split(";")
         if len(fields) != 2:
             logger.error("Bad line: %s. Skipping" % l)
             continue
@@ -81,10 +77,6 @@ def process_line(infile):
         else:
             logger.warn("Group |%s| not found!", gname)
             logger.error("Trying to assign membership to a non-existing group |%s|", gname)
-            continue
-
-        if not account_id:
-            logger.warn("Couldn't create account %s", uname)
             
     stream.close()
 
@@ -119,7 +111,7 @@ def process_account(owner_group_id, uname):
     try:
         account.clear()
         account.find_by_name(uname)
-        logger.warn("User %s exists in Cerebrum", uname)
+        logger.debug3("User %s exists in Cerebrum", uname)
         return None
     except Errors.NotFoundError:
         if account.illegal_name(uname):
@@ -137,13 +129,11 @@ def process_account(owner_group_id, uname):
     return a_id
 
 
-
 def usage():
     print """Usage: import_nonpersonal_users.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
-
 
 
 def main():
@@ -172,7 +162,7 @@ def main():
         usage()
 
     db = Factory.get('Database')()
-    db.cl_init(change_program='import_uname')
+    db.cl_init(change_program='import_nonpers')
     constants = Factory.get('Constants')(db)
     account = Factory.get('Account')(db)
     group = Factory.get('Group')(db)
@@ -182,7 +172,6 @@ def main():
     process_line(infile)
 
     attempt_commit()
-
 
 
 if __name__ == '__main__':
