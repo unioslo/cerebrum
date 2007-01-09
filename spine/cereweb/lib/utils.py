@@ -276,7 +276,7 @@ def legal_date( tocheck ):
     return True
 
 def legal_domain_format( domain ):
-     pat=re.compile( '^(([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.)*([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.[a-zA-Z]{2,3}$')
+     pat=re.compile( '^(([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.)*([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.[a-zA-Z]{2,7}$')
      if not pat.match(domain):
          return False
      return True

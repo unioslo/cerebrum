@@ -29,47 +29,54 @@
 
 #def create_box($tr)
 <p>
-<div class="createform">
+## <div class="createform">
 <div class="email_view">
     ## <h2>$_('Create a new email domain')</h2>
-    <form action="/email/make" method="POST">
-		<table>
-			<tr>
-				<th colspan="2">
-					<div class="tableheader">
-						$_('Create a new email domain')
-					</div>
-				</th>
-			</tr>
-        	#echo $_create($tr)
+	<table>
+	<tr>
+		<th>
+			<div class="tableheader">
+				$_("Create a new email domain")
+			</div>
+		</th>
+	</tr>
+	<tr>
+		<td>
+			<div class="td_email_view">
+			<form action="/email/make" method="POST">
+			<table>
+        		#echo $_create($tr)
 			<tr>
 				<td colspan="2">
 					&nbsp;
 				</td>
 			</tr>
 			<tr>
-				<td align="right">
-            		<input type="submit" value="$_('Create')" />&nbsp;
-				</td>
-				<td align="left">
-            		<input type="reset" value="$_('Clear')" />
+				<td colspan="2">
+					<center>
+        	    		<input type="submit" value="$_('Create')" />&nbsp;
+						<input type="reset" value="$_('Clear')" />
+					</center>
 				</td>
 			</tr>
-        </div>
-		</table>
-    </form>
+			</table>
+			</form>
+			</div>
+		</td>
+	</tr>
+	</table>
 </div>
-</div>
+## </div>
 </p>
 #end def
 
 #def create($tr)
 ## <div class="create">
-<div class="createform">
+## <div class="createform">
 <div class="email_view">
 	<table>
 		<tr>
-			<th colspan="2">
+			<th>
 				<div class="tableheader">
 					$_('Create a new email domain')
 				</div>
@@ -90,19 +97,11 @@
 					</td>
 				</tr>
 				<tr>
-					<td>
-						<div>
-							<center>
-								<input type="submit" value="$_('Create')" />
-							</center>
-						</div>
-					</td>
-					<td>
-						<div>
-							<center>
-								<input type="reset" value="$_('Clear')" />
-							</center>
-						</div>
+					<td colspan="2">
+						<center>
+							<input type="submit" value="$_('Create')" />&nbsp;
+							<input type="reset" value="$_('Clear')" />
+						</center>
 					</td>
 				</tr>
 			</table>
@@ -112,7 +111,8 @@
 		</tr>
 	</table>
 </div>
-</div>
+## </div>
+## </div>
 #end def
 
 #def _create($tr)
@@ -180,34 +180,60 @@
 #end def
 
 #def search($tr, $vargs)
+<p>
 <div class="search">
-    <form method="POST" action="/email/search">
-    <div class="searchform">
-        #echo $_search($tr, $vargs)
-    </div>
-    #set $help = ["Use wildcards * and ? to extend the search.", "Supply several search parameters to limit the search."]
-    $form_widgets.showHelp($help)
-    <div>
-        <center>
-            <input type="submit" value="$_('Search')" />&nbsp;
-            <input type="reset" value="$_('Clear')" />
-        </center>
-    </div>
-    </form>
+	<table>
+	<tr>
+		<th>
+				<div class="tableheader">
+					$_("Search for email domain(s)")
+		</th>
+	</tr>
+	<tr>
+		<td>
+    		<form method="POST" action="/email/search">
+			<table>
+        		#echo $_search($tr, $vargs)
+
+			<tr>
+				<td colspan="2">
+					&nbsp;
+				</td>
+			</tr>
+			<tr>
+				<td colspan="2">
+   		 			#set $help = ["Use wildcards * and ? to extend the search.", "Supply several search parameters to limit the search."]
+    				$form_widgets.showHelp($help)
+				</td>
+			</tr>
+			<tr>
+				<td colspan="2">
+					<center>
+            			<input type="submit" value="$_('Search')" />&nbsp;
+            			<input type="reset" value="$_('Clear')" />
+        			</center>
+				</td>
+			</tr>
+			<table>
+    		</form>
+		</td>
+	</tr>
+	</table>
 </div>
+</p>
 #end def
 
 #def _search($tr, $vargs)
     #set $cats = $tr.get_email_domain_category_searcher().search()
     #set $cats = [('',''),] + [(i.get_name(), i.get_description()) for i in $cats]
 	<tr>
-    $form_widgets.td2input("name", "Name", $vargs.get('name', ''))
+		$form_widgets.td2input("name", "Name", $vargs.get('name', ''))
 	</tr>
 	<tr>
-    $form_widgets.td2input("description", "Description", $vargs.get('description', ''))
+		$form_widgets.td2input("description", "Description", $vargs.get('description', ''))
 	</tr>
 	<tr>
-    $form_widgets.generate_td2loption("category", "Category", $cats, $vargs.get('category',''))
+		$form_widgets.generate_td2loption("category", "Category", $cats, $vargs.get('category',''))
 	</tr>
 #end def
 
