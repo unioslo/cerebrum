@@ -160,23 +160,6 @@ class SQLDriverTestCase(unittest.TestCase):
         self.db.commit()
         self.db.close()
 
-    def suite():
-        suite = unittest.TestSuite()
-        suite.addTest(SQLDriverTestCase("testDateReturnTypes"))
-        suite.addTest(SQLDriverTestCase("testSQLIntHashable"))
-        suite.addTest(SQLDriverTestCase("testBrokenDateBefore1901"))
-        suite.addTest(SQLDriverTestCase("testBrokenDateBefore1970"))
-        suite.addTest(SQLDriverTestCase("testIsolatinTextParam"))
-        suite.addTest(SQLDriverTestCase("testUTF8TextParam"))
-        suite.addTest(SQLDriverTestCase("testUTF8TextStatement"))
-        suite.addTest(SQLDriverTestCase("testRepeatedParam"))
-        suite.addTest(SQLDriverTestCase("testNumericRetval"))
-        return suite
-    suite=staticmethod(suite)
-
-def suite():
-    return SQLDriverTestCase.suite()
-
 if __name__ == "__main__":
     unittest.main()
 
