@@ -149,8 +149,9 @@ class AccountUtil(object):
         # Need to set initial quarantine for students only (no quarantine for "fagpersoner").
         # setting todays date at start date.
         check_aff=persons[fnr].get_affiliations()
+        logger.debug("fnr=%s, affiliation=%s" % (fnr,persons[fnr].get_affiliations()))
         for aff in persons[fnr].get_affiliations():
-            if aff == const.affiliation_student:
+            if aff[0] == const.affiliation_student:
                 # This persons has a student affiliation. set quarantine on the account. (we do not set quarantine for employees or "fagpersoner" accounts)
                 quarantine_date = "%s" % today.date()
                 logger.debug("quarantine date =%s" % quarantine_date)
