@@ -90,12 +90,12 @@ class EntityTestCase(Entity_createTestCase):
 
 class EntityName_createTestCase(Entity_createTestCase):
     entity_class = EntityName
-    test_name = "foobar3"
+    m_test_name = "foobar3"
 
     def setUp(self):
         super(EntityName_createTestCase, self).setUp()
         try:
-            self.entity.add_entity_name(self.co.account_namespace, self.test_name)
+            self.entity.add_entity_name(self.co.account_namespace, self.m_test_name)
         except:
             print "Error: unable to create EntityName"
             traceback.print_exc()
@@ -112,14 +112,14 @@ class EntityNameTestCase(EntityName_createTestCase):
     def testEntityGetName(self):
         "Test that one can get the created EntityName"
         name = self.entity.get_name(self.co.account_namespace)
-        self.failIf(name <> self.test_name,
+        self.failIf(name <> self.m_test_name,
                     "EntityNames should be equal")
 
     def testEntityFindByName(self):
         "Test that one can find an entity by name"
         old_id = self.entity_id
         self.entity.clear()
-        self.entity.find_by_name(self.test_name, self.co.account_namespace)
+        self.entity.find_by_name(self.m_test_name, self.co.account_namespace)
         self.failIf(self.entity_id <> old_id,
                     "EntityNames entity_id should be equal")
 
@@ -131,7 +131,7 @@ class EntityNameTestCase(EntityName_createTestCase):
 
 class EntityContactInfo_createTestCase(Entity_createTestCase):
     entity_class = EntityContactInfo
-    test_ci = {'src': 'system_manual', 'type': 'contact_phone',
+    m_test_ci = {'src': 'system_manual', 'type': 'contact_phone',
                'pref': 10, 'value': '+47 12345678',
                'desc': 'some description'}
 
@@ -139,44 +139,44 @@ class EntityContactInfo_createTestCase(Entity_createTestCase):
         super(EntityContactInfo_createTestCase, self).setUp()
         try:
             for k in ('src', 'type'):
-                if isinstance(self.test_ci[k], str):
-                    self.test_ci[k] = getattr(self.co, self.test_ci[k])
-            self.entity.add_contact_info(self.test_ci['src'],
-                                         self.test_ci['type'],
-                                         self.test_ci['value'],
-                                         self.test_ci['pref'],
-                                         self.test_ci['desc'])
+                if isinstance(self.m_test_ci[k], str):
+                    self.m_test_ci[k] = getattr(self.co, self.m_test_ci[k])
+            self.entity.add_contact_info(self.m_test_ci['src'],
+                                         self.m_test_ci['type'],
+                                         self.m_test_ci['value'],
+                                         self.m_test_ci['pref'],
+                                         self.m_test_ci['desc'])
         except:
             print "Error: unable to create EntityContactInfo"
             traceback.print_exc()
             raise
 
     def tearDown(self):
-        self.entity.delete_contact_info(self.test_ci['src'],
-                                        self.test_ci['type'])
+        self.entity.delete_contact_info(self.m_test_ci['src'],
+                                        self.m_test_ci['type'])
         super(EntityContactInfo_createTestCase, self).tearDown()
 
 class EntityContactInfoTestCase(EntityContactInfo_createTestCase):
     def testEntityGetContactInfo(self):
         "Test that one can get the created EntityContactInfo"
-        ci = self.entity.get_contact_info(self.test_ci['src'],
-                                          self.test_ci['type'])
+        ci = self.entity.get_contact_info(self.m_test_ci['src'],
+                                          self.m_test_ci['type'])
         ci = ci[0]
-        self.failIf(ci['contact_value'] <> self.test_ci['value'] or \
-                    ci['description'] <> self.test_ci['desc'],
+        self.failIf(ci['contact_value'] <> self.m_test_ci['value'] or \
+                    ci['description'] <> self.m_test_ci['desc'],
                     "EntityContactInfo should be equal")
 
     def testEntityDeleteContactInfo(self):
         "Test that the EntityContactInfo can be deleted"
-        self.entity.delete_contact_info(self.test_ci['src'],
-                                        self.test_ci['type'])
-        self.failIf(self.entity.get_contact_info(self.test_ci['src'],
-                                                 self.test_ci['type']),
+        self.entity.delete_contact_info(self.m_test_ci['src'],
+                                        self.m_test_ci['type'])
+        self.failIf(self.entity.get_contact_info(self.m_test_ci['src'],
+                                                 self.m_test_ci['type']),
                     "EntityContactInfo won't go away.")
 
 class EntityAddress_createTestCase(Entity_createTestCase):
     entity_class = EntityAddress
-    test_a = {'src': 'system_manual',
+    m_test_a = {'src': 'system_manual',
               'type': 'address_post',
               'address_text': 'some address',
               'p_o_box': 'some pb',
@@ -188,43 +188,43 @@ class EntityAddress_createTestCase(Entity_createTestCase):
         super(EntityAddress_createTestCase, self).setUp()
         try:
             for k in ('src', 'type'):
-                if isinstance(self.test_a[k], str):
-                    self.test_a[k] = getattr(self.co, self.test_a[k])
-            self.entity.add_entity_address(self.test_a['src'],
-                                           self.test_a['type'],
-                                           self.test_a['address_text'],
-                                           self.test_a['p_o_box'],
-                                           self.test_a['postal_number'],
-                                           self.test_a['city'],
-                                           self.test_a['country'])
+                if isinstance(self.m_test_a[k], str):
+                    self.m_test_a[k] = getattr(self.co, self.m_test_a[k])
+            self.entity.add_entity_address(self.m_test_a['src'],
+                                           self.m_test_a['type'],
+                                           self.m_test_a['address_text'],
+                                           self.m_test_a['p_o_box'],
+                                           self.m_test_a['postal_number'],
+                                           self.m_test_a['city'],
+                                           self.m_test_a['country'])
         except:
             print "Error: unable to create EntityAddress"
             traceback.print_exc()
             raise
 
     def tearDown(self):
-        self.entity.delete_entity_address(self.test_a['src'],
-                                          self.test_a['type'])
+        self.entity.delete_entity_address(self.m_test_a['src'],
+                                          self.m_test_a['type'])
         super(EntityAddress_createTestCase, self).tearDown()
 
 class EntityAddressTestCase(EntityAddress_createTestCase):
     def testEntityGetAddress(self):
         "Test that one can get the created EntityAddress"
-        addr = self.entity.get_entity_address(self.test_a['src'],
-                                              self.test_a['type'])
+        addr = self.entity.get_entity_address(self.m_test_a['src'],
+                                              self.m_test_a['type'])
         addr = addr[0]
-        self.failIf(addr['address_text'] <> self.test_a['address_text'] or
-                    addr['p_o_box'] <> self.test_a['p_o_box'] or
-                    addr['postal_number'] <> self.test_a['postal_number'] or
-                    addr['city'] <> self.test_a['city'],
+        self.failIf(addr['address_text'] <> self.m_test_a['address_text'] or
+                    addr['p_o_box'] <> self.m_test_a['p_o_box'] or
+                    addr['postal_number'] <> self.m_test_a['postal_number'] or
+                    addr['city'] <> self.m_test_a['city'],
                     "EntityAddress should be equal")
 
     def testEntityDeleteAddress(self):
         "Test that the EntityAddress can be deleted"
-        self.entity.delete_entity_address(self.test_a['src'],
-                                          self.test_a['type'])
-        self.failIf(self.entity.get_entity_address(self.test_a['src'],
-                                                   self.test_a['type']),
+        self.entity.delete_entity_address(self.m_test_a['src'],
+                                          self.m_test_a['type'])
+        self.failIf(self.entity.get_entity_address(self.m_test_a['src'],
+                                                   self.m_test_a['type']),
                     "EntityAddress won't go away.")
 
 if __name__ == '__main__':
