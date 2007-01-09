@@ -34,7 +34,7 @@ from Cerebrum.tests.OUTestCase import OU_createTestCase
 class Person_createTestCase(OU_createTestCase):
 
     person_dta = {
-        'birth': OU_createTestCase.Cerebrum.Date(1970, 1, 1),
+        'birth': DateTime.DateTime(1970,1,1),
         'gender': OU_createTestCase.co.gender_male,
         'full_name': "Full Name",
         'address_text': 'adr',
@@ -96,16 +96,15 @@ class PersonTestCase(Person_createTestCase):
     def testComparePerson1(self):
         "Check that created database object has correct values"
         birth = self.person_dta['birth']
-        self.person_dta['birth'] = DateTime.DateTime(1970,1,1)
+        self.person_dta['birth'] = DateTime.DateTime(1970,1,2)
         person = Person.Person(self.Cerebrum)
         person.find(self.person_id)
         new_person = Person.Person(self.Cerebrum)
         new_person.clear()
         self._myPopulatePerson(new_person)
-        assert(person == new_person)
+        assert(person <> new_person)
         person.birth_date = self.person_dta['birth']
-        person.gender = self.co.gender_female
-        assert(new_person <> person)
+        assert(new_person == person)
         self.person_dta['birth'] = birth
 
     def testComparePerson2(self):
@@ -128,31 +127,7 @@ class PersonTestCase(Person_createTestCase):
         person = Person.Person(self.Cerebrum)
         self.assertRaises(Errors.NotFoundError, person.find, self.person_id)
 
-    def suite():
-        suite = unittest.TestSuite()
-        suite.addTest(PersonTestCase("testCreatePerson"))
-        suite.addTest(PersonTestCase("testComparePerson1"))
-        suite.addTest(PersonTestCase("testComparePerson2"))
-        suite.addTest(PersonTestCase("testDeletePerson"))
-        return suite
-    suite = staticmethod(suite)
-
-
-def suite():
-    """Returns a suite containing all the test cases in this module.
-
-    It can be a good idea to put an identically named factory function
-    like this in every test module. Such a naming convention allows
-    automation of test discovery.
-
-    """
-
-    suite1 = PersonTestCase.suite()
-    return unittest.TestSuite((suite1,))
-
-
 if __name__ == '__main__':
-    # When executed as a script, perform all tests in suite().
-    unittest.main(defaultTest='suite')
+    unittest.main()
 
 # arch-tag: 51359932-1584-4b98-8505-236336c29a2a
