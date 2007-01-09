@@ -73,6 +73,7 @@ from Cerebrum.modules.xmlutils.xml2object import DataOU, DataAddress
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment
 from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
+from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 
 
@@ -87,32 +88,6 @@ source_system = None
 
 
 
-
-
-class iter_with_skip:
-    """Iterate over elements while ignoring exceptions errors.
-
-    This comes in handy when we simply want to log and skip erroneous entries.
-    """
-
-    def __init__(self, iterator):
-        self.iterator = iterator
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        while 1:
-            try:
-                element = self.iterator.next()
-                return element
-            except StopIteration:
-                raise
-            except:
-                logger.exception("failed to consume next element")
-                pass
-# end iter_with_skip
-            
 
 
 def output_element(writer, value, element, attributes = dict()):
@@ -364,7 +339,7 @@ def output_OUs(writer, sysname, oufile):
     # First we build an ID cache.
     ou_cache = dict()
     parser = system2parser(sysname)(oufile, False)
-    for ou in iter_with_skip(parser.iter_ou()):
+    for ou in SkippingIterator(parser.iter_ou(), logger):
         sko = ou.get_id(DataOU.NO_SKO, None)
         if sko:
             ou_cache[sko] = ou
@@ -698,7 +673,7 @@ def output_people(writer, sysname, personfile, ou_cache):
 
     writer.startElement("personer")
     parser = system2parser(sysname)(personfile, False)
-    for person in iter_with_skip(parser.iter_persons()):
+    for person in SkippingIterator(parser.iter_persons(), logger):
         # NB! phd_students is updated destructively
         output_person(writer, person, phd_students, ou_cache)
 
