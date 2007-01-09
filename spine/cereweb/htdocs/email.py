@@ -52,7 +52,7 @@ index.exposed = True
 
 def search(transaction, **vargs):
     page = Main()
-    page.title = _("Search for email domain(s)")
+    page.title = _("Email domains")
     page.setFocus("email/search")
     page.add_jscript("search.js")
 
@@ -74,6 +74,9 @@ def search(transaction, **vargs):
 
         if name:
             search.set_name_like(name)
+        else:
+           queue_message('Domain-name is empty.',error=True)
+           return None
         if description:
             search.set_description_like(description)
         if category:
