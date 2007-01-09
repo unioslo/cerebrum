@@ -126,8 +126,8 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
         # if parent info in Cerebrum is different from parent info on file,
         # change the info in Cerebrum ...
         if existing_ou_mappings[my_ouid] != parent_ouid:
-            logger.warn("Parent for OU %s changed (from %s to %s)" %
-                        (my_sko, existing_ou_mappings[my_ouid], parent_ouid))
+            logger.debug("Parent for OU %s changed (from %s to %s)" %
+                         (my_sko, existing_ou_mappings[my_ouid], parent_ouid))
             # Assert that parents are properly placed before placing ourselves
             rec_make_ou(parent_sko, ou, existing_ou_mappings, org_units,
                         stedkode2ou, perspective)
