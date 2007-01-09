@@ -46,10 +46,13 @@ Tasks:
 
 """
 
-
+## Note that the script don't care about earlier imported data.
+## Previous data for the users imported will be overridden. Thus all
+## AD users should be imported in the same session.
 
 import getopt
 import sys
+import cPickle
 
 import cerebrum_path
 from Cerebrum import Errors
@@ -58,7 +61,8 @@ from Cerebrum.Utils import Factory
 
 # Globals
 SPREAD_PREFIX = 'spread_ad_account_' 
-
+USER_OU = {}
+USER_PROFILE_PATH = {}
 
 
 def attempt_commit():
@@ -68,7 +72,6 @@ def attempt_commit():
     else:
         db.commit()
         logger.debug("Committed all changes")
-
 
 
 def process_line(infile):
@@ -145,10 +148,6 @@ def process_user(uname, homedir, spread, ou, domain):
         logger.warn("User %s not in Cerebrum" % uname)
         return
 
-    ## TBD: What to to with OU for users in adm domain? It is not defined
-    account.populate_trait(constants.trait_ad_account_ou, strval=ou)
-    logger.debug("OU trait (%s) for account %s is set" % (ou, uname))
-
     try:
         spread = getattr(constants, spread)
     except AttributeError:
@@ -159,10 +158,18 @@ def process_user(uname, homedir, spread, ou, domain):
     if not disk_id:
         return
 
+    # For each user store a dict of spread<->ou mappings. Pickle that
+    # dict and set as trait.
+    if not uname in USER_OU:
+        USER_OU[uname] = {}
+    USER_OU[uname][spread] = ou
+    account.populate_trait(constants.trait_ad_account_ou,
+                           strval=cPickle.dumps(USER_OU[uname]))
+    logger.debug("Set OU trait (%s:%s) for account %s." % (spread, ou, uname))
+
     homedir_id = account.set_homedir(disk_id=disk_id,
                                      status=constants.home_status_not_created)
     account.set_home(spread, homedir_id)
-    account.write_db()
     logger.debug3("User %s got new home %s", uname, homedir)
 
     # Handle spread
@@ -176,7 +183,14 @@ def process_user(uname, homedir, spread, ou, domain):
         profile_path = homedir + '\\profile'
     else:
         profile_path = homedir.replace('\\home\\', '\\profile\\')
-    account.populate_trait(constants.trait_ad_profile_path, strval=profile_path)
+
+    # Set trait of pickled spread<->profile_path mappings
+    if not uname in USER_PROFILE_PATH:
+        USER_PROFILE_PATH[uname] = {}
+    USER_PROFILE_PATH[uname][spread] = profile_path
+    account.populate_trait(constants.trait_ad_profile_path,
+                           strval=cPickle.dumps(USER_PROFILE_PATH[uname]))
+    account.write_db()
     logger.debug("profile path (%s) trait for account %s is set" % (
         profile_path, uname))
 
