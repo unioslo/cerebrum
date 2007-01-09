@@ -33,6 +33,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
+from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 
 OU_class = Factory.get('OU')
@@ -74,58 +75,82 @@ def format_parent_sko(xmlou):
 
 
 
-def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
+def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
                 stedkode2ou, perspective):
-    """Recursively create the ou_id -> parent_id mapping"""
+    """Recursively create the ou_id -> parent_id mapping.
 
-    xmlou = org_units[stedkode]
+    Arguments:
+
+    my_sko	stedkode for the OU from which we want to start constructing
+                the OU-subtree.
+    ou		Instance of Factory.get('OU').
+    existing_ou_mappings	ou_id -> parent_ou_id mapping, representing
+                                parent information in Cerebrum.
+    org_units	sko -> XML-object mapping (for each 'OU' element in the file)
+    stedkode2ou	sko -> ou_id mapping (for each 'OU' element in the file).
+    """
+    
+    # This may happen *if* there is an error in the datafile, when OU1 has
+    # OU2 as parent, but there are no records of OU2 on file. It could happen
+    # when *parts* of the OU-hierarchy expire.
+    if my_sko not in org_units:
+        logger.warn("Error in dataset: trying to construct "
+                    "OU-hierarchy from sko %s, but it does not "
+                    "exist in the datafile", my_sko)
+        return
+
+    xmlou = org_units[my_sko]
     parent_sko = format_parent_sko(xmlou)
-    logger.debug("Place %s under %s" % (stedkode, parent_sko))
 
-    if (not parent_sko) or (not stedkode2ou.has_key(parent_sko)):
+    if (not parent_sko) or (parent_sko not in stedkode2ou):
         logger.warn("Error in dataset:"
                     " %s references missing STEDKODE: %s, using None" %
-                    (stedkode, parent_sko))
+                    (my_sko, parent_sko))
         parent_sko = None
         parent_ouid = None
-    elif stedkode == parent_sko:
-        logger.debug("%s has self as parent, using None" % stedkode)
+    elif my_sko == parent_sko:
+        logger.debug("%s has self as parent, using None" % my_sko)
         parent_sko = None
         parent_ouid = None
     else:
         parent_ouid = stedkode2ou[parent_sko]
     # fi
 
-    if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
-        logger.debug("Exist: %s (%s)" %
-                     (existing_ou_mappings[stedkode2ou[stedkode]],
-                      parent_ouid))
-        if existing_ou_mappings[stedkode2ou[stedkode]] != parent_ouid:
-            logger.warn("Mapping for %s changed (%s != %s)" %
-                        (stedkode,
-                         existing_ou_mappings[stedkode2ou[stedkode]],
-                         parent_ouid))
+    my_ouid = stedkode2ou[my_sko]
+
+    # if my_ouid ID already has a parent in Cerebrum, we may need to change the
+    # info in Cerebrum...
+    if my_ouid in existing_ou_mappings:
+        logger.debug("Parent exists: in cerebrum ou_id=%s; on file ou_id=%s" %
+                     (existing_ou_mappings[my_ouid], parent_ouid))
+        # if parent info in Cerebrum is different from parent info on file,
+        # change the info in Cerebrum ...
+        if existing_ou_mappings[my_ouid] != parent_ouid:
+            logger.warn("Parent for OU %s changed (from %s to %s)" %
+                        (my_sko, existing_ou_mappings[my_ouid], parent_ouid))
             # Assert that parents are properly placed before placing ourselves
             rec_make_ou(parent_sko, ou, existing_ou_mappings, org_units,
                         stedkode2ou, perspective)
+
+        # ... however, when parent info in cerebrum equals that on file, there
+        # is nothing more to be done for *this* ou (my_sko)
         else:
             return
-        # fi
+
+    # ... else if my_ouid does not exist in Cerebrum, we may still want to
+    # updates its parents...
     elif (parent_ouid is not None
-          and (stedkode != parent_sko)
+          and (my_sko != parent_sko)
           and (not existing_ou_mappings.has_key(parent_ouid))):
         rec_make_ou(parent_sko, ou, existing_ou_mappings, org_units,
                     stedkode2ou, perspective)
     # fi
 
+    logger.debug("Placing %s under %s" % (my_sko, parent_sko))
     ou.clear()
-    ou.find(stedkode2ou[stedkode])
-    if stedkode2ou.has_key(parent_sko):
-        ou.set_parent(perspective, stedkode2ou[parent_sko])
-    else:
-        ou.set_parent(perspective, None)
-    # fi
-    existing_ou_mappings[stedkode2ou[stedkode]] = parent_ouid
+    ou.find(my_ouid)
+    ou.set_parent(perspective, parent_ouid)
+    existing_ou_mappings[my_ouid] = parent_ouid
 # end rec_make_ou
 
 
@@ -154,22 +179,12 @@ def import_org_units(sources, cer_ou_tab):
         # iter_ou provides an iterator over objects inheriting from
         # xml2object.DataOU
         it = system2parser(system)(filename, False).iter_ou()
-        while 1:
-            try:
-                xmlou = it.next()
-            except StopIteration:
-                break
-            except:
-                logger.exception("Failed to process next OU")
-                continue
-            # yrt
-
+        for xmlou in SkippingIterator(it, logger):
             formatted_sko = format_sko(xmlou)
             if not formatted_sko:
                 logger.error("Missing sko for OU %s (names: %s). Skipped!" %
                              (list(xmlou.iterids()), list(xmlou.iternames())))
                 continue
-            # fi
             
             org_units[formatted_sko] = xmlou
             if verbose:
@@ -177,19 +192,15 @@ def import_org_units(sources, cer_ou_tab):
                              (formatted_sko,
                               xmlou.get_name_with_lang(xmlou.NAME_SHORT,
                                                        "no", "en")))
-            # fi
 
             args = (xmlou, None)
             if clean_obsolete_ous:
                 args = (xmlou, cer_ou_tab)
-            # fi
             
-            # logger.debug("Storing OU %s", xmlou)
             status, ou_id = db_writer.store_ou(*args)
 
             if verbose:
                 logger.debug("**** %s ****", status)
-            # fi
 
             # Not sure why this casting to int is required for PostgreSQL
             stedkode2ou[formatted_sko] = int(ou_id)
@@ -356,15 +367,7 @@ def dump_perspective(sources):
 
         # Slurp in data
         it = system2parser(system)(filename, False).iter_ou()
-        while 1:
-            try:
-                xmlou = it.next()
-            except StopIteration:
-                break
-            except:
-                logger.exception("Failed to construct next OU")
-                pass
-            # yrt
+        for xmlou in SkippingIterator(it, logger):
             sko = format_sko(xmlou)
             if sko is None:
                 print ("Missing sko for OU %s (names: %s). Skipped!" %

@@ -677,6 +677,39 @@ class XMLEntityIterator:
 
 
 
+class SkippingIterator:
+    """Iterate over elements while ignoring exceptions.
+
+    This comes in handy when we simply want to log and skip erroneous
+    entries. If no logging is desired, set logger to None. No indication of
+    failure would be provided (erroneous elements are going to be silently
+    ignored).
+    """
+
+    def __init__(self, iterator, logger):
+        self.iterator = iterator
+        self.logger = logger
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        while 1:
+            try:
+                element = self.iterator.next()
+                return element
+            except StopIteration:
+                raise
+            except:
+                # TBD: do we really want to be able to gloss over errors
+                # silently?
+                if self.logger:
+                    self.logger.exception("failed to process next element")
+                pass
+# end SkippingIterator
+
+
+
 
 
 # arch-tag: 31b2b62d-6a32-4a42-ab0c-3dcd82c038a5
