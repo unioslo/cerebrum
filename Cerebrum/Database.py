@@ -1025,6 +1025,9 @@ class PsycoPGCursor(Cursor):
                   self._db.encoding != 'UTF-8'):
                 # pypgsql1 does not support unicode (only utf-8)
                 parameters[k] = parameters[k].encode("iso8859-1")
+        if (type(operation) is unicode and
+                self._db.encoding != 'UTF-8'):
+                operation = operation.encode("iso8859-1")
 
         # A static method is slightly faster than a lambda.
         def utf8_decode(s):
