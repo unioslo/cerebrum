@@ -162,7 +162,7 @@ def process_user(uname, homedir, spread, ou, domain):
     # dict and set as trait.
     if not uname in USER_OU:
         USER_OU[uname] = {}
-    USER_OU[uname][str(spread)] = ou
+    USER_OU[uname][int(spread)] = ou
     account.populate_trait(constants.trait_ad_account_ou,
                            strval=cPickle.dumps(USER_OU[uname]))
     logger.debug("Set OU trait (%s:%s) for account %s." % (spread, ou, uname))
@@ -187,7 +187,7 @@ def process_user(uname, homedir, spread, ou, domain):
     # Set trait of pickled spread<->profile_path mappings
     if not uname in USER_PROFILE_PATH:
         USER_PROFILE_PATH[uname] = {}
-    USER_PROFILE_PATH[uname][str(spread)] = profile_path
+    USER_PROFILE_PATH[uname][int(spread)] = profile_path
     account.populate_trait(constants.trait_ad_profile_path,
                            strval=cPickle.dumps(USER_PROFILE_PATH[uname]))
     account.write_db()
