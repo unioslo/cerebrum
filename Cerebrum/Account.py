@@ -151,11 +151,12 @@ class AccountType(object):
         """Return information about the matching accounts."""
         join = extra = ""
         if affiliation is not None:
-            extra += " AND at.affiliation=:affiliation"
-            # To use 'affiliation' as a bind param, it might need
-            # casting to 'int'.  Do this here, where we know that
-            # 'affiliation' isn't None.
-            affiliation = int(affiliation)
+            if isinstance(affiliation, (list, tuple)):
+                affiliation = "IN (%s)" % \
+                    ", ".join(map(str, map(int, affiliation)))
+            else:
+                affiliation = "= %d" % int(affiliation)
+            extra += " AND at.affiliation %s" % affiliation
         if status is not None:
             extra += " AND pas.status=:status"
         if ou_id is not None:
@@ -201,7 +202,6 @@ class AccountType(object):
               %s
         ORDER BY at.person_id, at.priority""" % (join, extra),
                           {'ou_id': ou_id,
-                           'affiliation': affiliation,
                            'status': status,
                            'account_id' : account_id,
                            'person_id': person_id}, fetchall = fetchall)
