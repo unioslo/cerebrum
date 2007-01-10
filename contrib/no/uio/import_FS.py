@@ -217,8 +217,11 @@ def rem_old_aff():
         if v:
             ent_id,ou,affi = k.split(':')
             person.clear()
-            person.find(int(ent_id))
-            person.delete_affiliation(ou, affi, co.system_fs)
+            try:
+                person.find(int(ent_id))
+                person.delete_affiliation(ou, affi, co.system_fs)
+            except Errors.NotFoundError:
+                logger.warn("Couldn't find person with id %s", ent_id)
 
 def filter_affiliations(affiliations):
     """The affiliation list with cols (ou, affiliation, status) may
