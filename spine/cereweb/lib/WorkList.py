@@ -27,7 +27,7 @@ from templates.WorkListTemplate import WorkListTemplate
 def remember_args(object):
     import SpineIDL
     
-    if type(object) == type({}):
+    if type(object) == dict:
         id = object['id']
         object_type = object['object_type'].capitalize()
     else:
@@ -50,12 +50,15 @@ def remember_args(object):
         # XXX often not unique
         name_str = object.get_allocation_name().get_name()
     elif object_type == 'Account':
-        if type(object_type) == type({}):
+        if type(object) == dict:
             name_str = object['name']
         else:
             name_str = object.get_name()
     else:
-        name_str = object.get_name()
+        if type(object) == dict:
+            name_str = object['name']
+        else:
+            name_str = object.get_name()
 
     return id, object_type, name_str, "%s: %s" % (object_type, name_str)
 
