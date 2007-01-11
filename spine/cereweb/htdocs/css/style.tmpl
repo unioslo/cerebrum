@@ -23,11 +23,9 @@
 html>body $name {
     /* display: table; /* Breaks konqueror */
 	color: black;
-    width: auto;
 }
 $name {
     white-space:nowrap; /* to force width */
-    width:20px;/* rumor is IE should auto-expand  -- doesn't appear true? */
 }
 #end def
 
@@ -191,7 +189,7 @@ div.search_range .first, div.search_range .last { font-size: 90%; }
 
 ## Styles for view page, like person view etc..
 div.view_content {
-    width: 580px;
+    width: 650px;
 }
 
 div.view_content div.view_actions {
@@ -281,6 +279,12 @@ div.view_add h3 {
 
 div.view_add input:focus, div.view_add textarea:focus {
     background: #ffe;
+}
+
+div.box {
+    width: 100%;
+    float: left;
+    clear: left;
 }
 
 ## Styles for create pages, like create person etc..
