@@ -88,8 +88,11 @@ class FileBack:
         # exists.
         old = self.filename + ".old"
         if os.link:
-            os.remove(old)
-            os.link(self.filename, old)
+            try:
+                os.remove(old)
+                os.link(self.filename, old)
+            except OSError:
+                pass
             os.rename(self.tmpname, self.filename)
         else:
             try:
