@@ -2,6 +2,7 @@
 
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.Utils import Factory
+import pickle
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def _filter_quarantines(self, user_dict):
@@ -67,12 +68,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         # Find all users with relevant spread
         #
         tmp_ret = {}
+        disk = Factory.get('Disk')(db)
+        diskid2path = {}
+        for d in disk.list():
+            diskid2path[int(d['disk_id'])] = d['path']
+
         for row in self.ac.list_account_home(
             home_spread=disk_spread, account_spread=spread, filter_expired=True, include_nohome=True):
-            
+            home = row['home']
+            if not home:
+                home = diskid2path[int(row['disk_id'])]+"\\"+row['entity_name']
             tmp_ret[int(row['account_id'])] = {
                 'homeDrive': 'N:',
-                'homeDirectory': row['home'],
+                'homeDirectory': home,
                 'TEMPownerId': row['owner_id'],
                 'TEMPuname': row['entity_name'],
                 'ACCOUNTDISABLE': False   # if ADutilMixIn used get we could remove this
@@ -108,11 +116,20 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for row in self.ac.list_traits(self.co.trait_ad_profile_path):
             v = tmp_ret.get(int(row['entity_id']))
             if v:
-                v['profilePath'] = row['strval']
+                try:
+                    tmp = pickle.loads(row['strval'])[int(spread)]
+                    v['profilePath'] = tmp
+                except Exception, e:
+                    self.logger.warn("Error getting profilepath for %i: %s" % (row['entity_id'], e))
         for row in self.ac.list_traits(self.co.trait_ad_account_ou):
             v = tmp_ret.get(int(row['entity_id']))
             if v:
-                v['OU'] = row['strval'] + "," + self.ad_ldap
+                try:
+                    tmp = pickle.loads(row['strval'])[int(spread)]
+                    tmp = ",".join(["OU=%s" % t for t in tmp.split("/")])
+                    v['OU'] = tmp + "," + self.ad_ldap
+                except Exception, e:
+                    self.logger.warn("Error getting OU for %i: %s" % (row['entity_id'], e))
 
         #
         # Set mail adresses
@@ -137,6 +154,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def _make_ou_if_missing(self, required_ous, object_list=None, dryrun=False):
         if object_list is None:
             object_list = self.server.listObjects('organizationalUnit')
+            object_list.append(self.ad_ldap)
+            self.logger.debug("OU-list: %s" % repr(object_list))
         for ou in required_ous:
             if ou not in object_list:
                 self.logger.debug("Creating missing OU: "+ou)
