@@ -87,22 +87,27 @@ class FileBack:
         # Move the old file to .old, which we delete first in case it
         # exists.
         old = self.filename + ".old"
-        try:
+        if os.link:
             os.remove(old)
-        except OSError:    
-            pass
-        try:
-            os.rename(self.filename, old)
-        except OSError:
-            old = None
-        # Note that on win32 os.rename won't work if self.filename
-        # exists.
-        try:
+            os.link(self.filename, old)
             os.rename(self.tmpname, self.filename)
-        except OSError:
-            if old:
-                # Roll back to the old file, since we renamed it
-                os.rename(old, self.filename)    
+        else:
+            try:
+                os.remove(old)
+            except OSError:    
+                pass
+            try:
+                os.rename(self.filename, old)
+            except OSError:
+                old = None
+            # Note that on win32 os.rename won't work if self.filename
+            # exists.
+            try:
+                os.rename(self.tmpname, self.filename)
+            except OSError:
+                if old:
+                    # Roll back to the old file, since we renamed it
+                    os.rename(old, self.filename)    
 
     def abort(self):
         self.f.close()
