@@ -212,23 +212,18 @@ save.exposed = True
 
 def make(transaction, name, expire="", description=""):
     """Performs the creation towards the server."""
-    err=False
     msg=''
     if name:
         if len(name) < 3:
             msg=_("Group-name is too short( min. 3 characters).")
-            err=True
         elif len(name) > 8:
             msg=_("Group-name is too long(max. 8 characters).")
-            err=True
     else:
         msg=_("Group-name is empty.")
-        err=True
-    if not err and expire:
+    if not msg and expire:
         if not legal_date( expire ):
             msg=_("Expire-date is not a legal date.")
-            err=True
-    if not err:
+    if not msg:
         commands = transaction.get_commands()
         group = commands.create_group(name)
 

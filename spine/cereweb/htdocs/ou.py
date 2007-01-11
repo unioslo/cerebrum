@@ -23,6 +23,7 @@ import cherrypy
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import redirect_object, commit, commit_url
+from lib.utils import rollback_url
 from lib.utils import transaction_decorator, object_link
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
@@ -155,25 +156,45 @@ def make(transaction, name, institution,
     short_name = vargs.get("short_name", "")
     display_name = vargs.get("display_name", "")
     sort_name = vargs.get("sort_name", "")
-    institution = int(institution)
-    faculty = int(faculty)
-    institute = int(institute)
-    department = int(department)
+
+    msg=''
+    if not name:
+        msg=_('Name is empty.')
+
+    if not msg and not instituion:
+        msg=_('Institution is empty.')
+
+    if not msg and not faculty:
+        msg=_('Faculty is empty.')
+
+    if not msg and not institute:
+        msg=_('Institute is empty.')
+
+    if not msg and not department:
+        msg=_('Department is empty.')
+
+    if not msg:
+        institution = int(institution)
+        faculty = int(faculty)
+        institute = int(institute)
+        department = int(department)
     
-    ou = transaction.get_commands().create_ou(name, institution,
+        ou = transaction.get_commands().create_ou(name, institution,
                                         faculty, institute, department)
     
-    if acronym:
-        ou.set_acronym(acronym)
-    if short_name:
-        ou.set_short_name(short_name)
-    if display_name:
-        ou.set_display_name(display_name)
-    if sort_name:
-        ou.set_sort_name(sort_name)
+        if acronym:
+            ou.set_acronym(acronym)
+        if short_name:
+            ou.set_short_name(short_name)
+        if display_name:
+            ou.set_display_name(display_name)
+        if sort_name:
+            ou.set_sort_name(sort_name)
 
-    msg = _("Organization Unit successfully created.")
-    commit(transaction, ou, msg=msg)
+        msg = _("Organization Unit successfully created.")
+        commit(transaction, ou, msg=msg)
+    else:
+        rollback_url('/ou/create', msg, err=True)
 make = transaction_decorator(make)
 make.exposed = True
 

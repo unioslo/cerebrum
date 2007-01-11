@@ -24,6 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
+from lib.utils import rollback_url
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.HostSearchTemplate import HostSearchTemplate
@@ -131,8 +132,14 @@ create.exposed = True
 
 def make(transaction, name, description=""):
     """Creates the host."""
-    host = transaction.get_commands().create_host(name, description)
-    commit(transaction, host, msg=_("Host successfully created."))
+    msg=''
+    if not name:
+        msg=_('Hostname is empty.')
+    if not msg:
+        host = transaction.get_commands().create_host(name, description)
+        commit(transaction, host, msg=_("Host successfully created."))
+    else:
+        rollback_url('/host/create', msg, err=True)
 make = transaction_decorator(make)
 make.exposed = True
 
