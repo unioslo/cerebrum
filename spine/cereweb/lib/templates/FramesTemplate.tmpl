@@ -118,7 +118,7 @@ FramesTemplate.tmpl:def menu
 #end def bottom
 
 ### The main page! ###
-<?xml version='1.0' ?>
+##<?xml version='1.0' ?>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"><html lang="en">
 <head>
     <title>Cereweb $format_title($title)</title>
@@ -138,31 +138,30 @@ $jscript($i)
 #end for
 </head>
 <body>
-	<p>
-    <div class="page_content">
-        $session_warning()
-        #if $title
-        <div class="title">
-            <h1>$title</h1>
+    <div id="maindiv">
+        <div class="page_content">
+            $session_warning()
+            #if $title
+            <div class="title">
+                <h1>$title</h1>
+            </div>
+            #end if
+            $viewMessages()
+            $content()
+            <div style="clear: both;"></div>
         </div>
-        #end if
-	</p>
-        $viewMessages()
-        $content()
-    </div>
-	<p>
-    <div class="page_menu">
-        <div class="menu_header">
-            <a href="/index">Cereweb</a>
+        <div class="page_menu">
+            <div class="menu_header">
+                <a href="/index">Cereweb</a>
+            </div>
+            $menu()
         </div>
-        $menu()
+        <div class="page_bottom">
+            $bottom()
+        </div>
+    ## Stupid hack to make sure resizable floats don't cause problems.
+    <div style="clear: both;"></div>
     </div>
-	</p>
-	<p>
-    <div class="page_bottom">
-        $bottom()
-    </div>
-	</p>
 </body>
 </html>
 
