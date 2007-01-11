@@ -45,34 +45,57 @@
 #if $vargs == None
     #set $vargs = {}
 #end if
+<p>
 <div class="search">
-    <form action="$getAction()" method="POST" id="search_form">
-        <div class="searchform">
-            #for $name, $label in $fields
-                $form_widgets.input($name, $label, $vargs.get($name, None))
-            #end for
-            $getExtra($vargs)
-        </div>
-        <div class="help">
-            #for $line in $help
-            <div class="extra">
-                $_($line)
-            </div>
-            #end for
-            <div>
-                $_("Use wildcards * and ? to extend the search.")
-            </div>
-            <div>
-                $_("Supply several search parameters to limit the search.")
-            </div>
-        </div>
-        <div>
-            <center>
-                <input type="submit" value="$_('Search')" />&nbsp;
-                <input type="button" value="$_('Clear')" id="search_clear" />
-            </center>
-        </div>
-    </form>
+<table>
+	<tr>
+		<th>
+			$_('Search for... ')
+		</th>
+	</tr>
+	<tr>
+		<td>
+        	<div class="searchform">
+    		<form action="$getAction()" method="POST" id="search_form">
+			<table>
+           		 #for $name, $label in $fields
+				<tr>
+                $form_widgets.td2input($name, $label, $vargs.get($name, None))
+				</tr>
+            	#end for
+				<tr>
+					<td colspan="2">
+            				$getExtra($vargs)
+        					<div class="help">
+            					#for $line in $help
+            						<div class="extra">
+               	 						$_($line)
+            						</div>
+            					#end for
+            					<div>
+                					$_("Use wildcards * and ? to extend the search.")
+            					</div>
+            					<div>
+                					$_("Supply several search parameters to limit the search.")
+            					</div>
+							</div>
+					</td>
+				</tr>
+				<tr>
+					<td colspan="2">
+            			<center>
+                			<input type="submit" value="$_('Search')" />&nbsp;
+                			<input type="button" value="$_('Clear')" id="search_clear" />
+            			</center>
+					</td>
+				</tr>
+			</table>
+			</form>
+        	</div>
+		</td>
+	</tr>
+</table>
 </div>
+</p>
 #end def
 

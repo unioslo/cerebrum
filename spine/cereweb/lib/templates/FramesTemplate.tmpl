@@ -38,12 +38,12 @@
 
 ## Method for adding css files into the html page
 #def css($name)
-    <link rel="stylesheet" type="text/css" href="/css/$name" />
+    <link rel="stylesheet" type="text/css" href="/css/$name"/>
 #end def
 
 ## Method for adding javascript files into the html page
 #def jscript($name)
-    <script language="JavaScript" src="/jscript/$name"></script>
+    <script type="text/javascript" src="/jscript/$name"></script>
 #end def
 
 ## Messages, like errormessages and more..
@@ -138,6 +138,7 @@ $jscript($i)
 #end for
 </head>
 <body>
+	<p>
     <div class="page_content">
         $session_warning()
         #if $title
@@ -145,18 +146,23 @@ $jscript($i)
             <h1>$title</h1>
         </div>
         #end if
+	</p>
         $viewMessages()
         $content()
     </div>
+	<p>
     <div class="page_menu">
         <div class="menu_header">
             <a href="/index">Cereweb</a>
         </div>
         $menu()
     </div>
+	</p>
+	<p>
     <div class="page_bottom">
         $bottom()
     </div>
+	</p>
 </body>
 </html>
 

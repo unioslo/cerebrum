@@ -27,22 +27,53 @@
 ## Creates the form for creating a new group.
 #def form($name, $expire, $description)
 <div class="create">
-    <form action="make" method="POST">
-        <div class="createform">
-            $form_widgets.input("name", "Name", $name)
-            <label for="description">$_('Description'):</label>
-            <textarea rows="3" cols="40" name="description">$description</textarea>
-            <br />
-            $form_widgets.input("expire", "Expire date *", $expire)
-        </div>
-        $form_widgets.showHelp($help)
-        <div>
-            <center>
-                <input type="submit" value="$_('Create')" />&nbsp;
-                <input type="reset" value="$_('Clear')" />
-            </center>
-        </div>
-    </form>
+	<table>
+		<tr>
+			<th>
+				$_('Create a new group')
+			</th>
+		</tr>
+		<tr>
+			<td>
+        		<div class="createform">
+    			<form action="make" method="POST">
+				<table>
+				<tr>
+            			$form_widgets.td2input("name", "Name", $name)
+				</tr>
+				<tr>
+					<td valign="top">
+						<div>
+            			<label for="description">$_('Description'):</label>
+						</div>
+					</td>
+					<td>
+            			## <textarea rows="3" cols="20" name="description">$description</textarea>
+            			<textarea rows="3" name="description">$description</textarea>
+					</td>
+				</tr>
+				<tr>
+					$form_widgets.td2input("expire", "Expire date *", $expire)
+				</tr>
+				<tr>
+					<td colspan="2">
+        				$form_widgets.showHelp($help)
+					</td>
+				</tr>
+				<tr>
+					<td colspan="2">
+            			<center>
+                			<input type="submit" value="$_('Create')" />&nbsp;
+                			<input type="reset" value="$_('Clear')" />
+            			</center>
+					</td>
+				</tr>
+				</table>
+    			</form>
+        		</div>
+			</td>
+		</tr>
+	</table>
 </div>
 #end def
 

@@ -29,20 +29,17 @@
 
 #def create_box($tr)
 <p>
-## <div class="createform">
-<div class="email_view">
+<div class="create">
     ## <h2>$_('Create a new email domain')</h2>
 	<table>
 	<tr>
 		<th>
-			<div class="tableheader">
-				$_("Create a new email domain")
-			</div>
+			$_("Create a new email domain")
 		</th>
 	</tr>
 	<tr>
 		<td>
-			<div class="td_email_view">
+			<div class="createform">
 			<form action="/email/make" method="POST">
 			<table>
         		#echo $_create($tr)
@@ -71,20 +68,16 @@
 #end def
 
 #def create($tr)
-## <div class="create">
-## <div class="createform">
-<div class="email_view">
+<div class="create">
 	<table>
 		<tr>
 			<th>
-				<div class="tableheader">
-					$_('Create a new email domain')
-				</div>
+				$_('Create a new email domain')
 			</th>
 		</tr>
 		<tr>
 			<td>
-			<div class="td_email_view">
+			<div class="createform">
     		<form action="/email/make" method="POST">
 			<table>
 
@@ -111,8 +104,6 @@
 		</tr>
 	</table>
 </div>
-## </div>
-## </div>
 #end def
 
 #def _create($tr)
@@ -125,27 +116,23 @@
     	$form_widgets.td2input('description', 'Description',value="")
 	</tr>
 	<tr>
-    		$form_widgets.generate_td2loption("category", "Category", $cats)
+   		$form_widgets.generate_td2loption("category", "Category", $cats)
 	</tr>
 #end def
 
 #def search_box($tr)
 <p>
-## <div class="createform">
-<div class="email_view">
-## <div class="view_info">
+<div class="search">
     ##<h2>$_('Find email domain')</h2>
 	<table>
 		<tr>
-			<th colspan="2">
-				<div class="tableheader">
-					$_('Find email domain')
-				</div>
+			<th>
+				$_('Find email domain')
 			</th>
 		</tr>
 		<tr>
 			<td>
-				<div class="td_email_view">
+				<div class="searchform">
     			<form method="POST" action="/email/search">
 				<table>
         			#echo $_search($tr, {})
@@ -155,17 +142,12 @@
 					</td>
 				</tr>
 				<tr>
-					<td colspan="2" align="center">
-        				<div>
+					<td colspan="2">
+						<center>
             				<input type="submit" value="$_('Search')" />&nbsp;
             				<input type="reset" value="$_('Clear')" />
-						</div>
+						</center>
 					</td>
-					##<td>
-					##	<div>
-            		##		<input type="reset" value="$_('Clear')" />
-					##	</div>
-					##</td>
 				</tr>
 				</table>
 				</form>
@@ -174,7 +156,6 @@
 		</tr>
 	</table>
     </form>
-</div>
 </div>
 </p>
 #end def
@@ -185,21 +166,15 @@
 	<table>
 	<tr>
 		<th>
-				<div class="tableheader">
-					$_("Search for email domain(s)")
+			$_("Search for email domain(s)")
 		</th>
 	</tr>
 	<tr>
 		<td>
+			<div class="searchform">
     		<form method="POST" action="/email/search">
 			<table>
         		#echo $_search($tr, $vargs)
-
-			<tr>
-				<td colspan="2">
-					&nbsp;
-				</td>
-			</tr>
 			<tr>
 				<td colspan="2">
    		 			#set $help = ["Use wildcards * and ? to extend the search.", "Supply several search parameters to limit the search."]
@@ -214,8 +189,9 @@
         			</center>
 				</td>
 			</tr>
-			<table>
+			</table>
     		</form>
+			</div>
 		</td>
 	</tr>
 	</table>
@@ -239,11 +215,26 @@
 
 #def categories($tr)
     #set $cats = $tr.get_email_domain_category_searcher().search()
+	<table>
+		<tr>
+			<td>
+				&nbsp;
+			</td>
+		</tr>
     #for $cat in $cats
-        <div>
-            $cat.get_name() - $cat.get_description()
-        </div>
+		<tr>
+			<td>
+        		<div>
+            		$cat.get_name() - $cat.get_description()
+        		</div>
+			</td>
+		</tr>
     #end for
+	</table>
+	<br />
+	<br />
+	<br />
+	<br />
 #end def
 
 #def view_domain($transaction, $domain)
