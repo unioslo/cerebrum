@@ -175,7 +175,7 @@ class ProcHandler(object):
         shdw_grp.write_db()
         
 
-    def process_group(self, name):
+    def process_group(self, group_name):
         """Check the group's `shadow group`."""
         
         # Init the needed objects if not already done
@@ -188,22 +188,22 @@ class ProcHandler(object):
             self._ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             self.default_creator_id = self._ac.entity_id
             
-        shadow = "cerebrum_%s" % name
+        shadow = "cerebrum_%s" % group_name
         # Try to initialize the object
         try:
             self._group.clear()
-            self._group.find_by_name(name)
-            self.logger.debug("prc_grp: Group '%s' found." % name)
+            self._group.find_by_name(group_name)
+            self.logger.debug("prc_grp: Group '%s' found." % group_name)
             # We found a group that something potentially happened to.
             # Check if it is a shadow group. If it is, skip it.
             if self._group.get_trait(self._co.trait_group_derived):
-                self.logger.debug("prc_grp: Group '%s' is a shadow group." % name)
+                self.logger.debug("prc_grp: Group '%s' is a shadow group." % group_name)
                 return
             # See if there is a shadow group
             shdw_grp = Factory.get('Group')(self.db)
             try:
                 shdw_grp.find_by_name(shadow)
-                self.logger.debug("prc_grp: Group '%s' has a shadow group '%s'." % (name, shadow))
+                self.logger.debug("prc_grp: Group '%s' has a shadow group '%s'." % (group_name, shadow))
             except Errors.NotFoundError:
                 # None found, so we make one. Populate it with
                 # trait_group_derived
@@ -220,14 +220,14 @@ class ProcHandler(object):
             # At this point, we have the master group, and a shadow group
             # which we know exists. Diff members.
             self._diff_groups(self._group, shdw_grp)
-            self.logger.info("prc_grp: Shadow group '%s' synced with group '%s'." % (shadow,name))
+            self.logger.info("prc_grp: Shadow group '%s' synced with group '%s'." % (shadow,group_name))
         except Errors.NotFoundError:
             # Group we have gotten is deleted. Try to look up it's potential
             # shadow group
             try:                
                 self._group.clear()
                 self._group.find_by_name(shadow)
-                self.logger.debug("prc_grp: Group '%s' not found, but name matching '%s' found" % (name,shadow))
+                self.logger.debug("prc_grp: Group '%s' not found, but name matching '%s' found" % (group_name,shadow))
                 # Name matches a shadow group. Check if it actually is.
                 # If it is, we delete it, if not, do nothing.
                 if self._group.get(self.co.trait_group_derived):
@@ -236,7 +236,7 @@ class ProcHandler(object):
                 return
             except Errors.NotFoundError:
                 # No shadow group found. Do nothing.
-                self.logger.debug("prc_grp: Group '%s' and shadow group '%s' not found." % (name,shadow))
+                self.logger.debug("prc_grp: Group '%s' and shadow group '%s' not found." % (group_name,shadow))
                 return
         
 
@@ -246,6 +246,81 @@ class ProcHandler(object):
             ou.add_spread(self._co.spread_ad_ou)
             self.logger.info("prc_ou: OU '%s' got AD spread." % ou.entity_id)
             ou.write_db()
+
+
+    def ac_type_add(self, account_id, affiliation, ou_id):
+        """Adds an account to special groups which represent an
+        affiliation at an OU. Make the group if it's not present."""
+        if self._ac is None:
+            self._ac = Factory.get('Account')(self.db)
+            self._ac.clear()
+
+        ou = Factory.get("OU")(self.db)
+        ou.find(ou_id)
+
+        aff2txt = { int(self._co.affiliation_ansatt) : 'Tilsette',
+                    int(self._co.affiliation_teacher) : 'Tilsette',
+                    int(self._co.affiliation_elev) : 'Elevar' }
+
+        # Look up the group
+        grp_name = "%s %s" % (ou.acronym, aff2txt[int(affiliation)])
+        if not self._group:
+            self._group = Factory.get('Group')(self.db)
+        if not self.default_creator_id:
+            if self._ac is None:
+                self._ac = Factory.get('Account')(self.db)
+            self._ac.clear()
+            self._ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+            self.default_creator_id = self._ac.entity_id
+        try:
+            self._group.clear()
+            self._group.find_by_name(grp_name)
+            self.logger.debug("ac_type_add: Group '%s' found." % grp_name)
+        except Errors.NotFoundError:
+            self._group.populate(self.default_creator_id,
+                                 self._co.group_visibility_all,
+                                 grp_name)
+            self._group.write_db()
+            self._group.add_spread(int(self._co.spread_ad_grp))
+            self._group.write_db()
+            self.logger.info("ac_type_add: Group '%s' created." % grp_name)
+ 
+        if not self._group.has_member(account_id, self._co.entity_account,
+                                      self._co.group_memberop_union):
+            self._group.add_member(account_id, self._co.entity_account,
+                                   self._co.group_memberop_union)
+            self._group.write_db()
+            self.logger.info("ac_type_add: Account '%s' added to group '%s'." % (account_id, grp_name))
+
+    def ac_type_del(self, account_id, affiliation, ou_id):
+        """Deletes an account from special groups which represent an
+        affiliation at an OU. Delete the group if no members are present."""
+        ou = Factory.get("OU")(self.db)
+        ou.find(ou_id)
+
+        aff2txt = { int(self._co.affiliation_ansatt) : 'Tilsette',
+                    int(self._co.affiliation_teacher) : 'Tilsette',
+                    int(self._co.affiliation_elev) : 'Elevar' }
+
+        # Look up the group
+        grp_name = "%s %s" % (ou.acronym, aff2txt[int(affiliation)])
+        if not self._group:
+            self._group = Factory.get('Group')(self.db)
+        try:
+            self._group.clear()
+            self._group.find_by_name(grp_name)
+            self.logger.debug("ac_type_del: Group '%s' found." % grp_name)
+            if self._group.has_member(account_id, self._co.entity_account,
+                                      self._co.group_memberop_union):
+                self._group.remove_member(account_id, self._co.group_memberop_union)
+                self._group.write_db()
+                self.logger.info("ac_type_del: Account '%s' deleted from group '%s'." % (account_id, grp_name))
+            # Deal with empty groups as well
+            if len(self._group.get_members()) == 0:
+                self._group.delete()
+                self._group.write_db()
+        except Errors.NotFoundError:
+            self.logger.debug("ac_type_del: Group '%s' not found. Nothing to do" % grp_name)
 
     def commit(self):
         """Clean up if needed."""

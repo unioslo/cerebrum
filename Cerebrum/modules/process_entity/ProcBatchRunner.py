@@ -90,6 +90,8 @@ class ProcBatchRunner(object):
         self.process_groups()
         self.logger.info("process_OUs()")
         self.process_OUs()
+        self.logger.info("process_account_types()")
+        self.process_account_types()
         if self.dryrun:
             self.logger.info("rollback()")
             self.proc.rollback()
@@ -139,3 +141,71 @@ class ProcBatchRunner(object):
             ou.clear()
             ou.find(ou_id)
             self.proc.process_ou(ou)
+
+
+    def process_account_types(self):
+        """Feed the handler account_types that should be updated. An
+        account_type will result in being member of a special group.
+        Traverse the groups and account_types to sync them. In a
+        Changelog setting, this information will be fed to the Handler
+        by the ChangeLog.
+
+        In this batch job, we generate a map of affiliations and
+        groups and send the correct add/del requests to the Handler.
+        This is a bit ineffective, but has to be like this to mimic
+        the ChangeLog"""
+        grp = Factory.get('Group')(self.db)
+        ac = Factory.get('Account')(self.db)
+        ou = Factory.get('OU')(self.db)
+
+        # Build up a cache of account_types
+        ac2aff = {}
+        for row in ac.list_accounts_by_type(affiliation=(self.co.affiliation_ansatt,
+                                                      self.co.affiliation_teacher,
+                                                      self.co.affiliation_elev)):
+            ac2aff.setdefault((row['affiliation'], row['ou_id']), []).append(row['account_id'])
+
+        group_name_re = re.compile('(\w+)\s+(\w+)')
+        txt2aff = { 'Tilsette': (self.co.affiliation_ansatt,self.co.affiliation_teacher),
+                    'Elevar' : (self.co.affiliation_elev,) }
+        aff_grp2ac = {}
+        # Resolve the group into an OU and an affiliation. 
+        for row in grp.list_traits(self.co.trait_group_affiliation):
+            grp.clear()
+            grp.find(row['entity_id'])
+            ou_acronym = None
+            affiliation = None
+            if group_name_re.search(grp.group_name):
+                affiliation = group_name_re.group(1)
+                ou_acronym = group_name_re.group(2)
+            else:
+                # Group's name doesn't match the criteria. Fail.
+                self.logger.warning("Group '%s' has an odd name for a generated aff group. Skipping" % grp.group_name)
+                continue
+            ous = ou.search(acronym=ou_acronym)
+            if len(ous) > 1:
+                self.logger.warning("Acronym '%s' results in more than one OU. Skipping" % ou_acronym)
+                continue
+            if len(ous) == 0:
+                self.logger.warning("Acronym '%s' doesn't resolve to an OU." % ou_acronym)
+                # TBD: What to do? Delete the group? Let The Handler deal with it?
+                continue
+            ou.clear()
+            ou.find(ous[0]['ou_id'])
+            aff = txt2aff[affiliation]
+            # Send a delete call to the Handler if the group has accounts in it
+            # without the proper account_type.
+            for mbr in grp.list_members()[0]:
+                found = False
+                for aff in txt2aff[affiliation]:
+                    if mbr['member_id'] in ac2aff[(aff,ou.ou_id)]:
+                        found = True
+                        aff_grp2ac.setdefault((row['affiliation'], row['ou_id']), []).append(mbr['member_id'])
+                        break
+                if not found:
+                    self.proc.ac_type_del(mbr['member_id'])
+        # Let the handler take take of added account_types.
+        for i in ac2aff:
+            for account in ac2aff[i]:
+                if not (aff_grp2ac.has_key(i) and not account in aff_grp2ac[i]):
+                    self.proc.ac_type_add(account, i[0], i[1])
