@@ -90,11 +90,12 @@
         FV_register('note_form', 'note_add', null, 'note_cancel');
         //-->
     </script>
+<div style="clear:both;"></div>
 </div>
 #end def
 
 #def viewInfo($account)
-<div class="view_info">
+<div class="view_info box">
     <div class="info">
         <em>$_('Name'):</em> $account.get_name()
     </div>
@@ -135,7 +136,7 @@
 #def viewPasswords($account)
 #set $auths = $account.get_authentications()
 #if $auths
-<div class="passwords">
+<div class="passwords box">
     <h3>$_('Current authentication types')</h3>
     #for $auth in $auths
     <div class="password">
@@ -147,13 +148,13 @@
 #end def
 
 #def setPassword($account)
-<div class="view_add" id="pass_form" style="display:none;">
+<div class="view_add box" id="pass_form" style="display:none;">
     $form_widgets.changePassword($account.get_id())
 </div>
 #end def
 
 #def viewGroups($account)
-<div class="accountgroups">
+<div class="accountgroups box">
     <h3>$_('Groups')</h3>
     <form action="groups" method="POST">
         <input type="hidden" name="account_id" value="$account.get_id()" />

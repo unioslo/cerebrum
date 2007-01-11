@@ -23,7 +23,7 @@
 #def viewHistoryLog($table, $id)
     #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"),
         'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
-    <div class="historylog">
+    <div class="historylog box">
         <h3><a href="/entity/full_historylog?id=$id">$_('History log')</a></h3>
         $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
     </div>
@@ -32,7 +32,7 @@
 #def viewCompleteHistoryLog($table)
     #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"),
         'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
-    <div class="historylog">
+    <div class="historylog box">
         <h3>$_('History log')</h3>
         $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
     </div>

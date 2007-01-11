@@ -44,7 +44,7 @@
 $searcher.set_entity($entity)
 #set $targets = $searcher.search()
 #if $targets
-<div class="emailtargets">
+<div class="emailtargets box">
     <h3>$_('Email targets')</h3>
     #for $target in $targets:
     <div class="emailtarget">
@@ -61,7 +61,7 @@ $searcher.set_entity($entity)
 
 #def find_email($address="")
 <p>
-<div class="email_view">
+<div class="email_view box">
     ## <h2>$_('Find email target by address')</h2>
     <form action="/emailtarget/search" method="POST">
 		<table width="100%">
