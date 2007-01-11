@@ -26,7 +26,7 @@
 #set $homes = $account.get_homes()
 #if $homes
 #set $id = $account.get_id()
-<div class="homedirs">
+<div class="homedirs box">
     <h3>$_('Home Directories')</h3>
     #for $home in $homes
     <div class="homedir">
@@ -47,25 +47,24 @@
 #end def
 
 #def set($entity, $tr)
-<div class="view_add" id="home_form" style="display:none;">
-<form action="set_home" method="POST">
-    <a name="homedir" />
-    <h3>$_('Set home directory')</h3>
-    <input type="hidden" name="id" value="$entity.get_id()" />
+<div class="view_add box" id="home_form" style="display:none;">
+    <form action="set_home" method="POST">
+        <a name="homedir" />
+        <h3>$_('Set home directory')</h3>
+        <input type="hidden" name="id" value="$entity.get_id()" />
 
-    #set $spreads = [($i.get_name(), $i.get_name())
-                     for $i in $entity.get_spreads()]
-    #set $disks = $tr.get_disk_searcher().search()
-    #set $disks = [("", " ")] + [($i.get_id(), "%s:%s" % 
-        ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
-    
-    $form_widgets.generate_loption("spread", "Spread", $spreads)
-    $form_widgets.input("home", "Home")
-    $form_widgets.generate_loption("disk", "Disk", $disks)
-    <input type="submit" value="$_('Set homedir')" />&nbsp;
-    <input type="button" value="$_('Cancel')" id="home_cancel" />
-    </div>
-</form>
+        #set $spreads = [($i.get_name(), $i.get_name())
+                         for $i in $entity.get_spreads()]
+        #set $disks = $tr.get_disk_searcher().search()
+        #set $disks = [("", " ")] + [($i.get_id(), "%s:%s" % 
+            ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
+        
+        $form_widgets.generate_loption("spread", "Spread", $spreads)
+        $form_widgets.input("home", "Home")
+        $form_widgets.generate_loption("disk", "Disk", $disks)
+        <input type="submit" value="$_('Set homedir')" />&nbsp;
+        <input type="button" value="$_('Cancel')" id="home_cancel" />
+    </form>
 </div>
 #end def
 
