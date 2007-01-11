@@ -56,7 +56,7 @@ div.page_menu, div.page_bottom {
   padding-left: 0.5em;
   padding-right: 0.5em;
   padding-top: 0.1em;
-  position: absolute;
+  /* position: absolute; */
   /* If scrolling is needed: */
   overflow: hidden; 
 }
@@ -69,6 +69,7 @@ div.page_menu {
   right: auto;
   top: 0;
   width: ${menuwidth}em;
+  position: absolute;
 }
 
 div.page_bottom {
@@ -84,7 +85,7 @@ div.page_bottom {
 /* This trick is to fix something i IE 5 on Mac..  */
 @media screen {
   body>div.page_menu, body>div.page_bottom {
-    position: fixed;
+	/* position: fixed; */
   }
 }
 

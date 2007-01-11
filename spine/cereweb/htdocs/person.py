@@ -38,7 +38,7 @@ from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 def search(transaction, **vargs):
     """Search after hosts and displays result and/or searchform."""
     page = Main()
-    page.title = _("Search for person(s)")
+    page.title = _("Person")
     page.setFocus("person/search")
     page.add_jscript("search.js")
 
@@ -179,7 +179,7 @@ edit.exposed = True
 def create(transaction):
     """Creates a page with the form for creating a person."""
     page = Main()
-    page.title = _("Create a new person")
+    page.title = _("Person")
     page.setFocus("person/create")
 
     genders = [(g.get_name(), g.get_description()) for g in 
@@ -212,33 +212,26 @@ save.exposed = True
 
 def make(transaction, firstname, lastname, gender, birthdate, description=""):
     """Create a new person with the given values."""
-    err=False
     msg=''
     if firstname:
         if len(firstname) > 256:
             msg=_('Firstname is too long( max. 256 characters).')
-            error=True
     else:
         msg=_("Firstname is empty.")
-        err=True
-    if not err:
+    if not msg:
         if lastname:
             if len(lastname) > 256:
                 msg=_('Lastname is too long(max. 256 characters).')
-                err=True
         else:
             msg=_('Lastname is empty.')
-            err=True
-    if not err:
+    if not msg:
         if birthdate:
             if not legal_date(birthdate):
                 msg=_('Birthdate is not a legal date.')
-                err=True
         else:
             msg=_('Birthdate is empty.')
-            err=True
 
-    if not err:
+    if not msg:
         birthdate = strptime(transaction, birthdate)
         gender = transaction.get_gender_type(gender)
         source_system = transaction.get_source_system('Manual')
