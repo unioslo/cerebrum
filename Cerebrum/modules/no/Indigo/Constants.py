@@ -160,7 +160,7 @@ class Constants(Constants.Constants):
         'internal_group', Constants.Constants.entity_group,
         'Register last_seen date for internaly created groups')
     trait_group_affiliation = _EntityTraitCode(
-        'affiliation_group', Constants.Constants.entity_group,
+        'aff_group', Constants.Constants.entity_group,
         'Tag groups created to become affiliation groups.')
     
 # arch-tag: 82109000-67f8-11da-8454-871df49a59c9
