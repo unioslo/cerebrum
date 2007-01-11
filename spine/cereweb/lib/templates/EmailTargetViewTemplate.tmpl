@@ -1,0 +1,46 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#extends EntityViewTemplate
+#from lib.utils import object_link, strftime
+#from lib.WorkList import remember_link
+#from FormWidgets import FormWidgets
+
+#attr $form_widgets = FormWidgets()
+
+## Main method for creating the view
+#def view($target)
+#set $id = $target['id']
+<div class="view_content">
+
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_("edit info")</a><br />
+            <a href="delete?id=$id">$_("delete account")</a><br />
+            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+            <br />
+            $remember_link($target)<br />
+        </div>
+    </div>
+
+    ## Content
+    <p>Dette er en test.</p>
+</div>
+#end def
