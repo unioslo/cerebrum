@@ -39,15 +39,19 @@ class ADutil(object):
             return (True, command)
         else:
             cmd = getattr(self.server, command)
-            if arg1 == None:
-                ret = cmd()
-            elif arg2 == None:
-                ret = cmd(arg1)
-            elif arg3 == None:
-                ret = cmd(arg1, arg2)
-            else:
-                ret = cmd(arg1, arg2, arg3)
-                
+            try:
+                if arg1 == None:
+                    ret = cmd()
+                elif arg2 == None:
+                    ret = cmd(arg1)
+                elif arg3 == None:
+                    ret = cmd(arg1, arg2)
+                else:
+                    ret = cmd(arg1, arg2, arg3)
+            except Exception, e:
+                self.logger.warn("Unexpected exception", exc_info=1)
+                self.logger.debug("Command: %s" % repr((command, dry_run, arg1, arg2, arg3)))
+                return [None]
             return ret
 
     def get_default_ou(self, change = None):
@@ -97,7 +101,7 @@ class ADutil(object):
     def perform_changes(self, changelist, dry_run):
 
         for chg in changelist:      
-
+            self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
                 self.create_object(chg, dry_run)
             else:
@@ -274,9 +278,9 @@ class ADuserUtil(ADutil):
         pass
     
 
-    def get_home_drive(self, change_dict):
+    def get_home_drive(self, cerebrum_usrdict):
         #Returns default home drive in AD.
-        return cereconf.AD_HOME_DRIVE
+        return cerebrum_usrdict.get('homeDrive', cereconf.AD_HOME_DRIVE)
 
 
     def create_object(self, chg, dry_run):  
@@ -362,10 +366,10 @@ class ADuserUtil(ADutil):
                     #Catching special cases.
                     #Check against home drive.
                     if attr == 'homeDrive':
-                        default_home_drive = self.get_home_drive(cerebrumusrs[usr])         
+                        home_drive = self.get_home_drive(cerebrumusrs[usr])         
                         if adusrs[usr].has_key('homeDrive'):
-                            if adusrs[usr]['homeDrive'] != default_home_drive:
-                                changes['homeDrive'] = default_home_drive
+                            if adusrs[usr]['homeDrive'] != home_drive:
+                                changes['homeDrive'] = home_drive
                             
                     #Treating general cases
                     else:
@@ -474,8 +478,7 @@ class ADuserUtil(ADutil):
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = cusr
                 changelist.append(changes)
-                if not cerebrumusrs[cusr].has_key('homeDrive'):
-                    changes['homeDrive'] = self.get_home_drive(cdta)
+                changes['homeDrive'] = self.get_home_drive(cdta)
 
         return changelist
 
