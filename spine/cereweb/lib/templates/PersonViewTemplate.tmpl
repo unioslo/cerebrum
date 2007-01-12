@@ -77,22 +77,22 @@
 #end def
 
 #def viewInfo($person)
-<div class="view_info">
+<div class="view_info box">
     #if $person.get_deceased_date()
-    <div class="info">
+    <div class="item">
         <span class="deceased">$_("Person is deceased")</span>
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_("Deceased date"):</em> $strftime($person.get_deceased_date())
     </div>
     #end if
-    <div class="info">
+    <div class="item">
         <em>$_("Gender"):</em> $person.get_gender().get_description()
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_("Date of birth"):</em> $strftime($person.get_birth_date())
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_("Description"):</em> $person.get_description()
     </div>
 </div>

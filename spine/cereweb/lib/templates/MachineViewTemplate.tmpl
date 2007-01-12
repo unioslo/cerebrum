@@ -61,21 +61,21 @@
 
 ## View information about host (name and description).
 #def viewInfo($host)
-<div class="view_info">
-    <div class="info"><em>$_("Name"):</em> $host.get_name()</div>
-    <div class="info"><em>$_("Description"):</em> $host.get_description()</div>
+<div class="view_info box">
+    <div class="item"><em>$_("Name"):</em> $host.get_name()</div>
+    <div class="item"><em>$_("Description"):</em> $host.get_description()</div>
     #if host.is_machine()
-        <div class="info"><em>$_("Cpu arch"):</em>$host.get_cpu_arch().get_description()</div>
-        <div class="info"><em>$_("Operating system"):</em>$host.get_operating_system().get_description()</div>
-        <div class="info"><em>$_("Interconnect"):</em>$host.get_interconnect().get_description()</div>
-        <div class="info"><em>$_("Total memory"):</em>$host.get_total_memory()</div>
-        <div class="info"><em>$_("Node number"):</em>$host.get_node_number()</div>
+        <div class="item"><em>$_("Cpu arch"):</em>$host.get_cpu_arch().get_description()</div>
+        <div class="item"><em>$_("Operating system"):</em>$host.get_operating_system().get_description()</div>
+        <div class="item"><em>$_("Interconnect"):</em>$host.get_interconnect().get_description()</div>
+        <div class="item"><em>$_("Total memory"):</em>$host.get_total_memory()</div>
+        <div class="item"><em>$_("Node number"):</em>$host.get_node_number()</div>
     <h3>Per-node data</h3>
-        <div class="info"><em>$_("Node memory"):</em>$host.get_node_memory()</div>
-        <div class="info"><em>$_("Node disk"):</em>$host.get_node_disk()</div>
-        <div class="info"><em>$_("Cpu core number"):</em>$host.get_cpu_core_number()</div>
-        <div class="info"><em>$_("Cpu core mflops"):</em>$host.get_cpu_core_mflops()</div>
-        <div class="info"><em>$_("Cpu MHz"):</em>$host.get_cpu_mhz()</div>
+        <div class="item"><em>$_("Node memory"):</em>$host.get_node_memory()</div>
+        <div class="item"><em>$_("Node disk"):</em>$host.get_node_disk()</div>
+        <div class="item"><em>$_("Cpu core number"):</em>$host.get_cpu_core_number()</div>
+        <div class="item"><em>$_("Cpu core mflops"):</em>$host.get_cpu_core_mflops()</div>
+        <div class="item"><em>$_("Cpu MHz"):</em>$host.get_cpu_mhz()</div>
     #end if
 </div>
 #end def

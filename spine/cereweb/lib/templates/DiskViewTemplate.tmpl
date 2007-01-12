@@ -53,14 +53,14 @@
 #end def
 
 #def viewInfo($disk)
-<div class="view_info">
-    <div class="info">
+<div class="view_info box">
+    <div class="item">
         <em>$_('Host'):</em> $object_link($disk.get_host())
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Path'):</em> $disk.get_path()
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Description'):</em> $disk.get_description()
     </div>
 </div>

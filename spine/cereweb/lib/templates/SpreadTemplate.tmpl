@@ -26,16 +26,17 @@
 #set $spreads = $entity.get_spreads()
 #if $spreads
 #set $id = $entity.get_id()
-<div class="spreads">
+<div class="info box">
     <h3>$_('Spreads')</h3>
     #for $spread in $spreads
     #set $name = $spread.get_name()
     #set $delete = '/entity/remove_spread?id=%s&spread=%s' % ($id, $name)
-    <div class="spread">
-        <div class="actions_right">
-            <a href="$delete" class="actions">$_('remove')</a>
+    <div class="item">
+        <div class="actions">
+            <a href="$delete">$_('remove')</a>
         </div>
-        $name - $spread.get_description() 
+        <span class="name">$name</span> -
+        <span class="value">$spread.get_description()</span>
     </div>
     #end for
 </div>
@@ -48,7 +49,7 @@
 #set $search = $transaction.get_spread_searcher().search()
 #set $spreads = [($s.get_name(), $s.get_name()) for $s in $search 
                  if $type == $s.get_entity_type() and $s not in $cspreads]
-<div class="view_add" id="spread_form" style="display:none;">
+<div class="view_add box" id="spread_form" style="display:none;">
     <form action="/entity/add_spread" method="POST">
         <h3>$_('Add a spread')</h3>
         $form_widgets.generate_loption("spread", "Spread", $spreads)

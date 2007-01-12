@@ -55,11 +55,11 @@
 
 ## View information about host (name and description).
 #def viewInfo($allocationperiod)
-<div class="view_info">
-    <div class="info"><em>$_("AllocationAuthority"):</em> $allocationperiod.get_authority().get_name()</div>
-    <div class="info"><em>$_("Name"):</em> $allocationperiod.get_name()</div>
-    <div class="info"><em>$_("Start Date"):</em> $allocationperiod.get_startdate().strftime("%Y-%m-%d")</div>
-    <div class="info"><em>$_("End Date"):</em> $allocationperiod.get_enddate().strftime("%Y-%m-%d")</div>
+<div class="view_info box">
+    <div class="item"><em>$_("AllocationAuthority"):</em> $allocationperiod.get_authority().get_name()</div>
+    <div class="item"><em>$_("Name"):</em> $allocationperiod.get_name()</div>
+    <div class="item"><em>$_("Start Date"):</em> $allocationperiod.get_startdate().strftime("%Y-%m-%d")</div>
+    <div class="item"><em>$_("End Date"):</em> $allocationperiod.get_enddate().strftime("%Y-%m-%d")</div>
 </div>
 #end def
 

@@ -58,7 +58,7 @@
 				</div>
 			</td>
 			<td>
-				<div class="info">
+				<div class="item">
 					$account['username']
 				</div>
 			</td>
@@ -70,7 +70,7 @@
 				</div>
 			</td>
 			<td>
-				<div class="info">
+				<div class="item">
 					$account['fullname']
 				</div>
 			</td>
@@ -82,7 +82,7 @@
 				</div>
 			</td>
 			<td>
-				<div class="info">
+				<div class="item">
 					#if $account['birthdate']:
 						$account['birthdate']
 					#else:
@@ -94,7 +94,7 @@
     #if $account['quarantined'] == 1
 		<tr>
 			<td colspan="2">
-				<div class="info">
+				<div class="item">
         			<em>This account has been set a quarantine.</em> 
 				</div>
 		</td>
@@ -110,7 +110,7 @@
 			</td>
 			<td>
 				## <div class="external_id">
-				<div class="info">
+				<div class="item">
 					#if $account['expire_date']:
 						$account['expire_date']
 					#else:
@@ -132,7 +132,7 @@
 				</div>
         </td>
 			<td>
-				<div class="info">
+				<div class="item">
                     $_($extid['external_id'])
             	</div>
             </td>

@@ -61,11 +61,11 @@
 
 ## View information about host (name and description).
 #def viewInfo($project)
-<div class="view_info">
-    <div class="info"><em>$_("Title"):</em> $project.get_title()</div>
-    <div class="info"><em>$_("Description"):</em> $project.get_description()</div>
-    <div class="info"><em>$_("Owner"):</em> $object_link($project.get_owner())</div>
-    <div class="info"><em>$_("Science"):</em> $project.get_science().get_description()</div>
+<div class="view_info box">
+    <div class="item"><em>$_("Title"):</em> $project.get_title()</div>
+    <div class="item"><em>$_("Description"):</em> $project.get_description()</div>
+    <div class="item"><em>$_("Owner"):</em> $object_link($project.get_owner())</div>
+    <div class="item"><em>$_("Science"):</em> $project.get_science().get_description()</div>
 </div>
 #end def
 

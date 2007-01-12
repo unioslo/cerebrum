@@ -24,6 +24,29 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
+#def view($entity, $transaction)
+#set $searcher = $transaction.get_email_target_searcher()
+$searcher.set_entity($entity)
+#set $targets = $searcher.search()
+#if $targets
+<div class="info box">
+    <h3>$_('Email targets')</h3>
+    #for $target in $targets:
+        #set $addresses = $target.get_addresses()
+        <div class="item">
+            <div class="actions">
+                #set $url = "/email/remove_target?entity=&target=$target.get_id()"
+                <a href="$url">$_('Delete')</a>
+            </div>
+            #for $address in $addresses:
+                $address.full_address(), 
+            #end for
+        </div>
+    #end for
+</div>
+#end if
+#end def
+
 #def set($entity, $transaction)
 #set $target_types = $transaction.get_email_target_type_searcher()
 <div class="view_add" id="email_form" style="display:none;">
@@ -39,60 +62,40 @@
 </div>
 #end def
 
-#def view($entity, $transaction)
-#set $searcher = $transaction.get_email_target_searcher()
-$searcher.set_entity($entity)
-#set $targets = $searcher.search()
-#if $targets
-<div class="emailtargets box">
-    <h3>$_('Email targets')</h3>
-    #for $target in $targets:
-    <div class="emailtarget">
-        <div class="actions_right">
-            #set $url = "/email/remove_target?entity=&target=$target.get_id()"
-            <a href="$url" class="actions">$_('Delete')</a>
-        </div>
-        $target
-    </div>
-    #end for
-</div>
-#end if
-#end def
-
 #def find_email($address="")
 <p>
 <div class="email_view box">
     ## <h2>$_('Find email target by address')</h2>
     <form action="/emailtarget/search" method="POST">
-		<table width="100%">
-			<tr>
-				<th>
-					<div class="tableheader">
-						$_('Find email target by address')
-					</div>
-				</th>
-			</tr>
-			<tr>
-				<td>
-					<div class="td_lead_email">
-        				<label for="address">$_('Enter an email address:')</label>
-					</div>
-				</td>
-			</tr>
-			<tr>
-				<td>
-        			<input name="address" value="TODO" /> &nbsp; <input type="submit" value="$_('Search')" />
-        			## FIXME: Other ways to search up? For instance target type?
-				</td>
-			</tr>
-		</table>
+        <table width="100%">
+            <tr>
+                <th>
+                    <div class="tableheader">
+                        $_('Find email target by address')
+                    </div>
+                </th>
+            </tr>
+            <tr>
+                <td>
+                    <div class="td_lead_email">
+                        <label for="address">$_('Enter an email address:')</label>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <input name="address" value="TODO" /> &nbsp; <input type="submit" value="$_('Search')" />
+                    ## FIXME: Other ways to search up? For instance target type?
+                </td>
+            </tr>
+        </table>
     </form>
 </div>
 </p>
 #end def
 
 #def entity_email($transaction, $entity)
-<div class="entityemail">
+<div class="entityemail box">
     <div class="subtitle">
         <h3>$_("Email targets")</h3>
     </div>
@@ -175,7 +178,7 @@ $searcher.set_entity($entity)
 
 #def view_target($transaction, $target, $suggestion="")
 
-<div class="info">
+<div class="info box">
     <div class="subtitle">
         <h3>$_("Email target info")</h3>
     </div>

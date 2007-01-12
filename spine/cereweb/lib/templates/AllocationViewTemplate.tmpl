@@ -57,16 +57,16 @@
 
 ## View information about host (name and description).
 #def viewInfo($allocation)
-<div class="view_info">
-    <div class="info"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
-    <div class="info"><em>$_("Project"):</em> $object_link($allocation.get_allocation_name().get_project())</div>
-    <div class="info"><em>$_("Period"):</em>
+<div class="view_info box">
+    <div class="item"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
+    <div class="item"><em>$_("Project"):</em> $object_link($allocation.get_allocation_name().get_project())</div>
+    <div class="item"><em>$_("Period"):</em>
         #set $period = $allocation.get_period()
         $object_link($period)
         ##( $period.get_startdate().strftime("%Y-%m-%d")
         ##- $period.get_enddate().strftime("%Y-%m-%d") )
     </div>
-    <div class="info"><em>$_("Status"):</em> $allocation.get_status().get_name()</div>
+    <div class="item"><em>$_("Status"):</em> $allocation.get_status().get_name()</div>
 </div>
 #end def
 

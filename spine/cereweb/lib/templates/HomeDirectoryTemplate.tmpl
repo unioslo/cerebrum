@@ -26,20 +26,20 @@
 #set $homes = $account.get_homes()
 #if $homes
 #set $id = $account.get_id()
-<div class="homedirs box">
+<div class="info box">
     <h3>$_('Home Directories')</h3>
     #for $home in $homes
-    <div class="homedir">
+    <div class="item">
     
         #set $sname = $home.get_spread().get_name()
         #set $remove = 'remove_home?id=%s&spread=%s' % ($id, $sname)
         
-        <div class="actions_right">
-            <a href="$remove" class="actions">$_('remove')</a>
+        <div class="actions">
+            <a href="$remove">$_('remove')</a>
         </div>
-        <em>$_("Spread"):</em> $sname<br />
-        <em>$_("Home directory"):</em> $home.get_homedir().get_path()<br />
-        <em>$_("Status"):</em> $home.get_homedir().get_status().get_description()
+        <span class="name">$_("Spread"):</span> <span class="value">$sname</span><br />
+        <span class="name">$_("Home directory"):</span> <span class="value">$home.get_homedir().get_path()</span><br />
+        <span class="name">$_("Status"):</span> <span class="value">$home.get_homedir().get_status().get_description()</span>
     </div>
     #end for
 </div>
@@ -67,4 +67,3 @@
     </form>
 </div>
 #end def
-

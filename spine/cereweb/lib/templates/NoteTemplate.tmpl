@@ -23,21 +23,21 @@
 #def view($entity)
 #set $notes = $entity.get_notes()
 #if $notes
-<div class="notes">
+<div class="note box">
     <h3>$_('Notes')</h3>
     #for $note in $notes
     #set $delete = '/note/delete?id=%s&entity=%s' % ($note.get_id(), $entity.get_id())
     #set $description = $note.get_description().strip()
     #set $description = $description.replace('\n', '<br />')
-    <div class="note">
-        <div class="actions_right">
-            <a href="$delete" class="actions">$_('delete')</a>
+    <div class="item">
+        <div class="actions">
+            <a href="$delete">$_('delete')</a>
         </div>
-        <strong>$note.get_subject()</strong>&nbsp;
-        <em>-$_('by')  $object_link($note.get_creator())</em>&nbsp;
+        <span class="name">$note.get_subject()</span>&nbsp;
+        <span class="creator">-$_('by')  $object_link($note.get_creator())</span>&nbsp;
         <span class="date">$strftime($note.get_create_date())</span>
         <br />
-        <div class="note_desc">$description</div>
+        <div class="description">$description</div>
     </div>
     #end for
 </div>
@@ -45,7 +45,7 @@
 #end def
 
 #def add($entity)
-<div class="view_add" id="note_form" style="display:none;">
+<div class="view_add box" id="note_form" style="display:none;">
 <a name="note" />
 <form action="/note/add" type="post">
     <h3>$_('Add a note')</h3>

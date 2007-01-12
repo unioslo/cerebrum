@@ -43,8 +43,8 @@
 <div class="edit">
     <form action="$getAction()" method="POST">
         <div class="editform">
-	    <div class="info"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
-            <div class="info"><em>$_("Period"):</em> $object_link($allocation.get_period())</div>
+	    <div class="item"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
+            <div class="item"><em>$_("Period"):</em> $object_link($allocation.get_period())</div>
             $form_widgets.code_selector("status","Status",$transaction.get_allocation_status_searcher(),$allocation.get_status().get_name())
             <input type="hidden" name="id" value="$allocation.get_id()" />
         </div>

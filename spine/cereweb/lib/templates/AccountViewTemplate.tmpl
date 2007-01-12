@@ -96,38 +96,38 @@
 
 #def viewInfo($account)
 <div class="view_info box">
-    <div class="info">
+    <div class="item">
         <em>$_('Name'):</em> $account.get_name()
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Owned by'):</em> $object_link($account.get_owner())
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Expire date'):</em> $strftime($account.get_expire_date())
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Date created'):</em> $strftime($account.get_create_date())
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Created by'):</em> $object_link($account.get_creator())
     </div>
     
     #if $account.is_posix()
-    <div class="info">
+    <div class="item">
         <em>$_('UID'):</em> $account.get_posix_uid()
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Primary group'):</em> $object_link($account.get_primary_group())
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Gecos'):</em> $account.get_gecos()
     </div>
-    <div class="info">
+    <div class="item">
         <em>$_('Shell'):</em> $account.get_shell().get_name()
     </div>
     #end if
 
-    <div class="info">
+    <div class="item">
         <em>$_('Description'):</em> $account.get_description()
     </div>
 </div>
@@ -136,10 +136,10 @@
 #def viewPasswords($account)
 #set $auths = $account.get_authentications()
 #if $auths
-<div class="passwords box">
+<div class="info box">
     <h3>$_('Current authentication types')</h3>
     #for $auth in $auths
-    <div class="password">
+    <div class="item">
         $auth.get_method().get_name()
     </div>
     #end for

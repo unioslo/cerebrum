@@ -25,23 +25,25 @@
 #def view($person)
 #set $names = $person.get_names()
 #if $names
-<div class="personnames">
+<div class="info box">
     <h3>$_('Names')</h3>
     #for $name in $names
     #set $ss = $name.get_source_system()
     #if not $ss.get_name() == 'Cached'
-    <div class="name">
+    <div class="item">
         #set $name_variant = $name.get_name_variant()
         #set $ss_name = $ss and $ss.get_name() or ''
-        <div class="actions_right">
+        <div class="actions">
             #set $delete = 'remove_name?id=%i&variant=%s&ss=%s' % (
                  $person.get_id(), $name_variant.get_name(), $ss_name)
-            <a href="$delete" class="actions">$_('delete')</a>
+            <a href="$delete">$_('delete')</a>
         </div>
-        <em>$name_variant.get_description():</em> $name.get_name()
+        <span class="name">$name_variant.get_description():</span>
+        <span class="value">$name.get_name()</span>
         #if $ss
         <br />
-        <em>$_("Source system"):</em> $ss.get_name() ($ss.get_description())
+        <span class="name">$_("Source system"):</span>
+        <span class="value">$ss.get_name() ($ss.get_description())</span>
         #end if
     </div>
     #end if
@@ -51,7 +53,7 @@
 #end def
 
 #def set($person, $transaction)
-<div class="view_add" id="name_form" style="display:none;">
+<div class="view_add box" id="name_form" style="display:none;">
 <a name="name" />
 <form action="add_name" method="POST">
     #set $name_types = $transaction.get_name_type_searcher().search()

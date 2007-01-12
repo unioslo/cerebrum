@@ -259,11 +259,11 @@
     </div>
     
     ## Content
-    <div class="view_info">
-        <div class="info">
+    <div class="view_info box">
+        <div class="item">
             <em>$_("Domain name"):</em> $domain.get_name()
         </div>
-        <div class="info">
+        <div class="item">
             <em>$_("Description"):</em> $domain.get_description()
         </div>
     </div>
@@ -298,10 +298,10 @@
 #def viewCategories($domain)
 #set $cats = $domain.get_categories()
 #if $cats
-    <div class="passwords">
+    <div class="info box">
         <h3>$_("Categories")</h3>
         #for $category in $cats
-        <div>
+        <div class="item">
             $object_link($category)
             $object_link($domain, method="remove_from_category", 
             text=$_("Remove from category"), _class="actions",
@@ -314,23 +314,27 @@
 
 ## List email addresses (targets) in domain
 #def list_addresses($transaction, $domain, $limit="unlimited")
-    <h2>$_("Addresses in domain")</h2> 
-    #set $addrs = $transaction.get_email_address_searcher()
-    $addrs.set_domain($domain)
-    #for $count,$address in $enumerate($addrs.search())
-        #if $count+1 > $limit
-            <div>(..)</div>
+    <div class="info box">
+        <h3>$_("Addresses in domain")</h3> 
+        #set $addrs = $transaction.get_email_address_searcher()
+        $addrs.set_domain($domain)
+        #for $count,$address in $enumerate($addrs.search())
+            <div class="item">
+                #if $count+1 > $limit
+                    <div>(..)</div>
 
-            <div>
-            $object_link($domain, $_("View all addresses"), 
-                         "addresses", _class="actions")
+                    <div>
+                    $object_link($domain, $_("View all addresses"), 
+                                 "addresses", _class="actions")
+                    </div>
+                    #break
+                #end if
+                <div>
+                $object_link($address.get_target(), $address.full_address())
+                </div>
             </div>
-            #break
-        #end if
-        <div>
-        $object_link($address.get_target(), $address.full_address())
-        </div>
-    #end for
+        #end for
+    </div>
     <div>$_("To add new addresses to the domain, create a new email target. "
             "For instance, find an account and create a new email target "
             "attached to the account.")</div>

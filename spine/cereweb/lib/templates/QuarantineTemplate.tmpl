@@ -30,23 +30,23 @@
 #set $quarantines = $entity.get_quarantines()
 #if $quarantines
 #set $id = $entity.get_id()
-<div class="quarantines box">
+<div class="important box">
     <h3>$_('Quarantines')</h3>
     #for $q in $quarantines
-    <div class="quarantine">
+    <div class="item">
         #set $type = $q.get_type().get_name()
         #set $edit = '/quarantine/edit?entity=%s&type=%s' % ($id, $type)
         #set $remove = '/quarantine/remove?entity=%s&type=%s' % ($id, $type)
         #set $description = $q.get_description().replace('\n', '<br />')
                 
-        <div class="actions_right">
-            <a href="$edit" class="actions">$_('edit')</a>
-            <a href="$remove" class="actions">$_('delete')</a>
+        <div class="actions">
+            <a href="$edit">$_('edit')</a>
+            <a href="$remove">$_('delete')</a>
         </div>
         <strong>$q.get_type().get_description()</strong>&nbsp;
         <em>-$_('by')</em> $object_link($q.get_creator())&nbsp;
         <span class="date">$strftime($q.get_create_date())</span>
-        <div class="quarantine_desc">$description.strip()</div>
+        <div class="description">$description.strip()</div>
         
         #set $end = $q.get_end_date()
         #set $until = $q.get_disable_until()
@@ -69,7 +69,7 @@
 
 
 #def quarantine_form($entity, $action, $types = None)
-<div class="quarantine">
+<div class="quarantine box">
 <form action="$action" method="POST">
     #set $why = $formvalues.get('why')
     #set $type = $formvalues.get('type')

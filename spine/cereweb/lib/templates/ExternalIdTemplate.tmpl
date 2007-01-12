@@ -25,10 +25,10 @@
 #def view($entity)
 #set $ids = $entity.get_external_ids()
 #if $ids
-<div class="externalids">
+<div class="info box">
     <h3>$_('External identifiers')</h3>
     #for $id in $ids
-    <div class="externalid">
+    <div class="item">
         #set $external_id = $id.get_external_id()
         #set $type = $id.get_id_type().get_description()
         #set $ss_name = $id.get_source_system().get_name()
@@ -36,12 +36,14 @@
         #set $args = "id=%i&external_id=%s&id_type=%s" % ($entity.get_id(),
                             $external_id, $id.get_id_type().get_name())
         #set $delete = '/entity/remove_external_id?%s' % $args
-        <div class="actions_right">
-            <a href="$delete" class="actions">$_('delete')</a>
+        <div class="actions">
+            <a href="$delete">$_('delete')</a>
         </div>
-        <em>$id.get_id_type().get_description():</em> $external_id
+        <span class="name">$id.get_id_type().get_description():</span>
+        <span class="value">$external_id</span>
         <br />
-        <em>$_('Source system'):</em> $ss_name ($ss_desc)
+        <span class="name">$_('Source system'):</span>
+        <span class="value">$ss_name ($ss_desc)</span>
     </div>
     #end for
 </div>
@@ -49,7 +51,7 @@
 #end def
 
 #def set($entity, $transaction)
-<div class="view_add" id="extid_form" style="display:none;">
+<div class="view_add box" id="extid_form" style="display:none;">
     <a name="extid" />
     <form action="/entity/add_external_id" method="POST">
         #set $searcher = $transaction.get_entity_external_id_type_searcher()
@@ -64,4 +66,3 @@
     </form>
 </div>
 #end def
-
