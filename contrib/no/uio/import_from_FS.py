@@ -233,7 +233,7 @@ def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
     logger.info("Writing emne info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.set_size_change_limit(15)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_emner())
     for t in dta:
@@ -245,7 +245,7 @@ def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
     logger.info("Writing personrolle info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    f.set_size_change_limit(20)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.undervisning.list_alle_personroller())
     for t in dta:
@@ -257,7 +257,12 @@ def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
     logger.info("Writing misc info to '%s'" % outfile)
     f = SimilarSizeWriter(outfile, "w")
-    f.set_size_change_limit(10)
+    if tag == 'aktivitet':
+        f.set_size_change_limit(20)
+    elif tag == 'enhet':
+        f.set_size_change_limit(15)
+    else:
+        f.set_size_change_limit(10)
     f.write(xml.xml_hdr + "<data>\n")
     # It's still not foolproof, but hopefully much more sane than simply
     # eval'ing.
