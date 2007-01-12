@@ -19,25 +19,8 @@
  */
 
 ## Method wich fixes some problems on diffrent browers
-
-#def shrink($name)
-html>body $name {
-    /* display: table; /* Breaks konqueror */
-	color: black;
-    width: auto;
-}
-
-
-$name {
-    white-space:nowrap; /* to force width */
-    width:20px;/* rumor is IE should auto-expand  -- doesn't appear true? */
-}
-#end def
-
 ## Creates a standard content-box for view-pages.
 #def view_box($name, $body_color, $header_color, $content_name='')
-$shrink($name)
-
 $name {
     margin: 10px 10px 10px 0;
     background: $body_color;
@@ -61,7 +44,6 @@ $name $content_name {
 
 ## Creates a standard header-box for view-pages.
 #def view_header($name, $color, $border_color)
-$shrink($name)
 $name { margin: 10px 0 10px 0; }
 $name h3 {
     margin: 0;
@@ -75,8 +57,8 @@ $name h3 {
 
 ## Main title on the all pages.
 div.title {
-	color: black;
-	background-color: white;
+    color: black;
+    background-color: white;
     overflow: visible;
     border-bottom: 1px solid gray;
     margin-bottom: 0.7em;
@@ -100,19 +82,26 @@ div.searchtitle h3 {
     margin: 0;
 }
 
+/*
 div.search {
-	background: #d9e2ef;
-	border: 1px solid black;
-	color: black;
-	width: 500px;
-	font-size: 15px;
-	margin-bottom: 0.2em;
-	text-align: left;
-	white-space: normal;
+    display: block;
+    width: 23em;
+}
+*/
+
+div.search {
+    background: #d9e2ef;
+    border: 1px solid black;
+    color: black;
+    width: 500px;
+    font-size: 15px;
+    margin-bottom: 0.2em;
+    text-align: left;
+    white-space: normal;
 }   
 
 div.search table{
-	width: 100%;
+    width: 100%;
 }
 
 div.search div.help {
@@ -120,38 +109,38 @@ div.search div.help {
     padding: 2px;
     margin: 2px;
     margin-bottom: 1em;
-	margin-top: 1em;
+    margin-top: 1em;
 }
 
 div.search th{
-	background: #aac1df;
-	color: black;
-	padding: 0.3em 0.5em 0.3em 0.5em;
-	width: auto;
-	font-size: 18px;
-	margin-bottom: 0.4em;
-	text-align: left;
+    background: #aac1df;
+    color: black;
+    padding: 0.3em 0.5em 0.3em 0.5em;
+    width: auto;
+    font-size: 18px;
+    margin-bottom: 0.4em;
+    text-align: left;
 }
 
 div.searchform table{
-	width: auto;
-	text-align: left;
+    width: auto;
+    text-align: left;
 }
 
 div.searchform select{
-	width: 13em;
+    width: 13em;
 }
 
 
 div.searchform input {
-	width: auto;
+    width: auto;
     margin-bottom: 0.4em;
 }
 
 div.searchform label {
     text-align: left;
-	font-style: oblique;
-	font-weight: bold;
+    font-style: oblique;
+    font-weight: bold;
 
 }
 
@@ -187,7 +176,7 @@ div.search_range .first, div.search_range .last { font-size: 90%; }
 
 ## Styles for view page, like person view etc..
 div.view_content {
-    width: 580px;
+    width: 650px;
 }
 
 div.view_content div.view_actions {
@@ -208,48 +197,46 @@ div.actions_right {
     float: right;
 }
 
-## $shrink("div.view_info")
-
 html>body div.view_info {
-  background: #d9e2ef;
-  border: 1px solid black;
-  color: black;
-  width: 500px;
-  font-size: 15px;
-  margin-bottom: 0.2em;
-  text-align: left;
-  white-space: normal;
+    background: #d9e2ef;
+    border: 1px solid black;
+    color: black;
+    width: 500px;
+    font-size: 15px;
+    margin-bottom: 0.2em;
+    text-align: left;
+    white-space: normal;
 }
 
 div.tableheader {
-  background: #aac1df;
-  color: black;
-  padding: 0.3em 0.5em 0.3em 0.5em;
-  width: auto;
-  font-size: 18px;
-  margin-bottom: 0.4em;
-  text-align: left;
+    background: #aac1df;
+    color: black;
+    padding: 0.3em 0.5em 0.3em 0.5em;
+    width: auto;
+    font-size: 18px;
+    margin-bottom: 0.4em;
+    text-align: left;
 }
 
 div.td_lead_info{
-  padding: 0 0.5em 0 0.5em;
-  width: auto;
-  border-bottom: 1px dashed grey;
-  font-style: oblique;
-  font-weight: bold;
+    padding: 0 0.5em 0 0.5em;
+    width: auto;
+    border-bottom: 1px dashed grey;
+    font-style: oblique;
+    font-weight: bold;
 }
 
 div.td_passwd_info {
-	padding: 0 0.5em 0 0.5em;
-	width: auto;
-	font-style: oblique;
-	font-weight: bold;
+    padding: 0 0.5em 0 0.5em;
+    width: auto;
+    font-style: oblique;
+    font-weight: bold;
 }
 
 div.view_content div.info {
-  padding: 0 0.5em 0 0.5em;
-  width: auto;
-  border-bottom: 1px dashed gray;
+    padding: 0 0.5em 0 0.5em;
+    width: auto;
+    border-bottom: 1px dashed gray;
 }
 
 div.view_content div.info span.deceased {
@@ -258,15 +245,13 @@ div.view_content div.info span.deceased {
 }
 
 div.page_menu {
-  background: #aac1df;
-  border: 1px solid grey;
-  color: black;
-	/* background: #d9e2ef; */
+    background: #aac1df;
+    border: 1px solid grey;
+    color: black;
+    /* background: #d9e2ef; */
 }
 
 ## Box containing form for adding/setting items on view-pages.
-$shrink("div.view_add")
-
 div.view_add {
     margin: 10px 10px 10px 0;
 }
@@ -279,6 +264,12 @@ div.view_add input:focus, div.view_add textarea:focus {
     background: #ffe;
 }
 
+div.box {
+    width: 100%;
+    float: left;
+    clear: left;
+}
+
 ## Styles for create pages, like create person etc..
 /*
 div.create {
@@ -288,28 +279,28 @@ div.create {
 */
 
 div.create {
-	background: #d9e2ef;
-	border: 1px solid black;
-	color: black;
-	width: 500px;
-	font-size: 15px;
-	margin-bottom: 0.2em;
-	text-align: left;
-	white-space: normal;
+    background: #d9e2ef;
+    border: 1px solid black;
+    color: black;
+    width: 500px;
+    font-size: 15px;
+    margin-bottom: 0.2em;
+    text-align: left;
+    white-space: normal;
 }
 
 div.create table {
-	width: 100%;
+    width: 100%;
 }
 
 div.create th{
-	background: #aac1df;
-	color: black;
-	padding: 0.3em 0.5em 0.3em 0.5em;
-	width: auto;
-	font-size: 18px;
-	margin-bottom: 0.4em;
-	text-align: left;
+    background: #aac1df;
+    color: black;
+    padding: 0.3em 0.5em 0.3em 0.5em;
+    width: auto;
+    font-size: 18px;
+    margin-bottom: 0.4em;
+    text-align: left;
 }
 
 div.create div.help {
@@ -317,30 +308,30 @@ div.create div.help {
     padding: 2px;
     margin: 2px;
     margin-bottom: 1em;
-	margin-top: 1em;
+    margin-top: 1em;
 }
 
 div.createform table{
-	width: auto;
-	text-align: left;
+    width: auto;
+    text-align: left;
 }
 
 div.createform input, div.createform textarea {
-	width: auto;
-	margin-bottom: 0.4em;
+    width: auto;
+    margin-bottom: 0.4em;
 }
 
 div.createform select {
-	width: 12em;
-	float: left;
-	margin-bottom: 0.4em;
+    width: 12em;
+    float: left;
+    margin-bottom: 0.4em;
 }
 
 div.createform label {
-	font-style: oblique;
-	font-weight: bold;
-	margin-right: 0.5em;
-text-align: left;
+    font-style: oblique;
+    font-weight: bold;
+    margin-right: 0.5em;
+    text-align: left;
 }
 
 div.createform div.radio input {
@@ -506,29 +497,29 @@ div.historylog td, div.activitylog_full td, table.results td, div.memberlists td
 ## div.email_view form { margin: 0; }
 ## div.email_view h2 { margin: 1em 0 0 0; }
 div.email_view {
-	background: #d9e2ef;
-	border: 1px solid black;
-	color: black;
-	width: 500px;
-	font-size: 15px;
-	margin-bottom: 0.2em;
-	text-align: left;
-	white-space: normal; 
+    background: #d9e2ef;
+    border: 1px solid black;
+    color: black;
+    width: 500px;
+    font-size: 15px;
+    margin-bottom: 0.2em;
+    text-align: left;
+    white-space: normal; 
 }
 
 div.email_view select {
-	width: 13em;
+    width: 13em;
 }
 
 div.email_view table {
-	width: 100%;
+    width: 100%;
 }
 
 div.td_email_view {
-	padding: 0 0.5em 0 0.5em;
-	width: auto;
-	font-style: oblique;
-	font-weight: bold;
+    padding: 0 0.5em 0 0.5em;
+    width: auto;
+    font-style: oblique;
+    font-weight: bold;
 }
 
 
@@ -665,3 +656,5 @@ div.options td.buttons {
 div.options input:focus {
     background: #ffe;
 }
+
+## vim: sw=4 sts=4 expandtab
