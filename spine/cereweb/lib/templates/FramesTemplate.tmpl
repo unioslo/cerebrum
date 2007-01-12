@@ -15,153 +15,104 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+##
 ## Gives a 'frames style' left menu and a bottom area
-
-#import re
+##
 #import cherrypy
 #from lib.InitTemplate import InitTemplate
+#from lib.utils import format_title
 #extends InitTemplate
 #implements respond
-
+##
 #attr $title = "Cereweb"
 #attr $messages = []
 #attr $jscripts = []
-
+##
 ## Setting wl to False prevents loading of the worklist.js
 ## Used in UserTemplate since regular users don't need it.
 #attr $wl = True
-
-## Moved definisions of methods up here, because having them in
-## the html part added lot of empty lines, since we need empty 
-## lines between em, to keep the code readable :)
-
-## Method for adding css files into the html page
-#def css($name)
-    <link rel="stylesheet" type="text/css" href="/css/$name"/>
-#end def
-
-## Method for adding javascript files into the html page
-#def jscript($name)
-    <script type="text/javascript" src="/jscript/$name"></script>
-#end def
-
-## Messages, like errormessages and more..
-#def viewMessages
-#if $messages
-    <div class="messages">
-        #for $message, $is_error in $messages
-        #set $error = $is_error and " error" or ""
-        <span class="message$error">$message</span><br />
-        #end for
-    </div>
-	<br />
-#end if
-#end def
-
-## Warning given when session has timed out.
-#def session_warning
-    <div class="session_warning" id="session_warning" style="display:none;">
-        <b>Session warning:</b>
-    </div>
-#end def session_warning
-
-## Removes html from the title
-#def format_title($title)
-    #return re.sub('<[^!>](?:[^>]|\n)*>', '', $title)
-#end def format_title
-
-## Content is overloaded by other pages to add the actual content on the page.
-#def content
-FramesTemplate.tmpl:def content
-#end def content
-
-## Menu is also overloaded so the menu is added on this page.
-#def menu
-FramesTemplate.tmpl:def menu
-#end def menu
-
+## Content is usually replaced with a lambda function from the view.
+#def content: stub
+## Menu is the side menu.
+#def menu: stub
 ## The worklist is in general a list of objects the user is working on.
 ## Should be specific to the current active transaction, when finished.
-#def worklist
-<div class="worklist">
-  <h2>Work list:</h2>
-  FramesTemplate.tmpl<br />
-</div>
-#end def worklist
-
+#def worklist: stub
 ## The activitylog is a log over what the user has done, like adding a member
 ## to a group. Should be specific to the current active transaction, when
 ## finished.
-#def activitylog
-<div class="activitylog">
-    <h2>Activitylog:</h2>
-    FramesTemplate.tmpl<br />
-</div>
-#end def activitylog
-
-## The bottom "frame" on the page, wich contains transactions, worklist and history.
-#def bottom
-#set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
-#set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')
-    
-#if $wl or $al
-    <div class="bottom_div">
-    #if $wl
-        $worklist()
-    #end if
-    #if $al
-        $activitylog()
-    #end if
-    </div>
-#end if
-#end def bottom
-
-### The main page! ###
-##<?xml version='1.0' ?>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"><html lang="en">
-<head>
-    <title>Cereweb $format_title($title)</title>
-$css("fixed.css")
-    <!--[if IE]>
-$css("fixed_ie5.css")
-    <![endif]-->
-$css("default.css")
-$css("style.css")
-$jscript("base.js")
-$jscript("timeout.js")
-#if $wl
-$jscript("worklist.js")
-#end if
-#for $i in $jscripts
-$jscript($i)
-#end for
-</head>
-<body>
-    <div id="maindiv">
-        <div class="page_content">
-            $session_warning()
-            #if $title
-            <div class="title">
-                <h1>$title</h1>
+#def activitylog: stub
+##
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html lang="en">
+    <head>
+        <title>Cereweb $format_title($title)</title>
+        <link rel="stylesheet" type="text/css" href="/css/fixed.css"/>
+        <!--[if IE]>
+        <link rel="stylesheet" type="text/css" href="/css/fixed_ie5.css"/>
+        <![endif]-->
+        <link rel="stylesheet" type="text/css" href="/css/default.css"/>
+        <link rel="stylesheet" type="text/css" href="/css/style.css"/>
+        <script type="text/javascript" src="/jscript/base.js"></script>
+        <script type="text/javascript" src="/jscript/timeout.js"></script>
+        #if $wl
+        <script type="text/javascript" src="/jscript/worklist.js"></script>
+        #end if
+        #block jscript_block:
+        #for $i in $jscripts
+        <script type="text/javascript" src="/jscript/$i"></script>
+        #end for
+    </head>
+    <body>
+        <div id="maindiv">
+            <div class="page_content">
+                <div class="session_warning" id="session_warning" style="display:none;">
+                    <b>Session warning:</b>
+                </div>
+                <div class="title">
+                    <h1>$title</h1>
+                </div>
+                <div class="messages">
+                    #for $message, $is_error in $messages
+                    #set $error = $is_error and " error" or ""
+                    <span class="message$error">$message</span><br />
+                    #end for
+                </div>
+                #block content_block
+                    $content()
+                #end block
+                <div style="clear: both;"></div>
             </div>
-            #end if
-            $viewMessages()
-            $content()
-            <div style="clear: both;"></div>
-        </div>
-        <div class="page_menu">
-            <div class="menu_header">
-                <a href="/index">Cereweb</a>
+            <div class="page_menu">
+                <div class="menu_header">
+                    <a href="/index">Cereweb</a>
             </div>
-            $menu()
+            #block menu_block
+                $menu()
+            #end block
         </div>
         <div class="page_bottom">
-            $bottom()
+            #block page_bottom
+                #set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
+                #set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')
+                    
+                #if $wl or $al
+                    <div class="bottom_div">
+                    #if $wl
+                        #block worklist_block
+                            $worklist()
+                        #end block
+                    #end if
+                    #if $al
+                        #block activitylog_block
+                            $activitylog()
+                        #end block
+                    #end if
+                    </div>
+                #end if
+            #end block page_bottom
+            </div>
+            <div style="clear: both;"></div>
         </div>
-    ## Stupid hack to make sure resizable floats don't cause problems.
-    <div style="clear: both;"></div>
-    </div>
-</body>
+    </body>
 </html>
-
