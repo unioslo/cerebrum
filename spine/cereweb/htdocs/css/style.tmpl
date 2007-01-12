@@ -18,30 +18,6 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-## Method wich fixes some problems on diffrent browers
-## Creates a standard content-box for view-pages.
-#def view_box($name, $body_color, $header_color, $content_name='')
-$name {
-    margin: 10px 10px 10px 0;
-    background: $body_color;
-    border: 1px solid $header_color;
-}
-
-$name h3 {
-    margin: 0;
-    padding: 0 5px 0 5px;
-    background: $header_color;
-    font-size: 105%;
-}
-#if $content_name
-
-$name $content_name {
-    border-bottom: 1px dashed $header_color;
-    padding: 2px;
-}
-#end if
-#end def
-
 ## Creates a standard header-box for view-pages.
 #def view_header($name, $color, $border_color)
 $name { margin: 10px 0 10px 0; }
@@ -192,22 +168,6 @@ div.view_content div.view_actions h4 {
     margin: 5px 0 0 0;
 }
 
-div.actions_right {
-    padding-left: 5px;
-    float: right;
-}
-
-html>body div.view_info {
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 0.2em;
-    text-align: left;
-    white-space: normal;
-}
-
 div.tableheader {
     background: #aac1df;
     color: black;
@@ -233,13 +193,7 @@ div.td_passwd_info {
     font-weight: bold;
 }
 
-div.view_content div.info {
-    padding: 0 0.5em 0 0.5em;
-    width: auto;
-    border-bottom: 1px dashed gray;
-}
-
-div.view_content div.info span.deceased {
+div.view_content div.item span.deceased {
     font-weight: bold;
     color: #f00;
 }
@@ -264,20 +218,7 @@ div.view_add input:focus, div.view_add textarea:focus {
     background: #ffe;
 }
 
-div.box {
-    width: 100%;
-    float: left;
-    clear: left;
-}
-
 ## Styles for create pages, like create person etc..
-/*
-div.create {
-    display: block;
-    width: 25em;
-}
-*/
-
 div.create {
     background: #d9e2ef;
     border: 1px solid black;
@@ -391,47 +332,106 @@ div.edit div.help {
 
 div.edit h3 { margin: 0; }
 
-## The yellow box for notes in entities.
-$view_box("div.notes", "#ffc", "#dda", "div.note")
-
-div.notes div.note div.note_desc {
-    white-space: normal;
+## A generic floating box for page contents.
+div.box {
+    width: 100%;
+    float: left;
+    clear: left;
+    margin: 10px 10px 10px 0;
+    border: 1px solid;
 }
-
-div.notes span.date, div.quarantines span.date {
+div.box h3 {
+    margin: 0;
+    padding: 0 5px 0 5px;
+    font-size: 105%;
+}
+div.box span.name {
+    font-weight: bold;
+}
+div.box span.value {
+}
+div.box span.date
     font-size: 85%;
 }
-
-## The light blue box for list over names on the view person page.
-$view_box("div.personnames", "#eff", "#bdf", "div.name")
-
-## Contact information on view of entities.
-$view_box("div.contactinfos", "#eff", "#bdf", "div.contactinfo")
-
-## External identifiers on view of entities.
-$view_box("div.externalids", "#eff", "#bdf", "div.externalid")
-
-## The light blue box for list over spreads on the view entity page.
-$view_box("div.spreads", "#eff", "#bdf", "div.spread")
-
-## The red box for quarantines on all view pages.
-$view_box("div.quarantines", "#cba", "#da9", "div.quarantine")
-
-div.quarantines div.quarantine div.quarantine_desc {
+div.box div.item {
+    padding: 2px;
+    border-bottom: 1px dashed;
+}
+div.box div.description {
     white-space: normal;
+    padding-left: 2em;
+}
+div.box div.actions a {
+    color: blue;
+    white-space: nowrap;
+    margin-bottom: 0.1em;
+    padding-right: 0.2em;
+    text-align: center;
+    text-decoration: none;
+}
+div.box div.actions a:hover { color: gray; }
+div.box div.actions a:before { content: "["; }
+div.box div.actions a:after { content: "]"; }
+div.box div.actions a.noaction:before,
+div.box div.actions a.noaction:after { content: ""; }
+
+## The bluish-colored boxes used for most stuff.
+div.info {
+    background: #eff;
+    border-color: #bdf;
+}
+div.info h3 {
+    background: #bdf;
+}
+div.info div.item {
+    border-bottom-color: #bdf;
+}
+ 
+## The yellow box for notes in entities.
+div.note {
+    background: #ffc;
+    border-background: #dda;
 }
 
-## Affiliations between person and organization units.
-$view_box("div.affiliations", "#eff", "#bdf", "div.affiliation")
+div.note h3 {
+    background: #dda;
+}
 
-## List over an accounts passwords on the account view page.
-$view_box("div.passwords", "#eff", "#bdf", "div.password")
+div.note div.item {
+    border-bottom-style: dashed;
+    border-bottom-color: #dda;
+}
 
-## List over home directiries on the account view page.
-$view_box("div.homedirs", "#eff", "#bdf", "div.homedir")
+## The reddish-colored boxes used for quarantines.
+div.important {
+    background: #cba;
+    border-color: #da9;
+}
+div.important h3 {
+    background: #da9;
+}
+div.important div.item {
+    border-color: #da9;
+}
 
-## List over email targets on the account and group view page.
-$view_box("div.emailtargets", "#eff", "#bdf", "div.emailtarget")
+## The topmost box on almost all the pages
+div.view_info {
+    padding: 0 0.5em 0 0.5em;
+    clear: none;
+    float: none;
+    background: #d9e2ef;
+    border: 1px solid black;
+    color: black;
+    width: 500px;
+    font-size: 15px;
+    margin-bottom: 0.2em;
+    text-align: left;
+    white-space: normal;
+}
+div.view_info div.item {
+    border-bottom-style: dashed
+    border-bottom-color: gray;
+}
 
 ## List over all members in a group.
 $view_header("div.memberlists", "#bdf", "#06C")
@@ -521,23 +521,6 @@ div.td_email_view {
     font-style: oblique;
     font-weight: bold;
 }
-
-
-## Actions is links wich perfom action on something, for instance
-## [delete] on notes. Or [edit] on the view person page.
-div.actions a, a.actions {
-    color: blue;
-    white-space: nowrap;
-    margin-bottom: 0.1em;
-    padding-right: 0.2em;
-    text-align: center;
-    text-decoration: none;
-}
-
-div.actions a:hover, a.actions:hover { color: gray; }
-div.actions a:before, a.actions:before { content: "["; }
-div.actions a:after, a.actions:after { content: "]"; }
-div.actions a.noaction:before, div.actions a.noaction:after { content: ""; }
 
 ## Styles for the Error-pages.
 div.errorpage { margin: 5px; }
