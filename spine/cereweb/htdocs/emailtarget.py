@@ -41,11 +41,17 @@ def parse_address(address_obj):
     return address
 
 def parse_target(target_obj, t_id):
+    try:
+        name = target_obj.get_entity().get_name()
+    except AttributeError, e:
+        # There exists email targets without a target.
+        # FIXME: Shouldn't happen, But for now we'll accept it.
+        name = "None"
     target = {
         'id': t_id,
         'type': target_obj.get_type().get_name(),
         'object_type': 'email_target',
-	'name': "%s_email_target" % target_obj.get_entity().get_name(),
+	'name': "%s_email_target" % name,
     }
     try:
         primary_obj = target_obj.get_primary_address()
