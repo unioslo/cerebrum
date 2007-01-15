@@ -34,6 +34,7 @@ from login import login, logout
 import account
 import disk
 import email
+import emailtarget
 import entity
 import error
 import group

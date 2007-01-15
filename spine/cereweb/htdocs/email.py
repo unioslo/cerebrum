@@ -33,7 +33,6 @@ from lib.Search import SearchHandler, setup_searcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailDomainTemplate import EmailDomainTemplate
-from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
 
 def index(transaction):
     page = Main()

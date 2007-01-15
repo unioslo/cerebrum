@@ -20,7 +20,10 @@
 
 import cherrypy
 import sys
+from gettext import gettext as _
+from lib.Main import Main
 from lib.utils import transaction_decorator
+from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
 
 def parse_address(address_obj):
     address = {
@@ -68,5 +71,5 @@ def view(transaction, id):
     content = template.view(target)
     page.content = lambda: content
     return page
-view_target = transaction_decorator(view_target)
-view_target.exposed = True
+view = transaction_decorator(view)
+view.exposed = True
