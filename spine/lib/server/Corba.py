@@ -320,28 +320,16 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
 
     return corba_method
 
-def _get_idl_type_name(arg_t):
-    """Returns the IDL name of the given data type."""
-    if arg_t == str:
-        data_type = 'string'
-    elif arg_t == int:
-        data_type = 'long'
-    elif arg_t == None:
-        data_type = 'void'
-    elif arg_t == bool:
-        data_type = 'boolean'
-    elif arg_t == float:
-        data_type = 'float'
-    elif isinstance(arg_t, Struct):
-        cls = arg_t.data_type
-        data_type = cls.__name__ + 'Struct'
-    elif arg_t == Any:
-        data_type = 'any'
-    else:
-        data_type = 'Spine' + arg_t.__name__
-    return data_type
+def _docstring_to_idl(method_name, comment, tabs=0):
+    """
+    Converts a Python docstring to a Doxygen-style IDL comment. In addition
+    to saving the string as a pseudo-docstring in IDL.
+    """
+    txt = _docstring_to_idl_comment(method_name, comment, tabs)
+    txt += _docstring_to_idl_docstring(method_name, comment, tabs)
+    return txt
 
-def _docstring_to_idl(comment, tabs=0):
+def _docstring_to_idl_comment(method_name, comment, tabs=0):
     """
     Converts a Python docstring to a Doxygen-style IDL comment.
     """
@@ -352,73 +340,13 @@ def _docstring_to_idl(comment, tabs=0):
     txt += '%s*/\n' % tabs
     return txt
 
-def _create_idl_getattr_comment(attr, data_type, tabs=0):
+def _docstring_to_idl_docstring(method_name, comment, tabs=0):
     """
-    Creates a comment for the get method for the given attribute for insertion
-    in the generated IDL code.
-    """
-    tabs = '\t' * tabs
-    txt = '%s/**\n%s* Get %s.\n%s* \\return A %s object.\n' % (tabs, 
-            tabs, attr.name, tabs, data_type)
-    for i in attr.exceptions:
-        txt += '%s* \\exception SpineIDL::Errors::%s\n' % (tabs, i.__name__)
-    txt += '%s*/\n' % tabs
-    return txt
-
-def _create_idl_setattr_comment(attr, tabs=0):
-    """
-    Creates a comment for the set method for the given attribute for insertion
-    in the generated IDL code.
+    Converts a Python docstring to a pseudo-docstring in IDL.
     """
     tabs = '\t' * tabs
-    txt = '%s/**\n%s* Set %s.\n' % (tabs, tabs, attr.name)
-    data_type = _get_idl_type_name(attr.data_type)
-    txt += '%s* \\param new_%s The %s to set.\n' % (tabs, attr.name, data_type)
-    for i in attr.exceptions:
-        txt += '%s* \\exception SpineIDL::Errors::%s\n' % (tabs, i.__name__)
-    txt += '%s*/\n' % tabs
-    return txt
-
-def _create_idl_method_comment(method, rtn_type, tabs=0):
-    """
-    Returns a string with a comment for insertion in the generated IDL code.
-
-    The comment has the following syntax:
-    /**
-    * Auto-generated method comment.
-    * \\param argument A [list of] <type> object[s]
-    * \\return A <rtn_type> object (if non-void)
-    * \\exception <exception>
-    */
-
-    If you need the comment to be indented, give the number of tabs
-    with 'tabs'.
-    """
-    if method.doc:
-        txt = _docstring_to_idl(method.doc, tabs=tabs)[:-1]
-        txt = txt[txt.rfind('\n'):]
-        tabs = '\t' * tabs
-    else:
-        tabs = '\t' * tabs
-        txt = '%s/**\n' % tabs
-        txt += '%s* Auto-generated method comment.\n' % (tabs)
-        for name, arg_type in method.args:
-            if type(arg_type) in (list, tuple):
-                arg_t, = arg_type
-            else:
-                arg_t = arg_type
-            data_type = _get_idl_type_name(arg_t)
-
-            if type(arg_type) in (list, tuple):
-                txt += '%s* \\param %s A list of %s objects.\n' % (tabs, name, data_type)
-            else:
-                txt += '%s* \\param %s A %s object.\n' % (tabs, name, data_type)
-
-        if rtn_type != 'void':
-            txt += '%s* \\return A %s object.\n' % (tabs, rtn_type)
-        for i in method.exceptions:
-            txt += '%s* \\exception SpineIDL::Errors::%s\n' % (tabs, i.__name__)
-        txt += '%s*/\n' % tabs
+    comment = _trim_docstring(comment).replace('\\', '\\\\').replace('"', '\"')
+    txt = '%sconst string %s__doc__ = "%s";\n' % (tabs, method_name, comment)
     return txt
 
 def _trim_docstring(docstring):
@@ -463,6 +391,42 @@ def _create_idl_interface(cls, error_module="", docs=False):
     If you wish the IDL to be commented, use docs=True. This will copy
     the docstring into the IDL interface for this class.
     """
+    def create_method_comment(name, args, rtn_type, exceptions, doc=None, tabs=0):
+        """
+        Returns a string with a comment for insertion in the generated IDL code.
+
+        The comment has the following syntax:
+        /**
+        * Auto-generated method comment.
+        * \\param argument A [list of] <type> object[s]
+        * \\return A <rtn_type> object (if non-void)
+        * \\exception <exception>
+        */
+
+        If you need the comment to be indented, give the number of tabs
+        with 'tabs'.
+        """
+        auto_doc = ['Auto-generated method comment.']
+        for arg_name, arg_t in args:
+            data_type = get_type(arg_t)
+            if data_type.endswith('Seq'):
+                auto_doc.append('\\param %s A list of %s objects.' % (arg_name, data_type))
+            else:
+                auto_doc.append('\\param %s A %s object.' % (arg_name, data_type))
+
+        if rtn_type != 'void':
+            auto_doc.append('\\return A %s object.' % (rtn_type))
+        for i in exceptions:
+            auto_doc.append('\\exception SpineIDL::Errors::%s' % (i.__name__))
+
+        if doc:
+            auto_doc.append('Original method comment.')
+            auto_doc.append(doc)
+
+        doc = "\n".join(auto_doc)
+
+        return _docstring_to_idl(name, doc, tabs)
+
     def get_exceptions(exceptions, module=""):
         """
         Return the IDL string containing the definitions for all exceptions
@@ -479,19 +443,25 @@ def _create_idl_interface(cls, error_module="", docs=False):
 
     def get_type(data_type):
         """Return a string representing the IDL version of data_type."""
-        if type(data_type) == list:
+
+        if not type(data_type) == type:
+            d_type = type(data_type)
+        else:
+            d_type = data_type
+
+        if d_type == list:
             elem_name = get_type(data_type[0])
             name = elem_name + 'Seq'
             add_header('typedef sequence<%s> %s;' % (elem_name, name))
-        elif data_type == str:
+        elif d_type == str:
             name = 'string'
-        elif data_type == int:
+        elif d_type == int:
             name = 'long'
         elif data_type == None:
             name = 'void'
-        elif data_type == bool:
+        elif d_type == bool:
             name = 'boolean'
-        elif data_type == float:
+        elif d_type == float:
             name = 'float'
         elif isinstance(data_type, Struct):
             cls = data_type.data_type
@@ -512,6 +482,7 @@ def _create_idl_interface(cls, error_module="", docs=False):
         elif data_type == Any:
             name = 'any'
         else:
+            assert data_type.__name__ not in ['str', 'int', 'float', 'bool'], data_type
             name = 'Spine' + data_type.__name__
             add_header('interface %s;' % name)
         return name
@@ -526,7 +497,7 @@ def _create_idl_interface(cls, error_module="", docs=False):
     
     # Convert the class comment to IDL
     if docs and cls.__doc__:
-        txt += _docstring_to_idl(cls.__doc__)
+        txt += _docstring_to_idl_comment(cls.__name__, cls.__doc__)
     
     txt += 'interface Spine%s' % cls.__name__
 
@@ -536,7 +507,7 @@ def _create_idl_interface(cls, error_module="", docs=False):
 
     parents = []
 
-    if issubclass(cls, object): # old style doesnt support __mro__ with friends
+    if issubclass(cls, object):
         for parent in cls.__mro__[1:]:
             assert not hasattr(parent, 'method_slots')
             if not hasattr(parent, 'slots'): # duck typing
@@ -546,6 +517,8 @@ def _create_idl_interface(cls, error_module="", docs=False):
                 continue
             parent_methods.update(methods)
             parents.append('Spine' + parent.__name__)
+    else:
+        assert cls.__name__ == 'Session', cls.__name__
 
     assert not hasattr(cls, 'method_slots') 
 
@@ -554,6 +527,9 @@ def _create_idl_interface(cls, error_module="", docs=False):
 
     txt += ' {\n'
 
+    if docs and cls.__doc__:
+        txt += _docstring_to_idl_docstring('Spine%s' % cls.__name__, cls.__doc__)
+    
     for method in Builder.get_builder_methods(cls):
         if method in parent_methods:
             continue
@@ -568,8 +544,9 @@ def _create_idl_interface(cls, error_module="", docs=False):
         exceptions_headers.extend(exceptions)
         excp = get_exceptions(exceptions, error_module)
 
-        if method.__doc__:
-            txt += _docstring_to_idl(method.__doc__, 1)
+        if docs:
+            doc = getattr(method, '__doc__', None)
+            txt += create_method_comment(name, args, data_type, exceptions, doc=doc)
         txt += '\t%s %s(%s)%s;\n' % (data_type, name, ', '.join(getArgs()), excp)
         
     txt += '};\n'
