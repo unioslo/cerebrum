@@ -43,103 +43,99 @@
 ## <b>Your information:</b>
 <p>
 <div class="view_info">
-	<table border="0" width="100%">
-		<tr>
-			<th colspan="2">
-				<div class="tableheader">
-					Your information:
+<table>
+<tr>
+	<th colspan="2">
+			Your information:
+	</th>
+</tr>
+<tr>
+	<td>
+		<div class="view_info_form">
+		<div class="td_lead_info">
+       			$_('Name'):
 				</div>
-			</th>
-		</tr>
-		<tr>
-			<td>
-				<div class="td_lead_info">
-        			$_('Name'):
-				</div>
-			</td>
-			<td>
-				<div class="item">
-					$account['username']
-				</div>
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<div class="td_lead_info">
-        			$_('Owned by'):
-				</div>
-			</td>
-			<td>
-				<div class="item">
-					$account['fullname']
-				</div>
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<div class="td_lead_info">
-        			$_('Birthdate'):
-				</div>
-			</td>
-			<td>
-				<div class="item">
-					#if $account['birthdate']:
-						$account['birthdate']
-					#else:
-						&nbsp;
-					#end if
-				</div>
-			</td>	
-		</tr>
-    #if $account['quarantined'] == 1
-		<tr>
-			<td colspan="2">
-				<div class="item">
-        			<em>This account has been set a quarantine.</em> 
-				</div>
+	</td>
+	<td>
+		<div class="info">
+			$account['username']
+		</div>
+	</td>
+</tr>
+<tr>
+	<td>
+		<div class="td_lead_info">
+       			$_('Owned by'):
+		</div>
+	</td>
+	<td>
+		<div class="info">
+			$account['fullname']
+		</div>
+	</td>
+</tr>
+<tr>
+	<td>
+		<div class="td_lead_info">
+       			$_('Birthdate'):
+		</div>
+	</td>
+	<td>
+		<div class="info">
+			#if $account['birthdate']:
+				$account['birthdate']
+			#else:
+				&nbsp;
+			#end if
+		</div>
+	</td>	
+</tr>
+#if $account['quarantined'] == 1
+	<tr>
+		<td colspan="2">
+			<div class="info">
+       			<em>This account has been set a quarantine.</em> 
+			</div>
 		</td>
-		</tr>
+	</tr>
     #end if
-		<tr>
-			<td>
-    			## <div class="external_id">
-				<div class="td_lead_info">
-        			$_('Expire date'):
-					</div>
-    			## </div>
-			</td>
-			<td>
-				## <div class="external_id">
-				<div class="item">
-					#if $account['expire_date']:
-						$account['expire_date']
-					#else:
-						&nbsp;
-					#end if
-				</div>
-				## </div>
-
-			</td>
-		</tr>
+<tr>
+	<td>
+		<div class="td_lead_info">
+       			$_('Expire date'):
+		</div>
+	</td>
+	<td>
+		<div class="info">
+			#if $account['expire_date']:
+				$account['expire_date']
+			#else:
+				&nbsp;
+			#end if
+		</div>
+	</td>
+</tr>
 
     ## If external_id is populated, we have a list with dicts to play with
     #for $extid in $account['external_id']
       #if $extid['extid_type'] == "NO_BIRTHNO"
-        <tr>
+	<tr>
         	<td>
-				<div class="td_lead_info">
-					$_($extid['extid_type_description']+":")
-				</div>
-        </td>
-			<td>
-				<div class="item">
-                    $_($extid['external_id'])
-            	</div>
-            </td>
+			<div class="td_lead_info">
+				$_($extid['extid_type_description']+":")
+			</div>
+       		 </td>
+		<td>
+			<div class="info">
+               		     $_($extid['external_id'])
+            		</div>
+            	</td>
         </tr>
       #end if
     #end for
-	</table>
+</td>
+</tr>
+</table>
 </div>
 </p>
 #end def
@@ -152,16 +148,13 @@
 	<tr>
     ## <h3>$_('Set password')</h3>
 		<th>
-			<div class="tableheader">
-				$_('Set password:')
-			</div>
-		</td>
+			$_('Set password:')
 		</th>
 	</tr>
 	<tr>
 		<td>
 			<div class="td_passwd_info">
-    			$form_widgets.changePassword($account['id'])
+    				$form_widgets.changePassword($account['id'])
 			</div>
 		</td>
 	</tr>

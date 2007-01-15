@@ -257,16 +257,48 @@
             $remember_link($domain)<br />
         </div>
     </div>
-    
-    ## Content
-    <div class="view_info box">
-        <div class="item">
-            <em>$_("Domain name"):</em> $domain.get_name()
-        </div>
-        <div class="item">
-            <em>$_("Description"):</em> $domain.get_description()
-        </div>
-    </div>
+<p>
+## Content
+<div class="view_info">
+<table>
+<tr>
+	<th>
+		$_('Email domain')
+	</th>
+</tr>
+<tr>
+	<td>
+		<div class="view_info_form">
+		<table>
+		<tr>
+			<td>
+       				<div class="info">
+					<em><bold>$_("Domain name:")</bold></em>
+				</div>
+			</td>
+			<td>
+				$domain.get_name()
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<div class="info">
+            				$_("Description:")
+				</div>
+			</td>
+			<td>
+				$domain.get_description()
+			</td>
+		</tr>
+		</table>
+		</div>
+	</td>
+</tr>
+</table>
+</div>
+<br />
+<br />
+</p>
 
     $addCategory($transaction, $domain)
     $viewCategories($domain)
@@ -298,10 +330,10 @@
 #def viewCategories($domain)
 #set $cats = $domain.get_categories()
 #if $cats
-    <div class="info box">
+    <div class="passwords">
         <h3>$_("Categories")</h3>
         #for $category in $cats
-        <div class="item">
+        <div>
             $object_link($category)
             $object_link($domain, method="remove_from_category", 
             text=$_("Remove from category"), _class="actions",
@@ -314,30 +346,65 @@
 
 ## List email addresses (targets) in domain
 #def list_addresses($transaction, $domain, $limit="unlimited")
-    <div class="info box">
-        <h3>$_("Addresses in domain")</h3> 
-        #set $addrs = $transaction.get_email_address_searcher()
-        $addrs.set_domain($domain)
-        #for $count,$address in $enumerate($addrs.search())
-            <div class="item">
-                #if $count+1 > $limit
-                    <div>(..)</div>
-
-                    <div>
-                    $object_link($domain, $_("View all addresses"), 
-                                 "addresses", _class="actions")
-                    </div>
-                    #break
-                #end if
-                <div>
-                $object_link($address.get_target(), $address.full_address())
-                </div>
-            </div>
-        #end for
-    </div>
-    <div>$_("To add new addresses to the domain, create a new email target. "
+<p>
+<div class="view_info">
+<table>
+<tr>
+	<th>
+		$_('Addresses in domain')
+	</th>
+</tr>
+	<td>
+		<div class="view_info_form">
+    		## <h2>$_("Addresses in domain")</h2> 
+		#set $addrs = $transaction.get_email_address_searcher()
+		$addrs.set_domain($domain)
+		<table>
+			<tr>
+				<td>
+				</td>
+			</tr>
+		#for $count,$address in $enumerate($addrs.search())
+			#if $count+1 > $limit
+				<tr>
+					<td>
+		            			<div>(..)</div>
+					</td>
+				</tr>
+				<tr>
+					<td>
+            				<div>
+            					$object_link($domain, $_("View all addresses"), 
+                       	  				"addresses", _class="actions")
+            				</div>
+					</td>
+				<tr>
+            			#break
+        		#end if
+				<tr>
+					<td>
+        				<div>
+        				$object_link($address.get_target(), $address.full_address())
+        				</div>
+					</td>
+			</tr>
+    		#end for
+		</table>
+		</div>
+	</td>
+</tr>
+</table>
+</div>
+<br />
+<br />
+</p>
+<p>
+<div>
+	$_("To add new addresses to the domain, create a new email target. "
             "For instance, find an account and create a new email target "
-            "attached to the account.")</div>
+            "attached to the account.")
+</div>
+</p>
 #end def
 
 #def edit_domain($domain)

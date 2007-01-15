@@ -18,8 +18,50 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+## Method wich fixes some problems on diffrent browers
+
+#def shrink($name)
+html>body $name {
+    /* display: table; /* Breaks konqueror */
+	color: black;
+    width: auto;
+}
+
+
+$name {
+    white-space:nowrap; /* to force width */
+    width:20px;/* rumor is IE should auto-expand  -- doesn't appear true? */
+}
+#end def
+
+## Creates a standard content-box for view-pages.
+#def view_box($name, $body_color, $header_color, $content_name='')
+$shrink($name)
+
+$name {
+    margin: 10px 10px 10px 0;
+    background: $body_color;
+    border: 1px solid $header_color;
+}
+
+$name h3 {
+    margin: 0;
+    padding: 0 5px 0 5px;
+    background: $header_color;
+    font-size: 105%;
+}
+#if $content_name
+
+$name $content_name {
+    border-bottom: 1px dashed $header_color;
+    padding: 2px;
+}
+#end if
+#end def
+
 ## Creates a standard header-box for view-pages.
 #def view_header($name, $color, $border_color)
+$shrink($name)
 $name { margin: 10px 0 10px 0; }
 $name h3 {
     margin: 0;
@@ -33,8 +75,8 @@ $name h3 {
 
 ## Main title on the all pages.
 div.title {
-    color: black;
-    background-color: white;
+	color: black;
+	background-color: white;
     overflow: visible;
     border-bottom: 1px solid gray;
     margin-bottom: 0.7em;
@@ -58,26 +100,19 @@ div.searchtitle h3 {
     margin: 0;
 }
 
-/*
 div.search {
-    display: block;
-    width: 23em;
-}
-*/
-
-div.search {
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 0.2em;
-    text-align: left;
-    white-space: normal;
+	background: #d9e2ef;
+	border: 1px solid black;
+	color: black;
+	width: 500px;
+	font-size: 15px;
+	margin-bottom: 0.2em;
+	text-align: left;
+	white-space: normal;
 }   
 
 div.search table{
-    width: 100%;
+	width: 100%;
 }
 
 div.search div.help {
@@ -85,38 +120,38 @@ div.search div.help {
     padding: 2px;
     margin: 2px;
     margin-bottom: 1em;
-    margin-top: 1em;
+	margin-top: 1em;
 }
 
 div.search th{
-    background: #aac1df;
-    color: black;
-    padding: 0.3em 0.5em 0.3em 0.5em;
-    width: auto;
-    font-size: 18px;
-    margin-bottom: 0.4em;
-    text-align: left;
+	background: #aac1df;
+	color: black;
+	padding: 0.3em 0.5em 0.3em 0.5em;
+	width: auto;
+	font-size: 18px;
+	margin-bottom: 0.4em;
+	text-align: left;
 }
 
 div.searchform table{
-    width: auto;
-    text-align: left;
+	width: auto;
+	text-align: left;
 }
 
 div.searchform select{
-    width: 13em;
+	width: 13em;
 }
 
 
 div.searchform input {
-    width: auto;
+	width: auto;
     margin-bottom: 0.4em;
 }
 
 div.searchform label {
     text-align: left;
-    font-style: oblique;
-    font-weight: bold;
+	font-style: oblique;
+	font-weight: bold;
 
 }
 
@@ -152,7 +187,7 @@ div.search_range .first, div.search_range .last { font-size: 90%; }
 
 ## Styles for view page, like person view etc..
 div.view_content {
-    width: 650px;
+    width: 580px;
 }
 
 div.view_content div.view_actions {
@@ -168,44 +203,106 @@ div.view_content div.view_actions h4 {
     margin: 5px 0 0 0;
 }
 
+div.actions_right {
+    padding-left: 5px;
+    float: right;
+}
+
+## $shrink("div.view_info")
+/*
+html>body div.view_info {
+  background: #d9e2ef;
+  border: 1px solid black;
+  color: black;
+  width: 500px;
+  font-size: 15px;
+  margin-bottom: 0.2em;
+  text-align: left;
+  white-space: normal;
+}
+*/
+
+div.view_info {
+  background: #d9e2ef;
+  border: 1px solid black;
+  color: black;
+  width: 500px;
+  font-size: 15px;
+  margin-bottom: 0.2em;
+  text-align: left;
+  white-space: normal;
+}
+
+div.view_info table {
+	width: 100%;
+}
+
+div.view_info th {
+	background: #aac1df;
+	color: black;
+	padding: 0.3em 0.5em 0.3em 0.5em;
+	width: auto;
+	font-size: 18px;
+	margin-bottom: 0.4em;
+	text-align: left;
+}
+
+div.view_info_form table {
+	width: auto;
+}
+
+div.view_info_form div.info {
+	text-align: left;
+	font-style: oblique;
+	font-weight: bold;
+}
+
 div.tableheader {
-    background: #aac1df;
-    color: black;
-    padding: 0.3em 0.5em 0.3em 0.5em;
-    width: auto;
-    font-size: 18px;
-    margin-bottom: 0.4em;
-    text-align: left;
+  background: #aac1df;
+  color: black;
+  padding: 0.3em 0.5em 0.3em 0.5em;
+  width: auto;
+  font-size: 18px;
+  margin-bottom: 0.4em;
+  text-align: left;
 }
 
 div.td_lead_info{
-    padding: 0 0.5em 0 0.5em;
-    width: auto;
-    border-bottom: 1px dashed grey;
-    font-style: oblique;
-    font-weight: bold;
+  padding: 0 0.5em 0 0.5em;
+  width: auto;
+  border-bottom: 1px dashed grey;
+  font-style: oblique;
+  font-weight: bold;
 }
 
 div.td_passwd_info {
-    padding: 0 0.5em 0 0.5em;
-    width: auto;
-    font-style: oblique;
-    font-weight: bold;
+	padding: 0 0.5em 0 0.5em;
+	width: auto;
+	font-style: oblique;
+	font-weight: bold;
 }
 
-div.view_content div.item span.deceased {
+div.view_content div.info {
+  padding: 0 0.5em 0 0.5em;
+  width: auto;
+  /* border-bottom: 1px dashed gray; */
+}
+
+div.view_content div.info span.deceased {
     font-weight: bold;
     color: #f00;
 }
 
 div.page_menu {
-    background: #aac1df;
-    border: 1px solid grey;
-    color: black;
-    /* background: #d9e2ef; */
+  background: #aac1df;
+  border: 1px solid grey;
+  color: black;
+	/* background: #d9e2ef; */
 }
 
 ## Box containing form for adding/setting items on view-pages.
+$shrink("div.view_add")
+
 div.view_add {
     margin: 10px 10px 10px 0;
 }
@@ -219,29 +316,36 @@ div.view_add input:focus, div.view_add textarea:focus {
 }
 
 ## Styles for create pages, like create person etc..
+/*
 div.create {
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 0.2em;
-    text-align: left;
-    white-space: normal;
+    display: block;
+    width: 25em;
+}
+*/
+
+div.create {
+	background: #d9e2ef;
+	border: 1px solid black;
+	color: black;
+	width: 500px;
+	font-size: 15px;
+	margin-bottom: 0.2em;
+	text-align: left;
+	white-space: normal;
 }
 
 div.create table {
-    width: 100%;
+	width: 100%;
 }
 
 div.create th{
-    background: #aac1df;
-    color: black;
-    padding: 0.3em 0.5em 0.3em 0.5em;
-    width: auto;
-    font-size: 18px;
-    margin-bottom: 0.4em;
-    text-align: left;
+	background: #aac1df;
+	color: black;
+	padding: 0.3em 0.5em 0.3em 0.5em;
+	width: auto;
+	font-size: 18px;
+	margin-bottom: 0.4em;
+	text-align: left;
 }
 
 div.create div.help {
@@ -249,30 +353,30 @@ div.create div.help {
     padding: 2px;
     margin: 2px;
     margin-bottom: 1em;
-    margin-top: 1em;
+	margin-top: 1em;
 }
 
 div.createform table{
-    width: auto;
-    text-align: left;
+	width: auto;
+	text-align: left;
 }
 
 div.createform input, div.createform textarea {
-    width: auto;
-    margin-bottom: 0.4em;
+	width: auto;
+	margin-bottom: 0.4em;
 }
 
 div.createform select {
-    width: 12em;
-    float: left;
-    margin-bottom: 0.4em;
+	width: 12em;
+	float: left;
+	margin-bottom: 0.4em;
 }
 
 div.createform label {
-    font-style: oblique;
-    font-weight: bold;
-    margin-right: 0.5em;
-    text-align: left;
+	font-style: oblique;
+	font-weight: bold;
+	margin-right: 0.5em;
+text-align: left;
 }
 
 div.createform div.radio input {
@@ -332,106 +436,47 @@ div.edit div.help {
 
 div.edit h3 { margin: 0; }
 
-## A generic floating box for page contents.
-div.box {
-    width: 100%;
-    float: left;
-    clear: left;
-    margin: 10px 10px 10px 0;
-    border: 1px solid;
+## The yellow box for notes in entities.
+$view_box("div.notes", "#ffc", "#dda", "div.note")
+
+div.notes div.note div.note_desc {
+    white-space: normal;
 }
-div.box h3 {
-    margin: 0;
-    padding: 0 5px 0 5px;
-    font-size: 105%;
-}
-div.box span.name {
-    font-weight: bold;
-}
-div.box span.value {
-}
-div.box span.date
+
+div.notes span.date, div.quarantines span.date {
     font-size: 85%;
 }
-div.box div.item {
-    padding: 2px;
-    border-bottom: 1px dashed;
-}
-div.box div.description {
-    white-space: normal;
-    padding-left: 2em;
-}
-div.box div.actions a {
-    color: blue;
-    white-space: nowrap;
-    margin-bottom: 0.1em;
-    padding-right: 0.2em;
-    text-align: center;
-    text-decoration: none;
-}
-div.box div.actions a:hover { color: gray; }
-div.box div.actions a:before { content: "["; }
-div.box div.actions a:after { content: "]"; }
-div.box div.actions a.noaction:before,
-div.box div.actions a.noaction:after { content: ""; }
 
-## The bluish-colored boxes used for most stuff.
-div.info {
-    background: #eff;
-    border-color: #bdf;
-}
-div.info h3 {
-    background: #bdf;
-}
-div.info div.item {
-    border-bottom-color: #bdf;
-}
- 
-## The yellow box for notes in entities.
-div.note {
-    background: #ffc;
-    border-background: #dda;
-}
+## The light blue box for list over names on the view person page.
+$view_box("div.personnames", "#eff", "#bdf", "div.name")
 
-div.note h3 {
-    background: #dda;
-}
+## Contact information on view of entities.
+$view_box("div.contactinfos", "#eff", "#bdf", "div.contactinfo")
 
-div.note div.item {
-    border-bottom-style: dashed;
-    border-bottom-color: #dda;
-}
+## External identifiers on view of entities.
+$view_box("div.externalids", "#eff", "#bdf", "div.externalid")
 
-## The reddish-colored boxes used for quarantines.
-div.important {
-    background: #cba;
-    border-color: #da9;
-}
-div.important h3 {
-    background: #da9;
-}
-div.important div.item {
-    border-color: #da9;
-}
+## The light blue box for list over spreads on the view entity page.
+$view_box("div.spreads", "#eff", "#bdf", "div.spread")
 
-## The topmost box on almost all the pages
-div.view_info {
-    padding: 0 0.5em 0 0.5em;
-    clear: none;
-    float: none;
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 0.2em;
-    text-align: left;
+## The red box for quarantines on all view pages.
+$view_box("div.quarantines", "#cba", "#da9", "div.quarantine")
+
+div.quarantines div.quarantine div.quarantine_desc {
     white-space: normal;
 }
-div.view_info div.item {
-    border-bottom-style: dashed
-    border-bottom-color: gray;
-}
+
+## Affiliations between person and organization units.
+$view_box("div.affiliations", "#eff", "#bdf", "div.affiliation")
+
+## List over an accounts passwords on the account view page.
+$view_box("div.passwords", "#eff", "#bdf", "div.password")
+
+## List over home directiries on the account view page.
+$view_box("div.homedirs", "#eff", "#bdf", "div.homedir")
+
+## List over email targets on the account and group view page.
+$view_box("div.emailtargets", "#eff", "#bdf", "div.emailtarget")
 
 ## List over all members in a group.
 $view_header("div.memberlists", "#bdf", "#06C")
@@ -497,30 +542,47 @@ div.historylog td, div.activitylog_full td, table.results td, div.memberlists td
 ## div.email_view form { margin: 0; }
 ## div.email_view h2 { margin: 1em 0 0 0; }
 div.email_view {
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 0.2em;
-    text-align: left;
-    white-space: normal; 
+	background: #d9e2ef;
+	border: 1px solid black;
+	color: black;
+	width: 500px;
+	font-size: 15px;
+	margin-bottom: 0.2em;
+	text-align: left;
+	white-space: normal; 
 }
 
 div.email_view select {
-    width: 13em;
+	width: 13em;
 }
 
 div.email_view table {
-    width: 100%;
+	width: 100%;
 }
 
 div.td_email_view {
-    padding: 0 0.5em 0 0.5em;
-    width: auto;
-    font-style: oblique;
-    font-weight: bold;
+	padding: 0 0.5em 0 0.5em;
+	width: auto;
+	font-style: oblique;
+	font-weight: bold;
 }
+
+
+## Actions is links wich perfom action on something, for instance
+## [delete] on notes. Or [edit] on the view person page.
+div.actions a, a.actions {
+    color: blue;
+    white-space: nowrap;
+    margin-bottom: 0.1em;
+    padding-right: 0.2em;
+    text-align: center;
+    text-decoration: none;
+}
+
+div.actions a:hover, a.actions:hover { color: gray; }
+div.actions a:before, a.actions:before { content: "["; }
+div.actions a:after, a.actions:after { content: "]"; }
+div.actions a.noaction:before, div.actions a.noaction:after { content: ""; }
 
 ## Styles for the Error-pages.
 div.errorpage { margin: 5px; }
@@ -639,5 +701,3 @@ div.options td.buttons {
 div.options input:focus {
     background: #ffe;
 }
-
-## vim: sw=4 sts=4 expandtab
