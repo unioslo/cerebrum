@@ -22,10 +22,7 @@ import cherrypy
 
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import redirect, redirect_object, queue_message
-from lib.utils import object_link, transaction_decorator
-from lib.utils import strftime,  commit, commit_url
-from lib.utils import legal_date
+from lib.utils import *
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.AccountSearchTemplate import AccountSearchTemplate

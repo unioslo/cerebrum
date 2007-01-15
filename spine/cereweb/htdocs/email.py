@@ -134,55 +134,6 @@ def view(transaction, id):
 view = transaction_decorator(view)
 view.exposed = True
 
-def parse_address(address_obj):
-    address = {
-        'id': address_obj.get_id(),
-        'local': address_obj.get_local_part(),
-        'domain': address_obj.get_domain().get_name(),
-        'create': address_obj.get_create_date().get_unix(),
-        'change': address_obj.get_change_date().get_unix(),
-    }
-    expire = address_obj.get_expire_date()
-    if expire:
-        address['expire'] = expire.get_unix()
-    else:
-        address['expire'] = None
-    return address
-
-def parse_target(target_obj, t_id):
-    target = {
-        'id': t_id,
-        'type': target_obj.get_type().get_name(),
-        'object_type': 'email_target',
-	'name': "%s_email_target" % target_obj.get_entity().get_name(),
-    }
-    try:
-        primary_obj = target_obj.get_primary_address()
-    except NotFoundError, e:
-        primary_obj = None
-    if primary_obj:
-        target['primary'] = parse_address(primary_obj)
-    else:
-        target['primary'] = None
-    for a in target_obj.get_addresses():
-        target.setdefault('addresses', []).append(
-            parse_address(a))
-    return target
-
-def view_target(transaction, id):
-    id = int(id)
-    target_obj = transaction.get_email_target(id)
-    target = parse_target(target_obj, id)
-    page = Main()
-    page.title = _("Addresses in ")
-    page.setFocus("/email", id)
-    template = EmailTargetViewTemplate()
-    content = template.view(target)
-    page.content = lambda: content
-    return page
-view_target = transaction_decorator(view_target)
-view_target.exposed = True
-
 def addresses(transaction, id):
     domain = transaction.get_email_domain(int(id))
     page = Main()
