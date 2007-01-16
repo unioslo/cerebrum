@@ -148,13 +148,15 @@
 #end def
 
 #def setPassword($account)
-<div class="view_add box" id="pass_form" style="display:none;">
+<div class="form box" id="pass_form" style="display:none;">
+    <a class="anchor" name="password" />
+    <h3>$_('Set Password')</h3>
     $form_widgets.changePassword($account.get_id())
 </div>
 #end def
 
 #def viewGroups($account)
-<div class="accountgroups box">
+<div class="info box">
     <h3>$_('Groups')</h3>
     <form action="groups" method="POST">
         <input type="hidden" name="account_id" value="$account.get_id()" />

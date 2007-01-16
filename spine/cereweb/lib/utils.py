@@ -235,35 +235,6 @@ def rollback_url( url, msg, err=False):
 		queue_message( msg, error=err)
 	raise cherrypy.HTTPRedirect(url)
 	
-def struct2dict(struct):
-    """Converts a SpineStruct to a python dictionary."""
-    d = {}
-    for attr in dir(struct):
-        if attr.startswith('_'):
-            continue
-        d[attr] = getattr(struct, attr)
-    return d
-
-def get_account(transaction, account_id=None, account_name=None):
-    """Returns a dictionary with the information about the
-    given account."""
-    account = {}
-
-    assert account_id or account_name
-    searcher = transaction.get_account_searcher()
-    if account_id:
-        searcher.set_id(account_id)
-    else:
-        searcher.set_name(account_id)
-    acc_struct = searcher.dump()
-    acc_objects = searcher.search()
-    if acc_struct:
-        account = struct2dict(acc_struct[0])
-        acc_object = acc_objects[0]
-    account['is_posix'] = acc_object.is_posix()
-    account['object_type'] = _spine_type(acc_object)
-    return account
-
 def legal_date( tocheck ):
     rest = tocheck.strip()
     prog = re.compile(r'^([1-9][0-9]{3})-([0-9][1-9])-([0-9][1-9])$')

@@ -45,8 +45,8 @@
 #end def
 
 #def add($entity)
-<div class="view_add box" id="note_form" style="display:none;">
-<a name="note" />
+<div class="form box" id="note_form" style="display:none;">
+<a class="anchor" name="note" />
 <form action="/note/add" type="post">
     <h3>$_('Add a note')</h3>
     <input type="hidden" name="entity" value="$entity.get_id()" />

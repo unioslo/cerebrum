@@ -314,9 +314,9 @@
 #end def
 
 #def addCategory($transaction, $domain)
-<div class="view_add" id="cats_form" style="display:none;">
+<div class="form box" id="cats_form" style="display:none;">
     <form action="add_to_category" method="POST">
-        <a name="cats">
+        <a class="anchor" name="cats" />
         <h3>$_('Add to category')</h3>
         <input type="hidden" name="id" value="$domain.get_id()" />
         #set $categories = $transaction.get_email_domain_category_searcher()

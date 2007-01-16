@@ -65,8 +65,8 @@
 #end def
 
 #def add($person, $tr)
-<div class="view_add box" id="affil_form" style="display:none;">
-<a name="affil" />
+<div class="form box" id="affil_form" style="display:none;">
+<a class="anchor" name="affil" />
 <form action="add_affil" method="POST">
     <h3>$_('Add an affiliation')</h3>
     <input type="hidden" name="id" value="$person.get_id()" />

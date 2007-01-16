@@ -107,8 +107,8 @@ return classes, new_methods
 ## View form for editing methods on an operation set.
 #def editMethods($op_set)
 #set $current = $build_method_dict($op_set.get_operations())
-<div class="permissions">
-    <a name="methods" />
+<div class="list box">
+    <a class="anchor" name="methods" />
     <form id="perm_form" action="update_methods" method="POST">
         <input type="hidden" name="id" value="$op_set.get_id()" />
         <h3>$_('Manage methods')</h3>
@@ -175,7 +175,7 @@ return classes, new_methods
 #def viewMethods($op_set)
 #set $current = $build_method_dict($op_set.get_operations())
 #set $gray = ''
-<div class="permissions">
+<div class="list box">
     <h3>$_('Current methods')</h3>
     <table class="perm_methods" cellpadding="2" cellspacing="0">
     #for $c in $current[0]

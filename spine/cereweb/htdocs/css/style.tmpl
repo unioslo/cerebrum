@@ -187,19 +187,6 @@ div.page_menu {
     /* background: #d9e2ef; */
 }
 
-## Box containing form for adding/setting items on view-pages.
-div.view_add {
-    margin: 10px 10px 10px 0;
-}
-
-div.view_add h3 {
-    margin: 0px;
-}
-
-div.view_add input:focus, div.view_add textarea:focus {
-    background: #ffe;
-}
-
 ## Styles for create pages, like create person etc..
 div.create {
     background: #d9e2ef;
@@ -365,12 +352,16 @@ div.box div.actions a {
     text-align: center;
     text-decoration: none;
 }
+div.box div.actions {
+    float: right;
+}
+
 div.box a:hover { color: gray; }
 div.box h3 a { color: black; text-decoration: none; }
 div.box div.actions a:before { content: "["; }
 div.box div.actions a:after { content: "]"; }
-div.box div.actions a.noaction:before,
-div.box div.actions a.noaction:after { content: ""; }
+div.box div.actions a.anchor:before,
+div.box div.actions a.anchor:after { content: ""; }
 
 ## The bluish-colored boxes used for most stuff.
 div.info {
@@ -460,6 +451,21 @@ a.perm_all:hover { color: gray; }
 
 div.tree { margin-left: 2em; }
 
+## Box containing form for adding/setting items on view-pages.
+div.form {
+    margin: 10px 10px 10px 0;
+}
+
+div.form h3 {
+    margin: 0px;
+    background: #bde;
+}
+
+div.form input:focus,
+div.form textarea:focus {
+    background: #ffe;
+}
+
 ## Styles for email pages.
 ## div.email_view form { margin: 0; }
 ## div.email_view h2 { margin: 1em 0 0 0; }
@@ -540,15 +546,6 @@ div.session_warning {
 div.motd {
     width: 450px;
     margin-bottom: 1em;
-}
-
-div.motd div.actions {
-    border-top: 1px solid black;
-    border-left: 1px solid black;
-    background: white;
-    float: right;
-    padding: 3px;
-    margin-top: 8px;
 }
 
 div.motd div.subject {

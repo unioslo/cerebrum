@@ -68,7 +68,7 @@
 #set $tmp = $id and '_%i' % $id or ''
 <div class="motd_edit" id="motd_edit_div$tmp" style="display:none;">
     <form action="$action" method="POST">
-        <a name="new_motd" />
+        <a class="anchor" name="new_motd" />
         <label for="subject">$_('Subject'):</label>
         <input type="text" name="subject" size="40" maxlength="65" value="$subject" />
         <br />

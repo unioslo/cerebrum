@@ -110,11 +110,11 @@
 #end def
 
 #def setPassword($account)
-<div class="view_add" id="pass_form" style="display:none;">
+<div class="form box" id="pass_form" style="display:none;">
     <table border=0>
     <tr><td>
     <form action="set_password" method="POST">
-        <a name="password" />
+        <a class="anchor" name="password" />
         <h3>$_('Set password')</h3>
 		<p>
         <input type="hidden" name="id" value="$account.get_id()" />
@@ -147,7 +147,7 @@
 #end def
 
 #def viewGroups($account)
-<div class="accountgroups">
+<div class="info box">
     <h3>$_('Groups')</h3>
     <form action="groups" method="POST">
         <input type="hidden" name="account_id" value="$account.get_id()" />

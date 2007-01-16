@@ -49,8 +49,8 @@ $searcher.set_entity($entity)
 
 #def set($entity, $transaction)
 #set $target_types = $transaction.get_email_target_type_searcher()
-<div class="view_add" id="email_form" style="display:none;">
-    <a name="email" />
+<div class="form box" id="email_form" style="display:none;">
+    <a class="anchor" name="email" />
     <h3>$_('Create a new email target')</h3>
     <form action="/email/make_target" method="POST">
         <input type="hidden" name="entity" value="$entity.get_id()" />

@@ -77,7 +77,7 @@
 
 #def viewFamily($transaction, $ou)
 #set $perspectives = $transaction.get_ou_perspective_type_searcher().search()
-<div class="oufamily">
+<div class="list box">
     <h3>$_('OU Family')</h3>
 #for $perspective in $perspectives
     ## parents
