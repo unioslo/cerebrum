@@ -33,6 +33,7 @@ def parse_address(address_obj):
         'domain': address_obj.get_domain().get_name(),
         'create': address_obj.get_create_date().get_unix(),
         'change': address_obj.get_change_date().get_unix(),
+	'is_primary': address_obj.is_primary(),
     }
     expire = address_obj.get_expire_date()
     if expire:
