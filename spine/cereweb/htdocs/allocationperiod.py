@@ -62,8 +62,8 @@ def search(transaction, **vargs):
         return searcher.search()
 
     def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class='actions')
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class='action')
         auth = elm.get_authority().get_name()
         return object_link(elm), auth, str(edit)+str(remb)
 

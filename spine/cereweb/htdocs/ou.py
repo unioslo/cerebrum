@@ -96,8 +96,8 @@ def search(transaction, **vargs):
     
     def row(elm):
         link = object_link(elm, text=_get_display_name(elm))
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class='actions')
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class='action')
         return link, elm.get_acronym(), elm.get_short_name(), str(edit)+str(remb)
        
     ous = handler.search(search_method, **vargs)

@@ -60,8 +60,8 @@ def search(transaction, **vargs):
         return searcher.search()
 
     def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class='actions')
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class='action')
         sci  = " " #elm.get_science().get_name()
         ownr = object_link(elm.get_owner())
         return object_link(elm), sci, ownr, str(edit)+str(remb)

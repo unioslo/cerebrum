@@ -62,8 +62,8 @@ def search(transaction, **vargs):
     def row(elm):
         path = object_link(elm, text=elm.get_path())
         host = object_link(elm.get_host())
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class='actions')
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class='action')
         return path, host, elm.get_description(), str(edit)+str(remb)
 
     disks = handler.search(search_method, **vargs)

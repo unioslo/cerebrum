@@ -95,8 +95,8 @@ def search(transaction, **vargs):
         owner = object_link(elm.get_owner())
         cdate = strftime(elm.get_create_date())
         edate = strftime(elm.get_expire_date())
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class='actions')
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class='action')
         return object_link(elm), owner, cdate, edate, str(edit)+str(remb)
     
     accounts = handler.search(search_method, **vargs)

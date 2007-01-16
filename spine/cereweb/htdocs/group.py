@@ -88,8 +88,8 @@ def search(transaction, **vargs):
         return search.search()
 
     def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class='actions')
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class='action')
         return object_link(elm), elm.get_description(), str(edit)+str(remb)
 
     groups = handler.search(search_method, **vargs)

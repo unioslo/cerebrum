@@ -89,8 +89,8 @@ def search(transaction, **vargs):
         link = object_link(elm)
         cats = [i.get_name() for i in elm.get_categories()[:4]]
         cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class='actions')
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class='action')
         return link, elm.get_description(), cats, str(edit)+str(remb)
     
     domains = handler.search(search_method, **vargs)

@@ -115,8 +115,8 @@ def search(transaction, **vargs):
         accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
         affs = [str(object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
         affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
-        edit = object_link(elm, text='edit', method='edit', _class='actions')
-        remb = remember_link(elm, _class="actions")
+        edit = object_link(elm, text='edit', method='edit', _class='action')
+        remb = remember_link(elm, _class="action")
         return object_link(elm), date, accs, affs, str(edit)+str(remb)
             
     persons = handler.search(search_method, **vargs)
