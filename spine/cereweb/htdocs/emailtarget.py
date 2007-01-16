@@ -82,3 +82,4 @@ def view(transaction, id):
     return page
 view = transaction_decorator(view)
 view.exposed = True
+

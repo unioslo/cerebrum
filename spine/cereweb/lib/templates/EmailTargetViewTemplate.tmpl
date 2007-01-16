@@ -17,11 +17,93 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from lib.utils import object_link, strftime
+#from lib.utils import object_link, strftime, strftime
 #from lib.WorkList import remember_link
 #from FormWidgets import FormWidgets
+##import date
+#import datetime
 
 #attr $form_widgets = FormWidgets()
+
+#def unix2date($the_stamp)
+	#set $the_date = datetime.datetime.fromtimestamp($the_stamp)
+	$strftime($the_date)
+#end def
+
+#def edit_target(target)
+#set $id = $target['id']
+<div class="view_content">
+
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_("edit info")</a><br />
+            <a href="delete?id=$id">$_("delete account")</a><br />
+            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>        
+            <br />
+            $remember_link($target)<br />
+        </div>
+    </div>
+	<p>dette er en test</p>
+<br />
+<br />
+<br />
+</div>
+#end def
+
+#def _view($adr)
+<tr>
+	<td>
+		$_('Id:')
+	</td>   
+	<td>    
+		$adr['id']
+	</td>   
+</tr>   
+<tr>    
+	<td>    
+		$_('Local:')
+	</td>   
+	<td>    
+		$adr['local']
+	</td>   
+</tr>   
+<tr>    
+	<td>    
+		$_('Domain:')
+	</td>   
+	<td>    
+		$adr['domain']
+	</td>   
+</tr>   
+<tr>    
+	<td>    
+		$_('Created:')
+	</td>   
+	<td>    
+		$unix2date($adr['create'])
+	</td>   
+</tr>   
+<tr>    
+	<td>    
+		$_('Changed:')
+	</td>   
+	<td>    
+		$unix2date($adr['change'])
+	</td>
+	#if $adr['expire']
+	<tr>
+		<td>
+			$_('Expire:')
+		</td>
+		<td>
+			$unix2date($adr['expire'])
+		</td>
+	</tr>
+	#end if
+</tr>
+#end def
 
 ## Main method for creating the view
 #def view($target)
@@ -41,6 +123,68 @@
     </div>
 
     ## Content
-    <p>Dette er en test.</p>
+#set $primary = $target['primary']
+#set $addresses = $target['addresses']
+<p>
+<div class="view_info">
+<table>
+<tr>
+	<th>
+		$_('Email addresses')
+	</th>
+</tr>
+<tr>
+	<td>
+		<div class="view_info_form">
+		<table>
+			<tr>
+				<th colspan="2">
+					$_('Primary address')
+				</th>
+			</tr>
+		#if $primary
+			#echo $_view($primary)
+		#else
+			<tr>
+				<td colspan="2">
+					$_('No primary address')
+				</td>
+			</tr>
+		#end if
+			<tr>
+				<td colspan="2">
+					&nbsp;
+				</td>
+			</tr>
+		</table>
+		<table>
+			<tr>
+				<th colspan="2">
+					$_('Additional addresses')
+				</th>
+		#if $addresses
+			#for $count,$address in $enumerate($addresses)
+				#echo $_view($address)
+			<tr>
+				<td colspan="2">
+					&nbsp;
+				</td>
+			</tr>
+
+			#end for
+		#else
+			<tr>
+				<td colspan="2">
+					$_('No additional addresses')
+				</td>
+			</tr>
+		#end if
+		</table>
+		</div>
+	</td>
+</tr>
+</table>
+</div>
+</p>
 </div>
 #end def
