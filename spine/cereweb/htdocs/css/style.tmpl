@@ -20,19 +20,6 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-## Creates a standard header-box for view-pages.
-#def view_header($name, $color, $border_color)
-$name { margin: 10px 0 10px 0; }
-$name h3 {
-    margin: 0;
-    padding: 0 5px 0 5px;
-    background: $color;
-    border-top: 1px solid $border_color;
-    border-bottom: 1px solid $border_color;
-    font-size: 105%;
-}
-#end def
-
 ## Main title on the all pages.
 div.title {
     color: black;
@@ -340,6 +327,20 @@ div.box h3 {
     padding: 0 5px 0 5px;
     font-size: 105%;
 }
+div.box h4 {
+    margin: 0;
+}
+div.box form {
+    margin: 0;
+}
+div.box input {
+    font-size: 80%;
+    margin-top: 2px;
+}
+div.box span.extra {
+    font-size: 90%;
+    color: gray;
+}
 div.box span.name {
     font-weight: bold;
 }
@@ -364,7 +365,8 @@ div.box div.actions a {
     text-align: center;
     text-decoration: none;
 }
-div.box div.actions a:hover { color: gray; }
+div.box a:hover { color: gray; }
+div.box h3 a { color: black; text-decoration: none; }
 div.box div.actions a:before { content: "["; }
 div.box div.actions a:after { content: "]"; }
 div.box div.actions a.noaction:before,
@@ -428,65 +430,35 @@ div.view_info div.item {
     border-bottom-color: gray;
 }
 
-## List over all members in a group.
-$view_header("div.memberlists", "#bdf", "#06C")
-$view_header("div.derivedmembers", "#bdf", "#06C")
+## list boxes and log boxes are a bit different.
+div.log,
+div.list {
+    margin: 10px 0 10px 0;
+}
 
-div.memberlists h4 { margin: 0; }
-div.derivedmembers { white-space: normal; }
+div.list h3 {
+    background: #bdf;
+    border-top-color: #06C;
+    border-bottom-color: #06C;
+}
+div.log h3 {
+    background: #ad9;
+    border-top-color: #060;
+    border-bottom-color: #060;
+}
+div.log td, div.activitylog_full td, table.results td, div.memberlists td {
+    border-bottom: 1px dotted #aaa;
+    padding: 1px 2px 1px 2px;
+}
 
-## Overview of the family of the OU.
-$view_header("div.oufamily", "#bdf", "#06C")
-
-div.oufamily h4 { margin: 0; }
-
-## Styles for OU-tree
-div.tree { margin-left: 2em; }
-
-## List over disk in a host on host view page.
-$view_header("div.hostdisks", "#bdf", "#06C")
-
-## Styles for the permissions page.
-$view_header("div.permissions", "#bdf", "#06C")
+## For the permissions-system.
 span.perm_added { color: green; font-size: 12px; }
 span.perm_removed { color: red; font-size: 12px; }
 table.perm_methods tr.gray { empty-cells: show; background-color: #dadada; }
 table.perm_methods th { text-align: left; }
 a.perm_all:hover { color: gray; }
 
-## List of accounts/groups on view person/account page.
-$view_header("div.personaccounts", "#bdf", "#06C")
-$view_header("div.accountgroups", "#bdf", "#06C")
-
-
-div.personaccounts div.group, div.personaccounts div.group {
-    margin-left: 1em;
-}
-
-div.personaccounts form, div.accountgroups form, div.hostdisks form {
-    margin: 0;
-}
-
-div.personaccounts input, div.accountgroups input, div.hostdisks input {
-    font-size: 80%;
-    margin-top: 2px;
-}
-
-div.personaccounts span.extra, div.accountgroups span.extra {
-    font-size: 90%;
-    color: gray;
-}
-
-## Historylog contains changelog for entities.
-$view_header("div.historylog", "#ad9", "#060")
-
-div.historylog h3 a { color: black; text-decoration: none; }
-div.historylog h3 a:hover { color: gray; }
-
-div.historylog td, div.activitylog_full td, table.results td, div.memberlists td {
-    border-bottom: 1px dotted #aaa;
-    padding: 1px 2px 1px 2px;
-}
+div.tree { margin-left: 2em; }
 
 ## Styles for email pages.
 ## div.email_view form { margin: 0; }
