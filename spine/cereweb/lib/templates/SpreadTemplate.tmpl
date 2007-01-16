@@ -33,7 +33,7 @@
     #set $delete = '/entity/remove_spread?id=%s&spread=%s' % ($id, $name)
     <div class="item">
         <div class="actions">
-            <a href="$delete">$_('remove')</a>
+            <a class="action" href="$delete">$_('remove')</a>
         </div>
         <span class="name">$name</span> -
         <span class="value">$spread.get_description()</span>

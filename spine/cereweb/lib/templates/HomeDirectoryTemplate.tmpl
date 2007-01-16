@@ -35,7 +35,7 @@
         #set $remove = 'remove_home?id=%s&spread=%s' % ($id, $sname)
         
         <div class="actions">
-            <a href="$remove">$_('remove')</a>
+            <a class="action" href="$remove">$_('remove')</a>
         </div>
         <span class="name">$_("Spread"):</span> <span class="value">$sname</span><br />
         <span class="name">$_("Home directory"):</span> <span class="value">$home.get_homedir().get_path()</span><br />

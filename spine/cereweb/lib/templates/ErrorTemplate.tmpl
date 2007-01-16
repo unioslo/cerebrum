@@ -50,18 +50,18 @@
                 <div class="bottom">
                     <div class="actions">
                         <b>$_('Actions'):</b>
-                        <a href="javascript:Err_retry();" id="retry">retry</a>
-                        <a href="javascript:Err_back();" id="back">back</a>
+                        <a class="action" href="javascript:Err_retry();" id="retry">retry</a>
+                        <a class="action" href="javascript:Err_back();" id="back">back</a>
                         #if $user
-                        <a href="/logout" id="login">login</a>
+                        <a class="action" href="/logout" id="login">login</a>
                         #else
-                        <a href="/login" id="login">login</a>
+                        <a class="action" href="/login" id="login">login</a>
                         #end if
                         #if $report
-                        <a href="javascript:Err_show_report();" id="show_report">report</a>
+                        <a class="action" href="javascript:Err_show_report();" id="show_report">report</a>
                         #end if
                         #if $traceback
-                        <a href="javascript:Err_show_traceback();" id="show_traceback">show traceback</a>
+                        <a class="action" href="javascript:Err_show_traceback();" id="show_traceback">show traceback</a>
                         #end if
                     </div>
                     #if $report

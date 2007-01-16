@@ -237,9 +237,9 @@
             #set $name = "member_%s_%s" % ($account.get_id(), $group.get_id())
             <input type="checkbox" name="$name" $disabled/>
             <em>$_($header):</em> $group_name
-            $object_link($group, "view", _class="actions")
-            $object_link($group, "edit", "edit", _class="actions")
-            $remember_link($group, _class="actions")
+            $object_link($group, "view", _class="action")
+            $object_link($group, "edit", "edit", _class="action")
+            $remember_link($group, _class="action")
             #if $group_name == $primary_group
                 <span class="extra">(primary)</span>
             #end if

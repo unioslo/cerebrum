@@ -117,9 +117,9 @@
         <div>
             <input type="checkbox" name="account_$account_id" />
             <em>$_('Account'):</em> $_($account_name)
-            $object_link($account, "view", _class="actions")
-            $object_link($account, "edit", "edit", _class="actions")
-            $remember_link($account, _class="actions")
+            $object_link($account, "view", _class="action")
+            $object_link($account, "edit", "edit", _class="action")
+            $remember_link($account, _class="action")
             #if $account_name == $primary
                 <span class="extra">(primary)</span>
             #end if

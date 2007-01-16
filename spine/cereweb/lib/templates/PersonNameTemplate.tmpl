@@ -36,7 +36,7 @@
         <div class="actions">
             #set $delete = 'remove_name?id=%i&variant=%s&ss=%s' % (
                  $person.get_id(), $name_variant.get_name(), $ss_name)
-            <a href="$delete">$_('delete')</a>
+            <a class="action" href="$delete">$_('delete')</a>
         </div>
         <span class="name">$name_variant.get_description():</span>
         <span class="value">$name.get_name()</span>

@@ -31,7 +31,7 @@
     #set $description = $description.replace('\n', '<br />')
     <div class="item">
         <div class="actions">
-            <a href="$delete">$_('delete')</a>
+            <a class="action" href="$delete">$_('delete')</a>
         </div>
         <span class="name">$note.get_subject()</span>&nbsp;
         <span class="creator">-$_('by')  $object_link($note.get_creator())</span>&nbsp;

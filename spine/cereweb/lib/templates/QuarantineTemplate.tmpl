@@ -40,8 +40,8 @@
         #set $description = $q.get_description().replace('\n', '<br />')
                 
         <div class="actions">
-            <a href="$edit">$_('edit')</a>
-            <a href="$remove">$_('delete')</a>
+            <a class="action" href="$edit">$_('edit')</a>
+            <a class="action" href="$remove">$_('delete')</a>
         </div>
         <strong>$q.get_type().get_description()</strong>&nbsp;
         <em>-$_('by')</em> $object_link($q.get_creator())&nbsp;

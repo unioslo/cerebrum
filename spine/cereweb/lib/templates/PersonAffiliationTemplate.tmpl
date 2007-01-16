@@ -41,7 +41,7 @@
                             $person.get_id(), $ou.get_id(),
                             $affil_type.get_name(),
                             $affil.get_source_system().get_name())
-            <a href="remove_affil?$args">$_('delete')</a>
+            <a class="action" href="remove_affil?$args">$_('delete')</a>
         </div>
         #end if
         <span class="name">$_('Affiliation'):</span> <span class="value"> $affil_type.get_name()</span>

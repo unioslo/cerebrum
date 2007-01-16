@@ -37,7 +37,7 @@
                             $external_id, $id.get_id_type().get_name())
         #set $delete = '/entity/remove_external_id?%s' % $args
         <div class="actions">
-            <a href="$delete">$_('delete')</a>
+            <a class="action" href="$delete">$_('delete')</a>
         </div>
         <span class="name">$id.get_id_type().get_description():</span>
         <span class="value">$external_id</span>

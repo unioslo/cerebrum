@@ -36,7 +36,7 @@ $searcher.set_entity($entity)
         <div class="item">
             <div class="actions">
                 #set $url = "/email/remove_target?entity=&target=$target.get_id()"
-                <a href="$url">$_('Delete')</a>
+                <a class="action" href="$url">$_('Delete')</a>
             </div>
             #for $address in $addresses:
                 $address.full_address(), 
@@ -51,7 +51,6 @@ $searcher.set_entity($entity)
 #set $search = $transaction.get_email_target_type_searcher().search()
 #set $target_types = [($s.get_name(), $s.get_name()) for $s in $search]
 <div class="form box" id="email_form" style="display:none;">
-    <a class="anchor" name="email" />
     <h3>$_('Create a new email target')</h3>
     <form action="/email/make_target" method="POST">
         <input type="hidden" name="entity" value="$entity.get_id()" />
@@ -107,7 +106,7 @@ $searcher.set_entity($entity)
     #for $target in $targets.search():
         <div>
         $object_link($target)
-        $object_link($target, $_("Delete"), "delete", _class="actions")
+        $object_link($target, $_("Delete"), "delete", _class="action")
         </div>
     #end for
     
@@ -210,7 +209,7 @@ $searcher.set_entity($entity)
          </div>
      #end if
 
-    <div> $object_link($target, $_("Edit"), "edit", _class="actions") </div>
+    <div> $object_link($target, $_("Edit"), "edit", _class="action") </div>
      
 </div>
 
@@ -239,21 +238,21 @@ $searcher.set_entity($entity)
     </td>
     <td>
         $object_link($target, $_("Edit"), method="edit_address",
-                     address=$addr.get_id(), _class="actions")
+                     address=$addr.get_id(), _class="action")
     </td>
     <td>
         $object_link($target, $_("Remove address"),
                      method="remove_address", address=$addr.get_id(),
-                     _class="actions")
+                     _class="action")
     </td>
     <td>
     #if $is_primary
         $object_link($target, $_("Unset as primary"),
-                     method="set_primary", _class="actions")
+                     method="set_primary", _class="action")
     #else
         $object_link($target, $_("Set as primary"),
                      method="set_primary", address=$addr.get_id(),
-                     _class="actions")
+                     _class="action")
     #end if
     </td>
     </tr>
