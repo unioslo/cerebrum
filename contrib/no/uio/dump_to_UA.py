@@ -63,6 +63,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
+from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
+
 
 
 
@@ -361,24 +363,14 @@ def generate_output(stream, do_employees, do_students, sysname, person_file):
         parser = system2parser(sysname)(person_file, False)
 
         # Go through all persons in person_info_file
-        it = parser.iter_persons()
-        while 1:
+        for xml_person in SkippingIterator(parser.iter_persons(), logger):
             try:
-                xml_person = it.next()
                 fnr = xml_person.get_id(DataPerson.NO_SSN)
                 db_person.find_by_external_id(const.externalid_fodselsnr, fnr,
                                               source_system=source_system)
-            except StopIteration:
-                break
             except Errors.NotFoundError:
-                logger.exception("Couldn't find person with fnr %s in db" %
-                                 fnr)
+                logger.warn("Couldn't find person with fnr %s in db", fnr)
                 continue
-            except:
-                logger.exception("Failed to process next person from %s" %
-                                 person_file)
-                continue
-            # yrt
 
             process_employee(db_person, ou, const, xml_person, fnr, stream)
             db_person.clear()
