@@ -75,6 +75,26 @@ class UiTPersonMixin(Person.Person):
       FROM [:table schema=cerebrum name=person_affiliation_source]
       %s""" % (last_field,where), fetchall = fetchall)
 
+  def _compare_names(self, type, other):
+        """Returns True if names are equal.
+
+        self must be a populated object."""
+        print "comparing"
+        #print ""
+        try:
+            tmp = other.get_name(self._pn_affect_source, type)
+            if tmp ==None:
+            #if len(tmp) == 0:
+                raise KeyError
+        except:
+            raise MissingOtherException 
+        try:
+            myname = self._name_info[type]
+        except:
+            raise MissingSelfException
+#        if isinstance(myname, unicode):
+#            return unicode(tmp, 'iso8859-1') == myname
+        return tmp == myname
 
 
   def set_affiliation_last_date(self, source, ou_id, affiliation, status):
