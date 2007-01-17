@@ -19,7 +19,8 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from lib.TableView import TableView
-#from SortedTableTemplate import SortedTableTemplate
+#from Widgets import Widgets
+#attr $widgets = Widgets()
 
 ## Displays the 5 latest messages in the right side of the bottom frame.
 #def activitylog($messages)
@@ -52,9 +53,9 @@
 #def full_activitylog($messages)
 <div class="activitylog_full">
 #if $messages
-    #set $headers = {'time': $_('Timestamp'), 'object': $_('Object'),
-                     'message': $_('Message')}
-    #set $table = $TableView('time', 'object', 'message')
+    #set $columns = ['time', 'object', 'message']
+    #set $headers = [$_('Timestamp'), $_('Object'), $_('Message')]
+    #set $table = $TableView($columns, $headers)
     #for $msg, $error, $link, $time in $messages
         #if $error
             #set $msg += " (error)"
@@ -62,7 +63,7 @@
         $table.add(time=$time.strftime("%a %H:%M"),
                    object=$link, message=$msg)
     #end for
-    $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
+    $widgets.sorted_table($table)
 #else
     <div class="amsg">$_('No messages exists for this session yet.')</div>
 #end if

@@ -17,24 +17,21 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.InitTemplate import InitTemplate
-#from SortedTableTemplate import SortedTableTemplate
+#from Widgets import Widgets
 #extends InitTemplate
+#attr $widgets = Widgets()
 
 #def viewHistoryLog($table, $id)
-    #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"),
-        'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
     <div class="log box">
         <h3><a href="/entity/full_historylog?id=$id">$_('History log')</a></h3>
-        $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
+        $widgets.sorted_table($table)
     </div>
 #end def
 
 #def viewCompleteHistoryLog($table)
-    #set $headers = {'timestamp': $_("Timestamp"), 'icon': $_("Icon"),
-        'who': $_("Who"), 'category': $_("Category"), 'message': $_("Message")}
     <div class="log box">
         <h3>$_('History log')</h3>
-        $SortedTableTemplate().sorted_table($table, $headers, 'sortpri', 'sortby')
+        $widgets.sorted_table($table)
     </div>
 #end def
 

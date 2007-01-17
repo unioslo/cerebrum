@@ -28,14 +28,10 @@
 </div>
 #end def
 
-#def sorted_table($tableview, $headers, $change_sort_priority, $change_sort_order, $css_class=None)
+#def sorted_table($tableview, $change_sort_priority='sortpri', $change_sort_order='sortby', $css_class=None)
 ##doc: Presents a TableView instance.
 ##doc:   tableview -- instance of TableView filled with data, with 
 ##doc:      tableview.columns and tableview..sort set
-##doc:   headers -- a dictionary of headers, keys are column names
-##doc:      as in tableview.columns, values are inserted 
-##doc:      into HTML for those columns that are chosen for 
-##doc:      presentation in tableview.columns
 ##doc:   change_sort_priority -- URL to script that changes 
 ##doc:      tableview's sort priority, ie. which columns are first
 ##doc:      in tableview.columns. The URL should include %s that will
@@ -54,13 +50,13 @@
 #end if
     <tr>
     #for $column in $tableview.columns
-        #set $header = $headers.get($column, "")
+        #set $header = $tableview.header($column)
         #set $pri_link = $change_sort_priority
         #set $ord_link = $change_sort_order
         #set $dir = $tableview.column_order($column)    
         <th>
-            <a href='$pri_link'>pri_link</a> 
-            <a href='$ord_link'>ord_link</a>
+            ## <a href='$pri_link'>pri_link</a> 
+            ## <a href='$ord_link'>ord_link</a>
             $header
         </th>
     #end for

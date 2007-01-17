@@ -20,6 +20,7 @@
 
 from TableView import TableView
 from utils import object_link
+from gettext import gettext as _
 from templates.HistoryLogTemplate import HistoryLogTemplate
 
 def view_history_short(entity):
@@ -46,8 +47,9 @@ def object_wrapper(object):
             return repr(object)    
 
 def _history_tableview(events):    
-            
-    table = TableView("timestamp", "icon", "who", "category", "message")
+    columns = ['timestamp', 'icon', 'who', 'category', 'message']
+    headers = [_('Timestamp'), _('Icon'), _('Who'), _('Category'), _('Message')]
+    table = TableView(columns, headers)
     for change in events:
         change_by = change.get_change_by()
         if change_by:
