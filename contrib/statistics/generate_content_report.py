@@ -61,7 +61,6 @@ __version__ = "$Revision$"
 logger = Factory.get_logger("console")
 
 db = Factory.get('Database')()
-db.cl_init(change_program=progname[:16])
 const = Factory.get('Constants')(db)
 
 options = {"report_all": False,
@@ -280,9 +279,9 @@ def generate_group_statistics(output_stream):
     result = db.query("""SELECT group_id
                          FROM [:table schema=cerebrum name=group_info]
                          WHERE 
-                              -- No description set:
+                              -- No description set...
                               description is NULL OR
-                              -- Birthdate in future:
+                              -- ... or description is empty
                               description LIKE ''
                          """)
     present_entity_results(output_stream, result, "Number of groups without description")
