@@ -145,7 +145,7 @@ class SpineClient:
         spine = self.connect()
         print>>sys.stderr, '- connected to:', spine
         print>>sys.stderr, '- downloading source'
-        source = spine.get_idl()
+        source = spine.get_idl_commented()
         print>>sys.stderr, '- (%s bytes)' % len(source)
         if not os.path.exists(self.idl_path):
             os.makedirs(self.idl_path)
