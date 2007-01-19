@@ -117,7 +117,7 @@
 #def addMember($group, $ops)
 #set $types = (('account', 'Account'), ('group', 'Group'))
 <div class="form box" id="member_form" style="display:none;">
-    <a class="anchor" name="member" />
+    <a class="anchor" name="member"></a>
     <h3>$_('Add member')</h3>
     <form action="add_member" method="POST">
         <input type="hidden" name="id" value="$group.get_id()" />
@@ -137,7 +137,7 @@
 #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
 #end if
 <div class="form box" id="group_form" style="display:none;">
-    <a class="anchor" name="group" />
+    <a class="anchor" name="group"></a>
     <h3>$_('Join group')</h3>
     <form action="/group/join_group" method="POST">
         <input type="hidden" name="entity" value="$entity.get_id()" />
