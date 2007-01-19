@@ -18,7 +18,9 @@
 
 #from lib.utils import object_link
 #from lib.WorkList import remember_link
+#from Widgets import Widgets
 #extends EntityViewTemplate
+#attr $widgets = Widgets()
 
 ## Main method for creating the host view page.
 #def view($transaction, $host)
@@ -56,11 +58,10 @@
 
 ## View information about host (name and description).
 #def viewInfo($host)
-<div class="list box">
-    <h3>$_('Hosts')</h3>
-    <div class="item"><span class="name">$_("Name"):</span> <span class="value">$host.get_name()</span></div>
-    <div class="item"><span class="name">$_("Description"):</span> <span class="value">$host.get_description()</span></div>
-</div>
+#set $info = []
+$info.append(($_("Name"), $host.get_name()))
+$info.append(($_("Description"), $host.get_description()))
+$widgets.viewInfo($info)
 #end def
 
 #def viewDisks($host)
@@ -77,7 +78,7 @@
             $object_link($disk, "view", _class="action")
             $object_link($disk, "edit", "edit", _class="action")
             $remember_link($disk, _class="action")
-        <div>
+        </div>
         #end for
         #if $disks
         <input type="submit" name="delete" value="$_('Delete disks')" />&nbsp;

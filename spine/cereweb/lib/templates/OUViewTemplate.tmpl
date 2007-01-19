@@ -20,6 +20,9 @@
 #from lib.utils import object_link
 #from lib.WorkList import remember_link
 #from SpineIDL.Errors import NotFoundError
+#from Widgets import Widgets
+
+#attr $widgets = Widgets()
 
 #def view($transaction, $ou)
 #set $id = $ou.get_id()
@@ -62,17 +65,15 @@
 
 ## View information about OU.
 #def viewInfo($ou)
-<div class="view_info box">
-    <div class="item"><em>$_('Name'):</em> $ou.get_name()</div>
-    <div class="item"><em>$_('Acronym'):</em> $ou.get_acronym()</div>
-    <div class="item"><em>$_('Short name'):</em> $ou.get_short_name()</div>
-    <div class="item"><em>$_('Display name'):</em> $ou.get_display_name()</div>
-    <div class="item"><em>$_('Sort name'):</em> $ou.get_sort_name()</div>
-    <div class="item"><em>$_('Stedkode'):</em> $ou.get_stedkode()</div>
-    <div class="item"><em>$_('Catalogue mark'):</em>
-        #echo $ou.get_katalog_merke() and True or False
-    </div>
-</div>
+#set $info = []
+$info.append(($_('Name'), $ou.get_name()))
+$info.append(($_('Acronym'), $ou.get_acronym()))
+$info.append(($_('Short name'), $ou.get_short_name()))
+$info.append(($_('Display name'), $ou.get_display_name()))
+$info.append(($_('Sort name'), $ou.get_sort_name()))
+$info.append(($_('Stedkode'), $ou.get_stedkode()))
+$info.append(($_('Catalogue mark'), $ou.get_katalog_merke() and True or False))
+$widgets.viewInfo($info)
 #end def
 
 #def viewFamily($transaction, $ou)

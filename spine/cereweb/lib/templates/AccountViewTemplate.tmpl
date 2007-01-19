@@ -23,10 +23,12 @@
 #from HomeDirectoryTemplate import HomeDirectoryTemplate
 #from EmailTargetTemplate import EmailTargetTemplate
 #from FormWidgets import FormWidgets
+#from Widgets import Widgets
 
 #attr $email_template = EmailTargetTemplate()
 #attr $homedir_template = HomeDirectoryTemplate()
 #attr $form_widgets = FormWidgets()
+#attr $widgets = Widgets()
 #attr $listGroups = GroupViewTemplate().listGroups
 #attr $joinGroup = GroupViewTemplate().joinGroup
 
@@ -95,42 +97,20 @@
 #end def
 
 #def viewInfo($account)
-<div class="view_info box">
-    <div class="item">
-        <em>$_('Name'):</em> $account.get_name()
-    </div>
-    <div class="item">
-        <em>$_('Owned by'):</em> $object_link($account.get_owner())
-    </div>
-    <div class="item">
-        <em>$_('Expire date'):</em> $strftime($account.get_expire_date())
-    </div>
-    <div class="item">
-        <em>$_('Date created'):</em> $strftime($account.get_create_date())
-    </div>
-    <div class="item">
-        <em>$_('Created by'):</em> $object_link($account.get_creator())
-    </div>
-    
-    #if $account.is_posix()
-    <div class="item">
-        <em>$_('UID'):</em> $account.get_posix_uid()
-    </div>
-    <div class="item">
-        <em>$_('Primary group'):</em> $object_link($account.get_primary_group())
-    </div>
-    <div class="item">
-        <em>$_('Gecos'):</em> $account.get_gecos()
-    </div>
-    <div class="item">
-        <em>$_('Shell'):</em> $account.get_shell().get_name()
-    </div>
-    #end if
-
-    <div class="item">
-        <em>$_('Description'):</em> $account.get_description()
-    </div>
-</div>
+#set $info = []
+$info.append(($_('Name'), $account.get_name()))
+$info.append(($_('Owned by'), $object_link($account.get_owner())))
+$info.append(($_('Expire date'), $strftime($account.get_expire_date())))
+$info.append(($_('Date created'), $strftime($account.get_create_date())))
+$info.append(($_('Created by'), $object_link($account.get_creator())))
+#if $account.is_posix()
+    $info.append(($_('UID'), $account.get_posix_uid()))
+    $info.append(($_('Primary group'), $object_link($account.get_primary_group())))
+    $info.append(($_('Gecos'), $account.get_gecos()))
+    $info.append(($_('Shell'), $account.get_shell().get_name()))
+#end if
+$info.append(($_('Description'), $account.get_description()))
+$widgets.viewInfo($info)
 #end def
 
 #def viewPasswords($account)

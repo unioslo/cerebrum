@@ -21,7 +21,9 @@
 #extends EntityViewTemplate
 
 #from FormWidgets import FormWidgets
+#from Widgets import Widgets
 #attr $form_widgets = FormWidgets()
+#attr $widgets = Widgets()
 #attr $formvalues = {}
 
 ## Main method for creating the project view page.
@@ -61,12 +63,12 @@
 
 ## View information about host (name and description).
 #def viewInfo($project)
-<div class="view_info box">
-    <div class="item"><em>$_("Title"):</em> $project.get_title()</div>
-    <div class="item"><em>$_("Description"):</em> $project.get_description()</div>
-    <div class="item"><em>$_("Owner"):</em> $object_link($project.get_owner())</div>
-    <div class="item"><em>$_("Science"):</em> $project.get_science().get_description()</div>
-</div>
+#set $info = []
+$info.append(($_("Title"), $project.get_title()))
+$info.append(($_("Description"), $project.get_description()))
+$info.append(($_("Owner"), $object_link($project.get_owner())))
+$info.append(($_("Science"), $project.get_science().get_description()))
+$widgets.viewInfo($info)
 #end def
 
 #def viewAllocations($project)

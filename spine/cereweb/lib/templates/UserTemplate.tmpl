@@ -18,9 +18,11 @@
 
 #from FramesTemplate import FramesTemplate
 #from FormWidgets import FormWidgets
+#from Widgets import Widgets
 #from lib.UserMenu import UserMenu
 #extends FramesTemplate
 
+#attr $widgets = Widgets()
 #attr $form_widgets = FormWidgets()
 
 #def menu
@@ -40,104 +42,26 @@
 
 ## Show nice businessCard-like info about person/account
 #def viewInfo($account)
-## <b>Your information:</b>
-<p>
-<div class="view_info">
-<table>
-<tr>
-	<th colspan="2">
-			Your information:
-	</th>
-</tr>
-<tr>
-	<td>
-		<div class="view_info_form">
-		<div class="td_lead_info">
-       			$_('Name'):
-				</div>
-	</td>
-	<td>
-		<div class="info">
-			$account['username']
-		</div>
-	</td>
-</tr>
-<tr>
-	<td>
-		<div class="td_lead_info">
-       			$_('Owned by'):
-		</div>
-	</td>
-	<td>
-		<div class="info">
-			$account['fullname']
-		</div>
-	</td>
-</tr>
-<tr>
-	<td>
-		<div class="td_lead_info">
-       			$_('Birthdate'):
-		</div>
-	</td>
-	<td>
-		<div class="info">
-			#if $account['birthdate']:
-				$account['birthdate']
-			#else:
-				&nbsp;
-			#end if
-		</div>
-	</td>	
-</tr>
-#if $account['quarantined'] == 1
-	<tr>
-		<td colspan="2">
-			<div class="info">
-       			<em>This account has been set a quarantine.</em> 
-			</div>
-		</td>
-	</tr>
+    #set $info = []
+    #set $notice = []
+    $info.append(($_('Name'), $account['username']))
+    $info.append(($_('Owned by'), $account['fullname']))
+    $info.append(($_('Birthdate'), $account.get('birthdate', '')))
+    #if $account['quarantined'] == 1
+        $notice.append($_("This account has been set a quarantine."))
     #end if
-<tr>
-	<td>
-		<div class="td_lead_info">
-       			$_('Expire date'):
-		</div>
-	</td>
-	<td>
-		<div class="info">
-			#if $account['expire_date']:
-				$account['expire_date']
-			#else:
-				&nbsp;
-			#end if
-		</div>
-	</td>
-</tr>
+    #if $account.get('expired')
+        $notice.append($_("This account has expired."))
+    #end if
+    $info.append(($_('Expire date'), $account.get('expire_date', '')))
 
     ## If external_id is populated, we have a list with dicts to play with
     #for $extid in $account['external_id']
-      #if $extid['extid_type'] == "NO_BIRTHNO"
-	<tr>
-        	<td>
-			<div class="td_lead_info">
-				$_($extid['extid_type_description']+":")
-			</div>
-       		 </td>
-		<td>
-			<div class="info">
-               		     $_($extid['external_id'])
-            		</div>
-            	</td>
-        </tr>
-      #end if
+        #if $extid['extid_type'] == "NO_BIRTHNO"
+            $info.append(($_($extid['extid_type_description'], $_($extid['external_id']))))
+        #end if
     #end for
-</td>
-</tr>
-</table>
-</div>
-</p>
+    $widgets.viewInfo($info, $notice)
 #end def
 
 #def setPassword($account)

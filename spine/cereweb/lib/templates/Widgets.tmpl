@@ -78,8 +78,11 @@
 ## $info is a list of tuples: [(name, value), ]
 ## We assume that name and value have already
 ## been internationalized.
-#def viewInfo($info)
+#def viewInfo($info, $notice=[])
 <div class="view_info box">
+    #for $note in $notice
+        <div class="notice">$note</div>
+    #end for
     <table>
     <colgroup>
         <col class="name" />

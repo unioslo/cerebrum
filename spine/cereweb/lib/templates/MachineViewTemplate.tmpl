@@ -18,7 +18,9 @@
 
 #from lib.utils import object_link
 #from lib.WorkList import remember_link
+#from Widgets import Widgets
 #extends HostViewTemplate
+#attr $widgets = Widgets()
 
 ## Main method for creating the host view page.
 #def view($transaction, $host)
@@ -61,22 +63,21 @@
 
 ## View information about host (name and description).
 #def viewInfo($host)
-<div class="view_info box">
-    <div class="item"><em>$_("Name"):</em> $host.get_name()</div>
-    <div class="item"><em>$_("Description"):</em> $host.get_description()</div>
-    #if host.is_machine()
-        <div class="item"><em>$_("Cpu arch"):</em>$host.get_cpu_arch().get_description()</div>
-        <div class="item"><em>$_("Operating system"):</em>$host.get_operating_system().get_description()</div>
-        <div class="item"><em>$_("Interconnect"):</em>$host.get_interconnect().get_description()</div>
-        <div class="item"><em>$_("Total memory"):</em>$host.get_total_memory()</div>
-        <div class="item"><em>$_("Node number"):</em>$host.get_node_number()</div>
-    <h3>Per-node data</h3>
-        <div class="item"><em>$_("Node memory"):</em>$host.get_node_memory()</div>
-        <div class="item"><em>$_("Node disk"):</em>$host.get_node_disk()</div>
-        <div class="item"><em>$_("Cpu core number"):</em>$host.get_cpu_core_number()</div>
-        <div class="item"><em>$_("Cpu core mflops"):</em>$host.get_cpu_core_mflops()</div>
-        <div class="item"><em>$_("Cpu MHz"):</em>$host.get_cpu_mhz()</div>
-    #end if
-</div>
+#set $info = []
+$info.append(($_("Name"), $host.get_name()))
+$info.append(($_("Description"), $host.get_description()))
+#if host.is_machine()
+    $info.append(($_("Cpu arch"), $host.get_cpu_arch().get_description()))
+    $info.append(($_("Operating system"), $host.get_operating_system().get_description()))
+    $info.append(($_("Interconnect"), $host.get_interconnect().get_description()))
+    $info.append(($_("Total memory"), $host.get_total_memory()))
+    $info.append(($_("Node number"), $host.get_node_number()))
+    $info.append(($_("Node memory"), $host.get_node_memory()))
+    $info.append(($_("Node disk"), $host.get_node_disk()))
+    $info.append(($_("Cpu core number"), $host.get_cpu_core_number()))
+    $info.append(($_("Cpu core mflops"), $host.get_cpu_core_mflops()))
+    $info.append(($_("Cpu MHz"), $host.get_cpu_mhz()))
+#end if
+$widgets.viewInfo($info)
 #end def
 

@@ -18,7 +18,9 @@
 
 #from lib.utils import object_link
 #from lib.WorkList import remember_link
+#from Widgets import Widgets
 #extends EntityViewTemplate
+#attr $widgets = Widgets()
 
 ## Main method for creating the allocation view page.
 #def view($transaction, $allocation)
@@ -57,17 +59,14 @@
 
 ## View information about host (name and description).
 #def viewInfo($allocation)
-<div class="view_info box">
-    <div class="item"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
-    <div class="item"><em>$_("Project"):</em> $object_link($allocation.get_allocation_name().get_project())</div>
-    <div class="item"><em>$_("Period"):</em>
-        #set $period = $allocation.get_period()
-        $object_link($period)
-        ##( $period.get_startdate().strftime("%Y-%m-%d")
-        ##- $period.get_enddate().strftime("%Y-%m-%d") )
-    </div>
-    <div class="item"><em>$_("Status"):</em> $allocation.get_status().get_name()</div>
-</div>
+#set $info = []
+$info.append(($_("Allocation name"), $allocation.get_allocation_name().get_name()))
+$info.append(($_("Project"), $object_link($allocation.get_allocation_name().get_project())))
+$info.append(($_("Period"), $object_link($allocation.get_period())))
+##( $period.get_startdate().strftime("%Y-%m-%d")
+##- $period.get_enddate().strftime("%Y-%m-%d") )
+$info.append(($_("Status"), $allocation.get_status().get_name()))
+$widgets.viewInfo($info)
 #end def
 
 #def listMachines($allocation)

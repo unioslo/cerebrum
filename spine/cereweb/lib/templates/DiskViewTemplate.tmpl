@@ -19,6 +19,8 @@
 #extends EntityViewTemplate
 #from lib.utils import object_link
 #from lib.WorkList import remember_link
+#from Widgets import Widgets
+#attr $widgets = Widgets()
 
 #def view($transaction, $disk)
 #set $id = $disk.get_id()
@@ -53,16 +55,9 @@
 #end def
 
 #def viewInfo($disk)
-<div class="view_info box">
-    <div class="item">
-        <em>$_('Host'):</em> $object_link($disk.get_host())
-    </div>
-    <div class="item">
-        <em>$_('Path'):</em> $disk.get_path()
-    </div>
-    <div class="item">
-        <em>$_('Description'):</em> $disk.get_description()
-    </div>
-</div>
+#set $info = []
+$info.append(($_('Host'), $object_link($disk.get_host())))
+$info.append(($_('Path'), $disk.get_path()))
+$info.append(($_('Description'), $disk.get_description()))
+$widgets.viewInfo($info)
 #end def
-

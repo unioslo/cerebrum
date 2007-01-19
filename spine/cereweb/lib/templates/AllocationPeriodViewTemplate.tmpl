@@ -18,7 +18,9 @@
 
 #from lib.utils import object_link
 #from lib.WorkList import remember_link
+#from Widgets import Widgets
 #extends EntityViewTemplate
+#attr $widgets = Widgets()
 
 ## Main method for creating the allocationperiod view page.
 #def view($transaction, $allocationperiod)
@@ -55,11 +57,10 @@
 
 ## View information about host (name and description).
 #def viewInfo($allocationperiod)
-<div class="view_info box">
-    <div class="item"><em>$_("AllocationAuthority"):</em> $allocationperiod.get_authority().get_name()</div>
-    <div class="item"><em>$_("Name"):</em> $allocationperiod.get_name()</div>
-    <div class="item"><em>$_("Start Date"):</em> $allocationperiod.get_startdate().strftime("%Y-%m-%d")</div>
-    <div class="item"><em>$_("End Date"):</em> $allocationperiod.get_enddate().strftime("%Y-%m-%d")</div>
-</div>
+#set $info = []
+$info.append(($_("AllocationAuthority"), $allocationperiod.get_authority().get_name()))
+$info.append(($_("Name"), $allocationperiod.get_name()))
+$info.append(($_("Start Date"), $allocationperiod.get_startdate().strftime("%Y-%m-%d")))
+$info.append(($_("End Date"), $allocationperiod.get_enddate().strftime("%Y-%m-%d")))
+$widgets.viewInfo($info)
 #end def
-
