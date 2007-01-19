@@ -161,9 +161,9 @@ class ProcBatchRunner(object):
         # Build up a cache of account_types
         ac2aff = {}
         for row in ac.list_accounts_by_type(affiliation=(self.co.affiliation_ansatt,
-                                                      self.co.affiliation_teacher,
-                                                      self.co.affiliation_elev)):
-            ac2aff.setdefault((row['affiliation'], row['ou_id']), []).append(row['account_id'])
+                                                         self.co.affiliation_teacher,
+                                                         self.co.affiliation_elev)):
+            ac2aff.setdefault((int(row['affiliation']), int(row['ou_id'])), []).append(row['account_id'])
 
         group_name_re = re.compile('(\w+)\s+(\w+)')
         txt2aff = { 'Tilsette': (self.co.affiliation_ansatt,self.co.affiliation_teacher),
@@ -173,11 +173,13 @@ class ProcBatchRunner(object):
         for row in grp.list_traits(self.co.trait_group_affiliation):
             grp.clear()
             grp.find(row['entity_id'])
+            self.logger.debug("Processing '%s'." % grp.group_name)
             ou_acronym = None
             affiliation = None
-            if group_name_re.search(grp.group_name):
-                affiliation = group_name_re.group(1)
-                ou_acronym = group_name_re.group(2)
+            m = group_name_re.search(grp.group_name)
+            if m:
+                affiliation = m.group(2)
+                ou_acronym = m.group(1)
             else:
                 # Group's name doesn't match the criteria. Fail.
                 self.logger.warning("Group '%s' has an odd name for a generated aff group. Skipping" % grp.group_name)
@@ -197,15 +199,16 @@ class ProcBatchRunner(object):
             # without the proper account_type.
             for mbr in grp.list_members()[0]:
                 found = False
-                for aff in txt2aff[affiliation]:
-                    if mbr['member_id'] in ac2aff[(aff,ou.ou_id)]:
+                m_id = mbr[1]
+                for a in txt2aff[affiliation]:                  
+                    if ac2aff.has_key((int(a),ou.ou_id)) and m_id in ac2aff[(int(a),ou.ou_id)]:
                         found = True
-                        aff_grp2ac.setdefault((row['affiliation'], row['ou_id']), []).append(mbr['member_id'])
+                        aff_grp2ac.setdefault((int(a),ou.ou_id), []).append(m_id)
                         break
                 if not found:
-                    self.proc.ac_type_del(mbr['member_id'])
+                    self.proc.ac_type_del(m_id, affiliation, ou.ou_id)
         # Let the handler take take of added account_types.
         for i in ac2aff:
             for account in ac2aff[i]:
-                if not (aff_grp2ac.has_key(i) and not account in aff_grp2ac[i]):
+                if not (aff_grp2ac.has_key(i) and account in aff_grp2ac[i]):
                     self.proc.ac_type_add(account, i[0], i[1])

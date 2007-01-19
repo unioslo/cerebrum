@@ -171,7 +171,7 @@ class ProcHandler(object):
                                     self._co.group_memberop_union)
         for a_id in shdw_grp_accounts:
             if a_id not in grp_accounts:
-                shdw_grp.remove_member(a_id, self.co.group_memberop_union)
+                shdw_grp.remove_member(a_id, self._co.group_memberop_union)
         shdw_grp.write_db()
         
 
@@ -284,7 +284,10 @@ class ProcHandler(object):
             self._group.add_spread(int(self._co.spread_ad_grp))
             self._group.write_db()
             self.logger.info("ac_type_add: Group '%s' created." % grp_name)
- 
+        if not self._group.get_trait(self._co.trait_group_affiliation):
+            self._group.populate_trait(self._co.trait_group_affiliation,
+                                       date=DateTime.now())
+            self._group.write_db()
         if not self._group.has_member(account_id, self._co.entity_account,
                                       self._co.group_memberop_union):
             self._group.add_member(account_id, self._co.entity_account,
@@ -303,7 +306,7 @@ class ProcHandler(object):
                     int(self._co.affiliation_elev) : 'Elevar' }
 
         # Look up the group
-        grp_name = "%s %s" % (ou.acronym, aff2txt[int(affiliation)])
+        grp_name = "%s %s" % (ou.acronym, affiliation)
         if not self._group:
             self._group = Factory.get('Group')(self.db)
         try:
