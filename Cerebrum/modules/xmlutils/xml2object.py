@@ -452,7 +452,7 @@ class HRDataPerson(DataPerson):
     # end iteremployment
 
 
-    def has_active_employments(timepoint = Date(*time.localtime()[:3])):
+    def has_active_employments(self, timepoint = Date(*time.localtime()[:3])):
         """Decide whether this person has employments at a given timepoint."""
 
         for x in self.iteremployment():
