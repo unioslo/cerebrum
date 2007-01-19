@@ -238,6 +238,9 @@ def adjoin_member(uname, db_group, db_account, db_const):
         db_group.add_member(db_account.entity_id,
                             db_const.entity_account,
                             db_const.group_memberop_union)
+        logger.debug("adding account %s (%s) to group %s (%s)",
+                     uname, db_account.entity_id,
+                     db_group.group_name, db_group.entity_id)
     except:
         logger.exception("adding account %s to %s failed",
                          uname, list(db_group.get_names()))
