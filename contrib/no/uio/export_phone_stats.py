@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-
 This script export work phone statistics requested by SINT.
 
 Specifically, for all employees from a suitable source system (LT or SAP),
@@ -52,6 +51,7 @@ import cereconf
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataContact, DataOU
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment
+from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 
 def split_emps(emp_iter):
@@ -88,16 +88,7 @@ def output_data(sysname, pfile):
 
     parser = system2parser(sysname)
     it = parser(pfile, False).iter_persons()
-    while True:
-        try:
-            person = it.next()
-        except StopIteration:
-            break
-        except:
-            print "Junk in %s input" % (sysname,)
-            continue
-        # yrt
-
+    for person in SkippingIterator(it, None):
         phones = person.get_contact(DataContact.CONTACT_PHONE)
         if not phones:
             continue

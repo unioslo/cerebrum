@@ -452,6 +452,22 @@ class HRDataPerson(DataPerson):
     # end iteremployment
 
 
+    def has_active_employments(timepoint = Date(*time.localtime()[:3])):
+        """Decide whether this person has employments at a given timepoint."""
+
+        for x in self.iteremployment():
+            if ((x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
+                 x.is_active(timepoint)) or
+                # IVR 2007-01-19 FIXME: This is a horrible, gruesome, vile,
+                # ugly, repulsive and hairy pile of crud. It MUST DIE, once we
+                # get rid of LT.
+                (x.kind == x.GJEST and x.code == "POLS-ANSAT")):
+                return True
+
+        return False
+    # end has_active_employments
+
+
     def __str__(self):
         spr = super(HRDataPerson, self).__str__()
         result = ("HRDataPerson: %s\n" 

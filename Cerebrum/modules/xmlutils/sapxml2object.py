@@ -543,14 +543,7 @@ class XMLPerson2Object(XMLEntity2Object):
         # od
 
         # default: Personer med minst en ekte aktiv tilsetting => samtykket
-        if filter(lambda x: x.kind in (DataEmployment.HOVEDSTILLING,
-                                       DataEmployment.BISTILLING) and
-                            x.is_active(), result.iteremployment()):
-            to_reserve = False
-        # alle andre => reservert
-        else:
-            to_reserve = True
-        # fi
+        to_reserve = not result.has_active_employments()
 
         # 3. Alle som ligger inne med minst en 'RESE' er reservert (uavhengig
         #    av om der også ligger registrert samtykke på vedkommende).

@@ -148,10 +148,6 @@ def build_employee_cache(db, sysname, filename):
             continue
         # fi
 
-        tils = filter(lambda x: x.is_active() and
-                                x.kind in (x.HOVEDSTILLING, x.BISTILLING),
-                      xmlperson.iteremployment())
-
         # Everyone with bilag more recent than 180 days old is eligible
         bilag = filter(lambda x: ((not x.end) or
                                   (x.end >= (Date(*time.localtime()[:3]) -
@@ -162,7 +158,8 @@ def build_employee_cache(db, sysname, filename):
         # each entry is a pair, telling whether the person has active
         # tilsetting and bilag (in that order). We do not need to know *what*
         # they are, only that they exist.
-        employee_cache[fnr2uname[fnr]] = (bool(tils), bool(bilag))
+        employee_cache[fnr2uname[fnr]] = (xmlperson.has_active_employments(),
+                                          bool(bilag))
     # od
 
     del fnr2uname

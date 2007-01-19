@@ -214,19 +214,10 @@ class XMLPerson2Object(XMLEntity2Object):
                 # od
         # od
 
-        #
-        # FIXME:
-        # 
-        # baardj's reservation patch
-
-        # En person har aktiv ansettelse dersom den har en
-        # hoved/bistilling, eller er registrert som gjest med
-        # gjestetypekode POLS-ANSAT
-        has_active = filter(lambda x: (
-            x.kind in (DataEmployment.HOVEDSTILLING,
-                       DataEmployment.BISTILLING) or (
-            x.kind == DataEmployment.GJEST and x.code == "POLS-ANSAT"))
-                            and x.is_active(), result.iteremployment())
+        # Reservation rules. Roughly, all employees are not reserved, unless
+        # they say otherwise. Everyone else *is* reserved, unless they
+        # explicitly allow publication in catalogues. 
+        has_active = result.has_active_employments()
         if has_active:
             to_reserve = False
             for resv in element.findall("res"):
@@ -259,27 +250,6 @@ class XMLPerson2Object(XMLEntity2Object):
                                    list(result.iterids()))
         # fi
                    
-        # alternative reservation rules. Probably not applicable anymore.
-        # 
-        # TODO: Use something "a bit more defined and permanent". This is a
-        # hack. For now we set a reservation on non-guests with any 'ELKAT'
-        # reservation except 'PRIVADR' and 'PRIVTLF', and on guests without
-        # 'ELKAT'+'GJESTEOPPL' anti-reservations.
-        # step 1: We reserve, if a person has active <guest> but no active
-        # <tils>
-        # to_reserve = (filter(lambda x: x.kind == DataEmployment.GJEST and
-        #                     x.is_active(), result.iteremployment()) and
-        #              filter(lambda x: x.kind in (DataEmployment.HOVEDSTILLING,
-        #                                          DataEmployment.BISTILLING,) and
-        #                     x.is_active(), result.iteremployment()))
-        # for sub in element.findall("res"):
-        #    if (sub.get("katalogkode") == "ELKAT" and 
-        #        sub.get("felttypekode") not in ("PRIVADR", "PRIVTLF")):
-        #        to_reserve = sub.get("felttypekode") != "GJESTEOPPL"
-        #    # fi
-        # # od
-        # result.reserved = to_reserve
-
         return result
     # end next
 # end XMLPerson2Object
