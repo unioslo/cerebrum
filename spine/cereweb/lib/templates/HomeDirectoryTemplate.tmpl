@@ -60,7 +60,7 @@
         #set $disks = [("", " ")] + [($i.get_id(), "%s:%s" % 
             ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
         
-        $form_widgets.generate_loption("spread", "Spread", $spreads)
+        $form_widgets.generate_loption("homedir_spread", "Spread", $spreads)
         $form_widgets.input("home", "Home")
         $form_widgets.generate_loption("disk", "Disk", $disks)
         <input type="submit" value="$_('Set homedir')" />&nbsp;
