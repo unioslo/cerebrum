@@ -66,7 +66,7 @@ def _history_tableview(events):
                   # TODO: Should use hyperlinks on references 
 #                  message=change.message(object_wrapper), 
                   message=change.get_message(),
-                  icon='<img src=\"/img/%s\"' % icon) 
+                  icon='<img src=\"/img/%s\" alt=\"%s\" />' % (icon, type.get_type())) 
     return table        
         
 def get_icon_by_change_type(changetype):

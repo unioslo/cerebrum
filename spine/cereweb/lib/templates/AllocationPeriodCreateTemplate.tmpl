@@ -33,7 +33,7 @@
 ## The main method for creating the form for the allocation period create page.
 #def form($authorities)
 <div class="create">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="createform">
             #set $fv = $formvalues
             $form_widgets.generate_loption("authority", "Allocation Authority",

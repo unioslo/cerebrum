@@ -44,7 +44,7 @@
                 $tr.get_group_visibility_type_searcher().search()]
 
 <div class="edit">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="editform">
            $form_widgets.input("name", "Name", $group.get_name())
             #if $group.is_posix()

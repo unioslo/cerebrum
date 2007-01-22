@@ -45,7 +45,7 @@
     $viewGroups($account)
 
     ## Register divs and links to flip visibility.
-    <script language="JavaScript">
+    <script type="text/javascript">
         <!--
         FV_register('pass_form', 'pass_set', null, 'pass_cancel');
         FV_register('home_form', 'home_set', null, 'home_cancel');
@@ -93,8 +93,8 @@ $widgets.viewInfo($info)
 <div class="form box" id="pass_form" style="display:none;">
     <table border=0>
     <tr><td>
-    <form action="set_password" method="POST">
-        <a class="anchor" name="password"></a>
+    <form action="set_password" method="post">
+        <a class="anchor" id="password"></a>
         <h3>$_('Set password')</h3>
 		<p>
         <input type="hidden" name="id" value="$account.get_id()" />
@@ -129,15 +129,17 @@ $widgets.viewInfo($info)
 #def viewGroups($account)
 <div class="info box">
     <h3>$_('Groups')</h3>
-    <form action="groups" method="POST">
-        <input type="hidden" name="account_id" value="$account.get_id()" />
+    <form action="groups" method="post">
         $listGroups($account)
+        <p>
+        <input type="hidden" name="account_id" value="$account.get_id()" />
         #if not $account.get_groups()
         $_('Account is not member of any groups')<br />
         #else
         <input type="submit" name="leave" value="$_('Leave group(s)')" />&nbsp;
         #end if
         <input type="submit" name="create" value="$_('Create a group')" />
+        </p>
     </form>
 </div>
 #end def

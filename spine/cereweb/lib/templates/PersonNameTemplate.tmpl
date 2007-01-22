@@ -54,8 +54,8 @@
 
 #def set($person, $transaction)
 <div class="form box" id="name_form" style="display:none;">
-<a class="anchor" name="name"></a>
-<form action="add_name" method="POST">
+<a class="anchor" id="name"></a>
+<form action="add_name" method="post">
     #set $name_types = $transaction.get_name_type_searcher().search()
     #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
     <h3>$_('Set a name')</h3>

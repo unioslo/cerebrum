@@ -56,7 +56,7 @@
 #def form($owner, $name, $expire_date, $alts, $transaction)
 <div class="create">
     #set $type = $owner.get_type().get_name()
-    <form action="make" method="POST">
+    <form action="make" method="post">
         <div class="createform">
             $input("Owner", "owner", $owner.get_id(), "hidden", $object_link($owner))
             $radio("Username", "name", $alts, $name, "_other")

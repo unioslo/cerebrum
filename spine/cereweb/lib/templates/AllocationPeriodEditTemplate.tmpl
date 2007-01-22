@@ -41,7 +41,7 @@
 ## Creates the form for editing the main allocation period info.
 #def form($allocationperiod, $authorities)
 <div class="edit">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="editform">
            $form_widgets.generate_loption("authority", "Allocation Authority",
                                            $authorities, $allocationperiod.get_authority().get_name())

@@ -40,7 +40,7 @@
 ## Creates the form for editing the main host info.
 #def form($host)
 <div class="edit">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="editform">
             $form_widgets.input("name", "Name", $host.get_name())
             $form_widgets.input("description", "Description", $host.get_description())

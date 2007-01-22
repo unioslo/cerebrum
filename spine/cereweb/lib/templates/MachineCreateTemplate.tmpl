@@ -33,7 +33,7 @@
 ## The main method for creating the form for the host create page.
 #def form($transaction)
 <div class="create">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="createform">
             #set $fv = $formvalues
             $form_widgets.input("name", "Name")

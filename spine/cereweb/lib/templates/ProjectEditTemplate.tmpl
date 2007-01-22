@@ -40,7 +40,7 @@
 ## Creates the form for editing the main project info.
 #def form($project,$transaction)
 <div class="edit">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="editform">
             $form_widgets.input("title", "Title", $project.get_title())
             $form_widgets.input("description", "Description", $project.get_description())

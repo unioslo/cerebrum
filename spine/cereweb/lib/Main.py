@@ -37,10 +37,6 @@ class Main(FramesTemplate):
     
     def __init__(self):
         """Creates all parts of the page beside the content."""
-        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
-        cherrypy.response.headerMap['Pragma'] = 'no-cache'
-        cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
-
         FramesTemplate.__init__(self)
         self.jscripts = []
         self.prepare_page()

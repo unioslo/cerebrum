@@ -108,8 +108,8 @@ return classes, new_methods
 #def editMethods($op_set)
 #set $current = $build_method_dict($op_set.get_operations())
 <div class="list box">
-    <a class="anchor" name="methods"></a>
-    <form id="perm_form" action="update_methods" method="POST">
+    <a class="anchor" id="methods"></a>
+    <form id="perm_form" action="update_methods" method="post">
         <input type="hidden" name="id" value="$op_set.get_id()" />
         <h3>$_('Manage methods')</h3>
         <table cellpadding="0" cellspacing="0">
@@ -200,7 +200,7 @@ return classes, new_methods
 ## Edit page for a specific operation set
 #def edit($op_set)
 <div class="edit">
-    <form action="save" method="POST">
+    <form action="save" method="post">
         <div class="editform">
             <input type="hidden" name="id" value="$op_set.get_id()" />
             <label for="name">$_('Name'): </label>

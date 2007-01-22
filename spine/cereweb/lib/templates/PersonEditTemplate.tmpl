@@ -42,7 +42,7 @@
 ## Creates the form for editing the main person info.
 #def form($person, $genders)
 <div class="edit">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="editform">
             $form_widgets.generate_loption("gender",  "Gender",
                        $genders, $person.get_gender().get_name())

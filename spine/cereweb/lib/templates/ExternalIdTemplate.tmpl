@@ -52,17 +52,19 @@
 
 #def set($entity, $transaction)
 <div class="form box" id="extid_form" style="display:none;">
-    <a class="anchor" name="extid"></a>
-    <form action="/entity/add_external_id" method="POST">
+    <a class="anchor" id="extid"></a>
+    <form action="/entity/add_external_id" method="post">
         #set $searcher = $transaction.get_entity_external_id_type_searcher()
         #set $id_types = [($type.get_name(), $type.get_description()) 
                                         for $type in $searcher.search()]
         <h3>$_('Set external identifier')</h3>
+        <p>
         <input type="hidden" name="id" value="$entity.get_id()" />
         $form_widgets.input("external_id", "External identifier")
         $form_widgets.generate_loption("id_type", "Type", $id_types)
         <input type="submit" value="$_('Set')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="extid_cancel" />
+        </p>
     </form>
 </div>
 #end def

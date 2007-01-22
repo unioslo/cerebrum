@@ -31,7 +31,7 @@
 #def form($transaction, $ou)
 <div class="edit">
     <h3>$_('General organization info')</h3>
-    <form action="save" method="POST">
+    <form action="save" method="post">
         <div class="editform">
             $form_widgets.input("name", "Name", $ou.get_name())
             $form_widgets.input("acronym", "Acronym", $ou.get_acronym())

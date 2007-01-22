@@ -77,7 +77,7 @@
     $viewHistoryLog($group)
 
     ## Register divs and links to flip visibility.
-    <script language="JavaScript">
+    <script type="text/javascript">
         <!--
         FV_register('member_form', 'member_add', null, 'member_cancel');
         FV_register('group_form', 'group_join', null, 'group_cancel');
@@ -105,15 +105,17 @@ $widgets.viewInfo($info)
 #def addMember($group, $ops)
 #set $types = (('account', 'Account'), ('group', 'Group'))
 <div class="form box" id="member_form" style="display:none;">
-    <a class="anchor" name="member"></a>
+    <a class="anchor" id="member"></a>
     <h3>$_('Add member')</h3>
-    <form action="add_member" method="POST">
+    <form action="add_member" method="post">
+    <p>
         <input type="hidden" name="id" value="$group.get_id()" />
         $form_widgets.input('name', 'Member name')
         $form_widgets.generate_loption('type', 'Member type', $types, 'account')
         $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
         <input type="submit" value="$_('Add member')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="member_cancel" />
+    </p>
     </form>
 </div>
 #end def
@@ -125,14 +127,16 @@ $widgets.viewInfo($info)
 #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
 #end if
 <div class="form box" id="group_form" style="display:none;">
-    <a class="anchor" name="group"></a>
+    <a class="anchor" id="group"></a>
     <h3>$_('Join group')</h3>
-    <form action="/group/join_group" method="POST">
+    <form action="/group/join_group" method="post">
+    <p>
         <input type="hidden" name="entity" value="$entity.get_id()" />
         $form_widgets.input('name', 'Group name')
         $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
         <input type="submit" value="$_('Join group')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="group_cancel" />
+    </p>
     </form>
 </div>
 #end def

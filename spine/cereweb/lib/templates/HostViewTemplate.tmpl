@@ -48,7 +48,7 @@
     $viewHistoryLog($host)
 
     ## Register divs and links to flip visibility.
-    <script language="JavaScript">
+    <script type="text/javascript">
         <!--
         FV_register('note_form', 'note_add', null, 'note_cancel');
         //-->
@@ -69,7 +69,8 @@ $widgets.viewInfo($info)
 #if $disks
 <div class="list box">
     <h3>$_('Disks')</h3>
-    <form action="disks" method="POST">
+    <form action="disks" method="post">
+    <p>
         <input type="hidden" name="host" value="$host.get_id()" />
         #for $disk in $disks
         <div class="item">
@@ -84,6 +85,7 @@ $widgets.viewInfo($info)
         <input type="submit" name="delete" value="$_('Delete disks')" />&nbsp;
         #end if
         <input type="submit" name="add" value="$_('Add a disk')" />
+</p>
     </form>
 </div>
 #end if

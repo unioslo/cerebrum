@@ -48,9 +48,10 @@
 
 #def set($entity, $tr)
 <div class="form box" id="home_form" style="display:none;">
-    <form action="set_home" method="POST">
-        <a class="anchor" name="homedir"></a>
+    <a class="anchor" id="homedir"></a>
+    <form action="set_home" method="post">
         <h3>$_('Set home directory')</h3>
+        <p>
         <input type="hidden" name="id" value="$entity.get_id()" />
 
         #set $spreads = [($i.get_name(), $i.get_name())
@@ -64,6 +65,7 @@
         $form_widgets.generate_loption("disk", "Disk", $disks)
         <input type="submit" value="$_('Set homedir')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="home_cancel" />
+        </p>
     </form>
 </div>
 #end def

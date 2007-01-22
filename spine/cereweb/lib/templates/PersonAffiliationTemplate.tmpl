@@ -66,8 +66,8 @@
 
 #def add($person, $tr)
 <div class="form box" id="affil_form" style="display:none;">
-<a class="anchor" name="affil"></a>
-<form action="add_affil" method="POST">
+<a class="anchor" id="affil"></a>
+<form action="add_affil" method="post">
     <h3>$_('Add an affiliation')</h3>
     <input type="hidden" name="id" value="$person.get_id()" />
     #set $searcher = $tr.get_person_affiliation_status_searcher()

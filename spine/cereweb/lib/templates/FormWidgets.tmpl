@@ -37,7 +37,6 @@
 #def generate_loption($name, $label, $types, $selected=None)
     <label for="$name">$_($label):</label>
     $generate_option($name, $types, $selected)
-    <br />  
 #end def
 
 #def generate_td2loption($name, $label, $types, $selected=None,$tdattrs={'align': {'left': 'left','right' :'left'}})
@@ -101,8 +100,7 @@
 #end def
 
 #def changePassword($aid)
-<form action="set_password" method="POST">
-<input type="hidden" name="id" value="$aid" />
+<form action="set_password" method="post">
 <table>
 <tr>
             $td2password('passwd1', 'Password')
@@ -113,6 +111,7 @@
 ## </table>
 <tr>
 	<td colspan="2">
+<input type="hidden" name="id" value="$aid" />
 		&nbsp;
 	</td>
 </tr>

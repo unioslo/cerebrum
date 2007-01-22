@@ -35,7 +35,7 @@
 ## The main method for creating the form for the project create page.
 #def form($transaction, $project, $allocation_name)
 <div class="create">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="createform">
             #set $fv = $formvalues
             #set $searcher = $transaction.get_allocation_period_searcher()

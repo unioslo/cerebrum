@@ -35,7 +35,7 @@
 ## The main method for creating the form for the project create page.
 #def form($transaction, $owner)
 <div class="create">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="createform">
             #set $fv = $formvalues
             $form_widgets.input("owner", "Owner", $owner.get_id(), $object_link($owner), type="hidden")

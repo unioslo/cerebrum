@@ -41,7 +41,7 @@
 ## Creates the form for editing the main allocation info.
 #def form($allocation,$transaction)
 <div class="edit">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="editform">
 	    <div class="item"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
             <div class="item"><em>$_("Period"):</em> $object_link($allocation.get_period())</div>

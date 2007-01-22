@@ -39,7 +39,7 @@
 	<tr>
 		<td>
 			<div class="createform">
-			<form action="/email/make" method="POST">
+			<form action="/email/make" method="post">
 			<table>
         		#echo $_create($tr)
 			<tr>
@@ -79,7 +79,7 @@
 <tr>
 	<td>
 	<div class="createform">
-    	<form action="/email/make" method="POST">
+    	<form action="/email/make" method="post">
 	<table>
 		#echo $_create($tr)
 	<tr>
@@ -133,7 +133,7 @@
 <tr>
 	<td>
 		<div class="searchform">
-    		<form method="POST" action="/email/search">
+    		<form method="post" action="/email/search">
 		<table>
        			#echo $_search($tr, {})
 		<tr>
@@ -173,7 +173,7 @@
 <tr>
 	<td>
 		<div class="searchform">
-    		<form method="POST" action="/email/search">
+    		<form method="post" action="/email/search">
 		<table>
        			#echo $_search($tr, $vargs)
 		<tr>
@@ -306,7 +306,7 @@
     $list_addresses($transaction, $domain, $max_addresses)
 
     ## Register divs and links to flip visibility.
-    <script language="JavaScript">
+    <script type="text/javascript">
         <!--
         FV_register('cats_form', 'cats_add', null, 'cats_cancel');
     </script>
@@ -315,8 +315,8 @@
 
 #def addCategory($transaction, $domain)
 <div class="form box" id="cats_form" style="display:none;">
-    <form action="add_to_category" method="POST">
-        <a class="anchor" name="cats"></a>
+    <form action="add_to_category" method="post">
+        <a class="anchor" id="cats"></a>
         <h3>$_('Add to category')</h3>
         <input type="hidden" name="id" value="$domain.get_id()" />
         #set $categories = $transaction.get_email_domain_category_searcher()
@@ -409,7 +409,7 @@
 
 #def edit_domain($domain)
 <div class="edit">
-    <form action="save" method="POST">
+    <form action="save" method="post">
         <div class="editform">
             $form_widgets.input('name', 'Domain name', $domain.get_name())
             $form_widgets.input('description', 'Description', $domain.get_description())

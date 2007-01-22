@@ -40,7 +40,7 @@
 ## Creates the form for editing the main disk info.
 #def form($disk)
 <div class="edit">
-    <form action="$getAction()" method="POST">
+    <form action="$getAction()" method="post">
         <div class="editform">
             $form_widgets.input("path", "Path", $disk.get_path())
             $form_widgets.input("description", "Description", $disk.get_description())

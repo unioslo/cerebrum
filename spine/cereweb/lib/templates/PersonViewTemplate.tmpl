@@ -67,7 +67,7 @@
     $viewHistoryLog($person)
     
     ## Register divs and links to flip visibility.
-    <script language="JavaScript">
+    <script type="text/javascript">
         <!--
         FV_register('name_form', 'name_set', null, 'name_cancel');
         FV_register('affil_form', 'affil_add', null, 'affil_cancel');
@@ -102,7 +102,7 @@ $widgets.viewInfo($info, $notice)
 #set $person_id = $person.get_id()
 <div class="list box">
     <h3>$_('Accounts & Groups')</h3>
-    <form action="accounts" method="POST">
+    <form action="accounts" method="post">
         <input type="hidden" value="$person_id" name="owner" />
         #for $account in $allaccounts
         #set $account_id = $account.get_id()

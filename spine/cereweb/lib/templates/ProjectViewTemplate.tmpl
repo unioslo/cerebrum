@@ -53,7 +53,7 @@
     $viewHistoryLog($project)
 
     ## Register divs and links to flip visibility.
-    <script language="JavaScript">
+    <script type="text/javascript">
         <!--
         FV_register('note_form', 'note_add', null, 'note_cancel');
         //-->
@@ -105,8 +105,8 @@ $widgets.viewInfo($info)
 
 #def addAllocationName($project, $transaction)
 <div class="form box" id="allocationname_form"> ##style="display:none;"
-    <a class="anchor" name="allocationname"></a>
-    <form action="/project/add_allocation_name" method="POST">
+    <a class="anchor" id="allocationname"></a>
+    <form action="/project/add_allocation_name" method="post">
 	#set $fv = $formvalues
 	#set $searcher = $transaction.get_allocation_authority_searcher()
 	#set $authorities = [($type.get_name(), $type.get_name()) 

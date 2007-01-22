@@ -50,12 +50,14 @@
 #set $spreads = [($s.get_name(), $s.get_name()) for $s in $search 
                  if $type == $s.get_entity_type() and $s not in $cspreads]
 <div class="form box" id="spread_form" style="display:none;">
-    <form action="/entity/add_spread" method="POST">
-        <h3>$_('Add a spread')</h3>
+    <form action="/entity/add_spread" method="post">
+    <h3>$_('Add a spread')</h3>
+    <p>
         $form_widgets.generate_loption("spread", "Spread", $spreads)
         <input type="hidden" name="id" value="$entity.get_id()" />
         <input type="submit" value="$_('Add')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="spread_cancel" />
+    </p>
     </form>
 </div>
 #end def
