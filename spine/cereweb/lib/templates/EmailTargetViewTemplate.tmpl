@@ -134,7 +134,7 @@ $strftime($the_date)
 		<table>
 		<tr>
 			#for $key,$values in $addresses[0].items()
-			#if not $key == 'id'
+			#if not $key == 'id' and not $key == 'primary'
 				<th>
 					$key.capitalize()
 				</th>
@@ -144,18 +144,14 @@ $strftime($the_date)
 		<tr>
 			#for $addr in $addresses
 			#for $key,$value in $addr.items()
-				#if not $key == 'id'
+				#if not $key == 'id' and not $key == 'primary'
 				<td>
 					#if $value
-						#if $key == 'primary'
-							yes
-						#else	
-							#if $key == 'created' or $key == 'changed' or $key == 'expire'
-								$unix2date($value)
-							#else
-						
-								$value
-							#end if
+						#if $key == 'created' or $key == 'changed' or $key == 'expire'
+							$unix2date($value)
+						#else
+					
+							$value
 						#end if
 					#end if
 				</td>
@@ -164,8 +160,13 @@ $strftime($the_date)
 			<td>
 				<div class="actions">
 				#set $address = $addr['id']
+<<<<<<< EmailTargetViewTemplate.tmpl
+				<a class="action" href="/emailtarget/delete?id=$id&addr=$address">Delete</a>
+				&nbsp;<a class="action" href="/emailtarget/setprimary?id=$id&addr=$address">Primary</a>
+=======
 				<a href="/emailtarget/delete?id=$id&amp;addr=$address">Delete</a>&nbsp;
 				<a href="/emailtarget/setprimary?id=$id&amp;addr=$address">Primary</a>
+>>>>>>> 1.4
 				</div>
 			</td>
 			#end for
@@ -186,7 +187,7 @@ $strftime($the_date)
 <table>
 <tr>
 	<th>
-		$_('Add a new address')
+		$_('Add a new email address')
 	</th>
 </tr>
 <tr>
@@ -213,7 +214,7 @@ $strftime($the_date)
 				<tr>
 					<td colspan="2">
                                 		<center>
-                                        		<input type="submit" value="$_('Search')" />&nbsp;
+                                        		<input type="submit" value="$_('Create')" />&nbsp;
                                         		<input type="reset" value="$_('Clear')" />
                                 		</center>
                         		</td>
