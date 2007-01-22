@@ -75,7 +75,11 @@
     		<label for="$name">$_($label):</label>
 		</td>
 		<td $attr="$tdattrs[$attr]['right']">
-    		<input type="$type" name="$name" id="$name" value="$_($value)">$text</input>
+                #if not $text
+                    <input type="$type" name="$name" id="$name" value="$_($value)"/>
+                #else
+                    <input type="$type" name="$name" id="$name" value="$_($value)">$text</input>
+                #end if
 		</td>
 	#end for
 #end def	
@@ -87,7 +91,11 @@
     		<label for="$name">$_($label):</label>
 		</td>
 		<td $attr="$tdattrs[$attr]['right']">
-    		<input type="password" name="$name" id="$name" value="$_($value)">$text</input>
+                #if not $text
+                    <input type="password" name="$name" id="$name" value="$_($value)"/>
+                #else
+                    <input type="password" name="$name" id="$name" value="$_($value)">$text</input>
+                #end if
 		</td>
 	#end for
 #end def
