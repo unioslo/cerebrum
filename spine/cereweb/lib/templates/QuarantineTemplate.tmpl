@@ -35,8 +35,8 @@
     #for $q in $quarantines
     <div class="item">
         #set $type = $q.get_type().get_name()
-        #set $edit = '/quarantine/edit?entity=%s&type=%s' % ($id, $type)
-        #set $remove = '/quarantine/remove?entity=%s&type=%s' % ($id, $type)
+        #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($id, $type)
+        #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($id, $type)
         #set $description = $q.get_description().replace('\n', '<br />')
                 
         <div class="actions">

@@ -28,14 +28,14 @@
 $searcher.order_by($searcher, "name")
 #set $ops = [(i.get_id(), i.get_name()) for i in $searcher.search()]
 <div class="email_view">
-    <form action="view" type="post">
+    <form action="view" method="post">
         <h2>$_('Select an operation set')</h2>
         <label for="id">$_('Select an operation set to view/edit'):</label>
         <br />
         $form_widgets.generate_option('id', $ops)
         <input type="submit" value="$_('Select')" />
     </form>
-    <form action="make" type="post">
+    <form action="make" method="post">
         <h2>$_('Create a new operation set')</h2>
         <label for="name">$_('Name'):</label>
         <input type="text" size="20" name="name" /><br />
@@ -44,7 +44,7 @@ $searcher.order_by($searcher, "name")
         <input type="submit" value="$_('Create')" />&nbsp;
         <input type="reset" value="$_('Clear')" />
     </form>
-    <form action="view_user_by_name" type="post">
+    <form action="view_user_by_name" method="post">
         <h2>$_('View access for account or group')</h2>
         <label for="name">$_('Find by name'):</label><br />
         <input type="name" size="20" name="name" />

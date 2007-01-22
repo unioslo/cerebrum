@@ -26,7 +26,7 @@
 <div class="note box">
     <h3>$_('Notes')</h3>
     #for $note in $notes
-    #set $delete = '/note/delete?id=%s&entity=%s' % ($note.get_id(), $entity.get_id())
+    #set $delete = '/note/delete?id=%s&amp;entity=%s' % ($note.get_id(), $entity.get_id())
     #set $description = $note.get_description().strip()
     #set $description = $description.replace('\n', '<br />')
     <div class="item">
@@ -47,7 +47,7 @@
 #def add($entity)
 <div class="form box" id="note_form" style="display:none;">
 <a class="anchor" name="note"></a>
-<form action="/note/add" type="post">
+<form action="/note/add" method="post">
     <h3>$_('Add a note')</h3>
     <input type="hidden" name="entity" value="$entity.get_id()" />
     <label for="subject">$_('Subject'):</label>

@@ -119,7 +119,7 @@ $strftime($the_date)
 			<td>
 				#set $addressid = $primary['id']	
 				<div class="actions">
-				<a href="/emailtarget/delete?id=$id&addr=$addressid">Delete</a>
+				<a href="/emailtarget/delete?id=$id&amp;addr=$addressid">Delete</a>
 				</div>
 			</td>
 		</tr>
@@ -164,8 +164,8 @@ $strftime($the_date)
 			<td>
 				<div class="actions">
 				#set $address = $addr['id']
-				<a href="/emailtarget/delete?id=$id&addr=$address">Delete</a>&nbsp;
-				<a href="/emailtarget/setprimary?id=$id&addr=$address">Primary</a>
+				<a href="/emailtarget/delete?id=$id&amp;addr=$address">Delete</a>&nbsp;
+				<a href="/emailtarget/setprimary?id=$id&amp;addr=$address">Primary</a>
 				</div>
 			</td>
 			#end for

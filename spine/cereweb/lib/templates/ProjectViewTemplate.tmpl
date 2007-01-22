@@ -80,8 +80,8 @@ $widgets.viewInfo($info)
     <ul>
     #for $allocationname in $allallocationnames
 	#set aname = $allocationname.get_name()
-	#set delete_aname = "remove_allocation_name?id=%i&allocation_name=%s" % ( $project_id, $aname )
-	#set create_allocation = "/allocation/create?project=%i&allocation_name=%s" % ( $project_id, $aname )
+	#set delete_aname = "remove_allocation_name?id=%i&amp;allocation_name=%s" % ( $project_id, $aname )
+	#set create_allocation = "/allocation/create?project=%i&amp;allocation_name=%s" % ( $project_id, $aname )
        <li> $aname
             <a href="$delete_aname">[Delete]</a>
             <a href="$create_allocation">[create allocation]</a>

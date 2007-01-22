@@ -30,7 +30,7 @@
     <h3>$_('Spreads')</h3>
     #for $spread in $spreads
     #set $name = $spread.get_name()
-    #set $delete = '/entity/remove_spread?id=%s&spread=%s' % ($id, $name)
+    #set $delete = '/entity/remove_spread?id=%s&amp;spread=%s' % ($id, $name)
     <div class="item">
         <div class="actions">
             <a class="action" href="$delete">$_('remove')</a>
