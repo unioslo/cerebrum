@@ -81,7 +81,7 @@ runner_cw = threading.Condition()
 
 use_thread_lock = False  # don't seem to work
 
-if True:
+if False:
     # useful for debugging, and to work-around a wierd case where the
     # logger would hang
     ppid = os.getpid()
