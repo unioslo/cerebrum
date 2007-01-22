@@ -185,6 +185,7 @@ def assign_memberships(groupname, members):
     logger.debug5("Adding members to group: '%s'" % groupname)
 
     for member in member_list:
+        member = member.lower()
         logger.debug5("Looking at potential member: '%s'" % member)
         addee = None
         entity_type = None
