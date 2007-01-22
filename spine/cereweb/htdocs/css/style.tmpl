@@ -236,6 +236,11 @@ div.createform label {
     width: 6em;
 }
 
+div.cssform label {
+    float: left;
+    width: 10em;
+}
+
 div.createform input, div.createform textarea {
     width: auto;
     margin-bottom: 0.4em;
@@ -335,7 +340,7 @@ div.box span.name {
 }
 div.box span.value {
 }
-div.box span.date
+div.box span.date {
     font-size: 85%;
 }
 div.box div.item {
@@ -360,10 +365,10 @@ div.box div.actions {
 
 div.box a:hover { color: gray; }
 div.box h3 a { color: black; text-decoration: none; }
-div.box div.actions a:before { content: "["; }
-div.box div.actions a:after { content: "]"; }
-div.box div.actions a.anchor:before,
-div.box div.actions a.anchor:after { content: ""; }
+
+## Style action-links
+a.action:before { content: "["; }
+a.action:after { content: "]"; }
 
 ## The bluish-colored boxes used for most stuff.
 div.info {

@@ -37,7 +37,7 @@
 ## This tells us not to load the worklist.js 
 #attr $wl = 0
 ## The following hack removes the bottom div (and the worklist)
-#def bottom
+#def page_bottom
 #end def
 
 ## Show nice businessCard-like info about person/account
@@ -66,25 +66,9 @@
 
 #def setPassword($account)
 <div class="form box" id="pass_form" style="display:always;">
-	<p>
-	<div class="view_info">
-	<table width="100%">
-	<tr>
-    ## <h3>$_('Set password')</h3>
-		<th>
-			$_('Set password:')
-		</th>
-	</tr>
-	<tr>
-		<td>
-			<div class="td_passwd_info">
-    				$form_widgets.changePassword($account['id'])
-			</div>
-		</td>
-	</tr>
-	</table>
-	</div>
-	</p>
+    <a class="anchor" id="password"></a>
+    <h3>$_('Set Password')</h3>
+    $form_widgets.changePassword($account['id'])
 </div>
 #end def
 

@@ -28,13 +28,13 @@
 <div class="worklist">
     <h2>$_("Worklist")</h2>
     <form id="worklistForm" action="" method="post">
-        <div class="buttons">
+        <div id="wl_buttons">
         #for $key, $label in $buttons
             <input type="button" class="workbutton" name="$key" id="WL_$key" value="$label" />
             <br />
         #end for
         </div>
-        <div class="list">
+        <div id="wl_list">
             <select multiple="multiple" size="6" id="WL_select">
             #if not $objects
                 <option>-Remembered objects-</option>
@@ -50,7 +50,7 @@
             #end for
             </select>
         </div>
-        <div class="actions" id="WL_actions">
+        <div id="wl_actions" id="WL_actions">
             ## Javascripts will hide this division and replace it
             ## with shortcuts for the selected items in the worklist.
             <div class="wl_action" id="WL_action_info">
