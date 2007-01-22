@@ -419,7 +419,7 @@ Normally only union is used."""],
         ['entity_id', 'Enter entity_id, example: group:foo',
          'Enter an entity_id either as number or as group:name / account:name'],
     'id:target:account':
-        ['entity', 'Enter an existing entity',
+        ['account', 'Enter an existing entity',
          """Enter the entity as type:name, for example 'account:bob'.  If only
 a name is entered, the type 'account' is assumed.  Other types include
 'group', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
@@ -427,7 +427,7 @@ a name is entered, the type 'account' is assumed.  Other types include
 make sense for this command.)
 """],
     'id:target:group':
-        ['entity', 'Enter an existing entity',
+        ['group', 'Enter an existing entity',
          """Enter the entity as type:name, for example 'group:foo'.  If only a
 name is entered, the type 'group' is assumed.  Other types include
 'account', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
@@ -435,7 +435,7 @@ name is entered, the type 'group' is assumed.  Other types include
 make sense for this command.)
 """],
     'id:target:person':
-        ['entity', 'Enter an existing entity',
+        ['person', 'Enter an existing entity',
          """Enter the entity as type:name, for example: 'account:bob'.  If
 only a name is entered, it will be assumed to be either an account or
 a fnr.  If an account is given, the person owning the account will be
