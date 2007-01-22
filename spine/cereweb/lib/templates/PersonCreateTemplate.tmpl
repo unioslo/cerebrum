@@ -34,54 +34,33 @@
 #def form($genders)
 #set $fv = $formvalues
 <div class="create">
-	<table>
-	<tr>
-		<th>
-			$_('Create a new person')
-		</th>
-	</tr>
-	<tr>
-		<td>
-			<div class="createform">
-			<form action="$getAction()" method="post">
-			<table>
-				<tr>
-					$form_widgets.td2input("firstname", "First name", $fv.get("name", ""))
-				</tr>
-				<tr>
-					$form_widgets.td2input("lastname", "Last name", $fv.get("name", ""))
-				</tr>
-				<tr>
-						$form_widgets.generate_td2loption("gender", "Gender",
-                			$genders, $fv.get("gender", ""))
-				</tr>
-				<tr>
-            			$form_widgets.td2input("birthdate", "Birthdate *", $fv.get("birthdate", ""))
-				</tr>
-				<tr>
-            			$form_widgets.td2input("description", "Description", $fv.get("description", ""))
-				</tr>
-				<tr>
-				<td colspan="2">
-        			$form_widgets.showHelp($help)
-				</td>
-				</tr>
-				<tr>
-					<td colspan="2">
-						<div>
-							<center>
-								<input type="submit" value="$_('Create')" />&nbsp;
-								<input type="reset" value="$_('Clear')" />
-							</center>
-						</div>
-					</td>
-				</tr>
-			</table>
-    	</form>
-		</div>
-		</td>
-	</tr>
-	</table>
+    <h3>$_('Create a new person')</h3>
+    <div class="createform">
+        <form action="$getAction()" method="post">
+            <div>
+                $form_widgets.input("firstname", "First name", $fv.get("name", ""))
+            </div>
+            <div>
+                $form_widgets.input("lastname", "Last name", $fv.get("name", ""))
+            </div>
+            <div>
+                $form_widgets.generate_loption("gender", "Gender", $genders, $fv.get("gender", ""))
+            </div>
+            <div>
+                    $form_widgets.input("birthdate", "Birthdate *", $fv.get("birthdate", ""))
+            </div>
+            <div>
+                    $form_widgets.input("description", "Description", $fv.get("description", ""))
+            </div>
+            <div>
+                        $form_widgets.showHelp($help)
+            </div>
+            <div>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </div>
+        </form>
+    </div>
 </div>
 #end def
 

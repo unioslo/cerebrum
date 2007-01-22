@@ -136,13 +136,12 @@
 #def input($name, $label, $value="", $text="", $type="text")
     <label for="$name">$_($label):</label>
     <input type="$type" name="$name" id="$name" value="$_($value)">$text</input>
-    <br />
 #end def
 
 ## Create input and labels from given arguments while hiding the value (typically passwords)
 #def password($name, $label, $value="")
     <label for="$name">$_($label):</label>
-    <input type="password" name="$name" id="$name" value="$_($value)" /><br />
+    <input type="password" name="$name" id="$name" value="$_($value)" />
 #end def
 
 ## Creates a drop-down list with true or false.
