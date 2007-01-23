@@ -21,28 +21,13 @@
 // Used by httprequests to get the right url
 var webroot = "";  // Should be overriden by includer
 
-/* addLoadEvent by Simon Willisons blog on sitepoint.com */
 function addLoadEvent(func) {
-    var oldonload = window.onload;
-    if (typeof window.onload != 'function') {
-        window.onload = func;
-    } else {
-        window.onload = function() {
-            oldonload();
-            func();
-        };
-    }
+    alert('addLoadEvent is deprecated: ' + func);
+    YAHOO.util.Event.addListener(window, 'load',func);
 }
-
-/* addEvent by Peter-Paul Kochs blog on quirksmode.org */
 function addEvent(obj, sType, fn){
-    if (obj.addEventListener){
-        obj.addEventListener(sType, fn, false);
-    } else if (obj.attachEvent) {
-        var r = obj.attachEvent('on'+sType, fn);
-    } else {
-        WL_error("EventHandler could not be attached.");
-    }
+    alert('addEvent is deprecated: ' + func);
+    YAHOO.util.Event.addListener(obj, sType, fn);
 }
 
 // Cross-browser-compatible method for creating xmlhttp-objects.
@@ -107,7 +92,6 @@ function set_link_text(obj, text) {
     }
 }
 
-
 /* Flip visibility */
 
 // Contains the diffrent divs and their links/buttons.
@@ -132,12 +116,12 @@ function FV_init_listeners() {
             if (FV_elements[i][j] != null) {
                 element = document.getElementById(FV_elements[i][j]);
                 func = new Function("FV_flip("+i+");");
-                addEvent(element, 'click', func);
+                YAHOO.util.Event.addListener(element, 'click', func);
             }
         }
     }
 }
-addLoadEvent(FV_init_listeners);
+YAHOO.util.Event.addListener(window, 'load', FV_init_listeners);
 
 // Flip the visibility (display-value) on the selected element.
 function FV_flip(elm) {
@@ -153,4 +137,3 @@ function FV_flip(elm) {
         }
     }
 }
-

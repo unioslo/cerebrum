@@ -44,7 +44,7 @@ var TO_timerid = null; // Contains the last id for the scheduled check.
 var TO_has_warned = false; // To prevent us from warning the user twice.
 
 // Runs when the page is finished loading.
-addLoadEvent(TO_schedule);
+YAHOO.util.Event.addListener(window, 'load', TO_schedule);
 
 // Schedule next timeout-check. 'time' in seconds.
 function TO_schedule(time) {

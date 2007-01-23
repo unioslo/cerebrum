@@ -40,9 +40,9 @@ var WL_worklist = new Array();
 var WL_actions = new Array();
 
 // After the page is finished loading, run these methods.
-addLoadEvent(WL_init_listeners);
-addLoadEvent(WL_init_elements);
-addLoadEvent(WL_init_actions);
+YAHOO.util.Event.addListener(window, 'load', WL_init_listeners);
+YAHOO.util.Event.addListener(window, 'load', WL_init_elements);
+YAHOO.util.Event.addListener(window, 'load', WL_init_actions);
 
 /* END SETTINGS */
 
@@ -71,11 +71,11 @@ function WL_init_listeners() {
     var forget_button = document.getElementById('WL_forget');
     var select_list = document.getElementById('WL_select');
 
-    addEvent(all_button, 'click', WL_select_all);
-    addEvent(none_button, 'click', WL_select_none);
-    addEvent(invert_button, 'click', WL_invert);
-    addEvent(forget_button, 'click', WL_forget);
-    addEvent(select_list, 'change', WL_view_actions);
+    YAHOO.util.Event.addListener(all_button, 'click', WL_select_all);
+    YAHOO.util.Event.addListener(none_button, 'click', WL_select_none);
+    YAHOO.util.Event.addListener(invert_button, 'click', WL_invert);
+    YAHOO.util.Event.addListener(forget_button, 'click', WL_forget);
+    YAHOO.util.Event.addListener(select_list, 'change', WL_view_actions);
 }
 
 // Fill WL_worklist and change link-texts to forget.

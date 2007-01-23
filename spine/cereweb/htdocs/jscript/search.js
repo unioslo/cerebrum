@@ -22,12 +22,12 @@
 webroot = "";  // Should be overriden by includer
 
 // Runs when the page is finished loading.
-addLoadEvent(SR_init_listeners);
+YAHOO.util.Event.addListener(window, 'load', SR_init_listeners);
 
 // Initialises the listener on the reset button.
 function SR_init_listeners() {
     var clear_button = document.getElementById('search_clear');
-    addEvent(clear_button, 'click', SR_clear);
+    YAHOO.util.Event.addListener(clear_button, 'click', SR_clear);
 }
 
 // Clears the searchform.
