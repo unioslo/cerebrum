@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#import cgi
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from types import StringTypes
@@ -28,7 +29,7 @@
         #if $selected==$name
             #set $is_selected = ' selected="selected"'
         #end if
-        <option$is_selected value="$name">$desc</option>
+        <option$is_selected value="$name">$cgi.escape($desc)</option>
     #end for
     </select>
 #end def
