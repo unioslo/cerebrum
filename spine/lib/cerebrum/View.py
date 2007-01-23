@@ -6,6 +6,7 @@ from SpineLib import Registry
 from Types import Spread, OUPerspectiveType, AuthenticationType
 registry = Registry.get_registry()
 
+import sets
 import cerebrum_path
 import Cerebrum.spine
 from Cerebrum.Utils import Factory
@@ -144,7 +145,7 @@ class GroupView(Builder):
     slots = (
         Attribute('name', str),
         Attribute('posix_gid', int),
-        #Attribute('members_flat', [str]),
+        Attribute('members', [str]),
         #Attribute('members_tree', [str]),
         #Attribute('quarantenes', [str])
         )
@@ -175,6 +176,82 @@ group_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
+class group_members:
+    def __init__(self, db, types=[int(co.entity_account)]):
+        self.types=types
+        
+        memberships=db.query("""
+        SELECT gm.group_id, gm.operation, gm.member_type, gm.member_id,
+        en.entity_name AS member_name
+        FROM group_member gm, entity_name en
+        WHERE
+        en.entity_id = gm.member_id AND
+        en.value_domain = CASE
+        WHEN gm.member_type=:entity_account THEN :account_namespace
+        WHEN gm.member_type=:entity_group   THEN :group_namespace
+        WHEN gm.member_type=:entity_host    THEN :host_namespace
+        END
+        """, { 'entity_account': int(co.entity_account),
+               'entity_group': int(co.entity_group),
+               'entity_host': int(co.entity_host),
+               'account_namespace': int(co.account_namespace),
+               'group_namespace': int(co.group_namespace),
+               'host_namespace': int(co.host_namespace),
+               })
+        
+        class member_group:
+            def __init__(self):
+                self.union=[]
+                self.difference=[]
+                self.intersection=[]
+                
+        opt={
+            int(co.group_memberop_union): "union",
+            int(co.group_memberop_intersection): "intersection",
+            int(co.group_memberop_difference): "difference"
+            }
+        
+        self.groups={}
+        self.member_names={}
+        for m in memberships:
+            getattr(self.groups.setdefault(m[0], member_group()),
+                    opt[m[1]]).append((m[2], m[3]))
+            self.member_names[m[3]]=m[4]
+    
+    def get_members(self, id, type=None, types=None):
+        if types==None: types=self.types
+        #print "get_members(%d, %s, %s)" % (id, type, types)
+        if type==None or type==co.entity_group:
+            members=sets.Set()
+            intersection=sets.Set()
+            difference=sets.Set()
+            for t, i in self.groups[id].union:
+                members.union_update(self.get_members(i, t, types))
+                union=members.copy()
+            if self.groups[id].intersection:
+                for t, i in self.groups[id].intersection:
+                    intersection.union_update(self.get_members(i, t, types))
+                members.intersection_update(intersection)
+            if self.groups[id].difference:
+                for t, i in self.groups[id].difference:
+                    difference.union_update(self.get_members(i, t, types))
+                members.difference_update(difference)
+            #print union, intersection, difference
+            #print "get_members(%d) =" % id, members
+            return members
+        elif type in types:
+            #print "get_members(%d) =" % id, [id]
+            return [id]
+        else:
+            #print "get_members(%d) =" % id, []
+            return []
+    
+    def get_members_name(self, id):
+        return [self.member_names[i] for i in self.get_members(id)]
+    def addto_group(self, d):
+        d['members']=self.get_members_name(d['id'])
+        return d
+    
 
 class OUView(Builder):
     slots = (
@@ -271,6 +348,14 @@ person_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
+        
+
+
+
+
+
+
+
 
 
 class View(DatabaseTransactionClass):
@@ -330,14 +415,16 @@ class View(DatabaseTransactionClass):
     get_accounts_cl.signature = [Struct(AccountView)]
     def get_groups(self):
         db = self.get_database()
+        members=group_members(db)
         rows=db.query(group_search % "", self.query_data)
-        return [r.dict() for r in rows]
+        return [members.addto_group(r.dict()) for r in rows]
     get_groups.signature = [Struct(GroupView)]
     def get_groups_cl(self):
         db = self.get_database()
+        members=group_members(db)
         rows=db.query(group_search % group_search_cl + group_search_cl_o,
                       self.query_data)
-        return [r.dict() for r in rows]
+        return [members.addto_group(r.dict()) for r in rows]
     get_groups_cl.signature = [Struct(GroupView)]
     def get_ous(self):
         db = self.get_database()
@@ -362,48 +449,6 @@ class View(DatabaseTransactionClass):
         return [r.dict() for r in rows]
     get_persons_cl.signature = [Struct(AccountView)]
 registry.register_class(View)
-
-
-
-foo = """
-account_spread=tr.get_spread('user@stud')
-authentication_type=tr.get_authentication_type('MD5-crypt')
-changes_since=88700
-
-accounts = tr.get_account_searcher()
-
-accounts_spread = tr.get_entity_spread_searcher()
-accounts_spread.set_spread(account_spread)
-accounts.add_join('', accounts_spread, 'entity')
-
-disks = tr.get_disk_searcher()
-home_directories = tr.get_home_directory_searcher()
-home_directories.add_left_join('disk', disks, '')
-accounts_home = tr.get_account_home_searcher()
-accounts_home.set_spread(account_spread)
-accounts_home.add_left_join('homedir', home_directories, '')
-accounts.add_left_join('', accounts_home, 'account')
-
-accounts_auth = tr.get_account_authentication_searcher()
-accounts_auth.set_method(authentication_type)
-accounts.add_left_join('', accounts_auth, 'account')
-
-shells = tr.get_posix_shell_searcher()
-accounts.add_left_join('shell', shells, '')
-
-primary_groups = tr.get_group_searcher()
-accounts.add_left_join('primary_group', primary_groups, '')
-
-owner_groups = tr.get_group_searcher()
-accounts.add_left_join('owner', owner_groups, '')
-
-owner_persons = tr.get_person_searcher()
-accounts.add_left_join('owner', owner_persons, '')
-
-changes = tr.get_change_log_searcher()
-changes.set_id_more_than(changes_since)
-changes.add_join('subject_entity', accounts, 'id') # hack!
-"""
 
 """
 v=tr.get_view()
