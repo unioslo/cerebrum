@@ -208,6 +208,8 @@ class Constants(Constants.Constants):
         affiliation_manuell, 'universitas', 'Universitas')
     affiliation_manuell_vre = _PersonAffStatusCode(
         affiliation_manuell, 'vre', 'Virtual research enviroment')
+    affiliation_manuell_osi = _PersonAffStatusCode(
+        affiliation_manuell, 'osi', 'Oslostudentenes Idrettsklubb')
 
     affiliation_upersonlig = _PersonAffiliationCode(
         'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
