@@ -44,7 +44,32 @@ var TO_timerid = null; // Contains the last id for the scheduled check.
 var TO_has_warned = false; // To prevent us from warning the user twice.
 
 // Runs when the page is finished loading.
-YAHOO.util.Event.addListener(window, 'load', TO_schedule);
+YAHOO.util.Event.addListener(window, 'load', TO_init);
+YAHOO.widget.Logger.enableBrowserConsole();
+
+function TO_init() {
+    var warn_title = "Cereweb session warning";
+    var warn_text  = "You session will time out in " + 
+        TO_warning_time + " seconds.\n" +
+        "Do you want to extend your session time?";
+    YAHOO.cereweb.timeOutDialog =
+        new YAHOO.widget.SimpleDialog('timeOutDialog',
+            { 
+                width: "500px",
+                fixedcenter: true,
+                visible: false,
+                draggable: false,
+                close: true,
+                text: warn_text,
+                icon: YAHOO.widget.SimpleDialog.ICON_HELP,
+                constraintoviewport: true,
+                buttons: [ { text:'Yes', handler:TO_keepalive, isDefault:true },
+                           { text:'No', handler:TO_allow_timeout }]
+        });
+    YAHOO.cereweb.timeOutDialog.setHeader(warn_title);
+    YAHOO.cereweb.timeOutDialog.render();
+    TO_schedule();
+}
 
 // Schedule next timeout-check. 'time' in seconds.
 function TO_schedule(time) {
@@ -53,8 +78,13 @@ function TO_schedule(time) {
     TO_timerid = window.setTimeout('TO_check()', time * 1000);
 }
 
+function TO_allow_timeout() {
+    YAHOO.cereweb.timeOutDialog.hide();
+}
+
 // Check time left untill the session times out.
 function TO_check() {
+    YAHOO.cereweb.timeOutDialog.hide();
     // Ask the server for time left untill session timeout.
     // NB: internet explorer and opera has a 'bug' where get-requests
     // are cached, we circumvent this by adding a random hash to the req.
@@ -68,6 +98,7 @@ function TO_check() {
 
 // Handle the server check response.
 function TO_check_response(req) {
+    YAHOO.log('TO_check_response ran');
     var latency = 3; // adjusting for latency
     var time_left = parseInt(req.responseText) - latency;
 
@@ -93,18 +124,16 @@ function TO_check_response(req) {
 
 // Warns the user that the session will timeout soon.
 function TO_warn() {
-    var time = TO_warning_time;
-    var text = "Cereweb session warning:\nYour session will time out in ";
-    text = text + time + " secconds.\nPress ok to extend your session time.";
-    
-    TO_has_warned = true;
-    
-    if (confirm(text)) { TO_keepalive(); }
-    else { TO_check(); }
+    if (!TO_has_warned) {
+        TO_has_warned = true;
+        YAHOO.cereweb.timeOutDialog.show();
+    }
 }
 
 // Requests the server to keep the session alive for another periode.
 function TO_keepalive() {
+    YAHOO.cereweb.timeOutDialog.hide();
+    TO_has_warned = false;
     var req = get_http_requester();
     var response = function(req) {
         if (req.responseText == "true") {
@@ -125,6 +154,7 @@ function TO_keepalive() {
 
 // Warns the user that the session has timed out.
 function TO_timed_out() {
+    YAHOO.cereweb.timeOutDialog.hide();
     var warning_div = document.getElementById('session_warning');
     var msg = "Your session has timed out, login to get a new session.";
     warning_div.appendChild(document.createTextNode(msg));

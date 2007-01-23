@@ -20,6 +20,7 @@
 
 // Used by httprequests to get the right url
 var webroot = "";  // Should be overriden by includer
+YAHOO.namespace('cereweb');
 
 function addLoadEvent(func) {
     alert('addLoadEvent is deprecated: ' + func);
