@@ -291,7 +291,10 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
     def set_parent(self, perspective, parent_id):
         """Set the parent of this OU to ``parent_id`` in ``perspective``."""
         try:
-            self.get_parent(perspective)
+            old_parent = self.get_parent(perspective)
+            if old_parent == parent_id:
+                # Don't need to change parent_id to the same parent_id
+                return
             self.execute("""
             UPDATE [:table schema=cerebrum name=ou_structure]
             SET parent_id=:parent_id

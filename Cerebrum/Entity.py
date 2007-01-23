@@ -558,6 +558,10 @@ class EntityAddress(Entity):
                                     data[type]['postal_number'],
                                     data[type]['city'],
                                     data[type]['country'])
+        if hasattr(self, '_src_sys'):
+            delattr(self, '_src_sys')
+        if hasattr(self, '__data'):
+            self.__data.clear()
 
     def add_entity_address(self, source, type, address_text=None,
                            p_o_box=None, postal_number=None, city=None,
