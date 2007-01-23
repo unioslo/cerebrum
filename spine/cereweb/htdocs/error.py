@@ -43,7 +43,7 @@ def report(title, message, name="", path="",
     else:
         queue_message(_('Reporting of errors are not allowed at this moment.'), error=True)
     
-    redirect('index')
+    redirect('/index')
 report.exposed = True
 
 # arch-tag: dc1e0ce4-2c4d-11da-948d-0ae10e01ecdf
