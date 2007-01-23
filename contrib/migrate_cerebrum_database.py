@@ -35,7 +35,7 @@ from Cerebrum.Constants import _SpreadCode
 # run migrate_* in this order
 targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
-             'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8'),
+             'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9'),
     'bofhd': ('bofhd_1_1', ),
     }
 
@@ -373,6 +373,47 @@ def migrate_to_rel_0_9_8():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,8))
     print "Migration to 0.9.8 completed successfully"
+    db.commit()
+
+def migrate_to_rel_0_9_9():
+    """Migrate from 0.9.8 database to the 0.9.9 database schema."""
+    assert_db_version("0.9.8")
+    makedb('0_9_9', 'pre')
+    # Find and remove all account_home entries that does not have a
+    # corresponding entity_spread entry
+    rows = db.query("""
+    SELECT account_id, spread FROM account_home ah
+    WHERE NOT EXISTS (SELECT 'foo'
+                      FROM entity_spread es
+                      WHERE ah.spread=es.spread AND ah.account_id=es.entity_id)""")
+    print "%d rows to convert..." % len(rows)
+    ac = Utils.Factory.get('Account')(db)
+    rows_per_dot = int(len(rows) / 79 + 1)
+    count = 0
+
+    for r in rows:
+        if count % rows_per_dot == 0:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        count += 1
+        # PK is "account_id, spread", thus clear_home will remove the correct entry
+        ac.clear()
+        ac.find(r['account_id'])
+        ac.clear_home(r['spread'])
+    db.commit()
+    for r in db.query("""
+    SELECT homedir_id, account_id FROM homedir hd
+    WHERE NOT EXISTS (SELECT 'foo'
+                      FROM account_home ah
+                      WHERE ah.homedir_id=hd.homedir_id)"""):
+        ac.clear()
+        ac.find(r['account_id'])
+        ac._clear_homedir(r['homedir_id'])
+    makedb('0_9_9', 'post')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,9))
+    print "Migration to 0.9.9 completed successfully"
     db.commit()
 
 

@@ -356,6 +356,11 @@ class AccountUiOMixin(Account.Account):
             dq.clear(homeinfo['homedir_id'])
         return self.__super.clear_home(spread)
 
+    def _clear_homedir(self, homedir_id):
+        # Since disk_quota has a FK to homedir, we need this override
+        dq = DiskQuota(self._db)
+        dq.clear(homedir_id)
+        return self.__super._clear_homedir(homedir_id)
 
     def set_homedir(self, *args, **kw):
         """Remove quota information when the user is moved to a disk

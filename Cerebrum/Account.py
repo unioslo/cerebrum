@@ -35,7 +35,7 @@ import mx
 import sha
 import base64
 
-from Cerebrum import Utils
+from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, EntityContactInfo
 from Cerebrum.modules import PasswordChecker
 from Cerebrum.Database import Errors
@@ -222,7 +222,18 @@ class AccountHome(object):
     """AccountHome keeps track of where the users home dir is. 
     A different home dir for each defined home spread may exist.  
     A home is identified either by a disk_id, or by the string 
-    represented by home"""
+    represented by home
+
+    Whenever a users account_home or homedir is modified, we changelog
+    the new path of the users homedirectory as a string.  For
+    convenience, we also log this path when the entry is deleted."""
+
+    def _get_home_path(self, disk_id, home):
+        if home:
+            return home
+        disk = Disk.Disk(self._db)
+        disk.find(disk_id)
+        return disk.path+"/"+self.account_name
 
     def delete(self):
         """Removes all homedirs for an account"""
@@ -233,13 +244,12 @@ class AccountHome(object):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=homedir]
         WHERE account_id=:a_id""", {'a_id': self.entity_id})
- 
-
 
     def clear_home(self, spread):
         """Clears home for a spread. Removes homedir if no other
         home uses it."""
         ah = self.get_home(spread)
+        old_home = self._get_home_path(ah['disk_id'], ah['home'])
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_home]
         WHERE account_id=:account_id AND spread=:spread""", {
@@ -248,7 +258,8 @@ class AccountHome(object):
         self._db.log_change(
             self.entity_id, self.const.account_home_removed, None,
             change_params={'spread': int(spread),
-                           'homedir_id': int(ah['homedir_id'])})
+                           'home': old_home,
+                           'homedir_id': ah['homedir_id']})
 
         # If no other account_home.homedir_id points to this
         # homedir.homedir_id, remove it to avoid dangling unused data
@@ -260,8 +271,18 @@ class AccountHome(object):
 
     def set_homedir(self, current_id=NotSet, home=NotSet, disk_id=NotSet,
                     status=NotSet):
-        """If current_id=NotSet, insert a new entry.  Otherwise update
-        the values != NotSet for the given homedir_id=current_id"""
+        """Adds or updates an entry in the homedir table.
+
+        If current_id=NotSet, insert a new entry.  Otherwise update
+        the values != NotSet for the given homedir_id=current_id.
+
+        Returns the homedir_id for the affetcted row.
+
+        Whenever current_id=NotSet, the caller should follow-up by
+        calling set_home on the returned homedir_id to assert that we
+        do not end up with homedir rows without corresponding
+        account_home entries.
+        """
         binds = {'account_id': self.entity_id,
                  'home': home,
                  'disk_id': disk_id,
@@ -280,8 +301,11 @@ class AccountHome(object):
             VALUES (%s)""" % (
                 ", ".join(binds.keys()),
                 ", ".join([":%s" % t for t in binds])), binds)
+            tmp = self._get_home_path(binds['disk_id'], binds['home'])
             self._db.log_change(self.entity_id, self.const.homedir_add,
-                                None, change_params=binds)
+                                None, change_params={'home': tmp,
+                                                     'status': status,
+                                                     'homedir_id': binds['homedir_id'] })
         else:
             for t in binds.keys():
                 if binds[t] is NotSet or binds[t] is None:
@@ -296,13 +320,17 @@ class AccountHome(object):
               SET %s
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t, t) for t in binds])), binds)
+            tmp = self._get_home_path(binds['disk_id'], binds['home'])
             self._db.log_change(self.entity_id, self.const.homedir_update,
-                                None, change_params=binds)
+                                None, change_params={'home': tmp,
+                                                     'status': status,
+                                                     'homedir_id': binds['homedir_id'] })
         return binds['homedir_id']
 
     def _clear_homedir(self, homedir_id):
         """Called from clear_home. Removes actual homedir."""
-        old = self.get_homedir(homedir_id)
+        tmp = self.get_homedir(homedir_id)
+        tmp = self._get_home_path(tmp['disk_id'], tmp['home'])
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=homedir]
         WHERE homedir_id=:homedir_id""",
@@ -310,8 +338,7 @@ class AccountHome(object):
         self._db.log_change(
             self.entity_id, self.const.homedir_remove, None,
             change_params={'homedir_id': homedir_id,
-                           'disk_id': Utils.format_as_int(old['disk_id']),
-                           'home': old['home']})
+                           'home': tmp})
 
     def get_homedir(self, homedir_id):
         return self.query_1("""
@@ -321,12 +348,17 @@ class AccountHome(object):
                             {'homedir_id': homedir_id})
 
     def set_home(self, spread, homedir_id):
+        """Set the accounts account_home to point to the given
+        homedir_id for the given spread.
+        """
         binds = {'account_id': self.entity_id,
                  'spread': int(spread),
                  'homedir_id': homedir_id
             }
+        tmp = self.get_homedir(homedir_id)
+        tmp = self._get_home_path(tmp['disk_id'], tmp['home'])
         try:
-            old = self.get_home(spread)
+            old = get_home(spread)
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_home]
             SET homedir_id=:homedir_id
@@ -335,8 +367,13 @@ class AccountHome(object):
                 self.entity_id, self.const.account_home_updated, None,
                 change_params={
                 'spread': int(spread),
-                'old_homedir_id': Utils.format_as_int(old['homedir_id'])
+                'home': tmp,
+                'homedir_id': homedir_id
                 })
+            # Remove old homedir entry if no account_home points to it anymore
+            if int(old['homedir_id']) not in [
+                int(row['homedir_id']) for row in self.get_homes()]:
+                self._clear_homedir(old['homedir_id'])
         except Errors.NotFoundError:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=account_home]
@@ -346,7 +383,8 @@ class AccountHome(object):
             self._db.log_change(
                 self.entity_id, self.const.account_home_added, None,
                 change_params={'spread': int(spread),
-                               'homedir_id' : homedir_id})
+                               'home' : tmp,
+                               'homedir_id': homedir_id})
 
     def get_home(self, spread):
         return self.query_1("""
