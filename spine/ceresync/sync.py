@@ -3,7 +3,7 @@ import config
 import SpineClient
 
 class Sync:
-    def __init__(self, incr=False, id=-1):
+    def __init__(self, incr=False, id=-1, auth_type="MD5-crypt"):
         self.incr=incr
         connection = SpineClient.SpineClient(config=config.conf).connect()
         session = connection.login(config.conf.get('spine', 'login'),
@@ -13,7 +13,6 @@ class Sync:
         self.view = self.tr.get_view()
         account_spread=config.conf.get('sync', 'account_spread')
         group_spread=config.conf.get('sync', 'group_spread')
-        auth_type="MD5-crypt"
         
         self.view.set_account_spread(self.tr.get_spread(account_spread))
         self.view.set_group_spread(self.tr.get_spread(group_spread))
@@ -48,5 +47,3 @@ class Sync:
 
     def get_ous(self, incr=None):
         return self._do_get("ou", incr)
-
-
