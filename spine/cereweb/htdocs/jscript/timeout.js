@@ -34,24 +34,19 @@
  * Note: All times are in seconds.
  */
 
-// Time between each server request to update time left.
-var TO_check_interval = 60;
+// Time in ms between each server request to update time left.
+var TO_check_interval = 60 * 1000;
 
-// Time before the session times out to warn the client.
+// Time in s before the session times out to warn the client.
 var TO_warning_time = 120;
 
-var TO_timerid = null; // Contains the last id for the scheduled check.
+var TO_timerid = 0; // Contains the last id for the scheduled check.
 var TO_has_warned = false; // To prevent us from warning the user twice.
-
-// Runs when the page is finished loading.
-YAHOO.util.Event.addListener(window, 'load', TO_init);
-YAHOO.widget.Logger.enableBrowserConsole();
 
 function TO_init() {
     var warn_title = "Cereweb session warning";
-    var warn_text  = "You session will time out in " + 
-        TO_warning_time + " seconds.\n" +
-        "Do you want to extend your session time?";
+    var warn_text  = "You session will time out in " + TO_warning_time +
+        " seconds. Do you want to extend your session time?";
     YAHOO.cereweb.timeOutDialog =
         new YAHOO.widget.SimpleDialog('timeOutDialog',
             { 
@@ -68,58 +63,80 @@ function TO_init() {
         });
     YAHOO.cereweb.timeOutDialog.setHeader(warn_title);
     YAHOO.cereweb.timeOutDialog.render();
-    TO_schedule();
+    startTimer('TO_check()', TO_check_interval)
 }
-
-// Schedule next timeout-check. 'time' in seconds.
-function TO_schedule(time) {
-    time = (time == null) ? TO_check_interval : time
-    //NB: setTimeout expects miliseconds.
-    TO_timerid = window.setTimeout('TO_check()', time * 1000);
-}
+YAHOO.util.Event.addListener(window, 'load', TO_init);
 
 function TO_allow_timeout() {
     YAHOO.cereweb.timeOutDialog.hide();
 }
 
-// Check time left untill the session times out.
-function TO_check() {
+// Requests the server to keep the session alive for another periode.
+function TO_keepalive() {
     YAHOO.cereweb.timeOutDialog.hide();
-    // Ask the server for time left untill session timeout.
+    TO_has_warned = false;
+    stopTimer();
+
+    var req = get_http_requester();
+    var response = function(req) {
+        if (req.responseText == "true") {
+            startTimer('TO_check()', TO_check_interval)
+        } else if (req.responseText == "false") {
+            TO_timed_out(); // Couldnt keep alive since it already timed out.
+        } else {
+            YAHOO.log('Keepalive failed for unknown reasons.')
+            TO_check();
+        }
+    };
+    
+    // Ask the server to keep the session alive.
+    req.open('GET', '/session_keep_alive?hash=' + Math.random(), true);
+    req.onreadystatechange = get_http_response(req, response);
+    req.send(null);
+}
+
+function startTimer(fun, time) {
+    if (TO_timerid) {
+        YAHOO.log('Attempted to start extra timer thread.');
+        YAHOO.log(fun);
+    } else {
+        TO_timerid = window.setTimeout(fun, time);
+    }
+}
+
+function stopTimer() {
+    if (TO_timerid) {
+        window.clearTimeout(TO_timerid);
+        TO_timerid = 0;
+    } else {
+        YAHOO.log('Tried to stop nonexisting timer.');
+    }
+}
+
+// Check time left until the session times out.
+function TO_check() {
+    stopTimer();
+
+    var req = get_http_requester();
     // NB: internet explorer and opera has a 'bug' where get-requests
     // are cached, we circumvent this by adding a random hash to the req.
-    var req = get_http_requester();
     req.open('GET', '/session_time_left?hash=' + Math.random(), true);
     req.onreadystatechange = get_http_response(req, TO_check_response);
     req.send(null);
 
-    TO_schedule(); // Schedule another check.
+    startTimer('TO_check()', TO_check_interval)
 }
 
 // Handle the server check response.
 function TO_check_response(req) {
-    YAHOO.log('TO_check_response ran');
-    var latency = 3; // adjusting for latency
-    var time_left = parseInt(req.responseText) - latency;
+    var time_left = parseInt(req.responseText);
+    YAHOO.log('Time left: ' + time_left);
 
-    // Enought time left.
-    if (time_left > TO_warning_time + TO_check_interval + latency) { return; }
-
-    // Time to warn the user.
-    if (time_left > TO_warning_time && !TO_has_warned) {
-        var warn_time = time_left - TO_warning_time;
-        window.clearTimeout(TO_timerid);
-         
-        if (warn_time > 15) { TO_schedule(warn_time - 15); }
-        else { TO_timerid = window.setTimeout('TO_warn()', warn_time); }
-        return;
+    if (time_left < TO_warning_time && !TO_has_warned) {
+        stopTimer(); // Make sure we only have one timer running.
+        startTimer('TO_timed_out()', time_left); 
+        TO_warn();
     }
-
-    // Session times out soon.
-    window.clearTimeout(TO_timerid);
-    if (time_left > 10) { TO_schedule(time_left - 10); }
-    else if (time_left <= 0) { TO_timed_out(); }
-    else { TO_timerid = window.setTimeout('TO_timed_out()', time_left); }
 }
 
 // Warns the user that the session will timeout soon.
@@ -130,30 +147,9 @@ function TO_warn() {
     }
 }
 
-// Requests the server to keep the session alive for another periode.
-function TO_keepalive() {
-    YAHOO.cereweb.timeOutDialog.hide();
-    TO_has_warned = false;
-    var req = get_http_requester();
-    var response = function(req) {
-        if (req.responseText == "true") {
-            TO_has_warned = false;
-            TO_schedule(); // Schedule new checks for session timeout.
-        } else if (req.responseText == "false") {
-            TO_timed_out(); // Couldnt keep alive since it already timed out.
-        } else {
-            TO_check(); // Keepalive failed for unknown reasons.
-        }
-    };
-    
-    // Ask the server to keep the session alive.
-    req.open('GET', '/session_keep_alive?hash=' + Math.random(), true);
-    req.onreadystatechange = get_http_response(req, response);
-    req.send(null);
-}
-
 // Warns the user that the session has timed out.
 function TO_timed_out() {
+    stopTimer();
     YAHOO.cereweb.timeOutDialog.hide();
     var warning_div = document.getElementById('session_warning');
     var msg = "Your session has timed out, login to get a new session.";

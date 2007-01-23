@@ -20,11 +20,14 @@
 
 // Used by httprequests to get the right url
 var webroot = "";  // Should be overriden by includer
+
+// Initialize yui-stuff.
 YAHOO.namespace('cereweb');
+YAHOO.widget.Logger.enableBrowserConsole();
 
 function addLoadEvent(func) {
     alert('addLoadEvent is deprecated: ' + func);
-    YAHOO.util.Event.addListener(window, 'load',func);
+    YAHOO.util.Event.addListener(window, 'load', func);
 }
 function addEvent(obj, sType, fn){
     alert('addEvent is deprecated: ' + func);
@@ -61,29 +64,6 @@ function get_http_response(req, func, errfunc) {
             }
         }
     };
-}
-
-// Method which compares the elements of 2 arrays to see if they are equal.
-function compareArrays(arr1, arr2) {
-    if (arr1.length != arr2.length) {
-        return false;
-    }
-
-    var found = 0;
-    for (var i = 0; i < arr1.length; i++) {
-        for (var j = 0; j < arr2.length; j++) {
-            if (arr1[i] == arr2[j]) {
-                found++;
-                break;
-            }
-        }
-    }
-
-    if (found == arr1.length) {
-        return true;
-    } else {
-        return false;
-    }
 }
 
 // Cross-browser method to set text on a Anchor DOM-object.

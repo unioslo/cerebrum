@@ -46,6 +46,29 @@ YAHOO.util.Event.addListener(window, 'load', WL_init_actions);
 
 /* END SETTINGS */
 
+// Method which compares the elements of 2 arrays to see if they are equal.
+function compareArrays(arr1, arr2) {
+    if (arr1.length != arr2.length) {
+        return false;
+    }
+
+    var found = 0;
+    for (var i = 0; i < arr1.length; i++) {
+        for (var j = 0; j < arr2.length; j++) {
+            if (arr1[i] == arr2[j]) {
+                found++;
+                break;
+            }
+        }
+    }
+
+    if (found == arr1.length) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 // Show errors to the user, in a inobtrusive way.
 function WL_error(msg) {
     var action_div = document.getElementById('WL_actions');
