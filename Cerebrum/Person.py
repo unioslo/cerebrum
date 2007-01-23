@@ -809,10 +809,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         type_str = ""
         if name_type == None:
             type_str = "= %d" % int(self.const.name_full)
-        elif isinstance(name_type, list):
-            type_str = "IN (%d" % int(name_type[0])
-            for tuple in name_type[1:]:
-                type_str += ", %d" % int(tuple)
+        elif isinstance(name_type, (list, tuple)):
+            type_str = "IN ("
+            type_str += ", ".join(["%d" % x for x in name_type])
             type_str += ")"
         else:
             type_str = "= %d" % int(name_type)
