@@ -18,6 +18,8 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */ 
 
+// No external dependencies.
+
 // Show/Hide the error report form.
 function Err_show_report() {
     var report = document.getElementById('report_div');
@@ -36,10 +38,10 @@ function Err_show_traceback() {
 
     if (traceback.style.display != "block") {
         traceback.style.display = "block";
-        set_link_text(link, "hide traceback")
+        link.firstChild.data = "hide traceback";
     } else {
         traceback.style.display = "none";
-        set_link_text(link, "show traceback")
+        link.firstChild.data = "show traceback";
     }
 }
 
