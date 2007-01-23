@@ -236,6 +236,10 @@ div.createform label {
     width: 6em;
 }
 
+div.createform label.optional{
+    font-weight: normal;
+}
+
 div.cssform label {
     float: left;
     width: 10em;
@@ -344,7 +348,7 @@ div.box span.date {
     font-size: 85%;
 }
 div.box div.item {
-    padding: 2px;
+    padding: 2px 0 2px 0.5em;
     border-bottom: 1px dashed;
 }
 div.box div.description {
@@ -423,6 +427,10 @@ div.view_info {
     text-align: left;
     white-space: normal;
 }
+div.view_info table{
+	width: 500px;
+}
+
 div.view_info div.item {
     border-bottom-style: dashed
     border-bottom-color: gray;
@@ -448,12 +456,21 @@ div.view_info td.value {
 div.log,
 div.list {
     margin: 10px 0 10px 0;
+    padding: 0 0 10px 0;
+}
+
+div.list div.item {
+	border-bottom-width: 0;
 }
 
 div.list h3 {
     background: #bdf;
     border-top-color: #06C;
     border-bottom-color: #06C;
+    padding-top: 2px;
+    padding-left: 2px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
 }
 div.log h3 {
     background: #ad9;

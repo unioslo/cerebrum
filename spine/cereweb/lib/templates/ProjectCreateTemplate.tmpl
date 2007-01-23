@@ -38,7 +38,8 @@
     <form action="$getAction()" method="post">
         <div class="createform">
             #set $fv = $formvalues
-            $form_widgets.input("owner", "Owner", $owner.get_id(), $object_link($owner), type="hidden")
+            $form_widgets.input("owner", "Owner", $owner.get_id(), type="hidden")
+            $object_link($owner)
             $form_widgets.input("title", "Title", $fv.get("title", ""))
             $form_widgets.input("description", "Description", $fv.get("description", ""))
             $form_widgets.code_selector("science", "Science", $transaction.get_science_searcher())

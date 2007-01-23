@@ -113,19 +113,16 @@
 #end def
 
 ## Creates inputs and labels from given arguments.
-#def input($name, $label, $value="", $text="", $type="text")
-    <div>
+#def input($name, $label, $value="", $type="text", $cssclass="required")
+    <div class="$cssclass">
         <label for="$name">$_($label):</label>
-        <input type="$type" name="$name" id="$name" value="$_($value)">$text</input>
+        <input type="$type" name="$name" id="$name" value="$_($value)" />
     </div>
 #end def
 
 ## Create input and labels from given arguments while hiding the value (typically passwords)
 #def password($name, $label, $value="")
-    <div>
-        <label for="$name">$_($label):</label>
-        <input type="password" name="$name" id="$name" value="$_($value)" />
-    </div>
+    $input($name, $label, $value, type="password")
 #end def
 
 ## Creates a drop-down list with true or false.
