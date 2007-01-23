@@ -33,56 +33,32 @@
 ## The main method for creating the form for the disk create page.
 #def form($hosts)
 #set $fv = $formvalues
-<p>
 <div class="create">
-<table>
-<tr>
-	<th>
-		$_('Create a new disk')
-	</th>
-</tr>
-<tr>
-	<td>
-        	<div class="createform">
-    		<form action="$getAction()" method="post">
-		<table>
-		<tr>
-            		$form_widgets.generate_td2loption("host", "Host", $hosts, $fv.get("host", ""))
-		</tr>
-		<tr>
-            		$form_widgets.td2input("path", "Path", $fv.get("path", ""))
-		</tr>
-		<tr>
-           		$form_widgets.td2input("description", "Description", $fv.get("description", ""))
-		</tr>
-		<tr>
-			<td colspan="2">
-				#if $help:
-        				$form_widgets.showHelp($help)
-				#else:
-					&nbsp;
-				#end if
-			</td>
-		</tr>
-		<tr>
-			<td colspan="2">
-        			<div>
-            			<center>
-                			<input type="submit" value="$_('Create')" />&nbsp;
-                			<input type="reset" value="$_('Clear')" />
-            			</center>
-				</div>
-			</td>
-		</tr>
-		</table>
-    		</form>
-		</div>
-	</td>
-</tr>
-</table>
+    <h3>$_('Create a new disk')</h3>
+    <div class="createform">
+        <form action="$getAction()" method="post">
+            <div>
+                    $form_widgets.generate_loption("host", "Host", $hosts, $fv.get("host", ""))
+            </div>
+            <div>
+                    $form_widgets.td2input("path", "Path", $fv.get("path", ""))
+            </div>
+            <div>
+                    $form_widgets.td2input("description", "Description", $fv.get("description", ""))
+            </div>
+            <div class="help">
+                #if $help:
+                        $form_widgets.showHelp($help)
+                #else:
+                        &nbsp;
+                #end if
+            </div>
+            <div>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </div>
+        </form>
+    </div>
 </div>
-<br />
-<br />
-</p>
 #end def
 
