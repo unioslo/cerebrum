@@ -21,14 +21,15 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
+#from Widgets import Widgets
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
+#attr $widgets = Widgets()
 
 ## Max addresses to view in emaildomain/view
 #attr $max_addresses = 20
 
 #def create_box($tr)
-<p>
 <div class="create">
 <table>
 	<tr>
@@ -64,11 +65,9 @@
 </div>
 <br />
 <br />
-</p>
 #end def
 
 #def create($tr)
-<p>
 <div class="create">
 <table>
 <tr>
@@ -104,7 +103,6 @@
 </div>
 <br />
 <br />
-</p>
 #end def
 
 #def _create($tr)
@@ -122,7 +120,6 @@
 #end def
 
 #def search_box($tr)
-<p>
 <div class="search">
 <table>
 <tr>
@@ -158,11 +155,9 @@
 </div>
 <br />
 <br />
-</p>
 #end def
 
 #def search($tr, $vargs)
-<p>
 <div class="search">
 <table>
 <tr>
@@ -199,7 +194,6 @@
 </div>
 <br />
 <br />
-</p>
 #end def
 
 #def _search($tr, $vargs)
@@ -218,7 +212,6 @@
 
 #def categories($tr)
 #set $cats = $tr.get_email_domain_category_searcher().search()
-<p>
 <table>
 	<tr>
 		<td>
@@ -239,7 +232,6 @@
 <br />
 <br />
 <br />
-</p>
 #end def
 
 #def view_domain($transaction, $domain)
@@ -257,48 +249,12 @@
             $remember_link($domain)<br />
         </div>
     </div>
-<p>
-## Content
-<div class="view_info">
-<table>
-<tr>
-	<th>
-		$_('Email domain')
-	</th>
-</tr>
-<tr>
-	<td>
-		<div class="view_info_form">
-		<table>
-		<tr>
-			<td>
-       				<div class="info">
-					<em><bold>$_("Domain name:")</bold></em>
-				</div>
-			</td>
-			<td>
-				$domain.get_name()
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<div class="info">
-            				$_("Description:")
-				</div>
-			</td>
-			<td>
-				$domain.get_description()
-			</td>
-		</tr>
-		</table>
-		</div>
-	</td>
-</tr>
-</table>
-</div>
-<br />
-<br />
-</p>
+
+    ## Content
+    #set $info = []
+    $info.append(($_("Domain name:"), $domain.get_name()))
+    $info.append(($_("Description:"), $domain.get_description()))
+    $widgets.viewInfo($info)
 
     $addCategory($transaction, $domain)
     $viewCategories($domain)
@@ -307,7 +263,6 @@
 
     ## Register divs and links to flip visibility.
     <script type="text/javascript">
-        <!--
         FV_register('cats_form', 'cats_add', null, 'cats_cancel');
     </script>
 </div>
@@ -316,13 +271,14 @@
 #def addCategory($transaction, $domain)
 <div class="form box" id="cats_form" style="display:none;">
     <form action="add_to_category" method="post">
-        <a class="anchor" id="cats"></a>
-        <h3>$_('Add to category')</h3>
-        <input type="hidden" name="id" value="$domain.get_id()" />
-        #set $categories = $transaction.get_email_domain_category_searcher()
-        $form_widgets.code_selector("category", "Category", $categories)
-        <input type="submit" value="$_('Add')" />&nbsp;
-        <input type="button" value="$_('Cancel')" id="cats_cancel" />
+        <h3 id="cats">$_('Add to category')</h3>
+        <div>
+            <input type="hidden" name="id" value="$domain.get_id()" />
+            #set $categories = $transaction.get_email_domain_category_searcher()
+            $form_widgets.code_selector("category", "Category", $categories)
+            <input type="submit" value="$_('Add')" />&nbsp;
+            <input type="button" value="$_('Cancel')" id="cats_cancel" />
+        </div>
     </form>
 </div>
 #end def
@@ -346,65 +302,31 @@
 
 ## List email addresses (targets) in domain
 #def list_addresses($transaction, $domain, $limit="unlimited")
-<p>
-<div class="view_info">
-<table>
-<tr>
-	<th>
-		$_('Addresses in domain')
-	</th>
-</tr>
-	<td>
-		<div class="view_info_form">
-    		## <h2>$_("Addresses in domain")</h2> 
-		#set $addrs = $transaction.get_email_address_searcher()
-		$addrs.set_domain($domain)
-		<table>
-			<tr>
-				<td>
-				</td>
-			</tr>
-		#for $count,$address in $enumerate($addrs.search())
-			#if $count+1 > $limit
-				<tr>
-					<td>
-		            			<div>(..)</div>
-					</td>
-				</tr>
-				<tr>
-					<td>
-            				<div>
-            					$object_link($domain, $_("View all addresses"), 
-                       	  				"addresses", _class="action")
-            				</div>
-					</td>
-				<tr>
-            			#break
-        		#end if
-				<tr>
-					<td>
-        				<div>
-        				$object_link($address.get_target(), $address.full_address())
-        				</div>
-					</td>
-			</tr>
-    		#end for
-		</table>
-		</div>
-	</td>
-</tr>
-</table>
+<div class="list box">
+    <h3>$_('Addresses in domain')</h3>
+    #set $addrs = $transaction.get_email_address_searcher()
+    $addrs.set_domain($domain)
+    #for $count,$address in $enumerate($addrs.search())
+        #if $count+1 > $limit
+            <div class="item">
+                (..)
+            </div>
+            <div class="item">
+                $object_link($domain, $_("View all addresses"), 
+                    "addresses", _class="action")
+            </div>
+            #break
+        #end if
+        <div class="item">
+            $object_link($address.get_target(), $address.full_address())
+        </div>
+    #end for
 </div>
-<br />
-<br />
-</p>
-<p>
-<div>
-	$_("To add new addresses to the domain, create a new email target. "
-            "For instance, find an account and create a new email target "
-            "attached to the account.")
+<div class="help">
+    $_("To add new addresses to the domain, create a new email target. "
+       "For instance, find an account and create a new email target "
+       "attached to the account.")
 </div>
-</p>
 #end def
 
 #def edit_domain($domain)
