@@ -76,15 +76,17 @@ class PPQUtil(object):
             update_by=update_by,
             update_program=update_program)
 
-    def _alter_free_pages(self, op, person_id, new_value, why, pageunits_accum=0,
+    def _alter_free_pages(self, op, person_id, new_value, why, pageunits_accum=None,
                           update_by=None, update_program=None, force=False):
         if new_value < 0:
             raise errors.InvalidQuotaData, "Cannot %s negative quota" % op
         row = self.ppq.find(person_id)
         if op == 'set':
             new_value = new_value - int(row['free_quota'])
-            # This used to be pageunits_accum = pageunits_accum - int(row['accum_quota']) 
-            pageunits_accum = pageunits_accum + int(row['accum_quota'])
+            if pageunits_accum is not None:
+                pageunits_accum = pageunits_accum - int(row['accum_quota'])
+        if pageunits_accum is None:
+            pageunits_accum = 0
         if new_value == 0 and pageunits_accum == 0 and not force:
             # don't want excessive logging of peoples typos, but
             # things like quota_update should be allowed to force so
