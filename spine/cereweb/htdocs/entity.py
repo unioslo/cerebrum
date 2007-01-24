@@ -108,7 +108,7 @@ def clear_search(url):
     page = html.SimpleDocument("Search reseted")
     msg = "Search for class '%s' reseted." % cls
     page.body.append(html.Division(msg))
-    return page
+    return [str(page)]
 clear_search.exposed = True
 
 def full_historylog(transaction, id):

@@ -47,6 +47,7 @@ import quarantine
 import worklist
 import permissions
 import user_client
+import ajax
 
 def index(transaction):
     page = Main()
