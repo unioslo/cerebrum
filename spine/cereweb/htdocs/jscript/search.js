@@ -21,18 +21,16 @@
 // Used by httprequests to get the right url
 webroot = "";  // Should be overriden by includer
 
-// Runs when the page is finished loading.
-YAHOO.util.Event.addListener(window, 'load', SR_init_listeners);
-
-// Initialises the listener on the reset button.
-function SR_init_listeners() {
-    var clear_button = document.getElementById('search_clear');
-    YAHOO.util.Event.addListener(clear_button, 'click', SR_clear);
-}
+YAHOO.util.Event.addListener('search_clear', 'click', SR_clear);
+YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
 
 // Clears the searchform.
-function SR_clear() {
+function SR_clear(e) {
+    YAHOO.util.Event.stopEvent(e); // AJAX takes over.
+
     var form = document.getElementById('search_form');
+    var base_uri = 'http://' + location.host;
+    var uri = base_uri + "/entity/clear_search?url=" + form.action;
     
     //Resets all elements in the form.
     for(var i = 0; i < form.length; i++) {
@@ -41,11 +39,43 @@ function SR_clear() {
         }
     }
 
-    //Tells the server to clear the lastsearch.
-    var url = webroot + "/entity/clear_search?url=";
-    var req = get_http_requester();
-    req.open("GET", url+form.action, true);
-    req.onreadystatechange = get_http_response(req);
-    req.send(null);
+    var callback = {
+        success: remove_searchresult,
+        failure: remove_searchresult,
+        timeout: 5000,
+    }
+
+    var cObj = YAHOO.util.Connect.asyncRequest('GET', uri, callback);
 }
 
+function remove_searchresult() {
+    YAHOO.log('removing...');
+    var maindiv = document.getElementById('content');
+    if (YAHOO.util.Dom.inDocument('searchresult')) {
+        var searchresult = document.getElementById('searchresult');
+        var removed = maindiv.removeChild(searchresult);
+        YAHOO.log(removed);
+    }
+}
+
+function SR_submit(e) {
+    return; // Disabled until pages are ready for DOM manipulation.
+    YAHOO.util.Event.stopEvent(e); // AJAX takes over.
+    var uri = 'http://' + location.host + '/ajax/search';
+    
+    var callback = {
+        success: function(o) {
+            var result = o.responseText;
+            var maindiv = document.getElementById('content');
+            remove_searchresult();
+
+            maindiv.innerHTML = result + maindiv.innerHTML;
+        },
+        failure: function(o) {
+            YAHOO.log('failure');
+        },
+        timeout: 5000,
+    }
+    YAHOO.util.Connect.setForm('search_form');
+    var cObj = YAHOO.util.Connect.asyncRequest('POST', uri, callback);
+}
