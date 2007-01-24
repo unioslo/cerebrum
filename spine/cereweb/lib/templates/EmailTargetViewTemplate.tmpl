@@ -73,23 +73,13 @@ $strftime($the_date)
 ## Content
 #set $primary = $target['primary']
 #set $addresses = $target['addresses']
-<p>
 <div class="view_info">
-<table>
-<tr>
-<th>
-	$_('Email addresses:')
-</th>
-</tr>
-<tr>
-<td>
-	<br />
-	<div>
-		<strong><em>$_('Type:')</em></strong>&nbsp;
-			$target['type'].capitalize()
-	</div>
-	<br />
-	<div><strong><em>$_('Primary address:')</em></strong></div>
+<h3>$_('Email addresses:')</h3>
+    <div>
+	<strong><em>$_('Type:')</em></strong>&nbsp;
+		$target['type'].capitalize()
+    </div>
+	<h4>$_('Primary address:')</h4>
 
 	#if $primary
 		<table>
@@ -127,9 +117,7 @@ $strftime($the_date)
 	#else
 		<div>$_('No primary address.')</div>
 	#end if
-	<br />
-	<br />
-<div><strong><em>Additional addresses:</em></strong></div>
+        <h4>$_('Additional addresses:')</h4>
 	#if $addresses
 		<table>
 		<tr>
@@ -141,8 +129,9 @@ $strftime($the_date)
 			#end if
 			#end for
 		</tr>
+                #for $addr in $addresses
+                #if not $addr['primary']
 		<tr>
-			#for $addr in $addresses
 			#for $key,$value in $addr.items()
 				#if not $key == 'id' and not $key == 'primary'
 				<td>
@@ -164,62 +153,41 @@ $strftime($the_date)
 				<a class="action" href="/emailtarget/setprimary?id=$id&amp;addr=$address">Primary</a>
 				</div>
 			</td>
-			#end for
 		</tr>
+                #end if
+		#end for
 		</table>
 	#else
 		<p>No additional addresses</p>
 	#end if
 	</table>
-</td>
-</tr>
-</table>
 </div>
-</p>
-</div>
-<p>
+<br />
+<br />
 <div class="create">
-<table>
-<tr>
-	<th>
-		$_('Add a new email address')
-	</th>
-</tr>
-<tr>
-	<td>
-		<div class="createform">
-		<form action="/emailtarget/makeaddress" method="post">
-			<table>
-				<tr>
-					<input type="hidden" name="target" value="$id">
-					$form_widgets.td2input('local', 'Local',value='')
-				</tr>
-				<tr>
-					$form_widgets.td2input('domain', 'Domain', value='')
-				</tr>
-				<tr>
-					$form_widgets.td2input('expire', 'Expire*', value='')
-				</tr>
-				<tr>
-					<td colspan="2">
-						#set $help = ["* Expire: YYYY-MM-DD"]
-						$form_widgets.showHelp($help)
-					</td>
-				</tr>
-				<tr>
-					<td colspan="2">
-                                		<center>
-                                        		<input type="submit" value="$_('Create')" />&nbsp;
-                                        		<input type="reset" value="$_('Clear')" />
-                                		</center>
-                        		</td>
-				</tr>
-			</table>
-		</form>
-		</div>
-		</td>
-	</tr>
-</table>
+<h3>$_('Add a new email address:')</h3>
+    <div class="createform">
+	<form action="/emailtarget/makeaddress" method="post">
+            <input type="hidden" name="target" value="$id">
+            <div>
+                $form_widgets.input('local', 'Local',value='')
+            </div>
+            <div>
+                $form_widgets.input('domain', 'Domain', value='')
+            </div>
+            <div>
+                $form_widgets.input('expire', 'Expire*', value='')
+            </div>
+            <div>
+                #set $help = ["* Expire: YYYY-MM-DD"]
+                $form_widgets.showHelp($help)
+            </div>
+            <div>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </div>
+        </form>
+    </div>
 </div>
-</p>
+</div>
 #end def
