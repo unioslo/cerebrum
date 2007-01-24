@@ -34,14 +34,14 @@
  * Note: All times are in seconds.
  */
 
-// Time in ms between each server request to update time left.
-var TO_check_interval = 60 * 1000;
 
-// Time in s before the session times out to warn the client.
-var TO_warning_time = 120;
-
-var TO_timerid = 0; // Contains the last id for the scheduled check.
-var TO_has_warned = false; // To prevent us from warning the user twice.
+var TO_check_interval = 60 * 1000; // ms
+var TO_warning_time = 120; // sec
+var TO_timeout = 5 * 1000; // ms before an AJAX call should time out.
+var TO_timeout_fail = TO_timeout; // ms before retrying when ajax call fails.
+var TO_timeout_fail_inc = 1.1; // Factor to increase retry time to prevent hammering.
+var TO_timeout_fail_max = TO_check_interval; // Max wait between failed ajax calls.
+var TO_timerid = 0; // Keep track of the timer so we can cancel it.
 
 function TO_init() {
     var warn_title = "Cereweb session warning";
@@ -67,14 +67,33 @@ function TO_init() {
 }
 YAHOO.util.Event.addListener(window, 'load', TO_init);
 
-function TO_allow_timeout() {
-    YAHOO.cereweb.timeOutDialog.hide();
+// Check time left until the session times out.
+function TO_check() {
+    stopTimer();
+    
+    var callback = {
+        success: function (o) {
+            TO_timeout_fail = TO_timeout; // Reset fail-timeout value.
+            var time_left = parseInt(o.responseText);
+            if (time_left < TO_warning_time) {
+                startTimer('TO_time_out()', time_left); 
+                YAHOO.cereweb.timeOutDialog.show();
+            } else {
+                document.getElementById('session_warning').style.display = "none";
+                startTimer('TO_check()', TO_check_interval);
+            }
+        },
+        failure: TO_connection_failure,
+        timeout: TO_timeout,
+    }
+
+    var connectionObject = YAHOO.util.Connect.asyncRequest('POST',
+        '/session_time_left', callback, 'nocache=' + Math.random());
 }
 
 // Requests the server to keep the session alive for another periode.
 function TO_keepalive() {
     YAHOO.cereweb.timeOutDialog.hide();
-    TO_has_warned = false;
     stopTimer();
 
     var callback = {
@@ -82,21 +101,22 @@ function TO_keepalive() {
             if (o.responseText == "true") {
                 startTimer('TO_check()', TO_check_interval)
             } else if (o.responseText == "false") {
-                TO_timed_out(); // Couldnt keep alive since it already timed out.
+                TO_time_out(); // Couldnt keep alive since it already timed out.
             } else {
                 YAHOO.log('Keepalive failed for unknown reasons.')
                 TO_check();
             }
         },
-        failure: function(o) {
-            YAHOO.log('Timed out.');
-        },
-        timeout: 5000,
+        failure: TO_connection_failure,
+        timeout: TO_timeout,
     }
     
-    // Ask the server to keep the session alive.
-    var connectionObject = YAHOO.util.Connect.asyncRequest('GET',
-        '/session_keep_alive?hash=' + Math.random(), callback);
+    var connectionObject = YAHOO.util.Connect.asyncRequest('POST',
+        '/session_keep_alive', callback, 'nocache=' + Math.random());
+}
+
+function TO_allow_timeout() {
+    YAHOO.cereweb.timeOutDialog.hide();
 }
 
 function startTimer(fun, time) {
@@ -117,50 +137,28 @@ function stopTimer() {
     }
 }
 
-// Check time left until the session times out.
-function TO_check() {
-    stopTimer();
-    
-    var callback = {
-        success: function (o) {
-            var time_left = parseInt(o.responseText);
-            YAHOO.log('Time left: ' + time_left);
+function TO_connection_failure(o) {
+    startTimer('TO_check()', TO_timeout_fail);
+    if (TO_timeout_fail < TO_timeout_fail_max)
+        TO_timeout_fail = TO_timeout_fail * TO_timeout_fail_inc;
 
-            if (time_left < TO_warning_time) {
-                startTimer('TO_timed_out()', time_left); 
-                TO_warn();
-            } else {
-                startTimer('TO_check()', TO_check_interval);
-            }
-        },
-        failure: function(o) {
-            YAHOO.log("Couldn't connect to server.");
-            startTimer('TO_check()', TO_check_interval)
-        },
-        timeout: 5000,
-    }
-
-    // NB: internet explorer and opera has a 'bug' where get-requests
-    // are cached, we circumvent this by adding a random hash to the req.
-    var connectionObject = YAHOO.util.Connect.asyncRequest('GET',
-        '/session_time_left?hash=' + Math.random(), callback);
-}
-
-// Warns the user that the session will timeout soon.
-function TO_warn() {
-    if (!TO_has_warned) {
-        TO_has_warned = true;
-        YAHOO.cereweb.timeOutDialog.show();
-    }
-}
-
-// Warns the user that the session has timed out.
-function TO_timed_out() {
-    stopTimer();
-    YAHOO.cereweb.timeOutDialog.hide();
     var warning_div = document.getElementById('session_warning');
-    var msg = "Your session has timed out, login to get a new session.";
-    warning_div.appendChild(document.createTextNode(msg));
+    var msg = "<p>It seems that the server is unavilable.  This message\
+ will disappear as soon as the server is available again, so please be patient.\
+ If nothing happens within five minutes, feel free to call (735) 91500 and\
+ notify Orakeltjenesten of the situation.</p>";
+    warning_div.innerHTML = msg;
     warning_div.style.display = "block";
 }
 
+// Warns the user that the session has timed out.
+function TO_time_out() {
+    stopTimer();
+    YAHOO.cereweb.timeOutDialog.hide();
+
+    var warning_div = document.getElementById('session_warning');
+    var msg = 'Your session has timed out, <a href="/login?redirect=' +
+encodeURIComponent(location.href) + '">click here</a> to get a new session.';
+    warning_div.innerHTML = msg;
+    warning_div.style.display = "block";
+}

@@ -112,11 +112,11 @@ def full_activitylog():
     return page
 full_activitylog.exposed = True
 
-def session_time_left(hash=None):
+def session_time_left(nocache=None):
     """Return time left before the session times out.
     
-    'hash' allows the client to avoid a bug where the browser chaches
-    the request.
+    'nocache' allows the client to create unique request URIs
+    so that the request doesn't get cached by IE or opera.
     """
     timeout = cherrypy.session.get('timeout')
     timestamp = cherrypy.session.get('timestamp', None)
@@ -129,11 +129,14 @@ def session_time_left(hash=None):
     return str(time_left)
 session_time_left.exposed = True
 
-def session_keep_alive(hash=None):
+def session_keep_alive(nocache=None):
     """Attempt to keep the session alive.
     
     Returns 'true' if the session was kept alive, 'false' if the 
     session has already timed out.
+
+    'nocache' allows the client to create unique request URIs
+    so that the request doesn't get cached by IE or opera.
     """
     session = cherrypy.session['session']
     try:
@@ -141,8 +144,8 @@ def session_keep_alive(hash=None):
         cherrypy.session['timestamp'] = time.time()
     except:
         return 'false'
-    else:
-        return 'true'
+
+    return 'true'
 session_keep_alive.exposed = True
 
 __module__ = 'htdocs.index'
