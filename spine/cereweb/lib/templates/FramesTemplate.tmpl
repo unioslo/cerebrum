@@ -82,7 +82,7 @@
     </head>
     <body>
         <div id="maindiv">
-            <div class="page_content">
+            <div id="content" class="page_content">
                 <div class="session_warning" id="session_warning" style="display:none;">
                     <b>Session warning:</b>
                 </div>
@@ -100,7 +100,7 @@
                 #end block
                 <div style="clear: both;"></div>
             </div>
-            <div class="page_menu">
+            <div id="menu" class="page_menu">
                 <div class="menu_header">
                     <a href="/index">Cereweb</a>
             </div>
@@ -108,7 +108,7 @@
                 $menu()
             #end block
         </div>
-        <div class="page_bottom">
+        <div id="bottom" class="page_bottom">
             #block page_bottom
                 #set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
                 #set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')

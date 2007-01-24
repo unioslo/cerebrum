@@ -35,7 +35,7 @@
 #def view($result, $headers, $args, $values, $hits, $display_hits,
           $offset, $orderby, $orderby_dir, $form, $page)
 #if $result
-<div class="searchresult">
+<div id="searchresult" class="searchresult">
     #set self.display_hits = $display_hits
     #set $offset = $int($offset)
     #set $hits = $hits + $offset
@@ -70,7 +70,7 @@
 </div>
 
 #else
-<div>
+<div id="searchresult">
     <div class="searchtitle">
         <h3>$_('Search result')</h3>
     </div>

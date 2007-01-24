@@ -45,8 +45,7 @@
 #if $vargs == None
     #set $vargs = {}
 #end if
-<p>
-<div class="search">
+<div id="searchbox" class="search">
 <table>
 	<tr>
 		<th>
@@ -83,10 +82,8 @@
 				</tr>
 				<tr>
 					<td colspan="2">
-            			<center>
-                			<input type="submit" value="$_('Search')" />&nbsp;
-                			<input type="button" value="$_('Clear')" id="search_clear" />
-            			</center>
+                			<input id="search_submit" type="submit" value="$_('Search')" />&nbsp;
+                			<input id="search_clear" type="reset" value="$_('Clear')" />
 					</td>
 				</tr>
 			</table>
@@ -96,6 +93,5 @@
 	</tr>
 </table>
 </div>
-</p>
 #end def
 
