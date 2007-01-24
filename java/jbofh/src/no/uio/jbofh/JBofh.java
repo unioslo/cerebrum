@@ -111,12 +111,14 @@ public class JBofh {
         hideRepeatedHeaders = (intHide != null && intHide.equals("true")
                                ) ? true : false;
 
-        // Setup ReadLine routines
-        try {
-            Readline.load(ReadlineLibrary.GnuReadline);
-        }
-        catch (UnsatisfiedLinkError ignore_me) {
-            showMessage("couldn't load readline lib. Using simple stdin.", true);
+        if(! gui) {
+	        // Setup ReadLine routines
+	        try {
+	            Readline.load(ReadlineLibrary.GnuReadline);
+	        }
+	        catch (UnsatisfiedLinkError ignore_me) {
+	            showMessage("couldn't load readline lib. Using simple stdin.", true);
+	        }
         }
         int idleWarnDelay = 0;
         int idleTerminateDelay = 0;
