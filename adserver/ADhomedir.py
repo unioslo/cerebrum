@@ -20,7 +20,7 @@
 import win32com.client
 import pythoncom
 import logging
-import sys, os
+import sys, os, shutil
 import ADconstants
 
 const = ADconstants.Constants()
@@ -58,7 +58,8 @@ class Homedir(ADObject):
 
 
 	def createHomedir(self):
-		#Must bind to account.
+		"""Creates the directory specified in the accounts homeDirectory 
+			variable in AD. Must bind to account."""
 		
 		retur = self.checkObject('createHomedir')
 		if not retur[0]: 
@@ -73,13 +74,14 @@ class Homedir(ADObject):
 										homedir)
 			
 		#Set rights on object.
-		ret = self.setFullControl(homedir, self.Object.Get('sAMAccountName'))
+		ret = self._setFullControl(homedir, self.Object.Get('sAMAccountName'))
 		
-		return True
+		return [True, 'Homedir']
 
 		
-	def setFullControl(self, path, uname):
-
+	def _setFullControl(self, path, uname):
+		"""Sets "full control" access on path for an user in AD"""
+ 
 		fileRights = win32file.FILE_ALL_ACCESS
 		propagation = win32security.CONTAINER_INHERIT_ACE|win32security.OBJECT_INHERIT_ACE
 
@@ -100,5 +102,29 @@ class Homedir(ADObject):
 							None,None,Dacls,None)
 			return ret
 		except:
-			return self._log_exception('warn','setFullControl failed:%s' % 
-										homedir)
+			return self._log_exception('warn','setFullControl failed:%s' % homedir)
+
+
+	def copyDir(self):
+		"""Copy directory structure in the COPYDIR variable in Constants.py 
+			to Homedir. For initialization of a homedir. Must bind."""
+		try:
+			shutil.copytree(const.COPYDIR, self.Object.Get('homeDirectory'))
+		except:
+			return self._log_exception('warn','copyDir failed:%s' % 
+					self.Object.Get('homeDirectory'))
+		return [True, 'copyDir']
+
+
+	def checkHomeDir(self):
+		"""Check if account has a homedir. Must bind to object."""
+		return os.path.exists(self.Object.Get('homeDirectory'))
+
+
+	def renameHomeDir(self, newpath):
+ 		"""rename a directory with a given new name, must bind. Remember 
+		to escape the slashes in newpath."""
+		os.rename(self.Object.Get('homeDirectory'), newpath)
+		return os.path.exists(newpath)
+
+
