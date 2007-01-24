@@ -77,22 +77,26 @@ function TO_keepalive() {
     TO_has_warned = false;
     stopTimer();
 
-    var req = get_http_requester();
-    var response = function(req) {
-        if (req.responseText == "true") {
-            startTimer('TO_check()', TO_check_interval)
-        } else if (req.responseText == "false") {
-            TO_timed_out(); // Couldnt keep alive since it already timed out.
-        } else {
-            YAHOO.log('Keepalive failed for unknown reasons.')
-            TO_check();
-        }
-    };
+    var callback = {
+        success: function(o) {
+            if (o.responseText == "true") {
+                startTimer('TO_check()', TO_check_interval)
+            } else if (o.responseText == "false") {
+                TO_timed_out(); // Couldnt keep alive since it already timed out.
+            } else {
+                YAHOO.log('Keepalive failed for unknown reasons.')
+                TO_check();
+            }
+        },
+        failure: function(o) {
+            YAHOO.log('Timed out.');
+        },
+        timeout: 5000,
+    }
     
     // Ask the server to keep the session alive.
-    req.open('GET', '/session_keep_alive?hash=' + Math.random(), true);
-    req.onreadystatechange = get_http_response(req, response);
-    req.send(null);
+    var connectionObject = YAHOO.util.Connect.asyncRequest('GET',
+        '/session_keep_alive?hash=' + Math.random(), callback);
 }
 
 function startTimer(fun, time) {
@@ -116,27 +120,30 @@ function stopTimer() {
 // Check time left until the session times out.
 function TO_check() {
     stopTimer();
+    
+    var callback = {
+        success: function (o) {
+            var time_left = parseInt(o.responseText);
+            YAHOO.log('Time left: ' + time_left);
 
-    var req = get_http_requester();
+            if (time_left < TO_warning_time) {
+                startTimer('TO_timed_out()', time_left); 
+                TO_warn();
+            } else {
+                startTimer('TO_check()', TO_check_interval);
+            }
+        },
+        failure: function(o) {
+            YAHOO.log("Couldn't connect to server.");
+            startTimer('TO_check()', TO_check_interval)
+        },
+        timeout: 5000,
+    }
+
     // NB: internet explorer and opera has a 'bug' where get-requests
     // are cached, we circumvent this by adding a random hash to the req.
-    req.open('GET', '/session_time_left?hash=' + Math.random(), true);
-    req.onreadystatechange = get_http_response(req, TO_check_response);
-    req.send(null);
-
-    startTimer('TO_check()', TO_check_interval)
-}
-
-// Handle the server check response.
-function TO_check_response(req) {
-    var time_left = parseInt(req.responseText);
-    YAHOO.log('Time left: ' + time_left);
-
-    if (time_left < TO_warning_time && !TO_has_warned) {
-        stopTimer(); // Make sure we only have one timer running.
-        startTimer('TO_timed_out()', time_left); 
-        TO_warn();
-    }
+    var connectionObject = YAHOO.util.Connect.asyncRequest('GET',
+        '/session_time_left?hash=' + Math.random(), callback);
 }
 
 // Warns the user that the session will timeout soon.
