@@ -31,75 +31,31 @@
 
 #def create_box($tr)
 <div class="create">
-<table>
-	<tr>
-		<th>
-			$_("Create a new email domain")
-		</th>
-	</tr>
-	<tr>
-		<td>
-			<div class="createform">
-			<form action="/email/make" method="post">
-			<table>
-        		#echo $_create($tr)
-			<tr>
-				<td colspan="2">
-					&nbsp;
-				</td>
-			</tr>
-			<tr>
-				<td colspan="2">
-					<center>
-        	    		<input type="submit" value="$_('Create')" />&nbsp;
-						<input type="reset" value="$_('Clear')" />
-					</center>
-				</td>
-			</tr>
-			</table>
-			</form>
-			</div>
-		</td>
-	</tr>
-</table>
+<h3>$_("Create a new email domain:")</h3>
+    <div class="createform">
+	<form action="/email/make" method="post">
+            #echo $_create($tr)
+            <div>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </div>
+        </form>
+    </div>
 </div>
-<br />
-<br />
 #end def
 
 #def create($tr)
 <div class="create">
-<table>
-<tr>
-	<th>
-		$_('Create a new email domain')
-	</th>
-</tr>
-<tr>
-	<td>
-	<div class="createform">
-    	<form action="/email/make" method="post">
-	<table>
-		#echo $_create($tr)
-	<tr>
-		<td colspan="2">
-			&nbsp;
-		</td>
-	</tr>
-	<tr>
-		<td colspan="2">
-			<center>
-				<input type="submit" value="$_('Create')" />&nbsp;
-				<input type="reset" value="$_('Clear')" />
-			</center>
-		</td>
-	</tr>
-	</table>
+<h3>$_('Create a new email domain:')</h3>
+    <div class="createform">
+        <form action="/email/make" method="post">
+            #echo $_create($tr)
+            <div>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </div>
 	</form>
-	</div>
-	</td>
-</tr>
-</table>
+    </div>
 </div>
 <br />
 <br />
@@ -108,38 +64,35 @@
 #def _create($tr)
     #set $cats = $tr.get_email_domain_category_searcher().search()
     #set $cats = [('',''),] + [(i.get_name(), i.get_description()) for i in $cats]
-	<tr>
-		$form_widgets.td2input('name', 'Domain name',value="")
-	</tr>
-	<tr>
-		$form_widgets.td2input('description', 'Description',value="")
-	</tr>
-	<tr>
-   		$form_widgets.generate_td2loption("category", "Category", $cats)
-	</tr>
+<div>
+    $form_widgets.input('name', 'Domain name',value="")
+</div>
+<div>
+    $form_widgets.input('description', 'Description',value="")
+</div>
+<div>
+    $form_widgets.generate_loption("category", "Category", $cats)
+</div>
 #end def
 
 #def search_box($tr)
 <div class="search">
-		<h3>$_('Find email domain')</h3>
-		<div class="searchform">
-    		    <form method="post" action="/email/search">
-       			#echo $_search($tr, {})
-                        <div>
-                            &nbsp;
-                        </div>
-                        <div>
-			    <input type="submit" value="$_('Search')" />&nbsp;
-			    <input type="reset" value="$_('Clear')" />
-                        </div>
-		    </form>
-		</div>
+    <h3>$_('Find email domain:')</h3>
+	<div class="searchform">
+    	    <form method="post" action="/email/search">
+       		#echo $_search($tr, {})
+                <div>
+                    <input type="submit" value="$_('Search')" />&nbsp;
+                    <input type="reset" value="$_('Clear')" />
+                </div>
+            </form>
+        </div>
 </div>
 #end def
 
 #def search($tr, $vargs)
 <div class="search">
-    <h3>$_("Search for email domain(s)")</h3>
+    <h3>$_("Search for email domain(s):")</h3>
 
 	<div class="searchform">
             <form method="post" action="/email/search">

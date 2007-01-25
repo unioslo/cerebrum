@@ -20,8 +20,8 @@
 #from lib.utils import object_link, strftime, strftime
 #from lib.WorkList import remember_link
 #from FormWidgets import FormWidgets
-##import date
 #import datetime
+#import cherrypy
 
 #attr $form_widgets = FormWidgets()
 
@@ -56,6 +56,7 @@ $strftime($the_date)
 ## Main method for creating the view
 #def view($target)
 #set $id = $target['id']
+#set $referer = cherrypy.request.headerMap.get('Referer', '/')
 <div class="view_content">
 
 ## Actions
@@ -63,7 +64,7 @@ $strftime($the_date)
 <h4>$_('Actions')</h4>
 <div class="actions">
     <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id">$_("delete account")</a><br />
+    <a href="delete?id=$id&amp;ref=$referer">$_("delete target")</a><br />
     <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
     <br />
     $remember_link($target)<br />
@@ -73,11 +74,16 @@ $strftime($the_date)
 ## Content
 #set $primary = $target['primary']
 #set $addresses = $target['addresses']
+
 <div class="view_info">
 <h3>$_('Email addresses:')</h3>
     <div>
 	<strong><em>$_('Type:')</em></strong>&nbsp;
 		$target['type'].capitalize()
+    </div>
+    <div>
+	<strong><em>$_('Owner:')</em></strong>&nbsp;
+		$target['entity']
     </div>
 	<h4>$_('Primary address:')</h4>
 
@@ -109,7 +115,7 @@ $strftime($the_date)
 			<td>
 				#set $addressid = $primary['id']	
 				<div class="actions">
-				<a href="/emailtarget/delete?id=$id&amp;addr=$addressid">Delete</a>
+				<a href="/emailtarget/delete_addr?id=$id&amp;addr=$addressid">Delete</a>
 				</div>
 			</td>
 		</tr>
@@ -168,7 +174,7 @@ $strftime($the_date)
 <h3>$_('Add a new email address:')</h3>
     <div class="createform">
 	<form action="/emailtarget/makeaddress" method="post">
-            <input type="hidden" name="target" value="$id">
+            <input type="hidden" name="id" value="$id">
             <div>
                 $form_widgets.input('local', 'Local',value='')
             </div>
