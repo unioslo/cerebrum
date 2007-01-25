@@ -150,12 +150,14 @@ class AccountUtil(object):
         # setting todays date at start date.
         check_aff=persons[fnr].get_affiliations()
         logger.debug("fnr=%s, affiliation=%s" % (fnr,persons[fnr].get_affiliations()))
+        quarantine_check=False
         for aff in persons[fnr].get_affiliations():
-            if aff[0] == const.affiliation_student:
+            if aff[0] == const.affiliation_student and quarantine_check == False:
                 # This persons has a student affiliation. set quarantine on the account. (we do not set quarantine for employees or "fagpersoner" accounts)
                 quarantine_date = "%s" % today.date()
                 logger.debug("quarantine date =%s" % quarantine_date)
                 account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
+                quarantine_check=True
         #sys.exit(1) # <- for debuging purposes. remove this once quarantene settings on new accounts has been verified.
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
@@ -172,7 +174,7 @@ class AccountUtil(object):
     
     def _update_email(account_obj):
         # The UIT way of handling student email
-        student_email = "%s@student.uit.no" % (account_obj.account_name)
+        student_email = "%s@mailbox.uit.no" % (account_obj.account_name)
         current_email = ""
         try:
             current_email = account_obj.get_primary_mailaddress()
