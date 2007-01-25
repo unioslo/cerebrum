@@ -20,7 +20,7 @@
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet, BofhdAuthRole
+from Cerebrum.modules.bofhd.auth import *
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
 
 from Cerebrum.spine.EntityExternalId import EntityExternalId
@@ -48,6 +48,10 @@ class Authorization(object):
             return True
         
     def has_user_access(self, target, operation, *args):
+        """Checks if the logged in user is trying to access his own account
+        or person object.  In that case, he can do the operations defined in
+        the *mySelf* operation set.
+        """
         ok = False
 
         account_id = self.account.get_id()
@@ -67,24 +71,52 @@ class Authorization(object):
                 return True
 
     def has_access(self, target, operation, *args):
-        if isinstance(target, Account) or isinstance(target, Person):
-            # Is operator allowed to perform 'operation' on one of the OUs
-            # associated with the target?
-            ceTarget = Factory.get("Account")(self._db)
-            ceTarget.find(target.get_id())
-            if self.bofhdauth._has_access_to_entity_via_ou(
-                    self.account.get_id(), operation, ceTarget):
-                return True
+        """Check if the session owner (logged in user) has permission to run
+        operation(args) on the target."""
 
-        op_role = BofhdAuthRole(self._db)
-        roles = op_role.list(entity_ids=self.account.get_id())
-        for s, set, t in roles:
-            op_set.find(set)
-            operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-            if operation in operations:
-                return True
+        # Returns a list containing the id of the account and the groups the
+        # account is a member of.
+        auth_entities = self.bofhdauth._get_users_auth_entities(self.account.get_id())
+
+        bar = BofhdAuthRole(self._db)
+        roles = bar.list(entity_ids=auth_entities)
+        if roles:
+            op_set = BofhdAuthOpSet(self._db)
+            for role_id, set_id, target_id in roles:
+                op_set.find(set_id)
+                operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
+                if operation in operations:
+                    aot = BofhdAuthOpTarget(self._db)
+                    aot.find(target_id)
+                    if aot.target_type == 'ou':
+                        if self.has_access_through_ou(target_id, target):
+                            return True
+                    elif aot.target_type == 'account':
+                        if target.get_id() == target_id:
+                            return True
+                    return True
+
+    def has_access_through_ou(self, operation, target):
+        """Check if the session owner (logged in user) has permission to 
+        target through the ou."""
+        # FIXME: What does this really do?
+        if isinstance(target, Account):
+            ceTarget = Factory.get("Account")(self._db)
+        elif isinstance(target, Person):
+            ceTarget = Factory.get("Person")(self._db)
+        else:
+            return False
+
+        ceTarget.find(target.get_id())
+
+        if self.bofhdauth._has_access_to_entity_via_ou(
+                self.account.get_id(), operation, ceTarget):
+            return True
 
     def is_public(self, target, method_name, operation, *args):
+        """Helper method that returns true if the method is considered public,
+        i.e. everyone is allowed to run it."""
+
         method = getattr(target, method_name) 
         if hasattr(method, 'signature_public'):
             if method.signature_public is True:
@@ -123,6 +155,10 @@ class Authorization(object):
         return False 
 
     def can_return(self, value):
+        """Filter out objects the currently logged in user is not allowed to return.
+        Currently this is only Struct-values, and only the superuser is allowed to
+        return these.
+        """
         if self.superuser: return True
 
         if type(value) == type([]):
@@ -139,4 +175,4 @@ class Authorization(object):
         else:
             return True
 
-# arch-tag: d6e64578-943c-11da-98e6-fad2a0dc4525
+# vim: se sw=4 sts=4 et :
