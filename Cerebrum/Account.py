@@ -855,11 +855,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         else:
             tables.extend([
                 ', [:table schema=cerebrum name=account_home] ah ',
-                ', [:table schema=cerebrum name=homedir] hd',
-                ', [:table schema=cerebrum name=disk_info] d'])
+                ', [:table schema=cerebrum name=homedir] hd '+
+                '    LEFT JOIN [:table schema=cerebrum name=disk_info] d '+
+                '         ON d.disk_id = hd.disk_id'])
             where.extend(["ai.account_id=ah.account_id",
-                          "ah.homedir_id=hd.homedir_id",
-                          "d.disk_id=hd.disk_id"])
+                          "ah.homedir_id=hd.homedir_id"])
             if home_spread is not None:
                 where.append("ah.spread=:home_spread")
 
