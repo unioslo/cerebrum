@@ -478,7 +478,8 @@ class execute:
             if(len(person_aff)>0):
                 acc_type="True"
                 print "%s has student affiliation" % account_obj.entity_id
-                ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
+                #ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
+                ad_email = "%s@%s" % (account_obj.account_name,"mailbox.uit.no")
             #if (len(acc_type)>0):
             #    ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
             elif(bruker_epost!=""):
