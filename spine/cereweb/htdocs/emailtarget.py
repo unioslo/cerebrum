@@ -22,8 +22,10 @@ import cherrypy
 import sys
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import transaction_decorator, redirect
+from lib.utils import transaction_decorator, redirect, object_link
+from lib.utils import commit
 from SpineIDL.Errors import NotFoundError
+from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
 
 def parse_address(address_obj):
@@ -53,6 +55,7 @@ def parse_target(target_obj, t_id):
     target = {
         'id': t_id,
         'type': target_obj.get_type().get_name(),
+        'entity': object_link(target_obj.get_entity()),
         'object_type': 'email_target',
 	'name': "%s_email_target" % name,
     }
@@ -96,3 +99,63 @@ def delete(transaction, id, ref):
 delete = transaction_decorator(delete)
 delete.exposed = True
 
+def delete_addr(transaction, id, addr):
+    id = int(id)
+    target_obj = transaction.get_email_target(id)
+    addrs = target_obj.get_addresses()
+    for the_addr in addrs:
+        if addr == the_addr.get_id():
+            the_addr.delete()
+    transcation.commit()
+    target = parse_target( target_obj, id )
+    page = Main()
+    page.title = _('Addresses in ')
+    page.setFocus('/email', id)
+    template = EmailTargetViewTemplate()
+    content = template.view(target)
+    page.content = lambda: content
+    return page
+delete_addr = transaction_decorator(delete_addr)
+delete_addr.exposed = True
+
+def edit(transaction, id):
+    id = int(id)
+    target = transaction.get_email_target(id)
+    page = Main()
+    page.title = _('Edit ') + object_link(target)
+    page.setFocus('/emailtarget/edit', id)
+    template = EmailTargetTemplate()
+    content = template.edit_target(transaction,target)
+    page.content = lambda: content
+    return page
+edit = transaction_decorator(edit)
+edit.exposed = True
+
+def makeaddress(transaction, id, local, domain, expire):
+    id = int(id)
+    print 'makeaddress'
+    print id
+    print 'makeaddress'
+    target = transaction.get_email_target(id)
+    msg = ''
+    if not local:
+        msg = _('Local is empty.')
+    if not msg:
+        if not domain:
+            msg = _('Domain is empty.')
+    if not msg:
+        cmds = transaction.get_commands()
+        print 'get domain by name'
+        domain = cmds.get_email_domain_by_name(domain)
+        print 'get domain by name ferdig'
+        print 'create email address'
+        emailaddr = cmds.create_email_address(local, domain, target)
+        print 'create email address ferdig'
+        if expire:
+            expire = cmds.strptime(expire, "%Y-%m-%d")
+            emailaddr.set_expire_date(expire)
+        commit(transaction, target, msg=_("Email address successfully created."))
+    else:
+        rollback_url('/emailtarget/view?id='+id, msg, error=True)
+makeaddress = transaction_decorator(makeaddress)
+makeaddress.exposed = True
