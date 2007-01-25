@@ -225,9 +225,8 @@ def get_form_values(args, values):
 
 def get_link_arguments(args, values):
     """Returns the args/values converted for use in links."""
-    arguments = ['%s=%s' % (args[i],values[i]) for i in 
-                    range(len(args)) if values[i] != '']
-    return len(arguments) and '?' + cgi.encode('&'.join(arguments)) or ''
+    argdict = dict(zip(args, values))
+    return cgi.escape(urllib.urlencode(argdict))
 
 def create_table_headers(headers, args, values, orderby, orderby_dir, page):
     """Returns the headers for insertion into a table.
@@ -260,7 +259,10 @@ def create_table_headers(headers, args, values, orderby, orderby_dir, page):
                 new_vargs['orderby_dir'] = 'desc'
         
         href = cgi.escape('%s?%s' % (page, urllib.urlencode(new_vargs)))
-        header = html.Anchor(_(header), href=href, _class=_class) 
+        if _class:
+            header = html.Anchor(_(header), href=href, _class=_class) 
+        else:
+            header = html.Anchor(_(header), href=href) 
         new_headers.append(header)
 
     return new_headers

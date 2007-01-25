@@ -65,8 +65,8 @@ def object_url(object, method="view", **params):
     if object_type == 'emaildomain':
         object_type = 'email'
 
-    # FIXME: urlencode will separate with & - not &amp; or ?
-    return "/%s/%s?%s" % (object_type, method, urllib.urlencode(params))
+    params = urllib.urlencode(params)
+    return cgi.escape("/%s/%s?%s" % (object_type, method, params))
 
 
 def object_link(object, text=None, method="view", _class="", **params):
@@ -105,11 +105,9 @@ def object_link(object, text=None, method="view", _class="", **params):
             text = object['name']
         else:
             text = str(object)
-            text.replace("<", "&lt;")
-            text.replace(">", "&gt;")
     if _class:
         _class = ' class="%s"' % _class
-    return '<a href="%s"%s>%s</a>' % (url, _class, text)
+    return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
 
 def redirect(url, status=None):
     raise cherrypy.HTTPRedirect(url, status)
