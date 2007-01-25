@@ -154,10 +154,12 @@ class CLConstants(Constants.Constants):
          'spread=%(spread_code:spread)s'))
     account_home_added = _ChangeTypeCode('e_account', 'home_added',
                                          'home added for %(subject)s',
-                                         ('spread=%(spread_code:spread)s',))
+                                         ('spread=%(spread_code:spread)s',
+                                          'home=%(string:home)s'))
     account_home_removed = _ChangeTypeCode('e_account', 'home_removed',
                                            'home removed for %(subject)s',
-                                           ('spread=%(spread_code:spread)s',))
+                                           ('spread=%(spread_code:spread)s',
+                                            'home=%(string:home)s'))
     spread_add =  _ChangeTypeCode(
         'spread', 'add', 'add spread for %(subject)s',
         ('spread=%(spread_code:spread)s',))
@@ -178,10 +180,10 @@ class CLConstants(Constants.Constants):
         ('id=%(int:homedir_id)s',))
     homedir_add = _ChangeTypeCode(
         'homedir', 'add', 'homedir add for account %(subject)s',
-        ('id=%(int:homedir_id)s',))
+        ('id=%(int:homedir_id)s', 'home=%(home)s'))
     homedir_update = _ChangeTypeCode(
         'homedir', 'update', 'homedir update for account %(subject)s',
-        ('id=%(int:homedir_id)s', 'disk_id=%(disk:disk_id)s',
+        ('id=%(int:homedir_id)s',
          'home=%(string:home)s', 'status=%(home_status:status)s'))
     disk_add = _ChangeTypeCode('disk', 'add', 'new disk %(subject)s')
     disk_mod = _ChangeTypeCode('disk', 'mod', 'update disk %(subject)s')
