@@ -119,7 +119,7 @@ class DnsBofhdUtils(object):
         cname_name = self._parser.qualify_hostname(cname_name)
         dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
             cname_name, dns.CNAME_OWNER)
-        dns_owner_ref = self.alloc_dns_owner(cname_name)
+        dns_owner_ref = self.alloc_dns_owner(cname_name, warn_other=True, force=force)
         try:
             target_ref = self._find.find_target_by_parsing(
                 target_name, dns.DNS_OWNER)
@@ -189,7 +189,11 @@ class DnsBofhdUtils(object):
     # dns-owners, general_dns_records and mx-sets, srv_records
     #
     
-    def alloc_dns_owner(self, name, mx_set=None):
+    def alloc_dns_owner(self, name, mx_set=None, warn_other=False, force=False):
+        """If warn_other=True, force must be True to place the new
+        name in the other zone.  This is meant to catch attempts to
+        for instance register CNAMEs in zones that we don't populate.
+        """
         def _get_reverse_order(lst):
             """Return index of sorted zones"""
             # We must sort the zones to assert that trofast.uio.no
@@ -203,7 +207,6 @@ class DnsBofhdUtils(object):
 
         self._dns_owner.clear()
         zone = None
-        tmp = self.default_zone.postfix
         zones = self.const.fetch_constants(self.const.DnsZone)
         for n in _get_reverse_order(zones):
             z = zones[n]
@@ -211,6 +214,8 @@ class DnsBofhdUtils(object):
                 zone = z
                 break
         if not zone:
+            if warn_other and not force:
+                raise CerebrumError, "'%s' would end up in the 'other' zone, must force (y)" % name
             zone = self.const.other_zone
         self._dns_owner.populate(zone, name, mx_set_id=mx_set)
         self._dns_owner.write_db()
@@ -233,7 +238,7 @@ class DnsBofhdUtils(object):
         return "updated"
 
     def alter_srv_record(self, operation, service_name, pri,
-                         weight, port, target, ttl=None):
+                         weight, port, target, ttl=None, force=False):
         service_name = self._parser.qualify_hostname(service_name)
         if operation != 'del':
             dns_owner_ref, same_type = self._validator.dns_reg_owner_ok(
@@ -249,7 +254,7 @@ class DnsBofhdUtils(object):
                     target)
         except Errors.NotFoundError:
             if operation == 'add':
-                self.alloc_dns_owner(service_name)
+                self.alloc_dns_owner(service_name, warn_other=True, force=force)
 
         if operation == 'add':
             self._dns_owner.add_srv_record(
@@ -382,7 +387,7 @@ class DnsBofhdUtils(object):
         if not ip_ref:
             ip_ref = self.alloc_ip(ip, force=force)
         if not dns_owner_ref:
-            dns_owner_ref = self.alloc_dns_owner(host_name)
+            dns_owner_ref = self.alloc_dns_owner(host_name, warn_other=True, force=force)
         self._alloc_arecord(dns_owner_ref, ip_ref)
         return ip
 

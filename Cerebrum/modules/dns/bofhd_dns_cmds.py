@@ -853,15 +853,16 @@ class BofhdExtension(object):
     # host srv_add
     all_commands['host_srv_add'] = Command(
         ("host", "srv_add"), ServiceName(), Priority(), Weight(),
-        Port(), HostName(), perm_filter='is_dns_superuser')
+        Port(), HostName(), Force(optional=True), perm_filter='is_dns_superuser')
     def host_srv_add(self, operator, service_name, priority,
-                   weight, port, target_name):
+                   weight, port, target_name, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
+        force = self.dns_parser.parse_force(force)
         target_id = self._find.find_target_by_parsing(
             target_name, dns.DNS_OWNER)
         self.mb_utils.alter_srv_record(
             'add', service_name, int(priority), int(weight),
-            int(port), target_id)
+            int(port), target_id, force=force)
         return "OK, added SRV record %s -> %s" % (service_name, target_name)
 
     # host srv_remove
