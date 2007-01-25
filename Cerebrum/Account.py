@@ -320,7 +320,7 @@ class AccountHome(object):
               SET %s
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t, t) for t in binds])), binds)
-            tmp = self._get_home_path(binds['disk_id'], binds['home'])
+            tmp = self._get_home_path(binds.get('disk_id'), binds.get('home'))
             self._db.log_change(self.entity_id, self.const.homedir_update,
                                 None, change_params={'home': tmp,
                                                      'status': status,
