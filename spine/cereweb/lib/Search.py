@@ -26,7 +26,7 @@ See SearchHandler for how to create searchpages.
 
 import cherrypy
 
-import urllib
+import cgi
 import forgetHTML as html
 from gettext import gettext as _
 
@@ -121,6 +121,31 @@ class SearchHandler:
             formvalues = get_form_values(self.args, values)
         return self.form(formvalues)
 
+    def filter_elements(self, elements, row_method):
+        """Run the elements through the row_method so they can be used to render
+        the chosen template."""
+        if not (hasattr(self, 'values') and hasattr(self, 'offset')):
+            raise Exception('search must be called before get_result')
+        
+        # maximum hits to display in a search result.
+        dis_hits = cherrypy.session['options'].getint('search', 'display hits')
+
+        result = []
+        for elm in elements[:dis_hits]:
+            result.append(row_method(elm))
+        return result, dis_hits
+    
+    def get_only_result(self, elements, row_method):
+        """Used for ajax calls."""
+        result, dis_hits = self.filter_elements(elements, row_method)
+
+        from lib.templates.SearchResultTemplate import SearchResultTemplate
+        
+        template = SearchResultTemplate()
+        return template.getResult(result, self.headers, self.args, self.values,
+                             len(elements), dis_hits, self.offset, self.orderby,
+                             self.orderby_dir, 'search')
+
     def get_result(self, elements, row_method):
         """Returns a table with the result.
 
@@ -132,15 +157,7 @@ class SearchHandler:
         if elements is None:
             return self.get_form()
         
-        if not (hasattr(self, 'values') and hasattr(self, 'offset')):
-            raise Exception('search must be called before get_result')
-        
-        # maximum hits to display in a search result.
-        dis_hits = cherrypy.session['options'].getint('search', 'display hits')
-
-        result = []
-        for elm in elements[:dis_hits]:
-            result.append(row_method(elm))
+        result, dis_hits = self.filter_elements(elements, row_method)
 
         # To avoid import-circle we import the template here
         from lib.templates.SearchResultTemplate import SearchResultTemplate
@@ -209,7 +226,7 @@ def get_link_arguments(args, values):
     """Returns the args/values converted for use in links."""
     arguments = ['%s=%s' % (args[i],values[i]) for i in 
                     range(len(args)) if values[i] != '']
-    return len(arguments) and '?' + '&'.join(arguments) or ''
+    return len(arguments) and '?' + cgi.encode('&'.join(arguments)) or ''
 
 def create_table_headers(headers, args, values, orderby, orderby_dir, page):
     """Returns the headers for insertion into a table.
@@ -241,7 +258,7 @@ def create_table_headers(headers, args, values, orderby, orderby_dir, page):
             if orderby_dir != 'desc':
                 new_vargs['orderby_dir'] = 'desc'
         
-        href = '%s?%s' % (page, urllib.urlencode(new_vargs))
+        href = '%s?%s' % (page, cgi.escape(new_vargs))
         header = html.Anchor(_(header), href=href, _class=_class) 
         new_headers.append(header)
 
