@@ -22,7 +22,7 @@ import cherrypy
 import sys
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import transaction_decorator
+from lib.utils import transaction_decorator, redirect
 from SpineIDL.Errors import NotFoundError
 from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
 
@@ -31,9 +31,9 @@ def parse_address(address_obj):
         'id': address_obj.get_id(),
         'local': address_obj.get_local_part(),
         'domain': address_obj.get_domain().get_name(),
-        'create': address_obj.get_create_date().get_unix(),
-        'change': address_obj.get_change_date().get_unix(),
-	'is_primary': address_obj.is_primary(),
+        'created': address_obj.get_create_date().get_unix(),
+        'changed': address_obj.get_change_date().get_unix(),
+	'primary': address_obj.is_primary(),
     }
     expire = address_obj.get_expire_date()
     if expire:
@@ -83,4 +83,16 @@ def view(transaction, id):
     return page
 view = transaction_decorator(view)
 view.exposed = True
+
+def delete(transaction, id, ref):
+    id = int(id)
+    target_obj = transaction.get_email_target(id)
+    addrs = target_obj.get_addresses()
+    for adr in addrs:
+        adr.delete()
+    target_obj.delete_email_target()
+    transaction.commit()
+    redirect( ref )
+delete = transaction_decorator(delete)
+delete.exposed = True
 
