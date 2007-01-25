@@ -301,11 +301,15 @@ class AccountHome(object):
             VALUES (%s)""" % (
                 ", ".join(binds.keys()),
                 ", ".join([":%s" % t for t in binds])), binds)
-            tmp = self._get_home_path(binds['disk_id'], binds['home'])
+            if binds['disk_id'] or binds['home']:
+                tmp = {'home': self._get_home_path(binds['disk_id'], binds['home'])}
+            else:
+                tmp = {}
+            tmp['homedir_id'] = binds['homedir_id']
+            if binds['status']:
+                tmp['status'] = binds['status']
             self._db.log_change(self.entity_id, self.const.homedir_add,
-                                None, change_params={'home': tmp,
-                                                     'status': status,
-                                                     'homedir_id': binds['homedir_id'] })
+                                None, change_params=tmp)
         else:
             for t in binds.keys():
                 if binds[t] is NotSet or binds[t] is None:
@@ -320,11 +324,15 @@ class AccountHome(object):
               SET %s
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t, t) for t in binds])), binds)
-            tmp = self._get_home_path(binds.get('disk_id'), binds.get('home'))
+            if binds.get('disk_id') or binds.get('home'):
+                tmp = {'home': self._get_home_path(binds.get('disk_id'), binds.get('home'))}
+            else:
+                tmp = {}
+            tmp['homedir_id'] = binds['homedir_id']
+            if binds.has_key('status'):
+                tmp['status'] = binds['status']
             self._db.log_change(self.entity_id, self.const.homedir_update,
-                                None, change_params={'home': tmp,
-                                                     'status': status,
-                                                     'homedir_id': binds['homedir_id'] })
+                                None, change_params=tmp)
         return binds['homedir_id']
 
     def _clear_homedir(self, homedir_id):
