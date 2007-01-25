@@ -27,6 +27,7 @@ See SearchHandler for how to create searchpages.
 import cherrypy
 
 import cgi
+import urllib
 import forgetHTML as html
 from gettext import gettext as _
 
@@ -258,7 +259,7 @@ def create_table_headers(headers, args, values, orderby, orderby_dir, page):
             if orderby_dir != 'desc':
                 new_vargs['orderby_dir'] = 'desc'
         
-        href = '%s?%s' % (page, cgi.escape(new_vargs))
+        href = cgi.escape('%s?%s' % (page, urllib.urlencode(new_vargs)))
         header = html.Anchor(_(header), href=href, _class=_class) 
         new_headers.append(header)
 
