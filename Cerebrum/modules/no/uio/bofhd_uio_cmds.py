@@ -7199,8 +7199,12 @@ class BofhdExtension(object):
                 repl = {}
                 for part in re.findall(r'%\([^\)]+\)s', f):
                     fmt_type, key = part[2:-2].split(':')
-                    repl['%%(%s:%s)s' % (fmt_type, key)] = self._format_from_cl(
-                        fmt_type, params.get(key, None))
+                    try:
+                        repl['%%(%s:%s)s' % (fmt_type, key)] = self._format_from_cl(
+                            fmt_type, params.get(key, None))
+                    except Exception, e:
+                        self.logger.warn("Failed applying %s to %s for change-id: %d" % (
+                            part, repr(params.get(key)), row['change_id']), exc_info=1)
                 if [x for x in repl.values() if x]:
                     for k, v in repl.items():
                         f = f.replace(k, v)
