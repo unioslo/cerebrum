@@ -30,10 +30,8 @@
 ## Number of hints to display in the searchresult.
 #attr display_hits = 10
 
-
-## Creates a table with the result from the search.
-#def view($result, $headers, $args, $values, $hits, $display_hits,
-          $offset, $orderby, $orderby_dir, $form, $page)
+#def getResult($result, $headers, $args, $values, $hits, $display_hits,
+          $offset, $orderby, $orderby_dir, $page)
 #if $result
 <div id="searchresult" class="searchresult">
     #set self.display_hits = $display_hits
@@ -68,7 +66,6 @@
         $range_menu($args, $values, $hits, $offset, $page)
     #end if
 </div>
-
 #else
 <div id="searchresult">
     <div class="searchtitle">
@@ -78,9 +75,14 @@
         $_('Sorry, nothing found matching the given criterias.')
     </div>
 </div>
-
 #end if
+#end def
 
+## Creates a table with the result from the search.
+#def view($result, $headers, $args, $values, $hits, $display_hits,
+    $offset, $orderby, $orderby_dir, $page)
+$getResult($result, $headers, $args, $values, $hits, $display_hits,
+    $offset, $orderby, $orderby_dir, $form, $page)
 <div>
     <div class="searchtitle">
         <h3>$_('Search for more')</h3>
