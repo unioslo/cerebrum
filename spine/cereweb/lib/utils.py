@@ -23,6 +23,7 @@ import urllib
 import mx.DateTime
 import cherrypy
 import re
+import cgi
 from datetime import datetime
 
 def _spine_type(object):
