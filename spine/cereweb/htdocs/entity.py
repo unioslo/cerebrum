@@ -101,7 +101,7 @@ remove_contact_info.exposed = True
 def clear_search(url):
     """Resets the lastsearch for cls."""
     cls = url.split('/')[-2] # seccond last part should be the class.
-    lastsearch = cls + '_ls'
+    lastsearch = cls + '_last_search'
     if lastsearch in cherrypy.session:
         del cherrypy.session[lastsearch]
 
