@@ -180,7 +180,7 @@ class CLConstants(Constants.Constants):
         ('id=%(int:homedir_id)s',))
     homedir_add = _ChangeTypeCode(
         'homedir', 'add', 'homedir add for account %(subject)s',
-        ('id=%(int:homedir_id)s', 'home=%(home)s'))
+        ('id=%(int:homedir_id)s', 'home=%(string:home)s'))
     homedir_update = _ChangeTypeCode(
         'homedir', 'update', 'homedir update for account %(subject)s',
         ('id=%(int:homedir_id)s',
