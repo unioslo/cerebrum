@@ -522,6 +522,8 @@ class ConstantsBase(DatabaseAccessor):
         skip.extend(("map_const", "initialize"))
         for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
             v = getattr(self, x)
+            if isinstance(v, type):
+                continue
             if int(v) == num:
                 return v
         return None
