@@ -358,7 +358,7 @@ class AccountHome(object):
         tmp = self.get_homedir(homedir_id)
         tmp = self._get_home_path(tmp['disk_id'], tmp['home'])
         try:
-            old = get_home(spread)
+            old = self.get_home(spread)
             self.execute("""
             UPDATE [:table schema=cerebrum name=account_home]
             SET homedir_id=:homedir_id
