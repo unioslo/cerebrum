@@ -296,15 +296,18 @@ SELECT studieprogramkode, studieprognavn, studienivakode,
        status_utdplan, institusjonsnr_studieansv, 
        faknr_studieansv, instituttnr_studieansv, gruppenr_studieansv,
        status_utgatt
-FROM fs.studieprogram"""
+       FROM fs.studieprogram Where status_eksport_lms='J' """
         return (self._get_cols(qry), self.db.query(qry))
+
+#FROM fs.studieprogram WHERE status_utgatt = 'N' or (status_utgatt ='J' and ((studieprogramkode='PH-LIN')or (studieprogramkode='PRPEDDEL') or(studieprogramkode='DRSCIENT') or (studieprogramkode='PH-FIN') or (studieprogramkode='PH-ALI') or (studieprogramkode='ST-RUSSISK') or (studieprogramkode='ST-KUNST') or (studieprogramkode='ST-FRANSK')or (studieprogramkode='ST-DOKVIT') or (studieprogramkode='ST-TYSK') or (studieprogramkode='ST-FINSK') or (studieprogramkode='B-LITT') or (studieprogramkode='PH-ENG') or (studieprogramkode='BIODGIBG') or (studieprogramkode='PH-SAM') or (studieprogramkode='PH-NOR') or (studieprogramkode='SOSPOLHFB') or (studieprogramkode='PH-TYS') or (studieprogramkode='PH-FRA') or (studieprogramkode='DRART') or (studieprogramkode='B-SPR') or (studieprogramkode='DRPSYCHOL')))"""
 # Det er en del studenter på UiT som har opptak til inaktive studieprogrammer
 # derfor må vi fjerne dette kravet fram til det er ryddet opp i dette
 # Kravet burde settes inn permanent siden man bygger felles-rom for studieprogrammer
 # i CF på grunnlag av disse data (det er litt dumt å bygge flere enn nødvndig
 # Vi henter dog status_utgatt, det burde kunne brukes til å skille ut de programmene
 # man ikke skal ha rom for.
-# WHERE status_utgatt = 'N' """
+# studieprogram.status_eksport_lms ('J'/'N')
+
 
 
 
@@ -334,6 +337,10 @@ WHERE status_aktiv = 'J' """
 	og neste semester/termin. I tillegg henter vi dato_fra og dato_til
 	da disse angir rollens varighet. """
 # UIT: for å populere forelesere i emnerom:  fjernet "aktivitetkode," mellom versjonskode og terminkode i query under
+
+# By bto001, 2006-11-30
+# La til 180 i dato_fra for å tillate at lærere kommer inn i rom 180 dager før de starter undervinsninger
+# La til 180 i dato_til for å tillate at lærere blir i rom 180 dager fra de har sluttet undervisningen
         qry = """
 SELECT DISTINCT
    fodselsdato, personnr, rollenr, rollekode, dato_fra, dato_til,
@@ -342,7 +349,7 @@ SELECT DISTINCT
    etterutdkurskode, kurstidsangivelsekode
 FROM fs.personrolle 
 WHERE dato_fra < SYSDATE + 180 AND
-      NVL(dato_til,SYSDATE) >= sysdate"""
+      NVL(dato_til,SYSDATE) >= sysdate - 180"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetUndervEnhet(self, sem="current"):
