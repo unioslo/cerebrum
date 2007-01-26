@@ -1,5 +1,23 @@
 #!/local/bin/python
 # -*- coding: iso-8859-1 -*-
+#
+# Copyright 2006 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import getopt
 import sys
@@ -11,91 +29,64 @@ import sre
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
-db = Factory.get('Database')()
-db.cl_init(change_program="skeleton")
-co = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)
-group = Factory.get('Group')(db)
-person = Factory.get('Person')(db)
-qua = Entity.EntityQuarantine(db)
-
-#
-# Diverse som egentlig skal stå i cereconf
-#
-PASSORD = 'cerebrum:Cere7est'
-AD_ATTRIBUTES=( "displayName","homeDrive","homeDirectory","sn","givenName")
-AD_HOME_DRIVE_STUDENT = "K"
-AD_HOME_DIRECTORY_STUDENT = '\\\\ZIDANE\\users$\\'
-AD_HOME_DRIVE_ANNSATT = "J"
-AD_HOME_DIRECTORY_ANNSATT = '\\\\ZIDANE\\users$\\'
-
-
-# brukt til testing
-#AD_HOME_DIRECTORY_ANNSATT = '\\\\dc-torfu\\TESTSHARE\\'
-
-
-server = xmlrpclib.Server("https://%s@%s:%i" % (
-    PASSORD,
-    cereconf.AD_SERVER_HOST,
-    cereconf.AD_SERVER_PORT))
 
 def get_ad_data():
-    #Setting the userattributes to be fetched.
-    server.setUserAttributes(AD_ATTRIBUTES, cereconf.AD_ACCOUNT_CONTROL)
+    # which user attributes should be fetched for users at NMH
+    server.setUserAttributes(cereconf.AD_ATTRIBUTES, cereconf.AD_ACCOUNT_CONTROL)
     return server.listObjects('user', True)
 
 def get_cerebrum_data():
     pid2name = {}
     
-    #for row in person.list_persons_name(source_system=co.system_cached):
-    #    pid2name.setdefault(int(row['person_id']), row['name'])
-    
-    pid2name = person.getdict_persons_names(name_types = (co.name_full,co.name_first,co.name_last))
+    pid2name = person.getdict_persons_names(name_types = (co.name_full,
+                                                          co.name_first,
+                                                          co.name_last))
 
-    print "Fetched %i person names" % len(pid2name)
+    logger.debug("Fetched %i person names", len(pid2name))
 
     aid2ainfo = {}
+    
     #
-    # collecting acount id and username
+    # find account id's and names
     #
-    for row in ac.list_account_home(account_spread=co.spread_ad_account, filter_expired=True, include_nohome=True):
+    for row in ac.list_account_home(account_spread=co.spread_ad_account,
+                                    filter_expired=True,
+                                    include_nohome=True):
         aid2ainfo[int(row['account_id'])] = { 'uname' : row['entity_name'] }
         
     #
-    # Get lists for affiliatio_annsatt, affiliation_student, affiliation_admin
-    #
-    # Merk at verdien av affiliation = navnet på OU (bør vel egentlig settes i cereconf?)
-    #
-    # Studenter
+    # Get lists for affiliatio_ansatt, affiliation_student, affiliation_admin
+
+
+    # Students
     #
     count = 0
     for row in ac.list_accounts_by_type(affiliation=co.affiliation_student):
         if aid2ainfo.has_key(int(row['account_id'])):
-            aid2ainfo[int(row['account_id'])]['affiliation'] = 'studenter'
+            aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_STUDENT_OU
             count = count +1
-    print "added %d studenter" % count       
+    logger.info("Added %d students", count)
 
-    # Annsatte (merk, overskriver studenter)
+    # Staff (overrides information registered for students) 
     #
     count = 0
     for row in ac.list_accounts_by_type(affiliation=co.affiliation_tilknyttet):
         if aid2ainfo.has_key(int(row['account_id'])):
-            aid2ainfo[int(row['account_id'])]['affiliation'] = 'administrative' 
+            aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_ADMINISTRATION_OU
             count = count +1
-    print "added %d annsatte" % count  
+    logger.info("Added %d administrative employees", count)
 
-    # Faglig annsatte (merk, overskriver annsatte _og_ studenter)
+    # Faculty (overrides information registered for staff and students)
     #
     count = 0
-    for row in ac.list_accounts_by_type(ou_id=17726):
+    for row in ac.list_accounts_by_type(ou_id=cereconf.CEREBRUM_FAGANSATT_OU_ID):
         if aid2ainfo.has_key(int(row['account_id'])):
-            aid2ainfo[int(row['account_id'])]['affiliation'] = 'faglige' 
+            aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_FAGANSATT_OU
             count = count +1
-    print "added %d fagligannsatte" % count  
+    logger.info("Added %d faculty", count)  
 
-    
-    #print "Fetched %i accounts with ad_spread" % len(aid2ainfo)
-    #Filter quarantined users.
+    # Remove quarantined users
+    #
     count = 0
     for row in qua.list_entity_quarantines(only_active=True, entity_types=co.entity_account):
         if not aid2ainfo.has_key(int(row['entity_id'])):
@@ -104,18 +95,16 @@ def get_cerebrum_data():
             if not aid2ainfo[int(row['entity_id'])].get('quarantine',False):
                 aid2ainfo[int(row['entity_id'])]['quarantine'] = True
                 count = count +1
-                
-    print "Fetched %i quarantined accounts" % count
-    #Fetch mapping between account_id and person_id(owner_id).
-
+    logger.info("Fetched %i quarantined accounts", count)
+    
+    # Mapp accounts to owners (account_id to person_id).
     for row in ac.list():
         if not aid2ainfo.has_key(int(row['account_id'])):
             continue
         if row['owner_type'] != int(co.entity_person):
             continue
         aid2ainfo[int(row['account_id'])]['owner_id'] = int(row['owner_id'])  
-        
-   
+
     ret = {}
     for ac_id, dta in aid2ainfo.items():
         # Important too have right encoding of strings or comparison will fail.
@@ -124,11 +113,13 @@ def get_cerebrum_data():
         # to point basis.
         
         tmp = {
-            #AccountID - populating the employeeNumber field in AD.
+            # AccountID - populating the employeeNumber field in AD.
+            # Is this really necessary seeing as we do not actually have employee
+            # numbers at NMH? 
             'employeeNumber': unicode(str(ac_id),'UTF-8'),
             }
-        #
-        # Legg til info om student/annsatt
+
+        # Register student/employee information
         #
         if dta.has_key('affiliation'):
             tmp['affiliation']=dta['affiliation']   
@@ -161,26 +152,22 @@ def get_cerebrum_data():
             pass
         if tmp.has_key('affiliation'):
             ret[dta['uname']] = tmp
-            
-
     return ret
-    
         
 
 def compare(adusers,cerebrumusers):
-
     changelist = []
-    #
-    # regex til a plukke ut ou
+    
+    # picking correct ou requires use of 
     #    
     exp = sre.compile('CN=[^,]+,OU=([^,]+)')
-    print "testing %d users for cerebrum/AD membership and changes" % len(adusers)
+    logger.info("Checking %d accounts for Cerebrum/AD-membership and changes" % len(adusers))
 
     for usr, dta in adusers.items():
         if cerebrumusers.has_key(usr):
-            # User defined both in AD and cerebrum, need to check data
+            # User defined both in AD and cerebrum, check data
             changes = {}
-            #
+            
             # test sn, givenName, displayName
             # 
             # Hack:
@@ -195,6 +182,9 @@ def compare(adusers,cerebrumusers):
 
             if not dta.has_key('homeDrive'):
                 dta['homeDrive'] = None
+
+            if not dta.has_key('profilePath'):
+                dta['profilePath'] = None
 
             if not dta.has_key('homeDirectory'):
                 dta['homeDirectory'] = None 
@@ -211,7 +201,7 @@ def compare(adusers,cerebrumusers):
                 changes['displayName'] = cerebrumusers[usr]['displayName']
                 changes['type'] = 'UPDATEUSR'
 
-            # test OU in AD for users
+            # test AD_OU for users
             ou = exp.match(dta['distinguishedName'])
             if ou.group(1):
                 if ou.group(1) == cerebrumusers[usr]['affiliation']:
@@ -220,66 +210,73 @@ def compare(adusers,cerebrumusers):
                     changes['affiliation'] = cerebrumusers[usr]['affiliation']
                     changes['type'] = 'MOVEUSR'
 
-                # test homeDrive og homeDir sammtidig        
+                # test homeDrive og homeDir
                 if ou.group(1) == "studenter":
-                    if (dta['homeDrive'] == AD_HOME_DRIVE_STUDENT and
-                    dta['homeDirectory'] == "%s%s" % (AD_HOME_DIRECTORY_STUDENT,usr)):
-                        # Ting stemmer
+                    if (dta['homeDrive'] == cereconf.AD_HOME_DRIVE_STUDENT and
+                        dta['homeDirectory'] == "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr) and
+                        dta['profilePath'] == "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)):
+                        # no changes
                         pass
                     else:
-                        changes['homeDrive'] = AD_HOME_DRIVE_STUDENT
-                        changes['homeDirectory'] = "%s%s" % (AD_HOME_DIRECTORY_STUDENT,usr)
+                        changes['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
+                        changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr)
+                        changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
                         if not changes.has_key('type'):
                             changes['type'] = 'UPDATEUSR'
                 else:
-                    if (dta['homeDrive'] == AD_HOME_DRIVE_ANNSATT and
-                    dta['homeDirectory'] == "%s%s" % (AD_HOME_DIRECTORY_ANNSATT,usr)):
-                        # Ting stemmer
+                    if (dta['homeDrive'] == cereconf.AD_HOME_DRIVE_ANSATT and
+                        dta['homeDirectory'] == "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT, usr) and
+                        dta['profilePath'] == None):
+                        # no changes
                         pass
                     else:
-                        changes['homeDrive'] = AD_HOME_DRIVE_ANNSATT
-                        changes['homeDirectory'] = "%s%s" % (AD_HOME_DIRECTORY_ANNSATT,usr)
+                        changes['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
+                        changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr)
+                        changes['profilePath'] = ''
                         if not changes.has_key('type'):
                             changes['type'] = 'UPDATEUSR'
-
-                        
             else:
+                
+                # Impossible to determine OU for a given account
                 #
-                # Not posible to determine OU for user
-                #
-                print "Not match for DN: %s" % dta['distinguishedName']                
-            # Delete user from cerebrumusers
+                logger.warn("No DN-match for: %s", dta['distinguishedName'])
+            # remove account info from cerebrumusers
+            #
             del cerebrumusers[usr]
-            
         else:
             # User is in AD but not in cerebrum, delete user
             # safe since we only get data from the cerebrum OU
-            
-            # ignores users in cerebrum deleted           
+            # ignore account in "cerebrum deleted"
+            #
             ou = exp.match(dta['distinguishedName'])
             if ou.group(1) == 'cerebrum_deleted':
-                print "ignoring %s" % usr
+                logger.debug("Ignoring deleted account %s", usr)
             else:
                 changes['type'] = 'DELUSR'
                 changes['distinguishedName'] = adusers[usr]['distinguishedName']
             
                 
-        #If any changes append to changelist.
+        # Append changes to changelist.
+        #
         if len(changes):
             changes['distinguishedName'] = adusers[usr]['distinguishedName']
             changelist.append(changes)    
             
             
-    print "creating %d users" % len(cerebrumusers)         
-    #The remaining items in cerebrumusrs is not in AD, create user.
+    logger.info("Creating %d accounts in AD", len(cerebrumusers))
+    
+    # Add accounts still registered in cerebrumusers to AD
     for cusr, cdta in cerebrumusers.items():
         changes={}
-        #TODO:Should quarantined users be created?
+        # TODO:Should quarantined users be created?
+        #
         if cerebrumusers[cusr]['ACCOUNTDISABLE']:
-            #Quarantined, do not create.
+            # quarantined, do not create.
+            #
             pass
         else:
-            #New user, create.
+            # Create account in AD
+            #
             changes = cdta
             changes['type'] = 'NEWUSR'
             changes['sAMAccountName'] = cusr
@@ -288,99 +285,84 @@ def compare(adusers,cerebrumusers):
     return changelist
 
 def create_user(elem):
-    #
-    # TO DO: legg til resten av AD data
-    #
-    ou = "OU=%s,%s" % (elem['affiliation'],cereconf.AD_LDAP)
+   
+    ou = "OU=%s,%s" % (elem['affiliation'], cereconf.AD_LDAP)
 
-    if elem['affiliation'] == 'studenter':
-        elem['homeDirectory'] = "%s%s" %(AD_HOME_DIRECTORY_studenter,elem['sAMAccountName'])
-        elem['homeDrive'] = AD_HOME_DRIVE_studenter
+    if elem['affiliation'] == cereconf.AD_STUDENT_OU:
+        elem['homeDirectory'] = "%s%s" %(cereconf.AD_HOME_DIRECTORY_STUDENT, elem['sAMAccountName'])
+        elem['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
     else:
-        elem['homeDirectory'] = "%s%s" %(AD_HOME_DIRECTORY_ANNSATT,elem['sAMAccountName'])
-        elem['homeDrive'] = AD_HOME_DRIVE_ANNSATT
-
-    print elem
-    print "\n"
-            
+        elem['homeDirectory'] = "%s%s" %(cereconf.AD_HOME_DIRECTORY_ANSATT, elem['sAMAccountName'])
+        elem['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
+    logger.debug("Creating account %s, homedir %s, homedrive %s" % (elem['sAMAccountName'],
+                                                                    elem['homeDirectory'],
+                                                                    elem['homeDrive']))
     ret = run_cmd('createObject', 'User', ou, elem['sAMAccountName'])
     if ret[0]:
-        print "created user %s" % ret
+        logger.info("Succesfully created account %s", ' '.join(ret))
     else:
-        print "create user %s failed: %r" % (elem['sAMAccountName'], ret)
-        
+        logger.error("Create account failed for %s", elem['sAMAccountName'])
+
+    # temporary password is registered for all created accounts
+    # this password wil be overridden by adpwdsync
+    #
     pw = unicode(ac.make_passwd(elem['sAMAccountName']), 'iso-8859-1')
     ret = run_cmd('setPassword', pw)
     if ret[0]:
         del elem['type']
-        #if elem.has_key('distinguishedName'):
-        #    del elem['distinguishedName']
-        #if elem.has_key('sAMAccountName'):
-        #    del elem['sAMAccountName']
-
+        
         for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
             if not elem.has_key(acc):
                 elem[acc] = value
 
         ret = run_cmd('putProperties', elem)
+
         if not ret[0]:
-            print "Faen, putProperties feila (%s)" % elem
+            logger.warn("Could not register properties for account %s", elem['sAMAaccountName'])
 
-
-        print "Creating homeDirectory %s\n" % elem['homeDirectory']
+        logger.debug("Creating homeDirectory %s", elem['homeDirectory'])
         ret = run_cmd('createHomedir')
         if not ret:
-            print "createHomedir funka ikke (%s)" % ret[0]
-
+            logger.error("Could not create homedir for %s, (%s)" % (elem['sAMAaccountName'], elem['homeDirectory']))
             
         ret = run_cmd('setObject')
         if not ret[0]:
-            print "setObject on %s failed: %r" % (elem['sAMAccountName'], ret)
+            logger.error("setObject on %s failed", elem['sAMAccountName'])
     else:
-        print "setPassword on %s failed: %s" % (elem['sAMAccountName'], ret)
+        logger.error("Could not set password for account %s", elem['sAMAccountName'])
             
 
 def move_user(chg):
-    ret = run_cmd('bindObject',chg['distinguishedName'])
+    ret = run_cmd('bindObject', chg['distinguishedName'])
     if not ret[0]:
-        print "bindObject on %s failed: %r" % (chg['sAMAccountName'], ret)      
+        logger.warn("Could not find object %s (bindObject failed)", (chg['distinguishedName'])
     else:
         ou = "OU=%s,%s" % (chg['affiliation'], cereconf.AD_LDAP)
         ret = run_cmd('moveObject',ou)
         if not ret[0]:
-            print "move_user failed? %s" % ret
+            logger.error("Failed to move account %s", chg['distinguishedName'])
         else:
-            print "move sucsess? %s" % ret
+            logger.debug("Succesfully moved account %s", chg['distinguishedName'])
 
 def del_user(chg):
-    print "flytter %s til cerebrum_deleted" % chg
+    logger.info("Moving account %s to cerebrum_deleted", chg['distinguishedName'])
     chg['type'] = 'MOVEUSR'
     chg['affiliation'] = 'cerebrum_deleted'
     move_user(chg)
     
-"""
-    ret = run_cmd('bindObject',chg['distinguishedName'])
-    if not ret[0]:
-        print "bindObject on %s failed: %r" % (chg['sAMAccountName'], ret)
-    else:
-        ret = run_cmd('deleteObject')
-    if not ret[0]:
-        print "deleteObject on %s failed %s" % (chg['sAMAccountName'], ret)
-"""
-
 def update_user(chg):
-    print "updating %s" % chg  
+    logger.info("Updating account %s", chg)
     ret = run_cmd('bindObject',chg['distinguishedName'])
     if not ret[0]:
-        print "bindObject on %s failed: %r" % (chg['sAMAccountName'], ret)
+        logger.error("Could not update account %s (bindObject failed)", chg['sAMAccountName'])
     else:
         ret = run_cmd('putProperties',chg)
     if not ret[0]:
-        print "putProperties on %s failed %s" % (chg['sAMAccountName'], ret)
+        logger.error("Could not update properties for %s (putProperties failed)", chg['sAMAccountName'])
     else:
         run_cmd('setObject')
     if not ret[0]:
-        print "setObject on %s failed %s" % (chg['sAMAccountName'], ret)
+        logger.error("setObject on %s failed", chg['sAMAccountName'])
         
 def perform_changes(changes):
     for chg in changes:
@@ -405,21 +387,61 @@ def run_cmd(command, arg1=None, arg2=None, arg3=None):
         ret = cmd(arg1, arg2, arg3)    
     return ret
 
-
-
-c_data = {}
-c_data = get_cerebrum_data()
-
-ad_data = {}
-ad_data = get_ad_data()
-
-
-print "fetched %d users from cerebrum, %d from AD" %(len(c_data),len(ad_data))
-changes = compare(ad_data,c_data)
-
-
-print "performing %d changes" % len(changes)
-perform_changes(changes)
-
-
+def main():
+    global db, co, ac, group, person, qua, logger
+    global server   
+    c_data = {}
+    ad_data = {}
     
+    db = Factory.get('Database')()
+    db.cl_init(change_program="adusync")
+    co = Factory.get('Constants')(db)
+    ac = Factory.get('Account')(db)
+    group = Factory.get('Group')(db)
+    person = Factory.get('Person')(db)
+    qua = Entity.EntityQuarantine(db)
+    logger = Factory.get_logger("cronjob")
+    
+    passwd = db._read_password(cereconf.AD_SERVER_HOST,
+                               cereconf.AD_SERVER_UNAME)
+
+    # Connect to AD-service at NMH
+    #
+    server = xmlrpclib.Server("https://%s@%s:%i" % (passwd,
+                                                    cereconf.AD_SERVER_HOST,
+                                                    cereconf.AD_SERVER_PORT))
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], '',
+                                   ['help', 'dry_run'])
+    except getopt.GetoptError:
+        usage(1)
+
+    dry_run = False	
+	
+    for opt, val in opts:
+        if opt == '--help':
+            usage(1)
+        elif opt == '--dry_run':
+            dry_run = True
+
+
+    c_data = get_cerebrum_data()
+
+    ad_data = get_ad_data()
+
+
+    changes = compare(ad_data,c_data)
+    logger.info("Will perform %d changes", len(changes))
+
+    if not dry_run:
+        perform_changes(changes)
+
+def usage(exitcode=0):
+    print """Usage: [options]
+    --dry_run
+    --help
+    """
+    sys.exit(exitcode)
+
+if __name__ == '__main__':
+    main()
