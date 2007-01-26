@@ -22,63 +22,54 @@ var perm_methods = new Array(); // [{'cls', {'method', 'id', 'cur', 'rem'}},]
 var perm_original_methods = null; // Contains backup of perm_methods for restore.
 var perm_original_current = null; // Contains backup of current for restore.
 
-addLoadEvent(Perm_init_listeners);
 addLoadEvent(Perm_init_methods);
 
-// Initialize listeners.
-function Perm_init_listeners() {
-    var all = document.getElementById('perm_all');
-    var add = document.getElementById('perm_add');
-    var rem = document.getElementById('perm_rem');
-    var res = document.getElementById('perm_restore');
-    var save = document.getElementById('perm_save');
-    var objs = document.getElementById('perm_objects');
-    var mets = document.getElementById('perm_methods');
-    var curr = document.getElementById('perm_current');
+YAHOO.util.Event.addListener('perm_all', 'click', Perm_methods_all);
+YAHOO.util.Event.addListener('perm_add', 'click', Perm_add);
+YAHOO.util.Event.addListener('perm_rem', 'click', Perm_rem);
+YAHOO.util.Event.addListener('perm_restore', 'click', Perm_restore);
+YAHOO.util.Event.addListener('perm_save', 'click', Perm_save);
+YAHOO.util.Event.addListener('perm_objects', 'change', Perm_objects_change);
+YAHOO.util.Event.addListener('perm_methods', 'change', Perm_methods_change);
 
-    addEvent(all, 'click', Perm_methods_all);
-    addEvent(add, 'click', Perm_add);
-    addEvent(rem, 'click', Perm_rem);
-    addEvent(res, 'click', Perm_restore);
-    addEvent(save, 'click', Perm_save);
-    addEvent(objs, 'change', Perm_objects_change);
-    addEvent(mets, 'change', Perm_methods_change);
-    
-    perm_original_current = curr.cloneNode(true);
-}
+YAHOO.util.Event.onAvailable('perm_current', function(e, obj) {
+    perm_original_current = obj.cloneNode(true);
+});
 
-// Get all operations methods from server.
-function Perm_init_methods() {
-    var req = get_http_requester();
-    req.open('GET', '/permissions/get_all_operations', true);
-    req.onreadystatechange = get_http_response(req, Perm_methods_load);
-    req.send(null);
-}
+YAHOO.util.Event.onAvailable(['perm_objects', 'perm_current', 'perm_methods'],
+    Perm_methods_load);
 
-// Handle response from the server.
-function Perm_methods_load(req) {
-    var objects = document.getElementById('perm_objects');
-    var current = document.getElementById('perm_current');
-    var methods = document.getElementById('perm_methods');
-    var data = eval('(' + req.responseText + ')');
-    perm_methods = data.methods;
-    perm_original_methods = data.methods;
+function Perm_methods_load() {
+    var callback = {
+        success: function(o) {
+            var objects = document.getElementById('perm_objects');
+            var current = document.getElementById('perm_current');
+            var methods = document.getElementById('perm_methods');
+            var data = eval('(' + o.responseText + ')');
+            perm_methods = data.methods;
+            perm_original_methods = data.methods;
 
-    // Update perm_methods with current methods.
-    for (i = 0; i < current.length; i++) {
-        str = current[i].value.split(".");
-        met = Perm_find_method(str[0], str[1]);
-        if (met) { met.cur = true; }
-    }
+            // Update perm_methods with current methods.
+            for (i = 0; i < current.length; i++) {
+                str = current[i].value.split(".");
+                met = Perm_find_method(str[0], str[1]);
+                if (met) { met.cur = true; }
+            }
 
-    // Fill object-list.
-    objects.remove(0);
-    for (i = 0; i < data.classes.length; i++)
-        Perm_add_option(objects, data.classes[i]);
+            // Fill object-list.
+            objects.remove(0);
+            for (i = 0; i < data.classes.length; i++)
+                Perm_add_option(objects, data.classes[i]);
 
-    // Fill method-list.
-    methods.remove(0);
-    Perm_objects_change();
+            // Fill method-list.
+            methods.remove(0);
+            Perm_objects_change();
+        },
+        failure: function(o) { /* empty */ },
+        timeout: 5000
+    };
+    url = '/permissions/get_all_operations'
+    var cObj = YAHOO.util.Connect.asyncRequest('GET', url, callback);
 }
 
 // Find method in perm_methods by cls and name.

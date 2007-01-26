@@ -87,8 +87,9 @@ function TO_check() {
         timeout: TO_timeout,
     }
 
-    var connectionObject = YAHOO.util.Connect.asyncRequest('POST',
-        '/session_time_left', callback, 'nocache=' + Math.random());
+    url = '/session_time_left'
+    data = 'nocache=' + Math.random()
+    var cObj = YAHOO.util.Connect.asyncRequest('POST', url, callback, data);
 }
 
 // Requests the server to keep the session alive for another periode.
@@ -111,8 +112,9 @@ function TO_keepalive() {
         timeout: TO_timeout,
     }
     
-    var connectionObject = YAHOO.util.Connect.asyncRequest('POST',
-        '/session_keep_alive', callback, 'nocache=' + Math.random());
+    url = '/session_keep_alive'
+    data = 'nocache=' + Math.random()
+    var cObj = YAHOO.util.Connect.asyncRequest('POST', url, callback, data);
 }
 
 function TO_allow_timeout() {

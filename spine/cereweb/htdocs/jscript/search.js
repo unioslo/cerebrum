@@ -18,9 +18,6 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-// Used by httprequests to get the right url
-webroot = "";  // Should be overriden by includer
-
 YAHOO.util.Event.addListener('search_clear', 'click', SR_clear);
 YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
 
@@ -54,7 +51,6 @@ function remove_searchresult() {
     if (YAHOO.util.Dom.inDocument('searchresult')) {
         var searchresult = document.getElementById('searchresult');
         var removed = maindiv.removeChild(searchresult);
-        YAHOO.log(removed);
     }
 }
 

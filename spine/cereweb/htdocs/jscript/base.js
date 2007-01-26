@@ -18,9 +18,6 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-// Used by httprequests to get the right url
-var webroot = "";  // Should be overriden by includer
-
 // Initialize yui-stuff.
 YAHOO.namespace('cereweb');
 YAHOO.widget.Logger.enableBrowserConsole();
@@ -32,38 +29,6 @@ function addLoadEvent(func) {
 function addEvent(obj, sType, fn){
     alert('addEvent is deprecated: ' + func);
     YAHOO.util.Event.addListener(obj, sType, fn);
-}
-
-// Cross-browser-compatible method for creating xmlhttp-objects.
-function get_http_requester() {
-    var requester = null;
-    try {
-        requester = new XMLHttpRequest();
-    } catch (err) {
-        try {
-            requester = new ActiveXObject("Microsoft.XMLHTTP");
-        } catch (err) {
-            alert("Error: Unable to create XMLHttpRequest-object.");
-        }
-    }
-    return requester
-}
-
-// Calls func if func is set and the http respons was successfull.
-function get_http_response(req, func, errfunc) {
-    return function() {
-        if (req.readyState == 4) {
-            if (req.status != 200) {
-                if (errfunc) { 
-                    errfunc("HttpRequest "+req.status+":\n"+req.responseText);
-                }
-            } else {
-                if (func) {
-                    func(req);
-                }
-            }
-        }
-    };
 }
 
 // Cross-browser method to set text on a Anchor DOM-object.
