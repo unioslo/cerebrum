@@ -205,6 +205,9 @@ class AccountUtil(object):
             user.find(account_id)
 
         for c_id, dta in changes:
+            if c_id == 'add_spread':
+                user.add_spread(dta)
+        for c_id, dta in changes:
             if c_id == 'dfg':
                 user.gid_id = dta
                 logger.debug("Used dfg: "+str(dta))
@@ -234,7 +237,7 @@ class AccountUtil(object):
             elif c_id == 'remove_quarantine_at_restore':
                 user.delete_entity_quarantine(dta)
             elif c_id == 'add_spread':
-                user.add_spread(dta)
+                pass   # already processed
             elif c_id == 'add_person_spread':
                 if (not hasattr(person_obj, 'entity_id') or
                     person_obj.entity_id != user.owner_id):
