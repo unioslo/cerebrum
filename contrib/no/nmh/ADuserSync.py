@@ -335,7 +335,7 @@ def create_user(elem):
 def move_user(chg):
     ret = run_cmd('bindObject', chg['distinguishedName'])
     if not ret[0]:
-        logger.warn("Could not find object %s (bindObject failed)", (chg['distinguishedName'])
+        logger.warn("Could not find object %s (bindObject failed)", (chg['distinguishedName']))
     else:
         ou = "OU=%s,%s" % (chg['affiliation'], cereconf.AD_LDAP)
         ret = run_cmd('moveObject',ou)
