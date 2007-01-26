@@ -190,24 +190,31 @@ def assign_memberships(groupname, members):
         addee = None
         entity_type = None
 
+        # Check for entries in the "external_id"-table first, since
+        # anyone who is listed there will have an updated username
+        # that we wish to use instead of the potentially old one we're
+        # looking at now.
 	try:
-	    account_member.clear()
-	    account_member.find_by_name(member)
+            person.clear()
+            person.find_by_external_id(constants.externalid_uname, member)
+            account_id = person.get_primary_account()
+            account_member.clear()
+            account_member.find(account_id)
             addee = account_member
             entity_type = constants.entity_account
+            logger.debug3("Found account '%s' for user with external name '%s'" % (addee.account_name, member))
 
 	except Errors.NotFoundError:
-            logger.debug3("Didn't find user with name '%s'" % member)
+            logger.debug3("Didn't find user with external name '%s'" % member)
             try:
-                # TODO 2006-12-05 amveha - Test this properly; haven't got suitable data at the moment
-                person.clear()
-                person.find_by_external_id(constants.externalid_uname, member)
-                addee = person.get_primary_account()
+                account_member.clear()
+                account_member.find_by_name(member)
+                addee = account_member
                 entity_type = constants.entity_account
-                logger.debug3("Found account '%s' for user with external name '%s'" % (addee.name, member))
+                logger.debug3("Found account '%s' for user with name '%s'" % (addee.account_name, member))
 
             except Errors.NotFoundError:
-                logger.debug3("Didn't find user with external name '%s'" % member)
+                logger.debug3("Didn't find user with name '%s'" % member)
                 try:
                     group_member.clear()
                     group_member.find_by_name(member)
@@ -239,7 +246,7 @@ def usage():
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:d:sh',
+                                   'f:ds:h',
                                    ['file=', 'dryrun', 'spread=', 'help'])
     except getopt.GetoptError:
         usage()
