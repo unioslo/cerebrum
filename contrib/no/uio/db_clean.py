@@ -141,6 +141,7 @@ class CleanChangeLog(object):
         int(co.group_add): AGE_FOREVER,
         int(co.spread_add): AGE_FOREVER,
         int(co.account_password): AGE_FOREVER,
+        int(co.posix_demote): AGE_FOREVER,
 
         # TODO: Once account_type changes are better logged, we don't need
         # this special case
