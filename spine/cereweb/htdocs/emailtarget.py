@@ -100,22 +100,10 @@ delete = transaction_decorator(delete)
 delete.exposed = True
 
 def delete_addr(transaction, id, addr):
-    id = int(id)
-    target_obj = transaction.get_email_target(id)
-    addrs = target_obj.get_addresses()
-    for the_addr in addrs:
-        if addr == the_addr.get_id():
-            the_addr.delete()
+    addr = int(addr)
+    addr = transaction.get_email_address(addr).delete()
     transaction.commit()
-    target_obj = transaction.get_email_target(id)
-    target = parse_target( target_obj, id )
-    page = Main()
-    page.title = _('Addresses in ')
-    page.setFocus('/email', id)
-    template = EmailTargetViewTemplate()
-    content = template.view(target)
-    page.content = lambda: content
-    return page
+    redirect('/emailtarget/view?id=' + id)
 delete_addr = transaction_decorator(delete_addr)
 delete_addr.exposed = True
 
@@ -146,12 +134,8 @@ def makeaddress(transaction, id, local, domain, expire):
             msg = _('Domain is empty.')
     if not msg:
         cmds = transaction.get_commands()
-        print 'get domain by name'
         domain = cmds.get_email_domain_by_name(domain)
-        print 'get domain by name ferdig'
-        print 'create email address'
         emailaddr = cmds.create_email_address(local, domain, target)
-        print 'create email address ferdig'
         if expire:
             expire = cmds.strptime(expire, "%Y-%m-%d")
             emailaddr.set_expire_date(expire)
