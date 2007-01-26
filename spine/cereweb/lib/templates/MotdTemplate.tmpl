@@ -25,14 +25,18 @@
 
 
 #def viewMotds($motds)
-<div>
+<div class="view_content">
+    <div class="view_actions" id="actions">
+        <a href="/all_motds" >$_('View all messages')</a><br />
+        <a href="#new_motd" id="motd_create">$_('Create a new message')</a><br />
+    </div>
     #for $motd in $motds
         #set $id = $motd.get_id()
         #set $subject = $motd.get_subject()
         #set $message = $motd.get_message()
-        <div class="motd" id="motd_$id">
+        <div class="motd box" id="motd_$id">
             <div class="actions">
-                <a class="action" href="javascript:;" id="motd_edit_$id">$_('edit')</a><br />
+                <a class="action" href="javascript:;" id="motd_edit_$id">$_('edit')</a>
                 <a class="action" href="/delete_motd?id=$id">$_('delete')</a>
             </div>
             <div class="subject">$subject</div>
@@ -51,9 +55,6 @@
             //-->
         </script>
     #end for
-    <a href="/all_motds" class="action">$_('View all messages')</a>
-    <a href="#new_motd" id="motd_create" class="action">$_('Create a new message')</a>
-    <br />
     $editMotd('/create_motd')
     <script type="text/javascript">
         <!--
