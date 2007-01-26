@@ -29,7 +29,22 @@ class UiTOU(access_FS.StudieInfo):
         INSTITUSJONSNR,FAKNR,INSTITUTTNR,GRUPPENR,STEDAKRONYM,STEDNAVN_BOKMAL,ORGNIVAKODE,INSTITUSJONSNR_ORG_UNDER,FAKNR_ORG_UNDER,INSTITUTTNR_ORG_UNDER,GRUPPENR_ORG_UNDER,ADRLIN1,ADRLIN2,POSTNR,ADRLIN3,ADRESSELAND,STEDKORTNAVN,STEDNAVN_NYNORSK,STEDNAVN_ENGELSK,TELEFONLANDNR,TELEFONRETNNR,TELEFONNR,FAXNR,INSTITUSJONSNR_ERSTATTES_AV,FAKNR_ERSTATTES_AV,INSTITUTTNR_ERSTATTES_AV,GRUPPENR_ERSTATTES_AV,DATO_AKTIV_FRA,DATO_AKTIV_TIL,NSD_AVDKODE,EIERTYPEKODE,ADRLIN1_BESOK,ADRLIN2_BESOK,POSTNR_BESOK,ADRLIN3_BESOK,ADRESSELAND_BESOK,EMAILADRESSE,KODEVERDITYPE,NSDINSTKODE,INSTTYPEKODE,UTRSTEDKODE,LANDNR,TELEFONLANDNR_FAX,TELEFONRETNNR_FAX,TELEFONNR_FAX,INSTITUSJONSNR_GEOGR,FAKNR_GEOGR,INSTITUTTNR_GEOGR,GRUPPENR_GEOGR,BIBSYSBESTSTEDKODE,ORGNR,URL,TELEFONLANDNR_2,TELEFONRETNNR_2,TELEFONNR_2,MERKNADTEKST
         FROM fs.sted where institusjonsnr=%s and status_aktiv='J'
         """ % institusjonsnr
+        
         return self.db.query(qry)
+
+
+
+    def GetAlleOUer(self,institusjonsnr=186):
+        """Henter data om aktive OU'er fra FS"""
+        qry="""
+        SELECT DISTINCT
+        INSTITUSJONSNR,FAKNR,INSTITUTTNR,GRUPPENR,STEDAKRONYM,STEDNAVN_BOKMAL,ORGNIVAKODE,INSTITUSJONSNR_ORG_UNDER,FAKNR_ORG_UNDER,INSTITUTTNR_ORG_UNDER,GRUPPENR_ORG_UNDER,ADRLIN1,ADRLIN2,POSTNR,ADRLIN3,ADRESSELAND,STEDKORTNAVN,STEDNAVN_NYNORSK,STEDNAVN_ENGELSK,TELEFONLANDNR,TELEFONRETNNR,TELEFONNR,FAXNR,INSTITUSJONSNR_ERSTATTES_AV,FAKNR_ERSTATTES_AV,INSTITUTTNR_ERSTATTES_AV,GRUPPENR_ERSTATTES_AV,DATO_AKTIV_FRA,DATO_AKTIV_TIL,NSD_AVDKODE,EIERTYPEKODE,ADRLIN1_BESOK,ADRLIN2_BESOK,POSTNR_BESOK,ADRLIN3_BESOK,ADRESSELAND_BESOK,EMAILADRESSE,KODEVERDITYPE,NSDINSTKODE,INSTTYPEKODE,UTRSTEDKODE,LANDNR,TELEFONLANDNR_FAX,TELEFONRETNNR_FAX,TELEFONNR_FAX,INSTITUSJONSNR_GEOGR,FAKNR_GEOGR,INSTITUTTNR_GEOGR,GRUPPENR_GEOGR,BIBSYSBESTSTEDKODE,ORGNR,URL,TELEFONLANDNR_2,TELEFONRETNNR_2,TELEFONNR_2,MERKNADTEKST
+        FROM fs.sted where institusjonsnr=%s
+        """ % institusjonsnr
+        
+        return self.db.query(qry)
+
+
 
 class UiTStudent(access_FS.Student):
 
@@ -83,6 +98,9 @@ class UiTStudent(access_FS.Student):
            """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
 
+    #studentstatkode.studentstatus.status_aktiv_student=('J/N')
+    # studieprogramstudent.studentstatkode('aktiv/permision')
+    # studierett_gyldig_til
     def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
         """Alle drgradsstudenter med ikke utgått opptak til drgrads-
         studieprogram.
@@ -109,11 +127,12 @@ class UiTStudent(access_FS.Student):
            p.fodselsdato=sps.fodselsdato AND
            p.personnr=sps.personnr AND
            %s
-           (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
-           NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
+           (NVL(sps.dato_beregnet_slutt, sysdate) > SYSDATE OR
+           NVL(sps.dato_planlagt_slutt, sysdate) > SYSDATE) AND
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
            sp.studienivakode >= 900 AND
+           ((sps.studentstatkode='AKTIV') or (sps.studentstatkode='PERMISJON')) AND
            %s""" % (extra, self._is_alive())
         return self.db.query(qry, locals())
 
