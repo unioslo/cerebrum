@@ -30,10 +30,12 @@ from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 
+
 def get_ad_data():
     # which user attributes should be fetched for users at NMH
     server.setUserAttributes(cereconf.AD_ATTRIBUTES, cereconf.AD_ACCOUNT_CONTROL)
     return server.listObjects('user', True)
+
 
 def get_cerebrum_data():
     pid2name = {}
@@ -299,7 +301,7 @@ def create_user(elem):
                                                                     elem['homeDrive']))
     ret = run_cmd('createObject', 'User', ou, elem['sAMAccountName'])
     if ret[0]:
-        logger.info("Succesfully created account %s", ' '.join(ret))
+        logger.info("Succesfully created account %s", elem['sAMAccountName'])
     else:
         logger.error("Create account failed for %s", elem['sAMAccountName'])
 
@@ -338,17 +340,19 @@ def move_user(chg):
         logger.warn("Could not find object %s (bindObject failed)", (chg['distinguishedName']))
     else:
         ou = "OU=%s,%s" % (chg['affiliation'], cereconf.AD_LDAP)
-        ret = run_cmd('moveObject',ou)
+        ret = run_cmd('moveObject', ou)
         if not ret[0]:
-            logger.error("Failed to move account %s", chg['distinguishedName'])
+            logger.error("Failed to move account %s.", chg['distinguishedName'])
         else:
-            logger.debug("Succesfully moved account %s", chg['distinguishedName'])
+            logger.warn("Moved account %s", chg['distinguishedName'])
+
 
 def del_user(chg):
     logger.info("Moving account %s to cerebrum_deleted", chg['distinguishedName'])
     chg['type'] = 'MOVEUSR'
     chg['affiliation'] = 'cerebrum_deleted'
     move_user(chg)
+
     
 def update_user(chg):
     logger.info("Updating account %s", chg)
@@ -363,6 +367,7 @@ def update_user(chg):
         run_cmd('setObject')
     if not ret[0]:
         logger.error("setObject on %s failed", chg['sAMAccountName'])
+
         
 def perform_changes(changes):
     for chg in changes:
@@ -374,6 +379,7 @@ def perform_changes(changes):
             del_user(chg)
         elif chg['type'] == 'UPDATEUSR':
             update_user(chg)
+
         
 def run_cmd(command, arg1=None, arg2=None, arg3=None):
     cmd = getattr(server, command)
@@ -386,6 +392,7 @@ def run_cmd(command, arg1=None, arg2=None, arg3=None):
     else:
         ret = cmd(arg1, arg2, arg3)    
     return ret
+
 
 def main():
     global db, co, ac, group, person, qua, logger
@@ -435,6 +442,7 @@ def main():
 
     if not dry_run:
         perform_changes(changes)
+
 
 def usage(exitcode=0):
     print """Usage: [options]
