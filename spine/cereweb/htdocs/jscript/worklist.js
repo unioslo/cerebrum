@@ -18,15 +18,7 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* TODO:
-    - opera: encoding-bug with רזו when sending request to add element
-    - make clever actions when several are selected
-*/
-
-/* SETTINGS */
-
-// Used by httprequests to get the right url
-webroot = "";  // Should be overriden by includer
+webroot = location.protocol + '//' + location.host + '/';
 
 // Max elements in the worklist.
 var WL_max_elements = 20;
@@ -39,12 +31,23 @@ var WL_worklist = new Array();
 // Contains all actions created, not persistent.
 var WL_actions = new Array();
 
-// After the page is finished loading, run these methods.
-YAHOO.util.Event.addListener(window, 'load', WL_init_listeners);
-YAHOO.util.Event.addListener(window, 'load', WL_init_elements);
-YAHOO.util.Event.addListener(window, 'load', WL_init_actions);
+YAHOO.util.Event.addListener('WL_all', 'click', WL_select_all);
+YAHOO.util.Event.addListener('WL_none', 'click', WL_select_none);
+YAHOO.util.Event.addListener('WL_invert', 'click', WL_invert);
+YAHOO.util.Event.addListener('WL_forget', 'click', WL_forget);
+YAHOO.util.Event.addListener('WL_select', 'change', WL_view_actions);
+
+YAHOO.util.Event.onAvailable('WL_select', WL_init_elements);
+YAHOO.util.Event.onAvailable('WL_select', WL_init_actions);
 
 /* END SETTINGS */
+
+// Simple callback for all our AJAX calls in the worklist.
+var callback = {
+    success: function(o) { /* empty */ },
+    failure: WL_error,
+    timeout: 5000
+}
 
 // Method which compares the elements of 2 arrays to see if they are equal.
 function compareArrays(arr1, arr2) {
@@ -71,11 +74,11 @@ function compareArrays(arr1, arr2) {
 
 // Show errors to the user, in a inobtrusive way.
 function WL_error(msg) {
-    var action_div = document.getElementById('WL_actions');
+    var action_div = document.getElementById('wl_actions');
     var error_div = document.getElementById('WL_errors');
 
     // hide all actions
-    var actions = document.getElementById('WL_actions');
+    var actions = document.getElementById('wl_actions');
     for (var i = 0; i < actions.childNodes.length; i++) {
         if (actions.childNodes[i].style) {
             actions.childNodes[i].style.display = "none";
@@ -84,21 +87,6 @@ function WL_error(msg) {
 
     error_div.appendChild(document.createTextNode(msg));
     error_div.style.display = "block";
-}
-
-// Registers listeners to worklist-buttons.
-function WL_init_listeners() {
-    var all_button = document.getElementById('WL_all');
-    var none_button = document.getElementById('WL_none');
-    var invert_button = document.getElementById('WL_invert');
-    var forget_button = document.getElementById('WL_forget');
-    var select_list = document.getElementById('WL_select');
-
-    YAHOO.util.Event.addListener(all_button, 'click', WL_select_all);
-    YAHOO.util.Event.addListener(none_button, 'click', WL_select_none);
-    YAHOO.util.Event.addListener(invert_button, 'click', WL_invert);
-    YAHOO.util.Event.addListener(forget_button, 'click', WL_forget);
-    YAHOO.util.Event.addListener(select_list, 'change', WL_view_actions);
 }
 
 // Fill WL_worklist and change link-texts to forget.
@@ -153,19 +141,17 @@ function WL_view_actions(update_only) {
     for (var i = 0; i < selected.length; i++) {
         ids[i] = selected[i][0];
     }
-    
-    var args = "?ids=" + ids;
+
+    var args = "ids=" + ids;
     var update_url = webroot + '/worklist/selected';
     
     if (update_only == null || update_only != true) {
-        var req = get_http_requester();
-        req.open("GET", update_url + args, true);
-        req.onreadystatechange = get_http_response(req, null, WL_error);
-        req.send(null);
+        var cObj = YAHOO.util.Connect.asyncRequest('POST',
+            update_url, callback, args);
     }
     
     // hide all actions.
-    var actions = document.getElementById('WL_actions');
+    var actions = document.getElementById('wl_actions');
     for (var i = 0; i < actions.childNodes.length; i++) {
         if (actions.childNodes[i].style) {
             actions.childNodes[i].style.display = "none";
@@ -339,12 +325,10 @@ function WL_remember(id, cls, name) {
             WL_forget_by_pos(i);
             
             // tell the server that we have removed some element.
-            var req = get_http_requester();
             var remove_url = webroot + '/worklist/remove';
-            req.open("GET", remove_url+"?id="+id, true);
-            req.onreadystatechange = get_http_response(req, null, WL_error);
-            req.send(null);
-    
+            var args = "id="+id;
+            var cObj = YAHOO.util.Connect.asyncRequest('POST',
+                remove_url, callback, args);
             return;
         }
     }
@@ -377,11 +361,10 @@ function WL_remember(id, cls, name) {
     set_link_text(link, "forget");
 
     // tell the server that we have added an element.
-    var requester = get_http_requester();
     var add_url = webroot + '/worklist/add';
-    requester.open("GET", add_url+"?id="+id+"&cls="+cls+"&name="+name, true);
-    requester.onreadystatechange = get_http_response(requester, null, WL_error);
-    requester.send(null);
+    args = "id="+id+"&cls="+cls+"&name="+name
+    var cObj = YAHOO.util.Connect.asyncRequest('POST',
+        add_url, callback, args);
 }
 
 // method for removing an element from the worklist by position
@@ -420,11 +403,10 @@ function WL_forget() {
     }
     
     // tell the server that we have removed some element.
-    var requester = get_http_requester();
     var remove_url = webroot + '/worklist/remove';
-    requester.open("GET", remove_url+"?ids="+ids, true);
-    requester.onreadystatechange = get_http_response(requester, null, WL_error);
-    requester.send(null);
+    var args = "ids="+ids;
+    var cObj = YAHOO.util.Connect.asyncRequest('POST',
+        update_url, callback, args);
 }
 
 function WL_select_all() {
