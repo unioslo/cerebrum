@@ -23,7 +23,7 @@ import sys
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator, redirect, object_link
-from lib.utils import commit
+from lib.utils import commit, queue_message, legal_date
 from SpineIDL.Errors import NotFoundError
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
@@ -103,7 +103,8 @@ def delete_addr(transaction, id, addr):
     addr = int(addr)
     addr = transaction.get_email_address(addr).delete()
     transaction.commit()
-    redirect('/emailtarget/view?id=' + id)
+    queue_message('Email address successfully deleted.', error=False)
+    redirect("/emailtarget/view?id=%s" % id)
 delete_addr = transaction_decorator(delete_addr)
 delete_addr.exposed = True
 
@@ -132,6 +133,10 @@ def makeaddress(transaction, id, local, domain, expire):
     if not msg:
         if not domain:
             msg = _('Domain is empty.')
+    if not msg:
+        if expire:
+            if not legal_date(expire):
+                msg = _('Expire date is not a legal date.')
     if not msg:
         cmds = transaction.get_commands()
         domain = cmds.get_email_domain_by_name(domain)
