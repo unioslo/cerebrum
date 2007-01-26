@@ -330,17 +330,21 @@ div.box {
     width: 100%;
     float: left;
     clear: both;
-    margin: 10px 10px 10px 0;
+
+    margin: 0;
+    margin-bottom: 1em;
+
+    ## No padding on the box, this belongs in the info/important/... class.
+    padding: 0;
     border: 1px solid;
 }
 
-/*
 div.box h3 {
+    ## No margin or padding on the box, this belongs in the info/important/... class.
+    padding: 0; 
     margin: 0;
-    padding: 0 5px 0 5px; 
     font-size: 105%; 
 }
-*/
 
 div.box h4 {
     margin: 0;
@@ -441,8 +445,6 @@ div.view_info {
     width: 500px;
     font-size: 15px;
     margin-bottom: 0.2em;
-    padding-left: 1em;
-    padding-bottom: 1em;
     text-align: left;
     white-space: normal;
 }
@@ -619,6 +621,7 @@ div.session_warning {
 div.motd {
     width: 450px;
     margin-bottom: 1em;
+    clear: none;
 }
 
 div.motd div.subject {
