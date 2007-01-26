@@ -106,7 +106,8 @@ def delete_addr(transaction, id, addr):
     for the_addr in addrs:
         if addr == the_addr.get_id():
             the_addr.delete()
-    transcation.commit()
+    transaction.commit()
+    target_obj = transaction.get_email_target(id)
     target = parse_target( target_obj, id )
     page = Main()
     page.title = _('Addresses in ')
