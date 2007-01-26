@@ -143,7 +143,7 @@ function TO_connection_failure(o) {
         TO_timeout_fail = TO_timeout_fail * TO_timeout_fail_inc;
 
     var warning_div = document.getElementById('session_warning');
-    var msg = "<p>It seems that the server is unavilable.  This message\
+    var msg = "<p>It seems that the server is unavailable.  This message\
  will disappear as soon as the server is available again, so please be patient.\
  If nothing happens within five minutes, feel free to call (735) 91500 and\
  notify Orakeltjenesten of the situation.</p>";
