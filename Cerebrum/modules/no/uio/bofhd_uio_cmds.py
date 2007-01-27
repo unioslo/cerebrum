@@ -47,6 +47,7 @@ from Cerebrum import Cache
 from Cerebrum import Database
 from Cerebrum import Entity
 from Cerebrum import Errors
+from Cerebrum import Metainfo
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum import Utils
 from Cerebrum.modules import Email
@@ -3112,6 +3113,9 @@ class BofhdExtension(object):
             g.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
+        if cereconf.BOFHD_NEW_GROUP_SPREADS:
+            g.add_spread(self.const.Spread(spread))
+            g.write_db()
         return {'group_id': int(g.entity_id)}
 
     # group request, like group create, but only send request to
@@ -3621,11 +3625,10 @@ class BofhdExtension(object):
                        old_req['state_data'])
         return "OK, altered request %s" % request_id
 
-    # misc checkpassw
-    # TBD: this command should be renamed "misc check_password"
-    all_commands['misc_checkpassw'] = Command(
-        ("misc", "checkpassw"), AccountPassword())
-    def misc_checkpassw(self, operator, password):
+    # misc check_password
+    all_commands['misc_check_password'] = Command(
+        ("misc", "check_password"), AccountPassword())
+    def misc_check_password(self, operator, password):
         pc = PasswordChecker.PasswordChecker(self.db)
         try:
             pc.goodenough(None, password, uname="foobar")
@@ -4250,6 +4253,7 @@ class BofhdExtension(object):
          ('affiliation', 'domain'))],
          hdr="Stedkode   Organizational unit"))
     def misc_stedkode(self, operator, pattern):
+        meta = Metainfo.Metainfo(self.db)
         output = []
         ou = self.OU_class(self.db)
         if re.match(r'[0-9]{1,6}$', pattern):
@@ -4292,7 +4296,11 @@ class BofhdExtension(object):
                                                  ou.institutt,
                                                  ou.avdeling),
                                'short_name': ou.short_name})
-        if len(output) == 1:
+        try:
+            email_info = meta.get_metainfo('sqlmodule_email')
+        except Errors.NotFoundError:
+            email_info = None
+        if len(output) == 1 and email_info:
             eed = Email.EntityEmailDomain(self.db)
             try:
                 eed.find(ou.ou_id)
@@ -4309,11 +4317,10 @@ class BofhdExtension(object):
                                'domain': ed.email_domain_name})
         return output
 
-    # misc user_passwd
-    # TBD: this command should be renamed "misc check_user_password"
-    all_commands['misc_user_passwd'] = Command(
-        ("misc", "user_passwd"), AccountName(), AccountPassword())
-    def misc_user_passwd(self, operator, accountname, password):
+    # misc verify_password
+    all_commands['misc_verify_password'] = Command(
+        ("misc", "verify_password"), AccountName(), AccountPassword())
+    def misc_verify_password(self, operator, accountname, password):
         ac = self._get_account(accountname)
         # Only people who can set the password are allowed to check it
         self.ba.can_set_password(operator.get_entity_id(), ac)
@@ -5213,7 +5220,7 @@ class BofhdExtension(object):
             entity.add_spread(spread)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        if entity_type == 'account':
+        if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self.__spread_sync_group(entity)
         return "OK, added spread %s for %s" % (
             spread, self._get_name_from_object(entity))
@@ -5244,7 +5251,7 @@ class BofhdExtension(object):
         else:
             txt = "Entity '%s' does not have spread '%s'" % (id, str(spread))
             raise CerebrumError, txt
-        if entity_type == 'account':
+        if entity_type == 'account' and cereconf.POSIX_SPREAD_CODES:
             self.__spread_sync_group(entity)
         return "OK, removed spread %s from %s" % (
             spread, self._get_name_from_object(entity))
