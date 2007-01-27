@@ -257,7 +257,8 @@ BOFHD_STUDADM_GROUP=BOFHD_SUPERUSER_GROUP
 # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
 BOFHD_TEMPLATES={}
 BOFHD_MOTD_FILE=None
-BOFHD_NEW_USER_SPREADS = []
+BOFHD_NEW_USER_SPREADS=[]
+BOFHD_NEW_GROUP_SPREADS=[]
 BOFHD_CHECK_DISK_SPREAD=None
 BOFHD_CLIENTS = {'jbofh': '0.0.3'}
 # Max number of seconds a client can have a socket stuck in recv/send
