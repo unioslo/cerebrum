@@ -1,19 +1,44 @@
 # -*- coding: iso-8859-1 -*-
-import cereconf
+
+# Copyright 2006 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+
 
 import mx
 import pickle
+
+import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
+from Cerebrum import Database
+
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.nmh import bofhd_nmh_help
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.modules.no.nmh.access_FS import FS
+from Cerebrum.modules.no import fodselsnr
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -58,7 +83,7 @@ class BofhdExtension(object):
         #
         'person_accounts', 'person_affiliation_add', '_person_affiliation_add_helper',
         'person_affiliation_remove', 'person_create',
-        'person_find', 'person_info', 'person_student_info',
+        'person_find', 'person_info', 
         #
         # copy relevant quarantine-cmds and util methods
         #
@@ -87,7 +112,8 @@ class BofhdExtension(object):
         '_format_changelog_entry', '_format_from_cl',
          '_get_entity_name', '_get_group_opcode', '_get_name_from_object',
         '_get_constant', '_is_yes', '_remove_auth_target',
-        '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to'
+        '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
+        '_convert_ticks_to_timestamp'
         )
 
     def __new__(cls, *arg, **karg):
@@ -151,7 +177,75 @@ class BofhdExtension(object):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
+    
+    # person student_info
+    #
+    all_commands['person_student_info'] = Command(
+        ("person", "student_info"), PersonId(),
+        fs=FormatSuggestion([
+        ("Studieprogrammer: %s, %s, %s, %s, tildelt=%s->%s privatist: %s",
+         ("studprogkode", "studieretningkode", "studierettstatkode", "studentstatkode", 
+	  format_day("dato_tildelt"), format_day("dato_gyldig_til"), "privatist")),
+        ("Eksamensmeldinger: %s (%s), %s",
+         ("ekskode", "programmer", format_day("dato"))),
+        ("Utd. plan: %s, %s, %d, %s",
+         ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
+          format_day("dato_bekreftet"))),
+        ("Semesterreg: %s, %s, FS bet. reg: %s, endret: %s",
+         ("regformkode", "betformkode", format_day("dato_endring"),
+          format_day("dato_regform_endret")))
+        ]),
+        perm_filter='can_get_student_info')
+    def person_student_info(self, operator, person_id):
+        person = self._get_person(*self._map_person_id(person_id))
+        self.ba.can_get_student_info(operator.get_entity_id(), person)
+        fnr = person.get_external_id(id_type=self.const.externalid_fodselsnr,
+                                     source_system=self.const.system_fs)
+        if not fnr:
+            raise CerebrumError("No matching fnr from FS")
+        fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
+        har_opptak = {}
+        ret = []
+        try:
+            db = Database.connect(user="cerebrum", service="FSNMH.uio.no",
+                                  DB_driver='Oracle')
+        except Database.DatabaseError, e:
+            self.logger.warn("Can't connect to FS (%s)" % e)
+            raise CerebrumError("Can't connect to FS, try later")
+        fs = FS(db)
+        for row in fs.student.get_studierett(fodselsdato, pnum):
+            har_opptak["%s" % row['studieprogramkode']] = \
+                            row['status_privatist']
+            ret.append({'studprogkode': row['studieprogramkode'],
+                        'studierettstatkode': row['studierettstatkode'],
+                        'studentstatkode': row['studentstatkode'],
+			'studieretningkode': row['studieretningkode'],
+                        'dato_tildelt': self._convert_ticks_to_timestamp(row['dato_studierett_tildelt']),
+                        'dato_gyldig_til': self._convert_ticks_to_timestamp(row['dato_studierett_gyldig_til']),
+                        'privatist': row['status_privatist']})
 
+        for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
+            programmer = []
+            for row2 in fs.info.get_emne_i_studieprogram(row['emnekode']):
+                if har_opptak.has_key("%s" % row2['studieprogramkode']):
+                    programmer.append(row2['studieprogramkode'])
+            ret.append({'ekskode': row['emnekode'],
+                        'programmer': ",".join(programmer),
+                        'dato': self._convert_ticks_to_timestamp(row['dato_opprettet'])})
+                      
+        for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
+            ret.append({'studieprogramkode': row['studieprogramkode'],
+                        'terminkode_bekreft': row['terminkode_bekreft'],
+                        'arstall_bekreft': row['arstall_bekreft'],
+                        'dato_bekreftet': self._convert_ticks_to_timestamp(row['dato_bekreftet'])})
+
+        for row in fs.student.get_semreg(fodselsdato, pnum):
+            ret.append({'regformkode': row['regformkode'],
+                        'betformkode': row['betformkode'],
+                        'dato_endring': self._convert_ticks_to_timestamp(row['dato_endring']),
+                        'dato_regform_endret': self._convert_ticks_to_timestamp(row['dato_regform_endret'])})
+        db.close()
+        return ret
 
     # misc list_passwords
     #
