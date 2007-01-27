@@ -596,6 +596,31 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     cryptstring)
         raise ValueError, "Unknown method " + repr(method)
 
+    def verify_auth(self, plaintext):
+        """Try to verify all authentication data stored for an
+        account.  Authentication data from methods not listed in
+        AUTH_CRYPT_METHODS are ignored.  Returns True if all stored
+        authentication methods which are able to confirm a plaintext,
+        do.  If no methods are able to confirm, or one method reports
+        a mismatch, return False.
+        
+        """
+        success = False
+        for m in cereconf.AUTH_CRYPT_METHODS:
+            method = self.const.Authentication(m)
+            try:
+                auth_data = self.get_account_authentication(method)
+            except Errors.NotFoundError:
+                continue
+            status = self.verify_password(method, plaintext, auth_data)
+            if status is NotImplemented:
+                continue
+            elif status is True:
+                success = True
+            else:
+                return False
+        return success
+
     def illegal_name(self, name):
         """Return a string with error message if username is illegal"""
         return False
