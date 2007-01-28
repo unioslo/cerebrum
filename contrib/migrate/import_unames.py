@@ -50,7 +50,7 @@ def attempt_commit():
         db.commit()
         logger.info("Committed all changes")
 
-def process_line(infile):
+def process_line(infile, fix_unames):
     """
     Scan all lines in INFILE and create corresponding account/e-mail entries
     in Cerebrum.
@@ -75,7 +75,10 @@ def process_line(infile):
                 person_id = process_person(fnr)
                 if person_id:
                     logger.debug("Processing user with person: %s", uname)
-                    account_id = process_user(person_id, uname)
+                    if fix_unames:
+                        account_id = process_weird_user(person_id, uname)
+                    else:
+                        account_id = process_user(person_id, uname)
                 else:
                     logger.error("Bad fnr: %s Skipping", line.strip())
                     continue
@@ -165,6 +168,42 @@ def process_user(owner_id, uname):
     a_id = account.entity_id
     return a_id
 
+
+def process_weird_user(owner_id, uname):
+    """
+    Locate account_id of account UNAME owned by OWNER_ID.
+    """
+    owner_type = constants.entity_group
+    np_type = constants.account_system
+    acc_owner_id = 1 # bootstrap_group 
+    try:
+        account.clear()
+        account.find_by_name(uname)
+        logger.debug("User %s exists in Cerebrum", uname)
+    except Errors.NotFoundError:
+        account.populate(uname,
+                         owner_type,
+                         acc_owner_id,
+                         np_type,
+                         default_creator_id,
+                         None)
+        account.write_db()
+        logger.debug("User %s created", uname)
+    person.clear()
+    person.find(owner_id)
+    person.affect_external_id(constants.system_migrate,
+                              constants.externalid_uname)
+    person.populate_external_id(constants.system_migrate, constants.externalid_uname,
+                                uname)
+    if person.write_db():
+        logger.info("Registered user name %s as external id for %s!" % (uname, owner_id))
+    else:
+        logger.error("Could not register externalid_uname for %s (%s)" % (owner_id, uname))
+        
+    a_id = account.entity_id
+    return a_id
+
+
 def usage():
     print """Usage: import_uname_mail.py
     -d, --dryrun  : Run a fake import. Rollback after run.
@@ -178,13 +217,16 @@ def main():
     global default_creator_id, default_group_id
     global dryrun, logger
 
-    logger = Factory.get_logger("console")
+    fix_unames = False
+
+    logger = Factory.get_logger("cronjob")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:d',
+                                   'uf:d',
                                    ['file=',
-                                    'dryrun'])
+                                    'dryrun',
+                                    'unames-fix'])
     except getopt.GetoptError:
         usage()
 
@@ -194,6 +236,8 @@ def main():
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
+        elif opt in ('-u', '--unames-fix'):
+            fix_unames = True
 
     if infile is None:
         usage()
@@ -213,7 +257,7 @@ def main():
     default_creator_id = account.entity_id
     group.find_by_name(cereconf.INITIAL_GROUPNAME)
     default_group_id = group.entity_id
-    process_line(infile)
+    process_line(infile, fix_unames)
 
     attempt_commit()
 
