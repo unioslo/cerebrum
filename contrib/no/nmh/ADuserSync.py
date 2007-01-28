@@ -251,7 +251,7 @@ def compare(adusers,cerebrumusers):
             # ignore account in "cerebrum deleted"
             #
             ou = exp.match(dta['distinguishedName'])
-            if ou.group(1) == 'cerebrum_deleted':
+            if ou.group(1) == cereconf.AD_CEREBRUM_DELETED
                 logger.debug("Ignoring deleted account %s", usr)
             else:
                 changes['type'] = 'DELUSR'
@@ -348,9 +348,9 @@ def move_user(chg):
 
 
 def del_user(chg):
-    logger.info("Moving account %s to cerebrum_deleted", chg['distinguishedName'])
+    logger.info("Moving account %s to ou for non-active users", chg['distinguishedName'])
     chg['type'] = 'MOVEUSR'
-    chg['affiliation'] = 'cerebrum_deleted'
+    chg['affiliation'] = cereconf.AD_CEREBRUM_DELETED
     move_user(chg)
 
     
