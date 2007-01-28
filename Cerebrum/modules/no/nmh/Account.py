@@ -37,7 +37,9 @@ class AccountNMHMixin(Account.Account):
 
     """
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date):
+                 expire_date, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
         # Override Account.populate in order to register 'primary e-mail
         # address
         self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
