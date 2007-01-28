@@ -5823,8 +5823,10 @@ class BofhdExtension(object):
                                 (self.const.PersonAffiliation(row['affiliation']),
                                  self._format_ou_name(ou)))
         try:
-            tmp = account.get_home(self.const.spread_uio_nis_user)
-            home_status = str(self.const.AccountHomeStatus(tmp['status']))
+            for spread in cereconf.HOME_SPREADS:
+                if spread == 'spread_uio_nis_user':
+                    tmp = account.get_home(getattr(self.const, spread))
+                    home_status = str(self.const.AccountHomeStatus(tmp['status']))
         except Errors.NotFoundError:
             tmp = {'disk_id': None, 'home': None, 'status': None,
                    'homedir_id': None}
