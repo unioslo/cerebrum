@@ -5822,15 +5822,16 @@ class BofhdExtension(object):
             affiliations.append("%s@%s" %
                                 (self.const.PersonAffiliation(row['affiliation']),
                                  self._format_ou_name(ou)))
+        tmp = {'disk_id': None, 'home': None, 'status': None,
+               'homedir_id': None}
+        home_status = None
+        spread = 'spread_uio_nis_user'
+        if spread in cereconf.HOME_SPREADS:
         try:
-            for spread in cereconf.HOME_SPREADS:
-                if spread == 'spread_uio_nis_user':
-                    tmp = account.get_home(getattr(self.const, spread))
-                    home_status = str(self.const.AccountHomeStatus(tmp['status']))
+            tmp = account.get_home(getattr(self.const, spread))
+            home_status = str(self.const.AccountHomeStatus(tmp['status']))
         except Errors.NotFoundError:
-            tmp = {'disk_id': None, 'home': None, 'status': None,
-                   'homedir_id': None}
-            home_status = None
+            pass
 
         ret = {'entity_id': account.entity_id,
                'username': account.account_name,
