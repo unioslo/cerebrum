@@ -43,9 +43,13 @@ co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
 # TBD: Do we *ever* need to supply the perspective explicitely, even if we
 # always supply source_system?
-source2perspective = {co.system_lt: co.perspective_lt,
-                      co.system_sap: co.perspective_sap,
-                      co.system_fs: co.perspective_fs,}
+source2perspective = dict()
+for system_name, perspective_name in (("system_lt", "perspective_lt"),
+                                      ("system_sap", "perspective_sap"),
+                                      ("system_fs", "perspective_fs")):
+    if hasattr(co, system_name) and hasattr(co, perspective_name):
+        source2perspective[getattr(co, system_name)] = \
+                                       getattr(co, perspective_name)
 
 
 
