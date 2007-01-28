@@ -93,8 +93,9 @@ def process_person(fnr):
     """
 
     logger.debug("Processing person %s", fnr)
-    
-    if not fodselsnr.personnr_ok(fnr):
+    try:
+        fodselsnr.personnr_ok(fnr)
+    except fodselsnr.InvalidFnrError:
         logger.warn("Bad no_ssn |%s|", fnr)
         return None
     
