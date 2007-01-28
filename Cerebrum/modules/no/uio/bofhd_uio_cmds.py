@@ -3113,7 +3113,7 @@ class BofhdExtension(object):
             g.write_db()
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
-        if cereconf.BOFHD_NEW_GROUP_SPREADS:
+        for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
             g.write_db()
         return {'group_id': int(g.entity_id)}
