@@ -1197,7 +1197,8 @@ def process_noncallback_users(reset_diskquota=False):
     logger.info("Processing noncallback users")
     on_student_disk = {}
     for row in account_obj.list_account_home():
-        if autostud.disk_tool.get_diskdef_by_diskid(int(row['disk_id'])):
+        if (row['disk_id'] is not None and 
+            autostud.disk_tool.get_diskdef_by_diskid(int(row['disk_id']))):
             on_student_disk[int(row['account_id'])] = True
 
     for ac_id in on_student_disk.keys():
