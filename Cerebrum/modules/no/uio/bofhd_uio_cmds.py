@@ -5827,11 +5827,11 @@ class BofhdExtension(object):
         home_status = None
         spread = 'spread_uio_nis_user'
         if spread in cereconf.HOME_SPREADS:
-        try:
-            tmp = account.get_home(getattr(self.const, spread))
-            home_status = str(self.const.AccountHomeStatus(tmp['status']))
-        except Errors.NotFoundError:
-            pass
+            try:
+                tmp = account.get_home(getattr(self.const, spread))
+                home_status = str(self.const.AccountHomeStatus(tmp['status']))
+            except Errors.NotFoundError:
+                pass
 
         ret = {'entity_id': account.entity_id,
                'username': account.account_name,
