@@ -251,7 +251,7 @@ def compare(adusers,cerebrumusers):
             # ignore account in "cerebrum deleted"
             #
             ou = exp.match(dta['distinguishedName'])
-            if ou.group(1) == cereconf.AD_CEREBRUM_DELETED
+            if ou.group(1) == cereconf.AD_CEREBRUM_DELETED:
                 logger.debug("Ignoring deleted account %s", usr)
             else:
                 changes['type'] = 'DELUSR'
