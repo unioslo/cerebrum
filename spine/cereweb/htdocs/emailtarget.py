@@ -24,6 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator, redirect, object_link
 from lib.utils import commit, queue_message, legal_date
+from lib.utils import legal_domain_format, legal_emailname, rollback_url
 from SpineIDL.Errors import NotFoundError
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
@@ -128,10 +129,16 @@ def makeaddress(transaction, id, local, domain, expire):
     print 'makeaddress'
     target = transaction.get_email_target(id)
     msg = ''
-    if not local:
+    if local:
+        if not legal_emailname(local):
+            msg =_('Local is not a legal name.')
+    else:
         msg = _('Local is empty.')
     if not msg:
-        if not domain:
+        if domain:
+            if not legal_domain_format(domain):
+                msg = _('Domain is not a legal domain.')
+        else:
             msg = _('Domain is empty.')
     if not msg:
         if expire:
@@ -146,6 +153,6 @@ def makeaddress(transaction, id, local, domain, expire):
             emailaddr.set_expire_date(expire)
         commit(transaction, target, msg=_("Email address successfully created."))
     else:
-        rollback_url('/emailtarget/view?id='+id, msg, error=True)
+        rollback_url('/emailtarget/view?id=%s' % id, msg, err=True)
 makeaddress = transaction_decorator(makeaddress)
 makeaddress.exposed = True
