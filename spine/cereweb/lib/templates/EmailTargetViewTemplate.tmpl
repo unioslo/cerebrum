@@ -73,7 +73,7 @@ $strftime($the_date)
 
 ## Content
 #set $primary = $target['primary']
-#set $addresses = $target['addresses']
+#set $addresses = $target.get('addresses', None)
 
 <div class="view_info">
 <h3>$_('Email addresses:')</h3>
