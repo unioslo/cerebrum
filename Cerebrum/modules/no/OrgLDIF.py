@@ -137,6 +137,10 @@ class norEduLDIFMixin(OrgLDIF):
         if street_string:
             entry['street'] = (street_string,)
 
+    def test_skip_ou(self):
+        # Return true if self.ou should be skipped.
+        return getattr(self.ou, 'katalog_merke', 'T') != 'T'
+
     def make_ou_entry(self, ou_id, parent_dn):
         # Changes from superclass:
         # If Stedkode is used, only output OUs with katalog_merke == 'T'.
@@ -145,7 +149,7 @@ class norEduLDIFMixin(OrgLDIF):
         # If a DN is not unique, prepend the norEduOrgUnitUniqueIdentifier.
         self.ou.clear()
         self.ou.find(ou_id)
-        if getattr(self.ou, 'katalog_merke', 'T') != 'T':
+        if self.test_skip_ou():
             return parent_dn, None
         ou_names = [iso2utf((n or '').strip()) for n in (self.ou.acronym,
                                                          self.ou.short_name,
