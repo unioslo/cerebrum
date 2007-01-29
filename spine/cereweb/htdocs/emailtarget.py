@@ -124,9 +124,6 @@ edit.exposed = True
 
 def makeaddress(transaction, id, local, domain, expire):
     id = int(id)
-    print 'makeaddress'
-    print id
-    print 'makeaddress'
     target = transaction.get_email_target(id)
     msg = ''
     if local:
@@ -156,3 +153,13 @@ def makeaddress(transaction, id, local, domain, expire):
         rollback_url('/emailtarget/view?id=%s' % id, msg, err=True)
 makeaddress = transaction_decorator(makeaddress)
 makeaddress.exposed = True
+
+def setprimary(transaction, id, addr):
+    addr = transaction.get_email_address(int(addr))
+    addr.set_as_primary()
+    transaction.commit()
+    queue_message('Email address successfully set as primary.', error=False)
+    redirect("/emailtarget/view?id=%s" % id)
+setprimary = transaction_decorator(setprimary)
+setprimary.exposed = True
+
