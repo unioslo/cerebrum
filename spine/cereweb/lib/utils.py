@@ -246,10 +246,16 @@ def legal_date( tocheck ):
     return True
 
 def legal_domain_format( domain ):
-     pat=re.compile( '^(([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.)*([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.[a-zA-Z]{2,7}$')
-     if not pat.match(domain):
-         return False
-     return True
+    pat=re.compile( '^(([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.)*([a-zA-Z0-9]([a-zA-Z0-9]|\-[a-zA-Z0-9])*)\.[a-zA-Z]{2,7}$')
+    if not pat.match(domain):
+        return False
+    return True
+
+def legal_emailname( name ):
+    pat = re.compile('^([a-zA-Z0-9]([a-zA-Z0-9]|((\_|\-|\.)[a-zA-Z0-9]))*)$')
+    if not path.match( name ):
+        return False
+    return True
 
 def legal_domain_chars( domain ):
     rest=re.sub('\-*\.*','',domain)
