@@ -57,8 +57,11 @@ class norEduLDIFMixin(OrgLDIF):
         '1.4': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
         }[FEIDE_schema_version]
     FEIDE_class_obsolete = None
-    if FEIDE_obsolete_version <= '1.1' < FEIDE_schema_version:
-        FEIDE_class_obsolete = extensibleObject
+    if FEIDE_obsolete_version:
+        if FEIDE_schema_version >= '1.4':
+            FEIDE_class_obsolete = 'norEduObsolete'
+        elif FEIDE_obsolete_version <= '1.1' < FEIDE_schema_version:
+            FEIDE_class_obsolete = extensibleObject
         if not FEIDE_class_obsolete:
             raise ValueError(
                 "cereconf.LDAP: "
@@ -66,8 +69,19 @@ class norEduLDIFMixin(OrgLDIF):
 
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
-        self.norEduOrgUniqueID = ("000%05d" # Note: 000 = Norway in FEIDE.
-                                  % int(cereconf.DEFAULT_INSTITUSJONSNR),)
+        try:
+            orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
+        except (AttributeError, TypeError):
+            self.norEduOrgUniqueID = None
+            if self.FEIDE_schema_version < '1.4':
+                raise
+        else:
+            # Note: 000 = Norway in FEIDE.
+            self.norEduOrgUniqueID = ("000%05d" % orgnum,)
+        self.FEIDE_ou_common_attrs = {}
+        if self.FEIDE_schema_version == '1.1':
+            self.FEIDE_ou_common_attrs = {
+                self.FEIDE_attr_org_id: self.norEduOrgUniqueID}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
@@ -77,19 +91,22 @@ class norEduLDIFMixin(OrgLDIF):
         # and optionally eduOrgHomePageURI, labeledURI and labeledURIObject.
         # Also add attribute federationFeideSchemaVersion if appropriate.
         entry['objectClass'].append('norEduOrg')
-        entry[self.FEIDE_attr_org_id] = self.norEduOrgUniqueID
+        if self.norEduOrgUniqueID:
+            entry[self.FEIDE_attr_org_id] = self.norEduOrgUniqueID
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
-            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
-        if self.FEIDE_schema_version > '1.1' and self.extensibleObject:
+            if self.norEduOrgUniqueID:
+                entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+        if self.FEIDE_schema_version >= '1.4':
+            entry['norEduOrgSchemaVersion'] = (self.FEIDE_schema_version,)
+        elif self.FEIDE_schema_version > '1.1' and self.extensibleObject:
             entry['objectClass'].append(self.extensibleObject)
             entry['federationFeideSchemaVersion']= (self.FEIDE_schema_version,)
         uri = entry.get('labeledURI') or entry.get('eduOrgHomePageURI')
         if uri:
             entry.setdefault('eduOrgHomePageURI', uri)
             if entry.setdefault('labeledURI', uri):
-                if self.FEIDE_schema_version <= '1.1':
-                    entry['objectClass'].append('labeledURIObject')
+                entry['objectClass'].append('labeledURIObject')
 
     def get_orgUnitUniqueID(self):
         # Make norEduOrgUnitUniqueIdentifier attribute from the current OU.
@@ -107,12 +124,14 @@ class norEduLDIFMixin(OrgLDIF):
         ldap_ou_id = self.get_orgUnitUniqueID()
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            'cn':                   (ldapconf('OU', 'dummy_name'),),
-            self.FEIDE_attr_ou_id:  (ldap_ou_id,),
-            self.FEIDE_attr_org_id: self.norEduOrgUniqueID})
+            self.FEIDE_attr_ou_id:  (ldap_ou_id,)})
+        if self.FEIDE_schema_version != '1.4':
+            entry['cn'] = (ldapconf('OU', 'dummy_name'),)
+        entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
-            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+            if self.norEduOrgUniqueID:
+                entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
             entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
 
     def fill_ou_entry_contacts(self, entry):
@@ -160,14 +179,16 @@ class norEduLDIFMixin(OrgLDIF):
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             self.FEIDE_attr_ou_id:  (ldap_ou_id,),
-            self.FEIDE_attr_org_id: self.norEduOrgUniqueID,
-            'ou': ou_names,
-            'cn': ou_names[-1:]}
+            'ou': ou_names}
+        if self.FEIDE_schema_version != '1.4':
+            entry['cn'] = ou_names[-1:]
+        entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
-            entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
+            if self.norEduOrgUniqueID:
+                entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
             entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
-        if acronym:
+        if acronym and self.FEIDE_schema_version != '1.4':
             entry['norEduOrgAcronym'] = (acronym,)
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
