@@ -58,8 +58,6 @@ def main():
             ofile = val
         elif opt in ("-m", "--omit-mail-module"):
             use_mail_module = False
-            sys.stderr.write(
-                "Warning: Option --omit-mail-module (-m) is untested.\n")
         else:
             usage()
 
