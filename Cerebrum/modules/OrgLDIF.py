@@ -163,6 +163,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         oc.extend(entry.get('objectClass', ()))
         entry['objectClass'] = (['top', 'organization', 'eduOrg']
                                 + list(entry.get('objectClass', ())))
+        if self.org_dn.lower().startswith('dc='):
+            entry['objectClass'].append('dcObject')
         self.update_org_object_entry(entry)
         entry['objectClass'] = self.attr_unique(entry['objectClass'],str.lower)
         outfile.write(entry_string(self.org_dn, entry))
