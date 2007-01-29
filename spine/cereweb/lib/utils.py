@@ -240,6 +240,10 @@ def legal_date( tocheck ):
     if not prog.match(rest):
         return False
     parts = rest.split('-')
+    if int(parts[1]) < 1 or int(parts[1]) > 12:
+        return False
+    if int(parts[2]) < 1 or int(parts[2]) > 31:
+        return False
     checkdate = datetime(int(parts[0]),int(parts[1]),int(parts[2]))
     if checkdate < datetime.min or checkdate > datetime.max:
         return False
@@ -253,7 +257,7 @@ def legal_domain_format( domain ):
 
 def legal_emailname( name ):
     pat = re.compile('^([a-zA-Z0-9]([a-zA-Z0-9]|((\_|\-|\.)[a-zA-Z0-9]))*)$')
-    if not path.match( name ):
+    if not pat.match( name ):
         return False
     return True
 
