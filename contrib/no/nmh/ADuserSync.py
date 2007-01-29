@@ -207,17 +207,17 @@ def compare(adusers,cerebrumusers):
             if not dta['sn'] == cerebrumusers[usr]['sn']:
                 changes['sn'] = cerebrumusers[usr]['sn']
                 changes['type'] = 'UPDATEUSR'
-                logger.debug("Updating AD-sn for %s", usr)
+                logger.debug("Updating AD-sn for %s (to %s)" % (usr, cerebrumusers[usr]['sn']))
 
             if not dta['givenName'] == cerebrumusers[usr]['givenName']:
                 changes['givenName'] = cerebrumusers[usr]['givenName']
                 changes['type'] = 'UPDATEUSR'  
-                logger.debug("Updating AD-givenName for %s", usr)
+                logger.debug("Updating AD-givenName for %s (to %s)" % (usr, cerebrumusers[usr]['givenName']))
                 
             if not dta['displayName'] == cerebrumusers[usr]['displayName']:
                 changes['displayName'] = cerebrumusers[usr]['displayName']
                 changes['type'] = 'UPDATEUSR'
-                logger.debug("Updating AD-displayName for %s", usr)
+                logger.debug("Updating AD-displayName for %s (to %s)" % (usr, cerebrumusers[usr]['displayName']))
 
             # test AD_OU for users
             ou = exp.match(dta['distinguishedName'])
@@ -374,7 +374,6 @@ def del_user(chg):
 
     
 def update_user(chg):
-    logger.info("Updating account %s", chg)
     ret = run_cmd('bindObject',chg['distinguishedName'])
     if not ret[0]:
         logger.error("Could not update account %s (bindObject failed)", chg['sAMAccountName'])
