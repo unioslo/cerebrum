@@ -44,18 +44,20 @@ def get_cerebrum_data():
                                                           co.name_first,
                                                           co.name_last))
 
-    logger.debug("Fetched %i person names", len(pid2name))
+    logger.debug2("Fetched %i person names", len(pid2name))
 
     aid2ainfo = {}
     
     #
     # find account id's and names
     #
-    for row in ac.list_account_home(account_spread=co.spread_ad_account,
-                                    filter_expired=True,
-                                    include_nohome=True):
-        aid2ainfo[int(row['account_id'])] = { 'uname' : row['entity_name'] }
-        
+    account = Factory.get("Account")(db)
+    for row in ac.list():
+        account.clear()
+        account.find(row['account_id'])
+        if account.has_spread(co.spread_ad_account):
+            aid2ainfo[int(row['account_id'])] = { 'uname' : account.account_name }
+
     #
     # Get lists for affiliatio_ansatt, affiliation_student, affiliation_admin
 
@@ -69,23 +71,34 @@ def get_cerebrum_data():
             count = count +1
     logger.info("Added %d students", count)
 
-    # Staff (overrides information registered for students) 
+    # Faculty (overrides information registered for students)
     #
     count = 0
     for row in ac.list_accounts_by_type(affiliation=co.affiliation_tilknyttet):
         if aid2ainfo.has_key(int(row['account_id'])):
-            aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_ADMINISTRATION_OU
-            count = count +1
-    logger.info("Added %d administrative employees", count)
-
-    # Faculty (overrides information registered for staff and students)
-    #
-    count = 0
-    for row in ac.list_accounts_by_type(ou_id=cereconf.CEREBRUM_FAGANSATT_OU_ID):
-        if aid2ainfo.has_key(int(row['account_id'])):
+            logger.debug2("Faculty emp. %s at %s" % (row['account_id'], row['ou_id']))
             aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_FAGANSATT_OU
             count = count +1
     logger.info("Added %d faculty", count)  
+
+    # Staff (overrides information registered for students and faculty) 
+    #
+    ou_root_id = cereconf.CEREBRUM_ADMIN_ANSATTE_ROOT_OU_ID
+    ou.clear()
+    ou.find(ou_root_id)
+    ou_children = ou.list_children(co.perspective_fs, recursive=True)
+    # we want to use parent-ou as well in this case
+    #
+    ou_children.append({'ou_id': ou.entity_id})
+    logger.info("Found %d OUs connected to %s by child relationship" % (len(ou_children), cereconf.CEREBRUM_ADMIN_ANSATTE_ROOT_OU_ID))
+    count = 0
+    for o in ou_children:
+        for row in ac.list_accounts_by_type(ou_id=o['ou_id']):
+            if aid2ainfo.has_key(int(row['account_id'])):
+                logger.debug2("Adm. emp. %s at %s" % (row['account_id'], o['ou_id']))
+                aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_ADMINISTRATION_OU
+                count = count +1
+        logger.info("Added %d administrative employees", count)
 
     # Remove quarantined users
     #
@@ -194,14 +207,17 @@ def compare(adusers,cerebrumusers):
             if not dta['sn'] == cerebrumusers[usr]['sn']:
                 changes['sn'] = cerebrumusers[usr]['sn']
                 changes['type'] = 'UPDATEUSR'
+                logger.debug("Updating AD-sn for %s", usr)
 
             if not dta['givenName'] == cerebrumusers[usr]['givenName']:
                 changes['givenName'] = cerebrumusers[usr]['givenName']
                 changes['type'] = 'UPDATEUSR'  
-
+                logger.debug("Updating AD-givenName for %s", usr)
+                
             if not dta['displayName'] == cerebrumusers[usr]['displayName']:
                 changes['displayName'] = cerebrumusers[usr]['displayName']
                 changes['type'] = 'UPDATEUSR'
+                logger.debug("Updating AD-displayName for %s", usr)
 
             # test AD_OU for users
             ou = exp.match(dta['distinguishedName'])
@@ -211,6 +227,7 @@ def compare(adusers,cerebrumusers):
                 else:
                     changes['affiliation'] = cerebrumusers[usr]['affiliation']
                     changes['type'] = 'MOVEUSR'
+                    logger.debug("Updating OU for user %s to %s" % (usr, cerebrumusers[usr]['affiliation']))
 
                 # test homeDrive og homeDir
                 if ou.group(1) == "studenter":
@@ -225,6 +242,7 @@ def compare(adusers,cerebrumusers):
                         changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
                         if not changes.has_key('type'):
                             changes['type'] = 'UPDATEUSR'
+                            logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_STUDENT))
                 else:
                     if (dta['homeDrive'] == cereconf.AD_HOME_DRIVE_ANSATT and
                         dta['homeDirectory'] == "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT, usr) and
@@ -237,11 +255,13 @@ def compare(adusers,cerebrumusers):
                         changes['profilePath'] = ''
                         if not changes.has_key('type'):
                             changes['type'] = 'UPDATEUSR'
+                            logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_ANSATT))
             else:
                 
                 # Impossible to determine OU for a given account
                 #
                 logger.warn("No DN-match for: %s", dta['distinguishedName'])
+
             # remove account info from cerebrumusers
             #
             del cerebrumusers[usr]
@@ -252,19 +272,18 @@ def compare(adusers,cerebrumusers):
             #
             ou = exp.match(dta['distinguishedName'])
             if ou.group(1) == cereconf.AD_CEREBRUM_DELETED:
-                logger.debug("Ignoring deleted account %s", usr)
+                logger.debug2("Ignoring deleted account %s", usr)
             else:
                 changes['type'] = 'DELUSR'
                 changes['distinguishedName'] = adusers[usr]['distinguishedName']
-            
+                logger.debug("Will delete account %s", adusers[usr]['distinguishedName'])
                 
         # Append changes to changelist.
         #
         if len(changes):
             changes['distinguishedName'] = adusers[usr]['distinguishedName']
             changelist.append(changes)    
-            
-            
+
     logger.info("Creating %d accounts in AD", len(cerebrumusers))
     
     # Add accounts still registered in cerebrumusers to AD
@@ -396,7 +415,7 @@ def run_cmd(command, arg1=None, arg2=None, arg3=None):
 
 def main():
     global db, co, ac, group, person, qua, logger
-    global server   
+    global server, ou, child_ou
     c_data = {}
     ad_data = {}
     
@@ -404,6 +423,8 @@ def main():
     db.cl_init(change_program="adusync")
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
+    ou = Factory.get("OU")(db)
+    child_ou = Factory.get("OU")(db)
     group = Factory.get('Group')(db)
     person = Factory.get('Person')(db)
     qua = Entity.EntityQuarantine(db)
