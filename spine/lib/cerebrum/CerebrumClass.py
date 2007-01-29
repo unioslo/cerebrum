@@ -45,6 +45,9 @@ class CerebrumAttr(Attribute, ConvertableAttribute):
         if 'convert_from' in vargs.keys():
             self.convert_from = vargs['convert_from']
             del vargs['convert_from']
+        if 'cerebrumclass' in vargs.keys():
+            self.extention = vargs['cerebrumclass']
+            del vargs['cerebrumclass']
 
         super(CerebrumAttr, self).__init__(*args, **vargs)
 
@@ -72,13 +75,17 @@ class CerebrumClass(DatabaseTransactionClass):
     cerebrum_class = None
     cerebrum_attr_aliases = {}
     
-    def _get_cerebrum_obj(self):
+    def _get_cerebrum_obj(self, cerebrum_class=None):
         """Returns the cerebrum-obj for this instance.
 
         Expect and uses the find-method in the cerebrum_class.
         """
         db = self.get_database()
-        obj = self.cerebrum_class(db)
+        if cerebrum_class:
+            obj = cerebrum_class(db)
+        else:
+            obj = self.cerebrum_class(db)
+
         pk = []
         for attr in self.primary:
             if not hasattr(self, attr.var_private):
@@ -102,26 +109,26 @@ class CerebrumClass(DatabaseTransactionClass):
     
     def _load_cerebrum_attributes(self):
         """Loads 'attributes' from cerebrum."""
-        obj = self._get_cerebrum_obj()
         for attr in self.slots:
             if getattr(self, attr.var_load) != self._load_cerebrum_attributes:
                 continue
             if not hasattr(self, attr.var_private):
+                obj = self._get_cerebrum_obj(getattr(attr, 'cerebrumclass', None))
                 value = getattr(obj, self._get_cerebrum_name(attr))
                 setattr(self, attr.var_private, attr.convert_from(self.get_database(), value))
 
     def _save_cerebrum_attributes(self):
         """Stores 'attributes' in cerebrum."""
-        obj = self._get_cerebrum_obj()
         for attr in self.slots:
             if attr not in self.updated:
                 continue
             if getattr(self, attr.var_save) != self._save_cerebrum_attributes:
                 continue
             value = getattr(self, attr.var_private)
+            obj = self._get_cerebrum_obj(getattr(attr, 'cerebrumclass', None))
             setattr(obj, self._get_cerebrum_name(attr), attr.convert_to(value))
             self.updated.remove(attr)
-        obj.write_db()
+            obj.write_db()
 
     def _delete_from_cerebrum(self):
         """Generic method for deleting this instance from cerebrum."""

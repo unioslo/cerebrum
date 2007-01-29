@@ -20,6 +20,8 @@
 
 import Cerebrum.Errors
 import Cerebrum.modules.PosixUser
+from CerebrumClass import CerebrumDbAttr
+from Cerebrum.Utils import Factory
 
 from SpineLib.DatabaseClass import DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
@@ -67,14 +69,16 @@ Account.register_methods([get_gecos])
 
 table = 'posix_user'
 attrs = [
-    DatabaseAttr('gecos', table, str, write=True, optional=True),
-    DatabaseAttr('posix_uid', table, int, write=True, optional=True),
-    DatabaseAttr('primary_group', table, Group, write=True, optional=True),
-    DatabaseAttr('pg_member_op', table, GroupMemberOperationType, write=True, optional=True),
-    DatabaseAttr('shell', table, PosixShell, write=True, optional=True)
+    CerebrumDbAttr('gecos', table, str, write=True, optional=True),
+    CerebrumDbAttr('posix_uid', table, int, write=True, optional=True),
+    CerebrumDbAttr('primary_group', table, Group, write=True, optional=True),
+    CerebrumDbAttr('pg_member_op', table, GroupMemberOperationType, write=True, optional=True),
+    CerebrumDbAttr('shell', table, PosixShell, write=True, optional=True)
 ]
 
+cerebrumclass = Factory.get('PosixUser')
 for attr in attrs:
+    attr.cerebrumclass = cerebrumclass
     Account.register_attribute(attr)
 
 Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
