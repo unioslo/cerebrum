@@ -419,6 +419,12 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                     int(row['quarantine_type']))
         timer("...account information done.")
 
+    # If fetching addresses from entity_contact_info, this is True
+    # to use persons' contacts and False to use accounts' contacts.
+    # (This may be a temporary hack, until we have killed the
+    # use_mail_module parameter to init_account_mail()).
+    person_contact_mail = True
+
     def init_account_mail(self, use_mail_module):
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         function: account_id -> ('address' or None).
@@ -443,7 +449,6 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             timer("...account e-mail addresses done.")
         else:
             self.account_mail = None
-            self.logger.debug("Mail-module skipped.")
 
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
@@ -611,12 +616,16 @@ from None and LDAP_PERSON['dn'].""")
                     map(iso2utf, URIs), normalize_caseExactString)
 
         if self.account_mail:
-            mail = self.account_mail(int(account_id))
+            mail = self.account_mail(account_id)
             if mail:
                 entry['mail'] = (mail,)
         else:
+            if self.person_contact_mail:
+                mail_source_id = person_id
+            else:
+                mail_source_id = account_id
             mail = self.get_contacts(
-                entity_id    = person_id,
+                entity_id    = mail_source_id,
                 contact_type = self.const.contact_email,
                 verify       = verify_IA5String,
                 normalize    = normalize_IA5String)
