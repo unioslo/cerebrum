@@ -6905,13 +6905,12 @@ class BofhdExtension(object):
                 except Errors.NotFoundError:
                     raise CerebrumError, "Unkown person id %r" % arg
             elif idtype == 'fnr':
-                for ss in [self.const.system_fs, self.const.system_lt,
-                           self.const.system_manual, self.const.system_ureg]:
+                for ss in cereconf.SYSTEM_LOOKUP_ORDER:
                     try:
                         person.clear()
                         person.find_by_external_id(
                             self.const.externalid_fodselsnr, value,
-                            source_system=ss)
+                            source_system=getattr(self.const, ss))
                         ret.append({'person_id': person.entity_id})
                     except Errors.NotFoundError:
                         pass
