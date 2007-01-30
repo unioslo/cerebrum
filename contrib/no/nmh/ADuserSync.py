@@ -277,7 +277,7 @@ def compare(adusers,cerebrumusers):
             else:
                 changes['type'] = 'DELUSR'
                 changes['distinguishedName'] = adusers[usr]['distinguishedName']
-                logger.debug("Will delete account %s", adusers[usr]['distinguishedName'])
+                logger.debug("Will delete account %s (%s)", adusers[usr]['distinguishedName'], usr)
                 
         # Append changes to changelist.
         #
