@@ -245,20 +245,31 @@
 
 #def edit_domain($domain)
 <div class="edit">
-    <form action="save" method="post">
-        <div class="editform">
-            $form_widgets.input('name', 'Domain name', $domain.get_name())
-            $form_widgets.input('description', 'Description', $domain.get_description())
-            <input type="hidden" name="id" value="$domain.get_id()" />
-        </div>
-        $form_widgets.showHelp([])
-        <div>
-            <center>
+    <h3>$_('Edit domain ' + $domain.get_name())</h3>
+    <div class="editform">
+        <form action="save" method="post">
+            <div>
+                $form_widgets.input('name', 'Domain name', $domain.get_name())
+            </div>
+            <div>
+                $form_widgets.input('description', 'Description', $domain.get_description())
+            </div>
+            <div>
+                <input type="hidden" name="id" value="$domain.get_id()" />
+            </div>
+            <div>
+                $form_widgets.showHelp([])
+            </div>
+            <div>
                 <input type="submit" value="$_('Save')" name="submit" />&nbsp;
                 <input type="submit" value="$_('Cancel')" name="submit" />
-            </center>
-        </div>
-    </form>
+            </div>
+        </form>
+    </div>
 </div>
+<br />
+<br />
+<br />
+<br />
 #end def
 
