@@ -18,22 +18,30 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+function parseUrl(url) {
+    var target = url.split('/').slice(-1)[0].split('?');
+    var action = target[0];
+    var argument = target[1];
+    return {'name': action, 'argument': argument};
+};
+
 function editMotd(e) {
     var t = YAHOO.util.Event.getTarget(e);
-    var content = t.innerText || t.textContent;
-    if (t.nodeName.toLowerCase() === 'a' &&
-         content === 'edit') {
-            var argument = t.href.replace(/.*?id=/,'');
+    if (t.nodeName.toLowerCase() === 'a') {
+        var action = parseUrl(t.href);
+        if (action.name === 'edit_motd') {
             YAHOO.util.Event.preventDefault(e);
+            var argument = action.argument.replace(/id=/,'');
             YAHOO.cereweb.getMotd(argument);
+        }
     }
 };
 
 function actionClicked(e) {
     var t = YAHOO.util.Event.getTarget(e);
     if (t.nodeName.toLowerCase() === 'a') {
-        var action = t.href.split('/').slice(-1)[0]
-        if (action === 'edit_motd') {
+        var action = parseUrl(t.href);
+        if (action.name === 'edit_motd') {
             YAHOO.util.Event.preventDefault(e);
             YAHOO.cereweb.motdDialog.content("", "");
             YAHOO.cereweb.motdDialog.show();
