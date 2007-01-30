@@ -272,8 +272,9 @@ def compare(adusers,cerebrumusers):
             # ignore account in "cerebrum deleted"
             #
             ou = exp.match(dta['distinguishedName'])
-            if ou.group(1) == cereconf.AD_CEREBRUM_DELETED:
-                logger.debug2("Ignoring deleted account %s", usr)
+            deaktiv_ou = 'OU=' + ou.group(1)
+            if deaktiv_ou == cereconf.AD_CEREBRUM_DELETED:
+                logger.debug("Ignoring deleted account %s", usr)
             else:
                 changes['type'] = 'DELUSR'
                 changes['distinguishedName'] = adusers[usr]['distinguishedName']
@@ -389,6 +390,7 @@ def update_user(chg):
 
         
 def perform_changes(changes):
+    logger.info("Start processing changes.")
     for chg in changes:
         if chg['type'] == 'NEWUSR':
             create_user(chg)
@@ -398,6 +400,7 @@ def perform_changes(changes):
             del_user(chg)
         elif chg['type'] == 'UPDATEUSR':
             update_user(chg)
+    logger.info("All done.")            
 
         
 def run_cmd(command, arg1=None, arg2=None, arg3=None):
