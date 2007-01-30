@@ -659,34 +659,21 @@ def output_OU_address(writer, db_ou, constants):
     writer.startElement("postnrOgPoststed")
     # We cannot have more than one answer for any given
     # (ou_id, source_system, address_type) triple
-    
+   
     address = db_ou.get_entity_address(constants.system_fs,
                                        constants.address_post)[0]
 
-    #address = db_ou.get_entity_address(constants.system_fs,
-    #                                   155)[0]
-    
-    #address = 155
-    #city = address["city"]
-    city = "Tromsø"
-    #po_box = address["p_o_box"]
-    po_box = "None"
-    #postal_number = address["postal_number"]
-    postal_number = "9037"
-    #country = address["country"]
-    country = "Norway"
-    if (po_box and int(postal_number or 0) / 100 == 3):
-        address_text = "Pb. %s - Blindern" % po_box
-    else:
-        address_text = (address["address_text"] or "").strip()
-    # fi
+    city = (address['city'] or 'Tromsø').strip()
+    po_box = (address['p_o_box'] or '').strip()
+    postal_number = (address['postal_number'] or "9037").strip()
+    country = (address['country'] or "Norway").strip() 
+    address_text = (address["address_text"] or "").strip()
 
     post_nr_city = None
     if city or (postal_number and country):
         post_nr_city = string.join(filter(None,
                                           [postal_number,
                                            (city or "").strip()]))
-    # fi
 
     output = string.join(filter(None,
                                 (address_text,
@@ -695,11 +682,9 @@ def output_OU_address(writer, db_ou, constants):
     if not output:
         logger.error("There is no address information for %s",
                      db_ou.entity_id)
-    # fi
     
     writer.data(output)
     writer.endElement("postnrOgPoststed")
-# end output_OU_address
 
 
 
