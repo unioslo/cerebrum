@@ -653,7 +653,7 @@ div.session_warning {
 div.motd {
     width: 450px;
     margin-bottom: 1em;
-    clear: none;
+    clear: left;
 }
 
 div.motd div.subject {
@@ -675,8 +675,21 @@ div.motd span.when {
     margin-left: 5px;
 }
 
-div.motd_edit input, div.motd_edit textarea {
+div.motd_edit label {
+    float: left;
+    width: 5em;
+}
+
+div.motd_edit input {
     font-size: 70%;
+}
+
+div.motd_edit input[type=text] {
+    width: 400px;
+}
+
+div.motd_edit textarea {
+    width: 400px;
 }
 
 div.motd_edit input:focus, div.motd_edit textarea:focus {
