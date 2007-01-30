@@ -98,7 +98,11 @@ class ou:
             if not i['telefonlandnr'] : i['telefonlandnr']="0"
             if not i['telefonretnnr'] : i['telefonretnnr']="0"
             if not i['telefonnr'] : i['telefonnr']="0"
-
+            if not i['adrlin1'] : i['adrlin1'] = 'Universitetet i Tromsø'
+            if not i['adrlin2'] : i['adrlin2'] = i['stednavn_bokmal'] 
+            if not i['postnr'] : i['postnr'] = '9037'
+            if not i['adrlin3'] : i['adrlin3'] = 'Tromsø'
+            
             self.fs_data.append({
                                  'temp_inst_nr' : temp_inst_nr,
                                  'fakultetnr' : "%02d" % int(i['faknr']),
@@ -130,7 +134,7 @@ class ou:
                                  'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
                                  'adresselinje1_intern_adr' : i['adrlin1'],
                                  'adresselinje2_intern_adr': i['adrlin2'],
-                                 'poststednr_inter_adr': i['postnr'],
+                                 'poststednr_intern_adr': i['postnr'],
                                  'poststednavn_intern_adr': i['adrlin3'],
                                  'landnavn_intern_adr': i['adresseland'],
                                  'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
@@ -205,10 +209,10 @@ class ou:
                                  'poststednavn_besok_adr' : '',#'%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],i['adrlin3_besok']),
                                  'landnavn_besok_adr' : '',#i['adresseland_besok'],
                                  'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
-                                 'adresselinje1_intern_adr' : '',#i['adrlin1'],
-                                 'adresselinje2_intern_adr': '',#i['adrlin2'],
-                                 'poststednr_inter_adr': '',#i['postnr'],
-                                 'poststednavn_intern_adr': '',#i['adrlin3'],
+                                 'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
+                                 'adresselinje2_intern_adr': avdeling,
+                                 'poststednr_intern_adr': '9037',
+                                 'poststednavn_intern_adr': 'Tromsø',
                                  'landnavn_intern_adr': '',#i['adresseland'],
                                  'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
                                  'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
@@ -229,6 +233,8 @@ class ou:
                     # Match. generate result data
                     f_ou['stedlangnavn_bokmal'] = a_ou['stedlangnavn_bokmal']
                     f_ou['display_name'] = a_ou['display_name']
+                    f_ou['adresselinje1_intern_adr'] = a_ou['adresselinje1_intern_adr']
+                    f_ou['adresselinje2_intern_adr'] = a_ou['adresselinje2_intern_adr'] 
                     #print "%s in FS" % f_ou['temp_inst_nr']
                     result_ou.append(f_ou)
                     a_ou_check=True
