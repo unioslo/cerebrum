@@ -23,6 +23,7 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.auth import *
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
 
+from Cerebrum.spine.Email import *
 from Cerebrum.spine.EntityExternalId import EntityExternalId
 from Cerebrum.spine.Entity import Entity
 from Cerebrum.spine.Account import Account
@@ -62,6 +63,8 @@ class Authorization(object):
             ok = owner_id == target.get_id()
         elif isinstance(target, EntityExternalId):
             ok = owner_id == target.get_entity().get_id()
+        elif isinstance(target, EmailTarget):
+            ok = account_id == target.get_entity().get_id()
 
         if ok:
             op_set = BofhdAuthOpSet(self._db)
