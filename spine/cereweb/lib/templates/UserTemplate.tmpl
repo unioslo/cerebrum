@@ -58,7 +58,7 @@
     ## If external_id is populated, we have a list with dicts to play with
     #for $extid in $account['external_id']
         #if $extid['extid_type'] == "NO_BIRTHNO"
-            $info.append(($_($extid['extid_type_description'], $_($extid['external_id']))))
+            $info.append(($_($extid['extid_type_description']), $_($extid['external_id'])))
         #end if
     #end for
     $widgets.viewInfo($info, $notice)
