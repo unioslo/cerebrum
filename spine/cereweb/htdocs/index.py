@@ -25,11 +25,13 @@ import forgetHTML as html
 from gettext import gettext as _
 
 from lib.Main import Main
-from lib.utils import transaction_decorator, commit_url
+from lib.utils import transaction_decorator, commit_url, redirect
+from lib.utils import rollback_url
 from lib.templates.MotdTemplate import MotdTemplate
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
 
 from login import login, logout
+from SpineIDL.Errors import NotFoundError, AccessDeniedError
 
 import account
 import disk
@@ -53,6 +55,7 @@ def index(transaction):
     page = Main()
     page.title = _("Welcome to Cereweb")
     motd = MotdTemplate()
+    page.add_jscript("motd.js")
     
     motd_search = transaction.get_cereweb_motd_searcher()
     motd_search.order_by_desc(motd_search, 'create_date')
@@ -67,6 +70,7 @@ def all_motds(transaction):
     page = Main()
     page.title = _("Messages of the day")
     motd = MotdTemplate()
+    page.add_jscript("motd.js")
     
     motd_search = transaction.get_cereweb_motd_searcher()
     motd_search.order_by_desc(motd_search, 'create_date')
@@ -76,21 +80,44 @@ def all_motds(transaction):
 all_motds = transaction_decorator(all_motds)
 all_motds.exposed = True
 
-def create_motd(transaction, subject, message):
-    """Create a new motd."""
-    transaction.get_commands().create_cereweb_motd(subject, message)
+def save_motd(transaction, id=None, subject=None, message=None):
+    if id: # Delete the old
+        try:
+            motd = transaction.get_cereweb_motd(int(id))
+        except NotFoundError, e:
+            msg = _("Couldn't find existing motd.");
+            rollback_url('/index', msg)
+        try:
+            motd.delete()
+        except AccessDeniedError, e:
+            msg = _("You do not have permission to delete.");
+            rollback_url('/index', msg)
+    try: # Create the new
+        transaction.get_commands().create_cereweb_motd(subject, message)
+    except AccessDeniedError, e:
+        msg = _("You do not have permission to create.");
+        rollback_url('/index', msg)
     msg = _('Motd successfully created.')
     commit_url(transaction, 'index', msg=msg)
-create_motd = transaction_decorator(create_motd)
-create_motd.exposed = True
+save_motd = transaction_decorator(save_motd)
+save_motd.exposed = True
 
-def edit_motd(transaction, id, subject, message):
-    """Delete and recreate the motd to the server."""
-    motd = transaction.get_cereweb_motd(int(id))
-    motd.delete()
-    transaction.get_commands().create_cereweb_motd(subject, message)
-    msg = _('Motd successfully updated.')
-    commit_url(transaction, 'index', msg=msg)
+def edit_motd(transaction, id=None):
+    if not id:
+        subject, message = '',''
+    else:
+        try: 
+            motd = transaction.get_cereweb_motd(int(id))
+            subject = motd.get_subject()
+            message = motd.get_message()
+        except NotFoundError, e:
+            redirect('/index')
+    page = Main()
+    page.title = _("Edit Message")
+    tmpl = MotdTemplate()
+    content = tmpl.editMotd('/save_motd', id, subject, message, main=True)
+    page.content = lambda: content
+    return page
 edit_motd = transaction_decorator(edit_motd)
 edit_motd.exposed = True
 

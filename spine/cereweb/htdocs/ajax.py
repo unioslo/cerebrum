@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from SpineIDL.Errors import NotFoundError
 from gettext import gettext as _
 from lib.utils import *
 from lib.WorkList import remember_link
@@ -96,3 +97,34 @@ def search(transaction, **vargs):
     return result
 search = transaction_decorator(search)
 search.exposed = True
+
+def dialog(transaction):
+    cherrypy.response.headerMap['Content-Type'] = "text/xml"
+    return """
+<xml>
+    <header>
+        <p>header</p>
+    </header>
+    <body>
+        <form><label for="group">Group:</label><input id="group" type="text"/></form>
+    </body>
+    <footer>
+        <p>footer</p>
+    </footer>
+</xml>"""
+dialog = transaction_decorator(dialog)
+dialog.exposed = True
+
+def get_motd(transaction, id):
+    message, subject = "",""
+    try:
+        motd = transaction.get_cereweb_motd(int(id))
+    except NotFoundError, e:
+        pass
+    message = motd.get_message().decode('latin1').encode('utf-8')
+    message = message.replace('\n', '\\n').replace('\r', '')
+    subject = motd.get_subject().decode('latin1').encode('utf-8').replace('\n', '\\n').replace('\r', '')
+    subject = subject.replace('\n', '\\n').replace('\r', '')
+    return "{'message': '%s', 'subject': '%s' }" % (message, subject)
+get_motd = transaction_decorator(get_motd)
+get_motd.exposed = True
