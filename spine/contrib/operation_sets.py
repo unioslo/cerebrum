@@ -107,6 +107,17 @@ mySelf = [ # {{{
         'Person.get_quarantines',
         'Person.get_spreads',
         'Person.is_quarantined',
+        'EmailTarget.get_id',
+        'EmailTarget.get_addresses',
+        'EmailTarget.get_alias_value',
+        'EmailTarget.set_primary_address',
+        'EmailTarget.get_entity',
+        'EmailTarget.get_id',
+        'EmailTarget.get_primary_address',
+        'EmailTarget.get_type',
+        'EmailTarget.create_forward',
+        'EmailTarget.get_using_uid',
+        'EmailTarget.set_alias_value',
 ] # }}}
 private = [ # {{{
         'Commands.create_cereweb_option', 
