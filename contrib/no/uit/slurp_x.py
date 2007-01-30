@@ -60,6 +60,7 @@ class execute:
         bootstrap_inst = self.account.search(name=cereconf.INITIAL_ACCOUNTNAME)
         bootstrap_id=bootstrap_inst[0]['account_id']
         #print "bootstrap_id = %s" % bootstrap_id
+        self.num_expired=0
 
     #reads the input source file
     def get_guest_data(self):
@@ -83,6 +84,17 @@ class execute:
             data.append(line)
         return data
 
+    def check_expired_sourcedata(self,id, navn, expire_date):
+
+        expire = mx.DateTime.DateFrom(expire_date)
+        today =  mx.DateTime.today()
+        if ( expire < today):
+            self.logger.info("Skipping process of %s (SysXId=%s) because it expired %s" % (navn, id, expire_date))
+            self.num_expired+=1
+            return True
+        else: 
+            return False
+
 
 
     def get_sysX_person(self,sysX_id):
@@ -104,13 +116,15 @@ class execute:
         except ValueError,m:
             self.logger.error("VALUEERROR_create_person2: %s: Line=%s" % (m,data_list))
             return 1
-        
+            
+        self.logger.debug("Trying to process %s %s ID=%s, national_id=%s,aproved=%s" % (fornavn,etternavn,id,national_id,aproved))
+        if self.check_expired_sourcedata(id, fornavn + " " + etternavn, expire_date):
+            return 1,bruker_epost
+
+        aproved = aproved.rstrip()
         my_stedkode = Stedkode(self.db)
         my_stedkode.clear()
         self.person.clear()
-        self.logger.debug("Trying to process %s %s ID=%s, national_id=%s,aproved=%s" % (fornavn,etternavn,id,national_id,aproved))
-        aproved = aproved.rstrip()
-
 
         if (aproved != 'Yes'):
             self.logger.error("Processing person: %s %s (id=%s)not yet approved, not stored in BAS." % (fornavn, etternavn,id))
@@ -134,11 +148,9 @@ class execute:
 
                 try:
                     self.person.find_by_external_id(external_id_type,external_id)
-                    print "found person obj with id_type=%s" % external_id_type
                 except Errors.NotFoundError:
                     # person not found with norwegian ssn, try to locate with sysX id.
-                    if (national_id != "NO"):
-                        print "has nor-snn, but not found with it. try to locate as sysX"
+                    if (national_id != "NO"):                        
                         self.person = self.get_sysX_person(id)
             else:
                 # foreigner without norwegian ssn, use SysX-id as external-id.
@@ -213,7 +225,6 @@ class execute:
             self.logger.info("**** NEW ****")
         elif op == False:
             self.logger.info("**** UPDATE ****")
-        self.db.commit()
 
 
     def expire_date_conversion(self,expire_date):
@@ -299,6 +310,10 @@ class execute:
         except ValueError,m:
             self.logger.error("data_list:%s##%s" % (data_list,m))
             sys.exit(1)
+        
+        if self.check_expired_sourcedata(id, fornavn + " " + etternavn, expire_date):
+            return 1
+        
         self.posix_user = PosixUser.PosixUser(self.db)
         group = Factory.get('Group')(self.db)
         self.person.clear()
@@ -672,10 +687,12 @@ If you have any questions you can either contact orakel@uit.no or bas-admin@cc.u
 def main():
 
     logger_name = cereconf.DEFAULT_LOGGER_TARGET
+    dryrun = False
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:l:u',['source_file','logger-name','update',])
-    except getopt.GetoptError:
+        opts,args = getopt.getopt(sys.argv[1:],'s:l:u',['source_file','logger-name','update','dryrun'])
+    except getopt.GetoptError,m:
+        print "Unknown option: %s" % (m)
         usage()
 
     ret = 0
@@ -684,17 +701,23 @@ def main():
     for opt,val in opts:
         if opt in('-s','--source_file'):
             source_file = val
-        if opt in ('-u','--update'):
+        elif opt in ('-u','--update'):
             update = 1
-        if opt in ('l','--logger-name'):
+        elif opt in ('l','--logger-name'):
             logger_name = val
-
+        elif opt in ('--dryrun'):
+            dryrun = True
+        else:
+            print "unknown option: %s" % (opt)
+            usage(1)
+            
     x_create=execute(logger_name)
     if (source_file == 0):
         if (update):
             x_create.logger.info("Retreiving Guest data")
             x_create.get_guest_data()
         else:
+            print "quit"
             usage()
     else:
         if(update ==1):
@@ -702,23 +725,20 @@ def main():
         data = x_create.read_data(source_file)
         for line in data:
             ret = x_create.create_person2(line)
-        x_create.db.commit()
-        #sys.exit(1)
+        #x_create.db.commit()
+
         #accounts needs to be created after person objects are stored
         #Therefore we need to traverse the list again and generate
         #accounts.
         for line in data:
             x_create.create_account(line)
-            #print "ret = %s,epost=%s" % (ret,bruker_epost)
-            #x_create.db.commit()
-            #if ((ret != 1) and (bruker_epost != "")):
-            #    email_class = Email.email_address(x_create.db)
-            #    email_class.process_mail(ret,"defaultmail",bruker_epost)
-            #    email_class.db.commit()
-            #else:
-            #    x_create.logger.warn("Failed to update email on account_id=%s, email=%s" % (ret,bruker_epost))
                
-        x_create.db.commit()
+        if dryrun:
+            x_create.logger.info("Dryrun: Rollback all changes")
+            x_create.db.rollback()
+        else:
+            x_create.logger.info("Committing all changes to database")
+            x_create.db.commit()
         
                                
 def usage():
@@ -728,6 +748,7 @@ def usage():
                                    person and user entities in cerebrum
     -u      | --update_data      : updates the datafile containing guests from the guest database
     -l name | --logger_name name : change default logger target
+    --dryrun : do no commit changes to database
     """
     sys.exit(1)
 
