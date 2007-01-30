@@ -256,7 +256,7 @@ def compare(adusers,cerebrumusers):
                         changes['profilePath'] = ''
                         if not changes.has_key('type'):
                             changes['type'] = 'UPDATEUSR'
-                            logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_ANSATT))
+                            #logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_ANSATT))
             else:
                 
                 # Impossible to determine OU for a given account
