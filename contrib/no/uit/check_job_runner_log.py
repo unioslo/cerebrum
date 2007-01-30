@@ -42,6 +42,7 @@ def process_logfile(logfile):
 
 
     lastfile = "%s.last" % logfile
+    laststr = ""
     try:
         lastf = open(lastfile,'r+')
         laststr = lastf.read()
@@ -56,7 +57,7 @@ def process_logfile(logfile):
     lines = logf.readlines()
     logf.close()
 
-    global_msg = subject = ""
+    global_msg = subject = first_lines = ""
     tstamp = None
 
     for logline in lines:
@@ -85,6 +86,7 @@ def process_logfile(logfile):
         std_err_file = "%s/%s/stderr.log" % (job_runner_path,output_path)
         std_out_file = "%s/%s/stdout.log" % (job_runner_path,output_path)
         strTime = time.strftime("%Y%m%d-%H%M",time.localtime(float(tstamp)))
+        first_lines += "JOB '%s' returned 1 at %s\n" % (job_name,strTime)
         global_msg += "\n%s\nJOB '%s' returned 1 at %s\n" % ('-'*60,job_name,strTime)
         
         try:
@@ -125,7 +127,7 @@ def process_logfile(logfile):
             
     
     if (global_msg != ""):
-        send_mail(send_mail_to, subject, global_msg)
+        send_mail(send_mail_to, subject, first_lines + global_msg)
 
 
 def usage(exitcode=0):
