@@ -880,6 +880,10 @@ def proc_delete_user(r):
     # Note that we preserve the quarantines for deleted users
     # TBD: Should we have an API function for this?
     for s in account.get_spread():
+        # RH, 2007-01-30: We cannot remove a spread before a home for
+        # that spread is removed (FK-contraint ac_home_spread in
+        # account_home)
+        account.clear_home(s['spread'])
         account.delete_spread(s['spread'])
     group = Factory.get('Group')(db)
     for g in group.list_groups_with_entity(account.entity_id):
