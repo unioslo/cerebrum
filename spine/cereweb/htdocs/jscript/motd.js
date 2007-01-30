@@ -1,3 +1,23 @@
+/*
+ * Copyright 2004, 2005 University of Oslo, Norway
+ *
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
 function editMotd(e) {
     var t = YAHOO.util.Event.getTarget(e);
     var content = t.innerText || t.textContent;
@@ -7,25 +27,31 @@ function editMotd(e) {
             YAHOO.util.Event.preventDefault(e);
             YAHOO.cereweb.getMotd(argument);
     }
-}
+};
+
+function actionClicked(e) {
+    var t = YAHOO.util.Event.getTarget(e);
+    if (t.nodeName.toLowerCase() === 'a') {
+        var action = t.href.split('/').slice(-1)[0]
+        if (action === 'edit_motd') {
+            YAHOO.util.Event.preventDefault(e);
+            YAHOO.cereweb.motdDialog.content("", "");
+            YAHOO.cereweb.motdDialog.show();
+        }
+    }
+};
 
 YAHOO.cereweb.getMotd = function(arg) {
     var callback = {
         success: function(o) {
             res = o.responseText;
             eval('var data = ' + res);
-            idInput = document.getElementById('editMotdForm_id');
-            subjectInput = document.getElementById('editMotdForm_subject');
-            messageInput = document.getElementById('editMotdForm_message');
-
-            subjectInput.value = data.subject;
-            messageInput.value = data.message;
-            idInput.value = arg;
+            YAHOO.cereweb.motdDialog.content(data.subject,
+                data.message, arg);
             YAHOO.cereweb.motdDialog.show();
         },
         failure: function(o) {
-            YAHOO.cereweb.motdDialog.subject.value = "";
-            YAHOO.cereweb.motdDialog.message.value = "";
+            YAHOO.cereweb.motdDialog.content("", "");
         },
         timeout: 2000
     };
@@ -35,7 +61,13 @@ YAHOO.cereweb.getMotd = function(arg) {
 
 function initMotds() {
     YAHOO.util.Event.addListener(this, "click", editMotd);
-}
+};
+
+function initActions() {
+    YAHOO.util.Event.addListener(this, "click", actionClicked);
+};
+
+
 
 var initMotdDialog = function(e) {
     var myDiv = document.getElementById("editMotd");
@@ -57,7 +89,13 @@ var initMotdDialog = function(e) {
     YAHOO.cereweb.motdDialog.render();
     YAHOO.cereweb.motdDialog.hide();
     myDiv.style.display = '';
+    YAHOO.cereweb.motdDialog.content = function(subject, message, id) {
+            document.getElementById('editMotdForm_id').value = id;
+            document.getElementById('editMotdForm_subject').value = subject;
+            document.getElementById('editMotdForm_message').value = message;
+    };
 };
 
 YAHOO.util.Event.onAvailable('editMotd', initMotdDialog);
 YAHOO.util.Event.onAvailable('motds', initMotds);
+YAHOO.util.Event.onAvailable('actions', initActions);

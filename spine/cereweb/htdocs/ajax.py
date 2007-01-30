@@ -122,9 +122,9 @@ def get_motd(transaction, id):
     except NotFoundError, e:
         pass
     message = motd.get_message().decode('latin1').encode('utf-8')
-    message = message.replace('\n', '\\n').replace('\r', '')
-    subject = motd.get_subject().decode('latin1').encode('utf-8').replace('\n', '\\n').replace('\r', '')
-    subject = subject.replace('\n', '\\n').replace('\r', '')
+    message = message.replace('\n', '\\n').replace('\r', '').replace("'", "\\'").replace('"', '\\"')
+    subject = motd.get_subject().decode('latin1').encode('utf-8')
+    subject = subject.replace('\n', '\\n').replace('\r', '').replace("'", "\\'").replace('"', '\\"')
     return "{'message': '%s', 'subject': '%s' }" % (message, subject)
 get_motd = transaction_decorator(get_motd)
 get_motd.exposed = True
