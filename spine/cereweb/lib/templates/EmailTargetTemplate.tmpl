@@ -34,8 +34,9 @@ $searcher.set_entity($entity)
     #for $target in $targets:
         #set $addresses = $target.get_addresses()
         <div class="item">
+        $target.get_alias_value()
             <div class="actions">
-                #set $url = "/email/remove_target?entity=&amp;target=$target.get_id()"
+                #set $url = "/email/remove_target?entity=&amp;target=%s" % $target.get_id()
                 <a class="action" href="$url">$_('Delete')</a>
             </div>
             #for $address in $addresses:
