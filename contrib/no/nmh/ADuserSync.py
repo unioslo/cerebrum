@@ -230,6 +230,7 @@ def compare(adusers,cerebrumusers):
                     logger.debug("Updating OU for user %s to %s" % (usr, cerebrumusers[usr]['affiliation']))
 
                 # test homeDrive og homeDir
+                # FIXME: should check each attribute separatly!
                 if ou.group(1) == "studenter":
                     if (dta['homeDrive'] == cereconf.AD_HOME_DRIVE_STUDENT and
                         dta['homeDirectory'] == "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr) and
@@ -242,7 +243,7 @@ def compare(adusers,cerebrumusers):
                         changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
                         if not changes.has_key('type'):
                             changes['type'] = 'UPDATEUSR'
-                            logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_STUDENT))
+                            #logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_STUDENT))
                 else:
                     if (dta['homeDrive'] == cereconf.AD_HOME_DRIVE_ANSATT and
                         dta['homeDirectory'] == "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT, usr) and
