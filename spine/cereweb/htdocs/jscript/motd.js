@@ -18,69 +18,54 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-function parseUrl(url) {
-    var target = url.split('/').slice(-1)[0].split('?');
-    var action = target[0];
-    var argument = target[1];
-    return {'name': action, 'argument': argument};
-};
-
-function editMotd(e) {
-    var t = YAHOO.util.Event.getTarget(e);
-    if (t.nodeName.toLowerCase() === 'a') {
-        var action = parseUrl(t.href);
-        if (action.name === 'edit_motd') {
-            YAHOO.util.Event.preventDefault(e);
-            var argument = action.argument.replace(/id=/,'');
-            YAHOO.cereweb.getMotd(argument);
-        }
-    }
-};
-
 function actionClicked(e) {
-    var t = YAHOO.util.Event.getTarget(e);
+    var t = YE.getTarget(e);
     if (t.nodeName.toLowerCase() === 'a') {
-        var action = parseUrl(t.href);
+        var action = parseAction(t.href);
         if (action.name === 'edit_motd') {
-            YAHOO.util.Event.preventDefault(e);
-            YAHOO.cereweb.motdDialog.content("", "");
-            YAHOO.cereweb.motdDialog.show();
+            YE.preventDefault(e);
+            var argument = action.argument &&
+                action.argument.replace(/id=/,'');
+            cereweb.getMotd(argument);
         }
     }
 };
 
-YAHOO.cereweb.getMotd = function(arg) {
+cereweb.getMotd = function(arg) {
     var callback = {
         success: function(o) {
             res = o.responseText;
             eval('var data = ' + res);
-            YAHOO.cereweb.motdDialog.content(data.subject,
+            cereweb.motdDialog.content(data.subject,
                 data.message, arg);
-            YAHOO.cereweb.motdDialog.show();
+            cereweb.motdDialog.show();
         },
         failure: function(o) {
-            YAHOO.cereweb.motdDialog.content("", "");
+            cereweb.motdDialog.content("", "");
         },
         timeout: 2000
     };
-    var cObj = YAHOO.util.Connect.asyncRequest('POST',
-        '/ajax/get_motd', callback, 'id=' + arg);
+    if (arg)
+        var cObj = YC.asyncRequest('POST',
+            '/ajax/get_motd', callback, 'id=' + arg);
+    else {
+        cereweb.motdDialog.content("", "");
+        cereweb.motdDialog.show();
+    }
 };
 
 function initMotds() {
-    YAHOO.util.Event.addListener(this, "click", editMotd);
+    YE.addListener(this, "click", actionClicked);
 };
 
 function initActions() {
-    YAHOO.util.Event.addListener(this, "click", actionClicked);
+    YE.addListener(this, "click", actionClicked);
 };
-
-
 
 var initMotdDialog = function(e) {
     var myDiv = document.getElementById("editMotd");
     myDiv.style.display = 'none';
-    YAHOO.cereweb.motdDialog = new YAHOO.widget.Dialog("editMotd", {
+    cereweb.motdDialog = new YAHOO.widget.Dialog("editMotd", {
         'width': '500px',
         'height': '165px',
         'draggable': false,
@@ -89,21 +74,21 @@ var initMotdDialog = function(e) {
         'postmethod': 'form' });
     var myButtons = [{
         text: 'Submit',
-        handler: function(o) { YAHOO.cereweb.motdDialog.doSubmit(); },
+        handler: function(o) { cereweb.motdDialog.doSubmit(); },
         isDefault: true
     }];
-    YAHOO.cereweb.motdDialog.cfg.queueProperty("buttons", myButtons);
-    YAHOO.cereweb.motdDialog.setHeader("Edit Message");
-    YAHOO.cereweb.motdDialog.render();
-    YAHOO.cereweb.motdDialog.hide();
+    cereweb.motdDialog.cfg.queueProperty("buttons", myButtons);
+    cereweb.motdDialog.setHeader("Edit Message");
+    cereweb.motdDialog.render();
+    cereweb.motdDialog.hide();
     myDiv.style.display = '';
-    YAHOO.cereweb.motdDialog.content = function(subject, message, id) {
+    cereweb.motdDialog.content = function(subject, message, id) {
             document.getElementById('editMotdForm_id').value = id;
             document.getElementById('editMotdForm_subject').value = subject;
             document.getElementById('editMotdForm_message').value = message;
     };
 };
 
-YAHOO.util.Event.onAvailable('editMotd', initMotdDialog);
-YAHOO.util.Event.onAvailable('motds', initMotds);
-YAHOO.util.Event.onAvailable('actions', initActions);
+YE.onAvailable('editMotd', initMotdDialog);
+YE.onAvailable('motds', initMotds);
+YE.onAvailable('actions', initActions);
