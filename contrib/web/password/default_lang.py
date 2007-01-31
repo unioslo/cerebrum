@@ -81,7 +81,7 @@ class DefaultLanguage(object):
     pw_now = ''
 
     # HTML page title
-    Title = 'Password change'
+    title = 'Password change'
 
     # Parameters to default_webpage_template
     template_params = ('Editors', 'Document created', 'modified')

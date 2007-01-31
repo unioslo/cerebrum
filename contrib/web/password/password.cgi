@@ -185,7 +185,7 @@ def get_html_top_bottom():
             .replace('9999-99-99', date_modified)
             .replace('88.88.8888', rev_date(date_created))
             .replace('99.99.9999', rev_date(date_modified))
-            .replace('##TITLE##', text.Title)
+            .replace('##TITLE##', text.title)
             .replace('##KEYWORDS##', text.webpage_keywords)
             .replace('##EDITOR.NAME##', config.EDITOR_NAME)
             .replace('##EDITOR@EMAIL##', config.EDITOR_EMAIL)
