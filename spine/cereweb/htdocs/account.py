@@ -108,32 +108,38 @@ search = transaction_decorator(search)
 search.exposed = True
 index = search
 
-def create(transaction, owner, name="", expire_date=""):
+def create(transaction, owner=None, name="", expire_date=""):
     page = Main()
     page.title = _("Create a new Account")
     page.setFocus("account/create")
+    page.add_jscript("find_owner.js")
 
     create = AccountCreateTemplate()
 
-    owner = transaction.get_entity(int(owner))
-    if owner.get_type().get_name() == 'person':
-        full_name = owner.get_cached_full_name().split()
-        if len(full_name) == 1:
-            first = ''
-            last, = full_name
+    try:
+        owner = transaction.get_entity(int(owner))
+    except TypeError, e:
+        owner = ''
+
+    if owner:
+        if owner.get_type().get_name() == 'person':
+            full_name = owner.get_cached_full_name().split()
+            if len(full_name) == 1:
+                first = ''
+                last, = full_name
+            else:
+                first, last = full_name[0], full_name[-1]
         else:
-            first, last = full_name[0], full_name[-1]
+            first = ""
+            last = owner.get_name()
+
+        alts = transaction.get_commands().suggest_usernames(first, last)
+        if not name:
+            name = alts and alts[0] or ''
+        content = create.form(owner, name, expire_date, alts, transaction)
+        page.content = lambda: content
     else:
-        first = ""
-        last = owner.get_name()
-
-    alts = transaction.get_commands().suggest_usernames(first, last)
-
-    if not name:
-        name = alts[0]
-    
-    content = create.form(owner, name, expire_date, alts, transaction)
-    page.content = lambda: content
+        page.content = create.select_owner
     return page
 create = transaction_decorator(create)
 create.exposed = True
