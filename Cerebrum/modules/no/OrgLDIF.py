@@ -125,8 +125,7 @@ class norEduLDIFMixin(OrgLDIF):
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             self.FEIDE_attr_ou_id:  (ldap_ou_id,)})
-        if self.FEIDE_schema_version != '1.4':
-            entry['cn'] = (ldapconf('OU', 'dummy_name'),)
+        entry['cn'] = (ldapconf('OU', 'dummy_name'),)
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
@@ -180,16 +179,14 @@ class norEduLDIFMixin(OrgLDIF):
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             self.FEIDE_attr_ou_id:  (ldap_ou_id,),
             'ou': ou_names}
-        if self.FEIDE_schema_version != '1.4':
-            entry['cn'] = ou_names[-1:]
+        entry['cn'] = ou_names[-1:]
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
             if self.norEduOrgUniqueID:
                 entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
             entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
-        if acronym and self.FEIDE_schema_version != '1.4':
-            entry['norEduOrgAcronym'] = (acronym,)
+        entry['norEduOrgAcronym'] = (acronym,)
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
