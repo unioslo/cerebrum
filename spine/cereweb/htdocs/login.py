@@ -50,6 +50,14 @@ def login(username='', password='', redirect='/index', msg=''):
             cherrypy.session['timeout'] = session.get_timeout()
             cherrypy.session['options'] = Options(session, username)
             
+            #clean redirect
+            if not redirect.startswith('/'):
+                parts = redirect.split('/')
+                # parts = [ 'http[s]?:', '', 'pointy...:8000', 'index', '...']
+                if parts[0].startswith('http'):
+                    redirect = "/".join(parts[3:]) 
+                else:
+                    redirect = '/%s' % redirect
             #redirect to the main page and start using the cereweb.publisher.
             utils.redirect(redirect)
 
