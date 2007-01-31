@@ -39,7 +39,7 @@ function SR_clear(e) {
     var callback = {
         success: remove_searchresult,
         failure: remove_searchresult,
-        timeout: 5000,
+        timeout: 5000
     }
 
     var cObj = YAHOO.util.Connect.asyncRequest('GET', uri, callback);
@@ -70,7 +70,7 @@ function SR_submit(e) {
         failure: function(o) {
             YAHOO.log('failure');
         },
-        timeout: 5000,
+        timeout: 5000
     }
     YAHOO.util.Connect.setForm('search_form');
     var cObj = YAHOO.util.Connect.asyncRequest('POST', uri, callback);
