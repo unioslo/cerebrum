@@ -236,21 +236,24 @@ div.create div.help {
     margin-top: 1em;
 }
 
-div.createform {
+div.create form {
     padding: 0.5em 0 1em 0;
 }
 
-div.createform label {
-    font-style: oblique;
-    font-weight: bold;
+div.create form label {
     margin-right: 0.5em;
     text-align: left;
     float: left;
     width: 7em;
 }
 
-div.createform label.optional{
+div.create form div.optional label {
     font-weight: normal;
+    font-style: normal;
+}
+div.create form div.required label {
+    font-style: oblique;
+    font-weight: bold;
 }
 
 div.cssform label {
@@ -258,35 +261,36 @@ div.cssform label {
     width: 10em;
 }
 
-div.createform input, div.createform textarea {
+div.create form input, div.create form textarea {
     width: auto;
     margin-bottom: 0.4em;
 }
 
-div.createform select {
+div.create form select {
     width: 12em;
     margin-bottom: 0.4em;
 }
 
-div.createform div.radio input {
+div.create form div.radio input {
     width: auto;
     float: none;
 }
 
-div.createform div.radio {
+div.create form div.radio {
     margin-left: 10em;
 }
 
-div.createform br {
+div.create form br {
     clear: left;
 }
 
-div.createform input.join {
+div.create form input.join {
     width: auto;
     float: none;
 }
 
-div.createform input:focus, div.createform textarea:focus {
+
+div.create form input:focus, div.create form textarea:focus {
     background: #ffe;
 }
 
@@ -725,4 +729,18 @@ div.options input:focus {
     background: #ffe;
 }
 
+## Classes used for styling the Account Create Form.
+.usernamechoice {
+    float: left;
+}
+.usernamechoice input {
+    float: left;
+}
+.usernamechoice label {
+    width: 8em;
+}
+.lastchoice {
+    clear: left;
+}
 ## vim: sw=4 sts=4 expandtab
+
