@@ -113,11 +113,15 @@
 #end def
 
 ## Creates inputs and labels from given arguments.
-#def input($name, $label, $value="", $type="text", $cssclass="required")
+#def input($name, $label, $value="", $type="text", $cssclass="")
+    #if $cssclass
     <div class="$cssclass">
-        <label for="$name">$_($label):</label>
-        <input type="$type" name="$name" id="$name" value="$_($value)" />
+    #end if
+    <label for="$name">$_($label):</label>
+    <input type="$type" name="$name" id="$name" value="$_($value)" />
+    #if $cssclass
     </div>
+    #end if
 #end def
 
 ## Create input and labels from given arguments while hiding the value (typically passwords)
@@ -147,5 +151,19 @@
         #end for
     </div>  
 #end if
+#end def
+
+#def radio($label, $name, $alts, $default=None)
+    <h4>$_($label):</h4>
+    #for $alt in $alts
+    <div class="usernamechoice">
+        #if $default == $alt
+            <input type="radio" name="$name" value="$alt" CHECKED />
+        #else
+            <input type="radio" name="$name" value="$alt" />
+        #end if
+        <label for="r_$alt">$alt</label>
+    </div>
+    #end for
 #end def
 

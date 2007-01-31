@@ -23,62 +23,59 @@
 
 #attr $form_widgets = FormWidgets()
 
-
-#def radio($label, $name, $alts, $default=None, $other=None)
-    <label for="$name">$_($label):</label>
-    <div class="radio">
-    #for $alt in $alts
-        <br />
-        #if $default == $alt
-            <input type="radio" name="$name" value="$alt" CHECKED>
-        #else
-            <input type="radio" name="$name" value="$alt">
-        #end if
-        $alt
-        </input>
-    #end for
-    #if $other
-        <br />
-        <input type="radio" name="$name" value="$other">
-            <input type="text" name="$other" value="" />
-        </input>
-    #end if
-    <br>
-    </div>
-#end def
-
-
 #def form($owner, $name, $expire_date, $alts, $transaction)
 <div class="create">
-    #set $type = $owner.get_type().get_name()
-    <form action="make" method="post">
-        <div class="createform">
-            $form_widgets.input("Owner", "owner", $owner.get_id(), type="hidden")
-            $object_link($owner)
-            $radio("Username", "name", $alts, $name, "_other")
-            $form_widgets.input("Expire date", "expire_date", $expire_date)
-            #if $type != 'person'
-                #set $ac_type_searcher = $transaction.get_account_type_searcher()    
-                #set $ac_types = [($t.get_name(), $t.get_description) 
-                                  for $t in $ac_type_searcher.search()]
-                $form_widgets.generate_loption("np_type", "Non-personal account type",
-                                                $ac_types)
-            #end if
-            #if $type == 'group'
-                <label for="join">$_('Join on creation'):</label>
-                <input type="checkbox" name="join" value="True" class="join">
-                    $object_link($owner)
-                </input><br />
-            #end if
-
+    #set $owner_type = $owner.get_type().get_name()
+    #set $owner_id = $owner.get_id()
+    #set $owner_link = $object_link($owner)
+    <form id="createform" action="make" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$owner_id" />
         </div>
+        <h3>$_("Owner is") $owner_link</h3>
+        <div class="required">
+            $form_widgets.radio("Please select a username", "name", $alts, default=$name)
+            <div class="lastchoice">
+                <input id="r_other" type="radio" name="name" value="_other" />
+                <label for="_other" style="display:none;">Other</label>
+                <input id="i_other" type="text" name="_other" value="" />
+            </div>
+        </div>
+        <div class="optional">
+            $form_widgets.input("expire_date", "Expire date", $expire_date)
+        </div>
+        #if $owner_type != 'person'
+            #set $ac_type_searcher = $transaction.get_account_type_searcher()    
+            #set $ac_types = [($t.get_name(), $t.get_description) 
+                              for $t in $ac_type_searcher.search()]
+            $form_widgets.generate_loption("np_type", "Non-personal account type",
+                                            $ac_types)
+        #end if
+        #if $owner_type == 'group'
+        <div class="optional">
+            <label for="join">$_('Join on creation'):</label>
+            <input type="checkbox" name="join" value="True" class="join">
+                $owner_link
+            </input>
+        </div>
+        #end if
         <div>
-            <center>
-                <input type="submit" value="$_('Create')" />&nbsp;
-                <input type="reset" value="$_('Reset')" />&nbsp;
-            </center>
+            <input type="submit" value="$_('Create')" />
+            <input type="reset" value="$_('Reset')" />
         </div>
     </form>
 </div>
 #end def
 
+#def select_owner()
+<div>
+    <h3>$_("Select an owner")</h3>
+    <p class="nojs">All accounts need an owner, so you need to find a group, or a person and follow the <em>create account</em> action found on that page.</p>
+    <div id="actions">
+        <ul>
+            <li><a href="/person/search?redirect=/account/create">person</a></li>
+            <li><a href="/group?redirect=/account/create">group</a></li>
+        </ul>
+    </div>
+</div>
+#end def
