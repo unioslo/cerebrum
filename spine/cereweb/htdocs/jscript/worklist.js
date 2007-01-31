@@ -18,7 +18,7 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-webroot = location.protocol + '//' + location.host + '/';
+webroot = location.protocol + '//' + location.host;
 
 // Max elements in the worklist.
 var WL_max_elements = 20;
@@ -406,7 +406,7 @@ function WL_forget() {
     // tell the server that we have removed some element.
     var remove_url = webroot + '/worklist/remove';
     var args = "ids="+ids;
-    var cObj = YAHOO.util.Connect.asyncRequest('POST',
+    var cObj = YC.asyncRequest('POST',
         update_url, callback, args);
 }
 
