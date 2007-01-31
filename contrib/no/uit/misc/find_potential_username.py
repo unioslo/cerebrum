@@ -62,7 +62,7 @@ def main():
             print "got name = %s" % name
         if opt in ('-t','--type'):
             if val == 'S':
-                cstart = 22
+                cstart = 0
             elif val =='E':
                 cstart =0
             
