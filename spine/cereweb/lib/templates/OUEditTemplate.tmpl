@@ -32,19 +32,41 @@
 <div class="edit">
     <h3>$_('General organization info')</h3>
     <form action="save" method="post">
-        <div class="editform">
+        <div>
             $form_widgets.input("name", "Name", $ou.get_name())
+        </div>
+        <div>
             $form_widgets.input("acronym", "Acronym", $ou.get_acronym())
+        </div>
+        <div>
             $form_widgets.input("short_name", "Short name", $ou.get_short_name())
+        </div>
+        <div>
             $form_widgets.input("display_name", "Display name", $ou.get_display_name())
+        </div>
+        <div>
             $form_widgets.input("sort_name", "Sort name", $ou.get_sort_name())
+        </div>
+        <div>
             $form_widgets.input("contrycode", "Country code", $ou.get_landkode())
+        </div>
+        <div>
             $form_widgets.input("institution", "Institution", $ou.get_institusjon())
+        </div>
+        <div>
             $form_widgets.input("faculty", "Faculty", $ou.get_fakultet())
+        </div>
+        <div>
             $form_widgets.input("institute", "Institute", $ou.get_institutt())
+        </div>
+        <div>
             $form_widgets.input("department", "Department", $ou.get_avdeling())
+        </div>
+        <div>
             $form_widgets.boolWidget("catalogue_mark", "Catalogue mark",
                                      $ou.get_katalog_merke())
+        </div>
+        <div class="hidden">
             <input type="hidden" name="id" value="$ou.get_id()" />
         </div>
         $edit_perspectives($transaction, $ou)
