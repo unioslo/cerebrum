@@ -491,7 +491,7 @@ LDAP_PERSON = {
     #   "attrs_visible": {
     #       "OpenLDAPaci": ("1.1#entry#grant;c,r,s,x;[all],[entry]#public#",)},
     # A simpler variant is to use "access to ... filter=(foo=bar) ..."
-    # in slapd.conf, and put 'foo: bar' in (in)visible objects.
+    # in slapd.conf, and set attrs_(in)visible to {'foo': ('bar',)}.
     'attrs_visible': {},
     'attrs_invisible': {},
 
