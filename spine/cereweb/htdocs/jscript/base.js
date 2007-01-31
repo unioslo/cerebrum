@@ -22,9 +22,16 @@
 YAHOO.namespace('cereweb');
 YAHOO.widget.Logger.enableBrowserConsole();
 
+// Shorthand
+log = YAHOO.log;
+YD = YAHOO.util.Dom; 
+YE = YAHOO.util.Event;
+YC = YAHOO.util.Connect;
+cereweb = YAHOO.cereweb;
+
 var cerebug = false;
 if(cerebug) {
-    YAHOO.util.Event.onAvailable("logger", function(o) {
+    YE.onAvailable("logger", function(o) {
         var myLogReader = new YAHOO.widget.LogReader("logger");
     });
 };
@@ -35,6 +42,16 @@ function set_link_text(obj, text) {
         obj.replaceChild(document.createTextNode(text), obj.firstChild);
     }
 }
+
+// Create an action object from a link.
+function parseAction(url) {
+    url = url.replace(/http.*\/\/.*?\//,'')
+    var target = url.split('?');
+    var action = target[0];
+    var argument = target[1];
+    return {'name': action, 'argument': argument};
+};
+
 
 /* Flip visibility */
 // Contains the diffrent divs and their links/buttons.
@@ -53,7 +70,7 @@ function FV_init_listeners() {
             if (FV_elements[i][j] != null) {
                 element = document.getElementById(FV_elements[i][j]);
                 func = new Function("FV_flip("+i+");");
-                YAHOO.util.Event.addListener(element, 'click', func);
+                YE.addListener(element, 'click', func);
             }
         }
     }
@@ -63,15 +80,15 @@ function FV_flip(elm) {
     for (var i = 0; i < FV_elements[elm].length - 2; i++) {
         if (FV_elements[elm][i] != null) {
             e = document.getElementById(FV_elements[elm][i]);
-            YAHOO.cereweb.flip(e);
+            cereweb.flip(e);
         }
     }
 }
-YAHOO.cereweb.flip = function(e) {
+cereweb.flip = function(e) {
     if (e.style.display === 'none') {
         e.style.display = '';
     } else {
         e.style.display = 'none';
     }
 };
-YAHOO.util.Event.addListener(window, 'load', FV_init_listeners);
+YE.addListener(window, 'load', FV_init_listeners);
