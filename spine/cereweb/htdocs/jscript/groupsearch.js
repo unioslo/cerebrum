@@ -18,38 +18,12 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-// Stores the gid_end while option is not range.
-var GS_gid_end_value = "";
-
 // Runs when the page is finished loading.
-addLoadEvent(GS_init_listeners);
-
-// Initialises the listener on the reset button.
-function GS_init_listeners() {
-    var gid_option = document.getElementById('gid_option');
-    
-    addEvent(gid_option, 'change', GS_option_changed);
-
-    GS_option_changed();
-}
+YE.addListener('gid_option', 'change', GS_option_changed);
+YE.onAvailable('gid_option', GS_option_changed);
 
 // Disables gid_end unless option is range.
 function GS_option_changed() {
-    var gid_end = document.getElementById('gid_end');
-    var gid_option = document.getElementById('gid_option');
-    var selected = gid_option.options[gid_option.selectedIndex];
-
-    if (selected.value == "range") {
-        if (gid_end.value == "") {
-            gid_end.value = GS_gid_end_value;
-        }
-        gid_end.disabled = false;
-    } else {
-        if (gid_end.disabled != true) {
-            GS_gid_end_value = gid_end.value;
-        }
-        gid_end.value = "";
-        gid_end.disabled = true;
-    }
+    var state = YD.get('gid_option').value !== "range";
+    YD.get('gid_end').disabled = state;
 }
-
