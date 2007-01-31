@@ -73,7 +73,8 @@ function compareArrays(arr1, arr2) {
 }
 
 // Show errors to the user, in a inobtrusive way.
-function WL_error(msg) {
+function WL_error(o) {
+    msg = o.statusText;
     var action_div = document.getElementById('wl_actions');
     var error_div = document.getElementById('WL_errors');
 
@@ -85,8 +86,8 @@ function WL_error(msg) {
         }
     }
 
-    error_div.appendChild(document.createTextNode(msg));
     error_div.style.display = "block";
+    error_div.lastChild.nodeValue = msg;
 }
 
 // Fill WL_worklist and change link-texts to forget.
