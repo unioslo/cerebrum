@@ -250,9 +250,9 @@ def make_target(transaction, entity, target_type, alias):
     target.set_entity(entity)
     
     if alias:
-        target.set_alias(alias)
+        target.set_alias_value(alias)
     if entity.get_type().get_name() == "account" and entity.is_posix():
-        target.set_using(entity)
+        target.set_using_uid(entity)
     
     msg = _("Added email target (%s) successfully.") % target_type.get_name()
     commit(transaction, entity, msg=msg)
