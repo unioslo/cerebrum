@@ -19,6 +19,7 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
+#from urllib import quote
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
@@ -32,7 +33,7 @@
     <div class="item">
     
         #set $sname = $home.get_spread().get_name()
-        #set $remove = 'remove_home?id=%s&spread=%s' % ($id, $sname)
+        #set $remove = $quote('remove_home?id=%s&spread=%s' % ($id, $sname))
         
         <div class="actions">
             <a class="action" href="$remove">$_('remove')</a>
@@ -48,9 +49,8 @@
 
 #def set($entity, $tr)
 <div class="form box" id="home_form" style="display:none;">
-    <a class="anchor" id="homedir"></a>
     <form action="set_home" method="post">
-        <h3>$_('Set home directory')</h3>
+        <h3 id="homedir">$_('Set home directory')</h3>
         <p>
         <input type="hidden" name="id" value="$entity.get_id()" />
 

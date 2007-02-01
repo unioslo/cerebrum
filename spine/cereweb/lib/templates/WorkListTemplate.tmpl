@@ -111,8 +111,8 @@
 #def action_remember_link($text="Remember")
     #set $args = "_id_, '_class_', '_name_'"
     ## Make sure the link is encoded properly.
-    #set $url = $quote("javascript:WL_remember($args);")
-    <a href="$url">$text</a>
+    #set $url = $quote("WL_remember($args);")
+    <a href="javascript:$url">$text</a>
 #end def
 
 #def DefaultAction

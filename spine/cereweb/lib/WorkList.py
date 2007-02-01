@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from urllib import quote
 import utils
 from templates.WorkListTemplate import WorkListTemplate
 
@@ -63,10 +64,10 @@ def remember_args(object):
 
 def remember_link(object, text='remember', _class=None):
     id, type, name, display_name = remember_args(object)
-    url = "javascript:WL_remember(%i, '%s', '%s');" % (id, type, name)
+    url = quote("WL_remember(%i, '%s', '%s');" % (id, type, name))
     id = 'WL_link_%i' % id
     _class = _class and ' class="%s"' % _class or ''
-    return '<a href="%s" id="%s" %s>%s</a>' % (url, id, _class, text)
+    return '<a href="javascript:%s" id="%s" %s>%s</a>' % (url, id, _class, text)
 
 class WorkListElement:
     
