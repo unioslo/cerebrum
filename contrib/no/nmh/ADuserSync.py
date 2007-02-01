@@ -382,11 +382,11 @@ def update_user(chg):
     else:
         ret = run_cmd('putProperties',chg)
     if not ret[0]:
-        logger.error("Could not update properties for %s (putProperties failed)", chg['sAMAccountName'])
+        logger.error("Could not update properties for %s (putProperties failed)", chg['distinguishedName'])
     else:
         run_cmd('setObject')
     if not ret[0]:
-        logger.error("setObject on %s failed", chg['sAMAccountName'])
+        logger.error("setObject on %s failed", chg['distinguishedName'])
 
         
 def perform_changes(changes):
