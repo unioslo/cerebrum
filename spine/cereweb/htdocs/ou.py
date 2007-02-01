@@ -53,11 +53,13 @@ tree.exposed = True
 def search(transaction, **vargs):
     """Search for ous and displays result and/or searchform."""
     page = Main()
-    page.title = _("Search for OU(s)")
+    page.title = _("OU")
     page.setFocus("ou/search")
     page.add_jscript("search.js")
     
-    handler = SearchHandler('ou', OUSearchTemplate().form)
+    template = OUSearchTemplate()
+    template.title = _('OU(s)')
+    handler = SearchHandler('ou', template.form)
     handler.args = (
         'name', 'acronym', 'short', 'spread'
     )
@@ -133,7 +135,7 @@ edit.exposed = True
 
 def create(transaction, **vargs):
     page = Main()
-    page.title = _("Create a new Organization Unit")
+    page.title = _("OU")
     page.setFocus("ou/create")
 
     # Store given parameters for the create-form

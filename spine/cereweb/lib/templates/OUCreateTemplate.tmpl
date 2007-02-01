@@ -2,12 +2,12 @@
 ##
 ## This file is part of Cerebrum.
 ##
-## Cerebrum is free software; you can redistribute it and/or modify it
+## Cerebrum is free software; you can redisdivibute it and/or modify it
 ## under the terms of the GNU General Public License as published by
 ## the Free Software Foundation; either version 2 of the License, or
 ## (at your option) any later version.
 ##
-## Cerebrum is distributed in the hope that it will be useful, but
+## Cerebrum is disdivibuted in the hope that it will be useful, but
 ## WITHOUT ANY WARRANTY; without even the implied warranty of
 ## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ## General Public License for more details.
@@ -33,67 +33,46 @@
 ## The main method for creating the form for the person create page.
 #def form
 #set $fv = $formvalues
-<p>
 <div class="create">
-	<table>
-		<tr>
-			<th>
-				$_('Create a new organizarion Unit')
-			</th>
-		</tr>
-		<tr>
-			<td>
-        		<div class="createform">
-    			<form action="$getAction()" method="post">
-				<table>
-				<tr>
-            $form_widgets.td2input("name", "Name", $fv.get("name", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("acronym", "Acronym *", $fv.get("acronym", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("short_name", "Short name *", $fv.get("short_name", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("display_name", "Display name *", $fv.get("display_name", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("sort_name", "Sort name *", $fv.get("sort_name", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("institution", "Institution **", $fv.get("institutation", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("faculty", "Faculty **", $fv.get("faculty", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("institute", "Institute **", $fv.get("institute", ""))
-				</tr>
-				<tr>
-            $form_widgets.td2input("department", "Department **", $fv.get("department", ""))
-				<tr>
-					<td colspan="2">
-        				$form_widgets.showHelp($help)
-					</td>
-				</tr>
-				<tr>
-					<td colspan="2">
-        				<div>
-            				<center>
-                				<input type="submit" value="$_('Create')" />&nbsp;
-                				<input type="reset" value="$_('Clear')" />
-            				</center>
-						</div>
-					</td>
-				</tr>
-				</table>
-    			</form>
-        		</div>
-			</td>
-		</tr>
-	</table>
+<h3>$_('Create a new organizarion Unit')</h3>
+    <div class="createform">
+        <form action="$getAction()" method="post">
+            <div>
+                $form_widgets.input("name", "Name", $fv.get("name", ""))
+            </div>
+            <div>
+                $form_widgets.input("acronym", "Acronym *", $fv.get("acronym", ""))
+            </div>
+            <div>
+                $form_widgets.input("short_name", "Short name *", $fv.get("short_name", ""))
+            </div>
+            <div>
+                $form_widgets.input("display_name", "Display name *", $fv.get("display_name", ""))
+            </div>
+            <div>
+                $form_widgets.input("sort_name", "Sort name *", $fv.get("sort_name", ""))
+            </div>
+            <div>
+                $form_widgets.input("institution", "Institution **", $fv.get("institutation", ""))
+            </div>
+            <div>
+                $form_widgets.input("faculty", "Faculty **", $fv.get("faculty", ""))
+            </div>
+            <div>
+                $form_widgets.input("institute", "Institute **", $fv.get("institute", ""))
+            </div>
+            <div>
+                $form_widgets.input("department", "Department **", $fv.get("department", ""))
+            </div>
+            <div>
+                $form_widgets.showHelp($help)
+            </div>
+            <div>
+                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="reset" value="$_('Clear')" />
+            </div>
+        </form>
+    </div>
 </div>
-</p>
 #end def
 
