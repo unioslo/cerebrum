@@ -42,7 +42,9 @@ def search(transaction, **vargs):
     page.setFocus("person/search")
     page.add_jscript("search.js")
 
-    handler = SearchHandler('person', PersonSearchTemplate().form)
+    template = PersonSearchTemplate()
+    template.title = _('a person')
+    handler = SearchHandler('person', template.form)
     handler.args = (
         'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff'
     )

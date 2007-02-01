@@ -37,12 +37,14 @@ from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 def search(transaction, **vargs):
     """Search for groups and displays results and/or searchform."""
     page = Main()
-    page.title = _("Search for group(s)")
+    page.title = _("Group")
     page.setFocus("group/search")
     page.add_jscript("search.js")
     page.add_jscript("groupsearch.js")
-    
-    handler = SearchHandler('group', GroupSearchTemplate().form)
+
+    template = GroupSearchTemplate()
+    template.title = _('group(s)')   
+    handler = SearchHandler('group', template.form)
     handler.args = (
         'name', 'description', 'spread', 'gid', 'gid_end', 'gid_option'
     )
@@ -171,7 +173,7 @@ edit.exposed = True
 def create(name="", expire="", description=""):
     """Creates a page with the form for creating a group."""
     page = Main()
-    page.title = _("Create a new group")
+    page.title = _("Group")
     page.setFocus("group/create")
     
     content = GroupCreateTemplate().form(name, expire, description)
