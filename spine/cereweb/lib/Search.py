@@ -28,7 +28,6 @@ import cherrypy
 
 import cgi
 import urllib
-import forgetHTML as html
 from gettext import gettext as _
 
 import config
@@ -259,10 +258,8 @@ def create_table_headers(headers, args, values, orderby, orderby_dir, page):
                 new_vargs['orderby_dir'] = 'desc'
         
         href = cgi.escape('%s?%s' % (page, urllib.urlencode(new_vargs)))
-        if _class:
-            header = html.Anchor(_(header), href=href, _class=_class) 
-        else:
-            header = html.Anchor(_(header), href=href) 
+        _class = _class and 'class="%s"' % _class
+        header = '<a href="%s" %s>%s</a>' % (href, _class, _(header))
         new_headers.append(header)
 
     return new_headers
