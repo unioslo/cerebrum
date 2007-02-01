@@ -18,18 +18,12 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-function actionClicked(e) {
-    var t = YE.getTarget(e);
-    if (t.nodeName.toLowerCase() === 'a') {
-        var action = parseAction(t.href);
-        if (action.name === 'edit_motd') {
-            YE.preventDefault(e);
-            var argument = action.argument &&
-                action.argument.replace(/id=/,'');
-            cereweb.getMotd(argument);
-        }
+cereweb.actions['edit_motd'] = function(event, args) {
+    if (cereweb.motdDialog) {
+        YE.preventDefault(event);
+        cereweb.getMotd(args['id']);
     }
-};
+}
 
 cereweb.getMotd = function(arg) {
     var callback = {
@@ -52,14 +46,6 @@ cereweb.getMotd = function(arg) {
         cereweb.motdDialog.content("", "");
         cereweb.motdDialog.show();
     }
-};
-
-function initMotds() {
-    YE.addListener(this, "click", actionClicked);
-};
-
-function initActions() {
-    YE.addListener(this, "click", actionClicked);
 };
 
 var initMotdDialog = function(e) {
@@ -90,5 +76,3 @@ var initMotdDialog = function(e) {
 };
 
 YE.onAvailable('editMotd', initMotdDialog);
-YE.onAvailable('motds', initMotds);
-YE.onAvailable('actions', initActions);

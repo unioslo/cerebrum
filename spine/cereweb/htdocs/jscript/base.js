@@ -29,6 +29,47 @@ YE = YAHOO.util.Event;
 YC = YAHOO.util.Connect;
 cereweb = YAHOO.cereweb;
 
+// The cereweb.actions object contains methods that are run
+// when actions are clicked.  This object is extended by
+// other scripts.
+cereweb.actions = { };
+
+// Parse a link to help us look it up in the actions object.
+function parseAction(url) {
+    url = unescape(url.replace(/http.*\/\/.*?\//,''))
+    var target = url.split('?');
+    var args = {};
+    var elms = (target[1] || '').split('&');
+    for (var i = 0; i < elms.length; i++) {
+        var x = elms[i].split('=');
+        args[x[0]] = x[1];
+    }
+    return {'name': target[0], 'args': args};
+};
+
+// When an action gets clicked, look it up in the
+// actions object and run it.
+function actionClicked(e) {
+    var action = parseAction(YE.getTarget(e).href);
+    var name = action.name;
+    var args = action.args;
+    cereweb.actions[name] && cereweb.actions[name](e, args);
+};
+
+// When the document has loaded, find all "action" links
+// in the document and make them run the actionClicked
+// event when they are clicked.
+YE.addListener(window, 'load', function(e) {
+    var actions = YD.getElementsByClassName('action', 'a');
+    YD.batch(actions, function(el) {
+        // We hide javascript only actions from non-javascript browsers
+        // by setting their style="display: none;"
+        if (el.style && el.style.display && el.style.display == 'none')
+            el.style.display = '';
+        YE.addListener(el, "click", actionClicked);
+    });
+});
+
 var cerebug = false;
 if(cerebug) {
     YE.onAvailable("logger", function(o) {
@@ -42,16 +83,6 @@ function set_link_text(obj, text) {
         obj.replaceChild(document.createTextNode(text), obj.firstChild);
     }
 }
-
-// Create an action object from a link.
-function parseAction(url) {
-    url = url.replace(/http.*\/\/.*?\//,'')
-    var target = url.split('?');
-    var action = target[0];
-    var argument = target[1];
-    return {'name': action, 'argument': argument};
-};
-
 
 /* Flip visibility */
 // Contains the diffrent divs and their links/buttons.

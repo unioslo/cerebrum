@@ -42,6 +42,15 @@ YAHOO.util.Event.onAvailable('WL_select', WL_init_actions);
 
 /* END SETTINGS */
 
+// This method is called when the user clicks on a link that
+// points to /remember_link.  These links shouldn't be visible
+// unless javascript is enabled.
+cereweb.actions['remember_link'] = function(event, args) {
+    YE.preventDefault(event);
+    var t = YE.getTarget(event);
+    WL_remember(args['id'], args['type'], args['name']);
+};
+
 // Simple callback for all our AJAX calls in the worklist.
 var callback = {
     success: function(o) { /* empty */ },
