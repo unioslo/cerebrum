@@ -36,7 +36,7 @@ $searcher.set_entity($entity)
         <div class="item">
         $target.get_alias_value()
             <div class="actions">
-                #set $url = "/email/remove_target?entity=&amp;target=%s" % $target.get_id()
+                #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(),$target.get_id())
                 <a class="action" href="$url">$_('Delete')</a>
             </div>
             #for $address in $addresses:
@@ -54,13 +54,17 @@ $searcher.set_entity($entity)
 <div class="form box" id="email_form" style="display:none;">
     <h3>$_('Create a new email target')</h3>
     <form action="/email/make_target" method="post">
-    <p>
         <input type="hidden" name="entity" value="$entity.get_id()" />
-        $form_widgets.generate_loption('target_type', 'Target type', $target_types)
-        $form_widgets.input('alias', 'Alias')
-        <input type="submit" value="$_('Add')" />&nbsp;
-        <input type="button" value="$_('Cancel')" id="email_cancel" />
-    </p>
+        <div>
+            $form_widgets.generate_loption('target_type', 'Target type', $target_types)
+        </div>
+        <div>
+            $form_widgets.input('alias', 'Alias')
+        </div>
+        <div>
+            <input type="submit" value="$_('Add')" />&nbsp;
+            <input type="button" value="$_('Cancel')" id="email_cancel" />
+        </div>
     </form>
 </div>
 #end def
