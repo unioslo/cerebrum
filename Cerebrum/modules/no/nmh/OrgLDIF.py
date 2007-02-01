@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,7 @@
 from Cerebrum.modules.no.OrgLDIF import *
 
 class nmhOrgLDIFMixin(OrgLDIF):
-    def test_skip_ou(self):
+    def test_omit_ou(self):
         # Not using Stedkode, thus no katalog_merke to examine.
         return False
 

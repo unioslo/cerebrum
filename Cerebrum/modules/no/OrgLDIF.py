@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004, 2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -108,8 +108,14 @@ class norEduLDIFMixin(OrgLDIF):
             if entry.setdefault('labeledURI', uri):
                 entry['objectClass'].append('labeledURIObject')
 
+    def test_omit_ou(self):
+        # Omit the OU if katalog_merke != 'T' in the 'stedkode' table.
+        # Requires 'Cerebrum.modules.no.Stedkode/Stedkode' in CLASS_OU.
+        return getattr(self.ou, 'katalog_merke', 'T') != 'T'
+
     def get_orgUnitUniqueID(self):
         # Make norEduOrgUnitUniqueIdentifier attribute from the current OU.
+        # Requires 'Cerebrum.modules.no.Stedkode/Stedkode' in CLASS_OU.
         return "%02d%02d%02d" % \
                (self.ou.fakultet, self.ou.institutt, self.ou.avdeling)
 
@@ -155,19 +161,14 @@ class norEduLDIFMixin(OrgLDIF):
         if street_string:
             entry['street'] = (street_string,)
 
-    def test_skip_ou(self):
-        # Return true if self.ou should be skipped.
-        return getattr(self.ou, 'katalog_merke', 'T') != 'T'
-
     def make_ou_entry(self, ou_id, parent_dn):
         # Changes from superclass:
-        # If Stedkode is used, only output OUs with katalog_merke == 'T'.
         # Add object class norEduOrgUnit and its attributes norEduOrgAcronym,
         # cn, norEduOrgUnitUniqueIdentifier, norEduOrgUniqueIdentifier.
         # If a DN is not unique, prepend the norEduOrgUnitUniqueIdentifier.
         self.ou.clear()
         self.ou.find(ou_id)
-        if self.test_skip_ou():
+        if self.test_omit_ou():
             return parent_dn, None
         ou_names = [iso2utf((n or '').strip()) for n in (self.ou.acronym,
                                                          self.ou.short_name,
