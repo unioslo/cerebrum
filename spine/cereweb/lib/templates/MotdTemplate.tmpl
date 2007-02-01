@@ -26,8 +26,8 @@
 #def viewMotds($motds)
 <div class="view_content">
     <div class="view_actions" id="actions">
-        <a href="/all_motds" >$_('View all messages')</a><br />
-        <a href="/edit_motd" id="motd_create">$_('Create a new message')</a><br />
+        <a class="action" href="/all_motds">$_('View all messages')</a><br />
+        <a class="action" href="/edit_motd">$_('Create a new message')</a><br />
     </div>
     <div id="motds">
     #for $motd in $motds
