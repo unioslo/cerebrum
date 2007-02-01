@@ -28,6 +28,8 @@
 ## help is a list with more lines to print, with help about the search
 #attr $help = []
 
+#attr $title = ''
+
 ## Overloaded by search-pages like person search, should
 ## contain the url for where to go when the form is submittet.
 #def getAction
@@ -46,52 +48,34 @@
     #set $vargs = {}
 #end if
 <div id="searchbox" class="search">
-<table>
-	<tr>
-		<th>
-			$_('Search for... ')
-		</th>
-	</tr>
-	<tr>
-		<td>
-        	<div class="searchform">
-    		<form action="$getAction()" method="post" id="search_form">
-			<table>
-           		 #for $name, $label in $fields
-				<tr>
-                $form_widgets.td2input($name, $label, $vargs.get($name, None))
-				</tr>
-            	#end for
-				<tr>
-					<td colspan="2">
-            				$getExtra($vargs)
-        					<div class="help">
-            					#for $line in $help
-            						<div class="extra">
-               	 						$_($line)
-            						</div>
-            					#end for
-            					<div>
-                					$_("Use wildcards * and ? to extend the search.")
-            					</div>
-            					<div>
-                					$_("Supply several search parameters to limit the search.")
-            					</div>
-							</div>
-					</td>
-				</tr>
-				<tr>
-					<td colspan="2">
-                			<input id="search_submit" type="submit" value="$_('Search')" />&nbsp;
-                			<input id="search_clear" type="reset" value="$_('Clear')" />
-					</td>
-				</tr>
-			</table>
-			</form>
-        	</div>
-		</td>
-	</tr>
-</table>
+<h3>$_('Search for ' + $title )</h3>
+    <div class="searchform">
+        <form action="$getAction()" method="post" id="search_form">
+            #for $name, $label in $fields
+                <div>
+                    $form_widgets.input($name, $label, $vargs.get($name, None))
+                </div>
+            #end for
+            $getExtra($vargs)
+                <div class="help">
+                    #for $line in $help
+                        <div class="extra">
+                            $_($line)
+                        </div>
+                    #end for
+                    <div>
+                        $_("Use wildcards * and ? to extend the search.")
+                    </div>
+                    <div>
+                        $_("Supply several search parameters to limit the search.")
+                    </div>
+                </div>
+            <div>
+                <input id="search_submit" type="submit" value="$_('Search')" />&nbsp;
+                <input id="search_clear" type="reset" value="$_('Clear')" />
+            </div>
+        </form>
+    </div>
 </div>
 #end def
 
