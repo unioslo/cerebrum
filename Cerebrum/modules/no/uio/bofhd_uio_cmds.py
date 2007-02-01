@@ -5699,6 +5699,11 @@ class BofhdExtension(object):
     all_commands['user_delete'] = Command(
         ("user", "delete"), AccountName(), perm_filter='can_delete_user')
     def user_delete(self, operator, accountname):
+        #
+        # IVR 2007-02-01 Deleting has temporarily been disabled, since
+        # it is broken and blocks other requests from proceeding.
+        return "This function has been temporarily disabled."
+        
         # TODO: How do we delete accounts?
         account = self._get_account(accountname)
         self.ba.can_delete_user(operator.get_entity_id(), account)
