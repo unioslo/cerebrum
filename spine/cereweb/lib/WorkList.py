@@ -62,12 +62,11 @@ def remember_args(object):
 
     return id, object_type, name_str, "%s: %s" % (object_type, name_str)
 
-def remember_link(object, text='remember', _class=None):
+def remember_link(object, text='remember', _class=''):
     id, type, name, display_name = remember_args(object)
-    url = quote("WL_remember(%i, '%s', '%s');" % (id, type, name))
+    url = quote("/remember_link?id=%i&type=%s&name=%s" % (id, type, name))
     id = 'WL_link_%i' % id
-    _class = _class and ' class="%s"' % _class or ''
-    return '<a href="javascript:%s" id="%s" %s>%s</a>' % (url, id, _class, text)
+    return '<a class="action %s" style="display:none;" href="%s" id="%s">%s</a>' % (_class, url, id, text)
 
 class WorkListElement:
     
