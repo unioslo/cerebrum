@@ -5702,7 +5702,8 @@ class BofhdExtension(object):
         #
         # IVR 2007-02-01 Deleting has temporarily been disabled, since
         # it is broken and blocks other requests from proceeding.
-        return "This function has been temporarily disabled."
+        return ("This function has been temporarily disabled, due to "
+                "internal problems in Cerebrum.")
         
         # TODO: How do we delete accounts?
         account = self._get_account(accountname)
