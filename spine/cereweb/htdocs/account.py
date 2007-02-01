@@ -146,11 +146,11 @@ def create(transaction, owner=None, name="", expire_date=""):
 create = transaction_decorator(create)
 create.exposed = True
 
-def make(transaction, owner, name, expire_date="", np_type=None,
+def make(transaction, id, name, expire_date="", np_type=None,
          _other=None, join=False):
     commands = transaction.get_commands()
 
-    owner = transaction.get_entity(int(owner))
+    owner = transaction.get_entity(int(id))
     if name == "_other":
         name = _other
     if not expire_date:

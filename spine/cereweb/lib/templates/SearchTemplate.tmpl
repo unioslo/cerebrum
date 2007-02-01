@@ -43,14 +43,17 @@
 #end def
 
 ## Creates the form for searching.
-#def form($vargs=None)
-#if $vargs == None
-    #set $vargs = {}
-#end if
+#def form($vargs={})
+#set $redirect = $vargs.get('redirect', None)
 <div id="searchbox" class="search">
 <h3>$_('Search for ' + $title )</h3>
     <div class="searchform">
         <form action="$getAction()" method="post" id="search_form">
+            #if $redirect
+                <div class="hidden">
+                    <input type="hidden" name="redirect" value="$redirect" />
+                </div>
+            #end if
             #for $name, $label in $fields
                 <div>
                     $form_widgets.input($name, $label, $vargs.get($name, None))

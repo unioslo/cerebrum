@@ -92,7 +92,7 @@ def search(transaction, **vargs):
         return object_link(elm), owner, cdate, edate, str(edit)+str(remb)
     
     accounts = handler.search(search_method, **vargs)
-    result = handler.get_only_result(accounts, row)
+    result = handler.get_result(accounts, row)
     cherrypy.response.headerMap['Content-Type'] = "text/xml"
     return result
 search = transaction_decorator(search)

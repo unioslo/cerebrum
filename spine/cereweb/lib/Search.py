@@ -28,6 +28,7 @@ import cherrypy
 
 import cgi
 import urllib
+from utils import object_id, object_name
 from gettext import gettext as _
 
 import config
@@ -89,6 +90,11 @@ class SearchHandler:
         If no values was provided None is returned, else a list with
         the search-result is returned (empty list if none is found).
         """
+
+        # We want to be able to force the search form to redirect
+        # us to a specific page when a result is chosen.
+        self.redirect = vargs.get('redirect', None)
+
         self.values = get_arg_values(self.args, vargs)
         perform_search = len([i for i in self.values if i != ""])
 
@@ -116,6 +122,9 @@ class SearchHandler:
         remember = cherrypy.session['options'].getboolean('search', 'remember last')
 
         formvalues = {}
+        if self.redirect:
+            formvalues['redirect'] = self.redirect
+
         if self.var_name in cherrypy.session and remember:
             values = cherrypy.session[self.var_name]
             formvalues = get_form_values(self.args, values)
@@ -135,17 +144,6 @@ class SearchHandler:
             result.append(row_method(elm))
         return result, dis_hits
     
-    def get_only_result(self, elements, row_method):
-        """Used for ajax calls."""
-        result, dis_hits = self.filter_elements(elements, row_method)
-
-        from lib.templates.SearchResultTemplate import SearchResultTemplate
-        
-        template = SearchResultTemplate()
-        return template.getResult(result, self.headers, self.args, self.values,
-                             len(elements), dis_hits, self.offset, self.orderby,
-                             self.orderby_dir, 'search')
-
     def get_result(self, elements, row_method):
         """Returns a table with the result.
 
@@ -157,6 +155,12 @@ class SearchHandler:
         if elements is None:
             return self.get_form()
         
+        if self.redirect:
+            def m(elm):
+                url = '<a href="%s=%s">%s</a>'
+                return [url % (self.redirect, object_id(elm), object_name(elm))]
+            row_method = m
+            
         result, dis_hits = self.filter_elements(elements, row_method)
 
         # To avoid import-circle we import the template here
@@ -212,6 +216,7 @@ def get_arg_values(args, vargs):
     valuelist = [''] * len(args)
     for name, value in vargs.items():
         if name in args:
+            if name == 'redirect': print name
             valuelist[args.index(name)] = value
     return valuelist
 

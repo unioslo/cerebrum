@@ -48,6 +48,41 @@ def _spine_type(object):
         name = spine_type.replace("Spine", "")
         return name.lower()
 
+def object_name(object):
+    type = _spine_type(object)
+    if type == 'person':
+        text = object.get_cached_full_name()
+    elif type == 'ou':
+        tmp = object.get_display_name()
+        text = tmp and tmp or object.get_name()
+    elif type == 'emailtarget':    
+        from SpineIDL.Errors import NotFoundError
+        try:
+            primary = object.get_primary_address()
+        except NotFoundError:
+            text = "Email target of type '%s'" % object.get_type().get_name()
+        else:
+            text = primary.full_address() + " (%s)" % object.get_type().get_name()
+    elif type == 'disk':
+        text = object.get_path()
+    elif type == 'project':
+        text = object.get_title() or \
+                "(untitled %d)" % (object_id(object),)
+    elif type == 'allocation':
+        text = object.get_allocation_name().get_name()
+    elif hasattr(object, "get_name"):
+        text = object.get_name()   
+    elif type == 'account':
+        text = object['name']
+    else:
+        text = str(object)
+    return text
+
+def object_id(object):
+    if type(object) == type({}):
+        return object['id']
+    else:
+        return object.get_id()
 
 def object_url(object, method="view", **params):
     """Return the full path to a page treating the object.
@@ -58,17 +93,13 @@ def object_url(object, method="view", **params):
     """
     object_type = _spine_type(object)
 
-    if type(object) == type({}):
-        params["id"] = object['id']
-    else:
-        params["id"] = object.get_id()
+    params['id'] = object_id(object)
 
     if object_type == 'emaildomain':
         object_type = 'email'
 
     params = urllib.urlencode(params)
     return cgi.escape("/%s/%s?%s" % (object_type, method, params))
-
 
 def object_link(object, text=None, method="view", _class="", **params):
     """Create a HTML anchor (a href=..) for the object.
@@ -80,32 +111,7 @@ def object_link(object, text=None, method="view", _class="", **params):
     """
     url = object_url(object, method, **params)
     if text is None:
-        type = _spine_type(object)
-        if type == 'person':
-            text = object.get_cached_full_name()
-        elif type == 'ou':
-            tmp = object.get_display_name()
-            text = tmp and tmp or object.get_name()
-        elif type == 'emailtarget':    
-            from SpineIDL.Errors import NotFoundError
-            try:
-                primary = object.get_primary_address()
-            except NotFoundError:
-                text = "Email target of type '%s'" % object.get_type().get_name()
-            else:
-                text = primary.full_address() + " (%s)" % object.get_type().get_name()
-        elif type == 'disk':
-            text = object.get_path()
-        elif type == 'project':
-            text = object.get_title() or "(untitled %d)" % (object.get_id(),)
-        elif type == 'allocation':
-            text = object.get_allocation_name().get_name()
-        elif hasattr(object, "get_name"):
-            text = object.get_name()   
-        elif type == 'account':
-            text = object['name']
-        else:
-            text = str(object)
+        text = object_name(object)
     if _class:
         _class = ' class="%s"' % _class
     return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
