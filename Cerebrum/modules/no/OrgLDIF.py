@@ -79,7 +79,7 @@ class norEduLDIFMixin(OrgLDIF):
             # Note: 000 = Norway in FEIDE.
             self.norEduOrgUniqueID = ("000%05d" % orgnum,)
         self.FEIDE_ou_common_attrs = {}
-        if self.FEIDE_schema_version == '1.1':
+        if (self.FEIDE_obsolete_version or self.FEIDE_schema_version) == '1.1':
             self.FEIDE_ou_common_attrs = {
                 self.FEIDE_attr_org_id: self.norEduOrgUniqueID}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
