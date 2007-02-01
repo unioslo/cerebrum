@@ -231,15 +231,14 @@ function WL_create_action(selected, ids) {
     // insert clever stuff here
     
     // replace the variables in the actionbox.
-    WL_action_replaceHTML(action, /%7B%7Bid%7D%7D/g, id);
-    WL_action_replaceHTML(action, /%7B%7Bclass%7D%7D/g, cls);
-    WL_action_replaceHTML(action, /%7B%7Bname%7D%7D/g, name);
+    WL_action_replaceHTML(action, /_id_/g, id);
+    WL_action_replaceHTML(action, /_class_/g, cls);
+    WL_action_replaceHTML(action, /_name_/g, name);
     
     // add the new action to WL_actions
     WL_actions[WL_actions.length] = new Array(ids, aid, action);
     return action;
 }
-
 
 function WL_action_append_content(action, node) {
     for (var i = 0; i < action.childNodes.length; i++) {

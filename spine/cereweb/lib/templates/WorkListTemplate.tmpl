@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#from urllib import quote
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
@@ -88,8 +89,8 @@
 ## All actions should extend the ActionTemplate with a block if
 ## needed. Javascript will replace the variables for the specific
 ## object selected in the worklist. Current variables available is:
-## %7B%7Bclass%7D%7D, %7B%7Bname%7D%7D, %7B%7Bid%7D%7D.
-#def ActionTemplate($cls, $block="", $name="%7B%7Bclass%7D%7D %7B%7Bname%7D%7D")
+## _class_, _name_, _id_.
+#def ActionTemplate($cls, $block="", $name="_class_ _name_")
     #set $view_url = '/%s/view' % $cls
     #set $edit_url = '/%s/edit' % $cls
     #set $delete_url = '/%s/delete' % $cls
@@ -97,9 +98,9 @@
         <div class="header">$name:</div>
         <div class="content">
             <div class="links">
-                <a href="$view_url?id=%7B%7Bid%7D%7D">View</a>,&nbsp;
-                <a href="$edit_url?id=%7B%7Bid%7D%7D">Edit</a>,&nbsp;
-                <a href="$delete_url?id=%7B%7Bid%7D%7D">Delete</a>,&nbsp;
+                <a href="$view_url?id=_id_">View</a>,&nbsp;
+                <a href="$edit_url?id=_id_">Edit</a>,&nbsp;
+                <a href="$delete_url?id=_id_">Delete</a>,&nbsp;
                 $action_remember_link("Forget")
             </div>
             $block
@@ -108,37 +109,39 @@
 #end def
 
 #def action_remember_link($text="Remember")
-    #set $args = "%7B%7Bid%7D%7D, '%7B%7Bclass%7D%7D', '%7B%7Bname%7D%7D'"
-    <a href="javascript:WL_remember($args);">$text</a>
+    #set $args = "_id_, '_class_', '_name_'"
+    ## Make sure the link is encoded properly.
+    #set $url = $quote("javascript:WL_remember($args);")
+    <a href="$url">$text</a>
 #end def
 
 #def DefaultAction
     <div class="wl_action" id="WL_action_default" style="display:none;">
-        <div class="header">%7B%7Bname%7D%7D:</div>
+        <div class="header">_name_:</div>
         <div class="content">
-            No actions found for these classes: %7B%7Bclass%7D%7D
+            No actions found for these classes: _class_
         </div>
     </div>
 #end def
 
 #def PersonAction
     #def PersonBox
-        <a href="/account/search?owner=%7B%7Bid%7D%7D">View all accounts</a>
+        <a href="/account/search?owner=_id_">View all accounts</a>
         <br />
-        <a href="/account/create?owner=%7B%7Bid%7D%7D">Create new account</a>
+        <a href="/account/create?owner=_id_">Create new account</a>
     #end def
-    $ActionTemplate("person", $PersonBox, "%7B%7Bname%7D%7D")
+    $ActionTemplate("person", $PersonBox, "_name_")
 #end def
 
 #def GroupAction
     #def GroupBox
-        <a href="/account/create?owner=%7B%7Bid%7D%7D">Create new account</a>
+        <a href="/account/create?owner=_id_">Create new account</a>
     #end def
     $ActionTemplate("group", $GroupBox)
 #end def
 
 #def OUAction
-    $ActionTemplate("ou", name="%7B%7Bname%7D%7D")
+    $ActionTemplate("ou", name="_name_")
 #end def
 
 #def AccountAction
