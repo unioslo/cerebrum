@@ -81,8 +81,8 @@ def perform_changes(changelist, dry_run):
         if chg['type'] == 'createObject':
             ret = run_cmd(chg['type'],
                           dry_run,
-                          'Group', 
-                          'OU=grupper,OU=cerebrum,DC=NMH-TEST,DC=no', 
+                          'Group',
+                          '%s,%s' % (cereconf.AD_DEFAULT_GROUP_OU, cereconf.AD_LDAP),
                           chg['distinguishedName'])
             if not ret[0]:
                 logger.error("Could not create group: %s", chg['distinguishedName'])
