@@ -124,8 +124,8 @@ class norEduLDIFMixin(OrgLDIF):
         ldap_ou_id = self.get_orgUnitUniqueID()
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            self.FEIDE_attr_ou_id:  (ldap_ou_id,)})
-        entry['cn'] = (ldapconf('OU', 'dummy_name'),)
+            'cn':                  (ldapconf('OU', 'dummy_name'),),
+            self.FEIDE_attr_ou_id: (ldap_ou_id,)})
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
@@ -178,15 +178,16 @@ class norEduLDIFMixin(OrgLDIF):
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             self.FEIDE_attr_ou_id:  (ldap_ou_id,),
-            'ou': ou_names}
-        entry['cn'] = ou_names[-1:]
+            'ou': ou_names,
+            'cn': ou_names[-1:]}
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
             if self.norEduOrgUniqueID:
                 entry['norEduOrgUniqueNumber'] = self.norEduOrgUniqueID
             entry['norEduOrgUnitUniqueNumber'] = (ldap_ou_id,)
-        entry['norEduOrgAcronym'] = (acronym,)
+        if acronym:
+            entry['norEduOrgAcronym'] = (acronym,)
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:
             return parent_dn, None
