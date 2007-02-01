@@ -20,7 +20,6 @@
 
 import cherrypy
 
-import forgetHTML as html
 import utils
 from templates.WorkListTemplate import WorkListTemplate
 
@@ -88,8 +87,7 @@ class WorkListElement:
     def __repr__(self):
         return "WorklistElement: %s" % self.display_name
 
-class WorkList(html.Division):
-    
+class WorkList:
     def __init__(self):
         if 'wl_remembered' not in cherrypy.session:
             cherrypy.session['wl_remembered'] = []
