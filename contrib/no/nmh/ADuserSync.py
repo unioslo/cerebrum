@@ -25,6 +25,7 @@ import cerebrum_path
 import cereconf
 import xmlrpclib
 import sre
+import re
 
 from Cerebrum import Errors
 from Cerebrum import Entity
@@ -177,93 +178,38 @@ def compare(adusers,cerebrumusers):
     #    
     exp = sre.compile('CN=[^,]+,OU=([^,]+)')
     logger.info("Checking %d accounts for Cerebrum/AD-membership and changes" % len(adusers))
-
+            
     for usr, dta in adusers.items():
+        changes = {}
         if cerebrumusers.has_key(usr):
             # User defined both in AD and cerebrum, check data
-            changes = {}
-            
-            # test sn, givenName, displayName
-            # 
-            # Hack:
-            if not dta.has_key('sn'):
-                dta['sn'] = None;
-                
-            if not dta.has_key('givenName'):
-                dta['givenName'] = None
-                
-            if not dta.has_key('displayName'):
-                dta['displayName'] = None
+            for k in cereconf.AD_ATTRIBUTES:
+                if not k in dta.keys():
+                    dta[k] = None
+                    
+            for k in ['sn', 'givenName', 'displayName']:
+                if not dta[k] == cerebrumusers[usr][k]:
+                    changes[k] = cerebrumusers[usr][k]
+                    changes['type'] = 'UPDATEUSR'
+                    logger.debug('Updating account %s with new attr %s (%s)', usr, k, changes[k])
 
-            if not dta.has_key('homeDrive'):
-                dta['homeDrive'] = None
-
-            if not dta.has_key('profilePath'):
-                dta['profilePath'] = None
-
-            if not dta.has_key('homeDirectory'):
-                dta['homeDirectory'] = None 
-                        
-            if not dta['sn'] == cerebrumusers[usr]['sn']:
-                changes['sn'] = cerebrumusers[usr]['sn']
-                changes['type'] = 'UPDATEUSR'
-                logger.debug("Updating AD-sn for %s (to %s)" % (usr, cerebrumusers[usr]['sn']))
-
-            if not dta['givenName'] == cerebrumusers[usr]['givenName']:
-                changes['givenName'] = cerebrumusers[usr]['givenName']
-                changes['type'] = 'UPDATEUSR'  
-                logger.debug("Updating AD-givenName for %s (to %s)" % (usr, cerebrumusers[usr]['givenName']))
-                
-            if not dta['displayName'] == cerebrumusers[usr]['displayName']:
-                changes['displayName'] = cerebrumusers[usr]['displayName']
-                changes['type'] = 'UPDATEUSR'
-                logger.debug("Updating AD-displayName for %s (to %s)" % (usr, cerebrumusers[usr]['displayName']))
-
-            # test AD_OU for users
-            ou = exp.match(dta['distinguishedName'])
-            if ou.group(1):
-                if ou.group(1) == cerebrumusers[usr]['affiliation']:
-                    pass
+            if not re.match('.*' + cerebrumusers[usr]['affiliation'] + '.*', dta['distinguishedName']):
+                logger.info("Need to move: %s -> %s" % (dta['distinguishedName'], cerebrumusers[usr]['affiliation']))
+                changes['affiliation'] = cerebrumusers[usr]['affiliation']
+                changes['type'] = 'MOVEUSR'
+                if cerebrumusers[usr]['affiliation'] == 'studenter':
+                    changes['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
+                    changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr)
+                    changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
+                    if not changes.has_key('type'):
+                        changes['type'] = 'UPDATEUSR'
                 else:
-                    changes['affiliation'] = cerebrumusers[usr]['affiliation']
-                    changes['type'] = 'MOVEUSR'
-                    logger.debug("Updating OU for user %s to %s" % (usr, cerebrumusers[usr]['affiliation']))
-
-                # test homeDrive og homeDir
-                # FIXME: should check each attribute separatly!
-                if ou.group(1) == "studenter":
-                    if (dta['homeDrive'] == cereconf.AD_HOME_DRIVE_STUDENT and
-                        dta['homeDirectory'] == "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr) and
-                        dta['profilePath'] == "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)):
-                        # no changes
-                        pass
-                    else:
-                        changes['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
-                        changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr)
-                        changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
-                        if not changes.has_key('type'):
-                            changes['type'] = 'UPDATEUSR'
-                            #logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_STUDENT))
-                else:
-                    if (dta['homeDrive'] == cereconf.AD_HOME_DRIVE_ANSATT and
-                        dta['homeDirectory'] == "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT, usr) and
-                        dta['profilePath'] == None):
-                        # no changes
-                        pass
-                    else:
-                        changes['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
-                        changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr)
-                        changes['profilePath'] = ''
-                        if not changes.has_key('type'):
-                            changes['type'] = 'UPDATEUSR'
-                            #logger.debug("Updating AD-homeDirectory for user %s (to %s)" % (usr, cereconf.AD_HOME_DIRECTORY_ANSATT))
-            else:
-                
-                # Impossible to determine OU for a given account
-                #
-                logger.warn("No DN-match for: %s", dta['distinguishedName'])
-
-            # remove account info from cerebrumusers
+                    changes['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
+                    changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr)
+                    changes['profilePath'] = None
+                    if not changes.has_key('type'):
+                        changes['type'] = 'UPDATEUSR'
+            # remove account from cerebrumusers
             #
             del cerebrumusers[usr]
         else:
@@ -272,13 +218,13 @@ def compare(adusers,cerebrumusers):
             # ignore account in "cerebrum deleted"
             #
             ou = exp.match(dta['distinguishedName'])
-            deaktiv_ou = 'OU=' + ou.group(1)
+            deaktiv_ou = ou.group(1)
             if deaktiv_ou == cereconf.AD_CEREBRUM_DELETED:
-                logger.debug("Ignoring deleted account %s", usr)
+                logger.debug2("Ignoring deleted account %s", usr)
             else:
                 changes['type'] = 'DELUSR'
                 changes['distinguishedName'] = adusers[usr]['distinguishedName']
-                logger.debug("Will delete account %s (%s)", adusers[usr]['distinguishedName'], usr)
+                logger.debug("Deleting account %s (%s)", adusers[usr]['distinguishedName'], usr)
                 
         # Append changes to changelist.
         #
@@ -363,13 +309,12 @@ def move_user(chg):
         ou = "OU=%s,%s" % (chg['affiliation'], cereconf.AD_LDAP)
         ret = run_cmd('moveObject', ou)
         if not ret[0]:
-            logger.error("Failed to move account %s.", chg['distinguishedName'])
+            logger.error("Failed to move account %s (to %s).", chg['distinguishedName'], ou)
         else:
-            logger.warn("Moved account %s", chg['distinguishedName'])
+            logger.warn("Moved account %s (to %s)", chg['distinguishedName'], ou)
 
 
 def del_user(chg):
-    logger.info("Moving account %s to ou for non-active users", chg['distinguishedName'])
     chg['type'] = 'MOVEUSR'
     chg['affiliation'] = cereconf.AD_CEREBRUM_DELETED
     move_user(chg)
