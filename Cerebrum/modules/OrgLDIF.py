@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004-2006 University of Oslo, Norway
+# Copyright 2004-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -193,6 +193,13 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         timer("...OUs done.")
         self.uninit_ou_dump()
 
+    def test_omit_ou(self):
+        # Return true if self.ou should be omitted from the LDIF file.
+        # (It can also be omitted by returning None from make_ou_dn(),
+        # which is called after the entry has been constructed,
+        # or by returning a None entry from make_ou_entry().)
+        return False
+
     def generate_dummy_ou(self, outfile):
         # Output the cereconf.LDAP_OU['dummy_name'] entry, if given.
         # If so, set self.dummy_ou_dn.
@@ -241,6 +248,8 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # returned parent DN must be None if it is to represent that DN.
         self.ou.clear()
         self.ou.find(ou_id)
+        if self.test_omit_ou():
+            return parent_dn, None
         entry = {
             'objectClass': ['top', 'organizationalUnit'],
             'ou': filter(None, [iso2utf((n or '').strip())
