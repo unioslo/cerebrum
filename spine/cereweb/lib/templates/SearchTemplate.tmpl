@@ -46,7 +46,7 @@
 #def form($vargs={})
 #set $redirect = $vargs.get('redirect', None)
 <div id="searchbox" class="search">
-<h3>$_('Search for ' + $title )</h3>
+<h3>$_('Search for ' + $title + ':' )</h3>
     <div class="searchform">
         <form action="$getAction()" method="post" id="search_form">
             #if $redirect
