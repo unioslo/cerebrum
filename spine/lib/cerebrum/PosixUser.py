@@ -65,6 +65,7 @@ def get_gecos(self):
 
     return p.get_gecos()
 get_gecos.signature = str
+
 Account.register_methods([get_gecos])
 
 table = 'posix_user'
@@ -82,8 +83,6 @@ for attr in attrs:
     Account.register_attribute(attr)
 
 Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
-Account.build_methods()
-Account.build_search_class()
 registry.register_class(Account)
 
 def is_posix(self):

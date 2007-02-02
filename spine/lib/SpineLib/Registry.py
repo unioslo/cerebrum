@@ -32,8 +32,6 @@ class Registry(object):
         name = cls.__name__
         public = getattr(cls, 'signature_public', False)
 
-        assert not name in self.map
-
         if issubclass(cls, Builder):
             cls.build_methods()
 
@@ -49,8 +47,16 @@ class Registry(object):
                     cls.dumper_class.signature_public = public
                 self.register_class(cls.dumper_class)
 
+        if name in self.map:
+            # Nothing wrong with registering the same class twice,
+            # but we do not support different classes with the same
+            # name.
+            assert self.map[name] == cls, """
+                Fatal Error: Conflicting names (%s != %s)""" % ( self.map[name], cls)
+        else:
+            self.classes.append(cls)
+
         self.map[name] = cls
-        self.classes.append(cls)
 
     def __getattr__(self, key):
         if not key in self.map:

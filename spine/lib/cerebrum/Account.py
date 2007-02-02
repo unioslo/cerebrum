@@ -77,10 +77,7 @@ class Account(Entity):
     cerebrum_class = Factory.get('Account')
 
     entity_type = 'account'
-
-## Account is registered in PosixAccount
-#registry.register_class(Account)
-
+registry.register_class(Account)
 
 def is_expired(self):
     obj = self._get_cerebrum_obj()
