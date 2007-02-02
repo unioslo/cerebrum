@@ -310,6 +310,7 @@ class Builder(object):
     map_attributes = classmethod(map_attributes)
 
     def register_methods(cls, methods):
+        assert type(methods) == list
         for i in methods:
             name, signature, write, args, exceptions = get_method_signature(i)
             setattr(cls, name, i)
