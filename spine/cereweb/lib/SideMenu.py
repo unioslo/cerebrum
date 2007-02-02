@@ -45,6 +45,7 @@ class SideMenu(Menu.Menu):
     def makeAccount(self):
         self.account = self.addItem("account", _("Account"), "/account")
         self.account.addItem("search", _("Search"), "/account/search")
+        self.account.addItem("create", _("Create"), "/account/create")
         self.account.addItem("view", _("View"), "/account/view?id=%s")
         self.account.addItem("edit", _("Edit"), "/account/edit?id=%s")
 
