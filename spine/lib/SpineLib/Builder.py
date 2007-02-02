@@ -385,29 +385,28 @@ class Builder(object):
             cls.slots = cls.primary + cls.slots
 
         for attr in cls.slots:
-            if not hasattr(cls, attr.var_get):
-                setattr(cls, attr.var_get, create_lazy_get_method(attr))
+            if hasattr(cls, attr.var_get):
+                get = getattr(cls, attr.var_get).im_func
+            else:
+                get = create_lazy_get_method(attr)
+                setattr(cls, attr.var_get, get)
 
-            get = getattr(cls, attr.var_get)
-            if type(get) == types.MethodType:
-                get = get.im_func
             get.signature = attr.data_type
             get.signature_name = attr.var_get
-             
-            if attr.write:
-                if not hasattr(cls, attr.var_set):
-                    setattr(cls, attr.var_set, create_set_method(attr))
 
-                set = getattr(cls, attr.var_set)
-                if type(set) == types.MethodType:
-                    set = set.im_func
-                    set.signature = None
-                    set.signature_name = attr.var_set
-                    set.signature_write = True
-                    set.signature_args = [attr.data_type]
+            if attr.write:
+                if hasattr(cls, attr.var_set):
+                    set = getattr(cls, attr.var_set).im_func
+                else:
+                    set = create_set_method(attr)
+                    setattr(cls, attr.var_set, set)
+
+                set.signature = None
+                set.signature_name = attr.var_set
+                set.signature_write = True
+                set.signature_args = [attr.data_type]
             else:
                 assert not hasattr(cls, attr.var_set)
-
 
     build_methods = classmethod(build_methods)
 
