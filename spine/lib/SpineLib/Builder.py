@@ -23,7 +23,7 @@ import types
 
 import SpineExceptions
 
-__all__ = ['Attribute', 'Method', 'Builder']
+__all__ = ['Attribute', 'Builder']
 
 default_exceptions = (
     SpineExceptions.TransactionError,
@@ -76,60 +76,6 @@ class Attribute(object):
         self.var_load = 'load_' + self.name
         self.var_save = 'save_' + self.name
         self.var_private = '_' + self.name
-
-    def __repr__(self):
-        return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
-
-class Method(object):
-    """Representation of a method in Spine.
-
-    Methods are used to collect metainfo about methods which should be
-    provided to clients. Information like arguments and return-type is
-    used when generating idl for use in corba.
-
-    The methods will be wrapped to allow for authentication and access
-    control.
-
-    If the method is "write" and the object is a subclass of Locking, the
-    object will be locked for writing before the method is called.
-    """
-    
-    def __init__(self, name, data_type, args=None, exceptions=None, write=False):
-        """Initiate the method.
-
-        name        - the name of the method as a string.
-        data_type   - the return type, should be a class or type: str, list, Entity.
-        args        - a list with lists of arguments, like (("name", str), ("blipp", list")).
-        exceptions  - list with all exceptions accessing this attribute might raise.
-        write       - should be True for methods which change and object and/or require write locks.
-        """
-        self.name = name
-        assert type(data_type) != str
-        assert write in (True, False)
-
-        self.data_type = data_type
-        self.args = args or ()
-        self.exceptions = default_exceptions + tuple(exceptions or ())
-        self.write = write
-        self.doc = None
-        try: raise RuntimeError
-        except RuntimeError:
-            import sys
-            e, b, t = sys.exc_info()
-            caller_dict = t.tb_frame.f_back.f_globals
-            e_file = caller_dict['__file__']
-            e_line = t.tb_frame.f_back.f_lineno
-            print "DeprecationWarning:SpineLib:Method, %s in %s:%s" % (self.name, e_file, e_line)
-
-    def upgrade(self, method_func):
-        assert not hasattr(method_func, "im_func")
-        method_func.signature = self.data_type
-        method_func.signature_name = self.name
-        method_func.signature_named_args = self.args
-        method_func.signature_exceptions = self.exceptions
-        if self.write:
-            method_func.signature_write = self.write
-        return method_func
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, `self.name`, `self.data_type`)
@@ -368,13 +314,6 @@ class Builder(object):
             name, signature, write, args, exceptions = get_method_signature(i)
             setattr(cls, name, i)
     register_methods = classmethod(register_methods)
-
-    def register_method(cls, method, method_func, overwrite=False):
-        """Deprecated.  Convert the method and use register_methods
-        instead."""
-        method.upgrade(method_func)
-        cls.register_methods([method_func])
-    register_method = classmethod(register_method)
 
     def build_methods(cls):
         """Create get/set methods for all slots."""
