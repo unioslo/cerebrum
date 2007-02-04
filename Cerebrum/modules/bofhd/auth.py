@@ -1269,7 +1269,9 @@ class BofhdAuth(DatabaseAccessor):
                                           self.const.auth_target_type_maildomain,
                                           domain.email_domain_id, victim_id):
             return True
-        raise PermissionDenied("No access to e-mail domain")
+        raise PermissionDenied("No access to '%s' for e-mail domain %s" %
+                               (operation.description,
+                                domain.email_domain_name))
 
     def _query_ou_permissions(self, operator, operation, ou, affiliation,
                               victim_id):
