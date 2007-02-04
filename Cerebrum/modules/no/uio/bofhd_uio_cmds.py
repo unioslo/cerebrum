@@ -2193,11 +2193,23 @@ class BofhdExtension(object):
         else:
             raise CerebrumError, "RT queue %s already exists" % queuename
         addr_lp, addr_domain_name = self._split_email_address(addr)
+        addr_dom = self._get_email_domain(addr_domain_name)
+        if addr_domain_name != host:
+            self.ba.can_email_address_add(operator.get_entity_id(),
+                                          domain=addr_dom)
         replaced_lists = []
-        if not (addr == queue + "@" + host or
-                self._is_ok_mailman_name(addr_lp) or
+        
+        # Unusual characters will raise an exception, a too short name
+        # will return False, which we ignore for the queue name.
+        self._is_ok_mailman_name(queue)
+
+        # The submission address is only allowed to be short if it is
+        # equal to the queue name, or the operator is a global
+        # postmaster.
+        if not (self._is_ok_mailman_name(addr_lp) or
+                addr == queue + "@" + host or
                 self.ba.is_postmaster(op)):
-            raise CerebrumError, "Illegal address for queue: %s" % addr
+            raise CerebrumError, "Illegal address for submission: %s" % addr
         try:
             et, ea = self.__get_email_target_and_address(addr)
         except CerebrumError:
@@ -2220,7 +2232,6 @@ class BofhdExtension(object):
         et.populate(self.const.email_target_pipe, alias=cmd,
                     using_uid=acc.entity_id)
         et.write_db()
-        addr_dom = self._get_email_domain(addr_domain_name)
         # Add primary address
         ea.populate(addr_lp, addr_dom.email_domain_id, et.email_target_id)
         ea.write_db()
@@ -2310,6 +2321,9 @@ class BofhdExtension(object):
         et = self._get_rt_email_target(queue, host)
         lp, dom = self._split_email_address(address)
         ed = self._get_email_domain(dom)
+        if host != dom:
+            self.ba.can_email_address_add(operator.get_entity_id(),
+                                          domain=ed)
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
