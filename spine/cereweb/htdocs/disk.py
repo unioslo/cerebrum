@@ -34,11 +34,13 @@ from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 def search(transaction, **vargs):
     """Search after disks and displays result and/or searchform."""
     page = Main()
-    page.title = _("Search for disk(s)")
+    page.title = _("Disk")
     page.setFocus("disk/search")
     page.add_jscript("search.js")
    
-    handler = SearchHandler('disk', DiskSearchTemplate().form)
+    template = DiskSearchTemplate()
+    template.title = _('disk(s)')
+    handler = SearchHandler('disk', template.form)
     handler.args = ('path', 'description')
     handler.headers = (
         ('Path', 'path'), ('Host', ''),
@@ -91,7 +93,8 @@ def edit(transaction, id):
     """Creates a page with the form for editing a disk."""
     disk = transaction.get_disk(int(id))
     page = Main()
-    page.title = _("Edit ") + object_link(disk)
+    # page.title = _("Edit ") + object_link(disk)
+    page.title = _("Disk")
     page.setFocus("disk/edit", id)
 
     edit = DiskEditTemplate()
@@ -119,7 +122,7 @@ save.exposed = True
 def create(transaction, host=""):
     """Creates a page with the form for creating a disk."""
     page = Main()
-    page.title = _("Create a new disk")
+    page.title = _("Disk")
     page.setFocus("disk/create")
 
     hosts = [(i.get_id(), i.get_name()) for i in

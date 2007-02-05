@@ -22,6 +22,8 @@
 #extends EntityViewTemplate
 #attr $widgets = Widgets()
 
+#attr $title = ''
+
 ## Main method for creating the host view page.
 #def view($transaction, $host)
 #set $id = $host.get_id()
@@ -39,6 +41,8 @@
             $remember_link($host)<br />
         </div>
     </div>
+
+    ## <h3>$title</h3>
 
     ## Content
     $viewInfo($host)
@@ -59,8 +63,8 @@
 ## View information about host (name and description).
 #def viewInfo($host)
 #set $info = []
-$info.append(($_("Name"), $host.get_name()))
-$info.append(($_("Description"), $host.get_description()))
+$info.append(($_("Name:"), $host.get_name()))
+$info.append(($_("Description:"), $host.get_description()))
 $widgets.viewInfo($info)
 #end def
 

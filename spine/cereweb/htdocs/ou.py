@@ -35,9 +35,10 @@ from lib.templates.OUViewTemplate import OUViewTemplate
 
 def tree(transaction, perspective=None):
     page = Main()
-    page.title = _("OU perspective tree")
-    page.setFocus("ou/tree")
+    page.title = _("OU")
+    page.setFocus("/ou/tree")
     tree_template = OUTreeTemplate()
+    tree_template.title = _('OU perspective tree:')
     if not perspective:
         perspective = cherrypy.session.get("ou_perspective", None)
     else:    

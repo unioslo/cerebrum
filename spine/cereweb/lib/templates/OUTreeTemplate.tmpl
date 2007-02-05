@@ -29,8 +29,8 @@
 
 ## Main method for creating the ou tree page.
 #def viewTree($transaction, $perspective=None)
+<h3>$title</h3>
 <div class="tree">
-
     <form>
         #set $perspectives = $transaction.get_ou_perspective_type_searcher()
         $form_widgets.code_selector("perspective", 
@@ -38,6 +38,7 @@
                        $perspectives, $perspective)
         <input type="submit" value="View perspective tree" />
     </form>
+    <br />
     #if not $perspective
         ## Just select the first one! 
         ## (will non-elegantly fail if no perspectives exist)

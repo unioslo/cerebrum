@@ -36,11 +36,13 @@ from lib.templates.HostCreateTemplate import HostCreateTemplate
 def search(transaction, **vargs):
     """Search for hosts and displays result and/or searchform."""
     page = Main()
-    page.title = _("Search for hosts(s)")
-    page.setFocus("host/search")
+    page.title = _("Host")
+    page.setFocus("/host/search")
     page.add_jscript("search.js")
     
-    handler = SearchHandler('host', HostSearchTemplate().form)
+    template = HostSearchTemplate()
+    template.title = _('host(s)')
+    handler = SearchHandler('host', template.form)
     handler.args = ('name', 'description')
     handler.headers = (
         ('Name', 'name'), ('Description', 'description'), ('Actions', '')
@@ -78,8 +80,11 @@ def view(transaction, id):
     host = transaction.get_host(int(id))
     page = Main()
     page.title = _('Host %s') % host.get_name()
+    # page.title = _('Host')
     page.setFocus('host/view', id)
-    content = HostViewTemplate().view(transaction, host)
+    template = HostViewTemplate()
+    # template.title = _('Host %s') % host.get_name()
+    content = template.view(transaction, host)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
@@ -89,10 +94,12 @@ def edit(transaction, id):
     """Creates a page with the form for editing a host."""
     host = transaction.get_host(int(id))
     page = Main()
-    page.title = _("Edit ") + object_link(host)
+    # page.title = _("Edit ") + object_link(host)
+    page.title = _("Host")
     page.setFocus("host/edit", id)
 
     edit = HostEditTemplate()
+    edit.title = _('Edit ') + object_link(host) + _(':')
     content = edit.editHost(host)
     page.content = lambda: content
     return page
@@ -115,7 +122,7 @@ save.exposed = True
 def create(transaction, name="", description=""):
     """Creates a page with the form for creating a host."""
     page = Main()
-    page.title = _("Create a new host")
+    page.title = _("Host")
     page.setFocus("host/create")
 
     # Store given create parameters in create-form

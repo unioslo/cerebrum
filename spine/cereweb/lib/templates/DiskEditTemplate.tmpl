@@ -19,6 +19,7 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 
+#from lib.utils import object_link
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
@@ -40,20 +41,27 @@
 ## Creates the form for editing the main disk info.
 #def form($disk)
 <div class="edit">
-    <form action="$getAction()" method="post">
-        <div class="editform">
-            $form_widgets.input("path", "Path", $disk.get_path())
-            $form_widgets.input("description", "Description", $disk.get_description())
-            <input type="hidden" name="id" value="$disk.get_id()" />
-        </div>
-        $form_widgets.showHelp($help)
-        <div>
-            <center>
+<h3>$_('Edit ') + $object_link($disk) + $_(':')</h3>
+    <div class="editform">
+        <form action="$getAction()" method="post">
+            <div>
+                $form_widgets.input("path", "Path", $disk.get_path())
+            </div>
+            <div>
+                $form_widgets.input("description", "Description", $disk.get_description())
+            </div>
+            <div>
+                <input type="hidden" name="id" value="$disk.get_id()" />
+            </div>
+            <div>
+                $form_widgets.showHelp($help)
+            </div>
+            <div>
                 <input type="submit" value="$_('Save')" name="submit" />&nbsp;
                 <input type="submit" value="$_('Cancel')" name="submit" />
-            </center>
-        </div>
-    </form>
+            </div>
+        </form>
+    </div>
 </div>
 #end def
 
