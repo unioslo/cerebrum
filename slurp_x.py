@@ -152,6 +152,13 @@ class execute:
                     # person not found with norwegian ssn, try to locate with sysX id.
                     if (national_id != "NO"):                        
                         self.person = self.get_sysX_person(id)
+                except Errors.TooManyRowsError:
+                    # This person already has multiple rows in the entity_external_id table
+                    # This is an error, no person should have more than one entry in the entity_external_id table.
+                    # Not knowing which person object is to be used, return an error message.
+                    self.logger.error("person with ssn:%s has multiple entries in entity_external_id. resolve this imidiately" % external_id)
+                    return 1,bruker_epost
+                    
             else:
                 # foreigner without norwegian ssn, use SysX-id as external-id.
                 external_id_type = self.constants.externalid_sys_x_id
@@ -357,6 +364,9 @@ class execute:
                     if (national_id != "NO"):
                         self.person = self.get_sysX_person(id)
                         print "unable to find person with ssn. using sysx_id:%s" % id
+                except Errors.TooManyRowsError:
+                    self.logger.error("Unable to create account for person:%s. Person has multiple entries in entity_external_id. Resolve this imidiately." % fnr)
+                    return 1
             else:
                 # foreigner without norwegian ssn, use SysX-id as external-id.
                 external_id_type = self.constants.externalid_sys_x_id
@@ -690,7 +700,7 @@ def main():
     dryrun = False
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:l:u',['source_file','logger-name','update','dryrun'])
+        opts,args = getopt.getopt(sys.argv[1:],'s:l:ud',['source_file','logger-name','update','dryrun'])
     except getopt.GetoptError,m:
         print "Unknown option: %s" % (m)
         usage()
@@ -703,13 +713,13 @@ def main():
             source_file = val
         elif opt in ('-u','--update'):
             update = 1
-        elif opt in ('l','--logger-name'):
+        elif opt in ('-l','--logger-name'):
             logger_name = val
         elif opt in ('--dryrun'):
             dryrun = True
         else:
             print "unknown option: %s" % (opt)
-            usage(1)
+            usage()
             
     x_create=execute(logger_name)
     if (source_file == 0):
