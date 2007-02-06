@@ -266,7 +266,7 @@ class EdirUtils:
 
 ## PASSWD: set account password
     def account_set_password(self, account_name, passwd):
-        attr = {'password': passwd}
+        attr = {'userPassword': passwd}
         ldap_object = self._find_object(account_name, self.c_person)
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
