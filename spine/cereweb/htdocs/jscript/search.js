@@ -21,9 +21,47 @@
 YAHOO.util.Event.addListener('search_clear', 'click', SR_clear);
 YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
 
+YE.onAvailable('add_member_name', initAutoComplete);
+function initAutoComplete(event) {
+    var myName = YD.get('add_member_name');
+    var myDiv = document.createElement('div');
+    myDiv.setAttribute('id', 'search_autoComplete');
+    myName.parentNode.appendChild(myDiv);
+    myName.parentNode.setAttribute('id', 'autocomplete');
+    var myDataSource = new YAHOO.widget.DS_XHR(
+        '/ajax/search', ["ResultSet", "name", "type", "owner"]);
+    myDataSource.connTimeout = 3000;
+    myDataSource.queryMatchCase = true;
+    var myAutoComp = new YAHOO.widget.AutoComplete
+        (myName, myDiv, myDataSource);
+    myAutoComp.minQueryLength = 3;
+    myAutoComp.dataReturnEvent.subscribe(dataReturn, myName);
+
+    myAutoComp.formatResult = function(aResultItem, sQuery) {
+        var name = aResultItem[0];
+        var type = aResultItem[1];
+        var owner = aResultItem[2];
+        var aMarkup = ["<div id='ysearchresult'>",
+            '<div style="float:left;width:6em;">',
+            name,
+            '</div>',
+            owner.name,
+            "</div>"]
+        
+        return (aMarkup.join(""));
+    }
+}
+
+function dataReturn(event, args, myName) {
+    if (args[2].length === 0)
+        myName.style.backgroundColor = "red";
+    else
+        myName.style.backgroundColor = "";
+}
+
 // Clears the searchform.
 function SR_clear(e) {
-    YAHOO.util.Event.stopEvent(e); // AJAX takes over.
+    YAHOO.util.Event.preventDefault(e);
 
     var form = document.getElementById('search_form');
     var base_uri = 'http://' + location.host;
