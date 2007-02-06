@@ -87,7 +87,7 @@ def main():
     db = Factory.get('Database')()
     constants = Factory.get('Constants')(db)
     group = Group.Group(db)
-    logger = Factory.get_logger('console')
+    logger = Factory.get_logger('cronjob')
     
     logger.info("Getting groups")
     grps = group.search(spread)
