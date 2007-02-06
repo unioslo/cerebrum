@@ -165,7 +165,7 @@ class LDAPConnection:
         attrs = self._make_modlist(modtype, attrdict)
         try:
             self.__modify(dn, attrs)
-            self.__logger.warn("Successfully modified object %s (%s)." % (dn,
+            self.__logger.debug("Successfully modified object %s (%s)." % (dn,
                                                                           attrs))
         except ldap.LDAPError, e:
             self.__logger.warn("Could not modify object %s (%s)." % (dn,
