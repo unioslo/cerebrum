@@ -29,9 +29,33 @@ YE = YAHOO.util.Event;
 YC = YAHOO.util.Connect;
 cereweb = YAHOO.cereweb;
 
-// The cereweb.actions object contains methods that are run
-// when actions are clicked.  This object is extended by
-// other scripts.
+/** Cereweb Actions
+ *
+ * In this script we listen to the window.load event, and when this is raised,
+ * we listen for the click event on all links with class action.  When such an
+ * event occur, we call the actionClicked function.
+ * 
+ * This function parses the link that has been clicked with the parseAction
+ * function.  This gives us the name of the link and the arguments.  For
+ * instance 'edit_motd' with id=133.
+ *
+ * Enter the cereweb.actions object.  This can be thought of as a hash
+ * containing functions.  We use the name of the link that has been clicked and
+ * checks if the cereweb.actions object contains such an attribute.  If it
+ * does, we call that action with the arguments we found.
+ *
+ * Example:
+ *   cereweb.actions['test'] = function(event, args) {
+ *       if (cereweb.can_do_action) {
+ *           YE.preventDefault(event); // Do not follow link.
+ *           handleLink(args);         // We do it here.
+ *       }
+ *   }
+ *
+ * Note that if the action doesn't call YE.preventDefault, the web browser will
+ * follow the link.
+ */
+
 cereweb.actions = { };
 
 // Parse a link to help us look it up in the actions object.
