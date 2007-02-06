@@ -20,6 +20,9 @@
 
 import cherrypy
 
+from lib import cjson
+from sets import Set
+
 from SpineIDL.Errors import NotFoundError
 from gettext import gettext as _
 from lib.utils import *
@@ -27,93 +30,107 @@ from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.AccountSearchTemplate import AccountSearchTemplate
 
-def search(transaction, **vargs):
-    """Search for accounts and display results and/or searchform.""" 
-    handler = SearchHandler('account', AccountSearchTemplate().form)
-    handler.args = (
-        'name', 'spread', 'create_date', 'expire_date', 'description'
-    )
-    handler.headers = (
-        ('Name', 'name'), ('Owner', ''), ('Create date', 'create_date'),
-        ('Expire date', 'expire_date'), ('Actions', '')
-    )
+def get_owner(owner):
+    owner_type = owner.get_type().get_name() 
+    if owner_type == 'person':
+        data = get_person_info(owner, include_accounts=False)
+    elif owner_type == 'group':
+        data = get_group_info(owner, include_accounts=False)
+    else:
+        data = {
+            'id': owner.get_id(),
+            'name': None,
+            'type': owner_type,
+        }
 
-    def search_method(values, offset, orderby, orderby_dir):
-        name, spread, create_date, expire_date, description = values
+    return data
 
-        search = transaction.get_account_searcher()
-        setup_searcher([search], orderby, orderby_dir, offset)
-        
-        if name:
-            search.set_name_like(name)
+def get_account_info(account, owner=None):
+    data = {
+            "id": "%s" % account.get_id(),
+            "name": "%s" % account.get_name(),
+            "type": "account",
+    }
 
-        if expire_date:
-            if not legal_date(expire_date):
-                queue_message("Expire date is not a legal date.",error=True)
-                return None
-            date = transaction.get_commands().strptime(expire_date, "%Y-%m-%d")
-            search.set_expire_date(date)
+    if not owner:
+        owner = get_owner(account.get_owner())
 
-        if create_date:
-            if not legal_date(create_date):
-                queue_message("Created date is not a legal date.", error=True)
-                return None
-            date = transaction.get_commands().strptime(create_date, "%Y-%m-%d")
-            search.set_create_date(date)
+    if owner:
+        data['owner'] = owner.copy()
+    else:
+        data['owner'] = "No owner"
 
-        if description:
-            if not description.startswith('*'):
-                description = '*' + description
-            if not description.endswith('*'):
-                description += '*'
-            search.set_description_like(description)
+    return data
 
-        if spread:
-            account_type = transaction.get_entity_type('account')
+def get_person_name(person):
+    for n in person.get_names():
+        if n.get_name_variant().get_name() == "FULL":
+            return n.get_name()
+    return None
 
-            entityspread = transaction.get_entity_spread_searcher()
-            entityspread.set_entity_type(account_type)
+def get_person_info(person, include_accounts=True):
+    data = {
+        "id": person.get_id(),
+        "name": get_person_name(person),
+        "type": 'person',
+    }
+    return data
 
-            spreadsearcher = transaction.get_spread_searcher()
-            spreadsearcher.set_entity_type(account_type)
-            spreadsearcher.set_name_like(spread)
+def get_group_info(group, include_accounts=True):
+    data = {
+        'id': group.get_id(),
+        'name': group.get_name(),
+        'type': 'group',
+    }
+    return 
 
-            entityspread.add_join('spread', spreadsearcher, '')
-            search.add_intersection('', entityspread, 'entity')
-		
-        return search.search()
+def search_account(transaction, query):
+    result = {}
+
+    accounts = transaction.get_account_searcher()
+    accounts.set_name_like("%s*" % query)
+    accounts = accounts.search()
+    for account in accounts:
+        account = get_account_info(account)
+        result[account['id']] = account
+    return result.values()
+
+def search_person(transaction, query):
+    result = {}
+
+    searcher = transaction.get_person_name_searcher()
+    searcher.set_name_variant(transaction.get_name_type("FULL"))
+    searcher.set_name_like("%s*" % query)
+    people = [x.get_person() for x in searcher.search()]
+
+    for person in people:
+        data = get_person_info(person)
+        for account in person.get_accounts():
+            account = get_account_info(account, data)
+            result[account['id']] = account
+    return result.values()
+
+def search(transaction, query=None, type=None):
+    if not query: return
     
-    def row(elm):
-        owner = object_link(elm.get_owner())
-        cdate = strftime(elm.get_create_date())
-        edate = strftime(elm.get_expire_date())
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        return object_link(elm), owner, cdate, edate, str(edit)+str(remb)
-    
-    accounts = handler.search(search_method, **vargs)
-    result = handler.get_result(accounts, row)
-    cherrypy.response.headerMap['Content-Type'] = "text/xml"
-    return result
+    if not type:
+        if not query.islower():
+            type = "person"
+        else:
+            type = "account"
+
+    if type == "account":
+        result = search_account(transaction, query)
+    elif type == "person":
+        result = search_person(transaction, query)
+    else:
+        result = ""
+
+    if result:
+        result = {'ResultSet': result}
+    return cjson.encode(result)
 search = transaction_decorator(search)
 search.exposed = True
-
-def dialog(transaction):
-    cherrypy.response.headerMap['Content-Type'] = "text/xml"
-    return """
-<xml>
-    <header>
-        <p>header</p>
-    </header>
-    <body>
-        <form><label for="group">Group:</label><input id="group" type="text"/></form>
-    </body>
-    <footer>
-        <p>footer</p>
-    </footer>
-</xml>"""
-dialog = transaction_decorator(dialog)
-dialog.exposed = True
 
 def get_motd(transaction, id):
     message, subject = "",""

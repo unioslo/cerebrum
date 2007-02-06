@@ -30,7 +30,7 @@ function initAutoComplete(event) {
     myName.parentNode.setAttribute('id', 'autocomplete');
     var myDataSource = new YAHOO.widget.DS_XHR(
         '/ajax/search', ["ResultSet", "name", "type", "owner"]);
-    myDataSource.connTimeout = 3000;
+    // myDataSource.connTimeout = 3000;
     myDataSource.queryMatchCase = true;
     var myAutoComp = new YAHOO.widget.AutoComplete
         (myName, myDiv, myDataSource);
