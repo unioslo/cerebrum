@@ -109,6 +109,8 @@ def view(transaction, id):
     page = Main()
     page.title = _('Group %s') % group.get_name()
     page.setFocus('group/view', id)
+    page.add_jscript("/yui/autocomplete.js")
+    page.add_jscript("search.js")
     content = GroupViewTemplate().view(transaction, group)
     page.content = lambda: content
     return page
