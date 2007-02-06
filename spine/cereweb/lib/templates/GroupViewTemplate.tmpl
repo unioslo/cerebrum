@@ -105,17 +105,24 @@ $widgets.viewInfo($info)
 #def addMember($group, $ops)
 #set $types = (('account', 'Account'), ('group', 'Group'))
 <div class="form box" id="member_form" style="display:none;">
-    <a class="anchor" id="member"></a>
-    <h3>$_('Add member')</h3>
+    <h3 id="member">$_('Add member')</h3>
     <form action="add_member" method="post">
-    <p>
-        <input type="hidden" name="id" value="$group.get_id()" />
-        $form_widgets.input('name', 'Member name')
-        $form_widgets.generate_loption('type', 'Member type', $types, 'account')
-        $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
-        <input type="submit" value="$_('Add member')" />&nbsp;
-        <input type="button" value="$_('Cancel')" id="member_cancel" />
-    </p>
+        <div class="hidden">
+            <input type="hidden" name="id" value="$group.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.input('name', 'Member name', $id="add_member_name")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption('type', 'Member type', $types, 'account')
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
+        </div>
+        <div>
+            <input type="submit" value="$_('Add member')" />&nbsp;
+            <input type="button" value="$_('Cancel')" id="member_cancel" />
+        </div>
     </form>
 </div>
 #end def
