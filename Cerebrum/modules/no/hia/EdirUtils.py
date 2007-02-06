@@ -264,6 +264,19 @@ class EdirUtils:
             self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
 
 
+## PASSWD: set account password
+    def account_set_password(self, account_name, passwd):
+        attr = {'password': passwd}
+        ldap_object = self._find_object(account_name, self.c_person)
+        if ldap_object:
+            (ldap_object_dn, ldap_attr) = ldap_object[0]
+            self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
+            if 'password' in ldap_attr.keys():
+                logger.info("Updated password for %s", account_name)
+            desc = "Cerebrum: password %s" % self.date
+            self.object_set_description(account_name, self.c_person, desc)
+
+            
 ## HOME: set home directory
 ## ikke i bruk
     def account_set_home(self, account_name, path):
