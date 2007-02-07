@@ -18,39 +18,36 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-YAHOO.util.Event.addListener('search_clear', 'click', SR_clear);
-YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
+cereweb.ac_group = function(input) {
+    this.input = input;
+    this.build();
 
-/** AutoCompleter object. */
-cereweb.ac = {
-    /* DataSource for accounts and person names. */
-    account: {
-        dataSource: new YAHOO.widget.DS_XHR(
-            '/ajax/search',
-            ["ResultSet", "name"],
-            { queryMatchCase: true }
-        ),
-        formatResult: function(aResultItem, sQuery) {
-            var name = aResultItem[0];
-            var owner = aResultItem[1].owner;
-            var aMarkup = ["<div id='ysearchresult'>",
-                '<div style="float:left;width:6em;">',
-                name,
-                '</div>',
-                owner.name,
-                "</div>"];
-            return (aMarkup.join(""));
-        }
-    },
-    group: {
-        dataSource: new YAHOO.widget.DS_XHR(
-            '/ajax/search',
-            ["ResultSet", "name"],
-            {
-                queryMatchCase: true,
-                scriptQueryAppend: 'type=group'
-            }
-        )
+    this.dataSource = new YAHOO.widget.DS_XHR(
+        '/ajax/search',
+        ["ResultSet", "name"],
+        this.dataSourceOptions
+    );
+
+    this.widget = new YAHOO.widget.AutoComplete(
+        this.input,
+        this.dropdown,
+        this.dataSource,
+        this.widgetOptions
+    );
+    this.widget.dataReturnEvent.subscribe(this.dataReturn, this.input);
+    this.widget.textboxKeyEvent.subscribe(this.textboxKey, this.input);
+}
+
+cereweb.ac_group.prototype = {
+    /** Do the neccessary changes around the input element we want
+     *  to add autocomplete to. */
+    build: function() {
+        var container = this.input.parentNode;
+        this.dropdown = document.createElement('div');
+        container.appendChild(this.dropdown);
+
+        YD.addClass(this.dropdown, 'autocomplete');
+        YD.addClass(container, 'autocomplete_container');
     },
     textboxKey: function(event, args, input) {
         input.style.backgroundColor = "";
@@ -61,89 +58,99 @@ cereweb.ac = {
         else
             input.style.backgroundColor = "";
     },
-    dataSource: new YAHOO.widget.DS_JSArray(
-            ['config must specify a datasource']
-        ),
-    config: { minQueryLength: 3 },
-    factory: function(input, config) {
-        var container = input.parentNode;
-        var acdiv = document.createElement('div');
-        YD.addClass(acdiv, 'autocomplete');
-        container.appendChild(acdiv);
-        YD.addClass(container, 'autocomplete_container');
-
-        config.dataSource = config.dataSource || cereweb.ac.dataSource;
-        config.config = config.config || cereweb.ac.config;
-        config.dataReturn = config.dataReturn || cereweb.ac.dataReturn;
-        config.textboxKey = config.textboxKey || cereweb.ac.textboxKey;
-
-        var myac = new YAHOO.widget.AutoComplete (input, acdiv, config.dataSource, config.config);
-        myac.dataReturnEvent.subscribe(config.dataReturn, input);
-        myac.textboxKeyEvent.subscribe(config.textboxKey, input);
-
-        if (config.formatResult)
-            myac.formatResult = config.formatResult;
-        return myac;
+    widgetOptions: { minQueryLength: 3 },
+    dataSourceOptions: {
+        queryMatchCase: true,
+        scriptQueryAppend: 'type=group'
     }
 }
 
-cereweb.quicksearch = {
-    init: function() {
-        this.style.display = "";
-        var input = YD.get("ac_quicksearch");
-        cereweb.quicksearch.input = input;
-        cereweb.quicksearch.initForm(this.getElementsByTagName('form')[0]);
-        config = cereweb.ac.account;
-        config.dataReturn = function(event, args, input) {
-            cereweb.quicksearch.data = args[2];
-        }
-        cereweb.quicksearch.ac = cereweb.ac.factory(input, config);
-    },
-    initForm: function(form) {
-        cereweb.quicksearch.form = form;
-        YE.addListener(form, 'submit', cereweb.quicksearch.search);
-    },
-    search: function(e) {
-        YE.preventDefault(e);
-        var input = cereweb.quicksearch.input;
-        var data = cereweb.quicksearch.data;
+cereweb.ac_account = function(input) {
+    cereweb.ac_account.superclass.constructor.call(this, input);
+    this.widget.formatResult = this.formatResult;
+}
+YAHOO.extend(cereweb.ac_account, cereweb.ac_group);
 
-        if (!data) {
-            cereweb.quicksearch.ac.sendQuery(input.value);
-        }
+cereweb.ac_account.prototype.formatResult = function(aResultItem, sQuery) {
+    var name = aResultItem[0];
+    var owner = aResultItem[1].owner;
+    var aMarkup = ["<div id='ysearchresult'>",
+        '<div style="float:left;width:6em;">',
+        name,
+        '</div>',
+        owner.name,
+        "</div>"];
+    return (aMarkup.join(""));
+}
 
-        if (data.length === 0) {
-            input.style.backgroundColor = "red";
-        } else {
-            for (var i=0;i<data.length;i++) {
-                if (data[i][0] === input.value) {
-                    var form = cereweb.quicksearch.form;
-                    var type = data[i][1].type;
-                    form.action = '/' + type + '/view';
-                    input.value = data[i][1].id;
-                    form.submit();
-                }
+cereweb.ac_account.prototype.dataSourceOptions = {
+    queryMatchCase: true,
+}
+
+cereweb.ac_quicksearch = function(container) {
+    var input = YD.get("ac_quicksearch");
+    cereweb.ac_account.superclass.constructor.call(this, input);
+
+    container.style.display = "";
+    this.form = container.getElementsByTagName('form')[0];
+    this.initForm();
+}
+YAHOO.extend(cereweb.ac_quicksearch, cereweb.ac_account);
+
+cereweb.ac_quicksearch.prototype.initForm = function() {
+    YE.addListener(this.form, 'submit', this.search, this, true);
+}
+
+cereweb.ac_quicksearch.prototype.dataReturn = function(event, args, input) {
+    this.data = args[2];
+}
+
+cereweb.ac_quicksearch.prototype.search = function(e) {
+    YE.preventDefault(e);
+    var data = this.widget.data;
+    if (!data) {
+        this.widget.sendQuery(this.input.value);
+        return;
+    }
+
+    if (data.length === 0) {
+        this.input.style.backgroundColor = "red";
+    } else {
+        for (var i=0; i < data.length; i++) {
+            if (data[i][0] === this.input.value) {
+                var type = data[i][1].type;
+                this.form.action = '/' + type + '/view';
+                this.input.value = data[i][1].id;
+                this.form.submit();
+                return;
             }
-            input.focus();
-            cereweb.quicksearch.ac._populateList(input.value, cereweb.quicksearch.data,
-                cereweb.quicksearch.ac);
         }
+        this.input.focus();
+        this.widget._populateList(this.input.value, data, this.widget);
     }
 }
-YE.onAvailable('quicksearch', cereweb.quicksearch.init);
+
+YE.onAvailable('quicksearch', function () {
+        cereweb.quicksearch = new cereweb.ac_quicksearch(this);
+    }
+);
 
 YE.addListener(window, 'load', initAutoComplete);
 function initAutoComplete(event) {
-
     var account_completers = YD.getElementsByClassName('ac_account', 'input');
     var group_completers = YD.getElementsByClassName('ac_group', 'input');
     if (account_completers.length > 0)
-        YD.batch(account_completers, cereweb.ac.factory, cereweb.ac.account);
+        YD.batch(account_completers, function(input) {
+            new cereweb.ac_account(input);
+        });
     if (group_completers.length > 0)
-        YD.batch(group_completers, cereweb.ac.factory, cereweb.ac.group);
+        YD.batch(group_completers, function (input) {
+            new cereweb.ac_group(input);
+        });
 }
 
 // Clears the searchform.
+YAHOO.util.Event.addListener('search_clear', 'click', SR_clear);
 function SR_clear(e) {
     YAHOO.util.Event.preventDefault(e);
 
@@ -176,6 +183,7 @@ function remove_searchresult() {
     }
 }
 
+YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
 function SR_submit(e) {
     return; // Disabled until pages are ready for DOM manipulation.
     YAHOO.util.Event.stopEvent(e); // AJAX takes over.
