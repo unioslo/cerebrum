@@ -55,7 +55,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Email domains")
     page.setFocus("email/search")
-    page.add_jscript("search.js")
 
     form = lambda values: EmailDomainTemplate().search(transaction, values)
     handler = SearchHandler('email', form)

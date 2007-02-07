@@ -36,7 +36,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Disk")
     page.setFocus("disk/search")
-    page.add_jscript("search.js")
    
     template = DiskSearchTemplate()
     template.title = _('disk(s)')

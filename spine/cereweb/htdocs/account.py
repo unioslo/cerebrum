@@ -35,7 +35,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Account")
     page.setFocus("account/search")
-    page.add_jscript("search.js")
     
     template = AccountSearchTemplate()
     template.title = _('account(s)')

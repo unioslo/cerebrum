@@ -56,7 +56,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("OU")
     page.setFocus("ou/search")
-    page.add_jscript("search.js")
     
     template = OUSearchTemplate()
     template.title = _('OU(s)')

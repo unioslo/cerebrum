@@ -40,7 +40,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Person")
     page.setFocus("person/search")
-    page.add_jscript("search.js")
 
     template = PersonSearchTemplate()
     template.title = _('a person')

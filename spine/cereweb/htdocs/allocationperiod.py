@@ -37,7 +37,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Search for allocation Period(s)")
     page.setFocus("allocationperiod/search")
-    page.add_jscript("search.js")
     
     handler = SearchHandler('allocationperiod', AllocationPeriodSearchTemplate().form)
     handler.args = ('name', 'allocationauthority')

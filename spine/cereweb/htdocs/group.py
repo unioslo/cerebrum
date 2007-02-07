@@ -39,7 +39,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Group")
     page.setFocus("group/search")
-    page.add_jscript("search.js")
     page.add_jscript("groupsearch.js")
 
     template = GroupSearchTemplate()
@@ -109,8 +108,6 @@ def view(transaction, id):
     page = Main()
     page.title = _('Group %s') % group.get_name()
     page.setFocus('group/view', id)
-    page.add_jscript("/yui/autocomplete.js")
-    page.add_jscript("search.js")
     content = GroupViewTemplate().view(transaction, group)
     page.content = lambda: content
     return page

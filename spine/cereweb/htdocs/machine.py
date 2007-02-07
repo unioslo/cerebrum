@@ -43,7 +43,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Search for host(s)")
     page.setFocus("host/search")
-    page.add_jscript("search.js")
     
     handler = SearchHandler('machine', HostSearchTemplate().form)
     handler.args = ('name', 'description')

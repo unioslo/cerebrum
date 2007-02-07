@@ -36,7 +36,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Search for project(s)")
     page.setFocus("project/search")
-    page.add_jscript("search.js")
 
     handler = SearchHandler('project', ProjectSearchTemplate().form)
     handler.args = ('title', 'description', 'allocation_name', 'science')

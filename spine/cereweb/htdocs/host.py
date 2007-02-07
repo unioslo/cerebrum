@@ -38,7 +38,6 @@ def search(transaction, **vargs):
     page = Main()
     page.title = _("Host")
     page.setFocus("/host/search")
-    page.add_jscript("search.js")
     
     template = HostSearchTemplate()
     template.title = _('host(s)')
