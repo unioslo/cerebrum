@@ -21,6 +21,7 @@
 import cherrypy
 import sys
 
+from SpineIDL.Errors import NotFoundError
 import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
@@ -261,6 +262,17 @@ def remove_target(transaction, entity, target):
     entity = transaction.get_entity(int(entity))
     target = transaction.get_email_target(int(target))
     type = target.get_type().get_name()
+    try:
+        primary = target.get_primary_address()
+    except NotFoundError, e:
+        primary = None
+    if primary:
+        primary.delete()
+    addresses = target.get_addresses()
+    if addresses:
+        for addr in addresses:
+            addr.delete()
+
     target.delete_email_target()
     msg = _("Removed email target (%s) successfully.") % type
     commit(transaction, entity, msg=msg)
