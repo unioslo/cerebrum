@@ -750,41 +750,45 @@ div.options input:focus {
     clear: left;
 }
 
+## place the quicksearch box
+#quicksearch {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+#quicksearch input[type=submit] {
+    display: none;
+}
+
 ## Classes used for styling the autocomplete input
 
 .autocomplete_container {
     position:relative;
-    width:40%; /* set width of widget here*/
 }
 .autocomplete_container .ac_group,
 .autocomplete_container .ac_account {
     position:absolute;
-    width:100%;
-    ##height:1.4em;
 }
 .autocomplete_container .autocomplete {
     position:absolute;
     top:1.7em;
-    width:100%;
 }
 .autocomplete_container .autocomplete .yui-ac-content {
     position:absolute;
-    width:100%;
     border:1px solid #404040;
     background:#fff;
     overflow:hidden;
     z-index:9050;
+    width: 300px;
 }
 .autocomplete_container .autocomplete .yui-ac-shadow {
     position:absolute;
     margin:.3em;
-    width:100%;
     background:#a0a0a0;
     z-index:9049;
 }
 .autocomplete_container .autocomplete ul {
     padding:5px 0;
-    width:100%;
 }
 .autocomplete_container .autocomplete li {
     padding:0 5px;
