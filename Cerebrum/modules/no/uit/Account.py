@@ -457,6 +457,35 @@ class AccountUiTMixin(Account.Account):
         self.__super.set_password(plaintext)
 
 
+    def list_all(self, spread=None,filter_expired=False):
+ 
+        """List all users,  optionally filtering the
+        results on account spread and expiry.
+        """
+
+        where = ["en.entity_id=ai.account_id"]
+        tables = ['[:table schema=cerebrum name=entity_name] en']
+        params = {}
+        if spread is not None:
+            # Add this table before account_info for correct left-join syntax
+            where.append("es.entity_id=ai.account_id")
+            where.append("es.spread=:account_spread")
+            tables.append(", [:table schema=cerebrum name=entity_spread] es")
+            params['account_spread'] = spread
+            
+        tables.append(', [:table schema=cerebrum name=account_info] ai')
+        if filter_expired:
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
+
+        where = " AND ".join(where)
+        tables = "\n".join(tables)
+        
+        sql =  """
+        SELECT ai.account_id, en.entity_name, ai.expire_date, ai.create_date
+        FROM %s
+        WHERE %s""" % (tables, where)
+        
+        return self.query(sql, params)
 
     # def notify_account_expire(self):
 
