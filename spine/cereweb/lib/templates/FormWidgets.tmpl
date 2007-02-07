@@ -113,16 +113,19 @@
 #end def
 
 ## Creates inputs and labels from given arguments.
-#def input($name, $label, $value="", $type="text", $cssclass="", $id="")
+#def input($name, $label, $value="", $type="text", $cssclass="", $klass="", $id="")
     #if $cssclass
     <div class="$cssclass">
     #end if
     <label for="$name">$_($label):</label>
+    #set $extra = ""
     #if $id
-    <input type="$type" name="$name" id="$id" value="$_($value)" />
-    #else
-    <input type="$type" name="$name" value="$_($value)" />
+        #set $extra = 'id="' + $id + '"'
     #end if
+    #if $klass
+        #set $extra = $extra + ' class="' + $klass + '"'
+    #end if
+    <input type="$type" name="$name" $extra value="$_($value)" />
     #if $cssclass
     </div>
     #end if
