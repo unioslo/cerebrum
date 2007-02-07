@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import cereconf
 import Cerebrum.Database
 from Cerebrum.Utils import Factory
 from SpineLib.Builder import Attribute
@@ -98,7 +99,8 @@ def get_group_by_name(self, name):
     db = self.get_database()
 
     s = registry.EntityNameSearcher(db)
-    s.set_value_domain(registry.ValueDomain(db, name='group_names'))
+    value_domain = cereconf.ENTITY_TYPE_NAMESPACE['group']
+    s.set_value_domain(registry.ValueDomain(db, name=value_domain))
     s.set_name(name)
 
     groups = s.search()
