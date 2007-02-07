@@ -33,9 +33,9 @@ from lib.templates.AccountSearchTemplate import AccountSearchTemplate
 def get_owner(owner):
     owner_type = owner.get_type().get_name() 
     if owner_type == 'person':
-        data = get_person_info(owner, include_accounts=False)
+        data = get_person_info(owner)
     elif owner_type == 'group':
-        data = get_group_info(owner, include_accounts=False)
+        data = get_group_info(owner)
     else:
         data = {
             'id': owner.get_id(),
@@ -68,7 +68,7 @@ def get_person_name(person):
             return n.get_name()
     return None
 
-def get_person_info(person, include_accounts=True):
+def get_person_info(person):
     data = {
         "id": person.get_id(),
         "name": get_person_name(person),
@@ -76,13 +76,13 @@ def get_person_info(person, include_accounts=True):
     }
     return data
 
-def get_group_info(group, include_accounts=True):
+def get_group_info(group):
     data = {
         'id': group.get_id(),
         'name': group.get_name(),
         'type': 'group',
     }
-    return 
+    return data
 
 def search_account(transaction, query):
     result = {}
@@ -110,10 +110,21 @@ def search_person(transaction, query):
             result[account['id']] = account
     return result.values()
 
+def search_group(transaction, query):
+    result = {}
+
+    searcher = transaction.get_group_searcher()
+    searcher.set_name_like("%s*" % query)
+    for group in searcher.search():
+        group = get_group_info(group)
+        result[group['id']] = group
+    return result.values()
+
 def search(transaction, query=None, type=None):
     if not query: return
     
-    if not type:
+    if not type or type == 'person_or_account':
+        # We assume that people have names with upper case letters.
         if not query.islower():
             type = "person"
         else:
@@ -123,6 +134,8 @@ def search(transaction, query=None, type=None):
         result = search_account(transaction, query)
     elif type == "person":
         result = search_person(transaction, query)
+    elif type == "group":
+        result = search_group(transaction, query)
     else:
         result = ""
 
