@@ -17,7 +17,6 @@
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
-
 cereweb.ac_group = function(input) {
     this.input = input;
     this.build();
@@ -37,7 +36,6 @@ cereweb.ac_group = function(input) {
     this.widget.dataReturnEvent.subscribe(this.dataReturn, this.input);
     this.widget.textboxKeyEvent.subscribe(this.textboxKey, this.input);
 }
-
 cereweb.ac_group.prototype = {
     /** Do the neccessary changes around the input element we want
      *  to add autocomplete to. */
@@ -58,7 +56,9 @@ cereweb.ac_group.prototype = {
         else
             input.style.backgroundColor = "";
     },
-    widgetOptions: { minQueryLength: 3 },
+    widgetOptions: {
+        minQueryLength: 3
+    },
     dataSourceOptions: {
         queryMatchCase: true,
         scriptQueryAppend: 'type=group'
@@ -84,7 +84,7 @@ cereweb.ac_account.prototype.formatResult = function(aResultItem, sQuery) {
 }
 
 cereweb.ac_account.prototype.dataSourceOptions = {
-    queryMatchCase: true,
+    queryMatchCase: true
 }
 
 cereweb.ac_quicksearch = function(container) {
