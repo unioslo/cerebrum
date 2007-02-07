@@ -168,7 +168,7 @@ def make(transaction, id, name, expire_date="", np_type=None,
 make = transaction_decorator(make)
 make.exposed = True
 
-def view(transaction, id):
+def view(transaction, id, **vargs):
     """Creates a page with a view of the account given by id."""
     account = transaction.get_account(int(id))
     page = Main()
