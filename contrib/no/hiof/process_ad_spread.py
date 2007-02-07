@@ -17,8 +17,8 @@ Usage: process_AD.py [options]
 
 import getopt
 import sys
+import cPickle
 import cerebrum_path
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hiof import ADMappingRules
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
@@ -100,36 +100,69 @@ class Job(object):
         self._adm_rules = ADMappingRules.Adm()
         self._fag_rules = ADMappingRules.Fag()
         self._stud_rules = ADMappingRules.Student()
-        
-        for spread in (co.spread_ad_account_fag,
-                       co.spread_ad_account_adm,
-                       co.spread_ad_account_stud):
-            self.process_spread(spread)
-        
-    def process_spread(self, spread):
-        logger.debug("Process accounts with spread=%s" % spread)
-        for row in ac.list_account_home(
-            home_spread=spread, account_spread=spread, filter_expired=True, include_nohome=True):
-            entity_id = int(row['account_id'])
-            if not (self.entity_id2profile_path.has_key(entity_id) and
+
+        self.process_spreads(co.spread_ad_account_fag,
+                             co.spread_ad_account_adm,
+                             co.spread_ad_account_stud)
+            
+    def process_spreads(self, *spreads):
+        """Sjekk om ou, profile_path og home er satt for en bruker.
+        Hvis ikke, beregn verdiene og populer som traits."""
+
+        # Sjekk først om ou, profile_path og home er satt. Hvis ikke
+        # skal de beregnes. Lag datastruktur slik at traits enkelt kan
+        # settes.
+        user_maps = {}
+        for spread in spreads:
+            logger.debug("Process accounts with spread=%s" % spread)
+            for row in ac.list_account_home(home_spread=spread,
+                                            account_spread=spread,
+                                            filter_expired=True,
+                                            include_nohome=True):
+                entity_id = int(row['account_id'])
+                # Ikke gjør noe hvis OU og profile_path allerede er satt
+                if (self.entity_id2profile_path.has_key(entity_id) and
                     self.entity_id2account_ou.has_key(entity_id)):
-                ac.clear()
-                ac.find(entity_id)
+                    continue
+                # Trenger spread<->ou, spread<->profile_path og
+                # spread<->home mappinger for hver bruker.
+                # (Litt tung datastruktur, men det forenkler koden i neste for-løkke)
+                if not entity_id in user_maps:
+                    user_maps[entity_id] = {'ou':{}, 'profile_path':{}, 'home':{}}
                 try:
                     canonical_name, profile_path, home = self.calc_home(entity_id, spread)
                     logger.debug("Calculated values for %i: cn=%s, pp=%s, home=%s" % (
                         entity_id, canonical_name, profile_path, home))
+                    user_maps[entity_id]['ou'][int(spread)] = canonical_name
+                    user_maps[entity_id]['profile_path'][int(spread)] = profile_path
+                    user_maps[entity_id]['home'][int(spread)] = home
                 except Job.CalcError, v:
                     logger.warn(v)
-                    continue
                 except ADMappingRules.MappingError, v:
                     logger.warn(v)
-                    continue
-                ac.populate_trait(co.trait_ad_profile_path, strval=profile_path)
-                ac.populate_trait(co.trait_ad_account_ou, strval=canonical_name)
-                ac.write_db()
-                homedir_id = ac.set_homedir(home=home, status=co.home_status_not_created) # TODO: status
+
+        # Sett ou og profile_path traits, og sett home på vanlig måte.
+        for e_id, spread_maps in user_maps.items():
+            ac.clear()
+            ac.find(e_id)
+            # store pickled spread<->profile_path mapping 
+            ac.populate_trait(co.trait_ad_profile_path,
+                              strval=cPickle.dumps(spread_maps['profile_path']))
+            # store pickled spread<->ou mapping 
+            ac.populate_trait(co.trait_ad_account_ou,
+                              strval=cPickle.dumps(spread_maps['ou']))
+            ac.write_db()
+            # Sett homedir og home for hver spread
+            # TODO: status
+            for spread, home in spread_maps['home'].items():
+                homedir_id = ac.set_homedir(home=home,       
+                                            status=co.home_status_not_created) 
                 ac.set_home(spread, homedir_id)
+                ac.write_db()
+
+            if dryrun:
+                db.rollback()
+            else:
                 db.commit()
 
     def calc_home(self, entity_id, spread):
@@ -141,6 +174,7 @@ class Job(object):
         affs = ac.get_account_types()
         if not affs:
             raise Job.CalcError("No affs for entity: %i" % entity_id)
+        # TODO, _get_ou_sko is not defined
         sko = self._get_ou_sko(affs[0]['ou_id'])
         if spread == co.spread_ad_account_fag:
             rules = self._fag_rules
@@ -152,7 +186,7 @@ class Job(object):
 
     def calc_stud_home(self, ac):
         if int(ac.owner_type) != int(co.entity_person):
-            raise Job.CalcError("Cannot update account for non-person owner of entity: %i" % entity_id)
+            raise Job.CalcError("Cannot update account for non-person owner of entity: %i" % ac.entity_id)
         person.clear()
         person.find(ac.owner_id)
         # TODO: bytt ut med source_system=co.system_fs så snart mer data er migrert
@@ -177,10 +211,13 @@ class Job(object):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 's:p:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'ds:p:', ['help'])
     except getopt.GetoptError:
         usage(1)
 
+    global dryrun
+
+    dryrun = False
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -188,6 +225,8 @@ def main():
             stprog_file = val
         elif opt in ('-p',):
             person_file = val
+        elif opt in ('-d',):
+            dryrun = True
     if not opts:
         usage(1)
     si = StudieInfo(person_file, stprog_file)
