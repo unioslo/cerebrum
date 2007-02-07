@@ -74,11 +74,11 @@ def process_group(name, description = None):
 
 
 def usage():
-    print """Usage: import_uname_mail.py
+    print """Usage: import_ownergroups.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     """
-# end usage
+
 
 def main():
     global db, constants, account_init, group, posixgroup
@@ -94,7 +94,6 @@ def main():
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
-    # yrt
 
     dryrun = False
     for opt, val in opts:
@@ -102,8 +101,6 @@ def main():
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
-        # fi
-    # od
 
     db = Factory.get('Database')()
     db.cl_init(change_program='import_groups')
@@ -116,13 +113,7 @@ def main():
 
     process_line(infile)
 
-# end main	
+
 
 if __name__ == '__main__':
     main()
-# fi
-
-
-
-
-# arch-tag: eb4babd1-47cd-43ec-bfa6-b64e1e5f1562
