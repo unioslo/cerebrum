@@ -54,7 +54,7 @@ $strftime($the_date)
 
 
 ## Main method for creating the view
-#def view($target)
+#def view($target, $domains)
 #set $id = $target['id']
 #set $referer = cherrypy.request.headerMap.get('Referer', '/')
 <div class="view_content">
@@ -179,7 +179,8 @@ $strftime($the_date)
                 $form_widgets.input('local', 'Local',value='')
             </div>
             <div>
-                $form_widgets.input('domain', 'Domain', value='')
+                ## $form_widgets.input('domain', 'Domain', value='')
+                $form_widgets.generate_loption('domain', 'Domain:', $domains)
             </div>
             <div>
                 $form_widgets.input('expire', 'Expire*', value='')
