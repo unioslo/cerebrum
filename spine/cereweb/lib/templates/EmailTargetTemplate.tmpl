@@ -36,10 +36,11 @@ $searcher.set_entity($entity)
         <div class="item">
         $target.get_alias_value()
             <div class="actions">
-                #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(),$target.get_id())
-                <a class="action" href="$url">$_('Delete')</a>
                 #set $url = "/emailtarget/view?id=%d" % $target.get_id()
                 <a class="action" href="$url">$_('Add email-address')</a>
+                &nbsp;
+                #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(),$target.get_id())
+                <a class="action" href="$url">$_('Delete')</a>
             </div>
             ##for $address in $addresses:
             ##    $address.full_address(), 
