@@ -32,6 +32,7 @@ from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupEditTemplate import GroupEditTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
+from SpineIDL.Errors import NotFoundError, AlreadyExistsError
 
 
 def search(transaction, **vargs):
@@ -273,21 +274,22 @@ def join_group(transaction, entity, name, operation=None):
         operation = 'union'
     operation = transaction.get_group_member_operation_type(operation)
 
-    # find the group by name.
-    searcher = transaction.get_entity_name_searcher()
-    searcher.set_name(name)
-    searcher.set_value_domain(transaction.get_value_domain('group_names'))
     try:
-        group, = searcher.search()
-        group = group.get_entity()
-        assert group.get_type().get_name() == 'group'
-    except:
+        # find the group by name.
+        group = transaction.get_commands().get_group_by_name(name)
+        group.add_member(entity, operation)
+    except NotFoundError, e:
         msg = _("Group '%s' not found") % name
         queue_message(msg, True, object_link(entity))
         redirect_object(entity)
-        return
-
-    group.add_member(entity, operation)
+    except AlreadyExistsError, e:
+        msg = _("Entity is already a member of group %s") % name
+        queue_message(msg, True, object_link(entity))
+        redirect_object(entity)
+    except: 
+        msg = _("Entity %s could not join group %s") % (entity.get_name(), name)
+        queue_message(msg, True, object_link(entity))
+        redirect_object(entity)
 
     msg = _('Joined group %s successfully') % name
     commit(transaction, entity, msg=msg)
