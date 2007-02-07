@@ -21,7 +21,7 @@
 
 """
 
-Thie file performs group membership synchronization between several external
+This file performs group membership synchronization between several external
 databases and cerebrum.
 
 The updates are performed for the following sources/groups:
