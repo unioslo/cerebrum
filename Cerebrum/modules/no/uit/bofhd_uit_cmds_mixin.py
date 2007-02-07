@@ -214,6 +214,17 @@ class BofhdUiTExtension(BofhdExtension):
         return "\n".join(ret)
 
 
+    all_commands['user_set_expire'] = Command(
+        ('user', 'set_expire'), AccountName(), Date(),
+        perm_filter='can_delete_user')
+    def user_set_expire(self, operator, accountname, date):
+        account = self._get_account(accountname)
+        self._check_group_membership(operator.get_entity_id(),cereconf.ORAKEL_GROUP)
+        account.expire_date = self._parse_date(date)
+        account.write_db()
+        return "OK, set expire-date for %s to %s" % (accountname, date)
+
+
     def _check_group_membership(self,entity_id,gname):
         if self.ba.is_group_member(entity_id,gname):
             return True        
