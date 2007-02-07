@@ -19,8 +19,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.extlib import sets
+import Cerebrum.Database
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from SpineLib import SpineExceptions
 
 from Entity import Entity
 from Group import Group
@@ -135,11 +137,16 @@ get_members.signature = [Entity]
 
 def add_member(self, entity, operation):
     obj = self._get_cerebrum_obj()
-    obj.add_member(entity.get_id(), entity.get_type().get_id(), operation.get_id())
+
+    try:
+        obj.add_member(entity.get_id(), entity.get_type().get_id(), operation.get_id())
+    except Cerebrum.Database.IntegrityError, e:
+        raise SpineExceptions.AlreadyExistsError('User is already a member')
     obj.write_db()
 add_member.signature = None
 add_member.signature_args=[Entity, GroupMemberOperationType]
 add_member.signature_write=True
+add_member.signature_exceptions = [SpineExceptions.AlreadyExistsError]
 
 def remove_member(self, group_member):
     obj = self._get_cerebrum_obj()
