@@ -21,42 +21,74 @@
 YAHOO.util.Event.addListener('search_clear', 'click', SR_clear);
 YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
 
-YE.onAvailable('add_member_name', initAutoComplete);
-function initAutoComplete(event) {
-    var myName = YD.get('add_member_name');
-    var myDiv = document.createElement('div');
-    myDiv.setAttribute('id', 'search_autoComplete');
-    myName.parentNode.appendChild(myDiv);
-    myName.parentNode.setAttribute('id', 'autocomplete');
-    var myDataSource = new YAHOO.widget.DS_XHR(
-        '/ajax/search', ["ResultSet", "name", "type", "owner"]);
-    // myDataSource.connTimeout = 3000;
-    myDataSource.queryMatchCase = true;
-    var myAutoComp = new YAHOO.widget.AutoComplete
-        (myName, myDiv, myDataSource);
-    myAutoComp.minQueryLength = 3;
-    myAutoComp.dataReturnEvent.subscribe(dataReturn, myName);
-
-    myAutoComp.formatResult = function(aResultItem, sQuery) {
+/** AutoCompleter object. */
+cereweb.ac = {
+    /* DataSource for accounts and person names. */
+    account_DS: new YAHOO.widget.DS_XHR(
+        '/ajax/search',
+        ["ResultSet", "name", "owner.name"],
+        { queryMatchCase: true }
+    ),
+    group_DS: new YAHOO.widget.DS_XHR(
+        '/ajax/search',
+        ["ResultSet", "name", "owner.name"],
+        {
+            queryMatchCase: true,
+            scriptQueryAppend: 'type=group'
+        }
+    ),
+    formatResult: function(aResultItem, sQuery) {
         var name = aResultItem[0];
-        var type = aResultItem[1];
-        var owner = aResultItem[2];
+        var owner = aResultItem[1];
         var aMarkup = ["<div id='ysearchresult'>",
             '<div style="float:left;width:6em;">',
             name,
             '</div>',
-            owner.name,
-            "</div>"]
-        
+            owner,
+            "</div>"];
         return (aMarkup.join(""));
+    },
+    dataReturn: function(event, args, input) {
+        if (args[2].length === 0)
+            input.style.backgroundColor = "red";
+        else
+            input.style.backgroundColor = "";
+    },
+    textboxKey: function(event, args, input) {
+        input.style.backgroundColor = "";
+    },
+    factory: function(input, type) {
+        var container = input.parentNode;
+        var acdiv = document.createElement('div');
+        acdiv.setAttribute('id', 'autocomplete_' + input.id);
+        container.appendChild(acdiv);
+        YD.addClass(container, 'autocomplete_container');
+        var DS;
+        if (type === 'account')
+            DS = cereweb.ac.account_DS;
+        else if (type === 'group')
+            DS = cereweb.ac.group_DS;
+        else DS = new YAHOO.widget.DS_JSArray(['autocomplete not implemented for type ' + type]);
+
+        var myac = new YAHOO.widget.AutoComplete
+            (input, acdiv, DS);
+        myac.minQueryLength = 3;
+        myac.dataReturnEvent.subscribe(
+            cereweb.ac.dataReturn, input);
+        myac.textboxKeyEvent.subscribe(
+            cereweb.ac.textboxKey, input);
+        if (type === 'account')
+            myac.formatResult = cereweb.ac.formatResult;
+        return myac;
     }
 }
 
-function dataReturn(event, args, myName) {
-    if (args[2].length === 0)
-        myName.style.backgroundColor = "red";
-    else
-        myName.style.backgroundColor = "";
+YE.addListener(window, 'load', initAutoComplete);
+function initAutoComplete(event) {
+    var account_completers = YD.getElementsByClassName('ac_account', 'input');
+    var group_completers = YD.getElementsByClassName('ac_group', 'input');
+    YD.batch(account_completers, cereweb.ac.factory, 'account');
+    YD.batch(group_completers, cereweb.ac.factory, 'group');
 }
 
 // Clears the searchform.
