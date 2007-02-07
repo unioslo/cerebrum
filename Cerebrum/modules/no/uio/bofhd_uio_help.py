@@ -334,7 +334,7 @@ arg_help = {
     'account_password':
         ['password', 'Enter password'],
     'affiliation':
-        ['affiliation', 'Enter affiliaton',
+        ['affiliation', 'Enter affiliation',
          """A persons affiliation defines the current rolle of that person
 within a defined organizational unit.  'misc affiliations' lists all
 possible affiliations"""],
