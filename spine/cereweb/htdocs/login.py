@@ -18,8 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import md5
-import time
+import urllib
 import cherrypy
 
 from lib import utils
@@ -66,8 +65,13 @@ def login(username='', password='', redirect='/index', msg=''):
         messages.append(error)
     if msg:
         messages.append(msg)
-
-    return Login().login(username, messages)
+    namespace = {
+        'username': username,
+        'messages': messages,
+        'redirect': redirect,
+    }
+    template = Login(searchList=[namespace])
+    return template.respond()
 login.exposed = True
 
 def logout():

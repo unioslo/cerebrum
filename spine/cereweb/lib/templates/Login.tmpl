@@ -18,10 +18,11 @@
 
 ## Login template
 #from FormWidgets import FormWidgets
+#from gettext import gettext as _
 #attr $form_widgets = FormWidgets()
-
-
-#def login($username, $messages)
+#attr $username = ""
+#attr $messages = ""
+#attr $redirect = ""
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -31,72 +32,29 @@
         <link rel="stylesheet" type="text/css" media="screen" href="css/login.css" />
         <title>Log in to Cereweb</title>
     </head>
-<body>
-    <div class="content">
-		<table class="frametable" width="750">
-		<tr>
-			<td>
-            	<h1 class="heading1" >Log in to Cereweb</h1>
-			</td>
-		</tr>
-		<tr>
-			<td>
-				&nbsp;
-			</td>
-		</tr>
-		<tr>
-			<td align="center">
-        	<form method="post" action="/login">
-				<table class="logintable" width="300">
-					<tr>
-						<td class="errortd" colspan="2">
-							#if messages:
-        						#for $msg in $messages
-            						<p>$msg</p>
-        						#end for
-							#else
-								&nbsp;
-							#end if
-						</td>
-					</tr>
-					<tr>
-						#set $tdattrs={'align': {'left': 'right','right' :'left'}}
-            			$form_widgets.td2input("username","Username",$username,"", "text", $tdattrs )
-					</tr>
-					<tr>
-            			$form_widgets.td2password('password', 'Password', "", "", $tdattrs )
-					</tr>
-					<tr>
-						<td colspan="2">
-							&nbsp;
-						</td>
-					</tr>
-					<tr>
-						<td colspan="2" align="center">
-          					<input type="submit" value="Login" />
-						</td>
-					</tr>
-					<tr>
-						<td colspan="2">
-							&nbsp;
-						</td>
-					</tr>
-				</table>
-        	</form>
-		</td>
-	</tr>
-	<tr>
-		<td>
-			&nbsp;
-			<br />
-			<br />
-			<br />
-			<br />
-		</td>
-	</tr>
-	</table>
-    </div>
-</body>
+    <body>
+        <div id="content">
+            <div id="messages">
+            #for $msg in $messages
+                <div class="message">$msg</div>
+            #end for
+            </div>
+            <div id="login">
+                <h1>Log in to Cereweb</h1>
+                <form method="post" action="/login">
+                <div class="hidden">
+                    <input type="hidden" name="redirect" value="$redirect" />
+                </div>
+                <div class="required">
+                    $form_widgets.input("username", $_("Username"), $username)
+                </div>
+                <div class="required">
+                    $form_widgets.password('password', $_('Password'))
+                </div>
+                <input type="submit" value="Login" />
+                </form>
+            </div>
+        </div>
+    </body>
 </html>
-#end def
 ## vi: sw=4 sts=4 expandtab:
