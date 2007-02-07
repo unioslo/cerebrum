@@ -4642,7 +4642,8 @@ class BofhdExtension(object):
 
     # person affilation_add
     all_commands['person_affiliation_add'] = Command(
-        ("person", "affiliation_add"), PersonId(), OU(), Affiliation(), AffiliationStatus(),
+        ("person", "affiliation_add"), PersonId(help_ref="person_id_other"),
+        OU(), Affiliation(), AffiliationStatus(),
         perm_filter='can_add_affiliation')
     def person_affiliation_add(self, operator, person_id, ou, aff, aff_status):
         try:
