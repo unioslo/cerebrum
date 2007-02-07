@@ -26,12 +26,12 @@ cereweb.ac = {
     /* DataSource for accounts and person names. */
     account_DS: new YAHOO.widget.DS_XHR(
         '/ajax/search',
-        ["ResultSet", "name", "owner.name"],
+        ["ResultSet", "name", "owner"],
         { queryMatchCase: true }
     ),
     group_DS: new YAHOO.widget.DS_XHR(
         '/ajax/search',
-        ["ResultSet", "name", "owner.name"],
+        ["ResultSet", "name"],
         {
             queryMatchCase: true,
             scriptQueryAppend: 'type=group'
@@ -44,7 +44,7 @@ cereweb.ac = {
             '<div style="float:left;width:6em;">',
             name,
             '</div>',
-            owner,
+            owner.name,
             "</div>"];
         return (aMarkup.join(""));
     },
@@ -87,8 +87,10 @@ YE.addListener(window, 'load', initAutoComplete);
 function initAutoComplete(event) {
     var account_completers = YD.getElementsByClassName('ac_account', 'input');
     var group_completers = YD.getElementsByClassName('ac_group', 'input');
-    YD.batch(account_completers, cereweb.ac.factory, 'account');
-    YD.batch(group_completers, cereweb.ac.factory, 'group');
+    if (account_completers.length > 0)
+        YD.batch(account_completers, cereweb.ac.factory, 'account');
+    if (group_completers.length > 0)
+        YD.batch(group_completers, cereweb.ac.factory, 'group');
 }
 
 // Clears the searchform.
