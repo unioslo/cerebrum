@@ -266,9 +266,11 @@ def delete(transaction, id):
 delete = transaction_decorator(delete)
 delete.exposed = True
 
-def join_group(transaction, entity, name, operation):
+def join_group(transaction, entity, name, operation=None):
     """Join entity into group with name 'group'."""
     entity = transaction.get_entity(int(entity))
+    if not operation:
+        operation = 'union'
     operation = transaction.get_group_member_operation_type(operation)
 
     # find the group by name.
