@@ -134,16 +134,18 @@ $widgets.viewInfo($info)
 #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
 #end if
 <div class="form box" id="group_form" style="display:none;">
-    <a class="anchor" id="group"></a>
-    <h3>$_('Join group')</h3>
+    <h3 id="group">$_('Join group')</h3>
     <form action="/group/join_group" method="post">
-    <p>
-        <input type="hidden" name="entity" value="$entity.get_id()" />
-        $form_widgets.input('name', 'Group name', $klass="ac_group")
-        $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
-        <input type="submit" value="$_('Join group')" />&nbsp;
-        <input type="button" value="$_('Cancel')" id="group_cancel" />
-    </p>
+        <div class="hidden">
+            <input type="hidden" name="entity" value="$entity.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.input('name', 'Group name', $klass="ac_group")
+        </div>
+        <div>
+            <input type="submit" value="$_('Join group')" />&nbsp;
+            <input type="button" value="$_('Cancel')" id="group_cancel" />
+        </div>
     </form>
 </div>
 #end def
