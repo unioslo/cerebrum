@@ -137,5 +137,17 @@
         </div>
         <div id="timeOutDialog"></div>
         <div id="logger"></div>
+        <!-- Used for the javascript powered quick-search feature.  See search.js. -->
+        <div id="quicksearch" style="display:none;">
+            <form action="/view">
+                <div>
+                    <label for="quick_search" style="display: none;">Search</label>
+                    <input id="ac_quicksearch" type="text" name="id" value="" />
+                </div>
+                <div>
+                    <input type="submit" value="Search" />
+                </div>
+            </form>
+        </div>
     </body>
 </html>

@@ -24,29 +24,36 @@ YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
 /** AutoCompleter object. */
 cereweb.ac = {
     /* DataSource for accounts and person names. */
-    account_DS: new YAHOO.widget.DS_XHR(
-        '/ajax/search',
-        ["ResultSet", "name", "owner"],
-        { queryMatchCase: true }
-    ),
-    group_DS: new YAHOO.widget.DS_XHR(
-        '/ajax/search',
-        ["ResultSet", "name"],
-        {
-            queryMatchCase: true,
-            scriptQueryAppend: 'type=group'
+    account: {
+        dataSource: new YAHOO.widget.DS_XHR(
+            '/ajax/search',
+            ["ResultSet", "name"],
+            { queryMatchCase: true }
+        ),
+        formatResult: function(aResultItem, sQuery) {
+            var name = aResultItem[0];
+            var owner = aResultItem[1].owner;
+            var aMarkup = ["<div id='ysearchresult'>",
+                '<div style="float:left;width:6em;">',
+                name,
+                '</div>',
+                owner.name,
+                "</div>"];
+            return (aMarkup.join(""));
         }
-    ),
-    formatResult: function(aResultItem, sQuery) {
-        var name = aResultItem[0];
-        var owner = aResultItem[1];
-        var aMarkup = ["<div id='ysearchresult'>",
-            '<div style="float:left;width:6em;">',
-            name,
-            '</div>',
-            owner.name,
-            "</div>"];
-        return (aMarkup.join(""));
+    },
+    group: {
+        dataSource: new YAHOO.widget.DS_XHR(
+            '/ajax/search',
+            ["ResultSet", "name"],
+            {
+                queryMatchCase: true,
+                scriptQueryAppend: 'type=group'
+            }
+        )
+    },
+    textboxKey: function(event, args, input) {
+        input.style.backgroundColor = "";
     },
     dataReturn: function(event, args, input) {
         if (args[2].length === 0)
@@ -54,43 +61,86 @@ cereweb.ac = {
         else
             input.style.backgroundColor = "";
     },
-    textboxKey: function(event, args, input) {
-        input.style.backgroundColor = "";
-    },
-    factory: function(input, type) {
+    dataSource: new YAHOO.widget.DS_JSArray(
+            ['config must specify a datasource']
+        ),
+    config: { minQueryLength: 3 },
+    factory: function(input, config) {
         var container = input.parentNode;
         var acdiv = document.createElement('div');
         YD.addClass(acdiv, 'autocomplete');
         container.appendChild(acdiv);
         YD.addClass(container, 'autocomplete_container');
-        var DS;
-        if (type === 'account')
-            DS = cereweb.ac.account_DS;
-        else if (type === 'group')
-            DS = cereweb.ac.group_DS;
-        else DS = new YAHOO.widget.DS_JSArray(['autocomplete not implemented for type ' + type]);
 
-        var myac = new YAHOO.widget.AutoComplete
-            (input, acdiv, DS);
-        myac.minQueryLength = 3;
-        myac.dataReturnEvent.subscribe(
-            cereweb.ac.dataReturn, input);
-        myac.textboxKeyEvent.subscribe(
-            cereweb.ac.textboxKey, input);
-        if (type === 'account')
-            myac.formatResult = cereweb.ac.formatResult;
+        config.dataSource = config.dataSource || cereweb.ac.dataSource;
+        config.config = config.config || cereweb.ac.config;
+        config.dataReturn = config.dataReturn || cereweb.ac.dataReturn;
+        config.textboxKey = config.textboxKey || cereweb.ac.textboxKey;
+
+        var myac = new YAHOO.widget.AutoComplete (input, acdiv, config.dataSource, config.config);
+        myac.dataReturnEvent.subscribe(config.dataReturn, input);
+        myac.textboxKeyEvent.subscribe(config.textboxKey, input);
+
+        if (config.formatResult)
+            myac.formatResult = config.formatResult;
         return myac;
     }
 }
 
+cereweb.quicksearch = {
+    init: function() {
+        this.style.display = "";
+        var input = YD.get("ac_quicksearch");
+        cereweb.quicksearch.input = input;
+        cereweb.quicksearch.initForm(this.getElementsByTagName('form')[0]);
+        config = cereweb.ac.account;
+        config.dataReturn = function(event, args, input) {
+            cereweb.quicksearch.data = args[2];
+        }
+        cereweb.quicksearch.ac = cereweb.ac.factory(input, config);
+    },
+    initForm: function(form) {
+        cereweb.quicksearch.form = form;
+        YE.addListener(form, 'submit', cereweb.quicksearch.search);
+    },
+    search: function(e) {
+        YE.preventDefault(e);
+        var input = cereweb.quicksearch.input;
+        var data = cereweb.quicksearch.data;
+
+        if (!data) {
+            cereweb.quicksearch.ac.sendQuery(input.value);
+        }
+
+        if (data.length === 0) {
+            input.style.backgroundColor = "red";
+        } else {
+            for (var i=0;i<data.length;i++) {
+                if (data[i][0] === input.value) {
+                    var form = cereweb.quicksearch.form;
+                    var type = data[i][1].type;
+                    form.action = '/' + type + '/view';
+                    input.value = data[i][1].id;
+                    form.submit();
+                }
+            }
+            input.focus();
+            cereweb.quicksearch.ac._populateList(input.value, cereweb.quicksearch.data,
+                cereweb.quicksearch.ac);
+        }
+    }
+}
+YE.onAvailable('quicksearch', cereweb.quicksearch.init);
+
 YE.addListener(window, 'load', initAutoComplete);
 function initAutoComplete(event) {
+
     var account_completers = YD.getElementsByClassName('ac_account', 'input');
     var group_completers = YD.getElementsByClassName('ac_group', 'input');
     if (account_completers.length > 0)
-        YD.batch(account_completers, cereweb.ac.factory, 'account');
+        YD.batch(account_completers, cereweb.ac.factory, cereweb.ac.account);
     if (group_completers.length > 0)
-        YD.batch(group_completers, cereweb.ac.factory, 'group');
+        YD.batch(group_completers, cereweb.ac.factory, cereweb.ac.group);
 }
 
 // Clears the searchform.
