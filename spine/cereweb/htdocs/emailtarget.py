@@ -78,11 +78,13 @@ def view(transaction, id):
     id = int(id)
     target_obj = transaction.get_email_target(id)
     target = parse_target(target_obj, id)
+    domains = transaction.get_email_domain_searcher().search()
+    domains = [(i.get_name(), i.get_name()) for i in domains]
     page = Main()
-    page.title = _("Addresses in ")
+    page.title = _("Email addresses")
     page.setFocus("/email", id)
     template = EmailTargetViewTemplate()
-    content = template.view(target)
+    content = template.view(target, domains)
     page.content = lambda: content
     return page
 view = transaction_decorator(view)
@@ -131,12 +133,16 @@ def makeaddress(transaction, id, local, domain, expire):
             msg =_('Local is not a legal name.')
     else:
         msg = _('Local is empty.')
-    if not msg:
-        if domain:
-            if not legal_domain_format(domain):
-                msg = _('Domain is not a legal domain.')
-        else:
-            msg = _('Domain is empty.')
+
+    # maybe commented in later as we have many test-domains
+    # that do not have legal names.  tk.
+    #if not msg:
+    #    if domain:
+    #        if not legal_domain_format(domain):
+    #            msg = _('Domain is not a legal domain.')
+    #    else:
+    #        msg = _('Domain is empty.')
+
     if not msg:
         if expire:
             if not legal_date(expire):
