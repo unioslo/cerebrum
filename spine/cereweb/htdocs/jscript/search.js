@@ -60,7 +60,7 @@ cereweb.ac = {
     factory: function(input, type) {
         var container = input.parentNode;
         var acdiv = document.createElement('div');
-        acdiv.setAttribute('id', 'autocomplete_' + input.id);
+        YD.addClass(acdiv, 'autocomplete');
         container.appendChild(acdiv);
         YD.addClass(container, 'autocomplete_container');
         var DS;
