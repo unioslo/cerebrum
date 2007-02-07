@@ -38,10 +38,15 @@ $searcher.set_entity($entity)
             <div class="actions">
                 #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(),$target.get_id())
                 <a class="action" href="$url">$_('Delete')</a>
+                #set $url = "/emailtarget/view?id=%d" % $target.get_id()
+                <a class="action" href="$url">$_('Add email-address')</a>
             </div>
-            #for $address in $addresses:
-                $address.full_address(), 
-            #end for
+            ##for $address in $addresses:
+            ##    $address.full_address(), 
+            ##end for
+            <div>
+                $target.get_type().get_name()
+            </div>
         </div>
     #end for
 </div>
@@ -51,6 +56,8 @@ $searcher.set_entity($entity)
 #def set($entity, $transaction)
 #set $search = $transaction.get_email_target_type_searcher().search()
 #set $target_types = [($s.get_name(), $s.get_name()) for $s in $search]
+#set $domain_search = $transaction.get_email_domain_searcher().search()
+#set $domains = [($d.get_name(),$d.get_name()) for $d in $domain_search]
 <div class="form box" id="email_form" style="display:none;">
     <h3>$_('Create a new email target')</h3>
     <form action="/email/make_target" method="post">
@@ -60,6 +67,9 @@ $searcher.set_entity($entity)
         </div>
         <div>
             $form_widgets.input('alias', 'Alias')
+        </div>
+        <div>
+            $form_widgets.generate_loption('email_domain', 'Email domains:',$domains)
         </div>
         <div>
             <input type="submit" value="$_('Add')" />&nbsp;
