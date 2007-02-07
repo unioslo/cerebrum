@@ -218,7 +218,7 @@ class System(CallableAction):
             except OSError, e:
                 self.logger.debug("Exec failed, check the command that was executed.")
                 # avoid cleanup handlers, seems to mess with logging
-                sys._exit(e.errno)
+                sys.exit(e.errno)
         except SystemExit:
             #self.logger.debug("not trapping exit")
             raise   # Don't stop the above sys.exit()
