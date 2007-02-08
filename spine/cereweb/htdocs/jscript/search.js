@@ -20,7 +20,7 @@
 cereweb.ac_group = function(input) {
     this.input = input;
     this.build();
-
+    this.initForm();
     this.dataSource = new YAHOO.widget.DS_XHR(
         '/ajax/search',
         ["ResultSet", "name"],
@@ -33,35 +33,84 @@ cereweb.ac_group = function(input) {
         this.dataSource,
         this.widgetOptions
     );
-    this.widget.dataReturnEvent.subscribe(this.dataReturn, this.input);
-    this.widget.textboxKeyEvent.subscribe(this.textboxKey, this.input);
+
+    this.widget.dataReturnEvent.subscribe(this.dataReturn, this, true);
+    this.widget.textboxKeyEvent.subscribe(this.textboxKey, this, true);
+
+    this.widget.doBeforeExpandContainer = this.doBeforeExpandContainer(this);
+    if (this.input.value)
+        this.widget.sendQuery(this.input.value);
 }
 cereweb.ac_group.prototype = {
     /** Do the neccessary changes around the input element we want
      *  to add autocomplete to. */
     build: function() {
-        var container = this.input.parentNode;
         this.dropdown = document.createElement('div');
+        container = this.input.parentNode;
         container.appendChild(this.dropdown);
+        this.form = container;
+        while (this.form.tagName.toLowerCase() !== 'form')
+            this.form = this.form.parentNode;
 
         YD.addClass(this.dropdown, 'autocomplete');
         YD.addClass(container, 'autocomplete_container');
     },
-    textboxKey: function(event, args, input) {
-        input.style.backgroundColor = "";
+    initForm: function() {
+        YE.addListener(this.form, 'submit', this.submit, this, true);
     },
-    dataReturn: function(event, args, input) {
-        if (args[2].length === 0)
-            input.style.backgroundColor = "red";
-        else
-            input.style.backgroundColor = "";
+    textboxKey: function(event, args) {
+        this.input.style.backgroundColor = "";
+    },
+    dataReturn: function(event, args) {
+        this.data = args[2];
+        if (this.data.length === 0)
+            this.input.style.backgroundColor = "red";
+        else {
+            this.input.style.backgroundColor = "";
+        }
+
+        if (this.submit_on_hit && this.data.length === 1)
+            this.form.submit(); // FIXME: This should really trigger the submit event.
     },
     widgetOptions: {
+        // forceSelection: true, // FIXME: Is this option able to help simplify the code?
         minQueryLength: 3
     },
     dataSourceOptions: {
         queryMatchCase: true,
         scriptQueryAppend: 'type=group'
+    },
+    submit: function(e) {
+        YE.preventDefault(e);
+        this.submitted = true;
+
+        var data = this.data;
+        if (!data) {
+            this.widget.sendQuery(this.input.value);
+            this.submit_on_hit = true;
+        } else if (data.length === 0) {
+            this.input.style.backgroundColor = "red";
+        } else {
+            this.input.style.backgroundColor = "";
+            for (var i=0; i < data.length; i++) {
+                if (data[i][0] === this.input.value) {
+                    this.form.submit();
+                    return;
+                }
+            }
+            this.input.focus();
+            this.widget._populateList(this.input.value, data, this.widget);
+        }
+        this.submitted = false;
+    },
+    doBeforeExpandContainer: function(closure) { // FIXME: Check for memory leaks.
+        return function(oResultItem, sQuery) {
+            var expand = this.submitted && false || true;
+            var hit = closure.data && closure.data.length === 1 && 
+                            closure.data[0][0] === closure.input.value;
+            expand = expand && !hit;
+            return expand;
+        }
     }
 }
 
@@ -88,49 +137,36 @@ cereweb.ac_account.prototype.dataSourceOptions = {
 }
 
 cereweb.ac_quicksearch = function(container) {
-    var input = YD.get("ac_quicksearch");
-    cereweb.ac_account.superclass.constructor.call(this, input);
-
+    var input = YD.get("ac_quicksearch_name");
+    this.id = YD.get("ac_quicksearch_id");
+    cereweb.ac_quicksearch.superclass.constructor.call(this, input);
     container.style.display = "";
-    this.form = container.getElementsByTagName('form')[0];
-    this.initForm();
 }
 YAHOO.extend(cereweb.ac_quicksearch, cereweb.ac_account);
 
-cereweb.ac_quicksearch.prototype.initForm = function() {
-    YE.addListener(this.form, 'submit', this.search, this, true);
-}
-
-cereweb.ac_quicksearch.prototype.dataReturn = function(event, args, input) {
+cereweb.ac_quicksearch.prototype.dataReturn = function(event, args) {
     this.data = args[2];
-}
-
-cereweb.ac_quicksearch.prototype.search = function(e) {
-    YE.preventDefault(e);
-    var data = this.widget.data;
-    if (!data) {
-        this.widget.sendQuery(this.input.value);
-        return;
-    }
-
-    if (data.length === 0) {
-        this.input.style.backgroundColor = "red";
+    var type;
+    if (this.data.length === 1) {
+        type = this.data[0][1].type;
+        this.id.value = this.data[0][1].id;
+        log(this.data[0][0] + ' === ' + this.input.value + '?');
+        this.input.value = this.data[0][0]; // FIXME: What does this really do?
     } else {
-        for (var i=0; i < data.length; i++) {
-            if (data[i][0] === this.input.value) {
-                var type = data[i][1].type;
-                this.form.action = '/' + type + '/view';
-                this.input.value = data[i][1].id;
-                this.form.submit();
-                return;
+        for (var i=0; i < this.data.length; i++) {
+            if (this.data[i][0] === this.input.value) {
+                type = this.data[i][1].type;
+                this.id.value = this.data[i][1].id;
             }
         }
-        this.input.focus();
-        this.widget._populateList(this.input.value, data, this.widget);
     }
+    if(type)
+        this.form.action = '/' + type + '/view';
+
+    cereweb.ac_quicksearch.superclass.dataReturn.call(this, event, args);
 }
 
-YE.onAvailable('quicksearch', function () {
+YE.onAvailable('ac_quicksearch', function () {
         cereweb.quicksearch = new cereweb.ac_quicksearch(this);
     }
 );
