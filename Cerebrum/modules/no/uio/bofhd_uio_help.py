@@ -206,7 +206,7 @@ command_help = {
         "Cancel a pending request",
     "misc_change_request":
         "Change execution time for a pending request",
-    "misc_checkpassw":
+    "misc_check_password":
         "Test the quality of a given password",
     "misc_clear_passwords":
         "Forget the passwords which have been set this session",
@@ -230,7 +230,7 @@ command_help = {
         "Maps disk to logon-server (for use with Samba)",
     "misc_stedkode":
         "Look up OU by stedkode or name",
-    "misc_user_passwd":
+    "misc_verify_password":
         "Check whether an account has a given password",
     },
     'perm': {
