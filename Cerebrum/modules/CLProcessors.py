@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import textwrap
+
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
@@ -48,6 +50,7 @@ __version__ = "$Revision$"
 
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
+account = Factory.get('Account')(db)
 logger = Factory.get_logger("cronjob")
 
 
@@ -168,7 +171,8 @@ class EventProcessor(object):
         return len(self._entity_ids)
     
 
-    def print_report(self, print_affiliations=False):
+    def print_report(self, print_affiliations=False,
+                     print_details=False):
         """Prints summary of collected info.
 
         Prints a report for the data collected by this particular
@@ -186,6 +190,9 @@ class EventProcessor(object):
 
         if print_affiliations:
             self._print_affiliation_info()
+
+        if print_details:
+            self._print_details()
 
         print ""
 
@@ -218,7 +225,18 @@ class EventProcessor(object):
             else:
                 print outline
         
-        print no_affiliation_line,
+        print no_affiliation_line
+
+
+    def _print_details(self):
+        """Prints detailed info for this particular prosessor.
+
+        Default is to print no details, letting those subclasses that
+        have interesting details to tell decide for themselves if they
+        have something to provide here
+        
+        """
+        pass
 
 
     def get_most_significant_affiliation(self, affiliations):
@@ -342,7 +360,18 @@ class CreateAccountProcessor(EventProcessor):
 
             self._process_affiliation_rows(affiliation_rows)
 
-     
+
+    def _print_details(self):
+        """Provides the usernames of the accounts created."""
+        print "Usernames for created accounts:"
+        account_names = []
+        for entity_id in self._entity_ids:
+            account.clear()
+            account.find(entity_id)
+            account_names.append(account.account_name)
+        print textwrap.fill(" ".join(account_names), 76)
+
+
 
 class CreateGroupProcessor(EventProcessor):
     

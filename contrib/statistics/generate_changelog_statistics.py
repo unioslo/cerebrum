@@ -50,6 +50,7 @@ logger = Factory.get_logger("cronjob")
 
 # Default choices for script options
 options = {"affiliations": False,
+           "details": False,
            "from": now() + RelativeDateTime(days=-7,weekday=(Monday,0)),
            "to": now() + RelativeDateTime(days=-7, weekday=(Sunday,0))}
 
@@ -68,9 +69,11 @@ def usage(exitcode=0, message=None):
                      Default value is Monday of last week.
     --to             End-date for events to be processed (inclusive).
                      Default value is Sunday of last week.
+    --details        List details about the events in question. The
+                     exact type of details will vary by event.
 
     Using the defaults will give you a report without affiliation
-    info, spanning all of last week.
+    info, with no details about the event, spanning all of last week.
 
     'from' and 'to' must be given in standard ISO format, i.e. YYYY-MM-DD.
 
@@ -126,8 +129,9 @@ def main():
 
         if options['affiliations']:
             processor.calculate_count_by_affiliation()
-            
-        processor.print_report(options['affiliations'])
+
+        processor.print_report(print_affiliations=options['affiliations'],
+                               print_details=options['details'])
 
     print ""  # For a nice newline at the end of the report
     
@@ -137,8 +141,9 @@ if __name__ == '__main__':
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "haf:t:",
-                                   ["help", "affiliations", "from=", "to="])
+                                   "hadf:t:",
+                                   ["help", "affiliations", "details",
+                                    "from=", "to="])
     except getopt.GetoptError:
         # print help information and exit
         usage(1)
@@ -166,6 +171,10 @@ if __name__ == '__main__':
         elif opt in ('-a', '--affiliations',):
             logger.debug("Will process and display info about affiliations")
             options['affiliations'] = True
+
+        elif opt in ('-d', '--details',):
+            logger.debug("Will display details about the events in question")
+            options['details'] = True
 
     main()
 
