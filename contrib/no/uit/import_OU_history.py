@@ -48,7 +48,7 @@ class Ou_History:
         for foo in self.ou_hist:
             query = "select name from ou_history where old_ou_id='%s' and new_ou_id='%s'" % (foo['old_ou_id'],foo['new_ou_id'])
             db_row = db.query(query)
-            
+            print "foo=%s" % foo
             if(len(db_row)>0):
                 # info on this ou mapping already exists, do nothing
                 print"%s already exists in ou_history" % foo['name']
@@ -61,8 +61,25 @@ class Ou_History:
                  'l_name': foo['name'],
                  'l_old_ou_id': foo['old_ou_id']})
                 #self._db.log_change(self.entity_id, self.const.person_create, None)
+
+        # Now we will delete all entries in ou_history which is not in the ou_history.txt file
+        # this will ensure that the database is in sync with the import data.
+
+        query="select new_ou_id, name,old_ou_id from ou_history"
+        db_row=db.query(query)
+
+        for row in db_row:
+            check=False
+            for single_ou in self.ou_hist:
+                if(row['old_ou_id'] ==single_ou['old_ou_id'] and row['new_ou_id'] == int(single_ou['new_ou_id']) and row['name'] == single_ou['name']):
+                    check=True
+            if check ==False:
+                query="delete from ou_history where new_ou_id=%s and name='%s' and old_ou_id=%s" % (row['new_ou_id'],row['name'],row['old_ou_id'])
+                #print "query: %s" % query
+                db.query(query)
+
         db.commit()
-        return 1
+        return 0
         
 
 
