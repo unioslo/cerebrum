@@ -93,9 +93,19 @@ class AccountUiOMixin(Account.Account):
         elif spread == self.const.spread_ifi_nis_user:
             # Add an account_home entry pointing to the same disk as
             # the uio spread
-            tmp = self.get_home(self.const.spread_uio_nis_user)
-            self.set_home(spread, tmp['homedir_id'])
+            try:
+                tmp = self.get_home(self.const.spread_uio_nis_user)
+                self.set_home(spread, tmp['homedir_id'])
+            except Errors.NotFoundError:
+                pass  # User has no homedir for this spread yet
         return ret
+
+    def set_home(self, spread, homedir_id):
+        ret = self.__super.set_home(spread, homedir_id)
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        if spread == self.const.spread_uio_nis_user \
+           and int(self.const.spread_ifi_nis_user) in spreads:
+            self.__super.set_home(self.const.spread_ifi_nis_user, homedir_id)
 
     def _UiO_order_cyrus_action(self, action, destination, state_data=None):
         br = BofhdRequests(self._db, self.const)
@@ -246,12 +256,9 @@ class AccountUiOMixin(Account.Account):
             raise self._db.IntegrityError, \
                   "Can't remove uio spread to an account with ifi spread."
 
-        # keep ifi-part of account_home in sync.  We do not do this
-        # for uio-spread as that would result in the removal of the
-        # homedir uppon user-deletion making it hard to know where the
-        # user used to live.
-        if spread == self.const.spread_ifi_nis_user:
-            self.clear_home(self.const.spread_ifi_nis_user)
+        if spread == self.const.spread_ifi_nis_user \
+               or spread == self.const.spread_uio_nis_user:
+            self.clear_home(spread)
 
         # Remove IMAP user
         # TBD: It is currently a bit uncertain who and when we should
