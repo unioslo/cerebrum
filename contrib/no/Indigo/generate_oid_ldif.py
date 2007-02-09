@@ -233,9 +233,9 @@ def process_groups(spread, file):
         desc = row['description']
         g.clear()
         g.find(id)
-        txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % desc,
-               "description: %s" % desc,
-               "displayname: %s" % desc,
+        txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % name,
+               "description: %s" % name,
+               "displayname: %s" % name,
                "objectclass: top",
                "objectclass: groupOfUniqueNames",
                "objectclass: orclGroup"]
