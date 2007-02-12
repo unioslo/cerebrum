@@ -121,11 +121,11 @@ class EventProcessor(object):
         @raise EventNotDefinedError: If 'event_type' is not defined/incorrect.
 
         """
-        if event_type == "Person creation":
+        if event_type == getattr(constants, "person_create"):
             return CreatePersonProcessor()
-        elif event_type == "Account creation":
+        elif event_type == getattr(constants, "account_create"):
             return CreateAccountProcessor()
-        elif event_type == "Group creation":
+        elif event_type == getattr(constants, "group_create"):
             return CreateGroupProcessor()
         else:
             raise EventNotDefinedError("Handling not defined for '%s'" % event_type)

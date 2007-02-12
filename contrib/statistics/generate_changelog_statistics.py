@@ -28,6 +28,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.CLProcessors import *
+from Cerebrum.modules.CLConstants import _ChangeTypeCode
 
 """This program provides statistics about various activities within Cerebrum.
 
@@ -45,12 +46,16 @@ __version__ = "$Revision$"
 # $Source$
 
 
+db = Factory.get('Database')()
+constants = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
 
 
 # Default choices for script options
 options = {"affiliations": False,
            "details": False,
+           "header": None,
+           "events": "person_create,account_create,group_create",
            "from": now() + RelativeDateTime(days=-7,weekday=(Monday,0)),
            "to": now() + RelativeDateTime(days=-7, weekday=(Sunday,0))}
 
@@ -64,20 +69,34 @@ def usage(exitcode=0, message=None):
     print """\nUsage: %s [options]
 
     --help           Prints this message.
+    
     --affiliations   Break down totals by affiliation also.
+    
     --from           Start date for events to be processed (inclusive).
                      Default value is Monday of last week.
+                     
     --to             End-date for events to be processed (inclusive).
                      Default value is Sunday of last week.
+                     
     --details        List details about the events in question. The
                      exact type of details will vary by event.
+                     
+    --header         Template-file to use as header rather than the one
+                     specified in cereconf.
+                     
+    --events         Comma-seperated list of events to process.
+                     Default is to process alt events that have handlers
+                     defined, i.e:
+                     %s
 
-    Using the defaults will give you a report without affiliation
-    info, with no details about the event, spanning all of last week.
+    Using the defaults will give you a report about all event types,
+    without affiliation info, with no details about the events, with
+    the cereconf-defined template as header, spanning all of last
+    week.
 
     'from' and 'to' must be given in standard ISO format, i.e. YYYY-MM-DD.
 
-    """ % sys.argv[0]
+    """ % (sys.argv[0], options["events"])
     
     sys.exit(exitcode)
 
@@ -93,30 +112,39 @@ def main():
     logger.debug("Time period: from: '%s'; to: '%s' (inclusive)" %
                  (options['from'].date, options['to'].date))
 
+    # Check the given events to make sure they are valid changelog events
+    event_types = []
+    for element in options['events'].split(','):
+        try:
+            event = getattr(constants, element)
+            if not isinstance(event, _ChangeTypeCode):
+                raise AttributeError
+        except AttributeError:
+            logger.warning("Unknown event-type '%s'" % element)
+            continue
+        event_types.append(event)
+
+    if not event_types:
+        usage(exitcode=3, message="ERROR: No valid event-types specified")
+    
     print ""
     print ("Statistics covering the period from %s to %s (inclusive)" %
            (options['from'].date, options['to'].date))
 
-    if cereconf.STATISTICS_EXPLANATION_TEMPLATE is not None:
+    if options['header'] is None:
+        options['header'] = cereconf.STATISTICS_EXPLANATION_TEMPLATE
+
+    if options['header'] is not None:
         print ""
         try:
-            f = file(cereconf.STATISTICS_EXPLANATION_TEMPLATE)
+            f = file(options['header'])
             for line in f.readlines():
                 print line,
         except IOError:
             logger.warning("Unable to find explanatory file: '%s'"
-                           % cereconf.STATISTICS_EXPLANATION_TEMPLATE)
+                           % options['header'])
     else:
         logger.debug("No explanation file defined in cereconf")
-
-    # List of event types that will be looked into. If you wish to add
-    # to this list, you'll need to also make new subclass(es) of
-    # EventProcessor.
-    event_types = [
-        "Person creation",
-        "Account creation",
-        "Group creation",
-        ]
 
     # Iterate over all event types, retrieve info and generate output
     # based on it.
@@ -141,9 +169,9 @@ if __name__ == '__main__':
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "hadf:t:",
+                                   "hadf:t:h:e:",
                                    ["help", "affiliations", "details",
-                                    "from=", "to="])
+                                    "from=", "to=", "header=", "events="])
     except getopt.GetoptError:
         # print help information and exit
         usage(1)
@@ -175,6 +203,14 @@ if __name__ == '__main__':
         elif opt in ('-d', '--details',):
             logger.debug("Will display details about the events in question")
             options['details'] = True
+
+        elif opt in ('-h', '--header',):
+            logger.debug("Will use alternative template file '%s' as header" % val)
+            options['header'] = val
+
+        elif opt in ('-e', '--events',):
+            logger.debug("Will process these events: '%s'" % val)
+            options['events'] = val
 
     main()
 
