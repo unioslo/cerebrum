@@ -881,6 +881,7 @@ def proc_delete_user(r):
             account.clear_home(s['spread'])
         except Errors.NotFoundError:
             logger.debug("No home for %s in %s", account.account_name, s['spread'])
+            continue
         account.delete_spread(s['spread'])
     group = Factory.get('Group')(db)
     default_group = _get_default_group(account.entity_id)
