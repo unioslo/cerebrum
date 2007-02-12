@@ -95,7 +95,7 @@ $getResult($result, $headers, $args, $values, $hits, $display_hits, $offset, $or
 ## Creates links to access search-result outside the search-range.
 #def range_menu($args, $values, $hits, $offset, $page)
 <div class="search_range">
-    #set $link = $page + $get_link_arguments($args, $values)
+    #set $link = $page + '?' + $get_link_arguments($args, $values)
     
     #set $first = 0
     #set $last = $min($max_hits,$hits) - $display_hits
