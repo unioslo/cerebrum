@@ -6271,25 +6271,16 @@ class BofhdExtension(object):
         pu.populate(uid, group.entity_id, None, shell, parent=account)
         pu.write_db()
 
-        # IVR 2007-01-31 A home is associated with a spread, and a combination
-        # (account, spread) must exist before we can set a home. So, upon
-        # restore, we need to force at least some of the spreads before we can
-        # associate homes.
-        for spread_name in cereconf.BOFHD_NEW_USER_SPREADS:
-            spread = self._get_constant(self.const.Spread, spread_name,
-                                        "spread")
-            if not pu.has_spread(spread):
-                pu.add_spread(spread)
-
-        # just in case something is wrong with BOFHD_NEW_USER_SPREADS
-        if not pu.has_spread(self.const.spread_uio_nis_user):
-            pu.add_spread(self.const.spread_uio_nis_user)
+        default_home_spread = self._get_constant(self.const.Spread,
+                                                 cereconf.DEFAULT_HOME_SPREAD,
+                                                 "spread")
+        if not pu.has_spread(default_home_spread):
+            pu.add_spread(default_home_spread)
 
         homedir_id = pu.set_homedir(
             disk_id=disk_id, home=home,
             status=self.const.home_status_not_created)
-        pu.set_home(self.const.spread_uio_nis_user,
-                    homedir_id)
+        pu.set_home(default_home_spread, homedir_id)
         if old_uid is None:
             tmp = ', new uid=%i' % uid
         else:
