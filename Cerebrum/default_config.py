@@ -151,6 +151,8 @@ POSIX_SPREAD_CODES = ()
 # Spreads that are legal for entries in account_home
 HOME_SPREADS = ()
 
+# Assign home in this spread if no other spread is given
+DEFAULT_HOME_SPREAD = None
 # If your CLASS_ACCOUNT includes
 #   Cerebrum.modules.AccountExtras/AutoPriorityAccountMixin
 # you must override this value in your cereconf.py.  The purpose of
