@@ -44,9 +44,6 @@ class EdirUtils:
         self.date = '%s-%s-%s' % (t[0], t[1], t[2])
         self.c_person = 'objectClass=inetOrgPerson'
         self.c_group = 'objectClass=group'
-        self.account_attrs = ['passwordAllowChange', 'givenName',
-                              'sn', 'fullName', 'mail', 'passwordRequired',
-                              'generationQualifier', 'uid', 'loginDisabled']
 
 ## CREATE OBJECT:
     def object_edir_create(self, dn, attrdict):
