@@ -849,9 +849,18 @@ class EntityExternalId(Entity):
                                    for x in cols.keys()]), cols)
 
     def list_external_ids(self, source_system=None, id_type=None,
-                          external_id=None, entity_type=None):
+                          external_id=None, entity_type=None, entity_id=None):
         """We trust id_type's entity_type more than a supplemented
-        attribute, hence we try that first."""
+        attribute, hence we try that first.
+        
+        source_system	-- source system for the external ID (SAP, LT, FS, etc.)
+        id_type		-- specific external ID type (like externalid_fodselsnr)
+        external_id	-- value for the external ID (useful for looking up
+                           the owner of a particular external ID)
+        entity_type	-- looks for a specific entity type (i.e. Person, OU)
+        entity_id	-- looks for a specific entity (useful for looking up
+                           (all) external ids belonging to a specific entity)
+        """
         cols = {}
         where = ""
         if id_type:
@@ -864,6 +873,8 @@ class EntityExternalId(Entity):
             cols['id_type'] = int(id_type)
         if external_id is not None:
             cols['external_id'] = str(external_id)
+        if entity_id is not None:
+            cols['entity_id'] = int(entity_id)
         if cols:
             where = ("WHERE " +
                      " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]))
