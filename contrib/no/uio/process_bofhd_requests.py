@@ -833,15 +833,10 @@ def proc_archive_user(r):
 
 def proc_delete_user(r):
     spread = default_spread # TODO: check spread in r['state_data']
-    is_posix = False
-    try:
-        account, uname, old_host, old_disk = \
-                 get_account_and_home(r['entity_id'], spread=spread,
-                                      type='PosixUser')
-        is_posix = True
-    except Errors.NotFoundError:
-        account, uname, old_host, old_disk = \
-                 get_account_and_home(r['entity_id'], spread=spread)
+    #
+    # IVR 2007-01-25 We do not care if it's a posix user or not.
+    account, uname, old_host, old_disk = get_account_and_home(r['entity_id'],
+                                                              spread=spread)
     if account.is_deleted():
         logger.warn("%s is already deleted" % uname)
         return True
@@ -860,13 +855,7 @@ def proc_delete_user(r):
     if not delete_user(uname, old_host, '%s/%s' % (old_disk, uname),
                        operator, mail_server):
         return False
-    if is_posix:
-        # demote the user first to avoid problems with
-        # PosixUsers with names illegal for PosixUsers
-        account.delete_posixuser()
-        account_id = account.entity_id
-        account = Factory.get('Account')(db)
-        account.find(account_id)
+
     account.expire_date = mx.DateTime.now()
     account.write_db()
     try:

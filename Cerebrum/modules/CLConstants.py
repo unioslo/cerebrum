@@ -268,6 +268,15 @@ class CLConstants(Constants.Constants):
     posix_demote =  _ChangeTypeCode(
         'posix', 'demote', 'demote posix %(subject)s',
         ('uid=%(int:uid)s, gid=%(int:gid)s',))
+    posix_group_demote = _ChangeTypeCode(
+        'posix', 'group-demote', 'group demote posix %(subject)s',
+        ('gid=%(int:gid)s',))
+    posix_promote =  _ChangeTypeCode(
+        'posix', 'promote', 'promote posix %(subject)s',
+        ('uid=%(int:uid)s, gid=%(int:gid)s',))
+    posix_group_promote = _ChangeTypeCode(
+        'posix', 'group-promote', 'group promote posix %(subject)s',
+        ('gid=%(int:gid)s',))
 
     def __init__(self, database):
         super(CLConstants, self).__init__(database)

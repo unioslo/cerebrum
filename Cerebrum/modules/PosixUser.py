@@ -105,7 +105,9 @@ class PosixUser(Account_class):
                   "Unable to determine which entity to delete."
         self._db.log_change(self.entity_id, self.const.posix_demote,
                             None, change_params={'uid': int(self.posix_uid),
-                                                 'gid': int(self.gid_id)})
+                                                 'gid': int(self.gid_id),
+                                                 'shell': int(self.shell),
+                                                 'gecos': self.gecos})
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=posix_user]
         WHERE account_id=:e_id""", {'e_id': self.entity_id})
@@ -167,6 +169,12 @@ class PosixUser(Account_class):
                           'gid': self.gid_id,
                           'gecos': self.gecos,
                           'shell': int(self.shell)})
+
+        self._db.log_change(self.entity_id, self.const.posix_promote,
+                            None, change_params={'uid': int(self.posix_uid),
+                                                 'gid': int(self.gid_id),
+                                                 'shell': int(self.shell),
+                                                 'gecos': self.gecos})
         del self.__in_db
         self.__in_db = True
         self.__updated = []

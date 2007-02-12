@@ -142,6 +142,9 @@ class CleanChangeLog(object):
         int(co.spread_add): AGE_FOREVER,
         int(co.account_password): AGE_FOREVER,
         int(co.posix_demote): AGE_FOREVER,
+        int(co.posix_group_demote): AGE_FOREVER,
+        int(co.posix_promote): AGE_FOREVER,
+        int(co.posix_group_promote): AGE_FOREVER,
 
         # TODO: Once account_type changes are better logged, we don't need
         # this special case
@@ -177,6 +180,12 @@ class CleanChangeLog(object):
         # Group creation/modification
         {'columns': ('subject_entity', ),
          'triggers': (co.group_create, co.group_mod, co.group_destroy)},
+        # Group updates
+        {'columns': ('subject_entity', ),
+         'triggers': (co.posix_group_demote, )},
+        # Group updates
+        {'columns': ('subject_entity', ),
+         'triggers': (co.posix_group_promote, )},
         # Account create
         {'columns': ('subject_entity', ),
          'triggers': (co.account_create, )},
@@ -186,6 +195,9 @@ class CleanChangeLog(object):
         # Account updates
         {'columns': ('subject_entity', ),
          'triggers': (co.posix_demote, )},
+        # Account updates
+        {'columns': ('subject_entity', ),
+         'triggers': (co.posix_promote, )},
         # Account delete
         {'columns': ('subject_entity', ),
          'triggers': (co. account_delete,)},

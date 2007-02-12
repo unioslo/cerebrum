@@ -78,6 +78,11 @@ class PosixGroup(Group_class):
             SET posix_gid=:posix_gid
             WHERE group_id=:g_id""", {'g_id': self.entity_id,
                                       'posix_gid': self.posix_gid})
+
+        self._db.log_change(self.entity_id,
+                            self.const.posix_group_promote,
+                            None,
+                            change_params={'gid': int(self.posix_gid),})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -123,10 +128,16 @@ class PosixGroup(Group_class):
 
     def delete(self):
         if self.__in_db:
+            self._db.log_change(self.entity_id,
+                                self.const.posix_group_demote,
+                                None,
+                                change_params={'gid': int(self.posix_gid),})
             # Remove entry in table `posix_group'.
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=posix_group]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
+
+            
 
 ##     def _check_name(self, name):
 ##         name_len = len(name)
