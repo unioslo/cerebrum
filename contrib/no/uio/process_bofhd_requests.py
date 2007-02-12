@@ -883,11 +883,31 @@ def proc_delete_user(r):
             logger.debug("No home for %s in %s", account.account_name, s['spread'])
         account.delete_spread(s['spread'])
     group = Factory.get('Group')(db)
+    default_group = _get_default_group(account.entity_id)
     for g in group.list_groups_with_entity(account.entity_id):
         group.clear()
         group.find(g['group_id'])
+        #
+        # all posixuser-objects have to keep their membership
+        # in their default group due to a FK-constraint from
+        # posix_user to group_member
+        if g['group_id'] == default_group:
+            logger.debug("Skipping default group %s for user %s",
+                         group.group_name, account.account_name)
+            continue        
         group.remove_member(account.entity_id, g['operation'])
     return True
+
+
+def _get_default_group(account_id):
+    try:
+        # only posix_user-objects have a default group
+        account = PosixUser.PosixUser(db)        
+        account.clear()
+        account.find(account_id)
+    except Errors.NotFoundError:
+        return None
+    return account.gid_id
 
 
 def delete_user(uname, old_host, old_home, operator, mail_server):
