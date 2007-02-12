@@ -869,19 +869,6 @@ def proc_delete_user(r):
     # Note that we preserve the quarantines for deleted users
     # TBD: Should we have an API function for this?
     for s in account.get_spread():
-        # RH, 2007-01-30: We cannot remove a spread before a home for
-        # that spread is removed (FK-contraint ac_home_spread in
-        # account_home)
-        #
-        # JH, 2007-02-12: We should probably onlys clear_home for
-        # cereconf.HOME_SPREADS but for now will just check whether
-        # home is available before trying to clear it for all existing
-        # spreads
-        try:
-            account.clear_home(s['spread'])
-        except Errors.NotFoundError:
-            logger.debug("No home for %s in %s", account.account_name, s['spread'])
-            continue
         account.delete_spread(s['spread'])
     group = Factory.get('Group')(db)
     default_group = _get_default_group(account.entity_id)
