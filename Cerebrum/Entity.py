@@ -852,7 +852,8 @@ class EntityExternalId(Entity):
                           external_id=None, entity_type=None):
         """We trust id_type's entity_type more than a supplemented
         attribute, hence we try that first."""
-        cols = {}       
+        cols = {}
+        where = ""
         if id_type:
             cols['entity_type'] = int(id_type.entity_type)
         elif entity_type:
