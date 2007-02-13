@@ -248,8 +248,8 @@ class EdirUtils:
 
         if ldap_attrs:
             temp = ldap_attrs['description']
-            desc = string.split(temp[0], '\n')
-            
+            desc = string.split(temp[0], ';')
+
         if len(desc) <= 4:
             desc.append(description)
         else:
