@@ -363,13 +363,16 @@ class CreateAccountProcessor(EventProcessor):
 
     def _print_details(self):
         """Provides the usernames of the accounts created."""
-        print "Usernames for created accounts:"
         account_names = []
         for entity_id in self._entity_ids:
             account.clear()
             account.find(entity_id)
             account_names.append(account.account_name)
-        print textwrap.fill(" ".join(account_names), 76)
+        if account_names:
+            print "Usernames for created accounts:"
+            print textwrap.fill(" ".join(account_names), 76)
+        else:
+            print "No new accounts, therefore no new usernames."
 
 
 
