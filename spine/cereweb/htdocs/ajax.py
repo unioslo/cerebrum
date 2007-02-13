@@ -149,7 +149,7 @@ def search(transaction, query=None, type=None, output=None):
             result = accounts.values()
     elif type == "group":
         result = search_group(transaction, query)
-    else
+    else:
         result = ""
 
     if result:
