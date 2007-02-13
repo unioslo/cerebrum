@@ -74,8 +74,13 @@ cereweb.ac_group.prototype = {
     dataReturn: function(event, args) {
         this.requesting = false;
 
+        var query = unescape(args[1]);
+        var i = query.search(':');
+        query = query.slice(i + 1);
+        while(query.length > 0 && query.charAt(0) === ' ')
+            query = query.slice(1);
         this.data = args[2];
-        if (this.data.length === 0)
+        if (this.data.length === 0 && query.length >= 3)
             this.dataError();
         else
             this.input.style.backgroundColor = "";
