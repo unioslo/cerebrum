@@ -148,7 +148,7 @@ def _get_person(transaction, id):
         queue_message(_("Could not find person with id=%s") % id, True)
         redirect('index')
 
-def view(transaction, id):
+def view(transaction, id, **vargs):
     """Creates a page with a view of the person given by id."""
     person = transaction.get_person(int(id))
     page = Main()
