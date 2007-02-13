@@ -37,6 +37,7 @@ cereweb.ac_group = function(input) {
     this.widget.dataRequestEvent.subscribe(this.dataRequest, this, true);
     this.widget.dataReturnEvent.subscribe(this.dataReturn, this, true);
     this.widget.textboxKeyEvent.subscribe(this.textboxKey, this, true);
+    this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
 
     this.widget.doBeforeExpandContainer = this.doBeforeExpandContainer;
     if (this.input.value)
@@ -87,6 +88,22 @@ cereweb.ac_group.prototype = {
             this.submitting = false;
             this.submit();
         }
+    },
+    itemSelect: function(event, args) {
+        var data = args[2][1];
+        var prefix;
+        switch (data.type) {
+            case 'account':
+                prefix = 'a: ';
+                break;
+            case 'person':
+                prefix = 'p: ';
+                break;
+            case 'group':
+                prefix = 'g: ';
+                break;
+        }
+        this.input.value = prefix + data.name;
     },
     parseData: function() {
         this.valid = true;
@@ -161,7 +178,6 @@ cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {
 cereweb.ac_quicksearch.prototype.parseData = function() {
     this.valid = true;
 
-    this.input.value = this.data[0][0];
     var type = this.data[0][1].type;
     this.form.action = '/' + type + '/view';
     this.id.value = this.data[0][1].id;
