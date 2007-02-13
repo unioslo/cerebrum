@@ -140,6 +140,8 @@ def search(transaction, query=None, type=None, output=None):
         else:
             type, query = query.split(':', 1)
 
+    query = query.strip()
+
     if type in ["account", 'a']:
         result = search_account(transaction, query)
     elif type in ["person", 'p']:
