@@ -19,6 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+# Spine should be locale-aware since we're doing string.upper etc.
+import locale
+locale.setlocale(locale.LC_ALL, '')
+
 import cerebrum_path
 import cereconf
 
