@@ -47,6 +47,7 @@ def login(username='', password='', redirect='/index', msg=''):
             cherrypy.session['session'] = session
             cherrypy.session['username'] = username
             cherrypy.session['timeout'] = session.get_timeout()
+            cherrypy.session['encoding'] = session.get_encoding()
             cherrypy.session['options'] = Options(session, username)
             
             #clean redirect
