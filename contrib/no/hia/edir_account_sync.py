@@ -138,7 +138,7 @@ def _person_find_names(owner_id):
     try:
         person.find(owner_id)
     except Errors.NotFoundError:
-        logger.debug("Account % not owned by a person in Cerebrum", uname)
+        logger.debug("Not a person, entity_id %s", owner_id)
         return ret
     name_full = person.get_name(constants.system_cached, constants.name_full)
     names = name_full.split(' ')
