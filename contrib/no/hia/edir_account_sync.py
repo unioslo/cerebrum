@@ -50,6 +50,10 @@ def account_make_attrs(account_id):
     attr['loginDisabled'] = ['FALSE']
     attr['passwordRequired'] = ['TRUE']
     names = _person_find_names(account.owner_id)
+    if len(names.keys()) < 3:
+        names = {'name_full': unicode('no_name', 'iso-8859-1').encode('utf-8'),
+                 'name_first': unicode('no_name', 'iso-8859-1').encode('utf-8'),
+                 'name_last': unicode('no_name', 'iso-8859-1').encode('utf-8')}
     attr['fullName'] = [names['name_full']]
     attr['sn'] = [names['name_last']]
     attr['givenName'] = [names['name_first']]
