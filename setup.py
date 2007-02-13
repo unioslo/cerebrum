@@ -342,6 +342,11 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                        'mode': 0755},
                       [('contrib/no/Indigo/web/templates/default/macro/*.zpl', 0644)]),
 
+                     ({'path': "%s/cerebrum/contrib/statistics" % sharedir,
+                       'owner': cerebrum_user,
+                       'mode': 0755},
+                      [('contrib/statistics/*.py', 0755)])),
+
                      ({'path': "%s/cerebrum/contrib/no/uio" % sharedir,
                        'owner': cerebrum_user,
                        'mode': 0755},
