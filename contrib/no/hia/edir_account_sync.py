@@ -119,7 +119,7 @@ def _person_find_gen_qualifier(owner_id):
     try:
         person.find(owner_id)
     except Errors.NotFoundError:
-        logger.debug("Account %s not owned by a person in Cerebrum", uname)
+        logger.debug("Not a person, entity_id %s", owner_id)
         return ret
     ext_id = person.get_external_id(source_system=constants.system_sap,
                                     id_type=constants.externalid_sap_ansattnr)
