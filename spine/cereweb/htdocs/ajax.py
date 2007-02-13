@@ -130,16 +130,19 @@ def search(transaction, query=None, type=None, output=None):
     spine_enc = cherrypy.session['encoding']
     query = query.decode('utf-8').encode(spine_enc)
     
-    if not type or type == 'person_or_account':
+    if not type:
         # We assume that people have names with upper case letters.
-        if not query.islower():
-            type = "person"
+        if (query.find(':') == -1):
+            if not query.islower():
+                type = "person"
+            else:
+                type = "account"
         else:
-            type = "account"
+            type, query = query.split(':', 1)
 
-    if type == "account":
+    if type in ["account", 'a']:
         result = search_account(transaction, query)
-    elif type == "person":
+    elif type in ["person", 'p']:
         result = search_person(transaction, query)
         if output == "account":
             accounts = {}
@@ -147,7 +150,7 @@ def search(transaction, query=None, type=None, output=None):
                 for a in person.get('accounts'):
                     accounts[a['id']] = a
             result = accounts.values()
-    elif type == "group":
+    elif type in ["group", 'g']:
         result = search_group(transaction, query)
     else:
         result = ""
