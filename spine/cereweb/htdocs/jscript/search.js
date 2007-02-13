@@ -34,10 +34,11 @@ cereweb.ac_group = function(input) {
         this.widgetOptions
     );
 
+    this.widget.dataRequestEvent.subscribe(this.dataRequest, this, true);
     this.widget.dataReturnEvent.subscribe(this.dataReturn, this, true);
     this.widget.textboxKeyEvent.subscribe(this.textboxKey, this, true);
 
-    this.widget.doBeforeExpandContainer = this.doBeforeExpandContainer(this);
+    this.widget.doBeforeExpandContainer = this.doBeforeExpandContainer;
     if (this.input.value)
         this.widget.sendQuery(this.input.value);
 }
@@ -61,19 +62,36 @@ cereweb.ac_group.prototype = {
     textboxKey: function(event, args) {
         this.input.style.backgroundColor = "";
     },
+    dataRequest: function(event, args) {
+        this.requesting = true;
+        this.input.style.backgroundColor = "blue";
+    },
+    dataError: function(event, args) {
+        this.requesting = false;
+        this.input.style.backgroundColor = "red";
+    },
     dataReturn: function(event, args) {
+        this.requesting = false;
+
         this.data = args[2];
         if (this.data.length === 0)
-            this.input.style.backgroundColor = "red";
-        else {
+            this.dataError();
+        else
             this.input.style.backgroundColor = "";
-        }
 
-        if (this.submit_on_hit && this.data.length === 1)
-            this.form.submit(); // FIXME: This should really trigger the submit event.
+        this.valid = false;
+        if (this.data.length === 1)
+            this.parseData();
+
+        if (this.submitting) {
+            this.submitting = false;
+            this.submit();
+        }
+    },
+    parseData: function() {
+        this.valid = true;
     },
     widgetOptions: {
-        // forceSelection: true, // FIXME: Is this option able to help simplify the code?
         minQueryLength: 3
     },
     dataSourceOptions: {
@@ -81,37 +99,20 @@ cereweb.ac_group.prototype = {
         scriptQueryAppend: 'type=group'
     },
     submit: function(e) {
-        YE.preventDefault(e);
-        this.submitted = true;
+        if (e) {
+            YE.preventDefault(e);
+            this.submitting = true;
+        }
 
-        var data = this.data;
-        if (!data) {
+        if (this.valid) {
+            this.submitted = true;
+            this.form.submit();
+        } else if (e)
             this.widget.sendQuery(this.input.value);
-            this.submit_on_hit = true;
-        } else if (data.length === 0) {
-            this.input.style.backgroundColor = "red";
-        } else {
-            this.input.style.backgroundColor = "";
-            for (var i=0; i < data.length; i++) {
-                if (data[i][0] === this.input.value) {
-                    this.form.submit();
-                    return;
-                }
-            }
-            this.input.focus();
-            this.widget._populateList(this.input.value, data, this.widget);
-        }
-        this.submitted = false;
     },
-    doBeforeExpandContainer: function(closure) { // FIXME: Check for memory leaks.
-        return function(oResultItem, sQuery) {
-            var expand = this.submitted && false || true;
-            var hit = closure.data && closure.data.length === 1 && 
-                            closure.data[0][0] === closure.input.value;
-            expand = expand && !hit;
-            return expand;
-        }
-    }
+    doBeforeExpandContainer: function() {
+        return true;
+    },
 }
 
 cereweb.ac_account = function(input) {
@@ -133,7 +134,8 @@ cereweb.ac_account.prototype.formatResult = function(aResultItem, sQuery) {
 }
 
 cereweb.ac_account.prototype.dataSourceOptions = {
-    queryMatchCase: true
+    queryMatchCase: true,
+    scriptQueryAppend: 'output=account'
 }
 
 cereweb.ac_quicksearch = function(container) {
@@ -144,26 +146,29 @@ cereweb.ac_quicksearch = function(container) {
 }
 YAHOO.extend(cereweb.ac_quicksearch, cereweb.ac_account);
 
-cereweb.ac_quicksearch.prototype.dataReturn = function(event, args) {
-    this.data = args[2];
-    var type;
-    if (this.data.length === 1) {
-        type = this.data[0][1].type;
-        this.id.value = this.data[0][1].id;
-        log(this.data[0][0] + ' === ' + this.input.value + '?');
-        this.input.value = this.data[0][0]; // FIXME: What does this really do?
-    } else {
-        for (var i=0; i < this.data.length; i++) {
-            if (this.data[i][0] === this.input.value) {
-                type = this.data[i][1].type;
-                this.id.value = this.data[i][1].id;
-            }
-        }
-    }
-    if(type)
-        this.form.action = '/' + type + '/view';
+cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {
+    var type = aResultItem[1].type;
+    var name = aResultItem[1].name;
+    var aMarkup = ["<div id='ysearchresult'>",
+        '<div style="float:left;width:6em;">',
+        type,
+        '</div>',
+        name,
+        "</div>"];
+    return (aMarkup.join(""));
+}
 
-    cereweb.ac_quicksearch.superclass.dataReturn.call(this, event, args);
+cereweb.ac_quicksearch.prototype.parseData = function() {
+    this.valid = true;
+
+    this.input.value = this.data[0][0];
+    var type = this.data[0][1].type;
+    this.form.action = '/' + type + '/view';
+    this.id.value = this.data[0][1].id;
+}
+
+cereweb.ac_quicksearch.prototype.dataSourceOptions = {
+    queryMatchCase: true,
 }
 
 YE.onAvailable('ac_quicksearch', function () {
