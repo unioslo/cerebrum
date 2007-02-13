@@ -39,7 +39,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
 
     spam_act2dig = {'noaction':   '0',
                     'spamfolder': '1',
-                    'dropspam':   '2'}
+                    'dropspam':   '2',
+                    'greylist':   '3'}
     db_tt2ldif_tt = {'account': 'user',
                      'forward': 'forwardAddress'}         
 

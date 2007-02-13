@@ -371,7 +371,9 @@ automatically generated from FS.''')
     email_spam_action_folder = _EmailSpamActionCode(
         'spamfolder', "Deliver spam to a separate IMAP folder")
     email_spam_action_delete = _EmailSpamActionCode(
-        'dropspam', "Messages classified as spam won't be delivered at all")
+        'dropspam', "Reject messages classified as spam")
+    email_spam_action_greylist = _EmailSpamActionCode(
+        'greylist', "Reject messages classified as spam, delay unknown servers")
 
     trait_email_server_weight = _EntityTraitCode(
         'em_server_weight', Constants.Constants.entity_host,
