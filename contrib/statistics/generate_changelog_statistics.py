@@ -57,7 +57,7 @@ options = {"affiliations": False,
            "header": None,
            "events": "person_create,account_create,group_create",
            "from": now() + RelativeDateTime(days=-7,weekday=(Monday,0)),
-           "to": now() + RelativeDateTime(days=-7, weekday=(Sunday,0))}
+           "to": now() + RelativeDateTime(weekday=(Monday,0))}
 
 
 def usage(exitcode=0, message=None):
@@ -75,7 +75,7 @@ def usage(exitcode=0, message=None):
     --from           Start date for events to be processed (inclusive).
                      Default value is Monday of last week.
                      
-    --to             End-date for events to be processed (inclusive).
+    --to             End-date for events to be processed (exclusive).
                      Default value is Sunday of last week.
                      
     --details        List details about the events in question. The
@@ -109,7 +109,7 @@ def main():
 
     """
     logger.info("Statistics for Cerebrum activities - processing started")
-    logger.debug("Time period: from: '%s'; to: '%s' (inclusive)" %
+    logger.debug("Time period: from: '%s'; up to: '%s'" %
                  (options['from'].date, options['to'].date))
 
     # Check the given events to make sure they are valid changelog events
@@ -128,7 +128,7 @@ def main():
         usage(exitcode=3, message="ERROR: No valid event-types specified")
     
     print ""
-    print ("Statistics covering the period from %s to %s (inclusive)" %
+    print ("Statistics covering the period from %s up to %s" %
            (options['from'].date, options['to'].date))
 
     if options['header'] is None:
