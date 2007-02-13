@@ -105,9 +105,12 @@ def search_person(transaction, query):
 
     for person in people:
         data = get_person_info(person)
+        accounts = {}
         for account in person.get_accounts():
             account = get_account_info(account, data)
-            result[account['id']] = account
+            accounts[account['id']] = account
+        data['accounts'] = accounts.values()
+        result[data['id']] = data
     return result.values()
 
 def search_group(transaction, query):
@@ -120,8 +123,12 @@ def search_group(transaction, query):
         result[group['id']] = group
     return result.values()
 
-def search(transaction, query=None, type=None):
+def search(transaction, query=None, type=None, output=None):
     if not query: return
+
+    # JavaScript input, so it's utf-8.
+    spine_enc = cherrypy.session['encoding']
+    query = query.decode('utf-8').encode(spine_enc)
     
     if not type or type == 'person_or_account':
         # We assume that people have names with upper case letters.
@@ -134,13 +141,22 @@ def search(transaction, query=None, type=None):
         result = search_account(transaction, query)
     elif type == "person":
         result = search_person(transaction, query)
+        if output == "account":
+            accounts = {}
+            for person in result:
+                for a in person.get('accounts'):
+                    accounts[a['id']] = a
+            result = accounts.values()
     elif type == "group":
         result = search_group(transaction, query)
-    else:
+    else
         result = ""
 
     if result:
         result = {'ResultSet': result}
+    else:
+        # JSON doesn't consider [] and {} to be empty.
+        result = None
     return cjson.encode(result)
 search = transaction_decorator(search)
 search.exposed = True
@@ -149,12 +165,9 @@ def get_motd(transaction, id):
     message, subject = "",""
     try:
         motd = transaction.get_cereweb_motd(int(id))
+        message, subject = motd.get_message(), motd.get_subject()
     except NotFoundError, e:
         pass
-    message = motd.get_message().decode('latin1').encode('utf-8')
-    message = message.replace('\n', '\\n').replace('\r', '').replace("'", "\\'").replace('"', '\\"')
-    subject = motd.get_subject().decode('latin1').encode('utf-8')
-    subject = subject.replace('\n', '\\n').replace('\r', '').replace("'", "\\'").replace('"', '\\"')
-    return "{'message': '%s', 'subject': '%s' }" % (message, subject)
+    return cjson.encode({'message': message, 'subject': subject})
 get_motd = transaction_decorator(get_motd)
 get_motd.exposed = True
