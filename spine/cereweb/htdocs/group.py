@@ -103,7 +103,7 @@ search = transaction_decorator(search)
 search.exposed = True
 index = search
 
-def view(transaction, id):
+def view(transaction, id, **vargs):
     """Creates a page with the view of the group with the given by."""
     group = transaction.get_group(int(id))
     page = Main()
