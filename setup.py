@@ -345,7 +345,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                      ({'path': "%s/cerebrum/contrib/statistics" % sharedir,
                        'owner': cerebrum_user,
                        'mode': 0755},
-                      [('contrib/statistics/*.py', 0755)])),
+                      [('contrib/statistics/*.py', 0755)]),
 
                      ({'path': "%s/cerebrum/contrib/no/uio" % sharedir,
                        'owner': cerebrum_user,
