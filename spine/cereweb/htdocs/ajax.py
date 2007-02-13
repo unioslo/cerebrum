@@ -142,7 +142,10 @@ def search(transaction, query=None, type=None, output=None):
 
     query = query.strip()
 
-    if type in ["account", 'a']:
+    # Do not search unless the query has a chance of returning a good result.
+    if len(query) < 3:
+        result = ""
+    elif type in ["account", 'a']:
         result = search_account(transaction, query)
     elif type in ["person", 'p']:
         result = search_person(transaction, query)
