@@ -74,7 +74,7 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
                 }
         else:
             ou_adr_cache[ou_id] = None
-            logger.warn("No address for %i" % ou_id)
+            logger.warn("No address for %i", ou_id)
     return ou_adr_cache[ou_id]
 
 def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
@@ -90,7 +90,7 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
                              institusjon=institusjon)
             ou_cache[key] = ou.ou_id
         except Errors.NotFoundError:
-            logger.warn("bad stedkode: %s" % key)
+            logger.info("Cannot find an OU in Cerebrum with stedkode: %s", key)
             ou_cache[key] = None
     return ou_cache[key]
 
@@ -186,7 +186,7 @@ def process_person_callback(person_info):
         fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                                   int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
-        logger.info2("Process %s " % (fnr), append_newline=0)
+        logger.info("Processing %s", fnr)
 
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
         if (year < 1970
@@ -194,7 +194,7 @@ def process_person_callback(person_info):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn("Ugyldig fødselsnr: %s" % fnr)
+        logger.warn("Ugyldig fødselsnr: %s", fnr)
         return
 
     gender = co.gender_male
@@ -216,7 +216,7 @@ def process_person_callback(person_info):
             if p.has_key('studentnr_tildelt'):
                 studentnr = p['studentnr_tildelt']
             else: 
-                logger.info("\n%s mangler studentnr!" % fnr)
+                logger.info("\n%s mangler studentnr!", fnr)
         # Get name
         if dta_type in ('aktiv','tilbud','evu', 'privatist_studieprogram',):
             etternavn = p['etternavn']
@@ -294,7 +294,7 @@ def process_person_callback(person_info):
             
             
     if etternavn is None:
-        logger.warn("Ikke noe navn på %s" % fnr)
+        logger.info("Ikke noe navn på %s", fnr)
 	no_name += 1 
         return
 
@@ -342,11 +342,11 @@ def process_person_callback(person_info):
 
     op2 = new_person.write_db()
     if op is None and op2 is None:
-        logger.info2("**** EQUAL ****")
+        logger.info("**** EQUAL ****")
     elif op == True:
-        logger.info2("**** NEW ****")
+        logger.info("**** NEW ****")
     else:
-        logger.info2("**** UPDATE ****")
+        logger.info("**** UPDATE ****")
 
     # Reservations    
     if gen_groups:
@@ -384,6 +384,7 @@ def main():
 						       no_name
     verbose = 0
     include_delete = False
+    logger = Factory.get_logger("cronjob")
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
         'generate-groups','include-delete', ])
@@ -404,8 +405,6 @@ def main():
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
-    logger = AutoStud.Util.ProgressReporter("./fsi-run.log.%i" % os.getpid(),
-                                            stdout=verbose)
     logger.info("Started")
     db = Factory.get('Database')()
     db.cl_init(change_program='import_FS')
@@ -444,6 +443,7 @@ def main():
     if include_delete:
 	rem_old_aff()
     db.commit()
+    logger.info("Found %d persons without name.", no_name)
     logger.info("Completed")
 
 if __name__ == '__main__':
