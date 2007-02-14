@@ -27,7 +27,7 @@
 #set $searcher = $tr.get_auth_operation_set_searcher()
 $searcher.order_by($searcher, "name")
 #set $ops = [(i.get_id(), i.get_name()) for i in $searcher.search()]
-<div class="email_view">
+<div class="view">
     <form action="view" method="post">
         <h2>$_('Select an operation set')</h2>
         <label for="id">$_('Select an operation set to view/edit'):</label>

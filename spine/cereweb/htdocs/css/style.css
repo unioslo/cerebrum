@@ -448,23 +448,6 @@ a.perm_all:hover { color: gray; }
 
 div.tree { margin-left: 2em; }
 
-div.email_view {
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 0.2em;
-    padding-bottom: 1em;
-    padding-left: 1em;
-    text-align: left;
-    white-space: normal; 
-}
-
-div.email_view table {
-    width: 100%;
-}
-
 /* Styles for the Error-pages. */
 div.errorpage { margin: 5px; }
 
