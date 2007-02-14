@@ -210,7 +210,7 @@ class EdirUtils:
             self.object_set_description(object_name, self.c_person, desc)
                 
         else:
-            self.logger.info("No such object %s, can't update name!" %s % object_name)
+            self.logger.info("No such object %s, can't update name.", object_name)
 
 ## HELPER:            
     def _find_object(self, object_name, object_class, attrlist=None):
