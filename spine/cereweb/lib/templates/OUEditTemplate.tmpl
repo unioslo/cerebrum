@@ -69,9 +69,7 @@
             $form_widgets.boolWidget("catalogue_mark", "Catalogue mark",
                                      $ou.get_katalog_merke())
         </div>
-        <div class="required">
-            $edit_perspectives($transaction, $ou)
-        </div>
+        $edit_perspectives($transaction, $ou)
         $form_widgets.showHelp($help)
         <div class="buttons">
             <input type="submit" value="$_('Save')" name="submit" />
@@ -82,25 +80,26 @@
 #end def
 
 #def edit_perspectives($transaction, $ou)
-        <h3>$_('OU perspectives')</h3>
-        #set $extras = [ ("not_in", $_("(Not in perspective)")),
-                         ("root", $_("(Root node)")) ]
-        #set $perspectives = $transaction.get_ou_perspective_type_searcher()
-        #for $perspective in $perspectives.search()
-            #try
-                #set $parent=$ou.get_parent($perspective)    
-            #except NotFoundError
-                #set $parent="not_in"
-            #else
-                #if $parent is None
-                    #set $parent="root"
-                #end if
-            #end try    
-            
-            $select_ou($perspective, "parent_" + $perspective.get_name(),
-                       $_("Parent in %s:") % $perspective.get_name(),
-                       $parent, $ou, $extras) 
-        #end for
+#set $extras = [ ("not_in", $_("(Not in perspective)")),
+                 ("root", $_("(Root node)")) ]
+#set $perspectives = $transaction.get_ou_perspective_type_searcher()
+
+    <h3>$_('OU perspectives')</h3>
+    #for $perspective in $perspectives.search()
+        #try
+            #set $parent=$ou.get_parent($perspective)    
+        #except NotFoundError
+            #set $parent="not_in"
+        #else
+            #if $parent is None
+                #set $parent="root"
+            #end if
+        #end try    
+        
+        $select_ou($perspective, "parent_" + $perspective.get_name(),
+                   $_("Parent in %s:") % $perspective.get_name(),
+                   $parent, $ou, $extras) 
+    #end for
 #end def
 
 ## Displays a select box for choosing an
@@ -131,7 +130,6 @@
 
     ## Internal recursive function for printing an OU options
     ## and all it's children
-
     #def ou_options($ou, $perspective, $indent="", $selected=None, $disable=None)
         #set $name=$ou.get_id()
         #set $descr=$ou.get_name()
@@ -154,36 +152,35 @@
             #end if
             $ou_options($child, $perspective, $indent+"--", $selected, $dis)
         #end for
-        
     #end def
-    #if $label
-        <label for="$name">
-            $label
-        </label>
-    #end if
-    <select name="$name">
-
-    ## First the extra options
-    #for $name,$descr in $extras
-        #set attribs=''
-        #if $selected==$name
-            #set $attribs += " selected='selected'"
-        #end if    
-        #if $disabled==$name
-            #set $attribs += " disabled='disabled'"
+        
+    <div class="required">
+        #if $label
+            <label for="$name">
+                $label
+            </label>
         #end if
-        <option$attribs value="$name">
-            $descr
-        </option>
-    #end for
-    
-    ## Then recurse all roots
-    #for $root in $perspective.get_roots()
-        $ou_options($root, $perspective, selected=$selected, disable=$disabled)
-    #end for
-    </select>
-    #if $label
-        <br />
-    #end if    
+        <select name="$name">
+
+        ## First the extra options
+        #for $name,$descr in $extras
+            #set attribs=''
+            #if $selected==$name
+                #set $attribs += " selected='selected'"
+            #end if    
+            #if $disabled==$name
+                #set $attribs += " disabled='disabled'"
+            #end if
+            <option$attribs value="$name">
+                $descr
+            </option>
+        #end for
+        
+        ## Then recurse all roots
+        #for $root in $perspective.get_roots()
+            $ou_options($root, $perspective, selected=$selected, disable=$disabled)
+        #end for
+        </select>
+    </div>
 #end def
 
