@@ -32,31 +32,52 @@
 
 ## The main method for creating the form for the host create page.
 #def form($transaction)
+#set $fv = $formvalues
+
 <div class="create">
     <form action="$getAction()" method="post">
-        <div class="createform">
-            #set $fv = $formvalues
+        <div class="required">
             $form_widgets.input("name", "Name")
-            $form_widgets.input("description", "Description")
-            $form_widgets.code_selector("cpu_arch","Cpu arch",$transaction.get_cpu_arch_searcher())
-            $form_widgets.code_selector("operating_system","Operating system",$transaction.get_operating_system_searcher())
-            $form_widgets.code_selector("interconnect","Interconnect",$transaction.get_interconnect_searcher())
-            $form_widgets.input("total_memory","Total memory (MB) *")
-            $form_widgets.input("node_number","Node number *")
-	 <h3>Per-node data</h3>
-            $form_widgets.input("node_memory","Node memory (MB) *")
-            $form_widgets.input("node_disk","Node disk (GB) *")
-            $form_widgets.input("cpu_core_number","Cpu core number *")
-            $form_widgets.input("cpu_core_mflops","Cpu core mflops *")
-            $form_widgets.input("cpu_mhz","Cpu MHz *")
-
         </div>
+        <div class="required">
+            $form_widgets.input("description", "Description")
+        </div>
+        <div class="required">
+            $form_widgets.code_selector("cpu_arch","Cpu arch",$transaction.get_cpu_arch_searcher())
+        </div>
+        <div class="required">
+            $form_widgets.code_selector("operating_system","Operating system",$transaction.get_operating_system_searcher())
+        </div>
+        <div class="required">
+            $form_widgets.code_selector("interconnect","Interconnect",$transaction.get_interconnect_searcher())
+        </div>
+        <div class="required">
+            $form_widgets.input("total_memory","Total memory (MB) *")
+        </div>
+        <div class="required">
+            $form_widgets.input("node_number","Node number *")
+        </div>
+	 <h3>Per-node data</h3>
+        <div class="required">
+            $form_widgets.input("node_memory","Node memory (MB) *")
+        </div>
+        <div class="required">
+            $form_widgets.input("node_disk","Node disk (GB) *")
+        </div>
+        <div class="required">
+            $form_widgets.input("cpu_core_number","Cpu core number *")
+        </div>
+        <div class="required">
+            $form_widgets.input("cpu_core_mflops","Cpu core mflops *")
+        </div>
+        <div class="required">
+            $form_widgets.input("cpu_mhz","Cpu MHz *")
+        </div>
+
         $form_widgets.showHelp($help)
-        <div>
-            <center>
-                <input type="submit" value="$_('Create')" />&nbsp;
-                <input type="reset" value="$_('Clear')" />
-            </center>
+        <div class="buttons">
+            <input type="submit" value="$_('Create')" />
+            <input type="reset" value="$_('Clear')" />
         </div>
     </form>
 </div>

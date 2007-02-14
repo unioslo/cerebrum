@@ -32,22 +32,25 @@
 
 ## The main method for creating the form for the allocation period create page.
 #def form($authorities)
+#set $fv = $formvalues
+$form_widgets.generate_loption("authority", "Allocation Authority",
+                               $authorities, $fv.get("authority", "notur"))
 <div class="create">
     <form action="$getAction()" method="post">
-        <div class="createform">
-            #set $fv = $formvalues
-            $form_widgets.generate_loption("authority", "Allocation Authority",
-                                           $authorities, $fv.get("authority", "notur"))
+        <div class="required">
             $form_widgets.input("name", "Name", $fv.get("name", ""))
+        </div>
+        <div class="required">
             $form_widgets.input("startdate", "Start Date *", $fv.get("startdate", ""))
+        </div>
+        <div class="required">
             $form_widgets.input("enddate", "End Date *", $fv.get("enddate", ""))
         </div>
+        ## showHelp creates it's own surrounding div.
         $form_widgets.showHelp($help)
-        <div>
-            <center>
-                <input type="submit" value="$_('Create')" />&nbsp;
-                <input type="reset" value="$_('Clear')" />
-            </center>
+        <div class="buttons">
+            <input type="submit" value="$_('Create')" />&nbsp;
+            <input type="reset" value="$_('Clear')" />
         </div>
     </form>
 </div>

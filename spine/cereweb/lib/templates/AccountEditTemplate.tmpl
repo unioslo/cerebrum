@@ -43,24 +43,37 @@
 #def edit($account, $groups, $shells)
 <div class="edit">
     <form action="$getAction()" method="post">
-        <div class="editform">
-            $input("name", "Name")
-            $input("expire_date", "Expire date *")
-            #if $account.is_posix()
-                $input("uid", "UID")
-                $generate_option("primary_group", "Primary group", $groups)
-                $input("gecos", "Gecos")
-                $generate_option("shell", "Shell", $shells)
-            #end if
-            $input("description", "Description")
+        <div class="hidden">
             <input type="hidden" name="id" value="$account.get_id()" />
         </div>
+        <div class="required">
+            $input("name", "Name")
+        </div>
+        <div class="required">
+            $input("expire_date", "Expire date *")
+        </div>
+        #if $account.is_posix()
+            <div class="required">
+                $input("uid", "UID")
+            </div>
+            <div class="required">
+                $generate_option("primary_group", "Primary group", $groups)
+            </div>
+            <div class="optional">
+                $input("gecos", "Gecos")
+            </div>
+            <div class="required">
+                $generate_option("shell", "Shell", $shells)
+            </div>
+        #end if
+        <div class="optional">
+            $input("description", "Description")
+        </div>
+        ## showHelp makes a surrounding div with class=help.
         $form_widgets.showHelp($help)
-        <div>
-            <center>
-                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
-                <input type="submit" value="$_('Cancel')" name="submit" />
-            </center>
+        <div class="buttons">
+            <input type="submit" value="$_('Save')" name="submit" />
+            <input type="submit" value="$_('Cancel')" name="submit" />
         </div>
     </form>
 </div>

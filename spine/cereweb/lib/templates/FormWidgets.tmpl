@@ -108,10 +108,16 @@
 
 #def changePassword($aid)
 <form action="set_password" method="post">
-    <div class="cssform">
-        $password('passwd1', 'Password')
-        $password('passwd2', 'Repeat Password')
+    <div class="hidden">
         <input type="hidden" name="id" value="$aid" />
+    </div>
+    <div class="required">
+        $password('passwd1', 'Password')
+    </div>
+    <div class="required">
+        $password('passwd2', 'Repeat Password')
+    </div>
+    <div class="buttons">
         <input type="submit" value="$_('Set password')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="pass_cancel" />
     </div>

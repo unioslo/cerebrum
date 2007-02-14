@@ -28,7 +28,7 @@
     #set $owner_type = $owner.get_type().get_name()
     #set $owner_id = $owner.get_id()
     #set $owner_link = $object_link($owner)
-    <form id="createform" action="make" method="post">
+    <form action="make" method="post">
         <div class="hidden">
             <input type="hidden" name="id" value="$owner_id" />
         </div>
@@ -54,7 +54,7 @@
         #if $owner_type == 'group'
         <div class="optional">
             <label for="join">$_('Join on creation'):</label>
-            <input type="checkbox" name="join" value="True" class="join">
+            <input type="checkbox" name="join" value="True">
                 $owner_link
             </input>
         </div>

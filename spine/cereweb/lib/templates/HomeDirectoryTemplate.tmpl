@@ -48,24 +48,31 @@
 #end def
 
 #def set($entity, $tr)
-<div class="form box" id="home_form" style="display:none;">
-    <form action="set_home" method="post">
-        <h3 id="homedir">$_('Set home directory')</h3>
-        <p>
-        <input type="hidden" name="id" value="$entity.get_id()" />
-
-        #set $spreads = [($i.get_name(), $i.get_name())
-                         for $i in $entity.get_spreads()]
-        #set $disks = $tr.get_disk_searcher().search()
-        #set $disks = [($i.get_id(), "%s:%s" % 
-            ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
+#set $spreads = [($i.get_name(), $i.get_name())
+                 for $i in $entity.get_spreads()]
+#set $disks = $tr.get_disk_searcher().search()
+#set $disks = [($i.get_id(), "%s:%s" % 
+    ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
         
-        $form_widgets.generate_loption("spread", "Spread", $spreads, $id="set_spread")
-        $form_widgets.input("home", "Home")
-        $form_widgets.generate_loption("disk", "Disk", $disks)
-        <input type="submit" value="$_('Set homedir')" />&nbsp;
-        <input type="button" value="$_('Cancel')" id="home_cancel" />
-        </p>
+<div class="form box" id="home_form" style="display:none;">
+    <h3 id="homedir">$_('Set home directory')</h3>
+    <form action="set_home" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$entity.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("spread", "Spread", $spreads, $id="set_spread")
+        </div>
+        <div class="required">
+            $form_widgets.input("home", "Home")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("disk", "Disk", $disks)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Set homedir')" />&nbsp;
+            <input type="button" value="$_('Cancel')" id="home_cancel" />
+        </div>
     </form>
 </div>
 #end def

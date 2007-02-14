@@ -33,25 +33,20 @@ $strftime($the_date)
 #def edit_target(target)
 #set $id = $target['id']
 <div class="view_content">
-
-## Actions
-<div class="view_actions">
-<h4>$_('Actions')</h4>
-<div class="actions">
-    <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id">$_("delete account")</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>        
-    <br />
-    $remember_link($target)<br />
-</div>
-</div>
-<p>dette er en test</p>
-<br />
-<br />
-<br />
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_("edit info")</a><br />
+            <a href="delete?id=$id">$_("delete account")</a><br />
+            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>        
+            <br />
+            $remember_link($target)<br />
+        </div>
+    </div>
+    <p>dette er en test</p>
 </div>
 #end def
-
 
 ## Main method for creating the view
 #def view($target, $domains)
@@ -59,121 +54,115 @@ $strftime($the_date)
 #set $referer = cherrypy.request.headerMap.get('Referer', '/')
 <div class="view_content">
 
-## Actions
-<div class="view_actions">
-<h4>$_('Actions')</h4>
-<div class="actions">
-    <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id&amp;ref=$referer">$_("delete target")</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
-    <br />
-    $remember_link($target)<br />
-</div>
-</div>
-
-## Content
-#set $primary = $target['primary']
-#set $addresses = $target.get('addresses', None)
-
-<div class="view_info">
-<h3>$_('Email addresses:')</h3>
-    <div>
-	<strong><em>$_('Type:')</em></strong>&nbsp;
-		$target['type'].capitalize()
+    ## Actions
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div class="actions">
+            <a href="edit?id=$id">$_("edit info")</a><br />
+            <a href="delete?id=$id&amp;ref=$referer">$_("delete target")</a><br />
+            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+            <br />
+            $remember_link($target)<br />
+        </div>
     </div>
-    <div>
-	<strong><em>$_('Owner:')</em></strong>&nbsp;
-		$target['entity']
-    </div>
-	<h4>$_('Primary address:')</h4>
 
-	#if $primary
-		<table>
-		<tr>
-		#for $key,$value in $primary.items()
-			#if not $key == 'id' and not $key == 'primary'
-				<th>
-					$key.capitalize()
-				</th>
-			#end if
-		#end for
-		</tr>
-		<tr>
-		#for $key,$value in $primary.items()
-			#if not $key == 'id' and not key == 'primary'
-			<td>
-				#if $value
-					#if $key == 'created' or $key == 'changed' or $key == 'expire'
-						$unix2date($value)
-					#else
-						$value
-					#end if
-				#end if
-			</td>
-			#end if
-		#end for
-			<td>
-				#set $addressid = $primary['id']	
-				<div class="actions">
-				<a href="/emailtarget/delete_addr?id=$id&amp;addr=$addressid">Delete</a>
-				</div>
-			</td>
-		</tr>
-		</table>
-	#else
-		<div>$_('No primary address.')</div>
-	#end if
+    ## Content
+    #set $primary = $target['primary']
+    #set $addresses = $target.get('addresses', None)
+
+    <div class="view_info">
+        <h3>$_('Email addresses:')</h3>
+        <div>
+            <strong><em>$_('Type:')</em></strong>&nbsp;
+                    $target['type'].capitalize()
+        </div>
+        <div>
+            <strong><em>$_('Owner:')</em></strong>&nbsp;
+                    $target['entity']
+        </div>
+        <h4>$_('Primary address:')</h4>
+
+        #if $primary
+            <table>
+                <tr>
+                #for $key,$value in $primary.items()
+                    #if not $key == 'id' and not $key == 'primary'
+                        <th> $key.capitalize() </th>
+                    #end if
+                #end for
+                </tr>
+                <tr>
+                #for $key,$value in $primary.items()
+                    #if not $key == 'id' and not key == 'primary'
+                        <td>
+                            #if $value
+                                #if $key == 'created' or $key == 'changed' or $key == 'expire'
+                                    $unix2date($value)
+                                #else
+                                    $value
+                                #end if
+                            #end if
+                        </td>
+                    #end if
+                #end for
+                    <td>
+                        #set $addressid = $primary['id']	
+                        <div class="actions">
+                            <a href="/emailtarget/delete_addr?id=$id&amp;addr=$addressid">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        #else
+            <div>$_('No primary address.')</div>
+        #end if
+
         <h4>$_('Additional addresses:')</h4>
-	#if $addresses
-		<table>
-		<tr>
-			#for $key,$values in $addresses[0].items()
-			#if not $key == 'id' and not $key == 'primary'
-				<th>
-					$key.capitalize()
-				</th>
-			#end if
-			#end for
-		</tr>
+        #if $addresses
+            <table>
+                <tr>
+                    #for $key,$values in $addresses[0].items()
+                        #if not $key == 'id' and not $key == 'primary'
+                            <th> $key.capitalize() </th>
+                        #end if
+                    #end for
+                </tr>
                 #for $addr in $addresses
-                #if not $addr['primary']
-		<tr>
-			#for $key,$value in $addr.items()
-				#if not $key == 'id' and not $key == 'primary'
-				<td>
-					#if $value
-						#if $key == 'created' or $key == 'changed' or $key == 'expire'
-							$unix2date($value)
-						#else
-					
-							$value
-						#end if
-					#end if
-				</td>
-				#end if
-			#end for
-			<td>
-				<div class="actions">
-				#set $address = $addr['id']
-				<a class="action" href="/emailtarget/delete_addr?id=$id&amp;addr=$address">Delete</a>&nbsp;
-				<a class="action" href="/emailtarget/setprimary?id=$id&amp;addr=$address">Primary</a>
-				</div>
-			</td>
-		</tr>
-                #end if
-		#end for
-		</table>
-	#else
-		<p>No additional addresses</p>
-	#end if
-	</table>
-</div>
-<br />
-<br />
-<div class="create">
-<h3>$_('Add a new email address:')</h3>
-    <div class="createform">
-	<form action="/emailtarget/makeaddress" method="post">
+                    #if not $addr['primary']
+                        <tr>
+                            #for $key,$value in $addr.items()
+                                #if not $key == 'id' and not $key == 'primary'
+                                <td>
+                                    #if $value
+                                        #if $key == 'created' or $key == 'changed' or $key == 'expire'
+                                            $unix2date($value)
+                                        #else
+                                            $value
+                                        #end if
+                                    #end if
+                                </td>
+                                #end if
+                            #end for
+                            <td>
+                                <div class="actions">
+                                    #set $address = $addr['id']
+                                    <a class="action" href="/emailtarget/delete_addr?id=$id&amp;addr=$address">Delete</a>&nbsp;
+                                    <a class="action" href="/emailtarget/setprimary?id=$id&amp;addr=$address">Primary</a>
+                                </div>
+                            </td>
+                        </tr>
+                    #end if
+                #end for
+            </table>
+            #else
+                <p>No additional addresses</p>
+            #end if
+        </table>
+    </div>
+
+    <div class="create">
+    <h3>$_('Add a new email address:')</h3>
+        <form action="/emailtarget/makeaddress" method="post">
             <input type="hidden" name="id" value="$id">
             <div>
                 $form_widgets.input('local', 'Local',value='')
@@ -195,6 +184,5 @@ $strftime($the_date)
             </div>
         </form>
     </div>
-</div>
 </div>
 #end def

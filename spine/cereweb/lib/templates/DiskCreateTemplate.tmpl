@@ -35,30 +35,24 @@
 #set $fv = $formvalues
 <div class="create">
     <h3>$_('Create a new disk:')</h3>
-    <div class="createform">
-        <form action="$getAction()" method="post">
-            <div>
-                    $form_widgets.generate_loption("host", "Host", $hosts, $fv.get("host", ""))
-            </div>
-            <div>
-                    $form_widgets.input("path", "Path", $fv.get("path", ""))
-            </div>
-            <div>
-                    $form_widgets.input("description", "Description", $fv.get("description", ""))
-            </div>
-            <div class="help">
-                #if $help:
-                        $form_widgets.showHelp($help)
-                #else:
-                        &nbsp;
-                #end if
-            </div>
-            <div>
-                <input type="submit" value="$_('Create')" />&nbsp;
-                <input type="reset" value="$_('Clear')" />
-            </div>
-        </form>
-    </div>
+    <form action="$getAction()" method="post">
+        <div class="required">
+            $form_widgets.generate_loption("host", "Host", $hosts, $fv.get("host", ""))
+        </div>
+        <div class="required">
+            $form_widgets.input("path", "Path", $fv.get("path", ""))
+        </div>
+        <div class="required">
+            $form_widgets.input("description", "Description", $fv.get("description", ""))
+        </div>
+        #if $help
+            $form_widgets.showHelp($help)
+        #end if
+        <div class="buttons">
+            <input type="submit" value="$_('Create')" />&nbsp;
+            <input type="reset" value="$_('Clear')" />
+        </div>
+    </form>
 </div>
 #end def
 

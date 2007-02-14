@@ -34,23 +34,26 @@
 
 ## The main method for creating the form for the project create page.
 #def form($transaction, $project, $allocation_name)
+#set $fv = $formvalues
+#set $searcher = $transaction.get_allocation_period_searcher()
+#set $periods = [($type.get_name(), $type.get_name()) 
+                     for $type in $searcher.search()]
+
 <div class="create">
     <form action="$getAction()" method="post">
-        <div class="createform">
-            #set $fv = $formvalues
-            #set $searcher = $transaction.get_allocation_period_searcher()
-            #set $periods = [($type.get_name(), $type.get_name()) 
-				 for $type in $searcher.search()]
+        <div class="required">
 	    $form_widgets.generate_loption("period", "Period", $periods, $fv.get("period", ""))
+        </div>
+        <div class="required">
             $form_widgets.code_selector("status", "Status", $transaction.get_allocation_status_searcher())
+        </div>
+        <div class="required">
             $form_widgets.input("credits", "Initial credits", $fv.get("credits", ""))
         </div>
         $form_widgets.showHelp($help)
-        <div>
-            <center>
-                <input type="submit" value="$_('Create')" />&nbsp;
-                <input type="reset" value="$_('Clear')" />
-            </center>
+        <div class="buttons">
+            <input type="submit" value="$_('Create')" />
+            <input type="reset" value="$_('Clear')" />
         </div>
     </form>
 </div>
