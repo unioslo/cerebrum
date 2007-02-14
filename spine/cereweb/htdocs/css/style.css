@@ -203,23 +203,17 @@ div.box {
 
     margin: 0;
     margin-bottom: 1em;
-
-    /* No padding on the box, this belongs in the info/important/... class. */
     padding: 0;
+
     border: 1px solid;
 }
-
 div.box h3 {
-    /* No margin or padding on the box, this belongs in the info/important/... class. */
     padding: 0; 
+    padding-left: 0.4em;
     margin: 0;
     font-size: 105%; 
 }
-
-div.box h4 {
-    margin: 0;
-}
-
+div.box h4 { margin: 0; }
 div.box input {
     font-size: 80%;
     margin-top: 2px;
@@ -228,13 +222,9 @@ div.box span.extra {
     font-size: 90%;
     color: gray;
 }
-div.box span.name {
-    font-weight: bold;
-}
-div.box span.value {
-}
-div.box span.date {
-    font-size: 85%;
+div.box span.name { font-weight: bold; }
+div.box span.value { }
+div.box span.date { font-size: 85%;
 }
 div.box div.item {
     padding: 2px 0 2px 0.5em;
@@ -252,10 +242,7 @@ div.box div.actions a {
     text-align: center;
     text-decoration: none;
 }
-div.box div.actions {
-    float: right;
-}
-
+div.box div.actions { float: right; }
 div.box a:hover { color: gray; }
 div.box h3 a { color: black; text-decoration: none; }
 
