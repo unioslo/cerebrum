@@ -179,7 +179,7 @@ class OfkObject2Cerebrum(Object2Cerebrum):
         aff_found = False
         for row in self._ac.get_account_types(all_persons_types=True,
                                               filter_expired=False):
-            if(ou_id == row['ou_id'] and affiliation == row['affiliation'] and
+            if(self._ou.entity_id == row['ou_id'] and affiliation == row['affiliation'] and
                self.entity_id == row['account_id']):
                 aff_found = True
         if not aff_found:
@@ -196,7 +196,7 @@ class OfkObject2Cerebrum(Object2Cerebrum):
                 aff_found = False
                 for row in self._ac.get_account_types(all_persons_types=True,
                                                       filter_expired=False):
-                    if(ou_id == row['ou_id'] and affiliation == row['affiliation'] and
+                    if(self._ou.entity_id == row['ou_id'] and affiliation == row['affiliation'] and
                        self.entity_id == row['account_id']):
                         aff_found = True
                 if not aff_found:
