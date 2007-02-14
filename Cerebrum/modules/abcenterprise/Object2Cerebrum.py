@@ -49,7 +49,7 @@ class Object2Cerebrum(object):
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         self.default_creator_id = ac.entity_id
 
-        self._person = None
+        self._person = Factory.get("Person")(self.db)
         self._ou = None
         self._group = None
 
@@ -112,16 +112,14 @@ class Object2Cerebrum(object):
                                     postal_number=addresses[addr].postcode,
                                     city=addresses[addr].city,
                                     country=addresses[addr].country)
-            entity.write_db()
-
+            
 
     def _add_entity_contact_info(self, entity, contact_info):
         """Add contact info for an entity."""
         for cont in contact_info.keys():
             entity.populate_contact_info(self.source_system, type=cont,
                                          value=contact_info[cont])
-            entity.write_db()
-             
+                         
         
     def store_ou(self, ou):
         """Pass a DataOU to this function and it gets stored
@@ -142,6 +140,7 @@ class Object2Cerebrum(object):
                           ou.ou_names['display_name'],
                           ou.ou_names['sort_name'],
                           None)
+        self._ou.write_db()
         self._add_external_ids(self._ou, ou._ids)
         self._add_entity_addresses(self._ou, ou._address)
         self._add_entity_contact_info(self._ou, ou._contacts)
