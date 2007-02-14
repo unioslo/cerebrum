@@ -51,7 +51,7 @@
 #end def
 
 #def set($entity, $transaction)
-<div class="form box" id="extid_form" style="display:none;">
+<div class="edit box" id="extid_form" style="display:none;">
     <a class="anchor" id="extid"></a>
     <form action="/entity/add_external_id" method="post">
         #set $searcher = $transaction.get_entity_external_id_type_searcher()

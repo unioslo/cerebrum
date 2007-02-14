@@ -104,7 +104,7 @@ $widgets.viewInfo($info)
 
 #def addMember($group, $ops)
 #set $types = (('account', 'Account'), ('group', 'Group'))
-<div class="form box" id="member_form" style="display:none;">
+<div class="edit box" id="member_form" style="display:none;">
     <h3 id="member">$_('Add member')</h3>
     <form action="add_member" method="post">
         <div class="hidden">
@@ -133,7 +133,7 @@ $widgets.viewInfo($info)
 #set $searcher = $transaction.get_group_member_operation_type_searcher()
 #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
 #end if
-<div class="form box" id="group_form" style="display:none;">
+<div class="edit box" id="group_form" style="display:none;">
     <h3 id="group">$_('Join group')</h3>
     <form action="/group/join_group" method="post">
         <div class="hidden">
