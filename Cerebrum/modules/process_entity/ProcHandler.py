@@ -47,17 +47,22 @@ class ProcHandler(object):
         self.default_creator_id = None
         
 
-
-    def _create_account(self, owner):
-        """Create a standard account."""
-
-        # str2const is something we need if we create new accounts.
+    def _make_str2const(self):
         if not self.str2const:
             self.str2const = dict()
             for c in dir(self._co):
                 tmp = getattr(self._co, c)
                 if isinstance(tmp, _SpreadCode):
                     self.str2const[str(tmp)] = tmp
+
+
+
+    def _create_account(self, owner):
+        """Create a standard account."""
+
+        # str2const is something we need if we create new accounts.
+        if not self.str2const:
+            self._make_str2const()
 
         if self._ac is None:
             self._ac = Factory.get('Account')(self.db)
@@ -84,12 +89,15 @@ class ProcHandler(object):
             self._ac.write_db()
         else:
             self._ac.find(ac)
+            
+        change = False
         for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-            try:
+            if not self._ac.has_spread(int(self.str2const[spread])):    
                 self._ac.add_spread(int(self.str2const[spread]))
-            except self.db.DatabaseError:
-                pass
-        self._ac.write_db()
+                change = True
+        if change:
+            self._ac.write_db()
+            
         return self._ac
                     
 
@@ -124,6 +132,8 @@ class ProcHandler(object):
             if person_affiliations:
                 ac = self._create_account(person)
                 self.logger.info("Person '%d' got new account '%s'." % (person.entity_id, ac.account_name))
+                # Take care of person affiliations too
+                
             else:
                 self.logger.info("Person '%d' have no affiliations. No account created." % person.entity_id)
 
@@ -137,14 +147,18 @@ class ProcHandler(object):
                 account_affiliations.append((row['ou_id'], row['affiliation']))
 
             rem, add = _diff_aff(person_affiliations, account_affiliations)
+            changed = False
             for r in rem:
                 self._ac.del_account_type(r[0], r[1])
+                changed = True
                 self.logger.info("Account '%s' removed type '%s', '%s'." % (self._ac.account_name, r[0], r[1]))
             for a in add:
                 self._ac.set_account_type(a[0], a[1])
+                changed = True
                 self.logger.info("Account '%s' added type '%s', '%s'." % (self._ac.account_name, a[0], a[1]))
             # TBD: set expire_date if no types remain?
-            self._ac.write_db()
+            if changed:
+                self._ac.write_db()
 
 
     def _diff_groups(self, grp, shdw_grp):
@@ -165,18 +179,26 @@ class ProcHandler(object):
         for member in shdw_grp.list_members()[0]:
             shdw_grp_accounts.append(member[1])
         # Sync shdw_grp with grp
+        change = False
         for a_id in grp_accounts:
             if a_id not in shdw_grp_accounts:
                 shdw_grp.add_member(a_id, self._co.entity_account,
                                     self._co.group_memberop_union)
+                change = True
         for a_id in shdw_grp_accounts:
             if a_id not in grp_accounts:
                 shdw_grp.remove_member(a_id, self._co.group_memberop_union)
-        shdw_grp.write_db()
+                change = True
+        if change:
+            shdw_grp.write_db()
+        return change
         
 
     def process_group(self, group_name):
         """Check the group's `shadow group`."""
+
+        if not self.str2const:
+            self._make_str2const()
         
         # Init the needed objects if not already done
         if not self._group:
@@ -187,8 +209,7 @@ class ProcHandler(object):
             self._ac.clear()
             self._ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             self.default_creator_id = self._ac.entity_id
-            
-        shadow = "cerebrum_%s" % group_name
+                        
         # Try to initialize the object
         try:
             self._group.clear()
@@ -201,9 +222,15 @@ class ProcHandler(object):
                 return
             # See if there is a shadow group
             shdw_grp = Factory.get('Group')(self.db)
+            shadow = procconf.SHADOW(group_name)
+            # See if this group got a shadow name
+            if not shadow:
+                self.logger.warning("prc_grp: Group '%s' has a name not compatible with the shadow naming scheme." % group_name) 
+                return
             try:
                 shdw_grp.find_by_name(shadow)
                 self.logger.debug("prc_grp: Group '%s' has a shadow group '%s'." % (group_name, shadow))
+                
             except Errors.NotFoundError:
                 # None found, so we make one. Populate it with
                 # trait_group_derived
@@ -212,15 +239,22 @@ class ProcHandler(object):
                                   self._co.group_visibility_all,
                                   shadow)
                 shdw_grp.write_db()
-                shdw_grp.add_spread(int(self._co.spread_ad_grp))
                 shdw_grp.populate_trait(self._co.trait_group_derived,
                                         date=DateTime.now())
                 shdw_grp.write_db()
                 self.logger.info("prc_grp: Shadow group '%s' created." % shadow)
+            change = False
+            for spread in procconf.SHADOW_GROUP_SPREAD:
+                if not shdw_grp.has_spread(int(self.str2const[spread])):    
+                    shdw_grp.add_spread(int(self.str2const[spread]))
+                    change = True
+            if change:
+                shdw_grp.write_db()
             # At this point, we have the master group, and a shadow group
             # which we know exists. Diff members.
-            self._diff_groups(self._group, shdw_grp)
-            self.logger.info("prc_grp: Shadow group '%s' synced with group '%s'." % (shadow,group_name))
+            change = self._diff_groups(self._group, shdw_grp)
+            if change:
+                self.logger.info("prc_grp: Shadow group '%s' synced with group '%s' successfully." % (shadow,group_name))
         except Errors.NotFoundError:
             # Group we have gotten is deleted. Try to look up it's potential
             # shadow group
@@ -242,15 +276,27 @@ class ProcHandler(object):
 
     def process_ou(self, ou):
         """Check the OU's data."""
-        if not ou.has_spread(self._co.spread_ad_ou):
-            ou.add_spread(self._co.spread_ad_ou)
-            self.logger.info("prc_ou: OU '%s' got AD spread." % ou.entity_id)
+
+        if not self.str2const:
+            self._make_str2const()
+        
+        change = False
+        for spread in procconf.OU_SPREADS:
+            if not ou.has_spread(int(self.str2const[spread])):
+                ou.add_spread(int(self.str2const[spread]))
+                self.logger.info("prc_ou: OU '%s' got spread '%s'." % (ou.entity_id, spread))
+                change = True
+        if change:
             ou.write_db()
 
 
     def ac_type_add(self, account_id, affiliation, ou_id):
         """Adds an account to special groups which represent an
         affiliation at an OU. Make the group if it's not present."""
+
+        if not self.str2const:
+            self._make_str2const()
+        
         if self._ac is None:
             self._ac = Factory.get('Account')(self.db)
             self._ac.clear()
@@ -281,7 +327,9 @@ class ProcHandler(object):
                                  self._co.group_visibility_all,
                                  grp_name)
             self._group.write_db()
-            self._group.add_spread(int(self._co.spread_ad_grp))
+            for spread in procconf.AC_TYPE_GROUP_SPREAD:
+                if not self._group.has_spread(int(self.str2const[spread])):
+                    self._group.add_spread(int(self.str2const[spread]))
             self._group.write_db()
             self.logger.info("ac_type_add: Group '%s' created." % grp_name)
         if not self._group.get_trait(self._co.trait_group_affiliation):

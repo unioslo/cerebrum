@@ -84,14 +84,10 @@ class ProcBatchRunner(object):
 
         Entities we define are: Person, OU and Group. Account is
         handled by internal rules in ProcHandler."""
-        self.logger.info("process_persons()")
-        self.process_persons()
-        self.logger.info("process_groups()")
-        self.process_groups()
-        self.logger.info("process_OUs()")
-        self.process_OUs()
-        self.logger.info("process_account_types()")
-        self.process_account_types()
+
+        for p in procconf.PROC_METHODS:
+            self.logger.debug("Calling %s()" % p)
+            getattr(self, p)()
         if self.dryrun:
             self.logger.info("rollback()")
             self.proc.rollback()
