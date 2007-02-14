@@ -18,7 +18,7 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-// Main title on the all pages.
+/* Main title on the all pages. */
 div.title {
     color: black;
     background-color: white;
@@ -33,7 +33,7 @@ div.title h1 {
     margin: 0.1em;
 }
 
-// Styles for searchpages.
+/* Styles for searchpages. */
 div.searchtitle {
     border-bottom: 1px solid gray;
     padding-left: 10px;
@@ -146,7 +146,7 @@ div.search_range a:hover { color: blue; text-decoration: none; }
 div.search_range a.first, div.search_range a.last { text-decoration: none; }
 div.search_range .first, div.search_range .last { font-size: 90%; }
 
-// Styles for view page, like person view etc..
+/* Styles for view page, like person view etc.. */
 div.view_content {
     max-width: 650px;
 }
@@ -204,7 +204,7 @@ div.page_menu {
     /* background: #d9e2ef; */
 }
 
-// Styles for create pages, like create person etc..
+/* Styles for create pages, like create person etc.. */
 div.create {
     background: #d9e2ef;
     border: 1px solid black;
@@ -299,7 +299,7 @@ div.create form input:focus, div.create form textarea:focus {
     background: #ffe;
 }
 
-// Styles for edit pages, like person edit etc..
+/* Styles for edit pages, like person edit etc.. */
 /*
 div.edit {
     display: block;
@@ -366,7 +366,7 @@ div.edit div.help {
 /*div.edit h3 { margin: 0; }*/
 
 
-// A generic floating box for page contents.
+/* A generic floating box for page contents. */
 div.box {
     width: 100%;
     float: left;
@@ -432,13 +432,13 @@ div.box div.actions {
 div.box a:hover { color: gray; }
 div.box h3 a { color: black; text-decoration: none; }
 
-// Style action-links
+/* Style action-links */
 a.action:before { content: "["; }
 a.action:after { content: "]"; }
 div.actions a.action:before,
 div.actions a.action:after { content: ""; }
 
-// The bluish-colored boxes used for most stuff.
+/* The bluish-colored boxes used for most stuff. */
 div.info {
     background: #eff;
     border-color: #bdf;
@@ -450,7 +450,7 @@ div.info div.item {
     border-bottom-color: #bdf;
 }
  
-// The yellow box for notes in entities.
+/* The yellow box for notes in entities. */
 div.note {
     background: #ffc;
     border-background: #dda;
@@ -465,7 +465,7 @@ div.note div.item {
     border-bottom-color: #dda;
 }
 
-// The reddish-colored boxes used for quarantines.
+/* The reddish-colored boxes used for quarantines. */
 div.important {
     background: #cba;
     border-color: #da9;
@@ -477,7 +477,7 @@ div.important div.item {
     border-color: #da9;
 }
 
-// The topmost box on almost all the pages
+/* The topmost box on almost all the pages */
 div.view_info {
     padding: 0;
     clear: none;
@@ -526,7 +526,7 @@ div.view_info td.name {
 div.view_info td.value {
 }
 
-// list boxes and log boxes are a bit different.
+/* list boxes and log boxes are a bit different. */
 div.log,
 div.list {
     margin: 10px 0 10px 0;
@@ -556,7 +556,7 @@ div.log td, div.activitylog_full td, table.results td, div.memberlists td {
     padding: 1px 2px 1px 2px;
 }
 
-// For the permissions-system.
+/* For the permissions-system. */
 span.perm_added { color: green; font-size: 12px; }
 span.perm_removed { color: red; font-size: 12px; }
 table.perm_methods tr.gray { empty-cells: show; background-color: #dadada; }
@@ -565,7 +565,7 @@ a.perm_all:hover { color: gray; }
 
 div.tree { margin-left: 2em; }
 
-// Box containing form for adding/setting items on view-pages.
+/* Box containing form for adding/setting items on view-pages. */
 div.form {
     margin: 10px 10px 10px 0;
 }
@@ -580,9 +580,15 @@ div.form textarea:focus {
     background: #ffe;
 }
 
-// Styles for email pages.
-// div.email_view form { margin: 0; }
-// div.email_view h2 { margin: 1em 0 0 0; }
+/* Styles for email pages. */
+/*
+div.email_view form {
+    margin: 0;
+}
+div.email_view h2 {
+    margin: 1em 0 0 0;
+}
+*/
 div.email_view {
     background: #d9e2ef;
     border: 1px solid black;
@@ -613,7 +619,7 @@ div.td_email_view {
 }
 */
 
-// Styles for the Error-pages.
+/* Styles for the Error-pages. */
 div.errorpage { margin: 5px; }
 
 div.errorpage div.title {
@@ -650,7 +656,7 @@ div.errorpage div.traceback pre {
     font-size: 12px;
 }
 
-// Styles for the session warning box on top of all pages.
+/* Styles for the session warning box on top of all pages. */
 div.session_warning {
     border: 1px dotted black;
     padding: 8px;
@@ -660,7 +666,7 @@ div.session_warning {
     overflow: visible;
 }
 
-// Styles for message of today on index-page.
+/* Styles for message of today on index-page. */
 div.motd {
     width: 450px;
     margin-bottom: 1em;
@@ -707,7 +713,7 @@ div.motd_edit input:focus, div.motd_edit textarea:focus {
     background: #ffe;
 }
 
-// Styles for options-page.
+/* Styles for options-page. */
 div.options form {
     margin: 0;
 }
@@ -736,7 +742,7 @@ div.options input:focus {
     background: #ffe;
 }
 
-// Classes used for styling the Account Create Form.
+/* Classes used for styling the Account Create Form. */
 .usernamechoice {
     float: left;
 }
@@ -750,7 +756,7 @@ div.options input:focus {
     clear: left;
 }
 
-// place the quicksearch box
+/* place the quicksearch box */
 #ac_quicksearch {
     position: absolute;
     top: 0;
@@ -760,7 +766,7 @@ div.options input:focus {
     display: none;
 }
 
-// Classes used for styling the autocomplete input
+/* Classes used for styling the autocomplete input */
 
 .autocomplete_container {
     position:relative;
@@ -799,4 +805,4 @@ div.options input:focus {
     background:#ff0;
 }
 
-// vim: sw=4 sts=4 expandtab
+/* vim: sw=4 sts=4 expandtab */
