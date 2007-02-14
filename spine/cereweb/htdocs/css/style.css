@@ -353,7 +353,9 @@ div.edit h3 {
     background: #bde;
 }
 
-div.edit {
+/*div.edit h3 { margin: 0; }*/
+
+div.view {
     background: #d9e2ef;
     border: 1px solid black;
     color: black;
@@ -365,22 +367,12 @@ div.edit {
     white-space: normal;
 }
 
-/*div.edit h3 { margin: 0; }*/
-
-
 /* The topmost box on almost all the pages */
 div.view_info {
+    margin-bottom: 0.2em;
     padding: 0;
     clear: none;
     float: none;
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 0.2em;
-    text-align: left;
-    white-space: normal;
 }
 
 /*
