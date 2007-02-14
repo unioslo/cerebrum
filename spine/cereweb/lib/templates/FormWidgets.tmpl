@@ -22,8 +22,11 @@
 #from types import StringTypes
 
 ## Creates a drop-down option list where 'selected' is preselected.
-#def generate_option($name, $types, $selected=None)
-    <select name="$name" id="$name">
+#def generate_option($name, $types, $selected=None, $id=None)
+    #if not $id
+        #set $id = $name
+    #end if
+    <select name="$name" id="$id">
     #for $name, $desc in $types
         #set $is_selected = ""
         #if $selected==$name
@@ -35,9 +38,12 @@
 #end def
 
 ## Creates a drop-down option list with a label.
-#def generate_loption($name, $label, $types, $selected=None)
-    <label for="$name">$_($label):</label>
-    $generate_option($name, $types, $selected)
+#def generate_loption($name, $label, $types, $selected=None, $id=None)
+    #if not $id
+        #set $id = $name
+    #end if
+    <label for="$id">$_($label):</label>
+    $generate_option($name, $types, $selected, $id)
 #end def
 
 #def generate_td2loption($name, $label, $types, $selected=None,$tdattrs={'align': {'left': 'left','right' :'left'}})

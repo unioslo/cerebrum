@@ -53,7 +53,7 @@
     <form action="/entity/add_spread" method="post">
     <h3>$_('Add a spread')</h3>
     <p>
-        $form_widgets.generate_loption("spread", "Spread", $spreads)
+        $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
         <input type="hidden" name="id" value="$entity.get_id()" />
         <input type="submit" value="$_('Add')" />&nbsp;
         <input type="button" value="$_('Cancel')" id="spread_cancel" />
