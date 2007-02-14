@@ -36,7 +36,6 @@
         <span class="name">$note.get_subject()</span>&nbsp;
         <span class="creator">-$_('by')  $object_link($note.get_creator())</span>&nbsp;
         <span class="date">$strftime($note.get_create_date())</span>
-        <br />
         <div class="description">$description</div>
     </div>
     #end for
@@ -46,23 +45,23 @@
 
 #def add($entity)
 <div class="edit box" id="note_form" style="display:none;">
-<a class="anchor" id="note"></a>
+    <h3 id="note">$_('Add a note')</h3>
     <form action="/note/add" method="post">
-        <h3>$_('Add a note')</h3>
-        <div>
+        <div class="hidden">
             <input type="hidden" name="entity" value="$entity.get_id()" />
-            <div>
-                <label for="subject">$_('Subject'):</label>
-                <input type="text" size="40" id="subject" /><br />
-            </div>
-            <div>
-                <label for="description">$_('Optional details'):</label><br />
-                <textarea cols="40" rows="4" id="description"></textarea><br />
-            </div>
-            <input type="submit" value="$_('Add')" />&nbsp;
+        </div>
+        <div class="required">
+            <label for="subject">$_('Subject'):</label>
+            <input type="text" size="40" name="subject" id="subject" />
+        </div>
+        <div class="required">
+            <label for="description">$_('Optional details'):</label>
+            <textarea cols="40" rows="4" name="description" id="description"></textarea>
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Add')" />
             <input type="button" value="$_('Cancel')" id="note_cancel" />
         </div>
     </form>
 </div>
 #end def
-
