@@ -42,16 +42,18 @@
             <div id="login">
                 <h1>Log in to Cereweb</h1>
                 <form method="post" action="/login">
-                <div class="hidden">
-                    <input type="hidden" name="redirect" value="$redirect" />
-                </div>
-                <div class="required">
-                    $form_widgets.input("username", $_("Username"), $username)
-                </div>
-                <div class="required">
-                    $form_widgets.password('password', $_('Password'))
-                </div>
-                <input type="submit" value="Login" />
+                    <div class="hidden">
+                        <input type="hidden" name="redirect" value="$redirect" />
+                    </div>
+                    <div class="required">
+                        $form_widgets.input("username", $_("Username"), $username)
+                    </div>
+                    <div class="required">
+                        $form_widgets.password('password', $_('Password'))
+                    </div>
+                    <div>
+                        <input type="submit" value="Login" />
+                    </div>
                 </form>
             </div>
         </div>
