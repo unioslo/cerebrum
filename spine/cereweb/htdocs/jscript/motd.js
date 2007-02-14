@@ -53,7 +53,7 @@ var initMotdDialog = function(e) {
     myDiv.style.display = 'none';
     cereweb.motdDialog = new YAHOO.widget.Dialog("editMotd", {
         'width': '500px',
-        'height': '165px',
+        'height': '175px',
         'draggable': false,
         'visible': false,
         'fixedcenter': true,
