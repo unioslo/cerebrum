@@ -51,23 +51,6 @@ div.searchtitle h3 {
     margin: 0;
 }
 
-div.search {
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    /* margin-bottom: 0.2em; */
-    margin-bottom: 1em;
-    padding-left: 1em;
-    text-align: left;
-    white-space: normal;
-}   
-
-div.search form {
-   padding: 0.5em 0 1em 0;
-}
-
 div.searchform br {
     clear: left;
 }
@@ -149,24 +132,6 @@ div.page_menu {
     background: #aac1df;
     border: 1px solid grey;
     color: black;
-    /* background: #d9e2ef; */
-}
-
-/* Styles for create pages, like create person etc.. */
-div.create {
-    background: #d9e2ef;
-    border: 1px solid black;
-    color: black;
-    width: 500px;
-    font-size: 15px;
-    margin-bottom: 1em;
-    padding-left: 1em;
-    text-align: left;
-    white-space: normal;
-}
-
-div.create form {
-    padding: 0.5em 0 1em 0;
 }
 
 /**
@@ -353,8 +318,6 @@ div.edit h3 {
     background: #bde;
 }
 
-/*div.edit h3 { margin: 0; }*/
-
 div.view {
     background: #d9e2ef;
     border: 1px solid black;
@@ -365,6 +328,10 @@ div.view {
     padding-left: 1em;
     text-align: left;
     white-space: normal;
+}
+
+div.view form {
+   padding: 0.5em 0 1em 0;
 }
 
 /* The topmost box on almost all the pages */
