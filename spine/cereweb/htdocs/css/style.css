@@ -87,41 +87,14 @@ div.searchform {
    padding: 0.5em 0 1em 0;
 }
 
-div.searchform label {
-    font-style: oblique;
-    font-weight: bold;
-    margin-right: 0.5em;
-    text-align: left;
-    float: left;
-    width: 7em;
-}
-
 div.searchform select{
     margin-bottom: 0.4em;
     width: 13em;
 }
 
 
-div.searchform input {
-    width: auto;
-    margin-bottom: 0.4em;
-}
-
-/*
-div.searchform label {
-    text-align: left;
-    font-style: oblique;
-    font-weight: bold;
-
-}
-*/
-
 div.searchform br {
     clear: left;
-}
-
-div.searchform input:focus {
-    background: #ffe;
 }
 
 div.searchresult {
@@ -217,22 +190,6 @@ div.create {
     white-space: normal;
 }
 
-/*
-div.create table {
-    width: 100%;
-}
-
-div.create th{
-    background: #aac1df;
-    color: black;
-    padding: 0.3em 0.5em 0.3em 0.5em;
-    width: auto;
-    font-size: 18px;
-    margin-bottom: 0.4em;
-    text-align: left;
-}
-*/
-
 div.create div.help {
     border: 1px dotted black;
     padding: 2px;
@@ -245,40 +202,54 @@ div.create form {
     padding: 0.5em 0 1em 0;
 }
 
-div.create form label {
-    margin-right: 0.5em;
-    text-align: left;
+/**
+ * Forms should be styled using CSS, not tables.
+ * This is accomplished using a floated label with
+ * a specified width.
+ */
+form label {
     float: left;
     width: 7em;
+    text-align: right;
+    padding-right: 0.5em;
 }
 
-div.create form div.optional label {
+/**
+ * Input fields should be styled so that it's obvious which
+ * field has focus and what is required and not.
+ */
+form input:focus, form textarea:focus {
+    background: #ffe;
+}
+form input, form textarea {
+    text-align: left;
+    width: auto;
+    margin-bottom: 0.4em;
+}
+
+/**
+ * Form fields can be either optional, required or hidden.
+ */
+div.optional label {
     font-weight: normal;
     font-style: normal;
 }
-div.create form div.required label {
+div.required label {
     font-style: oblique;
     font-weight: bold;
 }
 
-div.cssform label {
-    float: left;
-    width: 10em;
-}
-
-div.create form input, div.create form textarea {
-    width: auto;
-    margin-bottom: 0.4em;
+/**
+ * The class hidden should set visibility to hidden.
+ * It's not limited to labels.
+ */
+.hidden {
+    visibility: hidden;
 }
 
 div.create form select {
     width: 12em;
     margin-bottom: 0.4em;
-}
-
-div.create form div.radio input {
-    width: auto;
-    float: none;
 }
 
 div.create form div.radio {
@@ -292,11 +263,6 @@ div.create form br {
 div.create form input.join {
     width: auto;
     float: none;
-}
-
-
-div.create form input:focus, div.create form textarea:focus {
-    background: #ffe;
 }
 
 /* Styles for edit pages, like person edit etc.. */
@@ -321,39 +287,12 @@ div.edit {
     white-space: normal;
 }
 
-/*
-div.edit form label, div.edit form input, div.edit form select, div.edit form textarea {
-    width: 12em;
-    float: left;
-    margin-bottom: 0.4em;
-}
-*/
-
 div.edit form {
     padding: 0.5em 0 1em 0;
 }
 
-div.edit form label {
-    font-style: oblique;
-    font-weight: bold;
-    margin-right: 0.5em;
-    text-align: left;
-    float: left;
-    width: 10em;
-}
-
-div.edit form input, div.edit form textarea {
-    align: left;
-    width: auto;
-    margin-bottom: 0.4em;
-}
-
 div.edit form br {
     clear: left;
-}
-
-div.edit form input:focus, div.edit form textarea:focus {
-    background: #ffe;
 }
 
 div.edit div.help {
@@ -575,11 +514,6 @@ div.form h3 {
     background: #bde;
 }
 
-div.form input:focus,
-div.form textarea:focus {
-    background: #ffe;
-}
-
 /* Styles for email pages. */
 /*
 div.email_view form {
@@ -692,11 +626,6 @@ div.motd span.when {
     margin-left: 5px;
 }
 
-div.motd_edit label {
-    float: left;
-    width: 5em;
-}
-
 div.motd_edit input {
     font-size: 70%;
 }
@@ -707,10 +636,6 @@ div.motd_edit input[type=text] {
 
 div.motd_edit textarea {
     width: 400px;
-}
-
-div.motd_edit input:focus, div.motd_edit textarea:focus {
-    background: #ffe;
 }
 
 /* Styles for options-page. */
@@ -738,25 +663,19 @@ div.options td.buttons {
     padding-top: 0.8em;
 }
 
-div.options input:focus {
-    background: #ffe;
-}
 
-/* Classes used for styling the Account Create Form. */
-.usernamechoice {
-    float: left;
-}
-.usernamechoice input {
-    float: left;
-}
-.usernamechoice label {
-    width: 8em;
-}
-.lastchoice {
-    clear: left;
-}
+/**
+ * Classes used for styling the Account Create Form.
+ */
+.usernamechoice { float: left; }
+.usernamechoice label { text-align: left; }
+.usernamechoice input { float: left; }
+.lastchoice { clear: left; }
 
-/* place the quicksearch box */
+
+/**
+ * Style the quicksearch box
+ */
 #ac_quicksearch {
     position: absolute;
     top: 0;
@@ -766,15 +685,13 @@ div.options input:focus {
     display: none;
 }
 
-/* Classes used for styling the autocomplete input */
 
-.autocomplete_container {
-    position:relative;
-}
+/**
+ * Classes used for styling the autocomplete input
+ */
+.autocomplete_container { position:relative; }
 .autocomplete_container .ac_group,
-.autocomplete_container .ac_account {
-    position:absolute;
-}
+.autocomplete_container .ac_account { position:absolute; }
 .autocomplete_container .autocomplete {
     position:absolute;
     top:1.7em;
