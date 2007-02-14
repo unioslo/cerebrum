@@ -1,33 +1,84 @@
-BODY {
-	color:  black;
-	background-color: white;
+/*
+ * Copyright 2004, 2005 University of Oslo, Norway
+ *
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/** CSS code stolen from
+ *
+ * [1]: Centering of a div: http://bluerobot.com/web/css/center1.html
+ */
+
+/* The styling of the login page */
+body {
+    /* Centering the content div */
+    margin: 50px 0px; /* 1 */
+    padding: 0px; /* 1 */
+    text-align: center; /* 1 */
+
+    color:  black;
+    background-color: white;
 }
 
-TABLE {
-	font-size: 14px;
-	} 
+#content {
+    /* Centering the div */
+    width: 400px; /* 1 */
+    margin: 0px auto; /* 1 */
+    text-align: left; /* 1 */
+    padding: 15px; /* 1 */
+    border: 1px dashed blue; /* 1 */
+}
 
-.frametable {
-	color: black;
-	border: thin dotted black;
-	background-color: white;
-	}
+#login h1 {
+    text-align: center;
+}
 
-.logintable {
-	color: black;
-	border: thin solid black;
-	background-color: #aac1df;
-	}
+#login div {
+    /* Make sure each form element is on a new "line" */
+    clear: both;
 
-.heading1 {
-	color: black;
-	font: italic
-	small-caps 900 20px arial;
-	text-align: center;
-	}
+    /* Center the line */
+    margin: 0px auto;
+    width: 300px;
+}
 
-.errortd {
-	color: red;
-	background-color: #aac1df;
-	text-align: center;
-	}
+#login label {
+    text-align: right;
+    margin-right: 5px;
+    float: left;
+    width: 7em;
+}
+
+#login label.hidden {
+    visibility: hidden;
+}
+
+#login input {
+    text-align: left;
+    margin-bottom: 5px;
+}
+
+#submit {
+    text-align: center;
+}
+
+.message {
+    color: red;
+    background-color: yellow;
+    border: 1px dashed white;
+    text-align: center;
+}
