@@ -44,7 +44,7 @@
 #end def
 
 #def create_box($tr)
-<div class="create">
+<div class="view">
 <h3>$_("Create a new email domain:")</h3>
     <form action="/email/make" method="post">
         #echo $_create($tr)
@@ -57,7 +57,7 @@
 #end def
 
 #def create($tr)
-<div class="create">
+<div class="view">
     <h3>$_('Create a new email domain:')</h3>
     <form action="/email/make" method="post">
         #echo $_create($tr)
@@ -70,7 +70,7 @@
 #end def
 
 #def search_box($tr)
-<div class="search">
+<div class="view">
     <h3>$_('Find email domain:')</h3>
     <form method="post" action="/email/search">
         #echo $_search($tr, {})
@@ -83,7 +83,7 @@
 #end def
 
 #def search($tr, $vargs)
-<div class="search">
+<div class="view">
     <h3>$_("Search for email domain(s):")</h3>
     <form method="post" action="/email/search">
         #echo $_search($tr, $vargs)
@@ -231,7 +231,7 @@
 #end def
 
 #def edit_domain($domain)
-<div class="edit">
+<div class="view">
     <h3>$_('Edit domain ' + $domain.get_name())</h3>
     <form action="save" method="post">
         <div class="hidden">

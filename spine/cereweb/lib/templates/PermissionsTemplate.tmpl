@@ -199,23 +199,24 @@ return classes, new_methods
 
 ## Edit page for a specific operation set
 #def edit($op_set)
-<div class="edit">
+<div class="view">
     <form action="save" method="post">
-        <div class="editform">
+        <div class="hidden">
             <input type="hidden" name="id" value="$op_set.get_id()" />
+        </div>
+        <div class="required">
             <label for="name">$_('Name'): </label>
             <input type="text" size="30" name="name" value="$op_set.get_name()" />
-            <br />
+        </div>
+        <div class="required">
             <label for="description">$_('Description'):</label>
             <textarea cols="40" rows="4" name="description">
                 $op_set.get_description()
             </textarea><br />
         </div>
-        <div>
-            <center>
-                <input type="submit" value="$_('Save')" />&nbsp;
-                <input type="submit" value="$_('Cancel')" />
-            </center>
+        <div class="buttons">
+            <input type="submit" value="$_('Save')" />
+            <input type="submit" value="$_('Cancel')" />
         </div>
     </form>
 </div>

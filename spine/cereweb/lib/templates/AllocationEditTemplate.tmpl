@@ -40,20 +40,20 @@
 
 ## Creates the form for editing the main allocation info.
 #def form($allocation,$transaction)
-<div class="edit">
+<div class="view">
+    <div class="item"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
+    <div class="item"><em>$_("Period"):</em> $object_link($allocation.get_period())</div>
     <form action="$getAction()" method="post">
-        <div class="editform">
-	    <div class="item"><em>$_("Allocation name"):</em> $allocation.get_allocation_name().get_name()</div>
-            <div class="item"><em>$_("Period"):</em> $object_link($allocation.get_period())</div>
-            $form_widgets.code_selector("status","Status",$transaction.get_allocation_status_searcher(),$allocation.get_status().get_name())
+        <div class="hidden">
             <input type="hidden" name="id" value="$allocation.get_id()" />
         </div>
+        <div class="required">
+            $form_widgets.code_selector("status","Status",$transaction.get_allocation_status_searcher(),$allocation.get_status().get_name())
+        </div>
         $form_widgets.showHelp($help)
-        <div>
-            <center>
-                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
-                <input type="submit" value="$_('Cancel')" name="submit" />
-            </center>
+        <div class="buttons">
+            <input type="submit" value="$_('Save')" name="submit" />
+            <input type="submit" value="$_('Cancel')" name="submit" />
         </div>
     </form>
 </div>

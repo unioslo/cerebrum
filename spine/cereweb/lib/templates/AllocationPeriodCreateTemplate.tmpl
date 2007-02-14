@@ -35,7 +35,7 @@
 #set $fv = $formvalues
 $form_widgets.generate_loption("authority", "Allocation Authority",
                                $authorities, $fv.get("authority", "notur"))
-<div class="create">
+<div class="view">
     <form action="$getAction()" method="post">
         <div class="required">
             $form_widgets.input("name", "Name", $fv.get("name", ""))

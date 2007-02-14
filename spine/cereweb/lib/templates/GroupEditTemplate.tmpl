@@ -43,32 +43,40 @@
 #set $visis = [(i.get_name(), i.get_description()) for i in 
                 $tr.get_group_visibility_type_searcher().search()]
 
-<div class="edit">
+#set $visi = $group.get_visibility().get_name()
+#set $date = $group.get_expire_date()
+#set $date = $date and $date.strftime("%Y-%m-%d") or ""
+
+<div class="view">
     <form action="$getAction()" method="post">
-        <div class="editform">
-           $form_widgets.input("name", "Name", $group.get_name())
-            #if $group.is_posix()
-                $form_widgets.input("gid", "Gid", $group.get_posix_gid())
-            #end if
-            
-            <label for="description">$_('Description'):</label>
-            <textarea rows="3" cols="40" name="description">$group.get_description()</textarea>
-            <br />
-            
-            #set $visi = $group.get_visibility().get_name()
-            $form_widgets.generate_loption("visi", "Visibility", $visis, $visi)
-            
-            #set $date = $group.get_expire_date()
-            #set $date = $date and $date.strftime("%Y-%m-%d") or ""
-            $form_widgets.input("expire", "Expire date *", $date)
+        <div class="hidden">
             <input type="hidden" name="id" value="$group.get_id()" />
         </div>
+        <div class="required">
+           $form_widgets.input("name", "Name", $group.get_name())
+        </div>
+        #if $group.is_posix()
+            <div class="required">
+                $form_widgets.input("gid", "Gid", $group.get_posix_gid())
+            </div>
+        #end if
+            
+        <div class="required">
+            <label for="description">$_('Description'):</label>
+            <textarea rows="3" cols="40" name="description">$group.get_description()</textarea>
+        </div>
+            
+        <div class="required">
+            $form_widgets.generate_loption("visi", "Visibility", $visis, $visi)
+        </div>
+            
+        <div class="required">
+            $form_widgets.input("expire", "Expire date *", $date)
+        </div>
         $form_widgets.showHelp($help)
-        <div>
-            <center>
-                <input type="submit" value="$_('Save')" name="submit" />&nbsp;
-                <input type="submit" value="$_('Cancel')" name="submit" />
-            </center>
+        <div class="buttons">
+            <input type="submit" value="$_('Save')" name="submit" />
+            <input type="submit" value="$_('Cancel')" name="submit" />
         </div>
     </form>
 </div>

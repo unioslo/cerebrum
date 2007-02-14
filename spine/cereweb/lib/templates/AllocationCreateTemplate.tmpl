@@ -39,7 +39,7 @@
 #set $periods = [($type.get_name(), $type.get_name()) 
                      for $type in $searcher.search()]
 
-<div class="create">
+<div class="view">
     <form action="$getAction()" method="post">
         <div class="required">
 	    $form_widgets.generate_loption("period", "Period", $periods, $fv.get("period", ""))
