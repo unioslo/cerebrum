@@ -22,3 +22,38 @@
 
 CLASS_BATCH = ['Cerebrum.modules.process_entity.ProcBatchRunner/ProcBatchRunner',]
 CLASS_HANDLER = ['Cerebrum.modules.process_entity.ProcHandler/ProcHandler',]
+
+
+# What methods should be called by the ProcBatchRunner
+# The four listed below are what's supported now
+PROC_METHODS= ('process_persons',
+               'process_groups',
+               'process_OUs',
+               'process_account_types')
+
+# What spreads different entities should get
+PERSON_SPREADS = ('person@ldap',)
+OU_SPREADS = ('ou@ad',)
+SHADOW_GROUP_SPREAD = ('group@ad', 'group@oid')
+AC_TYPE_GROUP_SPREAD = ('group@ad')
+
+
+# Handle the name of shadow_groups. Shadow groups are groups created
+# from groups already present in Cerebrum, tagged with
+# co.trait_group_imported. These groups have persons as members and we
+# want to make a dynamic version populated with the accounts of these
+# people(if present). The following code determines the name of the
+# 'shadow group'.
+#
+# Simple example tagging these groups with "cerebrum_groupname"
+SHADOW = lambda x: "cerebrum_%s" % x
+
+#
+# More complex example that can return None to signal errors
+def SHADOW(x): 
+    import re
+    m = re.search("^(\w+):(\d\d):(.+)", x)
+    if not m:
+        return None
+    return "%s:%s" % (m.group(1),m.group(3))
+ 
