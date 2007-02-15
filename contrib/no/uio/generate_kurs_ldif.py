@@ -176,6 +176,9 @@ def gen_undervisningsaktivitet(cgi, sip, out):
     ret = {}
     for entry in sip.undervisningsaktiviteter:
         emne = sip.emnekode2info[entry['emnekode']]
+        if not emne.has_key('emnenavn_bokmal'):
+            logger.warn("Undervisningsaktivitet %s uten enhet?" % repr(entry))
+            continue
         aktivitet_id = {}
         for persontype, role in (('aktivitetsansvar', 'TeachingAssistant'),
                                  ('student', 'Learner')):
@@ -196,7 +199,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
         out.write("uioEduCourseCode: %s\n" % entry['emnekode'])
         out.write("uioEduCourseAdministrator: %s\n" % emne['sko'])
         out.write("uioEduCourseLevel: %s\n" % emne['studienivakode'])
-        out.write("uioEduCourseName: %s\n" % entry['emnenavn_bokmal'])
+        out.write("uioEduCourseName: %s\n" % emne['emnenavn_bokmal'])
         out.write("uioEduCourseSectionName: %s\n" % entry['aktivitetsnavn'])
         out.write("uioEduCourseInstitution: %s\n" % emne['institusjonsnr'])
         out.write("uioEduCourseVersion: %s\n" % emne['versjonskode'])
