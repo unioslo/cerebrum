@@ -244,7 +244,7 @@ def populate_external_ids(db, person, fields, const):
         # IVR 2007-02-15 It is *wrong* to simply ignore these, but since they
         # do occur, and they may be difficult to get rid of, we'll downgrade
         # the severity to avoid being spammed to death.
-        logger.debug("No valid checksum for NO_SSN (%s)!", no_ssn)
+        logger.info("No valid checksum for NO_SSN (%s)!", no_ssn)
         return False        
 
     year, month, day = (int(birth_date[:4]), int(birth_date[4:6]),
