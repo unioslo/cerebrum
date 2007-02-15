@@ -154,10 +154,11 @@ class CleanChangeLog(object):
         }
 
     if never_forget_homedir:
-        max_ages[int(co.account_move)] = AGE_FOREVER 
-        max_ages[int(co.account_home_updated)] = AGE_FOREVER 
-        max_ages[int(co.account_home_added)] = AGE_FOREVER 
-        max_ages[int(co.account_home_removed)] = AGE_FOREVER 
+        for c in (co.account_move, co.account_home_updated,
+                  co.account_home_added, co.account_home_removed,
+                  co.homedir_add, co.homedir_update,
+                  co.homedir_remove):
+            max_ages[int(c)] = AGE_FOREVER 
     # The keep_togglers datastructure is a list of entries that has the
     # format:
     #
