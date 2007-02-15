@@ -89,8 +89,8 @@ cereweb.ac_group.prototype = {
         if (this.data.length === 1)
             this.parseData();
 
-        if (this.submitting) {
-            this.submitting = false;
+        if (this.widget.submitting) {
+            this.widget.submitting = false;
             this.submit();
         }
     },
@@ -123,17 +123,19 @@ cereweb.ac_group.prototype = {
     submit: function(e) {
         if (e) {
             YE.preventDefault(e);
-            this.submitting = true;
+            this.widget.submitting = true;
         }
 
         if (this.valid) {
-            this.submitted = true;
+            this.widget.submitted = true;
             this.form.submit();
-        } else if (e)
+        } else 
             this.widget.sendQuery(this.input.value);
     },
-    doBeforeExpandContainer: function() {
-        return true;
+    doBeforeExpandContainer: function(oTextBox, oContainer, sQuery, aResults) {
+        if (this.submitted || this.submitting)
+            return false;
+        else return true;
     },
 }
 
