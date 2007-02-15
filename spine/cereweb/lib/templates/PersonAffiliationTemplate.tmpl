@@ -65,22 +65,32 @@
 #end def
 
 #def add($person, $tr)
+#set $searcher = $tr.get_person_affiliation_status_searcher()
+#set $status = [($i.get_id(), "%s: %s" % ($i.get_affiliation().get_name(), $i.get_name()))
+                    for $i in $searcher.search()]
+#set $ous = $tr.get_ou_searcher().search()
+#set $ous = [($i.get_id(), $i.get_name()) for $i in $ous]
+
 <div class="edit box" id="affil_form" style="display:none;">
-<a class="anchor" id="affil"></a>
-<form action="add_affil" method="post">
-    <h3>$_('Add an affiliation')</h3>
-    <input type="hidden" name="id" value="$person.get_id()" />
-    #set $searcher = $tr.get_person_affiliation_status_searcher()
-    #set $status = [($i.get_id(), "%s: %s" % ($i.get_affiliation().get_name(), $i.get_name()))
-                        for $i in $searcher.search()]
-    #set $ous = $tr.get_ou_searcher().search()
-    #set $ous = [($i.get_id(), $i.get_name()) for $i in $ous]
-    $form_widgets.generate_loption("status", "Affiliation", $status)
-    $form_widgets.generate_loption("ou", "Organization Unit", $ous)
-    $form_widgets.input("description", "Description")
-    <input type="submit" value="$_('Add')" />&nbsp;
-    <input type="button" value="$_('Cancel')" id="affil_cancel" />
-</form>
+    <h3 id="affil">$_('Add an affiliation')</h3>
+    <form action="add_affil" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$person.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("status", "Affiliation", $status)
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("ou", "Organization Unit", $ous)
+        </div>
+        <div class="required">
+            $form_widgets.input("description", "Description")
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Add')" />
+            <input type="button" value="$_('Cancel')" id="affil_cancel" />
+        </div>
+    </form>
 </div>
 #end def
 
