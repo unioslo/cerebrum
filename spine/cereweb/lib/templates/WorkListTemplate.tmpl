@@ -109,9 +109,7 @@
 #end def
 
 #def action_remember_link($text="Remember")
-    #set $args = "_id_, '_class_', '_name_'"
-    ## Make sure the link is encoded properly.
-    #set $url = $quote("WL_remember($args);")
+    #set $url = $quote("WL_remember('_id_');")
     <a href="javascript:$url">$text</a>
 #end def
 

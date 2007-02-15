@@ -19,28 +19,49 @@
  */
 
 webroot = location.protocol + '//' + location.host;
+var WL_max_objects = 20;
 
-// Max elements in the worklist.
-var WL_max_elements = 20;
-
-// WL_worklist : ((id, class, name), ...)
-// Contains the information found in the worklist.
-var WL_worklist = new Array();
-
-// WL_actions : (((ids), action_name, action) ...)
-// Contains all actions created, not persistent.
-var WL_actions = new Array();
-
-YAHOO.util.Event.addListener('WL_all', 'click', WL_select_all);
-YAHOO.util.Event.addListener('WL_none', 'click', WL_select_none);
-YAHOO.util.Event.addListener('WL_invert', 'click', WL_invert);
-YAHOO.util.Event.addListener('WL_forget', 'click', WL_forget);
-YAHOO.util.Event.addListener('WL_select', 'change', WL_view_actions);
-
-YAHOO.util.Event.onAvailable('WL_select', WL_init_elements);
+YAHOO.util.Event.addListener('worklist', 'click', worklistHandler);
+YAHOO.util.Event.addListener('worklist', 'change', worklistHandler);
+YAHOO.util.Event.onAvailable('WL_select', WL_init_objects);
 YAHOO.util.Event.onAvailable('WL_select', WL_init_actions);
 
-/* END SETTINGS */
+cereweb.worklist = {
+    actions: {
+        'WL_all': WL_select_all,
+        'WL_none': WL_select_none,
+        'WL_invert': WL_invert,
+        'WL_forget': WL_forget,
+        'WL_select': WL_update_actions
+    },
+    // types : (((ids), action_name, action) ...)
+    types: new Array(),
+    // This is where we store the information about our objects.
+    objects: {},
+    worklistChanged: new YAHOO.util.CustomEvent('worklistChanged', this)
+}
+
+// Simple callback for all our AJAX calls in the worklist.
+var callback = {
+    success: function(o) { 
+            var obj = eval('(' + o.responseText + ')');
+            cereweb.worklist.objects = obj;
+    },
+    failure: WL_error,
+    timeout: 5000
+}
+
+function worklistHandler(event) {
+    var target = YE.getTarget(event);
+    var tag = target.nodeName.toLowerCase();
+    // Links are handled by actionClicked.
+    if (tag !== 'a') {
+        var action = cereweb.worklist.actions[target.id];
+        if (action)
+            action(event);
+        cereweb.worklist.worklistChanged.fire();
+    }
+}
 
 // This method is called when the user clicks on a link that
 // points to /remember_link.  These links shouldn't be visible
@@ -50,36 +71,6 @@ cereweb.actions['remember_link'] = function(event, args) {
     var t = YE.getTarget(event);
     WL_remember(args['id'], args['type'], args['name']);
 };
-
-// Simple callback for all our AJAX calls in the worklist.
-var callback = {
-    success: function(o) { /* empty */ },
-    failure: WL_error,
-    timeout: 5000
-}
-
-// Method which compares the elements of 2 arrays to see if they are equal.
-function compareArrays(arr1, arr2) {
-    if (arr1.length != arr2.length) {
-        return false;
-    }
-
-    var found = 0;
-    for (var i = 0; i < arr1.length; i++) {
-        for (var j = 0; j < arr2.length; j++) {
-            if (arr1[i] == arr2[j]) {
-                found++;
-                break;
-            }
-        }
-    }
-
-    if (found == arr1.length) {
-        return true;
-    } else {
-        return false;
-    }
-}
 
 // Show errors to the user, in a inobtrusive way.
 function WL_error(o) {
@@ -99,153 +90,115 @@ function WL_error(o) {
     error_div.lastChild.nodeValue = msg;
 }
 
-// Fill WL_worklist and change link-texts to forget.
-function WL_init_elements() {
-    var worklist = document.getElementById('WL_select');
+// Fill cereweb.worklist.objects and change link-texts to forget.
+function WL_init_objects() {
+    var worklist = YD.get('WL_select');
 
-    // fill WL_worklist with the info already in the select
     for (var i = 0; i < worklist.options.length; i++) {
-        var opt_name = worklist.options[i].text;
-        WL_worklist[i] = new Array(
-            worklist.options[i].value,
-            opt_name.split(":",1)[0],
-            opt_name.slice(opt_name.split(":",1)[0].length+1)
-        );
-    }
-    
-    // change the text on links to forget for things already in the worklist
-    for (var i = 0; i < worklist.length; i++) {
-        var id = WL_worklist[i][0];
+        var opt_name = worklist.options[i].text.split(':', 2);
+        var id = worklist.options[i].value;
+        var type = opt_name[0];
+        var name = opt_name[1];
+
+        // Fill cereweb.worklist.objects with the info already in the worklist
+        cereweb.worklist.objects[id] = {'id': id, 'type': type, 'name': name};
+
+        // change the text on links to forget for things already in the worklist
         var link = document.getElementById('WL_link_'+id);
         set_link_text(link, "forget");
     }
 }
 
-// Call WL_view_actions() if any is selected.
 function WL_init_actions() {
     var worklist = document.getElementById('WL_select');
     for (var i = 0; i < worklist.length; i++) {
-        if (worklist[i].selected == 1) {
-            WL_view_actions(true);
+        if (worklist[i].selected) {
+            cereweb.worklist.worklistChanged.fire(true);
             break;
         }
     }
 }
 
-// method which shows the actions for the select objects.
-// method is executed when the user selects an element in the worklist.
-function WL_view_actions(update_only) {
-    // find which elements are selected.
-    var worklist = document.getElementById('WL_select');
-    var selected = new Array();
-    for (var i = 0, j = 0; i < worklist.length; i++) {
-        if (worklist[i].selected == 1) {
-            if (worklist[i].text != "-Remembered objects-") {
-                selected[j++] = WL_worklist[i];
-            }
+function WL_update_actions(event, args) {
+    if (event === "worklistChanged")
+        var update_only = args[0];
+    else
+        var update_only = event || false;
+
+    var worklist = YD.get('WL_select');
+    var ids = new Array();
+    var j = 0;
+    for (var i = 0; i < worklist.length; i++) {
+        if (worklist[i].selected &&
+            worklist[i].text !== "-Remembered objects-") {
+                ids[j++] = worklist[i].value;
         }
     }
   
-    // inform the server about the selected elements.
-    var ids = Array(); // all ids of the selected options.
-    for (var i = 0; i < selected.length; i++) {
-        ids[i] = selected[i][0];
-    }
-
     var args = "ids=" + ids;
     var update_url = webroot + '/worklist/selected';
     
-    if (update_only == null || update_only != true) {
+    if (!update_only) {
         var cObj = YAHOO.util.Connect.asyncRequest('POST',
             update_url, callback, args);
     }
     
-    // hide all actions.
-    var actions = document.getElementById('wl_actions');
-    for (var i = 0; i < actions.childNodes.length; i++) {
-        if (actions.childNodes[i].style) {
-            actions.childNodes[i].style.display = "none";
-        }
-    }
+    // Hide all actions.
+    YD.setStyle(YD.getElementsByClassName('wl_action'), 'display', 'none');
   
-    // create and show the action for the selected items.
-    if (selected[0] != null) {
-        var action = WL_get_action(selected, ids, update_only);
-        actions.appendChild(action);
+    // Show (or create and then show) the action for the selected items.
+    if (ids.length > 0) {
+        var action = YD.get('WL_action_' + ids);
+        if (!action) {
+            action = WL_get_action(ids);
+            var actions = document.getElementById('wl_actions');
+            actions.appendChild(action);
+        }
     } else {
         var action = document.getElementById('WL_action_info');
     }
     action.style.display = "block";
 }
+cereweb.worklist.worklistChanged.subscribe(WL_update_actions);
+
+// Function used as argument to sort for sorting numbers in ascending order.
+function ascending(a, b) { return (a - b); }
 
 // Returns an action for the array with selected items.
-function WL_get_action(selected, ids) {
-    // Check if the action for the selected items already exists.
-    var action = null;
-    for (var i = 0; i < WL_actions.length; i++) {
-        if (compareArrays(WL_actions[i][0], ids)) {
-            return WL_actions[i][2];
-        }
-    }
-
-    return WL_create_action(selected, ids);
+function WL_get_action(ids) {
+    ids = ids.sort(ascending);
+    return cereweb.worklist.types[ids] || WL_create_action(ids);
 }
 
 // Creates an action for the array with selected items.
-function WL_create_action(selected, ids) {
-    selected.sort(WL_action_sort);
+function WL_create_action(ids) {
+    ids = ids.sort(ascending);
 
-    var aid = WL_actions.length < 1 ? 0 : WL_actions[WL_actions.length-1][1]+1;
-    var action = null;
-    var id = selected[0][0];
-    var cls = selected[0][1];
-    var name = selected[0][2];
-  
-    if (selected.length == 1) {
-        action = WL_action_clone(cls, aid);
-    } else if (WL_action_pattern("person", null, selected)) {
-        action = WL_action_clone("person", aid);
-    } else if (WL_action_pattern("group", "account", selected)) {
-        action = WL_action_clone("group", aid);
-        
-        /*
-        var joins = document.createElement("div");
-        var leaves = document.createElement("div");
-        joins.appendChild(document.createTextNode("Join: "));
-        leaves.appendChild(document.createTextNode("Leave: "));
-        for (var i  = 1; i < selected.length; i++) {
-            joins.appendChild(WL_action_create_link(selected[i][0], selected[i][2]));
-            leaves.appendChild(WL_action_create_link(selected[i][0], selected[i][2]));
-        }
-        if (selected.length > 2) {
-            joins.appendChild(WL_action_create_link("", "All"));
-            leaves.appendChild(WL_action_create_link("", "All"));
-        }
-        
-        //WL_action_append_content(action, joins);
-        //WL_action_append_content(action, leaves);
-        */
+    if (ids.length === 1) {
+        var id = ids[0];
+        var cls = cereweb.worklist.objects[id].type;
+        var name = cereweb.worklist.objects[id].name;
+        action = WL_action_clone(cls, id);
+    } else if (WL_action_pattern("person", null, ids)) {
+        action = WL_action_clone("person", ids);
+    } else if (WL_action_pattern("group", "account", ids)) {
+        action = WL_action_clone("group", ids);
     } else {
         name = "Error";
-        for (var i = 1; i < selected.length; i++) {
-            cls += ", "+selected[i][1];
+        var cls = cereweb.worklist.objects[ids[0]].type;
+        for (var i = 1; i < ids.length; i++) {
+            cls += ", "+cereweb.worklist.objects[ids[i]].type;
         }
-        action = WL_action_clone("default", aid);
+        action = WL_action_clone("default", ids);
     }
-    
-    // Person + Accounts
-    //group + accounts
-    //ou + persons
-    //groups
-    // insert clever stuff here
     
     // replace the variables in the actionbox.
     WL_action_replaceHTML(action, /_id_/g, id);
     WL_action_replaceHTML(action, /_class_/g, cls);
     WL_action_replaceHTML(action, /_name_/g, name);
     
-    // add the new action to WL_actions
-    WL_actions[WL_actions.length] = new Array(ids, aid, action);
+    // add the new action to cereweb.worklist.types
+    cereweb.worklist.types[cereweb.worklist.types.length] = new Array(ids, action);
     return action;
 }
 
@@ -258,7 +211,6 @@ function WL_action_append_content(action, node) {
     }
     action.appendChild(node);
 }
-
 
 function WL_action_create_link(url, name) {
     var text = document.createTextNode(name);
@@ -305,126 +257,88 @@ function WL_action_replaceHTML(action, regex, value) {
     action.innerHTML = action.innerHTML.replace(regex, value);
 }
 
-// Sorts the list over selected items by importance.
-function WL_action_sort(a, b) {
-    // Importance: OU > Group > Person > Account > *
-    if (a[1].toLowerCase() == b[1].toLowerCase()) {
-        return 0; //a and b are equally important
-    }
-
-    var classes = new Array("ou", "person", "group", "account");
-    for (var i = 0; i < classes.length; i++) {
-        if (a[1].toLowerCase() == classes[i]) {
-            return -1; //a is less important
-        } else if (b[1].toLowerCase() == classes[i]) {
-            return 1; //b is less important
-        }
-    }
-
-    return 0; //neither a,b is in classes
-}
-
 // method to add an entity to the worklist.
 function WL_remember(id, cls, name) {
     var worklist = document.getElementById('WL_select');
 
-    // element already remebered, remove.
-    for (var i = 0; i < WL_worklist.length; i++) {
-        if (WL_worklist[i][0] == id) {
-            WL_forget_by_pos(i);
-            
-            // tell the server that we have removed some element.
-            var remove_url = webroot + '/worklist/remove';
-            var args = "id="+id;
-            var cObj = YAHOO.util.Connect.asyncRequest('POST',
-                remove_url, callback, args);
+    if (cereweb.worklist.objects[id]) { // Object already remembered: remove
+        WL_forget_by_id(id);
+    } else {
+        if (worklist.length >= WL_max_objects) {
+            alert("Cannot add any more objects to the worklist.");
             return;
         }
+
+        // Remove option -Remembered objects-
+        if (worklist[0].text == "-Remembered objects-") {
+            worklist.remove(0);
+        }
+
+        var new_elm = document.createElement('option');
+        new_elm.text = cls + ': ' + name;
+        new_elm.value = id;
+
+        try {
+            worklist.add(new_elm, null); // standards compliant; doesnt work in IE
+        } catch(ex) {
+            worklist.add(new_elm); // IE only
+        }
+
+        // Change the text on the element by id
+        var link = document.getElementById('WL_link_'+id);
+        set_link_text(link, "forget");
+
+        // Tell the server that we have added an element.
+        var add_url = webroot + '/worklist/add';
+        args = "id="+id+"&cls="+cls+"&name="+name
+        var cObj = YC.asyncRequest('POST', add_url, callback, args);
+    }
+}
+
+function WL_forget_by_id(id) {
+    var worklist = document.getElementById('WL_select');
+    delete cereweb.worklist.objects[id];
+    for (var i = 0; i < worklist.length; i++) {
+        if (worklist[i].value === id) {
+            worklist.remove(i);
+            break;
+        }
     }
 
-    if (worklist.length >= WL_max_elements) {
-        alert("Cannot add any more objects to the worklist.");
-        return;
+    if (worklist.length == 0) {
+        var option = document.createElement('option');
+        option.text = "-Remembered objects-";
+        worklist[0] = option;
     }
-
-    //remove option -Remembered objects-
-    if (worklist[0].text == "-Remembered objects-") {
-        worklist.remove(0);
-    }
-
-    var new_elm = document.createElement('option');
-    new_elm.text = cls + ': ' + name;
-    new_elm.value = id;
-
-    try {
-        worklist.add(new_elm, null); // standards compliant; doesnt work in IE
-    } catch(ex) {
-        worklist.add(new_elm); // IE only
-    }
-
-    // add element to WL_worklist
-    WL_worklist[worklist.length-1] = new Array(id, cls, name);
 
     // change the text on the element by id
-    var link = document.getElementById('WL_link_'+id);
-    set_link_text(link, "forget");
+    var link = document.getElementById('WL_link_'+id)
+    set_link_text(link, "remember");
 
-    // tell the server that we have added an element.
-    var add_url = webroot + '/worklist/add';
-    args = "id="+id+"&cls="+cls+"&name="+name
-    var cObj = YAHOO.util.Connect.asyncRequest('POST',
-        add_url, callback, args);
-}
+    var action = YD.get('WL_action_' + id);
+    action.parentNode.removeChild(action);
 
-// method for removing an element from the worklist by position
-function WL_forget_by_pos(pos) {
-    var worklist = document.getElementById('WL_select');
-    if (pos >= 0) {
-        // remove element from WL_worklist and worklist
-        var id = WL_worklist[pos][0];
-        var end_slice = WL_worklist.slice(pos+1, WL_worklist.length);
-        WL_worklist = WL_worklist.slice(0, pos).concat(end_slice);
-        worklist.remove(pos);
-
-        if (worklist.length == 0) {
-            var option = document.createElement('option');
-            option.text = "-Remembered objects-";
-            worklist[0] = option;
-        }
-
-        // change the text on the element by id
-        var link = document.getElementById('WL_link_'+id)
-        set_link_text(link, "remember");
-    }
-}
-
-// method for removing selected items from worklist
-function WL_forget() {
-    var worklist = document.getElementById('WL_select')
-    var ids = new Array();
-    for (var j = 0, i = worklist.length-1; i >= 0; i--) {
-        if (worklist[i].selected == 1) {
-            if (worklist[i].text != "-Remembered objects-") {
-                ids[j++] = worklist[i].value;
-                WL_forget_by_pos(i);
-            }
-        }
-    }
-    
     // tell the server that we have removed some element.
     var remove_url = webroot + '/worklist/remove';
-    var args = "ids="+ids;
-    var cObj = YC.asyncRequest('POST',
-        update_url, callback, args);
+    var args = "id="+id;
+    var cObj = YC.asyncRequest('POST', remove_url, callback, args);
+}
+
+// Remove selected items from worklist
+function WL_forget() {
+    var worklist = document.getElementById('WL_select')
+    for (var j = 0, i = worklist.length-1; i >= 0; i--) {
+        if (worklist[i].selected &&
+            worklist[i].text !== "-Remembered objects-")
+                WL_forget_by_id(worklist[i].value);
+    }
 }
 
 function WL_select_all() {
     var worklist = document.getElementById('WL_select')
     for (var i = 0; i < worklist.length; i++) {
-        worklist[i].selected = 1;
+        worklist[i].selected = true;
     }
-    
-    WL_view_actions();
 }
 
 function WL_select_none() {
@@ -432,8 +346,6 @@ function WL_select_none() {
     for (var i = 0; i < worklist.length; i++) {
         worklist[i].selected = 0;
     }
-    
-    WL_view_actions();
 }
 
 function WL_invert() {
@@ -445,7 +357,5 @@ function WL_invert() {
             worklist[i].selected = 1;
         }
     }
-    
-    WL_view_actions();
 }
 

@@ -90,7 +90,7 @@ class WorkListElement:
 class WorkList:
     def __init__(self):
         if 'wl_remembered' not in cherrypy.session:
-            cherrypy.session['wl_remembered'] = []
+            cherrypy.session['wl_remembered'] = {}
         if 'wl_selected' not in cherrypy.session:
             cherrypy.session['wl_selected'] = []
         if 'wl_actions' not in cherrypy.session:
@@ -107,13 +107,13 @@ class WorkList:
 
     def remove(self, id=None, element=None):
         if element is None:
-            element, = [i for i in self.remembered if i.id == id]
+            element, = [i for i in self.remembered if i == id]
         self.remembered.remove(element)
 
     def output(self):
         template = WorkListTemplate()
-        objects = [(i.id, i.display_name) for i in self.remembered]
-        selected = [i.id for i in self.selected]
+        objects = [(i['id'], "%s: %s" % (i['type'], i['name'])) for i in self.remembered.values()]
+        selected = self.selected
         return template.worklist(objects, selected, self.getButtons())
 
     def getButtons(self):

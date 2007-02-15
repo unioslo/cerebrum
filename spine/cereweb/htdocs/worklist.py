@@ -20,20 +20,33 @@
 
 import cherrypy
 
-import forgetHTML as html
-from lib.WorkList import WorkListElement
+from lib import cjson
+from lib import utils
+
+def _get(_id):
+    tr = utils.new_transaction()
+    entity = tr.get_entity(int(_id))
+    type = utils._spine_type(entity)
+    try:
+        name = entity.get_name()
+    except:
+        name = None
+    elm = {'id': _id, 'name': name, 'type': type}
+    return elm
+
+def get(id=None):
+    """Returns the info about the given id."""
+    if not id or id == 'undefined':
+        elm = cherrypy.session.setdefault('wl_remembered', {})
+    else:
+        elm = _get(id)
+    return cjson.encode(elm)
+get.exposed = True
 
 def add(id, cls, name):
     """Adds an element to the list of remembered objects."""
-    if 'wl_remembered' not in cherrypy.session:
-        cherrypy.session['wl_remembered'] = []
-    elm = WorkListElement(int(id), cls, name)
-    cherrypy.session['wl_remembered'].append(elm)
-
-    page = html.SimpleDocument("Worklist: Element added")
-    msg = "Element added to worklist: %s, %s: %s" % (id, cls, name)
-    page.body.append(html.Division(msg))
-    return str(page)
+    data = _remember(id, cls, name)
+    return cjson.encode(data)
 add.exposed = True
 
 def remove(id=None, ids=None):
@@ -41,18 +54,14 @@ def remove(id=None, ids=None):
     if ids is None:
         ids = []
     else:
-        ids = [int(i) for i in ids.split(",") if i]
+        ids = [i for i in ids.split(",") if i]
     
     if id is not None and id not in ids:
-        ids.append(int(id))
+        ids.append(id)
 
     for id in ids:
-        _remove(cherrypy.session, id)
-        
-    page = html.SimpleDocument("Worklist: Element(s) removed")
-    msg = "Element(s) removed from worklist: %s" % ids
-    page.body.append(html.Division(msg))
-    return str(page)
+        data = _forget(id)
+    return cjson.encode(data)
 remove.exposed = True
 
 def selected(ids=None):
@@ -60,24 +69,34 @@ def selected(ids=None):
     if ids is None:
         selected = cherrypy.session['wl_selected'] = []
     else:
-        if 'wl_remembered' not in cherrypy.session:
-            cherrypy.session['wl_remembered'] = []
-
-        remembered = cherrypy.session['wl_remembered']
-        updated = [int(i) for i in ids.split(",") if i]
-        selected = [i for i in remembered if i.id in updated]
+        remembered = cherrypy.session.setdefault('wl_remembered', {})
+        updated = [i for i in ids.split(",") if i]
+        selected = [i for i in remembered.keys() if i in updated]
         cherrypy.session['wl_selected'] = selected
     
-    page = html.SimpleDocument("Worklist: selected elements updated")
-    msg = "Selected element(s) updated: %s" % selected
-    page.body.append(html.Division(msg))
-    return str(page)
+    data = cherrypy.session.setdefault('wl_remembered', {})
+    for id in selected:
+        data[id]['selected'] = True
+    return cjson.encode(data)
 selected.exposed = True
 
-def _remove(session, id):
-    if 'wl_remembered' in session:
-        elm = [i for i in session['wl_remembered'] if i.id == id]
-        if elm:
-            session['wl_remembered'].remove(elm[0])
+def _remember(id, cls=None, name=None):
+    data = cherrypy.session.setdefault('wl_remembered', {})
 
-# arch-tag: b7928902-fdf6-11d9-87e0-419999ff18a5
+    if not cls:
+        elm = _get(id)
+    elif not name:
+        elm = _get(id)
+    else:
+        elm = {'id': id, 'name': name, 'type': cls}
+
+    data[elm['id']] = elm
+    return data
+
+def _forget(id):
+    data = cherrypy.session.setdefault('wl_remembered', {})
+    try:
+        del data[id]
+    except KeyError, e:
+        pass
+    return data
