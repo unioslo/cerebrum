@@ -37,8 +37,6 @@ CLASS_ORGPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLOrg2Object']
 CLASS_OUPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLOU2Object']
 CLASS_GROUPPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLGroup2Object']
 CLASS_RELATIONPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLRelation2Object']
-
-#CLASS_PROCESSOR=['Cerebrum.modules.abcenterprise.ABCXmlWriter/ABCXMLWriter']
 CLASS_PROCESSOR=['Cerebrum.modules.abcenterprise.ABCObj2Cerebrum/ABCObj2Cerebrum']
 CLASS_OBJ2CEREBRUM=['Cerebrum.modules.abcenterprise.Object2Cerebrum/Object2Cerebrum']
 
@@ -128,7 +126,7 @@ OU_PERSPECTIVE=co.perspective_same_source_system
 
 # In ABC Enterprise a group's name is the same as an ID. Therefore
 # we map one ID to become the groups name.
-GROUP_NAME=co.external_id_groupid
+GROUP_NAMES=(co.external_id_groupid,)
 
 RELATIONS={'ou' : {'person' : {'Employee' : ('affiliation',
                                              co.affiliation_ansatt),
