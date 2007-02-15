@@ -2014,7 +2014,7 @@ class BofhdExtension(object):
         return m.group(2)
 
     def _is_ok_mailman_name(self, localpart):
-        if not re.match(r'^[a-z0-9-]+$', localpart):
+        if not re.match(r'^[a-z0-9.-]+$', localpart):
             raise CerebrumError, "Illegal localpart: %s" % localpart
         if len(localpart) > 8 or localpart.count('-') or localpart == 'drift':
             return True
