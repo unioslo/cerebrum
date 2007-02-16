@@ -21,13 +21,12 @@
 
 
 """
+This file is part of Cerebrum. It contains code to import HiA SAP-specific OU
+identifiers (ORGEH and GSBER) and map them to the Cerebrum-specific OU
+identifier (ou_id). This script is also applicable for HiØf-data.
 
-This file is part of Cerebrum. It contains code to import HiA SAP-specific
-OU identifiers (ORGEH and GSBER) and map them to the Cerebrum-specific OU
-identifier (ou_id).
-
-There is no deep magic or any sort of validation of this mapping. This
-script assumes that 
+There is no deep magic or any sort of validation of this mapping. This script
+assumes that
 
 fs.sted.stedkode_konv
 
@@ -52,8 +51,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.modules.no.hia.access_FS import FS
-from Cerebrum.modules.no.hia.mod_sap_codes import SAPForretningsOmradeKode
+from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 
 import sys
 import getopt
@@ -66,10 +64,7 @@ import string
 def process_OUs(db):
 
     ou = Factory.get("OU")(db)
-    
-    db_hia = Database.connect(user="cerebrum", service="FSHIA.uio.no",
-                              DB_driver = "DCOracle2")
-    fs = FS(db_hia)
+    fs = Factory.get("FS")()
 
     total = 0; success = 0
 
@@ -84,12 +79,11 @@ def process_OUs(db):
             logger.warn("  cerebrum id: n/a for (%s, %s, %s)",
                         row["faknr"], row["instituttnr"], row["gruppenr"])
             continue
-        # yrt
 
-        # Not every OU has SAP ids
+        # Not every OU has SAP ids. Those that do not, cannot be mapped to SAP
+        # IDs.
         if not row["stedkode_konv"]:
             continue
-        # fi
 
         orgeh, gsber = string.split(row["stedkode_konv"], "-")
         # This forces us to check data for sanity
@@ -101,7 +95,6 @@ def process_OUs(db):
             logger.exception("Aiee! gsber «%s» does not exist in Cerebrum",
                              gsber)
             continue
-        # yrt
         
         ou.populate_SAP_id(orgeh, internal_gsber)
 
@@ -119,9 +112,11 @@ def process_OUs(db):
             else:
                 db.commit()
                 logger.debug("Committed all changes")
-            # fi
+
             success += 1
         except:
+            # IVR 2007-02-16 FIXME: This is a butt-ugly hack. But there is no
+            # other easy way to detect this "impossible" error.
             typ, value, tb = sys.exc_info()
             if (str(value).find("duplicate key violates unique constraint")
                 != -1):
@@ -135,8 +130,6 @@ def process_OUs(db):
                          ou.entity_id, ou.get_SAP_id(),
                          "(%d, %d, %d)" % 
                          (ou.fakultet, ou.institutt, ou.avdeling))
-        # yrt
-    # od
 
     logger.debug("Total: %d OUs", total)
     logger.debug("Successful id translations: %d", success)
@@ -145,9 +138,7 @@ def process_OUs(db):
 
 
 def main():
-    """
-    Entry point for this script.
-    """ 
+    "Entry point for this script." 
 	
     global logger
     logger = Factory.get_logger("cronjob")
@@ -161,8 +152,6 @@ def main():
     for option, value in options:
         if option in ("-d", "--dryrun"):
             dryrun = True
-        # fi
-    # od
 
     db = Factory.get("Database")()
     db.cl_init(change_program="import_SAP")
@@ -176,6 +165,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# fi
-
-# arch-tag: 9dcd1b09-f4c7-4168-9cdb-cbd015fc38d3
