@@ -186,6 +186,7 @@ div.required label {
 div.buttons {
     margin-left: 9.5em;
 }
+
 /**
  * The class hidden should set visibility to hidden.
  * It's not limited to labels.
@@ -515,6 +516,12 @@ div.options td.buttons {
 }
 
 
+/* Temporary fix of autocomplete. */
+div.required,
+div.buttons,
+div.optional {
+    clear: left;
+}
 /**
  * Classes used for styling the autocomplete input
  */
