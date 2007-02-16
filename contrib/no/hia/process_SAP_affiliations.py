@@ -67,7 +67,7 @@ from Cerebrum.extlib.sets import Set as set
 
 
 cerebrum_db = Factory.get("Database")()
-cerebrum_db.cl_init("import_SAP")
+cerebrum_db.cl_init(change_program="import_SAP")
 cerebrum_ou = Factory.get("OU")(cerebrum_db)
 constants = Factory.get("Constants")(cerebrum_db)
 logger = Factory.get_logger("cronjob")
