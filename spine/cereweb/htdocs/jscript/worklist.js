@@ -66,7 +66,7 @@ function worklistHandler(event) {
 // This method is called when the user clicks on a link that
 // points to /remember_link.  These links shouldn't be visible
 // unless javascript is enabled.
-cereweb.actions['remember_link'] = function(event, args) {
+cereweb.actions['worklist/remember'] = function(event, args) {
     YE.preventDefault(event);
     var t = YE.getTarget(event);
     WL_remember(args['id'], args['type'], args['name']);
@@ -105,7 +105,8 @@ function WL_init_objects() {
 
         // change the text on links to forget for things already in the worklist
         var link = document.getElementById('WL_link_'+id);
-        set_link_text(link, "forget");
+        if (link)
+            link.innerHTML = "forget";
     }
 }
 
@@ -286,7 +287,8 @@ function WL_remember(id, cls, name) {
 
         // Change the text on the element by id
         var link = document.getElementById('WL_link_'+id);
-        set_link_text(link, "forget");
+        if (link)
+            link.innerHTML = "forget";
 
         // Tell the server that we have added an element.
         var add_url = webroot + '/worklist/add';
@@ -313,10 +315,12 @@ function WL_forget_by_id(id) {
 
     // change the text on the element by id
     var link = document.getElementById('WL_link_'+id)
-    set_link_text(link, "remember");
+    if (link)
+        link.innerHTML = "remember";
 
     var action = YD.get('WL_action_' + id);
-    action.parentNode.removeChild(action);
+    if (action && action.parentNode)
+        action.parentNode.removeChild(action);
 
     // tell the server that we have removed some element.
     var remove_url = webroot + '/worklist/remove';
