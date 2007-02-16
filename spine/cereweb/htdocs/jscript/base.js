@@ -94,8 +94,35 @@ function initJS() {
     var jsonly = YD.getElementsByClassName('jsonly', null, 'maindiv');
     if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
     if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
+
 };
 YE.onAvailable('maindiv', initJS);
+
+/**
+ * Adds a link to the element in the actions div.  Pressing this link
+ * toggles the elements visibility.
+ */
+function addOptional(el) {
+    var actions = YD.get('actions');
+    var h3 = el.getElementsByTagName('h3')[0]
+    var link = document.createElement('a');
+    link.href = "#" + h3.id;
+    link.innerHTML = h3.innerHTML;
+    actions.appendChild(link);
+    YE.addListener(link, 'click', function() {
+        if (el.style.display == "none")
+            el.style.display = "";
+        else
+            el.style.display = "none";
+    });
+}
+function initOptional() {
+    var optional = YD.getElementsByClassName('optional', 'div', 'maindiv');
+    if (optional.length > 0) {
+        YD.batch(optional, addOptional);
+    }
+}
+YE.onAvailable('maindiv', initOptional);
 
 /**
  * Set the cerebug variable to true to enable the YUI logger widget.
