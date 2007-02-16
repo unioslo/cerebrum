@@ -76,7 +76,7 @@ def locate_ou(ou, orgeh, fo_kode, const):
 
     # Convert the code between internal/external representation
     try:
-        fo_kode = int(SAPForretningsOmradeKode(fo_kode))
+        fo_kode_numeric = int(SAPForretningsOmradeKode(fo_kode))
     except Errors.NotFoundError:
         logger.warn("Forretningsområdekode «%s» not registered in Cerebrum",
                     fo_kode)
@@ -85,7 +85,7 @@ def locate_ou(ou, orgeh, fo_kode, const):
     
     try:
         ou.clear()
-        ou.find_by_SAP_id(orgeh, fo_kode)
+        ou.find_by_SAP_id(orgeh, fo_kode_numeric)
     except Errors.NotFoundError:
         logger.debug("Cannot locate OU with SAP id «%s-%s»", orgeh, fo_kode)
         return False
