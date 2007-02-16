@@ -24,100 +24,9 @@ Cerebrum -- mod_sap.
 """
 
 from Cerebrum import Constants
-
-
-
-
-
-class SAPForretningsOmradeKode(Constants._CerebrumCode):
-    """
-    This class represents GSBER/forretningsområde codes.
-    """
-     
-    _lookup_table = "[:table schema=cerebrum name=sap_forretningsomrade]"
-# end SAPForretningsOmrade
-
-
-
-class SAPStillingsTypeKode(Constants._CerebrumCode):
-    """
-    This class represents HOVEDSTILLING, BISTILLING codes.
-    """
-    _lookup_table = "[:table schema=cerebrum name=sap_stillingstype]"
-# end SAPStillingsType
-
-
-
-class SAPLonnsTittelKode(Constants._CerebrumCode):
-    """
-    This class represents lonnstittel (SAP.STELL) codes.
-    """
-
-    _lookup_table = "[:table schema=cerebrum name=sap_lonnstittel]"
-
-
-    def __init__(self, code, description=None, kategori=None):
-        super(SAPLonnsTittelKode, self).__init__(code, description)
-        self.kategori = kategori
-    # end __init__
-
-
-    def insert(self):
-        self.sql.execute("""
-          INSERT INTO %(code_table)s
-            (%(code_col)s, %(str_col)s, %(desc_col)s, kategori)
-          VALUES
-            (%(code_seq)s, :str, :desc, :kategori) """ % {
-              "code_table" : self._lookup_table,
-              "code_col"   : self._lookup_code_column,
-              "str_col"    : self._lookup_str_column,
-              "desc_col"   : self._lookup_desc_column,
-              "code_seq"   : self._code_sequence
-              },
-              { 'str'      : self.str,
-                'desc'     : self._desc,
-                'kategori' : self.kategori,
-              })  
-    # end insert
-
-
-    def get_kategori(self):
-        if self.kategori is not None:
-            return self.kategori
-        # fi
-
-        return self.sql.query_1("""
-                                SELECT 
-                                  kategori
-                                FROM
-                                  %s
-                                WHERE
-                                  code = :code""" % self._lookup_table,
-                                {'code': int(self)})
-    # end get_kategori
-# end SAPLonnsTittelKode
-
-
-
-class SAPPermisjonsKode(Constants._CerebrumCode):
-    """
-    This class represents leave of absence (permisjon) codes.
-    """
-
-    _lookup_table = "[:table schema=cerebrum name=sap_permisjon]"
-# end SAPPermisjonsKode
-
-
-
-class SAPUtvalgsKode(Constants._CerebrumCode):
-    """
-    This class represents utvalg (committee) codes.
-    """
-
-    _lookup_table = "[:table schema=cerebrum name=sap_utvalg]"
-# end SAPUtvalgsKode
-
-
+from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode, \
+                                          SAPLonnsTittelKode, \
+                                          SAPPermisjonsKode
 
 
 
@@ -152,26 +61,6 @@ class SAPConstants(Constants.Constants):
         "0051",
         "Sykehusveien"
     )
-
-    sap_eksterne_tilfeldige = SAPForretningsOmradeKode(
-        "9999",
-        "Eksterne/tilfeldige"
-    )
-
-
-
-    # ----[ SAPStillingsTypeKode ]--------------------------------------
-    sap_hovedstilling = SAPStillingsTypeKode(
-        "H",
-        "Hovedstilling"
-    )
-
-    sap_bistilling = SAPStillingsTypeKode(
-        "B",
-        "Bistilling"
-    )
-
-
 
     # ----[ SAPLonnsTittelKode ]----------------------------------------
     sap_0001_statsradens_kontorsekretaer = SAPLonnsTittelKode(
@@ -1902,7 +1791,6 @@ class SAPConstants(Constants.Constants):
         "9999",
         "INN uten UT"
     )
-
 
 
     # ----[ SAPUtvalgsKode ]--------------------------------------------
