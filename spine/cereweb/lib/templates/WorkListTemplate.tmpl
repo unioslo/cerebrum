@@ -109,8 +109,8 @@
 #end def
 
 #def action_remember_link($text="Remember")
-    #set $url = $quote("WL_remember('_id_');")
-    <a href="javascript:$url">$text</a>
+    #set $url = $quote("/worklist/remember?id=_id_&type=_type_&name=_name_")
+    <a href="$url">$text</a>
 #end def
 
 #def DefaultAction

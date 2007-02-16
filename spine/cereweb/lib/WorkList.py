@@ -64,9 +64,9 @@ def remember_args(object):
 
 def remember_link(object, text='remember', _class=''):
     id, type, name, display_name = remember_args(object)
-    url = quote("/remember_link?id=%i&type=%s&name=%s" % (id, type, name))
+    url = quote("/worklist/remember?id=%i&type=%s&name=%s" % (id, type, name))
     id = 'WL_link_%i' % id
-    return '<a class="action %s" style="display:none;" href="%s" id="%s">%s</a>' % (_class, url, id, text)
+    return '<a class="action jsonly %s" href="%s" id="%s">%s</a>' % (_class, url, id, text)
 
 class WorkListElement:
     
