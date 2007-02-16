@@ -27,39 +27,28 @@
 #attr $form_widgets = FormWidgets()
 #attr $email_template = EmailTargetTemplate()
 
-#def view($transaction, $group)
-#set $id = $group.get_id()
+#def viewActions($transaction, $group)
+    #set $id = $group.get_id()
+
+    <a href="/group/edit?id=$id">$_("edit info")</a><br />
+    <a href="/group/delete?id=$id">$_("delete group")</a><br />
+    #if $group.is_posix()
+    <a href="/group/posix_demote?id=$id">$_("demote from posix")</a><br />
+    #else
+    <a href="/group/posix_promote?id=$id">$_("promote to posix")</a><br />
+    #end if
+    <a href="/account/create?owner=$id">$_('create group account')</a>
+    <br />
+    <a href="/quarantine/add?entity=$id">$_('add quarantine')</a><br />
+    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+    <br />
+    $remember_link($group)<br />
+#end def
+
+#def viewContent($transaction, $group)
 #set $searcher = $transaction.get_group_member_operation_type_searcher()
 #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
 #set $commands=$transaction.get_commands()
-<div class="view_content">
-
-    ## Actions
-    <div class="view_actions">
-        <h4>$_('Actions')</h4>
-        <div class="actions">
-            <a href="edit?id=$id">$_("edit info")</a><br />
-            <a href="delete?id=$id">$_("delete group")</a><br />
-            #if $group.is_posix()
-            <a href="posix_demote?id=$id">$_("demote from posix")</a><br />
-            #else
-            <a href="posix_promote?id=$id">$_("promote to posix")</a><br />
-            #end if
-            <a href="#member" id="member_add">$_('add member')</a><br />
-            <a href="#group" id="group_join">$_('join group')</a><br />
-            <a href="/account/create?owner=$id">$_('create group account')</a>
-            <br />
-            <a href="#email" id="email_add">$_('add email target')</a><br />
-            <a href="#spread" id="spread_add">$_('add spread')</a><br />
-            <a href="#note" id="note_add">$_('add note')</a><br />
-            <a href="/quarantine/add?entity=$id">$_('add quarantine')</a><br />
-            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
-            <br />
-            $remember_link($group)<br />
-        </div>
-    </div>
-
-    ## Content
     $viewInfo($group)
     $viewQuarantines($group)
     $addNote($group)
@@ -75,18 +64,6 @@
     $viewMembers($group, $ops)
     $derivedMembers($group)
     $viewHistoryLog($group)
-
-    ## Register divs and links to flip visibility.
-    <script type="text/javascript">
-        <!--
-        FV_register('member_form', 'member_add', null, 'member_cancel');
-        FV_register('group_form', 'group_join', null, 'group_cancel');
-        FV_register('email_form', 'email_add', null, 'email_cancel');
-        FV_register('spread_form', 'spread_add', null, 'spread_cancel');
-        FV_register('note_form', 'note_add', null, 'note_cancel');
-        //-->
-    </script>
-</div>
 #end def
 
 #def viewInfo($group)
@@ -104,8 +81,8 @@ $widgets.viewInfo($info)
 
 #def addMember($group, $ops)
 #set $types = (('account', 'Account'), ('group', 'Group'))
-<div class="edit box" id="member_form" style="display:none;">
-    <h3 id="member">$_('Add member')</h3>
+<div class="edit box optional" style="display:none;">
+    <h3>$_('Add member')</h3>
     <form action="add_member" method="post">
         <div class="hidden">
             <input type="hidden" name="id" value="$group.get_id()" />
@@ -119,35 +96,35 @@ $widgets.viewInfo($info)
         <div class="required">
             $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
         </div>
-        <div>
+        <div class="buttons">
             <input type="submit" value="$_('Add member')" />&nbsp;
-            <input type="button" value="$_('Cancel')" id="member_cancel" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
 </div>
 #end def
 
 #def joinGroup($entity, $ops=None, $transaction=None)
-#assert $ops is not None or $transaction is not None
-#if $ops is None
-#set $searcher = $transaction.get_group_member_operation_type_searcher()
-#set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
-#end if
-<div class="edit box" id="group_form" style="display:none;">
-    <h3 id="group">$_('Join group')</h3>
-    <form action="/group/join_group" method="post">
-        <div class="hidden">
-            <input type="hidden" name="entity" value="$entity.get_id()" />
-        </div>
-        <div class="required">
-            $form_widgets.input('name', 'Group name', $klass="ac_group")
-        </div>
-        <div>
-            <input type="submit" value="$_('Join group')" />&nbsp;
-            <input type="button" value="$_('Cancel')" id="group_cancel" />
-        </div>
-    </form>
-</div>
+    #assert $ops is not None or $transaction is not None
+    #if $ops is None
+    #set $searcher = $transaction.get_group_member_operation_type_searcher()
+    #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
+    #end if
+    <div class="edit box optional" style="display:none;">
+        <h3>$_('Join group')</h3>
+        <form action="/group/join_group" method="post">
+            <div class="hidden">
+                <input type="hidden" name="entity" value="$entity.get_id()" />
+            </div>
+            <div class="required">
+                $form_widgets.input('name', 'Group name', $klass="ac_group")
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Join group')" />&nbsp;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
 #end def
 
 #def viewMembers($group, $ops)

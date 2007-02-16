@@ -44,8 +44,8 @@
 #end def
 
 #def add($entity)
-<div class="edit box" id="note_form" style="display:none;">
-    <h3 id="note">$_('Add a note')</h3>
+<div class="edit box optional" style="display:none;">
+    <h3>$_('Add a note')</h3>
     <form action="/note/add" method="post">
         <div class="hidden">
             <input type="hidden" name="entity" value="$entity.get_id()" />
@@ -60,7 +60,7 @@
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Add')" />
-            <input type="button" value="$_('Cancel')" id="note_cancel" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
 </div>

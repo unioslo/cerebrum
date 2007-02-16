@@ -60,3 +60,14 @@
     #return $SpreadTemplate().add($entity, $transaction)
 #end def
 
+#def view($transaction, $entity)
+<div class="view_content">
+    <div class="view_actions">
+        <h4>$_('Actions')</h4>
+        <div id="actions">
+            $viewActions($transaction, $entity)
+        </div>
+    </div>
+    $viewContent($transaction, $entity)
+</div>
+#end def

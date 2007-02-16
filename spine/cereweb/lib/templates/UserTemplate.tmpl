@@ -65,7 +65,7 @@
 #end def
 
 #def setPassword($account)
-<div class="edit box" id="pass_form" style="display:always;">
+<div class="edit box" style="display:always;">
     <a class="anchor" id="password"></a>
     <h3>$_('Set Password')</h3>
     $form_widgets.changePassword($account['id'])
@@ -78,12 +78,5 @@
     ## Content
     $viewInfo($account)
     $setPassword($account)
-
-    ## Register divs and links to flip visibility.
-    <script type="text/javascript">
-        <!--
-        FV_register('pass_form', 'pass_set', null, 'pass_cancel');
-        //-->
-    </script>
 </div>
 #end def

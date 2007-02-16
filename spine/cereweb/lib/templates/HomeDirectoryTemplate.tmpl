@@ -24,55 +24,55 @@
 #attr $form_widgets = FormWidgets()
 
 #def view($account)
-#set $homes = $account.get_homes()
-#if $homes
-#set $id = $account.get_id()
-<div class="info box">
-    <h3>$_('Home Directories')</h3>
-    #for $home in $homes
-    <div class="item">
-    
-        #set $sname = $home.get_spread().get_name()
-        #set $remove = $quote('remove_home?id=%s&spread=%s' % ($id, $sname))
-        
-        <div class="actions">
-            <a class="action" href="$remove">$_('remove')</a>
+    #set $homes = $account.get_homes()
+    #if $homes
+        #set $id = $account.get_id()
+        <div class="info box">
+            <h3>$_('Home Directories')</h3>
+            #for $home in $homes
+            <div class="item">
+            
+                #set $sname = $home.get_spread().get_name()
+                #set $remove = $quote('remove_home?id=%s&spread=%s' % ($id, $sname))
+                
+                <div class="actions">
+                    <a class="action" href="$remove">$_('remove')</a>
+                </div>
+                <span class="name">$_("Spread"):</span> <span class="value">$sname</span><br />
+                <span class="name">$_("Home directory"):</span> <span class="value">$home.get_homedir().get_path()</span><br />
+                <span class="name">$_("Status"):</span> <span class="value">$home.get_homedir().get_status().get_description()</span>
+            </div>
+            #end for
         </div>
-        <span class="name">$_("Spread"):</span> <span class="value">$sname</span><br />
-        <span class="name">$_("Home directory"):</span> <span class="value">$home.get_homedir().get_path()</span><br />
-        <span class="name">$_("Status"):</span> <span class="value">$home.get_homedir().get_status().get_description()</span>
-    </div>
-    #end for
-</div>
-#end if
+    #end if
 #end def
 
 #def set($entity, $tr)
-#set $spreads = [($i.get_name(), $i.get_name())
-                 for $i in $entity.get_spreads()]
-#set $disks = $tr.get_disk_searcher().search()
-#set $disks = [($i.get_id(), "%s:%s" % 
-    ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
-        
-<div class="edit box" id="home_form" style="display:none;">
-    <h3 id="homedir">$_('Set home directory')</h3>
-    <form action="set_home" method="post">
-        <div class="hidden">
-            <input type="hidden" name="id" value="$entity.get_id()" />
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("spread", "Spread", $spreads, $id="set_spread")
-        </div>
-        <div class="required">
-            $form_widgets.input("home", "Home")
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("disk", "Disk", $disks)
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Set homedir')" />&nbsp;
-            <input type="button" value="$_('Cancel')" id="home_cancel" />
-        </div>
-    </form>
-</div>
+    #set $spreads = [($i.get_name(), $i.get_name())
+                     for $i in $entity.get_spreads()]
+    #set $disks = $tr.get_disk_searcher().search()
+    #set $disks = [($i.get_id(), "%s:%s" % 
+        ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
+            
+    <div class="edit box optional" style="display:none;">
+        <h3>$_('Set home directory')</h3>
+        <form action="set_home" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$entity.get_id()" />
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("spread", "Spread", $spreads, $id="set_spread")
+            </div>
+            <div class="required">
+                $form_widgets.input("home", "Home")
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("disk", "Disk", $disks)
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Set homedir')" />&nbsp;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
 #end def

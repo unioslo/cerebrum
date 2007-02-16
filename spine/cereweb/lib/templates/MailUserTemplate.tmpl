@@ -25,7 +25,7 @@
 #def viewVacation($vacations)
 <p>
 ## <div class="view_vacation" id="vacation_view" style="display:always;">
-<div class="view view_info" id="vacation_view" style="display:always;">
+<div class="view view_info" style="display:always;">
 <table width="100%">
 	<tr>
 		<th colspan="2">
@@ -195,20 +195,10 @@
 
 #def content()
 <div class="view_content">
-
-    ## Content
     $viewInfo($account)
     $viewVacation($vacations)
     $viewMailForward($forwards)
     $createVacation()
     $createMailForward()
-
-    ## Register divs and links to flip visibility.
-    <script type="text/javascript">
-        <!--
-        FV_register('vacation_view', 'vacation_view_set', null);
-        FV_register('mailforward_view', 'mailforward_view_set', null);
-        //-->
-    </script>
 </div>
 #end def

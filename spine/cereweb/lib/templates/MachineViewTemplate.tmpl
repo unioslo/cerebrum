@@ -22,62 +22,47 @@
 #extends HostViewTemplate
 #attr $widgets = Widgets()
 
+#def viewActions($transaction, $host)
+    #set $id = $host.get_id()
+
+    <a href="edit?id=$id">$_("edit info")</a><br />
+    <a href="delete?id=$id">$_("delete host")</a><br />
+    #if $host.is_machine()
+    <a href="machine_demote?id=$id">$_("demote host")</a><br />
+    #else
+    <a href="machine_promote?id=$id">$_("promote host")</a><br />
+    #end if
+    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+    <br />
+    $remember_link($host)<br />
+#end def
+
 ## Main method for creating the host view page.
-#def view($transaction, $host)
-#set $id = $host.get_id()
-<div class="view_content">
-
-    ## Actions
-    <div class="view_actions">
-        <h4>$_('Actions')</h4>
-        <div class="actions">
-            <a href="edit?id=$id">$_("edit info")</a><br />
-            <a href="delete?id=$id">$_("delete host")</a><br />
-            #if $host.is_machine()
-            <a href="machine_demote?id=$id">$_("demote host")</a><br />
-            #else
-            <a href="machine_promote?id=$id">$_("promote host")</a><br />
-            #end if
-            <a href="#note" id="note_add">$_('add note')</a><br />
-            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
-            <br />
-            $remember_link($host)<br />
-        </div>
-    </div>
-
-    ## Content
+#def viewContent($transaction, $host)
     $viewInfo($host)
     $addNote($host)
     $viewNotes($host)
     $viewDisks($host)
     $viewHistoryLog($host)
-
-    ## Register divs and links to flip visibility.
-    <script type="text/javascript">
-        <!--
-        FV_register('note_form', 'note_add', null, 'note_cancel');
-        //-->
-    </script>
-</div>
 #end def
 
 ## View information about host (name and description).
 #def viewInfo($host)
-#set $info = []
-$info.append(($_("Name"), $host.get_name()))
-$info.append(($_("Description"), $host.get_description()))
-#if host.is_machine()
-    $info.append(($_("Cpu arch"), $host.get_cpu_arch().get_description()))
-    $info.append(($_("Operating system"), $host.get_operating_system().get_description()))
-    $info.append(($_("Interconnect"), $host.get_interconnect().get_description()))
-    $info.append(($_("Total memory"), $host.get_total_memory()))
-    $info.append(($_("Node number"), $host.get_node_number()))
-    $info.append(($_("Node memory"), $host.get_node_memory()))
-    $info.append(($_("Node disk"), $host.get_node_disk()))
-    $info.append(($_("Cpu core number"), $host.get_cpu_core_number()))
-    $info.append(($_("Cpu core mflops"), $host.get_cpu_core_mflops()))
-    $info.append(($_("Cpu MHz"), $host.get_cpu_mhz()))
-#end if
-$widgets.viewInfo($info)
+    #set $info = []
+    $info.append(($_("Name"), $host.get_name()))
+    $info.append(($_("Description"), $host.get_description()))
+    #if host.is_machine()
+        $info.append(($_("Cpu arch"), $host.get_cpu_arch().get_description()))
+        $info.append(($_("Operating system"), $host.get_operating_system().get_description()))
+        $info.append(($_("Interconnect"), $host.get_interconnect().get_description()))
+        $info.append(($_("Total memory"), $host.get_total_memory()))
+        $info.append(($_("Node number"), $host.get_node_number()))
+        $info.append(($_("Node memory"), $host.get_node_memory()))
+        $info.append(($_("Node disk"), $host.get_node_disk()))
+        $info.append(($_("Cpu core number"), $host.get_cpu_core_number()))
+        $info.append(($_("Cpu core mflops"), $host.get_cpu_core_mflops()))
+        $info.append(($_("Cpu MHz"), $host.get_cpu_mhz()))
+    #end if
+    $widgets.viewInfo($info)
 #end def
 

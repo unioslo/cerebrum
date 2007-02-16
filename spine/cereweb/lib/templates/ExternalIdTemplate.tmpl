@@ -51,20 +51,26 @@
 #end def
 
 #def set($entity, $transaction)
-<div class="edit box" id="extid_form" style="display:none;">
-    <a class="anchor" id="extid"></a>
+#set $searcher = $transaction.get_entity_external_id_type_searcher()
+#set $id_types = [($type.get_name(), $type.get_description()) 
+                                for $type in $searcher.search()]
+
+<div class="edit box optional" style="display:none;">
+    <h3>$_('Set external identifier')</h3>
     <form action="/entity/add_external_id" method="post">
-        #set $searcher = $transaction.get_entity_external_id_type_searcher()
-        #set $id_types = [($type.get_name(), $type.get_description()) 
-                                        for $type in $searcher.search()]
-        <h3>$_('Set external identifier')</h3>
-        <p>
-        <input type="hidden" name="id" value="$entity.get_id()" />
-        $form_widgets.input("external_id", "External identifier")
-        $form_widgets.generate_loption("id_type", "Type", $id_types)
-        <input type="submit" value="$_('Set')" />&nbsp;
-        <input type="button" value="$_('Cancel')" id="extid_cancel" />
-        </p>
+        <div class="hidden">
+            <input type="hidden" name="id" value="$entity.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.input("external_id", "External identifier")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("id_type", "Type", $id_types)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Set')" />&nbsp;
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
     </form>
 </div>
 #end def

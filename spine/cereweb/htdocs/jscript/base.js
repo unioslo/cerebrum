@@ -103,18 +103,25 @@ YE.onAvailable('maindiv', initJS);
  * toggles the elements visibility.
  */
 function addOptional(el) {
+    // Make sure the element has an id we can refer to.
+    if (!el.id)
+        YD.generateId(el, 'optional_');
+
     var actions = YD.get('actions');
-    var h3 = el.getElementsByTagName('h3')[0]
+    var text = el.getElementsByTagName('h3')[0].innerHTML;
     var link = document.createElement('a');
-    link.href = "#" + h3.id;
-    link.innerHTML = h3.innerHTML;
+    var br = document.createElement('br');
+
+    link.href = "#" + el.id;
+    link.innerHTML = text;
     actions.appendChild(link);
-    YE.addListener(link, 'click', function() {
-        if (el.style.display == "none")
-            el.style.display = "";
-        else
-            el.style.display = "none";
-    });
+    actions.appendChild(br);
+
+    var cancel_links = YD.getElementsByClassName("cancel", null, el);
+    if (cancel_links.length > 0)
+        YE.addListener(cancel_links, 'click', cereweb.flip, el, true);
+
+    YE.addListener(link, 'click', cereweb.flip, el, true);
 }
 function initOptional() {
     var optional = YD.getElementsByClassName('optional', 'div', 'maindiv');
@@ -137,42 +144,13 @@ if(cerebug) {
     });
 };
 
-/* Flip visibility */
-// Contains the diffrent divs and their links/buttons.
-var FV_elements = new Array();
-// Register a division which should have its visibility flipped
-// when link and/or button is pressed.
-function FV_register(div, link, link_div, button, button_div) {
-    var i = FV_elements.length < 1 ? 0 : FV_elements.length;
-    FV_elements[i] = new Array(div, link_div, button_div, link, button);
-}
-// Initialize listeners on links and/or buttons in FV_elements.
-function FV_init_listeners() {
-    for (var i = 0; i < FV_elements.length; i++) {
-        var length = FV_elements[i].length;
-        for (var j = length - 2; j < length; j++) {
-            if (FV_elements[i][j] != null) {
-                element = document.getElementById(FV_elements[i][j]);
-                func = new Function("FV_flip("+i+");");
-                YE.addListener(element, 'click', func);
-            }
-        }
-    }
-}
-// Flip the visibility (display-value) on the selected element.
-function FV_flip(elm) {
-    for (var i = 0; i < FV_elements[elm].length - 2; i++) {
-        if (FV_elements[elm][i] != null) {
-            e = document.getElementById(FV_elements[elm][i]);
-            cereweb.flip(e);
-        }
-    }
-}
-cereweb.flip = function(e) {
-    if (e.style.display === 'none') {
-        e.style.display = '';
+/**
+ * Flip the visibility of an element.
+ */
+cereweb.flip = function() {
+    if (this.style.display === 'none') {
+        this.style.display = '';
     } else {
-        e.style.display = 'none';
+        this.style.display = 'none';
     }
 };
-YE.addListener(window, 'load', FV_init_listeners);

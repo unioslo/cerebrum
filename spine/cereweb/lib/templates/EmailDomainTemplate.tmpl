@@ -142,10 +142,9 @@
     ## Actions
     <div class="view_actions">
         <h4>$_('Actions')</h4>
-        <div class="actions">
+        <div id="actions">
             <a href="edit?id=$id">$_('edit info')</a><br />
             <a href="delete?id=$id">$_('delete domain')</a><br />
-            <a href="#cats" id="cats_add">$_('add to category')</a><br />
             <a href="addresses?id=$id">$_('list adresses')</a><br />
             $remember_link($domain)<br />
         </div>
@@ -161,24 +160,24 @@
     $viewCategories($domain)
     
     $list_addresses($transaction, $domain, $max_addresses)
-
-    ## Register divs and links to flip visibility.
-    <script type="text/javascript">
-        FV_register('cats_form', 'cats_add', null, 'cats_cancel');
-    </script>
 </div>
 #end def
 
 #def addCategory($transaction, $domain)
-<div class="edit box" id="cats_form" style="display:none;">
+#set $categories = $transaction.get_email_domain_category_searcher()
+
+<div class="edit box optional" style="display:none;">
     <form action="add_to_category" method="post">
-        <h3 id="cats">$_('Add to category')</h3>
-        <div>
+        <h3>$_('Add to category')</h3>
+        <div class="hidden">
             <input type="hidden" name="id" value="$domain.get_id()" />
-            #set $categories = $transaction.get_email_domain_category_searcher()
+        </div>
+        <div class="required">
             $form_widgets.code_selector("category", "Category", $categories)
+        </div>
+        <div class="buttons">
             <input type="submit" value="$_('Add')" />&nbsp;
-            <input type="button" value="$_('Cancel')" id="cats_cancel" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
 </div>

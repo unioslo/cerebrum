@@ -44,24 +44,25 @@
 #end def
 
 #def add($entity, $transaction)
-#set $type = $entity.get_type()
-#set $cspreads = $entity.get_spreads()
-#set $search = $transaction.get_spread_searcher().search()
-#set $spreads = [($s.get_name(), $s.get_name()) for $s in $search 
-                 if $type == $s.get_entity_type() and $s not in $cspreads]
-<div class="edit box" id="spread_form" style="display:none;">
-    <h3>$_('Add a spread')</h3>
-    <form action="/entity/add_spread" method="post">
-        <div class="hidden">
-            <input type="hidden" name="id" value="$entity.get_id()" />
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Add')" />&nbsp;
-            <input type="button" value="$_('Cancel')" id="spread_cancel" />
-        </div>
-    </form>
-</div>
+    #set $type = $entity.get_type()
+    #set $cspreads = $entity.get_spreads()
+    #set $search = $transaction.get_spread_searcher().search()
+    #set $spreads = [($s.get_name(), $s.get_name()) for $s in $search 
+                     if $type == $s.get_entity_type() and $s not in $cspreads]
+
+    <div class="edit box optional" style="display:none;">
+        <h3>$_('Add a spread')</h3>
+        <form action="/entity/add_spread" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$entity.get_id()" />
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Add')" />&nbsp;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
 #end def

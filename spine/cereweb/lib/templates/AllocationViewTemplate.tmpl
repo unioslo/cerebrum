@@ -22,51 +22,37 @@
 #extends EntityViewTemplate
 #attr $widgets = Widgets()
 
+#def viewActions($transaction, $allocation)
+    #set $id = $allocation.get_id()
+
+    <a href="edit?id=$id">$_("edit info")</a><br />
+    <a href="delete?id=$id">$_("delete allocation")</a><br />
+    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+    <br />
+    $remember_link($allocation)<br />
+#end def
+
 ## Main method for creating the allocation view page.
-#def view($transaction, $allocation)
-#set $id = $allocation.get_id()
-<div class="view_content">
-
-    ## Actions
-    <div class="view_actions">
-        <h4>$_('Actions')</h4>
-        <div class="actions">
-            <a href="edit?id=$id">$_("edit info")</a><br />
-            <a href="delete?id=$id">$_("delete allocation")</a><br />
-            <a href="#note" id="note_add">$_('add note')</a><br />
-            <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
-            <br />
-            $remember_link($allocation)<br />
-        </div>
-    </div>
-
-    ## Content
+#def viewContent($transaction, $allocation)
     $viewInfo($allocation)
     $viewMachines($allocation)
     $viewAccounts($allocation)
     ##$addNote($allocation)
     ##$viewNotes($allocation)
     $viewHistoryLog($allocation)
-
-    ## Register divs and links to flip visibility.
-    <script type="text/javascript">
-        <!--
-        FV_register('note_form', 'note_add', null, 'note_cancel');
-        //-->
-    </script>
 </div>
 #end def
 
 ## View information about host (name and description).
 #def viewInfo($allocation)
-#set $info = []
-$info.append(($_("Allocation name"), $allocation.get_allocation_name().get_name()))
-$info.append(($_("Project"), $object_link($allocation.get_allocation_name().get_project())))
-$info.append(($_("Period"), $object_link($allocation.get_period())))
-##( $period.get_startdate().strftime("%Y-%m-%d")
-##- $period.get_enddate().strftime("%Y-%m-%d") )
-$info.append(($_("Status"), $allocation.get_status().get_name()))
-$widgets.viewInfo($info)
+    #set $info = []
+    $info.append(($_("Allocation name"), $allocation.get_allocation_name().get_name()))
+    $info.append(($_("Project"), $object_link($allocation.get_allocation_name().get_project())))
+    $info.append(($_("Period"), $object_link($allocation.get_period())))
+    ##( $period.get_startdate().strftime("%Y-%m-%d")
+    ##- $period.get_enddate().strftime("%Y-%m-%d") )
+    $info.append(($_("Status"), $allocation.get_status().get_name()))
+    $widgets.viewInfo($info)
 #end def
 
 #def listMachines($allocation)

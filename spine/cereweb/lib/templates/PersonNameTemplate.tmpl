@@ -53,18 +53,25 @@
 #end def
 
 #def set($person, $transaction)
-<div class="edit box" id="name_form" style="display:none;">
-<a class="anchor" id="name"></a>
-<form action="add_name" method="post">
-    #set $name_types = $transaction.get_name_type_searcher().search()
-    #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
+<div class="edit box optional" style="display:none;">
     <h3>$_('Set a name')</h3>
-    <input type="hidden" name="id" value="$person.get_id()" />
-    $form_widgets.input("name", "Name")
-    $form_widgets.generate_loption("name_type", "Name type", $name_types)
-    <input type="submit" value="$_('Set name')" />
-    <input type="button" value="$_('Cancel')" id="name_cancel" />
-</form>
+    <form action="add_name" method="post">
+        #set $name_types = $transaction.get_name_type_searcher().search()
+        #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
+        <div class="hidden">
+            <input type="hidden" name="id" value="$person.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.input("name", "Name")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("name_type", "Name type", $name_types)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Set name')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
 </div>
 #end def
 
