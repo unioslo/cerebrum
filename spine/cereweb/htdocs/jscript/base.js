@@ -71,42 +71,44 @@ function parseAction(url) {
     return {'name': target[0], 'args': args};
 };
 
-// When an action gets clicked, look it up in the
-// actions object and run it.
+// When actionClicked is called, check if what was clicked
+// was a link and, if is was, look it up in the actions object.
+// If it exists, run it.
 function actionClicked(e) {
-    var action = parseAction(YE.getTarget(e).href);
-    var name = action.name;
-    var args = action.args;
-    cereweb.actions[name] && cereweb.actions[name](e, args);
+    var target = YE.getTarget(e);
+    if (target.nodeName.toLowerCase() === 'a') {
+        var action = parseAction(target.href);
+        var name = action.name;
+        var args = action.args;
+        cereweb.actions[name] && cereweb.actions[name](e, args);
+    }
 };
+YE.addListener('maindiv', "click", actionClicked);
 
-// When the document has loaded, find all "action" links
-// in the document and make them run the actionClicked
-// event when they are clicked.
-YE.addListener(window, 'load', function(e) {
-    var actions = YD.getElementsByClassName('action', 'a');
-    YD.batch(actions, function(el) {
-        // We hide javascript only actions from non-javascript browsers
-        // by setting their style="display: none;"
-        if (el.style && el.style.display && el.style.display == 'none')
-            el.style.display = '';
-        YE.addListener(el, "click", actionClicked);
-    });
-});
+/**
+ * Some text and links are only to be shown to users without javascript,
+ * and some text and links should only be shown to users with it.
+ */
+function initJS() {
+    var nojs = YD.getElementsByClassName('nojs', null, 'maindiv');
+    var jsonly = YD.getElementsByClassName('jsonly', null, 'maindiv');
+    if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
+    if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
+};
+YE.onAvailable('maindiv', initJS);
 
+/**
+ * Set the cerebug variable to true to enable the YUI logger widget.
+ * Useful for IE debugging.  Firebug is better though.
+ */
 var cerebug = false;
 if(cerebug) {
-    YE.onAvailable("logger", function(o) {
-        var myLogReader = new YAHOO.widget.LogReader("logger");
+    YE.onAvailable("maindiv", function(o) {
+        logger = document.createElement('div');
+        YD.get('maindiv').appendChild(logger);
+        var myLogReader = new YAHOO.widget.LogReader(logger);
     });
 };
-
-// Cross-browser method to set text on a Anchor DOM-object.
-function set_link_text(obj, text) {
-    if (obj) {
-        obj.replaceChild(document.createTextNode(text), obj.firstChild);
-    }
-}
 
 /* Flip visibility */
 // Contains the diffrent divs and their links/buttons.
