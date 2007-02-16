@@ -94,7 +94,7 @@ def sap_ou_number2ou_id(fo_kode, sap_ou_number):
     """Return an ou_id corresponding to the SAP pair (fo_kode, nr)."""
 
     try:
-        fo_kode = int(SAPForretningsOmradeKode(fo_kode))
+        fo_kode_numeric = int(SAPForretningsOmradeKode(fo_kode))
     except Errors.NotFoundError:
         logger.warn("Forretningsområdekode <%s> is unknown in Cerebrum",
                     fo_kode)
@@ -102,7 +102,7 @@ def sap_ou_number2ou_id(fo_kode, sap_ou_number):
 
     try:
         cerebrum_ou.clear()
-        cerebrum_ou.find_by_SAP_id(sap_ou_number, fo_kode)
+        cerebrum_ou.find_by_SAP_id(sap_ou_number, fo_kode_numeric)
     except Errors.NotFoundError:
         logger.warn("Cannot locate OU with SAP-id <%s-%s>",
                     fo_kode, sap_ou_number)
@@ -297,7 +297,7 @@ def main():
         cerebrum_db.rollback()
         logger.info("All changes rolled back")
     else:
-        db.commit()
+        cerebrum_db.commit()
         logger.info("All changes committed")
 # end main
 
