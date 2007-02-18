@@ -41,7 +41,9 @@ class EdirUtils:
         self.logger = Factory.get_logger('cronjob')
         self.pq_attrlist = ['accountBalance', 'allowUnlimitedCredit']
         t = time.localtime()[0:3]
+        tstamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         self.date = '%s-%s-%s' % (t[0], t[1], t[2])
+        self.now = tstamp
         self.c_person = 'objectClass=inetOrgPerson'
         self.c_group = 'objectClass=group'
 
@@ -270,7 +272,7 @@ class EdirUtils:
             self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
             if 'password' in ldap_attr.keys():
                 logger.info("Updated password for %s", account_name)
-            desc = "Cerebrum: password %s" % self.date
+            desc = "Cerebrum: password %s" % self.now
             self.object_set_description(account_name, self.c_person, desc)
 
             
