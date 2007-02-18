@@ -258,8 +258,10 @@ class Student(FSObject):
               r.personnr = f.personnr AND
               f.terminkode = '%s' AND
               f.arstall = %s AND
-              f.fakturastatuskode = 'OPPGJORT' AND
               %s AND
+              r.status_reg_ok = 'J' AND
+              r.status_bet_ok = 'J' AND
+              NVL(r.status_ugyldig, 'N') = 'N' AND
               r.fodselsdato = p.fodselsdato AND
               r.personnr = p.personnr AND
               %s
