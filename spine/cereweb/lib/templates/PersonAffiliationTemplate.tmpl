@@ -71,7 +71,7 @@
 #set $ous = $tr.get_ou_searcher().search()
 #set $ous = [($i.get_id(), $i.get_name()) for $i in $ous]
 
-<div class="edit box optional" style="display:none;">
+<div class="edit box" style="display:none;">
     <h3 id="affil">$_('Add an affiliation')</h3>
     <form action="add_affil" method="post">
         <div class="hidden">

@@ -54,7 +54,7 @@
     #set $disks = [($i.get_id(), "%s:%s" % 
         ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
             
-    <div class="edit box optional" style="display:none;">
+    <div class="edit box" style="display:none;">
         <h3>$_('Set home directory')</h3>
         <form action="set_home" method="post">
             <div class="hidden">

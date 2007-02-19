@@ -124,7 +124,7 @@ function addOptional(el) {
     YE.addListener(link, 'click', cereweb.flip, el, true);
 }
 function initOptional() {
-    var optional = YD.getElementsByClassName('optional', 'div', 'maindiv');
+    var optional = YD.getElementsByClassName('edit', 'div', 'maindiv');
     if (optional.length > 0) {
         YD.batch(optional, addOptional);
     }

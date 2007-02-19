@@ -94,7 +94,7 @@
     #set $authorities = [($type.get_name(), $type.get_name()) 
                             for $type in $searcher.search()]
 
-    <div class="edit box optional">
+    <div class="edit box">
         <form action="/project/add_allocation_name" method="post">
             <h3>$_('Add allocation name')</h3>
             <div class="hidden">

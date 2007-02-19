@@ -60,7 +60,7 @@ $searcher.set_entity($entity)
 #set $domain_search = $transaction.get_email_domain_searcher().search()
 #set $domains = [($d.get_name(),$d.get_name()) for $d in $domain_search]
 
-<div class="edit box optional" style="display:none;">
+<div class="edit box" style="display:none;">
     <h3>$_('Create a new email target')</h3>
     <form action="/email/make_target" method="post">
         <div class="hidden">

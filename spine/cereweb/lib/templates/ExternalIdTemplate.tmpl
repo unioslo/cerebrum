@@ -55,7 +55,7 @@
 #set $id_types = [($type.get_name(), $type.get_description()) 
                                 for $type in $searcher.search()]
 
-<div class="edit box optional" style="display:none;">
+<div class="edit box" style="display:none;">
     <h3>$_('Set external identifier')</h3>
     <form action="/entity/add_external_id" method="post">
         <div class="hidden">
