@@ -100,7 +100,7 @@ def search_person(transaction, query):
 
     searcher = transaction.get_person_name_searcher()
     searcher.set_name_variant(transaction.get_name_type("FULL"))
-    searcher.set_name_like("%s*" % query)
+    searcher.set_name_like("*%s*" % query)
     people = [x.get_person() for x in searcher.search()]
 
     for person in people:
@@ -161,6 +161,7 @@ def search(transaction, query=None, type=None, output=None):
         result = ""
 
     if result:
+        result.sort(lambda x,y: cmp(x['name'], y['name']))
         result = {'ResultSet': result}
     else:
         # JSON doesn't consider [] and {} to be empty.
