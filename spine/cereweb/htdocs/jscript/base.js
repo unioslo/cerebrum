@@ -99,39 +99,6 @@ function initJS() {
 YE.onAvailable('maindiv', initJS);
 
 /**
- * Adds a link to the element in the actions div.  Pressing this link
- * toggles the elements visibility.
- */
-function addOptional(el) {
-    // Make sure the element has an id we can refer to.
-    if (!el.id)
-        YD.generateId(el, 'optional_');
-
-    var actions = YD.get('actions');
-    var text = el.getElementsByTagName('h3')[0].innerHTML;
-    var link = document.createElement('a');
-    var br = document.createElement('br');
-
-    link.href = "#" + el.id;
-    link.innerHTML = text;
-    actions.appendChild(link);
-    actions.appendChild(br);
-
-    var cancel_links = YD.getElementsByClassName("cancel", null, el);
-    if (cancel_links.length > 0)
-        YE.addListener(cancel_links, 'click', cereweb.flip, el, true);
-
-    YE.addListener(link, 'click', cereweb.flip, el, true);
-}
-function initOptional() {
-    var optional = YD.getElementsByClassName('edit', 'div', 'maindiv');
-    if (optional.length > 0) {
-        YD.batch(optional, addOptional);
-    }
-}
-YE.onAvailable('maindiv', initOptional);
-
-/**
  * Set the cerebug variable to true to enable the YUI logger widget.
  * Useful for IE debugging.  Firebug is better though.
  */
@@ -154,3 +121,77 @@ cereweb.flip = function() {
         this.style.display = 'none';
     }
 };
+
+cereweb.editBox = function() {
+    var d_editBox = YD.get('editBox');
+    if (!d_editBox) {
+        var d_main = YD.get('maindiv');
+        d_editBox = document.createElement('div');
+        d_editBox.setAttribute('id', 'editBox');
+        d_main.appendChild(d_editBox);
+    }
+        
+    d_editBox.style.display = 'none';
+    this.editBox = new YAHOO.widget.Dialog("editBox", {
+        'width': '600px',
+        'draggable': false,
+        'visible': false,
+        'fixedcenter': true,
+        'postmethod': 'form' });
+    this.editBox.setHeader("Empty editBox");
+    this.editBox.setBody("Empty editBox");
+    this.editBox.render();
+    this.editBox.hide();
+    d_editBox.style.display = '';
+
+    this.boxes = {};
+}
+
+cereweb.editBox.prototype.add = function(el) {
+    if (!el.id)
+        YD.generateId(el, 'editBox_');
+    var id = el.id;
+
+    var actions = YD.get('actions');
+    var title = el.getElementsByTagName('h3')[0];
+    var link = document.createElement('a');
+    var br = document.createElement('br');
+
+    link.href = "#" + el.id;
+    link.innerHTML = title.innerHTML;
+    actions.appendChild(link);
+    actions.appendChild(br);
+
+    // Remove the title from the box.
+    el.removeChild(title);
+    // Remove the box from the document.
+    el.parentNode.removeChild(el);
+
+    YE.addListener(link, 'click', this.show_id, this, true);
+
+    this.boxes[id] = {
+        title: title.innerHTML,
+        body: el.innerHTML
+    }
+}
+
+cereweb.editBox.prototype.show_id = function(event) {
+    var href = YE.getTarget(event).href;
+    var id = href.split('#')[1];
+    this.editBox.setHeader(this.boxes[id].title);
+    this.editBox.setBody(this.boxes[id].body);
+    var cancel_links = YD.getElementsByClassName("cancel", null, YD.get('editBox'));
+    if (cancel_links.length > 0)
+        YE.addListener(cancel_links, 'click', this.editBox.hide, this.editBox, true);
+
+    this.editBox.show();
+}
+
+function initEditBoxes() {
+    var editBox = new cereweb.editBox();
+    var els = YD.getElementsByClassName('edit', 'div', 'maindiv');
+    for (var i=0; i<els.length; i++)
+        editBox.add(els[i]);
+}
+YE.onAvailable('maindiv', initEditBoxes);
+
