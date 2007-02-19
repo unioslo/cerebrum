@@ -272,7 +272,8 @@ logs will share the directory with all other loggers; we won't have to hunt
 around for them). There is exactly one log file per job run.
 
 Incidentally, ``cereconf.AUTOADMIN_LOG_DIR`` cannot be removed yet. pq-bofhd
-logger uses it.
+logger uses it, as well as ``process_student.py`` for some temporary
+file info.
 
 
 References
