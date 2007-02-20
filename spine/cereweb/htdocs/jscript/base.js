@@ -142,18 +142,20 @@ cereweb.editBox = {
         actions.appendChild(link);
         actions.appendChild(document.createElement('br'));
 
-        YE.addListener(link, 'click', this.show, editBox, true);
+        YE.addListener(link, 'click', this.toggle, editBox, true);
         var cancel_links = YD.getElementsByClassName("cancel", null, el);
         if (cancel_links.length > 0)
             YE.addListener(cancel_links, 'click', editBox.hide, editBox, true);
     },
     /**
-     * wrapper for the dialog.show method.  we want to prevent the default
-     * event before we show the dialog
+     * toggle the dialogues visibility.
      */
-    show: function(event) {
+    toggle: function(event) {
         YE.preventDefault(event);
-        this.show();
+        if (this.element.style.visibility !== "visible")
+            this.show();
+        else
+            this.hide();
     }
 }
 YE.onAvailable('content', cereweb.editBox.init, cereweb.editBox, true);
