@@ -44,12 +44,14 @@ cereweb.motd = {
                 document.getElementById('editMotdForm_subject').value = subject;
                 document.getElementById('editMotdForm_message').value = message;
         }
-        cereweb.action.add('edit_motd', this.edit);
+        cereweb.action.add('edit_motd', this.edit, this);
     },
-    edit: function(event, args) {
-        if (cereweb.motd.dialog) {
+    edit: function(name, args) {
+        var event = args[0];
+        args = args[1];
+        if (this.dialog) {
             YE.preventDefault(event);
-            cereweb.motd.get(args['id']);
+            this.get(args.id);
         }
     },
     get: function(arg) {
@@ -57,21 +59,22 @@ cereweb.motd = {
             success: function(o) {
                 res = o.responseText;
                 eval('var data = ' + res);
-                cereweb.motd.dialog.content(data.subject,
+                this.dialog.content(data.subject,
                     data.message, arg);
-                cereweb.motd.dialog.show();
+                this.dialog.show();
             },
             failure: function(o) {
-                cereweb.motd.dialog.content("", "");
+                this.dialog.content("", "");
             },
-            timeout: 2000
+            timeout: 2000,
+            scope: this
         };
         if (arg)
             var cObj = YC.asyncRequest('POST',
                 '/ajax/get_motd', callback, 'id=' + arg);
         else {
-            cereweb.motd.dialog.content("", "");
-            cereweb.motd.dialog.show();
+            this.dialog.content("", "");
+            this.dialog.show();
         }
     }
 }

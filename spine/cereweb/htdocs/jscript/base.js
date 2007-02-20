@@ -42,36 +42,18 @@ if(cerebug) {
     });
 };
 
-/** Cereweb Actions
- *
- * When a click event occur in our page, we call the cereweb.action.clicked
- * function.
- * 
- * This function check whether the element that was clicked was a link.  If it
- * was, it parses the link with the cereweb.action.parse function.  This gives
- * us the name of the link and the arguments.  For instance 'edit_motd' with
- * id=133.
- *
- * Enter the cereweb.action.actions object.  This can be thought of as a hash
- * containing functions.  We use the name of the link that has been clicked and
- * checks if the cereweb.action.actions object contains such an attribute.  If it
- * does, we call that action with the arguments we found.
- *
- * Example:
- *   cereweb.action.add('test_action'), function(event, args) {
- *       if (can_do_action) {
- *           YE.preventDefault(event); // Do not follow link.
- *           handleLink(args);         // We do it here.
- *       }
- *   });
- *
- * Note that if the action doesn't call YE.preventDefault, the web browser will
- * follow the link.
- */
 cereweb.action = {
-    actions: {},
-    add: function(name, func) {
-        this.actions[name] = func;
+    /**
+     * This object is private and should not be accessed directly. */
+    _events: {},
+    add: function(name, func, obj) {
+        var event = this._events[name] || new YAHOO.util.CustomEvent(name);
+        event.subscribe(func, obj, true);
+        this._events[name] = event;
+    },
+    fire: function(event, action) {
+        if (this._events[action.name])
+            this._events[action.name].fire(event, action.args);
     },
     parse: function(url) {
         url = unescape(url.replace(/http.*\/\/.*?\//,''))
@@ -84,21 +66,14 @@ cereweb.action = {
         }
         return {'name': target[0], 'args': args};
     },
-    /**
-     * When actionClicked is called, check if what was clicked
-     * was a link and, if is was, look it up in the actions object.
-     * If it exists, run it.
-     */
     clicked: function(e) {
         var target = YE.getTarget(e);
 
         if (target.nodeName.toLowerCase() === 'a') {
             var action = this.parse(target.href);
-            var name = action.name;
-            var args = action.args;
-            this.actions[name] && this.actions[name](e, args);
+            this.fire(e, action);
         }
-    },
+    }
 }
 YE.addListener('maindiv', "click", cereweb.action.clicked,
     cereweb.action, true);

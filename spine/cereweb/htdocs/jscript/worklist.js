@@ -66,7 +66,10 @@ function worklistHandler(event) {
 // This method is called when the user clicks on a link that
 // points to /remember_link.  These links shouldn't be visible
 // unless javascript is enabled.
-cereweb.action.add('worklist/remember', function(event, args) {
+cereweb.action.add('worklist/remember', function(name, args) {
+    var event = args[0];
+    args = args[1];
+
     YE.preventDefault(event);
     var t = YE.getTarget(event);
     WL_remember(args['id'], args['type'], args['name']);
