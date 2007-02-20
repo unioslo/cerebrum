@@ -6110,7 +6110,8 @@ class BofhdExtension(object):
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_user,
                                account.entity_id, disk_id, state_data=spread)
-                message += "Move queued for execution at %s." % br.batch_time 
+                message += ("Move queued for execution at %s." %
+                            self._date_human_readable(br.batch_time))
                 # mail user about the awaiting move operation
                 new_homedir = disk.path + '/' + account.account_name
                 try:
@@ -6139,7 +6140,8 @@ class BofhdExtension(object):
                 br.add_request(operator.get_entity_id(), br.batch_time,
                                self.const.bofh_move_student,
                                account.entity_id, None, state_data=spread)
-                return "student-move queued for execution at %s" % br.batch_time
+                return ("student-move queued for execution at %s" %
+                        self._date_human_readable(br.batch_time))
             elif move_type == "student_immediate":
                 br.add_request(operator.get_entity_id(), br.now,
                                self.const.bofh_move_student,
@@ -6157,7 +6159,8 @@ class BofhdExtension(object):
                                self.const.bofh_move_user,
                                account.entity_id, r[0]['destination_id'],
                                state_data=spread)
-                return "move queued for execution at %s" % br.batch_time
+                return ("move queued for execution at %s" %
+                        self._date_human_readable(br.batch_time))
             elif move_type == "cancel":
                 # TBD: Should superuser delete other request types as well?
                 count = 0
@@ -7256,5 +7259,14 @@ class BofhdExtension(object):
             0, subject_entity=account_id, types=[self.const.posix_demote]):
             uid = pickle.loads(r['change_params'])['uid']
         return uid
+
+    def _date_human_readable(self, date):
+        "Convert date to something human-readable."
+
+        if hasattr(date, "strftime"):
+            return date.strftime("%Y-%m-%dT%H:%M:%S")
+
+        return str(date)
+    # end _date_human_readable
 
 # arch-tag: 98930b8a-4170-453a-a5db-34177f3ac40f

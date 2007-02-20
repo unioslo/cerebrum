@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
+import cerebrum_path
 import cereconf
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
@@ -183,16 +184,17 @@ class BofhdRequests(object):
     def __init__(self, db, const, id=None):
         self._db = db
         self.co = const
-        now = time.time()
-        tmp = list(time.localtime(now))
-        for i in range(-6,-1):
-            tmp[i] = 0
-        midnight = time.mktime(tmp)
-        if now - midnight > 3600 * 22:
-            self.batch_time = self._db.TimestampFromTicks(midnight + 3600 * (24+22))
+
+        midnight = DateTime.today()
+        now = DateTime.now()
+        # if we are past 22:00 this day, schedule for tomorrow evening
+        if (now - midnight) > DateTime.TimeDeltaFrom(hours=22):
+            self.batch_time = midnight + DateTime.TimeDeltaFrom(days=1, hours=22)
+        # ... otherwise, schedule for this day
         else:
-            self.batch_time = self._db.TimestampFromTicks(midnight + 3600 * 22)
-        self.now = self._db.TimestampFromTicks(time.time())
+            self.batch_time = midnight + DateTime.TimeDeltaFrom(hours=22)
+
+        self.now = now
 
     def get_conflicts(self, op):
         """Returns a list of conflicting operation types.  op can be
