@@ -27,7 +27,7 @@ from Types import EntityType
 from Commands import Commands
 
 from SpineLib import Registry
-from SpineLib.SpineExceptions import ValueError
+from SpineLib.SpineExceptions import ValueError, NotFoundError, TooManyMatchesError
 registry = Registry.get_registry()
 
 __all__ = ['Host']
@@ -65,5 +65,30 @@ create.signature_exceptions = [ValueError]
 
     
 Commands.register_methods([create])
+
+def get_host_by_name(self, name):
+    """
+    Get a host by name.
+    \\param name The name of the host to get.
+    \\return The Host object with the given name.
+    """
+
+    db = self.get_database()
+
+    s = registry.EntityNameSearcher(db)
+    s.set_value_domain(registry.ValueDomain(db, name='host_names'))
+    s.set_name(name)
+
+    hosts = s.search()
+    if len(hosts) == 0:
+        raise NotFoundError('There are no hosts with the name %s' % name)
+    elif len(hosts) > 1:
+        raise TooManyMatchesError('There are several hosts with the name %s' % name)
+    return hosts[0].get_entity()
+
+get_host_by_name.signature = Host
+get_host_by_name.signature_args = [str]
+get_host_by_name.signature_exceptions = [NotFoundError, TooManyMatchesError]
+Commands.register_methods([get_host_by_name])
 
 # arch-tag: bdad7df2-98cb-43f6-ab57-a9ae34a1c912
