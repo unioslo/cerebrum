@@ -33,13 +33,12 @@ from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 
 def search(transaction, **vargs):
     """Search after disks and displays result and/or searchform."""
-    page = Main()
+    page = DiskSearchTemplate()
     page.title = _("Disk")
     page.setFocus("disk/search")
    
-    template = DiskSearchTemplate()
-    template.title = _('disk(s)')
-    handler = SearchHandler('disk', template.form)
+    page.search_title = _('disk(s)')
+    handler = SearchHandler('disk', page.form)
     handler.args = ('path', 'description')
     handler.headers = (
         ('Path', 'path'), ('Host', ''),

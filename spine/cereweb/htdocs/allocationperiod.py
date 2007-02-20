@@ -34,11 +34,11 @@ from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateT
 
 def search(transaction, **vargs):
     """Search for allocation periods and displays result and/or searchform."""
-    page = Main()
+    page = AllocationPeriodSearchTemplate()
     page.title = _("Search for allocation Period(s)")
     page.setFocus("allocationperiod/search")
     
-    handler = SearchHandler('allocationperiod', AllocationPeriodSearchTemplate().form)
+    handler = SearchHandler('allocationperiod', page.form)
     handler.args = ('name', 'allocationauthority')
     handler.headers = (
         ('Name', 'name'), ('Allocation Authority', 'allocationauthority'),

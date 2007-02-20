@@ -53,13 +53,12 @@ tree.exposed = True
 
 def search(transaction, **vargs):
     """Search for ous and displays result and/or searchform."""
-    page = Main()
+    page = OUSearchTemplate()
     page.title = _("OU")
     page.setFocus("ou/search")
     
-    template = OUSearchTemplate()
-    template.title = _('OU(s)')
-    handler = SearchHandler('ou', template.form)
+    page.search_title = _('OU(s)')
+    handler = SearchHandler('ou', page.form)
     handler.args = (
         'name', 'acronym', 'short', 'spread'
     )

@@ -33,11 +33,11 @@ from lib.templates.ProjectCreateTemplate import ProjectCreateTemplate
 
 def search(transaction, **vargs):
     """Search for projects and displays result and/or searchform."""
-    page = Main()
+    page = ProjectSearchTemplate()
     page.title = _("Search for project(s)")
     page.setFocus("project/search")
 
-    handler = SearchHandler('project', ProjectSearchTemplate().form)
+    handler = SearchHandler('project', page.form)
     handler.args = ('title', 'description', 'allocation_name', 'science')
     handler.headers = (
         ('Title', 'title'), ('Science', 'science'),

@@ -37,13 +37,12 @@ from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
 def search(transaction, **vargs):
     """Search after hosts and displays result and/or searchform."""
-    page = Main()
+    page = PersonSearchTemplate()
     page.title = _("Person")
     page.setFocus("person/search")
 
-    template = PersonSearchTemplate()
-    template.title = _('a person')
-    handler = SearchHandler('person', template.form)
+    page.search_title = _('a person')
+    handler = SearchHandler('person', page.form)
     handler.args = (
         'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff'
     )

@@ -40,11 +40,11 @@ index.exposed = True
 
 def search(transaction, **vargs):
     """Search for hosts and displays result and/or searchform."""
-    page = Main()
+    page = HostSearchTemplate()
     page.title = _("Search for host(s)")
     page.setFocus("host/search")
     
-    handler = SearchHandler('machine', HostSearchTemplate().form)
+    handler = SearchHandler('machine', page.form)
     handler.args = ('name', 'description')
     handler.headers = (
         ('Name', 'name'), ('Description', 'description'), ('Actions', '')

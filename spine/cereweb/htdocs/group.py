@@ -37,14 +37,13 @@ from SpineIDL.Errors import NotFoundError, AlreadyExistsError
 
 def search(transaction, **vargs):
     """Search for groups and displays results and/or searchform."""
-    page = Main()
+    page = GroupSearchTemplate()
     page.title = _("Group")
     page.setFocus("group/search")
     page.add_jscript("groupsearch.js")
 
-    template = GroupSearchTemplate()
-    template.title = _('group(s)')   
-    handler = SearchHandler('group', template.form)
+    page.search_title = _('group(s)')   
+    handler = SearchHandler('group', page.form)
     handler.args = (
         'name', 'description', 'spread', 'gid', 'gid_end', 'gid_option'
     )

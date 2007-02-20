@@ -32,13 +32,12 @@ from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 
 def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
-    page = Main()
+    page = AccountSearchTemplate()
     page.title = _("Account")
     page.setFocus("account/search")
     
-    template = AccountSearchTemplate()
-    template.title = _('account(s)')
-    handler = SearchHandler('account', template.form)
+    page.search_title = _('account(s)')
+    handler = SearchHandler('account', page.form)
     handler.args = (
         'name', 'spread', 'create_date', 'expire_date', 'description'
     )

@@ -33,11 +33,11 @@ from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
 
 def search(transaction, **vargs):
     """Search for allocations and displays result and/or searchform."""
-    page = Main()
+    page = AllocationSearchTemplate()
     page.title = _("Search for allocation(s)")
     page.setFocus("allocation/search")
 
-    handler = SearchHandler('allocation', AllocationSearchTemplate().form)
+    handler = SearchHandler('allocation', page.form)
     handler.args = ('allocation_name', 'period', 'status', 'machines')
     handler.headers = (
         ('Allocation name', 'allocation_name'), ('Period', 'period'),

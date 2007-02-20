@@ -26,9 +26,6 @@ from sets import Set
 from SpineIDL.Errors import NotFoundError
 from gettext import gettext as _
 from lib.utils import *
-from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
-from lib.templates.AccountSearchTemplate import AccountSearchTemplate
 
 def get_owner(owner):
     owner_type = owner.get_type().get_name() 

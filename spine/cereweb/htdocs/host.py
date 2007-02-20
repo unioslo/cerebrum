@@ -35,13 +35,12 @@ from lib.templates.HostCreateTemplate import HostCreateTemplate
 
 def search(transaction, **vargs):
     """Search for hosts and displays result and/or searchform."""
-    page = Main()
+    page = HostSearchTemplate()
     page.title = _("Host")
     page.setFocus("/host/search")
     
-    template = HostSearchTemplate()
-    template.title = _('host(s)')
-    handler = SearchHandler('host', template.form)
+    page.search_title = _('host(s)')
+    handler = SearchHandler('host', page.form)
     handler.args = ('name', 'description')
     handler.headers = (
         ('Name', 'name'), ('Description', 'description'), ('Actions', '')
