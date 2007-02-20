@@ -32,9 +32,7 @@
 
 ## Overloaded by search-pages like person search, should
 ## contain the url for where to go when the form is submittet.
-#def getAction
-    #return '/some/where'
-#end def
+#attr $form_action = '/some/where'
 
 ## Overloaded by search-pages which needs search-fields which arent inputs.
 ## vargs is a dict with the values the user provided in the field in the
@@ -54,7 +52,7 @@
     #set $redirect = $vargs.get('redirect', None)
     <div id="searchbox" class="view">
     <h3>$_('Search for ' + $title + ':' )</h3>
-        <form action="$getAction()" method="post" id="search_form">
+        <form action="$form_action" method="post" id="search_form">
             #if $redirect
                 <div class="hidden">
                     <input type="hidden" name="redirect" value="$redirect" />
