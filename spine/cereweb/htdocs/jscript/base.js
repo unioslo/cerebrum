@@ -42,10 +42,24 @@ if(cerebug) {
     });
 };
 
+/**
+ * Some basic event handling.  Currently it only handles click events on
+ * links.  To register a link, use cereweb.action.add.
+ */
 cereweb.action = {
-    /**
-     * This object is private and should not be accessed directly. */
+    /** This object is private and should not be accessed directly. */
     _events: {},
+    /**
+     * To register (overload) a link target, provide the name of the link
+     * target and a function that should be called when a link with this
+     * target is clicked.
+     *
+     * The callback function is called with two arguments:
+     *   name: The name of the target that was clicked.
+     *   args: An array of extra arguments.
+     *   args[0]: The click event that triggered our event.
+     *   args[1]: The arguments we parsed from the link.
+     */
     add: function(name, func, obj) {
         var event = this._events[name] || new YAHOO.util.CustomEvent(name);
         event.subscribe(func, obj, true);
@@ -79,20 +93,27 @@ YE.addListener('maindiv', "click", cereweb.action.clicked,
     cereweb.action, true);
 
 /**
- * This object takes care of extracting the edit boxes and making
- * them available to the user.
+ * This object creates dialogues of divs with both the "box" and the "edit"
+ * classes.  It also adds links to the actions div so that the box can be
+ * shown.
  */
 cereweb.editBox = {
+    /* boolean function used to recognize editBoxes */
     isEditBox: function(el) {
         return YD.hasClass(el, 'box') &&
                YD.hasClass(el, 'edit');
     },
+    /* parses the DOM and runs add on all editBoxes it finds */
     init: function() {
         var els = YD.getElementsBy(
             this.isEditBox, 'div', 'content');
         if (els.length > 0)
             YD.batch(els, this.add, this, true);
     },
+    /**
+     * transforms the element to a YAHOO Dialog, and adds a link to the
+     * actions div that, when clicked, shows the dialog
+     */
     add: function(el) {
         if (!el.id)
             YD.generateId(el, 'editBox_');
@@ -126,6 +147,10 @@ cereweb.editBox = {
         if (cancel_links.length > 0)
             YE.addListener(cancel_links, 'click', editBox.hide, editBox, true);
     },
+    /**
+     * wrapper for the dialog.show method.  we want to prevent the default
+     * event before we show the dialog
+     */
     show: function(event) {
         YE.preventDefault(event);
         this.show();
