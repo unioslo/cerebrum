@@ -29,75 +29,6 @@ YE = YAHOO.util.Event;
 YC = YAHOO.util.Connect;
 cereweb = YAHOO.cereweb;
 
-/** Cereweb Actions
- *
- * In this script we listen to the window.load event, and when this is raised,
- * we listen for the click event on all links with class action.  When such an
- * event occur, we call the actionClicked function.
- * 
- * This function parses the link that has been clicked with the parseAction
- * function.  This gives us the name of the link and the arguments.  For
- * instance 'edit_motd' with id=133.
- *
- * Enter the cereweb.actions object.  This can be thought of as a hash
- * containing functions.  We use the name of the link that has been clicked and
- * checks if the cereweb.actions object contains such an attribute.  If it
- * does, we call that action with the arguments we found.
- *
- * Example:
- *   cereweb.actions['test'] = function(event, args) {
- *       if (cereweb.can_do_action) {
- *           YE.preventDefault(event); // Do not follow link.
- *           handleLink(args);         // We do it here.
- *       }
- *   }
- *
- * Note that if the action doesn't call YE.preventDefault, the web browser will
- * follow the link.
- */
-
-cereweb.actions = { };
-
-// Parse a link to help us look it up in the actions object.
-function parseAction(url) {
-    url = unescape(url.replace(/http.*\/\/.*?\//,''))
-    var target = url.split('?');
-    var args = {};
-    var elms = (target[1] || '').split('&');
-    for (var i = 0; i < elms.length; i++) {
-        var x = elms[i].split('=');
-        args[x[0]] = x[1];
-    }
-    return {'name': target[0], 'args': args};
-};
-
-// When actionClicked is called, check if what was clicked
-// was a link and, if is was, look it up in the actions object.
-// If it exists, run it.
-function actionClicked(e) {
-    var target = YE.getTarget(e);
-    if (target.nodeName.toLowerCase() === 'a') {
-        var action = parseAction(target.href);
-        var name = action.name;
-        var args = action.args;
-        cereweb.actions[name] && cereweb.actions[name](e, args);
-    }
-};
-YE.addListener('maindiv', "click", actionClicked);
-
-/**
- * Some text and links are only to be shown to users without javascript,
- * and some text and links should only be shown to users with it.
- */
-function initJS() {
-    var nojs = YD.getElementsByClassName('nojs', null, 'maindiv');
-    var jsonly = YD.getElementsByClassName('jsonly', null, 'maindiv');
-    if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
-    if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
-
-};
-YE.onAvailable('maindiv', initJS);
-
 /**
  * Set the cerebug variable to true to enable the YUI logger widget.
  * Useful for IE debugging.  Firebug is better though.
@@ -111,87 +42,130 @@ if(cerebug) {
     });
 };
 
-/**
- * Flip the visibility of an element.
+/** Cereweb Actions
+ *
+ * When a click event occur in our page, we call the cereweb.action.clicked
+ * function.
+ * 
+ * This function check whether the element that was clicked was a link.  If it
+ * was, it parses the link with the cereweb.action.parse function.  This gives
+ * us the name of the link and the arguments.  For instance 'edit_motd' with
+ * id=133.
+ *
+ * Enter the cereweb.action.actions object.  This can be thought of as a hash
+ * containing functions.  We use the name of the link that has been clicked and
+ * checks if the cereweb.action.actions object contains such an attribute.  If it
+ * does, we call that action with the arguments we found.
+ *
+ * Example:
+ *   cereweb.action.add('test_action'), function(event, args) {
+ *       if (can_do_action) {
+ *           YE.preventDefault(event); // Do not follow link.
+ *           handleLink(args);         // We do it here.
+ *       }
+ *   });
+ *
+ * Note that if the action doesn't call YE.preventDefault, the web browser will
+ * follow the link.
  */
-cereweb.flip = function() {
-    if (this.style.display === 'none') {
-        this.style.display = '';
-    } else {
-        this.style.display = 'none';
+cereweb.action = {
+    actions: {},
+    add: function(name, func) {
+        this.actions[name] = func;
+    },
+    parse: function(url) {
+        url = unescape(url.replace(/http.*\/\/.*?\//,''))
+        var target = url.split('?');
+        var args = {};
+        var elms = (target[1] || '').split('&');
+        for (var i = 0; i < elms.length; i++) {
+            var x = elms[i].split('=');
+            args[x[0]] = x[1];
+        }
+        return {'name': target[0], 'args': args};
+    },
+    /**
+     * When actionClicked is called, check if what was clicked
+     * was a link and, if is was, look it up in the actions object.
+     * If it exists, run it.
+     */
+    clicked: function(e) {
+        var target = YE.getTarget(e);
+
+        if (target.nodeName.toLowerCase() === 'a') {
+            var action = this.parse(target.href);
+            var name = action.name;
+            var args = action.args;
+            this.actions[name] && this.actions[name](e, args);
+        }
+    },
+}
+YE.addListener('maindiv', "click", cereweb.action.clicked,
+    cereweb.action, true);
+
+/**
+ * This object takes care of extracting the edit boxes and making
+ * them available to the user.
+ */
+cereweb.editBox = {
+    isEditBox: function(el) {
+        return YD.hasClass(el, 'box') &&
+               YD.hasClass(el, 'edit');
+    },
+    init: function() {
+        var els = YD.getElementsBy(
+            this.isEditBox, 'div', 'content');
+        if (els.length > 0)
+            YD.batch(els, this.add, this, true);
+    },
+    add: function(el) {
+        if (!el.id)
+            YD.generateId(el, 'editBox_');
+
+        var id = el.id;
+        var header = el.getElementsByTagName('h3')[0];
+
+        el.removeChild(header);
+
+        var editBox = new YAHOO.widget.Dialog(el, {
+            'width': '600px',
+            'draggable': false,
+            'visible': false,
+            'fixedcenter': true,
+            'postmethod': 'form' });
+        editBox.setHeader(header.innerHTML);
+        editBox.render();
+        editBox.hide();
+        el.style.display = "";
+
+        var link = document.createElement('a');
+        link.href = "#" + el.id;
+        link.innerHTML = header.innerHTML;
+
+        var actions = YD.get('actions');
+        actions.appendChild(link);
+        actions.appendChild(document.createElement('br'));
+
+        YE.addListener(link, 'click', this.show, editBox, true);
+        var cancel_links = YD.getElementsByClassName("cancel", null, el);
+        if (cancel_links.length > 0)
+            YE.addListener(cancel_links, 'click', editBox.hide, editBox, true);
+    },
+    show: function(event) {
+        YE.preventDefault(event);
+        this.show();
     }
-};
-
-cereweb.editBox = function() {
-    var d_editBox = YD.get('editBox');
-    if (!d_editBox) {
-        var d_main = YD.get('maindiv');
-        d_editBox = document.createElement('div');
-        d_editBox.setAttribute('id', 'editBox');
-        d_main.appendChild(d_editBox);
-    }
-        
-    d_editBox.style.display = 'none';
-    this.editBox = new YAHOO.widget.Dialog("editBox", {
-        'width': '600px',
-        'draggable': false,
-        'visible': false,
-        'fixedcenter': true,
-        'postmethod': 'form' });
-    this.editBox.setHeader("Empty editBox");
-    this.editBox.setBody("Empty editBox");
-    this.editBox.render();
-    this.editBox.hide();
-    d_editBox.style.display = '';
-
-    this.boxes = {};
 }
+YE.onAvailable('content', cereweb.editBox.init, cereweb.editBox, true);
 
-cereweb.editBox.prototype.add = function(el) {
-    if (!el.id)
-        YD.generateId(el, 'editBox_');
-    var id = el.id;
+/**
+ * Some text and links are only to be shown to users without javascript,
+ * and some text and links should only be shown to users with it.
+ */
+YE.onAvailable('maindiv', function() {
+    var nojs = YD.getElementsByClassName('nojs', null, 'maindiv');
+    var jsonly = YD.getElementsByClassName('jsonly', null, 'maindiv');
+    if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
+    if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
 
-    var actions = YD.get('actions');
-    var title = el.getElementsByTagName('h3')[0];
-    var link = document.createElement('a');
-    var br = document.createElement('br');
-
-    link.href = "#" + el.id;
-    link.innerHTML = title.innerHTML;
-    actions.appendChild(link);
-    actions.appendChild(br);
-
-    // Remove the title from the box.
-    el.removeChild(title);
-    // Remove the box from the document.
-    el.parentNode.removeChild(el);
-
-    YE.addListener(link, 'click', this.show_id, this, true);
-
-    this.boxes[id] = {
-        title: title.innerHTML,
-        body: el.innerHTML
-    }
-}
-
-cereweb.editBox.prototype.show_id = function(event) {
-    var href = YE.getTarget(event).href;
-    var id = href.split('#')[1];
-    this.editBox.setHeader(this.boxes[id].title);
-    this.editBox.setBody(this.boxes[id].body);
-    var cancel_links = YD.getElementsByClassName("cancel", null, YD.get('editBox'));
-    if (cancel_links.length > 0)
-        YE.addListener(cancel_links, 'click', this.editBox.hide, this.editBox, true);
-
-    this.editBox.show();
-}
-
-function initEditBoxes() {
-    var editBox = new cereweb.editBox();
-    var els = YD.getElementsByClassName('edit', 'div', 'maindiv');
-    for (var i=0; i<els.length; i++)
-        editBox.add(els[i]);
-}
-YE.onAvailable('maindiv', initEditBoxes);
-
+});

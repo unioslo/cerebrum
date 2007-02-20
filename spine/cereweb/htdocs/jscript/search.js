@@ -199,7 +199,7 @@ YE.onAvailable('ac_quicksearch', function () {
     }
 );
 
-YE.addListener(window, 'load', initAutoComplete);
+YE.onAvailable('content', initAutoComplete);
 function initAutoComplete(event) {
     var account_completers = YD.getElementsByClassName('ac_account', 'input');
     var group_completers = YD.getElementsByClassName('ac_group', 'input');

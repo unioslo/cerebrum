@@ -18,61 +18,61 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-cereweb.actions['edit_motd'] = function(event, args) {
-    if (cereweb.motdDialog) {
-        YE.preventDefault(event);
-        cereweb.getMotd(args['id']);
+cereweb.motd = {
+    init: function() {
+        var myDiv = document.getElementById("editMotd");
+        myDiv.style.display = 'none';
+        this.dialog = new YAHOO.widget.Dialog("editMotd", {
+            'width': '500px',
+            'height': '175px',
+            'draggable': false,
+            'visible': false,
+            'fixedcenter': true,
+            'postmethod': 'form' });
+        var myButtons = [{
+            text: 'Submit',
+            handler: function(o) { this.dialog.doSubmit(); },
+            isDefault: true
+        }];
+        this.dialog.cfg.queueProperty("buttons", myButtons);
+        this.dialog.setHeader("Edit Message");
+        this.dialog.render();
+        this.dialog.hide();
+        myDiv.style.display = '';
+        this.dialog.content = function(subject, message, id) {
+                document.getElementById('editMotdForm_id').value = id;
+                document.getElementById('editMotdForm_subject').value = subject;
+                document.getElementById('editMotdForm_message').value = message;
+        }
+        cereweb.action.add('edit_motd', this.edit);
+    },
+    edit: function(event, args) {
+        if (cereweb.motd.dialog) {
+            YE.preventDefault(event);
+            cereweb.motd.get(args['id']);
+        }
+    },
+    get: function(arg) {
+        var callback = {
+            success: function(o) {
+                res = o.responseText;
+                eval('var data = ' + res);
+                cereweb.motd.dialog.content(data.subject,
+                    data.message, arg);
+                cereweb.motd.dialog.show();
+            },
+            failure: function(o) {
+                cereweb.motd.dialog.content("", "");
+            },
+            timeout: 2000
+        };
+        if (arg)
+            var cObj = YC.asyncRequest('POST',
+                '/ajax/get_motd', callback, 'id=' + arg);
+        else {
+            cereweb.motd.dialog.content("", "");
+            cereweb.motd.dialog.show();
+        }
     }
 }
-
-cereweb.getMotd = function(arg) {
-    var callback = {
-        success: function(o) {
-            res = o.responseText;
-            eval('var data = ' + res);
-            cereweb.motdDialog.content(data.subject,
-                data.message, arg);
-            cereweb.motdDialog.show();
-        },
-        failure: function(o) {
-            cereweb.motdDialog.content("", "");
-        },
-        timeout: 2000
-    };
-    if (arg)
-        var cObj = YC.asyncRequest('POST',
-            '/ajax/get_motd', callback, 'id=' + arg);
-    else {
-        cereweb.motdDialog.content("", "");
-        cereweb.motdDialog.show();
-    }
-};
-
-var initMotdDialog = function(e) {
-    var myDiv = document.getElementById("editMotd");
-    myDiv.style.display = 'none';
-    cereweb.motdDialog = new YAHOO.widget.Dialog("editMotd", {
-        'width': '500px',
-        'height': '175px',
-        'draggable': false,
-        'visible': false,
-        'fixedcenter': true,
-        'postmethod': 'form' });
-    var myButtons = [{
-        text: 'Submit',
-        handler: function(o) { cereweb.motdDialog.doSubmit(); },
-        isDefault: true
-    }];
-    cereweb.motdDialog.cfg.queueProperty("buttons", myButtons);
-    cereweb.motdDialog.setHeader("Edit Message");
-    cereweb.motdDialog.render();
-    cereweb.motdDialog.hide();
-    myDiv.style.display = '';
-    cereweb.motdDialog.content = function(subject, message, id) {
-            document.getElementById('editMotdForm_id').value = id;
-            document.getElementById('editMotdForm_subject').value = subject;
-            document.getElementById('editMotdForm_message').value = message;
-    };
-};
-
-YE.onAvailable('editMotd', initMotdDialog);
+YE.onAvailable('editMotd', cereweb.motd.init, cereweb.motd, true);
