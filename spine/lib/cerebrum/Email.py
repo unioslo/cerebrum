@@ -820,7 +820,7 @@ def add_vacation(self, start, text, end):
     obj.add_vacation(start.strftime('%Y-%m-%d'), text,
                      end.strftime('%Y-%m-%d'))
     obj.write_db()
-    return EmailVacation(db, self, start_date)
+    return EmailVacation(db, self, start)
 add_vacation.signature = EmailVacation
 add_vacation.signature_write = True
 add_vacation.signature_args = [Date, str, Date]
