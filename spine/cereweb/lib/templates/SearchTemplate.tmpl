@@ -44,8 +44,13 @@
 
 ## Creates the form for searching.
 #def form($vargs={})
-$help.append($_("Use wildcards * and ? to extend the search."))
-$help.append($_("Supply several search parameters to limit the search."))
+#set $myHelp = [$_("Use wildcards * and ? to extend the search."),
+                $_("Supply several search parameters to limit the search.")]
+#for $i in $myHelp
+    #if not $i in $help
+        $help.append($i)
+    #end if
+#end for
 #set $redirect = $vargs.get('redirect', None)
 <div id="searchbox" class="view">
 <h3>$_('Search for ' + $title + ':' )</h3>
