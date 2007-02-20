@@ -1,0 +1,135 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#import forgetHTML
+#import config
+#from lib.Search import get_form_values, get_link_arguments
+#from lib.Search import create_table_headers
+#from lib.InitTemplate import InitTemplate
+#extends InitTemplate
+
+
+## Maximum hits to ask for in a search.
+#attr max_hits = config.conf.getint('cereweb', 'max_hits')
+
+## Number of hints to display in the searchresult.
+#attr display_hits = 10
+
+#def getResult($result, $headers, $args, $values, $hits, $display_hits,
+          $offset, $orderby, $orderby_dir, $page)
+#if $result
+<div id="searchresult" class="searchresult">
+    #set self.display_hits = $display_hits
+    #set $offset = $int($offset)
+    #set $hits = $hits + $offset
+    #set $range = '%s-%s' % ($offset, $len($result) + $offset)
+    #set $show_range_menu = True
+    #if $hits <= $display_hits
+        #set $txt = $_('%s hits, showing all') % $hits
+        #set $show_range_menu = False
+    #elif $hits < $max_hits
+        #set $txt = $_('%s hits, showing %s') % ($hits, $range)
+    #else
+        #set $txt = $_('More than %s hits, showing %s') % ($max_hits, $range)
+    #end if
+    <div class="searchtitle">
+        <h3>$txt</h3>
+    </div>
+    #if $show_range_menu
+        $range_menu($args, $values, $hits, $offset, $page)
+    #end if
+    
+    #set $table = $forgetHTML.SimpleTable(header='row', _class='results')
+    $table.add(*$create_table_headers($headers, $args, $values,
+                                      $orderby, $orderby_dir, $page))
+    #for $item in $result
+        $table.add(*$item)
+    #end for
+    $table.output()
+
+    #if $show_range_menu
+        $range_menu($args, $values, $hits, $offset, $page)
+    #end if
+</div>
+#else
+<div id="searchresult">
+    <div class="searchtitle">
+        <h3>$_('Search result')</h3>
+    </div>
+    <div class="searcherror">
+        $_('Sorry, nothing found matching the given criterias.')
+    </div>
+</div>
+#end if
+#end def
+
+## Creates a table with the result from the search.
+#def view($result, $headers, $args, $values, $hits, $display_hits,
+    $offset, $orderby, $orderby_dir, $form, $page)
+
+$getResult($result, $headers, $args, $values, $hits, $display_hits, $offset, $orderby, $orderby_dir, $page)
+#end def
+
+
+## Creates links to access search-result outside the search-range.
+#def range_menu($args, $values, $hits, $offset, $page)
+<div class="search_range">
+    #set $link = $page + '?' + $get_link_arguments($args, $values)
+    
+    #set $first = 0
+    #set $last = $min($max_hits,$hits) - $display_hits
+
+    #if $first != $offset
+        $create_range_link($link, $first, $hits, name='&lt;&lt;', _class='first')
+    #else
+        <span class="first">&lt;&lt;</span>
+    #end if
+    
+    #set $multipliers = [-3, -2, -1, 0, 1, 2, 3]
+    #for $multiplier in $multipliers
+        #if $multiplier == 0
+            $create_range_link($link, $offset, $hits, _class='current')
+        #else
+            #set $tmp = $offset + $multiplier * $display_hits
+            #if $tmp > $first and $tmp < $last
+                $create_range_link($link, $tmp, $hits)
+            #end if
+        #end if
+    #end for
+    
+    #if $last > $offset
+        $create_range_link($link, $last, $hits, name='&gt;&gt;', _class='last')
+    #else
+        <span class="last">&gt;&gt;</span>
+    #end if
+</div>
+#end def
+
+
+## Creates a link to a specific offset on a search result.
+#def create_range_link($link, $offset, $hits, $name=None, $_class='')
+    #if $_class
+        #set $_class = ' class="%s"' % $_class
+    #end if
+    #if $name is None
+        #set $endrange = $min($offset+$display_hits, $max_hits)
+        #set $name = '%s-%s' % ($offset, $endrange)
+    #end if
+    <a href="$link&amp;offset=$offset"$_class>$name</a>
+#end def
+

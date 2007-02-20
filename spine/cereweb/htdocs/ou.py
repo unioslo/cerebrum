@@ -24,14 +24,16 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import redirect_object, commit, commit_url
 from lib.utils import rollback_url
-from lib.utils import transaction_decorator, object_link
+from lib.utils import transaction_decorator, object_link, strftime
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.OUSearchTemplate import OUSearchTemplate
 from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
 from lib.templates.OUEditTemplate import OUEditTemplate
 from lib.templates.OUViewTemplate import OUViewTemplate
+from lib.templates.BasicSearchResultTemplate import BasicSearchResultTemplate
 
 def tree(transaction, perspective=None):
     page = Main()
@@ -257,6 +259,43 @@ def delete(transaction, id):
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
 delete.exposed = True
+
+def list_aff_persons(transaction, id, **vargs):
+    ou = transaction.get_ou(int(id))
+    page = Main()
+    page.title = _("OU %s persons") % _get_display_name(ou)
+    page.setFocus("ou/list_aff_persons", id)
+
+    template = SearchTemplate()
+    template.getAction = lambda: '/ou/list_aff_persons'
+    template.title = _('OU %s affiliations') % _get_display_name(ou)
+
+    resultTemplate = BasicSearchResultTemplate()
+    handler = SearchHandler('', template.form, resultTemplate)
+    handler.args = ('id',)
+    handler.headers = ( ('Type', 'type'), ('Status', 'status'),
+                        ('Name', 'name'), ('Birth date', 'birth_date') )
+
+    def search_method(values, offset, orderby, orderby_dir):
+        aff_searcher = transaction.get_person_affiliation_searcher()
+        aff_searcher.set_ou(ou)
+        return aff_searcher.search()
+    def row(elm):
+        p = elm.get_person()
+        type = elm.get_affiliation().get_name()
+        status = elm.get_status().get_name()
+        name = object_link(p)
+        birth_date = strftime(p.get_birth_date())
+        return type, status, name, birth_date
+
+    vargs['id'] = id
+    affs = handler.search(search_method, **vargs)
+    result = handler.get_result(affs, row)
+    page.content = lambda: result
+    return page
+list_aff_persons = transaction_decorator(list_aff_persons)
+list_aff_persons.exposed = True
+    
 
 def _get_display_name(ou):
     display_name = ou.get_display_name()

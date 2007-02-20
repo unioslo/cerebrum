@@ -73,11 +73,15 @@ class SearchHandler:
     ----------------------------------------------------------------
     """
     
-    def __init__(self, cls_name, form):
+    def __init__(self, cls_name, form, template=None):
         self.var_name = cls_name + '_last_search'
         self.form = form
         self.args = []
         self.headers = []
+        if not template:
+            from lib.SearchResultTemplate import SearchResultTemplate
+            template = SearchResultTemplate()
+        self.template = template
         
     def search(self, method, **vargs):
         """Prepare values for search and return result.
@@ -97,7 +101,6 @@ class SearchHandler:
 
         self.values = get_arg_values(self.args, vargs)
         perform_search = len([i for i in self.values if i != ""])
-
         if perform_search:
             self.offset = vargs.get('offset', 0)
             self.orderby = vargs.get('orderby', None)
@@ -163,11 +166,7 @@ class SearchHandler:
             
         result, dis_hits = self.filter_elements(elements, row_method)
 
-        # To avoid import-circle we import the template here
-        from lib.templates.SearchResultTemplate import SearchResultTemplate
-        
-        template = SearchResultTemplate()
-        return template.view(result, self.headers, self.args, self.values,
+        return self.template.view(result, self.headers, self.args, self.values,
                              len(elements), dis_hits, self.offset, self.orderby,
                              self.orderby_dir, self.get_form(), 'search')
 
