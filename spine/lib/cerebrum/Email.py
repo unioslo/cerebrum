@@ -28,7 +28,8 @@ from SpineLib.Date import Date
 
 from Entity import Entity
 from Types import PersonAffiliationType
-from EmailTypes import EmailDomainCategory, EmailTargetType
+from EmailTypes import EmailDomainCategory, EmailTargetType, EmailServerType
+from Host import Host
 from Account import Account
 from Person import Person
 from PersonAffiliation import PersonAffiliation
@@ -228,6 +229,30 @@ def get_domains(self):
 get_domains.signature = [EmailDomain]
 EmailDomainCategory.get_domains = get_domains
 
+table = 'email_server'
+attrs = [
+    DatabaseAttr('server_type', table, EmailServerType, write=True, optional=True)
+    ]
+for attr in attrs:
+    Host.register_attribute(attr)
+Host.db_attr_aliases[table] = {'id': 'server_id'}
+
+def promote_email_server(self, type):
+    obj = self._get_cerebrum_obj()
+    email_server = Cerebrum.modules.Email.EmailServer(self.get_database())
+    email_server.populate(type.get_id(), parent=obj)
+    email_server.write_db()
+promote_email_server.signature = None
+promote_email_server.signature_args = [EmailServerType]
+promote_email_server.signature_write = True
+
+def demote_email_server(self):
+    raise NotImplementedError
+demote_email_server.signature = None
+demote_email_server.signature_args = []
+demote_email_server.signature_write = True
+Host.register_methods([promote_email_server, demote_email_server])
+
 table = 'email_target'
 class EmailTarget(DatabaseClass):
     """
@@ -259,13 +284,18 @@ class EmailTarget(DatabaseClass):
         DatabaseAttr('entity', table, Entity, write=True, exceptions=[SpineExceptions.AlreadyExistsError]),
         DatabaseAttr('alias_value', table, str, write=True),
         # FIXME: should be PosixUser
-        DatabaseAttr('using_uid', table, Account, write=True), 
+        DatabaseAttr('using_uid', table, Account, write=True),
+        DatabaseAttr('server', 'email_target_server', Host, write=True, optional=True),
     )
     db_attr_aliases = {
         table : {
             'id' : 'target_id',
             'type' : 'target_type',
             'entity' : 'entity_id'
+        },
+        'email_target_server': {
+            'id': 'target_id',
+            'server': 'server_id'
         }
     }
 
@@ -734,13 +764,35 @@ class EmailForward(DatabaseClass):
 
 registry.register_class(EmailForward)
 
-def create_forward(self, forward_to):
-    pass # TODO
+def add_forward(self, forward_to):
+    db = self.get_database()
+    obj = Cerebrum.modules.Email.EmailForward(db)
+    obj.find(self.get_id())
+    obj.add_forward(forward_to)
+    obj.write_db()
+    return EmailForward(db, self, forward_to)
+add_forward.signature = EmailForward
+add_forward.signature_write = True
+add_forward.signature_args = [str]
 
-create_forward.signature = EmailForward
-create_forward.signature_write = True
-create_forward.signature_args = [str]
-EmailTarget.add_forward = create_forward
+def remove_forward(self, forward_to):
+    db = self.get_database()
+    obj = Cerebrum.modules.Email.EmailForward(db)
+    obj.find(self.get_id())
+    obj.remove_forward(forward_to)
+    obj.write_db()
+remove_forward.signature = None
+remove_forward.signature_write = True
+remove_forward.signature_args = [str]
+
+def get_forwards(self):
+    s = registry.EmailForwardSearcher(self.get_database())
+    s.set_target(self)
+    return s.search()
+get_forwards.signature = [EmailForward]
+get_forwards.signature_args = []
+
+EmailTarget.register_methods([add_forward, remove_forward, get_forwards])
 
 table = 'email_vacation'
 class EmailVacation(DatabaseClass):
@@ -760,5 +812,27 @@ class EmailVacation(DatabaseClass):
     }
 
 registry.register_class(EmailVacation)
+
+def add_vacation(self, start, text, end):
+    db = self.get_database()
+    obj = Cerebrum.modules.Email.EmailVacation(db)
+    obj.find(self.get_id())
+    obj.add_vacation(start.strftime('%Y-%m-%d'), text,
+                     end.strftime('%Y-%m-%d'))
+    obj.write_db()
+    return EmailVacation(db, self, start_date)
+add_vacation.signature = EmailVacation
+add_vacation.signature_write = True
+add_vacation.signature_args = [Date, str, Date]
+
+def get_vacations(self):
+    s = registry.EmailVacationSearcher(self.get_database())
+    s.set_target(self)
+    return s.search()
+get_vacations.signature = [EmailVacation]
+get_vacations.signature_args = []
+
+EmailTarget.register_methods([add_vacation, get_vacations])
+
 
 # arch-tag: bd478dc6-f9ef-11d9-905c-b1284ed93a3d
