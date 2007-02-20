@@ -36,8 +36,8 @@ cereweb.ac_group = function(input) {
 
     this.widget.dataRequestEvent.subscribe(this.dataRequest, this, true);
     this.widget.dataReturnEvent.subscribe(this.dataReturn, this, true);
+    this.widget.dataErrorEvent.subscribe(this.dataError, this, true);
     this.widget.textboxKeyEvent.subscribe(this.textboxKey, this, true);
-    this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
 
     this.widget.doBeforeExpandContainer = this.doBeforeExpandContainer;
     if (this.input.value)
@@ -64,22 +64,17 @@ cereweb.ac_group.prototype = {
         this.input.style.backgroundColor = "";
     },
     dataRequest: function(event, args) {
-        this.requesting = true;
         this.input.style.backgroundColor = "blue";
     },
     dataError: function(event, args) {
-        this.requesting = false;
         this.input.style.backgroundColor = "red";
     },
     dataReturn: function(event, args) {
-        this.requesting = false;
-
         var query = unescape(args[1]);
-        var i = query.search(':');
-        query = query.slice(i + 1);
         while(query.length > 0 && query.charAt(0) === ' ')
             query = query.slice(1);
         this.data = args[2];
+
         if (this.data.length === 0 && query.length >= 3)
             this.dataError();
         else
@@ -93,22 +88,6 @@ cereweb.ac_group.prototype = {
             this.widget.submitting = false;
             this.submit();
         }
-    },
-    itemSelect: function(event, args) {
-        var data = args[2][1];
-        var prefix;
-        switch (data.type) {
-            case 'account':
-                prefix = 'a: ';
-                break;
-            case 'person':
-                prefix = 'p: ';
-                break;
-            case 'group':
-                prefix = 'g: ';
-                break;
-        }
-        this.input.value = prefix + data.name;
     },
     parseData: function() {
         this.valid = true;
@@ -166,6 +145,7 @@ cereweb.ac_quicksearch = function(container) {
     var input = YD.get("ac_quicksearch_name");
     this.id = YD.get("ac_quicksearch_id");
     cereweb.ac_quicksearch.superclass.constructor.call(this, input);
+    this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
     container.style.display = "";
 }
 YAHOO.extend(cereweb.ac_quicksearch, cereweb.ac_account);
@@ -180,6 +160,44 @@ cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {
         name,
         "</div>"];
     return (aMarkup.join(""));
+}
+
+cereweb.ac_quicksearch.prototype.dataReturn = function(event, args) {
+    var query = unescape(args[1]);
+    var i = query.search(':');
+    query = query.slice(i + 1);
+    while(query.length > 0 && query.charAt(0) === ' ')
+        query = query.slice(1);
+    this.data = args[2];
+    if (this.data.length === 0 && query.length >= 3)
+        this.dataError();
+    else
+        this.input.style.backgroundColor = "";
+
+    this.valid = false;
+    if (this.data.length === 1)
+        this.parseData();
+
+    if (this.widget.submitting) {
+        this.widget.submitting = false;
+        this.submit();
+    }
+}
+cereweb.ac_quicksearch.prototype.itemSelect = function(event, args) {
+    var data = args[2][1];
+    var prefix;
+    switch (data.type) {
+        case 'account':
+            prefix = 'a: ';
+            break;
+        case 'person':
+            prefix = 'p: ';
+            break;
+        case 'group':
+            prefix = 'g: ';
+            break;
+    }
+    this.input.value = prefix + data.name;
 }
 
 cereweb.ac_quicksearch.prototype.parseData = function() {
