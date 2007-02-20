@@ -16,8 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.InitTemplate import InitTemplate
-#extends InitTemplate
+#from lib.Main import Main
+#extends Main
 
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
@@ -28,7 +28,7 @@
 ## help is a list with more lines to print, with help about the search
 #attr $help = []
 
-#attr $title = ''
+#attr $search_title = ''
 
 ## Overloaded by search-pages like person search, should
 ## contain the url for where to go when the form is submittet.
@@ -44,33 +44,33 @@
 
 ## Creates the form for searching.
 #def form($vargs={})
-#set $myHelp = [$_("Use wildcards * and ? to extend the search."),
-                $_("Supply several search parameters to limit the search.")]
-#for $i in $myHelp
-    #if not $i in $help
-        $help.append($i)
-    #end if
-#end for
-#set $redirect = $vargs.get('redirect', None)
-<div id="searchbox" class="view">
-<h3>$_('Search for ' + $title + ':' )</h3>
-    <form action="$getAction()" method="post" id="search_form">
-        #if $redirect
-            <div class="hidden">
-                <input type="hidden" name="redirect" value="$redirect" />
-            </div>
+    #set $myHelp = [$_("Use wildcards * and ? to extend the search."),
+                    $_("Supply several search parameters to limit the search.")]
+    #for $i in $myHelp
+        #if not $i in $help
+            $help.append($i)
         #end if
-        #for $name, $label in $fields
-            <div class="required">
-                $form_widgets.input($name, $label, $vargs.get($name, None))
+    #end for
+    #set $redirect = $vargs.get('redirect', None)
+    <div id="searchbox" class="view">
+    <h3>$_('Search for ' + $title + ':' )</h3>
+        <form action="$getAction()" method="post" id="search_form">
+            #if $redirect
+                <div class="hidden">
+                    <input type="hidden" name="redirect" value="$redirect" />
+                </div>
+            #end if
+            #for $name, $label in $fields
+                <div class="required">
+                    $form_widgets.input($name, $label, $vargs.get($name, None))
+                </div>
+            #end for
+            $getExtra($vargs)
+            $form_widgets.showHelp($help)
+            <div class="buttons">
+                <input id="search_submit" type="submit" value="$_('Search')" />
+                <input id="search_clear" type="reset" value="$_('Clear')" />
             </div>
-        #end for
-        $getExtra($vargs)
-        $form_widgets.showHelp($help)
-        <div class="buttons">
-            <input id="search_submit" type="submit" value="$_('Search')" />
-            <input id="search_clear" type="reset" value="$_('Clear')" />
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
 #end def
