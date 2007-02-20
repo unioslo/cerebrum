@@ -207,6 +207,7 @@ div.box {
     padding: 0;
 
     border: 1px solid;
+    overflow: visible;
 }
 div.box h3 {
     padding: 0; 
@@ -536,9 +537,9 @@ div.optional {
     position:absolute;
     border:1px solid #404040;
     background:#fff;
-    overflow:hidden;
     z-index:9050;
     width: 300px;
+    overflow: hidden;
 }
 .autocomplete_container .autocomplete .yui-ac-shadow {
     position:absolute;
