@@ -73,7 +73,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName, Entity_class):
         self.creator_id = creator_id
         self.visibility = int(visibility)
         self.description = description
-        self.create_date = create_date
+        if not self.__in_db or create_date is not None:
+            # If the previous operation was find, self.create_date will
+            # have a value, while populate usually is not called with
+            # a create_date argument.  This check avoids a group_mod
+            # change-log entry caused when this is the only change to the entity
+            self.create_date = create_date
         self.expire_date = expire_date
         # TBD: Should this live in EntityName, and not here?  If yes,
         # the attribute should probably have a more generic name than
