@@ -2247,7 +2247,7 @@ class BofhdExtension(object):
             ea.populate(lp, alias_dom.email_domain_id, et.email_target_id)
             ea.write_db()
         # Add RT internal address
-        if addr_lp != queue and addr_domain_name != host:
+        if addr_lp != queue or addr_domain_name != host:
             ea.clear()
             ea.populate(queue, rt_dom.email_domain_id, et.email_target_id)
             ea.write_db()
