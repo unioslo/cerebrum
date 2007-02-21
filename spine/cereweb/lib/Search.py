@@ -73,7 +73,7 @@ class SearchHandler:
     ----------------------------------------------------------------
     """
     
-    def __init__(self, cls_name, form, template=None):
+    def __init__(self, cls_name, form=None, template=None):
         self.var_name = cls_name + '_last_search'
         self.form = form
         self.args = []
@@ -120,7 +120,8 @@ class SearchHandler:
         self.form must be set, and should be a callable method
         which returns a string with the search-form.
         """
-        assert self.form is not None
+        if self.form is None:
+            return None
         
         remember = cherrypy.session['options'].getboolean('search', 'remember last')
 
@@ -168,7 +169,7 @@ class SearchHandler:
 
         return self.template.view(result, self.headers, self.args, self.values,
                              len(elements), dis_hits, self.offset, self.orderby,
-                             self.orderby_dir, self.get_form(), 'search')
+                             self.orderby_dir, 'search')
 
 def setup_searcher(searchers, orderby, orderby_dir, offset):
     """Set up the searcher with offset and orderby if given.

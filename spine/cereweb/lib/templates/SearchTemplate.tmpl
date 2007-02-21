@@ -23,16 +23,16 @@
 #attr $form_widgets = FormWidgets()
 
 ## fields should contain a list of tuples with (name, label)
-#attr $fields = []
+#attr $search_fields = []
 
 ## help is a list with more lines to print, with help about the search
-#attr $help = []
+#attr $search_help = []
 
 #attr $search_title = ''
 
 ## Overloaded by search-pages like person search, should
 ## contain the url for where to go when the form is submittet.
-#attr $form_action = '/some/where'
+#attr $search_action = '/some/where'
 
 ## Overloaded by search-pages which needs search-fields which arent inputs.
 ## vargs is a dict with the values the user provided in the field in the
@@ -41,30 +41,30 @@
 #end def
 
 ## Creates the form for searching.
-#def form($vargs={})
+#def search_form($vargs={})
     #set $myHelp = [$_("Use wildcards * and ? to extend the search."),
                     $_("Supply several search parameters to limit the search.")]
     #for $i in $myHelp
-        #if not $i in $help
-            $help.append($i)
+        #if not $i in $search_help
+            $search_help.append($i)
         #end if
     #end for
     #set $redirect = $vargs.get('redirect', None)
     <div id="searchbox" class="view">
     <h3>$_('Search for ' + $title + ':' )</h3>
-        <form action="$form_action" method="post" id="search_form">
+        <form action="$search_action" method="post" id="search_form">
             #if $redirect
                 <div class="hidden">
                     <input type="hidden" name="redirect" value="$redirect" />
                 </div>
             #end if
-            #for $name, $label in $fields
+            #for $name, $label in $search_fields
                 <div class="required">
                     $form_widgets.input($name, $label, $vargs.get($name, None))
                 </div>
             #end for
             $getExtra($vargs)
-            $form_widgets.showHelp($help)
+            $form_widgets.showHelp($search_help)
             <div class="buttons">
                 <input id="search_submit" type="submit" value="$_('Search')" />
                 <input id="search_clear" type="reset" value="$_('Clear')" />

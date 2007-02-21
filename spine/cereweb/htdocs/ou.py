@@ -22,9 +22,7 @@ import cherrypy
 
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import redirect_object, commit, commit_url
-from lib.utils import rollback_url
-from lib.utils import transaction_decorator, object_link, strftime
+from lib import utils
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.SearchTemplate import SearchTemplate
@@ -32,7 +30,7 @@ from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
 from lib.templates.OUEditTemplate import OUEditTemplate
 from lib.templates.OUViewTemplate import OUViewTemplate
-from lib.templates.BasicSearchResultTemplate import BasicSearchResultTemplate
+import SpineIDL.Errors
 
 def tree(transaction, perspective=None):
     page = Main()
@@ -49,7 +47,7 @@ def tree(transaction, perspective=None):
     content = tree_template.viewTree(transaction, perspective)
     page.content = lambda: content
     return page
-tree = transaction_decorator(tree)
+tree = utils.transaction_decorator(tree)
 tree.exposed = True
 
 def search(transaction, **vargs):
@@ -104,8 +102,8 @@ def search(transaction, **vargs):
         return search.search()
     
     def row(elm):
-        link = object_link(elm, text=_get_display_name(elm))
-        edit = object_link(elm, text='edit', method='edit', _class='action')
+        link = utils.object_link(elm, text=_get_display_name(elm))
+        edit = utils.object_link(elm, text='edit', method='edit', _class='action')
         remb = remember_link(elm, _class='action')
         return link, elm.get_acronym(), elm.get_short_name(), str(edit)+str(remb)
        
@@ -114,7 +112,7 @@ def search(transaction, **vargs):
     page.content = lambda: result
 
     return page
-search = transaction_decorator(search)
+search = utils.transaction_decorator(search)
 search.exposed = True
 index = search
 
@@ -126,18 +124,18 @@ def view(transaction, id):
     content = OUViewTemplate().view(transaction, ou)
     page.content = lambda: content
     return page
-view = transaction_decorator(view)
+view = utils.transaction_decorator(view)
 view.exposed = True
 
 def edit(transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main()
-    page.title = _("OU ") + object_link(ou)
+    page.title = _("OU ") + utils.object_link(ou)
     page.setFocus("ou/edit", id)
     content = OUEditTemplate().form(transaction, ou)
     page.content = lambda: content
     return page
-edit = transaction_decorator(edit)
+edit = utils.transaction_decorator(edit)
 edit.exposed = True
 
 def create(transaction, **vargs):
@@ -156,7 +154,7 @@ def create(transaction, **vargs):
     page.content = create.form
     
     return page
-create = transaction_decorator(create)
+create = utils.transaction_decorator(create)
 create.exposed = True
 
 def make(transaction, name, institution,
@@ -201,17 +199,17 @@ def make(transaction, name, institution,
             ou.set_sort_name(sort_name)
 
         msg = _("Organization Unit successfully created.")
-        commit(transaction, ou, msg=msg)
+        utils.commit(transaction, ou, msg=msg)
     else:
-        rollback_url('/ou/create', msg, err=True)
-make = transaction_decorator(make)
+        utils.rollback_url('/ou/create', msg, err=True)
+make = utils.transaction_decorator(make)
 make.exposed = True
 
 def save(transaction, id, name, submit=None, **vargs):
     ou = transaction.get_ou(int(id))
 
     if submit == "Cancel":
-        redirect_object(ou)
+        utils.redirect_object(ou)
         return
 
     ou.set_name(name)
@@ -254,20 +252,24 @@ def save(transaction, id, name, submit=None, **vargs):
             ou.set_parent(parent, perspective)
    
     msg = _("Organization Unit successfully modified.")
-    commit(transaction, ou, msg=msg)
-save = transaction_decorator(save)
+    utils.commit(transaction, ou, msg=msg)
+save = utils.transaction_decorator(save)
 save.exposed = True
 
 def delete(transaction, id):
     ou = transaction.get_ou(int(id))
     msg =_("OU '%s' successfully deleted.") % _get_display_name(ou)
     ou.delete()
-    commit_url(transaction, 'index', msg=msg)
-delete = transaction_decorator(delete)
+    utils.commit_url(transaction, 'index', msg=msg)
+delete = utils.transaction_decorator(delete)
 delete.exposed = True
 
 def list_aff_persons(transaction, id, **vargs):
-    ou = transaction.get_ou(int(id))
+    try:
+        ou = transaction.get_ou(int(id))
+    except SpineIDL.Errors.NotFoundError, e:
+        utils.redirect('/ou/')
+
     page = Main()
     page.title = _("OU %s persons") % _get_display_name(ou)
     page.setFocus("ou/list_aff_persons", id)
@@ -276,8 +278,7 @@ def list_aff_persons(transaction, id, **vargs):
     template.search_action = '/ou/list_aff_persons'
     template.search_title = _('OU %s affiliations') % _get_display_name(ou)
 
-    resultTemplate = BasicSearchResultTemplate()
-    handler = SearchHandler('', template.search_form, resultTemplate)
+    handler = SearchHandler('')
     handler.args = ('id',)
     handler.headers = ( ('Type', 'type'), ('Status', 'status'),
                         ('Name', 'name'), ('Birth date', 'birth_date') )
@@ -290,16 +291,19 @@ def list_aff_persons(transaction, id, **vargs):
         p = elm.get_person()
         type = elm.get_affiliation().get_name()
         status = elm.get_status().get_name()
-        name = object_link(p)
-        birth_date = strftime(p.get_birth_date())
+        name = utils.object_link(p)
+        birth_date = utils.strftime(p.get_birth_date())
         return type, status, name, birth_date
 
     vargs['id'] = id
     affs = handler.search(search_method, **vargs)
     result = handler.get_result(affs, row)
-    page.content = lambda: result
-    return page
-list_aff_persons = transaction_decorator(list_aff_persons)
+    if result:
+        page.content = lambda: result
+        return page
+    else:
+        utils.redirect(cherrypy.request.headerMap.get('Referer', ''))
+list_aff_persons = utils.transaction_decorator(list_aff_persons)
 list_aff_persons.exposed = True
     
 
