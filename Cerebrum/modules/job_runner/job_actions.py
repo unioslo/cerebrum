@@ -281,6 +281,67 @@ class AssertRunning(System):
             return 0
         return 1
 
+    
+
+class UniqueActionAttrs(type):
+    """Prevent two different classes from defining an Action with the
+    same name (is there an easy way to also detect it in the same class?)."""
+    
+    def __new__(cls, name, bases, dict_):
+        known = dict([(k, name) for k, v in dict_.items()
+                      if isinstance(v, Action)])
+        for base in bases:
+            for k in dir(base):
+                if isinstance(getattr(base, k), Action):
+                    if k in known:
+                        raise ValueError, "%s.%s already defined in %s" % (
+                            base.__name__, k, known[k])
+                    known[k] = base.__name__
+        return type.__new__(cls,name, bases, dict_)
+
+
+
+class Jobs(object):
+    """
+    Utility class meant for grouping related job-actions together.
+    """
+    __metaclass__ = UniqueActionAttrs
+    
+    def validate(self):
+        all_jobs = self.get_jobs(_from_validate=True)
+        keys = all_jobs.keys()
+        keys.sort()
+        for name, job in all_jobs.items():
+            for n in job.pre:
+                if not all_jobs.has_key(n):
+                    raise ValueError, "Undefined pre-job '%s' in '%s'" % (
+                        n, name)
+            for n in job.post:
+                if not all_jobs.has_key(n):
+                    raise ValueError, "Undefined pre-job '%s' in '%s'" % (
+                        n, name)
+
+
+    def get_jobs(self, _from_validate=False):
+        """Returns a dictionary with all actions, where the keys are
+        the names of the actions and the correspondingvalues are the
+        actions themselves.
+
+        If '_from_validate' is True, this method will also call
+        'validate' before putting the dictionary together.
+
+        """
+        if not _from_validate:
+            self.validate()
+        ret = {}
+        for n in dir(self):
+            c = getattr(self, n)
+            if isinstance(c, Action):
+                ret[n] = c
+        return ret
+
+
+
 def _test_time():
     from Cerebrum.modules.job_runner.job_utils import When, Time
     ac =  Action(call = System("echo yes"),
