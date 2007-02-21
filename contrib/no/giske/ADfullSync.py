@@ -20,11 +20,13 @@ logger = Factory.get_logger("cronjob")
 class ADfuSync(ADutilMixIn.ADuserUtil):
 
 	def __init__(self, *args, **kwargs):
-		
+
 		super(ADfuSync, self).__init__(*args, **kwargs)
+
 		self.person = Factory.get('Person')(self.db)
 		self.qua = Entity.EntityQuarantine(self.db)
 		self.ou =  Factory.get('OU')(self.db)
+
 		
 	def fetch_cerebrum_data(self, spread):
 		"""For all accounts that has spread, returns a list of dicts with
@@ -70,6 +72,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 											% id2ou[row['ou_id']]['acronym'],'http://www.uio.no'],
 											#Constraint i AD, homeMDB must be valid LDAP path.  
 											'homeMDB' : 'CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
+
 
 			else:
 				if id2ou.has_key(row['ou_id']):
@@ -125,8 +128,9 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 				retur[e_name]['userPrincipalName'] = '%s@skule.giske.no' % e_name
 				retur[e_name]['mailNickname'] = e_name
 				retur[e_name]['mDBUseDefaults'] = True
+
 				#Constraint in AD, must be a valid dn in AD.
-				retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'CN=LC Service,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=skule,DC=giske,DC=no'
+				retur[e_name]['msRTCSIP-PrimaryHomeServer'] = 'CN=LC Services,CN=Microsoft,CN=skule01,CN=Pools,CN=RTC Service,CN=Microsoft,CN=System,DC=skule,DC=giske,DC=no'
 
 				#Filtering roles on title field defined earlier.
 				if retur[e_name]['title'] == 'Elev':
