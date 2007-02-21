@@ -425,17 +425,17 @@ class EntityContactInfo(Entity):
         if not hasattr(self, '_src_sys'):
             return
         try:
-            data = self.__data
+            data = self.__data.copy()
         except AttributeError:
             return
         for row in self.get_contact_info(source=self._src_sys):
             do_del = True
             row_idx = "%d:%d" % (row['contact_type'], row['contact_pref'])
-            if self.__data.has_key(row_idx):
-                tmp = self.__data[row_idx]
+            if data.has_key(row_idx):
+                tmp = data[row_idx]
                 if (tmp['value'] == row['contact_value'] and
                     tmp['description'] == row['description']):
-                    del self.__data[row_idx]
+                    del data[row_idx]
                     do_del = False
             if do_del:
                 self.delete_contact_info(self._src_sys,
@@ -445,13 +445,13 @@ class EntityContactInfo(Entity):
                                          # PgNumeric with value zero
                                          # is treated as NULL.
                                          int(row['contact_pref']))
-        for idx in self.__data.keys():
+        for idx in data.keys():
             type, pref = [int(x) for x in idx.split(":", 1)]
             self.add_contact_info(self._src_sys,
                                   type,
-                                  self.__data[idx]['value'],
+                                  data[idx]['value'],
                                   pref,
-                                  self.__data[idx]['description'])
+                                  data[idx]['description'])
 
     def delete_contact_info(self, source, type, pref='ALL'):
         sql = """
@@ -558,10 +558,6 @@ class EntityAddress(Entity):
                                     data[type]['postal_number'],
                                     data[type]['city'],
                                     data[type]['country'])
-        if hasattr(self, '_src_sys'):
-            delattr(self, '_src_sys')
-        if hasattr(self, '__data'):
-            self.__data.clear()
 
     def add_entity_address(self, source, type, address_text=None,
                            p_o_box=None, postal_number=None, city=None,
