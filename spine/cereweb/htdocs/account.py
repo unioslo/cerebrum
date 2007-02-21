@@ -25,18 +25,28 @@ from lib.Main import Main
 from lib.utils import *
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.AccountSearchTemplate import AccountSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 
 def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
-    page = AccountSearchTemplate()
+    page = SearchTemplate()
     page.title = _("Account")
     page.setFocus("account/search")
-    
     page.search_title = _('account(s)')
+    page.fields = [
+                  ("name", _("Account name")),
+                  ("spread", _("Spread name")),
+                  ("create_date", _("Created date *")),
+                  ("expire_date", _("Expire date *")),
+                  ("description", _("Description")),
+                ]
+    page.help = [_("Created date (YYYY-MM-DD, exact match)"),
+                 _("Expired date (YYYY-MM-DD, exact match)")]
+    page.form_action = '/account/search'
+
     handler = SearchHandler('account', page.form)
     handler.args = (
         'name', 'spread', 'create_date', 'expire_date', 'description'
