@@ -122,7 +122,7 @@ cereweb.ac_account = function(input) {
     cereweb.ac_account.superclass.constructor.call(this, input);
     this.widget.formatResult = this.formatResult;
 }
-YAHOO.extend(cereweb.ac_account, cereweb.ac_group);
+YAHOO.lang.extend(cereweb.ac_account, cereweb.ac_group);
 
 cereweb.ac_account.prototype.formatResult = function(aResultItem, sQuery) {
     var name = aResultItem[0];
@@ -148,7 +148,7 @@ cereweb.ac_quicksearch = function(container) {
     this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
     container.style.display = "";
 }
-YAHOO.extend(cereweb.ac_quicksearch, cereweb.ac_account);
+YAHOO.lang.extend(cereweb.ac_quicksearch, cereweb.ac_account);
 
 cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {
     var type = aResultItem[1].type;
