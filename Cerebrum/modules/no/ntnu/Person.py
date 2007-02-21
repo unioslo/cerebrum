@@ -21,6 +21,7 @@
 
 from Cerebrum import Person
 from Cerebrum import Errors
+from Cerebrum.modules.no import fodselsnr
 import cereconf
 
 # The cached display name defaults to the cached full name, but
@@ -61,3 +62,8 @@ class PersonNTNUMixin(Person.Person):
                 self._set_name(self.const.system_cached,
                                self.const.name_display,
                                displayname)
+    
+    def populate_external_id(self, source_system, id_type, external_id):
+        if id_type == self.const.externalid_fodselsnr:
+            fodselsnr.personnr_ok(external_id)
+        self.__super.populate_external_id(source_system, id_type, external_id)
