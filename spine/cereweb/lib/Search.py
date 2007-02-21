@@ -79,7 +79,7 @@ class SearchHandler:
         self.args = []
         self.headers = []
         if not template:
-            from lib.SearchResultTemplate import SearchResultTemplate
+            from lib.templates.SearchResultTemplate import SearchResultTemplate
             template = SearchResultTemplate()
         self.template = template
         
