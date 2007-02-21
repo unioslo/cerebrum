@@ -27,7 +27,7 @@ from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.utils import rollback_url
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.HostSearchTemplate import HostSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.HostViewTemplate import HostViewTemplate
 from lib.templates.HostEditTemplate import HostEditTemplate
 from lib.templates.HostCreateTemplate import HostCreateTemplate
@@ -35,12 +35,17 @@ from lib.templates.HostCreateTemplate import HostCreateTemplate
 
 def search(transaction, **vargs):
     """Search for hosts and displays result and/or searchform."""
-    page = HostSearchTemplate()
+    page = SearchTemplate()
     page.title = _("Host")
-    page.setFocus("/host/search")
-    
     page.search_title = _('host(s)')
-    handler = SearchHandler('host', page.form)
+    page.setFocus("/host/search")
+
+    page.search_fields = [("name", _("Name")),
+                          ("description", _("Description"))
+                        ]
+    page.search_action = '/host/search'
+    
+    handler = SearchHandler('host', page.search_form)
     handler.args = ('name', 'description')
     handler.headers = (
         ('Name', 'name'), ('Description', 'description'), ('Actions', '')

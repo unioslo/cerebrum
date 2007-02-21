@@ -28,7 +28,6 @@ from lib.utils import transaction_decorator, object_link, strftime
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
 from lib.templates.SearchTemplate import SearchTemplate
-from lib.templates.OUSearchTemplate import OUSearchTemplate
 from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
 from lib.templates.OUEditTemplate import OUEditTemplate
@@ -55,12 +54,19 @@ tree.exposed = True
 
 def search(transaction, **vargs):
     """Search for ous and displays result and/or searchform."""
-    page = OUSearchTemplate()
+    page = SearchTemplate()
     page.title = _("OU")
     page.setFocus("ou/search")
+
+    page.search_fields = [("name", _("Name")),
+                          ("acronym", _("Acronym")),
+                          ("short", _("Short name")),
+                          ("spread", _("Spread name"))
+                          ]
+    page.search_action = '/ou/search'
     
     page.search_title = _('OU(s)')
-    handler = SearchHandler('ou', page.form)
+    handler = SearchHandler('ou', page.search_form)
     handler.args = (
         'name', 'acronym', 'short', 'spread'
     )
@@ -267,11 +273,11 @@ def list_aff_persons(transaction, id, **vargs):
     page.setFocus("ou/list_aff_persons", id)
 
     template = SearchTemplate()
-    template.getAction = lambda: '/ou/list_aff_persons'
-    template.title = _('OU %s affiliations') % _get_display_name(ou)
+    template.search_action = '/ou/list_aff_persons'
+    template.search_title = _('OU %s affiliations') % _get_display_name(ou)
 
     resultTemplate = BasicSearchResultTemplate()
-    handler = SearchHandler('', template.form, resultTemplate)
+    handler = SearchHandler('', template.search_form, resultTemplate)
     handler.args = ('id',)
     handler.headers = ( ('Type', 'type'), ('Status', 'status'),
                         ('Name', 'name'), ('Birth date', 'birth_date') )

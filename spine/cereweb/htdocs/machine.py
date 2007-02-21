@@ -26,7 +26,7 @@ from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.HostSearchTemplate import HostSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 # from lib.templates.HostViewTemplate import HostViewTemplate
 # from lib.templates.HostEditTemplate import HostEditTemplate
 #from lib.templates.HostCreateTemplate import HostCreateTemplate
@@ -40,11 +40,17 @@ index.exposed = True
 
 def search(transaction, **vargs):
     """Search for hosts and displays result and/or searchform."""
-    page = HostSearchTemplate()
-    page.title = _("Search for host(s)")
-    page.setFocus("host/search")
+    page = SearchTemplate()
+    page.title = _("Host")
+    page.search_title = _('host(s)')
+    page.setFocus("/host/search")
+
+    page.search_fields = [("name", _("Name")),
+                          ("description", _("Description"))
+                        ]
+    page.search_action = '/host/search'
     
-    handler = SearchHandler('machine', page.form)
+    handler = SearchHandler('machine', page.search_form)
     handler.args = ('name', 'description')
     handler.headers = (
         ('Name', 'name'), ('Description', 'description'), ('Actions', '')

@@ -26,7 +26,7 @@ from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.AllocationPeriodSearchTemplate import AllocationPeriodSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AllocationPeriodViewTemplate import AllocationPeriodViewTemplate
 from lib.templates.AllocationPeriodEditTemplate import AllocationPeriodEditTemplate
 from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateTemplate
@@ -34,15 +34,19 @@ from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateT
 
 def search(transaction, **vargs):
     """Search for allocation periods and displays result and/or searchform."""
-    page = AllocationPeriodSearchTemplate()
+    page = SearchTemplate()
     page.title = _("Search for allocation Period(s)")
     page.setFocus("allocationperiod/search")
+    page.search_fields = [("name", _("Name"),
+                          ("allocationauthority", _("Allocation Authority"),
+                         ]
+    page.search_action = '/allocationperiod/search'
     
-    handler = SearchHandler('allocationperiod', page.form)
+    handler = SearchHandler('allocationperiod', page.search_form)
     handler.args = ('name', 'allocationauthority')
-    handler.headers = (
-        ('Name', 'name'), ('Allocation Authority', 'allocationauthority'),
-        ('Actions', '')
+    handler.headers = (('Name', 'name'),
+                       ('Allocation Authority', 'allocationauthority'),
+                       ('Actions', '')
     )
     
     def search_method(values, offset, orderby, orderby_dir):

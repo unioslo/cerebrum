@@ -30,19 +30,29 @@ from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.PersonSearchTemplate import PersonSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 from lib.templates.PersonEditTemplate import PersonEditTemplate
 from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
 def search(transaction, **vargs):
     """Search after hosts and displays result and/or searchform."""
-    page = PersonSearchTemplate()
+    page = SearchTemplate()
     page.title = _("Person")
     page.setFocus("person/search")
-
     page.search_title = _('a person')
-    handler = SearchHandler('person', page.form)
+    page.search_fields = [("name", _("Name")),
+                          ("accountname", _("Account name")),
+                          ("birthdate", _("Date of birth *")),
+                          ("spread", _("Spread name")),
+                          ("ou", _("Affiliated to Organizational Unit")),
+                          ("aff", _("Affiliation Type"))
+                        ]
+    page.search_help = [_("* Date of birth: (YYYY-MM-DD), exact match"),
+                        _("A person may have several types of names, and therefor a search for a name will be testet on all the nametypes.")]
+    page.search_action = '/person/search'
+
+    handler = SearchHandler('person', page.search_form)
     handler.args = (
         'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff'
     )

@@ -26,19 +26,23 @@ from lib.utils import commit, commit_url, object_link
 from lib.utils import transaction_decorator, redirect_object
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.DiskSearchTemplate import DiskSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.DiskViewTemplate import DiskViewTemplate
 from lib.templates.DiskEditTemplate import DiskEditTemplate
 from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 
 def search(transaction, **vargs):
     """Search after disks and displays result and/or searchform."""
-    page = DiskSearchTemplate()
+    page = SearchTemplate()
     page.title = _("Disk")
     page.setFocus("disk/search")
-   
     page.search_title = _('disk(s)')
-    handler = SearchHandler('disk', page.form)
+    page.search_fields = [("path", _("Path")),
+                          ("description", _("Description"))
+                        ]
+    page.search_action = '/disk/search'
+
+    handler = SearchHandler('disk', page.search_form)
     handler.args = ('path', 'description')
     handler.headers = (
         ('Path', 'path'), ('Host', ''),

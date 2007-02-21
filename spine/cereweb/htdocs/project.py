@@ -26,18 +26,26 @@ from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.ProjectSearchTemplate import ProjectSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.ProjectViewTemplate import ProjectViewTemplate
 from lib.templates.ProjectEditTemplate import ProjectEditTemplate
 from lib.templates.ProjectCreateTemplate import ProjectCreateTemplate
 
 def search(transaction, **vargs):
     """Search for projects and displays result and/or searchform."""
-    page = ProjectSearchTemplate()
+    page = SearchTemplate()
     page.title = _("Search for project(s)")
     page.setFocus("project/search")
 
-    handler = SearchHandler('project', page.form)
+    page.search_fields = [("title", _("Title")),
+                          ("description", _("Description")),
+                          ("allocation_name", _("Allocation Name")),
+                          ("owner", _("Owner")),
+                          ("science", _("Science")),
+                        ]
+    page.search_action = '/project/search'
+
+    handler = SearchHandler('project', page.search_form)
     handler.args = ('title', 'description', 'allocation_name', 'science')
     handler.headers = (
         ('Title', 'title'), ('Science', 'science'),

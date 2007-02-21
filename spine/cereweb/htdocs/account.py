@@ -36,18 +36,18 @@ def search(transaction, **vargs):
     page.title = _("Account")
     page.setFocus("account/search")
     page.search_title = _('account(s)')
-    page.fields = [
+    page.search_fields = [
                   ("name", _("Account name")),
                   ("spread", _("Spread name")),
                   ("create_date", _("Created date *")),
                   ("expire_date", _("Expire date *")),
                   ("description", _("Description")),
                 ]
-    page.help = [_("Created date (YYYY-MM-DD, exact match)"),
+    page.search_help = [_("Created date (YYYY-MM-DD, exact match)"),
                  _("Expired date (YYYY-MM-DD, exact match)")]
-    page.form_action = '/account/search'
+    page.search_action = '/account/search'
 
-    handler = SearchHandler('account', page.form)
+    handler = SearchHandler('account', page.search_form)
     handler.args = (
         'name', 'spread', 'create_date', 'expire_date', 'description'
     )

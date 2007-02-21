@@ -26,18 +26,24 @@ from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
 from lib.Search import SearchHandler, setup_searcher
-from lib.templates.AllocationSearchTemplate import AllocationSearchTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AllocationViewTemplate import AllocationViewTemplate
 from lib.templates.AllocationEditTemplate import AllocationEditTemplate
 from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
 
 def search(transaction, **vargs):
     """Search for allocations and displays result and/or searchform."""
-    page = AllocationSearchTemplate()
+    page = SearchTemplate()
     page.title = _("Search for allocation(s)")
     page.setFocus("allocation/search")
+    page.search_fields = [("allocation_name", _("Allocation Name")),
+                          ("period", _("Period")),
+                          ("machine", _("Machine"))
+                        ]
+    page.search_action = '/allocation/search'
 
-    handler = SearchHandler('allocation', page.form)
+
+    handler = SearchHandler('allocation', page.search_form)
     handler.args = ('allocation_name', 'period', 'status', 'machines')
     handler.headers = (
         ('Allocation name', 'allocation_name'), ('Period', 'period'),

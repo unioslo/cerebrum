@@ -39,11 +39,16 @@ def search(transaction, **vargs):
     """Search for groups and displays results and/or searchform."""
     page = GroupSearchTemplate()
     page.title = _("Group")
+    page.search_title = _('group(s)')   
     page.setFocus("group/search")
     page.add_jscript("groupsearch.js")
+    page.search_fields = [("name", _("Name")),
+                          ("description", _("Description")),
+                          ("spread", _("Spread name")),
+                          ]
+    page.search_action = '/group/search'
 
-    page.search_title = _('group(s)')   
-    handler = SearchHandler('group', page.form)
+    handler = SearchHandler('group', page.search_form)
     handler.args = (
         'name', 'description', 'spread', 'gid', 'gid_end', 'gid_option'
     )
