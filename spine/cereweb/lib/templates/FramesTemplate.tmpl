@@ -90,18 +90,15 @@
     </head>
     <body>
         <div id="maindiv">
+            <div id="messages">
+                #for $message, $is_error in $messages
+                #set $error = $is_error and " error" or ""
+                <span class="message$error">$message</span><br />
+                #end for
+            </div>
             <div id="content" class="page_content">
-                <div class="session_warning" id="session_warning" style="display:none;">
-                    <b>Session warning:</b>
-                </div>
                 <div class="title">
                     <h1>$title</h1>
-                </div>
-                <div class="messages">
-                    #for $message, $is_error in $messages
-                    #set $error = $is_error and " error" or ""
-                    <span class="message$error">$message</span><br />
-                    #end for
                 </div>
                 #block content_block
                     $content()

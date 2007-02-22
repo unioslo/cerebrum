@@ -80,7 +80,7 @@ function TO_check() {
                 startTimer('TO_time_out()', time_left); 
                 YAHOO.cereweb.timeOutDialog.show();
             } else {
-                document.getElementById('session_warning').style.display = "none";
+                TO_hide_warning();
                 startTimer('TO_check()', TO_check_interval);
             }
         },
@@ -93,6 +93,11 @@ function TO_check() {
     var cObj = YAHOO.util.Connect.asyncRequest('POST', url, callback, data);
 }
 
+function TO_hide_warning() {
+    var warning = YD.get('session_warning');
+    if (warning)
+        warning.style.display = "none";
+}
 // Requests the server to keep the session alive for another periode.
 function TO_keepalive() {
     YAHOO.cereweb.timeOutDialog.hide();
@@ -145,11 +150,17 @@ function TO_connection_failure(o) {
     if (TO_timeout_fail < TO_timeout_fail_max)
         TO_timeout_fail = TO_timeout_fail * TO_timeout_fail_inc;
 
-    var warning_div = document.getElementById('session_warning');
     var msg = "<p>It seems that the server is unavailable.  This message\
  will disappear as soon as the server is available again, so please be patient.\
  If nothing happens within five minutes, feel free to call (735) 91500 and\
  notify Orakeltjenesten of the situation.</p>";
+    TO_show_warning(msg);
+}
+
+function TO_show_warning(msg) {
+    var warning_div = YD.get('session_warning');
+    if (!warning_div)
+        warning_div = cereweb.createDiv('session_warning', 'maindiv');
     warning_div.innerHTML = msg;
     warning_div.style.display = "block";
 }
@@ -159,11 +170,10 @@ function TO_time_out() {
     stopTimer();
     YAHOO.cereweb.timeOutDialog.hide();
 
-    var warning_div = document.getElementById('session_warning');
     var msg = 'Your session has timed out, <a href="/login?redirect=' +
-encodeURIComponent(location.href) + '">click here</a> to get a new session.';
-    warning_div.innerHTML = msg;
-    warning_div.style.display = "block";
+               encodeURIComponent(location.href) +
+              '">click here</a> to get a new session.';
+    TO_show_warning(msg);
 }
 
 if(cerebug) {

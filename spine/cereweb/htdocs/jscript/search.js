@@ -248,7 +248,6 @@ cereweb.search = {
     callback:  {
         success: function(o) {
             var result = o.responseText;
-            var c = console;
             cereweb.search.show_results(result);
         },
         failure: function(o) {
@@ -284,9 +283,18 @@ cereweb.search = {
         var content = YD.get('content');
         var parent = content.parentNode;
         parent.replaceChild(cereweb.search.content, content);
+    },
+    clear_search: function() {
+        var callback = { success: function(o) {}, failure: function(o) {} }
+        var form = YD.get('search_form');
+        var url = '/entity/clear_search';
+        var arg = 'url=' + form.action;
+        var cObj = YC.asyncRequest('POST', url, callback, arg);
+        document.location = document.location; // Get rid of the pesky form values.
     }
 }
 YE.addListener('search_form', 'submit', cereweb.search.submit);
+YE.addListener('search_clear', 'click', cereweb.search.clear_search);
 
 if(cerebug) {
     log('search is loaded');

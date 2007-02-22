@@ -45,9 +45,13 @@ if(cerebug) {
 cereweb.createDiv = function (id, parent) {
     if (YAHOO.lang.isUndefined(parent))
         parent = document.body;
+    else if (YAHOO.lang.isString(parent))
+        parent = YD.get(parent);
     var el = document.createElement('div');
+
     if (YAHOO.lang.isString(id))
-        el.setAttribute('id', id)
+        el.setAttribute('id', id);
+
     parent.appendChild(el);
     return el;
 }
