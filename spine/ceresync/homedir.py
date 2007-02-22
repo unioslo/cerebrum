@@ -40,7 +40,6 @@ cmd = tr.get_commands()
 try:
     hostname = config.conf.get('homedir', 'hostname')
 except:
-    import os
     hostname = os.uname()[1]
 
 try:
