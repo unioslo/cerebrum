@@ -49,4 +49,4 @@ class MixIn(ADobject.Account, ADobject.Group,
             ADobject.Search, ADhomedir.Homedir):
 	
 	def __init__(self, *args, **kwargs):
-		super(Homedir, self).__init__(*args, **kwargs)
+		super(MixIn, self).__init__(*args, **kwargs)
