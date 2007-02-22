@@ -1849,8 +1849,9 @@ class BofhdExtension(object):
         ("email", "create_list"),
         EmailAddress(help_ref="mailman_list"),
         SimpleString(help_ref="mailman_admins", optional=True),
+        YesNo(help_ref="yes_no_force", optional=True),
         perm_filter="can_email_list_create")
-    def email_create_list(self, operator, listname, admins = None):
+    def email_create_list(self, operator, listname, admins=None, force="no"):
         """Create the e-mail addresses 'listname' needs to be a Mailman
         list.  Also adds a request to create the list on the Mailman
         server."""
@@ -1870,15 +1871,14 @@ class BofhdExtension(object):
         except CerebrumError:
             pass
         else:
-            if lp not in ('drift',):
+            if not (lp in ('drift',) or
+                    (self.ba.is_postmaster(op) and self._get_boolean(force))):
                 # TBD: This exception list should probably not be
                 # hardcoded here -- but it's not obvious whether it
                 # should be a cereconf value (implying that only site
                 # admins can modify the list) or a database table.
-                raise CerebrumError, ("Won't create list %s, as %s is an "
-                                      "existing username") % (listname, lp)
-        if not (self._is_ok_mailman_name(lp) or
-                self.ba.is_postmaster(operator.get_entity_id())):
+                raise CerebrumError, "%s is an existing username" % lp
+        if not (self._is_ok_mailman_name(lp) or self.ba.is_postmaster(op)):
             raise CerebrumError, "Illegal mailing list name: %s" % listname
         self._register_list_addresses(listname, lp, dom)
         if admins:
