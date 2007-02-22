@@ -244,62 +244,49 @@ function initAutoComplete(event) {
         });
 }
 
-// Clears the searchform.
-YAHOO.util.Event.addListener('search_clear', 'click', SR_clear);
-function SR_clear(e) {
-    YAHOO.util.Event.preventDefault(e);
-
-    var form = document.getElementById('search_form');
-    var base_uri = 'http://' + location.host;
-    var uri = base_uri + "/entity/clear_search?url=" + form.action;
-    
-    //Resets all elements in the form.
-    for(var i = 0; i < form.length; i++) {
-        if (form.elements[i].type == "text") {
-            form.elements[i].value = "";
-        }
-    }
-
-    var callback = {
-        success: remove_searchresult,
-        failure: remove_searchresult,
-        timeout: 5000
-    }
-
-    var cObj = YAHOO.util.Connect.asyncRequest('GET', uri, callback);
-}
-
-function remove_searchresult() {
-    YAHOO.log('removing...');
-    var maindiv = document.getElementById('content');
-    if (YAHOO.util.Dom.inDocument('searchresult')) {
-        var searchresult = document.getElementById('searchresult');
-        var removed = maindiv.removeChild(searchresult);
-    }
-}
-
-YAHOO.util.Event.addListener('search_submit', 'click', SR_submit);
-function SR_submit(e) {
-    return; // Disabled until pages are ready for DOM manipulation.
-    YAHOO.util.Event.stopEvent(e); // AJAX takes over.
-    var uri = 'http://' + location.host + '/ajax/search';
-    
-    var callback = {
+cereweb.search = {
+    callback:  {
         success: function(o) {
             var result = o.responseText;
-            var maindiv = document.getElementById('content');
-            remove_searchresult();
-
-            maindiv.innerHTML = result + maindiv.innerHTML;
+            var c = console;
+            cereweb.search.show_results(result);
         },
         failure: function(o) {
             YAHOO.log('failure');
         },
         timeout: 5000
+    },
+    submit: function(e) {
+        YE.stopEvent(e); // AJAX takes over.
+        var form = YD.get('search_form');
+        YC.setForm(form);
+
+        var cObj = YC.asyncRequest('POST', form.action,
+            cereweb.search.callback);
+    },
+    show_results: function(res) {
+        var old = YD.get('content');
+        var parent = old.parentNode;
+        cereweb.search.content = old;
+        var content = document.createElement('div');
+        content.setAttribute('id', 'content');
+        content.innerHTML = res;
+        parent.replaceChild(content, old);
+        var backLinkDiv = document.createElement('div');
+        var backLink = document.createElement('a');
+        backLink.innerHTML = 'back';
+        backLink.href = '#';
+        backLinkDiv.appendChild(backLink);
+        content.appendChild(backLinkDiv);
+        YE.addListener(backLink, 'click', cereweb.search.show_form);
+    },
+    show_form: function() {
+        var content = YD.get('content');
+        var parent = content.parentNode;
+        parent.replaceChild(cereweb.search.content, content);
     }
-    YAHOO.util.Connect.setForm('search_form');
-    var cObj = YAHOO.util.Connect.asyncRequest('POST', uri, callback);
 }
+YE.addListener('search_form', 'submit', cereweb.search.submit);
 
 if(cerebug) {
     log('search is loaded');

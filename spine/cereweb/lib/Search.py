@@ -106,8 +106,9 @@ class SearchHandler:
             self.orderby = vargs.get('orderby', None)
             self.orderby_dir = vargs.get('orderby_dir', None)
             cherrypy.session[self.var_name] = self.values
-            return method(self.values, self.offset,
+            self.result = method(self.values, self.offset,
                           self.orderby, self.orderby_dir)
+            return self.result
         else:
             return None
 

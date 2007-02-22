@@ -111,7 +111,10 @@ def search(transaction, **vargs):
     result = handler.get_result(ous, row)
     page.content = lambda: result
 
-    return page
+    if cherrypy.request.headers.get('X-Requested-With', "") == "XMLHttpRequest":
+        return result
+    else:
+        return page
 search = utils.transaction_decorator(search)
 search.exposed = True
 index = search

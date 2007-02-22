@@ -38,17 +38,15 @@ cereweb.worklist = {
     types: new Array(),
     // This is where we store the information about our objects.
     objects: {},
-    worklistChanged: new YAHOO.util.CustomEvent('worklistChanged', this)
-}
-
-// Simple callback for all our AJAX calls in the worklist.
-var callback = {
-    success: function(o) { 
-            var obj = eval('(' + o.responseText + ')');
-            cereweb.worklist.objects = obj;
-    },
-    failure: WL_error,
-    timeout: 5000
+    worklistChanged: new YAHOO.util.CustomEvent('worklistChanged', this),
+    callback: {
+        success: function(o) { 
+                var obj = eval('(' + o.responseText + ')');
+                cereweb.worklist.objects = obj;
+        },
+        failure: WL_error,
+        timeout: 5000
+    }
 }
 
 function worklistHandler(event) {
@@ -144,7 +142,7 @@ function WL_update_actions(event, args) {
     
     if (!update_only) {
         var cObj = YAHOO.util.Connect.asyncRequest('POST',
-            update_url, callback, args);
+            update_url, cereweb.worklist.callback, args);
     }
     
     // Hide all actions.
@@ -296,7 +294,7 @@ function WL_remember(id, cls, name) {
         // Tell the server that we have added an element.
         var add_url = webroot + '/worklist/add';
         args = "id="+id+"&cls="+cls+"&name="+name
-        var cObj = YC.asyncRequest('POST', add_url, callback, args);
+        var cObj = YC.asyncRequest('POST', add_url, cereweb.worklist.callback, args);
     }
 }
 
@@ -328,7 +326,7 @@ function WL_forget_by_id(id) {
     // tell the server that we have removed some element.
     var remove_url = webroot + '/worklist/remove';
     var args = "id="+id;
-    var cObj = YC.asyncRequest('POST', remove_url, callback, args);
+    var cObj = YC.asyncRequest('POST', remove_url, cereweb.worklist.callback, args);
 }
 
 // Remove selected items from worklist
