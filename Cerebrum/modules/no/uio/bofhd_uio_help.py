@@ -543,7 +543,8 @@ printer."""],
     'spam_action':
         ['spam action', 'Enter spam action',
           """Choose one of
-          'dropspam'    Messages classified as spam won't be delivered at all
+          'greylist'    Reject messages classified as spam, delay unknown servers
+          'dropspam'    Reject messages classified as spam
           'spamfolder'  Deliver spam to a separate IMAP folder
           'noaction'    Deliver spam just like legitimate email"""],
     'spam_level':
