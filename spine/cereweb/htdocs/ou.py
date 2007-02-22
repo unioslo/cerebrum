@@ -281,6 +281,7 @@ def list_aff_persons(transaction, id, **vargs):
     handler = SearchHandler('')
     handler.args = ('id',)
     handler.headers = ( ('Type', 'type'), ('Status', 'status'),
+                        ('Source', 'source'),
                         ('Name', 'name'), ('Birth date', 'birth_date') )
 
     def search_method(values, offset, orderby, orderby_dir):
@@ -291,9 +292,10 @@ def list_aff_persons(transaction, id, **vargs):
         p = elm.get_person()
         type = elm.get_affiliation().get_name()
         status = elm.get_status().get_name()
+        source = elm.get_source_system().get_name()
         name = utils.object_link(p)
         birth_date = utils.strftime(p.get_birth_date())
-        return type, status, name, birth_date
+        return type, status, source, name, birth_date
 
     vargs['id'] = id
     affs = handler.search(search_method, **vargs)
