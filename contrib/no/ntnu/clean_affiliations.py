@@ -26,11 +26,13 @@
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum import Person
+from Cerebrum import Errors
+import sets
 
 Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-db.cl_init(change_program='clean_affiliations')
+db.cl_init(change_program='clean_affs')
 
 p = Factory.get('Person')(db)
 
@@ -45,13 +47,16 @@ for person,ou,aff,source,status,dd,cd in p.list_affiliations():
 
 count=0
 for person,ou,aff in manual.intersection(auto):
-    # Use delete_date?
-    p.clear()
-    p.find(person)
-    p.delete_affiliation(ou, aff, co.system_manual)
-    p.write_db()
-    count++
+    try:
+        # Use delete_date?
+        p.clear()
+        p.find(person)
+        p.delete_affiliation(ou, aff, co.system_manual)
+        p.write_db()
+        count+=1
+    except Errors.NotFoundError:
+        pass
 
-printf "removed %d manual affiliations" % count
+print "removed %d manual affiliations" % count
 
 db.commit()
