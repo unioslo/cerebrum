@@ -35,12 +35,22 @@ cereweb = YAHOO.cereweb;
  */
 var cerebug = false;
 if(cerebug) {
-    YE.onAvailable("maindiv", function(o) {
-        logger = document.createElement('div');
-        YD.get('maindiv').appendChild(logger);
+    var init = function(o) {
+        var logger = cereweb.createDiv('logger');
         var myLogReader = new YAHOO.widget.LogReader(logger);
-    });
+    }
+    YE.onAvailable("maindiv", init);
 };
+
+cereweb.createDiv = function (id, parent) {
+    if (YAHOO.lang.isUndefined(parent))
+        parent = document.body;
+    var el = document.createElement('div');
+    if (YAHOO.lang.isString(id))
+        el.setAttribute('id', id)
+    parent.appendChild(el);
+    return el;
+}
 
 /**
  * Some basic event handling.  Currently it only handles click events on
@@ -171,3 +181,7 @@ YE.onAvailable('maindiv', function() {
     if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
 
 });
+
+if(cerebug) {
+    log('bases are loaded');
+}

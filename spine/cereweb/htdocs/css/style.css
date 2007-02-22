@@ -512,13 +512,28 @@ div.options td.buttons {
     top: 8px;
     left: 16px;
 }
+#ac_quicksearch form {
+    position: relative;
+}
+#ac_quicksearch div.autocomplete_container {
+    float: left;
+}
 #ac_quicksearch input {
     width: 9.5em;
 }
-#ac_quicksearch input[type=submit] {
+#ac_quicksearch label {
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    z-index: 1;
+    color: #999;
+    text-align: left;
+    font-style: normal;
+    font-weight: normal;
+}
+#ac_quicksearch div.buttons {
     display: none;
 }
-
 
 /* Temporary fix of autocomplete. */
 div.required,

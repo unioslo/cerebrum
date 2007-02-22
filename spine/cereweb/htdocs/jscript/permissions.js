@@ -295,3 +295,8 @@ function Perm_insert_option(select, new_node, old_index) {
     select.insertBefore(new_node, select[old_index]);
     new_node.text = text;
 }
+
+
+if(cerebug) {
+    log('permissions are loaded');
+}

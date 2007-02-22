@@ -366,3 +366,6 @@ function WL_invert() {
     }
 }
 
+if(cerebug) {
+    log('worklist is loaded');
+}

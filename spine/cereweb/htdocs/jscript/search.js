@@ -115,7 +115,7 @@ cereweb.ac_group.prototype = {
         if (this.submitted || this.submitting)
             return false;
         else return true;
-    },
+    }
 }
 
 cereweb.ac_account = function(input) {
@@ -142,13 +142,26 @@ cereweb.ac_account.prototype.dataSourceOptions = {
 }
 
 cereweb.ac_quicksearch = function(container) {
-    var input = YD.get("ac_quicksearch_name");
+    this.input = YD.get("ac_quicksearch_name");
+    this.label = this.input.parentNode.getElementsByTagName('label')[0];
     this.id = YD.get("ac_quicksearch_id");
-    cereweb.ac_quicksearch.superclass.constructor.call(this, input);
+    cereweb.ac_quicksearch.superclass.constructor.call(this, this.input);
     this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
     container.style.display = "";
+    this.updateLabel();
+    YE.addListener(this.input, 'focus', this.updateLabel, this, true);
+    YE.addListener(this.input, 'blur', this.updateLabel, this, true);
 }
 YAHOO.lang.extend(cereweb.ac_quicksearch, cereweb.ac_account);
+
+cereweb.ac_quicksearch.prototype.updateLabel = function(args) {
+    if (args && args.type === 'focus')
+        this.label.style.textIndent = '-1000px';
+    else if (this.input.value !== '')
+        this.label.style.textIndent = '-1000px';
+    else
+        this.label.style.textIndent = '0px';
+}
 
 cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {
     var type = aResultItem[1].type;
@@ -209,7 +222,7 @@ cereweb.ac_quicksearch.prototype.parseData = function() {
 }
 
 cereweb.ac_quicksearch.prototype.dataSourceOptions = {
-    queryMatchCase: true,
+    queryMatchCase: true
 }
 
 YE.onAvailable('ac_quicksearch', function () {
@@ -286,4 +299,8 @@ function SR_submit(e) {
     }
     YAHOO.util.Connect.setForm('search_form');
     var cObj = YAHOO.util.Connect.asyncRequest('POST', uri, callback);
+}
+
+if(cerebug) {
+    log('search is loaded');
 }

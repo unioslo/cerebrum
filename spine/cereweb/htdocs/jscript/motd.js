@@ -79,3 +79,7 @@ cereweb.motd = {
     }
 }
 YE.onAvailable('editMotd', cereweb.motd.init, cereweb.motd, true);
+
+if(cerebug) {
+    log('motd is loaded');
+}

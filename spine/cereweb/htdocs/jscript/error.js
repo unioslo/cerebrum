@@ -56,3 +56,6 @@ function Err_back() {
     history.go(-1);
 }
 
+if(cerebug) {
+    log('error is loaded');
+}

@@ -44,11 +44,12 @@ var TO_timeout_fail_max = TO_check_interval; // Max wait between failed ajax cal
 var TO_timerid = 0; // Keep track of the timer so we can cancel it.
 
 function TO_init() {
+    var el = cereweb.createDiv('timeOutDialog');
     var warn_title = "Cereweb session warning";
     var warn_text  = "You session will time out in " + TO_warning_time +
         " seconds. Do you want to extend your session time?";
     YAHOO.cereweb.timeOutDialog =
-        new YAHOO.widget.SimpleDialog('timeOutDialog',
+        new YAHOO.widget.SimpleDialog(el,
             { 
                 width: "500px",
                 fixedcenter: true,
@@ -163,4 +164,8 @@ function TO_time_out() {
 encodeURIComponent(location.href) + '">click here</a> to get a new session.';
     warning_div.innerHTML = msg;
     warning_div.style.display = "block";
+}
+
+if(cerebug) {
+    log('timeout is loaded');
 }

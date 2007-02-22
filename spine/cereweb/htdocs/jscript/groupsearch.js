@@ -27,3 +27,7 @@ function GS_option_changed() {
     var state = YD.get('gid_option').value !== "range";
     YD.get('gid_end').disabled = state;
 }
+
+if(cerebug) {
+    log('groupsearch is loaded');
+}
