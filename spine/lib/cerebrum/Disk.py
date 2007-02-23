@@ -20,6 +20,7 @@
 
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from CerebrumClass import CerebrumDbAttr
 
 from Entity import Entity
 from Host import Host
@@ -34,9 +35,9 @@ __all__ = ['Disk']
 table = 'disk_info'
 class Disk(Entity):
     slots = Entity.slots + (
-        DatabaseAttr('host', table, Host),
-        DatabaseAttr('path', table, str, write=True),
-        DatabaseAttr('description', table, str, write=True)
+        CerebrumDbAttr('host', table, Host),
+        CerebrumDbAttr('path', table, str, write=True),
+        CerebrumDbAttr('description', table, str, write=True)
     )
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {
@@ -50,9 +51,15 @@ class Disk(Entity):
 registry.register_class(Disk)
 
 def create_disk(self, host, path, description):
+    """
+    Create a disk.
+    \\param host The host that owns the disk
+    \\param path The root path of the disk
+    \\param description
+    \\return Created Disk Object
+    """
     db = self.get_database()
     new_id = Disk._create(db, host.get_id(), path, description)
-    
     return Disk(db, new_id)
 
 create_disk.signature = Disk
@@ -61,11 +68,14 @@ create_disk.signature_args = [Host, str, str]
 Commands.create_disk = create_disk
 
 def get_disks(self):
+    """
+    \\return List of disks on host
+    """
     searcher = registry.DiskSearcher(self.get_database())
     searcher.set_host(self)
     return searcher.search()
 
 get_disks.signature = [Disk]
-Host.get_disks = get_disks
+Host.register_methods([get_disks])
 
 # arch-tag: 3c4a4e7b-88e8-4b38-83b4-8648146d94bf

@@ -21,6 +21,7 @@
 import Cerebrum.Database
 from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from CerebrumClass import CerebrumDbAttr
 
 from Entity import Entity, ValueDomainHack
 from Types import EntityType
@@ -35,8 +36,8 @@ __all__ = ['Host']
 table = 'host_info'
 class Host(Entity):
     slots = Entity.slots + (
-        DatabaseAttr('name', 'entity_name', str, write=True),
-        DatabaseAttr('description', table, str, write=True)
+        CerebrumDbAttr('name', 'entity_name', str, write=True),
+        CerebrumDbAttr('description', table, str, write=True)
     )
     db_attr_aliases = Entity.db_attr_aliases.copy()
     db_attr_aliases[table] = {
@@ -50,21 +51,20 @@ class Host(Entity):
 
 registry.register_class(Host)
 
-def create(self, name, description):
+def create_host(self, name, description):
     db = self.get_database()
     try:
         new_id = Host._create(db, name, description)
     except Cerebrum.Database.IntegrityError:
         raise ValueError('Invalid host name.')
     return Host(db, new_id)
-create.signature = Host
-create.signature_name = 'create_host'
-create.signature_args = [str, str]
-create.signature_write = True
-create.signature_exceptions = [ValueError]
+create_host.signature = Host
+create_host.signature_args = [str, str]
+create_host.signature_write = True
+create_host.signature_exceptions = [ValueError]
 
     
-Commands.register_methods([create])
+Commands.register_methods([create_host])
 
 def get_host_by_name(self, name):
     """
