@@ -20,7 +20,12 @@
 #from lib.WorkList import remember_link
 #from Widgets import Widgets
 #extends EntityViewTemplate
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
 #attr $widgets = Widgets()
+
+#attr $email_server_types = []
 
 #attr $title = ''
 
@@ -28,7 +33,10 @@
     #set $id = $host.get_id()
     <a href="edit?id=$id">$_("edit info")</a><br />
     <a href="delete?id=$id">$_("delete host")</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a><br />
+    #if $host.get_server_type()
+        <a href="/host/demote_mailhost?id=$id">$_('Demote as mailhost')</a>
+    #end if
     <br />
     $remember_link($host)<br />
 #end def
@@ -39,6 +47,9 @@
     $addNote($host)
     $viewNotes($host)
     $viewDisks($host)
+    #if not $host.get_server_type()
+        $promote_to_mailhost($host)
+    #end if
     $viewHistoryLog($host)
 #end def
 
@@ -47,6 +58,9 @@
     #set $info = []
     $info.append(($_("Name:"), $host.get_name()))
     $info.append(($_("Description:"), $host.get_description()))
+    #if $host.get_server_type()
+        $info.append(($_("Mailhost:"), $host.get_server_type().get_name()))
+    #end if
     $widgets.viewInfo($info)
 #end def
 
@@ -75,5 +89,25 @@
         </form>
     </div>
     #end if
+#end def
+
+#def promote_to_mailhost($host)
+    <div class="edit box" >
+    <h3>$_('Promote to mailhost')</h3>
+        <form action="promote_mailhost" method="post">
+        <p>
+            <div class="hidden">
+                <input type="hidden" name="id" value="$host.get_id()" />
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("type", 'Server type', $email_server_types)
+            </div>
+            <div class="buttons">
+                <input type="submit" name="promote" value="$_('Promote')" />&nbsp;
+                <input type="button" class="cancel" value="$_('Cancel')" />
+            </div>
+        </p>
+        </form>
+    </div>
 #end def
 
