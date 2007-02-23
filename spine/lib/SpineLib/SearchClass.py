@@ -115,8 +115,17 @@ class SearchClass(DatabaseTransactionClass):
 
 
         # FIXME: this is not Oracle compliant
+        # When querying in Oracle, use ROWNUM as pseudocolumn to limit the nuimber of returned
+        # row. Pseudocolumns behaves similar to regular table columns, but are not actually
+        # stored in tables. Suggested fix: make a database-dependant limit-clause 
+        # if cereconf.DATABASE_DRIVER.lower() == 'oracle':
+        #     sql += ' ROWNUM >= s% AND ROWNUM <= %s' % self._search_limit 
+        # else:
+        #     # The postgres-way
+        #     sql += ' LIMIT %s OFFSET %s' % self._search_limit
         if self._search_limit:
             sql += ' LIMIT %s OFFSET %s' % self._search_limit
+
 
         return sql, args
 
