@@ -190,13 +190,21 @@ def disks(transaction, host, add=None, delete=None, **checkboxes):
 disks = transaction_decorator(disks)
 disks.exposed = True
 
-def promote_to_mailhost(transaction, id, type):
+def promote_mailhost(transaction, id, type):
     host_type = transaction.get_email_server_type(type)
     host = transaction.get_host(int(id))
     host.promote_email_server(host_type)
     transaction.commit()
     redirect('/host/view?id=%s' % id )
-promote_to_mailhost = transaction_decorator(promote_to_mailhost)
-promote_to_mailhost.exposed = True
+promote_mailhost = transaction_decorator(promote_mailhost)
+promote_mailhost.exposed = True
+
+def demote_mailhost(transaction, id):
+    host = transaction.get_host(int(id))
+    # host.demote_email_server()
+    transaction.commit()
+    redirect('/host/view?id=%s' % id )
+demote_mailhost = transaction_decorator(demote_mailhost)
+demote_mailhost.exposed = True
 
 # arch-tag: 6d5f8060-3bf4-11da-96a8-c359dfc6e774
