@@ -73,7 +73,7 @@ def search(transaction, **vargs):
     result = handler.get_result(hosts, row)
     page.content = lambda: result
     
-    if cherrypy.request.headers.get('X-Requested-With', "") == "XMLHttpRequest":
+    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
         return result
     else:
         return page
