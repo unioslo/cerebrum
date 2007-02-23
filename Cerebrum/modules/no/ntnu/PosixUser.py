@@ -48,7 +48,7 @@ class PosixUserNTNUMixin(PosixUser.PosixUser):
             self._reset_uid_sequence_hack(self.currentrange[0],
                                           self.currentrange[1])
             uid=self.__super.get_free_uid()
-            if uid<=self.minfreeuid or uid>=self.maxfreeuid:
+            if uid<=self.currentrange[0] or uid>=self.currentrange[1]:
                 raise UidRangeException(
                     "Uid out of range: Please reset posix_uid_seq to %d" %
                     self.currentrange[0])
