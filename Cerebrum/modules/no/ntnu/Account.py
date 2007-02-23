@@ -61,13 +61,23 @@ class AccountNTNUMixin(Account.Account):
             return "misformed (%s)" % name
         return self.__super.illegal_name(name)
 
+
+    def is_posix(self):
+        from Cerebrum.modules.PosixUser import PosixUser
+        try:
+            tmp=PosixUser(self._db)
+            tmp.find(self.entity_id)
+            return True
+        except Errors.NotFoundError:
+            return False
+        
     def add_spread(self, spread):
-        if spread in posix_spreads and not isinstance(self, PosixUser):
-            try:
-                tmp=PosixUser(self._db)
-                tmp.find(self.entity_id)
-            except Errors.NotFoundError:
-                raise Errors.NotFoundError
+        from Cerebrum.modules.PosixUser import PosixUser
+        if (str(self.const.Spread(spread)) in posix_spreads
+            and not isinstance(self, PosixUser)
+            and not self.is_posix()):
+            raise self._db.IntegrityError, "Spread requires posix"
+
         self.__super.add_spread(spread)
 
         if spread_homedirs.has_key(str(self.const.Spread(spread))):
@@ -96,8 +106,7 @@ class AccountNTNUMixin(Account.Account):
             from Cerebrum.modules.no.ntnu.Disk import disk_path_regex
             if not disk_path_regex.match(kw["home"]):
                 raise self._db.IntegrityError, "Illegal home path"
-    
-            
+        return self.__super.set_homedir(**kw)
 
                 
 
