@@ -25,6 +25,7 @@ import re
 # Require at least one dot in hostnames, and require that each component
 # starts with [a-z] and continues with [a-z0-9-]*
 host_name_regex=re.compile("^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$")
+disk_path_regex=re.compile("^(/[a-z0-9][a-z0-9-_]*)+$")
 
 
 class HostNTNUMixin(Disk.Host):
@@ -32,3 +33,9 @@ class HostNTNUMixin(Disk.Host):
         if not re.match(host_name_regex, name):
             return "misformed (%s)" % name
         return self.__super.illegal_name(name)
+
+class DiskNTNUMixin(Disk.Disk):
+    def write_db():
+        if not re.match(disk_path_regex, self.path):
+            raise self._db.IntegrityError, "Illegal disk path"
+        return self.__super.write_db()
