@@ -28,11 +28,17 @@ registry = Registry.get_registry()
 
 import Cerebrum.modules.PosixGroup
 
-Group.register_attribute(DatabaseAttr('posix_gid', 'posix_group', int,
-                                      write=True, optional=True))
+Group.register_attribute(CerebrumDbAttr('posix_gid', 'posix_group', int,
+                                        write=True, optional=True))
 Group.db_attr_aliases['posix_group'] = {'id':'group_id'}
-Group.build_methods()
-Group.build_search_class()
+
+cerebrumclass = Factory.get('PosixGroup')
+for attr in attrs:
+    attr.cerebrumclass = cerebrumclass
+    Group.register_attribute(attr)
+registry.register_class(Group)
+
+
 
 def is_posix(self):
     """Check if a group has been promoted to posix.
@@ -47,7 +53,7 @@ Group.register_methods([is_posix])
 
 def promote_posix(self):
     obj = self._get_cerebrum_obj()
-    p = Cerebrum.modules.PosixGroup.PosixGroup(self.get_database())
+    p = cerebrumclass(self.get_database())
     p.populate(parent=obj)
     p.write_db()
 promote_posix.signature = None
@@ -56,7 +62,7 @@ Group.register_methods([promote_posix])
 
 def demote_posix(self):
     obj = self._get_cerebrum_obj()
-    p = Cerebrum.modules.PosixGroup.PosixGroup(self.get_database())
+    p = cerebrumclass(self.get_database())
     p.find(obj.entity_id)
     p.delete()
 demote_posix.signature = None

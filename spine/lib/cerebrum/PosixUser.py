@@ -56,18 +56,6 @@ class PosixShell(CodeType):
 
 registry.register_class(PosixShell)
 
-def get_gecos(self):
-    p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
-    try:
-        p.find(self.get_id())
-    except Cerebrum.Errors.NotFoundError:
-        raise NotFoundError('Could not find gecos for %s' % self)
-
-    return p.get_gecos()
-get_gecos.signature = str
-
-Account.register_methods([get_gecos])
-
 table = 'posix_user'
 attrs = [
     CerebrumDbAttr('gecos', table, str, write=True, optional=True),
@@ -85,6 +73,19 @@ for attr in attrs:
 Account.db_attr_aliases[table] = {'id':'account_id', 'primary_group':'gid'}
 registry.register_class(Account)
 
+def get_gecos(self):
+    p = cerebrumclass(self.get_database())
+    try:
+        p.find(self.get_id())
+    except Cerebrum.Errors.NotFoundError:
+        raise NotFoundError('Could not find gecos for %s' % self)
+
+    return p.get_gecos()
+get_gecos.signature = str
+
+Account.register_methods([get_gecos])
+
+
 def is_posix(self):
     """Check if a account has been promoted to posix.
     """
@@ -97,14 +98,14 @@ def is_posix(self):
 is_posix.signature = bool
 
 def get_free_uid(self):
-    p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
+    p = cerebrumclass(self.get_database())
     return p.get_free_uid()
 
 get_free_uid.signature = int
 
 def promote_posix(self, posix_uid, primary_group, shell):
     obj = self._get_cerebrum_obj()
-    p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
+    p = cerebrumclass(self.get_database())
     p.populate(posix_uid, primary_group.get_id(), None, shell.get_id(), parent=obj)
     p.write_db()
 
@@ -115,7 +116,7 @@ promote_posix.signature_write = True
 def demote_posix(self):
     """Demotes the PosixUser to a normal Account."""
     obj = self._get_cerebrum_obj()
-    p = Cerebrum.modules.PosixUser.PosixUser(self.get_database())
+    p = cerebrumclass(self.get_database())
     p.find(obj.entity_id)
     p.delete_posixuser()
 
