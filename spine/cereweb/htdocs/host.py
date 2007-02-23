@@ -88,7 +88,10 @@ def view(transaction, id):
     page.title = _('Host %s') % host.get_name()
     # page.title = _('Host')
     page.setFocus('host/view', id)
+    server_type_searcher = transaction.get_email_server_type_searcher()
+    type_names = [ (type.get_name(), type.get_name()) for type in server_type_searcher.search()]
     template = HostViewTemplate()
+    template.email_server_types = type_names
     # template.title = _('Host %s') % host.get_name()
     content = template.view(transaction, host)
     page.content = lambda: content
@@ -186,5 +189,14 @@ def disks(transaction, host, add=None, delete=None, **checkboxes):
         raise "I don't know what you want me to do"
 disks = transaction_decorator(disks)
 disks.exposed = True
+
+def promote_to_mailhost(transaction, id, type):
+    host_type = transaction.get_email_server_type(type)
+    host = transaction.get_host(int(id))
+    host.promote_email_server(host_type)
+    transaction.commit()
+    redirect('/host/view?id=%s' % id )
+promote_to_mailhost = transaction_decorator(promote_to_mailhost)
+promote_to_mailhost.exposed = True
 
 # arch-tag: 6d5f8060-3bf4-11da-96a8-c359dfc6e774
