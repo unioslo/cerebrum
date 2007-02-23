@@ -20,9 +20,13 @@ Download from sourceforge:
 * ADserver.py
 * ADobject.py
   
-Download page http://cerebrum.cvs.sourceforge.net/cerebrum/cerebrum/adserver/>
+Download page <http://cerebrum.cvs.sourceforge.net/cerebrum/cerebrum/adserver/>
 
 place them on a suitable place(c:\cerebrum\python)
+
+
+Settings in ADconstants.py 
+========================================
 
 Edit the Constants in the file ADconstants.py to work with your Cerebrum 
 installation. 
@@ -37,13 +41,14 @@ installation.
   specified in the basic HTML autentication header sent from the cerebrum server 
   to allow access.
 * Configure the logger. 
+* Configure the MixIn class. This class defines what modules the server will have available 
+  through the interface to cerebrum. Here you can write your own classes and make them avaiable. 
+  First import the class, then modify the base classes of the MixIn class defined in 
+  ADconstants.py.  
+  
 
 
- 
-
-
-
-Special settings on the Domain Controller:
+Recomended settings on the Domain Controller:
 =============================================
 
 * Create a user called cerebrum in AD, place the user in the Builtin OU or the OU specified in the 
