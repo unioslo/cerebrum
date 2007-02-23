@@ -303,7 +303,10 @@ class UniqueActionAttrs(type):
 
 class Jobs(object):
     """
-    Utility class meant for grouping related job-actions together.
+    Utility class meant for grouping related job-actions
+    together. Contains logic for checking uniqueness and non-cyclicity
+    in job definitions.
+    
     """
     __metaclass__ = UniqueActionAttrs
     
@@ -322,13 +325,83 @@ class Jobs(object):
                         n, name)
 
 
+    def check_cycles(self, joblist):
+        """Check whether job prerequisites make a cycle."""
+        
+        class node:
+            UNMARKED = 0
+            INPROGRESS = 1
+            DONE = 2
+        
+            def __init__(self, key, pre, post):
+                self.key = key
+                self.pre = pre
+                self.post = post
+                self.mark = self.UNMARKED
+                
+
+        # construct a graph (bunch of interlinked nodes + a dict to
+        # access them)
+        graph = dict()
+        for name, job in joblist.iteritems():
+            x = node(name, job.pre, job.post)
+            graph[name] = x
+
+        # remap names to object (it'll be easier later)
+        for n in graph.itervalues():
+            n.pre = [graph[key] for key in n.pre]
+            n.post = [graph[key] for key in n.post]
+
+        # scan all graph nodes and try to find cycles.
+        for n in graph.itervalues():
+            tmp = self.find_cycle(n)
+            if tmp:
+                raise ValueError, ("joblist has a cycle: %s" % 
+                                   [x.key for x in tmp])
+
+
+    def find_cycle(self, node):
+        """Locate a cycle in which node is a part.
+        
+        This is a standard depth-first search. Nothing fancy.
+
+        The method returns None when node has no cycles or a list containing
+        whatever of the cycle we've collected in the recursive calls.
+        """
+
+        # If we know there are no cycles from this node, we are done
+        if node.mark == node.DONE:
+            return None
+
+        # Yay! a cycle
+        if node.mark == node.INPROGRESS:
+            # we collect the entire recursion stack on the way out to
+            # report the cycle back to the user
+            return [node]
+
+        # The usual case: we start with a new node.
+        node.mark = node.INPROGRESS
+        for successor in node.pre:
+            tmp = self.find_cycle(successor)
+            if tmp:
+                tmp.append(node)
+                return tmp
+
+        # if we are here, there were no cycles in which *this* node
+        # participates and we are done.
+        node.mark = node.DONE
+        return None
+
+
     def get_jobs(self, _from_validate=False):
         """Returns a dictionary with all actions, where the keys are
         the names of the actions and the correspondingvalues are the
         actions themselves.
 
         If '_from_validate' is True, this method will also call
-        'validate' before putting the dictionary together.
+        'validate' before putting the dictionary together, as well as
+        check that there are no cyclic dependencies in the
+        pre-/post-definitions of jobs.
 
         """
         if not _from_validate:
@@ -338,6 +411,10 @@ class Jobs(object):
             c = getattr(self, n)
             if isinstance(c, Action):
                 ret[n] = c
+                
+        if not _from_validate:
+            self.check_cycles(ret)
+            
         return ret
 
 
