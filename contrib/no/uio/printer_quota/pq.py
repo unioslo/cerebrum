@@ -57,6 +57,8 @@ helo    = "220 PRISS Quota Daemon V%s ready" % rev
 firstok = "250 Nice to meet you,"
 ok      = "250 OK"
 no      = "251 NO"
+no_insuficcient = "252 NO, Insufficient quota"
+no_blocked = "253 NO, Quota blocked"
 bye     = "280 Bye"
 #
 # 5NN answers, meaning last command caused problems
@@ -237,7 +239,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             return ok
         if self.pq_data['has_blocked_quota'] == 'T':
             self.log('INFO', 'check_quota: %s is blocked' % self.username)
-            return no
+            return no_blocked
         pageunits = float(pageunits)
         if pageunits <= 0:
             return ebadpage
@@ -247,7 +249,7 @@ class RequestHandler(SocketServer.StreamRequestHandler):
             return ok+", quota=%f" % (quota)
         self.log('INFO', 'check_quota: %s insufficient quota: %d' %
                  (self.username, quota))
-        return no
+        return no_insuficcient
 
     def subtract_quota(self, printer, pageunits, job_data):
         if not self.client_address[0] in authorized_hosts:
