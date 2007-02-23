@@ -18,8 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from SpineLib.DatabaseClass import DatabaseAttr
+from CerebrumClass import CerebrumDbAttr
 from SpineLib.SpineExceptions import NotFoundError
+from Cerebrum.Utils import Factory
 
 from Group import Group
 
@@ -28,8 +29,8 @@ registry = Registry.get_registry()
 
 import Cerebrum.modules.PosixGroup
 
-Group.register_attribute(CerebrumDbAttr('posix_gid', 'posix_group', int,
-                                        write=True, optional=True))
+attrs = [ CerebrumDbAttr('posix_gid', 'posix_group', int,
+                         write=True, optional=True) ]
 Group.db_attr_aliases['posix_group'] = {'id':'group_id'}
 
 cerebrumclass = Factory.get('PosixGroup')
