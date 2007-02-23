@@ -35,7 +35,7 @@ class HostNTNUMixin(Disk.Host):
         return self.__super.illegal_name(name)
 
 class DiskNTNUMixin(Disk.Disk):
-    def write_db():
+    def write_db(self):
         if not re.match(disk_path_regex, self.path):
             raise self._db.IntegrityError, "Illegal disk path"
         return self.__super.write_db()
