@@ -1,7 +1,54 @@
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum import Account
 from Cerebrum import Errors
+#from Cerebrum.modules import PosixUser
+from Cerebrum.Utils import Factory
 import re
+import random
+
+
+# Todo: create a local module to store these rules.
+
+posix_spreads=(
+    "user@ansatt",
+    "user@stud"
+    )
+
+spread_homedirs = {
+    "user@ansatt":
+    [  ("/home/ahomea", 1),
+       ("/home/ahomeb", 1),
+       ("/home/ahomec", 1),
+       ("/home/ahomed", 1),
+       ("/home/ahomee", 1),
+       ("/home/ahomef", 1) ],
+    "user@stud":
+    [  ("/home/shomeo", 1),
+       ("/home/shomep", 1),
+       ("/home/shomeq", 1),
+       ("/home/shomer", 1),
+       ("/home/shomes", 1),
+       ("/home/shomet", 1) ]
+    }
 
 
 account_name_regex=re.compile("^[a-z][a-z0-9]*$")
@@ -13,6 +60,46 @@ class AccountNTNUMixin(Account.Account):
         if not re.match(account_name_regex, name):
             return "misformed (%s)" % name
         return self.__super.illegal_name(name)
+
+    def add_spread(self, spread):
+        if spread in posix_spreads and not isinstance(self, PosixUser):
+            try:
+                tmp=PosixUser(self._db)
+                tmp.find(self.entity_id)
+            except Errors.NotFoundError:
+                raise Errors.NotFoundError
+        self.__super.add_spread(spread)
+
+        if spread_homedirs.has_key(str(self.const.Spread(spread))):
+            if not self.has_homedir(spread):
+                self.make_homedir(spread)
+
+    def has_homedir(self, spread):
+        try:
+            return self.get_home(spread)
+        except Errors.NotFoundError:
+            return False
+
+    def make_homedir(self, spread):
+        all_disks = spread_homedirs[str(self.const.Spread(spread))]
+        avail_disks = [d[0] for d in all_disks if d[1]]
+        diskpath = random.choice(avail_disks)
+        from Cerebrum import Disk
+        disk = Factory.get('Disk')(self._db)
+        disk.find_by_path(diskpath)
+        homedir = self.set_homedir(disk_id=disk.entity_id,
+                                status=self.const.home_status_not_created)
+        self.set_home(spread, homedir)
+
+    def set_homedir(self, **kw):
+        if "home" in kw:
+            from Cerebrum.modules.no.ntnu.Disk import disk_path_regex
+            if not disk_path_regex.match(kw["home"]):
+                raise self._db.IntegrityError, "Illegal home path"
+    
+            
+
+                
 
 
 # arch-tag: 115d851e-d604-11da-80dd-29649c6d89a0
