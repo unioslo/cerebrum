@@ -57,7 +57,8 @@ class UiOStudent(access_FS.Student):
            p.adresseland_hjemsted, p.status_reserv_nettpubl,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-           sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod
+           sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
+           s.studentnr_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -92,7 +93,8 @@ class UiOStudent(access_FS.Student):
            p.adresseland_hjemsted, p.status_reserv_nettpubl,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-           sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod
+           sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
+           s.studentnr_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -126,7 +128,8 @@ class UiOStudent(access_FS.Student):
            p.adresseland_hjemsted, p.status_reserv_nettpubl,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-           sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod
+           sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
+           s.studentnr_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
            fs.registerkort r, fs.studieprogram sp
         WHERE  p.fodselsdato=s.fodselsdato AND
@@ -175,7 +178,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            s.fodselsdato, s.personnr, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           em.emnekode, em.versjonskode
+           em.emnekode, em.versjonskode, s.studentnr_tildelt
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
            fs.registerkort r, fs.eksamensmelding em,
            fs.emne_i_studieprogram es, fs.person p
@@ -216,7 +219,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            s.fodselsdato, s.personnr, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           em.emnekode, em.versjonskode
+           em.emnekode, em.versjonskode, s.studentnr_tildelt
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
            fs.registerkort r, fs.eksamensmelding em,
            fs.person p
@@ -254,7 +257,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            s.fodselsdato, s.personnr, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           'NULL' as emnekode, 'NULL' as versjonskode
+           'NULL' as emnekode, 'NULL' as versjonskode, s.studentnr_tildelt
         FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
            fs.studprogstud_planbekreft spp, fs.studieprogram sp,
            fs.person p
@@ -297,15 +300,17 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            sp.fodselsdato, sp.personnr, sps.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           sp.emnekode, sp.versjonskode
+           sp.emnekode, sp.versjonskode, s.studentnr_tildelt
         FROM fs.studentseksprotokoll sp, fs.studieprogramstudent sps,
            fs.emne_i_studieprogram es, fs.registerkort r,
-           fs.person p
+           fs.person p, fs.student s
         WHERE sp.arstall=%s AND
            sp.fodselsdato=sps.fodselsdato AND
            sp.personnr=sps.personnr AND
            sp.fodselsdato=p.fodselsdato AND
            sp.personnr=p.personnr AND
+           s.fodselsdato=p.fodselsdato AND
+           s.personnr=p.personnr AND
            r.fodselsdato=sps.fodselsdato AND
            r.personnr=sps.personnr AND
            %s
@@ -340,7 +345,8 @@ class UiOStudent(access_FS.Student):
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, p.status_reserv_nettpubl,
-               p.sprakkode_malform, p.kjonn, p.status_dod, em.emnekode
+               p.sprakkode_malform, p.kjonn, p.status_dod, em.emnekode,
+               s.studentnr_tildelt
         FROM fs.student s, fs. person p, fs.registerkort r,
              fs.eksamensmelding em
         WHERE s.fodselsdato=p.fodselsdato AND
@@ -394,7 +400,7 @@ class UiOStudent(access_FS.Student):
                p.sprakkode_malform, sps.studieprogramkode,
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
-               sps.arstall_kull, p.kjonn, p.status_dod
+               sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps
         WHERE  p.fodselsdato=s.fodselsdato AND
                p.personnr=s.personnr AND
@@ -418,7 +424,7 @@ class UiOStudent(access_FS.Student):
                p.sprakkode_malform, sps.studieprogramkode,
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
-               sps.arstall_kull, p.kjonn, p.status_dod
+               sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt
         FROM fs.student s, fs.person p, fs.studieprogramstudent sps,
              fs.registerkort r
         WHERE  p.fodselsdato=s.fodselsdato AND
