@@ -236,6 +236,16 @@ class Person(FSObject):
                          'uname': uname})
 
 class Student(FSObject):
+    def get_student(self, fnr, pnr):
+        """Hent generell studentinfo for en person. Kan brukes for å
+           registrere eksterne id'er (studentnr, bibsysnr) i Cerebrum
+           for alle personer som har en studentforekomst"""
+        return self.db.query("""
+        SELECT fodselsdato, personnr, studentnr_tildelt, dato_opprettet,
+               bibsyslanetakerid
+        FROM fs.student
+        WHERE fodselsdato=:fnr AND personnr=:pnr""",  {'fnr': fnr, 'pnr': pnr})
+    
     def list_semreg(self):   # GetStudinfRegkort
         """Hent informasjon om semester-registrering og betaling"""
         qry = """
