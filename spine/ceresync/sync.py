@@ -43,7 +43,7 @@ class Sync:
         return self._do_get("group", incr)
 
     def get_persons(self, incr=None):
-        return self._do_get("account", incr)        
+        return self._do_get("person", incr)        
 
     def get_ous(self, incr=None):
         return self._do_get("ou", incr)
