@@ -438,7 +438,7 @@ def main():
                      ("LT-elektroniske-reservasjoner",
                       "Internal group for people from LT which will not be shown online"),
                      "system_sap" :
-                     ("SAP-lektroniske-reservasjoner",
+                     ("SAP-elektroniske-reservasjoner",
                       "Internal group for people from SAP which will not be shown online"), }
 
     logger.debug("sources is %s", sources)
