@@ -80,17 +80,16 @@ def process_lines(infile):
             continue
         
         uname, fnr = fields
-        if not fnr == "":
-            person_id = process_person(fnr)
-            if person_id:
-                logger.debug4("Processing person with user: %s", uname)
-                account_id = process_user(person_id, uname)
-            else:
-                logger.error("Bad fnr: %s, uname %s. Skipping!" % (fnr, uname))
-                continue
-        else:
-            logger.debug4("Processing user without person: %s", uname)
-            account_id = process_user(None, uname)
+
+        try:
+            fnr = fodselsnr.personnr_ok(fnr)
+        except fodselsnr.InvalidFnrError:
+            logger.error("Bad fnr: %s, uname %s. Skipping!" % (fnr, uname))
+            continue
+
+        person_id = process_person(fnr)
+        logger.debug4("Processing person with user: %s", uname)
+        account_id = process_user(person_id, uname)
         
         if not account_id:
             logger.error("Bad uname: %s Skipping", line)
@@ -104,12 +103,6 @@ def process_person(fnr):
     Find (or create, if necessary) and return the person_id corresponding to
     FNR.
     """
-
-    try:
-        fodselsnr.personnr_ok(fnr)
-    except fodselsnr.InvalidFnrError:
-        return None
-        
     # If person already exists, return entity_id
     if fnr2person_id.has_key(fnr):
         return fnr2person_id[fnr]
