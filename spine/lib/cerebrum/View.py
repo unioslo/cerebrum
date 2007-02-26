@@ -441,13 +441,13 @@ class View(DatabaseTransactionClass):
         db = self.get_database()
         rows=db.query(person_search % "", self.query_data)
         return [r.dict() for r in rows]
-    get_persons.signature = [Struct(AccountView)]
+    get_persons.signature = [Struct(PersonView)]
     def get_persons_cl(self):
         db = self.get_database()
         rows=db.query(person_search % person_search_cl +person_search_cl_o,
                       self.query_data)
         return [r.dict() for r in rows]
-    get_persons_cl.signature = [Struct(AccountView)]
+    get_persons_cl.signature = [Struct(PersonView)]
 registry.register_class(View)
 
 """
