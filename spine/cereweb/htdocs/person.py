@@ -134,6 +134,7 @@ def search(transaction, **vargs):
     page.content = lambda: result
 
     if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
+        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
         return result
     else:
         return page
