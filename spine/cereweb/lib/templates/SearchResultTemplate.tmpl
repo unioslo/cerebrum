@@ -20,8 +20,9 @@
 #import config
 #from lib.Search import get_link_arguments
 #from lib.Search import create_table_headers
-#from lib.InitTemplate import InitTemplate
-#extends InitTemplate
+#from lib.Main import Main
+#import cgi, urllib
+#extends Main
 
 
 ## Maximum hits to ask for in a search.
@@ -29,6 +30,39 @@
 
 ## Number of hints to display in the searchresult.
 #attr display_hits = 10
+
+#def viewDict($result)
+#set $url_args = $result['url_args']
+
+<div id="searchresult">
+    <h3>$result['hits'] hits,
+    #if $result['is_paginated']
+        showing $result['first_on_page'] - $result['last_on_page']
+    #else
+        showing all
+    #end if
+    </h3>
+    #if $result['is_paginated']
+        $range_menu_dict($result)
+    #end if
+    <table>
+        <thead><tr>
+            #for $header in $result['headers']
+                <th>$header</th>
+            #end for
+        </tr></thead>
+        <tbody>
+            #for $row in $result['rows']
+                <tr>
+                    #for $item in $row
+                        <td>$item</td>
+                    #end for
+                </tr>
+            #end for
+        </tbody>
+    </table>
+</div>
+#end def
 
 #def view($result, $headers, $args, $values, $hits, $display_hits,
           $offset, $orderby, $orderby_dir, $page)
@@ -76,6 +110,20 @@
     </div>
 </div>
 #end if
+#end def
+
+#def range_menu_dict($result)
+<div class="search_range">
+    #set $args = $result['url_args']
+    #if $result['has_previous']
+        #set $args['offset'] = $result['previous_offset']
+        <a href="search?$urllib.urlencode($args)">$_("Previous")</a>
+    #end if
+    #if $result['has_next']
+        #set $args['offset'] = $result['next_offset']
+        <a href="search?$urllib.urlencode($args)">$_("Next")</a>
+    #end if
+</div>
 #end def
 
 ## Creates links to access search-result outside the search-range.
