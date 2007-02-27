@@ -44,6 +44,7 @@ import PersonAffiliation
 # Account
 import Account
 import AccountAuthentication
+import AccountAffiliation
 import AccountHome
 
 # OU
