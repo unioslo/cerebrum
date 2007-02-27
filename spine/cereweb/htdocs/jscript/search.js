@@ -252,8 +252,7 @@ cereweb.search = {
         },
         failure: function(o) {
             YAHOO.log('failure');
-        },
-        timeout: 5000
+        }
     },
     submit: function(e) {
         YE.stopEvent(e); // AJAX takes over.
@@ -273,7 +272,7 @@ cereweb.search = {
         parent.replaceChild(content, old);
         var backLinkDiv = document.createElement('div');
         var backLink = document.createElement('a');
-        backLink.innerHTML = 'back';
+        backLink.innerHTML = 'Back';
         backLink.href = '#';
         backLinkDiv.appendChild(backLink);
         content.appendChild(backLinkDiv);
