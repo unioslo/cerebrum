@@ -24,6 +24,7 @@ from DatabaseClass import DatabaseTransactionClass, DatabaseAttr
 from Builder import Builder, Attribute
 from SpineExceptions import ClientProgrammingError
 from Cerebrum.Database import ProgrammingError
+import cereconf
 
 def create_id_iterator(start=0):
     while 1:
@@ -113,21 +114,32 @@ class SearchClass(DatabaseTransactionClass):
                 order.append('%s_%s.%s %s' % (obj._get_alias(), attr.table, obj.cls._get_real_name(attr), how))
             sql += ' ORDER BY %s' % ', '.join(order)
 
-
-        # FIXME: this is not Oracle compliant
-        # When querying in Oracle, use ROWNUM as pseudocolumn to limit the nuimber of returned
-        # row. Pseudocolumns behaves similar to regular table columns, but are not actually
+        # When querying in Oracle, use ROWNUM as pseudocolumn to limit the number of returned
+        # rows. Pseudocolumns behaves similar to regular table columns, but are not actually
         # stored in tables. Suggested fix: make a database-dependant limit-clause 
-        # if cereconf.DATABASE_DRIVER.lower() == 'oracle':
-        #     sql += ' ROWNUM >= s% AND ROWNUM <= %s' % self._search_limit 
-        # else:
-        #     # The postgres-way
-        #     sql += ' LIMIT %s OFFSET %s' % self._search_limit
-        if self._search_limit:
-            sql += ' LIMIT %s OFFSET %s' % self._search_limit
 
+        if self._search_limit:
+            if cereconf.DATABASE_DRIVER.lower() == 'postgresql':
+                sql += ' LIMIT %s OFFSET %s' % self._search_limit
+            else:
+                # The Oracle way
+                sql += ' ROWNUM >= s% AND ROWNUM <= %s' % self._search_limit 
 
         return sql, args
+
+    def length(self):
+        slots, attributes, table, joins, args = self._get_sql()
+        where, where_args = self._get_where()
+        args.update(where_args)
+        sql = 'SELECT COUNT(*) AS count FROM %s %s_%s' % (table, self._get_alias(), table)
+        if joins:
+            sql += ' %s' % ' '.join(joins)
+        if where:
+            sql +=  'WHERE %s' % ' AND '.join(where)
+
+        return self.get_database().query_1(sql, args)
+    length.signature = int
+
 
     def dump_rows(self):
         sql, args = self.search_sql()
