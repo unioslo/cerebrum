@@ -24,97 +24,49 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import *
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import AccountSearcher
 from lib.templates.SearchTemplate import SearchTemplate
+from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 
+def search_form():
+        page = SearchTemplate()
+        page.title = _("Account")
+        page.setFocus("account/search")
+        page.search_title = _('account(s)')
+        page.search_fields = [
+                      ("name", _("Account name")),
+                      ("spread", _("Spread name")),
+                      ("create_date", _("Created date *")),
+                      ("expire_date", _("Expire date *")),
+                      ("description", _("Description")),
+                    ]
+        page.search_help = [_("Created date (YYYY-MM-DD, exact match)"),
+                     _("Expired date (YYYY-MM-DD, exact match)")]
+        page.search_action = '/account/search'
+        return page.respond()
+
 def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
-    page = SearchTemplate()
-    page.title = _("Account")
-    page.setFocus("account/search")
-    page.search_title = _('account(s)')
-    page.search_fields = [
-                  ("name", _("Account name")),
-                  ("spread", _("Spread name")),
-                  ("create_date", _("Created date *")),
-                  ("expire_date", _("Expire date *")),
-                  ("description", _("Description")),
-                ]
-    page.search_help = [_("Created date (YYYY-MM-DD, exact match)"),
-                 _("Expired date (YYYY-MM-DD, exact match)")]
-    page.search_action = '/account/search'
+    args = ('name', 'spread', 'create_date', 'expire_date', 'description')
+    searcher = AccountSearcher(transaction, *args, **vargs)
 
-    handler = SearchHandler('account', page.search_form)
-    handler.args = (
-        'name', 'spread', 'create_date', 'expire_date', 'description'
-    )
-    handler.headers = (
-        ('Name', 'name'), ('Owner', ''), ('Create date', 'create_date'),
-        ('Expire date', 'expire_date'), ('Actions', '')
-    )
+    if not searcher.is_valid():
+        return search_form()
 
-    def search_method(values, offset, orderby, orderby_dir):
-        name, spread, create_date, expire_date, description = values
+    page = SearchResultTemplate()
 
-        search = transaction.get_account_searcher()
-        setup_searcher([search], orderby, orderby_dir, offset)
-        
-        if name:
-            search.set_name_like(name)
-
-        if expire_date:
-            if not legal_date(expire_date):
-                queue_message("Expire date is not a legal date.",error=True)
-                return None
-            date = transaction.get_commands().strptime(expire_date, "%Y-%m-%d")
-            search.set_expire_date(date)
-
-        if create_date:
-            if not legal_date(create_date):
-                queue_message("Created date is not a legal date.", error=True)
-                return None
-            date = transaction.get_commands().strptime(create_date, "%Y-%m-%d")
-            search.set_create_date(date)
-
-        if description:
-            if not description.startswith('*'):
-                description = '*' + description
-            if not description.endswith('*'):
-                description += '*'
-            search.set_description_like(description)
-
-        if spread:
-            account_type = transaction.get_entity_type('account')
-
-            entityspread = transaction.get_entity_spread_searcher()
-            entityspread.set_entity_type(account_type)
-
-            spreadsearcher = transaction.get_spread_searcher()
-            spreadsearcher.set_entity_type(account_type)
-            spreadsearcher.set_name_like(spread)
-
-            entityspread.add_join('spread', spreadsearcher, '')
-            search.add_intersection('', entityspread, 'entity')
-		
-        return search.search()
+    result = searcher.get_results()
+    content = page.viewDict(result)
     
-    def row(elm):
-        owner = object_link(elm.get_owner())
-        cdate = strftime(elm.get_create_date())
-        edate = strftime(elm.get_expire_date())
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        return object_link(elm), owner, cdate, edate, str(edit)+str(remb)
-    
-    accounts = handler.search(search_method, **vargs)
-    result = handler.get_result(accounts, row)
-    page.content = lambda: result
+    page.title = 'Search result'
+    page.content = lambda: content
 
     if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
+        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
+        return content
     else:
         return page
 search = transaction_decorator(search)
