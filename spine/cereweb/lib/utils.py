@@ -277,4 +277,11 @@ def format_title(title):
     """Removes html from the title"""
     return re.sub(r'<[^!>](?:[^>]|\n)*>', '', title)
 
-# arch-tag: 46d3f6d-3e27-4e00-8ae5-4721aaf7add6
+def valid_search(*args, **vargs):
+    valid = False
+    for i in args:
+        if i in vargs and vargs[i] != '':
+            valid = True
+            break
+    return valid
+
