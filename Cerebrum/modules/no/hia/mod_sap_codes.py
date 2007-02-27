@@ -1227,6 +1227,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1515_bibliotekar = SAPLonnsTittelKode(
+        "20001515",
+        "1515 Bibliotekar",
+        "ØVR"
+    )
+
     sap_9105_departementsrad_utenriksrad_ = SAPLonnsTittelKode(
         "20009105",
         "9105 Departementsråd (utenriksråd)",
@@ -1269,6 +1275,11 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
+        "00000000",
+        "0000 Ekstern tilsatt, ikke registrert i SAP",
+        "ØVR"
+    )
 
     
     # ----[ SAPPermisjonsKode ]-----------------------------------------
