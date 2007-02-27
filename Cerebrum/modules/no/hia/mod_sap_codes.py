@@ -26,7 +26,8 @@ Cerebrum -- mod_sap.
 from Cerebrum import Constants
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode, \
                                           SAPLonnsTittelKode, \
-                                          SAPPermisjonsKode
+                                          SAPPermisjonsKode, \
+                                          SAPUtvalgsKode
 
 
 
