@@ -32,7 +32,7 @@ class Searcher(object):
                 self.options[key] = vargs.get(key, value)
 
         self.url_args = dict(self.form_values.items() + self.options.items())
-        self.searcher = self.get_searcher()
+        self.searchers = self.get_searcher()
         self.init_searcher()
 
     def init_searcher(self):
@@ -48,13 +48,24 @@ class Searcher(object):
         self.max_hits = min(
             int(cherrypy.session['options'].getint('search', 'display hits')),
             config.conf.getint('cereweb', 'max_hits'))
-        searcher = self.searcher
+        searcher = self.searchers['main']
 
         if orderby:
+            s = 'main'
+            try:
+                s, orderby = orderby.split('.')
+            except ValueError, e:
+                pass
+
+            try:
+                orderby_searcher = self.searchers[s]
+            except KeyError, e:
+                orderby_searcher = searcher
+                
             if orderby_dir == 'desc':
-                searcher.order_by_desc(searcher, orderby)
+                searcher.order_by_desc(orderby_searcher, orderby)
             else:
-                searcher.order_by(searcher, orderby)
+                searcher.order_by(orderby_searcher, orderby)
 
         if not offset:
             searcher.set_search_limit(self.max_hits, 0)
@@ -98,7 +109,7 @@ class Searcher(object):
         return cgi.escape('search?%s' % (urllib.urlencode(url_args))), current
 
     def get_results(self):
-        hits = self.searcher.length()
+        hits = self.searchers['main'].length()
         offset = self.url_args['offset'] 
         result = {
             'headers': self.create_table_headers(),
@@ -149,7 +160,7 @@ class Searcher(object):
     def search(self):
         """Executes the search and returns the result."""
         if self.is_valid():
-            return self.searcher.search()
+            return self.searchers['main'].search()
 
     def is_valid(self):
         return self.form_values and True or False
@@ -164,22 +175,22 @@ class AccountSearcher(Searcher):
         ]
 
     def get_searcher(self):
-        return self.transaction.get_account_searcher()
+        return {'main': self.transaction.get_account_searcher()}
 
     def name(self, name):
-        self.searcher.set_name_like(name)
+        self.searchers['main'].set_name_like(name)
 
     def expire_date(self, expire_date):
         if not legal_date(expire_date):
             raise Exception(('expire_date', "Not a legal date."))
         date = self.transaction.get_commands().strptime(expire_date, "%Y-%m-%d")
-        self.searcher.set_expire_date(date)
+        self.searchers['main'].set_expire_date(date)
 
     def create_date(self, create_date):
         if not legal_date(create_date):
             raise Exception(('create_date', "Not a legal date."))
         date = self.transaction.get_commands().strptime(create_date, "%Y-%m-%d")
-        self.searcher.set_create_date(date)
+        self.searchers['main'].set_create_date(date)
 
     def description(self, description):
         if not description.startswith('*'):
@@ -210,4 +221,83 @@ class AccountSearcher(Searcher):
             edit = object_link(elm, text='edit', method='edit', _class='action')
             remb = remember_link(elm, _class='action')
             rows.append((object_link(elm), owner, cdate, edate, str(edit)+str(remb)))
+        return rows
+
+class PersonSearcher(Searcher):
+    headers = [
+        ('Name', 'last_name.name'),
+        ('Date of birth', 'birth_date'),
+        ('Account(s)', ''),
+        ('Affiliation(s)', ''),
+        ('Actions', '')
+    ]
+
+    def get_searcher(self):
+        variant = self.transaction.get_name_type('LAST')
+        source = self.transaction.get_source_system('Cached')
+
+        main = self.transaction.get_person_searcher()
+        last_name = self.transaction.get_person_name_searcher()
+        last_name.set_name_variant(variant)
+        last_name.set_source_system(source)
+        main.add_left_join('', last_name, 'person')
+        return {'main': main,
+                'last_name': last_name}
+
+    def accountname(self, accountname):
+            searcher = self.transaction.get_account_searcher()
+            searcher.set_name_like(accountname)
+            self.searchers['main'].add_intersection('', searcher, 'owner')
+            
+    def birthdate(self, birthdate):
+            if not legal_date( birthdate ):
+                queue_message("Date of birth is not a legal date.",error=True)
+                return None
+
+            date = strptime(self.transaction, birthdate)
+            self.searchers['main'].set_birth_date(date)
+
+    def name(self, name):
+            name_searcher = self.transaction.get_person_name_searcher()
+            name_searcher.set_name_like(name)
+            self.searchers['main'].add_intersection('', name_searcher, 'person')
+
+    def spread(self, spread):
+            person_type = self.transaction.get_entity_type('person')
+
+            searcher = self.transaction.get_entity_spread_searcher()
+            searcher.set_entity_type(person_type)
+
+            spreadsearcher = self.transaction.get_spread_searcher()
+            spreadsearcher.set_entity_type(person_type)
+            spreadsearcher.set_name_like(spread)
+
+            searcher.add_join('spread', spreadsearcher, '')
+            self.searchers['main'].add_intersection('', searcher, 'entity')
+
+    def ou(self, ou):
+            ousearcher = self.transaction.get_ou_searcher()
+            ousearcher.set_name_like(ou)
+            searcher = self.transaction.get_person_affiliation_searcher()
+            searcher.add_join('ou', ousearcher, '')
+            self.searchers['main'].add_intersection('', searcher, 'person')
+
+    def aff(self, aff):
+            affsearcher = self.transaction.get_person_affiliation_type_searcher()
+            affsearcher.set_name_like(aff)
+            searcher = self.transaction.get_person_affiliation_searcher()
+            searcher.add_join('affiliation', affsearcher, '')
+            self.searchers['main'].add_intersection('', searcher, 'person')
+
+    def filter_rows(self, results):
+        rows = []
+        for elm in results:
+            date = strftime(elm.get_birth_date())
+            accs = [str(object_link(i)) for i in elm.get_accounts()[:3]]
+            accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
+            affs = [str(object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
+            affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
+            edit = object_link(elm, text='edit', method='edit', _class='action')
+            remb = remember_link(elm, _class="action")
+            rows.append([object_link(elm), date, accs, affs, str(edit)+str(remb)])
         return rows
