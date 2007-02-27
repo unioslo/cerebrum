@@ -85,6 +85,7 @@ def search_account(transaction, query):
     result = {}
 
     accounts = transaction.get_account_searcher()
+    accounts.set_search_limit(20, 0)
     accounts.set_name_like("%s*" % query)
     accounts = accounts.search()
     for account in accounts:
@@ -96,6 +97,7 @@ def search_person(transaction, query):
     result = {}
 
     searcher = transaction.get_person_name_searcher()
+    searcher.set_search_limit(20, 0)
     searcher.set_name_variant(transaction.get_name_type("FULL"))
     searcher.set_name_like("*%s*" % query)
     people = [x.get_person() for x in searcher.search()]
@@ -114,6 +116,7 @@ def search_group(transaction, query):
     result = {}
 
     searcher = transaction.get_group_searcher()
+    searcher.set_search_limit(20, 0)
     searcher.set_name_like("%s*" % query)
     for group in searcher.search():
         group = get_group_info(group)
