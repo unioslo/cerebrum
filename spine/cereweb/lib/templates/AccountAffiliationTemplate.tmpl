@@ -1,0 +1,85 @@
+## Copyright 2004, 2005, 2007 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.InitTemplate import InitTemplate
+#from lib.utils import object_link
+#extends InitTemplate
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+
+#def view($account)
+#set $affils = $account.get_affiliations()
+#if $affils
+<div class="info box">
+    <h3>$_('Affiliations')</h3>
+    #for $affil in $account.get_affiliations()
+    #set $ou = $affil.get_ou()
+    #set $affil_type = $affil.get_affiliation()
+    #set $priority = $affil.get_priority()
+
+    <div class="item">
+        <div class="actions">
+            #set $args = "id=%s&ou=%s&affil=%s" % (
+                            $account.get_id(), $ou.get_id(),
+                            $affil_type.get_name())
+            <a class="action" href="remove_affil?$args">$_('delete')</a>
+        </div>
+        <span class="name">$_('Affiliation'):</span> <span class="value"> $affil_type.get_name()</span>
+        <br />
+        <span class="name">$_('OU'):</span> <span class="value"> $object_link($ou)</span>
+        <br />
+        <span class="name">$_('Priority'):</span> <span class="value"> $priority</span>
+
+    </div>
+    #end for
+</div>
+#end if
+#end def
+
+#def add($account, $tr)
+#set $owner = $account.get_owner()
+#if 0
+##if $owner and $owner.get_type() == $tr.get_entity_type("person")
+#set $searcher = $tr.get_person_affiliation_status_searcher()
+#set $foo = $searcher.set_person($owner)
+#set $affs = $searcher.search()
+#set $aff_list = [ ("%s:%d" % ($i.get_affiliation().get_name(), $i.get_ou().get_id()),
+                    "%s: %s" % ($i.get_affiliation().get_name(), $i.get_ou().get_name()))
+                  for $i in $affs ]
+<div class="edit box" style="display:none;">
+    <h3 id="affil">$_('Add an affiliation')</h3>
+    <form action="add_affil" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$account.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("aff_ou", "Affiliation", $aff_list)
+        </div>
+        <div class="required">
+            $form_widgets.input("priority", "Priority")
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Add')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+    </div>
+#end if
+#end def

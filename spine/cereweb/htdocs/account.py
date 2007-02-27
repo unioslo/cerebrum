@@ -354,4 +354,19 @@ def set_password(transaction, id, passwd1, passwd2):
 set_password = transaction_decorator(set_password)
 set_password.exposed = True
 
+def add_affil(transaction, id, aff_ou, priority):
+    account = transaction.get_account(int(id))
+    aff, ou = aff_ou.split(":", 2)
+    ou = transaction.get_ou(int(ou))
+    aff = transaction.get_affiliation(aff)
+    priority = int(priority)
+
+    account.set_affiliation(ou, aff, priority)
+    
+    commit(transaction, account, msg=_("Affiliation successfully added."))
+add_affil = transaction_decorator(add_affil)
+add_affil.exposed = True
+
+
+
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

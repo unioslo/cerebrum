@@ -22,6 +22,7 @@
 #from GroupViewTemplate import GroupViewTemplate
 #from HomeDirectoryTemplate import HomeDirectoryTemplate
 #from EmailTargetTemplate import EmailTargetTemplate
+#from AccountAffiliationTemplate import AccountAffiliationTemplate
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
 
@@ -31,6 +32,7 @@
 #attr $widgets = Widgets()
 #attr $listGroups = GroupViewTemplate().listGroups
 #attr $joinGroup = GroupViewTemplate().joinGroup
+#attr $affiliation_template = AccountAffiliationTemplate()
 
 #def viewActions($transaction, $account)
     #set $id = $account.get_id()
@@ -55,6 +57,8 @@
     $viewQuarantines($account)
     $addNote($account)
     $viewNotes($account)
+    $affiliation_template.add($account, $transaction)
+    $affiliation_template.view($account)
     $homedir_template.set($account, $transaction)
     $homedir_template.view($account)
     $setPassword($account)
