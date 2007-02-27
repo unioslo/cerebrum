@@ -278,14 +278,16 @@ class PersonSearcher(Searcher):
     def ou(self, ou):
             ousearcher = self.transaction.get_ou_searcher()
             ousearcher.set_name_like(ou)
-            searcher = self.transaction.get_person_affiliation_searcher()
+            searcher = self.searchers.setdefault('aff_searcher',
+                self.transaction.get_person_affiliation_searcher())
             searcher.add_join('ou', ousearcher, '')
             self.searchers['main'].add_intersection('', searcher, 'person')
 
     def aff(self, aff):
             affsearcher = self.transaction.get_person_affiliation_type_searcher()
             affsearcher.set_name_like(aff)
-            searcher = self.transaction.get_person_affiliation_searcher()
+            searcher = self.searchers.setdefault('aff_searcher',
+                self.transaction.get_person_affiliation_searcher())
             searcher.add_join('affiliation', affsearcher, '')
             self.searchers['main'].add_intersection('', searcher, 'person')
 
