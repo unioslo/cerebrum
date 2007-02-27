@@ -29,18 +29,18 @@ from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import PersonSearcher
+from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 from lib.templates.PersonEditTemplate import PersonEditTemplate
 from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
-def search(transaction, **vargs):
-    """Search after hosts and displays result and/or searchform."""
+def search_form():
     page = SearchTemplate()
     page.title = _("Person")
     page.setFocus("person/search")
-    page.search_title = _('a person')
+    page.search_title = _('A person')
     page.search_fields = [("name", _("Name")),
                           ("accountname", _("Account name")),
                           ("birthdate", _("Date of birth *")),
@@ -51,91 +51,25 @@ def search(transaction, **vargs):
     page.search_help = [_("* Date of birth: (YYYY-MM-DD), exact match"),
                         _("A person may have several types of names, and therefor a search for a name will be testet on all the nametypes.")]
     page.search_action = '/person/search'
+    return page.respond()
 
-    handler = SearchHandler('person', page.search_form)
-    handler.args = (
-        'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff'
-    )
-    handler.headers = (
-        ('Name', 'last_name.name'), ('Date of birth', 'birth_date'),
-        ('Account(s)', ''), ('Affiliation(s)', ''), ('Actions', '')
-    )
-    
-    def search_method(values, offset, orderby, orderby_dir):
-        name, accountname, birthdate, spread, ou, aff = values
-        
-        search = transaction.get_person_searcher()
-        last_name = transaction.get_person_name_searcher()
-        last_name.set_name_variant(transaction.get_name_type('LAST'))
-        last_name.set_source_system(transaction.get_source_system('Cached'))
-        search.add_left_join('', last_name, 'person')
-        setup_searcher({'main':search, 'last_name':last_name},
-                       orderby, orderby_dir, offset)
-        
-        if accountname:
-            searcher = transaction.get_account_searcher()
-            searcher.set_name_like(accountname)
-            search.add_intersection('', searcher, 'owner')
-            
-        if birthdate:
-            if not legal_date( birthdate ):
-                queue_message("Date of birth is not a legal date.",error=True)
-                return None
+def search(transaction, **vargs):
+    """Search after hosts and displays result and/or searchform."""
+    args = ( 'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff')
+    searcher = PersonSearcher(transaction, *args, **vargs)
+    if not searcher.is_valid():
+        return search_form()
 
-            date = strptime(transaction, birthdate)
-            search.set_birth_date(date)
+    page = SearchResultTemplate()
+    result = searcher.get_results()
+    content = page.viewDict(result)
 
-        if name:
-            name_searcher = transaction.get_person_name_searcher()
-            name_searcher.set_name_like(name)
-            search.add_intersection('', name_searcher, 'person')
-
-        if spread:
-            person_type = transaction.get_entity_type('person')
-
-            searcher = transaction.get_entity_spread_searcher()
-            searcher.set_entity_type(person_type)
-
-            spreadsearcher = transaction.get_spread_searcher()
-            spreadsearcher.set_entity_type(person_type)
-            spreadsearcher.set_name_like(spread)
-
-            searcher.add_join('spread', spreadsearcher, '')
-            search.add_intersection('', searcher, 'entity')
-
-        if ou:
-            ousearcher = transaction.get_ou_searcher()
-            ousearcher.set_name_like(ou)
-            searcher = transaction.get_person_affiliation_searcher()
-            searcher.add_join('ou', ousearcher, '')
-            search.add_intersection('', searcher, 'person')
-
-        if aff:
-            affsearcher = transaction.get_person_affiliation_type_searcher()
-            affsearcher.set_name_like(aff)
-            searcher = transaction.get_person_affiliation_searcher()
-            searcher.add_join('affiliation', affsearcher, '')
-            search.add_intersection('', searcher, 'person')
-
-        return search.search()
-    
-    def row(elm):
-        date = strftime(elm.get_birth_date())
-        accs = [str(object_link(i)) for i in elm.get_accounts()[:3]]
-        accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
-        affs = [str(object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
-        affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class="action")
-        return object_link(elm), date, accs, affs, str(edit)+str(remb)
-            
-    persons = handler.search(search_method, **vargs)
-    result = handler.get_result(persons, row)
-    page.content = lambda: result
+    page.title = 'Search result'
+    page.content = lambda: content
 
     if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
         cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
-        return result
+        return content
     else:
         return page
 search = transaction_decorator(search)
