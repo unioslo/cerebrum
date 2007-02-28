@@ -50,7 +50,7 @@ class ConstantsHigherEdu(Constants.Constants):
     externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
                                                  Constants.Constants.entity_person,
                                                  'Norwegian student number')
-    externalid_sap_ansattnr = _EntityExternalIdCode('SAP_NR',
+    externalid_sap_ansattnr = _EntityExternalIdCode('NO_SAPNO',
                                                     Constants.Constants.entity_person,
                                                     'SAP employee number')
     externalid_uname = _EntityExternalIdCode('UNAME',
