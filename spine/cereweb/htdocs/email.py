@@ -246,17 +246,20 @@ def add_to_category(transaction, id, category):
 add_to_category = transaction_decorator(add_to_category)
 add_to_category.exposed = True
 
-def make_target(transaction, entity, target_type):
-    entity = transaction.get_entity(int(entity))
-    target_type = transaction.get_email_target_type(target_type)
-    
+def make_target(transaction, entity, targettype, host):
+    account = transaction.get_entity(int(entity))
+    target_type = transaction.get_email_target_type(targettype)
+    emailhost = transaction.get_host(int(host))
+
     cmds = transaction.get_commands()
     email_target =  cmds.create_email_target(target_type)
-    email_target.set_entity(entity)
-    if entity.get_type().get_name() == "account" and entity.is_posix():
-        email_target.set_using_uid(entity)
+    email_target.set_entity(account)
+    if account.get_type().get_name() == "account" and account.is_posix():
+        email_target.set_using_uid(account)
+    email_target.set_server(emailhost)
+    
     msg = _("Added email target (%s) successfully.") % target_type.get_name()
-    commit(transaction, entity, msg=msg)
+    commit(transaction, account, msg=msg)
 make_target = transaction_decorator(make_target)
 make_target.exposed = True
 
