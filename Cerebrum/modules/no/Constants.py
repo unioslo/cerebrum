@@ -114,7 +114,7 @@ class ConstantsUniversityColleges(Constants.Constants):
                                        'Kalt inn til samtale')
     quarantine_kunepost = _QuarantineCode('kunepost',
                                            'Tilgang kun til e-post')
-    quarantine_svakt_passord = _QuarantineCode('svaktpassord',
+    quarantine_svakt_passord = _QuarantineCode('svakt_passord',
                                                'For dårlig passord')
     quarantine_system = _QuarantineCode('system',
                                         'Systembruker som ikke skal logge inn')
