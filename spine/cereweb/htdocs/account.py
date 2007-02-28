@@ -32,21 +32,21 @@ from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 
 def search_form():
-        page = SearchTemplate()
-        page.title = _("Account")
-        page.setFocus("account/search")
-        page.search_title = _('account(s)')
-        page.search_fields = [
-                      ("name", _("Account name")),
-                      ("spread", _("Spread name")),
-                      ("create_date", _("Created date *")),
-                      ("expire_date", _("Expire date *")),
-                      ("description", _("Description")),
-                    ]
-        page.search_help = [_("Created date (YYYY-MM-DD, exact match)"),
-                     _("Expired date (YYYY-MM-DD, exact match)")]
-        page.search_action = '/account/search'
-        return page.respond()
+    page = SearchTemplate()
+    page.title = _("Account")
+    page.setFocus("account/search")
+    page.search_title = _('account(s)')
+    page.search_fields = [
+                  ("name", _("Account name")),
+                  ("spread", _("Spread name")),
+                  ("create_date", _("Created date *")),
+                  ("expire_date", _("Expire date *")),
+                  ("description", _("Description")),
+                ]
+    page.search_help = [_("Created date (YYYY-MM-DD, exact match)"),
+                 _("Expired date (YYYY-MM-DD, exact match)")]
+    page.search_action = '/account/search'
+    return page.respond()
 
 def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
@@ -56,19 +56,19 @@ def search(transaction, **vargs):
     if not searcher.is_valid():
         return search_form()
 
-    page = SearchResultTemplate()
-
     result = searcher.get_results()
+    if not result:
+        return search_form()
+
+    page = SearchResultTemplate()
     content = page.viewDict(result)
-    
-    page.title = 'Search result'
     page.content = lambda: content
 
     if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
         cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
         return content
     else:
-        return page
+        return page.respond()
 search = transaction_decorator(search)
 search.exposed = True
 index = search

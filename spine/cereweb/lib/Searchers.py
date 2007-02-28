@@ -128,8 +128,8 @@ class Searcher(object):
             'url_args': self.url_args,
             'hits': hits,
             'is_paginated': hits > self.max_hits,
-            'results_per_page': min(hits, offset + self.max_hits),
-            'has_next': offset < hits,
+            'results_per_page': min(hits, self.max_hits),
+            'has_next': (offset + self.max_hits) < hits,
             'has_previous': offset > 0,
             'next_offset': offset + self.max_hits,
             'previous_offset': offset - self.max_hits,
@@ -314,4 +314,30 @@ class PersonSearcher(Searcher):
             edit = object_link(elm, text='edit', method='edit', _class='action')
             remb = remember_link(elm, _class="action")
             rows.append([object_link(elm), date, accs, affs, str(edit)+str(remb)])
+        return rows
+
+class AllocationPeriodSearcher(Searcher):
+    headers = (('Name', 'name'),
+               ('Allocation Authority', 'allocationauthority'),
+               ('Actions', ''),
+    )
+
+    def get_searcher(self):
+        return self.transaction.get_allocation_period_searcher()
+
+    def name(self, name):
+        self.searcher.set_name_like(name)
+
+    def allocationauthority(self, allocationauthority):
+        ## XXX need to fix pulldown search for allocation authority
+        ## FIXME: What does this mean?
+        self.searcher.set_allocationauthority_like(allocationauthority)
+
+    def filter_rows(self, results):
+        rows = []
+        for elm in results:
+            edit = object_link(elm, text='edit', method='edit', _class='action')
+            remb = remember_link(elm, _class='action')
+            auth = elm.get_authority().get_name()
+            rows.append([object_link(elm), auth, str(edit)+str(remb)])
         return rows

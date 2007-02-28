@@ -25,15 +25,13 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
-from lib.templates.SearchTemplate import SearchTemplate
+from lib.Searchers import AllocationPeriodSearcher
+from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.AllocationPeriodViewTemplate import AllocationPeriodViewTemplate
 from lib.templates.AllocationPeriodEditTemplate import AllocationPeriodEditTemplate
 from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateTemplate
 
-
-def search(transaction, **vargs):
-    """Search for allocation periods and displays result and/or searchform."""
+def search_form():
     page = SearchTemplate()
     page.title = _("Search for allocation Period(s)")
     page.setFocus("allocationperiod/search")
@@ -41,42 +39,29 @@ def search(transaction, **vargs):
                           ("allocationauthority", _("Allocation Authority"),
                          ]
     page.search_action = '/allocationperiod/search'
+    return page.respond()
+
+def search(transaction, **vargs):
+    """Search for allocation periods and displays result and/or searchform."""
+    args = ('name', 'allocationauthority')
+    searcher = AllocationPeriodSearcher(transaction, *args, **vargs)
+
+    if not searcher.is_valid():
+        return search_form()
     
-    handler = SearchHandler('allocationperiod', page.search_form)
-    handler.args = ('name', 'allocationauthority')
-    handler.headers = (('Name', 'name'),
-                       ('Allocation Authority', 'allocationauthority'),
-                       ('Actions', '')
-    )
-    
-    def search_method(values, offset, orderby, orderby_dir):
-        name, allocationauthority = values
-        
-        searcher = transaction.get_allocation_period_searcher()
-        setup_searcher([searcher], orderby, orderby_dir, offset)
-        
-        if name:
-            searcher.set_name_like(name)
+    result = searcher.get_results()
+    if not result:
+        return search_form()
 
-        ## XXX need to fix pulldown search for allocation authority
-        if allocationauthority:
-            searcher.set_allocationauthority_like(allocationauthority)
-            
-        return searcher.search()
+    page = SearchResultTemplate()
+    content = page.viewDict(result)
+    page.content = lambda: content
 
-    def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        auth = elm.get_authority().get_name()
-        return object_link(elm), auth, str(edit)+str(remb)
-
-    objs = handler.search(search_method, **vargs)
-    result = handler.get_result(objs, row)
-    page.content = lambda: result
     if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
+        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
+        return content
     else:
-        return page
+        return page.respond()
 search = transaction_decorator(search)
 search.exposed = True
 index = search
