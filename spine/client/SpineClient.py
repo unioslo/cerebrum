@@ -73,15 +73,15 @@ class SpineClient:
             key_file = key_file or config.get('SpineClient', 'key_file')
             ssl_password = ssl_password or config.get('SpineClient', 'key_password')
             if use_ssl is None:
-                use_ssl      = config.getboolean('SpineClient', 'use_ssl')
+                use_ssl = config.getboolean('SpineClient', 'use_ssl')
 
         if idl_path not in sys.path:
             sys.path.append(idl_path)
 
         self.ior_url = ior_url
         self.use_ssl = use_ssl
-        self.ca_file = ca_file
-        self.key_file = key_file
+        self.ssl_ca_file = ca_file
+        self.ssl_key_file = key_file
         self.ssl_password = ssl_password
         self.idl_path = idl_path
 
