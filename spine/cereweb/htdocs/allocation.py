@@ -21,6 +21,7 @@
 import cherrypy
 
 from gettext import gettext as _
+from lib import Searchers
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
@@ -31,8 +32,7 @@ from lib.templates.AllocationViewTemplate import AllocationViewTemplate
 from lib.templates.AllocationEditTemplate import AllocationEditTemplate
 from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
 
-def search(transaction, **vargs):
-    """Search for allocations and displays result and/or searchform."""
+def search_form():
     page = SearchTemplate()
     page.title = _("Search for allocation(s)")
     page.setFocus("allocation/search")
@@ -41,49 +41,13 @@ def search(transaction, **vargs):
                           ("machine", _("Machine"))
                         ]
     page.search_action = '/allocation/search'
+    return page.respond()
 
-
-    handler = SearchHandler('allocation', page.search_form)
-    handler.args = ('allocation_name', 'period', 'status', 'machines')
-    handler.headers = (
-        ('Allocation name', 'allocation_name'), ('Period', 'period'),
-        ('Status', 'status'), ('Machines', 'machines'), ('Actions', '')
-    )
-
-    def search_method(values, offset, orderby, orderby_dir):
-        allocation_name, period, status, machines = values
-
-        searcher = transaction.get_allocation_searcher()
-        setup_searcher([searcher], orderby, orderby_dir, offset)
-
-        if allocation_name:
-            an_searcher = transaction.get_project_allocation_name_searcher()
-            an_searcher.set_name_like(allocation_name)
-            searcher.add_join('allocation_name', an_searcher, '')
-
-        #XXX status
-        #XXX period
-
-        return searcher.search()
-
-    def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        proj = object_link(elm.get_allocation_name().get_project())
-        period = elm.get_period().get_name()
-        status = elm.get_status().get_name()
-        machines = [m.get_name() for m in elm.get_machines()]
-        machines = "(%s)" % ",".join(machines)
-        return object_link(elm), period, status, machines, str(edit)+str(remb)
-
-    objs = handler.search(search_method, **vargs)
-    result = handler.get_result(objs, row)
-    page.content = lambda: result
-
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
-    else:
-        return page
+def search(transaction, **vargs):
+    """Search for allocations and displays result and/or searchform."""
+    args = ('allocation_name', 'period', 'status', 'machines')
+    searcher = Searchers.AllocationSearcher(transaction, *args, **vargs)
+    return Searchers.search(searcher, search_form)
 search = transaction_decorator(search)
 search.exposed = True
 index = search

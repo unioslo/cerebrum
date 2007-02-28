@@ -24,9 +24,8 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import *
 from lib.WorkList import remember_link
-from lib.Searchers import AccountSearcher
+from lib import Searchers
 from lib.templates.SearchTemplate import SearchTemplate
-from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
@@ -51,24 +50,8 @@ def search_form():
 def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
     args = ('name', 'spread', 'create_date', 'expire_date', 'description')
-    searcher = AccountSearcher(transaction, *args, **vargs)
-
-    if not searcher.is_valid():
-        return search_form()
-
-    result = searcher.get_results()
-    if not result:
-        return search_form()
-
-    page = SearchResultTemplate()
-    content = page.viewDict(result)
-    page.content = lambda: content
-
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
-        return content
-    else:
-        return page.respond()
+    searcher = Searchers.AccountSearcher(transaction, *args, **vargs)
+    return Searchers.search(searcher, search_form)
 search = transaction_decorator(search)
 search.exposed = True
 index = search

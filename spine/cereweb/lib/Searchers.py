@@ -1,8 +1,30 @@
 import cgi
 import urllib
 import config
+import cherrypy
+
 from utils import object_link, strftime
 from WorkList import remember_link
+from templates.SearchResultTemplate import SearchResultTemplate
+
+def search(searcher, search_form):
+    """Perform a search given a searcher and a search_form function."""
+    if not searcher.is_valid():
+        return search_form()
+
+    result = searcher.get_results()
+    if not result:
+        return search_form()
+
+    page = SearchResultTemplate()
+    content = page.viewDict(result)
+    page.content = lambda: content
+
+    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
+        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
+        return content
+    else:
+        return page.respond()
 
 class Searcher(object):
     """Simplified search handler interface.
@@ -341,3 +363,35 @@ class AllocationPeriodSearcher(Searcher):
             auth = elm.get_authority().get_name()
             rows.append([object_link(elm), auth, str(edit)+str(remb)])
         return rows
+
+class AllocationSearcher(Searcher):
+    headers = (
+        ('Allocation name', 'allocation_name'), ('Period', 'period'),
+        ('Status', 'status'), ('Machines', 'machines'), ('Actions', '')
+    )
+
+    def get_searcher(self):
+        return self.transaction.get_allocation_searcher()
+
+    def allocation_name(self, allocation_name):
+        an_searcher = self.transaction.get_project_allocation_name_searcher()
+        an_searcher.set_name_like(allocation_name)
+        self.searchers['allocation_name'] = an_searcher
+        self.searchers['main'].add_join('allocation_name', an_searcher, '')
+
+    def filter_rows(results):
+        rows = []
+        for elm in results:
+            edit = object_link(elm, text='edit', method='edit', _class='action')
+            remb = remember_link(elm, _class='action')
+            proj = object_link(elm.get_allocation_name().get_project())
+            period = elm.get_period().get_name()
+            status = elm.get_status().get_name()
+            machines = [m.get_name() for m in elm.get_machines()]
+            machines = "(%s)" % ",".join(machines)
+            rows.append([object_link(elm), period, status, machines, str(edit)+str(remb)])
+        return rows
+    #FIXME status
+    #FIXME period
+
+

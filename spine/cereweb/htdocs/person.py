@@ -29,7 +29,7 @@ from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
 from lib.WorkList import remember_link
-from lib.Searchers import PersonSearcher
+from lib import Searchers
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
@@ -56,22 +56,8 @@ def search_form():
 def search(transaction, **vargs):
     """Search after hosts and displays result and/or searchform."""
     args = ( 'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff')
-    searcher = PersonSearcher(transaction, *args, **vargs)
-    if not searcher.is_valid():
-        return search_form()
-
-    page = SearchResultTemplate()
-    result = searcher.get_results()
-    content = page.viewDict(result)
-
-    page.title = 'Search result'
-    page.content = lambda: content
-
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
-        return content
-    else:
-        return page
+    searcher = Searchers.PersonSearcher(transaction, *args, **vargs)
+    return Searchers.search(searcher, search_form)
 search = transaction_decorator(search)
 search.exposed = True
 index = search

@@ -25,7 +25,7 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib.Searchers import AllocationPeriodSearcher
+from lib import Searchers
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.AllocationPeriodViewTemplate import AllocationPeriodViewTemplate
 from lib.templates.AllocationPeriodEditTemplate import AllocationPeriodEditTemplate
@@ -44,24 +44,8 @@ def search_form():
 def search(transaction, **vargs):
     """Search for allocation periods and displays result and/or searchform."""
     args = ('name', 'allocationauthority')
-    searcher = AllocationPeriodSearcher(transaction, *args, **vargs)
-
-    if not searcher.is_valid():
-        return search_form()
-    
-    result = searcher.get_results()
-    if not result:
-        return search_form()
-
-    page = SearchResultTemplate()
-    content = page.viewDict(result)
-    page.content = lambda: content
-
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
-        return content
-    else:
-        return page.respond()
+    searcher = Searchers.AllocationPeriodSearcher(transaction, *args, **vargs)
+    return Searchers.search(searcher, search_form)
 search = transaction_decorator(search)
 search.exposed = True
 index = search
