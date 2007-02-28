@@ -39,7 +39,6 @@ $strftime($the_date)
 #def viewActions($target, $domains)
     #set $id = $target['id']
     #set $referer = $cherrypy.request.headerMap.get('Referer', '')
-
     <a href="edit?id=$id">$_("edit info")</a><br />
     <a href="delete?id=$id&amp;ref=$referer">$_("delete target")</a><br />
     <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
@@ -50,7 +49,6 @@ $strftime($the_date)
 ## Main method for creating the view
 #def viewContent($target, $domains)
     #set $id = $target['id']
-    #set $referer = cherrypy.request.headerMap.get('Referer', '/')
     #set $primary = $target['primary']
     #set $addresses = $target.get('addresses', None)
 

@@ -57,8 +57,15 @@ $searcher.set_entity($entity)
 #def set($entity, $transaction)
 #set $search = $transaction.get_email_target_type_searcher().search()
 #set $target_types = [($s.get_name(), $s.get_name()) for $s in $search]
-#set $domain_search = $transaction.get_email_domain_searcher().search()
-#set $domains = [($d.get_name(),$d.get_name()) for $d in $domain_search]
+#set $hosts = $transaction.get_host_searcher().search()
+#set $mailservers = []
+#for $host in $hosts
+    #if $host.get_server_type()
+        $mailservers.append((host.get_id(),host.get_name()))
+    #end if
+#end for
+##set $domain_search = $transaction.get_email_domain_searcher().search()
+##set $domains = [($d.get_name(),$d.get_name()) for $d in $domain_search]
 
 <div class="edit box" style="display:none;">
     <h3>$_('Create a new email target')</h3>
@@ -67,14 +74,20 @@ $searcher.set_entity($entity)
             <input type="hidden" name="entity" value="$entity.get_id()" />
         </div>
         <div class="required">
-            $form_widgets.generate_loption('target_type', 'Target type', $target_types)
+            $form_widgets.generate_loption('targettype', 'Target type', $target_types)
         </div>
         <div class="required">
-            $form_widgets.input('alias', 'Alias')
+            $form_widgets.generate_loption('host', 'Host', $mailservers)
         </div>
-        <div class="required">
-            $form_widgets.generate_loption('email_domain', 'Email domains:',$domains)
-        </div>
+        ##<div class="required">
+        ##    $form_widgets.generate_loption('servertype', 'Box type', $email_types)
+        ##</div>
+        ##<div class="required">
+        ##    $form_widgets.input('alias', 'Alias')
+        ##</div>
+        ##<div class="required">
+        ##    $form_widgets.generate_loption('email_domain', 'Email domains:',$domains)
+        ##</div>
         <div class="buttons">
             <input type="submit" value="$_('Add')" />&nbsp;
             <input type="button" value="$_('Cancel')" class="cancel" />

@@ -64,7 +64,7 @@
     $setPassword($account)
     $viewPasswords($account)
     #if $commands.has_extention("email")
-        ## $email_template.set($account, $transaction)
+        $email_template.set($account, $transaction)
         $email_template.view($account, $transaction)
     #end if
     $addSpread($account, $transaction)
