@@ -26,86 +26,37 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _AuthoritativeSystemCode, \
-     _OUPerspectiveCode, _SpreadCode, \
-     _QuarantineCode, _EntityExternalIdCode, _PersonAffiliationCode, \
-     _PersonAffStatusCode, _AccountCode, _PersonNameCode, \
-     _ContactInfoCode, _CountryCode
+                              _SpreadCode, \
+                              _QuarantineCode, \
+                              _PersonAffiliationCode, \
+                              _PersonAffStatusCode
+from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
-    externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
-                                                 Constants.Constants.entity_person,
-                                                 'Norwegian birth number')
-    externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
-                                                 Constants.Constants.entity_person,
-                                                 'Norwegian student number')
-    externalid_sap_ansattnr = _EntityExternalIdCode('HiA_SAP_EMP#',
-                                                    Constants.Constants.entity_person,
-                                                    'HiA SAP employee number')
-
-    system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_fs_derived = _AuthoritativeSystemCode('FS-auto',
                                                  'Utledet av FS data')
-    system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
-    system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
     system_pbx = _AuthoritativeSystemCode('PBX', 'PBX')
-    # TBD: system_override should probably reside in
-    # Cerebrum/Constants.py...
-    # this system will primarily be used to override unwanted names
-    # fetched for student registry or HR-system
-    system_override = _AuthoritativeSystemCode('Override',
-                                               'Override information fetched from proper authoritative systems')
-    system_manual =  _AuthoritativeSystemCode('MANUELL',
-                                              'Manually added information')
-
-    perspective_fs = _OUPerspectiveCode('FS', 'FS')
-
-    account_test = _AccountCode('testbruker', 'Testkonto')
-    account_kurs = _AccountCode('kursbruker', 'Kurskonto')
-    account_studorg = _AccountCode('studorgbruker','Studentorganisasjonsbruker')
-    account_felles  = _AccountCode('fellesbruker','Fellesbruker')
-    account_system  = _AccountCode('systembruker', 'Systembruker') 
 
 ## AFFILIATIONS FOR ANSATTE
-    affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt ved HiA')
+    affiliation_ansatt = ConstantsHigherEdu.affiliation_ansatt
     affiliation_status_ansatt_manuell = _PersonAffStatusCode(
         affiliation_ansatt, 'ans_manuell', 'Ansatt, manuell import')
-    affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
-        affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
-    affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
-        affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
     affiliation_status_ansatt_primaer = _PersonAffStatusCode(
         affiliation_ansatt, 'primaer', 'Primærtilknytning for SAP ansatte')
     
 ## AFFILIATIONS FOR STUDENTER
-    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student ved HiA')
+    affiliation_student = ConstantsHigherEdu.affiliation_student
     affiliation_status_student_manuell = _PersonAffStatusCode(
         affiliation_student, 'stud_manuell', 'Student, manuell import')
-    affiliation_status_student_evu = _PersonAffStatusCode(
-        affiliation_student, 'evu', 'Student, etter og videre utdanning')
-    affiliation_status_student_aktiv = _PersonAffStatusCode(
-        affiliation_student, 'aktiv', 'Student, aktiv')
     affiliation_status_student_tilbud = _PersonAffStatusCode(
         affiliation_student, 'tilbud', 'Student, tilbud')
-    affiliation_status_student_privatist = _PersonAffStatusCode(
-        affiliation_student, 'privatist', 'Student, privatist')
-## We are not going to use this affiliation for the time being
-##     affiliation_status_student_opptak = _PersonAffStatusCode(
-##         affiliation_student, 'opptak', 'Student, opptak')
 
 ## AFFILIATIONS FOR ASSOSIERTE PERSONER
-    affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET',
-        ('Personer tilknyttet HiA og registrert i SAP med utvalgte stillingskoder'))
+    affiliation_tilknyttet = ConstantsHigherEdu.affiliation_tilknyttet
     affiliation_status_tilknyttet_feide = _PersonAffStatusCode(
         affiliation_tilknyttet, 'feide',
         'Personer uten reg. i kildesystem som må ha tilgang til FEIDE-baserte tjenester')
-    affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'pensjonist',
-        'Personer registrert i SAP som pensjonister')
-    affiliation_status_tilknyttet_timelonnet = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'timelonnet',
-        'Personer registrert i SAP som timelønnet')
 
 ## AFFILIATIONS FOR ANDRE
     affiliation_manuell = _PersonAffiliationCode(
@@ -245,70 +196,11 @@ class Constants(Constants.Constants):
 ##         'Account exported to SAP')
 
 ## KARANTENEGRUPPER
-    quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
-    quarantine_teppe = _QuarantineCode('teppe',
-                                       'Kalt inn på teppet til drift')
-    quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 'Ikke aktiv student, utestengt')
-    quarantine_auto_emailonly = _QuarantineCode('auto_emailonly',
-                                                'Ikke ordinær student, tilgang til bare e-post')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
-    quarantine_system = _QuarantineCode('system',
-                                        'Systembrukar som ikke skal logge inn')
     quarantine_permisjon = _QuarantineCode('permisjon',
                                            'Brukeren har permisjon')
-    quarantine_svakt_passord = _QuarantineCode('svakt_passord',
-                                               'For dårlig passord')
-    quarantine_autopassord = _QuarantineCode(
-        'autopassord', 'Passord ikke skiftet trass pålegg')
-    quarantine_autostud = _QuarantineCode('autostud', 'Ikke aktiv student')
     quarantine_autoekstern = _QuarantineCode('autoekstern',
                                              'Ekstern konto gått ut på dato')
-    quarantine_ou_notvalid = _QuarantineCode(
-        'ou_notvalid', 'OU not valid from external source')    
-    quarantine_ou_remove = _QuarantineCode('ou_remove',
-                                           'OU is clean and may be removed')
-
-## SAP-spesifikke navnekonstanter
-    name_middle = _PersonNameCode('MIDDLE', 'Middle name')
-    name_initials = _PersonNameCode('INITIALS', 'Initials')
-
-## SAP-spesifikke kommtypekonstater
-    contact_phone_cellular = _ContactInfoCode("CELLPHONE",
-                                              "Person's cellular phone")
-    contact_phone_cellular_private = _ContactInfoCode(
-                                       "PRIVCELLPHONE",
-                                       "Person's private cellular phone")
-
-## Landkonstanter for SAP
-    country_no = _CountryCode("NO", "Norway", "47", "Norway")
-    country_gb = _CountryCode("GB", "Great Britain", "44", "Great Britain")
-    country_fi = _CountryCode("FI", "Finland", "358", "Finland")
-    country_se = _CountryCode("SE", "Sweden", "46", "Sweden")
-    country_us = _CountryCode("US", "USA", "1", "United states of America")
-    country_nl = _CountryCode("NL", "The Netherlands", "31", "The Netherlands")
-    country_de = _CountryCode("DE", "Germany", "49", "Germany")
-    country_au = _CountryCode("AU", "Australia", "61", "Australia")
-    country_dk = _CountryCode("DK", "Denmark", "45", "Denmark")
-    country_it = _CountryCode("IT", "Italy", "39", "Italy")
-    country_sg = _CountryCode("SG", "Singapore", "65", "Singapore")
-    country_at = _CountryCode("AT", "Austria", "43", "Austria")
-    country_ca = _CountryCode("CA", "Canada", "1", "Canada")
-
-## Landkoder som forekommer i SAP-dumpen uten å være
-## definert i Cerebrum
-## BE
-## CH
-## CS
-## EE
-## FR
-## GR
-## ID
-## IE
-## IS
-## LV
-## SG
-## SI
-## TN
 
 # end Constants
 
