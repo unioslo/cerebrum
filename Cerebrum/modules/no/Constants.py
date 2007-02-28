@@ -61,6 +61,23 @@ class ConstantsHigherEdu(Constants.Constants):
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
     perspective_sap = _OUPerspectiveCode('SAP', 'SAP')
 
+    ## Affiliations for students
+    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
+    affiliation_status_student_evu = _PersonAffStatusCode(
+        affiliation_student, 'evu', 'Student, etter og videre utdanning')
+    affiliation_status_student_aktiv = _PersonAffStatusCode(
+        affiliation_student, 'aktiv', 'Student, aktiv')
+    affiliation_status_student_privatist = _PersonAffStatusCode(
+        affiliation_student, 'privatist', 'Student, privatist')
+
+    ## Affiliations for employees
+    affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt')
+    affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
+        affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
+    affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
+        affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
+    
+
 class ConstantsUniversityColleges(Constants.Constants):
 
     ## Source systems
@@ -70,20 +87,6 @@ class ConstantsUniversityColleges(Constants.Constants):
     system_manual =  _AuthoritativeSystemCode('MANUELL',
                                               'Manually added information')
 
-
-    ## Affiliations for employees
-    affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt')
-    affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
-        affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
-    affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
-        affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
-    
-    ## Affiliations for students
-    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
-    affiliation_status_student_evu = _PersonAffStatusCode(
-        affiliation_student, 'evu', 'Student, etter og videre utdanning')
-    affiliation_status_student_aktiv = _PersonAffStatusCode(
-        affiliation_student, 'aktiv', 'Student, aktiv')
 
     ## Affiliation for associated people
     affiliation_tilknyttet = _PersonAffiliationCode('TILKNYTTET',
@@ -111,12 +114,12 @@ class ConstantsUniversityColleges(Constants.Constants):
                                        'Kalt inn til samtale')
     quarantine_kunepost = _QuarantineCode('kunepost',
                                            'Tilgang kun til e-post')
-    quarantine_svaktpassord = _QuarantineCode('svaktpassord',
+    quarantine_svakt_passord = _QuarantineCode('svaktpassord',
                                                'For dårlig passord')
     quarantine_system = _QuarantineCode('system',
-                                        'Systembrukar som ikke skal logge inn')
+                                        'Systembruker som ikke skal logge inn')
     ## Cerebrum (internal), used by automagic only
-    quarantine_auto_passord = _QuarantineCode('auto_passord',
+    quarantine_autopassord = _QuarantineCode('autopassord',
                                              'Passord ikke skiftet trass pålegg')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
                                               'Ikke aktiv student, utestengt')
