@@ -59,6 +59,9 @@ class Searcher(object):
 
             try:
                 orderby_searcher = self.searchers[s]
+                jn = getattr(orderby_searcher, 'join_name', None)
+                if jn:
+                    searcher.add_left_join('', orderby_searcher, jn)
             except KeyError, e:
                 orderby_searcher = searcher
                 
@@ -109,11 +112,19 @@ class Searcher(object):
         return cgi.escape('search?%s' % (urllib.urlencode(url_args))), current
 
     def get_results(self):
+        import time
+        t = time.time()
+        results = self.search()
+        print time.time() - t
+        rows = self.filter_rows(results)
+        print time.time() - t
         hits = self.searchers['main'].length()
+        print time.time() - t
+        headers = self.create_table_headers()
         offset = self.url_args['offset'] 
         result = {
-            'headers': self.create_table_headers(),
-            'rows': self.filter_rows(self.search()),
+            'headers': headers,
+            'rows': rows,
             'url_args': self.url_args,
             'hits': hits,
             'is_paginated': hits > self.max_hits,
@@ -240,7 +251,8 @@ class PersonSearcher(Searcher):
         last_name = self.transaction.get_person_name_searcher()
         last_name.set_name_variant(variant)
         last_name.set_source_system(source)
-        main.add_left_join('', last_name, 'person')
+        last_name.join_name = 'person'
+        #main.add_left_join('', last_name, 'person')
         return {'main': main,
                 'last_name': last_name}
 
