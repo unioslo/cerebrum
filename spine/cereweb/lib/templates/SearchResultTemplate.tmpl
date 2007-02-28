@@ -42,9 +42,6 @@
         showing all
     #end if
     </h3>
-    #if $result['is_paginated']
-        $range_menu_dict($result)
-    #end if
     <table>
         <thead><tr>
             #for $header in $result['headers']
@@ -61,6 +58,9 @@
             #end for
         </tbody>
     </table>
+    #if $result['is_paginated']
+        $range_menu_dict($result)
+    #end if
 </div>
 #end def
 
@@ -114,11 +114,35 @@
 
 #def range_menu_dict($result)
 <div class="search_range">
-    #set $args = $result['url_args']
+    #set $args = $result['url_args'].copy()
+    #set $start = $result['page'] - 5
+    #if $start <= 1
+        #set $start = 1
+    #end if
+    
     #if $result['has_previous']
         #set $args['offset'] = $result['previous_offset']
         <a href="search?$urllib.urlencode($args)">$_("Previous")</a>
     #end if
+    
+    #for $page in $range($start, $start + 10, 1)
+        #set $first = (1 + ($page - 1) * $result['results_per_page'])
+        #if $first > $result['hits']
+            #break
+        #end if
+        #set $last = $page * $result['results_per_page']
+        #if $last > $result['hits']
+            #set $last = $result['hits']
+        #end if
+
+        #if $page == $result['page']
+            <span>$page</span>
+        #else
+            #set $args['offset'] = ($first - 1)
+            <a title="Results $first - $last" href="search?$urllib.urlencode($args)">$page</a>
+        #end if
+    #end for
+    
     #if $result['has_next']
         #set $args['offset'] = $result['next_offset']
         <a href="search?$urllib.urlencode($args)">$_("Next")</a>
