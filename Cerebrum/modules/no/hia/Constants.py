@@ -31,6 +31,7 @@ from Cerebrum.Constants import _AuthoritativeSystemCode, \
                               _PersonAffiliationCode, \
                               _PersonAffStatusCode
 from Cerebrum.modules.no.Constants import ConstantsHigherEdu
+from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
@@ -53,7 +54,7 @@ class Constants(Constants.Constants):
         affiliation_student, 'tilbud', 'Student, tilbud')
 
 ## AFFILIATIONS FOR ASSOSIERTE PERSONER
-    affiliation_tilknyttet = ConstantsHigherEdu.affiliation_tilknyttet
+    affiliation_tilknyttet = ConstantsUniversityColleges.affiliation_tilknyttet
     affiliation_status_tilknyttet_feide = _PersonAffStatusCode(
         affiliation_tilknyttet, 'feide',
         'Personer uten reg. i kildesystem som må ha tilgang til FEIDE-baserte tjenester')
