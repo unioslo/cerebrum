@@ -39,6 +39,8 @@ def main():
         persons = s.get_persons()
         # FIXME
         # Search needs username, email, ou and affiliation as well.
+        # Each person should have the following values set:
+        # entity_id,birthdate,nin,birthday,givenname,surname,mail,affiliation,ou-code,username
         for person in persons:
             birthdate = person.birth_date[:10]
             export_id = person.export_id.split('exp-')[1]
