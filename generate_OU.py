@@ -152,9 +152,7 @@ class ou:
         
         import codecs
         fileObj = codecs.open( self.ou_file, "r", "utf-8" )
-        content = fileObj.read()
-        fileObj.close()
-        for line in content.split('\n'):
+        for line in fileObj:
             line = line.encode('iso-8859-1')
             if line and not line.startswith("#"):
                 faknr,fakultet,instnr,institutt,avdnr,avdeling=line.split(",")
@@ -226,6 +224,7 @@ class ou:
                                  'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
                                  'landnavn_alternativ_adr': '',#i['adresseland_besok']
                                  })
+        fileObj.close()
         return authoritative_ou
 
         
