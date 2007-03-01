@@ -21,6 +21,7 @@
 
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
+#attr $form_values = {}
 
 ## fields should contain a list of tuples with (name, label)
 #attr $search_fields = []
@@ -74,5 +75,5 @@
 #end def
 
 #def content($vargs={})
-    $search_form($vargs)
+    $search_form($vargs or $form_values)
 #end def
