@@ -73,6 +73,14 @@ remove_name.signature = None
 remove_name.signature_args = [NameType, SourceSystem]
 remove_name.signature_write = True
 
+def get_name(self, name_type, source_system):
+    db = self.get_database()
+    return PersonName(db, self, name_type, source_system).get_name()
+get_name.signature = str
+get_name.signature_args = [NameType, SourceSystem]
+get_name.signature_exceptions= [NotFoundError]
+
+
 def get_cached_full_name(self):
     db = self.get_database()
     cached = SourceSystem(db, name='Cached')
@@ -81,6 +89,8 @@ def get_cached_full_name(self):
 get_cached_full_name.signature = str
 get_cached_full_name.signature_exceptions= [NotFoundError]
 
-Person.register_methods([remove_name, set_name, get_names, get_cached_full_name])
+    
+
+Person.register_methods([remove_name, set_name, get_names, get_cached_full_name, get_name])
 
 # arch-tag: 6a0ecb31-a1a6-4581-ad50-c9e53323041b
