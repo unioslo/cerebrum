@@ -218,7 +218,14 @@ class AccountUtil(object):
                 for i in affiliations:
                     #print "AFF-> %s" % i
                     #print "affiliation=>>%s, delete_date=%s" % (i.affiliation,i.deleted_date)
-                    if(((i.affiliation==const.affiliation_ansatt) and (i.deleted_date==None))or ((i.affiliation==const.affiliation_tilknyttet) and (i.deleted_date==None) and (i.source_system==const.system_x))):
+                    if( ((i.affiliation==const.affiliation_ansatt) and 
+                         (i.deleted_date==None))
+                         or 
+                         ( (i.affiliation==const.affiliation_tilknyttet) and 
+                           (i.deleted_date==None) and 
+                           (i.source_system==const.system_x)
+                          )
+                        ):
                         update_primary_email=False
                         #print "has employee affiliation. do not update primary email"
                         #print "affiliation=%s,create_date=%s,delete_date=%s" % (i.affiliation,i.create_date,i.deleted_date)
@@ -340,6 +347,8 @@ class AccountUtil(object):
                         # Conflicting request or similiar
                         logger.warn(e)
             elif c_id == 'remove_autostud_quarantine':
+                user.delete_entity_quarantine(dta)
+            elif c_id == 'remove_tilbud_quarantine':
                 user.delete_entity_quarantine(dta)
             elif c_id == 'add_spread':
                 user.add_spread(dta)
@@ -495,6 +504,15 @@ class AccountUtil(object):
                 int(q) not in tmp):
                 changes.append(("remove_autostud_quarantine", q))
 
+        # Remove Tilbud quarantine for STUDENT\drgrad affs
+        for aff in persons[fnr].get_affiliations():
+            affil,ou,status=aff
+            if status == const.affiliation_status_student_drgrad:
+                q=int(const.quarantine_tilbud)
+                if (q in ac.get_quarantines()):
+                    changes.append(('remove_tilbud_quarantine',q))
+                    break
+
         # Populate spreads
         has_acount_spreads = ac.get_spreads()
         has_person_spreads = persons[fnr].get_spreads()
@@ -630,7 +648,7 @@ class RecalcQuota(object):
                     pq.max_quota = 0
                     pq.printer_quota = 0
             pq.write_db()
-        if not dryrun:
+        if not dryrun:            
             db.commit()
         else:
             db.rollback()
