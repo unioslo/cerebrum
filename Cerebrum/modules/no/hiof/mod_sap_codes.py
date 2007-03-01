@@ -37,34 +37,36 @@ class SAPConstants(Constants.Constants):
     """
 
     # ----[ SAPForretningsOmradeKode ]----------------------------------
-    sap_remmen = SAPForretningsOmradeKode(
-        "0110",
-        "Remmen - Halden"
+    #
+    # IVR 2007-03-01 FIXME: what is this? 
+    sap_omrade0001 = SAPForretningsOmradeKode(
+        "0001",
+        "Forretningsområde 0001"
     )
 
-    sap_violgaten = SAPForretningsOmradeKode(
-        "0115",
-        "Violgaten - Halden"
+    sap_remmen = SAPForretningsOmradeKode(
+        "0110",
+        "Remmen"
     )
 
     sap_tune = SAPForretningsOmradeKode(
         "0120",
-        "Tune - Sarpsborg"
+        "Sarpsborg"
     )
 
     sap_krakeroy = SAPForretningsOmradeKode(
         "0130",
-        "Kråkerøy - Fredrikstad",
+        "Kråkerøy",
     )
     
     sap_gamlebyen = SAPForretningsOmradeKode(
         "0135",
-        "Gamlebyen - Fredrikstad",
+        "Gamlebyen",
     )
 
     sap_sykehuset = SAPForretningsOmradeKode(
         "0140",
-        "Sykehuset - Tønsberg",
+        "Tønsberg",
     )
 
 
