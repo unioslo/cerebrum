@@ -108,12 +108,16 @@ def need_to_update(paid_sem, updated):
                 person.find(i)
             except Errors.NotFoundError:
                 logger.error('No such person (%s)!' % i)
-            try:
-                acc_id = person.get_primary_account()
-                logger.debug("Account found %s" % acc_id)
-            except Errors.NotFoundError:
+                # if there is no person, there is definitely no account.
+                continue
+
+            acc_id = person.get_primary_account()
+            if acc_id is None: 
                 logger.error('Could not find primary account for %s!' % i)
                 continue
+            else:
+                logger.debug("Account found %s" % acc_id)
+
             try:
                 account.clear()
                 account.find(acc_id)
