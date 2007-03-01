@@ -149,9 +149,14 @@ class ou:
     
     def get_authoritative_ou(self):
         authoritative_ou=[]
-        file_handle = open(self.ou_file,"r")
-        for line in file_handle:
-            if line[0] !="#":
+        
+        import codecs
+        fileObj = codecs.open( self.ou_file, "r", "utf-8" )
+        content = fileObj.read()
+        fileObj.close()
+        for line in content.split('\n'):
+            line = line.encode('iso-8859-1')
+            if line and not line.startswith("#"):
                 faknr,fakultet,instnr,institutt,avdnr,avdeling=line.split(",")
                 faknr=faknr.strip("\"")
                 fakultet=fakultet.strip("\"")
