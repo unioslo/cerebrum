@@ -372,6 +372,7 @@ def get_data(spread):
 def main():
     global verbose, f, db, co, ldap, auth
     
+    Factory.get_logger("cronjob")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "vm:s:iha",
                                    ("verbose", "mail-file=", "spread=",
