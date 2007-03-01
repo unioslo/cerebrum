@@ -219,10 +219,13 @@ def get_filelist(db, extra_files=[]):
     files = core_files[:]
     files.extend(extra_files)
     ret = []
-    ddl_dir = os.path.dirname(sys.argv[0])
-    if ddl_dir == '':
-        ddl_dir = '.'
-    ddl_dir += "/"+cereconf.CEREBRUM_DDL_DIR
+    if cereconf.CEREBRUM_DDL_DIR.startswith("/"):
+        ddl_dir = cereconf.CEREBRUM_DDL_DIR
+    else:
+        ddl_dir = os.path.dirname(sys.argv[0])
+        if ddl_dir == '':
+            ddl_dir = '.'
+        ddl_dir += "/"+cereconf.CEREBRUM_DDL_DIR
     for f in files:
         if '/' in f:
             ret.append(f)
