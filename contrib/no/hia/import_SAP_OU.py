@@ -35,7 +35,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
-from Cerebrum.modules.no.hia.mod_sap_codes import SAPForretningsOmradeKode
+from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 
 import sys
 import getopt
