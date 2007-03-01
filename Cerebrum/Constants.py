@@ -541,7 +541,8 @@ class ConstantsBase(DatabaseAccessor):
                 cls = type(attr)
                 if not order[dep].has_key(cls):
                     order[dep][cls] = []
-                order[dep][cls].append(attr)
+                if not attr in order[dep][cls]:
+                    order[dep][cls].append(attr)
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
         stats = {'total': 0, 'inserted': 0, 'updated': 0, 'deleted': 0}
