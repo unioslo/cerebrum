@@ -48,7 +48,7 @@ usage pattern.
 
 import sys
 import getopt
-from mx.DateTime import strptime, now
+from mx.DateTime import strptime, today
 
 import cerebrum_path
 import cereconf
@@ -183,6 +183,8 @@ def process_affiliations(employment_file):
     # affiliation_ansatt *only*.
     db_aff_cache = cache_db_affiliations(person)
 
+    
+
     #
     # for each line in file decide what to do with affiliations
     for row in file(employment_file, "r"):
@@ -224,7 +226,7 @@ def process_affiliations(employment_file):
 
         #
         # Is the entry in the valid timeframe?
-        if not (date_start <= now() <= date_end):
+        if not (date_start <= today() <= date_end):
             logger.debug("Row %s has wrong timeframe (start: %s, end: %s)",
                          row, date_start, date_end)
             continue
