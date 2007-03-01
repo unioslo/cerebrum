@@ -30,16 +30,18 @@ from Cerebrum.Constants import _SpreadCode, \
                                _PersonAffStatusCode
 from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
-from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
+from Cerebrum.modules.no.Constants import ConstantsUniversityColleges, \
+                                          ConstantsHigherEdu
 from Cerebrum.modules.PosixUser import _PosixShellCode
 
 class Constants(Constants.Constants):
 
     ## Affiliations for students
+    affiliation_student = ConstantsHigherEdu.affiliation_student
     affiliation_status_student_tilbud = _PersonAffStatusCode(
-        ConstantsUniversityColleges.affiliation_student, 'tilbud', 'Student, tilbud')
+        affiliation_student, 'tilbud', 'Student, tilbud')
     affiliation_status_student_privatist = _PersonAffStatusCode(
-        ConstantsUniversityColleges.affiliation_student, 'privatist', 'Student, privatist')
+        affiliation_student, 'privatist', 'Student, privatist')
 
    ## Affiliations for associated people
     affiliation_status_tilknyttet_timelonnet = _PersonAffStatusCode(
