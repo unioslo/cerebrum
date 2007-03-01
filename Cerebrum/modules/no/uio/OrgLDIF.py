@@ -66,10 +66,13 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.dn2new_structure.setdefault(dn, new_structure_dn)
         return dn
 
-    def make_address(sep, p_o_box, address_text, postal_number, city, country):
+    def make_address(self, sep,
+                     p_o_box, address_text, postal_number, city, country):
         # Changes from superclass:
         # Weird algorithm for when to use p_o_box.
         # Append "Blindern" to postbox.
+        if country:
+            country = self.const.Country(country).country
         if (p_o_box and int(postal_number or 0) / 100 == 3):
             address_text = "Pb. %s - Blindern" % p_o_box
         else:
@@ -82,7 +85,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         if sep == '$':
             val = postal_escape_re.sub(hex_escape_match, val)
         return iso2utf(val.replace("\n", sep))
-    make_address = staticmethod(make_address)
 
     def init_person_course(self):
         """Populate dicts with a person's course information."""

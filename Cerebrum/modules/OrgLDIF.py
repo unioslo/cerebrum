@@ -704,9 +704,12 @@ from None and LDAP_PERSON['dn'].""")
              'cn':                entry['cn'],
              'sn':                entry['sn']}))
 
-    def make_address(sep, p_o_box, address_text, postal_number, city, country):
+    def make_address(self, sep,
+                     p_o_box, address_text, postal_number, city, country):
         # Return a postal addres or street attribute value made from the input.
         # 'sep' should be '$' for postal addresses; usually ', ' for streets.
+        if country:
+            country = self.const.Country(country).country
         if p_o_box:
             p_o_box = "Pb. %s" % p_o_box
         address_text = (address_text or "").strip()
@@ -719,7 +722,6 @@ from None and LDAP_PERSON['dn'].""")
         if sep == '$':
             val = postal_escape_re.sub(hex_escape_match, val)
         return iso2utf(val.replace("\n", sep))
-    make_address = staticmethod(make_address)
 
     def make_entity_addresses(self, entity, lookup_order = (None,)):
         # Return [postal address, street address] for the given entity.
