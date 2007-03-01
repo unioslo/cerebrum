@@ -30,6 +30,7 @@ import cherrypy
 import utils
 from WorkList import remember_link
 from templates.SearchResultTemplate import SearchResultTemplate
+import SpineIDL.Errors
 
 class Searcher(object):
     """Searcher module that should be subclassed by the respective search
@@ -419,8 +420,11 @@ class AllocationPeriodSearcher(Searcher):
 
 class AllocationSearcher(Searcher):
     headers = (
-        ('Allocation name', 'allocation_name'), ('Period', 'period'),
-        ('Status', 'status'), ('Machines', 'machines'), ('Actions', '')
+        ('Allocation name', 'allocation_name'),
+        ('Period', 'period'),
+        ('Status', 'status'),
+        ('Machines', 'machines'),
+        ('Actions', '')
     )
 
     def get_searcher(self):
@@ -604,4 +608,38 @@ class ProjectSearcher(Searcher):
             sci  = " " #elm.get_science().get_name()
             ownr = utils.object_link(elm.get_owner())
             rows.append([utils.object_link(elm), sci, ownr, str(edit)+str(remb)])
+        return rows
+
+class PersonAffiliationsSearcher(Searcher):
+    headers = (('Type', 'type'),
+               ('Status', 'status'),
+               ('Source', 'source'),
+               ('Name', 'name'),
+               ('Birth date', 'birth_date'))
+
+    def get_searcher(self):
+        return {'main': self.transaction.get_person_affiliation_searcher()}
+
+    def id(self, id):
+        try:
+            ou = self.transaction.get_ou(int(id))
+        except SpineIDL.Errors.NotFoundError, e:
+            self.valid = False
+        else:
+            self.searchers['main'].set_ou(ou)
+
+    def source(self, source):
+        self.searchers['main'].set_set_source_system(
+                self.transaction.get_source_system(source))
+
+    def filter_rows(self, results):
+        rows = []
+        for elm in results:
+            p = elm.get_person()
+            type = elm.get_affiliation().get_name()
+            status = elm.get_status().get_name()
+            source = elm.get_source_system().get_name()
+            name = utils.object_link(p)
+            birth_date = utils.strftime(p.get_birth_date())
+            rows.append([type, status, source, name, birth_date])
         return rows

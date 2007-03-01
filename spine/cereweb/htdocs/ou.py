@@ -24,7 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib import utils
 from lib.WorkList import remember_link
-from lib.Searchers import OUSearcher
+from lib.Searchers import OUSearcher, PersonAffiliationsSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
@@ -223,50 +223,10 @@ def delete(transaction, id):
 delete = utils.transaction_decorator(delete)
 delete.exposed = True
 
-def list_aff_persons(transaction, id, source=None, **vargs):
-    try:
-        ou = transaction.get_ou(int(id))
-    except SpineIDL.Errors.NotFoundError, e:
-        utils.redirect('/ou/')
-
-    page = Main()
-    page.title = _("OU %s persons") % _get_display_name(ou)
-    page.setFocus("ou/list_aff_persons", id)
-
-    template = SearchTemplate()
-    template.search_action = '/ou/list_aff_persons'
-    template.search_title = _('OU %s affiliations') % _get_display_name(ou)
-
-    handler = SearchHandler('')
-    handler.args = ('id',)
-    handler.headers = ( ('Type', 'type'), ('Status', 'status'),
-                        ('Source', 'source'),
-                        ('Name', 'name'), ('Birth date', 'birth_date') )
-
-    def search_method(values, offset, orderby, orderby_dir):
-        aff_searcher = transaction.get_person_affiliation_searcher()
-        aff_searcher.set_ou(ou)
-        if source:
-            aff_searcher.set_set_source_system(tr.get_source_system(source))
-        return aff_searcher.search()
-    def row(elm):
-        p = elm.get_person()
-        type = elm.get_affiliation().get_name()
-        status = elm.get_status().get_name()
-        source = elm.get_source_system().get_name()
-        name = utils.object_link(p)
-        birth_date = utils.strftime(p.get_birth_date())
-        return type, status, source, name, birth_date
-
-    vargs['id'] = id
-    vargs['source'] = source
-    affs = handler.search(search_method, **vargs)
-    result = handler.get_result(affs, row)
-    if result:
-        page.content = lambda: result
-        return page
-    else:
-        utils.redirect(cherrypy.request.headerMap.get('Referer', ''))
+def list_aff_persons(transaction, **vargs):
+    args = ('id','source')
+    searcher = PersonAffiliationsSearcher(transaction, *args, **vargs)
+    return searcher.respond() or utils.redirect('/ou/')
 list_aff_persons = utils.transaction_decorator(list_aff_persons)
 list_aff_persons.exposed = True
     
