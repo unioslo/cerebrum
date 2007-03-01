@@ -25,14 +25,13 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, object_link
 from lib.utils import transaction_decorator, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import DiskSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.DiskViewTemplate import DiskViewTemplate
 from lib.templates.DiskEditTemplate import DiskEditTemplate
 from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 
-def search(transaction, **vargs):
-    """Search after disks and displays result and/or searchform."""
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Disk")
     page.setFocus("disk/search")
@@ -41,43 +40,15 @@ def search(transaction, **vargs):
                           ("description", _("Description"))
                         ]
     page.search_action = '/disk/search'
+    page.form_values = remembered
+    return page.respond()
+    
+def search(transaction, **vargs):
+    """Search after disks and displays result and/or searchform."""
+    args = ('path', 'description')
+    searcher = DiskSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 
-    handler = SearchHandler('disk', page.search_form)
-    handler.args = ('path', 'description')
-    handler.headers = (
-        ('Path', 'path'), ('Host', ''),
-        ('Description', 'description'), ('Actions', '')
-    )
-   
-    def search_method(values, offset, orderby, orderby_dir):
-        path, description = values
-
-        disksearcher = transaction.get_disk_searcher()
-        setup_searcher([disksearcher], orderby, orderby_dir, offset)
-
-        if path:
-            disksearcher.set_path_like(path)
-
-        if description:
-            disksearcher.set_description_like(description)
-            
-        return disksearcher.search()
-
-    def row(elm):
-        path = object_link(elm, text=elm.get_path())
-        host = object_link(elm.get_host())
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        return path, host, elm.get_description(), str(edit)+str(remb)
-
-    disks = handler.search(search_method, **vargs)
-    result = handler.get_result(disks, row)
-    page.content = lambda: result
-
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
-    else:
-        return page
 search = transaction_decorator(search)
 search.exposed = True
 index = search

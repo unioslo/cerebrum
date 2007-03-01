@@ -24,13 +24,13 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import *
 from lib.WorkList import remember_link
-from lib import Searchers
+from lib.Searchers import AccountSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 
-def search_form():
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Account")
     page.setFocus("account/search")
@@ -45,13 +45,14 @@ def search_form():
     page.search_help = [_("Created date (YYYY-MM-DD, exact match)"),
                  _("Expired date (YYYY-MM-DD, exact match)")]
     page.search_action = '/account/search'
+    page.form_values = remembered
     return page.respond()
 
 def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
     args = ('name', 'spread', 'create_date', 'expire_date', 'description')
-    searcher = Searchers.AccountSearcher(transaction, *args, **vargs)
-    return Searchers.search(searcher, search_form)
+    searcher = AccountSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 index = search

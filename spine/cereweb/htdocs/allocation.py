@@ -21,18 +21,17 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib import Searchers
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import AllocationSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AllocationViewTemplate import AllocationViewTemplate
 from lib.templates.AllocationEditTemplate import AllocationEditTemplate
 from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
 
-def search_form():
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Search for allocation(s)")
     page.setFocus("allocation/search")
@@ -41,13 +40,14 @@ def search_form():
                           ("machine", _("Machine"))
                         ]
     page.search_action = '/allocation/search'
+    page.form_values = remembered
     return page.respond()
 
 def search(transaction, **vargs):
     """Search for allocations and displays result and/or searchform."""
     args = ('allocation_name', 'period', 'status', 'machines')
-    searcher = Searchers.AllocationSearcher(transaction, *args, **vargs)
-    return Searchers.search(searcher, search_form)
+    searcher = AllocationSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 index = search

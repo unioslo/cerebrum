@@ -24,7 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib import utils
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import OUSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
@@ -50,8 +50,7 @@ def tree(transaction, perspective=None):
 tree = utils.transaction_decorator(tree)
 tree.exposed = True
 
-def search(transaction, **vargs):
-    """Search for ous and displays result and/or searchform."""
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("OU")
     page.setFocus("ou/search")
@@ -64,57 +63,14 @@ def search(transaction, **vargs):
     page.search_action = '/ou/search'
     
     page.search_title = _('OU(s)')
-    handler = SearchHandler('ou', page.search_form)
-    handler.args = (
-        'name', 'acronym', 'short', 'spread'
-    )
-    handler.headers = (
-        ('Name', 'name'), ('Acronym', 'acronym'),
-        ('Short name', 'short_name'), ('Actions', '')
-    )
-    
-    def search_method(values, offset, orderby, orderby_dir):
-        name, acronym, short, spread = values
-        
-        search = transaction.get_ou_searcher()
-        setup_searcher([search], orderby, orderby_dir, offset)
-        
-        if name:
-            search.set_name_like(name)
-        if acronym:
-            search.set_acronym_like(acronym)
-        if short:
-            search.set_short_name_like(short)
-            
-        if spread:
-            ou_type = transaction.get_entity_type('ou')
+    page.form_values = remembered
+    return page.respond()
 
-            searcher = transaction.get_entity_spread_searcher()
-            searcher.set_entity_type(ou_type)
-
-            spreadsearcher = transaction.get_spread_searcher()
-            spreadsearcher.set_entity_type(ou_type)
-            spreadsearcher.set_name_like(spread)
-
-            searcher.add_join('spread', spreadsearcher, '')
-            search.add_intersection('', searcher, 'entity')
-
-        return search.search()
-    
-    def row(elm):
-        link = utils.object_link(elm, text=_get_display_name(elm))
-        edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        return link, elm.get_acronym(), elm.get_short_name(), str(edit)+str(remb)
-       
-    ous = handler.search(search_method, **vargs)
-    result = handler.get_result(ous, row)
-    page.content = lambda: result
-
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
-    else:
-        return page
+def search(transaction, **vargs):
+    """Search for ous and displays result and/or searchform."""
+    args = ('name', 'acronym', 'short', 'spread')
+    searcher = OUSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = utils.transaction_decorator(search)
 search.exposed = True
 index = search

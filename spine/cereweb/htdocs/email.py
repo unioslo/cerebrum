@@ -30,8 +30,8 @@ from lib.utils import transaction_decorator, commit, commit_url
 from lib.utils import rollback_url, legal_domain_format
 from lib.utils import legal_domain_chars
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Searchers import EmailDomainSearcher
+from lib.templates.EmailDomainSearchTemplate import EmailDomainSearchTemplate
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailDomainTemplate import EmailDomainTemplate
 
@@ -51,56 +51,26 @@ def index(transaction):
 index = transaction_decorator(index)    
 index.exposed = True
 
-def search(transaction, **vargs):
-    page = Main()
-    page.title = _("Email domains")
+def search_form(transaction, remembered):
+    page = EmailDomainSearchTemplate()
+    page.title = _("Email")
     page.setFocus("email/search")
+    page.search_title = _('email')
+    page.search_fields = [
+        ("name", _("Name")),
+        ("description", _("Description")),
+    ]
+    page.search_action = '/email/search'
+    page.form_values = remembered
+    for cat in transaction.get_email_domain_category_searcher().search():
+        page.categories.append((cat.get_name(), cat.get_description()))
 
-    form = lambda values: EmailDomainTemplate().search(transaction, values)
-    handler = SearchHandler('email', form)
-    handler.args = (
-        'name', 'description', 'category'
-    )
-    handler.headers = (
-        ('Name', 'name'), ('Description', 'description'),
-        ('Categories', '')
-    )
+    return page.respond()
 
-    def search_method(values, offset, orderby, orderby_dir):
-        name, description, category = values
-
-        search = transaction.get_email_domain_searcher()
-        setup_searcher([search], orderby, orderby_dir, offset)
-
-        if name:
-            search.set_name_like(name)
-        else:
-           queue_message('Domain-name is empty.',error=True)
-           return None
-        if description:
-            search.set_description_like(description)
-        if category:
-            #TODO
-            pass
-
-        return search.search()
-
-    def row(elm):
-        link = object_link(elm)
-        cats = [i.get_name() for i in elm.get_categories()[:4]]
-        cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        return link, elm.get_description(), cats, str(edit)+str(remb)
-    
-    domains = handler.search(search_method, **vargs)
-    result = handler.get_result(domains, row)
-    page.content = lambda: result
-    
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
-    else:
-        return page
+def search(transaction, **vargs):
+    args = ('name', 'description', 'category')
+    searcher = EmailDomainSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(transaction, searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 

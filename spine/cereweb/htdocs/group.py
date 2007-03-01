@@ -27,16 +27,14 @@ from lib.utils import queue_message, redirect_object, commit
 from lib.utils import object_link, transaction_decorator, commit_url
 from lib.utils import rollback_url, legal_date
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import GroupSearcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupEditTemplate import GroupEditTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 from SpineIDL.Errors import NotFoundError, AlreadyExistsError
 
-
-def search(transaction, **vargs):
-    """Search for groups and displays results and/or searchform."""
+def search_form(remembered):
     page = GroupSearchTemplate()
     page.title = _("Group")
     page.search_title = _('group(s)')   
@@ -47,65 +45,14 @@ def search(transaction, **vargs):
                           ("spread", _("Spread name")),
                           ]
     page.search_action = '/group/search'
+    page.form_values = remembered
+    return page.respond()
 
-    handler = SearchHandler('group', page.search_form)
-    handler.args = (
-        'name', 'description', 'spread', 'gid', 'gid_end', 'gid_option'
-    )
-    handler.headers = (
-        ('Group name', 'name'), ('Description', 'description'), ('Actions', '')
-    )
-
-    def search_method(values, offset, orderby, orderby_dir):
-        name, description, spread, gid, gid_end, gid_option = values
-        
-        search = transaction.get_group_searcher()
-        setup_searcher([search], orderby, orderby_dir, offset)
-        
-        if name:
-            search.set_name_like(name)
-        if description:
-            search.set_description_like(description)
-        if gid:
-            if gid_option == "exact":
-                search.set_posix_gid(int(gid))
-            elif gid_option == "above":
-                search.set_posix_gid_more_than(int(gid))
-            elif gid_option == "below":
-                search.set_posix_gid_less_than(int(gid))
-            elif gid_option == "range":
-                search.set_posix_gid_more_than(int(gid))
-                if gid_end:
-                    search.set_posix_gid_less_than(int(gid_end))
-                
-        if spread:
-            group_type = transaction.get_entity_type('group')
-
-            searcher = transaction.get_entity_spread_searcher()
-            searcher.set_entity_type(group_type)
-
-            spreadsearcher = transaction.get_spread_searcher()
-            spreadsearcher.set_entity_type(group_type)
-            spreadsearcher.set_name_like(spread) 
-            
-            searcher.add_join('spread', spreadsearcher, '')
-            search.add_intersection('', searcher, 'entity')
-
-        return search.search()
-
-    def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        return object_link(elm), elm.get_description(), str(edit)+str(remb)
-
-    groups = handler.search(search_method, **vargs)
-    result = handler.get_result(groups, row)
-    page.content = lambda: result
-
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
-    else:
-        return page
+def search(transaction, **vargs):
+    """Search for groups and displays results and/or searchform."""
+    args = ('name', 'description', 'spread', 'gid', 'gid_end', 'gid_option')
+    searcher = GroupSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 index = search

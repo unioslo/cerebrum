@@ -26,15 +26,13 @@ from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.utils import rollback_url
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import HostSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.HostViewTemplate import HostViewTemplate
 from lib.templates.HostEditTemplate import HostEditTemplate
 from lib.templates.HostCreateTemplate import HostCreateTemplate
 
-
-def search(transaction, **vargs):
-    """Search for hosts and displays result and/or searchform."""
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Host")
     page.search_title = _('host(s)')
@@ -44,39 +42,14 @@ def search(transaction, **vargs):
                           ("description", _("Description"))
                         ]
     page.search_action = '/host/search'
-    
-    handler = SearchHandler('host', page.search_form)
-    handler.args = ('name', 'description')
-    handler.headers = (
-        ('Name', 'name'), ('Description', 'description'), ('Actions', '')
-    )
-    
-    def search_method(values, offset, orderby, orderby_dir):
-        name, description = values
-        
-        searcher = transaction.get_host_searcher()
-        setup_searcher([searcher], orderby, orderby_dir, offset)
-        
-        if name:
-            searcher.set_name_like(name)
-        if description:
-            searcher.set_description_like(description)
-            
-        return searcher.search()
+    page.form_values = remembered
+    return page.respond()
 
-    def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        return object_link(elm), elm.get_description(), str(edit)+str(remb)
-    
-    hosts = handler.search(search_method, **vargs)
-    result = handler.get_result(hosts, row)
-    page.content = lambda: result
-    
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
-    else:
-        return page
+def search(transaction, **vargs):
+    """Search for hosts and displays result and/or searchform."""
+    args = ('name', 'description')
+    searcher = HostSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 index = search

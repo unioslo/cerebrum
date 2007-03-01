@@ -29,14 +29,14 @@ from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
 from lib.WorkList import remember_link
-from lib import Searchers
+from lib.Searchers import PersonSearcher
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 from lib.templates.PersonEditTemplate import PersonEditTemplate
 from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
-def search_form():
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Person")
     page.setFocus("person/search")
@@ -51,13 +51,14 @@ def search_form():
     page.search_help = [_("* Date of birth: (YYYY-MM-DD), exact match"),
                         _("A person may have several types of names, and therefor a search for a name will be testet on all the nametypes.")]
     page.search_action = '/person/search'
+    page.form_values = remembered
     return page.respond()
 
 def search(transaction, **vargs):
     """Search after hosts and displays result and/or searchform."""
     args = ( 'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff')
-    searcher = Searchers.PersonSearcher(transaction, *args, **vargs)
-    return Searchers.search(searcher, search_form)
+    searcher = PersonSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 index = search

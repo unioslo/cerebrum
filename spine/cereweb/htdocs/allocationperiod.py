@@ -25,13 +25,13 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib import Searchers
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.Searchers import AllocationPeriodSearcher
+from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AllocationPeriodViewTemplate import AllocationPeriodViewTemplate
 from lib.templates.AllocationPeriodEditTemplate import AllocationPeriodEditTemplate
 from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateTemplate
 
-def search_form():
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Search for allocation Period(s)")
     page.setFocus("allocationperiod/search")
@@ -39,13 +39,14 @@ def search_form():
                           ("allocationauthority", _("Allocation Authority"),
                          ]
     page.search_action = '/allocationperiod/search'
+    page.form_values = remembered
     return page.respond()
 
 def search(transaction, **vargs):
     """Search for allocation periods and displays result and/or searchform."""
     args = ('name', 'allocationauthority')
-    searcher = Searchers.AllocationPeriodSearcher(transaction, *args, **vargs)
-    return Searchers.search(searcher, search_form)
+    searcher = AllocationPeriodSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 index = search

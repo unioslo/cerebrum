@@ -25,14 +25,13 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.WorkList import remember_link
-from lib.Search import SearchHandler, setup_searcher
+from lib.Searchers import ProjectSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.ProjectViewTemplate import ProjectViewTemplate
 from lib.templates.ProjectEditTemplate import ProjectEditTemplate
 from lib.templates.ProjectCreateTemplate import ProjectCreateTemplate
 
-def search(transaction, **vargs):
-    """Search for projects and displays result and/or searchform."""
+def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Search for project(s)")
     page.setFocus("project/search")
@@ -44,43 +43,14 @@ def search(transaction, **vargs):
                           ("science", _("Science")),
                         ]
     page.search_action = '/project/search'
+    page.form_values = remembered
+    return page.respond()
 
-    handler = SearchHandler('project', page.search_form)
-    handler.args = ('title', 'description', 'allocation_name', 'science')
-    handler.headers = (
-        ('Title', 'title'), ('Science', 'science'),
-        ('Owner', 'owner'), ('Actions', '')
-    )
-
-    def search_method(values, offset, orderby, orderby_dir):
-        title, description, allocation_name, science = values
-
-        searcher = transaction.get_project_searcher()
-        setup_searcher([searcher], orderby, orderby_dir, offset)
-
-        if title:
-            searcher.set_title_like(title)
-
-        if description:
-            searcher.set_description_like(description)
-
-        return searcher.search()
-
-    def row(elm):
-        edit = object_link(elm, text='edit', method='edit', _class='action')
-        remb = remember_link(elm, _class='action')
-        sci  = " " #elm.get_science().get_name()
-        ownr = object_link(elm.get_owner())
-        return object_link(elm), sci, ownr, str(edit)+str(remb)
-
-    objs = handler.search(search_method, **vargs)
-    result = handler.get_result(objs, row)
-    page.content = lambda: result
-    
-    if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
-        return result
-    else:
-        return page
+def search(transaction, **vargs):
+    """Search for projects and displays result and/or searchform."""
+    args = ('title', 'description', 'allocation_name', 'science')
+    searcher = ProjectSearcher(transaction, *args, **vargs)
+    return searcher.respond() or search_form(searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
 index = search
