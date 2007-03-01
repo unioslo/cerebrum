@@ -223,7 +223,7 @@ def delete(transaction, id):
 delete = utils.transaction_decorator(delete)
 delete.exposed = True
 
-def list_aff_persons(transaction, id, **vargs):
+def list_aff_persons(transaction, id, source=None, **vargs):
     try:
         ou = transaction.get_ou(int(id))
     except SpineIDL.Errors.NotFoundError, e:
@@ -246,6 +246,8 @@ def list_aff_persons(transaction, id, **vargs):
     def search_method(values, offset, orderby, orderby_dir):
         aff_searcher = transaction.get_person_affiliation_searcher()
         aff_searcher.set_ou(ou)
+        if source:
+            aff_searcher.set_set_source_system(tr.get_source_system(source))
         return aff_searcher.search()
     def row(elm):
         p = elm.get_person()
@@ -257,6 +259,7 @@ def list_aff_persons(transaction, id, **vargs):
         return type, status, source, name, birth_date
 
     vargs['id'] = id
+    vargs['source'] = source
     affs = handler.search(search_method, **vargs)
     result = handler.get_result(affs, row)
     if result:
