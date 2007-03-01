@@ -135,7 +135,7 @@ class SearchClass(DatabaseTransactionClass):
         if joins:
             sql += ' %s' % ' '.join(joins)
         if where:
-            sql +=  'WHERE %s' % ' AND '.join(where)
+            sql +=  ' WHERE %s' % ' AND '.join(where)
 
         return self.get_database().query_1(sql, args)
     length.signature = int
