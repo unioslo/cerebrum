@@ -219,15 +219,26 @@ class Searcher(object):
             return self.valid
         return self.form_values and True or False
 
+    def get_fail_response(self, status, messages=[]):
+        if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
+            cherrypy.response.headerMap['Content-Type'] = 'text/plain; charset=utf-8'
+            cherrypy.response.status = status
+            import cjson
+            if not messages:
+                messages = utils.get_messages()
+            return cjson.encode({'status': 404, 'messages': messages})
+        else:
+            return None
+
     def respond(self):
         if not self.is_valid():
-            return None
+            return self.get_fail_response('400 Bad request')
 
         self.remember_last()
 
         result = self.get_results()
         if not result:
-            return None
+            return self.get_fail_response('404 Not Found', ["No hits"])
 
         page = SearchResultTemplate()
         content = page.viewDict(result)
