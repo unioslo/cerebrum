@@ -94,7 +94,7 @@ create = transaction_decorator(create)
 create.exposed = True
 
 def make(transaction, id, name, expire_date="", np_type=None,
-         _other=None, join=False):
+         _other=None, join=False, primary_group=None):
     commands = transaction.get_commands()
 
     owner = transaction.get_entity(int(id))
@@ -112,6 +112,19 @@ def make(transaction, id, name, expire_date="", np_type=None,
     if join and owner.get_type().get_name() == "group":
         operation = transaction.get_group_member_operation_type("union")
         owner.add_member(account, operation)
+    if primary_group:
+        referer = cherrypy.request.headerMap.get('Referer', '')
+        try:
+            primary_group = commands.get_group_by_name(primary_group)
+        except NotFoundError, e:
+            queue_message(_("Could not find group %s" % primary_group), error=True)
+            redirect(referer)
+
+        if not primary_group.is_posix():
+            queue_message(_("Group %s is not a posix group" % primary_group.get_name()), error=True)
+            redirect(referer)
+
+        _promote_posix(transaction, account, primary_group)
     commit(transaction, account, msg=_("Account successfully created."))
 make = transaction_decorator(make)
 make.exposed = True
@@ -219,19 +232,22 @@ def save(transaction, id, name, expire_date="", uid="",
 save = transaction_decorator(save)
 save.exposed = True
 
-def posix_promote(transaction, id):
+def _promote_posix(transaction, account, primary_group):
+    searcher = transaction.get_posix_shell_searcher()
+    shell = searcher.search()[0]
+    uid = transaction.get_commands().get_free_uid()
+    account.promote_posix(uid, primary_group, shell)
+
+def posix_promote(transaction, id, primary_group=None):
     account = transaction.get_account(int(id))
-    primary_group = None
-    for group in account.get_groups():
-        if group.is_posix():
-            primary_group = group
-            break
+    if not primary_group:
+        for group in account.get_groups():
+            if group.is_posix():
+                primary_group = group
+                break
     
     if primary_group:
-        searcher = transaction.get_posix_shell_searcher()
-        shell = searcher.search()[0]
-        uid = transaction.get_commands().get_free_uid()
-        account.promote_posix(uid, primary_group, shell)
+        _promote_posix(transaction, account, primary_group)
         msg = _("Account successfully promoted to posix.")
         commit(transaction, account, msg=msg)
     else:

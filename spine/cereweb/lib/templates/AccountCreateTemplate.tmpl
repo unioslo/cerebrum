@@ -59,7 +59,11 @@
             </input>
         </div>
         #end if
-        <div>
+        <div class="optional">
+            <label for="primary_group">$_('Enter primary group'):</label>
+            <input class="ac_group" type="text" name="primary_group"/>
+        </div>
+        <div class="buttons">
             <input type="submit" value="$_('Create')" />
             <input type="reset" value="$_('Reset')" />
         </div>
