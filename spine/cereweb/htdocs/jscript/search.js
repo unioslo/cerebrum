@@ -251,7 +251,8 @@ cereweb.search = {
             cereweb.search.show_results(result);
         },
         failure: function(o) {
-            YAHOO.log('failure');
+            var messages = eval('(' + o.responseText + ')');
+            cereweb.search.add_messages(messages);
         }
     },
     submit: function(e) {
@@ -277,6 +278,18 @@ cereweb.search = {
         backLinkDiv.appendChild(backLink);
         content.appendChild(backLinkDiv);
         YE.addListener(backLink, 'click', cereweb.search.show_form);
+    },
+    add_messages: function(messages) {
+        var messages = messages.messages;
+        var div = YD.get('messages');
+        for (var i=0; i<messages.length; i++) {
+            var message = document.createElement('span');
+            if (messages[i][1])
+                message.setAttribute('class', 'error');
+            message.innerHTML = messages[i][0];
+            div.appendChild(message);
+            div.appendChild(document.createElement('br'));
+        }
     },
     show_form: function() {
         var content = YD.get('content');
