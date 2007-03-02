@@ -18,6 +18,36 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* Placement of divs on page */
+#messages {
+    margin-left: 9.5em;
+    margin-top: 1em;
+}
+
+/* Styles for the session warning box on top of all pages. */
+#session_warning {
+    border: 1px dotted black;
+    padding: 8px;
+    font-size: 16px;
+    background: #FFFF80;
+    width: 500px;
+    overflow: visible;
+}
+
+#messages { margin-bottom: 5px; }
+
+#messages span.message {
+    font-weight: bold;
+    color: green;
+}
+
+#messages span.error {
+    font-weight: 1200;
+    color: red;
+    padding: 0.3em;
+}
+
+
 /* Main title on the all pages. */
 div.title {
     color: black;
@@ -421,16 +451,6 @@ div.errorpage div.report form {
 div.errorpage div.traceback pre {
     margin: 0;
     font-size: 12px;
-}
-
-/* Styles for the session warning box on top of all pages. */
-div.session_warning {
-    border: 1px dotted black;
-    padding: 8px;
-    font-size: 16px;
-    background: #FFFF80;
-    width: 500px;
-    overflow: visible;
 }
 
 /* Styles for message of today on index-page. */
