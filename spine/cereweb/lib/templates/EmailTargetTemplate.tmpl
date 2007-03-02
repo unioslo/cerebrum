@@ -64,8 +64,6 @@ $searcher.set_entity($entity)
         $mailservers.append((host.get_id(),host.get_name()))
     #end if
 #end for
-##set $domain_search = $transaction.get_email_domain_searcher().search()
-##set $domains = [($d.get_name(),$d.get_name()) for $d in $domain_search]
 
 <div class="edit box" style="display:none;">
     <h3>$_('Create a new email target')</h3>
@@ -79,15 +77,6 @@ $searcher.set_entity($entity)
         <div class="required">
             $form_widgets.generate_loption('host', 'Host', $mailservers)
         </div>
-        ##<div class="required">
-        ##    $form_widgets.generate_loption('servertype', 'Box type', $email_types)
-        ##</div>
-        ##<div class="required">
-        ##    $form_widgets.input('alias', 'Alias')
-        ##</div>
-        ##<div class="required">
-        ##    $form_widgets.generate_loption('email_domain', 'Email domains:',$domains)
-        ##</div>
         <div class="buttons">
             <input type="submit" value="$_('Add')" />&nbsp;
             <input type="button" value="$_('Cancel')" class="cancel" />
