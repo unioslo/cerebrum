@@ -160,7 +160,7 @@ function TO_connection_failure(o) {
 function TO_show_warning(msg) {
     var warning_div = YD.get('session_warning');
     if (!warning_div)
-        warning_div = cereweb.createDiv('session_warning', 'maindiv');
+        warning_div = cereweb.createDiv('session_warning', 'messages');
     warning_div.innerHTML = msg;
     warning_div.style.display = "block";
 }
