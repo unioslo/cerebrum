@@ -247,10 +247,12 @@ function initAutoComplete(event) {
 cereweb.search = {
     callback:  {
         success: function(o) {
+            cereweb.search.clear_messages();
             var result = o.responseText;
             cereweb.search.show_results(result);
         },
         failure: function(o) {
+            cereweb.search.clear_messages();
             var messages = eval('(' + o.responseText + ')');
             cereweb.search.add_messages(messages);
         }
@@ -290,6 +292,10 @@ cereweb.search = {
             div.appendChild(message);
             div.appendChild(document.createElement('br'));
         }
+    },
+    clear_messages: function() {
+        var div = YD.get('messages');
+        div.innerHTML = "";
     },
     show_form: function() {
         var content = YD.get('content');
