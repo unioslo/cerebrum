@@ -1,0 +1,12 @@
+#! /bin/sh
+#
+# $Id$
+#
+PYTHONPATH=${HOME}/lib:${HOME}/install/lib/python2.3/site-packages/:${HOME}/cerebrum/spine/test/:${HOME}/cerebrum/spine/client/:/tmp/spine:${HOME}/etc/
+export PYTHONPATH
+
+./export_kjernen.py
+
+retval=$?
+
+exit $retval
