@@ -92,6 +92,7 @@ class Session(object):
 
 _login()
 
+buffersize = 16384
 external_id_type = tr.get_entity_external_id_type("NO_BIRTHNO")
 source_system = tr.get_source_system('Cached')
 first_name_type = tr.get_name_type('FIRST')
@@ -101,7 +102,7 @@ last_name_type = tr.get_name_type('LAST')
 # todo:
 # outfile should be placed in a conig-file...
 #
-f = open("/tmp/cerebrum-til-kjernen.sdv", "w", 16384)
+f = open("/tmp/cerebrum-til-kjernen.sdv", "w", buffersize)
 
 #
 # export file format:
