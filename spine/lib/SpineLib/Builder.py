@@ -52,7 +52,7 @@ class Attribute(object):
         """Initiate the attribute.
 
         name        - the name of the attribute in a string.
-        data_type   - should be a class or a type, like Entity, list, str, None.
+        data_type   - should be a class or a type, like Entity, list, None.
         exceptions  - list with all exceptions accessing this attribute might raise.
         write       - should be True if the clients are allowed to change this attribute.
         optional    - for attributes which is not mandatory to be set.
