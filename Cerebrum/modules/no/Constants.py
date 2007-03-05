@@ -40,6 +40,9 @@ class ConstantsCommon(Constants.Constants):
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
                                                  Constants.Constants.entity_person,
                                                  'Norwegian birth number')
+    system_override = _AuthoritativeSystemCode('Override',
+                                               'Override information fetched from proper authoritative systems')
+
 class ConstantsHigherEdu(Constants.Constants):
 
     # authoritative source systems (FS = student registry, SAP = common HR-system)
@@ -82,8 +85,6 @@ class ConstantsUniversityColleges(Constants.Constants):
 
     ## Source systems
     system_migrate = _AuthoritativeSystemCode('MIGRATE', 'Migrate from files')
-    system_override = _AuthoritativeSystemCode('Override',
-                                               'Override information fetched from proper authoritative systems')
     system_manual =  _AuthoritativeSystemCode('MANUELL',
                                               'Manually added information')
 
