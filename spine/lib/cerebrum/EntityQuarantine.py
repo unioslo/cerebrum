@@ -147,10 +147,10 @@ def remove_quarantine(self, type):
     obj = self._get_cerebrum_obj()
     obj.delete_entity_quarantine(type.get_id())
 remove_quarantine.signature = None
-remove_quarantine.signature_args=[('type', QuarantineType)]
+remove_quarantine.signature_args=[QuarantineType]
 remove_quarantine.signature_write=True
 
-Entity.register_methods([get_quarantine, get_quarantines, get_all_quarantines, get_active_quarantines, is_quarantined, add_quarantine])
+Entity.register_methods([get_quarantine, get_quarantines, get_all_quarantines, get_active_quarantines, is_quarantined, add_quarantine, remove_quarantine])
 
 
 # arch-tag: 07667d91-f0b5-4152-8e83-36994ffa9b8e
