@@ -360,6 +360,7 @@ class PersonSearcher(Searcher):
         self.searchers['main'].set_birth_date(date)
 
     def name(self, name):
+        name = name.replace(" ", "*")
         name_searcher = self.transaction.get_person_name_searcher()
         name_searcher.set_name_like(name)
         self.searchers['main'].add_intersection('', name_searcher, 'person')
