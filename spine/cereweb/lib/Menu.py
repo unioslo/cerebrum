@@ -57,7 +57,6 @@
 
 """
 
-import forgetHTML as html
 import sys
 
 try:
@@ -124,19 +123,19 @@ class Menu:
     def output(self,level=0):
         """Generates the HTML objects from the given focus.
            Could return None if nothing to show."""
-        div = html.Division()
-        div['class'] = "menu menulevel%s" % level
+        cls = "menu menulevel%s" % level
         if self.highlight:
-            div['class'] += " active"
+            cls += " active"
+        div = '<div class="%s">\n</div>\n' % cls
         if self.open or self.inFocus:
             for child in self.children:
                 result = child.output(level+1)
                 if result:
-                    div.append(result)
+                    div = div[:-8] + '\n  ' + result[:-1] + div[-8:]
         return div
 
     def __str__(self):
-        return str(self.output())    
+        return self.output()
     
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.name)
@@ -174,13 +173,13 @@ class MenuItem(Menu):
         if url is None:
             # we can't use this item without a link
             return None
+        link = '\n  <a href="%s"%s>\n    %s\n  </a>'
         if not self.cssid:
-            link = html.Anchor(self.label, href=url)
+            link = link % (url, '', self.label)
         else:
-            link = html.Anchor(self.label, href=url, id=self.cssid)
-        # Dirty trick to insert at the beginning
-        # of the div.
-        div._content.insert(0, link)
+            link = link % (url, self.cssid, self.label)
+        start = div.find('\n')
+        div = div[:start] + link + div[start:]
         return div
 
 if unittest:
@@ -236,15 +235,13 @@ if unittest:
             self.menu = Menu()
         def testOutput(self):
             output = str(self.menu)
-            # Notice that forgetHTML closes the 
-            # <div /> tag when lacking content
             self.assertEqual(output, 
-                '<div class="menu menulevel0" />\n')
+                '<div class="menu menulevel0">\n</div>\n')
         def testOutputLevel(self):
             """Makes sure that leveling is intact"""
             output = str(self.menu.output(2))
             self.assertEqual(output, 
-                '<div class="menu menulevel2" />\n')
+                '<div class="menu menulevel2">\n</div>\n')
         def testAddItem(self):
             item = self.menu.addItem("person", "Person", "/myperson")
             self.assertEqual(item.__class__, MenuItem)
