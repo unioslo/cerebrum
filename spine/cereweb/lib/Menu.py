@@ -126,12 +126,13 @@ class Menu:
         cls = "menu menulevel%s" % level
         if self.highlight:
             cls += " active"
-        div = '<div class="%s">\n</div>\n' % cls
+        div = '<div class="%s"></div>' % cls
         if self.open or self.inFocus:
             for child in self.children:
                 result = child.output(level+1)
                 if result:
-                    div = div[:-8] + '\n  ' + result[:-1] + div[-8:]
+                    start = div.rfind('<')
+                    div = div[:start] + result + div[start:]
         return div
 
     def __str__(self):
@@ -173,12 +174,12 @@ class MenuItem(Menu):
         if url is None:
             # we can't use this item without a link
             return None
-        link = '\n  <a href="%s"%s>\n    %s\n  </a>'
+        link = '<a href="%s"%s>%s</a>'
         if not self.cssid:
             link = link % (url, '', self.label)
         else:
             link = link % (url, self.cssid, self.label)
-        start = div.find('\n')
+        start = div.find('>') + 1
         div = div[:start] + link + div[start:]
         return div
 
@@ -203,7 +204,7 @@ if unittest:
     Group
   </a>
 </div>
-""")
+""".replace('\n', '').replace('  ', ''))
     class TestMenuItemExpansion(unittest.TestCase):
         def setUp(self):
             self.item = MenuItem("group", "Group", 
@@ -236,12 +237,12 @@ if unittest:
         def testOutput(self):
             output = str(self.menu)
             self.assertEqual(output, 
-                '<div class="menu menulevel0">\n</div>\n')
+                '<div class="menu menulevel0"></div>')
         def testOutputLevel(self):
             """Makes sure that leveling is intact"""
             output = str(self.menu.output(2))
             self.assertEqual(output, 
-                '<div class="menu menulevel2">\n</div>\n')
+                '<div class="menu menulevel2"></div>')
         def testAddItem(self):
             item = self.menu.addItem("person", "Person", "/myperson")
             self.assertEqual(item.__class__, MenuItem)
@@ -280,7 +281,7 @@ if unittest:
     </a>
   </div>
 </div>
-""")
+""".replace('\n', '').replace('  ', ''))
         def testSelection(self):
             self.menu.setFocus("group")
             output = str(self.menu)
@@ -302,7 +303,7 @@ if unittest:
     </a>
   </div>
 </div>
-""")
+""".replace('\n', '').replace('  ', ''))
 
             
     class TestMenuBranches(unittest.TestCase):
@@ -336,7 +337,7 @@ if unittest:
     </a>
   </div>
 </div>
-""")
+""".replace('\n', '').replace('  ', ''))
         def testExpanded(self):
             """Group items and only group items should be shown"""
             self.menu.setFocus("group")
@@ -369,7 +370,7 @@ if unittest:
     </a>
   </div>
 </div>
-""")
+""".replace('\n', '').replace('  ', ''))
         def testDeepFocus(self):
             """Expand, but only the deepest item should be active"""
             self.menu.setFocus("person/list")
@@ -402,7 +403,7 @@ if unittest:
     </a>
   </div>
 </div>
-""")
+""".replace('\n', '').replace('  ', ''))
         
 if __name__ == "__main__":
     if unittest is None:
