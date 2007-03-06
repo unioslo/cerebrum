@@ -1,0 +1,57 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.Main import Main
+#extends Main
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+## fields should be a list of dicts where each dict
+## must have the following keys:
+##   'name', 'cls', 'label', 'type'
+#attr $form_fields = []
+
+#attr $form_title = ''
+
+## Overloaded by search-pages like person search, should
+## contain the url for where to go when the form is submittet.
+#attr $form_action = '/some/where'
+
+#def content()
+    <div>
+        <h3>$form_title</h3>
+        <form action="$form_action" method="post">
+            #for $field in $form_fields
+                <div class="$field['cls']">
+                    #if $field['type'] == 'select'
+                        $form_widgets.generate_loption($field['name'],
+                            $field['label'], $field['options'], $field['value'])
+                    #else
+                        <label for="$field['name']">$field['label']:</label>
+                        <input type="$field['type']" value="$field['value']" name="$field['name']" />
+                    #end if
+                </div>
+            #end for
+            <div class="buttons">
+                <input class="submit" type="submit" value="$_('Submit')" />
+                <input class="reset" type="reset" value="$_('Clear')" />
+            </div>
+        </form>
+    </div>
+#end def

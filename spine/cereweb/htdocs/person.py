@@ -28,10 +28,13 @@ from lib.utils import strftime, strptime, commit_url
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
+from lib.templates.FormWidgets import FormWidgets
 from lib.WorkList import remember_link
 from lib.Searchers import PersonSearcher
+from lib.Forms import PersonCreateForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.SearchTemplate import SearchTemplate
+from lib.templates.FormTemplate import FormTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 from lib.templates.PersonEditTemplate import PersonEditTemplate
 from lib.templates.PersonCreateTemplate import PersonCreateTemplate
@@ -111,21 +114,40 @@ def edit(transaction, id):
 edit = transaction_decorator(edit)
 edit.exposed = True
 
-def create(transaction):
+def create(transaction, **vargs):
     """Creates a page with the form for creating a person."""
-    page = Main()
+    form = PersonCreateForm(transaction, **vargs)
+    if not vargs:
+        return create_form(transaction, **vargs)
+    elif not form.has_required():
+        return create_form(transaction, message=form.get_error_message(), **vargs)
+    else:
+        make(transaction,
+            vargs['firstname'],
+            vargs['lastname'],
+            vargs['gender'],
+            vargs['birthdate'],
+            vargs['externalid'],
+            vargs['description'])
+create = transaction_decorator(create)
+create.exposed = True
+
+def create_form(transaction, message=None, **values):
+    """Creates a page with the form for creating a person."""
+    page = FormTemplate()
+    if message:
+        page.messages.append(message)
     page.title = _("Person")
-    page.setFocus("person/create")
+    page.form_title = _("Create new person")
+    page.form_action = "/person/create"
 
     genders = [(g.get_name(), g.get_description()) for g in 
                transaction.get_gender_type_searcher().search()]
-    
-    create = PersonCreateTemplate()
-    content = create.form(genders)
-    page.content = lambda: content
-    return page
-create = transaction_decorator(create)
-create.exposed = True
+    values['gender_options'] = genders
+    form = PersonCreateForm(transaction, **values)
+    page.form_fields = form.get_fields()
+
+    return page.respond()
 
 def save(transaction, id, gender, birthdate,
          deceased="", description="", submit=None):
@@ -145,7 +167,7 @@ def save(transaction, id, gender, birthdate,
 save = transaction_decorator(save)
 save.exposed = True
 
-def make(transaction, firstname, lastname, gender, birthdate, description=""):
+def make(transaction, firstname, lastname, gender, birthdate, externalid, description=""):
     """Create a new person with the given values."""
     msg=''
     if firstname:
@@ -177,8 +199,6 @@ def make(transaction, firstname, lastname, gender, birthdate, description=""):
         commit(transaction, person, msg=_("Person successfully created."))
     else:
        rollback_url('/person/create', msg, err=True)
-make = transaction_decorator(make)
-make.exposed = True
 
 def delete(transaction, id):
     """Delete the person from the server."""
