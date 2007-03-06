@@ -119,7 +119,7 @@ def create(transaction, **vargs):
     form = PersonCreateForm(transaction, **vargs)
     if not vargs:
         return create_form(transaction, **vargs)
-    elif not form.has_required():
+    elif not form.has_required() or not form.is_correct():
         return create_form(transaction, message=form.get_error_message(), **vargs)
     else:
         make(transaction,
@@ -131,6 +131,17 @@ def create(transaction, **vargs):
             vargs['description'])
 create = transaction_decorator(create)
 create.exposed = True
+
+def make(transaction, firstname, lastname, gender, birthdate, externalid, description=""):
+    """Create a new person with the given values."""
+    birthdate = strptime(transaction, birthdate)
+    gender = transaction.get_gender_type(gender)
+    source_system = transaction.get_source_system('Manual')
+    person = transaction.get_commands().create_person(
+           birthdate, gender, firstname, lastname, source_system)
+    if description:
+        person.set_description(description)
+    commit(transaction, person, msg=_("Person successfully created."))
 
 def create_form(transaction, message=None, **values):
     """Creates a page with the form for creating a person."""
@@ -166,39 +177,6 @@ def save(transaction, id, gender, birthdate,
     commit(transaction, person, msg=_("Person successfully updated."))
 save = transaction_decorator(save)
 save.exposed = True
-
-def make(transaction, firstname, lastname, gender, birthdate, externalid, description=""):
-    """Create a new person with the given values."""
-    msg=''
-    if firstname:
-        if len(firstname) > 256:
-            msg=_('Firstname is too long( max. 256 characters).')
-    else:
-        msg=_("Firstname is empty.")
-    if not msg:
-        if lastname:
-            if len(lastname) > 256:
-                msg=_('Lastname is too long(max. 256 characters).')
-        else:
-            msg=_('Lastname is empty.')
-    if not msg:
-        if birthdate:
-            if not legal_date(birthdate):
-                msg=_('Birthdate is not a legal date.')
-        else:
-            msg=_('Birthdate is empty.')
-
-    if not msg:
-        birthdate = strptime(transaction, birthdate)
-        gender = transaction.get_gender_type(gender)
-        source_system = transaction.get_source_system('Manual')
-        person = transaction.get_commands().create_person(
-               birthdate, gender, firstname, lastname, source_system)
-        if description:
-            person.set_description(description)
-        commit(transaction, person, msg=_("Person successfully created."))
-    else:
-       rollback_url('/person/create', msg, err=True)
 
 def delete(transaction, id):
     """Delete the person from the server."""

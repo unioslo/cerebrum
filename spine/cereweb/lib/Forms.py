@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
+from lib.utils import legal_date
 
 """
 Helper-module for search-pages and search-result-pages in cereweb.
@@ -27,12 +28,19 @@ Helper-module for search-pages and search-result-pages in cereweb.
 class Form(object):
     order = []
     fields = {}
+
     def __init__(self, transaction, **values):
         for key, field in self.fields.items():
             value = values.get(key, None)
             field['value'] = value
             if field['type'] == 'select':
                 field['options'] = values.get('%s_options' % key, None)
+
+    def get_fields(self):
+        res = []
+        for key in self.order:
+            res.append(self.fields[key])
+        return res
 
     def has_required(self):
         res = True
@@ -43,16 +51,29 @@ class Form(object):
                 break
         return res
 
-    def get_fields(self):
-        res = []
-        for key in self.order:
-            res.append(self.fields[key])
-        return res
+    def is_correct(self):
+        correct = True
+        for field in self.fields.values():
+            if field['value']:
+                func = getattr(self, field['name'], None)
+                if func and not func(field['value']):
+                    correct = False
+                    message = "Field '%s' " % field['label']
+                    self.error_message = message + self.error_message
+                    break
+        return correct
 
     def get_error_message(self):
-        message = getattr(self, 'error_message', '')
-        return message and (message, True) or False
+        message = getattr(self, 'error_message', False)
+        return message and (message, True) or ''
 
+    def _short_string(self, name):
+        is_correct = True
+        if len(name) > 256:
+            is_correct = False
+            self.error_message = 'too long (max. 256 characters).'
+        return is_correct
+            
 class PersonCreateForm(Form):
     order = [
         'firstname',
@@ -100,3 +121,16 @@ class PersonCreateForm(Form):
             'type': 'text',
         }
     }
+
+    def firstname(self, name):
+        return self._short_string(name)
+
+    def lastname(self, name):
+        return self._short_string(name)
+
+    def birthdate(self, date):
+        is_correct = True
+        if not legal_date(date):
+            self.error_message = 'not a legal date.'
+            is_correct = False
+        return is_correct
