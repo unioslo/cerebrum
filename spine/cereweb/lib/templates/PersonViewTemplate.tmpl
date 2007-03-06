@@ -98,7 +98,7 @@
             #if $account.is_posix()
                 <span class="extra">(posix)</span>
             #end if
-            #if $account.get_expire_date()
+            #if $account.is_expired()
                 <span class="extra">(expired)</span>
             #end if
         </div>
