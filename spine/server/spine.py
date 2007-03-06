@@ -103,21 +103,6 @@ def check():
             print '- WARNING sequence does not exists:', cls.__name__
 
 
-def build():
-    from Cerebrum.spine.SpineLib import Builder, DatabaseClass
-    from Cerebrum.Utils import Factory
-
-    Builder.build_everything()
-
-    db = Factory.get('Database')()
-
-    for cls in Builder.get_builder_classes(DatabaseClass.DatabaseClass):
-        if cls.slots:
-            DatabaseClass.create_tables(db, cls)
-
-    for cls in DatabaseClass.get_sequence_classes():
-        cls.create(db)
-
 if __name__ == '__main__':        
     help = False
     if len(sys.argv) == 2:
@@ -125,8 +110,6 @@ if __name__ == '__main__':
             main()
         elif sys.argv[1] == 'check':
             check()
-        elif sys.argv[1] == 'build':
-            build()
         else:
             help = True
     else:
@@ -139,7 +122,6 @@ Hello. Try one of these:
 
 %s start    start the spine server
 %s check    check all tables
-%s build    build all missing tables
 """ % tuple(sys.argv[:1] * 3)
 
 # arch-tag: c5bbf2ca-6dee-49e3-9774-a3f7487b9594
