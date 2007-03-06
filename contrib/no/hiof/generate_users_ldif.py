@@ -38,7 +38,7 @@ class UserLDIF(object):
                                             row['auth_data'])
         return auth
 
-    def __init__(self, db):
+    def __init__(self):
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
         self.db = Factory.get('Database')()
         self.const = Factory.get('Constants')(self.db)
