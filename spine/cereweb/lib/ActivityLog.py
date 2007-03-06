@@ -20,12 +20,9 @@
 
 import cherrypy
 
-import forgetHTML as html
 from templates.ActivityLogTemplate import ActivityLogTemplate
 
-#subclass Division to be included in a division
-class ActivityLog(html.Division):
-    
+class ActivityLog(object):
     def __init__(self):
         if 'al_messages' not in cherrypy.session:
             cherrypy.session['al_messages'] = []
