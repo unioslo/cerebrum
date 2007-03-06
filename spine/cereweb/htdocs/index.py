@@ -21,7 +21,6 @@
 import time
 import cherrypy
 
-import forgetHTML as html
 from gettext import gettext as _
 
 from lib.Main import Main
