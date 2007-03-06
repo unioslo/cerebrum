@@ -316,7 +316,6 @@ def read_password(user, system, host=None):
     It is stored as plain text in DB_AUTH_DIR.
 
     """
-    import os
     fmt = ['passwd-%s@%s']
     var = [user.lower(),system.lower()]
     # "hosts" starting with a '/' are local sockets, and should use
@@ -352,7 +351,6 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
     """
     # select on pipes and Popen3 only works in Unix.
     from select import select
-    from popen2 import Popen3
     EXIT_SUCCESS = 0
     logger = Factory.get_logger()
     if cereconf.DEBUG_HOSTLIST is not None:
@@ -362,7 +360,7 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
                              srv, cmd)
                 return EXIT_SUCCESS
 
-    proc = Popen3(cmd, capturestderr=True, bufsize=10240)
+    proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
     pid = proc.pid
     if log_exit_status:
         logger.debug('Spawned %r, pid %d', cmd, pid)
@@ -383,16 +381,21 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[]):
             else:
                 descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
     status = proc.wait()
-    if log_exit_status:
-        if status == EXIT_SUCCESS:
-            logger.debug("[%d] Completed successfully", pid)
-        else:
+    if status == EXIT_SUCCESS and log_exit_status:
+        logger.debug("[%d] Completed successfully", pid)
+    elif os.WIFSIGNALED(status):
+        # The process was killed by a signal.        
+        status = os.WTERMSIG(status)
+        if log_exit_status:
+            logger.error('[%d] Command "%r" was killed by signal %d',
+                         pid, cmd, status)
+    else:
+        # The process exited with an exit status
+        status = os.WSTOPSIG(status)
+        if log_exit_status:
             logger.error("[%d] Return value was %d from command %r",
                          pid, status, cmd)
-    if status & 0xFF:
-        # The process was killed by a signal.
-        return -(status & 0xFF)
-    return status >> 8
+    return status
 
 
 def pgp_encrypt(message, keyid):
