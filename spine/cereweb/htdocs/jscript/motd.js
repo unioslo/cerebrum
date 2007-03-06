@@ -31,7 +31,7 @@ cereweb.motd = {
             'postmethod': 'form' });
         var myButtons = [{
             text: 'Submit',
-            handler: function(o) { this.dialog.doSubmit(); },
+            handler: function(o) { this.doSubmit(); },
             isDefault: true
         }];
         this.dialog.cfg.queueProperty("buttons", myButtons);
