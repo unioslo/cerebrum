@@ -22,7 +22,6 @@ import cherrypy
 import sys
 
 from SpineIDL.Errors import NotFoundError
-import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect, redirect_object, object_link
@@ -42,11 +41,12 @@ def index(transaction):
     target_template = EmailTargetTemplate()
     domain_template = EmailDomainTemplate()
     
-    content = html.Division()
+    content = ['<div>']
     content.append(domain_template.search_box(transaction))
     content.append(domain_template.create_box(transaction))
     content.append(target_template.find_email())
-    page.content = content.output
+    content.append('</div>')
+    page.content = lambda: "".join(content)
     return page
 index = transaction_decorator(index)    
 index.exposed = True

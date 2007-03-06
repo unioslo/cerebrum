@@ -20,7 +20,6 @@
 
 import cherrypy
 
-import forgetHTML as html
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit
@@ -105,10 +104,10 @@ def clear_search(url):
     if lastsearch in cherrypy.session:
         del cherrypy.session[lastsearch]
 
-    page = html.SimpleDocument("Search reseted")
-    msg = "Search for class '%s' reseted." % cls
-    page.body.append(html.Division(msg))
-    return [str(page)]
+    page = ['<html><body><div>Search reseted</div>']
+    page.append("Search for class '%s' reseted." % cls)
+    page.append('</body></html>')
+    return ["".join(page)]
 clear_search.exposed = True
 
 def full_historylog(transaction, id):
