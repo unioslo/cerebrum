@@ -21,8 +21,16 @@
 import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import LDIFutils
+from Cerebrum.QuarantineHandler import QuarantineHandler
 
 class UserLDIF(object):
+    def load_quaratines(self):
+        self.quarantines = {}
+        for row in self.account.list_entity_quarantines(
+                entity_types=self.const.entity_account, only_active=True):
+            self.quarantines.setdefault(int(row['entity_id']), []).append(
+                int(row['quarantine_type']))
+
     def make_auths(self, auth_type, old=None):
         auth = old or {}
         for row in self.account.list_account_authentication(auth_type):
@@ -32,7 +40,7 @@ class UserLDIF(object):
 
     def __init__(self, db):
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
-        self.db = db
+        self.db = Factory.get('Database')()
         self.const = Factory.get('Constants')(self.db)
         self.account = Factory.get('Account')(self.db)
         self.md4_auth = self.make_auths(self.const.auth_type_md4_nt)
@@ -40,8 +48,9 @@ class UserLDIF(object):
         for auth_type in (self.const.auth_type_crypt3_des,
                           self.const.auth_type_md5_crypt):
             self.auth = self.make_auths(auth_type, self.auth)
+        self.load_quaratines()
 
-    def run(self):
+    def dump(self):
         fd = LDIFutils.ldif_outfile('USER')
         fd.write(LDIFutils.container_entry_string('USER'))
         ids = {}
@@ -49,33 +58,33 @@ class UserLDIF(object):
             spread = self.const.Spread(spread)
             for row in self.account.list_all_with_spread(spread):
                 ids[row['entity_id']] = None
-        for id in ids:
-            info = self.auth[id]
+        for account_id in ids:
+            info = self.auth[account_id]
+            auth = info[1]
+            if account_id in self.quarantines:
+                qh = QuarantineHandler(self.db, self.quarantines[account_id])
+                if qh.should_skip():
+                    continue
+                if qh.is_locked():
+                    auth = None
             uname = LDIFutils.iso2utf(str(info[0]))
             dn = ','.join(('uid=' + uname, self.user_dn))
             entry = {
                 'objectClass':  ['top', 'account'],
                 'uid':          (uname,)}
-            auth = info[1]
             if auth:
                 entry['objectClass'].append('simpleSecurityObject')
                 entry['userPassword'] = ('{crypt}' + auth,)
-            info = self.md4_auth.get(id)
+            info = self.md4_auth.get(account_id)
             if info and info[1]:
                 entry['objectClass'].append('sambaSamAccount')
                 entry['sambaNTPassword'] = (info[1],)
-                entry['sambaSID'] =        (str(id),)
-            try:
-                fd.write(LDIFutils.entry_string(dn, entry, False))
-            except:
-                print entry
-                raise
+                entry['sambaSID'] =        (str(account_id),)
+            fd.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('USER', fd)
 
 def main():
-    db = Factory.get('Database')()
-    ldif = UserLDIF(db)
-    ldif.run()
+    UserLDIF().dump()
 
 if __name__ == '__main__':
     main()
