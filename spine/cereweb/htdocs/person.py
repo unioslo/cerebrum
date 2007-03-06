@@ -117,10 +117,12 @@ edit.exposed = True
 def create(transaction, **vargs):
     """Creates a page with the form for creating a person."""
     form = PersonCreateForm(transaction, **vargs)
+
     if not vargs:
-        return create_form(transaction, **vargs)
-    elif not form.has_required() or not form.is_correct():
-        return create_form(transaction, message=form.get_error_message(), **vargs)
+        return create_form(transaction, form)
+
+    if not form.has_required() or not form.is_correct():
+        return create_form(transaction, form, message=form.get_error_message())
     else:
         make(transaction,
             vargs['firstname'],
@@ -143,7 +145,7 @@ def make(transaction, firstname, lastname, gender, birthdate, externalid, descri
         person.set_description(description)
     commit(transaction, person, msg=_("Person successfully created."))
 
-def create_form(transaction, message=None, **values):
+def create_form(transaction, form, message=None):
     """Creates a page with the form for creating a person."""
     page = FormTemplate()
     if message:
@@ -151,11 +153,6 @@ def create_form(transaction, message=None, **values):
     page.title = _("Person")
     page.form_title = _("Create new person")
     page.form_action = "/person/create"
-
-    genders = [(g.get_name(), g.get_description()) for g in 
-               transaction.get_gender_type_searcher().search()]
-    values['gender_options'] = genders
-    form = PersonCreateForm(transaction, **values)
     page.form_fields = form.get_fields()
 
     return page.respond()

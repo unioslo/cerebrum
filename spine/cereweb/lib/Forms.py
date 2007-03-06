@@ -30,16 +30,19 @@ class Form(object):
     fields = {}
 
     def __init__(self, transaction, **values):
+        self.transaction = transaction
         for key, field in self.fields.items():
             value = values.get(key, None)
             field['value'] = value
-            if field['type'] == 'select':
-                field['options'] = values.get('%s_options' % key, None)
 
     def get_fields(self):
         res = []
         for key in self.order:
-            res.append(self.fields[key])
+            field = self.fields[key]
+            if field['type'] == 'select':
+                func = getattr(self, 'get_%s_options' % key)
+                field['options'] = func()
+            res.append(field)
         return res
 
     def has_required(self):
@@ -121,6 +124,10 @@ class PersonCreateForm(Form):
             'type': 'text',
         }
     }
+
+    def get_gender_options(self):
+        return [(g.get_name(), g.get_description()) for g in 
+                   self.transaction.get_gender_type_searcher().search()]
 
     def firstname(self, name):
         return self._short_string(name)
