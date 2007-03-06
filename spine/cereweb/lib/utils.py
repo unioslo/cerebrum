@@ -242,7 +242,7 @@ def rollback_url( url, msg, err=False):
 	
 def legal_date( tocheck ):
     rest = tocheck.strip()
-    prog = re.compile(r'^([1-9][0-9]{3})-([0-9][1-9])-([0-9][1-9])$')
+    prog = re.compile(r'^[1-9]\d{3}-\d\d-\d\d$')
     if not prog.match(rest):
         return False
     parts = rest.split('-')
