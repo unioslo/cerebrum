@@ -117,7 +117,7 @@ class PersonCreateForm(Form):
                 'help': _('Date must be in YYYY-MM-DD format.'),
             },
             'externalid': {
-                'label': _('Social Security Number'),
+                'label': '<abbr title="%s">%s</abbr>' % (_('Social Security Number'), _('SSN')),
                 'required': True,
                 'type': 'text',
             },
