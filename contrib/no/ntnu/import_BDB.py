@@ -8,7 +8,6 @@ import SpineIDL
 import SpineClient
 from Cerebrum.modules.no import fodselsnr
 import util
-
 import getopt
 import cx_Oracle
 import logging
@@ -68,10 +67,15 @@ class BDB:
                 p['last_name'] = bp[5]
             if bp[6]:
                 p['sperret'] = bp[6]
+            # FIXME:
+            # We don't want to run a select N times that returns each persons 
+            # different phonenumbers. Dropping phone-numbers for now. 
+            """
             cursor.execute('SELECT p.phone_number, c.name FROM phone p, phone_categories c WHERE p.person=%s AND p.categorie=c.id' % p['id'])
             numbers = cursor.fetchall()
             for n in numbers:
                 p[n[1]] = n[0]
+            """
             persons.append(p)
         cursor.close()
         return persons
