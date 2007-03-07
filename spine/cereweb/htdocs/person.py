@@ -146,7 +146,7 @@ def make(transaction, firstname, lastname, gender, birthdate, externalid, descri
            birthdate, gender, firstname, lastname, source_system)
     if description:
         person.set_description(description)
-    commit(transaction, person, msg=_("Person successfully created."))
+    commit_url(transaction, '/account/create?owner=%s' % person.get_id(), msg=_("Person successfully created.  Now he probably needs an account."))
 
 def create_form(form, message=None):
     """Creates a page with the form for creating a person."""
