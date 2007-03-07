@@ -38,16 +38,22 @@
         <h3>$form_title</h3>
         <form action="$form_action" method="post">
             #for $field in $form_fields
-                <div class="$field['cls']">
+                #set $cls = $field['required'] and 'required' or 'optional'
+                <div class="$cls">
                     #if $field['type'] == 'select'
                         $form_widgets.generate_loption($field['name'],
                             $field['label'], $field['options'], $field['value'])
+                    #elif $field['type'] == 'hidden'
+                        <input class="$field.get('cls')" type="hidden" name="$field['name']" value="$field['value']" />
+                    #elif $field['type'] == 'checkbox'
+                        <label for="$field['name']">$field['label']:</label>
+                        <input type="checkbox" name="$field['name']" value=$field['value'] />
                     #else
                         <label for="$field['name']">$field['label']:</label>
-                        <input type="$field['type']" value="$field['value']" name="$field['name']" />
+                        <input class="$field.get('cls')" type="$field['type']" value="$field['value']" name="$field['name']" />
                     #end if
                     #if $field.get('help')
-                        <img class="tt" src='/yui/build/container/assets/hlp16_1.gif' /><span class="nojs">$field['help']</span>
+                        <img alt="?" class="tt" src='/yui/build/container/assets/hlp16_1.gif' /><span class="nojs">$field['help']</span>
                     #end if
                 </div>
             #end for

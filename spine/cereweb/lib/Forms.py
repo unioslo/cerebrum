@@ -26,14 +26,19 @@ Helper-module for search-pages and search-result-pages in cereweb.
 """
 
 class Form(object):
-    order = []
-    fields = {}
-
     def __init__(self, transaction, **values):
+        self.values = values
         self.transaction = transaction
+
+        self.init_form()
+
         for key, field in self.fields.items():
-            value = values.get(key, None)
+            value = self.values.get(key, None)
             field['value'] = value
+
+    def init_form(self):
+        self.order = []
+        self.fields = {}
 
     def get_fields(self):
         res = []
@@ -48,22 +53,23 @@ class Form(object):
     def has_required(self):
         res = True
         for field in self.fields.values():
-            if field['cls'] == 'required' and not field['value']:
+            if field['required'] and not field['value']:
                 res = False
                 self.error_message = _("Required field '%s' is empty.") % field['label']
                 break
         return res
 
     def is_correct(self):
-        correct = True
-        for field in self.fields.values():
-            if field['value']:
-                func = getattr(self, field['name'], None)
-                if func and not func(field['value']):
-                    correct = False
-                    message = "Field '%s' " % field['label']
-                    self.error_message = message + self.error_message
-                    break
+        correct = self.has_required()
+        if correct:
+            for field in self.fields.values():
+                if field['value']:
+                    func = getattr(self, field['name'], None)
+                    if func and not func(field['value']):
+                        correct = False
+                        message = "Field '%s' " % field['label']
+                        self.error_message = message + self.error_message
+                        break
         return correct
 
     def get_error_message(self):
@@ -78,52 +84,54 @@ class Form(object):
         return is_correct
             
 class PersonCreateForm(Form):
-    order = [
-        'firstname',
-        'lastname',
-        'externalid',
-        'gender',
-        'birthdate',
-        'description',
-    ]
-    fields = {
-        'firstname': {
-            'name': 'firstname',
-            'label': _('First name'),
-            'cls': 'required',
-            'type': 'text',
-        },
-        'lastname': {
-            'name': 'lastname',
-            'label': _('Last name'),
-            'cls': 'required',
-            'type': 'text',
-        },
-        'gender': {
-            'name': 'gender',
-            'label': _('Gender'),
-            'cls': 'required',
-            'type': 'select',
-        },
-        'birthdate': {
-            'name': 'birthdate',
-            'label': _('Birth date'),
-            'cls': 'required',
-            'type': 'text',
-        },
-        'externalid': {
-            'name': 'externalid',
-            'label': _('Social Security Number'),
-            'cls': 'required',
-            'type': 'text',
-        },
-        'description': {
-            'name': 'description',
-            'label': _('Description'),
-            'cls': 'optional',
-            'type': 'text',
+    def init_form(self):
+        self.order = [
+            'firstname',
+            'lastname',
+            'externalid',
+            'gender',
+            'birthdate',
+            'description',
+        ]
+        self.fields = {
+            'firstname': {
+                'name': 'firstname',
+                'label': _('First name'),
+                'required': True,
+                'type': 'text',
+            },
+            'lastname': {
+                'name': 'lastname',
+                'label': _('Last name'),
+                'required': True,
+                'type': 'text',
+            },
+            'gender': {
+                'name': 'gender',
+                'label': _('Gender'),
+                'required': True,
+                'type': 'select',
+            },
+            'birthdate': {
+                'name': 'birthdate',
+                'label': _('Birth date'),
+                'required': True,
+                'type': 'text',
+                'help': _('Date must be in YYYY-MM-DD format.'),
+            },
+            'externalid': {
+                'name': 'externalid',
+                'label': _('Social Security Number'),
+                'required': True,
+                'type': 'text',
+            },
+            'description': {
+                'name': 'description',
+                'label': _('Description'),
+                'required': False,
+                'type': 'text',
+            }
         }
-    }
 
     def get_gender_options(self):
         return [(g.get_name(), g.get_description()) for g in 
@@ -141,3 +149,84 @@ class PersonCreateForm(Form):
             self.error_message = 'not a legal date.'
             is_correct = False
         return is_correct
+
+class AccountCreateForm(Form):
+    def init_form(self):
+        self.order = [
+            'owner', 'name', '_other', 'group', 'expiredate'
+        ]
+        self.fields = {
+            'owner': {
+                'name': 'owner',
+                'required': True,
+                'type': 'hidden',
+            },
+            'name': {
+                'name': 'name',
+                'label': _('Select username'),
+                'required': True,
+                'type': 'select',
+            },
+            '_other': {
+                'name': '_other',
+                'label': _('Enter username'),
+                'required': False,
+                'type': 'text',
+            },
+            'expiredate': {
+                'name': 'expiredate',
+                'label': _('Expire date'),
+                'required': True,
+                'type': 'text',
+                'help': _('Date must be in YYYY-MM-DD format.'),
+            },
+            'group': {
+                'name': 'group',
+                'label': _('Primary group'),
+                'required': True,
+                'cls': 'ac_group',
+                'type': 'text',
+            }
+        }
+
+        owner = self.transaction.get_entity(int(self.values.get('owner')))
+
+        if owner.get_type().get_name() == 'person':
+            self.type = 'person'
+            self.name = owner.get_cached_full_name()
+        else:
+            self.type = owner.get_type()
+            self.name = owner.get_name()
+            self.fields['np_type'] = {
+                'name': 'np_type',
+                'label': _('Account type'),
+                'required': True,
+                'type': 'select',
+            }
+            self.fields['join'] = {
+                'name': 'join',
+                'label': _('Join %s') % self.name,
+                'type': 'checkbox',
+                'required': False,
+            }
+            self.order.append('np_type')
+            self.order.append('join')
+
+    def get_name_options(self):
+        names = self.name.split(' ')
+        if len(names) == 1:
+            first = ''
+            last = names[0]
+        else:
+            first = names[0]
+            last = names[-1]
+
+        usernames = self.transaction.get_commands().suggest_usernames(first, last)
+        return [(username, username) for username in usernames]
+
+    def get_np_type_options(self):
+        searcher = self.transaction.get_account_type_searcher()
+        return [(t.get_name(), t.get_description()) for t in searcher.search()]
+
+    def get_title(self):
+        return "%s %s" % (_('Owner is'), self.name)

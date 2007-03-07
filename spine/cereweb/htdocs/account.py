@@ -25,10 +25,13 @@ from lib.Main import Main
 from lib.utils import *
 from lib.WorkList import remember_link
 from lib.Searchers import AccountSearcher
+from lib.Forms import AccountCreateForm
+from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
+from SpineIDL.Errors import NotFoundError
 
 def search_form(remembered):
     page = SearchTemplate()
@@ -57,39 +60,46 @@ search = transaction_decorator(search)
 search.exposed = True
 index = search
 
-def create(transaction, owner=None, name="", expire_date=""):
-    page = Main()
+def select_owner():
+    page = AccountCreateTemplate()
     page.title = _("Create a new Account")
     page.setFocus("account/create")
     page.add_jscript("find_owner.js")
+    return page.respond()
 
-    create = AccountCreateTemplate()
+def create_form(form, message=None):
+    page = FormTemplate()
+    if message:
+        page.messages.append(message)
+    page.title = _("Account")
+    page.form_title = form.get_title()
+    page.form_action = "/account/create"
+    page.form_fields = form.get_fields()
+    return page.respond()
 
+def create(transaction, **vargs):
+    owner = vargs.get('owner')
     try:
-        owner = transaction.get_entity(int(owner))
-    except TypeError, e:
-        owner = ''
+        transaction.get_entity(int(owner))
+    except (TypeError, NotFoundError):
+        owner = None
 
-    if owner:
-        if owner.get_type().get_name() == 'person':
-            full_name = owner.get_cached_full_name().split()
-            if len(full_name) == 1:
-                first = ''
-                last, = full_name
-            else:
-                first, last = full_name[0], full_name[-1]
-        else:
-            first = ""
-            last = owner.get_name()
+    if not owner:
+        return select_owner()
 
-        alts = transaction.get_commands().suggest_usernames(first, last)
-        if not name:
-            name = alts and alts[0] or ''
-        content = create.form(owner, name, expire_date, alts, transaction)
-        page.content = lambda: content
-    else:
-        page.content = create.select_owner
-    return page
+    form = AccountCreateForm(transaction, **vargs)
+    if len(vargs) == 1:
+        return create_form(form)
+    elif not form.is_correct():
+        return create_form(form, form.get_error_message())
+    
+    make(transaction, owner, 
+            vargs.get('name'),
+            vargs.get('expiredate'),
+            vargs.get('np_type'),
+            vargs.get('_other'),
+            vargs.get('join'),
+            vargs.get('primary_group'))
 create = transaction_decorator(create)
 create.exposed = True
 
@@ -126,8 +136,6 @@ def make(transaction, id, name, expire_date="", np_type=None,
 
         _promote_posix(transaction, account, primary_group)
     commit(transaction, account, msg=_("Account successfully created."))
-make = transaction_decorator(make)
-make.exposed = True
 
 def view(transaction, id, **vargs):
     """Creates a page with a view of the account given by id."""

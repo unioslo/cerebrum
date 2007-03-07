@@ -50,6 +50,7 @@ cereweb.ac_group.prototype = {
         this.dropdown = document.createElement('div');
         container = this.input.parentNode;
         container.appendChild(this.dropdown);
+        this.required = YD.hasClass(container, 'required')
         this.form = container;
         while (this.form.tagName.toLowerCase() !== 'form')
             this.form = this.form.parentNode;
@@ -58,7 +59,8 @@ cereweb.ac_group.prototype = {
         YD.addClass(container, 'autocomplete_container');
     },
     initForm: function() {
-        YE.addListener(this.form, 'submit', this.submit, this, true);
+        if (this.required)
+            YE.addListener(this.form, 'submit', this.submit, this, true);
     },
     textboxKey: function(event, args) {
         this.input.style.backgroundColor = "";

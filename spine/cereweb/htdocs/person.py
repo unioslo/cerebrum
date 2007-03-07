@@ -119,18 +119,18 @@ def create(transaction, **vargs):
     form = PersonCreateForm(transaction, **vargs)
 
     if not vargs:
-        return create_form(transaction, form)
+        return create_form(form)
 
     if not form.has_required() or not form.is_correct():
-        return create_form(transaction, form, message=form.get_error_message())
+        return create_form(form, message=form.get_error_message())
     else:
         make(transaction,
-            vargs['firstname'],
-            vargs['lastname'],
-            vargs['gender'],
-            vargs['birthdate'],
-            vargs['externalid'],
-            vargs['description'])
+            vargs.get('firstname'),
+            vargs.get('lastname'),
+            vargs.get('gender'),
+            vargs.get('birthdate'),
+            vargs.get('externalid'),
+            vargs.get('description'))
 create = transaction_decorator(create)
 create.exposed = True
 
@@ -145,7 +145,7 @@ def make(transaction, firstname, lastname, gender, birthdate, externalid, descri
         person.set_description(description)
     commit(transaction, person, msg=_("Person successfully created."))
 
-def create_form(transaction, form, message=None):
+def create_form(form, message=None):
     """Creates a page with the form for creating a person."""
     page = FormTemplate()
     if message:
