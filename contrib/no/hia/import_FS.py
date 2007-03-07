@@ -110,10 +110,11 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
         postal_number = "%04i" % int(postal_number)
     ret['postal_number'] = postal_number
     ret['city'] =  a_dict.get(kline3, '')
-    if len(ret['address_text']) == 1:
-        logger.info("Address might not be complete, but we need to cover one-line addresses")
-    if len(ret['address_text']) < 1:
+    if ret['city'] == None:
+        logger.info("Skipping, the address is incomplete")
         return None
+    if len(ret['address_text']) == 1:
+        logger.info("Address might not be complete")
     return ret
 
 def _calc_address(person_info):
