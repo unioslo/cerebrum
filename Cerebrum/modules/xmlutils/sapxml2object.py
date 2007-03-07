@@ -210,11 +210,7 @@ class XMLOU2Object(XMLEntity2Object):
 
 
     def next(self):
-        """Return the next SAPPerson object.
-
-        Consume the next XML-element describing a person, and return a
-        suitable representation (DataOU).
-        """
+        """Return the next DataOU object."""
 
         # This call with propagate StopIteration when all the (XML) elements
         # are exhausted.
@@ -233,7 +229,8 @@ class XMLOU2Object(XMLEntity2Object):
                     result.add_id(self.tag2type[sub.tag], sko)
                 # fi
             elif sub.tag == "Overordnetsted":
-                if value:
+                sko = make_sko(value)
+                if sko is not None:
                     result.parent = (result.NO_SKO, make_sko(value))
                 # fi
             elif sub.tag == "stednavn":
@@ -346,12 +343,20 @@ class XMLPerson2Object(XMLEntity2Object):
     # end _make_address
 
 
-    def _make_employment(self, emp_element):
-        """Make a DataEmployment instance of an <HovedStilling>, </Bistilling>."""
+    def _make_employment(self, emp_element, ou_id_override=None):
+        """Make a DataEmployment instance of an <HovedStilling>, </Bistilling>.
+
+        emp_element is the XML-subtree representing the employment.
+
+        ou_id_override is the sko for an OU 'overriding' the OU specified in
+        emp_element. Apparently SAP registers the employments with the wrong
+        OU. The proper OU is registered too, but in a different XML subtree of
+        <sap_basPerson>. This is a work-around. 
+        """
 
         percentage = code = title = None
         start_date = end_date = None
-        ou_id = None
+        ou_id = ou_id_override
         category = None
         kind = self.tag2type[emp_element.tag]
 
@@ -383,8 +388,13 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "End_Date":
                 end_date = self._make_mxdate(value)
             elif sub.tag == "Orgenhet":
-                ou_id = (DataOU.NO_SKO, make_sko(value))
-            # fi
+                # Fallback to whatever is specified in "Orgenhet", *ONLY* if
+                # no override info is given.
+                if ou_id is None:
+                    sko = make_sko(value)
+                    if sko is not None:
+                        ou_id = (DataOU.NO_SKO, sko)
+                # fi
         # od
 
         # We *must* have an OU to which this employment is attached.
@@ -428,7 +438,9 @@ class XMLPerson2Object(XMLEntity2Object):
                     code = value
                 # fi
             elif sub.tag == "Stedkode":
-                ou_id = (DataOU.NO_SKO, make_sko(value))
+                sko = make_sko(value)
+                if sko is not None:
+                    ou_id = (DataOU.NO_SKO, sko)
             elif sub.tag == "Start_Date":
                 start_date = self._make_mxdate(value)
             elif sub.tag == "End_Date":
@@ -491,6 +503,28 @@ class XMLPerson2Object(XMLEntity2Object):
             middle = ""
         # fi
 
+        # IVR 2007-03-06 FIXME(?): This one is rather interesting. SAP
+        # registers wrong OU with each employment. However, they also supply
+        # the 'right' OU, but in a different XML-element. If such an element
+        # exists, we extract the proper OU and override whatever is inside
+        # <HovedStilling>/<Bistilling>.
+        #
+        # I am not sure whether this is an error, or an artifact of the data
+        # file. The overrides will happen "silently". 
+        ou_override = None
+        for sub in element.getiterator("PersonKomm"):
+            kind = sub.findtext("KOMMTYPE")
+            if not kind or kind.encode("latin1") != "Sted for lønnslipp":
+                continue
+
+            value = sub.findtext("KommVal")
+            if not value or not value.encode("latin1").strip():
+                continue
+
+            sko = make_sko(value)
+            if sko is not None:
+                ou_override = (DataOU.NO_SKO, sko)
+
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None
@@ -516,7 +550,7 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "Adresse":
                 result.add_address(self._make_address(sub))
             elif sub.tag in ("HovedStilling", "Bistilling"):
-                emp = self._make_employment(sub)
+                emp = self._make_employment(sub, ou_override)
                 if emp is not None:
                     result.add_employment(emp)
                 # fi

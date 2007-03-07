@@ -447,6 +447,8 @@ class HRDataPerson(DataPerson):
     # end add_stilling
 
 
+    # IVR 2007-03-06 FIXME: ugh! name consistency was not a top priority to
+    # say the least :( There should be a "_" here.
     def iteremployment(self):
         return iter(self.employments)
     # end iteremployment
