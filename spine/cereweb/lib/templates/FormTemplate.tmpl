@@ -46,6 +46,9 @@
                         <label for="$field['name']">$field['label']:</label>
                         <input type="$field['type']" value="$field['value']" name="$field['name']" />
                     #end if
+                    #if $field.get('help')
+                        <img class="tt" src='/yui/build/container/assets/hlp16_1.gif' /><span class="nojs">$field['help']</span>
+                    #end if
                 </div>
             #end for
             <div class="buttons">
