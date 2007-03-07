@@ -28,16 +28,13 @@ from lib.utils import strftime, strptime, commit_url
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
-from lib.templates.FormWidgets import FormWidgets
 from lib.WorkList import remember_link
 from lib.Searchers import PersonSearcher
-from lib.Forms import PersonCreateForm
+from lib.Forms import PersonCreateForm, PersonEditForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
-from lib.templates.PersonEditTemplate import PersonEditTemplate
-from lib.templates.PersonCreateTemplate import PersonCreateTemplate
 
 def search_form(remembered):
     page = SearchTemplate()
@@ -100,17 +97,23 @@ view.exposed = True
 def edit(transaction, id):
     """Creates a page with the form for editing a person."""
     person = transaction.get_person(int(id))
-    page = Main()
+    page = FormTemplate()
     page.title = _("Edit ") + object_link(person)
     page.setFocus("person/edit", id)
 
-    genders = [(g.get_name(), g.get_description()) for g in 
-               transaction.get_gender_type_searcher().search()]
+    get_date = lambda x: x and strftime(x, '%Y-%m-%d') or ''
+    values = {
+        'id': id,
+        'gender': person.get_gender().get_name(),
+        'birthdate': get_date(person.get_birth_date()),
+        'description': person.get_description(),
+        'deceased': get_date(person.get_deceased_date()),
+    }
 
-    edit = PersonEditTemplate()
-    content = edit.editPerson(person, genders)
-    page.content = lambda: content
-    return page
+    form = PersonEditForm(transaction, **values)
+    page.form_fields = form.get_fields()
+    page.form_action = "/person/save"
+    return page.respond()
 edit = transaction_decorator(edit)
 edit.exposed = True
 

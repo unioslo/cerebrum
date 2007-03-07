@@ -150,6 +150,53 @@ class PersonCreateForm(Form):
             is_correct = False
         return is_correct
 
+class PersonEditForm(PersonCreateForm):
+    def init_form(self):
+        self.order = [
+            'id', 'gender', 'birthdate', 'description', 'deceased'
+        ]
+        self.fields = {
+            'id': {
+                'name': 'id',
+                'label': 'id',
+                'required': True,
+                'type': 'hidden',
+            },
+            'gender': {
+                'name': 'gender',
+                'label': _('Gender'),
+                'required': True,
+                'type': 'select',
+            },
+            'birthdate': {
+                'name': 'birthdate',
+                'label': _('Birth date'),
+                'required': True,
+                'type': 'text',
+                'help': 'YYYY-MM-DD',
+            },
+            'description': {
+                'name': 'description',
+                'label': _('Description'),
+                'required': False,
+                'type': 'text',
+            },
+            'deceased': {
+                'name': 'deceased',
+                'label': _('Deceased date'),
+                'required': True,
+                'type': 'text',
+                'help': 'YYYY-MM-DD',
+            },
+        }
+
+    def deceased(self, date):
+        is_correct = True
+        if not legal_date(date):
+            self.error_message = 'not a legal date.'
+            is_correct = False
+        return is_correct
+
 class AccountCreateForm(Form):
     def init_form(self):
         self.order = [
