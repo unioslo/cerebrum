@@ -61,6 +61,8 @@ class Searcher(object):
     }
 
     def __init__(self, transaction, *args, **vargs):
+        self.ajax = cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest"
+
         self.transaction = transaction
         self.form_values = self.init_values(*args, **vargs)
         self.options = Searcher.defaults.copy()
@@ -140,8 +142,10 @@ class Searcher(object):
         form_values = {}
         for item in args:
             value = vargs.get(item, '')
-
             if value != '':
+                if self.ajax:
+                    value = value.decode('utf8').encode('latin1')
+
                 form_values[item] = value
 
         return form_values
@@ -220,7 +224,7 @@ class Searcher(object):
         return self.form_values and True or False
 
     def get_fail_response(self, status, messages=[]):
-        if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
+        if self.ajax:
             cherrypy.response.headerMap['Content-Type'] = 'text/plain; charset=utf-8'
             cherrypy.response.status = status
             import cjson
@@ -244,7 +248,7 @@ class Searcher(object):
         content = page.viewDict(result)
         page.content = lambda: content
 
-        if cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest":
+        if self.ajax:
             cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
             return content
         else:
