@@ -34,6 +34,7 @@ class Form(object):
 
         for key, field in self.fields.items():
             value = self.values.get(key, None)
+            field['name'] = key
             field['value'] = value
 
     def init_form(self):
@@ -95,38 +96,32 @@ class PersonCreateForm(Form):
         ]
         self.fields = {
             'firstname': {
-                'name': 'firstname',
                 'label': _('First name'),
                 'required': True,
                 'type': 'text',
             },
             'lastname': {
-                'name': 'lastname',
                 'label': _('Last name'),
                 'required': True,
                 'type': 'text',
             },
             'gender': {
-                'name': 'gender',
                 'label': _('Gender'),
                 'required': True,
                 'type': 'select',
             },
             'birthdate': {
-                'name': 'birthdate',
                 'label': _('Birth date'),
                 'required': True,
                 'type': 'text',
                 'help': _('Date must be in YYYY-MM-DD format.'),
             },
             'externalid': {
-                'name': 'externalid',
                 'label': _('Social Security Number'),
                 'required': True,
                 'type': 'text',
             },
             'description': {
-                'name': 'description',
                 'label': _('Description'),
                 'required': False,
                 'type': 'text',
@@ -157,32 +152,27 @@ class PersonEditForm(PersonCreateForm):
         ]
         self.fields = {
             'id': {
-                'name': 'id',
                 'label': 'id',
                 'required': True,
                 'type': 'hidden',
             },
             'gender': {
-                'name': 'gender',
                 'label': _('Gender'),
                 'required': True,
                 'type': 'select',
             },
             'birthdate': {
-                'name': 'birthdate',
                 'label': _('Birth date'),
                 'required': True,
                 'type': 'text',
                 'help': 'YYYY-MM-DD',
             },
             'description': {
-                'name': 'description',
                 'label': _('Description'),
                 'required': False,
                 'type': 'text',
             },
             'deceased': {
-                'name': 'deceased',
                 'label': _('Deceased date'),
                 'required': True,
                 'type': 'text',
@@ -204,31 +194,26 @@ class AccountCreateForm(Form):
         ]
         self.fields = {
             'owner': {
-                'name': 'owner',
                 'required': True,
                 'type': 'hidden',
             },
             'name': {
-                'name': 'name',
                 'label': _('Select username'),
                 'required': True,
                 'type': 'select',
             },
             '_other': {
-                'name': '_other',
                 'label': _('Enter username'),
                 'required': False,
                 'type': 'text',
             },
             'expiredate': {
-                'name': 'expiredate',
                 'label': _('Expire date'),
                 'required': True,
                 'type': 'text',
                 'help': _('Date must be in YYYY-MM-DD format.'),
             },
             'group': {
-                'name': 'group',
                 'label': _('Primary group'),
                 'required': True,
                 'cls': 'ac_group',
@@ -245,13 +230,11 @@ class AccountCreateForm(Form):
             self.type = owner.get_type()
             self.name = owner.get_name()
             self.fields['np_type'] = {
-                'name': 'np_type',
                 'label': _('Account type'),
                 'required': True,
                 'type': 'select',
             }
             self.fields['join'] = {
-                'name': 'join',
                 'label': _('Join %s') % self.name,
                 'type': 'checkbox',
                 'required': False,
