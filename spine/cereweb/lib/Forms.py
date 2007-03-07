@@ -65,7 +65,7 @@ class Form(object):
         if correct:
             for field in self.fields.values():
                 if field['value']:
-                    func = getattr(self, field['name'], None)
+                    func = getattr(self, 'check_%s' % field['name'], None)
                     if func and not func(field['value']):
                         correct = False
                         message = "Field '%s' " % field['label']
@@ -77,7 +77,7 @@ class Form(object):
         message = getattr(self, 'error_message', False)
         return message and (message, True) or ''
 
-    def _short_string(self, name):
+    def _check_short_string(self, name):
         is_correct = True
         if len(name) > 256:
             is_correct = False
@@ -132,13 +132,13 @@ class PersonCreateForm(Form):
         return [(g.get_name(), g.get_description()) for g in 
                    self.transaction.get_gender_type_searcher().search()]
 
-    def firstname(self, name):
-        return self._short_string(name)
+    def check_firstname(self, name):
+        return self._check_short_string(name)
 
-    def lastname(self, name):
-        return self._short_string(name)
+    def check_lastname(self, name):
+        return self._check_short_string(name)
 
-    def birthdate(self, date):
+    def check_birthdate(self, date):
         is_correct = True
         if not legal_date(date):
             self.error_message = 'not a legal date.'
@@ -180,7 +180,7 @@ class PersonEditForm(PersonCreateForm):
             },
         }
 
-    def deceased(self, date):
+    def check_deceased(self, date):
         is_correct = True
         if not legal_date(date):
             self.error_message = 'not a legal date.'
