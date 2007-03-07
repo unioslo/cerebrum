@@ -6,7 +6,7 @@ sys.path.append(config.conf.get('spine', 'client_sys_path'))
 import Spine
 import SpineIDL
 import SpineClient
-import fodselsnr
+from Cerebrum.modules.no import fodselsnr
 import util
 
 import getopt
