@@ -174,6 +174,15 @@ cereweb.editBox = {
 }
 YE.onAvailable('content', cereweb.editBox.init, cereweb.editBox, true);
 
+cereweb.tooltip = {
+    init: function() {
+        var els = YD.getElementsByClassName('tt', null, 'maindiv');
+        for (var i=0; i<els.length; i++)
+            els[i].setAttribute('title', els[i].nextSibling.innerHTML);
+        this.tt = new YAHOO.widget.Tooltip('tt', {context:els});
+    }
+}
+
 /**
  * Some text and links are only to be shown to users without javascript,
  * and some text and links should only be shown to users with it.
@@ -183,7 +192,7 @@ YE.onAvailable('maindiv', function() {
     var jsonly = YD.getElementsByClassName('jsonly', null, 'maindiv');
     if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
     if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
-
+    cereweb.tooltip.init();
 });
 
 if(cerebug) {
