@@ -33,8 +33,8 @@ FSPROD		select username FROM all_users		fsprod
 AJPROD		select username FROM all_users		ajprod
 LTPROD		select username FROM all_users		ltprod
 OAPRD		select user_name FROM applsys.fnd_user	oaprd
-OEPATST		[1], [2]
-OEPAPRD         [3], [4]
+OEPATST		[1], [2], [3], [4], [5]
+OEPAPRD         [6], [7]
 
 [1]   basware-users-test:
       select USER_NETWORK_NAME FROM basware.ip_group_user
@@ -42,10 +42,19 @@ OEPAPRD         [3], [4]
 [2]   basware-masters-test:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'
-[3]   basware-users:
+[3]   basware-monitor-test:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Monitorbrukere' AND upper(DOMAIN) = 'UIO'
+[4]   basware-readsoft-test:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'Readsoftbrukere' AND upper(DOMAIN) = 'UIO'
+[5]   basware-useradmin-test:
+      SELECT USER_NETWORK_NAME FROM basware.ip_group_user
+      WHERE GROUP_NAME = 'UserAdminbrukere' AND upper(DOMAIN) = 'UIO'
+[6]   basware-users:
       select USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'BasWareBrukere' AND upper(DOMAIN) = 'UIO'
-[4]   basware-masters:
+[7]   basware-masters:
       SELECT USER_NETWORK_NAME FROM basware.ip_group_user
       WHERE GROUP_NAME = 'Masterbrukere' AND upper(DOMAIN) = 'UIO'      
 
@@ -574,11 +583,16 @@ def usage():
 This script performes updates of certain groups in Cerebrum and fetches
 information about certain kind of expired accounts
 
---ofprod		update ofprod group
---fsprod		update fsprod group
---ltprod		update ltprod group
---ajprod		update ajprod group
---oaprd			update oaprd group
+--ofprod		   update ofprod group
+--fsprod		   update fsprod group
+--ltprod		   update ltprod group
+--ajprod		   update ajprod group
+--oaprd			   update oaprd group
+--basware-users            update basware-users group
+--basware-masters          update basware-masters group
+--basware-monitor-test     update basware-monitor-test group
+--basware-readsoft-test    update basware-readsoft-test group
+--basware-useradmin-test   update basware-useradmin-test group
 --expired-file, -e=file	locate expired accounts and generate a report
 """
     logger.info(message)
@@ -648,6 +662,24 @@ def main():
                                                 "sync_accessor" : "list_dbfg_masters",
                                                 "report_accessor" : "list_dbfg_masters",
                                                 "ceregroup"     : "basware-masters-test", },
+                     "basware-monitor-test" : { "dbname"        : "OEPATST.uio.no",
+                                                "dbuser"        : "ureg2000",
+                                                "class"         : OEP,
+                                                "sync_accessor" : "list_dbfg_monitor",
+                                                "report_accessor" : "list_dbfg_monitor",
+                                                "ceregroup"     : "basware-monitor-test", },
+                     "basware-readsoft-test" : { "dbname"        : "OEPATST.uio.no",
+                                                 "dbuser"        : "ureg2000",
+                                                 "class"         : OEP,
+                                                 "sync_accessor" : "list_dbfg_readsoft",
+                                                 "report_accessor" : "list_dbfg_readsoft",
+                                                 "ceregroup"     : "basware-readsoft-test", },
+                     "basware-useradmin-test" : { "dbname"        : "OEPATST.uio.no",
+                                                  "dbuser"        : "ureg2000",
+                                                  "class"         : OEP,
+                                                  "sync_accessor" : "list_dbfg_useradmin",
+                                                  "report_accessor" : "list_dbfg_useradmin",
+                                                  "ceregroup"     : "basware-useradmin-test", },
                      }
     try:
         options, rest = getopt.getopt(sys.argv[1:],
