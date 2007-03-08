@@ -47,7 +47,14 @@ AC_TYPE_GROUP_SPREAD = ('group@ad')
 #
 # Simple example tagging these groups with "cerebrum_groupname"
 SHADOW = lambda x: "cerebrum_%s" % x
-
+#
+# Give ProcBatchRunner the name of the normal group
+def NORMAL(x):
+    import re
+    m = re.search("^cerebrum_(.+)$", x)
+    if not m:
+        return None
+    return m.group(1)
 #
 # More complex example that can return None to signal errors
 def SHADOW(x): 
@@ -56,4 +63,17 @@ def SHADOW(x):
     if not m:
         return None
     return "%s:%s" % (m.group(1),m.group(3))
- 
+
+def NORMAL(x):
+    import re
+    from mx import DateTime
+    m = re.search("^(\w+):(.+)", x)
+    if not m:
+        return None
+    now = DateTime.now()
+    year = str(now.year)
+    year = year[2:]
+    if now.month < 7:
+        year = int(year) - 1
+    year = int(year)
+    return "%s:%.2d:%s" % (m.group(1),year,m.group(2))

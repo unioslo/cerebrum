@@ -118,12 +118,13 @@ class ProcBatchRunner(object):
         for row in grp.list_traits(self.co.trait_group_imported, return_name=True):
             group_names[row['name']] = None
         for row in grp.list_traits(self.co.trait_group_derived, return_name=True):
-            m = re.search("^cerebrum_(.+)", row['name'])
-            if not m:
+            normal_name = procconf.NORMAL(row['name'])
+            if not normal_name:
                 self.logger.warning("Group '%s' has an odd name for a generated group. Skipping" % row['name'])
                 continue
-            if not group_names.has_key(m.group(1)):
-                group_names[m.group(1)] = None
+            if not group_names.has_key(normal_name):
+                self.logger.debug("prc_grps: Group '%s' added to check list. Derived from '%s'" % (normal_name, row['name']))
+                group_names[normal_name] = None
         for name in group_names:
             self.proc.process_group(name)
 

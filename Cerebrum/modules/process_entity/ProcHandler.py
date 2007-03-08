@@ -209,6 +209,14 @@ class ProcHandler(object):
             self._ac.clear()
             self._ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             self.default_creator_id = self._ac.entity_id
+
+        # See if there is a shadow group
+        shdw_grp = Factory.get('Group')(self.db)
+        shadow = procconf.SHADOW(group_name)
+        # See if this group got a shadow name
+        if not shadow:
+            self.logger.warning("prc_grp: Group '%s' has a name not compatible with the shadow naming scheme." % group_name) 
+            return
                         
         # Try to initialize the object
         try:
@@ -220,13 +228,7 @@ class ProcHandler(object):
             if self._group.get_trait(self._co.trait_group_derived):
                 self.logger.debug("prc_grp: Group '%s' is a shadow group." % group_name)
                 return
-            # See if there is a shadow group
-            shdw_grp = Factory.get('Group')(self.db)
-            shadow = procconf.SHADOW(group_name)
-            # See if this group got a shadow name
-            if not shadow:
-                self.logger.warning("prc_grp: Group '%s' has a name not compatible with the shadow naming scheme." % group_name) 
-                return
+            
             try:
                 shdw_grp.find_by_name(shadow)
                 self.logger.debug("prc_grp: Group '%s' has a shadow group '%s'." % (group_name, shadow))
