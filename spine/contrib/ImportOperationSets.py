@@ -29,6 +29,7 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
 
 db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner']
 if db_user is None:
@@ -37,22 +38,57 @@ if db_user is None:
         print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
         print "Will use regular 'user' (%s) instead." % db_user
 
-def create_op_set(set_name, op_codestrs):
+def create_op_sets(operation_sets):
+    op_sets_added = []
     db = Factory.get('Database')(user=db_user)
     auth_op_set = BofhdAuthOpSet(db)
-    try:
-        auth_op_set.find_by_name(set_name)
-        # Get the auth_op_codes already in the set.
-        existing = [x[0] for x in auth_op_set.list_operations()]
-    except NotFoundError, e:
-        auth_op_set.populate(set_name)
-        auth_op_set.write_db()
-        existing = []
-    for codestr in op_codestrs:
-        code = _AuthRoleOpCode(codestr)
-        if not int(code) in existing:
-            auth_op_set.add_operation(int(code))
-            existing.append(int(code))
+    e_op_sets = dict([(x[1], x[0]) for x in auth_op_set.list()])
+    for name, op_codestrs in operation_sets.items():
+        op_codestrs = op_codestrs['codestrs']
+        if name in e_op_sets:
+            auth_op_set.find(e_op_sets[name])
+            existing = [x[0] for x in auth_op_set.list_operations()]
+        else:
+            auth_op_set.clear()
+            auth_op_set.populate(name)
+            auth_op_set.write_db()
+            existing = []
+
+        added_codes = []
+
+        for codestr in op_codestrs:
+            code = int(_AuthRoleOpCode(codestr))
+            added_codes.append(code)
+            if not code in existing:
+                auth_op_set.add_operation(code)
+                existing.append(code)
+
+        for code in existing:
+            if not code in added_codes:
+                auth_op_set.del_operation(code)
+
+    db.commit()
+
+def create_op_targets(targets):
+    targets_added = []
+    db = Factory.get('Database')(user=db_user)
+    target = BofhdAuthOpTarget(db)
+    for t in targets:
+        existing = target.list(target_type=t[0],
+                               entity_id=t[1],
+                               attr=t[2])
+        if len(existing) == 0:
+            target.clear()
+            target.populate(t[1], t[0], t[2])
+            target.write_db()
+            targets_added.append(target.list(target.op_target_id)[0])
+        else:
+            targets_added.append(existing[0])
+    target.clear()
+    for t in target.list():
+        if not t in targets_added:
+            target.find(t[0])
+            target.delete()
     db.commit()
 
 if __name__ == '__main__':
@@ -65,6 +101,6 @@ if __name__ == '__main__':
         print "Expected a python file containing a variable named operation_sets as only argument."
         sys.exit(1)
     sys.path.append(os.path.dirname(path))
-    operation_sets = __import__(file[:-3]).operation_sets
-    for name, d in operation_sets.items():
-        create_op_set(name, d['codestrs'])
+    source = __import__(file[:-3])
+    create_op_sets(source.operation_sets)
+    create_op_targets(source.operation_targets)
