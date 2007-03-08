@@ -68,6 +68,57 @@ class OEP(object):
         
         return self.db.query(query, fetchall = fetchall)
     # end list_applsys_users
+
+
+
+    def list_dbfg_monitor(self, fetchall = False):
+        """
+        Get all privileged users and return them as a sequence of db_rows.
+        """
+
+        query = """
+                SELECT user_network_name AS username
+                FROM basware.ip_group_user                                               
+                WHERE group_name = 'Monitorbrukere' AND
+                      upper(DOMAIN) = 'UIO'
+                """
+        
+        return self.db.query(query, fetchall = fetchall)
+    # end list_monitor_users
+
+
+
+    def list_dbfg_readsoft(self, fetchall = False):
+        """
+        Get all privileged users and return them as a sequence of db_rows.
+        """
+
+        query = """
+                SELECT user_network_name AS username
+                FROM basware.ip_group_user                                               
+                WHERE group_name = 'Readsoftbrukere' AND
+                      upper(DOMAIN) = 'UIO'
+                """
+        
+        return self.db.query(query, fetchall = fetchall)
+    # end list_readsoft_users
+
+
+
+    def list_dbfg_useradmin(self, fetchall = False):
+        """
+        Get all privileged users and return them as a sequence of db_rows.
+        """
+
+        query = """
+                SELECT user_network_name AS username
+                FROM basware.ip_group_user                                               
+                WHERE group_name = 'UserAdminbrukere' AND
+                      upper(DOMAIN) = 'UIO'
+                """
+        
+        return self.db.query(query, fetchall = fetchall)
+    # end list_useradmin_users        
 # end OEP
 
 # arch-tag: bcbf6648-d6b1-42b3-9ace-d7c5b3d8c8ec
