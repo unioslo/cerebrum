@@ -116,7 +116,7 @@ class Person(FSObject):
           dato_fra, dato_til, institusjonsnr, faknr, gruppenr, 
           studieprogramkode, emnekode, versjonskode, aktivitetkode, 
           terminkode, arstall, terminnr, etterutdkurskode, 
-          kurstidsangivelsekode
+          kurstidsangivelsekode, prioritetsnr, klassekode, undplanlopenr
         FROM personrolle
         WHERE 
           fodselsdato=:fnr AND 
