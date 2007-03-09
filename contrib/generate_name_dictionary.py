@@ -47,6 +47,21 @@ from Cerebrum.extlib.sets import Set as set
 logger = Factory.get_logger("cronjob")
 
 
+def name_is_valid(name):
+    """Check name's eligibility for the dictionary.
+
+    We want to avoid names that are:
+
+    * too short (< 3 characters)
+    * digits only (people do use digits, and unfortunately some
+      'person' names are with digits only)
+    """
+
+    return (len(name) >= 3 and
+            bool([x for x in name if not x.isdigit()]))
+# end name_is_valid
+
+
 
 def generate_list():
     """Generate a list of all names for the dictionary."""
@@ -64,7 +79,8 @@ def generate_list():
                                                    c.name_personal_title,
                                                    c.name_work_title)):
         name = row["name"]
-        result.add(name)
+        if name_is_valid(name):
+            result.add(name)
     logger.debug("Collected %d human names", len(result))
 
     #
@@ -72,7 +88,8 @@ def generate_list():
     account = Factory.get("Account")(db)
     for row in account.search(filter_expired=False):
         name = row["name"]
-        result.add(name)
+        if name_is_valid(name):
+            result.add(name)
 
     logger.debug("%d entries in total", len(result))
     return result
