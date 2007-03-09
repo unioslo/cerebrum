@@ -172,7 +172,7 @@ class ProcHandler(object):
             person.entity_id = int(member[1])
             a_id = person.get_primary_account()
             if not a_id:
-                self.logger.warn("Person '%d' has no account. Skipping" % person.entity_id)
+                self.logger.info("Person '%d' has no account. Skipping" % person.entity_id)
                 continue
             grp_accounts.append(person.get_primary_account())
         shdw_grp_accounts = list()
