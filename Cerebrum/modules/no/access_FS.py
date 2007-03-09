@@ -117,7 +117,7 @@ class Person(FSObject):
           studieprogramkode, emnekode, versjonskode, aktivitetkode, 
           terminkode, arstall, terminnr, etterutdkurskode, 
           kurstidsangivelsekode, prioritetsnr, klassekode, undplanlopenr
-        FROM personrolle
+        FROM fs.personrolle
         WHERE 
           fodselsdato=:fnr AND 
           personnr=:pnr AND
@@ -581,7 +581,8 @@ class Undervisning(FSObject):
           gruppenr, studieprogramkode, emnekode,
           versjonskode, aktivitetkode, terminkode, 
           arstall, terminnr, etterutdkurskode, 
-          kurstidsangivelsekode
+          kurstidsangivelsekode, prioritetsnr,
+          klassekode, undplanlopenr
         FROM fs.personrolle
         WHERE 
           dato_fra < SYSDATE AND
