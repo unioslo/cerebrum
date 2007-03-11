@@ -3,6 +3,7 @@ import cereconf
 
 import mx
 import pickle
+import re
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Constants
@@ -281,6 +282,25 @@ class BofhdExtension(object):
                 tmp['name'] = name
                 ret.append(tmp)
         return ret
+
+    all_commands['find_school'] = None
+    def find_school(self, operator, ou_name):
+        ou_n = ou_name.lower()
+        ou = self.OU_class(self.db)
+        all_ou = ou.list_all(filter_quarantined=True)
+        ou_list = []
+        for o in all_ou:
+            ou.clear()
+            ou.find(o['ou_id'])
+            tmp = ou.name.lower()
+            if re.match('.*' +  ou_n + '.*', tmp):
+                ou_list.append(ou.entity_id)
+        if len(ou_list) == 0:
+            raise CerebrumError("Could not find school %s" % ou_name)
+        elif len(ou_list) > 1:
+            raise CerebrumError("Found several schools with matching names.")
+        else:
+            return ou_list[0]
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
