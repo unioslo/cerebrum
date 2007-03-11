@@ -31,6 +31,7 @@ class BofhdExtension(object):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
+    Constants_class = Factory.get('Constants')
     all_commands = {}
 
     copy_commands = (
@@ -143,6 +144,17 @@ class BofhdExtension(object):
         pwd = account.get_account_authentication(self.const.auth_type_plaintext)
         return {'password': pwd,
                 'uname': account.account_name}
+
+    all_commands['list_active'] = None
+    def list_active(self, operator):
+        active = list()
+        # IVR 2007-03-11 fetch the source system, which determines people that
+        # are considered 'active'.
+        source = getattr(Constants_class(self.db),
+                         cereconf.CWEB_ACTIVE_SOURCE_SYSTEM)
+        for row in self.person.list_affiliations(source_system=source):
+            active.append(row['person_id'])
+        return active
         
     all_commands['user_info'] = None
     def user_info(self, operator, entity_id):
