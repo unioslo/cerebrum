@@ -36,7 +36,7 @@ class BofhdExtension(object):
 
     copy_commands = (
         '_get_account', '_get_ou', '_format_ou_name', '_get_person',
-        '_get_disk', '_get_group', '_map_person_id',
+        '_get_disk', '_get_group', '_map_person_id', '_parse_date',
         'person_accounts', '_get_entity', 'group_user',
         'group_memberships', 'person_find', 'group_search',
         '_get_boolean', 'group_info', '_entity_info', 'num2str',
