@@ -44,7 +44,7 @@ class BofhdExtension(object):
         '_get_boolean', '_entity_info', 'num2str',
         'group_list', 'misc_list_passwords', '_get_cached_passwords',
         'user_password', '_get_entity_name', 'group_add_entity',
-        'group_remove_entity', '_group_remove_entity',
+        'group_remove_entity', 
         '_get_group_opcode', '_get_name_from_object',
         '_group_add_entity', '_group_count_memberships',
         'group_create', 'spread_add', '_get_constant',
@@ -112,6 +112,24 @@ class BofhdExtension(object):
                 commands[k] = tmp.get_struct(self)
         self._cached_client_commands[int(account_id)] = commands
         return commands
+
+    # IVR 2007-03-12 We override UiO's behaviour (since there are no
+    # PosixUsers in Indigo by default). Ideally, UiO's bofhd should be split
+    # into manageable units that can be plugged in on demand
+    all_commands['_group_remove_entity'] = None
+    def _group_remove_entity(self, operator, member, group, group_operation):
+        group_operation = self._get_group_opcode(group_operation)
+        self.ba.can_alter_group(operator.get_entity_id(), group)
+        member_name = self._get_name_from_object(member)
+        if not group.has_member(member.entity_id, member.entity_type,
+                                group_operation):
+            return ("%s isn't a member of %s" %
+                    (member_name, group.group_name))
+        try:
+            group.remove_member(member.entity_id, group_operation)
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
     all_commands['group_info'] = None
     def group_info(self, operator, groupname):
