@@ -117,7 +117,7 @@ def full_historylog(transaction, id):
 
     page = Main()
     page.title = type.capitalize() + ': ' + object_link(entity)
-    page.setFocus('%s/view' % type, id)
+    page.set_focus('%s/view' % type)
     content = view_history(entity)
     page.content = lambda: content
     return page

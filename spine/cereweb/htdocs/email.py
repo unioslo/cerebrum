@@ -34,10 +34,20 @@ from lib.templates.EmailDomainSearchTemplate import EmailDomainSearchTemplate
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailDomainTemplate import EmailDomainTemplate
 
+def _get_links():
+    return (
+        ('index', _('Index')),
+        ('search', _('Search')),
+        ('create', _('Create')),
+        ('categories', _('Categories')),
+        ('addresses', _('Addresses')),
+    )
+
 def index(transaction):
     page = Main()
     page.title = _('Email domains') 
-    page.setFocus('email')
+    page.set_focus('email/index')
+    page.links = _get_links()
     target_template = EmailTargetTemplate()
     domain_template = EmailDomainTemplate()
     
@@ -54,7 +64,8 @@ index.exposed = True
 def search_form(transaction, remembered):
     page = EmailDomainSearchTemplate()
     page.title = _("Email")
-    page.setFocus("email/search")
+    page.set_focus("email/search")
+    page.links = _get_links()
     page.search_title = _('email')
     page.search_fields = [
         ("name", _("Name")),
@@ -77,7 +88,8 @@ search.exposed = True
 def create(transaction):
     page = Main()
     page.title = _("Email domains")
-    page.setFocus("email/create")
+    page.set_focus("email/create")
+    page.links = _get_links()
     content = EmailDomainTemplate().create(transaction)
     page.content = lambda: content
     return page
@@ -87,7 +99,8 @@ create.exposed = True
 def categories(transaction):
     page = Main()
     page.title = _("Email domain categories")
-    page.setFocus("email/categories")
+    page.set_focus("email/categories")
+    page.links = _get_links()
     content = EmailDomainTemplate().categories(transaction)
     page.content = lambda: content
     return page
@@ -96,21 +109,23 @@ categories.exposed = True
 
 def view(transaction, id):
     domain = transaction.get_email_domain(int(id))
-    page = Main()
+    page = EmailDomainTemplate()
+    page.entity_id = int(id)
+    page.entity = domain
     page.title = _("Email domain %s") % domain.get_name()
-    page.setFocus("email/view", id)
-    template = EmailDomainTemplate()
-    content = template.view_domain(transaction, domain)
-    page.content = lambda: content
-    return page
+    page.set_focus("email/view")
+    page.links = _get_links()
+    page.tr = transaction
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
 def addresses(transaction, id):
     domain = transaction.get_email_domain(int(id))
-    page = Main()
+    page = EmailDomainTemplate()
     page.title = _("Addresses in ") + object_link(domain)
-    page.setFocus("email/addresses", id)
+    page.set_focus("email/addresses")
+    page.links = _get_links()
     template = EmailDomainTemplate()
     content = template.list_addresses(transaction, domain)
     page.content = lambda: content
@@ -122,7 +137,8 @@ def edit(transaction, id):
     domain = transaction.get_email_domain(int(id))
     page = Main()
     page.title = _("Edit ") + object_link(domain)
-    page.setFocus("email/edit", id)
+    page.set_focus("email/edit")
+    page.links = _get_links()
     template = EmailDomainTemplate()
     content = template.edit_domain(domain)
     page.content = lambda: content

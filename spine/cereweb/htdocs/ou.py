@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib import utils
@@ -35,7 +36,8 @@ import SpineIDL.Errors
 def tree(transaction, perspective=None):
     page = Main()
     page.title = _("OU")
-    page.setFocus("/ou/tree")
+    page.set_focus("ou/tree")
+    page.links = _get_links()
     tree_template = OUTreeTemplate()
     tree_template.title = _('OU perspective tree:')
     if not perspective:
@@ -53,7 +55,8 @@ tree.exposed = True
 def search_form(remembered):
     page = SearchTemplate()
     page.title = _("OU")
-    page.setFocus("ou/search")
+    page.set_focus("ou/search")
+    page.links = _get_links()
 
     page.search_fields = [("name", _("Name")),
                           ("acronym", _("Acronym")),
@@ -77,12 +80,14 @@ index = search
 
 def view(transaction, id):
     ou = transaction.get_ou(int(id))
-    page = Main()
+    page = OUViewTemplate()
     page.title = _("OU %s") % _get_display_name(ou)
-    page.setFocus("ou/view", id)
-    content = OUViewTemplate().view(transaction, ou)
-    page.content = lambda: content
-    return page
+    page.set_focus("ou/view")
+    page.links = _get_links()
+    page.tr = transaction
+    page.entity_id = int(id)
+    page.entity = ou
+    return page.respond()
 view = utils.transaction_decorator(view)
 view.exposed = True
 
@@ -90,7 +95,8 @@ def edit(transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main()
     page.title = _("OU ") + utils.object_link(ou)
-    page.setFocus("ou/edit", id)
+    page.set_focus("ou/edit")
+    page.links = _get_links()
     content = OUEditTemplate().form(transaction, ou)
     page.content = lambda: content
     return page
@@ -100,7 +106,8 @@ edit.exposed = True
 def create(transaction, **vargs):
     page = Main()
     page.title = _("OU")
-    page.setFocus("ou/create")
+    page.set_focus("ou/create")
+    page.links = _get_links()
 
     # Store given parameters for the create-form
     values = {}

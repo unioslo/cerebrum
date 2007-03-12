@@ -33,10 +33,17 @@ from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 from SpineIDL.Errors import NotFoundError
 
+def _get_links():
+    return (
+        ('search', _('Search')),
+        ('create', _('Create')),
+    )
+
 def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Account")
-    page.setFocus("account/search")
+    page.set_focus("account/view")
+    page.links = _get_links()
     page.search_title = _('account(s)')
     page.search_fields = [
                   ("name", _("Account name")),
@@ -63,8 +70,9 @@ index = search
 def select_owner():
     page = AccountCreateTemplate()
     page.title = _("Create a new Account")
-    page.setFocus("account/create")
-    page.add_jscript("find_owner.js")
+    page.set_focus("account/create")
+    page.links = _get_links()
+    page.jscripts.append("find_owner.js")
     return page.respond()
 
 def create_form(form, message=None):
@@ -72,6 +80,9 @@ def create_form(form, message=None):
     if message:
         page.messages.append(message)
     page.title = _("Account")
+    page.links = _get_links()
+    page.set_focus("account/create")
+    page.links = _get_links()
     page.form_title = form.get_title()
     page.form_action = "/account/create"
     page.form_fields = form.get_fields()
@@ -140,12 +151,15 @@ def make(transaction, id, name, expire_date="", np_type=None,
 def view(transaction, id, **vargs):
     """Creates a page with a view of the account given by id."""
     account = transaction.get_account(int(id))
-    page = Main()
+    page = AccountViewTemplate()
     page.title = _("Account %s") % account.get_name()
-    page.setFocus("account/view", id)
-    content = AccountViewTemplate().view(transaction, account)
-    page.content = lambda: content
-    return page
+    page.links = _get_links()
+    page.set_focus("account/view")
+    page.links = _get_links()
+    page.tr = transaction
+    page.entity = account
+    page.entity_id = account.get_id()
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -154,7 +168,8 @@ def edit(transaction, id):
     account = transaction.get_account(int(id))
     page = Main()
     page.title = _("Edit ") + object_link(account)
-    page.setFocus("account/edit", id)
+    page.set_focus("account/edit")
+    page.links = _get_links()
 
     edit = AccountEditTemplate()
     edit.formvalues['name'] = account.get_name()

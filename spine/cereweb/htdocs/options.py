@@ -21,22 +21,22 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib.Main import Main
 from lib.utils import transaction_decorator, commit_url
 from lib.utils import redirect, queue_message
 from lib.Options import Options, restore_to_default
 from lib.templates.OptionsTemplate import OptionsTemplate
 
+def _get_links():
+    return ()
+
 def index(transaction):
     """Creates form for editing user-specific options for cereweb."""
-    page = Main()
+    page = OptionsTemplate()
     page.title = _('Options for cereweb')
-    page.setFocus('options')
-    
-    template = OptionsTemplate()
-    content = template.options(cherrypy.session['options'])
-    page.content = lambda: content
-    return page
+    page.set_focus = 'options/'
+    page.links = _get_links()
+    page.options = cherrypy.session['options']
+    return page.respond()
 index = transaction_decorator(index)
 index.exposed = True
 

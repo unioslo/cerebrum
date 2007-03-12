@@ -34,6 +34,8 @@ from lib.templates.MachineViewTemplate import MachineViewTemplate
 from lib.templates.MachineEditTemplate import MachineEditTemplate
 from lib.templates.MachineCreateTemplate import MachineCreateTemplate
 
+from host import _get_links
+
 def index():
    return search(name='*')
 index.exposed = True
@@ -42,7 +44,8 @@ def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Host")
     page.search_title = _('host(s)')
-    page.setFocus("/host/search")
+    page.set_focus("host/search")
+    page.links = _get_links
 
     page.search_fields = [("name", _("Name")),
                           ("description", _("Description"))
@@ -62,12 +65,13 @@ search.exposed = True
 def view(transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
-    page = Main()
+    page = MachineViewTemplate()
     page.title = _('Host %s') % host.get_name()
-    page.setFocus('host/view', id)
-    content = MachineViewTemplate().view(transaction, host)
-    page.content = lambda: content
-    return page
+    page.set_focus('host/view')
+    page.links = _get_links
+    page.entity = host
+    page.entity_id = int(id)
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -76,7 +80,8 @@ def edit(transaction, id):
     host = transaction.get_host(int(id))
     page = Main()
     page.title = _("Edit ") + object_link(host)
-    page.setFocus("host/edit", id)
+    page.set_focus("host/edit")
+    page.links = _get_links
 
     edit = MachineEditTemplate()
     content = edit.editHost(host,transaction)
@@ -167,7 +172,8 @@ def create(transaction, name="", description=""):
     """Creates a page with the form for creating a host."""
     page = Main()
     page.title = _("Create a new host")
-    page.setFocus("host/create")
+    page.set_focus("host/create")
+    page.links = _get_links
 
     # Store given create parameters in create-form
     values = {}

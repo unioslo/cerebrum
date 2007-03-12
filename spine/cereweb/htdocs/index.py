@@ -50,32 +50,38 @@ import permissions
 import user_client
 import ajax
 
+def _get_links():
+    return (
+        ('/index', _('Index')),
+        ('/all_motds', _('View all messages')),
+    )
+
 def index(transaction):
-    page = Main()
+    page = MotdTemplate()
     page.title = _("Welcome to Cereweb")
-    motd = MotdTemplate()
     page.add_jscript("motd.js")
+    page.set_focus('/index')
+    page.links = _get_links()
     
     motd_search = transaction.get_cereweb_motd_searcher()
     motd_search.order_by_desc(motd_search, 'create_date')
     motd_search.set_search_limit(3, 0)
-    content = motd.viewMotds(motd_search.search())
-    page.content = lambda: content
-    return page
+    page.motds = motd_search.search()
+    return page.respond()
 index = transaction_decorator(index)
 index.exposed = True
 
 def all_motds(transaction):
-    page = Main()
+    page = MotdTemplate()
     page.title = _("Messages of the day")
-    motd = MotdTemplate()
     page.add_jscript("motd.js")
+    page.set_focus('/all_motds')
+    page.links = _get_links()
     
     motd_search = transaction.get_cereweb_motd_searcher()
     motd_search.order_by_desc(motd_search, 'create_date')
-    content = motd.viewMotds(motd_search.search())
-    page.content = lambda: content
-    return page
+    page.motds = motd_search.search()
+    return page.respond()
 all_motds = transaction_decorator(all_motds)
 all_motds.exposed = True
 

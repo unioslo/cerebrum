@@ -21,6 +21,7 @@
 import cherrypy
 import string
 
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect_object, commit
@@ -38,8 +39,9 @@ def search_form(remembered):
     page = GroupSearchTemplate()
     page.title = _("Group")
     page.search_title = _('group(s)')   
-    page.setFocus("group/search")
-    page.add_jscript("groupsearch.js")
+    page.set_focus("group/search")
+    page.links = _get_links()
+    page.jscripts.append("groupsearch.js")
     page.search_fields = [("name", _("Name")),
                           ("description", _("Description")),
                           ("spread", _("Spread name")),
@@ -60,12 +62,14 @@ index = search
 def view(transaction, id, **vargs):
     """Creates a page with the view of the group with the given by."""
     group = transaction.get_group(int(id))
-    page = Main()
+    page = GroupViewTemplate()
     page.title = _('Group %s') % group.get_name()
-    page.setFocus('group/view', id)
-    content = GroupViewTemplate().view(transaction, group)
-    page.content = lambda: content
-    return page
+    page.set_focus('group/view')
+    page.links = _get_links()
+    page.entity_id = int(id)
+    page.entity = group
+    page.tr = transaction
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
     
@@ -115,7 +119,8 @@ def edit(transaction, id):
     group = transaction.get_group(int(id))
     page = Main()
     page.title = _("Edit ") + object_link(group)
-    page.setFocus("group/edit", id)
+    page.set_focus('group/edit')
+    page.links = _get_links()
 
     edit = GroupEditTemplate()
     content = edit.editGroup(transaction, group)
@@ -128,7 +133,8 @@ def create(name="", expire="", description=""):
     """Creates a page with the form for creating a group."""
     page = Main()
     page.title = _("Group")
-    page.setFocus("group/create")
+    page.set_focus('group/create')
+    page.links = _get_links()
     
     content = GroupCreateTemplate().form(name, expire, description)
     page.content = lambda :content

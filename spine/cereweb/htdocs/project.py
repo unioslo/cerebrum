@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from account import _get_links()
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
@@ -34,7 +35,8 @@ from lib.templates.ProjectCreateTemplate import ProjectCreateTemplate
 def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Search for project(s)")
-    page.setFocus("project/search")
+    page.set_focus("project/search")
+    page.links = _get_links()
 
     page.search_fields = [("title", _("Title")),
                           ("description", _("Description")),
@@ -58,12 +60,14 @@ index = search
 def view(transaction, id):
     """Creates a page with a view of the project given by id."""
     project = transaction.get_project(int(id))
-    page = Main()
+    page = ProjectViewTemplate()
     page.title = _('Project %s') % project.get_title()
-    page.setFocus('project/view', id)
-    content = ProjectViewTemplate().view(transaction, project)
-    page.content = lambda: content
-    return page
+    page.set_focus('project/view')
+    page.links = _get_links()
+    page.entity = project
+    page.entity_id = int(id)
+    page.tr = transaction
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -92,7 +96,7 @@ def edit(transaction, id):
     project = transaction.get_project(int(id))
     page = Main()
     page.title = _("Edit ") + object_link(project)
-    page.setFocus("project/edit", id)
+    page.set_focus("project/edit")
 
     edit = ProjectEditTemplate()
     content = edit.editProject(project,transaction)
@@ -122,7 +126,7 @@ def create(transaction, owner, title="", description="", science=None):
     """Creates a page with the form for creating a project"""
     page = Main()
     page.title = _("Create a new project")
-    page.setFocus("project/create")
+    page.set_focus("project/create")
 
     owner = transaction.get_entity(int(owner))
     

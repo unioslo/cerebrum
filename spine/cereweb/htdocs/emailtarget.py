@@ -80,13 +80,13 @@ def view(transaction, id):
     target = parse_target(target_obj, id)
     domains = transaction.get_email_domain_searcher().search()
     domains = [(i.get_name(), i.get_name()) for i in domains]
-    page = Main()
+    page = EmailTargetViewTemplate()
     page.title = _("Email addresses")
-    page.setFocus("/email", id)
-    template = EmailTargetViewTemplate()
-    content = template.view(target, domains)
-    page.content = lambda: content
-    return page
+    page.set_focus("email/")
+    page.entity = target
+    page.entity_id = id
+    page.domains = domains
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -116,7 +116,7 @@ def edit(transaction, id):
     target = transaction.get_email_target(id)
     page = Main()
     page.title = _('Edit ') + object_link(target)
-    page.setFocus('/emailtarget/edit', id)
+    page.set_focus('emailtarget/edit')
     template = EmailTargetTemplate()
     content = template.edit_target(transaction,target)
     page.content = lambda: content

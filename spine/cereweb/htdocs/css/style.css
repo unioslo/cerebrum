@@ -18,23 +18,27 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* Placement of divs on page */
+body {
+    color: black;
+    background-color: #d9e2ef;
+    margin: 0;
+    text-align: center;
+    min-width: 800px;
+}
+
+#container {
+    width: 800px;
+    background-color: white;
+    text-align: left;
+    margin: 10px auto 10px auto;
+    border: 1px solid black;
+}
+
 #messages {
     margin-left: 9.5em;
     margin-top: 1em;
+    margin-bottom: 5px;
 }
-
-/* Styles for the session warning box on top of all pages. */
-#session_warning {
-    border: 1px dotted black;
-    padding: 8px;
-    font-size: 16px;
-    background: #FFFF80;
-    width: 500px;
-    overflow: visible;
-}
-
-#messages { margin-bottom: 5px; }
 
 #messages span.message {
     font-weight: bold;
@@ -47,6 +51,50 @@
     padding: 0.3em;
 }
 
+/* Styles for the session warning box on top of all pages. */
+#session_warning {
+    border: 1px dotted black;
+    padding: 8px;
+    font-size: 16px;
+    background: #FFFF80;
+    width: 500px;
+    overflow: visible;
+}
+
+#actions {
+    float: left;
+    margin-left: 5px;
+    margin-right: 0px;
+    padding: 5px 5px 5px 5px;
+    border:1px solid #404040;
+    width: 135px;
+}
+
+#actions ul {
+    padding-left: 0px;
+    list-style: none;
+}
+
+#actions h3,h4 {
+    margin: 0;
+    padding-bottom: 8px;
+}
+
+#actions a.action:before,
+#actions a.action:after { content: ""; }
+
+#content {
+    min-height: 270px;
+    float:left;
+    width: 625px;
+    padding: 0pt 0.5em 0.5em 0.5em;
+}
+
+#bottom {
+    overflow: hidden; 
+    width: 100%;
+    clear: both;
+}
 
 /* Main title on the all pages. */
 div.title {
@@ -56,7 +104,8 @@ div.title {
     border-bottom: 1px solid gray;
     margin-bottom: 0.7em;
     padding-left: 5px;
-    width: 500px;
+    width: auto;
+    clear: both;
 }
 
 div.title h1 {
@@ -107,11 +156,6 @@ div.search_range a:hover { color: blue; text-decoration: none; }
 div.search_range a.first, div.search_range a.last { text-decoration: none; }
 div.search_range .first, div.search_range .last { font-size: 90%; }
 
-/* Styles for view page, like person view etc.. */
-div.view_content {
-    max-width: 650px;
-}
-
 div.view_content div.view_actions {
     float: right;
     border-width: 1px 0 0 1px;
@@ -156,12 +200,6 @@ div.view_content div.notice {
     text-align: center;
     padding: 5px;
     font-size: 125%;
-}
-
-div.page_menu {
-    background: #aac1df;
-    border: 1px solid grey;
-    color: black;
 }
 
 /**
@@ -230,7 +268,6 @@ div.buttons {
 div.box {
     width: 100%;
     float: left;
-    clear: both;
 
     margin: 0;
     margin-bottom: 1em;
@@ -281,8 +318,6 @@ div.box h3 a { color: black; text-decoration: none; }
 /* Style action-links */
 a.action:before { content: "["; }
 a.action:after { content: "]"; }
-div.actions a.action:before,
-div.actions a.action:after { content: ""; }
 
 /* The bluish-colored boxes used for most stuff. */
 div.info {
@@ -366,7 +401,7 @@ div.view {
     background: #d9e2ef;
     border: 1px solid black;
     color: black;
-    width: 500px;
+    width: auto;
     font-size: 15px;
     margin-bottom: 1em;
     text-align: left;
@@ -455,9 +490,8 @@ div.errorpage div.traceback pre {
 
 /* Styles for message of today on index-page. */
 div.motd {
-    width: 450px;
+    width: auto;
     margin-bottom: 1em;
-    clear: left;
 }
 
 div.motd div.subject {
@@ -527,21 +561,23 @@ div.options td.buttons {
 /**
  * Style the quicksearch box
  */
-#ac_quicksearch {
+#quicksearch {
     position: absolute;
-    top: 8px;
-    left: 16px;
+    top: 20px;
+    left: 650px;
+    right: auto;
+    bottom: auto;
 }
-#ac_quicksearch form {
+#quicksearch form {
     position: relative;
 }
-#ac_quicksearch div.autocomplete_container {
+#quicksearch div.autocomplete_container {
     float: left;
 }
-#ac_quicksearch input {
+#quicksearch input {
     width: 9.5em;
 }
-#ac_quicksearch label {
+#quicksearch label {
     position: absolute;
     top: 3px;
     left: 5px;
@@ -551,7 +587,7 @@ div.options td.buttons {
     font-style: normal;
     font-weight: normal;
 }
-#ac_quicksearch div.buttons {
+#quicksearch div.buttons {
     display: none;
 }
 
@@ -602,6 +638,55 @@ img.tt {
     position: relative;
     top: -3px;
     left: 3px;
+}
+
+div#tabview {
+    background-color: #ffffff;
+}
+
+div#tabview ul {
+    clear: left;
+    margin: 0px 0pt 0pt 15px;
+    overflow: hidden;
+    padding-top: 17px;
+}
+
+div#tabview ul li {
+    float: left;
+    height: 32px;
+    list-style-image: none;
+    list-style-position: outside;
+    list-style-type: none;
+    padding: 0pt;
+}
+
+div#tabview div.yui-content {
+    display: none;
+    border-width: 0px;
+}
+
+div.sub-nav {
+    border-bottom: 1px solid #000;
+    background-color: #d9e2ef;
+    border-width: 1px 0pt 0pt;
+    overflow: hidden;
+    padding: 3px 0px;
+    float: left;
+    width: 100%;
+}
+div.sub-nav ul {
+    list-style-type: none;
+    margin-bottom: -2px;
+    margin-top: -1px;
+}
+
+div.sub-nav ul li {
+    color: #666;
+    float:left;
+    font-size: 92%;
+    font-weight: bold;
+    padding: 6px 16px;
+    text-transform: uppercase;
 }
 
 /* vim: sw=4 sts=4 expandtab */

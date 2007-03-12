@@ -29,6 +29,12 @@ from lib.utils import get_messages
 from lib.templates.UserTemplate import UserTemplate
 from lib.templates.MailUserTemplate import MailUserTemplate
 
+def _get_links():
+    return (
+        ('index', _('Index')),
+        ('mail', _('Mail')),
+    )
+
 def index(transaction):
     page = UserTemplate()
     username = cherrypy.session.get('username', '')
@@ -36,8 +42,9 @@ def index(transaction):
     page.tr = transaction
     page.account = account
     page.messages = get_messages()
-    res = str(page)
-    return [res]
+    page.set_focus('index/')
+    page.links = _get_links()
+    return page.respond()
 index = transaction_decorator(index)
 index.exposed = True
 
@@ -79,7 +86,8 @@ def mail(transaction):
     page.forwards = get_forwards(transaction,account)
     page.messages = get_messages()
 
-    page.setFocus("mail")
+    page.set_focus("/mail")
+    page.links = _get_links()
     res = str(page)
     return [res]
 mail = transaction_decorator(mail)

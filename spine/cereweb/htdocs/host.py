@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
@@ -36,7 +37,8 @@ def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Host")
     page.search_title = _('host(s)')
-    page.setFocus("/host/search")
+    page.set_focus("host/search")
+    page.links = _get_links()
 
     page.search_fields = [("name", _("Name")),
                           ("description", _("Description"))
@@ -57,18 +59,16 @@ index = search
 def view(transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
-    page = Main()
+    page = HostViewTemplate()
     page.title = _('Host %s') % host.get_name()
-    # page.title = _('Host')
-    page.setFocus('host/view', id)
+    page.set_focus('host/view')
+    page.links = _get_links()
     server_type_searcher = transaction.get_email_server_type_searcher()
     type_names = [ (type.get_name(), type.get_name()) for type in server_type_searcher.search()]
-    template = HostViewTemplate()
-    template.email_server_types = type_names
-    # template.title = _('Host %s') % host.get_name()
-    content = template.view(transaction, host)
-    page.content = lambda: content
-    return page
+    page.email_server_types = type_names
+    page.entity = host
+    page.entity_id = int(id)
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -78,7 +78,8 @@ def edit(transaction, id):
     page = Main()
     # page.title = _("Edit ") + object_link(host)
     page.title = _("Host")
-    page.setFocus("host/edit", id)
+    page.set_focus("host/edit")
+    page.links = _get_links()
 
     edit = HostEditTemplate()
     edit.title = _('Edit ') + object_link(host) + _(':')
@@ -105,7 +106,8 @@ def create(transaction, name="", description=""):
     """Creates a page with the form for creating a host."""
     page = Main()
     page.title = _("Host")
-    page.setFocus("host/create")
+    page.set_focus("host/create")
+    page.links = _get_links()
 
     # Store given create parameters in create-form
     values = {}

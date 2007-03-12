@@ -48,7 +48,7 @@ cereweb.ac_group.prototype = {
      *  to add autocomplete to. */
     build: function() {
         this.dropdown = document.createElement('div');
-        container = this.input.parentNode;
+        var container = this.input.parentNode;
         container.appendChild(this.dropdown);
         this.form = container;
         while (this.form.tagName.toLowerCase() !== 'form')
@@ -142,10 +142,28 @@ cereweb.ac_account.prototype.dataSourceOptions = {
 }
 
 cereweb.ac_quicksearch = function(container) {
-    this.input = YD.get("ac_quicksearch_name");
-    this.label = this.input.parentNode.getElementsByTagName('label')[0];
-    this.id = YD.get("ac_quicksearch_id");
+    var qdiv = cereweb.createDiv('quicksearch', 'tabview');
+    this.form = document.createElement('form');
+    this.form.setAttribute('id', 'qs_form');
+    qdiv.appendChild(this.form);
+    var dForm = cereweb.createDiv('qs_dform', 'qs_form');
+
+    this.input = document.createElement('input');
+    this.label = document.createElement('label');
+    this.id = document.createElement('input');
+    this.input.setAttribute('name', 'query');
+    this.input.setAttribute('type', 'text'),
+    this.label.setAttribute('for', 'query');
+    this.id.setAttribute('name', 'id');
+    this.id.setAttribute('type', 'hidden');
+    
+    dForm.appendChild(this.id);
+    dForm.appendChild(this.label);
+    dForm.appendChild(this.input);
+
+
     cereweb.ac_quicksearch.superclass.constructor.call(this, this.input);
+
     this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
     container.style.display = "";
     this.updateLabel();
@@ -225,7 +243,7 @@ cereweb.ac_quicksearch.prototype.dataSourceOptions = {
     queryMatchCase: true
 }
 
-YE.onAvailable('ac_quicksearch', function () {
+YE.onAvailable('container', function () {
         cereweb.quicksearch = new cereweb.ac_quicksearch(this);
     }
 );

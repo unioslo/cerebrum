@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
@@ -34,7 +35,8 @@ from lib.templates.AllocationCreateTemplate import AllocationCreateTemplate
 def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Search for allocation(s)")
-    page.setFocus("allocation/search")
+    page.set_focus("allocation/search")
+    page.links = _get_links()
     page.search_fields = [("allocation_name", _("Allocation Name")),
                           ("period", _("Period")),
                           ("machine", _("Machine"))
@@ -55,14 +57,16 @@ index = search
 def view(transaction, id):
     """Creates a page with a view of the allocation given by id."""
     allocation = transaction.get_allocation(int(id))
-    page = Main()
+    page = AllocationViewTemplate()
     page.title = _('Allocation %s %s') % (
         allocation.get_allocation_name().get_name(),
         allocation.get_period().get_name() )
-    page.setFocus('allocation/view', id)
-    content = AllocationViewTemplate().view(transaction, allocation)
-    page.content = lambda: content
-    return page
+    page.set_focus('allocation/view')
+    page.links = _get_links()
+    page.entity_id = int(id)
+    page.entity = allocation
+    page.tr = transaction
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -71,7 +75,8 @@ def edit(transaction, id):
     allocation = transaction.get_allocation(int(id))
     page = Main()
     page.title = _("Edit ") + object_link(allocation)
-    page.setFocus("allocation/edit", id)
+    page.set_focus("allocation/edit")
+    page.links = _get_links()
 
     edit = AllocationEditTemplate()
     content = edit.editAllocation(allocation,transaction)
@@ -100,7 +105,8 @@ def create(transaction, project=None, allocation_name=None):
     """Creates a page with the form for creating a allocation"""
     page = Main()
     page.title = _("Create a new allocation")
-    page.setFocus("allocation/create")
+    page.set_focus("allocation/create")
+    page.links = _get_links()
 
     # Store given create parameters in create-form
     values = {}

@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, object_link
@@ -34,7 +35,8 @@ from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Disk")
-    page.setFocus("disk/search")
+    page.set_focus("disk/search")
+    page.links = _get_links()
     page.search_title = _('disk(s)')
     page.search_fields = [("path", _("Path")),
                           ("description", _("Description"))
@@ -56,12 +58,14 @@ index = search
 def view(transaction, id):
     """Creates a page with a view of the disk given by id."""
     disk = transaction.get_disk(int(id))
-    page = Main()
+    page = DiskViewTemplate()
     page.title = _('Disk %s') % disk.get_path()
-    page.setFocus('disk/view', id)
-    content = DiskViewTemplate().view(transaction, disk)
-    page.content = lambda: content
-    return page
+    page.set_focus('disk/view')
+    page.links = _get_links()
+    page.entity_id = int(id)
+    page.entity = disk
+    page.tr = transaction
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -71,7 +75,8 @@ def edit(transaction, id):
     page = Main()
     # page.title = _("Edit ") + object_link(disk)
     page.title = _("Disk")
-    page.setFocus("disk/edit", id)
+    page.set_focus("disk/edit")
+    page.links = _get_links()
 
     edit = DiskEditTemplate()
     content = edit.editDisk(disk)
@@ -99,7 +104,8 @@ def create(transaction, host=""):
     """Creates a page with the form for creating a disk."""
     page = Main()
     page.title = _("Disk")
-    page.setFocus("disk/create")
+    page.set_focus("disk/create")
+    page.links = _get_links()
 
     hosts = [(i.get_id(), i.get_name()) for i in
                     transaction.get_host_searcher().search()]

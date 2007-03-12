@@ -22,6 +22,7 @@ import cherrypy
 import re
 import string
 
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import strftime, strptime, commit_url
@@ -39,7 +40,8 @@ from lib.templates.PersonViewTemplate import PersonViewTemplate
 def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Person")
-    page.setFocus("person/search")
+    page.set_focus("person/search")
+    page.links = _get_links()
     page.search_title = _('A person')
     page.search_fields = [("name", _("Name")),
                           ("accountname", _("Account name")),
@@ -85,12 +87,14 @@ def _get_person(transaction, id):
 def view(transaction, id, **vargs):
     """Creates a page with a view of the person given by id."""
     person = transaction.get_person(int(id))
-    page = Main()
+    page = PersonViewTemplate()
     page.title = _("Person %s" % _primary_name(person))
-    page.setFocus("person/view", id)
-    content = PersonViewTemplate().view(transaction, person)
-    page.content = lambda: content
-    return page
+    page.set_focus("person/view")
+    page.links = _get_links()
+    page.tr = transaction
+    page.entity_id = int(id)
+    page.entity = person
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -99,7 +103,8 @@ def edit(transaction, id):
     person = transaction.get_person(int(id))
     page = FormTemplate()
     page.title = _("Edit ") + object_link(person)
-    page.setFocus("person/edit", id)
+    page.set_focus("person/edit")
+    page.links = _get_links()
 
     get_date = lambda x: x and strftime(x, '%Y-%m-%d') or ''
     values = {
@@ -154,6 +159,8 @@ def create_form(form, message=None):
     if message:
         page.messages.append(message)
     page.title = _("Person")
+    page.set_focus("person/create")
+    page.links = _get_links()
     page.form_title = _("Create new person")
     page.form_action = "/person/create"
     page.form_fields = form.get_fields()

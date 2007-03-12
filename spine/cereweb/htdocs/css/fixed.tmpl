@@ -43,65 +43,8 @@
 #set $bottomheight = 9
 #set $paddingtop = 1
 
-body {
-  color: black;
-  background: white;
-  margin: 0;
-}
-
-div.page_menu, div.page_bottom {
-  margin-top: 2em;
-  margin-left: 1em;
-  padding-bottom: 1em;
-  padding-left: 0.5em;
-  padding-right: 0.5em;
-  padding-top: 0.1em;
-  /* position: absolute; */
-  /* If scrolling is needed: */
-  overflow: hidden; 
-}
-
-div.page_menu {
-  /* Placed in the upper left corner */
-  bottom: auto;
-  height: auto;
-  left: 0;
-  right: auto;
-  top: 0;
-  width: ${menuwidth}em;
-  position: absolute;
-}
-
-div.page_bottom {
-  /* Placed in the lower left corner */
-  height: ${bottomheight}em;
-  width: 100%;
-  top: auto;
-  right: 0;
-  bottom: 0;
-  left: 0;
-}
-
-/* This trick is to fix something i IE 5 on Mac..  */
-@media screen {
-  body>div.page_menu, body>div.page_bottom {
-	/* position: fixed; */
-  }
-}
-
 /* The actual content area. */
 #set $realpadding = 1
 #set $paddingleft = $menuwidth + $realpadding + 1
 #set $paddingbottom = $bottomheight + $realpadding  
-\#content {
-  border: 1px dotted grey;
-  margin: 0.5em 0.5em 0.5em 0.5em;
-  padding-top: ${paddingtop}em;
-  padding-right: ${realpadding}em; 
-  padding-left: ${paddingleft}em; 
-  /* padding-bottom: ${paddingbottom}em; */
-  padding-bottom: 2em;
-  ## Make the box taller than the menu.
-  min-height: 270px;
-}
 

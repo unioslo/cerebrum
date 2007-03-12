@@ -26,29 +26,37 @@ from lib.utils import transaction_decorator, commit_url
 from lib.utils import queue_message, redirect
 from lib.templates.PermissionsTemplate import PermissionsTemplate
 
+def _get_links():
+    return (
+        ('/permissions/', _('Index')),
+        ('/permissions/view', _('View')),
+    )
+
 def index(transaction):
     """Form for selecting an operation set, and for creating a new."""
-    page = Main()
+    page = PermissionsTemplate()
     page.title = _('Permission Control')
-    page.setFocus('permissions')
+    page.set_focus('permissions/')
+    page.links = _get_links()
     
-    template = PermissionsTemplate().view_index(transaction)
-    page.content = lambda: template
-    return page
+    page.tr = transaction
+    return page.respond()
 index = transaction_decorator(index)
 index.exposed = True
 
 def view(transaction, id):
     """View the auth operation set."""
     op_set = transaction.get_auth_operation_set(int(id))
-    page = Main()
+    page = PermissionsTemplate()
     page.title = _('Operation set %s') % op_set.get_name()
-    page.setFocus('permissions/view', id)
+    page.set_focus('permissions/view')
+    page.links = _get_links()
     page.add_jscript('permissions.js')
+    page.entity = op_set
+    page.tr = transaction
+    page.entity_id = int(id)
 
-    template = PermissionsTemplate().view(transaction, op_set)
-    page.content = lambda: template
-    return page
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -57,7 +65,7 @@ def edit(transaction, id):
     op_set = transaction.get_auth_operation_set(int(id))
     page = Main()
     page.title = _('Operation set %s') % op_set.get_name()
-    page.setFocus('permissions/edit', id)
+    page.set_focus('permissions/edit')
 
     template = PermissionsTemplate().edit(op_set)
     page.content = lambda: template
@@ -81,7 +89,7 @@ def users(transaction, id):
     op_set = transaction.get_auth_operation_set(int(id))
     page = Main()
     page.title = _('Users on %s') % op_set.get_name()
-    page.setFocus('permissions/users', id)
+    page.set_focus('permissions/users')
 
     template = PermissionsTemplate().users(transaction, op_set)
     page.content = lambda: template
@@ -159,7 +167,7 @@ view_user_by_name.exposed = True
 def _view_user(transaction, entity):
     page = Main()
     page.title = _('Permissions for %s') % entity.get_name()
-    page.setFocus('permissions')
+    page.set_focus('permissions/')
     template = PermissionsTemplate().view_user(entity)
     page.content = lambda: template
     return page

@@ -38,8 +38,9 @@ if(cerebug) {
     var init = function(o) {
         var logger = cereweb.createDiv('logger');
         var myLogReader = new YAHOO.widget.LogReader(logger);
+        debugger /* Force the debugger to break. */
     }
-    YE.onAvailable("maindiv", init);
+    YE.onAvailable("container", init);
 };
 
 cereweb.createDiv = function (id, parent) {
@@ -103,7 +104,7 @@ cereweb.action = {
         }
     }
 }
-YE.addListener('maindiv', "click", cereweb.action.clicked,
+YE.addListener('container', "click", cereweb.action.clicked,
     cereweb.action, true);
 
 /**
@@ -176,7 +177,7 @@ YE.onAvailable('content', cereweb.editBox.init, cereweb.editBox, true);
 
 cereweb.tooltip = {
     init: function() {
-        var els = YD.getElementsByClassName('tt', null, 'maindiv');
+        var els = YD.getElementsByClassName('tt', null, 'container');
         for (var i=0; i<els.length; i++)
             els[i].setAttribute('title', els[i].nextSibling.innerHTML);
         this.tt = new YAHOO.widget.Tooltip('tt', {context:els});
@@ -187,13 +188,19 @@ cereweb.tooltip = {
  * Some text and links are only to be shown to users without javascript,
  * and some text and links should only be shown to users with it.
  */
-YE.onAvailable('maindiv', function() {
-    var nojs = YD.getElementsByClassName('nojs', null, 'maindiv');
-    var jsonly = YD.getElementsByClassName('jsonly', null, 'maindiv');
-    if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
-    if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
-    cereweb.tooltip.init();
-});
+cereweb.javascript = {
+    init: function() {
+        var nojs = YD.getElementsByClassName('nojs', null, 'container');
+        var jsonly = YD.getElementsByClassName('jsonly', null, 'container');
+        if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
+        if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
+        cereweb.tooltip.init();
+    }
+}
+YE.onAvailable('container', cereweb.javascript.init);
+
+var myTabs = new YAHOO.widget.TabView('tabview');
+myTabs.DOMEventHandler = function(e) { /* do nothing */ };
 
 if(cerebug) {
     log('bases are loaded');

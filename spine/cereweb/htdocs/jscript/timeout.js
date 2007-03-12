@@ -85,7 +85,7 @@ function TO_check() {
             }
         },
         failure: TO_connection_failure,
-        timeout: TO_timeout,
+        timeout: TO_timeout
     }
 
     url = '/session_time_left'
@@ -115,7 +115,7 @@ function TO_keepalive() {
             }
         },
         failure: TO_connection_failure,
-        timeout: TO_timeout,
+        timeout: TO_timeout
     }
     
     url = '/session_keep_alive'

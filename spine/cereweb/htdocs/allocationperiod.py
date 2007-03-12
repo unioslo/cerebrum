@@ -20,6 +20,7 @@
 
 import cherrypy
 
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
@@ -34,7 +35,8 @@ from lib.templates.AllocationPeriodCreateTemplate import AllocationPeriodCreateT
 def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Search for allocation Period(s)")
-    page.setFocus("allocationperiod/search")
+    page.set_focus("allocationperiod/search")
+    page.links = _get_links()
     page.search_fields = [("name", _("Name"),
                           ("allocationauthority", _("Allocation Authority"),
                          ]
@@ -54,12 +56,14 @@ index = search
 def view(transaction, id):
     """Creates a page with a view of the allocation periods given by id."""
     allocationperiod = transaction.get_allocation_period(int(id))
-    page = Main()
+    page = AllocationPeriodViewTemplate()
     page.title = _('Allocation Period %s') % allocationperiod.get_name()
-    page.setFocus('allocationperiod/view', id)
-    content = AllocationPeriodViewTemplate().view(transaction, allocationperiod)
-    page.content = lambda: content
-    return page
+    page.set_focus('allocationperiod/view')
+    page.links = _get_links()
+    page.entity_id = int(id)
+    page.entity = allocationperiod
+    page.tr = transaction
+    return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
@@ -69,7 +73,8 @@ def edit(transaction, id):
     allocationperiod = transaction.get_allocation_period(int(id))
     page = Main()
     page.title = _("Edit ") + object_link(allocationperiod)
-    page.setFocus("allocationperiod/edit", id)
+    page.set_focus("allocationperiod/edit")
+    page.links = _get_links()
 
     authorities = [(a.get_name(), a.get_name()) for a in
                transaction.get_allocation_authority_searcher().search()]
@@ -105,7 +110,8 @@ def create(transaction):
     """Creates a page with the form for creating an allocation period ."""
     page = Main()
     page.title = _("Create a new allocation period")
-    page.setFocus("allocationperiod/create")
+    page.set_focus("allocationperiod/create")
+    page.links = _get_links()
 
     authorities = [(a.get_name(), a.get_name()) for a in
                transaction.get_allocation_authority_searcher().search()]
