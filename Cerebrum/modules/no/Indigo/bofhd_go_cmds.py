@@ -12,8 +12,10 @@ from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName,GroupOperation
 from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
+                                        BofhdAuthOpSet, BofhdAuthOpTarget
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -39,7 +41,7 @@ class BofhdExtension(object):
         '_get_disk', '_get_group', '_map_person_id', '_parse_date',
         'person_accounts', '_get_entity', 'group_user',
         'group_memberships', 'person_find', 'group_search',
-        '_get_boolean', 'group_info', '_entity_info', 'num2str',
+        '_get_boolean', '_entity_info', 'num2str',
         'group_list', 'misc_list_passwords', '_get_cached_passwords',
         'user_password', '_get_entity_name', 'group_add_entity',
         'group_remove_entity', '_group_remove_entity',
@@ -111,6 +113,47 @@ class BofhdExtension(object):
         self._cached_client_commands[int(account_id)] = commands
         return commands
 
+    all_commands['group_info'] = None
+    def group_info(self, operator, groupname):
+        grp = self._get_group(groupname)
+        co = self.const
+        ret = [ self._entity_info(grp) ]
+        # find owners
+        aot = BofhdAuthOpTarget(self.db)
+        targets = []
+        for row in aot.list(target_type='group', entity_id=grp.entity_id):
+            targets.append(int(row['op_target_id']))
+        ar = BofhdAuthRole(self.db)
+        aos = BofhdAuthOpSet(self.db)
+        for row in ar.list_owners(targets):
+            aos.clear()
+            aos.find(row['op_set_id'])
+            id = int(row['entity_id'])
+            en = self._get_entity(id=id)
+            if en.entity_type == co.entity_account:
+                owner = en.account_name
+            elif en.entity_type == co.entity_group:
+                owner = en.group_name
+            else:
+                owner = '#%d' % id
+            ret.append({'owner_type': str(co.EntityType(en.entity_type)),
+                        'owner': owner,
+                        'opset': aos.name})
+
+        # Count group members of different types
+        u, i, d = grp.list_members()
+
+        for members, op in ((u, 'u'), (i, 'i'), (d, 'd')):
+            tmp = {}
+            for ret_pfix, entity_type in (
+                ('c_group_', int(co.entity_group)),
+                ('c_account_', int(co.entity_account))):
+                tmp[ret_pfix+op] = len(
+                    [x for x in members if int(x[0]) == entity_type])
+                if [x for x in tmp.values() if x > 0]:
+                    ret.append(tmp)
+        return ret
+    
     all_commands['get_auth_level'] = None
     def get_auth_level(self, operator):
         if self.ba.is_superuser(operator.get_entity_id()):
