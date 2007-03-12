@@ -110,7 +110,7 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
         postal_number = "%04i" % int(postal_number)
     ret['postal_number'] = postal_number
     ret['city'] =  a_dict.get(kline3, '')
-    if ret['city'] == None:
+    if ret['city'] == None or len(ret['address_text']) < 1:
         logger.info("Skipping, the address is incomplete")
         return None
     if len(ret['address_text']) == 1:
