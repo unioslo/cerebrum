@@ -22,7 +22,6 @@ import time
 import cherrypy
 
 from utils import get_messages
-from SideMenu import SideMenu
 from WorkList import WorkList
 from ActivityLog import ActivityLog
 from templates.FramesTemplate import FramesTemplate
@@ -38,16 +37,15 @@ class Main(FramesTemplate):
     def __init__(self):
         """Creates all parts of the page beside the content."""
         FramesTemplate.__init__(self)
-        self.jscripts = []
         self.prepare_page()
         self.prepare_messages()
+        self.page, self.link = '', '#'
 
     def prepare_page(self):
         """Makes sure parts of the page is created only once.
         
         Creates worklist, and activitylog.
         """
-        self.menu = SideMenu()
         self.worklist = WorkList()
         self.activitylog = ActivityLog()
 
@@ -59,12 +57,17 @@ class Main(FramesTemplate):
         """
         self.messages = get_messages()
         
-    def setFocus(self, *args):
+    def set_focus(self, page):
         """Wraps the setFocus-method on the menu."""
-        self.menu.setFocus(*args)
+        self.page, self.link = page.split('/')
 
     def add_jscript(self, jscript):
-        self.jscripts.append(jscript)
+        if not jscript in self.jscripts:
+            self.jscripts.append(jscript)
+
+    def rem_jscript(self, jscript):
+        if jscript in self.jscripts:
+            self.jscripts.remove(jscript)
 
     def __iter__(self):
         return iter(str(self))

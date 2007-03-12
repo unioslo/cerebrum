@@ -285,3 +285,22 @@ def valid_search(*args, **vargs):
             break
     return valid
 
+def get_tabs(current=None):
+    tabs = [
+      ('cereweb', '/index'),
+      ('person', '/person'),
+      ('account', '/account'),
+      ('group', '/group'),
+      ('ou', '/ou'),
+      ('host', '/host'),
+      ('disk', '/disk'),
+      ('email', '/email'),
+      ('options', '/options'),
+      ('logout', '/logout'),
+    ]
+    html = '<li%s><a href="%s"><em>%s</em></a></li>'
+    res = []
+    for (name, link) in tabs:
+        selected = name == current and ' class="selected"' or ''
+        res.append(html % (selected, link, name))
+    return "\n".join(res)
