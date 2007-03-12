@@ -896,36 +896,50 @@ class BofhdExtension(object):
                      repeat=True, optional=True),
         perm_filter='can_email_forward_toggle')
     def email_forward(self, operator, action, uname, addr=None):
+        """Toggle forward settings.  addr is optional and used as a
+        pattern, if there is no addr, all addresses are affected.
+
+        The action 'local' is special, it adds local delivery.  If
+        addr is specified, turn on matching addresses, too.  If it is
+        not specified, only add local delivery.
+
+        The address 'local' is special, it matches any valid e-mail
+        address.
+        """
+
         acc = self._get_account(uname)
         self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
         fw.find_by_entity(acc.entity_id)
         matches = []
-        prim = acc.get_primary_mailaddress()
+        local_delivery = False
 
-        found = False
-        if addr == 'local':
-            for a in self.__get_valid_email_addrs(fw):
-                if self._forward_exists(fw, a):
-                    found = True
-                    matches.append(a)
-        else:
+        if action == 'local' or addr == 'local':
+            valid_addrs = self.__get_valid_email_addrs(fw)
             for r in fw.get_forward():
-                if addr is None or r['forward_to'].find(addr) <> -1:
+                if r['forward_to'] in valid_addrs:
                     matches.append(r['forward_to'])
-        if addr:
-            if not matches:
-                raise CerebrumError, "No such forward address: %s" % addr
-            elif len(matches) > 1 and addr <> 'local':
-                raise CerebrumError, "More than one address matches %s" % addr
-        elif not matches:
-            raise CerebrumError, "No forward addresses for %s" % uname
-        if action == 'local':
-            action = 'on'
-            if not found:
+                    local_delivery = True
+
+        if not (action == 'local' and addr is None):
+            for r in fw.get_forward():
+                if addr is None or r['forward_to'].find(addr) != -1:
+                    matches.append(r['forward_to'])
+
+        if action == 'local' or (action == 'on' and addr == 'local'):
+            if not local_delivery:
+                if not fw.get_forward():
+                    # Don't add redundant forwarding
+                    return "OK"
+                prim = acc.get_primary_mailaddress()
                 fw.add_forward(prim)
+                matches.append(prim)
+        if not matches:
+            if addr is None:
+                raise CerebrumError, "No forward addresses"
+            raise CerebrumError, "No such forward address: %s" % addr
         for a in matches:
-            if action == 'on':
+            if action == 'on' or action == 'local':
                 fw.enable_forward(a)
             elif action == 'off':
                 fw.disable_forward(a)
