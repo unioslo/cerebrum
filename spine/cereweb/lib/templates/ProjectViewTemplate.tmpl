@@ -26,24 +26,22 @@
 #attr $widgets = Widgets()
 #attr $formvalues = {}
 
-#def viewActions($transaction, $project)
-    #set $id = $project.get_id()
-
-    <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id">$_("delete project")</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+#def actions()
+    <a href="edit?id=$entity_id">$_("edit info")</a><br />
+    <a href="delete?id=$entity_id">$_("delete project")</a><br />
+    <a href="/entity/full_historylog?id=$entity_id">$_('view full history log')</a>
     <br />
-    $remember_link($project)<br />
+    $remember_link($entity)<br />
 #end def
 
 ## Main method for creating the project view page.
-#def viewContent($transaction, $project)
-    $viewInfo($project)
-    ##$addNote($project)
-    ##$viewNotes($project)
-    $addAllocationName($project, $transaction)
-    $viewAllocations($project)
-    $viewHistoryLog($project)
+#def content()
+    $viewInfo($entity)
+    ##$addNote($entity)
+    ##$viewNotes($entity)
+    $addAllocationName($entity, $tr)
+    $viewAllocations($entity)
+    $viewHistoryLog($entity)
 #end def
 
 ## View information about host (name and description).

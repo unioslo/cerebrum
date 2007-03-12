@@ -16,58 +16,212 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.InitTemplate import InitTemplate
+#from lib.Main import Main
 #from lib import HistoryLog
-#from NoteTemplate import NoteTemplate
-#from QuarantineTemplate import QuarantineTemplate
-#from ExternalIdTemplate import ExternalIdTemplate
-#from SpreadTemplate import SpreadTemplate
-#extends InitTemplate
+#from lib.utils import object_link, strftime
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+#extends Main
+
+#attr $formvalues = {}
 
 #def viewNotes($entity)
-    #try
-    	#return $NoteTemplate().view($entity)
-    #except 
-        #return ""
-    #end try
+#set $notes = $entity.get_notes()
+#if $notes
+<div class="note box">
+    <h3>$_('Notes')</h3>
+    #for $note in $notes
+    #set $delete = '/note/delete?id=%s&amp;entity=%s' % ($note.get_id(), $entity.get_id())
+    #set $description = $note.get_description().strip()
+    #set $description = $description.replace('\n', '<br />')
+    <div class="item">
+        <div class="actions">
+            <a class="action" href="$delete">$_('delete')</a>
+        </div>
+        <span class="name">$note.get_subject()</span>&nbsp;
+        <span class="creator">-$_('by')  $object_link($note.get_creator())</span>&nbsp;
+        <span class="date">$strftime($note.get_create_date())</span>
+        <div class="description">$description</div>
+    </div>
+    #end for
+</div>
+#end if
 #end def
 
 #def addNote($entity)
-    #return $NoteTemplate().add($entity)
+<div class="edit box" style="display:none;">
+    <h3>$_('Add a note')</h3>
+    <form action="/note/add" method="post">
+        <div class="hidden">
+            <input type="hidden" name="entity" value="$entity.get_id()" />
+        </div>
+        <div class="required">
+            <label for="subject">$_('Subject'):</label>
+            <input type="text" size="40" name="subject" id="subject" />
+        </div>
+        <div class="required">
+            <label for="description">$_('Optional details'):</label>
+            <textarea cols="40" rows="4" name="description" id="description"></textarea>
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Add')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+</div>
 #end def
 
 #def viewQuarantines($entity)
-    #return $QuarantineTemplate().view($entity)
+#set $quarantines = $entity.get_quarantines()
+#if $quarantines
+#set $id = $entity.get_id()
+<div class="important box">
+    <h3>$_('Quarantines')</h3>
+    #for $q in $quarantines
+    <div class="item">
+        #set $type = $q.get_type().get_name()
+        #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($id, $type)
+        #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($id, $type)
+        #set $description = $q.get_description().replace('\n', '<br />')
+                
+        <div class="actions">
+            <a class="action" href="$edit">$_('edit')</a>
+            <a class="action" href="$remove">$_('delete')</a>
+        </div>
+        <strong>$q.get_type().get_description()</strong>&nbsp;
+        <em>-$_('by')</em> $object_link($q.get_creator())&nbsp;
+        <span class="date">$strftime($q.get_create_date())</span>
+        <div class="description">$description.strip()</div>
+        
+        #set $end = $q.get_end_date()
+        #set $until = $q.get_disable_until()
+        
+        <em>$_('Start'):</em>
+        <span class="date"> $strftime($q.get_start_date())</span>
+        #if $end
+        <em> $_('End'):</em>
+        <span class="date"> $strftime($end)</span>
+        #end if
+        #if $until
+        <em> $_('Disable until'):</em>
+        <span class="date"> $strftime($until)</span>
+        #end if
+    </div>
+    #end for
+</div>
+#end if
 #end def
 
 #def viewExternalIds($entity)
-    #return $ExternalIdTemplate().view($entity)
+#set $ids = $entity.get_external_ids()
+#if $ids
+<div class="info box">
+    <h3>$_('External identifiers')</h3>
+    #for $id in $ids
+    <div class="item">
+        #set $external_id = $id.get_external_id()
+        #set $type = $id.get_id_type().get_description()
+        #set $ss_name = $id.get_source_system().get_name()
+        #set $ss_desc = $id.get_source_system().get_description()
+        #set $args = "id=%i&external_id=%s&id_type=%s" % ($entity.get_id(),
+                            $external_id, $id.get_id_type().get_name())
+        #set $delete = '/entity/remove_external_id?%s' % $args
+        <div class="actions">
+            <a class="action" href="$delete">$_('delete')</a>
+        </div>
+        <span class="name">$id.get_id_type().get_description():</span>
+        <span class="value">$external_id</span>
+        <br />
+        <span class="name">$_('Source system'):</span>
+        <span class="value">$ss_name ($ss_desc)</span>
+    </div>
+    #end for
+</div>
+#end if
 #end def
 
 #def setExternalId($entity, $transaction)
-    #return $ExternalIdTemplate().set($entity, $transaction)
+#set $searcher = $transaction.get_entity_external_id_type_searcher()
+#set $id_types = [($type.get_name(), $type.get_description()) 
+                                for $type in $searcher.search()]
+
+<div class="edit box" style="display:none;">
+    <h3>$_('Set external identifier')</h3>
+    <form action="/entity/add_external_id" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$entity.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.input("external_id", "External identifier")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("id_type", "Type", $id_types)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Set')" />&nbsp;
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+</div>
+#end def
+
+#def viewSpreads($entity)
+#set $spreads = $entity.get_spreads()
+#if $spreads
+#set $id = $entity.get_id()
+<div class="info box">
+    <h3>$_('Spreads')</h3>
+    #for $spread in $spreads
+    #set $name = $spread.get_name()
+    #set $delete = '/entity/remove_spread?id=%s&amp;spread=%s' % ($id, $name)
+    <div class="item">
+        <div class="actions">
+            <a class="action" href="$delete">$_('remove')</a>
+        </div>
+        <span class="name">$name</span> -
+        <span class="value">$spread.get_description()</span>
+    </div>
+    #end for
+</div>
+#end if
+#end def
+
+#def addSpread($entity, $transaction)
+    #set $type = $entity.get_type()
+    #set $cspreads = $entity.get_spreads()
+    #set $search = $transaction.get_spread_searcher().search()
+    #set $spreads = [($s.get_name(), $s.get_name()) for $s in $search 
+                     if $type == $s.get_entity_type() and $s not in $cspreads]
+
+    <div class="edit box" style="display:none;">
+        <h3>$_('Add a spread')</h3>
+        <form action="/entity/add_spread" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$entity.get_id()" />
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Add')" />&nbsp;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
 #end def
 
 #def viewHistoryLog($entity)
     #return $HistoryLog.view_history_short($entity)
 #end def
 
-#def viewSpreads($entity)
-    #return $SpreadTemplate().view($entity)
-#end def
 
-#def addSpread($entity, $transaction)
-    #return $SpreadTemplate().add($entity, $transaction)
-#end def
-
-#def view($transaction, $entity)
-<div class="view_content">
-    <div class="view_actions">
-        <h4>$_('Actions')</h4>
-        <div id="actions">
-            $viewActions($transaction, $entity)
-        </div>
-    </div>
-    $viewContent($transaction, $entity)
+#def actions()
+<div id="actions">
+    <h3>$_('Actions')</h3>
+    $viewActions($transaction, $entity)
 </div>
+#end def
+
+#def content()
+$viewContent($tr, $entity)
 #end def

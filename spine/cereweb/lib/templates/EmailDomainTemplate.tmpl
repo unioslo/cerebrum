@@ -18,8 +18,8 @@
 
 #from lib.utils import object_link
 #from lib.WorkList import remember_link
-#from lib.InitTemplate import InitTemplate
-#extends InitTemplate
+#from lib.Main import Main
+#extends Main
 
 #from Widgets import Widgets
 #from FormWidgets import FormWidgets
@@ -44,8 +44,8 @@
 #end def
 
 #def create_box($tr)
-<div class="view">
-<h3>$_("Create a new email domain:")</h3>
+<div class="edit box">
+    <h3>$_("Create a new email domain:")</h3>
     <form action="/email/make" method="post">
         #echo $_create($tr)
         <div class="buttons">
@@ -57,7 +57,7 @@
 #end def
 
 #def create($tr)
-<div class="view">
+<div class="edit box">
     <h3>$_('Create a new email domain:')</h3>
     <form action="/email/make" method="post">
         #echo $_create($tr)
@@ -70,7 +70,7 @@
 #end def
 
 #def search_box($tr)
-<div class="view">
+<div class="list box">
     <h3>$_('Find email domain:')</h3>
     <form method="post" action="/email/search">
         #echo $_search($tr, {})
@@ -83,7 +83,7 @@
 #end def
 
 #def search($tr, $vargs)
-<div class="view">
+<div class="edit box">
     <h3>$_("Search for email domain(s):")</h3>
     <form method="post" action="/email/search">
         #echo $_search($tr, $vargs)
@@ -135,31 +135,28 @@
 <br />
 #end def
 
-#def view_domain($transaction, $domain)
-#set $id = $domain.get_id()
+#def actions()
+<div id="actions">
+    <h3>$_('Actions')</h3>
+    <a href="edit?id=$entity_id">$_('edit info')</a><br />
+    <a href="delete?id=$entity_id">$_('delete domain')</a><br />
+    <a href="addresses?id=$entity_id">$_('list adresses')</a><br />
+    $remember_link($entity)<br />
+</div>
+#end def
+
+#def content()
 <div class="view_content">
-
-    ## Actions
-    <div class="view_actions">
-        <h4>$_('Actions')</h4>
-        <div id="actions">
-            <a href="edit?id=$id">$_('edit info')</a><br />
-            <a href="delete?id=$id">$_('delete domain')</a><br />
-            <a href="addresses?id=$id">$_('list adresses')</a><br />
-            $remember_link($domain)<br />
-        </div>
-    </div>
-
     ## Content
     #set $info = []
-    $info.append(($_("Domain name:"), $domain.get_name()))
-    $info.append(($_("Description:"), $domain.get_description()))
+    $info.append(($_("Domain name:"), $entity.get_name()))
+    $info.append(($_("Description:"), $entity.get_description()))
     $widgets.viewInfo($info)
 
-    $addCategory($transaction, $domain)
-    $viewCategories($domain)
+    $addCategory($tr, $entity)
+    $viewCategories($entity)
     
-    $list_addresses($transaction, $domain, $max_addresses)
+    $list_addresses($tr, $entity, $max_addresses)
 </div>
 #end def
 
@@ -167,8 +164,8 @@
 #set $categories = $transaction.get_email_domain_category_searcher()
 
 <div class="edit box" style="display:none;">
+    <h3>$_('Add to category')</h3>
     <form action="add_to_category" method="post">
-        <h3>$_('Add to category')</h3>
         <div class="hidden">
             <input type="hidden" name="id" value="$domain.get_id()" />
         </div>
@@ -186,10 +183,10 @@
 #def viewCategories($domain)
 #set $cats = $domain.get_categories()
 #if $cats
-    <div class="passwords">
+    <div class="list box">
         <h3>$_("Categories")</h3>
         #for $category in $cats
-        <div>
+        <div class="item">
             $object_link($category)
             $object_link($domain, method="remove_from_category", 
             text=$_("Remove from category"), _class="action",
@@ -221,16 +218,16 @@
             $object_link($address.get_target(), $address.full_address())
         </div>
     #end for
-</div>
-<div class="help">
-    $_("To add new addresses to the domain, create a new email target. "
-       "For instance, find an account and create a new email target "
-       "attached to the account.")
+    <div class="help">
+        $_("To add new addresses to the domain, create a new email target. "
+           "For instance, find an account and create a new email target "
+           "attached to the account.")
+    </div>
 </div>
 #end def
 
 #def edit_domain($domain)
-<div class="view">
+<div class="edit box">
     <h3>$_('Edit domain ' + $domain.get_name())</h3>
     <form action="save" method="post">
         <div class="hidden">

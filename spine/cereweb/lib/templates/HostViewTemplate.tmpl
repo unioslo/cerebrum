@@ -29,28 +29,30 @@
 
 #attr $title = ''
 
-#def viewActions($transaction, $host)
-    #set $id = $host.get_id()
-    <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id">$_("delete host")</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a><br />
-    #if $host.get_server_type()
-        <a href="/host/demote_mailhost?id=$id">$_('Demote as mailhost')</a>
+#def actions()
+<div id="actions">
+    <h3>$_("Actions")</h3>
+    <a href="edit?id=$entity_id">$_("edit info")</a><br />
+    <a href="delete?id=$entity_id">$_("delete host")</a><br />
+    <a href="/entity/full_historylog?id=$entity_id">$_('view full history log')</a><br />
+    #if $entity.get_server_type()
+        <a href="/host/demote_mailhost?id=$entity_id">$_('Demote as mailhost')</a>
     #end if
     <br />
-    $remember_link($host)<br />
+    $remember_link($entity)<br />
+</div>
 #end def
 
 ## Main method for creating the host view page.
-#def viewContent($transaction, $host)
-    $viewInfo($host)
-    $addNote($host)
-    $viewNotes($host)
-    $viewDisks($host)
-    #if not $host.get_server_type()
-        $promote_to_mailhost($host)
+#def content()
+    $viewInfo($entity)
+    $addNote($entity)
+    $viewNotes($entity)
+    $viewDisks($entity)
+    #if not $entity.get_server_type()
+        $promote_to_mailhost($entity)
     #end if
-    $viewHistoryLog($host)
+    $viewHistoryLog($entity)
 #end def
 
 ## View information about host (name and description).

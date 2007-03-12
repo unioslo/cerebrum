@@ -16,25 +16,20 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ##
-## Gives a 'frames style' left menu and a bottom area
-##
 #import cherrypy
 #from lib.InitTemplate import InitTemplate
-#from lib.utils import format_title
+#from lib.utils import format_title, get_tabs
 #extends InitTemplate
 #implements respond
 ##
 #attr $title = "Cereweb"
 #attr $messages = []
-#attr $jscripts = []
-##
-## Setting wl to False prevents loading of the worklist.js
-## Used in UserTemplate since regular users don't need it.
-#attr $wl = True
+#attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'worklist.js']
+#attr $page = 'cereweb'
+#attr $links = [('#', 'stub')]
+
 ## Content is usually replaced with a lambda function from the view.
 #def content: stub
-## Menu is the side menu.
-#def menu: stub
 ## The worklist is in general a list of objects the user is working on.
 ## Should be specific to the current active transaction, when finished.
 #def worklist: stub
@@ -43,6 +38,17 @@
 ## finished.
 #def activitylog: stub
 ##
+#def actions
+    <div id="actions">
+        <h3>Actions</h3>
+    </div>
+#end def
+#def get_links
+    #for $link, $label in $links
+        #set $curr = $link == $self.link and ' class="current"' or ''
+        <li><a$curr href="$link">$label</a></li>
+    #end for
+#end def
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -57,6 +63,8 @@
         <link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container.css"/>
         <link rel="stylesheet" type="text/css" href="/yui/build/logger/assets/logger.css"/>
         <link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/datatable.css"/>
+        <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.2.0/build/tabview/assets/tabview.css">
+        <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.2.0/build/tabview/assets/border_tabs.css"> 
 
         <!-- Include yui components -->
         <script type="text/javascript" src="/yui/build/utilities/utilities.js"></script>
@@ -66,54 +74,47 @@
         <script type="text/javascript" src="/yui/build/datasource/datasource-beta-min.js"></script>
         <script type="text/javascript" src="/yui/build/datatable/datatable-beta-min.js"></script>
         <script type="text/javascript" src="/yui/build/autocomplete/autocomplete-min.js"></script>
+        <script type="text/javascript" src="http://yui.yahooapis.com/2.2.0/build/tabview/tabview-min.js"></script> 
 
 
         <!-- Include our styles -->
-        <link rel="stylesheet" type="text/css" href="/css/fixed.css"/>
-        <!--[if IE]>
-        <link rel="stylesheet" type="text/css" href="/css/fixed_ie5.css"/>
-        <![endif]-->
         <link rel="stylesheet" type="text/css" href="/css/default.css"/>
         <link rel="stylesheet" type="text/css" href="/css/style.css"/>
 
         <!-- Include our javascript application -->
-        <script type="text/javascript" src="/jscript/base.js"></script>
-        <script type="text/javascript" src="/jscript/search.js"></script>
-        <script type="text/javascript" src="/jscript/timeout.js"></script>
-        #if $wl
-        <script type="text/javascript" src="/jscript/worklist.js"></script>
-        #end if
-        #block jscript_block:
+        <!-- $len($jscripts) -->
         #for $i in $jscripts
-        <script type="text/javascript" src="/jscript/$i"></script>
+            <script type="text/javascript" src="/jscript/$i"></script>
         #end for
     </head>
     <body>
-        <div id="maindiv">
+        <div id="container">
+            #block tabview
+            <div id="tabview" class="yui-navset">
+                <ul class="yui-nav">
+                    $get_tabs($page)
+                </ul>
+            </div>
+            #end block
+            <div id="sub-nav" class="sub-nav">
+                <ul class="sub-nav">
+                    $get_links()
+                </ul>
+            </div>
             <div id="messages">
                 #for $message, $is_error in $messages
                 #set $error = $is_error and " error" or ""
                 <span class="message$error">$message</span><br />
                 #end for
             </div>
-            <div id="content" class="page_content">
-                <div class="title">
-                    <h1>$title</h1>
-                </div>
-                #block content_block
-                    $content()
-                #end block
-                <div style="clear: both;"></div>
+            <div id="title">
+                <h1>$title</h1>
             </div>
-            <div id="menu" class="page_menu">
-                <div class="menu_header">
-                    <a href="/index">Cereweb</a>
+            $actions()
+            <div id="content">
+                $content()
             </div>
-            #block menu_block
-                $menu()
-            #end block
-        </div>
-        <div id="bottom" class="page_bottom">
+            <div id="bottom">
             #block page_bottom
                 #set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
                 #set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')
@@ -134,22 +135,6 @@
                 #end if
             #end block page_bottom
             </div>
-            <div style="clear: both;"></div>
-        </div>
-        <!-- Used for the javascript powered quick-search feature.  See search.js. -->
-        <div id="ac_quicksearch" style="display:none;">
-            <form action="#" method="post">
-                <div class="hidden">
-                    <input type="hidden" id="ac_quicksearch_id" name="id" value="" />
-                </div>
-                <div class="required">
-                    <label for="ac_quicksearch_name" class="overlabel">Search</label>
-                    <input id="ac_quicksearch_name" type="text" name="name" value="" tabindex="1" />
-                </div>
-                <div class="buttons">
-                    <input type="submit" value="Search" />
-                </div>
-            </form>
         </div>
     </body>
 </html>

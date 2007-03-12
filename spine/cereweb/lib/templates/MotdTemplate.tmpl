@@ -18,17 +18,24 @@
 
 #from FormWidgets import FormWidgets
 #from lib.utils import strftime
-#from lib.InitTemplate import InitTemplate
-#extends InitTemplate
+#from lib.Main import Main
+#extends Main
 
 #attr $form_widgets = FormWidgets()
+#attr $motds = []
 
-#def viewMotds($motds)
+#def actions()
+<div id="actions">
+    <h3>Actions</h3>
+    <ul>
+        <li><a class="action" href="/all_motds">$_('View all messages')</a></li>
+        <li><a class="action" href="/edit_motd">$_('Create a new message')</a></li>
+    </ul>
+</div>
+#end def
+
+#def content()
 <div class="view_content">
-    <div class="view_actions" id="actions">
-        <a class="action" href="/all_motds">$_('View all messages')</a><br />
-        <a class="action" href="/edit_motd">$_('Create a new message')</a><br />
-    </div>
     <div id="motds">
     #for $motd in $motds
         #set $id = $motd.get_id()

@@ -18,16 +18,12 @@
 
 #from lib.utils import object_link, strftime
 #from lib.WorkList import remember_link
-#from PersonNameTemplate import PersonNameTemplate
-#from PersonAffiliationTemplate import PersonAffiliationTemplate
 #from GroupViewTemplate import GroupViewTemplate
 #from Widgets import Widgets
-#extends EntityViewTemplate
+#extends GroupViewTemplate
 
 #attr $widgets = Widgets()
-#attr $listGroups = GroupViewTemplate().listGroups
-#attr $name_template = PersonNameTemplate()
-#attr $affilation_template = PersonAffiliationTemplate()
+#attr $listGroups = GroupViewTemplate.listGroups
 
 #def viewActions($transaction, $person)
     #set $id = $person.get_id()
@@ -42,19 +38,19 @@
 #end def
 
 ## Page for viewing information about a person.
-#def viewContent($transaction, $person)
-    $viewInfo($person)
-    $viewQuarantines($person)
-    $addNote($person)
-    $viewNotes($person)
-    $affilation_template.add($person, $transaction)
-    $affilation_template.view($person)
-    $name_template.set($person, $transaction)
-    $name_template.view($person)
-    $setExternalId($person, $transaction)
-    $viewExternalIds($person)
-    $viewAccounts($person)
-    $viewHistoryLog($person)
+#def content()
+    $viewInfo($entity)
+    $viewQuarantines($entity)
+    $addNote($entity)
+    $viewNotes($entity)
+    $addAffiliation($entity, $tr)
+    $viewAffiliation($entity)
+    $setName($entity, $tr)
+    $viewNames($entity)
+    $setExternalId($entity, $tr)
+    $viewExternalIds($entity)
+    $viewAccounts($entity)
+    $viewHistoryLog($entity)
 #end def
 
 #def viewInfo($person)
@@ -109,6 +105,129 @@
         <input type="submit" value="$_('Delete')" name="delete" />&nbsp;
         #end if
         <input type="submit" value="$_('Add new account')" name="add" />&nbsp;
+    </form>
+</div>
+#end def
+
+#def viewAffiliation($person)
+#set $affils = $person.get_affiliations()
+#if $affils
+<div class="info box">
+    <h3>$_('Affiliations')</h3>
+    #for $affil in $person.get_affiliations()
+    #set $ou = $affil.get_ou()
+    #set $affil_type = $affil.get_affiliation()
+    #set $status = $affil.get_status()
+    #set $marked = $affil.marked_for_deletion()
+    <div class="item">
+        #if not $marked
+        <div class="actions">
+            #set $args = "id=%s&ou=%s&affil=%s&ss=%s" % (
+                            $person.get_id(), $ou.get_id(),
+                            $affil_type.get_name(),
+                            $affil.get_source_system().get_name())
+            <a class="action" href="remove_affil?$args">$_('delete')</a>
+        </div>
+        #end if
+        <span class="name">$_('Affiliation'):</span> <span class="value"> $affil_type.get_name()</span>
+        #if $affil.marked_for_deletion()
+            &nbsp;<font color="red">($_('Marked for deletion'))</font>
+        #else
+        #end if
+        <br />
+        <span class="name">$_('Status'):</span> <span class="value"> $status.get_name() ($status.get_description())</span>
+        <br />
+        <span class="name">$_('OU'):</span> <span class="value"> $object_link($ou)</span>
+        #set $description = $affil.get_description()
+        #if $description
+        <br />
+        <span class="name">$_('Description'):</span> <span class="value"> $description</span>
+        #end if
+    </div>
+    #end for
+</div>
+#end if
+#end def
+
+#def addAffiliation($person, $tr)
+#set $searcher = $tr.get_person_affiliation_status_searcher()
+#set $status = [($i.get_id(), "%s: %s" % ($i.get_affiliation().get_name(), $i.get_name()))
+                    for $i in $searcher.search()]
+#set $ous = $tr.get_ou_searcher().search()
+#set $ous = [($i.get_id(), $i.get_name()) for $i in $ous]
+
+<div class="edit box">
+    <h3 id="affil">$_('Add an affiliation')</h3>
+    <form action="add_affil" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$person.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("status", "Affiliation", $status)
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("ou", "Organization Unit", $ous)
+        </div>
+        <div class="required">
+            $form_widgets.input("description", "Description")
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Add')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+</div>
+#end def
+
+#def viewNames($person)
+#set $names = $person.get_names()
+#if $names
+<div class="info box">
+    <h3>$_('Names')</h3>
+    #for $name in $names
+    #set $ss = $name.get_source_system()
+    #if not $ss.get_name() == 'Cached'
+    <div class="item">
+        #set $name_variant = $name.get_name_variant()
+        #set $ss_name = $ss and $ss.get_name() or ''
+        <div class="actions">
+            #set $delete = 'remove_name?id=%i&variant=%s&ss=%s' % (
+                 $person.get_id(), $name_variant.get_name(), $ss_name)
+            <a class="action" href="$delete">$_('delete')</a>
+        </div>
+        <span class="name">$name_variant.get_description():</span>
+        <span class="value">$name.get_name()</span>
+        #if $ss
+        <br />
+        <span class="name">$_("Source system"):</span>
+        <span class="value">$ss.get_name() ($ss.get_description())</span>
+        #end if
+    </div>
+    #end if
+#end for
+</div>
+#end if
+#end def
+
+#def setName($person, $transaction)
+<div class="edit box">
+    <h3>$_('Set a name')</h3>
+    <form action="add_name" method="post">
+        #set $name_types = $transaction.get_name_type_searcher().search()
+        #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
+        <div class="hidden">
+            <input type="hidden" name="id" value="$person.get_id()" />
+        </div>
+        <div class="required">
+            $form_widgets.input("name", "Name")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("name_type", "Name type", $name_types)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Set name')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
     </form>
 </div>
 #end def

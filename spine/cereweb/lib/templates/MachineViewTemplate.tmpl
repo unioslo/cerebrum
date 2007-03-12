@@ -22,28 +22,29 @@
 #extends HostViewTemplate
 #attr $widgets = Widgets()
 
-#def viewActions($transaction, $host)
-    #set $id = $host.get_id()
-
-    <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id">$_("delete host")</a><br />
-    #if $host.is_machine()
-    <a href="machine_demote?id=$id">$_("demote host")</a><br />
+#def actions()
+<div id="actions">
+    <h3>$_("Actions")</h3>
+    <a href="edit?id=$entity_id">$_("edit info")</a><br />
+    <a href="delete?id=$entity_id">$_("delete host")</a><br />
+    #if $entity.is_machine()
+    <a href="machine_demote?id=$entity_id">$_("demote host")</a><br />
     #else
-    <a href="machine_promote?id=$id">$_("promote host")</a><br />
+    <a href="machine_promote?id=$entity_id">$_("promote host")</a><br />
     #end if
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
+    <a href="/entity/full_historylog?id=$entity_id">$_('view full history log')</a>
     <br />
-    $remember_link($host)<br />
+    $remember_link($entity)<br />
+</div>
 #end def
 
 ## Main method for creating the host view page.
-#def viewContent($transaction, $host)
-    $viewInfo($host)
-    $addNote($host)
-    $viewNotes($host)
-    $viewDisks($host)
-    $viewHistoryLog($host)
+#def content()
+    $viewInfo($entity)
+    $addNote($entity)
+    $viewNotes($entity)
+    $viewDisks($entity)
+    $viewHistoryLog($entity)
 #end def
 
 ## View information about host (name and description).

@@ -16,30 +16,21 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from FramesTemplate import FramesTemplate
+#from lib.Main import Main
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
-#from lib.UserMenu import UserMenu
-#extends FramesTemplate
+#extends Main
 
+#attr $jscripts = ['base.js', 'timeout.js']
 #attr $widgets = Widgets()
 #attr $form_widgets = FormWidgets()
 
-#def menu
-#set self.menu = $UserMenu()
-#return self.menu
-#end def
-
-#def setFocus($string)
-    $self.menu.setFocus($string)
-#end def
-
 ## This tells us not to load the worklist.js 
 #attr $wl = 0
-## The following hack removes the bottom div (and the worklist)
-#def page_bottom
-#end def
-
+## The following hack removes the bottom div which includes the $wl.
+#def page_bottom:
+## The following hack removes the tabview
+#def tabview:
 ## Show nice businessCard-like info about person/account
 #def viewInfo($account)
     #set $info = []
