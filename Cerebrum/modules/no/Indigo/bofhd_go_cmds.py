@@ -65,6 +65,7 @@ class BofhdExtension(object):
         self.server = server
         self.logger = server.logger
         self.db = server.db
+        self.util = server.util
         self.const = Factory.get('Constants')(self.db)
         self.person = Factory.get('Person')(self.db)
         self.ba = BofhdAuth(self.db)
