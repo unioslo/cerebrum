@@ -295,6 +295,46 @@ class BofhdExtension(object):
         account = self.Account_class(self.db)
         return account.suggest_unames(self.const.account_namespace, fname, lname)
 
+
+    all_commands['user_find'] = None
+    def user_find(self, operator, search_type, search_value):
+        "Locate users whose unames loosely matches 'search_value'."
+
+        if search_type != 'uname':
+            raise CerebrumError("Unknown search type (%s)" % search_type)
+
+        if len(value.strip(" \t%_*?")) < 3:
+            raise CerebrumError("You must specify at least three non-wildcard letters")
+
+        # if there are no wildcards in the pattern, add them
+        if not [wildcard for wildcard in "_%?*" if wildcard in value]:
+            value = '*' + value.replace(' ', '*') + '*'
+
+        account = Factory.get("Account")(self.db)
+        matches = list(account.search(name=value,
+                                      int(owner_type=self.const.entity_person)))
+        # prepare the return value
+        ret = list()
+        seen = dict()
+        if len(matches) > 250:
+            raise CerebrumError("More than 250 (%d) matches, please narrow "
+                                "search criteria" % len(matches))
+
+        for row in matches:
+            account_id = row['account_id']
+            if account_id in seen:
+                continue
+
+            seen[account_id] = True
+            account.clear()
+            account.find(account_id)
+            ret.append({'account_id': account_id, 'name': row['name'],
+                        'owner_id': account.owner_id})
+
+        ret.sort(lambda a, b: cmp(a["name"], b["name"]))
+        return ret
+    # end user_find
+
     all_commands['misc_history'] = None
     def misc_history(self, operator, days):
         if not self.ba.is_superuser(operator.get_entity_id()):
