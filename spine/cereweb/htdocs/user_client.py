@@ -25,7 +25,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
-from lib.utils import get_messages
+from lib.utils import get_messages, rollback_url
 from lib.templates.UserTemplate import UserTemplate
 from lib.templates.MailUserTemplate import MailUserTemplate
 
@@ -92,6 +92,72 @@ def mail(transaction):
     return [res]
 mail = transaction_decorator(mail)
 mail.exposed = True
+
+def add_vacation(transaction, username, start, end, alias):
+    msg = ''
+    if not start:
+        msg = 'Start date is empty.'
+    elif not utils.legal_date(start):
+        msg='Start date is not a legal date (YYYY-MM-DD).'
+    if not msg and end:
+        if not utils.legal_date(end):
+            msg = 'End date is not a legal date (YYYY-MM-DD).'
+    if not msg and not alias:
+        msg = 'Alias is empty.'
+    else:
+        if len(alias) > 256:
+            msg = 'Alias is too long ( max. 256 characters).'
+    if not msg:
+        page = MailUserTemplate()
+        account = transaction.get_commands().get_account_by_name(username)
+        email_target_searcher = transaction.get_email_target_searcher()
+        email_target_searcher.set_entity(account)
+        email_targets = email_target_searcher.search()
+        email_target = None
+        for target in email_targets:
+                
+            
+        page.tr = transaction
+        page.account = get_user_info(transaction, username)
+        page.vacations = get_vacations(transaction,account)
+        page.forwards = get_forwards(transaction, account)
+        page.messages = get_messages()
+        page.setFocus('add_vacation')
+        res = str(page)
+        return [res]
+    else:
+        rollback_url('/user_client/mail', msg, err=True)
+add_vacation = transaction_decorator(add_vacation)
+add_vacation.exposed = True
+
+def add_forward(transaction, username, start, end, forward):
+    msg = ''
+    if not start:
+        msg = 'Start date is empty.'
+    elif not utils.legal_date(start):
+        msg = 'Start date is not a legal date (YYYY-MM-DD).'
+    if not msg and end:
+        if not utils.legal_date(end):
+            msg = 'End date is not a legal date (YYYY-MM-DD).'
+    if not msg and not forward:
+        msg = 'Forward is empty.'
+    elif len(forward) > 256:
+        msg = 'Forward is too long ( max. 256 charcters).'
+    if not msg:
+        page = MailUserTemplate()
+        account = transaction.get_commands().get_account_by_name(username)
+        page.tr = transaction
+        page.account = get_user_info(transaction, username)
+        page.vacations = get_vacations(transaction,account)
+        page.forwards = get_forwards(transaction, account)
+        page.messages = get_messages()
+        page.setFocus('add_vacation')
+        res = str(page)
+        return [res]
+    else:
+        rollback_url('/user_client/mail', msg, err=True)
+add_forward = transaction_decorator(add_forward)
+add_forward.exposed = True
 
 def get_vacations(tr,acc):
     vacations = []
