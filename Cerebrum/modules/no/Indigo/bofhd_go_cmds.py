@@ -312,7 +312,7 @@ class BofhdExtension(object):
 
         account = Factory.get("Account")(self.db)
         matches = list(account.search(name=value,
-                                      int(owner_type=self.const.entity_person)))
+                                      owner_type=int(self.const.entity_person)))
         # prepare the return value
         ret = list()
         seen = dict()
