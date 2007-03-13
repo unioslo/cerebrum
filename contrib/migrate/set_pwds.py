@@ -28,12 +28,8 @@ registered in Cerebrum.
 
 import getopt
 import sys
-import string
 
 import cerebrum_path
-import cereconf
-
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 
@@ -48,6 +44,7 @@ def attempt_commit():
 def usage():
     print """Usage: set_pwds.py
     -d, --dryrun  : Rollback after run.
+    -a, --active  : don't set password for accounts with active password
     """
     sys.exit(0)
 
@@ -56,21 +53,22 @@ def main():
     global db
     global dryrun, logger
 
-    all_accounts = {}
-
     logger = Factory.get_logger("console")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'd',
-                                   ['dryrun'])
+                                   'ad',
+                                   ['active', 'dryrun'])
     except getopt.GetoptError:
         usage()
 
     dryrun = False
+    active = False
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
+        elif opt in ('-a', '--active'):
+            active = True
         else:
             usage()
 
@@ -78,9 +76,16 @@ def main():
     db.cl_init(change_program='set_pwds')
     account = Factory.get('Account')(db)
 
-    all_accounts = account.list(filter_expired=False)
+    # Register accounts with an active password
+    active_accounts = {}
+    if active:
+        for row in account.list_account_authentication():
+            if not row['auth_data'] == None:
+                active_accounts[int(row['account_id'])] = True
 
-    for a in all_accounts:
+    for a in account.list(filter_expired=False):
+        if active_accounts.has_key(a['account_id']):
+            continue        
         account.clear()
         account.find(a['account_id'])
         pwd = account.make_passwd(account.account_name)
