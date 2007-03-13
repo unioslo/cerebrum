@@ -60,6 +60,7 @@ class BofhdExtension(object):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
             if func[0] != '_' and func not in ('num2str',):
                 BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
+
         x = object.__new__(cls)
         return x
 
@@ -208,6 +209,15 @@ class BofhdExtension(object):
         return {'password': pwd,
                 'uname': account.account_name}
 
+    # IVR 2007-03-13 FIXME: We cannot use UiO's user_password, because it
+    # performs password checks that do not make sense for giske. Once a
+    # suitable PasswordChecker has been written for Giske, 'user_password'
+    # should be implemented here. 
+    # 
+    # all_commands['user_password'] = None
+    # def user_password(self, operator, accountname, password=None):
+    #     return 
+
     all_commands['list_active'] = None
     def list_active(self, operator):
         active = list()
@@ -328,7 +338,8 @@ class BofhdExtension(object):
             seen[account_id] = True
             account.clear()
             account.find(account_id)
-            ret.append({'account_id': account_id, 'name': row['name'],
+            ret.append({'account_id': account_id,
+                        'name': row['name'],
                         'owner_id': account.owner_id})
 
         ret.sort(lambda a, b: cmp(a["name"], b["name"]))
