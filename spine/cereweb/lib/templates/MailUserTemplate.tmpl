@@ -18,11 +18,13 @@
 
 #from FormWidgets import FormWidgets
 #from UserTemplate import UserTemplate
+#from time import gmtime, strftime
 #extends UserTemplate
 
 #attr $form_widgets = FormWidgets()
+#attr $a_week = 604800
 
-#def viewVacation($vacations)
+#def viewVacation($account, $vacations)
 <p>
 ## <div class="view_vacation" id="vacation_view" style="display:always;">
 <div class="view view_info" style="display:always;">
@@ -34,7 +36,7 @@
 			</div>
 		</th>
 	</tr>
-#if $len($vacations) > 0
+#if $vacations
     #for $vacation in $vacations
     <span class=#if $vacation['enabled']==1 then "enabled" else "disabled" #>
 	<tr>
@@ -92,13 +94,13 @@
 		</td>
 	</tr>
 #end if
-	<tr>
-		<td colspan="2">
-			<div class="item">
-				<a href=#newVacation>Set new vacation</a>
-			</div>
-		</td>
-	</tr>
+##	<tr>
+##		<td colspan="2">
+##			<div class="item">
+##				<a href="#newVacation">Set new vacation</a>
+##			</div>
+##		</td>
+##	</tr>
 </table>
 </div>
 </p>
@@ -175,28 +177,79 @@
 		</td>
 	</tr>
 #end if
-	<tr>
-		<td colspan="2">
-			<div class="item">
-				<a href=#newForward>Set new forward</a>
-			</div>
-		</td>
-	</tr>
+##	<tr>
+##		<td colspan="2">
+##			<div class="item">
+##				<a href=#newForward>Set new forward</a>
+##			</div>
+##		</td>
+##	</tr>
 </table>
 </div>
 </p>
 #end def
 
 #def createVacation()
+#set $start = $strftime('%Y-%m-%d', gmtime())
+#set $end = ''
+#set $alias = ''
+<div class="edit box" >
+    <h3>$_('Add a vacation')</h3>
+        <form action="/user_client/add_vacation" method="post">
+            <div class="hidden">
+                <input type="hidden" name="username" value="$account['username']" />
+            </div>
+            <div class="required">
+                $form_widgets.input("start", "Start", $start)
+            </div>
+            <div class="required">
+                $form_widgets.input("end", "End", $end)
+            </div>
+            <div class="required">
+                $form_widgets.input("alias", "Alias", $alias)
+            </div>
+            <div class="buttons">
+                <input type="submit" name="create" value="$_('Create')" />&nbsp;
+                <input type="button" class="cancel" value="$_('Cancel')" />
+            </div>
+        </p>
+        </form>
+</div>
 #end def
 
 #def createMailForward()
+#set $start = $strftime('%Y-%m-%d', gmtime())
+#set $end = ''
+#set $forward = ''
+<div class="edit box" >
+    <h3>$_('Add a forward')</h3>
+        <form action="/user_client/add_forward" method="post">
+            <div class="hidden">
+                <input type="hidden" name="username" value="$account['username']" />
+            </div>
+            <div class="required">
+                $form_widgets.input("start", "Start", $start)
+            </div>
+            <div class="required">
+                $form_widgets.input("end", "End", $end)
+            </div>
+            <div class="required">
+                $form_widgets.input("forward", "Forward", $forward)
+            </div>
+            <div class="buttons">
+                <input type="submit" name="create" value="$_('Create')" />&nbsp;
+                <input type="button" class="cancel" value="$_('Cancel')" />
+            </div>
+        </p>
+        </form>
+</div>
 #end def
 
 #def content()
+<div id="actions"><h3>Actions</h3></div>
 <div class="view_content">
     $viewInfo($account)
-    $viewVacation($vacations)
+    $viewVacation($account, $vacations)
     $viewMailForward($forwards)
     $createVacation()
     $createMailForward()
