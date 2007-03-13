@@ -303,15 +303,15 @@ class BofhdExtension(object):
         if search_type != 'uname':
             raise CerebrumError("Unknown search type (%s)" % search_type)
 
-        if len(value.strip(" \t%_*?")) < 3:
+        if len(search_value.strip(" \t%_*?")) < 3:
             raise CerebrumError("You must specify at least three non-wildcard letters")
 
         # if there are no wildcards in the pattern, add them
-        if not [wildcard for wildcard in "_%?*" if wildcard in value]:
-            value = '*' + value.replace(' ', '*') + '*'
+        if not [wildcard for wildcard in "_%?*" if wildcard in search_value]:
+            search_value = '*' + search_value.replace(' ', '*') + '*'
 
         account = Factory.get("Account")(self.db)
-        matches = list(account.search(name=value,
+        matches = list(account.search(name=search_value,
                                       owner_type=int(self.const.entity_person)))
         # prepare the return value
         ret = list()
