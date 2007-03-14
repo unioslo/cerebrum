@@ -178,7 +178,7 @@ class BofhdExtension(object):
         if self.ba.is_superuser(operator.get_entity_id()):
             return cereconf.BOFHD_AUTH_LEVEL['super']
 
-        if self.ba.is_schoolit(operator.get_entity_id()):
+        if self.ba.is_schoolit(operator.get_entity_id(), True):
             return cereconf.BOFHD_AUTH_LEVEL['schoolit']
 
         return cereconf.BOFHD_AUTH_LEVEL['other']
