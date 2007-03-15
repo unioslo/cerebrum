@@ -104,9 +104,11 @@ class MainTemplate(object):
             #    msg, id)
             # TODO: help URLs should probably be in cereconf or something
             #       for some reason help.html want work either...
-            return '<a href="http://cweb.ofk.usit.no/cweb_help/help.shtml#%s" target="helpframe"><img src="http://cweb.ofk.usit.no/cweb_help/help.png" alt="help" border="0" width="12"></a>%s' % (id, msg)
+            return '''<a href="/cweb_help/help.shtml#%s" target="helpframe">
+                      <img src="/cweb_help/help.png" alt="help" border="0" width="12"></a>%s
+                   ''' % (id, msg)    
         else:
-            return '<a href="http://cweb.ofk.usit.no/cweb_help/help.html#%s" target="helpframe">%s</a>' % (id, msg)
+            return '<a href="/cweb_help/help.html#%s" target="helpframe">%s</a>' % (id, msg)
             
     help_link = staticmethod(help_link)
 
