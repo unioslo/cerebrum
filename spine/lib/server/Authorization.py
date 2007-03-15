@@ -18,7 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.Utils import Factory
+import cerebrum_path
+from Cerebrum import Utils
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.auth import *
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
@@ -33,94 +34,93 @@ from Cerebrum.spine.Types import CodeType
 from Cerebrum.spine.Commands import Commands
 from Cerebrum.spine.EntityAuth import EntityAuth
 from Cerebrum.spine.SpineLib import Database
+import unittest
+import sets
 
 class Authorization(object):
-    def __init__(self, account, database=None):
-        self._db = database or Database.SpineDatabase()
-        self.bofhdauth = BofhdAuth(self._db)
-        self.account = account
-        self.superuser = self.is_superuser()
+    def __init__(self, user, database=None):
+        self.db = database or Database.SpineDatabase()
+        self.user = user
+        self.user_owner = self.user.get_owner()
+        self.groups = user.get_groups()
+        cereweb_self = Commands(self.db).get_group_by_name('cereweb_self')
+        self.groups.append(cereweb_self)
+        self.credentials = [i.get_id() for i in [self.user]+self.groups]
+        self.update_auths(self.credentials)
+        self.is_superuser = self._is_superuser()
 
     def __del__(self):
-        self._db.close()
+        self.db.close()
 
-    def is_superuser(self):
-        if self.bofhdauth.is_superuser(self.account.get_id()):
-            return True
+    def has_permission(self, operation, target, attr=None):
+        """Checks whether the owner of the session has access to run the
+        specified operation on the given object with the provided attributes.
+        See www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
+        for a description (in Norwegian)"""
+        is_entity=False
+        operation_full_name = "%s.%s" % (target.__class__.__name__, operation)
+        if isinstance(target, Entity):
+            target_type=target.get_type().get_name()
+            target_id=target.get_id()
+            is_entity=True
         
-    def has_user_access(self, target, operation, *args):
-        """Checks if the logged in user is trying to access his own account
-        or person object.  In that case, he can do the operations defined in
-        the *mySelf* operation set.
-        """
-        ok = False
-
-        account_id = self.account.get_id()
-        owner_id = self.account.get_owner().get_id() 
-        if isinstance(target, Account):
-            ok = account_id == target.get_id() 
-        elif isinstance(target, Person):
-            ok = owner_id == target.get_id()
-        elif isinstance(target, EntityExternalId):
-            ok = owner_id == target.get_entity().get_id()
-        elif isinstance(target, EmailTarget):
-            ok = account_id == target.get_entity().get_id()
-
-        if ok:
-            op_set = BofhdAuthOpSet(self._db)
-            op_set.find_by_name('mySelf')
-            operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-            if operation in operations:
-                return True
-
-    def has_access(self, target, operation, *args):
-        """Check if the session owner (logged in user) has permission to run
-        operation(args) on the target."""
-
-        # Returns a list containing the id of the account and the groups the
-        # account is a member of.
-        auth_entities = self.bofhdauth._get_users_auth_entities(self.account.get_id())
-
-        bar = BofhdAuthRole(self._db)
-        roles = bar.list(entity_ids=auth_entities)
-        if roles:
-            op_set = BofhdAuthOpSet(self._db)
-            for role_id, set_id, target_id in roles:
-                op_set.find(set_id)
-                operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-                if operation in operations:
-                    aot = BofhdAuthOpTarget(self._db)
-                    aot.find(target_id)
-                    if aot.target_type == 'ou':
-                        if self.has_access_through_ou(target_id, target):
-                            return True
-                    elif aot.target_type == 'account':
-                        if target.get_id() == target_id:
-                            return True
-                    return True
-
-    def has_access_through_ou(self, operation, target):
-        """Check if the session owner (logged in user) has permission to 
-        target through the ou."""
-        # FIXME: What does this really do?
-        if isinstance(target, Account):
-            ceTarget = Factory.get("Account")(self._db)
-        elif isinstance(target, Person):
-            ceTarget = Factory.get("Person")(self._db)
-        else:
-            return False
-
-        ceTarget.find(target.get_id())
-
-        if self.bofhdauth._has_access_to_entity_via_ou(
-                self.account.get_id(), operation, ceTarget):
+        if self.is_superuser:
             return True
+        if self._is_unrestricted_operation(target, operation, attr):
+            return True
+        if is_entity:
+            if self._check_type(operation_full_name, attr, target_type):
+                return True
+            if self._check_direct(operation_full_name, attr, target_id, target_type):
+                return True
+            if self._check_by_org(operation_full_name, attr, target, target_type):
+                return True
+            if self._is_self(target) and self._check_self(operation_full_name, attr, target_type):
+                return True
+            if self._has_user_access(target, operation, attr):
+                if self._is_self(target):
+                    print 'XXX: _check_self failed!'
+                else:
+                    print 'XXX: _is_self failed!'
+                return True
+        return False
 
-    def is_public(self, target, method_name, operation, *args):
+    def can_return(self, *args, **vargs):
+        return True
+        
+    def update_auths(self, credentials):
+        authrows = self.db.query(
+            """SELECT
+            target.entity_id AS target_id,
+            target.target_type AS target_type,
+            target.attr AS target_attr,
+            oc.code_str AS operation,
+            NULL AS operation_attr
+            FROM
+            auth_role role,
+            auth_op_target target,
+            auth_op_code oc,
+            auth_operation op
+            -- auth_op_attrs op_attr XXX LEFT JOIN
+            WHERE role.entity_id IN ( %s )
+            AND op.op_code = oc.code
+            AND role.op_target_id = target.op_target_id
+            AND op.op_set_id = role.op_set_id"""
+            % ", ".join([str(i) for i in credentials]))
+        self.auths = sets.Set([tuple(row) for row in authrows])
+
+    def _is_self(self, target):
+        if target == self.user:
+            return True
+        if target == self.user_owner:
+            return True
+        return False
+
+    def _is_unrestricted_operation(self, target, operation, attr):
         """Helper method that returns true if the method is considered public,
         i.e. everyone is allowed to run it."""
 
-        method = getattr(target, method_name) 
+        method = getattr(target, operation) 
         if hasattr(method, 'signature_public'):
             if method.signature_public is True:
                 return True
@@ -132,50 +132,104 @@ class Authorization(object):
         if issubclass(target.__class__, CodeType):
             return True
 
-        op_set = BofhdAuthOpSet(self._db)
-        op_set.find_by_name('public')
+        operation = AuthRoleOpCode("%s.%s" % (target.__class__.__name__, operation))
+        op_set = BofhdAuthOpSet(self.db)
+        op_set.find_by_name('cereweb_public')
         operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
         if operation in operations:
             return True
 
-    def has_permission(self, target, method_name, *args):
-        """Checks whether the owner of the session has access to run the
-        specified method on the given object with the args provided.  See
-        https://www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
-        for a description (in Norwegian)"""
+    def _check_direct(self, operation, attr, target_id, target_type):
+        return self._query_auth(operation, attr, target_id, target_type)
 
-        if self.superuser: return True
+    def _check_type(self, operation, attr, target_type):
+        return self._query_auth(operation, attr, None, target_type)
 
-        # Could the method escalate the righs of account?
-        # FIXME: A TEST MUST BE IMPLEMENTED!
+    def _check_self(self, operation, attr, target_type):
+        return self._query_auth(operation, attr, None, "my_"+target_type)
+    
+    def _check_by_org(self, operation, attr, target, target_type):
+        if isinstance(target, Person) or isinstance(target, Account):
+            affs=[(a.get_ou().get_id(), a.get_affiliation().get_name())
+                  for a in target.get_affiliations()]
+            for (ou, aff) in affs:
+                if self._query_auth(operation, attr, ou, target_type, target_attr=aff):
+                    return True
+        return False
 
-        operation = AuthRoleOpCode("%s.%s" % (target.__class__ .__name__, method_name))
-
-        if self.is_public(target, method_name, operation, *args): return True
-        if self.has_user_access(target, operation, *args): return True
-        if self.has_access(target, operation, *args): return True
-
-        return False 
-
-    def can_return(self, value):
-        """Filter out objects the currently logged in user is not allowed to return.
-        Currently this is only Struct-values, and only the superuser is allowed to
-        return these.
-        """
-        if self.superuser: return True
-
-        if type(value) == type([]):
-            for v in value[:]:
-                if not self.can_return(v):
-                    value.remove(v)
-            # We've removed the values that can't be returned from the value list, so
-            # it should be safe to return it.  (It's been changed in place).
-            return True 
-        elif value.__class__.__name__.endswith('Struct'):
-            # Structs contain data and must be filtered before they can be
-            # returned to users.  Not implemented yet.
-            return False
-        else:
+    def _query_auth(self, operation, op_attr, target, target_type,
+                   target_attr=None):
+        return (target, target_type, target_attr,
+                operation, op_attr) in self.auths
+    
+    def _is_superuser(self):
+        bofhdauth = BofhdAuth(self.db)
+        if bofhdauth.is_superuser(self.user.get_id()):
             return True
+        
+    def _has_user_access(self, target, operation, *args):
+        """Checks if the logged in user is trying to access his own user
+        or person object.  In that case, he can do the operations defined in
+        the *mySelf* operation set.
+        """
+        ok = False
+        operation = AuthRoleOpCode("%s.%s" % (target.__class__.__name__, operation))
+
+        account_id = self.user.get_id()
+        owner_id = self.user.get_owner().get_id() 
+        if isinstance(target, Account):
+            ok = account_id == target.get_id() 
+        elif isinstance(target, Person):
+            ok = owner_id == target.get_id()
+        elif isinstance(target, EntityExternalId):
+            ok = owner_id == target.get_entity().get_id()
+        elif isinstance(target, EmailTarget):
+            ok = account_id == target.get_entity().get_id()
+
+        if ok:
+            op_set = BofhdAuthOpSet(self.db)
+            op_set.find_by_name('cereweb_self')
+            operations = [x[0] for x in op_set.list_operations()]
+            if int(operation) in operations:
+                return True
+
+class AuthTest(unittest.TestCase):
+    def __init__(self, *args, **vargs):
+        super(AuthTest, self).__init__(*args, **vargs)
+
+        self.my_person = 15971
+        self.my_account = 15972
+        self.ou_person = 36 # Person in an ou that my_account has orakel access to.
+        self.ou_account = 37 # Account in an ou that my_account has orakel access to.
+        self.db = Utils.Factory.get('Database')()
+        self.db.cl_init(change_program='test')
+
+        self.user=Account(self.db, self.my_account) # Hardcoded.
+        self.auth=Authorization(self.user, self.db)
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_orakel(self):
+        assert self.auth.has_permission("set_password", Account(self.db, self.ou_account))
+        assert self.auth.has_permission("set_description", Person(self.db, self.ou_person))
+        assert not self.auth.has_permission("add_note", Person(self.db, self.ou_person))
+        assert self.auth.has_permission("set_description", Person(self.db, self.ou_person))
+
+    def test_my_types(self):
+        assert self.auth.has_permission("set_password", Account(self.db, self.my_account))
+        assert self.auth.has_permission("get_external_ids", Person(self.db, self.my_person))
+
+    def test_public(self):
+        assert not self.auth.has_permission("get_external_ids",
+                Person(self.db, self.ou_person))
+        assert self.auth.has_permission("get_account_by_name",
+                Commands(self.db))
+
+if __name__ == '__main__':
+    unittest.main()
 
 # vim: se sw=4 sts=4 et :
