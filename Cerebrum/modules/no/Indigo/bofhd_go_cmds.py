@@ -1,4 +1,23 @@
 # -*- coding: iso-8859-1 -*-
+
+# Copyright 2002-2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import cereconf
 
 import mx
@@ -267,7 +286,7 @@ class BofhdExtension(object):
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
                        for r in account.list_accounts_by_owner_id(person.entity_id)]
-        if (self.ba.is_superuser(operator.get_entity_id()) or
+        if (self.ba.is_schoolit(operator.get_entity_id(), True) or
             operator.get_entity_id() in account_ids):
             for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
