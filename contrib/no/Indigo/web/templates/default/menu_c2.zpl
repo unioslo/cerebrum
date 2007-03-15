@@ -8,6 +8,6 @@
   <dt>Meny
   <dd>
     <a href="?action=show_person_find">Finn person</a><br>
-    <a href="?action=show_group_search">Finn grupp</a><br>
+    <a href="?action=show_group_search">Finn gruppe</a><br>
     <a href="?action=do_list_passwords">Vis nye passord</a><br>
 </dl>
