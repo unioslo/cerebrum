@@ -1,7 +1,27 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+#
+# Copyright 2005, 2006, 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.modules.no.Indigo.Cweb.Layout import UserTemplate, GroupTemplate, PersonTemplate, SubTemplate
 from Cerebrum.modules.no.Indigo.Cweb import Errors
+from Cerebrum.extlib.sets import Set as set
 
 class VirtualCommands(object):  # TODO: Not a good name...; the class is virtual
     def _get_target_id(self, entity_id=None, tgt_type=None):
@@ -37,8 +57,10 @@ class UserCommands(VirtualCommands):
             self.state.get_form_value('search_type'),
             self.state.get_form_value('search_value'))
         if len(r) == 1:
-            self.state.set_target_state('user', r[0]['entity_id'])
-            return self.show_user_info(r[0]['entity_id'])
+            # showing user info is much like showing person info
+            self.state.set_target_state('person', r[0]['owner_id'])
+            # IVR 2007-03-12 FIXME: This is *horrible*. 
+            return self.state.controller.person_cmd.show_person_info(r[0]['owner_id'])
         tpl = UserTemplate(self.state, 'user_find_res')
         return tpl.show({'userlist': r})
 
@@ -103,6 +125,7 @@ class GroupCommands(VirtualCommands):
     def __init__(self, state, cerebrum):
         self.state = state
         self.cerebrum = cerebrum
+        self.logger = state.logger
 
     def show_group_create(self):
         tpl = GroupTemplate(self.state, 'group_create')
@@ -122,8 +145,17 @@ class GroupCommands(VirtualCommands):
         name = self.state.get_form_value('name')
         self.cerebrum.group_create(name,
                                    self.state.get_form_value('description'))
-        spreads = self.state.get_form_value('spreads', [])
-        self.cerebrum.spread_add('group', name, spreads)
+
+        # IVR 2007-03-12 It could be that the spreads listed in
+        # cereconf.BOFHD_NEW_GROUP_SPREADS and the ones supplied in cweb are
+        # partially overlapping. In such a case, it is more user-friendly to
+        # guard against 'duplicate insert' error.
+        new_spreads = self.state.get_form_value('spreads', [])
+        group_object = self.cerebrum.group_info(name=name)
+        existing_spreads = [x['spread'] for x in
+                    self.cerebrum.get_entity_spreads(group_object["entity_id"])]
+        spreads_to_add = [s for s in new_spreads if s not in existing_spreads]
+        self.cerebrum.spread_add('group', name, spreads_to_add)
         return self.show_group_info(name=name)
     
     def group_mod(self):
@@ -195,11 +227,21 @@ class PersonCommands(VirtualCommands):
                          'person_spreads': person_spreads})
 
     def person_find(self):
-        r = self.cerebrum.person_find(
-            self.state.get_form_value('search_type'),
-            self.state.get_form_value('search_value'))
+        s_type = s_val = None
+        if self.state.get_form_value('search_type') == 'schoolname':
+            s_type = 'ou'
+            self.logger.debug(s_type)
+            s_val = self.cerebrum.find_school(self.state.get_form_value('search_value'))
+            r = self.cerebrum.person_find(s_type, s_val)
+        else:
+            r = self.cerebrum.person_find(
+                self.state.get_form_value('search_type'),
+                self.state.get_form_value('search_value'))
+
+        ac_list = set(self.cerebrum.list_active())
         for t in r:
             t['entity_id'] = t['id']
+        r = [ t for t in r if t['entity_id'] in ac_list ]
         if len(r) == 1:
             self.state.set_target_state('person', r[0]['entity_id'])
             return self.show_person_info(r[0]['entity_id'])

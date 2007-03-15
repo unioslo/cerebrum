@@ -113,6 +113,12 @@ class CerebrumProxy(object):
     def group_create(self, name, description):
         return self.run_command('group_create', name, description)
 
+    def list_active(self):
+        return self.run_command('list_active')
+
+    def find_school(self, ou_name):
+        return self.run_command('find_school', ou_name)
+
     def group_user(self, entity_id=None, uname=None):
         ret = []
         search = self._get_search_str(
@@ -196,6 +202,10 @@ class CerebrumProxy(object):
 #            if tmp:
 #                new_affs.append(tmp)
         new_user['affiliations'] = new_affs
+        if "username" not in new_user:
+            new_user["username"] = uname
+        if "entity_id" not in new_user:
+            new_user["entity_id"] = entity_id
         return new_user
 
     def user_password(self, entity_id, password=None):
@@ -242,20 +252,18 @@ class CerebrumProxy(object):
     def user_find(self, search_type=None, search_value=None):
         if search_type == 'owner':
             ret = self.run_command('person_accounts',
-                                 'entity_id:%s' % search_value)
-            for r in ret:
-                r['username'] = r['name']
-                r['entity_id'] = r['account_id']
-            return ret
+                                   'entity_id:%s' % search_value)
         elif search_type == 'uname':
-            try:
-                u = self.user_info(uname=search_value)
-            except xmlrpclib.Fault, m:
-                if m.faultString.startswith("Cerebrum.modules.bofhd.errors."):
-                    return []
-                raise
-            return [u]
-        return self.run_command('user_find', search_type, search_value)
+            ret = self.run_command('user_find', search_type, search_value)
+        else:
+            raise ("Ukjent søkekriterium: finn bruker ved (%s, %s)" %
+                   (search_type, search_value))
+
+        for r in ret:
+            r['username'] = r['name']
+            r['entity_id'] = r['account_id']
+        return ret
+    # end user_find
 
     def person_find(self, search_type=None, search_value=None):
         return self.run_command('person_find', search_type, search_value)

@@ -1,9 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+
+# Copyright 2005, 2006, 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import sys
 import os
 import logging
-from Cerebrum.modules.no.Indigo.Cweb import Cfg
+
+import cerebrum_path
+import cereconf
 
 from ZopePageTemplates import PageTemplate
 
@@ -36,13 +57,16 @@ class MyPageTemplate(PageTemplate):
         return self.pt_render(extra_context=context)
 
     def load(self, name, style):
-        tdir = Cfg.template_dir
+        tdir = cereconf.CWEB_TEMPLATE_DIR
+        site_tdir = cereconf.CWEB_TEMPLATE_SITE_DIR or ""
         style_loc, style_type = style
-        for s in (style_loc, 'default'):
-            f = os.path.join(tdir, '%s/%s_%s.zpl' % (s, name, style_type))
+        # IVR 2007-03-15 The idea is to look for a site-specific template
+        # before the default one.
+        for s in (style_loc or "", site_tdir, 'default'):
+            f = os.path.join(tdir, s, '%s_%s.zpl' % (name, style_type))
             if os.path.exists(f):
                 break
-            f = os.path.join(tdir, '%s/%s.zpl' % (s, name))
+            f = os.path.join(tdir, s, '%s.zpl' % (name,))
             if os.path.exists(f):
                 break
         print >>sys.stderr, "Load %s" % f

@@ -1,6 +1,27 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-from Cerebrum.modules.no.Indigo.Cweb import Cfg
+# Copyright 2005, 2006, 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+import cerebrum_path
+import cereconf
+
 from Cerebrum.modules.no.Indigo.Cweb import State
 from Cerebrum.modules.no.Indigo.Cweb import Utils
 from Cerebrum.modules.no.Indigo.Cweb import Commands
@@ -11,13 +32,14 @@ from Cerebrum.modules.no.Indigo.Cweb import Errors
 import re
 
 class Controller(object):
-    def __init__(self, logger):
+    def __init__(self, logger, available_actions):
         self.logger = logger
+        self.available_actions = available_actions
         
     def process_request(self):
         self.state = State.StateClass(self)
         self.html_util = Utils.HTMLUtil(self.logger, self.state)
-        self.cerebrum = CerebrumProxy(self.logger, url=Cfg.bofh_server_url)
+        self.cerebrum = CerebrumProxy(self.logger, url=cereconf.CWEB_BOFH_SERVER_URL)
         self.user_cmd = Commands.UserCommands(self.state, self.cerebrum)
         self.group_cmd = Commands.GroupCommands(self.state, self.cerebrum)
         self.person_cmd = Commands.PersonCommands(self.state, self.cerebrum)
@@ -105,6 +127,17 @@ class Controller(object):
                             ) and not self.state.is_logged_in():
             self.html_util.error("Logg inn først")
             return
+
+        # action_map defines all existing commands, but only some of them are
+        # available at any given installation.
+        # 
+        # IVR 2007-03-15 TODO: More elaborate command restriction
+        # (i.e. c1-users should not be able to run 'person_find' on
+        # anyone). Perhaps in conjunction with cereconf?
+        if action not in self.available_actions:
+            self.html_util.error("Kommando '%s' er ikke tilgjengelig" % action)
+            self.logger.debug("Action '%s' is not available" % action)
+            return 
         f = action_map.get(action)
         if not f:
             if (action == 'set_style'):  # TODO: Debug only
@@ -112,7 +145,8 @@ class Controller(object):
                     self.html_util.error("Adgang nektet")
                 else:
                     style = self.state.get_form_value("val")
-                    self.state.set_style(*style.split(","))
+                    # self.state.set_style(*style.split(","))
+                    self.state.set_style(usertype=style)
                     self.html_util.display(
                         self.html_util.show_page(Layout.PersonTemplate, 'welcome'))
                 return
