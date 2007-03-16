@@ -72,11 +72,17 @@ my_self = [
     'EmailTarget.create_forward',
     'EmailTarget.get_using_uid',
     'EmailTarget.set_alias_value',
+    'EntityExternalId.get_id_type',
+    'EntityExternalId.get_external_id',
 ]
 cereweb_public = [
     'Commands.get_account_by_name', 
     'EmailTargetSearcher.search',
     'EmailTargetSearcher.set_entity',
+    'EmailVacationSearcher.search',
+    'EmailVacationSearcher.set_target',
+    'EmailForwardSearcher.search',
+    'EmailForwardSearcher.set_target',
 ]
 cereweb_basic = [
     'AccountSearcher.search',
@@ -90,10 +96,6 @@ cereweb_basic = [
     'PersonNameSearcher.set_name_variant',
     'PersonNameSearcher.set_source_system',
     'DiskSearcher.search',
-    'EmailVacationSearcher.search',
-    'EmailVacationSearcher.set_target',
-    'EmailForwardSearcher.search',
-    'EmailForwardSearcher.set_target',
     'GroupSearcher.set_search_limit',
     'GroupSearcher.set_name_like',
     'GroupSearcher.search',
