@@ -5,7 +5,9 @@
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 <body style="background-color: rgb(255, 255, 255); color: rgb(102, 102, 102);" alink="#cccccc" link="#000000" vlink="#999999">
 
-<h1>Giske Cerebrum web</h1>
+<div class="body">
+<div class="header"><h1>Giske Cerebrum web</h1></div>
+<div class="content">
 
 <table border="1" cellpadding="0" cellspacing="0" width="100%">
   <tbody> 
@@ -15,6 +17,8 @@
     </tr> 
   </tbody>
 </table>
+</div>
+</div>
 
 </body></html>
 </metal:block>
