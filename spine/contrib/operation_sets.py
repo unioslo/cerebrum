@@ -113,6 +113,7 @@ cereweb_basic = [
     'Commands.has_extention',
     'Commands.strptime',
     'Account.get_description',
+    'Account.get_name',
     'Group.get_id',
     'Group.get_name',
     'Group.get_type',
@@ -1447,7 +1448,8 @@ operation_targets = {
     'cereweb_orakel': [('account', 15850, 'TILKNYTTET'),
                        ('person', 15850, 'TILKNYTTET'),
                        ('ou', 15850, None)],
-    'cereweb_basic': [('cereweb_basic', None, None)],
+    'cereweb_basic': [('global', None, None)],
+    'cereweb_public': [('global', None, None)],
 }
 
 # vim: se foldmarker=[,]:

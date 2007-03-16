@@ -263,8 +263,8 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
             transaction.check_lost_locks()
 
             # Can the logged in user run this method?
-            if not transaction.authorization.has_permission(self.spine_object, method_name, corba_args):
-                raise AccessDeniedError('Your are not authorized to perform the requested operation.')
+            if not transaction.authorization.has_permission(method_name, self.spine_object, corba_args):
+                raise AccessDeniedError('You are not authorized to perform the requested operation: %s.%s' % (self.spine_object.__class__.__name__, method_name))
 
             # Lock the object if it should be locked
             if isinstance(self.spine_object, Locking):
@@ -281,7 +281,7 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
 
             # Can the logged in user see the return value?
             if not transaction.authorization.can_return(value):
-                raise AccessDeniedError('Your are not authorized to return the requested object.')
+                raise AccessDeniedError('You are not authorized to perform the requested operation: %s.%s' % (self.spine_object.__class__.__name__, method_name))
 
             if write:
                 self.spine_object.save()

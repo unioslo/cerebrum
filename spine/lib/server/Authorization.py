@@ -45,7 +45,9 @@ class Authorization(object):
         self.user_owner = self.user.get_owner()
         self.groups = user.get_groups()
         cereweb_self = Commands(self.db).get_group_by_name('cereweb_self')
+        cereweb_public = Commands(self.db).get_group_by_name('cereweb_public')
         self.groups.append(cereweb_self)
+        self.groups.append(cereweb_public)
         self.credentials = [i.get_id() for i in [self.user]+self.groups]
         self.update_auths(self.credentials)
         self.is_superuser = self._is_superuser()
@@ -133,12 +135,11 @@ class Authorization(object):
         if issubclass(target.__class__, CodeType):
             return True
 
-        operation = AuthRoleOpCode("%s.%s" % (target.__class__.__name__, operation))
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name('cereweb_public')
-        operations = [AuthRoleOpCode(x[0]) for x in op_set.list_operations()]
-        if operation in operations:
-            return True
+        operation_full_name = "%s.%s" % (target.__class__.__name__, operation)
+        return self._check_global(operation_full_name, attr)
+
+    def _check_global(self, operation, attr):
+        return self._query_auth(operation, attr, None, 'global')
 
     def _check_direct(self, operation, attr, target_id, target_type):
         return self._query_auth(operation, attr, target_id, target_type)
@@ -227,6 +228,9 @@ class AuthTest(unittest.TestCase):
         """_check_self failed when called with attr = () instead of attr = None"""
         assert self.auth._check_self('Account.get_id', (), 'account')
         assert self.auth._check_self('Account.set_password', ('new',), 'account')
+
+    def test__check_global(self):
+        assert self.auth._check_global('Account.get_name', None)
 
     def test_orakel(self):
         assert self.auth.has_permission("set_password", Account(self.db, self.ou_account))
