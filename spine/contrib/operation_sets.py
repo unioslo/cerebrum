@@ -3,63 +3,8 @@
 from sets import Set
 
 # This is the auth_operation_sets and auth_operations used at NTNU.
-public = [ # {{{
-    'AccountSearcher.set_search_limit',
-    'AccountSearcher.set_name_like',
-    'AccountSearcher.search',
-    'PersonSearcher.set_search_limit',
-    'PersonSearcher.search',
-    'PersonNameSearcher.set_name_variant',
-    'PersonNameSearcher.set_source_system',
-    'DiskSearcher.search',
-    'EmailTargetSearcher.search',
-    'EmailTargetSearcher.set_entity',
-    'EmailVacationSearcher.search',
-    'EmailVacationSearcher.set_target',
-    'EmailForwardSearcher.search',
-    'EmailForwardSearcher.set_target',
-    'GroupSearcher.set_search_limit',
-    'GroupSearcher.set_name_like',
-    'GroupSearcher.search',
-    'CerewebMotd.get_creator',
-    'Commands.find_email_address',
-    'Commands.get_account_by_name', 
-    'Commands.get_date',
-    'Commands.get_date_none', 
-    'Commands.get_date_now',
-    'Commands.get_datetime', 
-    'Commands.get_email_domains_by_category', 
-    'Commands.get_extentions',
-    'Commands.get_group_by_name',
-    'Commands.get_last_changelog_id', 
-    'Commands.has_extention',
-    'Commands.strptime',
-    'Account.get_id',
-    'Account.get_name',
-    'Account.get_type',
-    'Account.get_description',
-    'Group.get_id',
-    'Group.get_name',
-    'Group.get_type',
-    'Group.get_description',
-    'Group.get_description',
-    'Group.is_posix',
-    'Person.get_type',
-    'Person.get_id',
-    'Disk.get_id',
-    'Disk.get_host',
-    'Disk.get_path',
-    'Host.get_name',
-    'AccountAuthentication.get_method',
-    'EmailTargetTypeSearcher.search',
-    'EmailTargetSearcher.set_entity',
-    'EmailTargetSearcher.search',
-    'SpreadSearcher.search',
-    'GroupMemberOperationTypeSearcher.search',
-] # }}}
-mySelf = [ # {{{
+my_self = [
     'Account.get_accounts',
-    'Account.get_homes',
     'Account.get_authentications',
     'Account.get_address',
     'Account.get_addresses',
@@ -67,6 +12,8 @@ mySelf = [ # {{{
     'Account.get_creator',
     'Account.get_posix_uid',
     'Account.get_history',
+    'Account.get_homes',
+    'Account.get_id',
     'Account.get_primary_group',
     'Account.get_direct_groups',
     'Account.get_entity_name',
@@ -75,11 +22,13 @@ mySelf = [ # {{{
     'Account.get_external_ids',
     'Account.get_groups',
     'Account.get_homedir',
+    'Account.get_name',
     'Account.get_owner',
     'Account.get_owner_type',
     'Account.get_spreads',
     'Account.get_gecos',
     'Account.get_shell',
+    'Account.get_type',
     'Account.is_expired',
     'Account.is_posix',
     'Account.is_quarantined',
@@ -105,6 +54,7 @@ mySelf = [ # {{{
     'Person.get_external_ids',
     'Person.get_gender',
     'Person.get_groups',
+    'Person.get_id',
     'Person.get_names',
     'Person.get_primary_account',
     'Person.get_quarantine',
@@ -122,14 +72,68 @@ mySelf = [ # {{{
     'EmailTarget.create_forward',
     'EmailTarget.get_using_uid',
     'EmailTarget.set_alias_value',
-] # }}}
-private = [ # {{{
+]
+cereweb_public = [
+    'Commands.get_account_by_name', 
+    'EmailTargetSearcher.search',
+    'EmailTargetSearcher.set_entity',
+]
+cereweb_basic = [
+    'AccountSearcher.search',
+    'AccountSearcher.set_name_like',
+    'AccountSearcher.set_search_limit',
+    'AccountSearcher.add_intersection',
+    'PersonSearcher.search',
+    'PersonSearcher.set_search_limit',
+    'PersonSearcher.add_intersection',
+    'PersonNameSearcher.set_name_like',
+    'PersonNameSearcher.set_name_variant',
+    'PersonNameSearcher.set_source_system',
+    'DiskSearcher.search',
+    'EmailVacationSearcher.search',
+    'EmailVacationSearcher.set_target',
+    'EmailForwardSearcher.search',
+    'EmailForwardSearcher.set_target',
+    'GroupSearcher.set_search_limit',
+    'GroupSearcher.set_name_like',
+    'GroupSearcher.search',
+    'CerewebMotd.get_creator',
     'Commands.create_cereweb_option', 
-] # }}}
-orakel = [ # {{{
+    'Commands.find_email_address',
+    'Commands.get_date',
+    'Commands.get_date_none', 
+    'Commands.get_date_now',
+    'Commands.get_datetime', 
+    'Commands.get_email_domains_by_category', 
+    'Commands.get_extentions',
+    'Commands.get_group_by_name',
+    'Commands.get_last_changelog_id', 
+    'Commands.has_extention',
+    'Commands.strptime',
+    'Account.get_description',
+    'Group.get_id',
+    'Group.get_name',
+    'Group.get_type',
+    'Group.get_description',
+    'Group.get_description',
+    'Group.is_posix',
+    'Person.get_type',
+    'Disk.get_id',
+    'Disk.get_host',
+    'Disk.get_path',
+    'Host.get_name',
+    'AccountAuthentication.get_method',
+    'EmailTargetTypeSearcher.search',
+    'EmailTargetSearcher.set_entity',
+    'EmailTargetSearcher.search',
+    'SpreadSearcher.search',
+    'GroupMemberOperationTypeSearcher.search',
+]
+cereweb_orakel = [
     'Person.set_description',
-] # }}}
-innsyn = [ # {{{
+    'Account.set_password',
+]
+cereweb_innsyn = [
     'AccountAuthenticationDumper.get_dumper_size',
     'AccountAuthenticationDumper.get_objects',
     'AccountAuthentication.get_account',
@@ -1412,33 +1416,36 @@ innsyn = [ # {{{
     'View.get_ous_cl',
     'View.get_persons',
     'View.get_persons_cl',
-] # }}}
-
+]
 
 operation_sets = {
-    'public': {
+    'cereweb_public': {
       'desc': 'operations all users should be allowed to do',
-      'codestrs': public},
-    'private': {
+      'codestrs': cereweb_public},
+    'cereweb_basic': {
       'desc': 'operations only trusted users should be allowed to do',
-      'codestrs': private},
-    'mySelf': {
-      'desc': 'operations all users should be allowed to do with their own account',
-      'codestrs': mySelf},
-    'orakel': {
+      'codestrs': cereweb_basic},
+    'cereweb_orakel': {
       'desc': 'operations that the orakel-group should be allowed to do on users in a given affiliation',
-      'codestrs': innsyn + orakel},
-    'innsyn': {
+      'codestrs': cereweb_innsyn + cereweb_orakel},
+    'cereweb_innsyn': {
       'desc': 'all read operations available',
-      'codestrs': innsyn},
+      'codestrs': cereweb_innsyn},
+    'cereweb_self': {
+      'desc': 'operations all users should be allowed to do with their own account',
+      'codestrs': my_self},
 }
 
 # target_type, entity_id, attr
-operation_targets = [
-    ('my_account', None, None),
-    ('my_person', None, None),
-    ('my_group', None, None),
-    ('account', 15850, 'TILKNYTTET'),
-    ('person', 15850, 'TILKNYTTET'),
-    ('ou', 15850, None),
-]
+operation_targets = {
+    'cereweb_self': [('my_account', None, None),
+                     ('my_person', None, None),
+                     ('my_group', None, None),
+                     ('my_email', None, None)],
+    'cereweb_orakel': [('account', 15850, 'TILKNYTTET'),
+                       ('person', 15850, 'TILKNYTTET'),
+                       ('ou', 15850, None)],
+    'cereweb_basic': [('cereweb_basic', None, None)],
+}
+
+# vim: se foldmarker=[,]:

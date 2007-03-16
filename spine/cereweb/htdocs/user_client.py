@@ -33,6 +33,7 @@ def _get_links():
     return (
         ('index', _('Index')),
         ('mail', _('Mail')),
+        ('/logout', _('Logout')),
     )
 
 def index(transaction):
@@ -41,7 +42,8 @@ def index(transaction):
     account = get_user_info(transaction,username)
     page.tr = transaction
     page.account = account
-    page.messages = get_messages()
+    if not page.messages:
+        page.messages = get_messages()
     page.set_focus('index/')
     page.links = _get_links()
     return page.respond()
@@ -84,7 +86,8 @@ def mail(transaction):
     page.account = get_user_info(transaction,username)
     page.vacations = get_vacations(transaction,account)
     page.forwards = get_forwards(transaction,account)
-    page.messages = get_messages()
+    if not page.messages:
+        page.messages = get_messages()
 
     page.set_focus("/mail")
     page.links = _get_links()
@@ -115,14 +118,14 @@ def add_vacation(transaction, username, start, end, alias):
         email_targets = email_target_searcher.search()
         email_target = None
         for target in email_targets:
-                
-            
+            pass
         page.tr = transaction
         page.account = get_user_info(transaction, username)
         page.vacations = get_vacations(transaction,account)
         page.forwards = get_forwards(transaction, account)
-        page.messages = get_messages()
-        page.setFocus('add_vacation')
+        if not page.messages:
+            page.messages = get_messages()
+        page.set_focus('add_vacation/')
         res = str(page)
         return [res]
     else:
@@ -150,8 +153,9 @@ def add_forward(transaction, username, start, end, forward):
         page.account = get_user_info(transaction, username)
         page.vacations = get_vacations(transaction,account)
         page.forwards = get_forwards(transaction, account)
-        page.messages = get_messages()
-        page.setFocus('add_vacation')
+        if not page.messages:
+            page.messages = get_messages()
+        page.set_focus('add_forward/')
         res = str(page)
         return [res]
     else:
@@ -219,7 +223,9 @@ def set_password(transaction, **vargs):
         queue_message("Passwords doesn't match.",error=True)
     elif ( not pass1 == pass2 ):
         queue_message("Passwords doesn't match",error=True)
-    utils.redirect('/user_client')
+    else:
+        queue_message("Something went very wrong!", error=True)
+    utils.redirect('/user_client/')
 set_password = transaction_decorator(set_password)
 set_password.exposed = True
 

@@ -103,4 +103,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.dirname(path))
     source = __import__(file[:-3])
     create_op_sets(source.operation_sets)
-    create_op_targets(source.operation_targets)
+    targets = []
+    for target in source.operation_targets.values():
+        targets += target
+    create_op_targets(targets)

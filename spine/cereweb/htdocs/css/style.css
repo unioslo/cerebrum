@@ -490,7 +490,7 @@ div.errorpage div.traceback pre {
 
 /* Styles for message of today on index-page. */
 div.motd {
-    width: auto;
+    width: 100%;
     margin-bottom: 1em;
 }
 

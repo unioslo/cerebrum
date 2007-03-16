@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sys
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -79,9 +80,13 @@ class Authorization(object):
                 return True
             if self._has_user_access(target, operation, attr):
                 if self._is_self(target):
-                    print 'XXX: _check_self failed!'
+                    print 'XXX: _check_self failed! %s, %s, %s' % (operation_full_name,
+                            attr, target_type)
                 else:
-                    print 'XXX: _is_self failed!'
+                    print 'XXX: _is_self failed! (%s, %s != %s, account)' % (target.get_id(),
+                            target_type, self.user.get_id())
+                self._is_self(target)
+                self._check_self(operation_full_name, attr, target_type)
                 return True
         return False
 
@@ -110,9 +115,9 @@ class Authorization(object):
         self.auths = sets.Set([tuple(row) for row in authrows])
 
     def _is_self(self, target):
-        if target == self.user:
+        if target.get_id() == self.user.get_id():
             return True
-        if target == self.user_owner:
+        if target.get_id() == self.user_owner.get_id():
             return True
         return False
 
@@ -159,8 +164,15 @@ class Authorization(object):
 
     def _query_auth(self, operation, op_attr, target, target_type,
                    target_attr=None):
-        return (target, target_type, target_attr,
+        """We first check if the user has access to run the operation with
+        the given arguments.  Then we check if the user has access to run
+        the operation without arguments."""
+        op_attr = op_attr or None
+        attr = (target, target_type, target_attr,
                 operation, op_attr) in self.auths
+        no_attr = (target, target_type, target_attr,
+                operation, None) in self.auths
+        return attr or no_attr
     
     def _is_superuser(self):
         bofhdauth = BofhdAuth(self.db)
@@ -213,15 +225,44 @@ class AuthTest(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test__is_self(self):
+        """Make sure _is_self works even when we operate against
+        different database cursors."""
+        new_db = Utils.Factory.get('Database')()
+        assert new_db != self.db
+
+        my_account = Account(new_db, self.my_account)
+        my_person = Person(new_db, self.my_person)
+        assert self.auth._is_self(my_account)
+        assert self.auth._is_self(my_person)
+
+    def test__check_self(self):
+        """_check_self failed when called with attr = () instead of attr = None"""
+        assert self.auth._check_self('Account.get_id', (), 'account')
+        assert self.auth._check_self('Account.set_password', ('new',), 'account')
+
     def test_orakel(self):
+        assert self.auth.has_permission("set_password", Account(self.db, self.ou_account))
         assert self.auth.has_permission("set_password", Account(self.db, self.ou_account))
         assert self.auth.has_permission("set_description", Person(self.db, self.ou_person))
         assert not self.auth.has_permission("add_note", Person(self.db, self.ou_person))
         assert self.auth.has_permission("set_description", Person(self.db, self.ou_person))
 
     def test_my_types(self):
-        assert self.auth.has_permission("set_password", Account(self.db, self.my_account))
-        assert self.auth.has_permission("get_external_ids", Person(self.db, self.my_person))
+        my_account = Account(self.db, self.my_account)
+        my_person = Person(self.db, self.my_person)
+        account_operations = ['get_name', 'get_id', 'set_password']
+        person_operation = ['get_external_ids']
+
+        for operation in account_operations:
+            assert self.auth.has_permission(operation, my_account), operation
+
+        for operation in person_operation:
+            assert self.auth.has_permission(operation, my_person), operation
+
+    def test_my_emailtargetsearcher(self):
+        import pdb
+        pdb.set_trace()
 
     def test_public(self):
         assert not self.auth.has_permission("get_external_ids",
