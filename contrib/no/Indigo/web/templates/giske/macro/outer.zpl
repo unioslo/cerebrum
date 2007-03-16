@@ -1,7 +1,7 @@
 <metal:block metal:define-macro="page">
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
 <html lang="no-bok"><head><title>Cerebrum web</title>
-  <!-- <link rel="stylesheet" type="text/css" href="/web/templates/cw.css"> -->
+  <link rel="stylesheet" type="text/css" href="/cweb_help/cw.css">
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 <body style="background-color: rgb(255, 255, 255); color: rgb(102, 102, 102);" alink="#cccccc" link="#000000" vlink="#999999">
 
