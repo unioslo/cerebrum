@@ -25,6 +25,7 @@ class PersonAffiliationStatus(DatabaseClass):
             'name' : 'status_str'
         }
     }
+PersonAffiliationStatus.signature_public = True
 
 registry.register_class(PersonAffiliationStatus)
 
