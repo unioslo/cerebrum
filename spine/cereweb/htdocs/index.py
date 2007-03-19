@@ -61,7 +61,7 @@ def index(transaction):
         page = MotdTemplate()
         page.title = _("Welcome to Cereweb")
         page.add_jscript("motd.js")
-        page.set_focus('/index')
+        page.set_focus('cereweb/index')
         page.links = _get_links()
         
         motd_search = transaction.get_cereweb_motd_searcher()
@@ -70,6 +70,7 @@ def index(transaction):
         page.motds = motd_search.search()
         return page.respond()
     except AccessDeniedError, e:
+        print e
         redirect('/user_client')
 index = transaction_decorator(index)
 index.exposed = True
@@ -78,7 +79,7 @@ def all_motds(transaction):
     page = MotdTemplate()
     page.title = _("Messages of the day")
     page.add_jscript("motd.js")
-    page.set_focus('/all_motds')
+    page.set_focus('cereweb/all_motds')
     page.links = _get_links()
     
     motd_search = transaction.get_cereweb_motd_searcher()
