@@ -240,9 +240,13 @@ class Searcher(object):
 
         self.remember_last()
 
-        result = self.get_results()
+        try:
+            result = self.get_results()
+        except SpineIDL.Errors.AccessDeniedError, e:
+            print e
+            return self.get_fail_response('403 Forbidden', [("No access", True)])
         if not result:
-            return self.get_fail_response('404 Not Found', ["No hits"])
+            return self.get_fail_response('404 Not Found', [("No hits", True)])
 
         page = SearchResultTemplate()
         content = page.viewDict(result)
@@ -401,14 +405,18 @@ class PersonSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            date = utils.strftime(elm.get_birth_date())
-            accs = [str(utils.object_link(i)) for i in elm.get_accounts()[:3]]
-            accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
-            affs = [str(utils.object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
-            affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class="action")
-            rows.append([utils.object_link(elm), date, accs, affs, str(edit)+str(remb)])
+                try:
+                    date = utils.strftime(elm.get_birth_date())
+                    affs = [str(utils.object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
+                    affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
+                except SpineIDL.Errors.AccessDeniedError, e:
+                    date = 'No Access'
+                    affs = 'No Access'
+                accs = [str(utils.object_link(i)) for i in elm.get_accounts()[:3]]
+                accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
+                edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+                remb = remember_link(elm, _class="action")
+                rows.append([utils.object_link(elm), date, accs, affs, str(edit)+str(remb)])
         return rows
 
 class AllocationPeriodSearcher(Searcher):
