@@ -279,10 +279,6 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
             # Run the real method
             value = method(self.spine_object, *args)
 
-            # Can the logged in user see the return value?
-            if not transaction.authorization.can_return(value):
-                raise AccessDeniedError('You are not authorized to perform the requested operation: %s.%s' % (self.spine_object.__class__.__name__, method_name))
-
             if write:
                 self.spine_object.save()
 

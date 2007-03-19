@@ -60,19 +60,39 @@ class Authorization(object):
         specified operation on the given object with the provided attributes.
         See www.itea.ntnu.no/fuglane/index.php/Spine:Autorisasjonskravsdesign
         for a description (in Norwegian)"""
-        has_entity = is_entity = False
-        operation_full_name = "%s.%s" % (target.__class__.__name__, operation)
-        if isinstance(target, Entity):
-            target_type=target.get_type().get_name()
-            target_id=target.get_id()
-            is_entity=True
-        elif hasattr(target, 'get_entity'):
-            has_entity = True
-        
+
         if self.is_superuser:
             return True
+
         if self._is_unrestricted_operation(target, operation, attr):
             return True
+
+        has_entity = is_entity = attribute = None
+        operation_full_name = "%s.%s" % (target.__class__.__name__, operation)
+
+        try:
+            if '%s\n' % operation_full_name in open('/tmp/alfborge/spine_breakfile'):
+                import pdb
+                pdb.set_trace()
+        except IOError:
+            pass
+
+        if not isinstance(target, Entity):
+            attribute = target
+            if hasattr(target, 'get_entity'):
+                target = attribute.get_entity()
+            elif hasattr(target, 'get_person'):
+                target = attribute.get_person()
+            elif hasattr(target, 'get_account'):
+                target = attribute.get_account()
+            else:
+                attribute = None
+
+        if isinstance(target, Entity):
+            target_type = target.get_type().get_name()
+            target_id = target.get_id()
+            is_entity = True
+        
         if is_entity:
             if self._check_type(operation_full_name, attr, target_type):
                 return True
@@ -83,14 +103,6 @@ class Authorization(object):
             if self._is_self(target) and self._check_self(operation_full_name, attr, target_type):
                 return True
 
-        # Can this be attached to _is_self and _check_self in some way?
-        if has_entity and self._has_entity_access(operation, target, attr):
-            return True
-        return False
-
-    def can_return(self, *args, **vargs):
-        return True
-        
     def update_auths(self, credentials):
         authrows = self.db.query(
             """SELECT
@@ -175,23 +187,6 @@ class Authorization(object):
         bofhdauth = BofhdAuth(self.db)
         if bofhdauth.is_superuser(self.user.get_id()):
             return True
-        
-    def _has_entity_access(self, operation, target, attr):
-        """Checks if the logged in user is trying to access his own user
-        or person object.  In that case, he can do the operations defined in
-        the *mySelf* operation set.
-        """
-        operation = AuthRoleOpCode("%s.%s" % (target.__class__.__name__, operation))
-        entity_id = target.get_entity().get_id()
-        account_id = self.user.get_id()
-        owner_id = self.user.get_owner().get_id() 
-
-        if entity_id in [owner_id, account_id]:
-            op_set = BofhdAuthOpSet(self.db)
-            op_set.find_by_name('cereweb_self')
-            operations = [x[0] for x in op_set.list_operations()]
-            if int(operation) in operations:
-                return True
 
 class AuthTest(unittest.TestCase):
     def __init__(self, *args, **vargs):
