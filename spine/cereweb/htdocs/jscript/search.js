@@ -37,6 +37,7 @@ cereweb.ac_group = function(input) {
     this.widget.dataRequestEvent.subscribe(this.dataRequest, this, true);
     this.widget.dataReturnEvent.subscribe(this.dataReturn, this, true);
     this.widget.dataErrorEvent.subscribe(this.dataError, this, true);
+    this.widget.itemSelectEvent.subscribe(this.dataSelect, this, true);
     this.widget.textboxKeyEvent.subscribe(this.textboxKey, this, true);
 
     this.widget.doBeforeExpandContainer = this.doBeforeExpandContainer;
@@ -89,7 +90,11 @@ cereweb.ac_group.prototype = {
             this.submit();
         }
     },
-    parseData: function() {
+    dataSelect: function(event, args) {
+        this.valid = false;
+        this.parseData(args[2]);
+    },
+    parseData: function(data) {
         this.valid = true;
     },
     widgetOptions: {
@@ -231,12 +236,16 @@ cereweb.ac_quicksearch.prototype.itemSelect = function(event, args) {
     this.input.value = prefix + data.name;
 }
 
-cereweb.ac_quicksearch.prototype.parseData = function() {
+cereweb.ac_quicksearch.prototype.parseData = function(data) {
     this.valid = true;
+    if (!data)
+        var data = this.data[0][1];
+    else
+        var data = data[1];
 
-    var type = this.data[0][1].type;
+    var type = data.type;
     this.form.action = '/' + type + '/view';
-    this.id.value = this.data[0][1].id;
+    this.id.value = data.id;
 }
 
 cereweb.ac_quicksearch.prototype.dataSourceOptions = {
