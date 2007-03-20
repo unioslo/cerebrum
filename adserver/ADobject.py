@@ -161,8 +161,9 @@ class ADObject(object):
 		if Name == None:
 			Name = dName.split(',')[0]
 
+		
 		try:
-			AccountObject = self.Object.MoveHere('LDAP://%s,%s' % dName,Name)
+			AccountObject = self.Object.moveHere('LDAP://%s' % dName, Name)
 			logging.debug('moveObject %s to LDAP://%s' % (Name, OU))
 
 		except pythoncom.com_error:
