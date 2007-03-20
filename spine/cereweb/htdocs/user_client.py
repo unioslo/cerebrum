@@ -118,7 +118,9 @@ def add_vacation(transaction, username, start, end, alias):
         email_targets = email_target_searcher.search()
         email_target = None
         for target in email_targets:
-            pass
+        user_client.py
+            email_target = target
+
         page.tr = transaction
         page.account = get_user_info(transaction, username)
         page.vacations = get_vacations(transaction,account)
