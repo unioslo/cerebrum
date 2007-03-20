@@ -20,6 +20,7 @@
 
 import urllib
 import cherrypy
+from omniORB import CORBA
 
 from lib import utils
 from lib.Options import Options
@@ -32,6 +33,30 @@ Spine = SpineClient.SpineClient(config=config.conf)
 
 def login(username='', password='', redirect='/index', msg=''):
     error = None
+
+    # Normalize redirect.
+    if not redirect.startswith('/'):
+        parts = redirect.split('/')
+        # parts = [ 'http[s]?:', '', 'pointy...:8000', 'index', '...']
+        if parts[0].startswith('http'):
+            redirect = "/".join(parts[3:]) 
+        else:
+            redirect = '/%s' % redirect
+    if redirect.startswith('/login') or redirect.startswith('/logout'):
+        redirect = '/index'
+
+    # See if we have a working session already.
+    try: 
+        session = cherrypy.session['session']
+        if session.get_timeout():
+            utils.redirect(redirect)
+    # cherrypy session exists but no spine session
+    except CORBA.OBJECT_NOT_EXIST, e:
+        cherrypy.session.clear()
+    # No cherrypy session
+    except KeyError, e:
+        pass
+
     if username and password:
         error = "Login"
         try:
@@ -50,15 +75,6 @@ def login(username='', password='', redirect='/index', msg=''):
             cherrypy.session['encoding'] = session.get_encoding()
             cherrypy.session['options'] = Options(session, username)
             
-            #clean redirect
-            if not redirect.startswith('/'):
-                parts = redirect.split('/')
-                # parts = [ 'http[s]?:', '', 'pointy...:8000', 'index', '...']
-                if parts[0].startswith('http'):
-                    redirect = "/".join(parts[3:]) 
-                else:
-                    redirect = '/%s' % redirect
-            #redirect to the main page and start using the cereweb.publisher.
             utils.redirect(redirect)
 
     messages = []
@@ -77,6 +93,8 @@ login.exposed = True
 
 def logout():
     username = cherrypy.session.get('username', '')
+    session = cherrypy.session['session']
+    session.logout()
     cherrypy.session.clear()
     utils.redirect("/login?username=%s" % username)
 logout.exposed = True
