@@ -584,7 +584,7 @@ configuration as well.
 
 
 References
------------
+===========
 .. [#cerebrum] Cerebrum project. <http://cerebrum.sf.net/>.
 .. [#bofhd] Bofhd - server for remote administration in
             Cerebrum. Development documentation is available in cvs,
