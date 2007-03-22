@@ -518,7 +518,7 @@ on a new installation.
   * Install zope page templates [#zpt]_. Version 1.4 would do nicely. It's
     probably best to install it to ``/site``. Make sure that the user running
     CWEB has access to the right python and has ``/site/lib/...`` in
-    ``PYTHONPAHT``. 
+    ``PYTHONPATH``. 
   * Define several variables in ``cereconf.py``, so that CWEB can locate
     templates and its components: 
 
@@ -569,7 +569,9 @@ on a new installation.
 
   * Fix ``config.dat`` for ``bofhd``. We need to include at least
     ``Indigo/bofhd_go_cmds``. 
-  * Remember that each new installation may need its own templates. 
+  * Remember that each new installation may need its own templates. This may
+    require changing setup.py to include new directories and all the
+    zpl-files.
 
 Apache has to be configured as well, and there are several key points in that
 configuration as well. 
