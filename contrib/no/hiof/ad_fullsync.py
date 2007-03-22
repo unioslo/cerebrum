@@ -1,6 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
+# Copyright 2006, 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """
 ad-sync script that can be used with any module that extends ADutilMixIn.ADuserUtil
 
@@ -34,9 +52,11 @@ logger = Utils.Factory.get_logger("cronjob")
 def fullsync(user_class_ref, user_spread, url, dryrun=False, delete_objects=False,
              ad_ldap=None):
     disk_spread = user_spread
+
+    # Get module and glass name, and use getattr to get a class object.
     modname, classname = user_class_ref.split("/")
     sync_class = getattr(Utils.dyn_import(modname), classname)
-
+    # instantiate sync_class and call full_sync
     sync_class(db, co, logger, url=url, ad_ldap=ad_ldap).full_sync(
         'user', delete_objects, user_spread, dryrun, disk_spread)
 
@@ -49,6 +69,7 @@ def main():
 
     dryrun = False
     ad_ldap = cereconf.AD_LDAP
+    ad_mod = cereconf.AD_DEFAULT_SYNC
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -63,11 +84,14 @@ def main():
         elif opt in ('--url',):
             url = val
         elif opt in ('-m',):
-            fullsync(val, user_spread, url, dryrun=dryrun, ad_ldap=ad_ldap)
+            ad_mod = val
         elif opt == '--user_spread':
             user_spread = _SpreadCode(val)
     if not opts:
         usage(1)
+
+    fullsync(ad_mod, user_spread, url, dryrun=dryrun, ad_ldap=ad_ldap)
+
 
 def usage(exitcode=0):
     print __doc__
