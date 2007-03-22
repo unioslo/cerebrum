@@ -266,23 +266,22 @@ class BofhdExtension(object):
                  'export_id': person.export_id,
                  'birth': person.birth_date,
                  'entity_id': person.entity_id}]
-        affiliations = []
-        sources = []
-#        for row in person.get_affiliations():
-#            ou = self._get_ou(ou_id=row['ou_id'])
-#            affiliations.append("%s@%s" % (
-#                self.const.PersonAffStatus(row['status']),
-#                self._format_ou_name(ou)))
-#            sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
-        if affiliations:
-            data[0]['affiliation_1'] = affiliations[0]
-            data[0]['source_system_1'] = sources[0]
-        else:
-            data[0]['affiliation_1'] = "<none>"
-            data[0]['source_system_1'] = "<nowhere>"
-        for i in range(1, len(affiliations)):
-            data.append({'affiliation': affiliations[i],
-                         'source_system': sources[i]})
+
+        affiliations = list()
+        for row in person.get_affiliations():
+            ou = self._get_ou(ou_id=row['ou_id'])
+            data.append({'aff_stedkode': "%02d%02%02d" % (ou.fakultet,
+                                                 ou.institutt,
+                                                 ou.avdeling),
+                         'aff_sted_desc': ou.short_name,
+                         'aff_type': self.const.PersonAffiliation(row['affiliation']),
+                         'aff_status': self.const.PersonAffStatus(row['status']),
+                         'ou_id': row['ou_id'],
+                         'affiliation':
+                           self.const.PersonAffStatus(row['status']),
+                         'source_system':
+                           self.const.AuthoritativeSystem(row['source_system']),})
+        
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
                        for r in account.list_accounts_by_owner_id(person.entity_id)]
