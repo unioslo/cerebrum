@@ -35,6 +35,17 @@ AC_ARG_WITH(webroot,
 	[webroot="$withval"], [webroot="$prefix/var/www/htdocs"])
 AC_SUBST(webroot)
 
+# should we make bofhd and jbofh?
+AC_ARG_ENABLE(bofh,
+        [  --disable-bofh   Disable make and install of jbofh and bofhd (enabled by default)],
+        [if test "x$enableval" == "xno"; then
+            bofh_enabled="no"
+        else
+            bofh_enabled="yes"
+        fi],
+        [bofh_enabled="yes"]
+    )
+AC_SUBST(bofh_enabled)
 
 # Top directory where python library is installed.  TBD: Should this
 # rather be based on $exec_prefix?

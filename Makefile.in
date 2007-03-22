@@ -5,6 +5,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 prefix     = @prefix@
 sbindir    = @sbindir@
 bindir     = @bindir@
+bofh = @bofh_enabled@
 
 AUTOCONF   = @AUTOCONF@
 
@@ -53,7 +54,7 @@ clean:
 	$(RM) -r build
 
 java/jbofh/dist/lib/JBofh.jar:
-	cd java/jbofh && ant dist
+	$(if $(filter yes, $(bofh)), cd java/jbofh && ant dist, )
 
 distclean: clean
 	-$(RM) config.log config.status Makefile
