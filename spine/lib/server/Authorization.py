@@ -42,15 +42,16 @@ class Authorization(object):
     def __init__(self, user, database=None):
         self.db = database or Database.SpineDatabase()
         self.user = user
-        self.user_owner = self.user.get_owner()
-        self.groups = user.get_groups()
-        cereweb_self = Commands(self.db).get_group_by_name('cereweb_self')
-        cereweb_public = Commands(self.db).get_group_by_name('cereweb_public')
-        self.groups.append(cereweb_self)
-        self.groups.append(cereweb_public)
-        self.credentials = [i.get_id() for i in [self.user]+self.groups]
-        self.update_auths(self.credentials)
         self.is_superuser = self._is_superuser()
+        if not self.is_superuser:
+            self.user_owner = self.user.get_owner()
+            self.groups = user.get_groups()
+            cereweb_self = Commands(self.db).get_group_by_name('cereweb_self')
+            cereweb_public = Commands(self.db).get_group_by_name('cereweb_public')
+            self.groups.append(cereweb_self)
+            self.groups.append(cereweb_public)
+            self.credentials = [i.get_id() for i in [self.user]+self.groups]
+            self.update_auths(self.credentials)
 
     def __del__(self):
         self.db.close()
@@ -218,6 +219,9 @@ class AuthTest(unittest.TestCase):
         my_person = Person(new_db, self.my_person)
         assert self.auth._is_self(my_account)
         assert self.auth._is_self(my_person)
+
+    def test__attribute(self):
+        assert self.auth._check_self('Account.set_shell', ('bash',), 'account')
 
     def test__check_self(self):
         """_check_self failed when called with attr = () instead of attr = None"""
