@@ -32,10 +32,14 @@
 	  <td tal:content="person/fnrs">fnr</td>
         </tr>
 
-        <!--TODO: noe er galt med uthenting av affs...-->
         <tr>
           <td>Tilknytning</td>
-	  <td>tal:content="person/affiliations">affs</td>
+          <td>
+            <span tal:repeat="aff affiliations" tal:omit-tag="">
+              <span tal:content="string:${aff}"></span>
+              <br>
+            </span>
+          </td>
         </tr>
       </table>
 

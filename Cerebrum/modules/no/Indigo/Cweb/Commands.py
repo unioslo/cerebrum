@@ -222,9 +222,18 @@ class PersonCommands(VirtualCommands):
             except:
                 u['email'] = 'unknown'
             u['groups'] = self.cerebrum.group_user(entity_id=u['entity_id'])
+
+        affiliations = list()
+        for data in person.get("affiliations", []):
+            # The format uglyness is to avoid situations when the value of key
+            # 'aff_sted_desc' is None.
+            affiliations.append("%s %s(fra %s)" % (data["aff_status"],
+                                                   (data["aff_sted_desc"] or "") + " ",
+                                                   data["source_system"]))
         return tpl.show({'person': self.cerebrum.convert(person),
                          'userlist': userlist,
-                         'person_spreads': person_spreads})
+                         'person_spreads': person_spreads,
+                         'affiliations': affiliations,})
 
     def person_find(self):
         s_type = s_val = None

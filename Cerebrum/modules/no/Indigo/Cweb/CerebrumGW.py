@@ -278,20 +278,7 @@ class CerebrumProxy(object):
                 new_person['fnrs'].append(p)
             else:
                 for k, v in p.items():
-                    if k.endswith('_1'):
-                        new_person['affiliations'] = [{
-                            'affiliation': p['affiliation_1'],
-                            'source_system': p['source_system_1']
-                            }]
-                    else:
-                        new_person[k] = v
-        new_affs = []
-        for a in new_person['affiliations']:
-            tmp = self._parse_aff(a['affiliation'])
-            if tmp:
-                a.update(tmp)
-                new_affs.append(a)
-        new_person['affiliations'] = new_affs
+                    new_person[k] = v
         return new_person
 
     def spread_add(self, entity_type, id, spread):
