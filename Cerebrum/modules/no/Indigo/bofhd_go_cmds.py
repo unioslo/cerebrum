@@ -269,7 +269,7 @@ class BofhdExtension(object):
 
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
-            data.append({'aff_sted_desc': ou.short_name,
+            data.append({'aff_sted_desc': ou.name,
                          'aff_type': str(self.const.PersonAffiliation(row['affiliation'])),
                          'aff_status': str(self.const.PersonAffStatus(row['status'])),
                          'ou_id': row['ou_id'],
