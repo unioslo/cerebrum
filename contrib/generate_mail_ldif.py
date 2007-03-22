@@ -384,7 +384,7 @@ def main():
 
     verbose = 0
     mail_file = None
-    spread = None
+    spread = ldapconf('MAIL', 'spread', None)
     max_change = None
     auth = True
     for opt, val in opts:
@@ -404,7 +404,8 @@ def main():
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     ldap = Factory.get('EmailLDAP')(db)
-    spread = map_spreads(spread, int)
+    if spread is not None:
+        spread = map_spreads(spread, int)
 
     f = ldif_outfile('MAIL', mail_file, max_change=max_change)
     get_data(spread)
