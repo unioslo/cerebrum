@@ -270,13 +270,13 @@ class BofhdExtension(object):
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
             data.append({'aff_sted_desc': ou.short_name,
-                         'aff_type': self.const.PersonAffiliation(row['affiliation']),
-                         'aff_status': self.const.PersonAffStatus(row['status']),
+                         'aff_type': str(self.const.PersonAffiliation(row['affiliation'])),
+                         'aff_status': str(self.const.PersonAffStatus(row['status'])),
                          'ou_id': row['ou_id'],
                          'affiliation':
-                           self.const.PersonAffStatus(row['status']),
+                           str(self.const.PersonAffStatus(row['status'])),
                          'source_system':
-                           self.const.AuthoritativeSystem(row['source_system']),})
+                           str(self.const.AuthoritativeSystem(row['source_system'])),})
         
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
