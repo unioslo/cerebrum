@@ -1,5 +1,23 @@
 # -*- coding: iso-8859-1 -*-
 
+# Copyright 2006, 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.Utils import Factory
 import pickle
@@ -72,7 +90,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         diskid2path = {}
         for d in disk.list():
             diskid2path[int(d['disk_id'])] = d['path']
-
+        self.logger.debug("Found info about %d disks" % len(diskid2path.keys()))
+        
         for row in self.ac.list_account_home(
             home_spread=disk_spread, account_spread=spread, filter_expired=True, include_nohome=True):
             home = row['home']
@@ -85,6 +104,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'TEMPuname': row['entity_name'],
                 'ACCOUNTDISABLE': False   # if ADutilMixIn used get we could remove this
                 }
+        self.logger.debug("Found info about %d accounts" % len(tmp_ret.keys()))
 
         #
         # Remove/mark quarantined users
@@ -100,7 +120,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 name_type     = [const.name_first,
                                  const.name_last]):
             pid2names.setdefault(int(row['person_id']), {})[
-                int(row['name_variant'])] = row['name,']
+                int(row['name_variant'])] = row['name']
         for v in tmp_ret.values():
             names = v.get(v['TEMPownerId'])
             if names:
@@ -162,7 +182,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 name, parent_ou = ou.split(",", 1)
                 if not parent_ou in object_list:
                     # Recursively create parent
-                    self._make_ou_if_missing([parent_ou], object_list=object_list)
+                    self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
                 name = name[name.find("=")+1:]
                 self.run_cmd('createObject', dryrun, "organizationalUnit", parent_ou, name)
 
@@ -171,5 +191,5 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     
     def get_default_ou(self, change = None):
         #Returns default OU in AD.
-        return "OU=grupper,%s" % cereconf.ad_ldap
+        return "OU=grupper,%s" % cereconf.AD_LDAP
 
