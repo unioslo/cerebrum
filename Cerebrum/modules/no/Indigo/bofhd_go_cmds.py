@@ -267,7 +267,6 @@ class BofhdExtension(object):
                  'birth': person.birth_date,
                  'entity_id': person.entity_id}]
 
-        affiliations = list()
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
             data.append({'aff_stedkode': "%02d%02%02d" % (ou.fakultet,
