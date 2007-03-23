@@ -430,7 +430,7 @@ class BofhdExtension(object):
                             self.person.list_affiliations(
                                 person_id=operator.get_owner_id())])
         targets_ou = set([x['ou_id'] for x in
-                          self.person.list_affiliatons(person_id=person_id)])
+                          self.person.list_affiliations(person_id=person_id)])
 
         return bool(operators_ou.intersection(targets_ou))
     # end _operator_sees_person
