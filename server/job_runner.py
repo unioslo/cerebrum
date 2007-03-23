@@ -68,6 +68,8 @@ from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.job_runner.job_utils import SocketHandling, JobQueue
+from Cerebrum.modules.job_runner.job_actions import CallableAction, LockExists
+
 
 debug_time = 0        # increase time by N seconds every second
 max_sleep = 300
@@ -323,6 +325,7 @@ def usage(exitcode=0):
 
       --reload: re-read the config file
       --quit : exit gracefully (allowing current job to complete)
+      --quiet : exit silently if another server is already running
       --status : show status for a running job-runner
       --pause : pause the queue, won't start any new jobs
       --resume : resume from paused state
@@ -338,15 +341,17 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['reload', 'quit', 'status', 'config=',
-                                    'dump=', 'run=', 'pause', 'resume',
+                                    'dump=', 'run=', 'pause', 'quiet', 'resume',
                                     'show-job=', 'with-deps'])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
-    alt_config = with_deps = False
+    alt_config = with_deps = quiet = False
     for opt, val in opts:
         if opt == '--with-deps':
             with_deps = True
+        elif opt == '--quiet':
+            quiet = True
     for opt, val in opts:
         if opt in('--reload', '--quit', '--status', '--run', '--pause',
                   '--resume', '--show-job'):
@@ -388,10 +393,22 @@ def main():
     if not alt_config:
         import scheduled_jobs
     sock = SocketHandling()
+    ca = CallableAction()
+    ca.set_id("master_jr_lock")
     try:
         if(sock.ping_server()):
-            print "Server already running"
+            if not quiet:
+                print "Server already running"
             sys.exit(1)
+        try:
+            ca.check_lockfile()
+        except LockExists:
+            logger.error(
+                ("%s: Master lock exists, but jr-socket didn't respond to "+
+                 "ping. This should be a very rare error!") %
+                ca.lockfile_name)
+            sys.exit(1)
+        ca.make_lockfile()
     except SocketHandling.Timeout:
         # Assuming that previous run aborted without removing socket
         logger.warn("Socket timeout, assuming server is dead")
@@ -410,6 +427,7 @@ def main():
     jr.run_job_loop()
     logger.debug("bye")
     sock.cleanup()
+    ca.free_lock()
     
 if __name__ == '__main__':
     main()
