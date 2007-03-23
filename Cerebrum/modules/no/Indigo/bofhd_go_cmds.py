@@ -34,6 +34,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
                                         BofhdAuthOpSet, BofhdAuthOpTarget
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.extlib.sets import Set as set
 
 
 def format_day(field):
@@ -58,8 +59,8 @@ class BofhdExtension(object):
     copy_commands = (
         '_get_account', '_get_ou', '_format_ou_name', '_get_person',
         '_get_disk', '_get_group', '_map_person_id', '_parse_date',
-        'person_accounts', '_get_entity', 'group_user',
-        'group_memberships', 'person_find', 'group_search',
+        '_get_entity', 'group_user',
+        'group_memberships', 'group_search',
         '_get_boolean', '_entity_info', 'num2str',
         'group_list', 'misc_list_passwords', '_get_cached_passwords',
         'user_password', '_get_entity_name', 'group_add_entity',
@@ -79,6 +80,11 @@ class BofhdExtension(object):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
             if func[0] != '_' and func not in ('num2str',):
                 BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
+
+        # we'll need to call these from our own wrappers. Basically,
+        # an UiO command is *almost* what we need.
+        for func in ('person_find',):
+            setattr(cls, func + "_uio", UiOBofhdExtension.__dict__.get(func))
 
         x = object.__new__(cls)
         return x
@@ -290,6 +296,46 @@ class BofhdExtension(object):
         return data
 
 
+    all_commands['person_find'] = None
+    def person_find(self, operator, search_type, value, filter=None):
+        """Indigo-specific wrapper and filter around UiO's open person_find."""
+
+        if not self.ba.is_schoolit(operator.get_entity_id(), True):
+            raise PermissionDenied("Limited to school IT and superusers")
+
+        results = self.person_find_uio(operator, search_type, value, filter)
+        return self._filter_resultset_by_operator(operator, results, "id")
+    # end person_find
+
+
+    all_commands['person_accounts'] = None
+    def person_accounts(self, operator, id):
+        """person_accounts with restrictions for Indigo.
+
+        This is a copy of UiO's method, except for result
+        filtering/permission check.
+        """
+        if not self.ba.is_schoolit(operator.get_entity_id(), True):
+            raise PermissionDenied("Limited to school IT and superusers")
+
+        if not self._operator_sees_person(operator, id):
+            return []
+        
+        person = self.util.get_target(id, restrict_to=['Person', 'Group'])
+        account = self.Account_class(self.db)
+        ret = []
+        for r in account.list_accounts_by_owner_id(person.entity_id,
+                                                   owner_type=person.entity_type,
+                                                   filter_expired=False):
+            account = self._get_account(r['account_id'], idtype='id')
+
+            ret.append({'account_id': r['account_id'],
+                        'name': account.account_name,
+                        'expire': account.expire_date})
+        ret.sort(lambda a,b: cmp(a['name'], b['name']))
+        return ret
+    # end person_accounts
+
     all_commands['user_create'] = None
     def user_create(self, operator, uname, owner_id):
         if not self.ba.is_superuser(operator.get_entity_id()):
@@ -324,6 +370,9 @@ class BofhdExtension(object):
     def user_find(self, operator, search_type, search_value):
         "Locate users whose unames loosely matches 'search_value'."
 
+        if not self.ba.is_schoolit(operator.get_entity_id(), True):
+            raise PermissionDenied("Limited to superusers and school IT admins")
+
         if search_type != 'uname':
             raise CerebrumError("Unknown search type (%s)" % search_type)
 
@@ -356,9 +405,81 @@ class BofhdExtension(object):
                         'name': row['name'],
                         'owner_id': account.owner_id})
 
+        # school lita can see their own schools only!
+        ret = self._filter_resultset_by_operator(self, operator, ret, "owner_id")
+
         ret.sort(lambda a, b: cmp(a["name"], b["name"]))
         return ret
     # end user_find
+
+
+    def _operator_sees_person(self, operator, person_id):
+        """Decide if operator can obtain information about person_id.
+
+        This is a complement to _filter_resultset_by_operator. except that it
+        should be more lightlweight. An operator can 'see' a person_id, if the
+        operator and person_id share at least one ou_id in their affiliations
+        (i.e. they both happen to be associated with the same OU). 
+        """
+
+        # superusers see everyone
+        if self.ba.is_superuser(operator.get_entity_id(), True):
+            return True
+
+        operators_ou = set([x['ou_id'] for x in
+                            self.person.list_affiliations(
+                                person_id=operator.get_owner_id())])
+        targets_ou = set([x['ou_id'] for x in
+                          self.person.list_affiliatons(person_id=person_id)])
+
+        return bool(operators_ou.intersection(targets_ou))
+    # end _operator_sees_person
+
+
+    def _filter_resultset_by_operator(self, operator, results, person_key):
+        """Remove elements from results to which operator has no access.
+
+        In general, a school lita should not 'see' any results outside of his
+        school. This means that the list of users and people returned to
+        him/her has to be filtered. 
+
+        operator	operator (person_id)
+        results		a sequency of dictionary-like objects where each object
+                        represents a database row. These are to be filtered.
+        person_key	name of the key in each element of results that
+                        designates the owner.
+
+        Caveats:
+        * This method is quite costly. It gets more so, the larger the schools are.
+        * This method will not help with group filtering.
+        """
+
+        # never filter superusers' results
+        if self.ba.is_superuser(operator.get_entity_id(), True):
+            return results
+        
+        # The operation is performed in three steps:
+        # 1) fetch all OUs where the operator has an affiliation.
+        # 2) fetch all people affiliated with OUs in #1
+        # 3) intersect results with #2
+
+        # Find operator's OUs
+        operators_ou = [x['ou_id'] for x in
+                        self.person.list_affiliations(
+                            person_id=operator.get_owner_id())]
+        # Find all people affiliated with operator's OUs
+        operators_people = set([x['person_id'] for x in
+                                self.person.list_affiliations(
+                                    ou_id=operators_ou)])
+        # Filter the results...
+        filtered_set = list()
+        for element in results:
+            if element[person_key] in operators_people:
+                filtered_set.append(element)
+
+        return type(results)(filtered_set)
+    # end _filter_resultset_by_operator
+
 
     all_commands['misc_history'] = None
     def misc_history(self, operator, days):
@@ -413,6 +534,10 @@ class BofhdExtension(object):
 
     all_commands['find_school'] = None
     def find_school(self, operator, ou_name):
+
+        if not self.ba.is_schoolit(operator.get_entity_id(), True):
+            raise PermissionDenied("Currently limited to superusers and school IT")
+        
         ou_n = ou_name.lower()
         ou = self.OU_class(self.db)
         all_ou = ou.list_all(filter_quarantined=True)
@@ -423,6 +548,13 @@ class BofhdExtension(object):
             tmp = ou.name.lower()
             if re.match('.*' +  ou_n + '.*', tmp):
                 ou_list.append(ou.entity_id)
+
+        # filter the results for school IT
+        if not self.ba.is_superuser(operator.get_entity_id(), True):
+            ou_list = [x['ou_id'] for x in self.person.list_affiliations(
+                                               person_id=operator.get_owner_id())
+                       if x['ou_id'] in ou_list]
+        
         if len(ou_list) == 0:
             raise CerebrumError("Could not find school %s" % ou_name)
         elif len(ou_list) > 1:
