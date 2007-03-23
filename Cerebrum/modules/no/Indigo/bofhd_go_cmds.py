@@ -406,7 +406,7 @@ class BofhdExtension(object):
                         'owner_id': account.owner_id})
 
         # school lita can see their own schools only!
-        ret = self._filter_resultset_by_operator(self, operator, ret, "owner_id")
+        ret = self._filter_resultset_by_operator(operator, ret, "owner_id")
 
         ret.sort(lambda a, b: cmp(a["name"], b["name"]))
         return ret
