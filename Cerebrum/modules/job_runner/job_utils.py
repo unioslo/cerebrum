@@ -213,7 +213,12 @@ class SocketHandling(object):
         self.socket.listen(1)
         self._is_listening = True
         while True:
-            conn, addr = self.socket.accept()
+            try:
+                conn, addr = self.socket.accept()
+            except socket.error:
+                # "Interrupted system call" May happen occasionaly, Try again
+                time.sleep(1)
+                continue
             while 1:
                 data = conn.recv(1024).strip()
                 if data == 'RELOAD':
@@ -597,15 +602,22 @@ class JobQueue(object):
         self._run_queue = queue
         return min_delta
 
-    def insert_job(self, queue, job_name):
+    def insert_job(self, queue, job_name, already_checked=None):
         """Recursively add job and all its prerequisited jobs.
 
         We allways process all parents jobs, but they are only added to
         the queue if it won't violate max_freq."""
-     
+
+        if already_checked is None:
+            already_checked = []
+        if job_name in already_checked:
+            self.logger.warn("Attempted to add %s, but it is already in %s" % (job_name, already_checked))
+            return
+        already_checked.append(job_name)
+        
         this_job = self._known_jobs[job_name]
         for j in this_job.pre or []:
-            self.insert_job(queue, j)
+            self.insert_job(queue, j, already_checked=already_checked)
 
         if job_name not in queue or this_job.multi_ok:
             if (this_job.max_freq is None or
@@ -615,7 +627,7 @@ class JobQueue(object):
                     queue.append(job_name)
 
         for j in this_job.post or []:
-            self.insert_job(queue, j)
+            self.insert_job(queue, j, already_checked=already_checked)
 
 
     def has_conflicting_jobs_running(self, job_name):
