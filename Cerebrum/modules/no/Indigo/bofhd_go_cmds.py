@@ -318,10 +318,11 @@ class BofhdExtension(object):
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
             raise PermissionDenied("Limited to school IT and superusers")
 
-        if not self._operator_sees_person(operator, id):
-            return []
-        
         person = self.util.get_target(id, restrict_to=['Person', 'Group'])
+
+        if not self._operator_sees_person(operator, person.entity_id):
+            return []
+
         account = self.Account_class(self.db)
         ret = []
         for r in account.list_accounts_by_owner_id(person.entity_id,
@@ -430,7 +431,7 @@ class BofhdExtension(object):
                             self.person.list_affiliations(
                                 person_id=operator.get_owner_id())])
         targets_ou = set([x['ou_id'] for x in
-                          self.person.list_affiliations(person_id=person_id)])
+                          self.person.list_affiliations(person_id=int(person_id))])
 
         return bool(operators_ou.intersection(targets_ou))
     # end _operator_sees_person
