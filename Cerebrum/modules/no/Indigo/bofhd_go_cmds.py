@@ -59,7 +59,7 @@ class BofhdExtension(object):
     copy_commands = (
         '_get_account', '_get_ou', '_format_ou_name', '_get_person',
         '_get_disk', '_get_group', '_map_person_id', '_parse_date',
-        '_get_entity', 'group_user',
+        '_get_entity', 'group_user', 'person_list_user_priorities',
         'group_memberships', 'group_search',
         '_get_boolean', '_entity_info', 'num2str',
         'group_list', 'misc_list_passwords', '_get_cached_passwords',
@@ -565,5 +565,8 @@ class BofhdExtension(object):
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
+
+    def _format_ou_name(self, ou):
+        return ou.short_name or ou.name
 
 # arch-tag: d1ad56e6-7155-11da-87dd-ea237fa9df60
