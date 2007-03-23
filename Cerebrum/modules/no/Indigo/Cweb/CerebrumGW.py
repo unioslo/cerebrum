@@ -189,6 +189,11 @@ class CerebrumProxy(object):
                 r.update(tmp)
         return ret
 
+    def person_set_user_priority(self, account_name, old, new):
+        return self.run_command('person_set_user_priority',
+                                account_name, old, new)
+    # end person_set_user_priority
+
     def user_create(self, uname, owner_id):
         return self.run_command('user_create', uname, owner_id)
 

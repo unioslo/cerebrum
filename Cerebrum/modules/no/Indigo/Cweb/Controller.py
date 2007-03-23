@@ -99,6 +99,7 @@ class Controller(object):
             'do_person_find': [self.person_cmd.person_find],
             'do_list_new_entities': [self.misc_cmd.list_new_entities],
             'do_select_target': [self.select_target],
+            'do_user_priority_mod': [self.user_cmd.user_priority_mod],
             'show_group_create': [self.group_cmd.show_group_create],
             'show_group_info': [self.group_cmd.show_group_info],
             'show_group_mod': [self.group_cmd.show_group_mod],

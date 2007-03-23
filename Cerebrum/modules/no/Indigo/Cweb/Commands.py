@@ -52,6 +52,12 @@ class UserCommands(VirtualCommands):
         tpl = UserTemplate(self.state, 'user_create_ok')
         return tpl.show({})
 
+    def run_person_command(self, command_name, person_id):
+        """Just pass the call to the PersonCommands instance."""
+
+        return getattr(self.state.controller.person_cmd, command_name)(person_id)
+    # end show_person_info
+
     def user_find(self):
         r = self.cerebrum.user_find(
             self.state.get_form_value('search_type'),
@@ -59,8 +65,7 @@ class UserCommands(VirtualCommands):
         if len(r) == 1:
             # showing user info is much like showing person info
             self.state.set_target_state('person', r[0]['owner_id'])
-            # IVR 2007-03-12 FIXME: This is *horrible*. 
-            return self.state.controller.person_cmd.show_person_info(r[0]['owner_id'])
+            return self.run_person_command("show_person_info", r[0]['owner_id'])
         tpl = UserTemplate(self.state, 'user_find_res')
         return tpl.show({'userlist': r})
 
@@ -76,6 +81,42 @@ class UserCommands(VirtualCommands):
             entity_id, self.state.get_form_value('newpass'))
         tpl = UserTemplate(self.state, 'user_password_ok')
         return tpl.show({})
+
+    def user_priority_mod(self):
+        """Shuffle accounts according to priorities."""
+
+        from_priority = int(self.state.get_form_value('from_priority'))
+        victim = self.state.get_form_value('owner_id')
+
+        user_priorities = self.run_person_command("list_user_priorities",
+                                                  victim)
+        user_to_change = [x for x in user_priorities
+                          if int(x['priority']) == from_priority]
+        if user_to_change:
+            user_to_change = user_to_change[0]['uname']
+            
+        primary_user = None
+        to_priority = None
+        if user_priorities:
+            primary_user = user_priorities[0]['uname']
+            to_priority = user_priorities[0]['priority']
+
+        # Either we have no priorities at all, or the one we are changing from
+        # is completely bogus. Either way, it's an error.
+        if not user_to_change or not primary_user:
+            self.state.controller.html_util.error("Ingen slik prioritet finnes: %s" %
+                                                  from_priority)
+
+        # Now, we swap the priorities. Actually, we just push user_to_change
+        # into the topmost slot. This keeps the relative order of all the
+        # other priorities for the person. 
+        self.cerebrum.person_set_user_priority(user_to_change,
+                                               from_priority, to_priority)
+
+        # If everything is ok, then we just re-display the page.
+        self.state.set_target_state('person', victim)
+        return self.run_person_command("show_person_info", victim)
+    # end user_priority_mod
 
   # TODO: this functionality will be removed when we introduce event-based
   #       export system updates
@@ -230,10 +271,23 @@ class PersonCommands(VirtualCommands):
             affiliations.append("%s %s(fra %s)" % (data["aff_status"],
                                                    (data["aff_sted_desc"] or "") + " ",
                                                    data["source_system"]))
+
+        user_priorities = self.list_user_priorities(entity_id)
         return tpl.show({'person': self.cerebrum.convert(person),
                          'userlist': userlist,
                          'person_spreads': person_spreads,
-                         'affiliations': affiliations,})
+                         'affiliations': affiliations,
+                         'user_priorities': user_priorities,})
+
+    def list_user_priorities(self, person_id):
+        """Return a list of all accounts and their priorities."""
+        user_priorities = self.cerebrum.person_list_user_priorities(
+                              entity_id=person_id)
+        # sort them by priorities before returning
+        user_priorities.sort(lambda x, y: cmp(x["priority"],
+                                              y["priority"]))
+        return user_priorities
+    # end list_user_priorities
 
     def person_find(self):
         s_type = s_val = None
