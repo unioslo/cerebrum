@@ -68,7 +68,7 @@ class BofhdExtension(object):
         '_get_group_opcode', '_get_name_from_object',
         '_group_add_entity', '_group_count_memberships',
         'group_create', 'spread_add', '_get_constant',
-        'misc_clear_passwords')
+        'misc_clear_passwords', 'person_set_user_priority',)
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
