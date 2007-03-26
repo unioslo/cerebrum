@@ -22,6 +22,7 @@ import cherrypy
 import re
 import string
 
+import SpineIDL
 from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
@@ -151,13 +152,19 @@ def create(transaction, **vargs):
     if not form.has_required() or not form.is_correct():
         return create_form(form, message=form.get_error_message())
     else:
-        make(transaction,
-            vargs.get('firstname'),
-            vargs.get('lastname'),
-            vargs.get('gender'),
-            vargs.get('birthdate'),
-            vargs.get('externalid'),
-            vargs.get('description'))
+        try:
+            make(transaction,
+                vargs.get('firstname'),
+                vargs.get('lastname'),
+                vargs.get('gender'),
+                vargs.get('birthdate'),
+                vargs.get('externalid'),
+                vargs.get('description'))
+        except ValueError, e:
+            message = (e.args[0], True)
+        except SpineIDL.Errors.AlreadyExistsError, e:
+            message = (e.explanation, True)
+        return create_form(form, message)
 create = transaction_decorator(create)
 create.exposed = True
 
@@ -168,6 +175,13 @@ def make(transaction, firstname, lastname, gender, birthdate, externalid, descri
     source_system = transaction.get_source_system('Manual')
     person = transaction.get_commands().create_person(
            birthdate, gender, firstname, lastname, source_system)
+    if not externalid:
+        description = 'Registerd by: %s on %s' % (cherrypy.session.get('username'),
+                cherrypy.datetime.date.strftime(cherrypy.datetime.date.today(), '%Y-%m-%d'))
+    else:
+        eidt = transaction.get_entity_external_id_type('NO_BIRTHNO')
+        person.set_external_id(externalid, eidt, source_system)
+
     if description:
         person.set_description(description)
     commit_url(transaction, '/account/create?owner=%s' % person.get_id(), msg=_("Person successfully created.  Now he probably needs an account."))

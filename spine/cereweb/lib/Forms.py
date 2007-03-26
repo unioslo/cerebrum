@@ -118,8 +118,9 @@ class PersonCreateForm(Form):
             },
             'externalid': {
                 'label': '<abbr title="%s">%s</abbr>' % (_('Social Security Number'), _('SSN')),
-                'required': True,
+                'required': False,
                 'type': 'text',
+                'help': _('Norwegian Social Security Number, 11 digits'),
             },
             'description': {
                 'label': _('Description'),
@@ -142,6 +143,13 @@ class PersonCreateForm(Form):
         is_correct = True
         if not legal_date(date):
             self.error_message = 'not a legal date.'
+            is_correct = False
+        return is_correct
+
+    def check_externalid(self, ssn):
+        is_correct = True
+        if len(ssn) <> 11 or not ssn.isdigit():
+            self.error_message = 'SSN should be an 11 digit Norwegian Social Security Number'
             is_correct = False
         return is_correct
 
