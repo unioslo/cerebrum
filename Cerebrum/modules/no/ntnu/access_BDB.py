@@ -67,7 +67,10 @@ class BDB:
 
     def get_accounts(self):
         cursor = self.db.cursor()
-        cursor.execute("SELECT passord_type, gruppe, person, brukernavn, siden, utloper, unix_uid, skall, standard_passord, id FROM bruker WHERE user_domain=1") # user_domain=1 is NTNU
+        cursor.execute("SELECT b.passord_type, b.gruppe, b.person, b.brukernavn, b.siden, b.utloper \
+                        ,b.unix_uid, b.skall, b.standard_passord, b.id FROM bruker b,person p \
+                        WHERE b.user_domain=1 and b.person = p.id and p.personnr is not null") 
+        # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
         accounts = []
         for ba in bdb_accounts:
@@ -118,6 +121,35 @@ class BDB:
             groups.append(g)
         cursor.close()
         return groups
+
+    def get_affiliations(self):
+        cursor = self.db.cursor()
+        cursor.execute("""SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'),t.org_enhet, \
+                        t.fakultet, t.institutt, \
+                        t.tilkn_form, t.familie, f.navn, f.alltidsluttdato \
+                        FROM tilknyttet t, person p, bruker b, tilkn_former f \
+                        WHERE t.person = p.id AND \
+                              b.person = p.id AND \
+                              p.personnr IS NOT NULL AND \
+                              b.user_domain = 1 AND \
+                              t.tilkn_form = f.id""")
+        bdb_affs = cursor.fetchall()
+        affiliations = []
+        for af in bdb_affs:
+            aff = {}
+            aff['id'] = af[0]
+            aff['person'] = af[1]
+            aff['since'] = af[2]
+            aff['org'] = af[3]
+            aff['faknr'] = af[4]
+            aff['institutt'] = af[5]
+            aff['aff_type'] = af[6]
+            aff['family'] = af[7]
+            aff['aff_name'] = af[8]
+            aff['has_end_date'] = af[9]
+            affiliations.append(aff)
+        cursor.close()
+        return affiliations
 
     def _get_ous(self, query, type):
         cursor = self.db.cursor()
