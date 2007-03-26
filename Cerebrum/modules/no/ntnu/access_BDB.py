@@ -27,8 +27,10 @@ class BDB:
 
     def get_persons(self):
         cursor = self.db.cursor()
-        cursor.execute("SELECT id, to_char(fodselsdato,'YYYY-MM-DD'), personnr, personnavn, fornavn, \
-        etternavn, sperret FROM person" )
+        cursor.execute("SELECT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
+                        p.fornavn, p.etternavn, p.sperret FROM person p,bruker b \
+                        WHERE b.person = p.id and b.user_domain=1 AND \
+                        p.personnr IS NOT NULL")
         bdb_persons = cursor.fetchall()
         persons = []
         # Convert to a dict
