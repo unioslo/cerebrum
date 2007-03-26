@@ -20,9 +20,10 @@
 
 import Cerebrum.Database
 import Cerebrum.Entity
+from Cerebrum.modules.no import fodselsnr
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
-from SpineLib.SpineExceptions import ClientProgrammingError, NotFoundError, TooManyMatchesError, AlreadyExistsError
+from SpineLib.SpineExceptions import ClientProgrammingError, NotFoundError, TooManyMatchesError, AlreadyExistsError, ValueError
 
 from Commands import Commands
 from Entity import Entity
@@ -76,6 +77,11 @@ def set_external_id(self, id, id_type, source_system):
     # Check if the given ID type is a proper one
     if id_type.get_type().get_id() != self.get_type().get_id():
         raise ClientProgrammingError('The requested external ID type is not for objects of this type.')
+    if id_type.get_name() == 'NO_BIRTHNO':
+        try:
+            fodselsnr.personnr_ok(id)
+        except:
+            raise ValueError('ExternalID not a valid ID.')
     # Check if we already have an ID for this object, and use that if it is found
     s = registry.EntityExternalIdSearcher(db)
     s.set_external_id(id)
@@ -102,7 +108,7 @@ def set_external_id(self, id, id_type, source_system):
 set_external_id.signature = EntityExternalId
 set_external_id.signature_args = [str, EntityExternalIdType, SourceSystem]
 set_external_id.signature_write = True
-set_external_id.signature_exceptions = [AlreadyExistsError, ClientProgrammingError]
+set_external_id.signature_exceptions = [AlreadyExistsError, ClientProgrammingError, ValueError]
 Entity.register_methods([set_external_id])
 
 def remove_external_id(self, id_type, source_system):

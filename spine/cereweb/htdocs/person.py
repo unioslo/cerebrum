@@ -160,8 +160,8 @@ def create(transaction, **vargs):
                 vargs.get('birthdate'),
                 vargs.get('externalid'),
                 vargs.get('description'))
-        except ValueError, e:
-            message = (e.args[0], True)
+        except SpineIDL.Errors.ValueError, e:
+            message = (e.explanation, True)
         except SpineIDL.Errors.AlreadyExistsError, e:
             message = (e.explanation, True)
         return create_form(form, message)
