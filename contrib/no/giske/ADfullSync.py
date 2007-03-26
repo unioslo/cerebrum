@@ -69,7 +69,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 				accinfo[row['account_id']] = {'OU' : 'OU=TILSETTE,%s' % cereconf.AD_LDAP,
 										   'title' : 'Tilsett',
 										   'url' : ['https://portal.skule.giske.no/skule/%s/tilsette'
-											% id2ou[row['ou_id']]['acronym'],'http://www.uio.no'],
+											% id2ou[row['ou_id']]['acronym']],
 											#Constraint i AD, homeMDB must be valid LDAP path.  
 											'homeMDB' : 'CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
 
