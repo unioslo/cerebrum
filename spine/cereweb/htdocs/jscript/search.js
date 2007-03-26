@@ -272,13 +272,29 @@ function initAutoComplete(event) {
 }
 
 cereweb.search = {
+    show: function() {
+        var progress = cereweb.createDiv('progress', 'container');
+        progress.innerHTML = '<img src="/img/smload.gif" alt="loading" /> Searching... ';
+        YD.setX(progress, YD.getViewportWidth() / 2);
+        YD.setY(progress, YD.getViewportHeight() / 2);
+    },
+    hide: function() {
+        var progress = YD.get('progress');
+        progress.parentNode.removeChild(progress);
+    },
+    delayed: function() {
+        var msg = YD.get('messages');
+        msg.innerHTML = 'It seems the search takes a while.  Please be patient.';
+    },
     callback:  {
         success: function(o) {
+            cereweb.search.hide();
             cereweb.search.clear_messages();
             var result = o.responseText;
             cereweb.search.show_results(result);
         },
         failure: function(o) {
+            cereweb.search.hide();
             cereweb.search.clear_messages();
             var messages = eval('(' + o.responseText + ')');
             cereweb.search.add_messages(messages);
@@ -291,6 +307,7 @@ cereweb.search = {
 
         var cObj = YC.asyncRequest('POST', form.action,
             cereweb.search.callback);
+        window.setTimeout(cereweb.search.show, 500);
     },
     show_results: function(res) {
         var old = YD.get('content');
