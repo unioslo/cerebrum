@@ -48,7 +48,7 @@ usage pattern.
 
 import sys
 import getopt
-from mx.DateTime import strptime, today
+from mx.DateTime import strptime, today, DateTimeDelta
 
 import cerebrum_path
 import cereconf
@@ -226,7 +226,10 @@ def process_affiliations(employment_file):
 
         #
         # Is the entry in the valid timeframe?
-        if not (date_start <= today() <= date_end):
+        # IVR 2007-03-26 Per Dag Løvlie's request, adjust the time frame. We
+        # start giving ANSATT-affiliations 30 days before people actully start
+        # working.
+        if not (date_start - DateTimeDelta(days=30) <= today() <= date_end):
             logger.debug("Row %s has wrong timeframe (start: %s, end: %s)",
                          row, date_start, date_end)
             continue
