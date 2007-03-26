@@ -187,9 +187,9 @@ class XMLOU2Object(XMLEntity2Object):
     def _make_names(self, sub):
         """Extract name information from XML element sub."""
 
-        tag2kind = { "Akronym"  : DataOU.NAME_ACRONYM,
-                     "Kortnavn" : DataOU.NAME_SHORT,
-                     "Langnavn" : DataOU.NAME_LONG, }
+        tag2kind = {"Akronym": DataOU.NAME_ACRONYM,
+                    "Kortnavn": DataOU.NAME_SHORT,
+                    "Langnavn": DataOU.NAME_LONG, }
 
         language = sub.findtext(".//Sap_navn_spraak")
         # Accumulate the results. One <stednavn> gives rise to several

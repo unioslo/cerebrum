@@ -45,6 +45,8 @@ class XML2Cerebrum:
 
     def __init__(self, db, source_system, ou_ldap_visible = True):
         self.db = db
+        # IVR 2007-01-22 TBD: Do we really want this here? Should db
+        # not have this set already?
         self.db.cl_init(change_program="XML->Cerebrum")
         self.source_system = source_system
         self.ou_ldap_visible = ou_ldap_visible
@@ -56,15 +58,15 @@ class XML2Cerebrum:
 
         const = self.constants
         # Hammer in contact information
-        self.xmlcontact2db = { DataContact.CONTACT_PHONE   : const.contact_phone,
-                               DataContact.CONTACT_FAX     : const.contact_fax,
-                               DataContact.CONTACT_URL     : const.contact_url,
-                               DataContact.CONTACT_EMAIL   : const.contact_email,
-                               DataContact.CONTACT_PRIVPHONE  :
+        self.xmlcontact2db = { DataContact.CONTACT_PHONE: const.contact_phone,
+                               DataContact.CONTACT_FAX: const.contact_fax,
+                               DataContact.CONTACT_URL: const.contact_url,
+                               DataContact.CONTACT_EMAIL: const.contact_email,
+                               DataContact.CONTACT_PRIVPHONE:
                                    const.contact_phone_private, }
-        self.xmladdr2db = { DataAddress.ADDRESS_BESOK : const.address_street,
-                            DataAddress.ADDRESS_POST  : const.address_post,
-                            DataAddress.ADDRESS_PRIVATE :
+        self.xmladdr2db = { DataAddress.ADDRESS_BESOK: const.address_street,
+                            DataAddress.ADDRESS_POST: const.address_post,
+                            DataAddress.ADDRESS_PRIVATE: 
                                 const.address_post_private }
     # end __init__
 
@@ -196,6 +198,32 @@ class XML2Cerebrum:
     # end store_person
 
 
+    def __extract_name_lang(self, xmlou, kind, length=None):
+        """Pull a certain name out of the XML OU object.
+
+        If a name with a given language does not exist, we just ignore the language.
+        """
+
+        pri = self.lang_priority
+        name = xmlou.get_name_with_lang(kind, *pri)
+        if name is None:
+            name = xmlou.get_name(kind)
+            # there may be several names, we need just one. pick one at
+            # random, if no other information is available
+            if isinstance(name, (list, tuple)):
+                name = name[0]
+
+            if name:
+                name = name.value
+        # fi
+
+        if name and length:
+            name = name[:length]
+
+        return name
+    # end __extract_name_lang
+
+
     def store_ou(self, xmlou, old_ou_cache=None):
         """Store all information we can from xmlou.
 
@@ -217,12 +245,13 @@ class XML2Cerebrum:
 
         # We need sko, katalog_merke, acronym, short_name,
         # display_name, sort_name. Also parent.
-        pri = self.lang_priority
         sko = xmlou.get_id(xmlou.NO_SKO)
-        acronym = xmlou.get_name_with_lang(xmlou.NAME_ACRONYM, *pri)
-        short = xmlou.get_name_with_lang(xmlou.NAME_SHORT, *pri)
-        name = display_name = sort_name = \
-               xmlou.get_name_with_lang(xmlou.NAME_LONG, *pri)
+        acronym = self.__extract_name_lang(xmlou, xmlou.NAME_ACRONYM, 15)
+        short = self.__extract_name_lang(xmlou, xmlou.NAME_SHORT, 30)
+        name = self.__extract_name_lang(xmlou, xmlou.NAME_LONG, 512)
+        display_name = self.__extract_name_lang(xmlou, xmlou.NAME_LONG, 80)
+        sort_name = self.__extract_name_lang(xmlou, xmlou.NAME_LONG, 80)
+               
         try:
             ou.find_stedkode(sko[0], sko[1], sko[2],
                              cereconf.DEFAULT_INSTITUSJONSNR)
@@ -251,7 +280,7 @@ class XML2Cerebrum:
         if getattr(xmlou, "publishable", False) or self.ou_ldap_visible:
             katalog_merke = 'T'
         # fi
-        
+
         ou.populate(name, sko[0], sko[1], sko[2],
                     institusjon = cereconf.DEFAULT_INSTITUSJONSNR,
                     katalog_merke = katalog_merke,
