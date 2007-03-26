@@ -176,8 +176,8 @@ def make(transaction, firstname, lastname, gender, birthdate, externalid, descri
     person = transaction.get_commands().create_person(
            birthdate, gender, firstname, lastname, source_system)
     if not externalid:
-        description = 'Registerd by: %s on %s' % (cherrypy.session.get('username'),
-                cherrypy.datetime.date.strftime(cherrypy.datetime.date.today(), '%Y-%m-%d'))
+        description = 'Registerd by: %s on %s\n' % (cherrypy.session.get('username'),
+                cherrypy.datetime.date.strftime(cherrypy.datetime.date.today(), '%Y-%m-%d')) + description
     else:
         eidt = transaction.get_entity_external_id_type('NO_BIRTHNO')
         person.set_external_id(externalid, eidt, source_system)
