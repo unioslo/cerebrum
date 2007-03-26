@@ -47,7 +47,7 @@ def remove_external_id(transaction, id, external_id, id_type):
     entity = transaction.get_entity(int(id))
     id_type = transaction.get_entity_external_id_type(id_type)
     source_system = transaction.get_source_system("Manual")
-    entity.remove_external_id(external_id, id_type, source_system)
+    entity.remove_external_id(id_type, source_system)
 
     msg = _("External id successfully removed.")
     commit(transaction, entity, msg=msg)
