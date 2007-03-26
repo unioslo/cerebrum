@@ -261,16 +261,16 @@ def create_user(elem):
         elem['homeDirectory'] = "%s%s" %(cereconf.AD_HOME_DIRECTORY_STUDENT, elem['sAMAccountName'])
         elem['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
         elem['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, elem['sAMAccountName'])
-    logger.debug("Creating account %s, homedir %s, homedrive %s, profilepath %s" % (elem['sAMAccountName'],
-                                                                                    elem['homeDirectory'],
-                                                                                    elem['homeDrive'],
-                                                                                    elem['profilePath']))
+        logger.debug("Creating account %s, homedir %s, homedrive %s, profilepath %s" % (elem['sAMAccountName'],
+                                                                                        elem['homeDirectory'],
+                                                                                        elem['homeDrive'],
+                                                                                        elem['profilePath']))
     else:
         elem['homeDirectory'] = "%s%s" %(cereconf.AD_HOME_DIRECTORY_ANSATT, elem['sAMAccountName'])
         elem['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
-    logger.debug("Creating account %s, homedir %s, homedrive %s" % (elem['sAMAccountName'],
-                                                                    elem['homeDirectory'],
-                                                                    elem['homeDrive']))
+        logger.debug("Creating account %s, homedir %s, homedrive %s" % (elem['sAMAccountName'],
+                                                                        elem['homeDirectory'],
+                                                                        elem['homeDrive']))
     
     ret = run_cmd('createObject', 'User', ou, elem['sAMAccountName'])
     if ret[0]:
