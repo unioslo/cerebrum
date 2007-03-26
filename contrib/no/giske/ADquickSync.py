@@ -36,7 +36,6 @@ co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
 
 
-
 class ADquiSync(ADutilMixIn.ADuserUtil):
 
 	def __init__(self, *args, **kwargs):
@@ -92,15 +91,15 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
 def main():
 
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], '', ['user_spread',
-													  'help',
-													  'dry_run'])
+		opts, args = getopt.getopt(sys.argv[1:],
+					   '', ['user_spread=',
+						'help',
+						'dry_run'])
 
 	except getopt.GetoptError:
 		usage(1)
 
 	delete_objects = False
-	user_spread = co.spread_ad_acc
 	dry_run = False	
 	
 	for opt, val in opts:
@@ -111,6 +110,8 @@ def main():
 		elif opt == '--dry_run':
 			dry_run = True
 
+	if not user_spread:
+		user_spread = co.spread_ad_acc
 
 	ADquickUser = ADquiSync(db, co, logger)	
 	ADquickUser.quick_sync(user_spread, dry_run)
