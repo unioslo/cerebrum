@@ -689,4 +689,16 @@ div.sub-nav ul li {
     text-transform: uppercase;
 }
 
+#progress {
+    width: 100px;
+    height: 25px;
+    background: white;
+    border:1px solid #404040;
+    padding-top: 2px;
+    padding-left: 4px;
+}
+#progress img {
+    margin-top: 4px;
+}
+
 /* vim: sw=4 sts=4 expandtab */
