@@ -43,6 +43,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU, DataAddress
+from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 db = Factory.get('Database')()
 db.cl_init(change_program='import_HR')
@@ -289,19 +290,7 @@ def parse_data(parser, source_system, person, group, gen_groups, old_affs):
     xml2db = XML2Cerebrum(db, source_system)
     it = parser.iter_persons()
 
-    # 
-    # TBD: This while-contraption is atrocious. However, until SAP learns to
-    # deliver data that is at least remotely sane, we'll assume the worst.
-    while 1:
-        try:
-            xmlperson = it.next()
-        except StopIteration:
-            break
-        except:
-            logger.exception("Failed to process next person")
-            continue
-        # yrt
-
+    for xmlperson in SkippingIterator(it, logger):
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
         affiliations, work_title = determine_affiliations(xmlperson,
                                                           source_system)
