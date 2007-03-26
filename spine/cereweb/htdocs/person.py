@@ -98,14 +98,20 @@ def view(transaction, id, **vargs):
 view = transaction_decorator(view)
 view.exposed = True
 
-def edit(transaction, id):
-    """Creates a page with the form for editing a person."""
-    person = transaction.get_person(int(id))
+def edit_form(form, message=None):
     page = FormTemplate()
-    page.title = _("Edit ") + object_link(person)
+    if message:
+        page.messages.append(message)
+    page.title = form.get_title()
     page.set_focus("person/edit")
     page.links = _get_links()
+    page.form_fields = form.get_fields()
+    page.form_action = "/person/edit"
+    return page.respond()
 
+def edit(transaction, id, **vargs):
+    """Creates a page with the form for editing a person."""
+    person = transaction.get_person(int(id))
     get_date = lambda x: x and strftime(x, '%Y-%m-%d') or ''
     values = {
         'id': id,
@@ -114,11 +120,24 @@ def edit(transaction, id):
         'description': person.get_description(),
         'deceased': get_date(person.get_deceased_date()),
     }
-
+    values.update(vargs)
     form = PersonEditForm(transaction, **values)
-    page.form_fields = form.get_fields()
-    page.form_action = "/person/save"
-    return page.respond()
+    form.title = object_link(person)
+
+    if not vargs:
+        return edit_form(form)
+
+    if not form.has_required() or not form.is_correct():
+        return edit_form(form, message=form.get_error_message())
+    else:
+        save(transaction,
+                id,
+                vargs.get('gender'),
+                vargs.get('birthdate'),
+                vargs.get('deceased'),
+                vargs.get('description'),
+                vargs.get('submit'))
+
 edit = transaction_decorator(edit)
 edit.exposed = True
 
@@ -182,8 +201,6 @@ def save(transaction, id, gender, birthdate,
     person.set_deceased_date(strptime(transaction, deceased))
     
     commit(transaction, person, msg=_("Person successfully updated."))
-save = transaction_decorator(save)
-save.exposed = True
 
 def delete(transaction, id):
     """Delete the person from the server."""

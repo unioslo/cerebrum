@@ -240,20 +240,12 @@ def rollback_url( url, msg, err=False):
 		queue_message( msg, error=err)
 	raise cherrypy.HTTPRedirect(url)
 	
-def legal_date( tocheck ):
-    rest = tocheck.strip()
-    prog = re.compile(r'^[1-9]\d{3}-\d\d-\d\d$')
-    if not prog.match(rest):
+def legal_date(datestr, formatstr="%Y-%m-%d"):
+    try:
+        mx.DateTime.strptime(datestr.strip(), formatstr)
+        return True
+    except:
         return False
-    parts = rest.split('-')
-    if int(parts[1]) < 1 or int(parts[1]) > 12:
-        return False
-    if int(parts[2]) < 1 or int(parts[2]) > 31:
-        return False
-    checkdate = datetime(int(parts[0]),int(parts[1]),int(parts[2]))
-    if checkdate < datetime.min or checkdate > datetime.max:
-        return False
-    return True
 
 def legal_domain_format( domain ):
     pat=re.compile( '^(([a-zA-Z0-9]([a-zA-Z0-9]|\-)*)\.)*([a-zA-Z0-9]([a-zA-Z0-9]|\-[a-zA-Z0-9])*)\.[a-zA-Z]{2,7}$')

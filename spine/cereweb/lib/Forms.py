@@ -174,7 +174,7 @@ class PersonEditForm(PersonCreateForm):
             },
             'deceased': {
                 'label': _('Deceased date'),
-                'required': True,
+                'required': False,
                 'type': 'text',
                 'help': 'YYYY-MM-DD',
             },
@@ -186,6 +186,11 @@ class PersonEditForm(PersonCreateForm):
             self.error_message = 'not a legal date.'
             is_correct = False
         return is_correct
+
+    def get_title(self):
+        if not hasattr(self, 'title'):
+            return 'Edit person'
+        return "Edit %s" % self.title
 
 class AccountCreateForm(Form):
     def init_form(self):
