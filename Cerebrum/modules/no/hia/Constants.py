@@ -59,6 +59,10 @@ class Constants(Constants.Constants):
         affiliation_tilknyttet, 'feide',
         'Personer uten reg. i kildesystem som må ha tilgang til FEIDE-baserte tjenester')
 
+    affiliation_status_tilknyttet_ekstern = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'ekstern',
+        'Registrert i HR, ekstern tilsatt')
+
 ## AFFILIATIONS FOR ANDRE
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL',

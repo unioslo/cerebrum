@@ -74,19 +74,46 @@ logger = Factory.get_logger("cronjob")
 
 
 
-def sap_employment2aff_status(lonnstittelkode):
-    "Map a SAP employment code (lønnstittelkode) to VIT/ØVR aff. status."
-    
+def sap_employment2affiliation(fo_kode, sap_plans, sap_lonnstittelkode):
+    """Decide the affiliation to assign to a particular employment entry.
+
+    The rules are:
+
+    * aff = ANSATT, and VIT/ØVR depending on lonnstittelkode, when:
+      sap_lonnstilltekode != 20009999 (const.sap_9999_dummy_stillingskode)
+      fo_kode != 9999
+      
+    * aff = TILKNYTTET/ekstern, when:
+      sap_lonnstittelkode = 20009999 (const.sap_9999_dummy_stillingskode)
+      fo_kode != 9999
+    """
+
+    if (fo_kode and
+        SAPForretningsOmradeKode(fo_kode) ==
+        constants.sap_eksterne_tilfeldige):
+        logger.debug("Ignored external person: «%s»", sap_ansattnr)
+        return None, None
+
+    # try to map sap_lonnstittelkode, it's a requirement that it exists in the
+    # db.
     try:
-        category = SAPLonnsTittelKode(lonnstittelkode).get_kategori()
+        lonnskode = SAPLonnsTittelKode(sap_lonnstittelkode)
+        kategori = lonnskode.get_kategori()
     except Errors.NotFoundError:
         logger.warn("No SAP.STELL/lønnstittelkode <%s> found in Cerebrum",
-                    lonnstittelkode)
-        return None
+                    sap_lonnstittelkode)
+        return None, None
 
-    return {"ØVR": constants.affiliation_status_ansatt_tekadm,
-            "VIT": constants.affiliation_status_ansatt_vitenskapelig}[category]
-# end sap_employment2aff_status
+    if lonnskode != constants.sap_9999_dummy_stillingskode:
+        affiliation = constants.affiliation_ansatt
+        aff_status = {'ØVR': constants.affiliation_status_ansatt_tekadm,
+                      'VIT': constants.affiliation_status_ansatt_vitenskapelig}[kategori]
+    else:
+        affiliation = constants.affiliation_tilknyttet
+        aff_status = constants.affiliation_status_tilknyttet_ekstern
+        
+    return affiliation, aff_status
+# end sap_employment2affiliation
 
 
 
@@ -121,13 +148,25 @@ def cache_db_affiliations(person):
     associate all affiliation_ansatt that the person has indexed by ou_id.
     """
 
+    # A cache dictionary mapping person -> D, where D is a mapping (ou_id,
+    # affiliation) -> status. Why such a weird arrangement? Well, the API
+    # makes it easier to delete all affiliations one person at a time
+    # (therefore, person_id as the first-level key).
+    #
+    # Then, if an affiliation status changes, we cannot just yank the
+    # affiliation out (because there would be a FK to it) and we need to
+    # update, rather than remove-add it. Thus the magic with ou/affiliation as
+    # the second key.
     cache = dict()
-    for row in person.list_affiliations(source_system=constants.system_sap,
-                                      affiliation=constants.affiliation_ansatt):
-        p_id, ou_id, status = [int(row[x]) for x in
-                               ("person_id", "ou_id", "status")]
-        cache.setdefault(p_id, dict())[ou_id] = status
-
+    for row in person.list_affiliations(
+                   source_system=constants.system_sap,
+                   affiliation=(constants.affiliation_ansatt,
+                                constants.affiliation_tilknyttet)):
+        p_id, ou_id, affiliation, status = [int(row[x]) for x in
+                                            ("person_id", "ou_id",
+                                             "affiliation", "status",)]
+        cache.setdefault(p_id, {})[(ou_id, affiliation)] = status
+        
     return cache
 # end cache_db_affiliations
 
@@ -136,7 +175,7 @@ def cache_db_affiliations(person):
 def remove_affiliations(cache):
     "Remove all affiliations in cache from Cerebrum."
 
-    # cache is mapping person-id => mapping ou-id => status. All these
+    # cache is mapping person-id => mapping (ou-id, aff) => status. All these
     # mappings are all for affiliation_ansatt.
     person = Factory.get("Person")(cerebrum_db)
     logger.debug("Removing affiliations for %d people", len(cache))
@@ -152,11 +191,12 @@ def remove_affiliations(cache):
 
         # person is here, now we delete all the affiliation_ansatt
         # affiliations.
-        for ou_id in cache[person_id]:
+        for (ou_id, affiliation) in cache[person_id].iterkeys():
             person.delete_affiliation(ou_id,
-                                      constants.affiliation_ansatt,
+                                      affiliation,
                                       constants.system_sap)
-            logger.debug("Removed affiliation_ansatt/ou_id=%s for %s",
+            logger.debug("Removed aff=%s/ou_id=%s for %s",
+                         constants.PersonAffiliation(affiliation),
                          ou_id, person_id)
 # end remove_affiliations
 
@@ -179,13 +219,9 @@ def process_affiliations(employment_file):
     person = Factory.get("Person")(cerebrum_db)
 
     # first we cache all existing affiliations. It's a mapping person-id =>
-    # mapping ou-id => status. Why no affiliation?  Because we deal with
-    # affiliation_ansatt *only*.
+    # mapping (ou-id, affiliation) => status. 
     db_aff_cache = cache_db_affiliations(person)
 
-    
-
-    #
     # for each line in file decide what to do with affiliations
     for row in file(employment_file, "r"):
         tmp = sap_row_to_tuple(row)
@@ -194,6 +230,7 @@ def process_affiliations(employment_file):
         fo_kode = tmp[4]
         sap_ansattnr = tmp[0]
         sap_ou_number = tmp[1]
+        sap_plans = tmp[2]
         sap_lonnstittelkode = tmp[3]
         date_start = strptime(tmp[5], "%Y%m%d")
         date_end = strptime(tmp[6], "%Y%m%d")
@@ -224,52 +261,59 @@ def process_affiliations(employment_file):
                         sap_ansattnr)
             continue
 
-        #
-        # Is the entry in the valid timeframe?
-        # IVR 2007-03-26 Per Dag Løvlie's request, adjust the time frame. We
-        # start giving ANSATT-affiliations 30 days before people actully start
-        # working.
-        if not (date_start - DateTimeDelta(30) <= today() <= date_end):
+        # Is the entry in the valid timeframe? We deal affiliations up to 30
+        # days prior to the start day. It is by design.
+        # IVR 2007-03-27 HiA has requested a temporary extension of
+        # this time period to 180 days.
+        if not (date_start - DateTimeDelta(180) <= today() <= date_end):
             logger.debug("Row %s has wrong timeframe (start: %s, end: %s)",
                          row, date_start, date_end)
             continue
 
-        # Decide on the affiliation status (VIT/ØVR)
-        affiliation_status = sap_employment2aff_status(sap_lonnstittelkode)
-        if affiliation_status is None:
-            logger.warn("Cannot decide on affiliation status for %s", row)
+        # Decide on the affiliation
+        (affiliation,
+         affiliation_status) = sap_employment2affiliation(fo_kode, 
+                                                           sap_plans,
+                                                           sap_lonnstittelkode)
+        # Some bogus data. skip the entry.
+        if (affiliation, affiliation_status) == (None, None):
             continue
 
-        # 
+        # For accessing cache
+        key_level1 = person_id
+        key_level2 = (ou_id, affiliation)
+
         # Ok, now we have everything we need to register/adjusted affiliations
         # case 1: the affiliation did not exist => make a new affiliation
-        if (person_id not in db_aff_cache or
-            ou_id not in db_aff_cache[person_id]):
+        if (key_level1 not in db_aff_cache or
+            key_level2 not in db_aff_cache[key_level1]):
             person.add_affiliation(ou_id,
-                                   constants.affiliation_ansatt,
+                                   affiliation,
                                    constants.system_sap,
                                    affiliation_status)
-            logger.debug("New affiliation %s/%s for (p_id: %s; sap_nr: %s)",
-                         constants.affiliation_ansatt, affiliation_status,
-                         person_id, sap_ansattnr)
+            logger.debug("New affiliation %s (status: %s) for (p_id: %s; sap_nr: %s)",
+                         affiliation, affiliation_status, person_id,
+                         sap_ansattnr)
         # case 2: the affiliation did exist => update aff.status and fix the
         # cache
         else:
-            cached_status = db_aff_cache[person_id][ou_id]
+            cached_status = db_aff_cache[key_level1][key_level2]
             # Update cache info (we'll need this to delete obsolete
             # affiliations from Cerebrum). Remember that if aff.status is the
             # only thing changing, then we should not delete the "old"
             # aff.status entry. Thus, regardless of the aff.status, we must
             # clear the cache.
-            del db_aff_cache[person_id][ou_id]
-            if not db_aff_cache[person_id]:
-                del db_aff_cache[person_id]
+            del db_aff_cache[key_level1][key_level2]
+            if not db_aff_cache[key_level1]:
+                del db_aff_cache[key_level1]
 
             # The affiliation is there, but the status is different => update
             if cached_status != int(affiliation_status):
                 # add_affiliation performs aff.status updates as well
-                person.add_affiliation(ou_id, constants.affiliation_ansatt,
-                                       constants.system_sap, affiliation_status)
+                person.add_affiliation(ou_id,
+                                       affiliation, 
+                                       constants.system_sap,
+                                       affiliation_status)
                 logger.debug("Updating affiliation status %s => %s for "
                              "(p_id: %s; sap_nr: %s)",
                              cached_status, affiliation_status,
