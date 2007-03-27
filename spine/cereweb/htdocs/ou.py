@@ -33,6 +33,14 @@ from lib.templates.OUEditTemplate import OUEditTemplate
 from lib.templates.OUViewTemplate import OUViewTemplate
 import SpineIDL.Errors
 
+def _get_links():
+    return (
+        ('search', _('Search')),
+        ('tree',   _('Tree')),
+        ('create', _('Create')),
+    )
+
+
 def tree(transaction, perspective=None):
     page = Main()
     page.title = _("OU")
