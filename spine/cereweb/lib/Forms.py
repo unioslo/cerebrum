@@ -117,10 +117,10 @@ class PersonCreateForm(Form):
                 'help': _('Date must be in YYYY-MM-DD format.'),
             },
             'externalid': {
-                'label': '<abbr title="%s">%s</abbr>' % (_('Social Security Number'), _('SSN')),
+                'label': '<abbr title="%s">%s</abbr>' % (_('National Identity Number'), _('NIN')),
                 'required': False,
                 'type': 'text',
-                'help': _('Norwegian Social Security Number, 11 digits'),
+                'help': _('Norwegian "Fødselsnummer", 11 digits'),
             },
             'description': {
                 'label': _('Description'),
