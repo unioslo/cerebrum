@@ -25,20 +25,45 @@ data.
 
 """
 
-import string
+import re
 
 
 
 
 
 def sap_row_to_tuple(sap_row):
-    return string.split(sap_row.strip(), ";")
+    """Split a line into fields delimited by ';'.
+
+    NB! ';' may be escaped. The escape character is backslash. When
+    such an escaped ';' occurs, it is replaced by a regular ';' in the
+    value returned to called.
+    """
+
+    result = list()
+
+    # (?<!...) is negative lookbehind assertion. It matches, if the
+    # current position is not preceded by ...
+    #
+    # In our case we split by ";", unless it is escaped. The absurd
+    # number of backslashes is because backslashes have a special
+    # meaning in python strings and in regexes. 
+    for field in re.split('(?<!\\\);', sap_row.strip()):
+        # Also, we have to perform the actual replacement of \; by ;
+        # (clients are not interested in seeing the escaped values).
+        result.append(field.replace("\\;", ";"))
+
+    return tuple(result)
 # end sap_row_to_tuple
 
 
 def tuple_to_sap_row(tuple):
-    return string.join(map(lambda x: str(x), tuple),
-                       ";")
+    tmp = list()
+    for field in tuple:
+        # escaping, as in the sister function.
+        field = str(field).replace(";", "\\;")
+        tmp.append(field)
+    
+    return ";".join(tmp)
 # end tuple_to_sap_row
 
 # arch-tag: 681c9a14-b395-4fd4-820e-3b9b0e7dd3e3
