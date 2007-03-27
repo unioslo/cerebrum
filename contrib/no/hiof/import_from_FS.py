@@ -77,10 +77,6 @@ def write_person_info(outfile):
     cols, student = _ext_cols(fs.evu.list())
     for e in student:
         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
-    # Studenter med tilbud om opptak ved Hiÿf
-    cols, student = _ext_cols(fs.student.list_tilbud())
-    for e in student:
-        f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'tilbud') + "\n")
     # Studenter med privatistopptak ved Hiÿf
     cols, student = _ext_cols(fs.evu.list())
     for e in student:
