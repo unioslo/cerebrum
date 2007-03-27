@@ -93,8 +93,9 @@ login.exposed = True
 
 def logout():
     username = cherrypy.session.get('username', '')
-    session = cherrypy.session['session']
-    session.logout()
+    session = cherrypy.session.get('session')
+    if session:
+        session.logout()
     cherrypy.session.clear()
     utils.redirect("/login?username=%s" % username)
 logout.exposed = True
