@@ -22,10 +22,10 @@
 import os
 import sys
 import cereconf
+import Cerebrum.Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Constants
 from sets import Set
-from Cerebrum.Errors import NotFoundError
 from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.auth import *
@@ -41,6 +41,11 @@ class AuthImporter(object):
         self.db = Factory.get('Database')(user=db_user)
         self.op_sets = module.op_sets
         self.op_roles = module.op_roles
+
+
+    def __del__(self):
+        if hasattr(self, 'db'):
+            self.db.close()
 
     def _get_op_sets(self):
         bofhd_os = BofhdAuthOpSet(self.db)
@@ -60,14 +65,22 @@ class AuthImporter(object):
                     sets.setdefault(name, []).append((op_code, None))
         return sets
 
+    def commit(self):
+        self.db.commit()
+
     def _add_ops_to_set(self, name, operations):
         bofhd_os = BofhdAuthOpSet(self.db)
-        bofhd_os.find_by_name(name)
+        try:
+            bofhd_os.find_by_name(name)
+        except Cerebrum.Errors.NotFoundError:
+            bofhd_os.populate(name)
+            bofhd_os.write_db()
         for operation, attribute in operations:
             op_code = int(_AuthRoleOpCode(operation))
             op_id = bofhd_os.add_operation(op_code)
             if attribute:
                 bofhd_os.add_op_attrs(op_id, attribute)
+            self.commit()
 
     def _remove_ops_from_set(self, name, operations):
         bofhd_os = BofhdAuthOpSet(self.db)
@@ -79,6 +92,7 @@ class AuthImporter(object):
                 attr = row['attr']
                 bofhd_os.del_op_attrs(op_id, attr)
             bofhd_os.del_operation(op_code)
+            bofhd_os.write_db()
 
     def _get_op_roles(self):
         bo_roles = BofhdAuthRole(self.db)
@@ -135,12 +149,19 @@ class AuthImporter(object):
 
     def update_operation_sets(self):
         existing = self._get_op_sets()
-        for key, old in existing.items():
-            new = Set(self.op_sets[key])
-            old = Set(old)
+
+        # Add and update op_sets in the config file.
+        for key, new in self.op_sets.items():
+            new = Set(new)
+            old = Set(existing.get(key))
 
             self._add_ops_to_set(key, new - old)
             self._remove_ops_from_set(key, old - new)
+
+        # Remove op_sets not in the config file.
+        for key in existing.keys():
+            if not key in self.op_sets:
+                self._remove_op_set(key)
 
     def update_roles(self):
         old = Set(self._get_op_roles())
@@ -163,5 +184,5 @@ if __name__ == '__main__':
         importer = AuthImporter(source)
         importer.update_operation_sets()
         importer.update_roles()
-        importer.db.commit()
+        importer.commit()
 
