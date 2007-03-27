@@ -77,6 +77,7 @@ class Commands(DatabaseTransactionClass):
 
     strptime.signature = Date
     strptime.signature_args = [str, str]
+    strptime.signature_exceptions = [SpineExceptions.ValueError]
 
     # Extentions are registered on the class, but queried via
     # command objects.
