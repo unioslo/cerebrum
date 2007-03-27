@@ -35,7 +35,7 @@
     <a href="edit?id=$entity_id">$_("edit info")</a><br />
     <a href="delete?id=$entity_id">$_("delete host")</a><br />
     <a href="/entity/full_historylog?id=$entity_id">$_('view full history log')</a><br />
-    #if $entity.get_server_type()
+    #if $entity.get_type()
         <a href="/host/demote_mailhost?id=$entity_id">$_('Demote as mailhost')</a>
     #end if
     <br />
@@ -49,7 +49,7 @@
     $addNote($entity)
     $viewNotes($entity)
     $viewDisks($entity)
-    #if not $entity.get_server_type()
+    #if not $entity.get_type()
         $promote_to_mailhost($entity)
     #end if
     $viewHistoryLog($entity)
@@ -60,8 +60,8 @@
     #set $info = []
     $info.append(($_("Name:"), $host.get_name()))
     $info.append(($_("Description:"), $host.get_description()))
-    #if $host.get_server_type()
-        $info.append(($_("Mailhost:"), $host.get_server_type().get_name()))
+    #if $host.get_type()
+        $info.append(($_("Mailhost:"), $host.get_type().get_name()))
     #end if
     $widgets.viewInfo($info)
 #end def

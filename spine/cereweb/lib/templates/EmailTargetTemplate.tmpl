@@ -60,7 +60,7 @@ $searcher.set_entity($entity)
 #set $hosts = $transaction.get_host_searcher().search()
 #set $mailservers = []
 #for $host in $hosts
-    #if $host.get_server_type()
+    #if $host.get_type()
         $mailservers.append((host.get_id(),host.get_name()))
     #end if
 #end for
