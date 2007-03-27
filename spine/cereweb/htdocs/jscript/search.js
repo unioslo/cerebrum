@@ -272,15 +272,16 @@ function initAutoComplete(event) {
 }
 
 cereweb.search = {
-    show: function() {
-        var progress = cereweb.createDiv('progress', 'container');
-        progress.innerHTML = '<img src="/img/smload.gif" alt="loading" /> Searching... ';
-        YD.setX(progress, YD.getViewportWidth() / 2);
-        YD.setY(progress, YD.getViewportHeight() / 2);
-    },
-    hide: function() {
-        var progress = YD.get('progress');
-        progress.parentNode.removeChild(progress);
+    init: function() {
+        YE.addListener('search_form', 'submit', this.submit, this, true);
+        YE.addListener('search_clear', 'click', this.clear_search, this, true);
+        cereweb.action.add('person/search', this.action, this);
+        this.progress = new YAHOO.widget.Overlay('progress',
+            { 'fixedcenter': true, 'visible': false, 'zIndex': 10 }
+        );
+        this.progress.setHeader('');
+        this.progress.setBody('<img src="/img/smload.gif" alt="loading" /> Searching... ');
+        this.progress.render('container');
     },
     delayed: function() {
         var msg = YD.get('messages');
@@ -288,17 +289,17 @@ cereweb.search = {
     },
     callback:  {
         success: function(o) {
-            cereweb.search.hide();
+            cereweb.search.progress.hide();
             cereweb.search.clear_messages();
             var result = o.responseText;
             cereweb.search.show_results(result);
         },
         failure: function(o) {
-            cereweb.search.hide();
+            cereweb.search.progress.hide();
             cereweb.search.clear_messages();
             var messages = eval('(' + o.responseText + ')');
             cereweb.search.add_messages(messages);
-        }
+        },
     },
     submit: function(e) {
         YE.stopEvent(e); // AJAX takes over.
@@ -306,24 +307,16 @@ cereweb.search = {
         YC.setForm(form);
 
         var cObj = YC.asyncRequest('POST', form.action,
-            cereweb.search.callback);
-        window.setTimeout(cereweb.search.show, 500);
+            this.callback);
+        window.setTimeout(function() {
+            cereweb.search.progress.show();
+        }, 500);
     },
     show_results: function(res) {
-        var old = YD.get('content');
-        var parent = old.parentNode;
-        cereweb.search.content = old;
-        var content = document.createElement('div');
-        content.setAttribute('id', 'content');
-        content.innerHTML = res;
-        parent.replaceChild(content, old);
-        var backLinkDiv = document.createElement('div');
-        var backLink = document.createElement('a');
-        backLink.innerHTML = 'Back';
-        backLink.href = '#';
-        backLinkDiv.appendChild(backLink);
-        content.appendChild(backLinkDiv);
-        YE.addListener(backLink, 'click', cereweb.search.show_form);
+        var panel = new YAHOO.widget.Panel('result');
+        panel.setBody(res);
+        panel.cfg.setProperty('fixedcenter', true);
+        panel.render('container');
     },
     add_messages: function(messages) {
         var messages = messages.messages;
@@ -341,11 +334,6 @@ cereweb.search = {
         var div = YD.get('messages');
         div.innerHTML = "";
     },
-    show_form: function() {
-        var content = YD.get('content');
-        var parent = content.parentNode;
-        parent.replaceChild(cereweb.search.content, content);
-    },
     clear_search: function() {
         var callback = { success: function(o) {}, failure: function(o) {} }
         var form = YD.get('search_form');
@@ -353,10 +341,24 @@ cereweb.search = {
         var arg = 'url=' + form.action;
         var cObj = YC.asyncRequest('POST', url, callback, arg);
         document.location = document.location; // Get rid of the pesky form values.
+    },
+    action: function(name, args) {
+        YE.preventDefault(args[0]);
+        var data = ""
+        for (i in args[1]) {
+            if (!Object.prototype[i] && args[1][i]) {
+                data += '&' + i + '=' + args[1][i];
+            }
+        }
+
+        var cObj = YC.asyncRequest('POST', '/' + name,
+            cereweb.search.callback, data);
+        window.setTimeout(function() {
+            cereweb.search.progress.show();
+        }, 500);
     }
 }
-YE.addListener('search_form', 'submit', cereweb.search.submit);
-YE.addListener('search_clear', 'click', cereweb.search.clear_search);
+YE.onAvailable('search_form', cereweb.search.init, cereweb.search, true);
 
 if(cerebug) {
     log('search is loaded');
