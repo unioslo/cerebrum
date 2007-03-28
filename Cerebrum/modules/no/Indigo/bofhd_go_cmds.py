@@ -34,6 +34,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
                                         BofhdAuthOpSet, BofhdAuthOpTarget
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.modules.no.Indigo import PasswordChecker
 from Cerebrum.extlib.sets import Set as set
 
 
@@ -63,7 +64,7 @@ class BofhdExtension(object):
         'group_memberships', 'group_search',
         '_get_boolean', '_entity_info', 'num2str',
         'group_list', 'misc_list_passwords', '_get_cached_passwords',
-        'user_password', '_get_entity_name', 'group_add_entity',
+        '_get_entity_name', 'group_add_entity',
         'group_remove_entity', 
         '_get_group_opcode', '_get_name_from_object',
         '_group_add_entity', '_group_count_memberships',
@@ -234,14 +235,40 @@ class BofhdExtension(object):
         return {'password': pwd,
                 'uname': account.account_name}
 
-    # IVR 2007-03-13 FIXME: We cannot use UiO's user_password, because it
-    # performs password checks that do not make sense for giske. Once a
-    # suitable PasswordChecker has been written for Giske, 'user_password'
-    # should be implemented here. 
-    # 
-    # all_commands['user_password'] = None
-    # def user_password(self, operator, accountname, password=None):
-    #     return 
+    # IVR 2007-03-28 FIXME: The only reason this function exists is that we
+    # have no way of getting the right PasswordChecker instance easily. This
+    # should be solved and this function should be removed.
+    all_commands['user_password'] = None
+    def user_password(self, operator, accountname, password=None):
+        account = self._get_account(accountname)
+        self.ba.can_set_password(operator.get_entity_id(), account)
+        if password is None:
+            password = account.make_passwd(accountname)
+        else:
+            if operator.get_entity_id() != account.entity_id:
+                raise CerebrumError, \
+                      "Cannot specify password for another user."
+        try:
+            pc = PasswordChecker.GiskePasswordChecker(self.db)
+            pc.goodenough(account, password)
+        except PasswordChecker.PasswordGoodEnoughException, m:
+            raise CerebrumError, "Bad password: %s" % m
+        account.set_password(password)
+        try:
+            account.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        operator.store_state("user_passwd", {'account_id': int(account.entity_id),
+                                             'password': password})
+        # Remove "weak password" quarantine
+        for r in account.get_entity_quarantine():
+            if int(r['quarantine_type']) == self.const.quarantine_autopassord:
+                account.delete_entity_quarantine(self.const.quarantine_autopassord)
+
+        if account.get_entity_quarantine():
+            return "OK.  Warning: user has quarantine"
+        return "Password altered."
+    # end user_passwd
 
     all_commands['list_active'] = None
     def list_active(self, operator):
