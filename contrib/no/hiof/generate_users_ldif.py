@@ -49,37 +49,41 @@ class UserLDIF(object):
                           self.const.auth_type_md5_crypt):
             self.auth = self.make_auths(auth_type, self.auth)
         self.load_quaratines()
+        self.id2vlan = {}
+        for spread in reversed(cereconf.LDAP_USER['spreads']):
+            vlan = cereconf.LDAP_USER['spread2vlan'][spread]
+            spread = self.const.Spread(spread)
+            for row in self.account.list_all_with_spread(spread):
+                self.id2vlan[row['entity_id']] = vlan
 
     def dump(self):
         fd = LDIFutils.ldif_outfile('USER')
         fd.write(LDIFutils.container_entry_string('USER'))
-        ids = {}
-        for spread in cereconf.LDAP_USER['spreads']:
-            spread = self.const.Spread(spread)
-            for row in self.account.list_all_with_spread(spread):
-                ids[row['entity_id']] = None
-        for account_id in ids:
+        noAuth = (None, None)
+        for account_id, vlan in self.id2vlan.iteritems():
             info = self.auth[account_id]
+            uname = LDIFutils.iso2utf(str(info[0]))
             auth = info[1]
+            ntAuth = self.md4_auth.get(account_id, noAuth)[1]
             if account_id in self.quarantines:
                 qh = QuarantineHandler(self.db, self.quarantines[account_id])
                 if qh.should_skip():
                     continue
                 if qh.is_locked():
-                    auth = None
-            uname = LDIFutils.iso2utf(str(info[0]))
+                    auth = ntAuth = None
             dn = ','.join(('uid=' + uname, self.user_dn))
             entry = {
-                'objectClass':  ['top', 'account'],
-                'uid':          (uname,)}
+                # Ikke endelig innhold
+                'objectClass': ['top', 'account', 'hiofRadiusAccount'],
+                'uid': (uname,),
+                'radiusTunnelType': ('13',),
+                'radiusTunnelMediumType': ('6',),
+                'radiusTunnelPrivateGroupId': (vlan,)}
             if auth:
                 entry['objectClass'].append('simpleSecurityObject')
                 entry['userPassword'] = ('{crypt}' + auth,)
-            info = self.md4_auth.get(account_id)
-            if info and info[1]:
-                entry['objectClass'].append('sambaSamAccount')
-                entry['sambaNTPassword'] = (info[1],)
-                entry['sambaSID'] =        (str(account_id),)
+            if ntAuth:
+                entry['ntPassword'] = (ntAuth,)
             fd.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('USER', fd)
 
