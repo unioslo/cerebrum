@@ -82,7 +82,9 @@ class AccountIndigoMixin(Account.Account):
 
 class AccountGiskeMixin(Account.Account):
     def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date):
+                 expire_date, parent=None):
+        if parent is not None:
+            self.__xerox__(parent)
         # Override Account.populate in order to register 'primary e-mail
         # address
         self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
@@ -93,6 +95,7 @@ class AccountGiskeMixin(Account.Account):
         self.populate_contact_info(self.const.system_cached,
                                    type=self.const.contact_email,
                                    value=c_val, description=desc)
+
     def make_passwd(self, uname):
         words = []
         pwd = []
@@ -109,6 +112,12 @@ class AccountGiskeMixin(Account.Account):
                     return passwd
                 else:
                     pwd.pop(0)
+
+
+class AccountGiskeEmailMixin(Account.Account):
+    def get_primary_mailaddress(self):
+        return self.get_contact_info(self, source=self.const.system_cached,
+                                     type=self.const.contact_email)
 
 
 class AccountOfkMixin (Account.Account):
