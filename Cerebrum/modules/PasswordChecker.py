@@ -61,7 +61,7 @@ one.""",
     'dict_hit_joined':  "Don't use words in a dictionary or concatenations.",
     'combo': "You should not combine two words like %s and %s",
     'sequence_alphabet':
-    "Don't use charactersin alpabetical or numerical order",
+    "Don't use characters in alpabetical or numerical order",
     'sequence_keys': "Don't use neighbouring keyboard keys",
     'repetitive_sequence':
 """Don't use repeating sequences of the same characters""",
@@ -307,7 +307,7 @@ class PasswordChecker(DatabaseAccessor):
         # A sequence of closely related ASCII characters?
         ok = 0
         for i in range(len(passwd)-1):
-            if abs(ord(passwd[i]) - ord(passwd[i+1])):
+            if abs(ord(passwd[i]) - ord(passwd[i+1])) > 1:
                 ok = 1
         if not ok:
             raise PasswordGoodEnoughException(msgs['sequence_alphabet'])
@@ -327,7 +327,7 @@ class PasswordChecker(DatabaseAccessor):
             i += 2
         ok = 0
         for i in range(len(tmp)-1):
-            if abs(ord(tmp[i]) - ord(tmp[i+1])):
+            if abs(ord(tmp[i]) - ord(tmp[i+1])) > 1:
                 ok = 1
         if not ok:
             raise PasswordGoodEnoughException(msgs['sequence_keys'])
