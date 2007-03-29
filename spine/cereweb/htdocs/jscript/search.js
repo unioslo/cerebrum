@@ -289,12 +289,14 @@ cereweb.search = {
     },
     callback:  {
         success: function(o) {
+            window.clearTimeout(cereweb.search.progressTimer);
             cereweb.search.progress.hide();
             cereweb.search.clear_messages();
             var result = o.responseText;
             cereweb.search.show_results(result);
         },
         failure: function(o) {
+            window.clearTimeout(cereweb.search.progressTimer);
             cereweb.search.progress.hide();
             cereweb.search.clear_messages();
             var messages = eval('(' + o.responseText + ')');
@@ -308,7 +310,7 @@ cereweb.search = {
 
         var cObj = YC.asyncRequest('POST', form.action,
             this.callback);
-        window.setTimeout(function() {
+        cereweb.search.progressTimer = window.setTimeout(function() {
             cereweb.search.progress.show();
         }, 500);
     },
