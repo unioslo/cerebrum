@@ -484,22 +484,22 @@ def clean_affi_s_list():
 # end clean_affi_s_list
 
 
-
 def main():
     global db, new_person, const, ou, logger, gen_groups, group
     global cere_list, include_del, test_list
     global num_write,num_nowrite
 
-#    logger = Factory.get_logger("cronjob")
+    #TBD: use different loggers based on os.isatty() Should be pretty easy fix.
+    #logger = Factory.get_logger("cronjob")
     logger = Factory.get_logger("console")
     logger.info("Starting import_LT")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'p:gdr',
+                                   'p:gdrhv',
                                    ['person-file=',
                                     'group', 'include_delete',
-                                    'dryrun'])
+                                    'verbose','dryrun','help'])
     except getopt.GetoptError:
         usage(1)
     # yrt
@@ -508,15 +508,19 @@ def main():
     verbose = 1
     personfile = '/cerebrum/dumps/kjernen/cerebrum-employee.xml'
     include_del = False
-    dryrun = True
+    dryrun = False
     
     for opt, val in opts:
         if opt in ('-p', '--person-file'):
             personfile = val
         elif opt in ('-g', '--group'):
             gen_groups = 1
-	elif opt in ('-d', '--include_delete'):
-	    include_del = True
+        elif opt in ('-h', '--help'):
+            usage(1)
+        elif opt in ('-v', '--verbose'):
+            verbose += 1
+        elif opt in ('-d', '--include_delete'):
+	        include_del = True
         elif opt in ('-r', '--dryrun'):
             dryrun = True
         # fi
@@ -562,10 +566,6 @@ def main():
     print "%s persons written to db" % num_write
     print "%s persons not written to db" % num_nowrite
 # end main
-
-
-
-
 
 if __name__ == '__main__':
     main()
