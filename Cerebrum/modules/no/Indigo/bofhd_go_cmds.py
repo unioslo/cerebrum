@@ -342,10 +342,11 @@ class BofhdExtension(object):
         This is a copy of UiO's method, except for result
         filtering/permission check.
         """
-        if not self.ba.is_schoolit(operator.get_entity_id(), True):
-            raise PermissionDenied("Limited to school IT and superusers")
 
         person = self.util.get_target(id, restrict_to=['Person', 'Group'])
+        if not (self.ba.is_schoolit(operator.get_entity_id(), True) or
+                operator.get_owner_id() == person.entity_id)
+            raise PermissionDenied("Limited to school IT and superusers")
 
         if not self._operator_sees_person(operator, person.entity_id):
             return []
@@ -450,8 +451,10 @@ class BofhdExtension(object):
         (i.e. they both happen to be associated with the same OU). 
         """
 
-        # superusers see everyone
-        if self.ba.is_superuser(operator.get_entity_id(), True):
+            # superusers see everyone
+        if (self.ba.is_superuser(operator.get_entity_id(), True) or
+            # operators see themselves
+            operator.get_owner_id() == person_id): 
             return True
 
         operators_ou = set([x['ou_id'] for x in
