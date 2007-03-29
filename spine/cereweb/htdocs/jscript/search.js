@@ -356,7 +356,7 @@ cereweb.search = {
 
         var cObj = YC.asyncRequest('POST', url,
             cereweb.search.callback, data);
-        window.setTimeout(function() {
+        cereweb.search.progressTimer = window.setTimeout(function() {
             cereweb.search.progress.show();
         }, 500);
     }
