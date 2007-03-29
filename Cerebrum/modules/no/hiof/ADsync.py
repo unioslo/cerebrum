@@ -92,14 +92,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             diskid2path[int(d['disk_id'])] = d['path']
         self.logger.debug("Found info about %d disks" % len(diskid2path.keys()))
         
+        # We use list_account_home even if we don't get home from
+        # here, but since it's the only list-method that returns
+        # owner_id and antity_name
         for row in self.ac.list_account_home(
             home_spread=disk_spread, account_spread=spread, filter_expired=True, include_nohome=True):
-            home = row['home']
-            if not home:
-                home = diskid2path[int(row['disk_id'])]+"\\"+row['entity_name']
             tmp_ret[int(row['account_id'])] = {
                 'homeDrive': 'N:',
-                'homeDirectory': home,
                 'TEMPownerId': row['owner_id'],
                 'TEMPuname': row['entity_name'],
                 'ACCOUNTDISABLE': False   # if ADutilMixIn used get we could remove this
@@ -146,10 +145,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if v:
                 try:
                     tmp = pickle.loads(row['strval'])[int(spread)]
-                    tmp = ",".join(["OU=%s" % t for t in tmp.split("/")])
                     v['OU'] = tmp + "," + self.ad_ldap
                 except Exception, e:
                     self.logger.warn("Error getting OU for %i: %s" % (row['entity_id'], e))
+        for row in self.ac.list_traits(self.co.trait_ad_homedir):
+            v = tmp_ret.get(int(row['entity_id']))
+            if v:
+                try:
+                    tmp = pickle.loads(row['strval'])[int(spread)]
+                    v['HomeDirectory'] = tmp
+                except Exception, e:
+                    self.logger.warn("Error getting homedir for %i: %s" % (row['entity_id'], e))
 
         #
         # Set mail adresses
