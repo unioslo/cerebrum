@@ -60,7 +60,7 @@ def _history_tableview(events):
         type = change.get_type()
 
         icon = get_icon_by_change_type(type.get_type())
-        table.add(timestamp=change.get_timestamp().strftime("%Y-%m-%d"),
+        table.add(timestamp=change.get_timestamp().strftime("%Y-%m-%d %H:%M:%S"),
                   who=who,
                   category=type.get_category(),
                   # TODO: Should use hyperlinks on references 
