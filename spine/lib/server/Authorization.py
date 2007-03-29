@@ -65,12 +65,9 @@ class Authorization(object):
         if self.is_superuser:
             return True
 
-        if self._is_unrestricted_operation(target, operation, attr):
-            return True
-
-        has_entity = is_entity = attribute = None
         operation_full_name = "%s.%s" % (target.__class__.__name__, operation)
 
+        # For debugging pursposes only.
         try:
             if '%s\n' % operation_full_name in open('/tmp/alfborge/spine_breakfile'):
                 import pdb
@@ -78,31 +75,45 @@ class Authorization(object):
         except IOError:
             pass
 
-        if not isinstance(target, Entity):
-            attribute = target
-            if hasattr(target, 'get_entity'):
-                target = attribute.get_entity()
-            elif hasattr(target, 'get_person'):
-                target = attribute.get_person()
-            elif hasattr(target, 'get_account'):
-                target = attribute.get_account()
-            else:
-                attribute = None
+        if self._is_unrestricted_operation(target, operation, attr):
+            return True
 
-        if isinstance(target, Entity):
-            target_type = target.get_type().get_name()
-            target_id = target.get_id()
-            is_entity = True
-        
-        if is_entity:
-            if self._check_type(operation_full_name, attr, target_type):
+        if self._check_global(operation_full_name, attr):
+            return True
+
+        entity = self._get_entity(target)
+        if entity:
+            entity_type = entity.get_type().get_name()
+            entity_id = entity.get_id()
+
+            if self._check_type(operation_full_name, attr, entity_type):
                 return True
-            if self._check_direct(operation_full_name, attr, target_id, target_type):
+            if self._check_direct(operation_full_name, attr, entity_id, entity_type):
                 return True
-            if self._check_by_org(operation_full_name, attr, target, target_type):
+            if self._check_by_org(operation_full_name, attr, entity, entity_type):
                 return True
-            if self._is_self(target) and self._check_self(operation_full_name, attr, target_type):
+            if self._is_self(entity) and self._check_self(operation_full_name, attr, entity_type):
                 return True
+
+    def _get_entity(self, target):
+        """Try to find the entity of this target."""
+        if not target:
+            return None
+        elif isinstance(target, Entity):
+            return target
+
+        if hasattr(target, 'get_entity'):
+            target = target.get_entity()
+        elif hasattr(target, 'get_person'):
+            target = target.get_person()
+        elif hasattr(target, 'get_account'):
+            target = target.get_account()
+        elif hasattr(target, 'get_target'):
+            target = target.get_target()
+        else:
+            target = None
+
+        return self._get_entity(target)
 
     def update_auths(self, credentials):
         authrows = self.db.query(
@@ -147,9 +158,6 @@ class Authorization(object):
         # CodeTypes are public.
         if issubclass(target.__class__, CodeType):
             return True
-
-        operation_full_name = "%s.%s" % (target.__class__.__name__, operation)
-        return self._check_global(operation_full_name, attr)
 
     def _check_global(self, operation, attr):
         return self._query_auth(operation, attr, None, 'global')
