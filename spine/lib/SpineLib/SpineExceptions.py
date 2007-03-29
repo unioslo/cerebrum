@@ -45,6 +45,12 @@ class TransactionError(SpineException):
 
 DatabaseError = TransactionError
 
+# TODO: get this from another spine class
+from Cerebrum.Utils import Factory
+db=Factory.get("Database")()
+
+IntegrityError = db.IntegrityError
+
 class CreationError(DatabaseError):
     """Creation of an object fails."""
 
