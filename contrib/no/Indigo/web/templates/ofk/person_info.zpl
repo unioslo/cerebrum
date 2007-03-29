@@ -45,6 +45,7 @@
 
       <h1>Brukerinformasjon</h1>
 
+     <p>
       <table border="0" tal:repeat="user userlist">
         <tr>
 	  <td>Brukernavn:</td> 
@@ -93,9 +94,10 @@
         </tr>
       </span>
       </table>  <!-- brukerinformasjon -->
-
-      <br>
+     </p>
       <hr>
+
+      <h1>Endre primær e-postadresse</h1>
 
       <span tal:condition="python: state['authlevel'] > 'c1'" tal:omit-tag="">
         <span tal:condition="user_priorities" tal:omit-tag="">
