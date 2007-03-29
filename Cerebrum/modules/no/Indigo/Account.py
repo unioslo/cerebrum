@@ -116,8 +116,9 @@ class AccountGiskeMixin(Account.Account):
 
 class AccountGiskeEmailMixin(Account.Account):
     def get_primary_mailaddress(self):
-        return self.get_contact_info(self, source=self.const.system_cached,
-                                     type=self.const.contact_email)
+        primary = self.get_contact_info(source=self.const.system_cached,
+                                        type=self.const.contact_email)
+        return primary[0]['contact_value']
 
 
 class AccountOfkMixin (Account.Account):
