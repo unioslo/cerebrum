@@ -90,11 +90,7 @@
 
       <br>
       <span tal:condition="python: state['authlevel'] > 'c2'" tal:omit-tag="">
-        <tr>
-          <td colspan=2>
-            <a tal:attributes="href string:?action=show_user_create&owner_id=${person/entity_id}&owner_type=person">Opprett ny bruker til denne personen</a>
-          </td>
-        </tr>
+        <a tal:attributes="href string:?action=show_user_create&owner_id=${person/entity_id}&owner_type=person">Opprett ny bruker til denne personen</a>
       </span>
 
     </span>
