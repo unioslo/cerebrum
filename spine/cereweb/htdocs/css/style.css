@@ -665,6 +665,12 @@ div#tabview div.yui-content {
     border-width: 0px;
 }
 
+.yui-navset .yui-nav .selected a,
+.yui-navset .yui-nav a:hover,
+.yui-navset .yui-content {
+    background-color: #d9e2ef;
+}
+
 div.sub-nav {
     border-bottom: 1px solid #000;
     background-color: #d9e2ef;
@@ -688,6 +694,7 @@ div.sub-nav ul li {
     padding: 6px 16px;
     text-transform: uppercase;
 }
+
 
 #progress {
     width: 100px;
