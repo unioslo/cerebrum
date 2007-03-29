@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum.modules.no.Indigo.Cweb.Layout import UserTemplate, GroupTemplate, PersonTemplate, SubTemplate
+from Cerebrum.modules.no.Indigo.Cweb.Layout import UserTemplate, GroupTemplate, PersonTemplate, SubTemplate, EmptyTemplate
 from Cerebrum.modules.no.Indigo.Cweb import Errors
 from Cerebrum.extlib.sets import Set as set
 
@@ -132,7 +132,7 @@ class UserCommands(VirtualCommands):
         return tpl.show({'pwdlist': p})
 
     def show_user_pwd_letter(self):
-        tpl = UserTemplate(self.state, 'password_letter')
+        tpl = EmptyTemplate(self.state, 'password_letter')
         uname = self.state.get_form_value('username')
         uinfo = self.cerebrum.user_info(uname=uname)
         pwd = self.state.get_form_value('pwd')

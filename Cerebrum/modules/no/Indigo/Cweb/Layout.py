@@ -168,4 +168,27 @@ class PersonTemplate(SubTemplate):
 class GroupTemplate(SubTemplate):
     hdr = os.path.join('macro', 'group_frame')
 
+# The empty template is useful for pages, where no decorations (headers,
+# menus, etc.)  are needed.
+class EmptyTemplate(MainTemplate):
+    root_template = os.path.join('macro', 'empty')
+    hdr = None
+
+    def __init__(self, state_ref, template):
+        self._state_ref = state_ref
+        self.tpl = template
+    # end __init__
+
+    def get_menu(self):
+        raise NotImplementError("Empty template has no menu")
+
+    def show(self, context):
+        context.setdefault('template', {})['tgt'] = 'Target TODO:obsolete'
+        context['state'] = self._state_ref.get_state_dict()
+        # The user supplied template is embedded directly into the "empty"
+        # root template. The root template has one slot only -- "body".
+        html = self.apply_tpl(self.root_template, self.tpl, context)
+        return html
+# end EmptyTemplate   
+
 # arch-tag: cf3d3cfa-7155-11da-9945-71c67cf3c1a7
