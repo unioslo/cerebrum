@@ -167,6 +167,10 @@ def process_user(uname, homedir, spread, ou, domain):
     # Handle homedir
     if not uname in USER_HOME:
         USER_HOME[uname] = {}
+    # We want the substring \\home of homedir to be lowercase, other
+    # parts of the string should be allowed to be uppercase. Thus use
+    # replace() instead of lower()
+    homedir = homedir.replace('\\Home', '\\home')
     USER_HOME[uname][int(spread)] = homedir
     account.populate_trait(constants.trait_ad_homedir,
                            strval=cPickle.dumps(USER_HOME[uname]))
