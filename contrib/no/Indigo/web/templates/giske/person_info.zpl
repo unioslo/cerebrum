@@ -52,6 +52,11 @@
 	</tr>
 
         <tr>
+          <td>E-post:</td>
+          <td tal:content="user/email">foo@giske.no</td>
+        </tr>
+
+        <tr>
 	  <td valign="top">Gruppemedlemskap:</td> 
 	  <td> 
 	    <span tal:repeat="ugroup user/groups" tal:omit-tag="">
@@ -92,25 +97,6 @@
         </tr>
       </span>
 
-      <span tal:condition="python: state['authlevel'] > 'c1'" tal:omit-tag="">
-        <span tal:condition="user_priorities" tal:omit-tag="">
-          <table border="1">
-            <tr>
-              <td>Prioritet</td>
-              <td>Bruker</td>
-              <td>Tilknytning</td>
-            </tr>
-
-            <tr tal:repeat="upri user_priorities">
-              <td><a tal:content="upri/priority"
-                     tal:attributes="href string:?action=do_user_priority_mod&owner_id=${person/entity_id}&from_priority=${upri/priority}"></a>
-              </td>
-              <td tal:content="upri/uname">brukernavn</td>
-              <td tal:content="upri/affiliation">giske skole</td>
-            </tr>
-          </table>
-        </span>
-      </span>
     </span>
   </span>
 </span>

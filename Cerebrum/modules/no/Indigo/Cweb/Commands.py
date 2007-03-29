@@ -261,7 +261,7 @@ class PersonCommands(VirtualCommands):
             try:
                 u['email'] = self.cerebrum.get_default_email(u['entity_id'])
             except:
-                u['email'] = 'unknown'
+                u['email'] = '<ukjent>'
             u['groups'] = self.cerebrum.group_user(entity_id=u['entity_id'])
 
         affiliations = list()

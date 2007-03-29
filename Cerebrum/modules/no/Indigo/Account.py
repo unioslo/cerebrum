@@ -117,7 +117,10 @@ class AccountGiskeMixin(Account.Account):
 class AccountGiskeEmailMixin(Account.Account):
     def get_primary_mailaddress(self):
         primary = self.get_contact_info(type=self.const.contact_email)
-        return primary[0]['contact_value']
+        if primary:
+            return primary[0]['contact_value']
+        else:
+            return "<ukjent>"
 
 
 class AccountOfkMixin (Account.Account):
