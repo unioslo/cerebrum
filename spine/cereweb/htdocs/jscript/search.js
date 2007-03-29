@@ -275,7 +275,7 @@ cereweb.search = {
     init: function() {
         YE.addListener('search_form', 'submit', this.submit, this, true);
         YE.addListener('search_clear', 'click', this.clear_search, this, true);
-        cereweb.action.add('person/search', this.action, this);
+        cereweb.action.add('*/search', this.action, this);
         this.progress = new YAHOO.widget.Overlay('progress',
             { 'fixedcenter': true, 'visible': false, 'zIndex': 10 }
         );
@@ -343,6 +343,7 @@ cereweb.search = {
         document.location = document.location; // Get rid of the pesky form values.
     },
     action: function(name, args) {
+        var url = name.split('/')[1];
         YE.preventDefault(args[0]);
         var data = ""
         for (i in args[1]) {
@@ -351,7 +352,7 @@ cereweb.search = {
             }
         }
 
-        var cObj = YC.asyncRequest('POST', '/' + name,
+        var cObj = YC.asyncRequest('POST', url,
             cereweb.search.callback, data);
         window.setTimeout(function() {
             cereweb.search.progress.show();

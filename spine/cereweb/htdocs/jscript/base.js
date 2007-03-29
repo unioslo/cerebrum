@@ -83,6 +83,11 @@ cereweb.action = {
     fire: function(event, action) {
         if (this._events[action.name])
             this._events[action.name].fire(event, action.args);
+        else {
+            var subaction = '*/' + action.name.split('/')[1];
+            if (this._events[subaction])
+                this._events[subaction].fire(event, action.args);
+        }
     },
     parse: function(url) {
         url = unescape(url.replace(/http.*\/\/.*?\//,''))
