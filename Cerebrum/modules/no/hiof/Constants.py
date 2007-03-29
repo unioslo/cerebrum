@@ -113,6 +113,11 @@ class Constants(Constants.Constants):
     spread_ad_group_stud = _SpreadCode(
         'group@ad_stud', Constants.Constants.entity_group,
         'Group included in domain STUD in Active Directory')        
+
+    ## Traits
+    trait_ad_homedir = _EntityTraitCode(
+        'ad_homedir', Constants.Constants.entity_account,
+        "AD homedir for account")
     trait_ad_profile_path = _EntityTraitCode(
         'ad_profile_path', Constants.Constants.entity_account,
         "AD profile path for account")
