@@ -94,6 +94,9 @@
       </span>
       </table>  <!-- brukerinformasjon -->
 
+      <br>
+      <hr>
+
       <span tal:condition="python: state['authlevel'] > 'c1'" tal:omit-tag="">
         <span tal:condition="user_priorities" tal:omit-tag="">
           <table border="1">
