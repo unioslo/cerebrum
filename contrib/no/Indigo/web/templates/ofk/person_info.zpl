@@ -76,14 +76,15 @@
 	      <a tal:attributes="href string:?action=do_user_password&entity_id=${user/account_id}">Sett nytt passord (automatisk generert)</a>
             </td>
           </tr>
-
+          <tr>
+            <td colspan=2>
+              <a tal:attributes="href string:?action=show_user_get_password&entity_id=${user/account_id}">Hent ut brukerens nåværende passord</a>
+            </td>
+          </tr>
           <tr>
 	    <td colspan=2> </td>
           </tr>
         </span>
-      </table>  <!-- brukerinformasjon -->
-
-      <br>
       <span tal:condition="python: state['authlevel'] > 'c2'" tal:omit-tag="">
         <tr>
           <td colspan=2>
@@ -91,6 +92,7 @@
           </td>
         </tr>
       </span>
+      </table>  <!-- brukerinformasjon -->
 
       <span tal:condition="python: state['authlevel'] > 'c1'" tal:omit-tag="">
         <span tal:condition="user_priorities" tal:omit-tag="">
