@@ -62,16 +62,17 @@ from Cerebrum.Utils import Factory
 # Globals
 SPREAD_PREFIX = 'spread_ad_account_' 
 USER_OU = {}
+USER_HOME = {}
 USER_PROFILE_PATH = {}
 
 
 def attempt_commit():
     if dryrun:
         db.rollback()
-        logger.debug("Rolled back all changes")
+        logger.info("Rolled back all changes")
     else:
         db.commit()
-        logger.debug("Committed all changes")
+        logger.info("Committed all changes")
 
 
 def process_line(infile):
@@ -90,9 +91,8 @@ def process_line(infile):
         logger.debug5("Processing line: |%s|", line)
 
         try:
-            tmp = line.split(';')
-            uname, homedir = [x.strip() for x in tmp[0].split(':')]
-            ou, domain = process_ou_dc(tmp[1].split(','))
+            uname, homedir, ou_dc = [x.strip() for x in line.split(';')]
+            ou, domain = process_ou_dc(ou_dc)
             spread = SPREAD_PREFIX + domain
         except:
             logger.warn("Suspicious line: %s" % line)
@@ -114,21 +114,21 @@ def process_line(infile):
     stream.close()
 
 
-def process_ou_dc(ou_dc_list):
+def process_ou_dc(ou_dc):
     """
     Return the relevant OU and domain information. 
     """
     ou = []
     dc = []
-    for x in ou_dc_list:
+    for x in ou_dc.split(','):
         if x.startswith('OU='):
-            ou.append(x.split('=')[1])
-        if x.startswith('DC='):
+            ou.append(x)
+        elif x.startswith('DC='):
+            # We don't need DC=hiof,DC=no
             dc.append(x.split('=')[1])
-    # Most significant OU is last in the list. Reverse before joining
-    # to string.
-    ou.reverse()
-    return '/'.join(ou), dc[0]
+        else:
+            logger.warn("OU_DC data has wrong format: %s", ou_dc)
+    return ','.join(ou), dc[0]
 
 
 def process_user(uname, homedir, spread, ou, domain):
@@ -154,10 +154,6 @@ def process_user(uname, homedir, spread, ou, domain):
         logger.error("No spread %s defined" % spread)
         return
     
-    disk_id = process_home(homedir)
-    if not disk_id:
-        return
-
     # For each user store a dict of spread<->ou mappings. Pickle that
     # dict and set as trait.
     if not uname in USER_OU:
@@ -165,12 +161,17 @@ def process_user(uname, homedir, spread, ou, domain):
     USER_OU[uname][int(spread)] = ou
     account.populate_trait(constants.trait_ad_account_ou,
                            strval=cPickle.dumps(USER_OU[uname]))
+    account.write_db()
     logger.debug("Set OU trait (%s:%s) for account %s." % (spread, ou, uname))
 
-    homedir_id = account.set_homedir(disk_id=disk_id,
-                                     status=constants.home_status_not_created)
-    account.set_home(spread, homedir_id)
-    logger.debug3("User %s got new home %s", uname, homedir)
+    # Handle homedir
+    if not uname in USER_HOME:
+        USER_HOME[uname] = {}
+    USER_HOME[uname][int(spread)] = homedir
+    account.populate_trait(constants.trait_ad_homedir,
+                           strval=cPickle.dumps(USER_HOME[uname]))
+    account.write_db()
+    logger.debug("Set homedir trait (%s:%s) for account %s." % (spread, homedir, uname))
 
     # Handle spread
     if not account.has_spread(spread):
@@ -193,38 +194,6 @@ def process_user(uname, homedir, spread, ou, domain):
     account.write_db()
     logger.debug("profile path (%s) trait for account %s is set" % (
         profile_path, uname))
-
-
-def process_home(homedir):
-    """
-    Get disk from homedir and create disk if it does not exist.
-    return disk_id.
-    """
-
-    path = '\\'.join(homedir.split('\\')[:-1])
-    try:
-        disk.clear()
-        disk.find_by_path(path)
-        logger.debug3("disk %s exists in Cerebrum", path)
-        return disk.entity_id
-    except Errors.NotFoundError:
-        logger.debug4("Disk %s not found.", path)
-
-    # get host
-    host_name = homedir.lstrip('\\').split('\\')[0]
-    if not host_name.endswith('.hiof.no'):
-        host_name += '.hiof.no'
-    host.clear()
-    try:
-        host.find_by_name(host_name)
-    except Errors.NotFoundError:
-        logger.error("Couldn't find host %s" % host_name)
-        return None
-    
-    disk.populate(host.entity_id, path, "A disk")
-    disk.write_db()
-    logger.debug3("Disk %s created in Cerebrum", path)
-    return disk.entity_id
 
 
 def usage():
@@ -256,7 +225,7 @@ def main():
         elif opt in ('-f', '--file'):
             infile = val
 
-    if infile is None:
+    if not infile:
         usage()
 
     db = Factory.get('Database')()
@@ -274,4 +243,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
