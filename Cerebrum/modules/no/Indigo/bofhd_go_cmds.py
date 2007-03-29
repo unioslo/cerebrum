@@ -345,7 +345,7 @@ class BofhdExtension(object):
 
         person = self.util.get_target(id, restrict_to=['Person', 'Group'])
         if not (self.ba.is_schoolit(operator.get_entity_id(), True) or
-                operator.get_owner_id() == person.entity_id)
+                operator.get_owner_id() == person.entity_id):
             raise PermissionDenied("Limited to school IT and superusers")
 
         if not self._operator_sees_person(operator, person.entity_id):
