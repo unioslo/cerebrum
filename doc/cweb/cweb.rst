@@ -585,6 +585,79 @@ configuration as well.
     cweb.py in the *installed* cerebrum/CWEB tree.
 
 
+Troubleshooting
+================
+
+So, what does one do, when nothing works? Unfortunately, there is no easy
+answer. But here are a few things you can try:
+
+  * Have a look in the apache logs. Everything written to stderr ends up
+    there. Occasionally, you may see something like: ::
+
+      Traceback (most recent call last):
+        File "/site/opt/apache-ssl/cgi-bin/cweb", line 7, in ?
+          import cerebrum_path
+      ImportError: No module named cerebrum_path
+
+    ... which may prove helpful (in this case the CGI script was run by the
+    wrong python). The location of the apache logs is configured in
+    ``/etc/httpd.conf`` (typically,
+    ``/site/opt/apache-ssl/no.usit.<sitename>.cweb_<port>/logs/``). Apache
+    logs are the first step in solving "internal server error" messages.
+
+  * Have a look in the CWEB logs. ``cweb.py`` configures a logger that writes
+    to ``cereconf.CWEB_LOG_FILE``. Misspelled template names result often in: ::
+
+      IOError: [Errno 2] No such file or directory: '...templates/default/macro/outer.zpl'
+
+    It does not have to be a misspelled name, though. Check the file
+    permissions as well (and remember, they have to be accessible to whichever
+    user executes the CGI script (typically ``nobody``)).
+
+    If anything breaks in the "Python"-part of CWEB, the error messages will
+    end up in this log. Useful for tracking ``KeyErrors``, ``UnboundLocal``
+    and the like that occur in the Python code.
+ 
+  * Occasionally one needs to extend bofhd, to implement some
+    functionality. If anything breaks there, it's bofhd's log that you should
+    have a look at. Typically,
+    ``/cerebrum/var/log/cerebrum/bofhd.py/log``. Check ``logging.ini`` for the
+    key ``bofhd``. bofhd exception would typically reach the rendered web
+    page, though, so the error should be obvious (page says "list index out of
+    range", the bofhd log contains the traceback, and it should be fairly easy
+    to identify the problem).
+
+  * The worst kind of errors is the one when something is wrong with the TAL
+    directives within a new page, but it's unclear what exactly failed and
+    where. The ZPT framework is rather terse when it comes to error reporting: ::
+
+      File "/site/lib/python2.4/site-packages/ZopePageTemplates/__init__.py", line 86, in pt_render
+        raise PTRuntimeError, 'Page Template %s has errors.' % self.id
+      PTRuntimeError: Page Template (unknown) has errors.
+
+    That is not really helpful. TAL has a directive for trapping errors --
+    ``tal:on-error``. It behaves like ``tal:content`` and can be "wrapped
+    around" the erroneous page to potentially gain some insight as to why
+    things are failing: ::
+
+      <span tal:on-error="python: '''TAL error: type:%s; 
+                                                value:%s''' % (error.type, 
+                                                               error.value)">
+         <!-- page innards go here -->
+      </span>
+
+    E.g. if you wrote something weird in a ``tal:content`` directive, this may
+    help explain what went wrong. The results will be displayed in the
+    rendered web page. 
+
+If you are still no closer to solving the dreaded 'Page Template <something>
+has errors', it's time to examine the template page carefully. Comment parts
+of the template page, and locate the failing directive. Watch out for proper
+placement of quotes, doublequotes, semicolons, and the like. Are any closing
+html tags missing? Are the elements nested properly (i.e. do opening and
+closing tags match)?
+
+
 References
 ===========
 .. [#cerebrum] Cerebrum project. <http://cerebrum.sf.net/>.
