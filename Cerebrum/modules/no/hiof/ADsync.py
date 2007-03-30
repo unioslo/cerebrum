@@ -153,7 +153,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if v:
                 try:
                     tmp = pickle.loads(row['strval'])[int(spread)]
-                    v['HomeDirectory'] = tmp
+                    v['homeDirectory'] = tmp
                 except Exception, e:
                     self.logger.warn("Error getting homedir for %i: %s" % (row['entity_id'], e))
 
@@ -191,6 +191,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
                 name = name[name.find("=")+1:]
                 self.run_cmd('createObject', dryrun, "organizationalUnit", parent_ou, name)
+                object_list.append(ou)
 
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
