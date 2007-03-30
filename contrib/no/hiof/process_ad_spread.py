@@ -131,6 +131,7 @@ class Job(object):
                     user_maps[entity_id] = {'ou':{}, 'profile_path':{}, 'home':{}}
                 try:
                     canonical_name, profile_path, home = self.calc_home(entity_id, spread)
+                    canonical_name = canonical_name[canonical_name.find(",")+1:]
                     logger.debug("Calculated values for %i: cn=%s, pp=%s, home=%s" % (
                         entity_id, canonical_name, profile_path, home))
                     user_maps[entity_id]['ou'][int(spread)] = canonical_name
@@ -180,7 +181,7 @@ class Job(object):
             rules = self._fag_rules
         if spread == co.spread_ad_account_adm:
             rules = self._adm_rules
-        return (rules.getCanonicalName(sko, ac.account_name),
+        return (rules.getDN(sko, ac.account_name),
                 rules.getProfilePath(sko, ac.account_name),
                 rules.getHome(sko, ac.account_name))
 
@@ -205,7 +206,7 @@ class Job(object):
         studinfo = "".join((stprogs[0]['arstall_kull'][-2:],
                             stprogs[0]['terminkode_kull'][0],
                             stprogs[0]['studieprogramkode'])).lower()
-        return (self._stud_rules.getCanonicalName(sko, studinfo, ac.account_name),
+        return (self._stud_rules.getDN(sko, studinfo, ac.account_name),
                 self._stud_rules.getProfilePath(sko, ac.account_name),
                 self._stud_rules.getHome(sko, ac.account_name))
 
