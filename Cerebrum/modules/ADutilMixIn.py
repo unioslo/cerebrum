@@ -56,7 +56,7 @@ class ADutil(object):
     def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
         
         if dry_run:
-            print('server.%s(%s,%s,%s)' % (command, arg1, arg2, arg3))
+            logger.debug('server.%s(%s,%s,%s)' % (command, arg1, arg2, arg3))
             #Assume success on all changes.
             return (True, command)
         else:
