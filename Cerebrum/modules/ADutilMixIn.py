@@ -22,6 +22,7 @@
 import cerebrum_path
 import cereconf
 import xmlrpclib
+import re
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory,read_password
@@ -39,12 +40,14 @@ class ADutil(object):
             password = read_password("cerebrum", host)
             url = "https://%s:%s@%s:%i" % ('cerebrum', password, host, port)
         else:
-            host = url[url.find("//")+2:]
-            if host.find("@") != -1:
-                host = host[host.find("@")+1]
-            host = host[:host.find(":")]
+            m = re.match(r'([^:]+)://([^:]+):(\d+)', url)
+            if not m:
+                raise ValueError, "Error parsing URL: %s" % url
+            protocol = m.group(1)
+            host = m.group(2)
+            port = m.group(3)
             password = read_password("cerebrum", host)
-            url = "https://%s:%s@%s:%i" % ('cerebrum', password, host, port)
+            url = "%s://%s:%s@%s:%s" % (protocol, 'cerebrum', password, host, port)
         self.server = xmlrpclib.Server(url)
         self.logger = logger
         self.ad_ldap = ad_ldap
