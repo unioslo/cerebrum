@@ -13,7 +13,6 @@
   <dt>Søketype
   <dd>
     <input type="RADIO" name="search_type" value="name" CHECKED>Navn <br>
-    <input type="RADIO" name="search_type" value="uname">Brukernavn <br>
     <input type="RADIO" name="search_type" value="schoolname">Skolenavn <br>
     <input type="RADIO" name="search_type" value="date">Fødselsdato (ÅÅÅÅ-MM-DD)
 </dl>
