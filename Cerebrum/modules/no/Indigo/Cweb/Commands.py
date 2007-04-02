@@ -56,7 +56,7 @@ class UserCommands(VirtualCommands):
         """Just pass the call to the PersonCommands instance."""
 
         return getattr(self.state.controller.person_cmd, command_name)(person_id)
-    # end show_person_info
+    # end run_person_command
 
     def user_find(self):
         r = self.cerebrum.user_find(
@@ -137,9 +137,13 @@ class UserCommands(VirtualCommands):
         uinfo = self.cerebrum.user_info(uname=uname)
         pwd = self.state.get_form_value('pwd')
         email = self.cerebrum.get_default_email(uinfo['entity_id'])
+        owner = self.cerebrum.person_info(uinfo['owner_id'])
         ret = {'uname': uname,
                'pwd': pwd,
-               'email': email}
+               'email': email,
+               'name': owner['name'],
+               'birthdate': owner['birth'],
+               'affiliations': owner.get('affiliations', list()),}
         return tpl.show(ret)
 
     def show_user_create(self):
