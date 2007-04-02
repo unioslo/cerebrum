@@ -35,6 +35,8 @@ msgs.update({
     """Vennligst ikke bruk andre tegn enn bokstaver og blank.""",
     'atleast14':
     """Passord må ha minst 14 tegn.""",
+    'atleast8':
+    """Passord må ha minst 8 tegn.""",
     'sequence_keys':
     """Ikke bruk de samme tegn om igjen etter hverandre.""",
     'was_like_old':
@@ -45,7 +47,75 @@ msgs.update({
     """Ikke bruk tegn i alfabetisk rekkefølge (eksempel: ikke 'abcdef').""",
     'uname_in_password':
     """Ikke la brukernavnet være en del av passordet.""",
+    'bad_password':
+    """Passordkombinasjonen er ikke bra nok, vennligst prøv igjen.""",
 })
+
+
+class OfkPasswordChecker(DefaultPasswordChecker.PasswordChecker):
+
+    def goodenough(self, account, fullpasswd, uname=None):
+        """Perform a number of checks on a password to see if it is good
+        enough.
+
+        Øfk has the following rules:
+
+        - Passwords must have minimum 8 character
+        - 2 of the characters are digits
+        - 6 of the characters are letters (upper/lower case mix)
+        """
+
+        num_digits = 0
+        num_chars_lower = 0
+        num_chars_upper = 0
+        
+        for char in fullpasswd:
+            if not (char.isalpha() or char.isdigit()):
+                raise PasswordGoodEnoughException(msgs['invalid_char'])
+
+        # Check that the password is long enough.
+        if len(fullpasswd) < 8:
+            raise PasswordGoodEnoughException(msgs['atleast8'])
+
+        # Repeating pattern: ababab, abcabcabc, abcdabcd
+        if (re.search(r'^(..)\1\1', fullpasswd) or
+            re.search(r'^(...)\1', fullpasswd) or
+            re.search(r'^(....)\1', fullpasswd)):
+            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+
+        # Reversed patterns: abccba abcddcba
+        if (re.search(r'^(.)(.)(.)\3\2\1', fullpasswd) or
+            re.search(r'^(.)(.)(.)(.)\4\3\2\1', fullpasswd)):
+            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+
+        # Do not allow unames/reverse unames to be in passwords
+        if uname is None and account is not None:
+            uname = account.account_name
+        if ((uname is not None) and
+            (uname in fullpasswd or uname[::-1] in fullpasswd)):
+            raise PasswordGoodEnoughException(msgs['uname_in_password'])
+        
+        # Check that the characters in the password are not a predefined sequence
+        self._check_sequence(fullpasswd)
+
+        # Check matches to previous passwords
+        if account is not None:
+            self.check_password_history(account, fullpasswd)
+            
+        # Check organisation-specific rules
+        for c in fullpasswd:
+            if c.isdigit():
+                num_digits = num_digits + 1
+            elif c.islower():
+                num_chars_lower = num_chars_lower + 1
+            else:
+                num_chars_upper = num_chars_upper + 1
+
+        if not (num_digits >= 2 and num_chars_lower > 0 and num_chars_upper > 0):
+            raise PasswordGoodEnoughException(msgs['uname_in_password'])
+
+        # Password good enough
+        return True
 
 
 class GiskePasswordChecker(DefaultPasswordChecker.PasswordChecker):
@@ -128,21 +198,21 @@ if __name__ == "__main__":
     from Cerebrum.Account import Account
     from Cerebrum.Utils import Factory
     db = Factory.get("Database")()
-    pc = GiskePasswordChecker(db)
+    pc = OfkPasswordChecker(db)
     account = Factory.get("Account")(db)
 
-    for candidate in ("foo-bar-baz-zot-qux", # invalid chars (disabled 2007-03-28)
-                      "foobar",              # too short
-                      "oooooooooooooooo",    # all alike
+    for candidate in ("åæålllkkk34", # invalid chars (disabled 2007-03-28)
+                      "hYt87",              # too short
+                      "ooooooooo",    # all alike
                       "abcabcabcabcabc",     # repeating pattern
-                      "abccba foo bar",      # repeating pattern
-                      "this is a user",      # username (fake)
+                      "abccba9fo",      # repeating pattern
+                      "jashod78",      # username (fake)
                       "abcdefghijklmnopqr",  # sequence
                       "asdfghjklzxcvbnm",    # allowed 
                       "qwertyuiopasdfghj",   # allowed
                       "qwerty asdfghj zxcv", # keyboard sequence
                       "aaaaaaaaaacccccccc",  # repeating chars
-                      "mink blir kåpe snart"): # valid
+                      "43HIaHeD"): # valid
         try:
             pc.goodenough(None, candidate, "this is a user")
             print "candidate: <%s>: ok!" % (candidate,)
