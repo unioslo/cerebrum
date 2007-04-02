@@ -42,6 +42,9 @@ PASSWORD_DICTIONARIES = ()
 # produce passphrases
 PASSPHRASE_DICTIONARIES = ()
 
+# Class-name for the institution-spesific passwordchecker
+CLASS_PASSWORD_CHECKER = None
+
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
