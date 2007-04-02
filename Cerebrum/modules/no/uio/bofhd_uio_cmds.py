@@ -4840,9 +4840,10 @@ class BofhdExtension(object):
         # matches may be an iterator, so force it into a list so we
         # can count the entries.
         matches = list(matches)
-        if len(matches) > 250:
-            raise CerebrumError, ("More than 250 (%d) matches, please narrow "
-                                  "search criteria" % len(matches))
+        if len(matches) > cereconf.BOFHD_MAX_MATCHES:
+            raise CerebrumError, ("More than %d (%d) matches, please narrow "
+                                  "search criteria" % (cereconf.BOFHD_MAX_MATCHES,
+                                                       len(matches)))
         for row in matches:
             # We potentially get multiple rows for a person when
             # s/he has more than one source system or affiliation.
