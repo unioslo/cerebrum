@@ -43,9 +43,10 @@
         </tr>
       </table>
 
+      <br>
+      <hr>
       <h1>Brukerinformasjon</h1>
 
-     <p>
       <table border="0" tal:repeat="user userlist">
         <tr>
 	  <td>Brukernavn:</td> 
@@ -94,7 +95,8 @@
         </tr>
       </span>
       </table>  <!-- brukerinformasjon -->
-     </p>
+ 
+      <br>
       <hr>
 
       <h1>Endre primær e-postadresse</h1>
