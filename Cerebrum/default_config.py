@@ -261,6 +261,8 @@ BOFHD_TEMPLATES={}
 BOFHD_MOTD_FILE=None
 BOFHD_NEW_USER_SPREADS=[]
 BOFHD_NEW_GROUP_SPREADS=[]
+# maximum number of rows returned from person_find
+BOFH_MAX_MATCHES = 250
 BOFHD_CHECK_DISK_SPREAD=None
 BOFHD_CLIENTS = {'jbofh': '0.0.3'}
 # Max number of seconds a client can have a socket stuck in recv/send
