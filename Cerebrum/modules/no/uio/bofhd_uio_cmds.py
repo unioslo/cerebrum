@@ -6222,8 +6222,7 @@ class BofhdExtension(object):
                 raise CerebrumError, \
                       "Cannot specify password for another user."
         try:
-            pc = PasswordChecker.PasswordChecker(self.db)
-            pc.goodenough(account, password)
+            account.goodenough(account, password)
         except PasswordChecker.PasswordGoodEnoughException, m:
             raise CerebrumError, "Bad password: %s" % m
         account.set_password(password)
