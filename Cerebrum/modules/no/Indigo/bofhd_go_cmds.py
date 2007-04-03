@@ -53,6 +53,7 @@ normal bofhd_uio_cmds so that the perm commands are available.
 class BofhdExtension(object):
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
+    OU_class = Factory.get('OU')
     all_commands = {}
 
     copy_commands = (
