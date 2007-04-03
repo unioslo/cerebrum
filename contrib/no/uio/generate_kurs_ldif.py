@@ -180,6 +180,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
         except KeyError:
             logger.warn("Undervisningsaktivitet %s er ikke knyttet til gyldig emne",
                         entry['emnekode'])
+            continue
         if not emne.has_key('emnenavn_bokmal'):
             logger.warn("Undervisningsaktivitet %s uten enhet?" % repr(entry))
             continue
