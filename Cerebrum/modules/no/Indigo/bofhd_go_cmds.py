@@ -51,7 +51,6 @@ normal bofhd_uio_cmds so that the perm commands are available.
 """
 
 class BofhdExtension(object):
-    OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
     all_commands = {}
@@ -96,6 +95,7 @@ class BofhdExtension(object):
         self.util = server.util
         self.const = Factory.get('Constants')(self.db)
         self.person = Factory.get('Person')(self.db)
+        self.ou = Factory.get('OU')(self.db)
         self.ba = BofhdAuth(self.db)
 
         # From uio
@@ -409,27 +409,48 @@ class BofhdExtension(object):
     def _operator_sees_person(self, operator, person_id):
         """Decide if operator can obtain information about person_id.
 
-        This is a complement to _filter_resultset_by_operator. except that it
-        should be more lightlweight. An operator can 'see' a person_id, if the
-        operator and person_id share at least one ou_id in their affiliations
-        (i.e. they both happen to be associated with the same OU). 
+        Superusers can see information about everyone. People can see their
+        own information as well.
+
+        Additionally, school IT may see everyone who is affiliated with an OU
+        that they have permissions for.
         """
 
-            # superusers see everyone
+        # superusers and own information
         if (self.ba.is_superuser(operator.get_entity_id(), True) or
-            # operators see themselves
-            operator.get_owner_id() == person_id): 
+            operator.get_owner_id() == person):
             return True
 
-        operators_ou = set([x['ou_id'] for x in
-                            self.person.list_affiliations(
-                                person_id=operator.get_owner_id())])
-        targets_ou = set([x['ou_id'] for x in
-                          self.person.list_affiliations(person_id=int(person_id))])
+        # non-LITAs cannot see anyone else
+        if not self.ba.is_schoolit(operator.get_entity_id(), True):
+            return False
 
+        # ... but LITAs can
+        operators_ou = set(self._operators_ou(operator))
+        targets_ou = set(x['ou_id'] for x in
+                         self.person.list_affiliations(person_id=int(person_id)))
+        
         return bool(operators_ou.intersection(targets_ou))
     # end _operator_sees_person
 
+
+    def _operator_sees_ou(self, operator, ou_id):
+        """Decide if operator can obtain information about ou_id.
+
+        Superusers can see information about anything. School IT can only see
+        info about the schools where they have school IT permissions.
+        """
+
+        if self.ba.is_superuser(operator.get_entity_id(), True):
+            return True
+
+        if not self.ba.is_schoolit(operator.get_entity_id(), True):
+            return False
+
+        operators_ou = set(self._operators_ou(operator))
+        return int(ou_id) in operators_ou
+    # end _operator_sees_ou
+        
 
     def _filter_resultset_by_operator(self, operator, results, person_key):
         """Remove elements from results to which operator has no access.
@@ -454,14 +475,13 @@ class BofhdExtension(object):
             return results
         
         # The operation is performed in three steps:
-        # 1) fetch all OUs where the operator has an affiliation.
+        # 1) fetch all OUs where that the operator can "see".
         # 2) fetch all people affiliated with OUs in #1
         # 3) intersect results with #2
 
         # Find operator's OUs
-        operators_ou = [x['ou_id'] for x in
-                        self.person.list_affiliations(
-                            person_id=operator.get_owner_id())]
+        operators_ou = self._operators_ou(operator)
+
         # Find all people affiliated with operator's OUs
         operators_people = set([x['person_id'] for x in
                                 self.person.list_affiliations(
@@ -474,6 +494,48 @@ class BofhdExtension(object):
 
         return type(results)(filtered_set)
     # end _filter_resultset_by_operator
+
+
+    def _operators_ou(self, operator):
+        """Return a sequence of OUs that operator can 'see'.
+
+        Superusers see everything.
+        School IT see only the OUs where they have privileges.
+        Everyone else sees nothing.
+        """
+
+        def grab_all_ous():
+            return [int(x['ou_id']) for x in
+                    self.ou.list_all(filter_quarantined=False)]
+
+        if self.ba.is_superuser(operator.get_entity_id(), True):
+            grab_all_ous()
+
+        if not self.ba.is_schoolit(operator.get_entity_id(), True):
+            return []
+
+        group = self.Group_class(self.db)
+        # fetch all groups where operator is a member
+        op_groups = [x['group_id'] for x in
+                     group.list_groups_with_entity(operator.get_entity_id())
+                     if x['operation'] == self.const.group_memberop_union]
+        # fetch all permissions that these groups have
+        op_targets = [x['op_target_id'] for x in
+                      BofhdAuthRole(self.db).list(entity_ids=op_groups)]
+
+        # Now, finally, the permissions:
+        result = list()
+        for permission in BofhdAuthOpTarget(self.db).list(
+            target_id=op_targets,
+            target_type=self.const.auth_target_type_ou,):
+            if permission["entity_id"] is not None:
+                result.append(int(permission["entity_id"]))
+            else:
+                # AHA! We have a general OU permission. Grab them all!
+                return grab_all_ous()
+
+        return result
+    # end _operators_ou
 
 
     all_commands['misc_history'] = None
@@ -520,42 +582,40 @@ class BofhdExtension(object):
                     name = account.account_name
                     tmp['person_id'] = int(account.owner_id)
                 else:
-                    ou = self.OU_class(self.db)
-                    ou.find(entity.entity_id)
+                    self.ou.clear()
+                    self.ou.find(entity.entity_id)
                     name = ou.name
                 tmp['name'] = name
                 ret.append(tmp)
         return ret
 
     all_commands['find_school'] = None
-    def find_school(self, operator, ou_name):
+    def find_school(self, operator, name):
 
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
             raise PermissionDenied("Currently limited to superusers and school IT")
-        
-        ou_n = ou_name.lower()
-        ou = self.OU_class(self.db)
-        all_ou = ou.list_all(filter_quarantined=True)
-        ou_list = []
-        for o in all_ou:
-            ou.clear()
-            ou.find(o['ou_id'])
-            tmp = ou.name.lower()
-            if re.match('.*' +  ou_n + '.*', tmp):
-                ou_list.append(ou.entity_id)
 
+        ou_name_list = self.ou.search(name=name)
+        ou_acronym_list = self.ou.search(acronym=name)
+
+        # let's merge the lists
+        result = set()
+        for name_list in (ou_name_list, ou_acronym_list):
+            result.update([row['ou_id'] for row in name_list])
+
+        if len(result) == 0:
+            raise CerebrumError("Could not find school matching %s" % name)
+        elif len(result) > 1:
+            raise CerebrumError("Found several schools with matching names")
+
+        # Now there is just one left. But can the operator see it?
+        ou_id = result.pop()
         # filter the results for school IT
-        if not self.ba.is_superuser(operator.get_entity_id(), True):
-            ou_list = [x['ou_id'] for x in self.person.list_affiliations(
-                                               person_id=operator.get_owner_id())
-                       if x['ou_id'] in ou_list]
-        
-        if len(ou_list) == 0:
-            raise CerebrumError("Could not find school %s" % ou_name)
-        elif len(ou_list) > 1:
-            raise CerebrumError("Found several schools with matching names.")
+        if not self._operator_sees_ou(operator, ou_id):
+            raise CerebrumError("School information is unavailable for this user")
         else:
-            return ou_list[0]
+            return ou_id
+    # end find_school
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
