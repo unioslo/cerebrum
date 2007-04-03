@@ -418,7 +418,7 @@ class BofhdExtension(object):
 
         # superusers and own information
         if (self.ba.is_superuser(operator.get_entity_id(), True) or
-            operator.get_owner_id() == person):
+            operator.get_owner_id() == person_id):
             return True
 
         # non-LITAs cannot see anyone else
