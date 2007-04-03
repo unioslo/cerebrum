@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 University of Oslo, Norway
+ * Copyright 2003-2007 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -21,7 +21,7 @@
 category:metainfo;
 name=changelog;
 category:metainfo;
-version=1.1;
+version=1.2;
 category:drop;
 drop TABLE change_handler_data;
 category:drop;
@@ -37,8 +37,8 @@ CREATE TABLE change_type
     change_type_id NUMERIC(6,0)
                    NOT NULL
                    CONSTRAINT change_type_pk PRIMARY KEY,
-    category       CHAR VARYING(16),
-    type           CHAR VARYING(16),
+    category       CHAR VARYING(32),
+    type           CHAR VARYING(32),
     msg_string     CHAR VARYING(60)
 );
 
@@ -82,11 +82,10 @@ CREATE TABLE change_log
   change_type_id  NUMERIC(6,0)
                   REFERENCES change_type(change_type_id),
   dest_entity     NUMERIC(12,0),
-  change_params   CHAR VARYING(255),
+  change_params   CHAR VARYING(4000),
   change_by       NUMERIC(12,0)
                   REFERENCES entity_info(entity_id),
-  change_program  CHAR VARYING(16),
-  description     CHAR VARYING(255)
+  change_program  CHAR VARYING(64),
 );
 category:main;
 CREATE INDEX change_log_change_by_idx ON change_log(change_by);
@@ -101,7 +100,8 @@ indicates holes in the sequence.
 category:main;
 CREATE TABLE change_handler_data
 (
-  evthdlr_key    CHAR VARYING(20) NOT NULL, 
+  evthdlr_key    CHAR VARYING(20) NOT NULL
+                 CONSTRAINT evthdlr_key_pk PRIMARY KEY,
   first_id       NUMERIC(12,0) NOT NULL,
   last_id        NUMERIC(12,0) NOT NULL
 );

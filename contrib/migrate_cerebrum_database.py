@@ -37,6 +37,7 @@ targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9'),
     'bofhd': ('bofhd_1_1', ),
+    'changelog': ('changelog_1_2', ),
     }
 
 # Global variables
@@ -424,6 +425,16 @@ def migrate_to_bofhd_1_1():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_bofhd", "1.1")
     print "Migration to bofhd 1.1 completed successfully"
+    db.commit()
+
+
+def migrate_to_changelog_1_2():
+    print "\ndone."
+    assert_db_version("1.1", component='changelog')
+    makedb('changelog_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_changelog", "1.2")
+    print "Migration to changelog 1.2 completed successfully"
     db.commit()
 
 
