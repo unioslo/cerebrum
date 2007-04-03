@@ -175,7 +175,11 @@ def gen_undervisningsaktivitet(cgi, sip, out):
     n = 0
     ret = {}
     for entry in sip.undervisningsaktiviteter:
-        emne = sip.emnekode2info[entry['emnekode']]
+        try:
+            emne = sip.emnekode2info[entry['emnekode']]
+        except KeyError:
+            logger.warn("Undervisningsaktivitet %s er ikke knyttet til gyldig emne",
+                        entry['emnekode'])
         if not emne.has_key('emnenavn_bokmal'):
             logger.warn("Undervisningsaktivitet %s uten enhet?" % repr(entry))
             continue
