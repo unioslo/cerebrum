@@ -509,7 +509,7 @@ class BofhdExtension(object):
                     self.ou.list_all(filter_quarantined=False)]
 
         if self.ba.is_superuser(operator.get_entity_id(), True):
-            grab_all_ous()
+            return grab_all_ous()
 
         if not self.ba.is_schoolit(operator.get_entity_id(), True):
             return []

@@ -243,7 +243,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         ewhere = []
         if entity_id is not None:
             ewhere.append("entity_id=:entity_id")
-        if target_id is not None:
+        if target_id not in (None, [], (),):
             if isinstance(target_id, (list, tuple)):
                 tmp = " IN (%s)" % ", ".join([str(int(x)) for x in target_id])
             else:
