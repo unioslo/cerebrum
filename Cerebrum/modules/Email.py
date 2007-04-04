@@ -743,7 +743,8 @@ class EmailAddress(EmailEntity):
                           fetchall=False)
 
     def search(self, local_part=None, local_part_pattern=None,
-               target_id=None, domain_id=None, fetchall=False):
+               target_id=None, domain_id=None, filter_expired=True,
+               fetchall=False):
         """Return address_id, target_id, local_part, domain_id, and
         domain (name) for matching all EmailAddress."""
         conditions = []
@@ -756,6 +757,9 @@ class EmailAddress(EmailEntity):
             conditions.append('ea.domain_id = :domain_id')
         if target_id is not None:
             conditions.append('ea.target_id = :target_id')
+        if filter_expired:
+            conditions.append('(ea.expire_date IS NULL OR'
+                              ' ea.expire_date > [:now])')
         where = ""
         if conditions:
             where = " WHERE " + " AND ".join(conditions)
