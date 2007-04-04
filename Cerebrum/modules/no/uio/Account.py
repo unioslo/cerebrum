@@ -238,7 +238,7 @@ class AccountUiOMixin(Account.Account):
         # TBD: will domain ever be anything else?
         if domain == self.const.account_namespace:
             ea = Email.EmailAddress(self._db)
-            for row in ea.search(local_part=uname):
+            for row in ea.search(local_part=uname, filter_expired=False):
                 return False
         return self.__super.validate_new_uname(domain, uname)
 
