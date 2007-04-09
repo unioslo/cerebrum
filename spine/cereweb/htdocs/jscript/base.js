@@ -148,7 +148,7 @@ cereweb.editBox = {
             'draggable': false,
             'visible': false,
             'fixedcenter': true,
-            'postmethod': 'form' });
+            'postmethod': 'manual' });
         editBox.setHeader(header.innerHTML);
         editBox.render();
         editBox.hide();

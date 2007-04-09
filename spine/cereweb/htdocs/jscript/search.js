@@ -50,6 +50,10 @@ cereweb.ac_group.prototype = {
     build: function() {
         this.dropdown = document.createElement('div');
         var container = this.input.parentNode;
+        if (YD.hasClass(container, 'required'))
+            this.valid = false;
+        else
+            this.valid = true;
         container.appendChild(this.dropdown);
         this.form = container;
         while (this.form.tagName.toLowerCase() !== 'form')
@@ -81,7 +85,6 @@ cereweb.ac_group.prototype = {
         else
             this.input.style.backgroundColor = "";
 
-        this.valid = false;
         if (this.data.length === 1)
             this.parseData();
 
@@ -152,7 +155,6 @@ cereweb.ac_quicksearch = function(container) {
     this.form.setAttribute('id', 'qs_form');
     qdiv.appendChild(this.form);
     var dForm = cereweb.createDiv('qs_dform', 'qs_form');
-
     this.input = document.createElement('input');
     this.label = document.createElement('label');
     this.id = document.createElement('input');
@@ -165,6 +167,7 @@ cereweb.ac_quicksearch = function(container) {
     dForm.appendChild(this.id);
     dForm.appendChild(this.label);
     dForm.appendChild(this.input);
+    YD.addClass(dForm, 'required');
 
 
     cereweb.ac_quicksearch.superclass.constructor.call(this, this.input);
@@ -210,7 +213,6 @@ cereweb.ac_quicksearch.prototype.dataReturn = function(event, args) {
     else
         this.input.style.backgroundColor = "";
 
-    this.valid = false;
     if (this.data.length === 1)
         this.parseData();
 
