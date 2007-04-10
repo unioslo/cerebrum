@@ -54,25 +54,31 @@ class Constants(Constants.Constants):
     externalid_bdb_person = _EntityExternalIdCode('BDB_PERSON_ID',
         Constants.Constants.entity_person,
         'BDBs internal ID for the person')
+
     externalid_bdb_group = _EntityExternalIdCode('BDB_GROUP_ID',
         Constants.Constants.entity_group,
         'BDBs internal ID for the group')
+
     externalid_bdb_account = _EntityExternalIdCode('BDB_ACCOUNT_ID',
         Constants.Constants.entity_account,
         'BDBs internal ID for the account')
+
     externalid_bdb_institute = _EntityExternalIdCode('BDB_INSTITUTE_ID',
         Constants.Constants.entity_ou,
         'BDBs internal ID for the institute')
+
     externalid_bdb_faculty = _EntityExternalIdCode('BDB_FACULTY_ID',
         Constants.Constants.entity_ou,
         'BDBs internal ID for the faculty')
 
+    system_lt = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
     system_kjernen = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
     perspective_kjernen = _OUPerspectiveCode('Kjernen', 'Kjernen')
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
     system_bdb = _AuthoritativeSystemCode('BDB', 'NTNUs old user database')
     perspective_bdb = _OUPerspectiveCode('BDB', 'NTNUs old user database')
+    perspective_slp4 = _OUPerspectiveCode('SLP4', 'SLP4')
 
     account_test = _AccountCode('testbruker', 'Testkonto')
     account_kurs = _AccountCode('kursbruker','Kurskonto')
