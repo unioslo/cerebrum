@@ -266,7 +266,7 @@ class ProcHandler(object):
                 self.logger.debug("prc_grp: Group '%s' not found, but name matching '%s' found" % (group_name,shadow))
                 # Name matches a shadow group. Check if it actually is.
                 # If it is, we delete it, if not, do nothing.
-                if self._group.get(self.co.trait_group_derived):
+                if self._group.get_trait(self._co.trait_group_derived):
                     self._group.delete()
                     self.logger.info("prc_grp: Shadow group '%s' deleted." % shadow)
                 return
@@ -356,7 +356,7 @@ class ProcHandler(object):
                     int(self._co.affiliation_elev) : 'Elevar' }
 
         # Look up the group
-        grp_name = "%s %s" % (ou.acronym, affiliation)
+        grp_name = "%s %s" % (ou.acronym, aff2txt[int(affiliation)])
         if not self._group:
             self._group = Factory.get('Group')(self.db)
         try:
