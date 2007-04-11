@@ -37,7 +37,7 @@ def parse_ldif(fname, filter_dn):
     attr_re = re.compile(r'^(.*?): (.*)')
     for line in file(fname):
         if line.startswith("dn: "):
-            dn = line[4:]
+            dn = line[4:].strip()
             if filter_dn:
                 dn = dn[:dn.find(filter_dn)]
             tmp = {}
@@ -58,12 +58,12 @@ def run_comparison(old_dta, new_dta, attrs):
             print "DN: %s only in old" % dn
             continue
         for a in attrs:
-            oa = o.get(a, [])
-            na = n.get(a, [])
+            oa = [x.strip().lower() for x in o.get(a, [])]
+            na = [x.strip().lower() for x in n.get(a, [])]
             oa.sort()
             na.sort()
             if oa != na:
-                print "DN: %s attribute diffs: %s -> %s" % (dn, oa, na)
+                print "DN: %s attribute %s diffs: %s -> %s" % (dn, a, oa, na)
 
         del(new_dta[dn])
     if new_dta:
