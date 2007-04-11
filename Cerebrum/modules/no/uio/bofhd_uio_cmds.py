@@ -3516,7 +3516,7 @@ class BofhdExtension(object):
         rules = filter.split(",")
         for rule in rules:
             if rule.count(":"):
-                filter_type, pattern = rule.split(":")
+                filter_type, pattern = rule.split(":", 1)
             else:
                 filter_type = 'name'
                 pattern = rule
