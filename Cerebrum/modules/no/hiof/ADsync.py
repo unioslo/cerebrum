@@ -121,10 +121,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             pid2names.setdefault(int(row['person_id']), {})[
                 int(row['name_variant'])] = row['name']
         for v in tmp_ret.values():
-            names = v.get(v['TEMPownerId'])
+            names = pid2names.get(v['TEMPownerId'])
             if names:
-                firstName = names.get(const.name_first, '')
-                lastName = names.get(const.name_last, '')
+                firstName = unicode(names.get(int(const.name_first), ''), 'ISO-8859-1')
+                lastName = unicode(names.get(int(const.name_last), ''), 'ISO-8859-1')
                 v['givenName'] = firstName
                 v['sn'] = lastName
                 v['displayName'] = "%s, %s" % (lastName, firstName)
