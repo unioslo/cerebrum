@@ -667,3 +667,18 @@ class PersonAffiliationsSearcher(Searcher):
             birth_date = utils.strftime(p.get_birth_date())
             rows.append([type, status, source, name, birth_date])
         return rows
+
+class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
+
+    def source(self, source):
+        if source != 'All':
+            self.searchers['main'].set_source_system(
+                self.transaction.get_source_system(source))
+
+    def affiliation( self, affiliation):
+        if affiliation != 'All':
+            self.searchers['main'].set_affiliation(
+                self.transaction.get_person_affiliation_type(affiliation))
+
+    def id(self, id):
+        pass

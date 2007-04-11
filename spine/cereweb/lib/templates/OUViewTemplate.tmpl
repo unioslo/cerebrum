@@ -44,6 +44,7 @@
     $setExternalId($ou, $transaction)
     $viewExternalIds($ou)
     $viewHistoryLog($ou)
+    $affiliatedPersons($transaction,$ou)
 #end def
 
 ## View information about OU.
@@ -90,6 +91,42 @@
                 #end if     
             #end try
         #end for
+    </div>
+#end def
+
+#def affiliatedPersons($transaction, $ou)
+    #set $all_affs = $transaction.get_person_affiliation_type_searcher().search()
+    #set $all_sources = $transaction.get_ou_perspective_type_searcher().search()
+    #set $sources = [('All','All')]
+    #for $source in $all_sources
+        $sources.append(($source.get_name(),$source.get_name()))
+    #end for
+    #set $affiliations = [('All','All')]
+    #for $aff in $all_affs
+        $affiliations.append(($aff.get_name(),$aff.get_name()))
+    #end for
+    ## <div class="edit box" style="display:none;">
+    <div class="edit box">
+        <h3 id="search">$_('Search affiliated persons')</h3>
+        <form action="perform_search" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$ou.get_id()" />
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("source", "Perspective", $sources)
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("affiliation", "Affiliation", $affiliations)
+            </div>
+            <div class="required">
+                <label for="recursive">Rekursivt s&oslash;k:</label>
+                <input type="checkbox" name="recursive" />
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Search')" />
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
     </div>
 #end def
 

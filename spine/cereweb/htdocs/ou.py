@@ -26,6 +26,7 @@ from lib.Main import Main
 from lib import utils
 from lib.WorkList import remember_link
 from lib.Searchers import OUSearcher, PersonAffiliationsSearcher
+from lib.Searchers import PersonAffiliationsOuSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
@@ -252,5 +253,47 @@ def _get_display_name(ou):
         return display_name
     else:
         return ou.get_name()
+
+def flatten(list, source, res=[]):
+    if not list:
+        return res
+    ou = list.pop(0)
+    res.append(ou)
+    return flatten(ou.get_children(), source, res)
+
+def perform_search(transaction, **vargs):
+    ou = transaction.get_ou(id)
+    source = vargs.get('source', '')
+    perspectives = []
+    if source = 'All':
+        perpectives = transaction.get_ou_perspective_type_searcher().search()
+    else:
+        perspectives.append(transaction.get_ou_perspective_type(source))
+
+    ou_list = list(ou)
+    for perspective in perspectives:
+        
+        
+    if vargs.get('recursive', ''):
+        ou_list = flatten( ou.get_children(), source)
+    args = ('id','source','affiliation')
+    searcher = PersonAffiliationsOuSearcher(transaction, *args, **vargs)
+    return searcher.respond() or utils.redirect('/ou/')
+perform_search = utils.transaction_decorator(perform_search)
+perform_search.exposed = True
+
+#def search_affs(transaction, **vargs):
+#    ou_id = vargs.get('id', '')
+#    ou = transaction.get_ou(int(id))
+#    all_perspectives = transaction.get_ou_perspective_type_searcher().search()
+#    all_affiliations = transaction.get_person_affiliation_type_searcher().search()
+#    perspectives = ((0, 'None'))   
+#    for perspective in all_perspectives:
+#        perspectives.append((perspective.get_id(),perspective.get_name())
+#    affiliations = ((0, 'None'))
+#    for aff in all_affiliations:
+#        affiliations.append((aff.get_id(), aff.get_name()))
+#search_affs = utils.transaction_decorator(search_affs)
+#search_affs.exposed = True
 
 # arch-tag: 6a071cd0-f0bc-11d9-90c5-0c57c7893102
