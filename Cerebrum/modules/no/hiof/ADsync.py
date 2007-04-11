@@ -127,7 +127,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 lastName = unicode(names.get(int(const.name_last), ''), 'ISO-8859-1')
                 v['givenName'] = firstName
                 v['sn'] = lastName
-                v['displayName'] = "%s, %s" % (lastName, firstName)
+                v['displayName'] = "%s %s" % (firstName, lastName)
 
         #
         # Set data from traits
