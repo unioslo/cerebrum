@@ -19,14 +19,16 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
+from CerebrumClass import *
 from Types import CodeType
 
 from Commands import Commands
+from Entity import Entity
 
 from SpineLib import Registry
 registry = Registry.get_registry()
 
-__all__ = ['AuthOperationCode', 'AuthOperationSet', 'AuthOperation']
+__all__ = ['AuthOperationCode', 'AuthOperationSet', 'AuthOperation', 'AuthRole']
 
 table = 'auth_op_code'
 class AuthOperationCode(CodeType):
@@ -141,4 +143,38 @@ get_operations.signature_name = 'get_operations'
 
 Commands.register_methods([create_auth_operation_set])
 AuthOperationSet.register_methods([get_operations])
+
+table = 'auth_op_target'
+class AuthOperationTarget(DatabaseClass):
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
+        DatabaseAttr('entity', table, Entity),
+        DatabaseAttr('type', table, str),
+        DatabaseAttr('attr', table, str),
+    )
+
+    db_attr_aliases = {
+        table: {
+            'id': 'op_target_id',
+            'entity': 'entity_id',
+            'type': 'target_type',
+        },
+    }
+
+table = 'auth_role'
+class AuthRole(DatabaseClass):
+    primary = (
+        DatabaseAttr('entity', table, Entity),
+        DatabaseAttr('op_set', table, AuthOperationSet),
+        DatabaseAttr('target', table, AuthOperationTarget),
+    )
+    db_attr_aliases = {
+        table: {
+            'entity': 'entity_id',
+            'op_set': 'op_set_id',
+            'target': 'op_target_id', 
+        }
+    }
 # arch-tag: 3dd57534-233c-4cc1-aa00-b929fd7fb24b

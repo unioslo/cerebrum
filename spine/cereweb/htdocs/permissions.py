@@ -35,11 +35,28 @@ def _get_links():
 def index(transaction):
     """Form for selecting an operation set, and for creating a new."""
     page = PermissionsTemplate()
-    page.title = _('Permission Control')
+    page.title = _('Roles')
     page.set_focus('permissions/')
     page.links = _get_links()
-    
-    page.tr = transaction
+    page.roles = []
+    for role in transaction.get_auth_role_searcher().search():
+        e = role.get_entity()
+        if e.get_name() in ['cereweb_self', 'cereweb_public', 'cereweb_basic']:
+            continue
+
+        t = role.get_target()
+        o = role.get_op_set()
+        r = {
+            'g_id': e.get_id(),
+            'g_name': e.get_name(),
+            't_id': t.get_id(),
+            't_type': t.get_type(),
+            't_ou': t.get_entity() and t.get_entity().get_name() or None,
+            'o_id': o.get_id(),
+            'o_name': o.get_name(),
+            'o_desc': o.get_description(),
+        }
+        page.roles.append(r)
     return page.respond()
 index = transaction_decorator(index)
 index.exposed = True

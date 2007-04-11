@@ -17,10 +17,43 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from FormWidgets import FormWidgets
-#from lib.InitTemplate import InitTemplate
-#extends InitTemplate
+#from lib.Main import Main
+#extends Main
 
 #attr $form_widgets = FormWidgets()
+
+#def actions
+    <div id="actions">
+        <h3>Actions</h3>
+        <ul>
+            <li>...</li>
+        </ul>
+    </div>
+#end def
+
+#def content
+<div class="view">
+    <table>
+        <thead><tr>
+            <th>Group</th>
+            <th>Operation Set</th>
+            <th>Target Type</th>
+            <th>Target Entity</th>
+        </tr></thead>
+
+        <tbody>
+        #for $role in $roles
+            <tr>
+                <td>$role['g_name']</td>
+                <td>$role['o_name']</td>
+                <td>$role['t_type']</td>
+                <td>$role['t_ou']</td>
+            </tr>
+        #end for
+        </tbody>
+    </table>
+</div>
+#end def
 
 ## General Permission Control view page
 #def view_index($tr)
