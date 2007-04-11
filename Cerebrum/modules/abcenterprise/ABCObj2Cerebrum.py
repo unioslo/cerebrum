@@ -109,7 +109,10 @@ class ABCObj2Cerebrum(object):
     def _conv_const_group(self, group):
         """Set one of the IDs to the group's name."""
         group = self._conv_const_entity(group)
+        rewrite = getattr(abcconf, "GROUP_REWRITE", None)
         for id in group._ids:
+            if rewrite:
+                group._ids[id] = rewrite(group._ids[id])
             if id in abcconf.GROUP_NAMES:
                 group.name = group._ids[id]
         return group
@@ -192,9 +195,13 @@ class ABCObj2Cerebrum(object):
                     else:
                         sub = sub[0]
                 if abcconf.CONSTANTS.has_key(sub[0]):
-                    sub = (abcconf.CONSTANTS[sub[0]], sub[1])
+                    sub = [abcconf.CONSTANTS[sub[0]], sub[1]]
                 else:
                     raise ABCDataError, "subject-type '%s' not found in CONSTANTS" % sub[0]
+                # Optional rewrite rule.
+                rewrite = getattr(abcconf, "GROUP_REWRITE", None)
+                if s == "group" and rewrite:
+                    sub[1] = rewrite(sub[1])
             except Exception, e:
                 txt = "Error(relations) subject: s: %s, t: %s - %s" % (rel.subject,
                                                                        rel.type, e)

@@ -20,6 +20,8 @@
 import cerebrum_path
 import cereconf
 
+from mx import DateTime
+
 from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory, auto_super
@@ -58,9 +60,6 @@ class Object2Cerebrum(object):
         self._groups = dict()
         self._affiliations = dict()
 
-    def rollback(self):
-        self.db.rollback()
-
 
     def _add_external_ids(self, entity, id_dict):
         """Common external ID operations."""
@@ -73,6 +72,7 @@ class Object2Cerebrum(object):
             entity.populate_external_id(self.source_system,
                                         id_type,
                                         id_dict[id_type])
+
 
     def _check_entity(self, entity, data_entity): 
         """Check for conflicting entities or return found or None."""
@@ -210,6 +210,9 @@ class Object2Cerebrum(object):
                              group.name, description=group.desc)
         self._add_external_ids(self._group, group._ids)
         ret = self._group.write_db()
+        self._group.populate_trait(self.co.trait_group_imported,
+                                   date=DateTime.now())
+        self._group.write_db()
         # Add group to "seen" cache.
         self._groups.setdefault(group.name, [])
         return ret
@@ -273,10 +276,19 @@ class Object2Cerebrum(object):
                 if member[2] not in self._groups[grp]:
                     self._group.remove_member(member[1], self.co.group_memberop_union)
             self._group.write_db()
+        # Get group names
+        group_names = dict()
+        for row in self._group.list_names(self.co.group_namespace):
+            group_names[int(row['entity_id'])] = row['entity_name']
         # See which groups are gone from the file and remove them from the
         # database if the cache doesn't have them.
-        
-        
+        for row in self._group.list_traits(self.co.trait_group_imported):
+            name = group_names[int(row['entity_id'])]
+            if not self._groups.has_key(name):
+                self.logger.info("Group '%s' deleted as it is no longer in file." % name)
+                self._group.clear()
+                self._group.find_by_name(name)
+                self._group.delete()
 
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't
@@ -302,7 +314,6 @@ class Object2Cerebrum(object):
 
     def commit(self):
         """Do some cleanups and call db.commit()"""
-
         # TODO:
         # - Diff OUs as well.
         
@@ -310,8 +321,15 @@ class Object2Cerebrum(object):
         self._update_groups()
         # Update affiliations for people
         self._update_person_affiliations()
-     
         self.db.commit()
+
+
+    def rollback(self):
+        # Process the cache before calling commit.
+        self._update_groups()
+        # Update affiliations for people
+        self._update_person_affiliations()
+        self.db.rollback()
 
 
 
