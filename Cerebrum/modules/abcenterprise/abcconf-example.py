@@ -128,6 +128,11 @@ OU_PERSPECTIVE=co.perspective_same_source_system
 # we map one ID to become the groups name.
 GROUP_NAMES=(co.external_id_groupid,)
 
+# Rewrite rule for group names
+# OPTIONAL! Remove if you don't need rewriting.
+GROUP_REWRITE = lambda x: "import_abc_%s" % x
+
+# Mapping of what should be done in relations
 RELATIONS={'ou' : {'person' : {'Employee' : ('affiliation',
                                              co.affiliation_ansatt),
                                'Pupil' : ('affiliation',
