@@ -189,7 +189,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName, Entity_class):
             self._db.log_change(self.entity_id, self.const.group_destroy, None)
         # Class Group is a core class; when its delete() method is
         # called, the underlying Entity object is also removed.
-        Entity_class.delete(self)
+        self.__super.delete()
 
 ## TBD: Do we really need __eq__ methods once all Entity subclass
 ## instances properly keep track of their __updated attributes?
