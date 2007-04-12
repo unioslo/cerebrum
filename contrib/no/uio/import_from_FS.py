@@ -44,6 +44,7 @@ default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
 default_ou_file = "/cerebrum/dumps/FS/ou.xml"
 default_fnrupdate_file = "/cerebrum/dumps/FS/fnr_udpate.xml"
 default_betalt_papir_file = "/cerebrum/dumps/FS/betalt_papir.xml"
+default_netpubl_file = "/cerebrum/dumps/FS/nettpublisering.xml"
 
 xml = XMLHelper()
 fs = None
@@ -217,6 +218,18 @@ def write_regkort_info(outfile):
     f.write("</data>\n")
     f.close()
 
+def write_netpubl_info(outfile):
+    """Lager fil med informasjon om status nettpublisering"""
+    logger.info("Writing nettpubl info to '%s'" % outfile)
+    f = SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(10)
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
+    for n in nettpubl:
+        f.write(xml.xmlify_dbrow(n, xml.conv_colnames(cols), 'nettpubl') + "\n")
+    f.write("</data>\n")
+    f.close()
+
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     logger.info("Writing studprog info to '%s'" % outfile)
@@ -351,6 +364,7 @@ def usage(exitcode=0):
     --db-user name: connect with given database username
     --db-service name: connect to given database
     --role-file name: override person role xml filename
+    --netpubl-file: override netpublication filename
     -p: generate person xml file
     -t: generate topics xml file
     -e: generate emne xml file
@@ -360,7 +374,7 @@ def usage(exitcode=0):
     -r: generate regkort xml file
     -k: generate person role xml file
     -o: generate ou xml file
-
+    -n: generate netpublication reservation xml file
     """
     sys.exit(exitcode)
 
@@ -374,13 +388,13 @@ def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
 def main():
     logger.info("Starting import from FS")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ptsroefbk",
+        opts, args = getopt.getopt(sys.argv[1:], "ptsroefbkn",
                                    ["person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
                                     'emne-file=', "ou-file=", "db-user=",
                                     'fnr-update-file=', 'betalt-papir-file=',
-				    'role-file=', "db-service=", "misc-func=", 
-                                    "misc-file=", "misc-tag="])
+				    'role-file=', 'netpubl-file', "db-service=",
+                                    "misc-func=", "misc-file=", "misc-tag="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -394,6 +408,7 @@ def main():
     role_file = default_role_file
     fnrupdate_file = default_fnrupdate_file
     betalt_papir_file = default_betalt_papir_file
+    netpubl_file = default_netpubl_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -415,6 +430,8 @@ def main():
             betalt_papir_file = val
 	elif o in('--role-file',):
 	    role_file = val
+	elif o in('--netpubl-file',):
+	    netpubl_file = val
         elif o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
@@ -440,6 +457,8 @@ def main():
                 write_ou_info(ou_file)
             elif o in ('-k',):
                 write_personrole_info(role_file)
+            elif o in ('-n',):
+                write_netpubl_info(netpubl_file)                
             # We want misc-* to be able to produce multiple file in one script-run
             elif o in ('--misc-func',):
                 misc_func = val
