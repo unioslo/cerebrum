@@ -197,6 +197,60 @@ class Person(FSObject):
         WHERE  p.status_dod = 'J'"""
         return self.db.query(qry)
 
+    def list_status_nettpubl(self, fodselsdato=None, personnr=None, type=None):
+        """Hent info om data om en student skal publiseres i
+        nettkatalogen eller ikke.
+
+        Tabellen fs.PERSONAKSEPTANSE benyttes for å angi om en student
+        har akseptert at det blir publisert data i nettkatalogen eller
+        ikke.
+        
+        Dersom det finnes en rad i denne tabellen med
+        AKSEPTANSETYPEKODE='NETTPUBL' og STATUS_SVAR='J', skal data om
+        studenten publiseres i nettkatalogen. Hvis ikke, skal data om
+        studenten ikke publiseres.
+
+        Det er ikke påkrevd med noen noen entry i denne tabellen, slik
+        at det kan finnes personer det ikke forekommer noen rader
+        for. Data om disse studentene skal ikke publiseres. Man har
+        dermed 3 forskjellige scenarioer:
+
+        1) Det finnes ingen rad i tabellen med
+           AKSEPTANSETYPEKODE='NETTPUBL'.
+
+        2) Det finnes en rad i tabellen med
+           AKSEPTANSETYPEKODE='NETTPUBL' og STATUS_SVAR='N'.
+
+        3) Det finnes en rad i tabellen med
+           AKSEPTANSETYPEKODE='NETTPUBL' og STATUS_SVAR='J'.
+
+        For scenario 1 og 2 skal data om studenten ikke publiseres,
+        for scenario 3 skal data om studenten publiseres.
+
+        Merk: Funksjonen er skrevet generell så man kan hente ut alle
+        typer akseptansekode.
+        """
+        
+        check_extra = ""
+        if fodselsdato and personnr and type:
+            check_extra = """WHERE fodselsdato=:fodselsdato AND personnr=:personnr
+                             AND akseptansetypekode='%s'""" % (type)
+        elif fodselsdato and personnr:
+            check_extra = "WHERE fodselsdato=:fodselsdato AND personnr=:personnr"
+        elif type:
+            check_extra = "WHERE akseptansetypekode='%s'" % (type)
+
+        qry = """
+        SELECT DISTINCT
+            fodselsdato, personnr, akseptansetypekode, status_svar,
+            dato_svar
+        FROM
+            fs.personakseptanse
+        %s
+        ORDER by akseptansetypekode, status_svar
+        """ % (check_extra)
+        return self.db.query(qry, locals())        
+
     def list_fnr_endringer(self): # GetFnrEndringer
         """Hent informasjon om alle registrerte fødselsnummerendringer"""
         qry = """
