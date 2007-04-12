@@ -234,11 +234,11 @@ class Person(FSObject):
         check_extra = ""
         if fodselsdato and personnr and type:
             check_extra = """WHERE fodselsdato=:fodselsdato AND personnr=:personnr
-                             AND akseptansetypekode='%s'""" % (type)
+                             AND akseptansetypekode=:type"""
         elif fodselsdato and personnr:
             check_extra = "WHERE fodselsdato=:fodselsdato AND personnr=:personnr"
         elif type:
-            check_extra = "WHERE akseptansetypekode='%s'" % (type)
+            check_extra = "WHERE akseptansetypekode=:type"
 
         qry = """
         SELECT DISTINCT
