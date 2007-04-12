@@ -111,7 +111,7 @@ def sap_employment2affiliation(fo_kode, sap_plans, sap_lonnstittelkode):
     else:
         affiliation = constants.affiliation_tilknyttet
         aff_status = constants.affiliation_status_tilknyttet_ekstern
-        
+
     return affiliation, aff_status
 # end sap_employment2affiliation
 
@@ -273,15 +273,16 @@ def process_affiliations(employment_file):
         # Decide on the affiliation
         (affiliation,
          affiliation_status) = sap_employment2affiliation(fo_kode, 
-                                                           sap_plans,
-                                                           sap_lonnstittelkode)
+                                                          sap_plans,
+                                                          sap_lonnstittelkode)
+        
         # Some bogus data. skip the entry.
         if (affiliation, affiliation_status) == (None, None):
             continue
 
         # For accessing cache
-        key_level1 = person_id
-        key_level2 = (ou_id, affiliation)
+        key_level1 = int(person_id)
+        key_level2 = (int(ou_id), int(affiliation))
 
         # Ok, now we have everything we need to register/adjusted affiliations
         # case 1: the affiliation did not exist => make a new affiliation
