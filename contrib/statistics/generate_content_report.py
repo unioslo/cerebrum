@@ -39,10 +39,10 @@ Usage: %s [options]
    Report options:
    --all        Generate all reports
    --entities   Generate reports on entities that may or may not
-                represent things that need to be addresses
+                represent things that need to be addressed
    --numbers    Generate generic statistics about database content
    --details    For '--entitities', provide entity IDs for the
-                entities 'suffering' the current
+                entities 'suffering' the given 'problem'
 
 This program can generate two different sets of statistics; one that
 presents various numeric data about the entities in the database
