@@ -102,10 +102,6 @@ def process_line(infile):
             logger.warn("No homedir given for user " + uname)
             continue
 
-        # søppel som må strippes vekk
-        if homedir.endswith('$'):
-            homedir = homedir[:-1]
-
         process_user(uname, homedir, spread, ou, domain)
 
         if commit_count % commit_limit == 0:
