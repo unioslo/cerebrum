@@ -27,6 +27,8 @@ wrong_nss_checksum = 0
 num_accounts = 0
 num_persons = 0
 ant_persons = 0
+verbose = False
+dryrun = False
 
 class BDBSync:
     def __init__(self):
@@ -52,7 +54,8 @@ class BDBSync:
 
     def sync_persons(self):
         self.logger.debug("Getting persons from BDB...")
-        print "Getting persons from BDB"
+        if verbose:
+            print "Getting persons from BDB"
         global ant_persons
         persons = self.bdb.get_persons()
         ant_persons = len(persons)
@@ -60,9 +63,10 @@ class BDBSync:
         for person in persons:
             self._sync_person(person)
         global missing_personnr,wrong_nss_checksum
-        print "%s persons had missing personnumber" % missing_personnr
-        print "%s persons had bad checksum on personnumber" % wrong_nss_checksum
-        print "%s persons where added or updated" % num_persons
+        if verbose:
+            print "%s persons had missing personnumber" % missing_personnr
+            print "%s persons had bad checksum on personnumber" % wrong_nss_checksum
+            print "%s persons where added or updated" % num_persons
 
     def __validate_person(self, person):
         # Returns true||false if enough attributes are set
@@ -120,11 +124,10 @@ class BDBSync:
             return True
 
     def _sync_person(self, person):
+        global num_persons,ant_persons,dryrun,verbose
         self.logger.info("Process %s" % person['id'])
         const = self.const
         new_person = self.new_person
-        global num_persons
-        global ant_persons
 
         if not self.__validate_person(person):
             return
@@ -178,119 +181,60 @@ class BDBSync:
         # Write to database and commit transaction
         #try:
         new_person.write_db()
-        self.db.commit()
-        num_persons += 1
-        self.logger.debug("Person %s written into Cerebrum." % person['id'])
-        print "Person %s (%s/%s )written into Cerebrum." % (person['id'],num_persons,ant_persons)
+        if dryrun:
+            self.db.rollback()
+            if verbose:
+                print "Person %s not written. Dryrun only" % person['id']
+        else:
+            self.db.commit()
+            num_persons += 1
+            self.logger.debug("Person %s written into Cerebrum." % person['id'])
+            if verbose:
+                print "Person %s (%s/%s )written into Cerebrum." % (person['id'],num_persons,ant_persons)
         #except Exception,e:
         #    self.db.rollback()
         #    self.logger.error("Rolling back transaction.Reason: %s" % str(e))
         #    return
         
-    def sync_ous(self):
-        """
-        This method is used to synchronize OUs from BDB with Cerebrum.
-        """
-        ous = self.bdb.get_ous()
-
-        self.open_session()
-        # Fetch necesseary objects from Spine
-        start = time.time()
-        result = util.find_ou_by_stedkode(config.conf.get('bdb-sync', 'ntnu_stedkode'), self.transaction)
-        if not result:
-            self.logger.error('Fatal: Unable to get NTNU OU from Cerebrum, aborting.')
-            raise SystemExit
-        elif len(result) > 1:
-            self.logger.error('Fatal: Multiple OUs in Cerebrum with the same stedkode, aborting.')
-            raise SystemExit
-        self.ntnu_ou = result[0]
-        self.persp_t = self.transaction.get_ou_perspective_type(config.conf.get('bdb-sync', 'ou_perspective'))
-        self.id_t = self.transaction.get_entity_external_id_type(config.conf.get('bdb-sync', 'ext_id_type_fakultet'))
-        self.source_t = self.transaction.get_source_system(config.conf.get('bdb-sync', 'source_system'))
-        self.at_post = self.transaction.get_address_type('POST')
-
-        # Run the recursive OU synchronization
-        self._sync_ous(self.ntnu_ou, ous)
-        self.close_session()
-        self.logger.info('OUs synchronized in %s seconds.' % (time.time() - start))
-
-    def _sync_ous(self, spine_parent, ous):
-        for ou in ous:
-            if 'stedkode' in ou:
-                spine_ous = util.find_ou_by_stedkode(ou['stedkode'], self.transaction)
-                if len(spine_ous) > 1:
-                    self.logger.error('Multiple OUs in Spine with the same stedkode, aborting synchronization!')
-                    raise SystemExit
-                elif len(spine_ous) == 1:
-                    spine_ou = spine_ous[0]
-                    self.logger.debug('OU %s found as %s in Cerebrum (stedkode %s == %s)' % (ou['name'], spine_ou.get_name(), ou['stedkode'], spine_ou.get_stedkode()))
-                else:
-                    # This OU was not in Cerebrum, so we add it
-                    self.logger.info('%s (stedkode %s) is not in Cerebrum, adding it.' % (ou['name'], ou['stedkode']))
-                    args = [ou['name']] + list(util.stedkode_string_to_tuple(ou['stedkode'])[1:])
-                    try:
-                        spine_ou = self.transaction.get_commands().create_ou(*args)
-                        spine_ou.set_acronym(ou['acronym'])
-                    except SpineIDL.Errors.AlreadyExistsError:
-                        self.logger.error('An OU in Spine already has the stedkode %s; %s not synchronized!' % (ou['stedkode'], ou['name']))
-                    spine_ou.set_parent(spine_parent, self.persp_t)
-                    if ou['postal_address'] or ou['postal_code'] or ou['postal_city']:
-                        try:
-                            address = spine_ou.get_address(self.at_post, self.source_t)
-                        except SpineIDL.Errors.NotFoundError:
-                            address = spine_ou.create_address(self.at_post, self.source_t)
-                        if ou['postal_address']:
-                            address.set_address_text(ou['postal_address'])
-                        if ou['postal_code']:
-                            address.set_postal_number(ou['postal_code'])
-                        if ou['postal_city']:
-                            address.set_city(ou['postal_city'])
-            else:
-                self.logger.error('%s has no stedkode in BDB, unable to synchronize.' % (ou['name']))
-
-            if 'institutes' in ou:
-                # Synchronize OUs with this OU as parent
-                self._sync_ous(spine_ou, ou['institutes'])
-
     def sync_groups(self):
         """
         This method synchronizes all BDB groups into Cerebrum.
         """
+        global verbose,dryrun
         groups = self.bdb.get_groups()
-        self.open_session()
-        commands = self.transaction.get_commands()
-        self.bdb_group_id_t = self.transaction.get_entity_external_id_type(config.conf.get('bdb-sync', 'ext_id_type_group'))
-        self.source_t = self.transaction.get_source_system(config.conf.get('bdb-sync', 'source_system'))
-
 
         for group in groups:
             if not 'name' in group:
                 self.logger.error("Group %s has no name, skipping." % group)
                 continue
-            try:
-                spine_group = commands.get_entity_with_external_id(str(group['id']), self.bdb_group_id_t, self.source_t)
-                self.logger.debug('Group %s matched on BDB ID.' % group)
-            except SpineIDL.Errors.NotFoundError:
-                spine_group = commands.create_group(group['name'])
-            spine_group.set_name(group['name'])
-            spine_group.set_description(group['description'])
-            if not spine_group.is_posix():
-                spine_group.promote_posix()
-            spine_group.set_posix_gid(group['gid'])
-            # Set external ID from BDB
-            try:
-                ext_id = spine_group.get_external_id(self.bdb_group_id_t, self.source_t)
-            except SpineIDL.Errors.NotFoundError:
-                spine_group.set_external_id(str(group['id']), self.bdb_group_id_t, self.source_t)
+            #TBD: Implement using Cerebrum-modules instead of Spine-API
+        if dryrun:
+            self.db.rollback()
+            if verbose:
+                print "Dryrun. Rolling back changes that would have been commited"
+        else:
+            self.db.commit()
+            if verbose:
+                print "Commiting synced groups."
 
-        self.transaction.commit()
 
     def _sync_account(self,account_info):
         """Callback-function. To be used from sync_accounts-method."""
-        global num_accounts
+        global num_accounts,verbose,dryrun
         logger = self.logger
         logger.debug("Callback for %s" % account_info['id'])
 
+        # Sanity-checking
+        if not 'name' in account_info:
+            self.logger.error("Account %s has no name, skipping." % account_info)
+            return
+
+        # TODO: IMPLEMENT SYNC OF ACCOUNTS WITHOUT A PERSON
+        if not 'person' in account_info:
+            logger.error('Account %s has no person, skipping.' % account_info)
+            return
+
+        # At this point, we have enough to populate/update an account
         person = self.new_person
         ac = self.ac
         group = self.group
@@ -316,8 +260,9 @@ class BDBSync:
             #print 'Found person for account %s' % account_info['name']
         except Exception,e:
             logger.warning('Person with BDB-ID %s not found.' % account_info['person'])
-            print 'Person with BDB-ID %s not found.' % account_info['person']
-            print account_info
+            if verbose:
+                print 'Person with BDB-ID %s not found.' % account_info['person']
+                print account_info
             return
         person_entity = person.entity_id
         p_accounts = person.get_accounts()
@@ -333,14 +278,16 @@ class BDBSync:
                 account_id = int(account_id)
             except TypeError:
                 logger.error('Account-id is not of type int or string. Value: %s' % account_id)
-                print 'Account-id is not of type int or string. Value: %s' % account_id
+                if verbose:
+                    print 'Account-id is not of type int or string. Value: %s' % account_id
                 return
             ac.find(account_id)
             username = ac.get_account_name()
             if username == account_info['name']:
                 username_match = True
                 # Update expire_date
-                print "Updating account %s on person %s" % (username,person_entity)
+                if verbose:
+                    print "Updating account %s on person %s" % (username,person_entity)
                 logger.info('Updating account %s on person %s' % (username,person_entity))
                 ac.expire_date = account_info.get('expire_date',None)
                 if account_info.get('status','') == 1:
@@ -364,7 +311,8 @@ class BDBSync:
                                            fname=first_name, lname=last_name)
                 uname = unames[0]
             np_type = None # this is a real account, not course,test,vendor etc
-            print "Adding new account %s on person %s" % (uname,person_entity)
+            if verbose:
+                print "Adding new account %s on person %s" % (uname,person_entity)
             logger.info('Adding new account %s on person %s' % (uname,person_entity))
             #try:
             ac.clear()
@@ -394,14 +342,17 @@ class BDBSync:
         #    self.db.rollback()
         #    return
         try:
-            self.db.commit()
-            print "Changes on %s commited to Cerebrum" % account_info['name']
+            if not dryrun:
+                self.db.commit()
+            if verbose:
+                print "Changes on %s commited to Cerebrum" % account_info['name']
             logger.debug('Changes on %s commited to Cerebrum' % account_info['name'])
             num_accounts += 1
         except Exception,e:
             self.db.rollback()
             logger.error('Exception caught while trying to commit. Reason: %s' % str(e))
-            print 'Exception caught while trying to commit. Reason: %s' % str(e)
+            if verbose:
+                print 'Exception caught while trying to commit. Reason: %s' % str(e)
             return
             
 
@@ -409,21 +360,16 @@ class BDBSync:
         """
         This method synchronizes all BDB accounts into Cerebrum.
         """
-        global num_accounts
-        print "Fetching accounts from BDB"
+        global num_accounts,verbose
+        if verbose:
+            print "Fetching accounts from BDB"
         accounts = self.bdb.get_accounts()
-        logger = self.logger
 
         for account in accounts:
-            if not 'name' in account:
-                self.logger.error("Account %s has no name, skipping." % account)
-                continue
-            if not 'person' in account:
-                # TODO: IMPLEMENT SYNC OF ACCOUNTS WITHOUT A PERSON
-                logger.error('Account %s has no person, skipping.' % account)
-            logger.debug('Syncronizing %s' % account['name'])
+            self.logger.debug('Syncronizing %s' % account['name'])
             self._sync_account(account)
         print "%s accounts added or updated in sync_accounts." % str(num_accounts)
+        return
 
 def usage():
     print """
@@ -431,19 +377,20 @@ def usage():
 
     Available options:
 
-        --ou
-        --people
-        --group
-        --account
-        --help
+        --people    (-p)
+        --group     (-g)
+        --account   (-a)
+        --verbose   (-v)
+        --help      (-h)
 
     """ % sys.argv[0]
     sys.exit(0)
 
 def main():
+    global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
-                    'pgah',
-                    ['people','group','account','help'])
+                    'dpgavh',
+                    ['dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     for opt,val in opts:
@@ -455,6 +402,10 @@ def main():
             sync.sync_accounts()
         elif opt in ('-g','--group'):
             sync.sync_groups()
+        elif opt in ('-v','--verbose'):
+            verbose = True
+        elif opt in ('-d','--dryrun'):
+            dryrun = True
         else:
             usage()
 
