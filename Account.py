@@ -486,32 +486,36 @@ class AccountUiTMixin(Account.Account):
         WHERE %s""" % (tables, where)
         
         return self.query(sql, params)
-
-    # def notify_account_expire(self):
-
-#         today = datetime.datetime.now()
-#         expires=self.expire_date
-#         exp = datetime.datetime(expires.year,expires.month,expires.day)
-#         notify_date = exp - datetime.timedelta(days=7) 
-#         notify_when = notify_date.date()
-
-#         if ((not self.is_expired) and (notify_when >= today)):
-#             template = account_expire.tmpl
-#             recipient = account.get_primary_email()
-#             if (not recipient):
-#                 recipient = 'bas-admins@cc.uit.no'
-            
-#             subst = {}
-#             subst['USERNAME'] = self.account_name
-#             subst['EXPIRE_DATE'] = self.expire_date
-#             subst['SUBJECT'] = 'Warning: Account %s will be closed soon' % (self.account_name)
-#             debug = True
-#             msg = Utils.mail_template(recipient,template,sender,substitute=substitution,debug=debug)
-#             if debug:
-#                 print msg
-                
-            
-
+        
+    def getdict_accid2mailaddr(self, filter_expired=True):
+        ret = {}
+        target_type = int(self.const.email_target_account)
+        namespace = int(self.const.account_namespace)
+        ed = Email.EmailDomain(self._db)
+        where = "en.value_domain = :namespace"
+        if filter_expired:
+            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+        for row in self.query("""
+        SELECT en.entity_id, ea.local_part, ed.domain
+        FROM [:table schema=cerebrum name=account_info] ai
+        JOIN [:table schema=cerebrum name=entity_name] en
+          ON en.entity_id = ai.account_id
+        JOIN [:table schema=cerebrum name=email_target] et
+          ON et.target_type = :targ_type AND
+             et.entity_id = ai.account_id
+        JOIN [:table schema=cerebrum name=email_primary_address] epa
+          ON epa.target_id = et.target_id
+        JOIN [:table schema=cerebrum name=email_address] ea
+          ON ea.address_id = epa.address_id
+        JOIN [:table schema=cerebrum name=email_domain] ed
+          ON ed.domain_id = ea.domain_id
+        WHERE """ + where,
+                              {'targ_type': target_type,
+                               'namespace': namespace}):
+            ret[row['entity_id']] = '@'.join((
+                row['local_part'],
+                ed.rewrite_special_domains(row['domain'])))
+        return ret
 
 
     # TODO: check this method, may probably be done better
