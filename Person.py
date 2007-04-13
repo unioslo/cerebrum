@@ -79,15 +79,13 @@ class UiTPersonMixin(Person.Person):
         """Returns True if names are equal.
 
         self must be a populated object."""
-        print "comparing"
-        #print ""
         try:
             tmp = other.get_name(self._pn_affect_source, type)
             if tmp ==None:
             #if len(tmp) == 0:
                 raise KeyError
         except:
-            raise MissingOtherException 
+            raise Person.MissingOtherException 
         try:
             myname = self._name_info[type]
         except:
