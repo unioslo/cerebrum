@@ -232,7 +232,7 @@ class email_address:
 
             #print "affiliation = %s" % i.affiliation
             if i.affiliation == self.constants.affiliation_student:
-                email = "%s@student.uit.no" % (account_name)
+                email = "%s@mailbox.uit.no" % (account_name)
 
                 logger.debug("student account...")
                 logger.debug("email =%s" % email)
@@ -269,7 +269,7 @@ class email_address:
                     # from AD.
                     #self.ou.clear()
                     #self.ou.find(i.ou_id)
-                    my_domain="invalid"
+                    my_domain="mailbox"
                     #my_domain = self.check_email_address(account_name,default_email_conversion_list,self.ou.fakultet,self.ou.institutt,self.ou.avdeling)
                     logger.debug("WARNING -> account %s has no email address from AD. checking ou_data towards conversion file" % account_name)
                     email ="%s@%s.uit.no" % (account_name,my_domain) 
