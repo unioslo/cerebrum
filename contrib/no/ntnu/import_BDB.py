@@ -54,9 +54,9 @@ class BDBSync:
 
     def sync_persons(self):
         self.logger.debug("Getting persons from BDB...")
+        global ant_persons,verbose,dryrun
         if verbose:
             print "Getting persons from BDB"
-        global ant_persons
         persons = self.bdb.get_persons()
         ant_persons = len(persons)
         self.logger.debug("Done fetching persons from BDB")
@@ -342,12 +342,14 @@ class BDBSync:
         #    self.db.rollback()
         #    return
         try:
-            if not dryrun:
+            if dryrun:
+                self.db.rollback()
+            else:
                 self.db.commit()
-            if verbose:
-                print "Changes on %s commited to Cerebrum" % account_info['name']
-            logger.debug('Changes on %s commited to Cerebrum' % account_info['name'])
-            num_accounts += 1
+                if verbose:
+                    print "Changes on %s commited to Cerebrum" % account_info['name']
+                logger.debug('Changes on %s commited to Cerebrum' % account_info['name'])
+                num_accounts += 1
         except Exception,e:
             self.db.rollback()
             logger.error('Exception caught while trying to commit. Reason: %s' % str(e))
@@ -377,10 +379,11 @@ def usage():
 
     Available options:
 
-        --people    (-p)
-        --group     (-g)
-        --account   (-a)
-        --verbose   (-v)
+        --dryrun    (-d) Does not commit changes to Cerebrum
+        --people    (-p) Syncronize persons
+        --group     (-g) Syncronise posixGrourp
+        --account   (-a) Syncronize posixAccounts
+        --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
 
     """ % sys.argv[0]
