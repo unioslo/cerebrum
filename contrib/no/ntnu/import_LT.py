@@ -375,7 +375,11 @@ def process_person(person):
 
     # If it's a new person, we need to call write_db() to have an entity_id
     # assigned to it.
-    op = new_person.write_db()
+    try:
+        op = new_person.write_db()
+    except ValueError,ve:
+        self.logger.error("Error when writing person %s to db. Reason: %s" % (fnr,str(ve)))
+        return
     num_write += 1
 
     # work_title is set by determine_affiliations
