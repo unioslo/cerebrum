@@ -442,15 +442,13 @@ def usage():
 
 def main():
     opts,args = getopt.getopt(sys.argv[1:],
-                    'o:p:g:a:',
-                    ['ou','people','group','account','help'])
+                    'pgah',
+                    ['people','group','account','help'])
 
     sync = BDBSync()
     for opt,val in opts:
         if opt in ('-h','--help'):
             usage()
-        elif opt in ('-o','--ou'):
-            sync.sync_ous()
         elif opt in ('-p','--people'):
             sync.sync_persons()
         elif opt in ('-a','--account'):
