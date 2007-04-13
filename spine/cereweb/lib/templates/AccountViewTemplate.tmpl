@@ -197,7 +197,7 @@ $widgets.viewInfo($info)
             <div class="item">
             
                 #set $sname = $home.get_spread().get_name()
-                #set $remove = $quote('remove_home?id=%s&spread=%s' % ($id, $sname))
+                #set $remove = $quote('remove_home?id=%s&spread=%s' % ($id, $sname),'?&/=')                
                 
                 <div class="actions">
                     <a class="action" href="$remove">$_('remove')</a>
