@@ -297,13 +297,12 @@ class Fronter(object):
         # self.supergroups.
         for kurs_id in kurs.iterkeys():
             if not self.kurs2enhet.has_key(kurs_id):
-                logger.info("Kurs %s har spread %s, men ikke aktive data i FS",
-                            kurs_id, self.spread)
                 supergroups = [
                     x for x in self.supergroups
                     if (kurs_id != ":".join(x.split(':')[3:]).lower())]
-                logger.info("Fjerner %d innslag fra self.supergroups.",
-                            len(self.supergroups) - len(supergroups))
+                logger.info("Kurs %s har spread %s, men ikke aktive data i FS; "
+                            "Fjerner %d innslag fra self.supergroups." %
+                            (kurs_id, self.spread, len(self.supergroups) - len(supergroups)))
                 self.supergroups = supergroups
 
         self.logger.debug("read_kurs_data: len(self.kurs2enhet)=%i",
@@ -1080,12 +1079,36 @@ def process_kurs2enhet():
             enhet_node = "STRUCTURE/Enhet:%s" % struct_id
             undervisning_node = "STRUCTURE/Studentkorridor:%s" % struct_id
 
-            tittel = "%s - %s, %s %s" % (emnekode.upper(),
-                                         fronter.kurs2navn[kurs_id],
-                                         termk.upper(), aar)
             multi_enhet = []
             multi_id = ":".join((Instnr, emnekode, termk, aar))
             multi_termin = False
+
+            # Fiks feildesignerte multi-termin navn etter at multi_id
+            # er satt, siden vi trenger den inkorrekte multi_id'en i
+            # oppslaget nedenfor
+            naa_aar = fronter._fs.info.year
+            naa_termk = fronter._fs.info.semester
+            # Ta vare på "inkorrekte" data, siden vi bruker dem i
+            # tittelgivingen for aktivitetsbaserte rom i
+            # 'process_single_enhet_id' som kalles til slutt i denne
+            # metoden.
+            akt_aar = aar
+            akt_termk = termk
+            akt_termnr = termnr
+            if int(termnr) <> 1:
+                if termk.upper() <> naa_termk:
+                    logger.debug("Termnr: '%s'" % termnr)
+                    logger.debug("Fant 'forskuttert' enhet: %s - %s %s %s %s. termin" %
+                                 (emnekode.upper(), fronter.kurs2navn[kurs_id],
+                                  termk.upper(), aar, termnr))
+                    termk = naa_termk
+                    aar = str(naa_aar)
+                    termnr = int(termnr) - 1 # termnr usually string, but need
+                                             # to temporarily int it to calculate
+
+            tittel = "%s - %s, %s %s" % (emnekode.upper(),
+                                         fronter.kurs2navn[kurs_id],
+                                         termk.upper(), aar)
             if (# Det finnes flere und.enh. i semesteret angitt av
                 # 'terminkode' og 'arstall' hvor både 'institusjonsnr'
                 # og 'emnekode' er like, men 'terminnr' varierer.
@@ -1120,8 +1143,11 @@ def process_kurs2enhet():
             # ett lærerrom.
             if multi_termin:
                 term_title = "%s-%s-%s" % (aar, termk, termnr)
+                akt_term_title = "%s-%s-%s" % (akt_aar, akt_termk, akt_termnr)
             else:
                 term_title = "%s-%s" % (aar, termk)
+                akt_term_title = "%s-%s" % (akt_aar, akt_termk)
+                
             register_room("%s - Fellesrom %s" % (emnekode.upper(), term_title),
                           "ROOM/Felles:%s" % struct_id,
                           enhet_node)
@@ -1168,7 +1194,7 @@ def process_kurs2enhet():
                 process_single_enhet_id(enhet_id, struct_id,
                                         emnekode, groups,
                                         enhet_node, undervisning_node,
-                                        " %s%s" % (term_title, termin_suffix))
+                                        " %s%s" % (akt_term_title, termin_suffix))
         elif ktype == fronter.EVU_PREFIX.lower():
             # EVU-kurs er modellert helt uavhengig av semester-inndeling i
             # FS, slik at det alltid vil være nøyaktig en enhet-ID for
