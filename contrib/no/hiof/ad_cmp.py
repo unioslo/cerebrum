@@ -48,7 +48,11 @@ def parse_ldif(fname, filter_dn):
                 tmp.setdefault(m.group(1), []).append(m.group(2))
     return ret
 
-def run_comparison(old_dta, new_dta, attrs):
+def run_comparison(old_dta, new_dta, attrs, ignore_case_attrs):
+    """Compare attributes specified in attrs for AD data in old_dta
+    and new_dta. if ignore_case_attrs is specified ignire case
+    differences for those attributes.
+    """
     tmp = old_dta.keys()
     tmp.sort()
     for dn in tmp:
@@ -58,8 +62,11 @@ def run_comparison(old_dta, new_dta, attrs):
             print "DN: %s only in old" % dn
             continue
         for a in attrs:
-            oa = [x.strip().lower() for x in o.get(a, [])]
-            na = [x.strip().lower() for x in n.get(a, [])]
+            oa = [x.strip() for x in o.get(a, [])]
+            na = [x.strip() for x in n.get(a, [])]
+            if a in ignore_case_attrs:
+                oa = [x.lower() for x in oa]
+                na = [x.lower() for x in na]
             oa.sort()
             na.sort()
             if oa != na:
@@ -71,11 +78,12 @@ def run_comparison(old_dta, new_dta, attrs):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c', ['help', 'old-dn=', 'new-dn=', 'old=', 'new=', 'attrs='])
+        opts, args = getopt.getopt(sys.argv[1:], 'c', ['help', 'old-dn=', 'new-dn=', 'old=', 'new=', 'attrs=', 'ignore-case-attrs='])
     except getopt.GetoptError:
         usage(1)
 
     old_dn = new_dn = None
+    ignore_case_attrs = []
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -89,13 +97,15 @@ def main():
             new_fname = val
         elif opt in ('--attrs',):
             attrs = val.split(",")
+        elif opt in ('--ignore-case-attrs',):
+            ignore_case_attrs = val.split(",")
     if not opts:
         usage(1)
     for opt, val in opts:
         if opt in ('-c',):
             run_comparison(parse_ldif(old_fname, old_dn),
                            parse_ldif(new_fname, new_dn),
-                           attrs)
+                           attrs, ignore_case_attrs)
 
 def usage(exitcode=0):
     print __doc__
