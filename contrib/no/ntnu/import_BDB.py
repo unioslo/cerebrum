@@ -288,7 +288,7 @@ class BDBSync:
     def _sync_account(self,account_info):
         """Callback-function. To be used from sync_accounts-method."""
         global num_accounts
-        logger = self.logger.er
+        logger = self.logger
         logger.debug("Callback for %s" % account_info['id'])
 
         person = self.new_person
