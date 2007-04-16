@@ -60,6 +60,8 @@ class Searcher(object):
         'redirect': '',
     }
 
+    url = 'search'
+
     def __init__(self, transaction, *args, **vargs):
         self.ajax = cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest"
 
@@ -83,11 +85,12 @@ class Searcher(object):
 
         orderby = self.options['orderby']
         orderby_dir = self.options['orderby_dir']
-        self.options['offset'] = offset = int(self.options['offset'])
+        self.options['offset'] = int(self.options['offset'])
         self.max_hits = min(
             int(cherrypy.session['options'].getint('search', 'display hits')),
             config.conf.getint('cereweb', 'max_hits'))
         searcher = self.searchers['main']
+        searcher.set_search_limit(self.max_hits, self.options['offset'])
 
         if orderby:
             s = 'main'
@@ -108,11 +111,6 @@ class Searcher(object):
                 searcher.order_by_desc(orderby_searcher, orderby)
             else:
                 searcher.order_by(orderby_searcher, orderby)
-
-        if not offset:
-            searcher.set_search_limit(self.max_hits, 0)
-        else:
-            searcher.set_search_limit(self.max_hits, int(offset))
 
         for (key, value) in self.form_values.items():
             func = getattr(self, key, None)
@@ -162,7 +160,7 @@ class Searcher(object):
             if self.url_args['orderby_dir'] != 'desc':
                 url_args['orderby_dir'] = 'desc'
         
-        return cgi.escape('search?%s' % (urllib.urlencode(url_args))), current
+        return cgi.escape('%s?%s' % (self.url, urllib.urlencode(url_args))), current
 
     def get_results(self):
         results = self.search()
@@ -173,6 +171,7 @@ class Searcher(object):
         result = {
             'headers': headers,
             'rows': rows,
+            'url': self.url,
             'url_args': self.url_args,
             'hits': hits,
             'is_paginated': hits > self.max_hits,
@@ -371,7 +370,13 @@ class PersonSearcher(Searcher):
         name = name.replace(" ", "*")
         name_searcher = self.transaction.get_person_name_searcher()
         name_searcher.set_name_like(name)
-        self.searchers['main'].add_intersection('', name_searcher, 'person')
+        name_searcher.set_name_variant(self.transaction.get_name_type('FULL'))
+        name_searcher.set_source_system(self.transaction.get_source_system('Cached'))
+
+        if len(self.form_values) == 1:
+            self.searchers['main'] = name_searcher
+        else:
+            self.searchers['main'].add_join('', name_searcher, 'person')
 
     def spread(self, spread):
         person_type = self.transaction.get_entity_type('person')
@@ -405,18 +410,21 @@ class PersonSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-                try:
-                    date = utils.strftime(elm.get_birth_date())
-                    affs = [str(utils.object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
-                    affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
-                except SpineIDL.Errors.AccessDeniedError, e:
-                    date = 'No Access'
-                    affs = 'No Access'
-                accs = [str(utils.object_link(i)) for i in elm.get_accounts()[:3]]
-                accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
-                edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-                remb = remember_link(elm, _class="action")
-                rows.append([utils.object_link(elm), date, accs, affs, str(edit)+str(remb)])
+            if hasattr(elm, 'get_person'):
+                elm = elm.get_person()
+
+            try:
+                date = utils.strftime(elm.get_birth_date())
+                affs = [str(utils.object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
+                affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
+            except SpineIDL.Errors.AccessDeniedError, e:
+                date = 'No Access'
+                affs = 'No Access'
+            accs = [str(utils.object_link(i)) for i in elm.get_accounts()[:3]]
+            accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
+            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            remb = remember_link(elm, _class="action")
+            rows.append([utils.object_link(elm), date, accs, affs, str(edit)+str(remb)])
         return rows
 
 class AllocationPeriodSearcher(Searcher):
@@ -635,11 +643,14 @@ class ProjectSearcher(Searcher):
         return rows
 
 class PersonAffiliationsSearcher(Searcher):
-    headers = (('Type', 'type'),
+    headers = (('Name', 'name'),
+               ('Type', 'type'),
                ('Status', 'status'),
                ('Source', 'source'),
-               ('Name', 'name'),
+               ('Affiliations', ''),
                ('Birth date', 'birth_date'))
+
+    url = 'list_aff_persons'
 
     def get_searcher(self):
         return {'main': self.transaction.get_person_affiliation_searcher()}
@@ -660,12 +671,13 @@ class PersonAffiliationsSearcher(Searcher):
         rows = []
         for elm in results:
             p = elm.get_person()
+            affs = [a.get_ou().get_name() for a in p.get_affiliations()]
             type = elm.get_affiliation().get_name()
             status = elm.get_status().get_name()
             source = elm.get_source_system().get_name()
             name = utils.object_link(p)
             birth_date = utils.strftime(p.get_birth_date())
-            rows.append([type, status, source, name, birth_date])
+            rows.append([name, type, status, source, ", ".join(affs), birth_date])
         return rows
 
 class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):

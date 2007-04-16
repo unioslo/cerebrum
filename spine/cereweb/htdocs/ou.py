@@ -258,7 +258,6 @@ def _get_display_name(ou):
 def perform_search(transaction, **vargs):
     args = ('id', 'source', 'affiliation', 'recursive')
     searcher = PersonAffiliationsOuSearcher(transaction, *args, **vargs)
-    print searcher
     return searcher.respond() or search_form(searcher.get_remembered())
 perform_search = utils.transaction_decorator(perform_search)
 perform_search.exposed = True
