@@ -113,8 +113,9 @@ class ConstantsUniversityColleges(Constants.Constants):
                                           'Generell sperring')
     quarantine_teppe = _QuarantineCode('teppe',
                                        'Kalt inn til samtale')
-    quarantine_kunepost = _QuarantineCode('kunepost',
-                                           'Tilgang kun til e-post')
+    quarantine_auto_emailonly = _QuarantineCode('kunepost',
+                                                'Ikke ordinær student, tilgang til bare e-post')
+    
     quarantine_svakt_passord = _QuarantineCode('svakt_passord',
                                                'For dårlig passord')
     quarantine_system = _QuarantineCode('system',
