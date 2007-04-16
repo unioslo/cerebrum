@@ -328,7 +328,7 @@ automatically generated from FS.''')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
     quarantine_autopassord = _QuarantineCode('autopassord',
                                             'Passord ikke skiftet trass pålegg')
-    quarantine_auto_emailonly = _QuarantineCode('auto_emailonly', 
+    quarantine_auto_emailonly = _QuarantineCode('auto_kunepost', 
                                                'Ikke ordinær student, tilgang til bare e-post')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv', 
                                              'Ikke aktiv student, utestengt')
