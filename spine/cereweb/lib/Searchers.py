@@ -693,21 +693,14 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
         vargs = self.form_values 
 
         id = vargs.get('id', '')
-        print '***************',id
         ou = transaction.get_ou(int(id))
         perspective = vargs.get('source', '')
-        print '.......',perspective
         affiliation = vargs.get('affiliation','')
-        print 'æææææææææææææææ',affiliation
         perspectives = []
         if perspective == 'All':
             perspectives.extend(transaction.get_ou_perspective_type_searcher().search())
         else:
             perspectives.append(transaction.get_ou_perspective_type(perspective))
-        print '1111111111111....'
-        for src in perspectives:
-            print '11111111111111111',src.get_name()
-
         ou_list = [ou]
         for perspective in perspectives:
             if vargs.get('recursive'):
@@ -720,19 +713,13 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
             affs.extend(transaction.get_person_affiliation_type_searcher().search())
         else:
             affs.append(transaction.get_person_affiliation_type(affiliation))
-        print '=======> start search'
         results = []
         for theOu in ou_list:
-            print 'ouououououou',theOu.get_name()
-            for perspective in perspectives:
-                for aff in affs:
-                    aff_searcher = transaction.get_person_affiliation_searcher()
-                    aff_searcher.set_ou(theOu)
-                    print 'affsaffsaffsaffsaffs',aff.get_name()
-                    aff_searcher.set_affiliation(aff)
-                    res = aff_searcher.search()
-                    if res:
-                        for r in res:
-                            print 'pppperson',r.get_person().get_names()[0].get_name()
-                        results.extend(res)
+            for aff in affs:
+                aff_searcher = transaction.get_person_affiliation_searcher()
+                aff_searcher.set_ou(theOu)
+                aff_searcher.set_affiliation(aff)
+                res = aff_searcher.search()
+                if res:
+                    results.extend(res)
         return results
