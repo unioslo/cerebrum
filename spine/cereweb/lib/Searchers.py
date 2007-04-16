@@ -705,7 +705,9 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
         for perspective in perspectives:
             if vargs.get('recursive'):
                 try:
-                    ou_list.extend(utils.flatten(ou.get_children(perspective), perspective))
+                    ret = utils.flatten(ou.get_children(perspective), perspective)
+                    if ret:
+                        ou_list.extend(ret)
                 except SpineIDL.Errors.NotFoundError, e:
                     pass
         affs = []
