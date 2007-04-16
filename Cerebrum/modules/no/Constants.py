@@ -124,7 +124,7 @@ class ConstantsUniversityColleges(Constants.Constants):
                                              'Passord ikke skiftet trass pålegg')
     quarantine_auto_inaktiv = _QuarantineCode('auto_inaktiv',
                                               'Ikke aktiv student, utestengt')
-    quarantine_auto_emailonly = _QuarantineCode('auto_kunepost',
+    quarantine_autoemailonly = _QuarantineCode('auto_kunepost',
                                                'Privatist, kun tilgang til e-post')
     quarantine_ou_notvalid = _QuarantineCode('ou_notvalid',
                                              'Sted ugyldig i autoritativ kildesystem')    
