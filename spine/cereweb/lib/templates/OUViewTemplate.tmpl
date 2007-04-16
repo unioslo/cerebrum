@@ -108,7 +108,7 @@
     ## <div class="edit box" style="display:none;">
     <div class="edit box">
         <h3 id="search">$_('Search affiliated persons')</h3>
-        <form action="perform_search" method="post">
+        <form action="/ou/perform_search" method="post">
             <div class="hidden">
                 <input type="hidden" name="id" value="$ou.get_id()" />
             </div>
@@ -119,7 +119,7 @@
                 $form_widgets.generate_loption("affiliation", "Affiliation", $affiliations)
             </div>
             <div class="required">
-                <label for="recursive">Rekursivt s&oslash;k:</label>
+                <label for="recursive">Recursive search:</label>
                 <input type="checkbox" name="recursive" />
             </div>
             <div class="buttons">

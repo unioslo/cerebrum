@@ -296,3 +296,11 @@ def get_tabs(current=None):
         selected = name == current and ' class="selected"' or ''
         res.append(html % (selected, link, name))
     return "\n".join(res)
+
+def flatten(list, perspective, res=[]):
+    if not list:
+        return res
+    ou = list.pop(0)
+    res.append(ou)
+    return flatten(ou.get_children(perspective), perspective, res)
+

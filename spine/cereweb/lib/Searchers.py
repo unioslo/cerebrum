@@ -115,8 +115,8 @@ class Searcher(object):
             searcher.set_search_limit(self.max_hits, int(offset))
 
         for (key, value) in self.form_values.items():
-            func = getattr(self, key)
-            func(value)
+            func = getattr(self, key, None)
+            func and func(value)
 
     def remember_last(self):
         if cherrypy.session['options'].getboolean('search', 'remember last'):
@@ -653,7 +653,7 @@ class PersonAffiliationsSearcher(Searcher):
             self.searchers['main'].set_ou(ou)
 
     def source(self, source):
-        self.searchers['main'].set_set_source_system(
+        self.searchers['main'].set_source_system(
                 self.transaction.get_source_system(source))
 
     def filter_rows(self, results):
@@ -669,16 +669,58 @@ class PersonAffiliationsSearcher(Searcher):
         return rows
 
 class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
-
-    def source(self, source):
-        if source != 'All':
-            self.searchers['main'].set_source_system(
-                self.transaction.get_source_system(source))
-
-    def affiliation( self, affiliation):
-        if affiliation != 'All':
-            self.searchers['main'].set_affiliation(
-                self.transaction.get_person_affiliation_type(affiliation))
-
-    def id(self, id):
+    def source(self, arg):
         pass
+
+    def search(self):
+        """Executes the search and returns the result."""
+        if not self.is_valid():
+            return
+    
+        transaction = self.transaction
+        vargs = self.form_values 
+
+        id = vargs.get('id', '')
+        print '***************',id
+        ou = transaction.get_ou(int(id))
+        perspective = vargs.get('source', '')
+        print '.......',perspective
+        affiliation = vargs.get('affiliation','')
+        print 'æææææææææææææææ',affiliation
+        perspectives = []
+        if perspective == 'All':
+            perspectives.extend(transaction.get_ou_perspective_type_searcher().search())
+        else:
+            perspectives.append(transaction.get_ou_perspective_type(perspective))
+        print '1111111111111....'
+        for src in perspectives:
+            print '11111111111111111',src.get_name()
+
+        ou_list = [ou]
+        for perspective in perspectives:
+            if vargs.get('recursive'):
+                try:
+                    ou_list.extend(utils.flatten(ou.get_children(perspective), perspective))
+                except SpineIDL.Errors.NotFoundError, e:
+                    pass
+        affs = []
+        if affiliation == 'All':
+            affs.extend(transaction.get_person_affiliation_type_searcher().search())
+        else:
+            affs.append(transaction.get_person_affiliation_type(affiliation))
+        print '=======> start search'
+        results = []
+        for theOu in ou_list:
+            print 'ouououououou',theOu.get_name()
+            for perspective in perspectives:
+                for aff in affs:
+                    aff_searcher = transaction.get_person_affiliation_searcher()
+                    aff_searcher.set_ou(theOu)
+                    print 'affsaffsaffsaffsaffs',aff.get_name()
+                    aff_searcher.set_affiliation(aff)
+                    res = aff_searcher.search()
+                    if res:
+                        for r in res:
+                            print 'pppperson',r.get_person().get_names()[0].get_name()
+                        results.extend(res)
+        return results
