@@ -6,7 +6,7 @@ import logging.config
 
 # Read configuration
 conf = ConfigParser.ConfigParser()
-conf.read(('sync.conf', 'sync.conf.template'))
+conf.read(('sync.conf.template', 'sync.conf'))
 
 # Set up logging
 logging.config.fileConfig('log.conf')
