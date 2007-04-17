@@ -3,8 +3,11 @@
 op_sets = {
     'cereweb_public': [
         ('Commands.get_account_by_name', None),
+        ('EmailTarget.get_forwards', None),
+        ('EmailTarget.get_vacations', None),
         ('EmailTargetSearcher.search', None),
         ('EmailTargetSearcher.set_entity', None),
+        ('EmailVacation.get_target', None),
         ('EmailVacationSearcher.search', None),
         ('EmailVacationSearcher.set_target', None),
         ('EmailForwardSearcher.search', None),
@@ -619,6 +622,10 @@ op_sets = {
         ('EmailTarget.get_using_uid', None),
         ('EmailTarget.set_alias_value', None),
         ('EmailTarget.set_primary_address', None),
+        ('EmailVacation.get_start_date',None),
+        ('EmailVacation.get_end_date', None),
+        ('EmailVacation.get_vacation_text', None),
+        ('EmailVacation.get_enable', None),
         ('EntityExternalId.get_external_id', None),
         ('EntityExternalId.get_id_type', None),
         ('Person.get_accounts', None),
