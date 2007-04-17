@@ -231,27 +231,93 @@ Cerebrum by HiA:
       * End date
       * The role in the committee (free text)
 
-    Today (2007-04-13) this is the least tested part of Cerebrum, since no
-    institution has yet used these data for anything meaningful. 
+    Today (2007-04-13) this is the least tested part of the SAP interface,
+    since no institution has yet used these data for anything meaningful.
+
+The original specification has been e-mailed to Cerebrum by HiA. NMH and Hiÿf
+are using the same implementation and therefore the same format.
 
 
 Special values
 ---------------
-Certain (esp. code) values have special meaning in the SAP files and records
-with these values should be treated differently from all other records. 
+Certain values (esp. in code fields) have special meaning in the SAP files and
+records with these values should be treated differently from all other
+records.
 
-9999 med venner. 
-Valid employment entries. In fact, valid anything entries.
+* Geographical code (forretningsomrÂdekode) 9999 in all files means that the
+  entire record should be ignored. This code is typically used to tag
+  invalid/irrelevant entries.
+* Field 36 (from 0) in ``feide_person.txt`` can have the following values:
+
+    - "" (empty string) means that the person can be published in the
+      electronic catalogs.
+    - "Kan publiseres" means that the person can be published in the
+      electronic catalogs. 
+    - *All* other values mean that no publication in the electronic
+      catalogs is allowed.
+* Field 3 (from 0) in ``feide_persti.txt`` with value "20009999" should result
+  in assigning the person TILKNYTTET/ekstern-affiliation. All other values
+  should result in assigning the person ANSATT/XXX-affiliation.
+* Field 2 (from 0) in ``feide_persti.txt`` with value "99999999" *probably*
+  means that the employment entry has expired. Perhaps surprisingly, the "end
+  date" field is NOT (always?) used for this purpose.
+
+  This is a conjecture based on the interpretation of a few examples we have
+  been shown. This has never been guarateed/stated explicitly.
+
+  For the time being (2007-04-16) this field is ignored, pending FSI's
+  decision regarding future support of this file format.
+
+  FIXME! One of the tables in mod_sap encompasses this field as a primary
+  key. **Why**?
 
 
 Cerebrum DB schema
 ===================
-sketch the database model
-constants used. 
+Cerebrum core db schema does not capture all the information contained in the
+SAP data files. Therefore, a special module has been designed for this purpose
+-- ``mod_sap.sql``. Any installation wishing to use SAP solution akin to
+HiA/Hiÿf/NMH should load this schema when creating the database.
+
+The schema itself is located in file ``mod_sap.sql``. The functionality of
+Cerebrum API's Person and OU classes is extended via SAP-specific mixins
+located in ``mod_sap.py``. Additionally, several SAP-specific constants have
+been defined in ``mod_sap_codes.py``. Between various installations, only
+``mod_sap_codes.py`` are likely to vary to a modest degree. The bulk of the
+SAP-"functionality" remains the same. 
+
+Besides the code tables (sap_stillingstype (employment categories
+(hoved/bistilling for now)), sap_utvalg (committees), sap_permisjon (codes for
+leaves of absence (presently, 2007-04-16, unused)), sap_lonnstittel
+(SAP.STELL), sap_forretningsomrade (geographical areas)), there are four
+tables that link the information together:
+
+  * sap_tiltsetting, to register actual employments.
+  * sap_person, to register additional informaiton about people
+  * sap_rolle, to register employees' roles in committees
+  * sap_ou, to map SAP OU ids to Cerebrum ou_id
+
+The mixins (for OU and Person) offer additional methods,
+e.g. ``find_by_SAP_id`` or ``populate_rolle`` (FIXME: urk! unholy mix of
+languages). 
+
+``mod_sap_codes.py`` defines symbolic names for all of the constant
+values. Most of them are unused (albeit available). This is typically because
+every employment code results in a constant, but we are generally not
+interested in referring to a particular SAP employment code in various
+scripts.
 
 
 Cerebrum API
 =============
-various mixins
-explain what different files contain
+Cerebrum core classes, Person and OU, have been extended with mixins to offer
+an interface to the SAP functionality. This is mostly accessing SAP-specific
+information and populating the database tables mentioned in section `cerebrum
+db schema`_. Some of the SAP values (specifically, SAP employee number) have
+been incorporated into the existing framework (entity_external_id in this
+example).
 
+The mixins are ``Cerebrum.modules.no.hia.mod_sap/PersonSAPMixin`` and
+``Cerebrum.modules.no.hia.mod_sap/OUSAPMixin`` respectively. They should be
+added to ``CLASS_PERSON`` and ``CLASS_OU`` cereconf-variables in order for
+Factory-instantiated objects to have access to SAP tables in Cerebrum
