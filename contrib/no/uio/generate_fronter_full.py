@@ -265,7 +265,8 @@ class Fronter(object):
                 akt_id = ":".join((enhet_id, akt["aktivitetkode"])).lower()
 ##                 self.logger.debug("read_kurs_data: enhet_id=%s", enhet_id)
                 self.enhet2akt.setdefault(enhet_id, []).append(
-                    (akt['aktivitetkode'], akt['aktivitetsnavn']))
+                    (akt['aktivitetkode'], akt['aktivitetsnavn'],
+                     akt['terminkode'], akt['arstall'], akt['terminnr']))
                 self.akt2undform[akt_id] = akt["undformkode"]
 
         for evu in self._fs.evu.list_kurs():
@@ -967,11 +968,20 @@ def make_profile(enhet_id, aktkode):
 
 def process_single_enhet_id(enhet_id, struct_id, emnekode,
                             groups, enhet_node, undervisning_node,
-                            termin_suffix=""):
+                            termin_suffix="", process_akt_data=False):
     # I tillegg kommer så evt. rom knyttet til de
     # undervisningsaktivitetene studenter kan melde seg på.
     for akt in fronter.enhet2akt.get(enhet_id, []):
-        aktkode, aktnavn = akt
+        try:
+            aktkode, aktnavn, aktterminkode, aktaar, akttermnr = akt
+        except ValueError:
+            # Dette ser kun ut til å hende med enheter/aktiviteter som
+            # manuelt er lagt inn for å teste Fronter-ting, så vi
+            # anser det ikke for å være spesielt ille at de ikke er
+            # registrert med noe tidsdata.
+            aktkode, aktnavn = akt
+            logger.info("Under henting av tidsdata for aktivitet i 'process_single_enhet_id'"
+                        ": ValueError: '%s' '%s' '%s'" % (emnekode, aktkode, aktnavn))
 
         aktans = "uio.no:fs:%s:aktivitetsansvar:%s" % (
             enhet_id.lower(), aktkode.lower())
@@ -1008,6 +1018,16 @@ def process_single_enhet_id(enhet_id, struct_id, emnekode,
 
         akt_rom_id = "ROOM/Aktivitet:%s:%s" % (enhet_id.upper(),
                                                aktkode.upper())
+        # Hvis denne enheten har blitt flagget med "process_akt_data",
+        # så er det nokså mulig at tilhørende aktiviteter kommer fra
+        # ulike semestre, og at aktivitetene må derfor selv designere
+        # sitt år, terminkode og terminnummer. For alle andre, så er
+        # det greit å bruke samme verdi for alle aktiviteter innen
+        # enheten.
+        if process_akt_data:
+            termin_suffix = " %s-%s-%s" % (aktaar, aktterminkode, akttermnr)
+            logger.debug("Bruker '%s' som termin_suffix for '%s - %s'" %
+                         (termin_suffix, emnekode.upper(), aktnavn))
         akt_tittel = "%s - %s%s" % (emnekode.upper(), aktnavn, termin_suffix)
         register_room(akt_tittel, akt_rom_id, enhet_node,
                       make_profile(enhet_id, aktkode))
@@ -1083,18 +1103,18 @@ def process_kurs2enhet():
             multi_id = ":".join((Instnr, emnekode, termk, aar))
             multi_termin = False
 
+            # process_akt_data brukes som flagg til
+            # process_single_enhet_id (som kalles nedenfor) for de
+            # enheter som kan ha aktiviteter med varierende semestre,
+            # og hvor man derfor må ha mer finkornet prosessering av
+            # aktivitets-data.
+            process_akt_data = False
+
             # Fiks feildesignerte multi-termin navn etter at multi_id
             # er satt, siden vi trenger den inkorrekte multi_id'en i
             # oppslaget nedenfor
             naa_aar = fronter._fs.info.year
             naa_termk = fronter._fs.info.semester
-            # Ta vare på "inkorrekte" data, siden vi bruker dem i
-            # tittelgivingen for aktivitetsbaserte rom i
-            # 'process_single_enhet_id' som kalles til slutt i denne
-            # metoden.
-            akt_aar = aar
-            akt_termk = termk
-            akt_termnr = termnr
             if int(termnr) <> 1:
                 if termk.upper() <> naa_termk:
                     logger.debug("Termnr: '%s'" % termnr)
@@ -1105,6 +1125,7 @@ def process_kurs2enhet():
                     aar = str(naa_aar)
                     termnr = int(termnr) - 1 # termnr usually string, but need
                                              # to temporarily int it to calculate
+                    process_akt_data = True
 
             tittel = "%s - %s, %s %s" % (emnekode.upper(),
                                          fronter.kurs2navn[kurs_id],
@@ -1143,10 +1164,8 @@ def process_kurs2enhet():
             # ett lærerrom.
             if multi_termin:
                 term_title = "%s-%s-%s" % (aar, termk, termnr)
-                akt_term_title = "%s-%s-%s" % (akt_aar, akt_termk, akt_termnr)
             else:
                 term_title = "%s-%s" % (aar, termk)
-                akt_term_title = "%s-%s" % (akt_aar, akt_termk)
                 
             register_room("%s - Fellesrom %s" % (emnekode.upper(), term_title),
                           "ROOM/Felles:%s" % struct_id,
@@ -1194,7 +1213,8 @@ def process_kurs2enhet():
                 process_single_enhet_id(enhet_id, struct_id,
                                         emnekode, groups,
                                         enhet_node, undervisning_node,
-                                        " %s%s" % (akt_term_title, termin_suffix))
+                                        " %s%s" % (term_title, termin_suffix),
+                                        process_akt_data)
         elif ktype == fronter.EVU_PREFIX.lower():
             # EVU-kurs er modellert helt uavhengig av semester-inndeling i
             # FS, slik at det alltid vil være nøyaktig en enhet-ID for
