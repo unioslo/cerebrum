@@ -812,8 +812,7 @@ class Factory(object):
         """
         from Cerebrum.modules import cerelog
 
-        return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE_NEW, name)
-
+        return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE, name)
     get_logger = staticmethod(get_logger)
     
 

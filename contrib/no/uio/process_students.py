@@ -28,6 +28,7 @@ import os
 import pickle
 import traceback
 from time import localtime, strftime, time
+import pprint
 
 import cerebrum_path
 import cereconf
@@ -86,12 +87,18 @@ fast_test = False
 autostud = logger = accounts = persons = None
 default_creator_id = default_expire_date = default_shell = None
 
+def pformat():
+    return pformat.pp.pformat(obj)
+# end pformat
+pformat.pp = pprint.PrettyPrinter(indent=4)
+
+
 class AccountUtil(object):
     """Collection of methods that operate on a single account to make
     it conform to a profile """
 
     def restore_uname(account_id, profile):
-        logger.info2("RESTORE")
+        logger.info("RESTORE")
         account = Factory.get('Account')(db)
         account.find(account_id)
 
@@ -111,7 +118,7 @@ class AccountUtil(object):
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
-        logger.info2("CREATE")
+        logger.info("CREATE")
         person = Factory.get('Person')(db)
         try:
             person.find_by_external_id(const.externalid_fodselsnr, fnr,
@@ -309,7 +316,7 @@ class AccountUtil(object):
 
         # First fill 'changes' with all needed modifications.  We will
         # only lookup databaseobjects if changes is non-empty.
-        logger.info2(" UPDATE:%s" % account_id)
+        logger.info(" UPDATE:%s" % account_id)
         processed_accounts[account_id] = True
         changes = []
         ac = accounts[account_id]
@@ -428,7 +435,7 @@ class RecalcQuota(object):
         logger.set_indent(0)
         logger.debug("Callback for %s" % fnr)
         logger.set_indent(3)
-        logger.debug(logger.pformat(_filter_person_info(person_info)))
+        logger.debug(pformat(_filter_person_info(person_info)))
         pq = PrinterQuotas.PrinterQuotas(db)
 
         for account_id in persons.get(fnr, {}).keys():
@@ -553,7 +560,7 @@ class BuildAccounts(object):
         if pinfo is None:
             logger.warn("Unknown person %s" % fnr)
             return
-        logger.debug(logger.pformat(_filter_person_info(person_info)))
+        logger.debug(pformat(_filter_person_info(person_info)))
         if not persons.has_key(fnr):
             logger.warn("(person) not found error for %s" % fnr)
             logger.set_indent(0)
@@ -1244,14 +1251,10 @@ def main():
     recalc_pq = False
     validate = False
     _range = None
-    to_stdout = False
-    log_level = AutoStud.Util.ProgressReporter.DEBUG
     reset_diskquota = False
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
-            log_level += 1
-            to_stdout = True
         elif opt in ('-c', '--create-users'):
             create_users = True
         elif opt in ('-u', '--update-accounts'):
@@ -1287,9 +1290,7 @@ def main():
             dryrun = True
         elif opt in ('--validate',):
             validate = True
-            to_stdout = True
             workdir = '.'
-            log_level = AutoStud.Util.ProgressReporter.INFO
         elif opt in ('--with-lpr',):
             skip_lpr = False
         elif opt in ('--workdir',):
@@ -1298,7 +1299,6 @@ def main():
             _type = val
         elif opt in ('--reprint',):
             _range = val
-            to_stdout = True
         else:
             usage("Unimplemented option: " + opt)
 
@@ -1311,10 +1311,8 @@ def main():
                                    os.getpid())
         os.mkdir(workdir)
     os.chdir(workdir)
-    logger = AutoStud.Util.ProgressReporter("%s/run.log.%i"
-                                            % (workdir, os.getpid()),
-                                            stdout=to_stdout,
-                                            loglevel=log_level)
+
+    logger = Factory.get_logger("studauto")
     bootstrap()
     if validate:
         validate_config()
@@ -1386,11 +1384,6 @@ To reprint letters of a given type:
     sys.exit(0)
 
 if __name__ == '__main__':
-    #logger = AutoStud.Util.ProgressReporter(
-    #    None, stdout=1, loglevel=AutoStud.Util.ProgressReporter.DEBUG)
-    #AutoStud.AutoStud(db, logger, debug=3,
-    #                  cfg_file="/home/runefro/usit/cerebrum/uiocerebrum/etc/config/studconfig.xml")
-
     if False:
         print "Profilerer..."
         prof = hotshot.Profile(proffile)

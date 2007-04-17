@@ -261,7 +261,7 @@ Migrating the existing code base would have to happen in several steps:
   #. kill bofhd, restart job_runner.
 
 The pq-bofhd logger cannot be removed right now, since moving to several
-loggers per process idea has not yet been explored fully. To implement the
+loggers per process idea has not been fully explored yet. To implement the
 changes, ``bofhd`` would need a restart. ``job_runner`` should also be paused
 right before the new ``logging.ini``, ``cerelog.py`` and other files are
 installed.

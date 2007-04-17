@@ -602,19 +602,7 @@ def main():
             ou_perspective = const.OUPerspective(val)
             int(ou_perspective)   # Assert that it is defined
 
-    # TODO: AutoStud framework should be updated to use the standard
-    # logging framework.  Then we can also move the extra opts for loop up
-    workdir=None
-    to_stdout=False
-    log_level = AutoStud.Util.ProgressReporter.DEBUG
-    if workdir is None:
-        workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
-                                   time.strftime("%Y-%m-%d", time.localtime()),
-                                   os.getpid())
-        os.mkdir(workdir)
-    logger = AutoStud.Util.ProgressReporter(
-        "%s/run.log.%i" % (workdir, os.getpid()), stdout=to_stdout,
-        loglevel=log_level)
+    logger = Factory.get_logger("cronjob")
     for opt, val in opts:
         if opt in ('-r',):
             auto_stud(studconfig_file, student_info_file,
