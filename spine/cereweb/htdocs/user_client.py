@@ -83,9 +83,9 @@ def mail(transaction):
     username = cherrypy.session.get('username', '')
     account = transaction.get_commands().get_account_by_name(username)
     page.tr = transaction
-    page.account = get_user_info(transaction,username)
-    page.vacations = get_vacations(transaction,account)
-    page.forwards = get_forwards(transaction,account)
+    page.account = get_user_info(transaction, username)
+    page.vacations = get_vacations(transaction, account)
+    page.forwards = get_forwards(transaction, account)
     if not page.messages:
         page.messages = get_messages()
 
@@ -113,16 +113,14 @@ def add_vacation(transaction, username, start, end, alias):
     if not msg:
         page = MailUserTemplate()
         account = transaction.get_commands().get_account_by_name(username)
-        email_target_searcher = transaction.get_email_target_searcher()
-        email_target_searcher.set_entity(account)
-        email_targets = email_target_searcher.search()
+        email_targets = get_email_targets_helper(transaction, account)
         email_target = None
         for target in email_targets:
             email_target = target
 
         page.tr = transaction
         page.account = get_user_info(transaction, username)
-        page.vacations = get_vacations(transaction,account)
+        page.vacations = get_vacations(transaction, account)
         page.forwards = get_forwards(transaction, account)
         if not page.messages:
             page.messages = get_messages()
@@ -152,7 +150,7 @@ def add_forward(transaction, username, start, end, forward):
         account = transaction.get_commands().get_account_by_name(username)
         page.tr = transaction
         page.account = get_user_info(transaction, username)
-        page.vacations = get_vacations(transaction,account)
+        page.vacations = get_vacations(transaction, account)
         page.forwards = get_forwards(transaction, account)
         if not page.messages:
             page.messages = get_messages()
@@ -166,9 +164,9 @@ add_forward.exposed = True
 
 def get_vacations(tr,acc):
     vacations = []
-    vs = tr.get_email_vacation_searcher()
-    target_id, vacs = get_email_target_search_helper(tr, acc, vs)
+    vacs = get_vacations_helper(tr, acc)
     for vacation in vacs:
+        target_id = vacation.get_target().get_id()
         start_date = vacation.get_start_date().to_string()
         end_date = vacation.get_end_date()
         if end_date:
@@ -182,9 +180,9 @@ def get_vacations(tr,acc):
 
 def get_forwards(tr,acc):
     forwards = []
-    vs = tr.get_email_forward_searcher()
-    target_id, fwds = get_email_target_search_helper(tr, acc, vs)
+    fwds = get_forwards_helper(tr, acc)
     for forward in fwds:
+        target_id = forward.get_target().get_id()
         start_date = forward.get_start_date().to_string()
         end_date = forward.get_end_date()
         if end_date:
@@ -196,16 +194,32 @@ def get_forwards(tr,acc):
         forwards.append({'id':target_id,'start_date':start_date,'end_date':end_date,'address':address,'enabled':enabled})
     return forwards
 
-def get_email_target_search_helper(transaction, account, searcher):
-    ts = transaction.get_email_target_searcher()
+def get_email_targets_helper(tr, account):
+    ts = tr.get_email_target_searcher()
     ts.set_entity(account)
-    target = ts.search()
-    if not target: 
-        return (None,[])
-    target = target[0]
-    target_id = target.get_id()
-    searcher.set_target(target)
-    return (target_id,searcher.search())
+    return ts.search()
+
+def get_forwards_helper(tr, account):
+    forwards = []
+    targets = get_email_targets_helper(tr, account)
+    if not targets:
+        return []
+    for target in targets:
+        fwds = target.get_forwards()
+        if fwds:
+            forwards.extend(fwds)
+    return forwards
+    
+def get_vacations_helper(transaction, account):
+    vacations = []
+    targets = get_email_targets_helper(transaction, account)
+    if not targets: 
+        return []
+    for target in targets:
+        vacs = target.get_vacations()
+        if vacs:
+            vacations.extend(vacs)
+    return vacations
 
 def set_password(transaction, **vargs):
     myId = vargs.get('id')
