@@ -111,7 +111,7 @@ def present_nested_grouped_results(output_stream, result, topic):
     first column contains the main categories, the second column
     represents the sub-categories and the third column represents the
     count/result associated with that particular
-    category/sub=category.
+    category/sub-category.
 
     Any sorting should be done before the result is sent to the
     method.
