@@ -147,13 +147,13 @@ Cerebrum by HiA:
   * ``feide_persondata.txt`` has 37 fields, where the ones important to
     Cerebrum are (counted from 0):
 
-      * ** 0**: SAP employee number (a magic number)
-      * ** 3**: Initials 
-      * ** 4**: Norwegian national ID number (fnr)
-      * ** 5**: Birthdate
-      * ** 6**: First name
-      * ** 7**: Middle name
-      * ** 8**: Surname
+      * **0**: SAP employee number (a magic number)
+      * **3**: Initials 
+      * **4**: Norwegian national ID number (fnr)
+      * **5**: Birthdate
+      * **6**: First name
+      * **7**: Middle name
+      * **8**: Surname
       * **12**: Private phone number
       * **13**: Contact phone
       * **14**: Contact cellular phone
@@ -169,7 +169,7 @@ Cerebrum by HiA:
       * **28**: Work title
       * **33**: Death status
       * **36**: Publishable tag (whether the person can be published in
-                electronic catalogs (e.g. LDAP))
+        electronic catalogs (e.g. LDAP))
 
     Middle name is merged with first name for the time being. Any of the
     fields may be empty (although the import jobs will protest if critical
@@ -235,7 +235,9 @@ Cerebrum by HiA:
     since no institution has yet used these data for anything meaningful.
 
 The original specification has been e-mailed to Cerebrum by HiA. NMH and Hiÿf
-are using the same implementation and therefore the same format.
+are using the same implementation and therefore the same format. The
+specification is available `online
+<http://www.hia.no/it/prosjekt/feide/SAP-eksport-HiA.htm>`_.
 
 
 Special values
