@@ -386,7 +386,7 @@ div.view_info div.item {
 }
 
 div.view_info h4 { margin-bottom: 2px; }
-div.view_info table { width: 100%; }
+table { width: 100%; }
 div.view_info col.name { width: 30%; }
 div.view_info tr.even { background-color: #d9e2c5; }
 div.view_info tr.odd { }
