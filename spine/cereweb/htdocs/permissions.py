@@ -41,6 +41,7 @@ def roles(transaction):
     page.title = _('Roles')
     page.set_focus('permissions/roles')
     page.links = _get_links()
+    page.action.append({'name': 'Add', 'target':'add'})
     page.roles = []
     for role in transaction.get_auth_role_searcher().search():
         e = role.get_entity()
@@ -108,11 +109,9 @@ edit.exposed = True
 def add_form(form, message=None):
     page = FormTemplate()
     page.links = _get_links()
-    action = {'name': 'View', 'target': '/permissions/roles'}
+    page.action.append({'name': 'View', 'target': '/permissions/roles'})
     if message:
         page.messages.append(message)
-    if not action in page.action:
-        page.action.append(action)
     page.set_focus('permissions/roles')
     page.form_title = 'Add Role'
     page.form_action = "/permissions/add"

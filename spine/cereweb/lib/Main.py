@@ -48,6 +48,7 @@ class Main(FramesTemplate):
         """
         self.worklist = WorkList()
         self.activitylog = ActivityLog()
+        self.action = []
 
     def prepare_messages(self):
         """Prepares messages for display.
