@@ -119,7 +119,7 @@ def make(transaction, id, name, expire_date="", np_type=None,
     commands = transaction.get_commands()
 
     owner = transaction.get_entity(int(id))
-    if name == "_other":
+    if _other:
         name = _other
     if not expire_date:
         expire_date = commands.get_date_none()
