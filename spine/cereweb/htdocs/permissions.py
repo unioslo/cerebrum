@@ -22,21 +22,24 @@ import cherrypy
 
 from gettext import gettext as _
 from lib.Main import Main
+from lib.Forms import RoleCreateForm
 from lib.utils import transaction_decorator, commit_url
 from lib.utils import queue_message, redirect
+from lib.templates.FormTemplate import FormTemplate
 from lib.templates.PermissionsTemplate import PermissionsTemplate
+from SpineIDL.Errors import NotFoundError
 
 def _get_links():
     return (
-        ('/permissions/', _('Index')),
-        ('/permissions/view', _('View')),
+        ('/permissions/roles', _('Roles')),
+        ('/permissions/targets', _('Targets')),
     )
 
-def index(transaction):
+def roles(transaction):
     """Form for selecting an operation set, and for creating a new."""
     page = PermissionsTemplate()
     page.title = _('Roles')
-    page.set_focus('permissions/')
+    page.set_focus('permissions/roles')
     page.links = _get_links()
     page.roles = []
     for role in transaction.get_auth_role_searcher().search():
@@ -45,21 +48,33 @@ def index(transaction):
             continue
 
         t = role.get_target()
+
+        t_type = t.get_type()
+        if t_type == 'self':
+            continue
+        elif t_type == 'global':
+            target = 'All'
+        else:
+            target = t.get_entity().get_name()
+            
         o = role.get_op_set()
         r = {
             'g_id': e.get_id(),
             'g_name': e.get_name(),
             't_id': t.get_id(),
-            't_type': t.get_type(),
-            't_ou': t.get_entity() and t.get_entity().get_name() or None,
+            't_name': target,
             'o_id': o.get_id(),
             'o_name': o.get_name(),
             'o_desc': o.get_description(),
         }
         page.roles.append(r)
     return page.respond()
-index = transaction_decorator(index)
-index.exposed = True
+roles = transaction_decorator(roles)
+roles.exposed = True
+index = roles
+
+def targets(transaction):
+    page = Permissions
 
 def view(transaction, id):
     """View the auth operation set."""
@@ -90,14 +105,100 @@ def edit(transaction, id):
 edit = transaction_decorator(edit)
 edit.exposed = True
 
-def delete(transaction, id):
-    """Delete the operation set."""
-    op_set = transaction.get_auth_operation_set(int(id))
-    name = op_set.get_name()
-    op_set.delete()
-    
-    msg = _("Operation set %s deleted successfully") % name
+def add_form(form, message=None):
+    page = FormTemplate()
+    page.links = _get_links()
+    action = {'name': 'View', 'target': '/permissions/roles'}
+    if message:
+        page.messages.append(message)
+    if not action in page.action:
+        page.action.append(action)
+    page.set_focus('permissions/roles')
+    page.form_title = 'Add Role'
+    page.form_action = "/permissions/add"
+    page.form_fields = form.get_fields()
+    return page.respond()                                                                              
+
+def add(transaction, **vargs):
+    form = RoleCreateForm(transaction, **vargs)
+    if not vargs:
+        return add_form(form)
+    elif not form.is_correct():
+        return add_form(form, message=form.get_error_message())
+
+    searcher = transaction.get_auth_operation_target_searcher()
+    target_type = vargs.get('target_type')
+    searcher.set_type(target_type)
+    if target_type in ['self', 'global']:
+        target = None
+    else:
+        try:
+            entity_id = int(vargs.get('target'))
+            entity = transaction.get_ou(entity_id)
+            searcher.set_entity(entity)
+        except NotFoundError, e:
+            queue_message(_("Could not find ou %s" % vargs.get('target')), error=True)
+            redirect('/permissions/')
+
+    targets = searcher.search()
+    if targets:
+        target = targets[0]
+        if len(targets) > 1:
+            print 'DEBUG: More than one target'
+    else:
+        if target_type == 'self':
+            queue_message(_("Creation of 'self' targets not implemented."), error=True)
+            redirect('/permissions/')
+        elif target_type == 'entity':
+            target = transaction.get_commands().create_auth_operation_entity_target(entity, '')
+        else:
+            target = transaction.get_commands().create_auth_operation_global_target('')
+
+    try:
+        gid = int(vargs.get('group'))
+        group = transaction.get_group(gid)
+    except NotFoundError, e:
+        queue_message(_("Could not find group %s" % vargs.get('group')), error=True)
+        redirect('/permissions/')
+
+    try:
+        op_set = int(vargs.get('op_set'))
+        op_set = transaction.get_auth_operation_set(op_set)
+    except NotFoundError, e:
+        queue_message(_("Could not find op_set %s" % vargs.get('op_set')), error=True)
+        redirect('/permissions/')
+
+    try:
+        transaction.get_commands().create_auth_role(group, op_set, target)
+    except:
+        queue_message(_("Could not create auth_role %s, %s, %s" % (gid, vargs.get('op_set'), target.get_id())), error=True)
+        redirect('/permissions/')
+    msg = _("Created auth_role.")
     commit_url(transaction, 'index', msg=msg)
+
+add = transaction_decorator(add)
+add.exposed = True
+
+
+def delete(transaction, **vargs):
+    """Delete the role."""
+    g = int(vargs.get('g'))
+    o = int(vargs.get('o'))
+    t = int(vargs.get('t'))
+    if g and o and t:
+        try:
+            group = transaction.get_entity(g)
+            op_set = transaction.get_auth_operation_set(o)
+            target = transaction.get_auth_operation_target(t)
+            role = transaction.get_auth_role(group, op_set, target)
+        except NotFoundError, e:
+            queue_message(_("Could not find auth_role %s, %s, %s" % (g, o, t)), error=True)
+            redirect('/permissions/')
+        role.delete()
+        msg = _("Auth role deleted successfully.")
+        commit_url(transaction, 'index', msg=msg)
+    else:
+        redirect('/permissions/')
 delete = transaction_decorator(delete)
 delete.exposed = True
 

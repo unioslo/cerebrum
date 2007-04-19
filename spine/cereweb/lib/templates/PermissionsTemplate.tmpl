@@ -21,15 +21,7 @@
 #extends Main
 
 #attr $form_widgets = FormWidgets()
-
-#def actions
-    <div id="actions">
-        <h3>Actions</h3>
-        <ul>
-            <li>...</li>
-        </ul>
-    </div>
-#end def
+#attr $action = [{'name': 'Add', 'target':'add'}]
 
 #def content
 <div class="view">
@@ -37,8 +29,8 @@
         <thead><tr>
             <th>Group</th>
             <th>Operation Set</th>
-            <th>Target Type</th>
-            <th>Target Entity</th>
+            <th>Target</th>
+            <th>Action</th>
         </tr></thead>
 
         <tbody>
@@ -46,8 +38,8 @@
             <tr>
                 <td>$role['g_name']</td>
                 <td>$role['o_name']</td>
-                <td>$role['t_type']</td>
-                <td>$role['t_ou']</td>
+                <td>$role['t_name']</td>
+                <td><a href="delete?g=$role['g_id']&o=$role['o_id']&t=$role['t_id']">delete</a></td>
             </tr>
         #end for
         </tbody>

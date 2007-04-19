@@ -147,6 +147,15 @@ class AuthImporter(object):
         for gid, oid, tid in self._convert_op_roles(roles):
             role.revoke_auth(gid, oid, tid)
 
+    def _remove_op_set(self, name):
+        op_set = BofhdAuthOpSet(self.db)
+        op_set.find_by_name(name)
+        for code, oid, sid in op_set.list_operations():
+            op_set.del_operation(code)
+
+        op_set.delete()
+        op_set.write_db()
+
     def update_operation_sets(self):
         existing = self._get_op_sets()
 

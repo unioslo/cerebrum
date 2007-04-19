@@ -33,7 +33,7 @@ class Form(object):
         self.init_form()
 
         for key, field in self.fields.items():
-            value = self.values.get(key, None)
+            value = self.values.get(key) or field.get('value')
             field['name'] = key
             field['value'] = value
 
@@ -222,13 +222,13 @@ class AccountCreateForm(Form):
             },
             'expiredate': {
                 'label': _('Expire date'),
-                'required': True,
+                'required': False,
                 'type': 'text',
                 'help': _('Date must be in YYYY-MM-DD format.'),
             },
             'group': {
                 'label': _('Primary group'),
-                'required': True,
+                'required': False,
                 'cls': 'ac_group',
                 'type': 'text',
             }
@@ -273,3 +273,52 @@ class AccountCreateForm(Form):
 
     def get_title(self):
         return "%s %s" % (_('Owner is'), self.name)
+
+class RoleCreateForm(Form):
+    def init_form(self):
+        self.order = [
+            'group', 'op_set', 'target_type', 'target',
+        ]
+        self.fields = {
+            'group': {
+                'label': _('Select group'),
+                'required': True,
+                'type': 'select',
+            },
+            'op_set': {
+                'label': _('Select op_set'),
+                'required': True,
+                'type': 'select',
+            },
+            'target_type': {
+                'label': _('Select target type'),
+                'required': True,
+                'value': 'entity',
+                'type': 'select',
+            },
+            'target': {
+                'label': _('Select target'),
+                'required': True,
+                'type': 'select',
+            },
+        }
+
+    def get_group_options(self):
+        searcher = self.transaction.get_group_searcher()
+        searcher.set_name_like('cereweb_*')
+        return [(t.get_id(), t.get_name()) for t in searcher.search()]
+
+    def get_op_set_options(self):
+        searcher = self.transaction.get_auth_operation_set_searcher()
+        return [(t.get_id(), t.get_name()) for t in searcher.search() if not t.get_name().endswith('client')]
+
+    def get_target_options(self):
+        searcher = self.transaction.get_ou_searcher()
+        return [(t.get_id(), t.get_name()) for t in searcher.search()]
+
+    def get_target_type_options(self):
+        return [
+            ('global', 'global'),
+            ('entity', 'entity'),
+            ('self', 'self'),
+        ]

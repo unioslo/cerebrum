@@ -38,9 +38,15 @@
 ## finished.
 #def activitylog: stub
 ##
+#attr action = []
 #def actions
     <div id="actions">
         <h3>Actions</h3>
+        <ul>
+            #for $a in $action
+            <li><a href="$a['target']">$a['name']</a></li>
+            #end for
+        </ul>
     </div>
 #end def
 #def get_links

@@ -23,11 +23,9 @@ import os
 import sys
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum import Constants
 from sets import Set
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.spine.SpineLib import Builder
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 
 # Needed to make Builder.get_builder_classes() return
 # all needed classes for this spine instance.
@@ -37,7 +35,8 @@ from sets import Set
 
 autodesc = 'Managed by UpdateSpineConstants'
 
-def update_spine_auth_codes():
+def update_spine_auth_codes(db_user):
+    from Cerebrum import Constants
     existing = Set(get_existing())
     db = Factory.get('Database')(user=db_user)
     _ = Constants.Constants(db) # Ugly hack.  See makedb.py
@@ -56,11 +55,11 @@ def update_spine_auth_codes():
 
     # Create the op codes that doesn't already exist.
     for code_str in new:
-        code_obj = _AuthRoleOpCode(code_str, autodesc)
+        code_obj = Constants._AuthOpCode(code_str, autodesc)
         code_obj.insert()
     # Delete the op codes that no longer exist.
     for code_str in orphans:
-        code_obj = _AuthRoleOpCode(code_str)
+        code_obj = Constants._AuthOpCode(code_str)
         code_obj.delete()
     db.commit()
 
@@ -78,6 +77,6 @@ if __name__ == '__main__':
             print "Will use regular 'user' (%s) instead." % db_user
 
     if db_user:
-        update_spine_auth_codes()
+        update_spine_auth_codes(db_user)
     else:
         print "System not configured properly.  I didn't do anything."
