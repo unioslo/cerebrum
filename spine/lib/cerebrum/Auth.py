@@ -98,16 +98,6 @@ class AuthOperationSet(DatabaseClass):
 
 registry.register_class(AuthOperationSet)
 
-def create_auth_operation_set(self, name, description):
-    db = self.get_database()
-    obj_id = int(db.nextval('code_seq'))
-    AuthOperationSet._create(db, obj_id, name, description)
-    return AuthOperationSet(db, obj_id)
-create_auth_operation_set.signature = AuthOperationSet
-create_auth_operation_set.signature_args = [str, str]
-create_auth_operation_set.signature_write = True
-
-
 table = 'auth_operation'
 class AuthOperation(DatabaseClass):
     primary = (
@@ -141,7 +131,6 @@ def get_operations(self):
 get_operations.signature = [AuthOperation]
 get_operations.signature_name = 'get_operations'
 
-Commands.register_methods([create_auth_operation_set])
 AuthOperationSet.register_methods([get_operations])
 
 table = 'auth_op_target'
@@ -163,6 +152,25 @@ class AuthOperationTarget(DatabaseClass):
         },
     }
 
+def create_auth_operation_target(self, type, entity, attr):
+    db = self.get_database()
+    obj_id = int(db.nextval('code_seq'))
+    AuthOperationTarget._create(db, obj_id, entity, type, attr)
+    return AuthOperationTarget(db, obj_id)
+
+def create_auth_operation_entity_target(self, entity, attr):
+    return create_auth_operation_target(self, 'entity', entity, attr)
+create_auth_operation_entity_target.signature = AuthOperationTarget
+create_auth_operation_entity_target.signature_args = [Entity, str]
+create_auth_operation_entity_target.signature_write = True
+
+def create_auth_operation_global_target(self, attr):
+    return create_auth_operation_target(self, 'global', None, attr)
+create_auth_operation_global_target.signature = AuthOperationTarget
+create_auth_operation_global_target.signature_args = [str]
+create_auth_operation_global_target.signature_write = True
+Commands.register_methods([create_auth_operation_entity_target, create_auth_operation_global_target])
+
 table = 'auth_role'
 class AuthRole(DatabaseClass):
     primary = (
@@ -177,4 +185,20 @@ class AuthRole(DatabaseClass):
             'target': 'op_target_id', 
         }
     }
+
+    def delete(self):
+        self._delete_from_db()
+        self._delete()
+    delete.signature = None
+    delete.signature_name = 'delete'
+    delete.signature_write = True
+
+def create_auth_role(self, entity, op_set, target):
+    db = self.get_database()
+    return AuthRole._create(db, entity, op_set, target)
+create_auth_role.signature = AuthRole
+create_auth_role.signature_args = [Entity, AuthOperationSet, AuthOperationTarget]
+create_auth_role.signature_write = True
+Commands.register_methods([create_auth_role])
+
 # arch-tag: 3dd57534-233c-4cc1-aa00-b929fd7fb24b
