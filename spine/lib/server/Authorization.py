@@ -31,7 +31,7 @@ from Cerebrum.spine.Entity import Entity
 from Cerebrum.spine.Account import Account
 from Cerebrum.spine.Person import Person
 from Cerebrum.spine.Group import Group
-from Cerebrum.spine.Types import CodeType
+from Cerebrum.spine.Types import CodeType, OUPerspectiveType
 from Cerebrum.spine.Commands import Commands
 from Cerebrum.spine.EntityAuth import EntityAuth
 from Cerebrum.spine.SpineLib import Database
@@ -40,18 +40,30 @@ import sets
 
 class Authorization(object):
     def __init__(self, user, database=None):
+        import time
+        t = time.time()
         self.db = database or Database.SpineDatabase()
-        self.user = user
-        self.is_superuser = self._is_superuser()
+        bofhdauth = BofhdAuth(self.db)
+        self.uid = user.get_id()
+        self.is_superuser = bofhdauth.is_superuser(self.uid)
         if not self.is_superuser:
-            self.user_owner = self.user.get_owner()
-            self.groups = user.get_groups()
-            cereweb_self = Commands(self.db).get_group_by_name('cereweb_self')
-            cereweb_public = Commands(self.db).get_group_by_name('cereweb_public')
-            self.groups.append(cereweb_self)
-            self.groups.append(cereweb_public)
-            self.credentials = [i.get_id() for i in [self.user]+self.groups]
-            self.update_auths(self.credentials)
+            # Get the owner id of this account.
+            account = Utils.Factory.get('Account')(self.db)
+            account.find(self.uid)
+            self.oid = account.owner_id
+
+            # Make a list of the users credentials.
+            credentials = bofhdauth._get_users_auth_entities(self.uid)
+
+            # Add the magic groups cereweb_self and cereweb_public
+            # to our list of credentials.
+            group = Utils.Factory.get('Group')(self.db)
+            group.find_by_name('cereweb_self')
+            credentials.append(group.entity_id)
+            group.clear()
+            group.find_by_name('cereweb_public')
+            credentials.append(group.entity_id)
+            self.update_auths(credentials)
 
     def __del__(self):
         self.db.close()
@@ -75,7 +87,7 @@ class Authorization(object):
         except IOError:
             pass
 
-        if self._is_unrestricted_operation(target, operation, attr):
+        if self._is_unrestricted(target, operation, attr):
             return True
 
         if self._check_global(operation_full_name, attr):
@@ -83,17 +95,13 @@ class Authorization(object):
 
         entity = self._get_entity(target)
         if entity:
-            entity_type = entity.get_type().get_name()
-            entity_id = entity.get_id()
+            if self._check_entity(operation_full_name, attr, entity):
+                return True
 
-            if self._check_type(operation_full_name, attr, entity_type):
+            if self._is_self(entity) and self._check_self(operation_full_name, attr):
                 return True
-            if self._check_direct(operation_full_name, attr, entity_id, entity_type):
-                return True
-            if self._check_by_org(operation_full_name, attr, entity, entity_type):
-                return True
-            if self._is_self(entity) and self._check_self(operation_full_name, attr, entity_type):
-                return True
+
+        return False
 
     def _get_entity(self, target):
         """Try to find the entity of this target."""
@@ -137,13 +145,12 @@ class Authorization(object):
         self.auths = sets.Set([tuple(row) for row in authrows])
 
     def _is_self(self, target):
-        if target.get_id() == self.user.get_id():
-            return True
-        if target.get_id() == self.user_owner.get_id():
+        tid = target.get_id()
+        if tid == self.uid or tid == self.oid:
             return True
         return False
 
-    def _is_unrestricted_operation(self, target, operation, attr):
+    def _is_unrestricted(self, target, operation, attr):
         """Helper method that returns true if the method is considered public,
         i.e. everyone is allowed to run it."""
 
@@ -162,26 +169,51 @@ class Authorization(object):
     def _check_global(self, operation, attr):
         return self._query_auth(operation, attr, None, 'global')
 
-    def _check_direct(self, operation, attr, target_id, target_type):
-        return self._query_auth(operation, attr, target_id, target_type)
+    def _check_self(self, operation, attr):
+        return self._query_auth(operation, attr, None, 'self')
 
-    def _check_type(self, operation, attr, target_type):
-        return self._query_auth(operation, attr, None, target_type)
+    def _check_entity(self, operation, attr, target):
+        direct = self._check_direct(operation, attr, target.get_id())
+        by_org = self._check_by_org(operation, attr, target)
+        return direct or by_org
 
-    def _check_self(self, operation, attr, target_type):
-        return self._query_auth(operation, attr, None, "my_"+target_type)
+    def _check_direct(self, operation, attr, target_id):
+        return self._query_auth(operation, attr, target_id, 'entity')
     
-    def _check_by_org(self, operation, attr, target, target_type):
-        if isinstance(target, Person) or isinstance(target, Account):
-            affs=[(a.get_ou().get_id(), a.get_affiliation().get_name())
-                  for a in target.get_affiliations()]
-            for (ou, aff) in affs:
-                if self._query_auth(operation, attr, ou, target_type, target_attr=aff):
+    def _check_by_org(self, operation, attr, target):
+        # For now, we only support accounts and people.
+        if isinstance(target, Account):
+            # Accounts belong to a person or a group.  We don't use the
+            # affiliations of the account.
+            # Do not use Account.get_owner since it takes about 30 seconds the first time it's called.
+            account = Utils.Factory.get('Account')(self.db)
+            account.find(target.get_id())
+            person_id = account.owner_id
+            target = Person(self.db, person_id)
+
+        if isinstance(target, Person):
+            perspective = OUPerspectiveType(self.db, name='Kjernen')
+            for affiliation in target.get_affiliations():
+                affiliation_type = affiliation.get_affiliation().get_name()
+                ou = affiliation.get_ou()
+                if self._check_org_recursive(operation, attr, ou, perspective, affiliation_type):
                     return True
         return False
 
-    def _query_auth(self, operation, op_attr, target, target_type,
-                   target_attr=None):
+    def _check_org_recursive(self, operation, attr, ou, perspective, affiliation_type):
+        if not ou:
+            return False
+
+        if self._query_auth(operation, attr, ou.get_id(), 'entity', target_attr=affiliation_type):
+            return True
+
+        # Access to the operation with an empty affiliation type means we have access.
+        if self._query_auth(operation, attr, ou.get_id(), 'entity', target_attr=''):
+            return True
+
+        return self._check_org_recursive(operation, attr, ou.get_parent(perspective), perspective, affiliation_type)
+
+    def _query_auth(self, operation, op_attr, target, target_type, target_attr=None):
         """We first check if the user has access to run the operation with
         the given arguments.  Then we check if the user has access to run
         the operation without arguments."""
@@ -192,11 +224,6 @@ class Authorization(object):
                 operation, None) in self.auths
         return attr or no_attr
     
-    def _is_superuser(self):
-        bofhdauth = BofhdAuth(self.db)
-        if bofhdauth.is_superuser(self.user.get_id()):
-            return True
-
 class AuthTest(unittest.TestCase):
     def __init__(self, *args, **vargs):
         super(AuthTest, self).__init__(*args, **vargs)
@@ -229,12 +256,12 @@ class AuthTest(unittest.TestCase):
         assert self.auth._is_self(my_person)
 
     def test__attribute(self):
-        assert self.auth._check_self('Account.set_shell', ('bash',), 'account')
+        assert self.auth._check_self('Account.set_shell', ('bash',))
 
     def test__check_self(self):
         """_check_self failed when called with attr = () instead of attr = None"""
-        assert self.auth._check_self('Account.get_id', (), 'account')
-        assert self.auth._check_self('Account.set_password', ('new',), 'account')
+        assert self.auth._check_self('Account.get_id', ())
+        assert self.auth._check_self('Account.set_password', ('new',))
 
     def test__check_global(self):
         assert self.auth._check_global('Account.get_name', None)
@@ -264,6 +291,11 @@ class AuthTest(unittest.TestCase):
             assert self.auth.has_permission(operation, my_external_id), operation
 
     def test_public(self):
+        # Add the magic groups cereweb_self and cereweb_public
+        # to our list of credentials.
+        group = Utils.Factory.get('Group')(self.db)
+        group.find_by_name('cereweb_public')
+        self.auth.update_auths([15971,group.entity_id])
         assert not self.auth.has_permission("get_external_ids",
                 Person(self.db, self.ou_person))
         assert self.auth.has_permission("get_account_by_name",
