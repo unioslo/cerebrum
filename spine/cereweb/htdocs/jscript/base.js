@@ -145,7 +145,7 @@ cereweb.editBox = {
 
         var editBox = new YAHOO.widget.Dialog(el, {
             'width': '600px',
-            'draggable': false,
+            'draggable': true,
             'visible': false,
             'fixedcenter': true,
             'postmethod': 'form' });
