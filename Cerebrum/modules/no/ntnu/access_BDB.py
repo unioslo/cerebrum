@@ -27,7 +27,7 @@ class BDB:
 
     def get_persons(self):
         cursor = self.db.cursor()
-        cursor.execute("SELECT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
+        cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
                         p.fornavn, p.etternavn, p.sperret FROM person p,bruker b \
                         WHERE b.person = p.id and b.user_domain=1 AND \
                         p.personnr IS NOT NULL")
@@ -128,13 +128,16 @@ class BDB:
         cursor = self.db.cursor()
         cursor.execute("""SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'),t.org_enhet, \
                         t.fakultet, t.institutt, \
-                        t.tilkn_form, t.familie, f.navn, f.alltidsluttdato \
-                        FROM tilknyttet t, person p, bruker b, tilkn_former f \
+                        t.tilkn_form, t.familie, f.navn, f.alltidsluttdato, k.kode \
+                        FROM tilknyttet t, person p, bruker b, tilkn_former f, ksted k\
                         WHERE t.person = p.id AND \
                               b.person = p.id AND \
                               p.personnr IS NOT NULL AND \
                               b.user_domain = 1 AND \
-                              t.tilkn_form = f.id""")
+                              t.tilkn_form = f.id AND \
+                              t.fakultet = k.fakultet AND \
+                              t.institutt = k.institutt \
+                      """)
         bdb_affs = cursor.fetchall()
         affiliations = []
         for af in bdb_affs:
