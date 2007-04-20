@@ -152,6 +152,7 @@ class BDB:
             aff['family'] = af[7]
             aff['aff_name'] = af[8]
             aff['has_end_date'] = af[9]
+            aff['ou_code'] = af[10]
             affiliations.append(aff)
         cursor.close()
         return affiliations
