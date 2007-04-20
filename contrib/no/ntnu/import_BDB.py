@@ -52,6 +52,81 @@ class BDBSync:
         """Not implemented yet"""
         pass
 
+    def sync_affiliations(self):
+        self.logger.debug("Getting affiliations from BDB...")
+        self.aff_type = {}
+        self.aff_type[1] = self.const.affiliation_student
+        self.aff_type[2] = self.const.affiliation_ansatt
+        self.aff_type[3] = self.const.affiliation_ansatt
+        self.aff_type[4] = self.const.affiliation_manuell_ekst_stip
+        self.aff_type[5] = self.const.affiliation_manuell_annen
+        self.aff_type[12] = self.const.affiliation_manuell_annen
+        self.aff_type[7] = self.const.affiliation_manuell_emeritus
+        self.aff_type[9] = self.const.affiliation_manuell_alumni
+        global verbose,dryrun
+        if verbose:
+            print "Getting affiliations from BDB"
+        affiliations = self.bdb.get_affiliations()
+        for affiliation in affiliations:
+            self._sync_affiliation(affiliation)
+        return
+
+    def _sync_affiliation(self,aff):
+        #aff is a dict with keys. aff['person'] is the bdb-external-id which can be found
+        #as an externalid on persons in Cerebrum. We use this to connect affiliations and
+        #persons.
+        global dryrun,verbose
+        self.logger.info("Process affiliation for %s" % aff['person'])
+        if verbose:
+            print "Process affiliation for bdb-person: %s" % aff['person']
+
+        const = self.const
+        person = self.new_person
+        person.clear()
+        ou = self.ou
+        ou.clear()
+
+        try: 
+            person.find_by_external_id(const.externalid_bdb_person,aff['person'])
+            self.logger.debug("Got match on bdb-id as entity_externalid using %s" % aff['person'])
+            if verbose:
+                print "Got match on bdb-id as entity_externalid using %s" % aff['person']
+        except Errors.NotFoundError:
+            self.logger.error("Got no match on bdb-id as entity_externalid using %s" % aff['person'])
+            if verbose:
+                print "Error: Got no match on bdb-id as entity_externalid using %s" % aff['person']
+            return
+
+        # Convert codes to IDs,type and status
+        _oucode =  str(aff['ou_code'])
+        faknr = _oucode[:2]
+        instituttnr = _oucode[2:4]
+        gruppenr = _oucode[4:6]
+
+        #Search up the entity-id for this OrgUnit
+        try:
+            ou.find_stedkode(faknr,instituttnr,gruppenr,cereconf.DEFAULT_INSTITUSJONSNR)
+        except Errors.NotFoundError:
+            if verbose:
+                print "Got no match on stedkode %s bdb-person: %s" % (_oucode,aff['person'])
+            self.logger.error("Got no match on stedkode %s for bdb-person: %s" % (_oucode,aff['person']))
+            return 
+
+        aff_type = self.aff_type[aff['aff_type']]
+        aff_status = const.affiliation_tilknyttet
+
+        person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status) 
+
+        if dryrun:
+            self.db.rollback()
+            if verbose:
+                print "Dryrun set. Rolling back changes for entity %s" % person.entity_id
+        else:
+            self.db.commit()
+            if verbose:
+                print "Commiting affiliation to database for entity %s" % person.entity_id
+        return
+
     def sync_persons(self):
         self.logger.debug("Getting persons from BDB...")
         global ant_persons,verbose,dryrun
@@ -383,6 +458,7 @@ def usage():
         --people    (-p) Syncronize persons
         --group     (-g) Syncronise posixGrourp
         --account   (-a) Syncronize posixAccounts
+        --affiliations (-t) Syncronize affiliations on persons
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
 
@@ -392,8 +468,8 @@ def usage():
 def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
-                    'dpgavh',
-                    ['dryrun','people','group','account','verbose','help'])
+                    'dptgavh',
+                    ['affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     for opt,val in opts:
@@ -403,6 +479,8 @@ def main():
             sync.sync_persons()
         elif opt in ('-a','--account'):
             sync.sync_accounts()
+        elif opt in ('-t','--affiliations'):
+            sync.sync_affiliations()
         elif opt in ('-g','--group'):
             sync.sync_groups()
         elif opt in ('-v','--verbose'):
