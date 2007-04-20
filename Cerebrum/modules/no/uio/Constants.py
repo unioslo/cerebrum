@@ -285,6 +285,8 @@ class Constants(Constants.Constants):
                                          'Person included in LDAP directory')
     spread_uio_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
                                      'OU included in LDAP directory')
+    spread_uio_ldap_account = _SpreadCode('LDAP_account', Constants.Constants.entity_account,
+                                     'Accounts in the LDAP directory')
     spread_uio_ad_account = _SpreadCode('AD_account', Constants.Constants.entity_account,'account included in Active Directory')
     spread_uio_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group,'group included in Active Directory')
     spread_uio_ua = _SpreadCode('UA@uio', Constants.Constants.entity_person,
@@ -353,7 +355,14 @@ automatically generated from FS.''')
                                            'OU is clean and may be removed')
     quarantine_guest_release = _QuarantineCode('guest_release',
                                                'Guest user is released but not available.')
-    
+    quarantine_oppringt = _QuarantineCode('oppringt',
+                                          'Brukeren er sperret for oppringt tjenesten.')
+    quarantine_vpn = _QuarantineCode('vpn',
+                                     'Brukeren er sperret for VPN tjenesten.')
+    quarantine_equant = _QuarantineCode('equant',
+                                        'Brukeren er sperret for Equant tjenesten.')
+    quarantine_wlan = _QuarantineCode('wlan',
+                                      'Brukeren er utestengt fra WLAN.')
     email_domain_category_uio_globals = _EmailDomainCategoryCode(
         'UIO_GLOBALS',
         "All local_parts defined in domain 'UIO_GLOBALS' are treated"
