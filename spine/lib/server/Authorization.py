@@ -34,7 +34,7 @@ from Cerebrum.spine.Group import Group
 from Cerebrum.spine.Types import CodeType, OUPerspectiveType
 from Cerebrum.spine.Commands import Commands
 from Cerebrum.spine.EntityAuth import EntityAuth
-from Cerebrum.spine.SpineLib import Database
+from Cerebrum.spine.SpineLib import Database, SearchClass, DumpClass
 import unittest
 import sets
 
@@ -106,6 +106,9 @@ class Authorization(object):
     def _get_entity(self, target):
         """Try to find the entity of this target."""
         if not target:
+            return None
+        elif isinstance(target, SearchClass.SearchClass) or \
+             isinstance(target, DumpClass.DumpClass):
             return None
         elif isinstance(target, Entity):
             return target
