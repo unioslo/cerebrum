@@ -194,8 +194,15 @@ def transaction_decorator(method):
     def transaction_decorator(*args, **vargs):
         cherrypy.session['timestamp'] = time.time()
         tr = new_transaction()
+        # In Python < 2.5, try...except...finally did not work.
+        # try...except had to be nested in try...finally.
         try:
-            return method(transaction=tr, *args, **vargs)
+            from SpineIDL.Errors import AccessDeniedError
+            try:
+                return method(transaction=tr, *args, **vargs)
+            except AccessDeniedError, e:
+                queue_message(e.explanation, error=True)
+                redirect('/')
         finally:
             try:
                 # FIXME: sjekk status på transaction?
