@@ -34,7 +34,7 @@ from Cerebrum.spine.Group import Group
 from Cerebrum.spine.Types import CodeType, OUPerspectiveType
 from Cerebrum.spine.Commands import Commands
 from Cerebrum.spine.EntityAuth import EntityAuth
-from Cerebrum.spine.SpineLib import Database, SearchClass, DumpClass
+from Cerebrum.spine.SpineLib import Database, SearchClass, DumpClass, SpineExceptions
 import unittest
 import sets
 
@@ -214,7 +214,12 @@ class Authorization(object):
         if self._query_auth(operation, attr, ou.get_id(), 'entity', target_attr=''):
             return True
 
-        return self._check_org_recursive(operation, attr, ou.get_parent(perspective), perspective, affiliation_type)
+        try:
+            parent_ou = ou.get_parent(perspective)
+        except SpineExceptions.NotFoundError, e:
+            return False
+
+        return self._check_org_recursive(operation, attr, parent_ou, perspective, affiliation_type)
 
     def _query_auth(self, operation, op_attr, target, target_type, target_attr=None):
         """We first check if the user has access to run the operation with
