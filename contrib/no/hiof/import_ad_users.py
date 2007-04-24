@@ -98,8 +98,8 @@ def process_line(infile):
             continue
 
         if not homedir:
+            # Warn about missing homedir, but try to process user
             logger.warn("No homedir given for user " + uname)
-            continue
 
         process_user(uname, homedir, spread, ou, domain)
 
@@ -159,30 +159,35 @@ def process_user(uname, homedir, spread, ou, domain):
     account.write_db()
     logger.debug("Set OU trait (%s:%s) for account %s." % (spread, ou, uname))
 
-    # Handle homedir
+    ## Handle homedir.
+    # PS! Homedir might not be given, i.e. homedir == ''
     if not uname in USER_HOME:
         USER_HOME[uname] = {}
     # We want the substring \\home of homedir to be lowercase, other
     # parts of the string should be allowed to be uppercase. Thus use
     # replace() instead of lower()
-    homedir = homedir.replace('\\Home', '\\home')
+    if homedir:
+        homedir = homedir.replace('\\Home', '\\home')
     USER_HOME[uname][int(spread)] = homedir
     account.populate_trait(constants.trait_ad_homedir,
                            strval=cPickle.dumps(USER_HOME[uname]))
     account.write_db()
     logger.debug("Set homedir trait (%s:%s) for account %s." % (spread, homedir, uname))
 
-    # Handle spread
+    ## Handle spread
     if not account.has_spread(spread):
         account.add_spread(spread)
         account.write_db()
         logger.debug("Added spread %s for user %s", spread, uname)
 
-    # Create Profile path and set trait
-    if domain == 'adm':
-        profile_path = homedir + '\\profile'
-    else:
-        profile_path = homedir.replace('\\home\\', '\\profile\\')
+    ## Handle Profile path 
+    # Homedir might not exist. In those cases set profile path to ''
+    profile_path = ''
+    if homedir:
+        if domain == 'adm':
+            profile_path = homedir + '\\profile'
+        else:
+            profile_path = homedir.replace('\\home\\', '\\profile\\')
 
     # Set trait of pickled spread<->profile_path mappings
     if not uname in USER_PROFILE_PATH:
@@ -191,8 +196,8 @@ def process_user(uname, homedir, spread, ou, domain):
     account.populate_trait(constants.trait_ad_profile_path,
                            strval=cPickle.dumps(USER_PROFILE_PATH[uname]))
     account.write_db()
-    logger.debug("profile path (%s) trait for account %s is set" % (
-        profile_path, uname))
+    logger.debug("profile path (%s:%s) trait for account %s is set" % (
+        spread, profile_path, uname))
 
 
 def usage():
