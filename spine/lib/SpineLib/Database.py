@@ -23,19 +23,25 @@ import Cerebrum.Database
 Database = Factory.get('Database')
 
 class SpineDatabase(Database):
-    """This class extends the commit() method of the Cerebrum database
-    to include locking. Using this scheme, only one transaction can
-    commit at a time.
+    """
+    Extends the Cerebrum database class with useful stuff
+    for a spine transaction.
     """
     
     def __init__(self, entity_id=None):
         Database.__init__(self)
+
+        # start changelog
         if entity_id is None:
             self.cl_init(change_program='Spine')
         else:
             self.cl_init(change_by=entity_id)
 
-        # FIXME: Find out what this does.
+        # Make sure the transactions don't step to much at each others feet
+        # XXX Postgres-specific?
         self.execute('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE')
+
+        # Pull in constants for convenience
+	self.const = Factory.get('Constants')(self)
 
 # arch-tag: 3a36a882-0fd8-4a9c-9889-9540095f93e3
