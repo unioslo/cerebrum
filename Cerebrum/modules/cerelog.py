@@ -554,8 +554,6 @@ class CerebrumLogger(logging.Logger, object):
     # end __cerebrum_debug
 
     def callHandlers(self, record):
-        print ("calling handlers on record level %d (handlers: %s)" %
-               (record.levelno, [x.level for x in self.handlers]))
         super(CerebrumLogger, self).callHandlers(record)
     # end callHandlers
 
