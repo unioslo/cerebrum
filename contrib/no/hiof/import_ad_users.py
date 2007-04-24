@@ -41,8 +41,7 @@ Tasks:
 * check that the user found is known in Cerebrum
 * set user <-> ou trait
 * set user <-> profile-path trait
-* set homedir?
-* Check (and set) affiliation? 
+* set user <-> homedir trait
 
 """
 
