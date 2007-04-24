@@ -26,8 +26,14 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import SimilarSizeWriter
-from Cerebrum.modules import Email
+from Cerebrum.modules import Email, LDIFutils
+from Cerebrum.modules.LDIFutils import entry_string, iso2utf
 from Cerebrum.Constants import _PersonAffStatusCode
+
+LDIFutils.needs_base64 = LDIFutils.needs_base64_safe
+LDIFutils.base64_attrs.update({
+    'userpassword': 0, 'ofkpassword': 0, 'userpasswordct': 0})
+
 
 def get_account_info():
     global a_id2email, p_id2name, p_id2fnr, a_id2auth
@@ -158,101 +164,94 @@ def process_users(affiliation, file):
         else:
             known_dns[uname] = True
         
-        txt = ["dn: cn=%s,cn=users,dc=ovgs,dc=no" % uname, 
-               "givenname: %s" % first]
+        u_uname = iso2utf(uname)
+        dn = "cn=%s,cn=users,dc=ovgs,dc=no" % u_uname
+        entry = {
+            'givenname': (iso2utf(first),),
+            'orcldefaultprofilegroup': ("cn=%s,cn=groups,dc=ovgs,dc=no"
+                                        % const2str[int(affiliation)],),
+            'orcltimezone': ("Europe/Oslo",),
+            'objectclass': ("top", "person", "inetorgperson",
+                            "organizationalperson", "orcluser", "orcluserv2"),
+            'orclsamaccountname': (u_uname,),
+            'sn': (iso2utf(last),),
+            'uid': (u_uname,),
+            'userpassword': ("{SSHA}%s" % ssha,),
+            'ofkpassword': ("{MD4}%s" % md4,),
+            'userpasswordct': (plain,),
+            'fnr': (p_id2fnr[a_id2p_id[id][1]],)}
         if a_id2email.has_key(id):
-            txt += ["mail: %s" % a_id2email[id]]
+            entry['mail'] = (a_id2email[id],)
         else:
             print "Not found '%s'" % uname
-        txt += ["orcldefaultprofilegroup: cn=%s,cn=groups,dc=ovgs,dc=no" % const2str[int(affiliation)], 
-                "orcltimezone: Europe/Oslo",
-                "objectclass: top",
-                "objectclass: person",
-                "objectclass: inetorgperson",
-                "objectclass: organizationalperson",
-                "objectclass: orcluser",
-                "objectclass: orcluserv2",
-                "orclsamaccountname: %s" % uname,
-                "sn: %s" % last, 
-                "uid: %s" % uname, 
-                "userpassword: {SSHA}%s" % ssha,
-                "ofkpassword: {MD4}%s" % md4,
-                "userpasswordct: %s" % plain,
-                "fnr: %s" % p_id2fnr[a_id2p_id[id][1]],
-                "\n"]
-        file.write('\n'.join(txt))
+        file.write(entry_string(dn, entry, False))
     return known_dns.keys()
         
 
-def process_prof_group(dn, users, file):
+def process_prof_group(name, users, file):
 
-    txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % dn,
-           "objectclass: top",
-           "objectclass: groupOfUniqueNames",
-           "objectclass: orclGroup",
-           "displayname: %s" % dn,
-           "description: %s" % dn]
-    for u in users:
-        txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
-    file.write('\n'.join(txt))
+    file.write(entry_string(
+        "cn=%s,cn=groups,dc=ovgs,dc=no" % name, {
+        'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
+        'displayname': (name,),
+        'description': (name,),
+        'uniquemember': ["cn=%s,cn=users,dc=ovgs,dc=no" % iso2utf(u)
+                         for u in users]
+        }, False))
 
 
 def process_aff_groups(users, file):
-    for ou in users.keys():
-        for aff in users[ou].keys():
-            txt = ["dn: cn=%s:%s,cn=groups,dc=ovgs,dc=no" % (ou, const2str[int(aff)]),
-                   "objectclass: top",
-                   "objectclass: groupOfUniqueNames",
-                   "objectclass: orclGroup",
-                   "displayname: %s:%s" % (ou, const2str[int(aff)]),
-                   "description: %s:%s" % (ou, const2str[int(aff)])]
-            for u in users[ou][aff]:
-                txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
-            file.write('\n'.join(txt))
-            file.write('\n\n')
+    for ou, ou_aff in users.iteritems():
+        u_ou = iso2utf(ou)
+        for aff, aff_users in ou_aff.iteritems():
+            name = "%s:%s" % (u_ou, const2str[int(aff)])
+            dn = "cn=%s,cn=groups,dc=ovgs,dc=no" % (name)
+            file.write(entry_string(dn, {
+                'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
+                'displayname': (name,),
+                'description': (name,),
+                'uniquemember': ["cn=%s,cn=users,dc=ovgs,dc=no" % iso2utf(u)
+                                 for u in aff_users]}, False))
         # Make "pure" OU groups as well
-        txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % (ou),
-               "objectclass: top",
-               "objectclass: groupOfUniqueNames",
-               "objectclass: orclGroup",
-               "displayname: %s" % ou,
-               "description: %s" % ou]
-        for aff in users[ou].keys():
-            for u in users[ou][aff]:
-                txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % u]
-        txt = '\n'.join(txt)
-        txt += "\n\n"
-        file.write(txt)
+        dn = "cn=%s,cn=groups,dc=ovgs,dc=no" % (u_ou)
+        file.write(entry_string(dn, {
+            'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
+            'displayname': (u_ou,),
+            'description': (u_ou,),
+            'uniquemember': ["cn=%s,cn=users,dc=ovgs,dc=no" % iso2utf(u)
+                             for aff_users in ou_aff.values()
+                             for u in aff_users]}, False))
 
 
 def process_groups(spread, file):
     g = Factory.get('Group')(db)
     for row in g.search(spread=int(spread)):
         id = row['group_id']
-        name = row['name']
+        u_name = iso2utf(row['name'])
         desc = row['description']
         g.clear()
         g.find(id)
-        txt = ["dn: cn=%s,cn=groups,dc=ovgs,dc=no" % name,
-               "description: %s" % name,
-               "displayname: %s" % name,
-               "objectclass: top",
-               "objectclass: groupOfUniqueNames",
-               "objectclass: orclGroup"]
 
+        uniques = []
         members = g.list_members()[0]
         for type,a_id in members:
             if type == int(co.entity_account):
                 if a_id2auth.has_key(a_id):
-                    txt += ["uniquemember: cn=%s,cn=users,dc=ovgs,dc=no" % a_id2auth[a_id][0]]
+                    uniques.append("cn=%s,cn=users,dc=ovgs,dc=no"
+                                   % iso2utf(a_id2auth[a_id][0]))
                 else:
                     logger.warning("pg: No username found for: %s" % a_id)
                     continue
             else:
                 logger.warning("Member not account: %s" % a_id)
                 continue
-        txt += ["\n"]
-        file.write('\n'.join(txt))
+
+        dn = "cn=%s,cn=groups,dc=ovgs,dc=no" % u_name
+        file.write(entry_string(dn, {
+            'description': (u_name,),
+            'displayname': (u_name,),
+            'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
+            'uniquemember': uniques}, False))
         
 
 def main():
