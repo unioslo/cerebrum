@@ -76,7 +76,8 @@ def get_host_by_name(self, name):
     db = self.get_database()
 
     s = registry.EntityNameSearcher(db)
-    s.set_value_domain(registry.ValueDomain(db, name='host_names'))
+    value_domain = cereconf.ENTITY_TYPE_NAMESPACE['host']
+    s.set_value_domain(registry.ValueDomain(db, name=value_domain))
     s.set_name(name)
 
     hosts = s.search()

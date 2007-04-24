@@ -133,7 +133,8 @@ def get_account_by_name(self, name):
     db = self.get_database()
 
     s = registry.EntityNameSearcher(db)
-    s.set_value_domain(registry.ValueDomain(db, name='account_names'))
+    value_domain = cereconf.ENTITY_TYPE_NAMESPACE['account']
+    s.set_value_domain(registry.ValueDomain(db, name=value_domain))
     s.set_name(name)
 
     accounts = s.search()
@@ -179,7 +180,8 @@ def suggest_usernames(self, first_name, last_name):
 
     db = self.get_database()
     account = Factory.get('Account')(db)
-    return account.suggest_unames(registry.ValueDomain(db, name='account_names').get_id(), first_name, last_name)
+    value_domain = cereconf.ENTITY_TYPE_NAMESPACE['account']
+    return account.suggest_unames(registry.ValueDomain(db, name=value_domain).get_id(), first_name, last_name)
 
 suggest_usernames.signature = [str]
 suggest_usernames.signature_args = [str, str]
