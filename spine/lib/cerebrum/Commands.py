@@ -23,9 +23,12 @@ import mx.DateTime
 from SpineLib.DatabaseClass import DatabaseTransactionClass
 from SpineLib.Date import Date
 from SpineLib import SpineExceptions
+from Types import SourceSystem, ValueDomain
 
 from SpineLib import Registry
 registry = Registry.get_registry()
+
+import cereconf
 
 __all__ = ['Commands']
 
@@ -97,6 +100,21 @@ class Commands(DatabaseTransactionClass):
         """Interface for quering extentions"""
         return self._extentions
     get_extentions.signature = [str]
+
+    def get_system_lookup_order(self):
+        """Get system lookup order from config"""
+        db=self.get_database()
+        return [SourceSystem(db, name=str(getattr(db.const, i)))
+                for i in cereconf.SYSTEM_LOOKUP_ORDER]
+    get_system_lookup_order.signature = [SourceSystem]
+
+    def get_namespace(self, s):
+        """Return namespace valuedomain for a type (server side config)"""
+        db=self.get_database()
+        namespace=cereconf.ENTITY_TYPE_NAMESPACE[s]
+        return ValueDomain(db, name=namespace)
+    get_namespace.signature=ValueDomain
+    get_namespace.signature_args=[str]
 
 
 registry.register_class(Commands)
