@@ -75,6 +75,7 @@ view.exposed = True
     
 def add_member(transaction, id, name, type, operation):
     group = transaction.get_group(int(id))
+    cmd = transaction.get_commands()
     
     try:
         op = transaction.get_group_member_operation_type(operation)
@@ -85,7 +86,7 @@ def add_member(transaction, id, name, type, operation):
     
     search = transaction.get_entity_name_searcher()
     search.set_name(name)
-    search.set_value_domain(transaction.get_value_domain(type + '_names'))
+    search.set_value_domain(cmd.get_namespace(type))
     try:
         entity_name, = search.search()
     except ValueError, e:

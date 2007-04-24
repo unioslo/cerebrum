@@ -267,9 +267,10 @@ view_user.exposed = True
 
 def view_user_by_name(transaction, name, type):
     """Find the user by name and view his permissions."""
+    cmd = transaction.get_commands()
     search = transaction.get_entity_name_searcher()
     search.set_name(name)
-    search.set_value_domain(transaction.get_value_domain(type + '_names'))
+    search.set_value_domain(cmd.get_namespace(type))
     try:
         entity_name, = search.search()
     except ValueError, e:
