@@ -178,8 +178,8 @@ def make(transaction, name, expire="", description=""):
     if name:
         if len(name) < 3:
             msg=_("Group-name is too short( min. 3 characters).")
-        elif len(name) > 8:
-            msg=_("Group-name is too long(max. 8 characters).")
+        elif len(name) > 16:
+            msg=_("Group-name is too long(max. 16 characters).")
     else:
         msg=_("Group-name is empty.")
     if not msg and expire:
