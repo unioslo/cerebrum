@@ -760,8 +760,7 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
                                      self.directory,
                                      self.basename)
         super(CerebrumRotatingHandler, self).__init__(self.filename,
-                                                      mode, maxBytes,
-                                                      backupCount,
+                                                      mode,
                                                       encoding)
         self.maxBytes = maxBytes
         self.backupCount = backupCount
