@@ -20,7 +20,8 @@
 
 
 """Various utilities for building LDIF files from Cerebrum data.
-It will be rewritten later.  Maybe it should use the ldif module."""
+
+Modify base64_attrs and needs_base64 to tune the output."""
 
 
 import re
@@ -31,6 +32,21 @@ from binascii import \
 
 import cereconf
 from Cerebrum import Errors as _Errors, Utils as _Utils
+
+# Attributes whose values should always be base64-encoded.
+# May be modified by the applications.
+base64_attrs = {'userPassword': 0, 'authPassword': 0}
+
+needs_base64_readable = re.compile('\\A[\\s:<]|[\0-\37\177]|\\s\\Z').search
+needs_base64_safe     = re.compile('\\A[ :<]|[\0-\37\177-\377]| \\Z').search
+
+# Return true if the attr.value parameter must be base64-encoded in LDIF.
+# May be modified by the applications.  Possible values:
+# - needs_base64_readable: only trigger on control characters, leaving
+#   values human-readable when possible (expects 8-bit data to be UTF-8).
+# - needs_base64_safe: Encode all 8-bit data as well.
+needs_base64 = needs_base64_readable
+
 
 _dummy = object()
 
@@ -93,9 +109,6 @@ def hex_escape_match(match):
     return '\\' + _str2hex(match.group())
 
 
-# Return true if the attr.value parameter must be base64-encoded in LDIF.
-_need_base64 = re.compile('\\A[\\s:<]|[\0\r\n]|\\s\\Z').search
-
 def entry_string(dn, attrs, add_rdn = True):
     """Return a string with an LDIF entry with the specified DN and ATTRS.
 
@@ -114,7 +127,7 @@ def entry_string(dn, attrs, add_rdn = True):
                     attrs[ava[0]] = (ava[1],) + tuple(old)
             else:
                 attrs[ava[0]] = (ava[1],)
-    need_b64 = _need_base64
+    need_b64 = needs_base64
     if need_b64(dn):
         result = ["dn:: ", _base64encode(dn)]
     else:
@@ -124,7 +137,7 @@ def entry_string(dn, attrs, add_rdn = True):
     attrs.sort()         # not necessary, but minimizes changes in file
     for attr, vals in attrs:
         for val in vals:
-            if need_b64(val):
+            if attr in base64_attrs or need_b64(val):
                 extend((attr, ":: ", _base64encode(val)))
             else:
                 extend((attr, ": ", val, "\n"))
