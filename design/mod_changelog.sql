@@ -85,7 +85,7 @@ CREATE TABLE change_log
   change_params   CHAR VARYING(4000),
   change_by       NUMERIC(12,0)
                   REFERENCES entity_info(entity_id),
-  change_program  CHAR VARYING(64),
+  change_program  CHAR VARYING(64)
 );
 category:main;
 CREATE INDEX change_log_change_by_idx ON change_log(change_by);
