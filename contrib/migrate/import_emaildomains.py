@@ -117,7 +117,7 @@ def process_domain(dom, conn):
     try:
         edom.find_by_domain(dom)
     except Errors.NotFoundError:
-        logger.warn('No such domain %s!', dom)
+        logger.info('No such domain %s found. Creating it!', dom)
         edom.populate(dom, 'E-mail domain')
         edom.write_db()
     if conn:
