@@ -166,20 +166,21 @@ class DataEmployment(object):
 
     def is_main():
         return self.kind == HRDataPerson.HOVEDSTILLING
-    # end ismain
+    # end is_main
 
 
     def is_active(self, date = Date(*time.localtime()[:3])):
         # NB! None <= Date(...) == True
         return self.start <= date and ((not self.end) or
                                        (date <= self.end))
-    # end is_expired
+    # end is_active
 
     def has_leave(self, date = Date(*time.localtime()[:3])):
         for l in self.leave:
             if l['start_date'] <= date and (date <= l['end_date']):
                 return True
         return False
+    # end has_leave
 
 
     def __str__(self):
@@ -189,7 +190,7 @@ class DataEmployment(object):
                                                            self.start,
                                                            self.end,
                                                            self.place)
-    # end
+    # end __str__
 # end DataEmployment
 
 
@@ -235,7 +236,7 @@ class DataEntity(object):
     def add_id(self, kind, value):
         self.validate_id(kind, value)
         self._external_ids[kind] = value
-    # end _add_id
+    # end add_id
 
     def add_name(self, name):
         """Add a new name.
@@ -256,7 +257,7 @@ class DataEntity(object):
         else:
             self._names[kind] = name
         # fi
-    # end _add_name
+    # end add_name
 
     def add_contact(self, contact):
         self._contacts.append(contact)
@@ -444,7 +445,7 @@ class HRDataPerson(DataPerson):
 
     def add_employment(self, emp):
         self.employments.append(emp)
-    # end add_stilling
+    # end add_employment
 
 
     # IVR 2007-03-06 FIXME: ugh! name consistency was not a top priority to
@@ -528,7 +529,7 @@ class AbstractDataGetter(object):
                 yield person
             # fi
         # od
-    # end search
+    # end search_persons
 
 
     def list_persons(self):
@@ -540,7 +541,7 @@ class AbstractDataGetter(object):
     def iter_persons(self):
         """Give an iterator over people objects in the data source."""
         raise NotImplementedError("iter_persons not implemented")
-    # end 
+    # end iter_persons
 
             
     def search_ou(self, predicate):

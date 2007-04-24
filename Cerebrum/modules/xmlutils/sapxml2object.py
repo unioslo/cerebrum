@@ -44,6 +44,7 @@ from Cerebrum.modules.xmlutils.xml2object import \
      DataEmployment, DataOU, DataContact, DataName
 
 from Cerebrum.modules.no.fodselsnr import personnr_ok
+from Cerebrum.extlib.sets import Set as set
 
 
 
@@ -279,9 +280,18 @@ class XMLOU2Object(XMLEntity2Object):
 class XMLPerson2Object(XMLEntity2Object):
     """A converter class that maps ElementTree's Element to SAPPerson."""
 
-    # This is beyond horrible. This crap *MUST* go, as soon as SAP gets its
-    # act together and starts tagging the employment info properly.
-    stilling2kode = { 1304 : DataEmployment.KATEGORI_OEVRIG, 1260 : DataEmployment.KATEGORI_VITENSKAPLIG, 8013 : DataEmployment.KATEGORI_VITENSKAPLIG, 1077 : DataEmployment.KATEGORI_OEVRIG, 1070 : DataEmployment.KATEGORI_OEVRIG, 1379 : DataEmployment.KATEGORI_OEVRIG, 1378 : DataEmployment.KATEGORI_VITENSKAPLIG, 1094 : DataEmployment.KATEGORI_OEVRIG, 1095 : DataEmployment.KATEGORI_OEVRIG, 1097 : DataEmployment.KATEGORI_OEVRIG, 1028 : DataEmployment.KATEGORI_OEVRIG, 1027 : DataEmployment.KATEGORI_OEVRIG, 1069 : DataEmployment.KATEGORI_OEVRIG, 1068 : DataEmployment.KATEGORI_OEVRIG, 1061 : DataEmployment.KATEGORI_OEVRIG, 1010 : DataEmployment.KATEGORI_VITENSKAPLIG, 1063 : DataEmployment.KATEGORI_OEVRIG, 1062 : DataEmployment.KATEGORI_OEVRIG, 1065 : DataEmployment.KATEGORI_OEVRIG, 1064 : DataEmployment.KATEGORI_OEVRIG, 829 : DataEmployment.KATEGORI_OEVRIG, 1060 : DataEmployment.KATEGORI_OEVRIG, 1410 : DataEmployment.KATEGORI_OEVRIG, 1411 : DataEmployment.KATEGORI_OEVRIG, 826 : DataEmployment.KATEGORI_OEVRIG, 1087 : DataEmployment.KATEGORI_OEVRIG, 1085 : DataEmployment.KATEGORI_OEVRIG, 1084 : DataEmployment.KATEGORI_OEVRIG, 8031 : DataEmployment.KATEGORI_OEVRIG, 1082 : DataEmployment.KATEGORI_OEVRIG, 8032 : DataEmployment.KATEGORI_OEVRIG, 1088 : DataEmployment.KATEGORI_OEVRIG, 830 : DataEmployment.KATEGORI_OEVRIG, 835 : DataEmployment.KATEGORI_OEVRIG, 1408 : DataEmployment.KATEGORI_OEVRIG, 1018 : DataEmployment.KATEGORI_VITENSKAPLIG, 1019 : DataEmployment.KATEGORI_VITENSKAPLIG, 1015 : DataEmployment.KATEGORI_VITENSKAPLIG, 1016 : DataEmployment.KATEGORI_VITENSKAPLIG, 1017 : DataEmployment.KATEGORI_VITENSKAPLIG, 1407 : DataEmployment.KATEGORI_OEVRIG, 1011 : DataEmployment.KATEGORI_VITENSKAPLIG, 1405 : DataEmployment.KATEGORI_OEVRIG, 1404 : DataEmployment.KATEGORI_VITENSKAPLIG, 1132 : DataEmployment.KATEGORI_OEVRIG, 1130 : DataEmployment.KATEGORI_OEVRIG, 1137 : DataEmployment.KATEGORI_OEVRIG, 1136 : DataEmployment.KATEGORI_OEVRIG, 1434 : DataEmployment.KATEGORI_OEVRIG, 1433 : DataEmployment.KATEGORI_OEVRIG, 1009 : DataEmployment.KATEGORI_VITENSKAPLIG, 1083 : DataEmployment.KATEGORI_OEVRIG, 1032 : DataEmployment.KATEGORI_OEVRIG, 1033 : DataEmployment.KATEGORI_OEVRIG, 1213 : DataEmployment.KATEGORI_OEVRIG, 9131 : DataEmployment.KATEGORI_OEVRIG, 1211 : DataEmployment.KATEGORI_OEVRIG, 1216 : DataEmployment.KATEGORI_OEVRIG, 1353 : DataEmployment.KATEGORI_VITENSKAPLIG, 1352 : DataEmployment.KATEGORI_VITENSKAPLIG, 810 : DataEmployment.KATEGORI_OEVRIG, 966 : DataEmployment.KATEGORI_VITENSKAPLIG, 1026 : DataEmployment.KATEGORI_OEVRIG, 1020 : DataEmployment.KATEGORI_VITENSKAPLIG, 1182 : DataEmployment.KATEGORI_OEVRIG, 1183 : DataEmployment.KATEGORI_VITENSKAPLIG, 1181 : DataEmployment.KATEGORI_OEVRIG, 1108 : DataEmployment.KATEGORI_VITENSKAPLIG, 1109 : DataEmployment.KATEGORI_VITENSKAPLIG, 1200 : DataEmployment.KATEGORI_VITENSKAPLIG, 1203 : DataEmployment.KATEGORI_OEVRIG, 1199 : DataEmployment.KATEGORI_VITENSKAPLIG, 1198 : DataEmployment.KATEGORI_VITENSKAPLIG, 1054 : DataEmployment.KATEGORI_OEVRIG, 1056 : DataEmployment.KATEGORI_OEVRIG, 1059 : DataEmployment.KATEGORI_OEVRIG, 1013 : DataEmployment.KATEGORI_VITENSKAPLIG, 1111 : DataEmployment.KATEGORI_VITENSKAPLIG, 1110 : DataEmployment.KATEGORI_VITENSKAPLIG, 1113 : DataEmployment.KATEGORI_OEVRIG, 1116 : DataEmployment.KATEGORI_OEVRIG, 1275 : DataEmployment.KATEGORI_OEVRIG, 1178 : DataEmployment.KATEGORI_OEVRIG, 948 : DataEmployment.KATEGORI_OEVRIG, 947 : DataEmployment.KATEGORI_OEVRIG, 1364 : DataEmployment.KATEGORI_OEVRIG, 1362 : DataEmployment.KATEGORI_OEVRIG, 1363 : DataEmployment.KATEGORI_OEVRIG, 1474 : DataEmployment.KATEGORI_VITENSKAPLIG, 1475 : DataEmployment.KATEGORI_VITENSKAPLIG, 1078 : DataEmployment.KATEGORI_OEVRIG, 1090 : DataEmployment.KATEGORI_OEVRIG, 1409 : DataEmployment.KATEGORI_OEVRIG, 1447 : DataEmployment.KATEGORI_OEVRIG }
+    # Each employment has a 4-digit Norwegian state employment code. Ideally
+    # SAP should tag the employments as either VITENSKAPELIG or
+    # TEKADM/OEVRIG. Unfortunately, it does not happen, and we are forced to
+    # deduce the categories ourselves. This list of codes is derived from
+    # LT-data.
+    #
+    # Everything IN this set is tagged with KATEGORI_VITENSKAPLIG
+    # Everything NOT IN this set is tagged with KATEGORI_OEVRIG
+    kode_vitenskaplig = set([966, 1009, 1010, 1011, 1013, 1015, 1016, 1017,
+                             1018, 1019, 1020, 1108, 1109, 1110, 1111, 1183,
+                             1198, 1199, 1200, 1260, 1352, 1353, 1378, 1404,
+                             1474, 1475, 8013, ])
 
     # TBD: Bind it to Cerebrum constants?
     tag2type = { "Fornavn"       : HRDataPerson.NAME_FIRST,
@@ -374,13 +384,11 @@ class XMLPerson2Object(XMLEntity2Object):
                 # 0000 are to be discarded. This is by design.
                 if code == 0:
                     return None
-                # fi
-                if code in self.stilling2kode:
-                    category = self.stilling2kode[code]
-                # FIXME: assuyming this silently is a probably a bad thing
+                if code in self.kode_vitenskaplig:
+                    category = DataEmployment.KATEGORI_VITENSKAPLIG
                 else:
                     category = DataEmployment.KATEGORI_OEVRIG
-                # fi
+
             elif sub.tag == "Stilling":
                 title = value.strip()
             elif sub.tag == "Start_Date":
