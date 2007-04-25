@@ -64,6 +64,8 @@ def login(username='', password='', client='/user_client', redirect='/index', ms
         try:
             spine = Spine.connect()
             session = spine.login(username, password)
+            if not session.is_admin():
+                client = '/user_client'
         except Exception, e:
             error = str(e)
             error = error.replace("<", "")

@@ -57,21 +57,17 @@ def _get_links():
     )
 
 def index(transaction):
-    try:
-        page = MotdTemplate()
-        page.title = _("Welcome to Cereweb")
-        page.add_jscript("motd.js")
-        page.set_focus('cereweb/index')
-        page.links = _get_links()
-        
-        motd_search = transaction.get_cereweb_motd_searcher()
-        motd_search.order_by_desc(motd_search, 'create_date')
-        motd_search.set_search_limit(3, 0)
-        page.motds = motd_search.search()
-        return page.respond()
-    except AccessDeniedError, e:
-        print e
-        redirect('/user_client')
+    page = MotdTemplate()
+    page.title = _("Welcome to Cereweb")
+    page.add_jscript("motd.js")
+    page.set_focus('cereweb/index')
+    page.links = _get_links()
+    
+    motd_search = transaction.get_cereweb_motd_searcher()
+    motd_search.order_by_desc(motd_search, 'create_date')
+    motd_search.set_search_limit(3, 0)
+    page.motds = motd_search.search()
+    return page.respond()
 index = transaction_decorator(index)
 index.exposed = True
 
