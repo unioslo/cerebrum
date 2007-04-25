@@ -428,7 +428,7 @@ class Build(object):
         if ((new_expire > today) and (new_expire > current_expire)):
             # If new expire is later than current expire 
             # then update expire            
-            changes.append(('expire_date',new_expire))
+            changes.append(('expire_date',"%s" % new_expire))
  
         #check account affiliation and status        
         changes.extend(_populate_account_affiliations(acc_id,sysx_id))
