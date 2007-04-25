@@ -84,7 +84,11 @@ class AuthImporter(object):
 
     def _remove_ops_from_set(self, name, operations):
         bofhd_os = BofhdAuthOpSet(self.db)
-        bofhd_os.find_by_name(name)
+        try:
+            bofhd_os.find_by_name(name)
+        except Cerebrum.Errors.NotFoundError:
+            return 
+
         for operation, attribute in operations:
             op_code = int(_AuthRoleOpCode(operation))
             op_id = self.operations['%s:%s' % (name, operation)]
@@ -119,9 +123,14 @@ class AuthImporter(object):
         op_target = BofhdAuthOpTarget(self.db)
 
         for group_name, op_set_name, target in roles:
+            try:
+                op_set.find_by_name(op_set_name)
+            except Cerebrum.Errors.NotFoundError:
+                continue
+
             group.find_by_name(group_name)
             gid = group.entity_id
-            op_set.find_by_name(op_set_name)
+
             oid = op_set.op_set_id
             ttype, tid, tattr = target
             r = op_target.list(entity_id=tid, target_type=ttype, attr=tattr)
@@ -149,7 +158,10 @@ class AuthImporter(object):
 
     def _remove_op_set(self, name):
         op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name(name)
+        try:
+            op_set.find_by_name(name)
+        except Cerebrum.Errors.NotFoundError:
+            return
         for code, oid, sid in op_set.list_operations():
             op_set.del_operation(code)
 
@@ -177,7 +189,7 @@ class AuthImporter(object):
         new = Set(self.op_roles)
 
         self._add_op_roles(new - old)
-        self._remove_op_roles(old - new)
+        #self._remove_op_roles(old - new)
 
 if __name__ == '__main__':
     try:
