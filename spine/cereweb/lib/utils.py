@@ -202,7 +202,7 @@ def transaction_decorator(method):
                 return method(transaction=tr, *args, **vargs)
             except AccessDeniedError, e:
                 queue_message(e.explanation, error=True)
-                redirect('/')
+                redirect(cherrypy.session.get('client'))
         finally:
             try:
                 # FIXME: sjekk status på transaction?
