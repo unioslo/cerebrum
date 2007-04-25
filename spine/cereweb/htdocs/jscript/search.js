@@ -17,6 +17,7 @@
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
+
 cereweb.ac_group = function(input) {
     this.input = input;
     this.build();
@@ -63,6 +64,7 @@ cereweb.ac_group.prototype = {
         YD.addClass(container, 'autocomplete_container');
     },
     initForm: function() {
+        YD.addClass(this.form, 'ac');
         YE.addListener(this.form, 'submit', this.submit, this, true);
     },
     textboxKey: function(event, args) {
@@ -303,7 +305,7 @@ cereweb.search = {
             cereweb.search.clear_messages();
             var messages = eval('(' + o.responseText + ')');
             cereweb.search.add_messages(messages);
-        },
+        }
     },
     submit: function(e) {
         YE.stopEvent(e); // AJAX takes over.
