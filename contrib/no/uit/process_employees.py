@@ -28,6 +28,7 @@ It also sets ensures that all employee accounts has the default spreads
 defined in cereconf assigned to the account.
 '''
 
+
 import cerebrum_path
 import cereconf
 import getopt
@@ -35,6 +36,7 @@ import sys
 import time
 import datetime
 import string
+import mx
 import xml.sax
 from Cerebrum import Errors
 from Cerebrum import Entity
@@ -49,6 +51,11 @@ from Cerebrum.modules.xmlutils import GeneralXMLParser
 
 person_list = []
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
+
+
+class FailedUserCreateError(Exception):
+    pass
+
 
 class SLPDataParser(xml.sax.ContentHandler):
     """This class is used to iterate over all users in LT. """
@@ -95,10 +102,24 @@ class execute:
 
 
 
+    def get_default_expire(self):
+        today = mx.DateTime.today()       
+        ff_start = mx.DateTime.DateTime(today.year, 6, 15)  # fellesferie starter ca her
+        ff_slutt = mx.DateTime.DateTime(today.year, 8, 15)  # felesferie slutter ca her
+        nextMonth = today + mx.DateTime.DateTimeDelta(30)     # default er 30 dager frem   
+        
+        # ikke sett default expire til en dato i fellesferien
+        if nextMonth > ff_start and nextMonth < ff_slutt:
+            return mx.DateTime.DateTime(today.year,9,1)   # 1. sept ....
+        else:
+            return nextMonth
+        
+
+
     # This function creates a list of all employees that exists in uit_persons_YYYYMMDD
     # The list is used as authoritative data on which persons (and accounts) that is to
     # be updated in the database. Expire date on these persons employee accounts will be
-    # set to the current date + 60 days.
+    # set to the current date + 30 days.
     def parse_employee_xml(self,file):
         parse = SLPDataParser()
 
@@ -145,6 +166,7 @@ class execute:
                         
 
         # the unprocessed accounts...
+        # TODO: Do something about those that are no longer in import data!
         if (pers_id==0):
             i = 0
             for up in self.existing_emp_list:
@@ -168,7 +190,7 @@ class execute:
             acc_type = account_obj.list_accounts_by_type(account_id=account_obj.entity_id,
                                                          affiliation=self.constants.affiliation_student)
             if (len(acc_type)>0):
-                ad_email = "%s@%s" % (account_obj.account_name,"student.uit.no")
+                ad_email = "%s@%s" % (account_obj.account_name,"mailbox.uit.no")
             else:
                 no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
                 self.logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
@@ -207,36 +229,34 @@ class execute:
         self.logger.info("**************** Processing employee: person_id=%s,ou_id=%s *********************" % (p_id,ou_id))
         self.person.clear()
         self.person.find(p_id)
-        acc = self.person.get_primary_account(filter_expired=False)
-        has_account = True
-        employee_priority = 50
+        acc = self.person.get_primary_account(filter_expired=False) 
         if (not acc):
-            has_account=False
-        else:
-            # Person already has an account. update
-            try:
-                ac_tmp = Factory.get('Account')(self.db)
-                ac_tmp.find(acc)
-                ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
-            except Exception,m:
-                self.logger.error("unable to process employee account for personid:%s, accountid:%s, Reason:%s" % (p_id,acc,m))
-                return
-            self.logger.info("found account name:%s" % ac_tmp_name)
-            if(ac_tmp_name.isalpha()):                    
-                # not a valid "employee" username. log error and continue with next
-                self.logger.error("AccountID %s=%s does not conform with AD account naming rules!" % (acc,ac_tmp_name))    
-            self.update_employee_account(acc,ou_id)
-            
-        if (not has_account):
             # This person does not have an account.
             # create new account.
             try:
                 acc = self.create_employee_account(ou_id)
-
                 # why do we commit after each create???
-                self.db.commit()
+                # not anymore. Bto 2007-01-29
+                #self.db.commit()
             except Exception,msg:
-                self.logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))                                
+                self.logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))
+                return
+
+        # Person has an account. update
+        # First check if account name is "compatible"
+        try:
+            ac_tmp = Factory.get('Account')(self.db)
+            ac_tmp.find(acc)
+            ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
+        except Exception,m:
+            self.logger.error("unable to process employee account for personid:%s, accountid:%s, Reason:%s" % (p_id,acc,m))
+            return
+        self.logger.info("found account name:%s" % ac_tmp_name)
+        if(ac_tmp_name.isalpha()):
+            # not a valid "employee" username. log error and continue with next
+            self.logger.error("AccountID %s=%s does not conform with AD account naming rules!" % (acc,ac_tmp_name)) 
+            return
+        self.update_employee_account(acc,ou_id)
 
     def _promote_posix(self,account_id):
                 
@@ -264,11 +284,8 @@ class execute:
     
     def update_employee_account(self,account_id,ou_id):
         self.logger.info("updating account:%s" % account_id)
-        posix_user = PosixUser.PosixUser(self.db)
-        today = datetime.datetime.now()
-        nextMonth = today + datetime.timedelta(days=90) 
-        time_stamp = nextMonth.date()
-        default_expire_date ="%s" % time_stamp
+        posix_user = PosixUser.PosixUser(self.db)        
+        default_expire_date = self.get_default_expire()
 
         try:
             posix_user.find(account_id)
@@ -303,7 +320,7 @@ class execute:
             # This account is expired in cerebrum => update expire
             # or if our expire is further out than current expire => update
             self.logger.info("updating expire date old=%s, new=%s" % (current_expire,default_expire_date))
-            posix_user.expire_date = default_expire_date
+            posix_user.expire_date = "%s" % default_expire_date
         
         # - update affiliations (do we need to do more than ensure that account has ansatt-affil?)        
         # - update ou         
@@ -392,11 +409,8 @@ class execute:
 
     
     def create_employee_account(self,ou_id):
-        today = datetime.datetime.now()
-        nextMonth = today + datetime.timedelta(days=90) 
-        time_stamp = nextMonth.date()
-        default_expire_date ="%s" % time_stamp
 
+        default_expire_date = self.get_default_expire()
         group = Factory.get('Group')(self.db)
         posix_user = PosixUser.PosixUser(self.db)
 
@@ -429,37 +443,16 @@ class execute:
                             )
         try:
             posix_user.write_db()
-            
-            # add the correct spreads to the account
-            spread_list = cereconf.UIT_DEFAULT_EMPLOYEE_SPREADS
-            for spread in spread_list:
-                self.logger.info("Working on spread %s: %s,%s,%s" % (spread,posix_user.entity_id,
-                                                          int(self.constants.entity_account),
-                                                          int(self.constants.group_memberop_union)))
-                posix_user.add_spread(int(self.constants.Spread(spread)))
-                posix_user.set_home_dir(int(self.constants.Spread(spread)))
-                
-                    
-            #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
+          
+            # set initial password
             password = posix_user.make_passwd(username)
             posix_user.set_password(password)
-            posix_user.write_db()
-            # lets set the account_type table
-            posix_user.set_account_type(ou_id,
-                                        self.constants.affiliation_ansatt,
-                                        self.employee_priority)
-            posix_user.write_db()
-            
-            # Update the email adress!
-            self.update_email(posix_user)
-            
+            posix_user.write_db()            
             self.logger.info("New posix-account created: ENTITY_ID=%s,account_name=%s,personname=%s" %  (posix_user.entity_id, posix_user.account_name, full_name))
             retval =  posix_user.entity_id
-        except Errors:
-            self.logger.error("Error in creating posix account for person %s (fnr=%s)" % (full_name,personnr))
-            return  -1
-        
-        #posix_user.get_homedir_id(self.constants.spread_uit_ldap_person)
+        except Exception,m:
+            self.logger.error("Error in creating posix account for person %s (fnr=%s): reason: %s" % (full_name,personnr,m))
+            raise FailedUserCreateError        
         posix_user.write_db()
         return retval
         
