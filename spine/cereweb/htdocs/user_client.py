@@ -28,6 +28,7 @@ from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.utils import get_messages, rollback_url
 from lib.templates.UserTemplate import UserTemplate
 from lib.templates.MailUserTemplate import MailUserTemplate
+import SpineIDL
 
 def _get_links():
     return (
@@ -37,16 +38,19 @@ def _get_links():
     )
 
 def index(transaction):
-    page = UserTemplate()
-    username = cherrypy.session.get('username', '')
-    account = get_user_info(transaction,username)
-    page.tr = transaction
-    page.account = account
-    if not page.messages:
-        page.messages = get_messages()
-    page.set_focus('index/')
-    page.links = _get_links()
-    return page.respond()
+    try:
+        page = UserTemplate()
+        username = cherrypy.session.get('username', '')
+        account = get_user_info(transaction,username)
+        page.tr = transaction
+        page.account = account
+        if not page.messages:
+            page.messages = get_messages()
+        page.set_focus('index/')
+        page.links = _get_links()
+        return page.respond()
+    except SpineIDL.Errors.AccessDeniedError, e:
+        return [str(e)]
 index = transaction_decorator(index)
 index.exposed = True
 
@@ -105,7 +109,15 @@ def mail(transaction):
 mail = transaction_decorator(mail)
 mail.exposed = True
 
-def add_vacation(transaction, username, start, end, alias):
+def add_vacation(transaction, **kwargs):
+    if not len(kwargs) == 4:
+        redirect('/user_client/mail')
+
+    username = kwargs.get('username')
+    start = kwargs.get('start')
+    end = kwargs.get('end')
+    alias = kwargs.get('alias')
+
     msg = ''
     if not start:
         msg = 'Start date is empty.'
@@ -120,28 +132,24 @@ def add_vacation(transaction, username, start, end, alias):
         if len(alias) > 256:
             msg = 'Alias is too long ( max. 256 characters).'
     if not msg:
-        page = MailUserTemplate()
-        account = transaction.get_commands().get_account_by_name(username)
-        email_targets = get_email_targets_helper(transaction, account)
-        email_target = None
-        for target in email_targets:
-            email_target = target
-
-        page.tr = transaction
-        page.account = get_user_info(transaction, username)
-        page.vacations = get_vacations(transaction, account)
-        page.forwards = get_forwards(transaction, account)
-        if not page.messages:
-            page.messages = get_messages()
-        page.set_focus('add_vacation/')
-        res = str(page)
-        return [res]
+        msg = 'Vacation added.'
+        error = False
     else:
-        rollback_url('/user_client/mail', msg, err=True)
+        error = True
+
+    rollback_url('/user_client/mail', msg, err=error)
 add_vacation = transaction_decorator(add_vacation)
 add_vacation.exposed = True
 
-def add_forward(transaction, username, start, end, forward):
+def add_forward(transaction, **kwargs):
+    if not len(kwargs) == 4:
+        redirect('/user_client/mail')
+
+    username = kwargs.get('username')
+    start = kwargs.get('start')
+    end = kwargs.get('end')
+    forward = kwargs.get('forward')
+
     msg = ''
     if not start:
         msg = 'Start date is empty.'
@@ -155,19 +163,12 @@ def add_forward(transaction, username, start, end, forward):
     elif len(forward) > 256:
         msg = 'Forward is too long ( max. 256 charcters).'
     if not msg:
-        page = MailUserTemplate()
-        account = transaction.get_commands().get_account_by_name(username)
-        page.tr = transaction
-        page.account = get_user_info(transaction, username)
-        page.vacations = get_vacations(transaction, account)
-        page.forwards = get_forwards(transaction, account)
-        if not page.messages:
-            page.messages = get_messages()
-        page.set_focus('add_forward/')
-        res = str(page)
-        return [res]
+        msg = 'Forward added.'
+        error = False
     else:
-        rollback_url('/user_client/mail', msg, err=True)
+        error = True
+
+    rollback_url('/user_client/mail', msg, err=error)
 add_forward = transaction_decorator(add_forward)
 add_forward.exposed = True
 
