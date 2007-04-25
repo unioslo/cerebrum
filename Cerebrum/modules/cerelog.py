@@ -865,8 +865,9 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
         REPLACEMENT  -- ... what to replace SUBSTITUTE with.
         """
 
-        super(self.__class__, self).__init__(logdir, "a",
-                                             maxBytes, backupCount, encoding)
+        super(CerebrumSubstituteHandler, self).__init__(logdir, "a",
+                                                        maxBytes,
+                                                        backupCount, encoding)
 
         self.substitution = re.compile(substitute)
         self.replacement = replacement
