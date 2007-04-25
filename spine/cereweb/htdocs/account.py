@@ -31,7 +31,7 @@ from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
 from lib.templates.AccountCreateTemplate import AccountCreateTemplate
-from SpineIDL.Errors import NotFoundError
+from SpineIDL.Errors import NotFoundError, IntegrityError
 
 def _get_links():
     return (
@@ -118,6 +118,7 @@ def make(transaction, id, name, expire_date="", np_type=None,
          _other=None, join=False, primary_group=None):
     commands = transaction.get_commands()
 
+    referer = cherrypy.request.headerMap.get('Referer', '')
     owner = transaction.get_entity(int(id))
     if _other:
         name = _other
@@ -129,7 +130,11 @@ def make(transaction, id, name, expire_date="", np_type=None,
         np_type = transaction.get_account_type(np_type)
         account = commands.create_np_account(name, owner, np_type, expire_date)
     else:
-        account = commands.create_account(name, owner, expire_date)
+        try:
+            account = commands.create_account(name, owner, expire_date)
+        except IntegrityError, e:
+            queue_message('Could not create account,- possibly identical usernames.', error=True)
+            redirect(referer)
     if join and owner.get_type().get_name() == "group":
         operation = transaction.get_group_member_operation_type("union")
         owner.add_member(account, operation)
