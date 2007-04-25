@@ -85,6 +85,10 @@ class Session:
 
     logout.signature = None
 
+    def is_admin(self):
+        pass
+    is_admin.signature = int
+
 # Build corba-classes and IDL
 
 Builder.build_everything()
@@ -172,7 +176,17 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         assert transaction in self._transactions
         drop_associated_objects(transaction)
         del self._transactions[transaction]
-        
+
+    def is_admin(self):
+        """Return true if the user is a member of the cereweb_basic group."""
+        if self.client.is_superuser(): return 1
+
+        admin_group = getattr(cereconf, 'SPINE_ADMIN_GROUP', 'cereweb_basic')
+        if admin_group in [g.get_name() for g in self.client.get_groups()]:
+            return 1
+        else:
+            return 0
+
     def logout(self):
         handler = SessionHandler.get_handler()
         handler.remove(self)
