@@ -17,6 +17,8 @@ op_sets = {
     ],
     'user_client': [
         ('Account.get_name', None),
+        ('Group.get_name', None),
+        ('Group.get_description', None),
         ('Commands.get_account_by_name', None),
         ('EmailTarget.get_forwards', None),
         ('EmailTarget.get_vacations', None),
@@ -34,6 +36,7 @@ op_sets = {
         ('Date.get_second', None),
         ('Date.get_unix', None),
         ('Date.get_year', None),
+        ('OU.get_name', None),
     ],
     'admin_client': [
         ('AccountAuthentication.get_account', None),
@@ -619,6 +622,9 @@ op_sets = {
         ('Person.get_quarantines', None),
         ('Person.get_spreads', None),
         ('Person.is_quarantined', None),
+        ('PersonAffiliation.get_affiliation', None),
+        ('PersonAffiliation.get_ou', None),
+        ('PersonAffiliation.get_status', None),
     ],
 }
 
