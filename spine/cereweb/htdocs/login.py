@@ -31,7 +31,7 @@ import SpineClient
 
 Spine = SpineClient.SpineClient(config=config.conf)
 
-def login(username='', password='', redirect='/index', msg=''):
+def login(username='', password='', client='/user_client', redirect='/index', msg=''):
     error = None
 
     # Normalize redirect.
@@ -49,13 +49,15 @@ def login(username='', password='', redirect='/index', msg=''):
     try: 
         session = cherrypy.session['session']
         if session.get_timeout():
-            utils.redirect(redirect)
+            utils.redirect(cherrypy.session.get('client', client))
     # cherrypy session exists but no spine session
     except CORBA.OBJECT_NOT_EXIST, e:
         cherrypy.session.clear()
     # No cherrypy session
     except KeyError, e:
         pass
+
+
 
     if username and password:
         error = "Login"
@@ -71,10 +73,13 @@ def login(username='', password='', redirect='/index', msg=''):
 
             cherrypy.session['session'] = session
             cherrypy.session['username'] = username
+            cherrypy.session['client'] = client
             cherrypy.session['timeout'] = session.get_timeout()
             cherrypy.session['encoding'] = session.get_encoding()
             cherrypy.session['options'] = Options(session, username)
             
+            if redirect == '/index':
+                redirect = client
             utils.redirect(redirect)
 
     messages = []

@@ -52,6 +52,9 @@
                         $form_widgets.password('password', $_('Password'))
                     </div>
                     <div>
+                        $form_widgets.generate_loption('client', $_("Log in as"), [('/user_client', $_('User')), ('/index', $_('Administrator'))], 'admin')
+                    </div>
+                    <div>
                         <label class="hidden" for="submit">Submit:</label>
                         <input id="submit" type="submit" value="Login" />
                     </div>
