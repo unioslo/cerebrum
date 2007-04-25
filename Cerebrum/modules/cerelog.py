@@ -879,7 +879,7 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
     def open(self):
         super(CerebrumSubstituteHandler, self).open()
         # Force our permissions
-        os.chmod(self.filename, permissions)
+        os.chmod(self.filename, self.permissions)
     # end open
 
 
