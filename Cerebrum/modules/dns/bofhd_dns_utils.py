@@ -360,8 +360,9 @@ class DnsBofhdUtils(object):
         # If we now have two A-records for the same IP, register an
         # override for the previous ip.
         if len(old_a_records) == 1:
-            self._ip_number.add_reverse_override(
-                ip_id, old_a_records[0]['dns_owner_id'])
+            if len(self._ip_number.list_override(ip_number_id=ip_id, dns_owner_id=old_a_records[0]['dns_owner_id'])) < 1:
+                self._ip_number.add_reverse_override(
+                    ip_id, old_a_records[0]['dns_owner_id'])
         return self._arecord.entity_id
 
     def alloc_arecord(self, host_name, subnet, ip, force):
