@@ -300,12 +300,16 @@ class BofhdAuthRole(DatabaseAccessor):
             ewhere.append("op_set_id=:op_set_id")
         if op_target_id is not None:
             ewhere.append("op_target_id=:op_target_id")
-        return self.query("""
+        sql = """
         SELECT DISTINCT entity_id, op_set_id, op_target_id
-        FROM [:table schema=cerebrum name=auth_role]
+        FROM [:table schema=cerebrum name=auth_role]"""
+        if ewhere:
+            sql += """
         WHERE (%s)""" % " AND ".join(ewhere), {
             'op_set_id': op_set_id,
-            'op_target_id': op_target_id})
+            'op_target_id': op_target_id}
+
+        return self.query(sql)
 
     def list_owners(self, target_ids):
         """Return info about who owns the given target_ids"""
