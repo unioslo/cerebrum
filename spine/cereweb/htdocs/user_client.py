@@ -82,13 +82,13 @@ def get_user_info(transaction,username):
             user['external_id'].append(extdict)
     spreads = account.get_spreads()
     for spread in spreads:
-        user['spreads'].append((spread.get_name(),spread.get_description()))
+        user['spreads'].append((spread.get_name(), spread.get_description()))
     groups = account.get_groups()
     for group in groups:
         user['groups'].append((group.get_name(), group.get_description()))
     affiliations = account.get_owner().get_affiliations()
     for affiliation in affiliations:
-        user['affiliations'].append((affiliation.get_affiliation().get_name(), affiliation.get_ou().get_name(), affiliation.get_status().get_name()))
+        user['affiliations'].append((affiliation.get_affiliation().get_name(), affiliation.get_status().get_description(), affiliation.get_ou().get_name()))
     return user
 
 def mail(transaction):
