@@ -171,80 +171,31 @@ class AccountUtil(object):
     create_user=staticmethod(create_user)
 
 
-    
     def _update_email(account_obj):
-        # The UIT way of handling student email
-        student_email = "%s@mailbox.uit.no" % (account_obj.account_name)
+        em = Email.email_address(db)
+        ad_email = em.get_employee_email(account_obj.entity_id,db)
+        if (len(ad_email)>0):
+            ad_email = ad_email[account_obj.account_name]
+        else:
+            ad_email = "%s@%s" % (account_obj.account_name,"mailbox.uit.no")
+        
         current_email = ""
         try:
             current_email = account_obj.get_primary_mailaddress()
-            
         except Errors.NotFoundError:
-            # no current mail try to retreive from ad-mail table
+            # no current primary mail.
             pass
-
-        logger.debug("UIT _update_email: student_email='%s', current='%s'" % (student_email,current_email))
-
-        # need to figure out if this a student or "fagperson"
-        only_tilknyttet = 0
-        account_types = account_obj.get_account_types(filter_expired=False)
-        for acc_aff in account_types:
-            if ((const.affiliation_student == acc_aff['affiliation']) or (const.affiliation_ansatt == acc_aff['affiliation'])):
-                only_tilknyttet = 1
-
-        if only_tilknyttet == 0 and current_email =="":
-            student_email = "%s@mailbox.uit.no" % (account_obj.account_name)
-            logger.debug("account:%s only has a tilknyttet affiliation, use %s@mailbox.uit.no" % (account_obj.account_name,account_obj.account_name))
-
-            
-        if (current_email != student_email):
+    
+        if (current_email.lower() != ad_email.lower()):
             # update email!
-            em = Email.email_address(db)
+            logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
             try:
-                # We need an additional check here. If the student already has an employee account
-                # with an employee primary email address, this script must NOT update the primary
-                # email address (only add an additional email address).
-                # if person_affiliation_soure.affiliation == ansatt && person_affiliation_source.delete_date == NULL
-                #   do not update primary email
-                # else:
-                #   update_primary_email
-                person_id = account_obj.owner_id
-                my_person = Factory.get('Person')(db)
-                my_person.clear()
-                my_person.find(person_id)
-                affiliations = my_person.get_affiliations()
-                update_primary_email=True
-                #print "PERSON ID->%s,affiliations=%s" % (person_id,affiliations)
-                for i in affiliations:
-                    #print "AFF-> %s" % i
-                    #print "affiliation=>>%s, delete_date=%s" % (i.affiliation,i.deleted_date)
-                    if( ((i.affiliation==const.affiliation_ansatt) and 
-                         (i.deleted_date==None))
-                         or 
-                         ( (i.affiliation==const.affiliation_tilknyttet) and 
-                           (i.deleted_date==None) and 
-                           (i.source_system==const.system_x)
-                          )
-                        ):
-                        update_primary_email=False
-                        #print "has employee affiliation. do not update primary email"
-                        #print "affiliation=%s,create_date=%s,delete_date=%s" % (i.affiliation,i.create_date,i.deleted_date)
-                if update_primary_email==False:
-                    logger.debug("adding student email")
-                    em.process_mail(account_obj.entity_id,"no_primary_update",student_email)
-                else:
-                    logger.debug("has no employee affiliation. update primary email")
-                    em.process_mail(account_obj.entity_id,"defaultmail",student_email)
-
-                logger.debug("UIT: process mailaddr update!")
+                em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
             except Exception:
-                logger.debug("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,student_email))
+                logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
                 sys.exit(2)
         else:
-            #current email = student_email :=> we need to do nothing. all is ok....
-            pass
-        
-        # end update_mail()
+            logger.debug("Email update not needed old='%s', new='%s'" % ( current_email, ad_email))        
     _update_email=staticmethod(_update_email)
 
         
