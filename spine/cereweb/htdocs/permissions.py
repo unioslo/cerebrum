@@ -45,14 +45,14 @@ def roles(transaction):
     page.roles = []
     for role in transaction.get_auth_role_searcher().search():
         e = role.get_entity()
-        if e.get_name() in ['cereweb_self', 'cereweb_public', 'cereweb_basic']:
-            continue
+        #if e.get_name() in ['cereweb_self', 'cereweb_public', 'cereweb_basic']:
+        #    continue
 
         t = role.get_target()
 
         t_type = t.get_type()
         if t_type == 'self':
-            continue
+            target = 'Self'
         elif t_type == 'global':
             target = 'All'
         else:
@@ -166,6 +166,14 @@ def add(transaction, **vargs):
     except NotFoundError, e:
         queue_message(_("Could not find op_set %s" % vargs.get('op_set')), error=True)
         redirect('/permissions/')
+
+
+    try:
+        role = transaction.get_auth_role(group, op_set, target)
+        queue_message(_("Role already exists."), error=True)
+        redirect('/permissions/')
+    except NotFoundError, e:
+        pass
 
     try:
         transaction.get_commands().create_auth_role(group, op_set, target)
