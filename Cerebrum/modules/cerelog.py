@@ -498,6 +498,40 @@ def cerelog_init(config_file, name):
 
 
 
+class CerelogStreamWriter(codecs.StreamWriter):
+    """Convert all input to specified charsets.
+
+    The purpose of this class is to allow:
+
+    stream.write('foo')
+    stream.write('foo זרו')
+    stream.write(unicode('foo'))
+    stream.write(unicode('foo זרו', 'latin1'))
+
+    ... so that the client code does not have to care about the
+    encodings, regardless of the encodings specified in logging.ini.
+    """
+
+    def write(self, obj):
+        """Force conversion to self.encoding."""
+
+        # We force strings to unicode. Strings are assumed to be in latin1,
+        # although this should be parametrised. 
+        if self.encoding and isinstance(obj, str):
+            obj = obj.decode("latin1")
+
+        data, consumed = self.encode(obj, self.errors)
+        self.stream.write(data)
+    # end write
+
+    def writelines(self, lines):
+
+        self.write(''.join(lines))
+    # end writelines
+# end CerelogStreamWriter
+
+
+
 class CerebrumLogger(logging.Logger, object):
     """
     This is the logger class used by the Cerebrum framework.
@@ -652,7 +686,7 @@ class DelayedFileHandler(logging.FileHandler, object):
 
         self.baseFilename = os.path.abspath(filename)
         self.mode = mode
-        self.encoding = encoding
+        self.encoding = encoding or "latin1"
         self.formatter = None
         self.stream = None
     # end __init__
@@ -679,11 +713,33 @@ class DelayedFileHandler(logging.FileHandler, object):
     
     
     def open(self):
-        if self.encoding is None:
-            self.stream = open(self.baseFilename, self.mode)
-        else:
-            self.stream = codecs.open(self.baseFilename, self.mode,
-                                      self.encoding)
+        mode = self.mode
+        if 'b' not in mode:
+            mode = mode + 'b'
+
+        # We want to make sure that both unicode and str objects can be output
+        # to the logger without the client code having to care about the
+        # situation.
+        #
+        # The problem with the object returned from codecs.open(), is that it
+        # assumes that whatever is given to write() is *already* in the
+        # encoding specified as the parameter. This works most of the time,
+        # but breaks down when we pass a string with רזו to a stream that
+        # assumes the input is in UTF-8.
+        #
+        # This is a slight variation of what codecs.open() does (and python's
+        # logging module uses codecs.open() to enable various encodings for
+        # the logs on file)
+        stream = file(self.baseFilename, mode)
+        encoder, decoder, reader, writer = codecs.lookup(self.encoding)
+        
+        srw = codecs.StreamReaderWriter(stream, reader, CerelogStreamWriter)
+        srw.encoding = self.encoding
+        srw.writer.encoding = srw.encoding
+        srw.writer.encode = encoder
+
+        self.stream = srw
+        return self.stream
     # end open
 # end DelayedFileHandler
 
