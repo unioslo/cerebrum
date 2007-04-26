@@ -35,7 +35,7 @@
 #def viewInfo($account)
     #set $info = []
     #set $notice = []
-    $info.append(($_('Name'), $account['username']))
+    $info.append(($_('Account name'), $account['username']))
     $info.append(($_('Owned by'), $account['fullname']))
     $info.append(($_('Birthdate'), $account.get('birthdate', '')))
     #if $account['quarantined'] == 1
@@ -123,9 +123,9 @@
 <div class="view_content">
     ## Content
     $viewInfo($account)
-    $setPassword($account)
-    $viewSpreads($account)
-    $viewGroups($account)
     $viewAffiliations($account)
+    $viewGroups($account)
+    $viewSpreads($account)
+    $setPassword($account)
 </div>
 #end def
