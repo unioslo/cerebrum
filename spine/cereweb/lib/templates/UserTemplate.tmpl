@@ -55,6 +55,63 @@
     $widgets.viewInfo($info, $notice)
 #end def
 
+#def viewSpreads($account)
+    <div class="info box">
+    <h3>Spreads</h3>
+    <table>
+    #for $spread in $account['spreads']
+        <tr>
+            <td>
+                $spread[0]
+            </td>
+            <td>
+                $spread[1]
+            </td>
+        </tr>
+    #end for
+    </table>
+    </div>
+#end def
+
+#def viewGroups($account)
+    <div class="info box">
+    <h3>Groups</h3>
+    <table>
+    #for $group in $account['groups']
+        <tr>
+            <td>
+                $group[0]
+            </td>
+            <td>
+                $group[1]
+            </td>
+        </tr>
+    #end for
+    </table>
+    </div>
+#end def
+
+#def viewAffiliations($account)
+    <div class="info box">
+    <h3>Affiliations</h3>
+    <table>
+    #for $aff in $account['affiliations']
+        <tr>
+            <td>
+                $aff[0]
+            </td>
+            <td>
+                $aff[1]
+            </td>
+            <td>
+                $aff[2]
+            </td>
+        </tr>
+    #end for
+    </table>
+    </div>
+#end def
+
 #def setPassword($account)
 <div class="list box">
     <h3>$_('Set Password')</h3>
@@ -67,5 +124,8 @@
     ## Content
     $viewInfo($account)
     $setPassword($account)
+    $viewSpreads($account)
+    $viewGroups($account)
+    $viewAffiliations($account)
 </div>
 #end def
