@@ -46,7 +46,15 @@ $searcher.set_entity($entity)
             ##    $address.full_address(), 
             ##end for
             <div>
-                $target.get_type().get_name()
+                #set $primary = $target.get_primary_address()
+                #set $primary_address = ''
+                #if $primary
+                    #set $localpart = $primary.get_local_part()
+                    #set $domainpart = $primary.get_domain().get_name()
+                    #set $primary_address = '%s@%s' % ($localpart, $domainpart)
+                #end if
+                #set $line = '%s@%s %s' % ($target.get_type().get_name(), $target.get_server().get_name(), $primary_address)
+                $line
             </div>
         </div>
     #end for

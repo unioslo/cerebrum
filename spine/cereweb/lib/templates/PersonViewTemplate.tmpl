@@ -207,6 +207,40 @@
 #end for
 </div>
 #end if
+## -----
+## #set $source_systems = {}
+## #set $names = $person.get_names()
+## #if $names
+##     <div class="info box">
+##     #for $name in $names
+##         #set $ss = $name.get_source_system()
+##         #if not $ss.get_name() == 'Cached'
+##             #set $name_variant = $name.get_name_variant()
+##             #set $ss_name = $ss.get_name()
+##             #if not $ss_name in $source_systems
+##                 $source_systems[$ss_name] = {}
+##                 $source_systems[$ss_name]['id'] = person.get_id()
+##             #end if
+##             $source_systems[$ss_name][$name_variant] = $name.get_name()
+##         #end if
+##     #end for
+##     <table>
+##     #for $ss_name in $source_systems.keys()
+##         <tr>
+##             <td>
+##                 $ss_name
+##             </td>
+##             #for $variant in $source_systems[$ss_name].keys()
+##                 <td>
+##                     #set $line = '%s %s' % ( $variant, $source_systems[$ss_name][$variant])
+##                     $line
+##                 </td>
+##             #end for
+##         </tr>
+##     #end for
+##     </table>
+##     </div>
+## #end if
 #end def
 
 #def setName($person, $transaction)
