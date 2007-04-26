@@ -68,8 +68,12 @@ class BDB:
     def get_accounts(self):
         cursor = self.db.cursor()
         cursor.execute("SELECT b.passord_type, b.gruppe, b.person, b.brukernavn, b.siden, b.utloper \
-                        ,b.unix_uid, b.skall, b.standard_passord, b.id, b.status FROM bruker b,person p \
-                        WHERE b.user_domain=1 and b.person = p.id and p.personnr is not null") 
+                        ,b.unix_uid, b.skall, b.standard_passord, b.id, b.status, g.unix_gid \
+                        FROM bruker b,person p, gruppe g \
+                        WHERE b.user_domain=1 AND \
+                              b.person = p.id AND \
+                              b.gruppe =  g.id AND \
+                              p.personnr is not null") 
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
         accounts = []
@@ -101,6 +105,8 @@ class BDB:
                 a["id"] = ba[9]
             if ba[10]:
                 a["status"] = ba[10]
+            if ba[11]:
+                a["unix_gid"] = ba[11]
 
             accounts.append(a)
         cursor.close()
