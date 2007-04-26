@@ -87,7 +87,7 @@ fast_test = False
 autostud = logger = accounts = persons = None
 default_creator_id = default_expire_date = default_shell = None
 
-def pformat():
+def pformat(obj):
     return pformat.pp.pformat(obj)
 # end pformat
 pformat.pp = pprint.PrettyPrinter(indent=4)
