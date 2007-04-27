@@ -8,6 +8,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.ntnu import access_BDB
+from Cerebrum.modules import PosixUser
+from Cerebrum.modules import PosixGroup
 
 import mx
 import util
@@ -40,9 +42,13 @@ class BDBSync:
         self.new_person = Factory.get('Person')(self.db)
         self.ac = Factory.get('Account')(self.db)
         self.group = Factory.get('Group')(self.db)
+        self.posix_group = PosixGroup.PosixGroup(self.db)
+        self.posix_user = PosixUser.PosixUser(self.db)
         self.logger = Factory.get_logger("console")
         self.logger.info("Starting import_BDB")
-
+        self.ac.find_by_name('bootstrap_account')
+        self.initial_account = self.ac.entity_id
+        self.ac.clear()
 
     def sync_vacation(self):
         """Not implemented yet"""
@@ -54,15 +60,15 @@ class BDBSync:
 
     def sync_affiliations(self):
         self.logger.debug("Getting affiliations from BDB...")
-        self.aff_type = {}
-        self.aff_type[1] = self.const.affiliation_student
-        self.aff_type[2] = self.const.affiliation_ansatt
-        self.aff_type[3] = self.const.affiliation_ansatt
-        self.aff_type[4] = self.const.affiliation_manuell_ekst_stip
-        self.aff_type[5] = self.const.affiliation_manuell_annen
-        self.aff_type[12] = self.const.affiliation_manuell_annen
-        self.aff_type[7] = self.const.affiliation_manuell_emeritus
-        self.aff_type[9] = self.const.affiliation_manuell_alumni
+        self.aff_map = {}
+        self.aff_map[1] = self.const.affiliation_student
+        self.aff_map[2] = self.const.affiliation_ansatt
+        self.aff_map[3] = self.const.affiliation_ansatt
+        self.aff_map[4] = self.const.affiliation_manuell_ekst_stip
+        self.aff_map[5] = self.const.affiliation_manuell_annen
+        self.aff_map[7] = self.const.affiliation_manuell_emeritus
+        self.aff_map[9] = self.const.affiliation_manuell_alumni
+        self.aff_map[12] = self.const.affiliation_manuell_annen
         global verbose,dryrun
         if verbose:
             print "Getting affiliations from BDB"
@@ -106,13 +112,15 @@ class BDBSync:
         #Search up the entity-id for this OrgUnit
         try:
             ou.find_stedkode(faknr,instituttnr,gruppenr,cereconf.DEFAULT_INSTITUSJONSNR)
+            if verbose:
+                print "Got match on stedkode %s bdb-person: %s" % (_oucode,aff['person'])
         except Errors.NotFoundError:
             if verbose:
                 print "Got no match on stedkode %s bdb-person: %s" % (_oucode,aff['person'])
             self.logger.error("Got no match on stedkode %s for bdb-person: %s" % (_oucode,aff['person']))
             return 
 
-        aff_type = self.aff_type[aff['aff_type']]
+        aff_type = self.aff_map[aff['aff_type']]
         aff_status = const.affiliation_tilknyttet
 
         person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status) 
@@ -270,6 +278,19 @@ class BDBSync:
         #    self.db.rollback()
         #    self.logger.error("Rolling back transaction.Reason: %s" % str(e))
         #    return
+
+    def _is_posix_group(self,group):
+        res = False
+        if 'gid' in group:
+            res = True
+        return res
+
+    def _validate_group(self,group):
+        res = True
+        if not 'name' in group:
+            self.logger.error("Group %s is invalid, has no name." % grp['id'])
+            res = False
+        return res
         
     def sync_groups(self):
         """
@@ -277,21 +298,100 @@ class BDBSync:
         """
         global verbose,dryrun
         groups = self.bdb.get_groups()
+        posix_group = self.posix_group
+        group = self.posix_group
+        creator_id = self.initial_account
 
-        for group in groups:
-            if not 'name' in group:
-                self.logger.error("Group %s has no name, skipping." % group)
+        def _clean_name(name):
+            name = name.replace('-','_')
+            name = name.replace(' ','_')
+            name = name.lower()
+            name = 'g_' + name
+            return name
+
+        for grp in groups:
+            posix_group.clear()
+            group.clear()
+            if not self._validate_group(grp):
                 continue
-            #TBD: Implement using Cerebrum-modules instead of Spine-API
-        if dryrun:
-            self.db.rollback()
-            if verbose:
-                print "Dryrun. Rolling back changes that would have been commited"
-        else:
-            self.db.commit()
-            if verbose:
-                print "Commiting synced groups."
+            grp['name'] = _clean_name(grp['name'])
+            if self._is_posix_group(grp):
+                try:
+                    posix_group.find_by_name(grp['name'])
+                    if verbose:
+                        print "Group %s already exists." % grp['name']
+                    continue
+                except Errors.NotFoundError:
+                    posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
+                                         name=grp['name'], description=grp['description'])
+                    try:
+                        posix_group.write_db()
+                    except self.db.IntegrityError,ie: 
+                        self.logger.error("Integrity error catched on bdb group %s. Reason: %s" % \
+                                         (grp['name'],str(ie)))
+                        if verbose:
+                            print "Integrity error catched on bdb group %s. Reason: %s" % \
+                                    (grp['name'],str(ie))
+                        continue
+                    if verbose:
+                        print "PosixGroup %s written to db" % grp['name']
+            else:
+                try:
+                    group.find_by_name(grp['name'])
+                    if verbose:
+                        print "Group %s already exists." % grp['name']
+                    continue
+                except Errors.NotFoundError:
+                    group.populate(creator_id,visibility=const.group_visibility_all,\
+                                   name=grp['name'], description=grp['description'])
+                    group.write_db()
+                    if verbose:
+                        print "Group %s written to db" % grp['name']
+                except Errors.IntegrityError,ie:
+                    self.logger.error("Integrity error catched on bdb group %s. Reason: %s" % \
+                                       (grp['name'],str(ie)))
+                    continue
+            if dryrun:
+                self.db.rollback()
+                if verbose:
+                    print "Dryrun. Adding group rolled back" 
+            else:
+                self.db.commit()
+                if verbose:
+                    print "Adding group commited"
 
+    def _promote_posix(self,account_info):
+        # TBD: rewrite and consolidate this method and the method of same name
+        #      from process_employees.py
+        global num_accounts, verbose, dryrun
+        res = True
+        group = self.group
+        posix_user = self.posix_user
+        ac = self.ac
+
+        ac.clear()
+        posix_user.clear()
+        group.clear()
+
+        ac.find(account_info['account_id'])
+        uid = account_info.get('unix_uid',posix_user.get_free_uid())
+        shell = account_info.get('shell',self.const.posix_shell_bash)
+
+        grp_name = account_info.get('group_name','posixgrp')
+        group.clear()
+        group.find_by_name(grp_name,domain=self.const.group_namespace)
+
+        try:
+            posix_user.populate(uid,group.entity_id, None, shell, parent=ac)
+            posix_user.write_db()
+            if verbose:
+                print "Account %s promoted to posix." % uid
+        except Exception,e:
+            if verbose:
+                print "Error during promote_posix. Error was: %s" % str(e)
+            self.logger.error("Error during promote_posix. Error was: %s" % str(e))
+            res = False
+        return res
 
     def _sync_account(self,account_info):
         """Callback-function. To be used from sync_accounts-method."""
@@ -299,23 +399,38 @@ class BDBSync:
         logger = self.logger
         logger.debug("Callback for %s" % account_info['id'])
 
-        # Sanity-checking
-        if not 'name' in account_info:
-            self.logger.error("Account %s has no name, skipping." % account_info)
-            return
+        def _is_posix(_account):
+            res = True
+            if not 'unix_uid' in _account:
+                res = False
+            if not 'unix_gid' in _account:
+                res = False
+            return res
+
+        def _validate(_account):
+            res = True
+            if not 'name' in account_info:
+                self.logger.error("Account %s has no name, skipping." % account_info)
+                res = False
+            return res
 
         # TODO: IMPLEMENT SYNC OF ACCOUNTS WITHOUT A PERSON
         if not 'person' in account_info:
             logger.error('Account %s has no person, skipping.' % account_info)
             return
 
+        if not _validate(account_info):
+            return
+
         # At this point, we have enough to populate/update an account
         person = self.new_person
         ac = self.ac
+        posix_user = self.posix_user
         group = self.group
 
         person.clear()
         ac.clear()
+        posix_user.clear()
         group.clear()
 
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -347,11 +462,12 @@ class BDBSync:
         # Find account-names and see if they match
         for account_id in p_accounts:
             ac.clear()
-            if type(account_id) == tuple:
-                account_id = int(account_id[0])
+            account_id = account_id[0]
+
             try:
                 account_id = int(account_id)
             except TypeError:
+                print "id is of type: %s" % type(account_id)
                 logger.error('Account-id is not of type int or string. Value: %s' % account_id)
                 if verbose:
                     print 'Account-id is not of type int or string. Value: %s' % account_id
@@ -359,6 +475,8 @@ class BDBSync:
             ac.find(account_id)
             username = ac.get_account_name()
             if username == account_info['name']:
+                # If we got a match on username, we'll update expire-date and possibly 
+                # promote the account to posix if we have enough information
                 username_match = True
                 # Update expire_date
                 if verbose:
@@ -366,13 +484,30 @@ class BDBSync:
                 logger.info('Updating account %s on person %s' % (username,person_entity))
                 ac.expire_date = account_info.get('expire_date',None)
                 if account_info.get('status','') == 1:
+                    # need more data to use this
+                    #ac.set_account_type(ou_id,aff,priority=None) 
                     pass
-                    #ac.set_account_type(ou_id,aff,priority=None) # need more data to use this
+
+                if _is_posix(account_info):
+                    try:
+                        posix_user.find(account_id)
+                        if verbose:
+                            print "Account %s is already posix. Continuing" % account_id
+                    except Errors.NotFoundError:
+                        account_info['account_id'] = ac.entity_id
+                        if self._promote_posix(account_info):
+                            logger.info("Account %s promoted to posix" % ac.entity_id)
+                        else:
+                            logger.info("Account %s not promoted to posix" % ac.entity_id)
+                            if verbose:
+                                print "Account %s not promoted to posix" % ac.entity_id
+                            self.db.rollback()
+
         if not username_match:
+            # New account - check if the username is reserved 
             first_name = person.get_name(const.system_cached, const.name_first)
             last_name = person.get_name(const.system_cached, const.name_last)
             ac.clear()
-            # New account - check if the username is reserved 
             uname = None
             try:
                 ac.find_by_name(account_info['name'])
@@ -389,35 +524,46 @@ class BDBSync:
             if verbose:
                 print "Adding new account %s on person %s" % (uname,person_entity)
             logger.info('Adding new account %s on person %s' % (uname,person_entity))
-            #try:
             ac.clear()
-            ac.populate(name=uname,
+            if _is_posix(account_info):
+                posix_user.populate(posix_uid=account_info['unix_uid'],
+                        gid_id=account_info['unix_gid'],
+                        gecos=posix_user.simplify_name(person.get_name(const.system_cached,const.name_full),as_gecos=1),
+                        shell=const.posix_shell_bash,
+                        name = uname,
+                        owner_type = const.entity_person,
+                        owner_id = person_entity,
+                        creator_id = default_creator_id,
+                        np_type = None,
+                        expire_date=account_info['expire_date'],
+                        parent=None)
+                try:
+                    posix_user.write_db()
+                except Exception,e:
+                    if verbose:
+                        print 'write_db failed on user %s. Reason: %s' % (uname,str(e))
+                    logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
+                    self.db.rollback()
+                    return
+            else:
+                ac.populate(name=uname,
                         owner_type = const.entity_person,
                         owner_id = person_entity,
                         np_type = None,
                         creator_id = default_creator_id,
                         expire_date = default_expire_date)
-            try:
-                ac.write_db()
-            except Exception,e:
-                logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
-                self.db.rollback()
-                return
-        #TBD: Check for primary group first
-        #TBD: Add posix-info
-        #TBD: Set passwords
-        #grp_name = "posixgrp"
-        #group.clear()
-        #group.find_by_name(grp_name,domain=const.group_namespace)
-        #try:
-        #    ac.write_db()
-        #except Exception,e:
-        #    print "Exception caught while writing to db. Reason: %s" % str(e)
-        #    print uname,const.entity_person,person_entity,np_type,default_creator_id,default_expire_date
-        #    self.db.rollback()
-        #    return
+                try:
+                    ac.write_db()
+                except Exception,e:
+                    if verbose:
+                        print 'write_db failed on user %s. Reason: %s' % (uname,str(e))
+                    logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
+                    self.db.rollback()
+                    return
         try:
             if dryrun:
+                if verbose:
+                    print "Dryrun - rollback called" 
                 self.db.rollback()
             else:
                 self.db.commit()
@@ -427,9 +573,9 @@ class BDBSync:
                 num_accounts += 1
         except Exception,e:
             self.db.rollback()
-            logger.error('Exception caught while trying to commit. Reason: %s' % str(e))
+            logger.error('Exception caught while trying to commit. Rolling back. Reason: %s' % str(e))
             if verbose:
-                print 'Exception caught while trying to commit. Reason: %s' % str(e)
+                print 'Exception caught while trying to commit. Rolling back. Reason: %s' % str(e)
             return
             
 
@@ -475,6 +621,10 @@ def main():
     for opt,val in opts:
         if opt in ('-h','--help'):
             usage()
+        elif opt in ('-v','--verbose'):
+            verbose = True
+        elif opt in ('-d','--dryrun'):
+            dryrun = True
         elif opt in ('-p','--people'):
             sync.sync_persons()
         elif opt in ('-a','--account'):
@@ -483,10 +633,6 @@ def main():
             sync.sync_affiliations()
         elif opt in ('-g','--group'):
             sync.sync_groups()
-        elif opt in ('-v','--verbose'):
-            verbose = True
-        elif opt in ('-d','--dryrun'):
-            dryrun = True
         else:
             usage()
 
