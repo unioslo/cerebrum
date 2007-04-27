@@ -81,8 +81,6 @@ class ExternalIDParser(xml.sax.ContentHandler):
         self.data = list()
 
         xml.sax.parse(filename, self)
-    # end __init__
-
     
 
     def startElement(self, name, attrs):
@@ -95,29 +93,19 @@ class ExternalIDParser(xml.sax.ContentHandler):
             self.current = attrs
         else:
             logger.warn("WARNING: unknown element: %s" % name)
-        # fi
-    # end startElement
-
     
 
     def endElement(self, name):
         if name == "external_id":
             self.data.append(self.current)
-        # fi
-    # end endElement
-
 
 
     def getSourceSystem(self):
         return self.source_system
-    # end getSourceSystem
 
 
     def __iter__(self):
         return iter(self.data)
-    # end __iter__
-# end ExternalIDParser
-
 
 
 def get_id_type(kind, const):
@@ -130,9 +118,6 @@ def get_id_type(kind, const):
     except Errors.NotFoundError:
         logger.warn("Cannot locate id type '%s'", kind)
         return None
-    # yrt
-# end get_id_type
-
 
 
 def remove_cyclic_updates(all_updates):
@@ -158,14 +143,11 @@ def remove_cyclic_updates(all_updates):
             self.date = self.data["date"]
             # Used for cycle detection
             self.mark = 0
-        # end __init__
 
         def __str__(self):
             return "%s -> %s (@ %s)" % (self.data["old"],
                                         self.data["new"],
                                         self.data["date"])
-        # end __str__
-    # end class
 
     logger.info("Removing cyclic updates")
 
@@ -180,8 +162,6 @@ def remove_cyclic_updates(all_updates):
             logger.debug("More recent ID change: %s -> %s @ %s (%s)",
                          from_id, i["new"], i["date"], graph[from_id])
             graph[from_id] = node(i)
-        # fi
-    # od
 
     # Link all nodes.
     # 2) If the node representing the ID we change to is not present, it
@@ -193,7 +173,6 @@ def remove_cyclic_updates(all_updates):
         n.link = graph.get(follower, None)
         if n.link:
             n.link.mark += 1
-    # od
 
     #
     # topological sort
@@ -207,19 +186,12 @@ def remove_cyclic_updates(all_updates):
             item.link.mark -= 1
             if item.link.mark == 0:
                 queue.append(item.link)
-        # fi
-    # od
-
 
     for key in graph:
         if key not in result:
             logger.debug("%s is part of a cycle, skipping", graph[key])
-        # fi
-    # od
 
     return result.values()
-# end remove_cyclic_updates
-
 
 
 def process_file(filename, db, const, person_old, person_new, exemptions):
@@ -237,7 +209,6 @@ def process_file(filename, db, const, person_old, person_new, exemptions):
     except Errors.NotFoundError:
         logger.warn("Failed to locate authoritative system '%s'", source_system)
         return
-    # yrt
 
     logger.info("Source system is '%d' (%s)", source_system, source_system_name)
 
@@ -254,12 +225,10 @@ def process_file(filename, db, const, person_old, person_new, exemptions):
             logger.info("%s: %s (old) == %s (new). No changes in Cerebrum.",
                         prefix, old, new)
             continue
-        # fi
 
         id_type = get_id_type(element["type"], const)
         if id_type is None:
             continue
-        # fi
 
         try:
             person_old.clear()
@@ -268,12 +237,11 @@ def process_file(filename, db, const, person_old, person_new, exemptions):
             logger.info("%s: '%s' (old) does not exist in Cerebrum. "
                         "No changes in Cerebrum.", prefix, old)
             continue
-        # yrt
 
         try:
             person_new.clear()
             person_new.find_by_external_id(id_type, new, source_system)
-            logger.warn("%s: Both %s (%s) (old) and %s (%s) (new) exist "
+            logger.error("%s: Both %s (%s) (old) and %s (%s) (new) exist "
                         " in Cerebrum. Manual intervention required. "
                         "No changes in Cerebrum.",
                         prefix, old, person_old.entity_id,
@@ -285,10 +253,6 @@ def process_file(filename, db, const, person_old, person_new, exemptions):
             person_old.affect_external_id(source_system, id_type)
             person_old.populate_external_id(source_system, id_type, new)
             person_old.write_db()
-        # yrt
-    # od
-# end process_file
-
 
 
 def read_exemptions_file(fname):
@@ -308,11 +272,8 @@ def read_exemptions_file(fname):
         
         end_date, src_system, old_fnr, new_fnr = line.split()
         ret[(src_system, old_fnr, new_fnr)] = end_date
-    # od
     
     return ret
-# end read_exemptions_file
-
 
 
 def usage(exitcode=0):
@@ -322,8 +283,6 @@ def usage(exitcode=0):
     -e | --exemptions fname : Load exemptions from file
     """
     sys.exit(exitcode)
-# end usage
-
 
 
 def main():
@@ -342,7 +301,6 @@ def main():
     except getopt.GetoptError:
         logger.exception("Unknown option")
         sys.exit(1)
-    # yrt
 
     dryrun = False
     exemptions = {}
@@ -352,8 +310,6 @@ def main():
         elif option in ("-e", "--exemptions"):
             exemptions = read_exemptions_file(value)
 
-    # od
-
     db = Factory.get("Database")()
     db.cl_init(change_program="fnr_update")
     const = Factory.get("Constants")(db)
@@ -362,7 +318,6 @@ def main():
 
     for filename in rest:
         process_file(filename, db, const, person_old, person_new, exemptions)
-    # od
 
     if dryrun:
         db.rollback()
@@ -370,15 +325,10 @@ def main():
     else:
         db.commit()
         logger.info("Committed all changes")
-    # fi
-# end main
-
-
-
 
 
 if __name__ == "__main__":
     main()
-# fi
+
 
 # arch-tag: 4d4a69a3-914b-4139-b6ef-c12ddf61c1b5
