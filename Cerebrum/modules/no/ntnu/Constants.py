@@ -46,6 +46,10 @@ class Constants(Constants.Constants):
     trait_group_owner = _EntityTraitCode(
         'group_owner', Constants.Constants.entity_group,
         "Owner of an user administered group")
+
+    trait_reserve_publish = _EntityTraitCode(
+        'reserve_publish', Constants.Constants.entity_person,
+        "Persons reserved from anonymous lookups")
         
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
