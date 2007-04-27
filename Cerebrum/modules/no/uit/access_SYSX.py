@@ -60,8 +60,6 @@ class SYSX:
             self._guest_host_dir,
             self._guest_host_file) 
         target_file = self.sysx_data
-        print "read from: %s" % url
-        print "write to: %s" % target_file
         try:        
             import urllib
             fname,headers = urllib.urlretrieve(url,target_file)
