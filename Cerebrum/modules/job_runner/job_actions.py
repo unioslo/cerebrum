@@ -210,7 +210,14 @@ class System(CallableAction):
             os.dup2(new_stdout.fileno(), sys.stdout.fileno())
             os.dup2(new_stderr.fileno(), sys.stderr.fileno())
             try:
-                p = self.params[:]
+                p = list()
+                for argument in self.params[:]:
+                    if callable(argument):
+                        argument = argument()
+                    else:
+                        argument = str(argument)
+                    p.append(argument)
+
                 p.insert(0, self.cmd)
                 if debug_dryrun:
                     os.execv("/bin/sleep", [self.id, str(5+random.randint(5,10))])
