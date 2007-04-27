@@ -257,7 +257,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            s.fodselsdato, s.personnr, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           'NULL' as emnekode, 'NULL' as versjonskode, s.studentnr_tildelt
+           NULL as emnekode, NULL as versjonskode, s.studentnr_tildelt
         FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
            fs.studprogstud_planbekreft spp, fs.studieprogram sp,
            fs.person p
