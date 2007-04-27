@@ -31,9 +31,11 @@ $searcher.set_entity($entity)
 #if $targets
 <div class="info box">
     <h3>$_('Email targets')</h3>
-    #for $target in $targets:
+    <table>
+    #for $target in $targets
+        <tr>
         #set $addresses = $target.get_addresses()
-        <div class="item">
+        ##<div class="item">
         $target.get_alias_value()
             <div class="actions">
                 #set $url = "/emailtarget/view?id=%d" % $target.get_id()
@@ -46,18 +48,28 @@ $searcher.set_entity($entity)
             ##    $address.full_address(), 
             ##end for
             <div>
-                #set $primary = $target.get_primary_address()
                 #set $primary_address = ''
-                #if $primary
-                    #set $localpart = $primary.get_local_part()
-                    #set $domainpart = $primary.get_domain().get_name()
+                #if $target.get_primary_address()
+                    #set $localpart = $target.get_primary_address().get_local_part()
+                    #set $domainpart = $target.get_primary_address().get_domain().get_name()
                     #set $primary_address = '%s@%s' % ($localpart, $domainpart)
                 #end if
-                #set $line = '%s@%s %s' % ($target.get_type().get_name(), $target.get_server().get_name(), $primary_address)
-                $line
+                #set $servername = ''
+                #if $target.get_server()
+                    #set $servername = $target.get_server().get_name()
+                #end if
+                #set $target_type = '%s@%s' % ($target.get_type().get_name(), $servername)
+                <td>
+                    $target_type
+                </td>
+                <td>
+                    $primary_address
+                </td>
             </div>
-        </div>
+        ##</div>
+        </tr>
     #end for
+    </table>
 </div>
 #end if
 #end def
