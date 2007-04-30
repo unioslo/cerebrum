@@ -48,6 +48,7 @@ import quarantine
 import worklist
 import permissions
 import user_client
+import activation
 import ajax
 
 def _get_links():

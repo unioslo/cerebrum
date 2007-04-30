@@ -5,6 +5,8 @@ max_hits: 200
 [SpineClient]
 url: http://localhost/~erikgors/spine.ior
 idl_path: tmp_idl
+activation_user: activation 
+activation_password: activation
 
 use_ssl: false
 ca_file: CA.crt

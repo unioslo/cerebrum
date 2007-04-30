@@ -1,0 +1,191 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+##from lib.Main import Main
+##from FormWidgets import FormWidgets
+##from Widgets import Widgets
+#implements respond
+
+##attr $jscripts = ['base.js', 'timeout.js']
+##attr $widgets = Widgets()
+##attr $form_widgets = FormWidgets()
+
+## This tells us not to load the worklist.js 
+#attr $wl = 0
+## The following hack removes the bottom div which includes the $wl.
+#def page_bottom:
+## The following hack removes the tabview
+#def tabview:
+
+#def welcome($lang='no')
+Congratulations! You are now welcome to use your new account<br>
+here at our Campus. You can use the same URL (http://bas.ntnu.no) to  <br>
+look at your accounts, group-membership, manage groups (if you are owner<br>
+of one or many). You have to set a new password every N months - and of <br>
+course, you can do that here as well.
+#end def
+
+#def initpassword($lang='no')
+  <form method=post>
+    <input type=hidden name=page value=initpassword>
+    #if $lang=='no'
+      Vennligst oppgi hvilket passord du vil bruke.
+      <table border=0>
+        <tr>
+          <td>Velg passord selv:</td><td>Velg et forhåndsgenerert passord:</td>
+        </tr>
+        <tr>
+          <td>
+            Passord: <input type=password name=pw1>
+            Gjenta:  <input type=password name=pw2>
+          </td>
+          <td>
+            H3mmel16 <br>
+            H3mmel16 <br>
+            H3mmel16 <br>
+            H3mmel16 <br>
+            H3mmel16 <br>
+          </td>
+        </tr>
+        <tr>
+          <td cellspan=2>
+            NB: Passord blir ikke vist igjen. Sørg for at du husker passordet.
+            <input type=submit name=submit_pw value='OK'>
+          </td>
+        </tr>
+      </table>
+
+    <p>
+      <li>Passordet må være 8 tegn langt
+      <li>Passordet må være forskjellig fra ditt siste passord
+      <li>Passordet må inneholodet minst ett tegn fra tre av de fire gruppene:
+      <ul>
+        <li>Store bokstaver (A-Z)
+        <li>Små bokstaver (a-z)
+        <li>Siffer (0-9)
+        <li>Spesialtegn (F&oslash;lgende spesialtegn godtas ikke: space'<>;:%^&\/\\|
+    </p>
+    #elif $lang=='en'
+    #end if
+  </form>
+#end def
+
+#def eula($lang='no')
+  <FORM method=post action=/activation/>
+  #if $lang == 'no'
+    <h3>Aktivering (4/5)</h3>
+      <input type=hidden name=page value=eula>
+      <input type=hidden name=studentnr value=631120>
+      <input type=hidden name=fodselsnr value=07047646353>
+      <input type=hidden name=pin value=4410>
+      <p>
+        <a href='itreg_no.html' target='itreg'>Bokm&aring;l</A> &nbsp; 
+        <a href='itreg_en.html' target='itreg'>English</a>
+      </p>
+          Jeg bekrefter herved å ha lest NTNUs IT-reglement og jeg påtar meg de
+          forpliktelser som reglementet til enhver tid legger på meg. Jeg
+          aksepterer også de sanksjonsmuligheter som NTNU har ved brudd på
+          IT-reglementet slik det er angitt i IT-reglementets punk 4.3, 7.1 og 7.2.
+      </p>
+      <p>
+        <INPUT TYPE=checkbox NAME=godkjent_logger> 
+          Jeg gir herved tillatelse til at det kan benyttes driftslogger for å
+          identifisere min bruk av dataanlegget med de begrensninger som er spesifisert 
+          i IT-reglementets punkt 5.10.
+      </p>
+      <p>
+        <INPUT TYPE=submit name=submit_btn value='OK'>
+      </p>
+ #elif $lang == 'en'
+  <h3>Activation (4/5)</h3>
+  not implemented yet
+ #end if
+  </form>
+#end def
+
+#def studentnr($lang='no')
+  <form method=post>
+    #if $lang == 'no'
+      <h3>Aktivering (2/5)</h3>
+      Vennligst oppgi ditt studentnr.
+      Studentnummer: <input type=text name=studentnr> <input type=submit name=blapp value='OK'>
+    #elif $lang == 'en'
+      <h3>Activation (3/5)</h3>
+      Not implemented yet
+    #end if 
+    <input type=hidden name=page value=studentnr>
+  </form>
+#end def
+
+#def pinkode($lang='no')
+  <form method=post>
+    #if $lang == 'no'
+      <h3>Aktivering (3/5)</h3>
+      Vennligst oppgi PIN-kode
+      PIN-kode: <input type=text name=pin> <input type=submit name=blapp value='OK'>
+      PIN-koden (4 siffer) skal stå på den giroen du får tilsendt for betaling av semesteravgift. 
+      Hvis du ikke har fått giroen, eller har glemt koden, må du ta kontakt med 
+      <a href=http://www.ntnu.no/studentservice>Studentservice</a>
+    #elif $lang == 'en'
+      <h3>Activation (2/5)</h3>
+      Not implemented yet
+    #end if
+    <input type=hidden name=page value=pinkode>
+  </form>
+#end def
+
+#def fodselsnr($lang='no')
+  <form method=post>
+    #if $lang == 'no'
+      <h3>Aktivering (1/5)</h3>
+      Du har kommet til en tjeneste som krever at du identifiserer deg.
+      Vennligst oppgi fødselsnummer (11 siffer).
+      F&oslash;dselsnummer: <input type=text name=fnr><input type=submit name=blapp value='OK'>
+    #elif $lang == 'en'
+      <h3>Activation (1/5)</h3>
+      This service requires you to type in your 11-digit national ID number 
+      (your birth date: dd/mm/yy plus the five extra digits on your matriculation certificate). 
+    #end if
+    <table>
+    </table>
+    <input type=hidden name=page value=fodselsnr>
+  </form>
+#end def
+
+#def language 
+Vennligst velg språk / Please select language:
+<FORM METHOD=post ACTION='/activation/'>
+  <SELECT NAME=lang>
+    <OPTION VALUE="no">Norsk
+    <OPTION VALUE="en">English
+  </SELECT>
+  <input type=hidden name=page value=language>
+  <input type=submit name=language value='OK'>
+</FORM>
+#end def
+
+#def content
+<div class="view_content">
+    ## Content
+    Du har nå kommet til siden for å aktivere brukerkonto ved NTNUs IT-systemer.<br>
+    You have now reached the page used to activate your user-account at NTNUs Computer-systems.<br>
+    $choose_language()
+</div>
+#end def
+
+$content()
