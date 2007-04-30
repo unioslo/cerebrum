@@ -292,6 +292,8 @@ JOB_RUNNER_SOCKET="/tmp/jr-socket"
 
 JOB_RUNNER_LOG_DIR='.'   # Set to a place where only 'cerebrum' has write access
 JOB_RUNNER_MAX_PARALELL_JOBS = 3
+# Warn if job-runner has been paused for more than N seconds, every N second
+JOB_RUNNER_PAUSE_WARN = 3600*12
 
 # Used by Cerebrum/no/Stedkode.py
 DEFAULT_INSTITUSJONSNR=None

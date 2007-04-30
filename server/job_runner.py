@@ -139,7 +139,8 @@ class JobRunner(object):
         self.job_queue = JobQueue(scheduled_jobs, db, logger)
         self._should_quit = False
         self.sleep_to = None
-        self.queue_paused = False
+        self.queue_paused_at = 0
+        self._last_pause_warn = 0
 
     def sig_general_handler(signum, frame):
         """General signal handler, for places where we use signal.pause()"""
@@ -216,10 +217,17 @@ class JobRunner(object):
     def process_queue(self, queue, num_running, force=False):
         completed_nowait_job = False
         delta = None
+        if self.queue_paused_at > 0:
+            if self.queue_paused_at > self._last_pause_warn:
+                self._last_pause_warn = self.queue_paused_at
+            if time.time() > self._last_pause_warn + cereconf.JOB_RUNNER_PAUSE_WARN:
+                logger.warn("Job runner has been paused for %s hours" % (time.strftime(
+                    '%H:%M.%S', time.gmtime(time.time() - self.queue_paused_at))))
+                self._last_pause_warn = time.time()
         for job_name in queue:
             job_ref = self.job_queue.get_known_job(job_name)
             if not force:
-                if self.queue_paused:
+                if self.queue_paused_at > 0:
                     delta = max_sleep
                     break
                 if (job_ref.call and job_ref.call.wait and
