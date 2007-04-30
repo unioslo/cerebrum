@@ -25,6 +25,7 @@ from SpineLib.Date import Date
 
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 
+from OU import OU
 from Entity import Entity
 from Account import Account
 from Types import EntityType, GenderType, NameType, SourceSystem
@@ -62,8 +63,7 @@ class Person(Entity):
 
 registry.register_class(Person)
 
-def create_person(self, birthdate, gender, first_name, last_name, source_system):
-    db = self.get_database()
+def _create_person(db, birthdate, gender, first_name, last_name, source_system):
     new_id = Person._create(db, birthdate.strftime('%Y-%m-%d'), gender.get_id())
 
     person = Person(db, new_id)
@@ -81,10 +81,29 @@ def create_person(self, birthdate, gender, first_name, last_name, source_system)
 
     return person
 
+def create_person(self, birthdate, gender, first_name, last_name, source_system):
+    db = self.get_database()
+    return _create_person(db, birthdate, gender, first_name, last_name, source_system)
 create_person.signature = Person
 create_person.signature_args = [Date, GenderType, str, str, SourceSystem]
 create_person.signature_write = True
 
 Commands.register_methods([create_person])
+
+def ou_create_person(self, birthdate, gender, first_name, last_name, source_system, affiliation, status):
+    """
+    Normal users should only be able to create a person affiliated to an ou.
+    """
+    db = self.get_database()
+    person = _create_person(db, birthdate, gender, first_name, last_name, source_system)
+    obj = person._get_cerebrum_obj()
+    obj.populate_affiliation(source_system.get_id(), self.get_id(), affiliation, status)
+    obj.write_db()
+    return person
+ou_create_person.signature = Person
+ou_create_person.signature_name = 'create_person'
+ou_create_person.signature_args = [Date, GenderType, str, str, SourceSystem, int, int]
+ou_create_person.signature_write = True
+OU.register_methods([ou_create_person])
 
 # arch-tag: 7b2aca28-7bca-4872-98e1-c45e08faadfc

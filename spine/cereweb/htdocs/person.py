@@ -154,6 +154,9 @@ def create(transaction, **vargs):
     else:
         try:
             make(transaction,
+                vargs.get('ou'),
+                vargs.get('affiliation'),
+                vargs.get('status'),
                 vargs.get('firstname'),
                 vargs.get('lastname'),
                 vargs.get('gender'),
@@ -168,13 +171,14 @@ def create(transaction, **vargs):
 create = transaction_decorator(create)
 create.exposed = True
 
-def make(transaction, firstname, lastname, gender, birthdate, externalid, description=""):
+def make(transaction, ou, affiliation, status, firstname, lastname, gender, birthdate, externalid, description=""):
     """Create a new person with the given values."""
     birthdate = strptime(transaction, birthdate)
     gender = transaction.get_gender_type(gender)
     source_system = transaction.get_source_system('Manual')
-    person = transaction.get_commands().create_person(
-           birthdate, gender, firstname, lastname, source_system)
+    ou = transaction.get_ou(int(ou))
+    person = ou.create_person(
+           birthdate, gender, firstname, lastname, source_system, int(affiliation), int(status))
     if not externalid:
         description = 'Registerd by: %s on %s\n' % (cherrypy.session.get('username'),
                 cherrypy.datetime.date.strftime(cherrypy.datetime.date.today(), '%Y-%m-%d')) + description
