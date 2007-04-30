@@ -30,7 +30,9 @@ from Cerebrum.Utils import Factory
 
 from Entity import Entity, ValueDomainHack
 from Types import EntityType, AccountType
-from Commands import Commands
+from Cerebrum.spine.Commands import Commands
+from Cerebrum.spine.Group import Group
+from Cerebrum.spine.Person import Person
 
 from SpineLib import Registry
 registry = Registry.get_registry()
@@ -86,6 +88,23 @@ def is_expired(self):
 is_expired.signature = bool
 Account.register_methods([is_expired])
 
+def _create_account(db, name, owner_type, owner_id, np_type, expire_date):
+    new_id = Account._create(db, name, owner_type, owner_id, np_type, db.change_by, expire_date)
+    return Account(db, new_id)
+
+# create_person_account defined in Person
+
+def create_group_account(self, name, np_type, expire_date):
+    db = self.get_database()
+    expire_date = expire_date and expire_date._value or None
+    return _create_account(db, name, self.get_type().get_id(), self.get_id(), np_type.get_id(), expire_date)
+create_group_account.signature = Account
+create_group_account.signature_args = [str, AccountType, Date]
+create_group_account.signature_write = True
+create_group_account.signature_name = 'create_account'
+Group.register_methods([create_group_account])
+
+
 def create_account(self, name, owner, expire_date):
     """
     Create a new account.
@@ -94,15 +113,31 @@ def create_account(self, name, owner, expire_date):
     \\param expire_date Date on which the account will expire.
     \\return Created Account object.
     """
+    print 'WARNING: Commands.create_account is deprecated.'
     db = self.get_database()
-    new_id = Account._create(db, name, owner.get_type().get_id(), owner.get_id(), None, db.change_by, expire_date._value)
-    return Account(db, new_id)
-
+    return _create_account(db, name, owner.get_type().get_id(), owner.get_id(), None, expire_date)
 create_account.signature = Account
 create_account.signature_args = [str, Entity, Date]
 create_account.signature_write = True
 Commands.register_methods([create_account])
 
+def get_primary_account(self):
+    account_id = self._get_cerebrum_obj().get_primary_account()
+    if account_id is None:
+        return None
+    return Account(self.get_database(), account_id)
+get_primary_account.signature = Account
+get_primary_account.signature_name = 'get_primary_account'
+
+def create_person_account(self, name, expire_date):
+    db = self.get_database()
+    expire_date = expire_date and expire_date._value or None
+    return _create_account(db, name, self.get_type().get_id(), self.get_id(), None, expire_date)
+create_person_account.signature = Account
+create_person_account.signature_args = [str, Date]
+create_person_account.signature_write = True
+create_person_account.signature_name = 'create_account'
+Person.register_methods([create_person_account, get_primary_account])
 
 def create_np_account(self, name, owner, np_type, expire_date):
     """
@@ -113,12 +148,9 @@ def create_np_account(self, name, owner, np_type, expire_date):
     \\param expire_date Date on which the account will expire.
     \\return Created Account object.
     """
+    print 'WARNING: Commands.create_np_account is deprecated.'
     db = self.get_database()
-    new_id = Account._create(db, name, owner.get_type().get_id(), 
-                             owner.get_id(), np_type.get_id(), 
-                             db.change_by, expire_date._value)
-    return Account(db, new_id)
-
+    return _create_account(db, name, owner.get_type().get_id(), owner.get_id(), np_type.get_id(), expire_date._value)
 create_np_account.signature = Account
 create_np_account.signature_args = [str, Entity, AccountType, Date]
 create_np_account.signature_write = True

@@ -27,7 +27,6 @@ from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 
 from OU import OU
 from Entity import Entity
-from Account import Account
 from Types import EntityType, GenderType, NameType, SourceSystem
 from Commands import Commands
 
@@ -52,14 +51,6 @@ class Person(Entity):
     cerebrum_attr_aliases = {}
     cerebrum_class = Factory.get('Person')
     entity_type = 'person'
-
-    def get_primary_account(self):
-        account_id = self._get_cerebrum_obj().get_primary_account()
-        if account_id is None:
-            return None
-        return Account(self.get_database(), account_id)
-    get_primary_account.signature = Account
-    get_primary_account.signature_name = 'get_primary_account'
 
 registry.register_class(Person)
 
