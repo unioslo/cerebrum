@@ -529,12 +529,12 @@ class Student(FSObject):
         return self.db.query(qry)
 
 
-    def list_drgrad(self): # GetStudinfDrgrad
+    def list_drgrad(self): # GetStudinfDrgrad        
         """Henter info om aktive doktorgradsstudenter.  Aktive er
         definert til å være de som har en studierett til et program
-        som har nivåkode lik 980, og der datoen for tildelt studierett
-        er passert og datoen for fratatt studierett enten ikke er satt
-        eller ikke passert."""
+        som har nivåkode større eller lik 900, og der datoen for
+        tildelt studierett er passert og datoen for fratatt studierett
+        enten ikke er satt eller ikke passert."""
 
         qry = """
         SELECT DISTINCT
@@ -560,7 +560,6 @@ class Student(FSObject):
               (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
               NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
               NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
-              sps.status_sperr_aut_oppd = 'N' AND
               sps.studieprogramkode = sp.studieprogramkode AND
               %s AND
               sp.studienivakode >= 900""" % self._is_alive()
