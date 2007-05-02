@@ -49,6 +49,20 @@ class BDBSync:
         self.ac.find_by_name('bootstrap_account')
         self.initial_account = self.ac.entity_id
         self.ac.clear()
+        self.spread_mapping = self.get_spread_mapping()
+
+    def get_spread_mapping(self):
+        # TBD: complete the spread-mappings
+        co = self.const
+        s = {}
+        s['stud'] = int(co.spread_ntnu_stud_user)
+        s['ansatt'] = int(co.spread_ntnu_ansatt_user)
+        s['kerberos'] = int(co.spread_ntnu_ansatt_user)
+        s['iptansatt'] = int(co.spread_ntnu_iptansatt_user)
+        s['ntnu_ad'] = int(co.spread_ntnu_ntnu_ad_user)
+        s['ivt'] = int(co.spread_ntnu_ivt_user)
+        s['idi'] = int(co.spread_ntnu_idi_user)
+        return s
 
     def sync_vacation(self):
         """Not implemented yet"""
@@ -583,7 +597,7 @@ class BDBSync:
         """
         This method synchronizes all BDB accounts into Cerebrum.
         """
-        global num_accounts,verbose
+        global num_accounts,verbose,dryrun
         if verbose:
             print "Fetching accounts from BDB"
         accounts = self.bdb.get_accounts()
@@ -592,6 +606,73 @@ class BDBSync:
             self.logger.debug('Syncronizing %s' % account['name'])
             self._sync_account(account)
         print "%s accounts added or updated in sync_accounts." % str(num_accounts)
+        return
+
+    def _sync_spread(self,spread):
+        global verbose,dryrun
+        s_map = self.spread_mapping
+        ac = self.ac
+        ac.clear()
+        try:
+            ac.find_by_name(spread['username'])
+        except Errors.NotFoundError,e:
+            if verbose:
+                print "Account with name %s not found. Continuing." % spread['username']
+            self.logger.warn("Account with name %s not found. Continuing." % spread['username'])
+            return
+
+        spreads = ac.get_spread()
+        bdbspread = spread.get('spread_name')
+
+        if not bdbspread:
+            return
+
+        c_spread = s_map.get(bdbspread)
+
+        if c_spread:
+            if not int(c_spread) in spreads:
+                try:
+                    ac.add_spread(c_spread)
+                except Errors.NotFoundError,nfe:
+                    if verbose:
+                        print "Failed when adding spread. Reason: %s" % str(nfe)
+                    self.logger.error("Failed when adding spread. Reason: %s" % str(nfe))
+                    self.db.rollback()
+                    return
+                except self.db.IntegrityError,ie:
+                    if verbose:
+                        print "Spread %s propably require posix, but %s isn't. Reason: %s" % (c_spread,ac.entity_id,str(ie))
+                    self.logger.error("Spread %s propably require posix, but %s isn't. Reason: %s" % (c_spread,ac.entity_id,str(ie)))
+                    self.db.rollback()
+                    return
+                ac.write_db()
+            else:
+                # User already has this spread. 
+                return 
+        else:
+            username = spread['username']
+            s_name = spread['spread_name']
+            if verbose:
+                print "Found no matching spread %s for user %s" % (s_name,username)
+            self.logger.warning("Found no matching spread %s for user %s" % (s_name,username))
+        if not dryrun:
+            if verbose:
+                print "Commiting changes to database"
+            self.db.commit()
+        else:
+            if verbose:
+                print "Rollback changes in database"
+            self.db.rollback()
+        return
+
+    def sync_spreads(self):
+        """This method syncronizes all spreads on accounts from BDB into Cerebrum."""
+        global verbose,dryrun
+        if verbose:
+            print "Fetching accounts with spreads from BDB"
+        spreads = self.bdb.get_account_spreads()
+        for spread in spreads:
+            self._sync_spread(spread)
         return
 
 def usage():
@@ -604,6 +685,7 @@ def usage():
         --people    (-p) Syncronize persons
         --group     (-g) Syncronise posixGrourp
         --account   (-a) Syncronize posixAccounts
+        --spread    (-s) Synronize account-spreads
         --affiliations (-t) Syncronize affiliations on persons
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
@@ -614,8 +696,8 @@ def usage():
 def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
-                    'dptgavh',
-                    ['affiliations','dryrun','people','group','account','verbose','help'])
+                    'dptgasvh',
+                    ['spread','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     for opt,val in opts:
@@ -627,12 +709,14 @@ def main():
             dryrun = True
         elif opt in ('-p','--people'):
             sync.sync_persons()
-        elif opt in ('-a','--account'):
-            sync.sync_accounts()
-        elif opt in ('-t','--affiliations'):
-            sync.sync_affiliations()
         elif opt in ('-g','--group'):
             sync.sync_groups()
+        elif opt in ('-a','--account'):
+            sync.sync_accounts()
+        elif opt in ('-s','--spread'):
+            sync.sync_spreads()
+        elif opt in ('-t','--affiliations'):
+            sync.sync_affiliations()
         else:
             usage()
 
