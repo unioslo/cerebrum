@@ -20,6 +20,7 @@
 
 import sys
 import cerebrum_path
+import cereconf
 from Cerebrum import Utils
 from Cerebrum.Entity import EntityName
 from Cerebrum.modules.bofhd.errors import PermissionDenied
