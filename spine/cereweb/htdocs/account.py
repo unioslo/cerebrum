@@ -110,7 +110,7 @@ def create(transaction, **vargs):
             vargs.get('np_type'),
             vargs.get('_other'),
             vargs.get('join'),
-            vargs.get('primary_group'))
+            vargs.get('group'))
 create = transaction_decorator(create)
 create.exposed = True
 
@@ -138,17 +138,18 @@ def make(transaction, owner, name, expire_date="", np_type=None,
     if join and owner.get_type().get_name() == "group":
         operation = transaction.get_group_member_operation_type("union")
         owner.add_member(account, operation)
+
     if primary_group:
         referer = cherrypy.request.headerMap.get('Referer', '')
         try:
             primary_group = commands.get_group_by_name(primary_group)
+            operation = transaction.get_group_member_operation_type("union")
+            primary_group.add_member(account, operation)
+            if primary_group.is_posix():
+                _promote_posix(transaction, account, primary_group)
         except NotFoundError, e:
             rollback_url(referer, _("Could not find group %s.  Account not created." % primary_group), err=True)
 
-        if not primary_group.is_posix():
-            rollback_url(referer, _("Group %s is not a posix group.  Account not created." % primary_group.get_name()), err=True)
-
-        _promote_posix(transaction, account, primary_group)
     commit(transaction, account, msg=_("Account successfully created."))
 
 def view(transaction, id, **vargs):
