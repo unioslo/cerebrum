@@ -30,6 +30,7 @@ from SpineLib.SpineExceptions import ValueError
 from CerebrumClass import CerebrumAttr, CerebrumDbAttr
 from Cerebrum.Utils import Factory
 
+from OU import OU
 from Entity import Entity, ValueDomainHack
 from Types import EntityType, GroupVisibilityType
 from Commands import Commands
@@ -74,6 +75,20 @@ class Group(Entity):
 
 ## Group is registered in PosixGroup
 #registry.register_class(Group)
+
+def create_ou_group(self, name):
+    db = self.get_database()
+    try:
+        new_id = Group._create(db, db.change_by, GroupVisibilityType(db, name='A').get_id(), name)
+    except Cerebrum.Database.IntegrityError:
+        raise ValueError('The given group name could not be created.')
+    return Group(db, new_id)
+create_ou_group.signature = Group
+create_ou_group.signature_name = 'create_group'
+create_ou_group.signature_exceptions = [ValueError]
+create_ou_group.signature_args = [str]
+create_ou_group.signature_write = True
+OU.register_methods([create_ou_group])
 
 def create_group(self, name):
     db = self.get_database()
