@@ -186,7 +186,8 @@ class Authorization(object):
         return self._query_auth(operation, attr, target_id, 'entity')
     
     def _check_by_org(self, operation, attr, target):
-        perspective = OUPerspectiveType(self.db, name='Kjernen')
+        perspective = OUPerspectiveType(self.db,
+            name=cereconf.AUTH_OU_RECURSIVE_PERSPECTIVE)
 
         if isinstance(target, OU):
             if self._check_org_recursive(operation, attr, target, perspective, None):
