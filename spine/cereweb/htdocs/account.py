@@ -91,7 +91,7 @@ def create_form(form, message=None):
 def create(transaction, **vargs):
     owner = vargs.get('owner')
     try:
-        transaction.get_entity(int(owner))
+        owner = transaction.get_entity(int(owner))
     except (TypeError, NotFoundError):
         owner = None
 
@@ -114,12 +114,12 @@ def create(transaction, **vargs):
 create = transaction_decorator(create)
 create.exposed = True
 
-def make(transaction, id, name, expire_date="", np_type=None,
+def make(transaction, owner, name, expire_date="", np_type=None,
          _other=None, join=False, primary_group=None):
     commands = transaction.get_commands()
 
     referer = cherrypy.request.headerMap.get('Referer', '')
-    owner = transaction.get_entity(int(id))
+    id = owner.get_id()
     if _other:
         name = _other
     if not expire_date:
@@ -127,14 +127,14 @@ def make(transaction, id, name, expire_date="", np_type=None,
     else:
         expire_date = commands.strptime(expire_date, "%Y-%m-%d")
     if np_type:
+        assert owner.get_type().get_name() == 'group'
         np_type = transaction.get_account_type(np_type)
-        account = commands.create_np_account(name, owner, np_type, expire_date)
+        account = owner.create_account(name, np_type, expire_date)
     else:
         try:
-            account = commands.create_account(name, owner, expire_date)
+            account = owner.create_account(name, expire_date)
         except IntegrityError, e:
-            queue_message('Could not create account,- possibly identical usernames.', error=True)
-            redirect(referer)
+            rollback_url(referer, 'Could not create account,- possibly identical usernames.', err=True)
     if join and owner.get_type().get_name() == "group":
         operation = transaction.get_group_member_operation_type("union")
         owner.add_member(account, operation)
@@ -143,12 +143,10 @@ def make(transaction, id, name, expire_date="", np_type=None,
         try:
             primary_group = commands.get_group_by_name(primary_group)
         except NotFoundError, e:
-            queue_message(_("Could not find group %s" % primary_group), error=True)
-            redirect(referer)
+            rollback_url(referer, _("Could not find group %s.  Account not created." % primary_group), err=True)
 
         if not primary_group.is_posix():
-            queue_message(_("Group %s is not a posix group" % primary_group.get_name()), error=True)
-            redirect(referer)
+            rollback_url(referer, _("Group %s is not a posix group.  Account not created." % primary_group.get_name()), err=True)
 
         _promote_posix(transaction, account, primary_group)
     commit(transaction, account, msg=_("Account successfully created."))

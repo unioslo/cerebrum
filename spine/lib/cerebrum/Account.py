@@ -115,7 +115,7 @@ def create_account(self, name, owner, expire_date):
     """
     print 'WARNING: Commands.create_account is deprecated.'
     db = self.get_database()
-    return _create_account(db, name, owner.get_type().get_id(), owner.get_id(), None, expire_date)
+    return _create_account(db, name, owner.get_type().get_id(), owner.get_id(), None, expire_date._value)
 create_account.signature = Account
 create_account.signature_args = [str, Entity, Date]
 create_account.signature_write = True

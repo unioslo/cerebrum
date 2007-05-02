@@ -89,7 +89,6 @@ class PersonCreateForm(Form):
         self.order = [
             'ou',
             'affiliation',
-            'status',
             'firstname',
             'lastname',
             'externalid',
@@ -104,11 +103,6 @@ class PersonCreateForm(Form):
                 'type': 'select',
             },
             'affiliation': {
-                'label': _('Affiliation Type'),
-                'required': True,
-                'type': 'select',
-            },
-            'status': {
                 'label': _('Affiliation Type'),
                 'required': True,
                 'type': 'select',
@@ -148,12 +142,10 @@ class PersonCreateForm(Form):
         }
 
     def get_affiliation_options(self):
-        return [(t.get_id(), t.get_name()) for t in
-            self.transaction.get_person_affiliation_type_searcher().search()]
-
-    def get_status_options(self):
-        return [(t.get_id(), t.get_name()) for t in
+        options = [('%s:%s' % (t.get_affiliation().get_id(), t.get_id()), '%s: %s' % (t.get_affiliation().get_name(), t.get_name())) for t in
             self.transaction.get_person_affiliation_status_searcher().search()]
+        options.sort()
+        return options
 
     def get_ou_options(self):
         searcher = self.transaction.get_ou_searcher()

@@ -153,10 +153,11 @@ def create(transaction, **vargs):
         return create_form(form, message=form.get_error_message())
     else:
         try:
+            affiliation, status = vargs.get('affiliation').split(':')
             make(transaction,
                 vargs.get('ou'),
-                vargs.get('affiliation'),
-                vargs.get('status'),
+                affiliation,
+                status,
                 vargs.get('firstname'),
                 vargs.get('lastname'),
                 vargs.get('gender'),
