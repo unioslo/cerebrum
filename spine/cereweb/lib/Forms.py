@@ -225,7 +225,7 @@ class PersonEditForm(PersonCreateForm):
 class AccountCreateForm(Form):
     def init_form(self):
         self.order = [
-            'owner', 'name', '_other', 'group', 'expiredate'
+            'owner', 'name', '_other', 'group', 'expiredate', 'description',
         ]
         self.fields = {
             'owner': {
@@ -247,6 +247,11 @@ class AccountCreateForm(Form):
                 'required': False,
                 'type': 'text',
                 'help': _('Date must be in YYYY-MM-DD format.'),
+            },
+            'description': {
+                'label': _('Description'),
+                'required': False,
+                'type': 'text',
             },
             'group': {
                 'label': _('Primary group'),
