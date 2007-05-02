@@ -428,8 +428,8 @@ class BofhdExtension(object):
 
         # ... but LITAs can
         operators_ou = set(self._operators_ou(operator))
-        targets_ou = set(x['ou_id'] for x in
-                         self.person.list_affiliations(person_id=int(person_id)))
+        targets_ou = set([x['ou_id'] for x in
+                         self.person.list_affiliations(person_id=int(person_id))])
         
         return bool(operators_ou.intersection(targets_ou))
     # end _operator_sees_person
