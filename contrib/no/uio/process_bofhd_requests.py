@@ -153,8 +153,8 @@ def get_email_hardquota(user_id):
 
 def get_email_server(account_id):
     """Return Host object for account's mail server."""
-    est = Email.EmailServerTarget(db)
-    est.find_by_entity(account_id)
+    et = Email.EmailTarget(db)
+    et.find_by_entity(account_id)
     server = Email.EmailServer(db)
     server.find(est.email_server_id)
     return server
@@ -384,10 +384,10 @@ def proc_email_move(r):
         return False
     
     # The move was successful, update the user's server
-    est = Email.EmailServerTarget(db)
-    est.find_by_entity(acc.entity_id)
-    est.populate(new_server.entity_id)
-    est.write_db()
+    et = Email.EmailTarget(db)
+    et.find_by_entity(acc.entity_id)
+    et.email_server_id = new_server.entity_id
+    et.write_db()
     # Now set the correct quota.
     hq = get_email_hardquota(acc.entity_id)
     cyrus_set_quota(acc.entity_id, hq, host=new_server)
@@ -842,15 +842,14 @@ def proc_delete_user(r):
         return True
     set_operator(r['requestee_id'])
     operator = get_account(r['requestee_id']).account_name
-    est = Email.EmailServerTarget(db)
+    et = Email.EmailTarget(db)
     try:
-        est.find_by_entity(account.entity_id)
-    except Errors.NotFoundError:
-        mail_server = ''
-    else:
+        et.find_by_entity(account.entity_id)
         es = Email.EmailServer(db)
         es.find(est.email_server_id)
         mail_server = es.name
+    except Errors.NotFoundError:
+        mail_server = ''
 
     if not delete_user(uname, old_host, '%s/%s' % (old_disk, uname),
                        operator, mail_server):

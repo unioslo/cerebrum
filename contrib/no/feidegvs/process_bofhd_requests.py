@@ -83,11 +83,6 @@ def email_delivery_stopped(user):
 
     return len(res) == 1
 
-def get_email_target_id(user_id):
-    t = Email.EmailTarget(db)
-    t.find_by_entity(user_id)
-    return t.email_target_id
-
 def get_email_hardquota(user_id):
     eq = Email.EmailQuota(db)
     try:
@@ -103,8 +98,8 @@ def get_imaphost(user_id):
     IMAP server, or None if user's mail is stored in a different
     system.
     """
-    em = Email.EmailServerTarget(db)
-    em.find(get_email_target_id(user_id))
+    em = Email.EmailTarget(db)
+    em.find_by_entity(user_id)
     server = Email.EmailServer(db)
     server.find(em.get_server_id())
     if server.email_server_type == const.email_server_type_cyrus:
@@ -258,10 +253,10 @@ def process_email_requests():
             except Errors.NotFoundError:
                 logger.error("email_move: user %d not found", r['entity_id'])
                 continue
-            est = Email.EmailServerTarget(db)
-            est.find(get_email_target_id(r['entity_id']))
+            et = Email.EmailTarget(db)
+            et.find_by_entity(r['entity_id'])
             old_server = r['destination_id']
-            new_server = est.get_server_id()
+            new_server = et.get_server_id()
             if old_server == new_server:
                 logger.error("trying to move %s from and to the same server!",
                              acc.account_name)
@@ -812,15 +807,15 @@ def process_delete_requests():
             db.commit()
             continue
         operator = get_account(r['requestee_id'])[0].account_name
-        est = Email.EmailServerTarget(db)
+        et = Email.EmailTarget(db)
         try:
-            est.find_by_entity(account.entity_id)
+            et.find_by_entity(account.entity_id)
+            es = Email.EmailServer(db)
+            es.find(et.email_server_id)
+            mail_server = es.name
         except Errors.NotFoundError:
             mail_server = ''
-        else:
-            es = Email.EmailServer(db)
-            es.find(est.email_server_id)
-            mail_server = es.name
+
         if delete_user(uname, old_host, '%s/%s' % (old_disk, uname), operator,
                        mail_server):
             if is_posix:

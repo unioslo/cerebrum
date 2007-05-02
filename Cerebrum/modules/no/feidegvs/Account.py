@@ -67,20 +67,13 @@ class AccountFeideGvsMixin(Account.Account):
             return
         # if an account without email_server_target is found assign
         # the appropriate server
-        est = Email.EmailServerTarget(self._db)
-        try:
-            est.find(et.email_target_id)
-        except Errors.NotFoundError:
-            est = self._update_email_server()
+        if not et.email_server_id:
+            et = self._update_email_server()
+
         # Add a request for mailbox creation
-        et2 = Email.EmailTarget(self._db)
-        et2.clear()
-        try:
-            et2.find_by_email_target_attrs(entity_id = self.entity_id)
-            if et2.email_target_type != self.const.email_target_deleted: 
-                self._reg_bofhd_request()                         
-        except Errors.NotFoundError:
-            return
+        if et.email_target_type != self.const.email_target_deleted: 
+            self._reg_bofhd_request()                         
+
         #Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
@@ -138,7 +131,6 @@ class AccountFeideGvsMixin(Account.Account):
 
 
     def _update_email_server(self):
-        est = Email.EmailServerTarget(self._db)
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         server_name = cereconf.EMAIL_DEFAULT_SERVER
@@ -146,39 +138,33 @@ class AccountFeideGvsMixin(Account.Account):
         try:
             et.find_by_email_target_attrs(entity_id = self.entity_id)
         except Errors.NotFoundError:
-            # Not really sure about this. it is done at UiO, but maybe it is not
-            # right to make en email_target if one is not found??
-            et.clear()
             et.populate(self.const.email_target_account,
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        try:
-            est.find_by_entity(self.entity_id)
-            if est.server_id == es.entity_id:
-                return est
-        except:
-            est.clear()
-            est.populate(es.entity_id, parent = et)
-            est.write_db()
-        return est
+        if not et.email_server_id:
+            et.email_server_id = es.entity_id
+            et.write_db()
+        return et
 
     def _reg_bofhd_request(self, req_type='create'):
-        est = Email.EmailServerTarget(self._db)
+        et = Email.EmailTarget(self._db)
         try:
-            est.find_by_entity(self.entity_id)
+            et.find_by_entity(self.entity_id)
+            if not et.email_server_id:
+                return
             br = BofhdRequests(self._db, self.const)
             if req_type=='create' and not br.get_requests(entity_id=self.entity_id,
                                                           operation=self.const.bofh_email_create):
                 # Register a BofhdRequest to create the mailbox
                 reqid = br.add_request(None,        # Requestor
                                        br.now, self.const.bofh_email_create,
-                                       self.entity_id, est.email_server_id)
+                                       self.entity_id, et.email_server_id)
             elif req_type=='delete':
                  # Register a BofhdRequest to delete the mailbox
                 reqid = br.add_request(None,        # Requestor
                                        br.now, self.const.bofh_email_delete,
-                                       self.entity_id, est.email_server_id)
+                                       self.entity_id, et.email_server_id)
         except Errors.NotFoundError:
             return
 

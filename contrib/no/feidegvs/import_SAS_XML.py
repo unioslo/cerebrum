@@ -422,22 +422,15 @@ def process_user(owner_id, ou_id, aff, fname, lname):
 def process_mail_address(ac_list):
     et = Email.EmailTarget(db)
     ea = Email.EmailAddress(db)
-    est = Email.EmailServerTarget(db)
     epat = Email.EmailPrimaryAddressTarget(db)
     for a,o in ac_list:
         ac.clear()
         ac.find(a)
-        est.clear()
-        try:
-            est.find_by_entity(a)
-            #continue
-        except Errors.NotFoundError:
-            et.clear()
-            et.find_by_entity(a)
-            est.clear()
-            est.populate(mser.entity_id, parent=et)
-            est.write_db()
-            ea.clear()
+        et.clear()
+        et.find_by_entity(a)
+        if et.email_server_id is None:
+            et.email_server_id = mser.entity_id
+            et.write_db()
         mdom.clear()
         mdom.find_by_domain(ou_id2dns[o])
 
@@ -453,7 +446,7 @@ def process_mail_address(ac_list):
                                                  mdom.email_domain_id)
                 # Iff found:
                 found = False
-                for row in ea.list_target_addresses(est.email_target_id):
+                for row in ea.list_target_addresses(et.email_target_id):
                     ea.clear()
                     ea.find(row['address_id'])
                     if (ea.email_addr_local_part == ac.get_email_cn_local_part() \
@@ -472,7 +465,7 @@ def process_mail_address(ac_list):
                 ea.clear()
                 ea.populate(ac.account_name,
                             mdom.email_domain_id,
-                            est.email_target_id)
+                            et.email_target_id)
                 ea.write_db()
                 prim = ea.email_addr_id
                 
@@ -481,7 +474,7 @@ def process_mail_address(ac_list):
             ea.clear()
             ea.populate(ac.get_email_cn_local_part(),
                         mdom.email_domain_id,
-                        est.email_target_id)
+                        et.email_target_id)
             ea.write_db()
             prim = ea.email_addr_id
                 
@@ -492,7 +485,7 @@ def process_mail_address(ac_list):
                                                  mdom.email_domain_id)
                 # Iff found:
                 found = False
-                for row in ea.list_target_addresses(est.email_target_id):
+                for row in ea.list_target_addresses(et.email_target_id):
                     ea.clear()
                     ea.find(row['address_id'])
                     if ea.email_addr_local_part == ac.get_email_cn_local_part() \
@@ -507,15 +500,15 @@ def process_mail_address(ac_list):
                 ea.clear()
                 ea.populate(ac.account_name,
                             mdom.email_domain_id,
-                            est.email_target_id)
+                            et.email_target_id)
                 ea.write_db()
                 
         epat.clear()
         try:
-            epat.find(est.email_target_id)
+            epat.find(et.email_target_id)
         except Errors.NotFoundError:
             epat.clear()
-            epat.populate(prim, est)
+            epat.populate(prim, et)
             epat.write_db()
         
 

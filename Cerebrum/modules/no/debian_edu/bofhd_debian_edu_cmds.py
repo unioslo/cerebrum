@@ -516,18 +516,15 @@ class BofhdExtension(object):
         info = {}
         data = [ info ]
         info["account"] = acc.account_name
-        est = Email.EmailServerTarget(self.db)
-        try:
-            est.find_by_entity(acc.entity_id)
-        except Errors.NotFoundError:
-            info["server"] = "<none>"
-            info["server_type"] = "N/A"
-        else:
+        if et.email_server_id:
             es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
             info["server"] = es.name
             type = int(es.email_server_type)
             info["server_type"] = str(self.const.EmailServerType(type))
+        else:
+            info["server"] = "<none>"
+            info["server_type"] = "N/A"
         try:
             info["def_addr"] = acc.get_primary_mailaddress()
         except Errors.NotFoundError:
@@ -560,10 +557,10 @@ class BofhdExtension(object):
         eq = Email.EmailQuota(self.db)
         try:
             eq.find_by_entity(acc.entity_id)
-            est = Email.EmailServerTarget(self.db)
-            est.find_by_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_entity(acc.entity_id)
             es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
 #  to disable cyrus stuff, so we can remove cyruslib from the imports
 #             if es.email_server_type == self.const.email_server_type_cyrus:
 #                 pw = self.db._read_password(cereconf.CYRUS_HOST,

@@ -375,14 +375,14 @@ class EmailTarget(EmailEntity):
     __read_attr__ = ('__in_db', 'email_target_id')
     __write_attr__ = ('email_target_type', 'email_target_entity_id',
                       'email_target_entity_type', 'email_target_alias',
-                      'email_target_using_uid')
+                      'email_target_using_uid', 'server_id')
 
     def clear(self):
         self.clear_class(EmailTarget)
         self.__updated = []
 
     def populate(self, type, entity_id=None, entity_type=None, alias=None,
-                 using_uid=None):
+                 using_uid=None, server_id=None):
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
@@ -391,6 +391,7 @@ class EmailTarget(EmailEntity):
         self.email_target_type = type
         self.email_target_alias = alias
         self.email_target_using_uid = using_uid
+        self.email_server_id = server_id
         if entity_id is None and entity_type is None:
             self.email_target_entity_id = self.email_target_entity_type = None
         elif entity_id is not None and entity_type is not None:
@@ -412,26 +413,28 @@ class EmailTarget(EmailEntity):
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_target]
               (target_id, target_type, entity_id, entity_type, alias_value,
-               using_uid)
-            VALUES (:t_id, :t_type, :e_id, :e_type, :alias, :uid)""",
+               using_uid, server_id)
+            VALUES (:t_id, :t_type, :e_id, :e_type, :alias, :uid, :server_id)""",
                          {'t_id': self.email_target_id,
                           't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
                           'e_type': entity_type,
                           'alias': self.email_target_alias,
-                          'uid': self.email_target_using_uid})
+                          'uid': self.email_target_using_uid,
+                          'server_id': self.email_server_id})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_target]
             SET target_type=:t_type, entity_id=:e_id, entity_type=:e_type,
-                alias_value=:alias, using_uid=:uid
+                alias_value=:alias, using_uid=:uid, server_id=:server_id
             WHERE target_id=:t_id""",
                          {'t_id': self.email_target_id,
                           't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
                           'e_type': entity_type,
                           'alias': self.email_target_alias,
-                          'uid': self.email_target_using_uid})
+                          'uid': self.email_target_using_uid,
+                          'server_id': self.email_server_id})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -440,10 +443,10 @@ class EmailTarget(EmailEntity):
     def find(self, target_id):
         (self.email_target_id, self.email_target_type,
          self.email_target_entity_id, self.email_target_entity_type,
-         self.email_target_alias,
-         self.email_target_using_uid) = self.query_1("""
+         self.email_target_alias, self.email_target_using_uid,
+         self.email_server_id) = self.query_1("""
         SELECT target_id, target_type, entity_id, entity_type, alias_value,
-               using_uid
+               using_uid, server_id
         FROM [:table schema=cerebrum name=email_target]
         WHERE target_id=:t_id""", {'t_id': target_id})
         try:
@@ -458,8 +461,7 @@ class EmailTarget(EmailEntity):
         # (and by extension, in email_primary_address) to reduce the
         # chance of catastrophic mistakes.
         for table in ('email_forward', 'email_vacation', 'email_quota',
-                      'email_spam_filter', 'email_virus_scan',
-                      'email_target_server'):
+                      'email_spam_filter', 'email_virus_scan'):
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=%s]
             WHERE target_id=:e_id""" % table, {'e_id': self.email_target_id})
@@ -475,7 +477,7 @@ class EmailTarget(EmailEntity):
         where = []
         binds = {}
         for column in ('target_type', 'entity_id', 'alias_value',
-                       'using_uid'):
+                       'using_uid', 'server_id'):
             if column in kwargs:
                 where.append("%s = :%s" % (column, column))
                 binds[column] = kwargs[column]
@@ -549,6 +551,13 @@ class EmailTarget(EmailEntity):
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]""", fetchall=False)
 
+    def list_email_server_targets(self):
+        return self.query("""
+        SELECT target_id, server_id
+        FROM [:table schema=cerebrum name=email_target]
+        WHERE server_id IS NOT NULL
+        """, fetchall=False)
+
     def list_email_targets_ext(self):
         """Return an iterator over all email_target rows.
 
@@ -602,6 +611,10 @@ class EmailTarget(EmailEntity):
 
     def get_entity_type(self):
         return self.email_target_entity_type
+
+    def get_server_id(self):
+        return self.email_server_id
+
 
 
 class EmailAddress(EmailEntity):
@@ -988,10 +1001,9 @@ class EmailQuota(EmailTarget):
                MIN(eq.quota_hard) AS min_quota,
                MAX(eq.quota_hard) AS max_quota,
                COUNT(*) AS total_accounts
-        FROM email_target_server ets
-          JOIN email_quota eq ON ets.target_id = eq.target_id
-          JOIN email_target et ON ets.target_id = et.target_id
-        WHERE ets.server_id = :server AND et.target_type = :t_type""",
+        FROM email_target et
+          JOIN email_quota eq ON et.target_id = eq.target_id
+        WHERE et.server_id = :server AND et.target_type = :t_type""",
                           {'server': int(server),
                            't_type': int(EmailConstants.email_target_account)
                            })
@@ -1427,75 +1439,6 @@ class EmailServer(Host):
         %s
         """ % where)
 
-
-class EmailServerTarget(EmailTarget):
-    __read_attr__ = ('__in_db',)
-    __write_attr__ = ('email_server_id',)
-
-    def clear(self):
-        self.__super.clear()
-        self.clear_class(EmailServerTarget)
-        self.__updated = []
-
-    def populate(self, server_id, parent=None):
-        if parent is not None:
-            self.__xerox__(parent)
-        try:
-            if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
-        except AttributeError:
-            if parent is None:
-                raise RuntimeError, \
-                      "Can't populate EmailServerTarget w/o parent."
-            self.__in_db = False
-        self.email_server_id = server_id
-
-    def write_db(self):
-        self.__super.write_db()
-        if not self.__updated:
-            return
-        is_new = not self.__in_db
-        if is_new:
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=email_target_server]
-              (target_id, server_id)
-            VALUES (:t_id, :srv_id)""",
-                         {'t_id': self.email_target_id,
-                          'srv_id': self.email_server_id})
-        else:
-            # TBD: What about DELETEs?
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=email_target_server]
-            SET server_id=:srv_id
-            WHERE target_id=:t_id""", {'t_id': self.email_target_id,
-                                       'srv_id': self.email_server_id})
-        del self.__in_db
-        self.__in_db = True
-        self.__updated = []
-        return is_new
-
-    def find(self, target_id):
-        self.__super.find(target_id)
-        self.email_server_id = self.query_1("""
-        SELECT server_id
-        FROM [:table schema=cerebrum name=email_target_server]
-        WHERE target_id=:t_id""", {'t_id': self.email_target_id})
-        try:
-            del self.__in_db
-        except AttributeError:
-            pass
-        self.__in_db = True
-        self.__updated = []
-
-    def get_server_id(self):
-        return self.email_server_id
-
-    def list_email_server_targets(self):
-        return self.query("""
-        SELECT target_id, server_id
-        FROM [:table schema=cerebrum name=email_target_server]
-        """, fetchall=False)
-
 class AccountEmailMixin(Account.Account):
     """Email-module mixin for core class ``Account''."""
 
@@ -1557,10 +1500,7 @@ class AccountEmailMixin(Account.Account):
         # server, the mail system won't know where to deliver mail for
         # that user.  Hence, we return early (thereby avoiding
         # creation of email addresses) for such users.
-        est = EmailServerTarget(self._db)
-        try:
-            est.find(et.email_target_id)
-        except Errors.NotFoundError:
+        if not et.email_server_id:
             return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
@@ -1860,13 +1800,14 @@ class AccountEmailQuotaMixin(Account.Account):
         if cereconf.EMAIL_ADD_QUOTA_REQUEST:
             from Cerebrum.modules.bofhd.utils import BofhdRequests
             br = BofhdRequests(self._db, self.const)
-            est = EmailServerTarget(self._db)
+            et = EmailTarget(self._db)
             try:
-                est.find_by_entity(self.entity_id)
+                et.find_by_entity(self.entity_id)
             except:
                 return
+            if not et.email_server_id: return
             es = EmailServer(self._db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
             if es.email_server_type == self.const.email_server_type_cyrus:
                 br = BofhdRequests(self._db, self.const)
                 # The call graph is too complex when creating new users or

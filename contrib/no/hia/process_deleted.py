@@ -120,14 +120,14 @@ def process_delete_requests():
 
             ## An email account exists, remove account@imap spread, register email account delete
             elif row['spread'] == const.spread_hia_email:
-                est = Email.EmailServerTarget(db)
+                et = Email.EmailTarget(db)
+                es = Email.EmailServer(db)
                 try:
                     est.find_by_entity(account.entity_id)
+                    es.find(est.email_server_id)
                 except Errors.NotFoundError:
                     logger.warn('No email server assigned to %s, removing imap spread only.' % account.account_name)
-                if est:
-                    es = Email.EmailServer(db)
-                    es.find(est.email_server_id)
+                else:
                     del_file.append('EMAIL:' + account.account_name + ':' + es.name)
                 account.delete_spread(row['spread'])
 

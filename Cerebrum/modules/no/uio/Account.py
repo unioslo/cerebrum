@@ -61,11 +61,12 @@ class AccountUiOMixin(Account.Account):
         state = {}
         if spread == self.const.spread_uio_imap:
             # Is this account already associated with an Cyrus
-            # EmailServerTarget?
-            est = Email.EmailServerTarget(self._db)
+            # EmailTarget?
+            et = Email.EmailTarget(self._db)
             try:
-                est.find_by_entity(self.entity_id)
-                state['email_server_id'] = est.email_server_id
+                et.find_by_entity(self.entity_id)
+                if et.email_server_id:
+                    state['email_server_id'] = et.email_server_id
             except Errors.NotFoundError:
                 pass
         #
@@ -76,12 +77,12 @@ class AccountUiOMixin(Account.Account):
         #
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
-            # Cyrus EmailServerTarget, we need to do so.
-            est = self._UiO_update_email_server(
+            # Cyrus EmailTarget, we need to do so.
+            et = self._UiO_update_email_server(
                 self.const.email_server_type_cyrus)
 
             self._UiO_order_cyrus_action(self.const.bofh_email_create,
-                                         est.email_server_id)
+                                         et.email_server_id)
             # The user's email target is now associated with an email
             # server; try generating email addresses connected to the
             # target.
@@ -144,21 +145,27 @@ class AccountUiOMixin(Account.Account):
         return ret
 
     def _UiO_update_email_server(self, server_type):
-        est = Email.EmailServerTarget(self._db)
+        et = Email.EmailTarget(self._db)
         es = Email.EmailServer(self._db)
         old_server = None
         is_on_cyrus = False
         try:
-            est.find_by_entity(self.entity_id)
-            old_server = est.email_server_id
-            es.find(old_server)
-            if es.email_server_type == server_type:
-                # All is well
-                return est
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                is_on_cyrus = True
+            et.find_by_entity(self.entity_id)
+            try:
+                old_server = et.email_server_id
+                es.find(old_server)
+                if es.email_server_type == server_type:
+                    # All is well
+                    return et
+                if es.email_server_type == self.const.email_server_type_cyrus:
+                    is_on_cyrus = True
+            except Errors.NotFoundError:
+                pass
         except Errors.NotFoundError:
-            pass
+            et.populate(self.const.email_target_account,
+                        self.entity_id,
+                        self.const.entity_account)
+            et.write_db()
         if old_server is None \
            or (server_type == self.const.email_server_type_cyrus
                and not is_on_cyrus):
@@ -187,22 +194,9 @@ class AccountUiOMixin(Account.Account):
                 if pick <= 0:
                     break
 
-            if old_server is None:
-                try:
-                    et = Email.EmailTarget(self._db)
-                    et.find_by_email_target_attrs(entity_id = self.entity_id)
-                except Errors.NotFoundError:
-                    et.clear()
-                    et.populate(self.const.email_target_account,
-                                self.entity_id,
-                                self.const.entity_account)
-                    et.write_db()
-                est.clear()
-                est.populate(svr_id, parent = et)
-            else:
-                est.populate(svr_id)
-            est.write_db()
-            return est
+            et.email_server_id = svr_id
+            et.write_db()
+            return et
         elif is_on_cyrus:
             # Even though this Account's email target already resides
             # on one of the Cyrus servers, something has called this
@@ -266,10 +260,10 @@ class AccountUiOMixin(Account.Account):
         # a user.
         if (spread == self.const.spread_uio_imap and
             int(self.const.spread_uio_imap) in spreads):
-            est = Email.EmailServerTarget(self._db)
-            est.find_by_entity(self.entity_id)
+            et = Email.EmailTarget(self._db)
+            et.find_by_entity(self.entity_id)
             self._UiO_order_cyrus_action(self.const.bofh_email_delete,
-                                         est.email_server_id)
+                                         et.email_server_id)
             # TBD: should we also perform a "cascade delete" from EmailTarget?
 
         #

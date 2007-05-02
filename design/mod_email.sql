@@ -22,7 +22,7 @@
 category:metainfo;
 name=email;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:code/Oracle;
 CREATE ROLE read_mod_email NOT IDENTIFIED;
@@ -52,6 +52,44 @@ category:code;
 CREATE SEQUENCE email_id_seq;
 category:code/Oracle;
 GRANT SELECT ON email_id_seq TO read_mod_email;
+
+
+
+/*	email_server_type_code
+
+  Define the categories of (user retrieval/local delivery) email
+  servers.
+
+*/
+category:code;
+CREATE TABLE email_server_type_code
+(
+  code		NUMERIC(6,0)
+		CONSTRAINT email_server_type_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT email_server_type_codestr_u UNIQUE,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+
+
+/*	email_server
+
+  Define the actual (user retrieval/local delivery) email servers.
+
+*/
+category:main;
+CREATE TABLE email_server
+(
+  server_id	NUMERIC(12,0)
+		CONSTRAINT email_server_host_id REFERENCES host_info(host_id)
+		CONSTRAINT email_server_pk PRIMARY KEY,
+  server_type	NUMERIC(6,0)
+		NOT NULL
+		CONSTRAINT email_server_server_type
+		  REFERENCES email_server_type_code(code)
+);
 
 
 /*	email_target_code
@@ -107,13 +145,17 @@ CREATE TABLE email_target
   using_uid	NUMERIC(12,0)
 		CONSTRAINT email_target_using_uid
 		  REFERENCES posix_user(account_id),
+  server_id	NUMERIC(12,0)
+		CONSTRAINT email_target_server_server_id
+		  REFERENCES email_server(server_id);
+
   CONSTRAINT email_target_entity FOREIGN KEY (entity_type, entity_id)
     REFERENCES entity_info(entity_type, entity_id),
   CONSTRAINT email_target_entity_type
     CHECK (entity_type IS NULL OR
 	   entity_type IN ([:get_constant name=entity_account],
 			   [:get_constant name=entity_group])),
-  CONSTRAINT email_target_entity_u UNIQUE (entity_id),
+  CONSTRAINT email_target_entity_server_u UNIQUE (entity_id, server_id),
   CONSTRAINT email_target_alias_u UNIQUE (using_uid, alias_value)
 );
 category:main/Oracle;
@@ -571,61 +613,6 @@ GRANT SELECT ON email_primary_address TO read_mod_email;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON email_primary_address TO read_mod_email;
 
-
-/*	email_server_type_code
-
-  Define the categories of (user retrieval/local delivery) email
-  servers.
-
-*/
-category:code;
-CREATE TABLE email_server_type_code
-(
-  code		NUMERIC(6,0)
-		CONSTRAINT email_server_type_code_pk PRIMARY KEY,
-  code_str	CHAR VARYING(16)
-		NOT NULL
-		CONSTRAINT email_server_type_codestr_u UNIQUE,
-  description	CHAR VARYING(512)
-		NOT NULL
-);
-
-
-/*	email_server
-
-  Define the actual (user retrieval/local delivery) email servers.
-
-*/
-category:main;
-CREATE TABLE email_server
-(
-  server_id	NUMERIC(12,0)
-		CONSTRAINT email_server_host_id REFERENCES host_info(host_id)
-		CONSTRAINT email_server_pk PRIMARY KEY,
-  server_type	NUMERIC(6,0)
-		NOT NULL
-		CONSTRAINT email_server_server_type
-		  REFERENCES email_server_type_code(code)
-);
-
-
-/*
-
-  Define which email server should be responsible for which email
-  targets.
-
-*/
-category:main;
-CREATE TABLE email_target_server
-(
-  target_id	NUMERIC(12,0)
-		CONSTRAINT email_target_server_target_id
-		  REFERENCES email_target(target_id),
-  server_id	NUMERIC(12,0)
-		CONSTRAINT email_target_server_server_id
-		  REFERENCES email_server(server_id),
-  CONSTRAINT email_target_server_pk PRIMARY KEY (target_id, server_id)
-);
 
 
 category:drop;

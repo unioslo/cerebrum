@@ -102,7 +102,6 @@ mailvacation = Email.EmailVacation(db)
 mailspam = Email.EmailSpamFilter(db)
 mailvirus = Email.EmailVirusScan(db)
 mailquota = Email.EmailQuota(db)
-mailserver = Email.EmailServerTarget(db)
 
 class AutoFlushStream(object):
     __slots__ = ('_stream',)
@@ -1206,10 +1205,8 @@ def create_account(u, owner_id, owner_type, np_type=None):
                                parent=mailtarg)
             mailquota.write_db()
         if u.has_key('mailhost'):
-            mailserver.clear()
-            mailserver.populate(get_server_id(u['mailhost']),
-                                parent=mailtarg)
-            mailserver.write_db()
+            mailtarg.email_server_id=get_server_id(u['mailhost'])
+            mailtarg.write_db()
                 
     # Assign account affiliaitons by checking the
     # user_aff_mapping.  if subtype = '*unset*, try to find a

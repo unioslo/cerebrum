@@ -89,12 +89,9 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
             return
         # if an account without email_server_target is found assign
         # the appropriate server
-        est = Email.EmailServerTarget(self._db)
-        try:
-            est.find(et.email_target_id)
-        except Errors.NotFoundError:
+        if not et.email_server_id:
             if self.get_account_types():
-                est = self._update_email_server()
+                et = self._update_email_server()
             else:
                 # do not set email_server_target until account_type is registered
                 return
@@ -173,15 +170,21 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
 	 
      
     def _update_email_server(self):
-        est = Email.EmailServerTarget(self._db) 
+        et = Email.EmailTarget(self._db) 
         es = Email.EmailServer(self._db) 
         old_server = srv_id = None 
         try:
-            est.find_by_entity(self.entity_id) 
-            old_server = est.email_server_id 
-            es.find(est.email_server_id) 
+            et.find_by_entity(self.entity_id)
+	except Errors.NotFoundError: 
+            et.populate(self.const.email_target_account,
+                        self.entity_id,
+                        self.const.entity_account)
+            et.write_db()
+        old_server = et.email_server_id 
+        try:
+            es.find(et.email_server_id) 
             if es.email_server_type == self.const.email_server_type_shist:
-                return est 
+                return et 
 	except Errors.NotFoundError: 
             pass
        
@@ -191,24 +194,11 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
 	    for svr in srvlist:
                 if svr['server_type'] == self.const.email_server_type_shist:
 		    srv_id = svr['server_id']
-                try:
-                    et = Email.EmailTarget(self._db)
-                    et.find_by_email_target_attrs(entity_id = self.entity_id)
-                except Errors.NotFoundError:
-                    et.clear()
-                    et.populate(self.const.email_target_account,
-                                self.entity_id,
-                                self.const.entity_account)
-                    et.write_db()
             if srv_id == None:
                 raise RuntimeError, "srv_id is not set."
-            est.clear()
-	    est.populate(srv_id, parent = et)
-            est.write_db()
-	else:
-	    est.populate(srv_id)
-        return est   
- 
+            et.email_server_id = srv_id
+            et.write_db()
+        return et 
 
   
     def make_passwd(self, uname):

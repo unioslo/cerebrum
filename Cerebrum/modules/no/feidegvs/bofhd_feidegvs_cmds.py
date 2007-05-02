@@ -460,18 +460,15 @@ class BofhdExtension(object):
         info = {}
         data = [ info ]
         info["account"] = acc.account_name
-        est = Email.EmailServerTarget(self.db)
-        try:
-            est.find_by_entity(acc.entity_id)
-        except Errors.NotFoundError:
-            info["server"] = "<none>"
-            info["server_type"] = "N/A"
-        else:
+        if et.email_server_id:
             es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
             info["server"] = es.name
             type = int(es.email_server_type)
             info["server_type"] = str(self.const.EmailServerType(type))
+        else:
+            info["server"] = "<none>"
+            info["server_type"] = "N/A"
         if addrs:
             info["valid_addr_1"] = addrs[0]
             for idx in range(1, len(addrs)):
@@ -500,10 +497,10 @@ class BofhdExtension(object):
         eq = Email.EmailQuota(self.db)
         try:
             eq.find_by_entity(acc.entity_id)
-            est = Email.EmailServerTarget(self.db)
-            est.find_by_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_entity(acc.entity_id)
             es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
             if es.email_server_type == self.const.email_server_type_cyrus:
                 pw = self.db._read_password(cereconf.CYRUS_HOST,
                                             cereconf.CYRUS_ADMIN)
@@ -950,14 +947,11 @@ class BofhdExtension(object):
             # If we're supposed to put a request in BofhdRequests we'll have to
             # be sure that the user getting the quota is a Cyrus-user. If not,
             # Cyrus will spew out errors telling us "user foo is not a cyrus-user".
-            est = Email.EmailServerTarget(self.db)
-            try:
-                est.find(et.email_target_id)
-            except Errors.NotFoundError:
+            if not et.email_server_id:
                 raise CerebrumError, ("The account %s has no e-mail server "+
                                       "associated with it") % uname
             es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
                     
             if es.email_server_type == self.const.email_server_type_cyrus:
                 br = BofhdRequests(self.db, self.const)

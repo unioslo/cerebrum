@@ -134,8 +134,8 @@ class EmailLDAP(DatabaseAccessor):
         for row in mail_serv.list_email_server_ext():
             self.serv_id2server[int(row['server_id'])] = [row['server_type'],
                                                           row['name']]
-        mail_targ_serv = Email.EmailServerTarget(self._db)
-        for row in mail_targ_serv.list_email_server_targets():
+        mail_targ = Email.EmailTarget(self._db)
+        for row in mail_targ.list_email_server_targets():
             self.targ2server_id[int(row['target_id'])] = int(row['server_id'])
 
             
