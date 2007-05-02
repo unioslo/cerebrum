@@ -31,7 +31,7 @@ import sets
 import thread
 import traceback
 
-def main():
+def main(daemon=False):
     print 'Importing all classes...'
     from Cerebrum.spine.server import Communication
     from Cerebrum.spine.server import LockHandler
@@ -61,6 +61,8 @@ def main():
 
     # Starting communication
     print 'Running server...'
+    if daemon: daemonize()
+    
     try:
         com.start()
     except KeyboardInterrupt:
@@ -75,6 +77,40 @@ def main():
     print 'Stopping session handler...'
     session_handler.stop()
     print 'Spine is going down.'
+
+
+def daemonize():
+    import os
+    import sys
+    import resource
+
+    try:
+        pid=os.fork()
+        if pid > 0:
+            os._exit(0)
+        os.chdir("/")
+        os.setsid()
+        os.umask(022)
+        pid=os.fork()
+        if pid > 0:
+            os._exit(0)
+        maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+        if (maxfd == resource.RLIM_INFINITY):
+            maxfd=256
+        #Try to close all fds
+        for fd in range(0, maxfd):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        os.open("/dev/null", os.O_RDWR)
+        #Or a logfile
+        os.dup2(0,1)
+        os.dup2(0,2)
+    except OSError, e:
+        print >> sys.stderr, "Demonize failed: %s" % e.strerror
+
+
 
 def check():
     from Cerebrum.spine.SpineLib import Builder, DatabaseClass
@@ -106,8 +142,10 @@ def check():
 if __name__ == '__main__':        
     help = False
     if len(sys.argv) == 2:
-        if sys.argv[1] == 'start':
+        if sys.argv[1] == 'start' or sys.argv[1] == 'debug':
             main()
+        elif sys.argv[1] == 'daemon':
+            main(daemon=True)
         elif sys.argv[1] == 'check':
             check()
         else:
@@ -120,7 +158,8 @@ if __name__ == '__main__':
 
 Hello. Try one of these:
 
-%s start    start the spine server
+%s daemon   start the spine server
+%s debug    start the spine server in the foreground
 %s check    check all tables
 """ % tuple(sys.argv[:1] * 3)
 
