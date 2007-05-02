@@ -25,6 +25,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from sets import Set
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.bofhd.auth import AuthConstants
 from Cerebrum.spine.SpineLib import Builder
 
 # Needed to make Builder.get_builder_classes() return
@@ -55,11 +56,11 @@ def update_spine_auth_codes(db_user):
 
     # Create the op codes that doesn't already exist.
     for code_str in new:
-        code_obj = Constants._AuthOpCode(code_str, autodesc)
+        code_obj = AuthConstants(code_str, autodesc)
         code_obj.insert()
     # Delete the op codes that no longer exist.
     for code_str in orphans:
-        code_obj = Constants._AuthOpCode(code_str)
+        code_obj = AuthConstants(code_str)
         code_obj.delete()
     db.commit()
 
