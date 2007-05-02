@@ -63,6 +63,8 @@ def main():
     for person,ou,aff,source,status,dd,cd in p.list_affiliations():
         if source == co.system_manual:
             manual.add((person, ou, aff))
+        elif source == co.system_bdb:
+            manual.add((person, ou, aff))
         else:
             auto.add((person, ou, aff))
 
@@ -74,7 +76,8 @@ def main():
             # Use delete_date?
             p.clear()
             p.find(person)
-            print "Deleting affiliation %s on %s of type manual for entity %s" % (aff,ou,person)
+            if verbose:
+                print "Deleting affiliation %s on %s of type manual for entity %s" % (aff,ou,person)
             p.delete_affiliation(ou, aff, co.system_manual)
             p.write_db()
             count+=1
@@ -82,10 +85,12 @@ def main():
             pass
             
     if dryrun:
-        print "%d manual affiliations would have been removed" % count
+        if verbose:
+            print "%d manual affiliations would have been removed" % count
         db.rollback()
     else:
-        print "%d manual affiliations removed from database" % count
+        if verbose:
+            print "%d manual affiliations removed from database" % count
         db.commit()
 
 def usage():
