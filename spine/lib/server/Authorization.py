@@ -211,10 +211,6 @@ class Authorization(object):
         if self._query_auth(operation, attr, ou.get_id(), 'entity', target_attr=affiliation_type):
             return True
 
-        # Access to the operation with an empty affiliation type means we have access.
-        if self._query_auth(operation, attr, ou.get_id(), 'entity', target_attr=''):
-            return True
-
         try:
             parent_ou = ou.get_parent(perspective)
         except SpineExceptions.NotFoundError, e:
@@ -223,16 +219,16 @@ class Authorization(object):
         return self._check_org_recursive(operation, attr, parent_ou, perspective, affiliation_type)
 
     def _query_auth(self, operation, op_attr, target, target_type, target_attr=None):
-        """We first check if the user has access to run the operation with
-        the given arguments.  Then we check if the user has access to run
-        the operation without arguments."""
-        op_attr = op_attr or None
-        target_attr = target_attr or None
-        attr = (target, target_type, target_attr,
-                operation, op_attr) in self.auths
-        no_attr = (target, target_type, target_attr,
-                operation, None) in self.auths
-        return attr or no_attr
+        """We check if the user has access to run the operation with
+        the given arguments or with no arguments (which means all arguments)."""
+        op_attrs = [op_attr, None]
+        target_attrs = [target_attr, None]
+        for op_attr in op_attrs:
+            for target_attr in target_attrs:
+                if (target, target_type, target_attr,
+                        operation, op_attr) in self.auths:
+                    return True
+        return False
     
 class AuthTest(unittest.TestCase):
     credentials = []
