@@ -11,9 +11,14 @@ op_sets = {
         ('Person.remove_quarantine', None),
         ('Person.remove_note', None),
         ('Account.set_password', None),
+        ('Account.set_description', None),
+        ('Account.set_expire_date', None),
     ],
     'create_user': [
-        ('Commands.create_account', None),
+        ('Group.create_account', None),
+        ('Person.create_account', None),
+        ('OU.create_group', None),
+        ('OU.create_person', None),
     ],
     'user_client': [
         ('Account.get_name', None),
@@ -483,6 +488,7 @@ op_sets = {
         ('PosixShell.get_id', None),
         ('PosixShell.get_name', None),
         ('PosixShell.get_shell', None),
+        ('PosixShellSearcher.search', None),
         ('PrimaryEmailAddress.get_address', None),
         ('PrimaryEmailAddress.get_target', None),
         ('QuarantineType.get_description', None),
@@ -631,11 +637,10 @@ op_sets = {
 
 op_roles = [
     # group,            op_set,          # op_target
-    ('cereweb_orakel', 'write_user', ('entity', 15850, 'TILKNYTTET')),
+    ('cereweb_orakel', 'modify_user', ('entity', 15850, None)),
+    ('cereweb_orakel', 'create_user', ('entity', 15850, None)),
     ('cereweb_self', 'my_self', ('self', None, None)),
     ('cereweb_innsyn', 'read_all', ('global', None, None)),
     ('cereweb_public', 'user_client', ('global', None, None)),
     ('cereweb_basic', 'admin_client', ('global', None, None)),
 ]
-
-# vim: se foldmarker=(,):

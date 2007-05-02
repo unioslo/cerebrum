@@ -202,7 +202,7 @@ def edit(transaction, id):
 edit = transaction_decorator(edit)
 edit.exposed = True
 
-def save(transaction, id, name, expire_date="", uid="",
+def save(transaction, id, expire_date="", uid="",
          primary_group="", gecos="", shell=None, description="", submit=None):
     account = transaction.get_account(int(id))
     c = transaction.get_commands()
@@ -227,7 +227,6 @@ def save(transaction, id, name, expire_date="", uid="",
         else:
             error_msgs.append("Error, no such shell: %s" % shell)
         
-    account.set_name(name)
     account.set_expire_date(expire_date)
     account.set_description(description)
 
