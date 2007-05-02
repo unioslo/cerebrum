@@ -22,6 +22,7 @@ import Cerebrum.modules.Email
 import Cerebrum.Database
 import Cerebrum.Errors
 
+from CerebrumClass import CerebrumClass, CerebrumDbAttr
 from SpineLib.DatabaseClass import DatabaseAttr, DatabaseClass
 from SpineLib import SpineExceptions
 from SpineLib.Date import Date
@@ -231,11 +232,12 @@ EmailDomainCategory.get_domains = get_domains
 
 table = 'email_server'
 attrs = [
-    DatabaseAttr('server_type', table, EmailServerType, write=True, optional=True)
+    DatabaseAttr('email_server_type', table, EmailServerType, write=True, optional=True)
     ]
 for attr in attrs:
     Host.register_attribute(attr)
-Host.db_attr_aliases[table] = {'id': 'server_id'}
+Host.db_attr_aliases[table] = {'id': 'server_id',
+                               'email_server_type': 'server_type'}
 
 def promote_email_server(self, type):
     obj = self._get_cerebrum_obj()
@@ -285,19 +287,21 @@ class EmailTarget(DatabaseClass):
         DatabaseAttr('alias_value', table, str, write=True),
         # FIXME: should be PosixUser
         DatabaseAttr('using_uid', table, Account, write=True),
-        DatabaseAttr('server', 'email_target_server', Host, write=True, optional=True),
+        DatabaseAttr('server', table, Host, write=True, optional=True),
     )
     db_attr_aliases = {
         table : {
             'id' : 'target_id',
             'type' : 'target_type',
-            'entity' : 'entity_id'
+            'entity' : 'entity_id',
+            'server': 'server_id',
         },
         'email_target_server': {
             'id': 'target_id',
-            'server': 'server_id'
+            'server': 'server_id',
         }
     }
+
 
     def get_entity(self):
         """
