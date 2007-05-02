@@ -1100,18 +1100,15 @@ class BofhdExtension(object):
         if et.email_target_alias:
             info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
-        est = Email.EmailServerTarget(self.db)
-        try:
-            est.find_by_entity(acc.entity_id)
-        except Errors.NotFoundError:
-            info["server"] = "<none>"
-            info["server_type"] = "N/A"
-        else:
+        if et.email_server_id:
             es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
             info["server"] = es.name
             type = int(es.email_server_type)
             info["server_type"] = str(self.const.EmailServerType(type))
+        else:
+            info["server"] = "<none>"
+            info["server_type"] = "N/A"
         return data
 
     def _email_info_spam(self, target):
@@ -1134,10 +1131,10 @@ class BofhdExtension(object):
 #        eq = Email.EmailQuota(self.db)
 #        try:
 #            eq.find_by_entity(acc.entity_id)
-#            est = Email.EmailServerTarget(self.db)
-#            est.find_by_entity(acc.entity_id)
+#            et = Email.EmailTarget(self.db)
+#            et.find_by_entity(acc.entity_id)
 #            es = Email.EmailServer(self.db)
-#            es.find(est.email_server_id)
+#            es.find(et.email_server_id)
 #            if es.email_server_type == self.const.email_server_type_cyrus:
 #                pw = self.db._read_password(cereconf.CYRUS_HOST,
 #                                            cereconf.CYRUS_ADMIN)
@@ -2075,26 +2072,26 @@ class BofhdExtension(object):
     def email_move(self, operator, uname, server):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
-        est = Email.EmailServerTarget(self.db)
-        est.find_by_entity(acc.entity_id)
-        old_server = est.email_server_id
+        et = Email.EmailTarget(self.db)
+        et.find_by_entity(acc.entity_id)
+        old_server = et.email_server_id
         es = Email.EmailServer(self.db)
         es.find_by_name(server)
         if old_server == es.entity_id:
             raise CerebrumError, "User is already at %s" % server
-        est.populate(es.entity_id)
-        est.write_db()
+        et.email_server_id = es.entity_id
+        et.write_db()
         if es.email_server_type == self.const.email_server_type_cyrus:
             spreads = [int(r['spread']) for r in acc.get_spread()]
             br = BofhdRequests(self.db, self.const)
             if not self.const.spread_uit_imap in spreads:
                 # uit's add_spread mixin will not do much since
-                # EmailServerTarget is set to a Cyrus server already.
+                # EmailTarget is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uit_imap)
             # Create the mailbox.
             req = br.add_request(operator.get_entity_id(), br.now,
                                  self.const.bofh_email_create,
-                                 acc.entity_id, est.email_server_id)
+                                 acc.entity_id, et.email_server_id)
             # Now add a move request.
             br.add_request(operator.get_entity_id(), br.now,
                            self.const.bofh_email_move,
@@ -2152,14 +2149,11 @@ class BofhdExtension(object):
             # If we're supposed to put a request in BofhdRequests we'll have to
             # be sure that the user getting the quota is a Cyrus-user. If not,
             # Cyrus will spew out errors telling us "user foo is not a cyrus-user".
-            est = Email.EmailServerTarget(self.db)
-            try:
-                est.find(et.email_target_id)
-            except Errors.NotFoundError:
+            if not et.email_server_id:
                 raise CerebrumError, ("The account %s has no e-mail server "+
                                       "associated with it") % uname
             es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
                     
             if es.email_server_type == self.const.email_server_type_cyrus:
                 br = BofhdRequests(self.db, self.const)
