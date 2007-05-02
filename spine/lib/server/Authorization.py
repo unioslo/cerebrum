@@ -21,6 +21,7 @@
 import sys
 import cerebrum_path
 from Cerebrum import Utils
+from Cerebrum.Entity import EntityName
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.auth import *
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode as AuthRoleOpCode
@@ -39,7 +40,7 @@ import unittest
 import sets
 
 class Authorization(object):
-    def __init__(self, user, database=None):
+    def __init__(self, user, database=None, credentials=None):
         import time
         t = time.time()
         self.db = database or Database.SpineDatabase()
@@ -53,7 +54,7 @@ class Authorization(object):
             self.oid = account.owner_id
 
             # Make a list of the users credentials.
-            credentials = bofhdauth._get_users_auth_entities(self.uid)
+            credentials = credentials or bofhdauth._get_users_auth_entities(self.uid)
 
             # Add the magic groups cereweb_self and cereweb_public
             # to our list of credentials.
@@ -226,6 +227,7 @@ class Authorization(object):
         the given arguments.  Then we check if the user has access to run
         the operation without arguments."""
         op_attr = op_attr or None
+        target_attr = target_attr or None
         attr = (target, target_type, target_attr,
                 operation, op_attr) in self.auths
         no_attr = (target, target_type, target_attr,
@@ -233,18 +235,34 @@ class Authorization(object):
         return attr or no_attr
     
 class AuthTest(unittest.TestCase):
+    credentials = []
     def __init__(self, *args, **vargs):
         super(AuthTest, self).__init__(*args, **vargs)
 
-        self.my_person = 15971
-        self.my_account = 15972
-        self.ou_person = 36 # Person in an ou that my_account has orakel access to.
-        self.ou_account = 37 # Account in an ou that my_account has orakel access to.
         self.db = Utils.Factory.get('Database')()
         self.db.cl_init(change_program='test')
 
-        self.user=Account(self.db, self.my_account) # Hardcoded.
-        self.auth=Authorization(self.user, self.db)
+        c_account = Utils.Factory.get('Account')(self.db)
+
+        c_account.find_by_name('authtest')
+        self.my_uid = c_account.entity_id
+        self.my_oid = c_account.owner_id
+        c_account.clear()
+
+        c_account.find_by_name('authtes2')
+        self.other_uid = c_account.entity_id
+        self.other_oid = c_account.owner_id
+        c_account.clear()
+
+        group = Utils.Factory.get('Group')(self.db)
+        credentials = []
+        for credential in self.credentials:
+            group.find_by_name(credential)
+            credentials.append(group.entity_id)
+            group.clear()
+
+        s_account=Account(self.db, self.my_uid) # Hardcoded.
+        self.auth=Authorization(s_account, self.db, credentials=credentials)
 
     def setUp(self):
         pass
@@ -258,8 +276,8 @@ class AuthTest(unittest.TestCase):
         new_db = Utils.Factory.get('Database')()
         assert new_db != self.db
 
-        my_account = Account(new_db, self.my_account)
-        my_person = Person(new_db, self.my_person)
+        my_account = Account(new_db, self.my_uid)
+        my_person = Person(new_db, self.my_oid)
         assert self.auth._is_self(my_account)
         assert self.auth._is_self(my_person)
 
@@ -274,17 +292,10 @@ class AuthTest(unittest.TestCase):
     def test__check_global(self):
         assert self.auth._check_global('Account.get_name', None)
 
-    def test_orakel(self):
-        assert self.auth.has_permission("set_password", Account(self.db, self.ou_account))
-        assert self.auth.has_permission("set_password", Account(self.db, self.ou_account))
-        assert self.auth.has_permission("set_description", Person(self.db, self.ou_person))
-        assert not self.auth.has_permission("add_note", Person(self.db, self.ou_person))
-        assert self.auth.has_permission("set_description", Person(self.db, self.ou_person))
-
     def test_my_types(self):
-        my_account = Account(self.db, self.my_account)
-        my_person = Person(self.db, self.my_person)
-        my_external_id = my_person.get_external_ids()[0]
+        my_account = Account(self.db, self.my_uid)
+        my_person = Person(self.db, self.my_oid)
+        my_external_ids = my_person.get_external_ids()
         account_operations = ['get_name', 'get_id', 'set_password']
         person_operations = ['get_external_ids']
         external_id_operations = ['get_id_type']
@@ -295,19 +306,35 @@ class AuthTest(unittest.TestCase):
         for operation in person_operations:
             assert self.auth.has_permission(operation, my_person), operation
 
-        for operation in external_id_operations:
-            assert self.auth.has_permission(operation, my_external_id), operation
+        for my_external_id in my_external_ids:
+            for operation in external_id_operations:
+                assert self.auth.has_permission(operation, my_external_id), operation
 
     def test_public(self):
-        # Add the magic groups cereweb_self and cereweb_public
-        # to our list of credentials.
-        group = Utils.Factory.get('Group')(self.db)
-        group.find_by_name('cereweb_public')
-        self.auth.update_auths([15971,group.entity_id])
         assert not self.auth.has_permission("get_external_ids",
-                Person(self.db, self.ou_person))
+                Person(self.db, self.other_oid))
         assert self.auth.has_permission("get_account_by_name",
                 Commands(self.db))
+
+class OrakelTest(AuthTest):
+    credentials = ['cereweb_orakel']
+
+    def __init__(self, *args, **vargs):
+        super(OrakelTest, self).__init__(*args, **vargs)
+        c_account = Utils.Factory.get('Account')(self.db)
+
+        c_account.find_by_name('authtes3')
+        self.ou_uid = c_account.entity_id
+        self.ou_oid = c_account.owner_id
+        c_account.clear()
+
+    def test_orakel(self):
+        assert self.auth.has_permission("set_password", Account(self.db, self.ou_uid))
+        assert self.auth.has_permission("set_password", Account(self.db, self.ou_uid))
+        assert self.auth.has_permission("set_description", Person(self.db, self.ou_oid))
+        assert self.auth.has_permission("add_note", Person(self.db, self.ou_oid))
+        assert self.auth.has_permission("set_description", Person(self.db, self.ou_oid))
+
 
 if __name__ == '__main__':
     unittest.main()
