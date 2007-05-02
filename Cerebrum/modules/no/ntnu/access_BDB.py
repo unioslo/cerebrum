@@ -25,6 +25,41 @@ class BDB:
             print "Error connecting to remote Oracle RDBMS. Reason: %s" % str(e)
             sys.exit()
 
+    def get_account_spreads(self):
+        cursor = self.db.cursor()
+        cursor.execute("SELECT k.id, g.unix_gid, g.navn as gruppenavn, \
+                        k.system, b.brukernavn , s.navn as spread_name, \
+                        s.domene, s.skall as require_shell\
+                        FROM konto k, bruker b, gruppe g, bdb.system s \
+                        WHERE k.bruker = b.id AND \
+                              k.gruppe = g.id AND \
+                              k.system = s.id AND \
+                              s.user_domain = 1 \
+                       ")
+        bdb_spreads = cursor.fetchall()
+        spreads = []
+        for sp in bdb_spreads:
+            s = {}
+            if sp[0]:
+                s['id'] = sp[0]
+            if sp[1]:
+                s['unix_gid'] = sp[1]
+            if sp[2]:
+                s['groupname'] = sp[2].lower()
+            if sp[3]:
+                s['system'] = sp[3]
+            if sp[4]:
+                s['username'] = sp[4]
+            if sp[5]:
+                s['spread_name'] = sp[5]
+            if sp[6]:
+                s['domain'] = sp[6]
+            if sp[7]:
+                s['require_shell'] = sp[7]
+            spreads.append(s)
+        cursor.close()
+        return spreads
+
     def get_persons(self):
         cursor = self.db.cursor()
         cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
