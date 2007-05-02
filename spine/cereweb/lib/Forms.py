@@ -83,6 +83,10 @@ class Form(object):
             is_correct = False
             self.error_message = 'too long (max. 256 characters).'
         return is_correct
+
+    def get_action(self):
+        return getattr(self, 'action', '/index')
+
             
 class PersonCreateForm(Form):
     def init_form(self):
@@ -224,8 +228,10 @@ class PersonEditForm(PersonCreateForm):
 
 class AccountCreateForm(Form):
     def init_form(self):
+        self.action = '/account/create'
+
         self.order = [
-            'owner', 'name', '_other', 'group', 'expiredate', 'description',
+            'owner', 'name', '_other', 'group', 'expire_date', 'description',
         ]
         self.fields = {
             'owner': {
@@ -242,7 +248,7 @@ class AccountCreateForm(Form):
                 'required': False,
                 'type': 'text',
             },
-            'expiredate': {
+            'expire_date': {
                 'label': _('Expire date'),
                 'required': False,
                 'type': 'text',
@@ -300,6 +306,71 @@ class AccountCreateForm(Form):
 
     def get_title(self):
         return "%s %s" % (_('Owner is'), self.name)
+
+class AccountEditForm(AccountCreateForm):
+    def init_form(self):
+        self.order = [
+            'id', 'expire_date', 'description',
+        ]
+        self.fields = {
+            'id': {
+                'label': 'id',
+                'required': True,
+                'type': 'hidden',
+            },
+            'expire_date': {
+                'label': _('Expire date'),
+                'required': False,
+                'type': 'text',
+                'help': _('Date must be in YYYY-MM-DD format.'),
+            },
+            'description': {
+                'label': _('Description'),
+                'required': False,
+                'type': 'text',
+            },
+        }
+
+        self.action = '/account/save'
+
+        self.account = account = self.transaction.get_account(int(self.values.get('id')))
+        self.values['name'] = account.get_name()
+
+        self.values['description'] = account.get_description() or ''
+        if account.get_expire_date():
+            self.values['expire_date'] = account.get_expire_date().strftime("%Y-%m-%d")
+        if account.is_posix():
+            self.order.extend(['group', 'gecos', 'shell'])
+            self.fields['group'] = {
+                'label': _('Primary group'),
+                'type': 'select',
+                'required': True,
+            }
+            self.fields['shell'] = {
+                'label': _('Shell'),
+                'type': 'select',
+                'required': True,
+            }
+
+            self.values['uid'] = account.get_posix_uid()
+            self.values['group'] = account.get_primary_group().get_id()
+            self.values['gecos'] = account.get_gecos()
+            self.values['shell'] = account.get_shell().get_name()
+
+    def get_group_options(self):
+        # groups which the user can have as primary group
+        return [(i.get_id(), i.get_name())
+                    for i in self.account.get_groups() if i.is_posix()]
+
+    def get_shell_options(self):
+        # shells which the user can change on the account
+        shell_searcher = self.transaction.get_posix_shell_searcher()
+        return [(i.get_name(), i.get_name())
+                        for i in shell_searcher.search()]
+
+    def get_title(self):
+        return "%s %s" % (_('Edit '), self.values['name'])
+
 
 class RoleCreateForm(Form):
     def init_form(self):

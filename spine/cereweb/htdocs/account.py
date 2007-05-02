@@ -25,12 +25,11 @@ from lib.Main import Main
 from lib.utils import *
 from lib.WorkList import remember_link
 from lib.Searchers import AccountSearcher
-from lib.Forms import AccountCreateForm
+from lib.Forms import AccountCreateForm, AccountEditForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from lib.templates.AccountEditTemplate import AccountEditTemplate
-from lib.templates.AccountCreateTemplate import AccountCreateTemplate
 from SpineIDL.Errors import NotFoundError, IntegrityError
 
 def _get_links():
@@ -67,27 +66,18 @@ search = transaction_decorator(search)
 search.exposed = True
 index = search
 
-def select_owner():
-    page = AccountCreateTemplate()
-    page.title = _("Create a new Account")
-    page.set_focus("account/create")
-    page.links = _get_links()
-    page.jscripts.append("find_owner.js")
-    return page.respond()
-
-def create_form(form, message=None):
+def view_form(form, message=None):
     page = FormTemplate()
     if message:
         page.messages.append(message)
     page.title = _("Account")
-    page.links = _get_links()
-    page.set_focus("account/create")
+    page.set_focus("account/")
     page.links = _get_links()
     page.form_title = form.get_title()
-    page.form_action = "/account/create"
+    page.form_action = form.get_action()
     page.form_fields = form.get_fields()
     return page.respond()
-
+    
 def create(transaction, **vargs):
     owner = vargs.get('owner')
     try:
@@ -96,17 +86,18 @@ def create(transaction, **vargs):
         owner = None
 
     if not owner:
-        return select_owner()
+        client = cherrypy.session.get('client')
+        rollback_url(client, _("Please create an account through a person or group."), err=True)
 
     form = AccountCreateForm(transaction, **vargs)
     if len(vargs) == 1:
-        return create_form(form)
+        return view_form(form)
     elif not form.is_correct():
-        return create_form(form, form.get_error_message())
+        return view_form(form, form.get_error_message())
     
     make(transaction, owner, 
             vargs.get('name'),
-            vargs.get('expiredate'),
+            vargs.get('expire_date'),
             vargs.get('np_type'),
             vargs.get('_other'),
             vargs.get('join'),
@@ -167,7 +158,7 @@ def view(transaction, id, **vargs):
 view = transaction_decorator(view)
 view.exposed = True
 
-def edit(transaction, id):
+def edit(transaction, id, **vargs):
     """Creates a page with the form for editing an account."""
     account = transaction.get_account(int(id))
     page = Main()
@@ -175,35 +166,26 @@ def edit(transaction, id):
     page.set_focus("account/edit")
     page.links = _get_links()
 
-    edit = AccountEditTemplate()
-    edit.formvalues['name'] = account.get_name()
-    if account.get_expire_date():
-        edit.formvalues['expire_date'] = account.get_expire_date().strftime("%Y-%m-%d")
-    if account.is_posix():
-        edit.formvalues['uid'] = account.get_posix_uid()
-        edit.formvalues['primary_group'] = account.get_primary_group().get_id()
-        edit.formvalues['gecos'] = account.get_gecos()
-        edit.formvalues['shell'] = account.get_shell().get_name()
-
-    # groups which the user can have as primary group
-    groups = ()
-    if account.is_posix():
-        groups = [(i.get_id(), i.get_name())
-                    for i in account.get_groups() if i.is_posix()]
-
-    # shells which the user can change on the account
-    shell_searcher = transaction.get_posix_shell_searcher()
-    shells = [(i.get_name(), i.get_name())
-                    for i in shell_searcher.search()]
+    vargs['id'] = id
+    form = AccountEditForm(transaction, **vargs)
+    if len(vargs) == 1:
+        return view_form(form)
+    elif not form.is_correct():
+        return view_form(form, form.get_error_message())
         
-    content = edit.edit(account, groups, shells)
-    page.content = lambda: content
-    return page
 edit = transaction_decorator(edit)
 edit.exposed = True
 
-def save(transaction, id, expire_date="", uid="",
-         primary_group="", gecos="", shell=None, description="", submit=None):
+def save(transaction, **vargs):
+    id = vargs.get('id')
+    expire_date = vargs.get('expire_date')
+    uid = vargs.get('uid')
+    primary_group = vargs.get('group')
+    gecos = vargs.get('gecos')
+    shell = vargs.get('shell')
+    description = vargs.get('description')
+    submit = vargs.get('submit')
+
     account = transaction.get_account(int(id))
     c = transaction.get_commands()
     error_msgs = []
