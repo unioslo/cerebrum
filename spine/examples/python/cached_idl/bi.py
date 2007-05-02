@@ -40,7 +40,7 @@ import user
 import sys, os
 import ConfigParser
 conf = ConfigParser.ConfigParser()
-conf.read(('client.conf.template', 'client.conf'))
+conf.read(('client.conf.template', '../../../client.conf'))
 
 try:
     import SpineClient
@@ -71,7 +71,7 @@ class Session(object):
         self.password = password or conf.get('login', 'password')
         ior_file = ior_file or conf.get('SpineClient', 'url')
         cache_dir = conf.get('SpineClient', 'idl_path')
-        self.spine = SpineClient.SpineClient(ior_file, idl_path=cache_dir).connect()
+        self.spine = SpineClient.SpineClient(ior_file, idl_path=cache_dir, config=conf).connect()
         self.session = self.spine.login(self.username, self.password)
         self.new_transaction()
 
