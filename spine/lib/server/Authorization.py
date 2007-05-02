@@ -31,6 +31,7 @@ from Cerebrum.spine.EntityExternalId import EntityExternalId
 from Cerebrum.spine.Entity import Entity
 from Cerebrum.spine.Account import Account
 from Cerebrum.spine.Person import Person
+from Cerebrum.spine.OU import OU
 from Cerebrum.spine.Group import Group
 from Cerebrum.spine.Types import CodeType, OUPerspectiveType
 from Cerebrum.spine.Commands import Commands
@@ -185,7 +186,12 @@ class Authorization(object):
         return self._query_auth(operation, attr, target_id, 'entity')
     
     def _check_by_org(self, operation, attr, target):
-        # For now, we only support accounts and people.
+        perspective = OUPerspectiveType(self.db, name='Kjernen')
+
+        if isinstance(target, OU):
+            if self._check_org_recursive(operation, attr, target, perspective, None):
+                return True
+
         if isinstance(target, Account):
             # Accounts belong to a person or a group.  We don't use the
             # affiliations of the account.
@@ -196,7 +202,6 @@ class Authorization(object):
             target = Person(self.db, person_id)
 
         if isinstance(target, Person):
-            perspective = OUPerspectiveType(self.db, name='Kjernen')
             for affiliation in target.get_affiliations():
                 affiliation_type = affiliation.get_affiliation().get_name()
                 ou = affiliation.get_ou()
@@ -324,12 +329,21 @@ class OrakelTest(AuthTest):
         self.ou_oid = c_account.owner_id
         c_account.clear()
 
+        c_ou = Utils.Factory.get('OU')(self.db)
+        self.ou_id = c_ou.search(name='OuTest')[0][0]
+        self.child_ou_ids = [x[0] for x in c_ou.list_children(c_ou.const.perspective_kjernen, self.ou_id, recursive=True)]
+
     def test_orakel(self):
         assert self.auth.has_permission("set_password", Account(self.db, self.ou_uid))
         assert self.auth.has_permission("set_password", Account(self.db, self.ou_uid))
         assert self.auth.has_permission("set_description", Person(self.db, self.ou_oid))
         assert self.auth.has_permission("add_note", Person(self.db, self.ou_oid))
         assert self.auth.has_permission("set_description", Person(self.db, self.ou_oid))
+
+    def test_create_person(self):
+        assert self.auth.has_permission("create_person", OU(self.db, self.ou_id))
+        for child_id in self.child_ou_ids:
+            assert self.auth.has_permission("create_person", OU(self.db, child_id))
 
 
 if __name__ == '__main__':
