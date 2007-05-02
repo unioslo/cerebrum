@@ -18,13 +18,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# Clean out manually registered affiliation if an equivalent affiliation
-# has been registered by an authoritative system.
+#
+# Test availability of cerebrum database.
+#
 
 import cerebrum_path
 from Cerebrum import Utils
-from Cerebrum import Entity
-from Cerebrum import Account
 
 Factory = Utils.Factory
 db = Factory.get('Database')()

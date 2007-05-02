@@ -18,8 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# Clean out manually registered affiliation if an equivalent affiliation
-# has been registered by an authoritative system.
+#
+# Test availability of spine server.
+#
 
 import cerebrum_path
 import cereconf
