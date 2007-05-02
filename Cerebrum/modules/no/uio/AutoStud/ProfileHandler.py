@@ -23,9 +23,9 @@ import pprint
 import cereconf
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum import Disk
-from Cerebrum.modules.no.ntnu.AutoStud.ProfileConfig import StudconfigParser
-from Cerebrum.modules.no.ntnu.AutoStud.Util import AutostudError
-from Cerebrum.modules.no.ntnu.AutoStud import DiskTool
+from Cerebrum.modules.no.uio.AutoStud.ProfileConfig import StudconfigParser
+from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
+from Cerebrum.modules.no.uio.AutoStud import DiskTool
 
 pp = pprint.PrettyPrinter(indent=4)
 
