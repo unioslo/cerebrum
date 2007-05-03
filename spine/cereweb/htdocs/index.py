@@ -93,17 +93,17 @@ def save_motd(transaction, id=None, subject=None, message=None):
             motd.delete()
         except NotFoundError, e:
             msg = _("Couldn't find existing motd.");
-            rollback_url('/index', msg)
+            rollback_url('/index', msg, err=True)
         except AccessDeniedError, e:
             msg = _("You do not have permission to delete.");
-            rollback_url('/index', msg)
+            rollback_url('/index', msg, err=True)
         except ValueError, e:
             pass
     try: # Create the new
         transaction.get_commands().create_cereweb_motd(subject, message)
     except AccessDeniedError, e:
         msg = _("You do not have permission to create.");
-        rollback_url('/index', msg)
+        rollback_url('/index', msg, err=True)
     msg = _('Motd successfully created.')
     commit_url(transaction, 'index', msg=msg)
 save_motd = transaction_decorator(save_motd)
