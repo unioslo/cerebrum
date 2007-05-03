@@ -7,7 +7,7 @@ CHEETAH = @CHEETAH@
 
 prefix = @prefix@
 libdir = @libdir@
-webroot = @webroot@
+WEBROOT = @webroot@
 cssdir = $(webroot)/css
 
 sources = $(wildcard *.tmpl)
@@ -37,3 +37,7 @@ clean:
 
 distclean: clean
 	rm -f Makefile
+
+install: $(stylesheets)
+	$(INSTALL) -d ${WEBROOT}/htdocs/css/
+	$(INSTALL) -v -m 644 $^ ${WEBROOT}/htdocs/css/

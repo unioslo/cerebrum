@@ -2,10 +2,22 @@
 ## Makefile for Cereweb/lib/
 ##
 
+WEBROOT = @webroot@
+INSTALL = @INSTALL@
+
 .PHONY: all clean distclean
+sources = $(wildcard *.py)
 
 all: 
 	$(MAKE) -C templates $@
+
+install: install-lib
+	$(MAKE) -C templates $@
+
+install-lib: $(sources)
+	$(INSTALL) -d ${WEBROOT}/lib
+	$(INSTALL) -v -m 644 $^ $(WEBROOT)/lib/
+	$(INSTALL) -v -m 644 cjson.so $(WEBROOT)/lib/
 
 clean:
 	$(MAKE) -C templates $@

@@ -4,6 +4,7 @@
 SHELL = @SHELL@
 INSTALL = @INSTALL@
 CHEETAH = @CHEETAH@
+WEBROOT = @webroot@
 
 prefix = @prefix@
 libdir = @libdir@
@@ -32,6 +33,10 @@ print:
 clean:
 	rm -f $(templates)
 	rm -f $(backups)
+
+install: $(templates)
+	$(INSTALL) -d $(WEBROOT)/lib/templates/
+	$(INSTALL) -v -m 644 $^ $(WEBROOT)/lib/templates/
 
 distclean: clean
 	rm -f Makefile

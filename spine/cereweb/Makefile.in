@@ -2,11 +2,32 @@
 ## Makefile for Cereweb
 ##
 
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+INSTALL = @INSTALL@
+CONFDIR = @CONFDIR@
+SBINDIR = @sbindir@
+
 .PHONY: all clean distclean
+
+config_files = $(basename $(wildcard *.conf.template))
 
 all: 
 	$(MAKE) -C htdocs $@
 	$(MAKE) -C lib $@
+
+install: install-lib
+	$(MAKE) -C htdocs $@
+	$(MAKE) -C lib $@
+
+%.conf: %.conf.template
+	$(INSTALL) -v -m 644 $< $@
+
+install-lib: $(config_files)
+	$(INSTALL) -d $(CONFDIR)/
+	$(INSTALL) -v -m 644 $^ $(CONFDIR)/
+	$(INSTALL) -v -m 644 config.py $(CONFDIR)/
+	$(INSTALL) -v -m 755 cereweb.py ${SBINDIR}/
 
 clean:
 	$(MAKE) -C htdocs $@
