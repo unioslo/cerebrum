@@ -29,7 +29,6 @@ from lib.Forms import AccountCreateForm, AccountEditForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
-from lib.templates.AccountEditTemplate import AccountEditTemplate
 from SpineIDL.Errors import NotFoundError, IntegrityError
 
 def _get_links():
