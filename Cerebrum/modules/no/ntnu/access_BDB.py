@@ -25,6 +25,31 @@ class BDB:
             print "Error connecting to remote Oracle RDBMS. Reason: %s" % str(e)
             sys.exit()
 
+    def get_spreads(self):
+        cursor = self.db.cursor()
+        cursor.execute("select id,domene,navn,skall,client_version, \
+                        beskrivelse from bdb.system \
+                        where operational=1 and user_domain=1")
+        spreads = []
+        bdb_spreads = cursor.fetchall()
+        for sp in bdb_spreads:
+            s = {}
+            if sp[0]:
+                s['id'] = sp[0]
+            if sp[1]:
+                s['domain'] = sp[1]
+            if sp[2]:
+                s['spread_name'] = sp[2]
+            if sp[3]:
+                s['shell'] = sp[3]
+            if sp[4]:
+                s['client_version'] sp[4]
+            if sp[5]:
+                s['description'] = sp[5]
+            spreads.append(s)
+        cursor.close()
+        return spreads
+
     def get_email_domains(self):
         cursor = self.db.cursor()
         cursor.execute("select m.id,m.navn,m.system,s.navn as spread_name from \
