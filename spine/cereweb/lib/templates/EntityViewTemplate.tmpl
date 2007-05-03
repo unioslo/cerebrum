@@ -112,30 +112,27 @@
 #end if
 #end def
 
+#from lib.utils import extidlist
 #def viewExternalIds($entity)
-#set $ids = $entity.get_external_ids()
+#set $ids = extidlist($entity)
 #if $ids
 <div class="info box">
     <h3>$_('External identifiers')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Value')</th>
+      <th>$_('Sources')</th>
+    </tr>
     #for $id in $ids
-    <div class="item">
-        #set $external_id = $id.get_external_id()
-        #set $type = $id.get_id_type().get_description()
-        #set $ss_name = $id.get_source_system().get_name()
-        #set $ss_desc = $id.get_source_system().get_description()
-        #set $args = "id=%i&external_id=%s&id_type=%s" % ($entity.get_id(),
-                            $external_id, $id.get_id_type().get_name())
-        #set $delete = '/entity/remove_external_id?%s' % $args
-        <div class="actions">
-            <a class="action" href="$delete">$_('delete')</a>
-        </div>
-        <span class="name">$id.get_id_type().get_description():</span>
-        <span class="value">$external_id</span>
-        <br />
-        <span class="name">$_('Source system'):</span>
-        <span class="value">$ss_name ($ss_desc)</span>
-    </div>
+    #set sources = ",".join([$s.get_name() for $s in $id.sources])
+    <tr>
+       <td>$id.variant.get_name()</td>
+       <td>$id.value</td>
+       <td>$sources</td>
+    </tr>
     #end for
+    </table>
 </div>
 #end if
 #end def

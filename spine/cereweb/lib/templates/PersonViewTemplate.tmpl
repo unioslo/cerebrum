@@ -115,37 +115,34 @@
 #if $affils
 <div class="info box">
     <h3>$_('Affiliations')</h3>
+    <table>
+    <tr class="headers"><th>$_('Affiliation')</th><th>$_('Status')</th>
+    <th>$_('OU')</th><th>$_('Additional Info')</th><th>$_('Actions')</th></tr>
     #for $affil in $person.get_affiliations()
     #set $ou = $affil.get_ou()
     #set $affil_type = $affil.get_affiliation()
     #set $status = $affil.get_status()
     #set $marked = $affil.marked_for_deletion()
-    <div class="item">
-        #if not $marked
-        <div class="actions">
+    #set $description = $affil.get_description()
+
+    #if not $marked
+    <tr class="item">
+    <td>$affil_type.get_name()</td>
+    <td>$status.get_name()</td>
+    <td>$object_link($ou)</td>
+    <td>$description</td>
+
+    <td class="actions">
             #set $args = "id=%s&ou=%s&affil=%s&ss=%s" % (
                             $person.get_id(), $ou.get_id(),
                             $affil_type.get_name(),
                             $affil.get_source_system().get_name())
             <a class="action" href="remove_affil?$args">$_('delete')</a>
-        </div>
-        #end if
-        <span class="name">$_('Affiliation'):</span> <span class="value"> $affil_type.get_name()</span>
-        #if $affil.marked_for_deletion()
-            &nbsp;<font color="red">($_('Marked for deletion'))</font>
-        #else
-        #end if
-        <br />
-        <span class="name">$_('Status'):</span> <span class="value"> $status.get_name() ($status.get_description())</span>
-        <br />
-        <span class="name">$_('OU'):</span> <span class="value"> $object_link($ou)</span>
-        #set $description = $affil.get_description()
-        #if $description
-        <br />
-        <span class="name">$_('Description'):</span> <span class="value"> $description</span>
-        #end if
-    </div>
+    </td>
+    </tr>
+    #end if
     #end for
+</table>
 </div>
 #end if
 #end def
@@ -180,81 +177,26 @@
 </div>
 #end def
 
+#from lib.utils import namelist
 #def viewNames($person)
-## #set $names = $person.get_names()
-## #if $names
-## <div class="info box">
-##     <h3>$_('Names')</h3>
-##     #for $name in $names
-##     #set $ss = $name.get_source_system()
-##     #if not $ss.get_name() == 'Cached'
-##     <div class="item">
-##         #set $name_variant = $name.get_name_variant()
-##         #set $ss_name = $ss and $ss.get_name() or ''
-##         <div class="actions">
-##             #set $delete = 'remove_name?id=%i&variant=%s&ss=%s' % (
-##                  $person.get_id(), $name_variant.get_name(), $ss_name)
-##             <a class="action" href="$delete">$_('delete')</a>
-##         </div>
-##         <span class="name">$name_variant.get_description():</span>
-##         <span class="value">$name.get_name()</span>
-##         #if $ss
-##         <br />
-##         <span class="name">$_("Source system"):</span>
-##         <span class="value">$ss.get_name() ($ss.get_description())</span>
-##         #end if
-##     </div>
-##     #end if
-## #end for
-## </div>
-## #end if
-## -----
-#set $source_systems = {}
-#set $names = $person.get_names()
-#if $names
     <div class="info box">
-    #for $name in $names
-        #set $ss = $name.get_source_system()
-        #if not $ss.get_name() == 'Cached'
-            #set $name_variant = $name.get_name_variant()
-            #set $ss_name = $ss.get_name()
-            #if not $ss_name in $source_systems
-                #set $source_systems[$ss_name] = {}
-                #set $source_systems[$ss_name]['index'] = 0
-            #end if
-            #set $source_systems[$ss_name][$name_variant.get_name()] = $name.get_name()
-            #set $source_systems[$ss_name]['index'] += 1
-        #end if
-    #end for
-    #set $id = $person.get_id()
+    #set names = namelist($person)
     <h3>$_('Names')</h3>
     <table>
-    #for $ss_name in $source_systems.keys()
-        <tr>
-            <td>
-                $ss_name
-            </td>
-            #for $variant in $source_systems[$ss_name].keys()
-                #if not $variant == 'index'
-                <td>
-                    $source_systems[$ss_name][$variant]
-                    #set $delete = 'remove_name?id=%i&variant=%s&ss=%s' % (
-                      $id, $variant, $ss_name)
-                    <a class="action" href="$delete">$_('delete')</a>
-                </td>
-                #end if
-            #end for
-            #set $end = $names_width - $source_systems[$ss_name]['index']
-            #for $td in $range(0, $end)
-                <td>
-                    &nbsp;
-                </td>
-            #end for
-        </tr>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Name')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for name in names
+    #set sources = ",".join([$s.get_name() for $s in $name.sources])
+    <tr>
+       <td>$name.variant.get_name()</td>
+       <td>$name.name</td>
+       <td>$sources</td>
+    </tr>
     #end for
     </table>
-    </div>
-#end if
 #end def
 
 #def setName($person, $transaction)

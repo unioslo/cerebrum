@@ -49,7 +49,7 @@ def _spine_type(object):
         return name.lower()
 
 def object_name(object):
-    type = _spine_type(object)
+    type = object.get_type().get_name()
     if type == 'person':
         text = object.get_cached_full_name()
     elif type == 'ou':
@@ -311,3 +311,50 @@ def flatten(list, perspective, res=[]):
     res.append(ou)
     return flatten(ou.get_children(perspective), perspective, res)
 
+
+#
+# namelist does not really belong here...
+
+class nameobj:
+    def __init__(self, name, variant):
+        self.name=name
+        self.variant=variant
+        self.sources=[]
+
+def namelist(person):
+    names = []
+    namevariants = {}
+    for name in person.get_names():
+        variant = name.get_name_variant()
+        source = name.get_source_system()
+        value = name.get_name()
+        if not variant in namevariants:
+            namevariants[variant] = {}
+        if not value in namevariants[variant]:
+            name = nameobj(value, variant)
+            names.append(name)
+            namevariants[variant][value] = name
+        namevariants[variant][value].sources.append(source)
+    return names
+
+class extidobj:
+    def __init__(self, value, variant):
+        self.value=value
+        self.variant=variant
+        self.sources=[]
+
+def extidlist(person):
+    extids = []
+    extidvariants = {}
+    for extid in person.get_external_ids():
+        variant = extid.get_id_type()
+        source = extid.get_source_system()
+        value = extid.get_external_id()
+        if not variant in extidvariants:
+            extidvariants[variant] = {}
+        if not value in extidvariants[variant]:
+            extid = extidobj(value, variant)
+            extids.append(extid)
+            extidvariants[variant][value] = extid
+        extidvariants[variant][value].sources.append(source)
+    return extids
