@@ -506,7 +506,22 @@ class BDBSync:
                     try:
                         posix_user.find(account_id)
                         if verbose:
-                            print "Account %s is already posix. Continuing" % account_id
+                            print "Account %s is already posix. Updating posix-uid/gid." % account_id
+                        self.logger.info("Account %s is already posix. Updating" % account_id)
+                        _has_changed = False
+                        if posix_user.posix_uid != account_info['posix_uid']:
+                            posix_user.posix_uid = account_info['posix_uid']
+                            _has_changed = True
+                        if posix_user.gid_id != account_info['posix_gid']:
+                            posix_user.gid_id = account_info['posix_gid']
+                            _has_changed = True
+                        if has_changed:
+                            posix_user.write_db()
+                    except self.db.IntegrityError,ie:
+                        if verbose:
+                            print "Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie))
+                        logger.error("Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie)))
+                        self.db.rollback()
                     except Errors.NotFoundError:
                         account_info['account_id'] = ac.entity_id
                         if self._promote_posix(account_info):
