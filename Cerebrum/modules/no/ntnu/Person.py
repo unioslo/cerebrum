@@ -23,6 +23,7 @@ from Cerebrum import Person
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 import cereconf
+import re
 
 # The cached display name defaults to the cached full name, but
 # may be overridden by a manually set display name.
@@ -43,7 +44,7 @@ class PersonNTNUMixin(Person.Person):
             displayname=self.get_name(self.const.system_cached,
                                       self.const.name_full)
         if displayname is None:
-            raise Errors.ValueError, "No cacheable display name for %d" % (
+            raise ValueError, "No cacheable display name for %d" % (
                 self.entity_id)
         # Keep this like Person._update_cached_names()
         # For now, delete is not used.
@@ -67,3 +68,13 @@ class PersonNTNUMixin(Person.Person):
         if id_type == self.const.externalid_fodselsnr:
             fodselsnr.personnr_ok(external_id)
         self.__super.populate_external_id(source_system, id_type, external_id)
+
+
+    # OBS: setlocale needed for this.
+    # XXX: allow charlist explicitly instead of \w?
+    person_name_regex=re.compile("^\w([\w '.-]*[\w.])?$", re.LOCALE)
+
+    def populate_name(self, variant, name):
+        if not re.match(self.person_name_regex, name):
+            raise ValueError, "Malformed name `%s'" % name
+        self.__super.populate_name(variant, name)
