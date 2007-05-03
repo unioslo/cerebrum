@@ -1229,7 +1229,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query("""
-        SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name
+        SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name,
+                        ai.owner_id AS owner_id, ai.owner_type AS owner_type
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_account),
              'name': name, 'owner_id': owner_id, 'owner_type': owner_type,
