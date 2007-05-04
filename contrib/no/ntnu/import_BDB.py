@@ -10,6 +10,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.ntnu import access_BDB
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
+from Cerebrum.modules import Email
 
 import mx
 import util
@@ -690,6 +691,47 @@ class BDBSync:
             self._sync_spread(spread)
         return
 
+    def sync_spread_def(self):
+        global verbose, dryrun
+        if verbose:
+            print "Fetching spread-definitions from BDB."
+        spreads = self.bdb.get_spreads()
+        return
+
+    def sync_email_domains(self):
+        print "Fetching email-domains"
+        global verbose, dryrun
+        domains = self.bdb.get_email_domains()
+        for domain in domains:
+            self._sync_email_domain(domain)
+        if dryrun:
+            if verbose:
+                print "Email-domains rollback."
+            self.db.rollback()
+        else:
+            if verbose:
+                print "Commiting changes to email_domains"
+            self.db.commit()
+        return
+
+    def _sync_email_domain(self,domain):
+        global verbose, dryrun
+        if verbose:
+            print "Syncronizing %s" % domain.get('email_domain')
+        ed=Email.EmailDomain(self.db)
+        ed.clear()
+        try:
+            ed.find_by_domain(domain.get('email_domain'))
+            if verbose:
+                print "EmailDomain %s already exists." % domain.get('email_domain')
+        except Errors.NotFound:
+            description = "Domain handled by spread %s" % domain.get('spread_name')
+            if verbose:
+                print "Adding EmailDomain %s" % domain.get('email_domain')
+            ed.populate(domain.get('email_domain'),description)
+            ed.write_db()
+        return
+
 def usage():
     print """
     Usage: %s <options>
@@ -702,6 +744,8 @@ def usage():
         --account   (-a) Syncronize posixAccounts
         --spread    (-s) Synronize account-spreads
         --affiliations (-t) Syncronize affiliations on persons
+        --email_domains  Syncronize email-domains
+        --spreads        Syncronize spread-definitions
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
 
@@ -712,7 +756,7 @@ def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvh',
-                    ['spread','affiliations','dryrun','people','group','account','verbose','help'])
+                    ['spread','email_domains','spreads','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     for opt,val in opts:
@@ -732,6 +776,8 @@ def main():
             sync.sync_spreads()
         elif opt in ('-t','--affiliations'):
             sync.sync_affiliations()
+        elif opt in ('--email_domains',):
+            sync.sync_email_domains()
         else:
             usage()
 
