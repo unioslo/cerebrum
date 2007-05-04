@@ -145,7 +145,7 @@ def main():
         else:
             for f in files:
                 runfile(f, db, debug, phase)
-   if do_bootstrap:
+    if do_bootstrap:
         makeInitialUsers(db)
         meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, Cerebrum._version)
         db.commit()
