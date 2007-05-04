@@ -43,7 +43,7 @@ class BDB:
             if sp[3]:
                 s['shell'] = sp[3]
             if sp[4]:
-                s['client_version'] sp[4]
+                s['client_version'] = sp[4]
             if sp[5]:
                 s['description'] = sp[5]
             spreads.append(s)
