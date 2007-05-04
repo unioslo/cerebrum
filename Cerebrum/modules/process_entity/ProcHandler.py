@@ -103,7 +103,11 @@ class ProcHandler(object):
 
     def process_person(self, person):
         """Sync spreads between a person and it's accounts."""
-        
+
+       # str2const is something we need if we create new accounts.
+        if not self.str2const:
+            self._make_str2const()
+  
         if not self._ac:
             self._ac = Factory.get('Account')(self.db)
 
@@ -122,7 +126,7 @@ class ProcHandler(object):
 
         # Find the person's affiliations
         person_affiliations = []
-        for row in person.list_affiliations(person_id=person.entity_id):
+        for row in person.get_affiliations():
             person_affiliations.append((row['ou_id'], row['affiliation']))
 
         # If the person in question doesn't have any affiliations, we
