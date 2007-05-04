@@ -4123,9 +4123,9 @@ class BofhdExtension(object):
                                      (self.const.system_fs, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post_private)):
                     address = person.get_entity_address(source = source, type = kind)
-                    if address:
+                    if address and address[0]['address_text'] and len(address[0]['address_text']) > 5:
                         break
-  
+                    address = None
                 if not address:
                     ret.append("Error: Couldn't get authoritative address for %s" % account.account_name)
                     continue
