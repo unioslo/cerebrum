@@ -73,6 +73,34 @@ class BDB:
         cursor.close()
         return domains
 
+    def get_email_addresses(self):
+        cursor = self.db.cursor()
+        cursor.execute("select p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id, \
+                        m.navn as domain_name \
+                        from person p, mail_domain m, bruker b \
+                        where p.mail_domain = m.id and \
+                        p.id = b.person and \
+                        b.user_domain = 1 \
+                        ")
+        addresses = []
+        bdb_addresses = cursor.fetchall()
+        for adr in bdb_addresses:
+            a = {}
+            if adr[0]:
+                a['id'] = adr[0]
+            if adr[1]:
+                a['email_address'] = adr[1]
+            if adr[2]:
+                a['forward'] = adr[2]
+            if adr[3]:
+                a['email'] = adr[3]
+            if adr[4]:
+                a['email_domain_id'] = adr[4]
+            if adr[5]:
+                a['email_domain_name'] = adr[5]
+            addresses.append(a)
+        return addresses
+
     def get_account_spreads(self):
         cursor = self.db.cursor()
         cursor.execute("SELECT k.id, g.unix_gid, g.navn as gruppenavn, \
