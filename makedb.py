@@ -145,7 +145,7 @@ def main():
         else:
             for f in files:
                 runfile(f, db, debug, phase)
-    if do_bootstrap:
+   if do_bootstrap:
         makeInitialUsers(db)
         meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, Cerebrum._version)
         db.commit()
@@ -199,8 +199,12 @@ def makeInitialUsers(db):
     ea.populate(co.entity_account)
     ea.write_db()
 
+    def false(*args):
+        return False
+    
     # TODO:  These should have a permanent quarantine and be non-visible
     a = Factory.get('Account')(db)
+    a.illegal_name = false
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
                eg.entity_id, int(co.account_program), ea.entity_id,
                None, parent=ea)
@@ -208,6 +212,7 @@ def makeInitialUsers(db):
     a.write_db()
 
     g = Group.Group(db)
+    g.illegal_name = false
     g.populate(a.entity_id, co.group_visibility_all,
                cereconf.INITIAL_GROUPNAME, parent=eg)
     g.write_db()
