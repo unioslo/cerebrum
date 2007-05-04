@@ -137,6 +137,24 @@ class ProcHandler(object):
             else:
                 self.logger.info("Person '%d' have no affiliations. No account created." % person.entity_id)
 
+        # Clean up in spreads
+        change = False
+        for spread in procconf.PERSON_SPREADS:
+            if person_affiliations:
+                if not person.has_spread(int(self.str2const[spread])):    
+                    person.add_spread(int(self.str2const[spread]))
+                    self.logger.info("Person '%d' got spread '%s'." % \
+                                     (person.entity_id, spread))
+                    change = True
+            else:
+                if person.has_spread(int(self.str2const[spread])):
+                    person.delete_spread(int(self.str2const[spread]))
+                    self.logger.info("Person '%d' have no affiliations. Spread '%s' deleted." % \
+                                     (person.entity_id, spread))
+                    change = True
+        if change:
+            person.write_db()
+            
         # Loop over the person's account(s) and correct affiliations
         for account in person.get_accounts():
             account_affiliations = []
