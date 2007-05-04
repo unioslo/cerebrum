@@ -76,7 +76,7 @@ class BDB:
     def get_email_addresses(self):
         cursor = self.db.cursor()
         cursor.execute("select p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id, \
-                        m.navn as domain_name \
+                        m.navn as domain_name, b.brukernavn \
                         from person p, mail_domain m, bruker b \
                         where p.mail_domain = m.id and \
                         p.id = b.person and \
@@ -98,6 +98,8 @@ class BDB:
                 a['email_domain_id'] = adr[4]
             if adr[5]:
                 a['email_domain_name'] = adr[5]
+            if adr[6]:
+                a['username'] = adr[6]
             addresses.append(a)
         return addresses
 
