@@ -45,6 +45,9 @@ class BDBSync:
         self.group = Factory.get('Group')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
         self.posix_user = PosixUser.PosixUser(self.db)
+        self.et = Email.EmailTarget(self.db)
+        self.ea = Email.EmailAddress(self.db)
+        self.ed = Email.EmailDomain(self.db)
         self.logger = Factory.get_logger("console")
         self.logger.info("Starting import_BDB")
         self.ac.find_by_name('bootstrap_account')
@@ -732,6 +735,86 @@ class BDBSync:
             ed.write_db()
         return
 
+
+    def sync_email_addresses(self):
+        global dryrun,verbose
+        if verbose:
+            print "Fetching email addresses from BDB"
+        addresses = self.bdb.get_email_addresses()
+        for address in addresses:
+            self._sync_email_address(address)
+        if dryrun:
+            if verbose:
+                "Rolling back changes on email addresses"
+            self.db.rollback()
+        else:
+            if verbose:
+                "Commiting changes on email addresses"
+            self.db.commit()
+        return
+
+    def _sync_email_address(self,address):
+        global verbose
+        if verbose:
+            print "Processing %s@%s" % (address.get('email_address'),address.get('email_domain_name'))
+
+        person = self.new_person
+        ac = self.ac
+        et = self.et
+        ea = self.ea
+        ed = self.ed
+        co = self.const
+
+        person.clear()
+        ac.clear()
+        et.clear()
+        ed.clear()
+        ea.clear()
+
+        try:
+            ac.find_by_name(address.get('username'))
+        except Errors.NotFoundError:
+            pass
+
+        if not hasattr(ac,'entity_id'):
+            try:
+                person.find_by_external_id(co.externalid_bdb_person, address.get('id'), \
+                                           co.system_bdb, co.entity_person)
+            except Errors.NotFoundError:
+                # aye.. neither username or person matches.. 
+                return
+            try:
+                ac.clear()
+                ac.find(person.get_primary_account())
+            except Errors.NotFoundError:
+                # Person has no primary.. what to do?
+                return
+
+        # Does the account have an EmailTarget?
+        try:
+            et.find_by_entity(ac.entity_id)
+        except Errors.NotFoundError:
+            # Populate a new EmailTarget for this Account
+            et.populate(co.email_target_account, ac.entity_id, ac.entity_type)
+            # Need to write it to the db before we can use it.
+            op = et.write_db()
+
+        # Does this domain exist in Cerebrum?
+        try:
+            ed.find_by_domain(address.get('email_domain_name'))
+        except Errors.NotFoundError:
+            self.logger.error("Domain %s not found in Cerebrum." % address.get('email_domain_name'))
+            return
+
+        try:
+            ea.populate(address.get('email_address'), ed.email_domain_id, et.email_target_id)
+            ea.write_db()
+        except self.db.IntegrityError,ie:
+            if verbose:
+                print "Address %s@%s already exists" % (address.get('email_address'),address.get('email_domain_name'))
+            self.db.rollback()
+        return
+
 def usage():
     print """
     Usage: %s <options>
@@ -745,6 +828,7 @@ def usage():
         --spread    (-s) Synronize account-spreads
         --affiliations (-t) Syncronize affiliations on persons
         --email_domains  Syncronize email-domains
+        --email_address  Syncronize email-addresses
         --spreads        Syncronize spread-definitions
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
@@ -756,7 +840,7 @@ def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvh',
-                    ['spread','email_domains','spreads','affiliations','dryrun','people','group','account','verbose','help'])
+                    ['spread','email_domains','email_address','spreads','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     for opt,val in opts:
@@ -778,6 +862,8 @@ def main():
             sync.sync_affiliations()
         elif opt in ('--email_domains',):
             sync.sync_email_domains()
+        elif opt in ('--email_address',):
+            sync.sync_email_addresses()
         else:
             usage()
 
