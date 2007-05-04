@@ -231,13 +231,31 @@ class my_sdist(sdist, object):
         if bofh and os.system('cd java/jbofh && ant dist') != 0:
             raise RuntimeError, "Error running ant"
 
-prefix="."  # Should preferably be initialized from the command-line argument
-sharedir="%s/share" % prefix
-sbindir="%s/sbin" % prefix
-bindir="%s/bin" % prefix
-sysconfdir = "%s/etc/cerebrum" % prefix # Should be /etc/cerebrum/
-logdir = "%s/var/log/cerebrum" % prefix # Should be /var/log/cerebrum/
 
+# Ugly hack to get path names from configure
+# Please fix this if you see a better solution.
+vars = locals()
+for line in open('Makefile'):
+    if line.find(':') != -1: break # Only scan until the first target.
+    try:
+        name, value = line.split('=')
+        name = name.strip()
+        value = value.strip()
+        # We only overwrite variables that are not already set.
+        if not vars.has_key(name):
+            vars[name] = value
+    except ValueError, e:
+        continue
+
+# Then we set the default value of these variables.  If they are already
+# set, we keep the original value.
+vars.setdefault('prefix', ".")  # Should preferably be initialized from the command-line argument
+vars.setdefault('sharedir', "%s/share" % prefix)
+vars.setdefault('sbindir', "%s/sbin" % prefix)
+vars.setdefault('bindir', "%s/bin" % prefix)
+vars.setdefault('sysconfdir', "%s/etc/cerebrum" % prefix) # Should be /etc/cerebrum/
+vars.setdefault('logdir', "%s/var/log/cerebrum" % prefix) # Should be /var/log/cerebrum/
+# End ugly hack
 
 sbin_files = [
     ('server/job_runner.py', 0755),
