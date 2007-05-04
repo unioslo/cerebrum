@@ -24,267 +24,106 @@ This script is a UiT specific export script for exporting data to our
 SUT system.
 The data is written to a file given from command line on the following
 format:
-fodtdato,pnr,name,username
-
+uid:crypt:uid:gid:gecos:home:shell:quarntine,affs
+eks:
+paalde:xySfdaS3aS2:500:500:Paal D. Ekran:/its/home/p/pa/paalde:/bin/bash:true,STUDENT\aktiv
 """
 
+import sys
+import re
+import os
+import mx
+import getopt
 
 import cerebrum_path
 import cereconf
-import string
-import getopt
-import sys
-
-from Cerebrum.Utils import Factory
-from Cerebrum import Constants
 from Cerebrum import Errors
-from Cerebrum import Entity
-from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
+from Cerebrum.Utils import Factory
 
+db=Factory.get('Database')()
+co=Factory.get('Constants')(db)
+logger_name = cereconf.DEFAULT_LOGGER_TARGET
 
-def export_sut(out_file):
-    db = Factory.get('Database')()
-    const = Factory.get('Constants')(db)
-    
-    file_handle = open(out_file,"w")
+def build_data_cache():   
+    ac = Factory.get('Account')(db)
+    p = Factory.get('Person')(db)
+    posix = PosixUser.PosixUser(db)
 
-    # Change these to constants!!!
-    value_domain = const.account_namespace  # powq: 77
-    id_type = const.externalid_fodselsnr   # powq: 96
-    name_variant = const.name_full   # powq: 162
-    affiliation = const.affiliation_student  # powq: 190
-    sys_fs = const.system_fs
-    sys_x  = const.system_x
-
-    # Rewrite to portable query!
-
-    query = "select distinct e.entity_name, eei.external_id, pn.name \
-    FROM person_affiliation pa, entity_name e, entity_external_id eei, person_name pn, account_info a \
-    WHERE e.entity_id=a.account_id AND \
-          a.owner_id = eei.entity_id AND \
-          pn.person_id = a.owner_id AND \
-          eei.entity_id = pa.person_id AND \
-          e.value_domain=%i AND \
-          ((eei.id_type=%i) OR (eei.id_type=%i)) AND \
-          (eei.source_system=%i OR eei.source_system=%i) AND \
-          pn.name_variant=%i AND \
-          pa.affiliation=%i \
-    UNION \
-        SELECT e.entity_name, p.external_id, s.name \
-        FROM account_info ai, entity_name e, entity_external_id p, person_name s,entity_spread es \
-        WHERE es.spread=493 \
-        AND es.entity_id = e.entity_id \
-        AND es.entity_id = ai.account_id \
-        AND ai.owner_id = p.entity_id \
-        AND ai.owner_id = s.person_id \
-        AND s.name_variant=162 \
-        AND s.source_system = 69 \
-        AND ((p.id_type = 96) OR(p.id_type=%i))  " % (value_domain,
-                                                      id_type,
-                                                      const.externalid_sys_x_id,
-                                                      sys_fs,sys_x,
-                                                      name_variant,
-                                                      affiliation,
-                                                      const.externalid_sys_x_id)
-          
-    #logger.debug(query)
-          
-    query_new = "SELECT ......"
-          
-    db_row = db.query(query)
-    i = 0
-    for row in db_row:
-        full_name = row['name']
-        ssn = row['external_id']
-        if((len(ssn)!=11)and(row['id_type'==const.externalid_sys_x_id])):
-            #print "foreigner"
-            fodt="010170"
-            pnr="%i" % (10000+int(ssn))
-        else:
-            fodt = ssn[0:6]
-            pnr = ssn[6:11]
-            dag = fodt[0:1]
-            mnd = fodt[2:4]
-            aar = fodt[4:6]
-        
-            # unfortunately we have some fake ssn. these cannot be inserted into the export
-            # file to SUT. We need to convert these by issuing the following
-            # any months which have the first number = 5 or 6 must be changed to 0 or 1 respectively
-            try:
-                if(fodt[2] == "5"):
-                    #logger.debug("before:%s" % (fodt))
-                    fodt = "%s%s%s" % (fodt[0:2],"0",fodt[3:6])
-                    #logger.debug("after:%s" % (fodt))
-                elif(fodt[2] == "6"):
-                    #logger.debug("before:%s" % (fodt))
-                    fodt = "%s%s%s" % (fodt[0:2],"1",fodt[3:6])
-                    #logger.debug("after:%s" % (fodt))
-            except Exception,msg:
-                print "SUT ERR: db_row=%s, error:%s" %(db_row, msg)
-                sys.exit(1)
-            
-        user_name = row['entity_name']
-        
-        sut_line = "%s:%s:%s:%s\n" % (fodt,pnr,full_name,user_name)
-        #logger.debug(sut_line.rstrip())
-        file_handle.writelines(sut_line)
-        i += 1
-    file_handle.close()
-    #print "copying file now"
-    #ret = os.system("/usr/bin/scp %s root@flam.student.uit.no:/its/apache/data/sliste.dta" % out_file)
-    #self.global_ret +=ret
-    #message +="   scp %s to sut %s\n" %(out_file,ret) 
-    # lets write any outputs from the system command to our log file
-    #for message in get.readlines():
-    #    log_handle.writelines("%s\n" % message)
-    return i
-
-
-
-class export_new:
-
-    def __init__(self,logger_name):
-        self.db = Factory.get('Database')()
-        self.co = Factory.get('Constants')(self.db)
-        self.ou = Factory.get('OU')(self.db)
-        self.ent_name = Entity.EntityName(self.db)
-        self.group = Factory.get('Group')(self.db)
-        self.account = Factory.get('Account')(self.db)
-        self.person = Factory.get('Person')(self.db)
-        self.pu = PosixUser.PosixUser(self.db)
-        self.logger = Factory.get_logger(logger_name)
-        self.sut_spread = self.co.spread_uit_sut_user
-        self.db.cl_init(change_program='export_sut')
-        self.intCnt = 0
-        self.intRej = 0
-        self.intExp = 0
-        self.intQnt = 0
-
-        self.cache = {}
-             # account_id => 'userid' => bto001
-             #              'birth_date => 1968-01-01
-             #              'fullname' => Bjorn Torsteinsen
-             #              'owner_id' => 1241  # person id thath owns bto001
-
-
-    def check_account(self):
-        if self.account.is_expired():
-            self.intExp +=1
-            self.logger.info("%s(%s) is expired. removed from sut export" % (self.account.account_name,
-                                                                             self.account.entity_id ))
-            return False
-        quarantine = self.account.get_entity_quarantine(only_active=True)
-        if(len(quarantine)!=0):
-            self.intQnt += 1
-            self.logger.info("%s(%s) has quarantine set. removed from sut export" % (self.account.account_name,
-                                                                                     self.account.entity_id))
-            return False
-        return True
-
-
-    def cache_info(self,acc_id):
-        #self.logger.info("Appending %s" % element['entity_id'])
-        self.person.clear()
-        self.person.find(self.account.owner_id)
-        name = self.account.get_fullname()
-        pnrs = self.person.get_external_id(id_type=self.co.externalid_fodselsnr)
-        pnr = 0
-        if (len(pnrs)>0):
-            fnr = pnrs[0]['external_id']
-            pnr = fnr[-5:]
-        else:
-            # does not have no_birthno. Try systemX id
-            pnrs = self.person.get_external_id(id_type=self.co.externalid_sys_x_id)
-            if (len(pnrs)>0):
-                # the resulting pnr must be 11 digits long. In the case of system-X persons
-                # the pnr is a combination of birth date and cerebrums internal id
-                # the internal ID in cerebrum does not neccesarry have 5 digits so the
-                # next line padds the internal ID with trailing zeros to generate a 5 digit number.
-                # The resulting ssn is then 11 digits long.
-                pnr_len = len(pnrs[0]['external_id'])
-                missing_pnr_len = 5 - pnr_len
-                trailing_zeros = string.zfill("",missing_pnr_len)
-                pnr="%s%s" % (pnrs[0]['external_id'],trailing_zeros)
-            else:
-                self.logger.error("ERROR RETRIVING external_id for %s" % (acc_id))
-                sys.exit(1)
-        self.cache[acc_id] = { 'userid': self.account.account_name,
-                               'pnr': pnr,
-                               'fullname': name,
-                               'birth': self.person.birth_date.Format("%d%m%y")
-                               }
+    #exp_spread='sut@uit' #co.spread_uit_fd
+    exp_spread=['sut@uit', 'fd@uit']
+    accounts=dict()
+    for spread in exp_spread:
+        logger.info("Retreiving accounts with spread = %s" % spread)
+        for acc in ac.search(spread=spread, filter_expired=True):
+            acc_id=acc['account_id']
+            if not accounts.has_key(acc_id):           
+                accounts[acc_id] = (acc['name'],acc['owner_id'])
                 
 
-    def get_entities(self):
-        entityList = []
-        e_list = []
-        self.logger.info("Retriving sut spread")
-        e_list = self.ent_name.list_all_with_spread(self.sut_spread)
-        self.logger.info("Ready...")
-        # lets remove any account entities which has active quarantines.
-        for element in e_list:
-            self.intCnt += 1
-            self.account.clear()
-            self.account.find(element['entity_id'])
-            if (self.check_account()):
-                self.cache_info(element['entity_id'])
-                entityList.append(element['entity_id'])
-                              
-        a_list = []
-        self.logger.info("Retriving ad_account spread")
-        a_list = self.ent_name.list_all_with_spread(self.co.spread_uit_ad_account)
-        self.logger.info("Ready...")
-        for element in a_list:
-            if (element['entity_id'] not in entityList):
-                self.intCnt += 1
-                self.account.clear()
-                try:
-                    self.account.find(element['entity_id'])
-                except Errors.NotFoundError:
-                    self.logger.error("Unknown Account ID %d found in ad_spread!" % element['entity_id'])
-                    continue
-                if (self.check_account()):
-                    self.cache_info(element['entity_id'])
-                    entityList.append(element['entity_id'])
-                    
-        # return the resulting list.
-        self.logger.info("Retrived %d accounts, rejected=%d, is_exp=%d, quarantined=%d" % (self.intCnt,
-                                                                                           (self.intExp+self.intQnt),
-                                                                                           self.intExp,
-                                                                                           self.intQnt))
-        return entityList
-
-
-    def build_sut_exportdata(self,entityList,out_file):
-        #         sut_line = "%s:%s:%s:%s\n" % (fodt,pnr,full_name,user_name)
+    logger.info("Retreiving auth strings")
+    auth_list=dict()
+    auth_type=co.auth_type_md5_crypt
+    for auth in ac.list_account_authentication(auth_type=auth_type,filter_expired=True):
+        auth_list[auth['account_id']]=auth['auth_data']
+            
+    person_names = dict()
+    logger.info("Retreiving person names strings")
+    for pers in p.list_persons_name(source_system=co.system_cached):
+        p_id = int(pers['person_id'])
+        p_name=pers['name']        
+        if person_names.has_key(p_id):
+            logger.warn("Person id %s seen before. current=%s, this=%s" % (p_id,person_names[p_id],p_name))
+        else:       
+            person_names[p_id] = p_name
+  
+    person_affs = dict()
+    logger.info("Retreiving person affiliations")
+    for pers in p.list_affiliations(include_deleted=False):
+        p_id = int(pers['person_id'])
+        data = (pers['affiliation'],pers['status'])
+        if person_affs.has_key(p_id):
+            current = person_affs[p_id]
+            current.append(data)
+            person_affs[p_id] = current
+        else:
+            person_affs[p_id] = [data]     
         
-        lines=[]
-        for a_id in entityList:
-            line = "%s:%s:%s:%s\n" % (self.cache[a_id]['birth'],
-                                       self.cache[a_id]['pnr'],
-                                       self.cache[a_id]['fullname'],
-                                       self.cache[a_id]['userid']
-                                       )
-            lines.append(line)
-        #print lines
-        file_handle = open(out_file,"w")
-        for l in lines:
-            file_handle.write(l)
-        file_handle.close()
+    posix_info=dict()
+    for pu in posix.list_posix_users():
+        if accounts.has_key(pu['account_id']):
+            posix_info[pu['account_id']] = (pu['posix_uid'],pu['gid'])
+     
+    quarantines=dict()
+    logger.info("Retreiving quarantines")
+    for q in ac.list_entity_quarantines(only_active=True):
+        if accounts.has_key(q['entity_id']):
+            quarantines[q['entity_id']]=True
+    
+    logger.info("DataCaching finished")
+    return (accounts,posix_info,quarantines,auth_list,person_names,person_affs)
+
+def usage():
+    print """This program exports SUT account to a file
+    Data should be copied to the SUT servers for distributuion.
+
+    Usage: [options]
+    -s | --sut-file : export file
+    -l | --logger-name : name of logger target
+    -h | --help : this text """   
+    sys.exit(1)
 
 
 def main():
-
-    global logger
-    logger_name = cereconf.DEFAULT_LOGGER_TARGET
+    global logger, logger_name
     
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:l:h',['sut-file=','help','logger-name='])
+        opts,args = getopt.getopt(sys.argv[1:],'s:l:h',
+                                ['sut-file=','logger-name', 'help'])
     except getopt.GetoptError:
         usage()
 
-    sut_file = 0
+    sut_file = None
     help = 0
     for opt,val in opts:
         if opt in ('-s','--sut-file'):
@@ -292,32 +131,56 @@ def main():
         if opt in ('-l','--logger-name'):
             logger_name = val
         if opt in('-h','--help'):
-            help = 1
-
-
-    if (help == 1 or sut_file==0):
+            usage()
+    if not sut_file:
         usage()
-        sys.exit(2)
 
-    if ((sut_file != 0) and (help ==0)):
-        #logger = Factory.get_logger(logger_name)
-        #logger.info("Starting SUT export")        
-        #retval = export_sut(sut_file)
-        #logger.info("SUT export finished, processed %i students" % retval)
-
-        x = export_new(logger_name)
-        ents = x.get_entities()
-        x.build_sut_exportdata(ents,sut_file)
+    logger = Factory.get_logger(logger_name)
+  
+    start_time=mx.DateTime.now()
+    accounts, posix, quarantines, auth, names, affs =  build_data_cache()
+    export = []
+    logger.info("Building export data from cache")
+    for acc_id in accounts.keys():
+        acc_data=accounts[acc_id]
+        acc_name=acc_data[0]
+        acc_owner=acc_data[1]
+        acc_auth=auth[acc_id]
+        try:
+            person_name=names[acc_owner]
+        except KeyError:
+            person_name=acc_name
+        acc_home = os.path.join('its','home',acc_name[0],acc_name[:1],acc_name)
+        aff_str=[]
+        try:
+            active_affs=affs[acc_owner]
+            for a in active_affs:
+                aff_str.append("%s" % (co.PersonAffStatus(a[1])))            
+        except KeyError:
+            logger.warn("no active person affs for account=%s, owner_id=%s" % 
+                        (acc_name,acc_owner))
+        aff_str=",".join(aff_str)
+        pos_uid,pos_gid=posix[acc_id]
+        shell='/bin/bash'
+        try :
+            quarantine=quarantines[acc_id]
+        except KeyError:
+            quarantine=False
         
-def usage():
-    print """This program creates data for export to sut.
-
-    Usage: [options]
-    -s | --sut-file : stillingskode file
-    -h | --help : this text """
-
+        entry = [acc_name,acc_auth,
+                str(pos_uid),str(pos_gid),
+                person_name,acc_home,shell,
+                str(quarantine),aff_str,'\n']
+        export.append(":".join(entry))
+    fh=open(sut_file,'w')
+    fh.writelines(export)
+    fh.close()
+    end_time=mx.DateTime.now()
+    logger.info("Started: %s" % (start_time))
+    logger.info("Ended %s" % (end_time))
+    logger.info("Entries exported: %d" % (len(export)))
+    logger.info("Exceution time %s" % (end_time-start_time))
 
 if __name__ == '__main__':
     main()
 
-# arch-tag: aefeea42-b426-11da-9867-a1e6d2eba8de
