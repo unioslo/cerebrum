@@ -402,6 +402,12 @@ def output_people():
         current_fnr = id_collection[fnr_const][1]
         person_info[int(id)] = (constants.externalid_fodselsnr, current_fnr)
 
+        # people need at least one valid affiliation to be output.
+        if not person.list_affiliations(person_id=id):
+            logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
+                         id, id_collection)
+            continue
+
         #
         # we start with the IDs
         xmlwriter.startElement("person")
