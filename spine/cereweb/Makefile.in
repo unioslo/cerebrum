@@ -7,12 +7,13 @@ exec_prefix = @exec_prefix@
 INSTALL = @INSTALL@
 CONFDIR = @CONFDIR@
 SBINDIR = @sbindir@
+WEBROOT = @webroot@
 
 .PHONY: all clean distclean
 
 config_files = $(basename $(wildcard *.conf.template))
 
-all: 
+all: config.py
 	$(MAKE) -C htdocs $@
 	$(MAKE) -C lib $@
 
@@ -23,11 +24,15 @@ install: install-lib
 %.conf: %.conf.template
 	$(INSTALL) -v -m 644 $< $@
 
-install-lib: $(config_files)
+config.py: config.py.in
+	sed 's,#CONFDIR#,${CONFDIR},' $< > $@
+
+install-lib: $(config_files) config.py
 	$(INSTALL) -d $(CONFDIR)/
 	$(INSTALL) -v -m 644 $^ $(CONFDIR)/
-	$(INSTALL) -v -m 644 config.py $(CONFDIR)/
 	$(INSTALL) -v -m 755 cereweb.py ${SBINDIR}/
+	$(INSTALL) -d ${WEBROOT}/
+	$(INSTALL) -v -m 644 config.py $(WEBROOT)/
 
 clean:
 	$(MAKE) -C htdocs $@

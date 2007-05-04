@@ -21,7 +21,7 @@
 import os
 import ConfigParser
 
-path = os.path.dirname(__file__) or '.'
+path = '#CONFDIR#' or '.'
 
 conf = ConfigParser.ConfigParser()
 conf.read(os.path.join(path, 'cereweb.conf.template'))
