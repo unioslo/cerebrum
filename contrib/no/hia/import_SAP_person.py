@@ -368,6 +368,19 @@ def populate_address(person, fields, const):
                                ", ").strip() or None
     city = fields[22].strip() or None
     postal_number = fields[23].strip() or None
+    if postal_number <> None and len(postal_number) > 8:
+        # throw away all postal_number where len(postal_number) > 8
+        # because field postal_number in entity_address is defined
+        # as CHAR VARYING(8)
+        logger.warn("Cannot register postal_number for %s (more than 8 characters)", person.entity_id)
+        # this is probably not an optimal solution
+        # as it may happen that we throw away valid
+        # postal_numbers due to a constraint in Cerebrum
+        # but we have so far only seen one case where
+        # postal_number is longer than 8 character and
+        # a change in db-schema should therefore not be
+        # necessary 
+        postal_number = None
     country = None
     if fields[24].strip():
 	try:
