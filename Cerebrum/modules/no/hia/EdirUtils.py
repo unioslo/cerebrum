@@ -67,6 +67,7 @@ class EdirUtils:
             if ldap_member:
                 (ldap_member_dn, ldap_attr) = ldap_member[0]
                 attr_g['member'] = [ldap_member_dn]
+                attr_g['equivalentToMe'] = [ldap_member_dn]
                 if mod_type == 'add':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
                 elif mod_type == 'delete':
@@ -94,7 +95,6 @@ class EdirUtils:
         ldap_object = self._find_object(account_name,self.c_person)
 
         if ldap_object:
-            print "OK %s" % account_name
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             if l_disabled in ldap_attr.keys():
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
