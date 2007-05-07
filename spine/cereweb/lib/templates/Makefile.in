@@ -9,9 +9,9 @@ WEBROOT = @webroot@
 prefix = @prefix@
 libdir = @libdir@
 
-sources = $(wildcard *.tmpl)
-templates = $(patsubst %.tmpl,%.py, $(sources))
-backups = $(patsubst %.py,%.py_bak, $(templates))
+targets = $(patsubst %.tmpl,%.py, $(wildcard *.tmpl))
+templates = $(wildcard *.py) $(targets)
+backups = $(patsubst %.py,%.py_bak, $(targets))
 
 .PHONY: all clean distclean print
 .SUFFIXES: .tmpl .py
@@ -23,7 +23,7 @@ all: $(templates)
 
 print:
 	@echo Sources
-	@echo $(sources)
+	@echo $(targets)
 	@echo ---
 	@echo Templates
 	@echo $(templates)
