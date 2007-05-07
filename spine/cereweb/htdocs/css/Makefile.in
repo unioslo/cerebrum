@@ -8,36 +8,26 @@ CHEETAH = @CHEETAH@
 prefix = @prefix@
 libdir = @libdir@
 WEBROOT = @webroot@
-cssdir = $(webroot)/css
 
-sources = $(wildcard *.tmpl)
-stylesheets = $(patsubst %.tmpl,%.css, $(sources))
-backups = $(patsubst %.css,%.css_bak, $(stylesheets))
+targets = $(patsubst %.tmpl,%.css, $(wildcard *.tmpl))
+stylesheets = $(wildcard *.css) $(targets)
+backups = $(patsubst %.css,%.css_bak, $(targets))
 
 .PHONY: all clean distclean print
 
-all: $(stylesheets)
+all: $(targets)
 
-$(stylesheets): %.css: %.tmpl 
+%.css: %.tmpl
 	$(CHEETAH) fill --oext css $<
-
-print:
-	@echo Sources
-	@echo $(sources)
-	@echo ---
-	@echo Templates
-	@echo $(stylesheets)
-	@echo --
-	@echo Going to $(templatedir)
 
 clean:
 	rm -f *~ 
-	rm -f $(stylesheets)
+	rm -f $(targets)
 	rm -f $(backups)
 
 distclean: clean
 	rm -f Makefile
 
-install: $(stylesheets)
+install: $(stylesheets) 
 	$(INSTALL) -d ${WEBROOT}/htdocs/css/
 	$(INSTALL) -v -m 644 $^ ${WEBROOT}/htdocs/css/
