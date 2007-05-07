@@ -223,6 +223,37 @@ class Constants(Constants.Constants):
                                            'User on system "studmath" (IME)')
     spread_ntnu_ubit_user = _SpreadCode('user@ubit', Constants.Constants.entity_account,
                                            'User on system "ubit"')
+    spread_ntnu_ansoppr_user = _SpreadCode('user@ansoppr' , Constants.Constants.entity_account,
+                                            'User on system "ansoppr"')
+    spread_ntnu_oppringt_user = _SpreadCode('user@oppringt' , Constants.Constants.entity_account,
+                                            'User on system "oppringt"')
+    spread_ntnu_cyrus_imap_user = _SpreadCode('user@cyrus_imap' , Constants.Constants.entity_account,
+                                            'User on system "cyrus_imap"')
+    spread_ntnu_test1_user = _SpreadCode('user@test1' , Constants.Constants.entity_account,
+                                            'User on system "test1"')
+    spread_ntnu_test2_user = _SpreadCode('user@test2' , Constants.Constants.entity_account,
+                                            'User on system "test2"')
+    spread_ntnu_nav_user = _SpreadCode('user@nav' , Constants.Constants.entity_account,
+                                            'User on system "nav"')
+    spread_ntnu_itil_cm_user = _SpreadCode('user@itil_cm' , Constants.Constants.entity_account,
+                                            'User on system "itil_cm"')
+    spread_ntnu_lisens_user = _SpreadCode('user@lisens' , Constants.Constants.entity_account,
+                                            'User on system "lisens"')
+    spread_ntnu_kalender_user = _SpreadCode('user@kalender' , Constants.Constants.entity_account,
+                                            'User on system "kalender"')
+    spread_ntnu_vm_user = _SpreadCode('user@vm' , Constants.Constants.entity_account,
+                                            'User on system "vm"')
+    spread_ntnu_itea_user = _SpreadCode('user@itea' , Constants.Constants.entity_account,
+                                            'User on system "itea"')
+    spread_ntnu_pride_user = _SpreadCode('user@pride' , Constants.Constants.entity_account,
+                                            'User on system "pride"')
+    spread_ntnu_hflinux_user = _SpreadCode('user@hflinux' , Constants.Constants.entity_account,
+                                            'User on system "hflinux"')
+    spread_ntnu_ipt_soil_user = _SpreadCode('user@ipt_soil' , Constants.Constants.entity_account,
+                                            'User on system "ipt_soil"')
+    spread_ntnu_kerberos_user = _SpreadCode('user@kerberos' , Constants.Constants.entity_account,
+                                            'User on system "kerberos"')
+
     spread_ntnu_group = _SpreadCode('group@ntnu', Constants.Constants.entity_group,
                                     'File group at NTNU')
     spread_ntnu_netgroup = _SpreadCode('netgroup@ntnu', Constants.Constants.entity_group,
