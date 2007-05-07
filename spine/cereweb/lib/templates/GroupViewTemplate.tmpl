@@ -110,7 +110,7 @@ $widgets.viewInfo($info)
     #set $searcher = $transaction.get_group_member_operation_type_searcher()
     #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
     #end if
-    <div class="edit box" style="display:none;">
+    <div id="joinGroupBox" class="edit box" style="display:none;">
         <h3>$_('Join group')</h3>
         <form action="/group/join_group" method="post">
             <div class="hidden">
