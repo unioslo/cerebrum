@@ -60,7 +60,7 @@ def attempt_commit():
 
 
 
-def process_line(infile):
+def process_line(infile, spread):
     """
     Scan all lines in INFILE and create corresponding account/e-mail entries
     in Cerebrum.
@@ -89,13 +89,21 @@ def process_line(infile):
         if len(fields) == 3:
             uname, type, addr = fields
         # fi
-	account_id = process_user(uname)
-        
-        if account_id:
-            process_mail(account_id, type, addr)
-        else:
-            logger.error("Bad uname: %s", uname)
+
+        if uname == "":
+            logger.error("No uname given. Skipping!")
+            continue
         # fi
+    
+        try:
+            account.clear()
+            account.find_by_name(uname)
+            logger.debug3("User %s exists in Cerebrum", uname)
+        except Errors.NotFoundError:
+            logger.error("Bad uname: %s", uname)
+            continue
+
+        process_mail(account, type, addr, spread)
 
         if commit_count % commit_limit == 0:
             attempt_commit()
@@ -103,34 +111,16 @@ def process_line(infile):
     # od
 # end process_line
 
-def process_user(uname):
-    """
-    Locate account_id of account UNAME.
-    """
-    
-    if uname == "":
-        return None
-    # fi
-    
-    try:
-        account.clear()
-        account.find_by_name(uname)
-        logger.debug3("User %s exists in Cerebrum", uname)
-    except Errors.NotFoundError:
-	return
-    a_id = account.entity_id
-    return a_id
-# end process_user
 
 
-
-def process_mail(account_id, type, addr):
+def process_mail(account, type, addr, spread=None):
     et = Email.EmailTarget(db)
     ea = Email.EmailAddress(db)
     edom = Email.EmailDomain(db)
     epat = Email.EmailPrimaryAddressTarget(db)
 
     addr = string.lower(addr)    
+    account_id = account.entity_id
 
     fld = addr.split('@')
     if len(fld) != 2:
@@ -161,6 +151,10 @@ def process_mail(account_id, type, addr):
         ea.populate(lp, edom.email_domain_id, et.email_target_id)
         ea.write_db()
         logger.debug("EmailAddress created: %s: %d", addr, ea.email_addr_id)
+        # if specified, add an email spread for users with email address
+        if spread and not account.has_spread(spread):
+            account.add_spread(spread)
+            logger.debug("Added spread %s for account %s", spread)
     # yrt
 
     if type == "defaultmail":
@@ -194,6 +188,7 @@ def usage():
     print """Usage: import_uname_mail.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
+    -s, --spread  : add spread to account (optional)
     """
     sys.exit(0)
 # end usage
@@ -208,19 +203,23 @@ def main():
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:d',
+                                   'f:s:d',
                                    ['file=',
+                                    'spread=',
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
     # yrt
 
     dryrun = False
+    spread = None
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
+        elif opt in ('-s', '--spread'):
+            spread = val
         # fi
     # od
 
@@ -244,7 +243,13 @@ def main():
     default_creator_id = account.entity_id
     group.find_by_name(cereconf.INITIAL_GROUPNAME)
     default_group_id = group.entity_id
-    process_line(infile)
+
+    try:
+        email_spread = getattr(constants, spread)
+    except AttributeError:
+        logger.error("No spread %s defined", spread)
+
+    process_line(infile, email_spread)
 
     attempt_commit()
 # end main
