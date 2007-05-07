@@ -27,6 +27,9 @@ conf = ConfigParser.ConfigParser()
 conf.read(os.path.join(path, 'cereweb.conf.template'))
 conf.read(os.path.join(path, 'cereweb.conf'))
 
+cherrypy_template = os.path.join(path, 'cherrypy.conf.template')
+cherrypy = os.path.join(path, 'cherrypy.conf')
+
 option_template = os.path.join(path, 'options.conf.template')
 option_config = os.path.join(path, 'options.conf')
 
