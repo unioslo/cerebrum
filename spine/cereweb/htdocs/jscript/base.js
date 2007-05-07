@@ -90,14 +90,19 @@ cereweb.action = {
         }
     },
     parse: function(url) {
-        url = unescape(url.replace(/http.*\/\/.*?\//,''))
+        var url = unescape(url.replace(/http.*\/\/.*?\//,''))
+        var anchor = url.split('#');
+        if (anchor.length > 1)
+            url = anchor[1];
         var target = url.split('?');
-        var args = {};
         var elms = (target[1] || '').split('&');
+        var args = {};
+
         for (var i = 0; i < elms.length; i++) {
             var x = elms[i].split('=');
             args[x[0]] = x[1];
         }
+            
         return {'name': target[0], 'args': args};
     },
     clicked: function(e) {
@@ -162,7 +167,7 @@ cereweb.editBox = {
         actions.appendChild(link);
         actions.appendChild(document.createElement('br'));
 
-        YE.addListener(link, 'click', this.toggle, editBox, true);
+        cereweb.action.add(id, this.toggle, editBox);
         var cancel_links = YD.getElementsByClassName("cancel", null, el);
         if (cancel_links.length > 0)
             YE.addListener(cancel_links, 'click', editBox.hide, editBox, true);
