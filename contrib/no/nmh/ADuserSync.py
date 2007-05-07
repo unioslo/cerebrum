@@ -317,7 +317,7 @@ def move_user(chg):
         if not ret[0]:
             logger.error("Failed to move account %s (to %s).", chg['distinguishedName'], ou)
         else:
-            logger.warn("Moved account %s (to %s)", chg['distinguishedName'], ou)
+            logger.info("Moved account %s (to %s)", chg['distinguishedName'], ou)
 
 
 def del_user(chg):
