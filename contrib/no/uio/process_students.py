@@ -847,7 +847,8 @@ def bootstrap():
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
     default_expire_date = None
-    default_shell = const.posix_shell_bash
+    if posix_tables:
+        default_shell = const.posix_shell_bash
 
 def get_existing_accounts():
     """Prefetch data about persons and their accounts to avoid
@@ -920,10 +921,11 @@ def get_existing_accounts():
         if tmp is not None:
             tmp.append_quarantine(int(row['quarantine_type']))
     # Disk kvote
-    for row in disk_quota_obj.list_quotas():
-        tmp = tmp_ac.get(int(row['account_id']), None)
-        if tmp is not None:
-            tmp.set_disk_kvote(int(row['homedir_id']), row['quota'])
+    if with_diskquota:
+        for row in disk_quota_obj.list_quotas():
+            tmp = tmp_ac.get(int(row['account_id']), None)
+            if tmp is not None:
+                tmp.set_disk_kvote(int(row['homedir_id']), row['quota'])
     # Spreads
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
@@ -1240,18 +1242,23 @@ def main():
                                     'paper-file=',
                                     'remove-groupmembers',
                                     'dryrun', 'validate',
-                                    'with-quarantines'])
+                                    'with-quarantines',
+                                    'with-diskquota',
+                                    'posix-tables'])
     except getopt.GetoptError, e:
         usage(str(e))
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            dryrun, emne_info_file, move_users, remove_groupmembers, \
-           workdir, paper_money_file, ou_perspective, with_quarantines
+           workdir, paper_money_file, ou_perspective, with_quarantines,\
+           with_diskquota, posix_tables
 
     recalc_pq = False
     validate = False
     _range = None
     reset_diskquota = False
+    with_diskquota = False
+    posix_tables = False
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -1273,6 +1280,10 @@ def main():
             remove_groupmembers = True
         elif opt in ('--with-quarantines',):
             with_quarantines = True
+        elif opt in ('--with-diskquota',):
+            with_diskquota = True
+        elif opt in ('--posix-tables',):
+            posix_tables = True                        
         elif opt in ('--move-users',):
             move_users = True
         elif opt in ('-C', '--studconfig-file'):
