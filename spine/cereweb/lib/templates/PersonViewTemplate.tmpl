@@ -180,23 +180,24 @@
 #from lib.utils import namelist
 #def viewNames($person)
     <div class="info box">
-    #set names = namelist($person)
-    <h3>$_('Names')</h3>
-    <table>
-    <tr>
-      <th>$_('Type')</th>
-      <th>$_('Name')</th>
-      <th>$_('Sources')</th>
-    </tr>
-    #for name in names
-    #set sources = ",".join([$s.get_name() for $s in $name.sources])
-    <tr>
-       <td>$name.variant.get_name()</td>
-       <td>$name.name</td>
-       <td>$sources</td>
-    </tr>
-    #end for
-    </table>
+        #set names = namelist($person)
+        <h3>$_('Names')</h3>
+        <table>
+            <tr>
+              <th>$_('Type')</th>
+              <th>$_('Name')</th>
+              <th>$_('Sources')</th>
+            </tr>
+            #for name in names
+            #set sources = ",".join([$s.get_name() for $s in $name.sources])
+            <tr>
+               <td>$name.variant.get_name()</td>
+               <td>$name.name</td>
+               <td>$sources</td>
+            </tr>
+            #end for
+        </table>
+    </div>
 #end def
 
 #def setName($person, $transaction)
