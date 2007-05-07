@@ -694,13 +694,6 @@ class BDBSync:
             self._sync_spread(spread)
         return
 
-    def sync_spread_def(self):
-        global verbose, dryrun
-        if verbose:
-            print "Fetching spread-definitions from BDB."
-        spreads = self.bdb.get_spreads()
-        return
-
     def sync_email_domains(self):
         print "Fetching email-domains"
         global verbose, dryrun
@@ -829,7 +822,6 @@ def usage():
         --affiliations (-t) Syncronize affiliations on persons
         --email_domains  Syncronize email-domains
         --email_address  Syncronize email-addresses
-        --spreads        Syncronize spread-definitions
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
 
@@ -840,7 +832,7 @@ def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvh',
-                    ['spread','email_domains','email_address','spreads','affiliations','dryrun','people','group','account','verbose','help'])
+                    ['spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     for opt,val in opts:
