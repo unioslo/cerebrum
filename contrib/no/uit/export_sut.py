@@ -50,16 +50,15 @@ def build_data_cache():
     p = Factory.get('Person')(db)
     posix = PosixUser.PosixUser(db)
 
-    #exp_spread='sut@uit' #co.spread_uit_fd
-    exp_spread=['sut@uit', 'fd@uit']
+    exp_spread=[co.spread_uit_fd, co.spread_uit_sut_user]
     accounts=dict()
     for spread in exp_spread:
         logger.info("Retreiving accounts with spread = %s" % spread)
-        for acc in ac.search(spread=spread, filter_expired=True):
+        for acc in ac.list_account_home(home_spread=spread,account_spread=spread):
             acc_id=acc['account_id']
             if not accounts.has_key(acc_id):           
-                accounts[acc_id] = (acc['name'],acc['owner_id'])
-                
+                accounts[acc_id] = (acc['entity_name'],acc['owner_id'],acc['home'])
+
 
     logger.info("Retreiving auth strings")
     auth_list=dict()
@@ -145,12 +144,13 @@ def main():
         acc_data=accounts[acc_id]
         acc_name=acc_data[0]
         acc_owner=acc_data[1]
+        acc_home=acc_data[2]
         acc_auth=auth[acc_id]
         try:
             person_name=names[acc_owner]
         except KeyError:
             person_name=acc_name
-        acc_home = os.path.join('its','home',acc_name[0],acc_name[:1],acc_name)
+#        acc_home = os.path.sep + os.path.join('its','home',acc_name[:1],acc_name[:2],acc_name)
         aff_str=[]
         try:
             active_affs=affs[acc_owner]
