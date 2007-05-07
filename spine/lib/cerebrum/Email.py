@@ -238,6 +238,8 @@ for attr in attrs:
     Host.register_attribute(attr)
 Host.db_attr_aliases[table] = {'id': 'server_id',
                                'email_server_type': 'server_type'}
+# Since we change the attributes of host, we need to make host rebuild it's methods.
+Host.build_methods()
 
 def promote_email_server(self, type):
     obj = self._get_cerebrum_obj()
