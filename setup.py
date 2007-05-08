@@ -237,6 +237,7 @@ class my_sdist(sdist, object):
 vars = locals()
 for line in open('Makefile'):
     if line.find(':') != -1: break # Only scan until the first target.
+    if line.find('$') != -1: continue # Don't read in variable names.
     try:
         name, value = line.split('=')
         name = name.strip()
