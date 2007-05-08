@@ -1,10 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+#
+# Copyright 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 
 """Dette scriptet går gjennom alle personer som har spread til et av
 HIOFs tre AD-domener.  Scriptet har noen oppgaver:
 
-* Beregne profile-path/OU-plassering dersom slik verdi ikke er
+* Beregne home/profile-path/OU-plassering dersom slik verdi ikke er
   beregnet tidligere
 * Oppdatere eksisterende verdi dersom tilknyttingsforhold e.l. er
   endret (dette er ikke implemetert enda, da en spec må skrives
@@ -92,6 +111,11 @@ class Job(object):
             self.entity_id2profile_path[int(row['entity_id'])] = row['strval']
         logger.debug("Found %i profile-path traits" % len(self.entity_id2profile_path))
 
+        self.entity_id2account_home = {}
+        for row in ac.list_traits(co.trait_ad_homedir):
+            self.entity_id2account_home[int(row['entity_id'])] = row['strval']
+        logger.debug("Found %i home traits" % len(self.entity_id2account_home))
+
         self.entity_id2account_ou = {}
         for row in ac.list_traits(co.trait_ad_account_ou):
             self.entity_id2account_ou[int(row['entity_id'])] = row['strval']
@@ -122,7 +146,8 @@ class Job(object):
                 entity_id = int(row['account_id'])
                 # Ikke gjør noe hvis OU og profile_path allerede er satt
                 if (self.entity_id2profile_path.has_key(entity_id) and
-                    self.entity_id2account_ou.has_key(entity_id)):
+                    self.entity_id2account_ou.has_key(entity_id) and
+                    self.entity_id2account_home.has_key(entity_id)):
                     continue
                 # Trenger spread<->ou, spread<->profile_path og
                 # spread<->home mappinger for hver bruker.
@@ -142,7 +167,7 @@ class Job(object):
                 except ADMappingRules.MappingError, v:
                     logger.warn(v)
 
-        # Sett ou og profile_path traits, og sett home på vanlig måte.
+        # Sett ou, home og profile_path traits.
         for e_id, spread_maps in user_maps.items():
             ac.clear()
             ac.find(e_id)
@@ -152,19 +177,17 @@ class Job(object):
             # store pickled spread<->ou mapping 
             ac.populate_trait(co.trait_ad_account_ou,
                               strval=cPickle.dumps(spread_maps['ou']))
+            # store pickled spread<->home mapping 
+            ac.populate_trait(co.trait_ad_account_ou,
+                              strval=cPickle.dumps(spread_maps['home']))
             ac.write_db()
-            # Sett homedir og home for hver spread
-            # TODO: status
-            for spread, home in spread_maps['home'].items():
-                homedir_id = ac.set_homedir(home=home,       
-                                            status=co.home_status_not_created) 
-                ac.set_home(spread, homedir_id)
-                ac.write_db()
 
-            if dryrun:
-                db.rollback()
-            else:
-                db.commit()
+        if dryrun:
+            logger.info("Rolling back all changes")
+            db.rollback()
+        else:
+            logger.info("Committing all changes")
+            db.commit()
 
     def calc_home(self, entity_id, spread):
         if spread == co.spread_ad_account_stud:
@@ -191,6 +214,7 @@ class Job(object):
         person.clear()
         person.find(ac.owner_id)
         # TODO: bytt ut med source_system=co.system_fs så snart mer data er migrert
+        ## Hm? Når?
         rows = person.get_external_id(id_type=co.externalid_fodselsnr, source_system=co.system_migrate)
         if not rows:
             raise Job.CalcError("No FS-fnr for entity: %i" % ac.entity_id)
