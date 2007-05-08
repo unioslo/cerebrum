@@ -256,6 +256,8 @@ command_help = {
         'Remove an affiliation from a person',
     'person_clear_name':
         'Remove the names coming from a source system from a person',
+    'person_clear_id':
+        'Remove specific external id type from a source system from a person',
     'person_create':
         'Register a new person in Cerebrum',
     'person_find':
@@ -349,7 +351,7 @@ student or an employee on leave).  'misc affiliations' lists
 affiliation status codes"""],
     'source_system':
         ['source_system', 'Enter source system',
-         'The name of the source system, i.e. system_fs/system_lt etc.'],
+         'The name of the source system, i.e. FS/LT etc.'],
     'command_line':
         ['command', 'Enter command line'],
     'date':
@@ -396,6 +398,9 @@ affiliation status codes"""],
     'entity_id':
         ['id', 'Enter entity ID',
          "Numeric ID of the entity you wish to process."],
+    'external_id_type':
+        ['external_id_type', 'Enter external id type',
+         'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':

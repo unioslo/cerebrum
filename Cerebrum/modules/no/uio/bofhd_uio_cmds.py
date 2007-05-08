@@ -4984,6 +4984,36 @@ class BofhdExtension(object):
 		raise CerebrumError, "Database error: %s" % m
 	    return {'person_id': person.entity_id}
 
+    # person clear_id
+    all_commands['person_clear_id'] = Command(
+        ("person", "clear_id"), PersonId(),
+        SourceSystem(help_ref="source_system"), ExternalIdType(),
+        perm_filter='is_superuser')
+    def person_clear_id(self, operator, person_id, source_system, idtype):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        person = self.util.get_target(person_id, restrict_to="Person")
+        ss = self.const.AuthoritativeSystem(source_system)
+        try:
+            int(ss)
+        except Errors.NotFoundError:
+            raise CerebrumError("No such source system")
+
+        idtype = self.const.EntityExternalId(idtype)
+        try:
+            int(idtype)
+        except Errors.NotFoundError:
+            raise CerebrumError("No such external id")
+
+        try:
+            person._delete_external_id(ss, idtype)
+        except:
+            raise CerebrumError("Could not delete id %s:%s for %s" %
+                                (idtype, source_system, person_id))
+        return "OK"
+    # end person_clear_id
+
+
     # person clear_name
     all_commands['person_clear_name'] = Command(
 	("person", "clear_name"),PersonId(help_ref="person_id_other"),

@@ -102,6 +102,10 @@ class EntityType(Parameter):
     _type = 'entityType'
     _help_ref = 'entity_type'
 
+class ExternalIdType(Parameter):
+    _type = 'externalIdType'
+    _help_ref = 'external_id_type'
+
 class GroupName(Parameter):
     # _prompt_func = 'prompt_foobar'
     _type = 'groupName'
