@@ -182,8 +182,6 @@ def process_users(affiliation, file):
             'fnr': (p_id2fnr[a_id2p_id[id][1]],)}
         if a_id2email.has_key(id):
             entry['mail'] = (a_id2email[id],)
-        else:
-            print "Not found '%s'" % uname
         file.write(entry_string(dn, entry, False))
     return known_dns.keys()
         
