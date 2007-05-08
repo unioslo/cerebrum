@@ -387,10 +387,11 @@ def populate_address(person, fields, const):
         # entry only).
         if country != const.country_no:
             logger.info("Cannot register zip code for %s (%s): len(%s) > 8",
-                        person.entity_id, person.get_names(), postal_number
+                        person.entity_id, person.get_all_names(), postal_number)
         else:
             logger.warn("Norwegian zip codes are 4 digits! %s (%s) has '%s'",
-                        person.entity_id, person.get_names(), postal_number)
+                        person.entity_id, person.get_all_names(), postal_number)
+        postal_number = None
 
     person.populate_address(const.system_sap,
                             const.address_post,
