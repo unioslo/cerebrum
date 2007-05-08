@@ -357,7 +357,8 @@ class XMLPerson2Object(XMLEntity2Object):
             for tag in ("fn", "sort", "nickname"):
                 if not tag == sub.tag:
                     continue
-                result.append((ABCTypes.get_name_type(tag), value))
+                if value:
+                    result.append((ABCTypes.get_name_type(tag), value))
             if sub.tag == "n":
                 for n in sub.getiterator():
                     if not n.text:
@@ -366,13 +367,15 @@ class XMLPerson2Object(XMLEntity2Object):
                     for tag in ("family", "given", "other", "prefix", "suffix"):
                         if not tag == n.tag:
                             continue
-                        result.append((ABCTypes.get_name_type(tag), value))
+                        if value:
+                            result.append((ABCTypes.get_name_type(tag), value))
                         if n.tag in ("partname",):
                             if len(n.attrib) <> 1:
                                 raise ABCTypesError, "error in partname: %s" % value
                             type = ABCTypes.get_type("partname",
                                                      (n.attrib.get("partnametype"),))
-                            result.append((type, value))          
+                            if value:
+                                result.append((type, value))          
         return result
 
 
