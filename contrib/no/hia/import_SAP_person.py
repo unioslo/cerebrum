@@ -367,26 +367,30 @@ def populate_address(person, fields, const):
     address_text = string.join(filter(None, fields[18:22]), 
                                ", ").strip() or None
     city = fields[22].strip() or None
-    postal_number = fields[23].strip() or None
-    if postal_number <> None and len(postal_number) > 8:
-        # throw away all postal_number where len(postal_number) > 8
-        # because field postal_number in entity_address is defined
-        # as CHAR VARYING(8)
-        logger.warn("Cannot register postal_number for %s (more than 8 characters)", person.entity_id)
-        # this is probably not an optimal solution
-        # as it may happen that we throw away valid
-        # postal_numbers due to a constraint in Cerebrum
-        # but we have so far only seen one case where
-        # postal_number is longer than 8 character and
-        # a change in db-schema should therefore not be
-        # necessary 
-        postal_number = None
     country = None
     if fields[24].strip():
 	try:
 	    country = int(const.Country(fields[24].strip()))
 	except Errors.NotFoundError:
 	    logger.warn("Could not find country code for «%s», please define country in Constants.py",fields[24].strip())
+    postal_number = fields[23].strip() or None
+    if postal_number != None and len(postal_number) > 8:
+        # Today (2007-05-08) the cerebrum db schema does not allow zip codes
+        # longer than 8 characters. However, it is quite possible for
+        # non-Norwegian addresses to have such zip codes. For now, we'd issue
+        # a warn() if a Norwegian zip is longer, and an info() if a foreign
+        # address is longer before we NULLify the zip code. This should
+        # prevent unnecessary log spam.
+        # 
+        # This is suboptimal (as we essentially throw away valid zip codes),
+        # but a db schema change takes a bit of doing (not worth it for 1
+        # entry only).
+        if country != const.country_no:
+            logger.info("Cannot register zip code for %s (%s): len(%s) > 8",
+                        person.entity_id, person.get_names(), postal_number
+        else:
+            logger.warn("Norwegian zip codes are 4 digits! %s (%s) has '%s'",
+                        person.entity_id, person.get_names(), postal_number)
 
     person.populate_address(const.system_sap,
                             const.address_post,
