@@ -356,6 +356,7 @@ cereweb.search = {
     show_results: function(res) {
         var searchbox = this.searchbox;
         var resultbox = this.resultbox;
+        searchbox.blur();
 
         var anim;
         if (!searchbox.hidden) {
