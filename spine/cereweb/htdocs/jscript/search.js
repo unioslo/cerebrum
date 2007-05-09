@@ -286,6 +286,41 @@ cereweb.search = {
         this.progress.setHeader('');
         this.progress.setBody('<img src="/img/smload.gif" alt="loading" /> Searching... ');
         this.progress.render('container');
+
+        /* Get the searchbox from the DOM and remember it's size for our animations. */
+        var searchbox = YD.get('searchbox');
+        searchbox.defaultHeight = searchbox.offsetHeight;
+        searchbox.defaultWidth = searchbox.offsetWidth;
+        searchbox.hidden = false;
+
+        /* Get or create the resultbox. */
+        var resultbox = YD.get('resultbox');
+        if (!this.resultbox) {
+            resultbox = document.createElement('div');
+            resultbox.setAttribute('id', 'resultbox');
+            YD.setStyle(resultbox, 'display', 'none');
+            YD.setStyle(resultbox, 'opacity', 0);
+
+            searchbox.parentNode.appendChild(resultbox);
+        }
+
+        /* Add listener for restoring the searchbox when it's clicked. */
+        YE.addListener(searchbox, 'click', function() {
+            if (!searchbox.hidden) return;
+            var anim = new YAHOO.util.Anim(resultbox, { opacity: { to: 0 }}, 1);
+            var anim2 = new YAHOO.util.Anim(searchbox,
+                { height: { to: searchbox.defaultHeight }, width: { to: searchbox.defaultWidth }},
+                1, YAHOO.util.Easing.easeIn);
+            anim.onComplete.subscribe(function() {
+                YD.setStyle(resultbox, 'display', 'none');
+                anim2.animate();
+            });
+            anim.animate();
+            searchbox.hidden = false;
+        });
+
+        this.searchbox = searchbox;
+        this.resultbox = resultbox;
     },
     delayed: function() {
         var msg = YD.get('messages');
@@ -319,10 +354,22 @@ cereweb.search = {
         }, 500);
     },
     show_results: function(res) {
-        var panel = new YAHOO.widget.Panel('result');
-        panel.setBody(res);
-        panel.cfg.setProperty('fixedcenter', true);
-        panel.render('container');
+        var searchbox = this.searchbox;
+        var resultbox = this.resultbox;
+
+        var anim;
+        if (!searchbox.hidden) {
+            searchbox.hidden = true;
+            anim = new YAHOO.util.Anim(searchbox, { height: { to: 10 }, width: { to: 10}}, 1, YAHOO.util.Easing.easeOut)
+        } else {
+            anim = new YAHOO.util.Anim(resultbox, { opacity: { to: 0, from: 1 }}, 0.5);
+        }
+        anim.onComplete.subscribe(function() {
+            YD.setStyle(resultbox, 'display', 'block');
+            resultbox.innerHTML = res;
+            new YAHOO.util.Anim(resultbox, { opacity: { to: 1 }}, 1).animate();
+        });
+        anim.animate();
     },
     add_messages: function(messages) {
         var messages = messages.messages;
