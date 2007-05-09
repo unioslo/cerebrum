@@ -31,6 +31,7 @@ import EntityExternalId
 import EntityQuarantine
 import EntityName
 import EntitySpread
+import EntityTrait
 
 # Group
 import Group
@@ -62,7 +63,6 @@ import PosixGroup
 import PosixUser
 import ChangeLog
 import Commands
-#import EntityFlag
 import Request
 import Stedkode
 import Email
