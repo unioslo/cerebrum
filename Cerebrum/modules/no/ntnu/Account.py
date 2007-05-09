@@ -101,10 +101,14 @@ class AccountNTNUMixin(Account.Account):
                                 status=self.const.home_status_not_created)
         self.set_home(spread, homedir)
 
+    home_path_regex=re.compile("^(/[a-z0-9][a-z0-9-_]*)+$")
+    rest_path_regex=re.compile("^(/?[a-z0-9][a-z0-9-_]*)+$")
     def set_homedir(self, **kw):
-        if "home" in kw:
-            from Cerebrum.modules.no.ntnu.Disk import disk_path_regex
-            if not disk_path_regex.match(kw["home"]):
+        regex=self.home_path_regex
+        if kw.get("disk_id") is not None:
+            regex=self.rest_path_regex
+        if kw.get("home") is not None:
+            if not regex.match(kw["home"]):
                 raise self._db.IntegrityError, "Illegal home path"
         return self.__super.set_homedir(**kw)
 
