@@ -46,6 +46,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program="process_ad")
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
+ou = Factory.get('OU')(db)
 person = Factory.get('Person')(db)
 
 logger = Factory.get_logger("cronjob")
@@ -180,6 +181,8 @@ class Job(object):
             # store pickled spread<->home mapping 
             ac.populate_trait(co.trait_ad_account_ou,
                               strval=cPickle.dumps(spread_maps['home']))
+            logger.debug("OU, profile_path and home trait populated for account %d",
+                         entity_id)
             ac.write_db()
 
         if dryrun:
@@ -190,23 +193,34 @@ class Job(object):
             db.commit()
 
     def calc_home(self, entity_id, spread):
+        ac2 = Factory.get('Account')(db)
+        ac2.clear()
+        ac2.find(entity_id)
+
         if spread == co.spread_ad_account_stud:
-            return self.calc_stud_home(ac)
+            return self.calc_stud_home(ac2)
 
         # Henter sted fra affiliation med høyest prioritet uavhengig
         # av dens type.
-        affs = ac.get_account_types()
+        affs = ac2.get_account_types()
         if not affs:
             raise Job.CalcError("No affs for entity: %i" % entity_id)
         # TODO, _get_ou_sko is not defined
         sko = self._get_ou_sko(affs[0]['ou_id'])
+        logger.debug("sko: %s", sko)
         if spread == co.spread_ad_account_fag:
             rules = self._fag_rules
         if spread == co.spread_ad_account_adm:
             rules = self._adm_rules
-        return (rules.getDN(sko, ac.account_name),
-                rules.getProfilePath(sko, ac.account_name),
-                rules.getHome(sko, ac.account_name))
+        return (rules.getDN(sko, ac2.account_name),
+                rules.getProfilePath(sko, ac2.account_name),
+                rules.getHome(sko, ac2.account_name))
+
+    def _get_ou_sko(self, ou_id):
+        ou.clear()
+        ou.find(ou_id)
+        return "%d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+
 
     def calc_stud_home(self, ac):
         if int(ac.owner_type) != int(co.entity_person):
@@ -243,6 +257,8 @@ def main():
     global dryrun
 
     dryrun = False
+    person_file = None
+    stprog_file = None
     for opt, val in opts:
         if opt in ('--help',):
             usage()
