@@ -193,16 +193,15 @@ class Job(object):
             db.commit()
 
     def calc_home(self, entity_id, spread):
-        ac2 = Factory.get('Account')(db)
-        ac2.clear()
-        ac2.find(entity_id)
+        ac.clear()
+        ac.find(entity_id)
 
         if spread == co.spread_ad_account_stud:
-            return self.calc_stud_home(ac2)
+            return self.calc_stud_home(ac)
 
         # Henter sted fra affiliation med høyest prioritet uavhengig
         # av dens type.
-        affs = ac2.get_account_types()
+        affs = ac.get_account_types()
         if not affs:
             raise Job.CalcError("No affs for entity: %i" % entity_id)
         # TODO, _get_ou_sko is not defined
@@ -212,9 +211,9 @@ class Job(object):
             rules = self._fag_rules
         if spread == co.spread_ad_account_adm:
             rules = self._adm_rules
-        return (rules.getDN(sko, ac2.account_name),
-                rules.getProfilePath(sko, ac2.account_name),
-                rules.getHome(sko, ac2.account_name))
+        return (rules.getDN(sko, ac.account_name),
+                rules.getProfilePath(sko, ac.account_name),
+                rules.getHome(sko, ac.account_name))
 
     def _get_ou_sko(self, ou_id):
         ou.clear()
@@ -268,8 +267,7 @@ def main():
             person_file = val
         elif opt in ('-d',):
             dryrun = True
-    if not opts:
-        usage(1)
+
     si = StudieInfo(person_file, stprog_file)
     Job(si)
 
