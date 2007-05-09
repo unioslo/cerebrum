@@ -25,7 +25,7 @@ import re
 # Require at least one dot in hostnames, and require that each component
 # starts with [a-z] and continues with [a-z0-9-]*
 host_name_regex=re.compile("^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$")
-disk_path_regex=re.compile("^(/[a-z0-9][a-z0-9-_]*)+$")
+disk_path_regex=re.compile("^(/[a-z0-9][a-z0-9_-]*)+$")
 
 
 class HostNTNUMixin(Disk.Host):

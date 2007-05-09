@@ -94,15 +94,14 @@ class AccountNTNUMixin(Account.Account):
         all_disks = spread_homedirs[str(self.const.Spread(spread))]
         avail_disks = [d[0] for d in all_disks if d[1]]
         diskpath = random.choice(avail_disks)
-        from Cerebrum import Disk
         disk = Factory.get('Disk')(self._db)
         disk.find_by_path(diskpath)
         homedir = self.set_homedir(disk_id=disk.entity_id,
                                 status=self.const.home_status_not_created)
         self.set_home(spread, homedir)
 
-    home_path_regex=re.compile("^(/[a-z0-9][a-z0-9-_]*)+$")
-    rest_path_regex=re.compile("^(/?[a-z0-9][a-z0-9-_]*)+$")
+    home_path_regex=re.compile("^(/[a-z0-9][a-z0-9_-]*)+$")
+    rest_path_regex=re.compile("^(/?[a-z0-9][a-z0-9_-]*)+$")
     def set_homedir(self, **kw):
         regex=self.home_path_regex
         if kw.get("disk_id") is not None:
