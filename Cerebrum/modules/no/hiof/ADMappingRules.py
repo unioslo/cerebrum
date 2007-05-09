@@ -44,6 +44,7 @@ class Fag(object):
     DOMAIN_NAME = "fag.hiof.no"
     DOMAIN_DN = ""
     sted_mapping = {
+        ('*', '*', '00'): 'Halden', # RH: Avdeling 00 er Halden i følge Trond
         ('*', '*', '10'): 'Halden',
         ('*', '*', '20'): 'Sarp',
         ('*', '*', '30'): 'Fredr',
