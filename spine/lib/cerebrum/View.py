@@ -8,7 +8,7 @@ registry = Registry.get_registry()
 
 import sets
 import cerebrum_path
-import Cerebrum.spine
+#import Cerebrum.spine
 from Cerebrum.Utils import Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -225,6 +225,8 @@ class group_members:
             members=sets.Set()
             intersection=sets.Set()
             difference=sets.Set()
+            if not id in self.groups:
+                return members # no members
             for t, i in self.groups[id].union:
                 members.union_update(self.get_members(i, t, types))
                 union=members.copy()
@@ -277,12 +279,24 @@ ou_info.sort_name AS sort_name
 
 -- stedkode
 FROM ou_info
+%s
 JOIN ou_structure
 ON (ou_structure.ou_id = ou_info.ou_id AND ou_perspective = 418)
 -- stedkode
 LEFT JOIN stedkode
 ON (stedkode.ou_id = ou_info.ou_id)
 """
+
+ou_search_cl = """
+JOIN change_log
+ON (change_log.subject_entity = ou_info.ou_id AND change_log.change_id > :changelog_id)
+"""
+
+person_search_cl_o = """
+ORDER BY change_log.change_id
+"""
+
+
 
 # PersionView contains NIN, so access should be somewhat strict.
 
