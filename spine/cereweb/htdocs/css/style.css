@@ -36,8 +36,9 @@ body {
 
 #messages {
     margin-left: 9.5em;
-    margin-top: 1em;
     margin-bottom: 5px;
+    padding-top: 1em;
+    clear: both;
 }
 
 #messages span.message {
@@ -706,6 +707,10 @@ div.sub-nav ul li {
 }
 #progress img {
     margin-top: 4px;
+}
+
+#searchbox {
+    overflow: hidden;
 }
 
 /* vim: sw=4 sts=4 expandtab */
