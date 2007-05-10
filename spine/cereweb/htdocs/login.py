@@ -22,6 +22,7 @@ import urllib
 import cherrypy
 from omniORB import CORBA
 
+import cgi
 from lib import utils
 from lib.Options import Options
 from lib.templates.Login import Login
@@ -31,8 +32,15 @@ import SpineClient
 
 Spine = SpineClient.SpineClient(config=config.conf)
 
-def login(username='', password='', client='/user_client', redirect='/index', msg=''):
-    error = None
+def get_redirect(redirect, client):
+    if not redirect:
+        # If we don't have a redirect, we try to use the client argument.
+        # This argument still needs to be sanitized since it is provided
+        # by the user.
+        redirect = client
+        client = '/'
+        if not redirect:
+            redirect = '/'
 
     # Normalize redirect.
     if not redirect.startswith('/'):
@@ -42,34 +50,46 @@ def login(username='', password='', client='/user_client', redirect='/index', ms
             redirect = "/".join(parts[3:]) 
         else:
             redirect = '/%s' % redirect
-    if redirect.startswith('/login') or redirect.startswith('/logout'):
-        redirect = '/index'
 
-    # See if we have a working session already.
+    # Sanitize redirect.
+    if redirect.startswith('/login') or redirect.startswith('/logout'):
+        redirect = get_redirect(client, '/')
+    return redirect
+
+def login(**vargs):
+    # Merge our session with the supplied info.  This way, we can remember
+    # what client the user used last time he logged in, etc.
+    vargs.update(cherrypy.session)
+    username = vargs.get('username')
+    password = vargs.get('password')
+
+    # We default to the user_client
+    client = vargs.get('client') or '/user_client'
+    redirect = get_redirect(vargs.get('redirect'), client)
+
+    msg = utils.get_messages()
+    if vargs.get('msg'):
+        msg.append(vargs.get('msg'))
+
+    # See if we have a working spine-session already.
     try: 
-        session = cherrypy.session['session']
-        if session.get_timeout():
+        session = cherrypy.session.get('session')
+        if session and session.get_timeout():
             utils.redirect(cherrypy.session.get('client', client))
     # cherrypy session exists but no spine session
     except CORBA.OBJECT_NOT_EXIST, e:
-        cherrypy.session.clear()
-    # No cherrypy session
-    except KeyError, e:
         pass
 
-
-
     if username and password:
-        error = "Login"
+        msg.append("Login")
         try:
             spine = Spine.connect()
             session = spine.login(username, password)
             if not session.is_admin():
                 client = '/user_client'
         except Exception, e:
-            error = str(e)
-            error = error.replace("<", "")
-            error = error.replace(">", "")
+            error = cgi.escape(str(e))
+            msg.append(error)
         else:
             cherrypy.session.clear()
 
@@ -84,27 +104,21 @@ def login(username='', password='', client='/user_client', redirect='/index', ms
                 redirect = client
             utils.redirect(redirect)
 
-    messages = []
-    if error:
-        messages.append(error)
-    if msg:
-        messages.append(msg)
     namespace = {
         'username': username,
-        'messages': messages,
-        'redirect': redirect,
+        'messages': msg,
+        'client': client,
     }
     template = Login(searchList=[namespace])
     return template.respond()
 login.exposed = True
 
 def logout():
-    username = cherrypy.session.get('username', '')
     session = cherrypy.session.get('session')
     if session:
+        del cherrypy.session['session']
         session.logout()
-    cherrypy.session.clear()
-    utils.redirect("/login?username=%s" % username)
+    utils.redirect("/login")
 logout.exposed = True
 
 

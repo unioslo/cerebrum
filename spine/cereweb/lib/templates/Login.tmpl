@@ -22,7 +22,7 @@
 #attr $form_widgets = FormWidgets()
 #attr $username = ""
 #attr $messages = ""
-#attr $redirect = ""
+#attr $client = '/user_client'
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -43,9 +43,6 @@
             <div id="login">
                 <h1>Log in to Cereweb</h1>
                 <form method="post" action="/login">
-                    <div class="hidden">
-                        <input type="hidden" name="redirect" value="$redirect" />
-                    </div>
                     <div class="required">
                         $form_widgets.input("username", $_("Username"), $username)
                     </div>
@@ -53,7 +50,7 @@
                         $form_widgets.password('password', $_('Password'))
                     </div>
                     <div>
-                        $form_widgets.generate_loption('client', $_("Log in as"), [('/user_client', $_('User')), ('/index', $_('Administrator'))], 'admin')
+                        $form_widgets.generate_loption('client', $_("Log in as"), [('/user_client', $_('User')), ('/index', $_('Administrator'))], $client)
                     </div>
                     <div>
                         <label class="hidden" for="submit">Submit:</label>
