@@ -50,6 +50,10 @@ class Constants(Constants.Constants):
     trait_reserve_publish = _EntityTraitCode(
         'reserve_publish', Constants.Constants.entity_person,
         "Persons reserved from anonymous lookups")
+
+    trait_host_owner = _EntityTraitCode(
+        'host_owner', Constants.Constants.entity_host,
+        "Owner of a host")
         
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
