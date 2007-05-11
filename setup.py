@@ -164,10 +164,9 @@ class my_install_data (install_data.install_data, object):
                 cere_path = cere_path[1:]
             cere_path = os.path.join(self.root, cere_path)
         f_out = open(cere_path, "w")
-        etc_dir = "%s/etc/cerebrum" % self.install_dir
         python_dir = sysconfig.get_python_lib(prefix=self.install_dir)
         for line in f_in.readlines():
-            line = line.replace("@CONFDIR@", etc_dir)
+            line = line.replace("@CONFDIR@", sysconfdir)
             line = line.replace("@PYTHONDIR@", python_dir)
             f_out.write(line)
         f_in.close()
