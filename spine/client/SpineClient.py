@@ -127,7 +127,14 @@ class SpineClient:
             orb = self.init()
 
         ior = urllib.urlopen(self.ior_url).read()
-        obj = orb.string_to_object(ior)
+        try:
+            obj = orb.string_to_object(ior)
+        except CORBA.BAD_PARAM, e:
+            print >> sys.stderr, "ERROR:", \
+                    "The ior file read from '%s' has invalid contents: \n%s" % (
+                    self.ior_url, ior)
+            sys.exit(1)
+
         spine = obj._narrow(SpineCore.Spine)
         if spine is None:
             raise Exception("Could not narrow the spine object")
