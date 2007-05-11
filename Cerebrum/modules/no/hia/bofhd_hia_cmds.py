@@ -3068,9 +3068,9 @@ class BofhdExtension(object):
         ret = []
         for row in matches:
             person = self._get_person('entity_id', row['person_id'])
-            pname = person.get_name(self.const.system_cached,
-                                    getattr(self.const,
-                                            cereconf.DEFAULT_GECOS_NAME))
+            pname = self._get_name_gracefully(person, self.const.system_cached,
+                                              getattr(self.const,
+                                                 cereconf.DEFAULT_GECOS_NAME))
             # Ideally we'd fetch the authoritative last name, but
             # it's a lot of work.  We cheat and use the last word
             # of the name, which should work for 99.9% of the users.
@@ -3103,9 +3103,9 @@ class BofhdExtension(object):
             person = self._get_person(*self._map_person_id(person_id))
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-        data = [{'name': person.get_name(self.const.system_cached,
-                                         getattr(self.const,
-                                                 cereconf.DEFAULT_GECOS_NAME)),
+        data = [{'name': self._get_name_gracefully(person,
+                             self.const.system_cached,
+                             getattr(self.const, cereconf.DEFAULT_GECOS_NAME)),
                  'export_id': person.export_id,
                  'birth': person.birth_date}]
         affiliations = []
@@ -3951,9 +3951,10 @@ class BofhdExtension(object):
 	       'owner_type': str(self.num2const[int(account.owner_type)])}
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
-            ret['owner_desc'] = person.get_name(self.const.system_cached,
-                                                getattr(self.const,
-                                                        cereconf.DEFAULT_GECOS_NAME))
+            ret['owner_desc'] = self._get_name_gracefully(person,
+                                    self.const.system_cached,
+                                    getattr(self.const,
+                                            cereconf.DEFAULT_GECOS_NAME))
         else:
             grp = self._get_group(account.owner_id, idtype='id')
             ret['owner_desc'] = grp.group_name
@@ -4793,5 +4794,42 @@ class BofhdExtension(object):
             raise CerebrumError, "Error parsing range '%s'" % selection
         lst.sort()
         return lst
+
+    def _get_name_gracefully(self, person, source_system, original_name_type):
+        """Get person's specific name, gracefully recovering from errors.
+
+        Occasionally, we may want to report some information, even when no
+        suitable name is available, rather then allowing the command to die
+        because of an exception. Issuing a warning and reporting '<none>' or
+        some other name may be a better choice.
+        """
+
+        try:
+            name_type = int(original_name_type)
+            return person.get_name(source_system, name_type)
+        except Errors.NotFoundError:
+            all_names = dict([(int(row["name_variant"]), row)
+                              for row in person.get_all_names()])
+            if name_type in all_names:
+                # We have the right name type, but wrong source system. Use
+                # the name anyway.
+                self.logger.warn("Name %s is not available from %s, using %s for %s",
+                                 original_name_type, source_system,
+                                 all_names[name_type]["source_system"],
+                                 person.entity_id)
+                return all_names[name_type]["name"]
+
+            # try full/last, since they are likely to be the most specific
+            for name_type in ("name_full", "name_last"):
+                name_type = getattr(self.const, name_type, None)
+                if name_type and int(name_type) in all_names:
+                    self.logger.warn("Name %s is not available; using %s for %s",
+                                     original_name_type, name_type,
+                                     person.entity_id)
+                    return all_names[int(name_type)]["name"]
+
+            self.logger.warn("No names available for %s", person.entity_id)
+            return "<none>"
+    # end _get_name_gracefully
 
 # arch-tag: 026450dd-e22a-421e-a22f-2e24333e399c
