@@ -6,6 +6,13 @@ Tutorial - Passing variables
 This tutorial shows you how to pass GET/POST variables to methods.
 """
 
+# If available, we import cerebrum_path which adds some directories
+# to our sys.path.
+try:
+    import cerebrum_path
+except ImportError, e:
+    pass
+
 import os
 import cherrypy
 import config
