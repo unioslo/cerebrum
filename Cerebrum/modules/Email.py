@@ -375,7 +375,7 @@ class EmailTarget(EmailEntity):
     __read_attr__ = ('__in_db', 'email_target_id')
     __write_attr__ = ('email_target_type', 'email_target_entity_id',
                       'email_target_entity_type', 'email_target_alias',
-                      'email_target_using_uid', 'server_id')
+                      'email_target_using_uid', 'email_server_id')
 
     def clear(self):
         self.clear_class(EmailTarget)
