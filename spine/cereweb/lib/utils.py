@@ -20,11 +20,22 @@
 
 import time
 import urllib
+import urlparse
 import mx.DateTime
 import cherrypy
 import re
 import cgi
 from datetime import datetime
+
+def clean_url(url):
+    # Urlparse splits an url into 6 parts:
+    #  <scheme>://<netloc>/<path>;<params>?<query>#<fragment>
+    # We replace the scheme and netloc with empty strings and
+    # return the "localized" url.
+    if not url:
+        return ''
+    url = ('', '') + urlparse.urlparse(url)[2:]
+    return urlparse.urlunparse(url)
 
 def _spine_type(object):
     """Return the type (string) of a Spine object.
@@ -138,24 +149,10 @@ def queue_message(message, error=False, link=''):
     the object.
     """
 
-    # When we're called through _cpOnErrors in cherrypy 2.1.1, the
-    # cherrypy.session isn't set up properly.  The workaround is to
-    # access the session dict through the request object.
-    if not hasattr(cherrypy.session, 'sessionStorage') and \
-            cherrypy.__version__ == '2.1.1':
-        sessionData = cherrypy.request._session.sessionData
-    else:
-        sessionData = cherrypy.session
-
-    timestamp = mx.DateTime.now()
-    if 'messages' not in sessionData:
-        sessionData['messages'] = [(message, error)]
-    else:
-        sessionData['messages'].append((message, error))
-    if 'al_messages' not in sessionData:
-        sessionData['al_messages'] = [(message, error, link, timestamp)]
-    else:
-        sessionData['al_messages'].append((message, error, link, timestamp))
+    session = cherrypy.session
+    cherrypy.session.setdefault('messages', []).append((message, error))
+    cherrypy.session.setdefault('al_messages', []).append((message, error, link,
+        mx.DateTime.now()))
 
 def get_messages():
     messages = cherrypy.session.get("messages", [])
@@ -186,6 +183,19 @@ def strptime(tr, date, format="%Y-%m-%d"):
 def new_transaction():
     try:
         return cherrypy.session['session'].new_transaction()
+    except KeyError, e:
+        # This might be because the user hasn't logged in yet, or he has logged
+        # out in a different browser window.  It is also caused by the cereweb
+        # server being restarted.
+        queue_message('Your session is no longer available.  Please log in again.',
+                error=True)
+
+        query = cherrypy.request.path
+        if cherrypy.request.queryString:
+            query += '?' + cherrypy.request.queryString
+
+        cherrypy.session['next'] = query
+        redirect('/login')
     except Exception, e:
         import Error
         raise Error.SessionError, e
