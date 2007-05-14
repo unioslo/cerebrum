@@ -4,7 +4,7 @@ server.socketHost = '0.0.0.0'
 server.threadPool = 10
 server.environment = 'production'
 server.showTracebacks = True
-sessionFilter.on = True
+session_filter.on = True
 server.logToScreen = True
 
 [/css]
