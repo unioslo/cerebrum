@@ -32,9 +32,35 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils \
      import BofhdUtils, GuestAccountException    
 
+
 class BofhdExtension(object):
     all_commands = {}
     Group_class = Factory.get('Group')
+
+    copy_commands = (
+        #
+        # copy relevant helper-functions
+        #
+        '_get_disk', '_get_shell', '_get_constant',
+        '_parse_date_from_to', '_parse_date', '_today'
+        )
+
+
+    def __new__(cls, *arg, **karg):
+        # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
+        # into seperate classes.
+        from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
+             UiOBofhdExtension
+
+        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',
+                        'user_create_basic_prompt_func',)
+        for func in BofhdExtension.copy_commands:
+            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            if func[0] != '_' and func not in non_all_cmds:
+                BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
+        x = object.__new__(cls)
+        return x
+
 
     def __init__(self, server):
         self.server = server
@@ -47,6 +73,7 @@ class BofhdExtension(object):
                                                            Cache.cache_slots,
                                                            Cache.cache_timeout],
                                                    size=500, timeout=60*30)
+
 
     def get_help_strings(self):
         group_help = {}
@@ -68,7 +95,11 @@ class BofhdExtension(object):
              "Enter a guest user name or a range of names, e.g., guest007 "
              "or guest010-040."],
             'guest_owner_group':
-            ['guest_owner_group', 'Enter name of owner group']
+            ['guest_owner_group', 'Enter name of owner group'],
+            'nr_guests':
+            ['nr_guests', 'Enter number of guests'],
+            'comment':
+            ['comment', 'Enter comment']
             }
         return (group_help, command_help, arg_help)
 
@@ -94,26 +125,6 @@ class BofhdExtension(object):
         return commands
 
     
-    def time_in_interval(self, date, min_date=None, max_date=None):
-        """Return date as an DateTime object if it is inside the
-        interval defined by min_date and max_date (both DateTime
-        objects).  Raise CerebrumError otherwise.
-
-        """
-        if isinstance(date, str):
-            m = re.match('(\d{4})-(\d\d?)-(\d\d?)', date)
-            if not m:
-                raise CerebrumError, "Couldn't parse date (%s)" % date
-            date = DateTime.Date(int(m.group(1)), int(m.group(2)),
-                                 int(m.group(3)))
-        if min_date and date < min_date:
-            raise CerebrumError, ("Date can't be earlier than %s" %
-                                  str(min_date).split()[0])
-        if max_date and date > max_date:
-            raise CerebrumError, ("Date can't be later than %s" %
-                                  str(max_date).split()[0])
-        return date
-
     def user_create_guest_prompt_func(self, session, *args):
         all_args = list(args[:])
         # get number of new guest users
@@ -198,45 +209,33 @@ class BofhdExtension(object):
             ret.append(uname)
         return "OK, created guest_users:\n %s " % self._pretty_print(ret)
 
-    def user_request_guest_prompt_func(self, session, *args):
-        all_args = list(args[:])
-        if not all_args:
-            return {'prompt': 'How many guest users?', 'default': '1'}
-        try:
-            int(all_args[0])
-            all_args.pop(0)
-        except ValueError:
-            raise CerebrumError("Not a number: %s" % all_args[0])
-        # Date checking
-        default_date = DateTime.today() + \
-                       DateTime.RelativeDateTime(days=cereconf.GUESTS_DEFAULT_PERIOD)
-        if not all_args:
-            return {'prompt': 'Enter end date',
-                    'default': default_date.date}
-        end_date = all_args.pop(0)            
-        # Get group name. If name is valid is checked in the other method
-        if not all_args:
-            return {'prompt': 'Enter owner group name'}
-        owner = all_args.pop(0)
-        if not all_args:
-            return {'prompt': 'Enter comment', 'last_arg': True}
-        return {'last_arg': True}
 
-
-    # user request_guest <nr> <end-date> <entity_name>
+    # user request_guest <nr> <to_from> <entity_name>
     all_commands['user_request_guest'] = Command(
-        ('user', 'request_guest'), prompt_func=user_request_guest_prompt_func,
+        ('user', 'request_guest'),
+        Integer(default="1", help_ref="nr_guests"),
+        SimpleString(help_ref="string_from_to"),
+        EntityType(default="group"),
+        SimpleString(help_ref="comment"),
         perm_filter='can_request_guests')
-    def user_request_guest(self, operator, *args):
-        nr, end_date, groupname, comment = args
+    def user_request_guest(self, operator, nr, date, groupname, comment):
+        # date checking
+        start_date, end_date = self._parse_date_from_to(date)        
+        today = DateTime.today()
+        if start_date < today:
+            raise CerebrumError("Start date shouldn't be in the past")
+        # end_date in allowed interval?
+        if end_date < start_date:
+            raise CerebrumError("End date can't be earlier than start_date")
+        max_date = start_date + DateTime.RelativeDateTime(days=cereconf.GUESTS_MAX_PERIOD)
+        if end_date > max_date:
+            raise CerebrumError("End date can't be later than %s" % max_date.date)
+
         try:
             self.ba.can_request_guests(operator.get_entity_id(), groupname)
         except Errors.NotFoundError:
             raise CerebrumError, "Group '%s' not found" % groupname
         owner = self.util.get_target(groupname, default_lookup="group")
-        today = DateTime.today()
-        end_date = self.time_in_interval(end_date, today,
-            today + DateTime.RelativeDateTime(days=cereconf.GUESTS_MAX_PERIOD))
         try:
             user_list = self.bgu.request_guest_users(int(nr), end_date, comment,
                                                      self.co.entity_group,
@@ -246,13 +245,14 @@ class BofhdExtension(object):
                 operator.store_state("new_account_passwd",
                                      {'account_id': e_id,
                                       'password': passwd})
-
+        
             ret = "OK, reserved guest users:\n%s\n" % \
                   self._pretty_print([x[0] for x in user_list])
             ret += "Please use misc list_passwords to print or view the passwords."
             return ret
         except GuestAccountException, e:
             raise CerebrumError(str(e))
+
 
     # user release_guest [<guest> || <range>]+
     all_commands['user_release_guest'] = Command(
@@ -327,33 +327,6 @@ class BofhdExtension(object):
                                    include_comment=True))
         ret += "%d guest users available." % self.bgu.num_available_accounts()
         return ret
-
-
-    def _get_shell(self, shell):
-        return self._get_constant(self.co.PosixShell, shell, "shell")
-
-
-    def _get_constant(self, code_cls, code_str, code_type="value"):
-        c = code_cls(code_str)
-        try:
-            int(c)
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
-        return c
-
-
-    def _get_disk(self, path, host_id=None, raise_not_found=True):
-        disk = Factory.get('Disk')(self.db)
-        try:
-            if isinstance(path, str):
-                disk.find_by_path(path, host_id)
-            else:
-                disk.find(path)
-            return disk, disk.entity_id, None
-        except Errors.NotFoundError:
-            if raise_not_found:
-                raise CerebrumError("Unknown disk: %s" % path)
-            return disk, None, path
 
 
     def _pretty_print(self, guests, include_comment=False, include_date=False):
