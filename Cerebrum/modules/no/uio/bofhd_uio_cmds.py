@@ -3005,6 +3005,11 @@ class BofhdExtension(object):
         else:
             kw = {'subject_entity': ent.entity_id}
         rows = list(self.db.get_log_events(0, **kw))
+        try:
+            limit = int(limit)
+        except ValueError:
+            raise CerebrumError, "Limit must be a number"
+        
         for r in rows[-limit:]:
             ret.append(self._format_changelog_entry(r))
         return ret
@@ -5996,45 +6001,56 @@ class BofhdExtension(object):
         return ret
 
     all_commands['user_find'] = Command(
-        ("user", "find"), UserSearchType(), SimpleString(), SimpleString(optional=True),
-        YesNo(default='n', help_ref='yes_no_include_expired'),
+        ("user", "find"), UserSearchType(), SimpleString(),
+        SimpleString(optional=True, help_ref="affiliation_optional"),
+        YesNo(optional=True, default='n', help_ref='yes_no_include_expired'),
         fs=FormatSuggestion("%6i   %-12s %s",
                             ('entity_id', 'username', format_day("expire")),
                             hdr="%6s   %-10s   %-12s" % \
-                            ('Id', 'Uname', 'Expire-date')))
+                            ('Id', 'Username', 'Expire date')))
     def user_find(self, operator, search_type, value,
-                  include_expired="n", filter=None,
+                  include_expired="no", filter=None,
                   perm_filter='is_superuser'):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         acc = self.Account_class(self.db)
+        if filter is not None:
+            try:
+                filter = int(self.const.PersonAffiliation(filter))
+            except Errors.NotFoundError:
+                raise CerebrumError, "Invalid affiliation %s" % affiliation
+        filter_expired = not self._get_boolean(include_expired)
+
         if search_type == 'stedkode':
             ou = self._get_ou(stedkode=value)
-            if filter is not None:
-                try:
-                    filter=self.const.PersonAffiliation(filter)
-                except Errors.NotFoundError:
-                    raise CerebrumError, "Invalid affiliation %s" % affiliation
-            include_expired = include_expired.lower().startswith("n")
-            rows=acc.list_accounts_by_type(ou_id=ou.entity_id, affiliation=filter,
-                                           filter_expired=not include_expired)
+            rows = acc.list_accounts_by_type(ou_id=ou.entity_id,
+                                             affiliation=filter,
+                                             filter_expired=filter_expired)
         elif search_type == 'host':
+            # FIXME: filtering on affiliation is not implemented
             host = self._get_host(value)
-            rows = acc.list_account_home(host_id=int(host.entity_id))
+            rows = acc.list_account_home(host_id=int(host.entity_id),
+                                         filter_expired=filter_expired)
         elif search_type == 'disk':
+            # FIXME: filtering on affiliation is not implemented
             disk = self._get_disk(value)[0]
-            rows = acc.list_account_home(disk_id=int(disk.entity_id))
+            rows = acc.list_account_home(disk_id=int(disk.entity_id),
+                                         filter_expired=filter_expired)
         else:
             raise CerebrumError, "Unknown search type (%s)" % search_type
-        ac_ids = [int(r['account_id']) for r in rows]
-        ac_ids.sort()
+        seen = {}
         ret = []
-        for a in ac_ids:
+        for r in rows:
+            a = int(r['account_id'])
+            if a in seen:
+                continue
+            seen[a] = True
             acc.clear()
             acc.find(a)
             ret.append({'entity_id': a,
                         'expire': acc.expire_date,
                         'username': acc.account_name})
+        ret.sort(lambda x, y: cmp(x['username'], y['username']))
         return ret
 
     # user move
