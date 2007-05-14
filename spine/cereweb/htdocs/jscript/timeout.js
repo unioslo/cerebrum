@@ -97,8 +97,8 @@ cereweb.timeout = {
             scope: this
         }
 
-        url = '/session_time_left'
-        data = 'nocache=' + Math.random()
+        var url = '/session_time_left'
+        var data = 'nocache=' + Math.random()
         var cObj = YAHOO.util.Connect.asyncRequest('POST', url, callback, data);
     },
     hide_warning: function () {
@@ -126,8 +126,8 @@ cereweb.timeout = {
             scope: this
         }
         
-        url = '/session_keep_alive'
-        data = 'nocache=' + Math.random()
+        var url = '/session_keep_alive'
+        var data = 'nocache=' + Math.random()
         var cObj = YAHOO.util.Connect.asyncRequest('POST', url, callback, data);
     },
     start_timer: function (fun, time) {
