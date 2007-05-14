@@ -364,9 +364,13 @@ The currently defined id-types are:
             self.ba.can_pquota_list_extended_history(operator, person_id)
         else:
             self.ba.can_pquota_list_history(operator, person_id)
+
         if when is not None:
-            when = self.db.Date(*( time.localtime(time.time()-3600*24*when)[:3]))
-            
+            # time.localtime can't handle time_t smaller than -2**31,
+            # but no one had Cerebrum in 1970 either.
+            time_t = max(0, time.time() - when*24*3600)
+            when = self.db.Date(*(time.localtime(time_t)[:3]))
+
         ppq_info = self.bu.get_pquota_status(person_id)
 
         ret = []
