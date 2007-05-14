@@ -32,30 +32,6 @@ import SpineClient
 
 Spine = SpineClient.SpineClient(config=config.conf)
 
-def get_redirect(redirect, client):
-    if not redirect:
-        # If we don't have a redirect, we try to use the client argument.
-        # This argument still needs to be sanitized since it is provided
-        # by the user.
-        redirect = client
-        client = '/'
-        if not redirect:
-            redirect = '/'
-
-    # Normalize redirect.
-    if not redirect.startswith('/'):
-        parts = redirect.split('/')
-        # parts = [ 'http[s]?:', '', 'pointy...:8000', 'index', '...']
-        if parts[0].startswith('http'):
-            redirect = "/".join(parts[3:]) 
-        else:
-            redirect = '/%s' % redirect
-
-    # Sanitize redirect.
-    if redirect.startswith('/login') or redirect.startswith('/logout'):
-        redirect = get_redirect(client, '/')
-    return redirect
-
 def login(**vargs):
     # Merge our session with the supplied info.  This way, we can remember
     # what client the user used last time he logged in, etc.
@@ -63,20 +39,24 @@ def login(**vargs):
     username = vargs.get('username')
     password = vargs.get('password')
 
-    # We default to the user_client
-    client = vargs.get('client') or '/user_client'
-    redirect = get_redirect(vargs.get('redirect'), client)
+    client = utils.clean_url(vargs.get('client'))
+
+    # Make sure the user has chosen a valid client.
+    if not client in ['/user_client', '/index']:
+        client = '/user_client'
+
+    redirect = utils.clean_url(vargs.get('redirect'))
 
     msg = utils.get_messages()
     if vargs.get('msg'):
         msg.append(vargs.get('msg'))
 
-    # See if we have a working spine-session already.
     try: 
+        # If we have a working spine-session already, redirect to
+        # that users client.
         session = cherrypy.session.get('session')
         if session and session.get_timeout():
-            utils.redirect(cherrypy.session.get('client', client))
-    # cherrypy session exists but no spine session
+            utils.redirect(client)
     except CORBA.OBJECT_NOT_EXIST, e:
         pass
 
@@ -91,8 +71,6 @@ def login(**vargs):
             error = cgi.escape(str(e))
             msg.append(error)
         else:
-            cherrypy.session.clear()
-
             cherrypy.session['session'] = session
             cherrypy.session['username'] = username
             cherrypy.session['client'] = client
@@ -100,8 +78,13 @@ def login(**vargs):
             cherrypy.session['encoding'] = session.get_encoding()
             cherrypy.session['options'] = Options(session, username)
             
+            next = cherrypy.session.get('next')
+            if next:
+                redirect = utils.clean_url(next)
+
             if redirect == '/index':
                 redirect = client
+
             utils.redirect(redirect)
 
     namespace = {
