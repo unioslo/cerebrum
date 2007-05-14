@@ -156,7 +156,7 @@ def get_email_server(account_id):
     et = Email.EmailTarget(db)
     et.find_by_entity(account_id)
     server = Email.EmailServer(db)
-    server.find(est.email_server_id)
+    server.find(et.email_server_id)
     return server
 
 
@@ -846,7 +846,7 @@ def proc_delete_user(r):
     try:
         et.find_by_entity(account.entity_id)
         es = Email.EmailServer(db)
-        es.find(est.email_server_id)
+        es.find(et.email_server_id)
         mail_server = es.name
     except Errors.NotFoundError:
         mail_server = ''
