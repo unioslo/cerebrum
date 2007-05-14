@@ -131,6 +131,7 @@ def edit(transaction, id, **vargs):
     if not form.has_required() or not form.is_correct():
         return edit_form(form, message=form.get_error_message())
     else:
+        vargs = form.get_values()
         save(transaction,
                 id,
                 vargs.get('gender'),

@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
+import cgi
 from lib.utils import legal_date
 
 """
@@ -51,6 +52,23 @@ class Form(object):
             res.append(field)
         return res
 
+    def get_values(self):
+        values = {} 
+        for key, field in self.fields.items():
+            values[key] = field['value']
+        return values
+
+    def quote_all(self):
+        for field in self.fields.values():
+            if 'reject' == field.get('quote'):
+                if field['value'] != cgi.escape(field['value']):
+                    self.error_message = _("Field '%s' is unsafe.") % field ['label']
+                    return False
+        for key, field in self.fields.items():
+            if 'escape' == field.get('quote'):
+                self.fields[key]['value'] = cgi.escape(field['value'])
+        return True
+
     def has_required(self):
         res = True
         for field in self.fields.values():
@@ -62,6 +80,9 @@ class Form(object):
 
     def is_correct(self):
         correct = self.has_required()
+        if correct:
+            correct = self.quote_all()
+
         if correct:
             for field in self.fields.values():
                 if field['value']:
@@ -105,6 +126,7 @@ class PersonCreateForm(Form):
                 'label': _('OU'),
                 'required': True,
                 'type': 'select',
+                'quote': 'reject',
             },
             'affiliation': {
                 'label': _('Affiliation Type'),
@@ -115,11 +137,13 @@ class PersonCreateForm(Form):
                 'label': _('First name'),
                 'required': True,
                 'type': 'text',
+                'quote': 'reject',
             },
             'lastname': {
                 'label': _('Last name'),
                 'required': True,
                 'type': 'text',
+                'quote': 'reject',
             },
             'gender': {
                 'label': _('Gender'),
@@ -142,6 +166,7 @@ class PersonCreateForm(Form):
                 'label': _('Description'),
                 'required': False,
                 'type': 'text',
+                'quote': 'escape',
             }
         }
 
@@ -205,6 +230,7 @@ class PersonEditForm(PersonCreateForm):
                 'label': _('Description'),
                 'required': False,
                 'type': 'text',
+                'quote': 'escape'
             },
             'deceased': {
                 'label': _('Deceased date'),
