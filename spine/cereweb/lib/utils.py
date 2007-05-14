@@ -358,3 +358,7 @@ def extidlist(person):
             extidvariants[variant][value] = extid
         extidvariants[variant][value].sources.append(source)
     return extids
+
+def html_quote(str):
+    """ maybe add more characters that need quoting later... """
+    return cgi.escape(str, '"')
