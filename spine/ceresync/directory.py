@@ -20,14 +20,17 @@
 
 """ Directory-based backend - in this case LDAP """
 
-import re,string,sys
+import re
+import string
+import sys
+import time
+import sets
 
 import ldap,ldif,dsml
 import urllib
 from ldap import modlist
 from ldif import LDIFParser,LDIFWriter
 from dsml import DSMLParser,DSMLWriter 
-
 
 import unittest
 from errors import ServerError
@@ -120,6 +123,7 @@ class LdapBack:
 
     def __init__(self):
         self.l = None # Holds the authenticated ldapConnection object
+        self.ignore_attr_types = [] # To be overridden by subclasses
 
     def iso2utf(str):
         """ Return utf8-encoded string """
@@ -150,7 +154,7 @@ class LdapBack:
             self.l.simple_bind_s(self.binddn,self.bindpw)
             self.insync = []
         except ldap.LDAPError,e:
-            #raise LdapConnectionError
+            raise LdapConnectionError
             print "Error connecting to server: %s" % (e)
 
     def close(self):
@@ -180,18 +184,24 @@ class LdapBack:
         if not self.incr:
             print "Syncronizing LDAP database"
             self.indirectory = []
-            for (dn,attrs) in self.search(filterstr=self.filter,attrlist=["dn"]):
+            res_attrs = ['dn']
+            res = self.search(filterstr=self.filter,attrlist=res_attrs) 
+            for (dn,attrs) in res:
                 self.indirectory.append(dn)
             for entry in self.insync:
                 try:
                     self.indirectory.remove(entry)
                 except:
                     info("Info: Didn't find entry: %s." % entry)
+            # Sorts the list so children are deleted before parents.
             self.indirectory.sort(self._cmp)
             for entry in self.indirectory:
                 # FIXME - Fetch list of DNs not to be touched
-                self.delete(dn=entry)
-                info("Info: Found %s in database.. should not be here.. removing" % entry)
+                if entry.lower() == 'ou=organization,dc=ntnu,dc=no':
+                    continue
+                else:
+                    self.delete(dn=entry)
+                    info("Info: Found %s in database.. should not be here.. removing" % entry)
             print "Done syncronizing"
 
     def abort(self):
@@ -210,19 +220,31 @@ class LdapBack:
         dn=self.get_dn(obj)
         attrs=self.get_attributes(obj)
         try:
-            self.l.add_s(dn,modlist.addModlist(attrs,ignore_attr_types))
+            mod_attrs = modlist.addModlist(attrs,self.ignore_attr_types)
+        except AttributeError,ae:
+            exception("AttributeError caught from modlist.addModlist: %s" % ae.__str__)
+            debug(attrs)
+            sys.exit(1)
+        try:
+            self.l.add_s(dn,mod_attrs)
             self.insync.append(dn)
         except ldap.ALREADY_EXISTS,e:
-            print "%s already exist. Trying update instead..." % (obj.name)
-            self.update(obj)
+            if update_if_exists: self.update(obj)
         except ldap.LDAPError,e:
-            print "An error occured while adding %s: e" % (dn,e)
+            exception("An error occured while adding %s: %s" % (dn,e.args))
+            sys.exit()
+        except TypeError,te:
+            exception("Expected a string in the list in function add.")
+            debug("Attr_dict: %s" % attrs)
+            debug("Modifylist: %s" % mod_attrs)
+            sys.exit()
 
-    def update(self,obj,old=None,ignore_attr_types=[], ignore_oldexistent=0):
+    def update(self,obj,old=None, ignore_oldexistent=True):
         """
         Update object in LDAP. If the object does not exist, we add the object. 
         """
         dn=self.get_dn(obj)
+        attrs = old_attrs = None
         attrs=self.get_attributes(obj)
         if old == None:
             # Fetch old values from LDAP
@@ -233,7 +255,24 @@ class LdapBack:
             old_attrs = res[0][1]
         else:
             old_attrs = {}
-        mod_attrs = modlist.modifyModlist(ldapDict(old_attrs),ldapDict(attrs),ignore_attr_types,ignore_oldexistent)
+        # Make shure we don't remove existing objectclasses, as long
+        # as we get to add the ones we need to have
+        missing_objectclasses = []
+        try:
+            for attr in attrs['objectclass']:
+                if attr not in old_attrs['objectclass'] and attr.lower() not in old_attrs['objectclass']:
+                    missing_objectclasses.append(attr)
+        except KeyError:
+            pass
+        # If we have 0 missing values, ignore attr objectclass
+        # If we have N misssing, fetch the old ones and add missing ones
+        # into the  updated list of values for attr objectclass
+        if len(missing_objectclasses) == 0:
+            self.ignore_attr_types.append('objectclass')
+        else:
+            attrs['objectclass'] = old_attrs['objectclass'] + missing_objectclasses
+
+        mod_attrs = modlist.modifyModlist(old_attrs,attrs,self.ignore_attr_types,ignore_oldexistent)
         try:
             self.l.modify_s(dn,mod_attrs)
             self.insync.append(dn)
