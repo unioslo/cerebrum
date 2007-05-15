@@ -6224,13 +6224,11 @@ class BofhdExtension(object):
         return lst
 
     def _format_from_cl(self, format, val):
-        # TODO: using num2const is not optimal, but the
-        # const.ChangeType(int) magic doesn't work for CLConstants
         if val is None:
             return ''
 
         if format == 'affiliation':
-            return str(self.num2const[int(val)])
+            return str(self.const.PersonAffiliation(val))
         elif format == 'disk':
             disk = Utils.Factory.get('Disk')(self.db)
             try:
@@ -6238,27 +6236,42 @@ class BofhdExtension(object):
                 return disk.path
             except Errors.NotFoundError:
                 return "deleted_disk:%s" % val
+        elif format == 'date':
+            if isinstance(val, str):
+                return val
+            else:                
+                return val.date
+        elif format == 'timestamp':
+            return str(val)
+        elif format == 'entity':
+            return self._get_entity_name(None, int(val))
+        elif format == 'extid':
+            return str(self.const.EntityExternalId(val))
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
-            return str(self.num2const[int(val)])
+            return str(self.const.ChangeType(val))
+        elif format == 'home_status':
+            return str(self.const.AccountHomeStatus(val))
         elif format == 'int':
             return str(val)
         elif format == 'name_variant':
-            return str(self.num2const[int(val)])
+            return str(self.const.PersonName(val))
         elif format == 'ou':
             ou = self._get_ou(ou_id=val)
             return self._format_ou_name(ou)
         elif format == 'quarantine_type':
-            return str(self.num2const[int(val)])
+            return str(self.const.Quarantine(val))
         elif format == 'source_system':
-            return str(self.num2const[int(val)])
+            return str(self.const.AuthoritativeSystem(val))
         elif format == 'spread_code':
-            return str(self.num2const[int(val)])
+            return str(self.const.Spread(val))
         elif format == 'string':
             return str(val)
+        elif format == 'trait':
+            return str(self.const.EntityTrait(val))
         elif format == 'value_domain':
-            return str(self.num2const[int(val)])
+            return str(self.const.ValueDomain(val))
         else:
             self.logger.warn("bad cl format: %s", repr((format, val)))
             return ''
