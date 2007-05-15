@@ -26,7 +26,7 @@ config.py: config.py.in
 
 install-lib: $(config_templates) config.py
 	$(INSTALL) -d $(CONFDIR)/
-	$(INSTALL) -v -m 644 $^ $(CONFDIR)/
+	$(INSTALL) -v -m 644 $(config_templates) $(CONFDIR)/
 	$(INSTALL) -v -m 755 cereweb.py ${SBINDIR}/
 	$(INSTALL) -d ${WEBROOT}/
 	$(INSTALL) -v -m 644 config.py $(WEBROOT)/
