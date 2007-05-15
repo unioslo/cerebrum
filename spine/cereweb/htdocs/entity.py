@@ -23,7 +23,7 @@ import cherrypy
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit
-from lib.utils import redirect_object, object_link
+from lib.utils import redirect_object, object_link, queue_message
 from lib.HistoryLog import view_history
 
 def view(transaction, id):
@@ -34,6 +34,12 @@ view.exposed = True
 
 def add_external_id(transaction, id, external_id, id_type):
     entity = transaction.get_entity(int(id))
+    if not external_id:
+        queue_message('External identifier is empty.  Identifier not set.', error=True)
+        redirect_object(entity)
+    if not external_id.isdigit():
+        queue_message('External identifier should contain only digits.', error=True)
+        redirect_object(entity)
     id_type = transaction.get_entity_external_id_type(id_type)
     source_system = transaction.get_source_system("Manual")
     entity.set_external_id(external_id, id_type, source_system)
