@@ -262,6 +262,13 @@ class OUView(Builder):
         Attribute('short_name', str),
         Attribute('display_name', str),
         Attribute('sort_name', str),
+        Attribute('orgkode', str),
+        Attribute('stedkode', str),
+        Attribute('parent_stedkode', str),
+        Attribute('url', str),
+        Attribute('email', str),
+        Attribute('id', int),
+        Attribute('parent_id', int),
         
         #Attribute('adresses', [str, Struct(AdressView)]),
         #Attribute('phones', [str, str]),
@@ -270,21 +277,35 @@ class OUView(Builder):
 
 ou_search="""
 SELECT
-ou_info.ou_id AS id
-ou_info.name AS name
-ou_info.acronym AS acronym
-ou_info.short_name AS short_name
-ou_info.display_name AS display_name
-ou_info.sort_name AS sort_name
-
+ou_info.ou_id AS id,
+ou_info.name AS name,
+ou_info.acronym AS acronym,
+ou_info.short_name AS short_name,
+ou_info.display_name AS display_name,
+ou_info.sort_name AS sort_name,
+ou_structure.parent_id AS parent_id,
+contact_email.contact_value AS email,
+contact_url.contact_value AS url,
 -- stedkode
+lpad(stedkode.landkode,3,'0')||lpad(stedkode.institusjon,5,'0')||lpad(stedkode.fakultet,2,'0')||lpad(stedkode.institutt,2,'0')||lpad(stedkode.avdeling,2,'0') AS stedkode,
+lpad(stedkode_parent.landkode,3,'0')||lpad(stedkode_parent.institusjon,5,'0')||lpad(stedkode_parent.fakultet,2,'0')||lpad(stedkode_parent.institutt,2,'0')||lpad(stedkode_parent.avdeling,2,'0') AS parent_stedkode
+--
 FROM ou_info
 %s
 JOIN ou_structure
-ON (ou_structure.ou_id = ou_info.ou_id AND ou_perspective = 418)
+ON (ou_structure.ou_id = ou_info.ou_id AND ou_structure.perspective = :perspective)
 -- stedkode
 LEFT JOIN stedkode
-ON (stedkode.ou_id = ou_info.ou_id)
+  ON (stedkode.ou_id = ou_info.ou_id)
+LEFT JOIN stedkode stedkode_parent
+  ON (stedkode_parent.ou_id = ou_structure.parent_id)
+-- contacts
+LEFT JOIN entity_contact_info contact_email
+  ON (contact_email.entity_id = ou_info.ou_id
+    AND contact_email.contact_type = :contact_email)
+LEFT JOIN entity_contact_info contact_url
+  ON (contact_url.entity_id = ou_info.ou_id
+    AND contact_url.contact_type = :contact_url)
 """
 
 ou_search_cl = """
@@ -386,7 +407,9 @@ class View(DatabaseTransactionClass):
             "name_personal_title": co.name_personal_title,
             "name_work_title": co.name_work_title,
             "externalid_nin": co.externalid_fodselsnr,
-            "group_visibility_all": co.group_visibility_all
+            "group_visibility_all": co.group_visibility_all,
+            "contact_url": co.contact_url,
+            "contact_email": co.contact_email
             }
         
     # Allow the user to define spreads.
