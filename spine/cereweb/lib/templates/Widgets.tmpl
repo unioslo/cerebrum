@@ -19,10 +19,11 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from types import StringTypes
+#from lib.utils import html_quote
 
 #def list_box($title, $table)
 <div class="list box">
-    <h3>$_($title)</h3>
+    <h3>html_quoute($_($title))</h3>
     $sorted_table($table['tableview'], $table['headers'],
         $table['sort_pri'], $table['order_pri'])
 </div>
@@ -58,7 +59,7 @@
         <th>
             ## <a href='$pri_link'>pri_link</a> 
             ## <a href='$ord_link'>ord_link</a>
-            $header
+            html_quoute($header)
         </th>
         #end if
     #end for
@@ -67,7 +68,7 @@
     <tr>
         #for $col in $row
         <td>
-            $col
+            html_quoute($col)
         </td>
         #end for
     </tr>
@@ -81,7 +82,7 @@
 #def viewInfo($info, $notice=[])
 <div class="view view_info box">
     #for $note in $notice
-        <div class="notice">$note</div>
+        <div class="notice">html_quoute($note)</div>
     #end for
     <table>
     <colgroup>
@@ -96,8 +97,8 @@
         #else
         <tr class="even">
         #end if
-            <td class="name">$name</td>
-            <td class="value">$value</td>
+            <td class="name">html_quoute($name)</td>
+            <td class="value">html_quoute($value)</td>
         </tr>
     #end for
     </table>
