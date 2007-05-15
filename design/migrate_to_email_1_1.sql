@@ -38,4 +38,4 @@ UPDATE email_target SET server_id = ets.server_id
   FROM email_target_server ets WHERE email_target.target_id = ets.target_id;
 
 category:pre;
-DROP TABLE email_server_target;
+DROP TABLE email_target_server;
