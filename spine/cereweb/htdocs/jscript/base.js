@@ -35,12 +35,11 @@ cereweb = YAHOO.cereweb;
  */
 cereweb.debug = false;
 if(cereweb.debug) {
-    var init = function(o) {
+    YE.onAvailable("container", function(o) {
         var logger = cereweb.createDiv('logger');
         var myLogReader = new YAHOO.widget.LogReader(logger);
         debugger /* Force the debugger to break. */
-    }
-    YE.onAvailable("container", init);
+    });
 };
 
 cereweb.createDiv = function (id, parent) {
@@ -209,8 +208,8 @@ cereweb.javascript = {
 }
 YE.onAvailable('container', cereweb.javascript.init);
 
-var myTabs = new YAHOO.widget.TabView('tabview');
-myTabs.DOMEventHandler = function(e) { /* do nothing */ };
+cereweb.tabs = new YAHOO.widget.TabView('tabview');
+cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
 if(cereweb.debug) {
     log('bases are loaded');
