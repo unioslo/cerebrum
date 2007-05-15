@@ -20,7 +20,7 @@
 
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import transaction_decorator, commit
+from lib.utils import transaction_decorator, commit, html_quote
 from lib.utils import redirect_object, queue_message
 
 def add(transaction, entity, subject="", description=""):
@@ -30,7 +30,7 @@ def add(transaction, entity, subject="", description=""):
         queue_message(_("Could not add blank note"), error=True)
         redirect_object(entity)
     else:
-        entity.add_note(subject, description)
+        entity.add_note(subject, html_quote(description))
         commit(transaction, entity, msg=_("Added note '%s'") % subject)
 add = transaction_decorator(add)
 add.exposed = True

@@ -21,7 +21,7 @@
 import mx.DateTime
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import redirect_object, strftime, commit
+from lib.utils import redirect_object, strftime, commit, html_quote
 from lib.utils import object_link, transaction_decorator
 from lib.templates.QuarantineTemplate import QuarantineTemplate
 
@@ -111,8 +111,10 @@ def make(transaction, entity, type, why="",
     date_start = start and c.strptime(start, "%Y-%m-%d") or c.get_date_now()
     date_end = end and c.strptime(end, "%Y-%m-%d") or date_none
     date_dis = disable_until and c.strptime(disable_until, "%Y-%m-%d") or date_none
-    
-    entity.add_quarantine(q_type, why, date_start, date_end, date_dis)
+    quoted = ''
+    if why:
+        quoted = html_quote(why)
+    entity.add_quarantine(q_type, quoted, date_start, date_end, date_dis)
     
     msg = _("Added quarantine '%s' successfully") % type
     commit(transaction, entity, msg=msg)

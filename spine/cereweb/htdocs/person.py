@@ -26,7 +26,7 @@ import SpineIDL
 from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import strftime, strptime, commit_url
+from lib.utils import strftime, strptime, commit_url, unlegal_name
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
@@ -234,7 +234,10 @@ delete.exposed = True
 def add_name(transaction, id, name, name_type):
     """Add a new name to the person with the given id."""
     person = transaction.get_person(int(id))
-
+    msg = unlegal_name(name)
+    if msg:
+        queue_message(msg, error=True)
+        redirect_object(person)
     name_type = transaction.get_name_type(name_type)
     source_system = transaction.get_source_system('Manual')
     person.set_name(name, name_type, source_system)

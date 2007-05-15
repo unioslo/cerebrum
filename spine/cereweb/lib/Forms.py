@@ -65,8 +65,9 @@ class Form(object):
                     self.error_message = _("Field '%s' is unsafe.") % field ['label']
                     return False
         for key, field in self.fields.items():
-            if 'escape' == field.get('quote'):
-                self.fields[key]['value'] = cgi.escape(field['value'])
+            if field['value']:
+                if 'escape' == field.get('quote'):
+                    self.fields[key]['value'] = cgi.escape(field['value'])
         return True
 
     def has_required(self):
@@ -132,6 +133,7 @@ class PersonCreateForm(Form):
                 'label': _('Affiliation Type'),
                 'required': True,
                 'type': 'select',
+                'quote': 'reject',
             },
             'firstname': {
                 'label': _('First name'),

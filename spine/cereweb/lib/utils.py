@@ -282,6 +282,15 @@ def legal_domain_chars( domain ):
         return False
     return True
 
+def unlegal_name(name):
+    if not name:
+        return 'Name is empty.'
+    if len(name) > 256:
+        return 'Name too long; max 256 characters.'
+    if name != html_quote(name):
+        return 'Name contains unlegal characters.'
+    return ''
+
 def format_title(title):
     """Removes html from the title"""
     return re.sub(r'<[^!>](?:[^>]|\n)*>', '', title)
@@ -371,4 +380,4 @@ def extidlist(person):
 
 def html_quote(str):
     """ maybe add more characters that need quoting later... """
-    return cgi.escape(str, '"')
+    return cgi.escape(str)
