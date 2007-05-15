@@ -22,20 +22,33 @@ import mx.DateTime
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import redirect_object, strftime, commit, html_quote
-from lib.utils import object_link, transaction_decorator
+from lib.utils import object_link, transaction_decorator, queue_message
+from lib.utils import legal_date, redirect
 from lib.templates.QuarantineTemplate import QuarantineTemplate
 
-def edit(transaction, entity, type):
+def edit(transaction, entity, type, why="", start="", end="", disable_until=""):
     entity = transaction.get_entity(int(entity))
     q_type = transaction.get_quarantine_type(type)
 
     quarantine = entity.get_quarantine(q_type)
     formvalues = {}
     formvalues['type'] = type
-    formvalues['why'] = quarantine.get_description()
-    formvalues['start'] = strftime(quarantine.get_start_date())
-    formvalues['end'] = strftime(quarantine.get_end_date())
-    formvalues['disable_until'] = strftime(quarantine.get_disable_until())
+    if why:
+        formvalues['why'] = why
+    else:
+        formvalues['why'] = quarantine.get_description()
+    if start:
+        formvalues['start'] = start
+    else:
+        formvalues['start'] = strftime(quarantine.get_start_date())
+    if end:
+        formvalues['end'] = end
+    else:
+        formvalues['end'] = strftime(quarantine.get_end_date())
+    if disable_until:
+        formvalues['disable_until'] = disable_until
+    else:
+        formvalues['disable_until'] = strftime(quarantine.get_disable_until())
     
     page = Main()
     page.title = _('Edit quarantine for ')
@@ -50,20 +63,41 @@ edit.exposed = True
 
 def save(transaction, entity, type, why="",
          start="", end="", disable_until="", submit=None):
+    id = entity
     entity = transaction.get_entity(int(entity))
     
     if submit == "Cancel":
         redirect_object(entity)
         return
 
+    err = False
+    if not start:
+        queue_message('Start date is empty.', error=True)
+        err = True
+    if not legal_date(start):
+        queue_message('Start date is unlegal.', error=True)
+        err = True
+    if end:
+        if not legal_date(end):
+            queue_message('End date is unlegal.', error=True)
+            err = True
+    if disable_until:
+        if not legal_date(disable_until):
+            queue_message('Disable until date is unlegal.', error=True)
+            err = True
+    if err:
+        redirect("/quarantine/edit?entity=%s&type=%s&why=%s&start=%s&end=%s&disable_until=%s" % (id, type, why, start, end, disable_until))
     q_type = transaction.get_quarantine_type(type)
     quarantine = entity.get_quarantine(q_type)
     c = transaction.get_commands()
     
     def strptime(date, default=''):
         return date and c.strptime(date, "%Y-%m-%d") or default
-    
-    quarantine.set_description(why)
+
+    quoted = ''
+    if why:
+        quoted = html_quote(why)
+    quarantine.set_description(quoted)
     quarantine.set_start_date(strptime(start, c.get_date_now()))
     quarantine.set_end_date(strptime(end, c.get_date_none()))
     quarantine.set_disable_until(strptime(disable_until, c.get_date_none()))
@@ -73,7 +107,7 @@ def save(transaction, entity, type, why="",
 save = transaction_decorator(save) 
 save.exposed = True
 
-def add(transaction, entity):
+def add(transaction, entity, type="", why="", start="", end="", disable_until=""):
     # FIXME: Should only present types appropriate for the
     # entity_type. (how could we know that?) 
     entity = transaction.get_entity(int(entity))
@@ -83,8 +117,19 @@ def add(transaction, entity):
              if qt.get_name() not in has_types]
 
     formvalues = {}
-    formvalues['start'] = mx.DateTime.now().strftime("%Y-%m-%d")
-    
+    if start:
+        formvalues['start'] = start
+    else:
+        formvalues['start'] = mx.DateTime.now().strftime("%Y-%m-%d")
+    if type:
+        formvalues['type'] = type
+    if why:
+        formvalues['why'] = why
+    if end:
+        formvalues['end'] = end
+    if disable_until:
+        formvalues['disable_until'] = disable_until
+        
     page = Main()
     page.title = _("Add quarantine on ")
     page.title += object_link(entity)
@@ -98,16 +143,33 @@ add.exposed = True
 
 def make(transaction, entity, type, why="",
          start="", end="", disable_until="", submit=None):
+    id = entity
     entity = transaction.get_entity(int(entity))
-    
     if submit == "Cancel":
         redirect_object(entity)
         return
 
+    err = False
+    if not start:
+        queue_message('Start date must be set.', error=True)
+        err = True
+    if not legal_date(start):
+        queue_message('Start date is not legal.', error=True)
+        err = True
+    if end:
+        if not legal_date(end):
+            queue_message('End date is not legal.',error=True)
+            err = True
+    if disable_until:
+        if not legal_date(disable_until):
+            queue_message('Postpone until date is not legal.', error=True)
+            err = True
+    if err:
+        redirect('/quarantine/add?entity=%i&type=%s&why=%s&start=%s&end=%s&disable_until=%s' % (id, type, why, start, end, disable_until))
+
     q_type = transaction.get_quarantine_type(type)
     c = transaction.get_commands()
     date_none = c.get_date_none()
-
     date_start = start and c.strptime(start, "%Y-%m-%d") or c.get_date_now()
     date_end = end and c.strptime(end, "%Y-%m-%d") or date_none
     date_dis = disable_until and c.strptime(disable_until, "%Y-%m-%d") or date_none
