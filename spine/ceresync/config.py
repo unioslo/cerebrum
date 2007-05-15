@@ -62,10 +62,11 @@ def apply_override(obj, typestr):
     section='%s_override' % typestr
     attribs = dict([(x,y) for x, y in obj.__dict__.items()
                     if y not in ('', -1)])
-    for a in sync.options(section):
-        if attribs.has_key(a): del attribs[a]
-    for a in sync.options(section):
-        setattr(obj, a, sync.get(section, a, vars=attribs))
+    if sync.has_section(section):
+        for a in sync.options(section):
+            if attribs.has_key(a): del attribs[a]
+        for a in sync.options(section):
+            setattr(obj, a, sync.get(section, a, vars=attribs))
 
 def apply_default(obj, typestr):
     """
@@ -78,8 +79,9 @@ def apply_default(obj, typestr):
     section='%s_default' % typestr
     attribs = dict([(x,y) for x, y in obj.__dict__.items()
                     if y not in ('', -1)])
-    for a in sync.options(section):
-        # "" or -1 for nonexisting values is an spine-ism
-        if (not obj.__dict__.has_key(a)) or getattr(obj, a) == "" or getattr(obj, a) == -1:
-            setattr(obj, a, sync.get(section, a, vars=attribs))
+    if sync.has_section(section):
+        for a in sync.options(section):
+            # "" or -1 for nonexisting values is an spine-ism
+            if (not obj.__dict__.has_key(a)) or getattr(obj, a) == "" or getattr(obj, a) == -1:
+                setattr(obj, a, sync.get(section, a, vars=attribs))
 
