@@ -33,22 +33,10 @@ def edit(transaction, entity, type, why="", start="", end="", disable_until=""):
     quarantine = entity.get_quarantine(q_type)
     formvalues = {}
     formvalues['type'] = type
-    if why:
-        formvalues['why'] = why
-    else:
-        formvalues['why'] = quarantine.get_description()
-    if start:
-        formvalues['start'] = start
-    else:
-        formvalues['start'] = strftime(quarantine.get_start_date())
-    if end:
-        formvalues['end'] = end
-    else:
-        formvalues['end'] = strftime(quarantine.get_end_date())
-    if disable_until:
-        formvalues['disable_until'] = disable_until
-    else:
-        formvalues['disable_until'] = strftime(quarantine.get_disable_until())
+    formvalues['why'] = why or quarantine.get_description()
+    formvalues['start'] = start or strftime(quarantine.get_start_date())
+    formvalues['end'] = end or strftime(quarantine.get_end_date())
+    formvalues['disable_until'] = disable_until or strftime(quarantine.get_disable_until())
     
     page = Main()
     page.title = _('Edit quarantine for ')
@@ -117,10 +105,7 @@ def add(transaction, entity, type="", why="", start="", end="", disable_until=""
              if qt.get_name() not in has_types]
 
     formvalues = {}
-    if start:
-        formvalues['start'] = start
-    else:
-        formvalues['start'] = mx.DateTime.now().strftime("%Y-%m-%d")
+    formvalues['start'] = start or mx.DateTime.now().strftime("%Y-%m-%d")
     if type:
         formvalues['type'] = type
     if why:
