@@ -18,7 +18,7 @@
 
 #from lib.Main import Main
 #from lib import HistoryLog
-#from lib.utils import object_link, strftime
+#from lib.utils import object_link, strftime, html_quote
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 #extends Main
@@ -31,14 +31,14 @@
 <div class="note box">
     <h3>$_('Notes')</h3>
     #for $note in $notes
-    #set $delete = '/note/delete?id=%s&amp;entity=%s' % ($note.get_id(), $entity.get_id())
+    #set $delete = $html_quote('/note/delete?id=%s&amp;entity=%s' % ($note.get_id(), $entity.get_id()))
     #set $description = $note.get_description().strip()
-    #set $description = $description.replace('\n', '<br />')
+    #set $description = $html_quote($description).replace('\n', '<br />')
     <div class="item">
         <div class="actions">
             <a class="action" href="$delete">$_('delete')</a>
         </div>
-        <span class="name">$note.get_subject()</span>&nbsp;
+        <span class="name">$html_quote($note.get_subject())</span>&nbsp;
         <span class="creator">-$_('by')  $object_link($note.get_creator())</span>&nbsp;
         <span class="date">$strftime($note.get_create_date())</span>
         <div class="description">$description</div>
@@ -80,15 +80,15 @@
     #for $q in $quarantines
     <div class="item">
         #set $type = $q.get_type().get_name()
-        #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($id, $type)
-        #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($id, $type)
-        #set $description = $q.get_description().replace('\n', '<br />')
+        #set $edit = $html_quote('/quarantine/edit?entity=%s&amp;type=%s' % ($id, $type))
+        #set $remove = $html_quote('/quarantine/remove?entity=%s&amp;type=%s' % ($id, $type))
+        #set $description = $html_quote($q.get_description()).replace('\n', '<br />')
                 
         <div class="actions">
             <a class="action" href="$edit">$_('edit')</a>
             <a class="action" href="$remove">$_('delete')</a>
         </div>
-        <strong>$q.get_type().get_description()</strong>&nbsp;
+        <strong>$html_quote($q.get_type().get_description())</strong>&nbsp;
         <em>-$_('by')</em> $object_link($q.get_creator())&nbsp;
         <span class="date">$strftime($q.get_create_date())</span>
         <div class="description">$description.strip()</div>
@@ -127,9 +127,9 @@
     #for $id in $ids
     #set sources = ",".join([$s.get_name() for $s in $id.sources])
     <tr>
-       <td>$id.variant.get_name()</td>
-       <td>$id.value</td>
-       <td>$sources</td>
+       <td>$html_quote($id.variant.get_name())</td>
+       <td>$html_quote($id.value)</td>
+       <td>$html_quote($sources)</td>
     </tr>
     #end for
     </table>
@@ -175,8 +175,8 @@
         <div class="actions">
             <a class="action" href="$delete">$_('remove')</a>
         </div>
-        <span class="name">$name</span> -
-        <span class="value">$spread.get_description()</span>
+        <span class="name">$html_quote($name)</span> -
+        <span class="value">$html_quote($spread.get_description())</span>
     </div>
     #end for
 </div>

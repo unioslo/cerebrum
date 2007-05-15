@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime
+#from lib.utils import object_link, strftime, html_quote
 #from lib.WorkList import remember_link
 #from GroupViewTemplate import GroupViewTemplate
 #from EmailTargetTemplate import EmailTargetTemplate
@@ -95,7 +95,7 @@ $widgets.viewInfo($info)
     <h3>$_('Current authentication types')</h3>
     #for $auth in $auths
     <div class="item">
-        $auth.get_method().get_name()
+        $html_quote($auth.get_method().get_name())
     </div>
     #end for
 </div>
@@ -133,26 +133,27 @@ $widgets.viewInfo($info)
 #if $affils
 <div class="info box">
     <h3>$_('Affiliations')</h3>
+    <table>
+    <tr class="headers"><th>$_('Affiliation')</th><th>$_('OU')</th>
+    <th>$_('Priority')</th><th>$_('Actions')</th></tr>
     #for $affil in $account.get_affiliations()
     #set $ou = $affil.get_ou()
     #set $affil_type = $affil.get_affiliation()
     #set $priority = $affil.get_priority()
 
-    <div class="item">
-        <div class="actions">
+    <tr class="item">
+    <td>$affil_type.get_name()</td>
+    <td>$object_link($ou)</td>
+    <td>$priority</td>
+    <td class="actions">
             #set $args = "id=%s&ou=%s&affil=%s" % (
                             $account.get_id(), $ou.get_id(),
                             $affil_type.get_name())
             <a class="action" href="remove_affil?$args">$_('delete')</a>
-        </div>
-        <span class="name">$_('Affiliation'):</span> <span class="value"> $affil_type.get_name()</span>
-        <br />
-        <span class="name">$_('OU'):</span> <span class="value"> $object_link($ou)</span>
-        <br />
-        <span class="name">$_('Priority'):</span> <span class="value"> $priority</span>
-
-    </div>
+    </td>
+    </tr>
     #end for
+</table>
 </div>
 #end if
 #end def
@@ -203,9 +204,9 @@ $widgets.viewInfo($info)
                 <div class="actions">
                     <a class="action" href="$remove">$_('remove')</a>
                 </div>
-                <span class="name">$_("Spread"):</span> <span class="value">$sname</span><br />
-                <span class="name">$_("Home directory"):</span> <span class="value">$home.get_homedir().get_path()</span><br />
-                <span class="name">$_("Status"):</span> <span class="value">$home.get_homedir().get_status().get_description()</span>
+                <span class="name">$_("Spread"):</span> <span class="value">$html_quote($sname)</span><br />
+                <span class="name">$_("Home directory"):</span> <span class="value">$html_quote($home.get_homedir().get_path())</span><br />
+                <span class="name">$_("Status"):</span> <span class="value">$html_quote($home.get_homedir().get_status().get_description())</span>
             </div>
             #end for
         </div>
