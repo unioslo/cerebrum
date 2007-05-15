@@ -30,11 +30,11 @@ YC = YAHOO.util.Connect;
 cereweb = YAHOO.cereweb;
 
 /**
- * Set the cerebug variable to true to enable the YUI logger widget.
+ * Set the cereweb.debug variable to true to enable the YUI logger widget.
  * Useful for IE debugging.  Firebug is better though.
  */
-var cerebug = false;
-if(cerebug) {
+cereweb.debug = false;
+if(cereweb.debug) {
     var init = function(o) {
         var logger = cereweb.createDiv('logger');
         var myLogReader = new YAHOO.widget.LogReader(logger);
@@ -212,6 +212,6 @@ YE.onAvailable('container', cereweb.javascript.init);
 var myTabs = new YAHOO.widget.TabView('tabview');
 myTabs.DOMEventHandler = function(e) { /* do nothing */ };
 
-if(cerebug) {
+if(cereweb.debug) {
     log('bases are loaded');
 }

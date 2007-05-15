@@ -28,6 +28,6 @@ function GS_option_changed() {
     YD.get('gid_end').disabled = state;
 }
 
-if(cerebug) {
+if(cereweb.debug) {
     log('groupsearch is loaded');
 }

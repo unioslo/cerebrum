@@ -80,6 +80,6 @@ cereweb.motd = {
 }
 YE.onAvailable('editMotd', cereweb.motd.init, cereweb.motd, true);
 
-if(cerebug) {
+if(cereweb.debug) {
     log('motd is loaded');
 }

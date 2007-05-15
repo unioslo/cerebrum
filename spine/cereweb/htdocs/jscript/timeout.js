@@ -181,6 +181,6 @@ cereweb.timeout = {
 YAHOO.util.Event.addListener(window, 'load', cereweb.timeout.init, cereweb.timeout, true);
 
 
-if(cerebug) {
+if(cereweb.debug) {
     log('timeout is loaded');
 }

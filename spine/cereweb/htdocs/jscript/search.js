@@ -417,6 +417,6 @@ cereweb.search = {
 }
 YE.onAvailable('search_form', cereweb.search.init, cereweb.search, true);
 
-if(cerebug) {
+if(cereweb.debug) {
     log('search is loaded');
 }

@@ -333,6 +333,6 @@ YAHOO.util.Event.addListener('worklist', 'click', cereweb.worklist.handler, cere
 YAHOO.util.Event.addListener('worklist', 'change', cereweb.worklist.handler, cereweb.worklist, true);
 YAHOO.util.Event.onAvailable('WL_select', cereweb.worklist.init, cereweb.worklist, true);
 
-if(cerebug) {
+if(cereweb.debug) {
     log('worklist is loaded');
 }

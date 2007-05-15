@@ -297,6 +297,6 @@ function Perm_insert_option(select, new_node, old_index) {
 }
 
 
-if(cerebug) {
+if(cereweb.debug) {
     log('permissions are loaded');
 }
