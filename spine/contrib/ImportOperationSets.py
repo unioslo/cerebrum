@@ -21,6 +21,7 @@
 
 import os
 import sys
+import cerebrum_path
 import cereconf
 import Cerebrum.Errors
 from Cerebrum.Utils import Factory
@@ -76,7 +77,14 @@ class AuthImporter(object):
             bofhd_os.populate(name)
             bofhd_os.write_db()
         for operation, attribute in operations:
-            op_code = int(_AuthRoleOpCode(operation))
+            try:
+                op_code = int(_AuthRoleOpCode(operation))
+            except Cerebrum.Errors.NotFoundError, e:
+                print """ERROR: Could not find the operation code '%s' in the
+database.  This might be because the database is out of date or
+because you've made a typo in '%s'.  To update the database,
+please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
+                sys.exit(1)
             op_id = bofhd_os.add_operation(op_code)
             if attribute:
                 bofhd_os.add_op_attrs(op_id, attribute)
@@ -128,7 +136,12 @@ class AuthImporter(object):
             except Cerebrum.Errors.NotFoundError:
                 continue
 
-            group.find_by_name(group_name)
+            try:
+                group.find_by_name(group_name)
+            except Cerebrum.Errors.NotFoundError:
+                print """ERROR: Could not find the group '%s' in the database.
+Please make sure it exists and then run this script again.""" % group_name
+                sys.exit(1)
             gid = group.entity_id
 
             oid = op_set.op_set_id
