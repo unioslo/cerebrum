@@ -261,19 +261,21 @@ YE.onAvailable('container', function () {
     }
 );
 
-YE.onAvailable('content', initAutoComplete);
-function initAutoComplete(event) {
-    var account_completers = YD.getElementsByClassName('ac_account', 'input');
-    var group_completers = YD.getElementsByClassName('ac_group', 'input');
-    if (account_completers.length > 0)
-        YD.batch(account_completers, function(input) {
-            new cereweb.ac_account(input);
-        });
-    if (group_completers.length > 0)
-        YD.batch(group_completers, function (input) {
-            new cereweb.ac_group(input);
-        });
+cereweb.autocomplete = {
+    init: function (event) {
+        var account_completers = YD.getElementsByClassName('ac_account', 'input');
+        var group_completers = YD.getElementsByClassName('ac_group', 'input');
+        if (account_completers.length > 0)
+            YD.batch(account_completers, function(input) {
+                new cereweb.ac_account(input);
+            });
+        if (group_completers.length > 0)
+            YD.batch(group_completers, function (input) {
+                new cereweb.ac_group(input);
+            });
+    }
 }
+YE.onAvailable('content', cereweb.autocomplete.init);
 
 cereweb.search = {
     init: function() {
