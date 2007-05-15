@@ -228,7 +228,7 @@ cereweb.worklist = {
       
         // Show (or create and then show) the action for the selected items.
         if (ids.length > 0) {
-            ids = ids.sort(function (a, b) { return (a - b); });
+            ids = ids.sort(YAHOO.util.Sort.compareAsc);
             var action = YD.get('WL_action_' + ids);
             if (!action) {
                 action = this.get_action(ids);
