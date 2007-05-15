@@ -25,6 +25,7 @@ ad-sync script that can be used with any module that extends ADutilMixIn.ADuserU
 Usage: [options]
   --url url
   --user_spread spread
+  --group_spread spread
   -m ModuleName/ClassName
   --dryrun
   --ad-ldap domain_dn (overrides cereconf.AD_LDAP)
@@ -49,34 +50,32 @@ ac = Utils.Factory.get('Account')(db)
 
 logger = Utils.Factory.get_logger("cronjob")
 
-def fullsync(user_class_ref, user_spread, url, dryrun=False, delete_objects=False,
-             ad_ldap=None):
-    disk_spread = user_spread
+def fullsync(user_class_ref, url, spread, sync_type='user', dryrun=False,
+             delete_objects=False, ad_ldap=None):
+    disk_spread = spread
 
     # Get module and glass name, and use getattr to get a class object.
     modname, classname = user_class_ref.split("/")
     sync_class = getattr(Utils.dyn_import(modname), classname)
     # instantiate sync_class and call full_sync
     sync_class(db, co, logger, url=url, ad_ldap=ad_ldap).full_sync(
-        'user', delete_objects, user_spread, dryrun, disk_spread)
+        sync_type, delete_objects, spread, dryrun, disk_spread)
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'm:', [
-            'help', 'user_spread=', 'url=', 'dryrun', 'ad-ldap='])
+            'help', 'user_spread=', 'url=', 'dryrun', 'ad-ldap=', 'group_spread='])
     except getopt.GetoptError:
         usage(1)
 
     dryrun = False
+    user_spread = None
+    group_spread = None
     ad_ldap = cereconf.AD_LDAP
     ad_mod = cereconf.AD_DEFAULT_SYNC
     for opt, val in opts:
         if opt in ('--help',):
             usage()
-##         elif opt in ('--host',):
-##             host = val
-##         elif opt in ('--port',):
-##             port = int(val)
         elif opt in ('--dryrun',):
             dryrun = True
         elif opt in ('--ad-ldap',):
@@ -87,10 +86,17 @@ def main():
             ad_mod = val
         elif opt == '--user_spread':
             user_spread = _SpreadCode(val)
+        elif opt == '--group_spread':
+            group_spread = _SpreadCode(val)
     if not opts:
         usage(1)
 
-    fullsync(ad_mod, user_spread, url, dryrun=dryrun, ad_ldap=ad_ldap)
+    if user_spread:
+        fullsync(ad_mod, url, user_spread, sync_type='user',
+                 dryrun=dryrun, ad_ldap=ad_ldap)
+    elif group_spread:
+        fullsync(ad_mod, url, group_spread, sync_type='group',
+                 dryrun=dryrun, ad_ldap=ad_ldap)
 
 
 def usage(exitcode=0):
