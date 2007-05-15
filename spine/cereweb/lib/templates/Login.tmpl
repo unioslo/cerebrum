@@ -36,8 +36,9 @@
     <body>
         <div id="content">
             <div id="messages">
-            #for $msg in $messages
-                <div class="message">$msg</div>
+            #for $msg, $is_error in $messages
+                #set $is_error = $is_error and "error" or ""
+                <div class="message $is_error">$msg</div>
             #end for
             </div>
             <div id="login">

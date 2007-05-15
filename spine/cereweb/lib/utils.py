@@ -189,16 +189,15 @@ def new_transaction():
         # server being restarted.
         queue_message('Your session is no longer available.  Please log in again.',
                 error=True)
+        redirect_to_login()
 
+def redirect_to_login():
         query = cherrypy.request.path
         if cherrypy.request.queryString:
             query += '?' + cherrypy.request.queryString
 
         cherrypy.session['next'] = query
         redirect('/login')
-    except Exception, e:
-        import Error
-        raise Error.SessionError, e
 
 def transaction_decorator(method):
     def transaction_decorator(*args, **vargs):

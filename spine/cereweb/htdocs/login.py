@@ -30,7 +30,27 @@ import config
 
 import SpineClient
 
-Spine = SpineClient.SpineClient(config=config.conf)
+class Client(object):
+    def __init__(self):
+        self.__connect()
+
+    def __call__(self):
+        if self.spine:
+            return self.spine
+        else:
+            return self.__connect()
+
+    def __connect(self):
+        try:
+            self.spine = SpineClient.SpineClient(config=config.conf)
+        except CORBA.TRANSIENT, e:
+            self.spine = None
+        return self.spine
+
+    def disconnect(self):
+        self.spine = None
+
+Client = Client()
 
 def login(**vargs):
     # Merge our session with the supplied info.  This way, we can remember
@@ -49,7 +69,7 @@ def login(**vargs):
 
     msg = utils.get_messages()
     if vargs.get('msg'):
-        msg.append(vargs.get('msg'))
+        msg.append((vargs.get('msg'), True))
 
     try: 
         # If we have a working spine-session already, redirect to
@@ -57,30 +77,40 @@ def login(**vargs):
         session = cherrypy.session.get('session')
         if session and session.get_timeout():
             utils.redirect(client)
+    except CORBA.TRANSIENT, e:
+        Client.disconnect() # Force the client to reconnect.
     except CORBA.OBJECT_NOT_EXIST, e:
         pass
 
     if username and password:
-        msg.append("Login")
+        cherrypy.session['username'] = username
+        cherrypy.session['client'] = client
+        Spine = Client()
+        
         try:
+            if not Spine:
+                raise CORBA.TRANSIENT('Could not connect.')
+
             spine = Spine.connect()
             session = spine.login(username, password)
             if not session.is_admin():
                 client = '/user_client'
+        except CORBA.TRANSIENT, e:
+            msg.append(("Could not connect to the Spine server.  Please contact Orakel.", True))
         except Exception, e:
             error = cgi.escape(str(e))
-            msg.append(error)
+            msg.append((error, True))
         else:
             cherrypy.session['session'] = session
-            cherrypy.session['username'] = username
-            cherrypy.session['client'] = client
             cherrypy.session['timeout'] = session.get_timeout()
             cherrypy.session['encoding'] = session.get_encoding()
             cherrypy.session['options'] = Options(session, username)
             
-            next = cherrypy.session.get('next')
-            if next:
+            try:
+                next = cherrypy.session.pop('next')
                 redirect = utils.clean_url(next)
+            except KeyError, e:
+                pass
 
             if redirect == '/index':
                 redirect = client

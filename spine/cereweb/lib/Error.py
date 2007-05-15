@@ -25,13 +25,10 @@ import sys
 import traceback
 import urllib
 import config
-from utils import redirect, queue_message
+import utils 
+import omniORB
 from templates.ErrorTemplate import ErrorTemplate
 from SpineIDL.Errors import *
-
-class SessionError(Exception):
-    """Indicates a problem with the connection
-    """
 
 class NotFoundError(Exception):
     """A non existing resource was requested
@@ -49,33 +46,28 @@ class Redirected(Exception):
 
 def handle(error):
     title, message, tracebk = None, None, None
-    path = cherrypy.request.path
+    path = utils.clean_url(cherrypy.request.path)
     referer = cherrypy.request.headerMap.get('Referer', '')
 
     cherrypy.response.headerMap['Pragma'] = 'no-cache'
     cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
 
-    if isinstance(error, SessionError):
-        if path not in ('/', '/login'):
-            if path.split('/')[-1] not in ('make', 'delete', 'save'):
-                tmp = path + urllib.quote("?" + cherrypy.request.queryString)
-            else:
-                tmp = '/'.join(path.split('/')[:-1])
-            msg = "Your session has most likely timed out."
-            redirect('/login?redirect=%s&msg=%s' % (tmp, msg))
-        else:
-            redirect('/login')
-        return
+    if isinstance(error, omniORB.CORBA.COMM_FAILURE) or \
+       isinstance(error, omniORB.CORBA.TRANSIENT):
+        # We seem to have lost connection with the Spine server.  This is
+        # handled by the login page so that the user gets information about
+        # what's wrong.
+        utils.redirect_to_login() 
     elif isinstance(error, AccessDeniedError):
         msg = "Sorry, you do not have permissions to do the requested operation."
         if cherrypy.config.get('server.showTracebacks'):
             traceback.print_exc()
         # Login page doesn't support queue_message
         if referer.split('?')[0].endswith('login'):
-            redirect('/login?msg=%s' % msg)
+            utils.redirect('/login?msg=%s' % msg)
         else:
-            queue_message(msg, error=True)
-            redirect(referer)
+            utils.queue_message(msg, error=True)
+            utils.redirect(referer)
     elif isinstance(error, Redirected):
         title = "Redirection error."
         message = "Your browser does not seem to support redirection."
