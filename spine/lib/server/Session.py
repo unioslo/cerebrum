@@ -85,6 +85,11 @@ class Session:
 
     logout.signature = None
 
+    def ping(self):
+        pass
+
+    ping.signature = str
+
     def is_admin(self):
         pass
     is_admin.signature = int
@@ -191,5 +196,8 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         handler = SessionHandler.get_handler()
         handler.remove(self)
         self.destroy()
+
+    def ping(self):
+        return 'pong'
 
 # arch-tag: 6fceeb42-b06a-4779-a088-7316dd68a981
