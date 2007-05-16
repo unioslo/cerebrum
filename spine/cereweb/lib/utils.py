@@ -25,6 +25,7 @@ import mx.DateTime
 import cherrypy
 import re
 import cgi
+from omniORB import CORBA
 from datetime import datetime
 
 def clean_url(url):
@@ -180,16 +181,21 @@ def strptime(tr, date, format="%Y-%m-%d"):
     else:
         return None
 
-def new_transaction():
+def has_valid_session():
+    """Tries to ping the server.  Returns True if we've got
+    contact, False otherwise."""
     try:
-        return cherrypy.session['session'].new_transaction()
-    except KeyError, e:
-        # This might be because the user hasn't logged in yet, or he has logged
-        # out in a different browser window.  It is also caused by the cereweb
-        # server being restarted.
-        queue_message('Your session is no longer available.  Please log in again.',
-                error=True)
+        cherrypy.session['session'].ping()
+    except (CORBA.COMM_FAILURE, CORBA.TRANSIENT, KeyError), e:
+        return False
+    return True
+
+def new_transaction():
+    if not has_valid_session():
+        msg = 'Your session is no longer available.  Please log in again.'
+        queue_message(msg, error=True)
         redirect_to_login()
+    return cherrypy.session['session'].new_transaction()
 
 def redirect_to_login():
         query = cherrypy.request.path
