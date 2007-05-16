@@ -60,27 +60,19 @@ def login(**vargs):
     password = vargs.get('password')
 
     client = utils.clean_url(vargs.get('client'))
+    redirect = utils.clean_url(vargs.get('redirect'))
 
     # Make sure the user has chosen a valid client.
     if not client in ['/user_client', '/index']:
         client = '/user_client'
 
-    redirect = utils.clean_url(vargs.get('redirect'))
+    # IF the user is already logged in, send him to his client.
+    if utils.has_valid_session():
+        utils.redirect(client)
 
     msg = utils.get_messages()
     if vargs.get('msg'):
         msg.append((vargs.get('msg'), True))
-
-    try: 
-        # If we have a working spine-session already, redirect to
-        # that users client.
-        session = cherrypy.session.get('session')
-        if session and session.get_timeout():
-            utils.redirect(client)
-    except CORBA.TRANSIENT, e:
-        Client.disconnect() # Force the client to reconnect.
-    except CORBA.OBJECT_NOT_EXIST, e:
-        pass
 
     if username and password:
         cherrypy.session['username'] = username
