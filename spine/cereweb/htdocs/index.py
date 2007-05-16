@@ -25,7 +25,7 @@ from gettext import gettext as _
 
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit_url, redirect
-from lib.utils import rollback_url
+from lib import utils 
 from lib.templates.MotdTemplate import MotdTemplate
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
 
@@ -93,17 +93,17 @@ def save_motd(transaction, id=None, subject=None, message=None):
             motd.delete()
         except NotFoundError, e:
             msg = _("Couldn't find existing motd.");
-            rollback_url('/index', msg, err=True)
+            utils.rollback_url('/index', msg, err=True)
         except AccessDeniedError, e:
             msg = _("You do not have permission to delete.");
-            rollback_url('/index', msg, err=True)
+            utils.rollback_url('/index', msg, err=True)
         except ValueError, e:
             pass
     try: # Create the new
         transaction.get_commands().create_cereweb_motd(subject, message)
     except AccessDeniedError, e:
         msg = _("You do not have permission to create.");
-        rollback_url('/index', msg, err=True)
+        utils.rollback_url('/index', msg, err=True)
     msg = _('Motd successfully created.')
     commit_url(transaction, 'index', msg=msg)
 save_motd = transaction_decorator(save_motd)
@@ -138,9 +138,14 @@ delete_motd = transaction_decorator(delete_motd)
 delete_motd.exposed = True
 
 def full_activitylog():
+    # No transaction decorator, so we need to check if the session is valid.
+    if not utils.has_valid_session():
+        utils.redirect_to_login()
+
     messages = cherrypy.session.get('al_messages', [])
     page = Main()
     page.title = _("Activity log")
+    page.links = _get_links()
     log = ActivityLogTemplate()
     content = log.full_activitylog(messages[::-1])
     page.content = lambda: content
@@ -173,13 +178,11 @@ def session_keep_alive(nocache=None):
     'nocache' allows the client to create unique request URIs
     so that the request doesn't get cached by IE or opera.
     """
-    session = cherrypy.session['session']
     try:
-        session.get_timeout()
+        cherrypy.session['session'].get_timeout()
         cherrypy.session['timestamp'] = time.time()
-    except:
+    except Exception, e:
         return 'false'
-
     return 'true'
 session_keep_alive.exposed = True
 
