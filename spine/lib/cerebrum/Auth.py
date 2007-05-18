@@ -193,6 +193,11 @@ class AuthRole(DatabaseClass):
     delete.signature_name = 'delete'
     delete.signature_write = True
 
+    def get_auth_entity(self):
+        """You need global permissions to change AuthRole objects."""
+        return None
+    get_auth_entity.signature = [Entity]
+
 def create_auth_role(self, entity, op_set, target):
     db = self.get_database()
     return AuthRole._create(db, entity, op_set, target)
