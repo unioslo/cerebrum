@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from lib.utils import object_link, strftime
+#from lib.utils import object_link, strftime, html_quote
 #from lib.WorkList import remember_link
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
@@ -74,8 +74,8 @@ $info.append(($_('Name'), $group.get_name()))
 #end if
 $info.append(($_('Created'), $strftime($group.get_create_date())))
 $info.append(($_('Expire date'), $strftime($group.get_expire_date())))
-$info.append(($_('Visibility'), $group.get_visibility().get_description()))
-$info.append(($_('Description'), $group.get_description()))
+$info.append(($_('Visibility'), $html_quote($group.get_visibility().get_description())))
+$info.append(($_('Description'), $html_quote($group.get_description())))
 $widgets.viewInfo($info)
 #end def
 
@@ -158,7 +158,7 @@ $widgets.viewInfo($info)
         #for $type, $member in $op_members
         <tr>
             <td>
-                $type.capitalize()
+                $html_quote($type.capitalize())
             </td>
             <td>
                 $object_link($member)
@@ -214,7 +214,7 @@ $widgets.viewInfo($info)
             
             #set $name = "member_%s_%s" % ($account.get_id(), $group.get_id())
             <input type="checkbox" name="$name" $disabled/>
-            <em>$_($header):</em> $group_name
+            <em>$_($header):</em> $html_quote($group_name)
             $object_link($group, "view", _class="action")
             $object_link($group, "edit", "edit", _class="action")
             $remember_link($group, _class="action")

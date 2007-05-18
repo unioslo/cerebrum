@@ -388,4 +388,5 @@ def html_quote(s):
     return cgi.escape(str(s))
 
 def url_quote(s):
-    return urllib.urlencode(str(s))
+    #return urllib.urlencode(str(s))
+    return s

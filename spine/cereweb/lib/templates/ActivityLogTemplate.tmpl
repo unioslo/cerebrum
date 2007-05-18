@@ -18,6 +18,7 @@
 
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
+#from lib.utils import html_quote
 #from lib.TableView import TableView
 #from Widgets import Widgets
 #attr $widgets = Widgets()
@@ -61,7 +62,7 @@
             #set $msg += " (error)"
         #end if
         $table.add(time=$time.strftime("%a %H:%M"),
-                   object=$link, message=$msg)
+                   object=$link, message=$html_quote($msg))
     #end for
     $widgets.sorted_table($table)
 #else
@@ -69,4 +70,3 @@
 #end if
 </div>
 #end def
-

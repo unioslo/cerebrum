@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link
+#from lib.utils import object_link, html_quote
 #from lib.WorkList import remember_link
 #from Widgets import Widgets
 #extends EntityViewTemplate
@@ -58,10 +58,10 @@
 ## View information about host (name and description).
 #def viewInfo($host)
     #set $info = []
-    $info.append(($_("Name:"), $host.get_name()))
-    $info.append(($_("Description:"), $host.get_description()))
+    $info.append(($_("Name:"), $html_quote($host.get_name())))
+    $info.append(($_("Description:"), $html_quote($host.get_description())))
     #if $host.get_email_server_type()
-        $info.append(($_("Mailhost:"), $host.get_email_server_type().get_name()))
+        $info.append(($_("Mailhost:"), $html_quote($host.get_email_server_type().get_name())))
     #end if
     $widgets.viewInfo($info)
 #end def
@@ -77,7 +77,7 @@
             #for $disk in $disks
             <div class="item">
                 <input type="checkbox" name="$disk.get_id()" />
-                <em>$_('Path'):</em> $disk.get_path()
+                <em>$_('Path'):</em> $html_quote($disk.get_path())
                 $object_link($disk, "view", _class="action")
                 $object_link($disk, "edit", "edit", _class="action")
                 $remember_link($disk, _class="action")
