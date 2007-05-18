@@ -386,3 +386,6 @@ def extidlist(person):
 def html_quote(s):
     """ maybe add more characters that need quoting later... """
     return cgi.escape(str(s))
+
+def url_quote(s):
+    return urllib.urlencode(str(s))

@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime
+#from lib.utils import object_link, strftime, html_quote, url_quote
 #from lib.WorkList import remember_link
 #from GroupViewTemplate import GroupViewTemplate
 #from Widgets import Widgets
@@ -61,9 +61,9 @@
         $notice.append($_("Deceased"))
         $info.append(($_("Deceased date"), $strftime($person.get_deceased_date())))
     #end if
-    $info.append(($_("Gender"), $person.get_gender().get_description()))
+    $info.append(($_("Gender"), $html_quote($person.get_gender().get_description())))
     $info.append(($_("Date of birth"), $strftime($person.get_birth_date())))
-    $info.append(($_("Description"), $person.get_description()))
+    $info.append(($_("Description"), $html_quote($person.get_description())))
     $widgets.viewInfo($info, $notice)
 #end def
 
@@ -85,7 +85,7 @@
         #set $account_name = $account.get_name()
         <div>
             <input type="checkbox" name="account_$account_id" />
-            <em>$_('Account'):</em> $_($account_name)
+            <em>$_('Account'):</em> $html_quote($account_name)
             $object_link($account, "view", _class="action")
             $object_link($account, "edit", "edit", _class="action")
             $remember_link($account, _class="action")
@@ -127,16 +127,16 @@
 
     #if not $marked
     <tr class="item">
-    <td>$affil_type.get_name()</td>
-    <td>$status.get_name()</td>
+    <td>$html_quote($affil_type.get_name())</td>
+    <td>$html_quote($status.get_name())</td>
     <td>$object_link($ou)</td>
-    <td>$description</td>
+    <td>$html_quote($description)</td>
 
     <td class="actions">
-            #set $args = "id=%s&ou=%s&affil=%s&ss=%s" % (
+            #set $args = $url_quote("id=%s&ou=%s&affil=%s&ss=%s" % (
                             $person.get_id(), $ou.get_id(),
                             $affil_type.get_name(),
-                            $affil.get_source_system().get_name())
+                            $affil.get_source_system().get_name()))
             <a class="action" href="remove_affil?$args">$_('delete')</a>
     </td>
     </tr>
@@ -191,9 +191,9 @@
             #for name in names
             #set sources = ",".join([$s.get_name() for $s in $name.sources])
             <tr>
-               <td>$name.variant.get_name()</td>
-               <td>$name.name</td>
-               <td>$sources</td>
+               <td>$html_quote($name.variant.get_name())</td>
+               <td>$html_quote($name.name)</td>
+               <td>$html_quote($sources)</td>
             </tr>
             #end for
         </table>
