@@ -69,6 +69,11 @@ class Request(DatabaseClass):
             'destination':'destination_id',
         }
     }
+
+    def get_auth_entity(self):
+        """You need global permissions to change AuthRole objects."""
+        return None
+    get_auth_entity.signature = Entity
 registry.register_class(Request)
 
 # arch-tag: 37bf64d1-5369-4f97-8dcf-1b90cbb5aa92
