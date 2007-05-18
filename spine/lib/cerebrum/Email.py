@@ -138,6 +138,10 @@ class EmailDomainCategorization(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        return self.get_domain()
+    get_auth_entity.signature = [Entity]
+
 registry.register_class(EmailDomainCategorization)
 
 def get_email_domains_by_category(self, category):
@@ -304,6 +308,9 @@ class EmailTarget(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        return self.get_entity()
+    get_auth_entity.signature = [Entity]
 
     def get_entity(self):
         """
@@ -410,6 +417,10 @@ class EmailAddress(DatabaseClass):
             'target' : 'target_id',
         }
     }
+
+    def get_auth_entity(self):
+        return self.get_target()
+    get_auth_entity.signature = [Entity]
 
     def delete(self):
         """
@@ -522,6 +533,10 @@ class PrimaryEmailAddress(DatabaseClass):
             'address' : 'address_id',
         }
     }
+
+    def get_auth_entity(self):
+        return self.get_target()
+    get_auth_entity.signature = [Entity]
 
 registry.register_class(PrimaryEmailAddress)
 
@@ -651,6 +666,10 @@ class EntityEmailDomain(DatabaseClass):
         }
     }
     
+    def get_auth_entity(self):
+        return self.get_person()
+    get_auth_entity.signature = [Entity]
+
 registry.register_class(EntityEmailDomain)
 
 def get_email_domain(self, affiliation):
@@ -766,6 +785,10 @@ class EmailForward(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        return self.get_target()
+    get_auth_entity.signature = [Entity]
+
     #TODO delete()
 
 registry.register_class(EmailForward)
@@ -816,6 +839,10 @@ class EmailVacation(DatabaseClass):
             'target' : 'target_id',
         }
     }
+
+    def get_auth_entity(self):
+        return self.get_target()
+    get_auth_entity.signature = [Entity]
 
 registry.register_class(EmailVacation)
 
