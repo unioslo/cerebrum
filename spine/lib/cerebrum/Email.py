@@ -640,20 +640,19 @@ EmailAddress.is_primary = is_primary
 table = 'email_entity_domain'
 class EntityEmailDomain(DatabaseClass):
     """
-    This class is a mixin for entities that want e-mail domains associated with
-    them given some affiliation. Currently, this is only useful for persons.
-    What this class provides is a way of saying stuff like 'this person is a
-    student, and students have the e-mail domain so-and-so.'. You shouldn't
-    need to use this class directly, but rather access it through convenience
-    methods in PersonAffiliationType, EmailDomain and Person. Of course, you
-    may still use it if you want to.
+    This is used to map a (default) emaildomain to users in a
+    OU/affiliation or possibly directly other entity types.
+
+    You shouldn't need to use this class directly, but rather access
+    it through convenience methods in PersonAffiliationType, EmailDomain
+    and Person. Of course, you may still use it if you want to.
 
     \\see Person
     \\see PersonAffiliationType
     \\see EmailDomain
     """
     primary = (
-        DatabaseAttr('person', table, Person),
+        DatabaseAttr('entity', table, Entity),
         DatabaseAttr('affiliation', table, PersonAffiliationType),
     )
     slots = (
@@ -661,13 +660,13 @@ class EntityEmailDomain(DatabaseClass):
     )
     db_attr_aliases = {
         table : {
-            'person' : 'entity_id',
+            'entity' : 'entity_id',
             'domain' : 'domain_id',
         }
     }
     
     def get_auth_entity(self):
-        return self.get_person()
+        return self.get_entity()
     get_auth_entity.signature = Entity
 
 registry.register_class(EntityEmailDomain)
