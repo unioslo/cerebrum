@@ -31,12 +31,13 @@ def read_conf(conf, name):
 	file = os.path.join(path, name)
 	print "Using config %s" % file
 	conf.read(file)
+	return file, tmpl
 
 conf = ConfigParser.ConfigParser()
-read_conf(conf, 'cereweb.conf')
+cereweb_config, cereweb_template = read_conf(conf, 'cereweb.conf')
 
 cherrypy_template = os.path.join(path, 'cherrypy.conf.template')
 cherrypy = os.path.join(path, 'cherrypy.conf')
 
 default_options = ConfigParser.ConfigParser()
-read_conf(default_options, 'options.conf')
+option_config, option_template = read_conf(default_options, 'options.conf')
