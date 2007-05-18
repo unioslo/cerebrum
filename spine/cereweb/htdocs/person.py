@@ -29,7 +29,7 @@ from lib.Main import Main
 from lib.utils import strftime, strptime, commit_url, unlegal_name
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
-from lib.utils import legal_date, rollback_url, html_quote
+from lib.utils import legal_date, rollback_url
 from lib.WorkList import remember_link
 from lib.Searchers import PersonSearcher
 from lib.Forms import PersonCreateForm, PersonEditForm
@@ -306,7 +306,7 @@ def add_affil(transaction, id, status, ou, description=""):
     affil = person.add_affiliation(ou, status, ss)
     
     if description:
-        affil.set_description(html_quote(description))
+        affil.set_description(description)
     
     commit(transaction, person, msg=_("Affiliation successfully added."))
 add_affil = transaction_decorator(add_affil)

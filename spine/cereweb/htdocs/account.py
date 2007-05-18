@@ -141,7 +141,7 @@ def make(transaction, owner, name, expire_date="", np_type=None,
         except NotFoundError, e:
             rollback_url(referer, _("Could not find group %s.  Account not created." % primary_group), err=True)
     if desc:
-        account.set_description(html_quote(desc))
+        account.set_description(desc)
     commit(transaction, account, msg=_("Account successfully created."))
 
 def view(transaction, id, **vargs):
