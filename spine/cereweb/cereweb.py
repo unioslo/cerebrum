@@ -25,6 +25,7 @@ cherrypy.root._cpOnError = _cpOnError
 
 def readConf(file):
     if os.path.exists(file):
+    print "Using config %s" % file
         if cherrypy.__version__.startswith('3'):
             cherrypy.config.update(file)
         else:
