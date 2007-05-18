@@ -57,6 +57,10 @@ class EntityQuarantine(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        return self.get_entity()
+    get_auth_entity.signature = Entity
+
     def is_active(self):
         now = mx.DateTime.now()
 
