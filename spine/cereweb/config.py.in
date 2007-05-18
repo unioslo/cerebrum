@@ -23,20 +23,20 @@ import ConfigParser
 
 path = '#CONFDIR#' or '.'
 
+
+def read_conf(conf, name):
+	tmpl = os.path.join(path, "%s.template" % name)
+	print "Using config %s" % tmpl
+	conf.read(tmpl)
+	file = os.path.join(path, name)
+	print "Using config %s" % file
+	conf.read(file)
+
 conf = ConfigParser.ConfigParser()
-conf.read(os.path.join(path, 'cereweb.conf.template'))
-conf.read(os.path.join(path, 'cereweb.conf'))
+read_conf(conf, 'cereweb.conf')
 
 cherrypy_template = os.path.join(path, 'cherrypy.conf.template')
 cherrypy = os.path.join(path, 'cherrypy.conf')
 
-option_template = os.path.join(path, 'options.conf.template')
-option_config = os.path.join(path, 'options.conf')
-
 default_options = ConfigParser.ConfigParser()
-print "Using config %s" % option_template
-default_options.read(option_template)
-print "Using config %s" % option_config
-default_options.read(option_config)
-
-# arch-tag: 4f424b2f-f6a7-4181-8917-4885cda8799b
+read_conf(default_options, 'options.conf')
