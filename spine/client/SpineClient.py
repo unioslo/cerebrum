@@ -126,7 +126,7 @@ class SpineClient:
         else:
             orb = self.init()
 
-        printf "Using IOR %s" % self.ior_url
+        print "Using IOR %s" % self.ior_url
         ior = urllib.urlopen(self.ior_url).read()
         try:
             obj = orb.string_to_object(ior)
