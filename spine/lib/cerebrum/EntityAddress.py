@@ -52,6 +52,11 @@ class EntityAddress(DatabaseClass):
         table:{'entity':'entity_id'}
     }
 
+    def get_auth_entity(self):
+        """You need global permissions to change AuthRole objects."""
+        return return self.get_entity()
+    get_auth_entity.signature = Entity
+
 registry.register_class(EntityAddress)
 
 def get_addresses(self):

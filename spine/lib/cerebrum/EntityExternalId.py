@@ -48,6 +48,10 @@ class EntityExternalId(DatabaseClass):
         }
     }
         
+    def get_auth_entity(self):
+        """You need global permissions to change AuthRole objects."""
+        return return self.get_entity()
+    get_auth_entity.signature = Entity
 registry.register_class(EntityExternalId)
 
 def get_external_id(self, id_type, source_system):

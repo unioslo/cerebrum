@@ -55,6 +55,10 @@ class EntityContactInfo(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        """You need global permissions to change AuthRole objects."""
+        return return self.get_entity()
+    get_auth_entity.signature = Entity
 registry.register_class(EntityContactInfo)
 
 def remove_contact_info(self, source, type, pref):
