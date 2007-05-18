@@ -183,6 +183,10 @@ class AccountingTransaction(DatabaseClass):
             'credit_transaction':'credit_transaction_id',
         }
     }
+
+    def get_auth_entity(self):
+        return None
+    get_auth_entity.signature = Entity
 registry.register_class(AccountingTransaction)
 
 #define additional methods.

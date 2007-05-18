@@ -82,6 +82,9 @@ class PersonAffiliation(DatabaseClass):
             return False
     marked_for_deletion.signature = bool
 
+    def get_auth_entity(self):
+        return self.get_person()
+    get_auth_entity.signature = Entity
 registry.register_class(PersonAffiliation)
 
 def add_affiliation(self, ou, affiliation_status, source_system):

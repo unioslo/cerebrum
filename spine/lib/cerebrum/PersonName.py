@@ -42,6 +42,9 @@ class PersonName(DatabaseClass):
         }
     }
         
+    def get_auth_entity(self):
+        return self.get_person()
+    get_auth_entity.signature = Entity
 registry.register_class(PersonName)
 
 def get_names(self):

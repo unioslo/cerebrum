@@ -75,6 +75,9 @@ class HomeDirectory(DatabaseClass):
 
     get_path.signature = str
 
+    def get_auth_entity(self):
+        return self.get_account()
+    get_auth_entity.signature = Entity
 registry.register_class(HomeDirectory)
 
 home_table = 'account_home'
@@ -107,6 +110,9 @@ class AccountHome(DatabaseClass):
     delete.signature = None
     delete.write = True
 
+    def get_auth_entity(self):
+        return self.get_account()
+    get_auth_entity.signature = Entity
 registry.register_class(AccountHome)
 
 def _get_homedir(db, account, spread):

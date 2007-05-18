@@ -50,6 +50,9 @@ class AccountAffiliation(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        return self.get_account()
+    get_auth_entity.signature = Entity
 registry.register_class(AccountAffiliation)
 
 def set_affiliation(self, ou, affiliation, priority):

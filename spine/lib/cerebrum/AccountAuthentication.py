@@ -46,6 +46,9 @@ class AccountAuthentication(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        return self.get_account()
+    get_auth_entity.signature = Entity
 registry.register_class(AccountAuthentication)
 
 def get_authentications(self):
