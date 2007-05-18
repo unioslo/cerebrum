@@ -52,6 +52,10 @@ class CerewebOption(DatabaseClass):
         option_table: {'id': 'option_id', 'entity': 'entity_id'}
     }
 
+    def get_auth_entity(self):
+        return self.get_entity()
+    get_auth_entity.signature = [Entity]
+    
     def delete(self):
         self._delete_from_db()
     delete.signature = None
