@@ -309,6 +309,7 @@ cereweb.search = {
         /* Add listener for restoring the searchbox when it's clicked. */
         YE.addListener(searchbox, 'click', function() {
             if (!searchbox.hidden) return;
+            YD.setStyle(searchbox, 'background-image', '');
             var anim = new YAHOO.util.Anim(resultbox, { opacity: { to: 0 }}, 1);
             var anim2 = new YAHOO.util.Anim(searchbox,
                 { height: { to: searchbox.defaultHeight }, width: { to: searchbox.defaultWidth }},
@@ -363,12 +364,14 @@ cereweb.search = {
         var anim;
         if (!searchbox.hidden) {
             searchbox.hidden = true;
-            anim = new YAHOO.util.Anim(searchbox, { height: { to: 10 }, width: { to: 10}}, 1, YAHOO.util.Easing.easeOut)
+            anim = new YAHOO.util.Anim(searchbox, { height: { to: 16 }, width: { to: 16}}, 1, YAHOO.util.Easing.easeOut)
         } else {
             anim = new YAHOO.util.Anim(resultbox, { opacity: { to: 0, from: 1 }}, 0.5);
         }
         anim.onComplete.subscribe(function() {
             YD.setStyle(resultbox, 'display', 'block');
+            YD.setStyle(searchbox, 'background-image', 'url("/img/play.png")');
+            YD.setStyle(searchbox, 'background-repeat', 'no-repeat');
             resultbox.innerHTML = res;
             new YAHOO.util.Anim(resultbox, { opacity: { to: 1 }}, 1).animate();
         });
