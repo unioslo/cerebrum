@@ -107,27 +107,18 @@ class Authorization(object):
         return False
 
     def _get_entity(self, target):
-        """Try to find the entity of this target."""
-        if not target:
-            return None
+        """Find the entity of this target."""
+
+        if isinstance(target, Entity):
+            return target
+        # Searchers and Dumpers have no entities.
         elif isinstance(target, SearchClass.SearchClass) or \
              isinstance(target, DumpClass.DumpClass):
             return None
-        elif isinstance(target, Entity):
-            return target
-
-        if hasattr(target, 'get_entity'):
-            target = target.get_entity()
-        elif hasattr(target, 'get_person'):
-            target = target.get_person()
-        elif hasattr(target, 'get_account'):
-            target = target.get_account()
-        elif hasattr(target, 'get_target'):
-            target = target.get_target()
+        elif hasattr(target, 'get_auth_entity'):
+            return target.get_auth_entity()
         else:
-            target = None
-
-        return self._get_entity(target)
+            return None
 
     def update_auths(self, credentials):
         authrows = self.db.query(
@@ -197,7 +188,10 @@ class Authorization(object):
         if isinstance(target, Account):
             # Accounts belong to a person or a group.  We don't use the
             # affiliations of the account.
-            # Do not use Account.get_owner since it takes about 30 seconds the first time it's called.
+            #
+            # Do not use Account.get_owner since it takes about 30 seconds the
+            # first time it's called.  We can't afford this if we want to run
+            # the unit tests.
             account = Utils.Factory.get('Account')(self.db)
             account.find(target.get_id())
             person_id = account.owner_id
