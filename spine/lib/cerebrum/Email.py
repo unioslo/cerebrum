@@ -140,7 +140,7 @@ class EmailDomainCategorization(DatabaseClass):
 
     def get_auth_entity(self):
         return self.get_domain()
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
 registry.register_class(EmailDomainCategorization)
 
@@ -310,7 +310,7 @@ class EmailTarget(DatabaseClass):
 
     def get_auth_entity(self):
         return self.get_entity()
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
     def get_entity(self):
         """
@@ -420,7 +420,7 @@ class EmailAddress(DatabaseClass):
 
     def get_auth_entity(self):
         return self.get_target()
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
     def delete(self):
         """
@@ -536,7 +536,7 @@ class PrimaryEmailAddress(DatabaseClass):
 
     def get_auth_entity(self):
         return self.get_target()
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
 registry.register_class(PrimaryEmailAddress)
 
@@ -668,7 +668,7 @@ class EntityEmailDomain(DatabaseClass):
     
     def get_auth_entity(self):
         return self.get_person()
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
 registry.register_class(EntityEmailDomain)
 
@@ -787,7 +787,7 @@ class EmailForward(DatabaseClass):
 
     def get_auth_entity(self):
         return self.get_target()
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
     #TODO delete()
 
@@ -842,7 +842,7 @@ class EmailVacation(DatabaseClass):
 
     def get_auth_entity(self):
         return self.get_target()
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
 registry.register_class(EmailVacation)
 
