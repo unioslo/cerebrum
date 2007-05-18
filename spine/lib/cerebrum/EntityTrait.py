@@ -68,6 +68,10 @@ class EntityTrait(DatabaseClass):
         }
     }
 
+    def get_auth_entity(self):
+        return self.get_entity()
+    get_auth_entity.signature = Entity
+
 registry.register_class(EntityTrait)
 
 def add_trait(self, type, target, date, numval, strval):

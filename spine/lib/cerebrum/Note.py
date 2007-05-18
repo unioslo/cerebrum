@@ -57,6 +57,9 @@ class Note(DatabaseClass):
     delete.signature = None
     delete.signature_write = True
 
+    def get_auth_entity(self):
+        return self.get_entity()
+    get_auth_entity.signature = Entity
 registry.register_class(Note)
 
 def add_note(self, subject, description):
