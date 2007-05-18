@@ -152,6 +152,11 @@ class AuthOperationTarget(DatabaseClass):
         },
     }
 
+    def get_auth_entity(self):
+        """You need global permissions to change AuthRole objects."""
+        return None
+    get_auth_entity.signature = Entity
+
 def create_auth_operation_target(self, type, entity, attr):
     db = self.get_database()
     obj_id = int(db.nextval('code_seq'))
@@ -196,7 +201,7 @@ class AuthRole(DatabaseClass):
     def get_auth_entity(self):
         """You need global permissions to change AuthRole objects."""
         return None
-    get_auth_entity.signature = [Entity]
+    get_auth_entity.signature = Entity
 
 def create_auth_role(self, entity, op_set, target):
     db = self.get_database()
