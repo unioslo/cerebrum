@@ -383,6 +383,14 @@ def extidlist(person):
         extidvariants[variant][value].sources.append(source)
     return extids
 
+def shownumber(n):
+    """Unspinify number"""
+    assert(isinstance(n, int) or isinstance(n, float))
+    if (n == -1):
+        return ''
+    else:
+        return str(n)
+
 def html_quote(s):
     """ maybe add more characters that need quoting later... """
     return cgi.escape(str(s))

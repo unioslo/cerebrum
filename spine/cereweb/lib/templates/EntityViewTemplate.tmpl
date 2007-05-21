@@ -18,7 +18,7 @@
 
 #from lib.Main import Main
 #from lib import HistoryLog
-#from lib.utils import object_link, strftime, html_quote
+#from lib.utils import object_link, strftime, html_quote, shownumber
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 #extends Main
@@ -206,6 +206,50 @@
         </form>
     </div>
 #end def
+
+
+#def viewTraits($entity)
+#set $traits = $entity.get_traits()
+#if $traits
+#set $id = $entity.get_id()
+<div class="info box">
+    <h3>$_('Traits')</h3>
+    <table>
+    <tr>
+        <th>$_('Trait')</th>
+        <th>$_('To')</th>
+        <th>$_('Numval')</th>
+	<th>$_('Strval')</th>
+        <th>$_('Date')</th>
+    </tr>
+    #for $trait in $traits
+    #set $name = $trait.get_code().get_name()
+    #set $delete = '/entity/remove_trait?id=%s&amp;trait=%s' % ($id, $name)
+    <tr>
+    <td>$html_quote($name)</td>
+    <td>
+       #set $target = $trait.get_target()
+       #if $target
+	 $object_link($target)
+       #end if
+    </td>
+    <td>$shownumber($trait.get_numval())</td>
+    <td>$html_quote($trait.get_strval())</td>
+    <td>$strftime($trait.get_date())</td>
+    <td>	
+        <div class="actions">
+            <a class="action" href="$delete">$_('remove')</a>
+        </div>
+    </td>
+    </tr>
+    </table>
+    #end for
+</div>
+#end if
+#end def
+
+
+
 
 #def viewHistoryLog($entity)
     #return $HistoryLog.view_history_short($entity)
