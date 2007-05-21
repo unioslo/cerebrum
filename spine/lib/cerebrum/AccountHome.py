@@ -22,6 +22,7 @@ from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
 
 from Account import Account
+from Entity import Entity
 from Disk import Disk
 from Types import Spread, HomeStatus
 

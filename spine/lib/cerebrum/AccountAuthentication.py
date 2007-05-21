@@ -26,6 +26,7 @@ from Cerebrum.Utils import Factory
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
 from Account import Account
+from Entity import Entity
 from Types import AuthenticationType
 
 from SpineLib import Registry

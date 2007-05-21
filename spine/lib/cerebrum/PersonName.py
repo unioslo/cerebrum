@@ -22,6 +22,8 @@ from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError, TooManyMatchesError
 
 from Person import Person
+from Entity import Entity
+
 from Types import NameType, SourceSystem
 
 from SpineLib import Registry

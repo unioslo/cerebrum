@@ -27,6 +27,7 @@ from CerebrumClass import CerebrumClass, CerebrumAttr, CerebrumDbAttr
 
 from OU import OU
 from Person import Person
+from Entity import Entity
 from Types import PersonAffiliationType, SourceSystem
 from PersonAffiliationStatus import PersonAffiliationStatus
 
