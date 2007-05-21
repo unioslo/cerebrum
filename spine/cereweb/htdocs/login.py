@@ -104,7 +104,7 @@ def login(**vargs):
             except KeyError, e:
                 pass
 
-            if redirect == '/index':
+            if not redirect or redirect == '/index':
                 redirect = client
 
             utils.redirect(redirect)
