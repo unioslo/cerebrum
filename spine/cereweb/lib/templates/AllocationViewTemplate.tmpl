@@ -24,12 +24,12 @@
 
 #def viewActions($transaction, $allocation)
     #set $id = $allocation.get_id()
-
-    <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id">$_("delete allocation")</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
-    <br />
-    $remember_link($allocation)<br />
+    <ul>
+        <li><a href="edit?id=$id">$_("edit info")</a></li>
+        <li><a href="delete?id=$id">$_("delete allocation")</a></li>
+        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
+        <li>$remember_link($allocation)</li>
+    </ul>
 #end def
 
 ## Main method for creating the allocation view page.

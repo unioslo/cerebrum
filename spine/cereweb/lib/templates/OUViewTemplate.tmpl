@@ -26,13 +26,14 @@
 
 #def viewActions($transaction, $ou)
     #set $id = $ou.get_id()
-
-    <a href="edit?id=$id">$_("edit info")</a><br />
-    <a href="delete?id=$id">$_("delete ou")</a><br />
-    <a href="list_aff_persons?id=$id">$_("list affiliated persons")</a><br />
-    <a href="/quarantine/add?entity=$id">$_('add quarantine')</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a><br />
-    $remember_link($ou)<br />
+    <ul>
+        <li><a href="edit?id=$id">$_("edit info")</a></li>
+        <li><a href="delete?id=$id">$_("delete ou")</a></li>
+        <li><a href="list_aff_persons?id=$id">$_("list affiliated persons")</a></li>
+        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a></li>
+        <li>$remember_link($ou)</li>
+    </ul>
 #end def
 
 #def viewContent($transaction, $ou)

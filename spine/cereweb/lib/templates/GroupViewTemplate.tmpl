@@ -29,20 +29,19 @@
 
 #def viewActions($transaction, $group)
     #set $id = $group.get_id()
-
-    <a href="/group/edit?id=$id">$_("edit info")</a><br />
-    <a href="/group/delete?id=$id">$_("delete group")</a><br />
-    #if $group.is_posix()
-    <a href="/group/posix_demote?id=$id">$_("demote from posix")</a><br />
-    #else
-    <a href="/group/posix_promote?id=$id">$_("promote to posix")</a><br />
-    #end if
-    <a href="/account/create?owner=$id">$_('create group account')</a>
-    <br />
-    <a href="/quarantine/add?entity=$id">$_('add quarantine')</a><br />
-    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
-    <br />
-    $remember_link($group)<br />
+    <ul>
+        <li><a href="/group/edit?id=$id">$_("edit info")</a></li>
+        <li><a href="/group/delete?id=$id">$_("delete group")</a></li>
+        #if $group.is_posix()
+        <li><a href="/group/posix_demote?id=$id">$_("demote from posix")</a></li>
+        #else
+        <li><a href="/group/posix_promote?id=$id">$_("promote to posix")</a></li>
+        #end if
+        <li><a href="/account/create?owner=$id">$_('create group account')</a> </li>
+        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
+        <li>$remember_link($group)</li>
+    </ul>
 #end def
 
 #def viewContent($transaction, $group)
