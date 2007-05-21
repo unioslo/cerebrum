@@ -145,7 +145,7 @@ def write_evukurs_info(outfile):
 def write_role_info(outfile):
     """Skriv data om alle registrerte roller"""
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(5*KiB)
+    f.set_minimum_size_limit(KiB/4)
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
     for r in role:
