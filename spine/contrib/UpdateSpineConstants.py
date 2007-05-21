@@ -61,6 +61,7 @@ def update_spine_auth_codes(db_user):
         code_obj.insert()
     # Delete the op codes that no longer exist.
     for code_str in orphans:
+        print 'Deleting %s' % code_str
         code_obj = AuthConstants(code_str)
         code_obj.delete()
     db.commit()
