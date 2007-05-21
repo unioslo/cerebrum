@@ -80,9 +80,9 @@ cereweb.action = {
         this._events[name] = event;
     },
     fire: function(event, action) {
-        if (this._events[action.name])
+        if (this._events[action.name]) {
             this._events[action.name].fire(event, action.args);
-        else {
+        } else {
             var subaction = '*/' + action.name.split('/')[1];
             if (this._events[subaction])
                 this._events[subaction].fire(event, action.args);
@@ -182,7 +182,8 @@ cereweb.editBox = {
     /**
      * toggle the dialogues visibility.
      */
-    toggle: function(event) {
+    toggle: function(name, args) {
+        var event = args[0];
         YE.preventDefault(event);
         if (this.element.style.visibility !== "visible")
             this.show();
