@@ -282,9 +282,10 @@ class XMLPerson2Object(XMLEntity2Object):
 
     # Each employment has a 4-digit Norwegian state employment code. Ideally
     # SAP should tag the employments as either VITENSKAPELIG or
-    # TEKADM/OEVRIG. Unfortunately, it does not happen, and we are forced to
-    # deduce the categories ourselves. This list of codes is derived from
-    # LT-data.
+    # TEKADM/OEVRIG. Unfortunately, it does not always happen, and we are
+    # forced to deduce the categories ourselves. This list of codes is derived
+    # from LT-data. Unless there is an <adm_forsk> element with the right
+    # values, this set will be used to determine vit/tekadm categories.
     #
     # Everything IN this set is tagged with KATEGORI_VITENSKAPLIG
     # Everything NOT IN this set is tagged with KATEGORI_OEVRIG
@@ -384,6 +385,9 @@ class XMLPerson2Object(XMLEntity2Object):
                 # 0000 are to be discarded. This is by design.
                 if code == 0:
                     return None
+                # Some elements have the proper category set in adm_forsk
+                if category is not None:
+                    continue 
                 if code in self.kode_vitenskaplig:
                     category = DataEmployment.KATEGORI_VITENSKAPLIG
                 else:
@@ -403,12 +407,18 @@ class XMLPerson2Object(XMLEntity2Object):
                     if sko is not None:
                         ou_id = (DataOU.NO_SKO, sko)
                 # fi
-        # od
+            elif sub.tag == "adm_forsk":
+                # if neither is specified, use, the logic in
+                # stillingsgruppebetegnelse to decide on the category
+                if value == "Vit":
+                    print "Setting category to 'vit'"
+                    category = DataEmployment.KATEGORI_VITENSKAPLIG
+                elif value == "T/A":
+                    print "Setting category to 'tekadm'"
+                    category = DataEmployment.KATEGORI_OEVRIG
 
         # We *must* have an OU to which this employment is attached.
-        if not ou_id:
-            return None
-        # fi
+        if not ou_id: return None
 
         kind = self.tag2type[emp_element.tag]
         tmp = DataEmployment(kind = kind, percentage = percentage,
