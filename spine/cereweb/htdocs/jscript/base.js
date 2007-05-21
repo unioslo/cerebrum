@@ -163,8 +163,16 @@ cereweb.editBox = {
         link.innerHTML = header.innerHTML;
 
         var actions = YD.get('actions');
-        actions.appendChild(link);
-        actions.appendChild(document.createElement('br'));
+        var list = actions.getElementsByTagName('ul');
+        if (list) {
+            list = list[0];
+            var li = document.createElement('li');
+            li.appendChild(link);
+            list.appendChild(li);
+        } else {
+            actions.appendChild(link);
+            actions.appendChild(document.createElement('br'));
+        }
 
         cereweb.action.add(id, this.toggle, editBox);
         var cancel_links = YD.getElementsByClassName("cancel", null, el);
