@@ -55,9 +55,9 @@ Client = Client()
 def login(**vargs):
     # Merge our session with the supplied info.  This way, we can remember
     # what client the user used last time he logged in, etc.
-    vargs.update(cherrypy.session)
     username = vargs.get('username')
     password = vargs.get('password')
+    vargs.update(cherrypy.session)
 
     client = utils.clean_url(vargs.get('client'))
     redirect = utils.clean_url(vargs.get('redirect'))
