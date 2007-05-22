@@ -54,6 +54,9 @@ ENTITY_TYPE_NAMESPACE = {'account': 'account_names',
                          'group': 'group_names',
                          'host': 'host_names'}
 
+# Tuple of value_domain_code code_strs that denies update_entity_name
+NAME_DOMAINS_THAT_DENY_CHANGE = ()
+
 DEFAULT_OU = None   # Used by bofh "account affadd" if OU is not set
 POSIX_HOME_TEMPLATE_DIR = "/local/etc/newusertemplates"
 POSIX_USERMOD_SCRIPTDIR = "/etc/cerebrum"

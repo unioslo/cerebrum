@@ -316,6 +316,10 @@ class EntityName(Entity):
         self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
                             change_params={'domain': int(domain),
                                            'name': name})
+        if int(domain) in [int(self.const.ValueDomain(code_str))
+                           for code_str in cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
+            raise self._db.IntegrityError, \
+                  "Name change illegal for the domain: %s" % domain
         self.execute("""
         UPDATE [:table schema=cerebrum name=entity_name]
         SET entity_name=:name
