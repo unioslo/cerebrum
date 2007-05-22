@@ -300,7 +300,6 @@ class SocketHandling(object):
                         ret += "Notice: Queue paused for %s hours\n" % (
                             time.strftime(
                             '%H:%M.%S', time.gmtime(time.time() - job_runner.queue_paused_at)))
-                        print 
                     self.send_response(conn, ret)
                     break
                 elif data == 'PING':
@@ -614,7 +613,7 @@ class JobQueue(object):
         if already_checked is None:
             already_checked = []
         if job_name in already_checked:
-            self.logger.warn("Attempted to add %s, but it is already in %s" % (job_name, already_checked))
+            self.logger.info("Attempted to add %s, but it is already in %s" % (job_name, already_checked))
             return
         already_checked.append(job_name)
         
