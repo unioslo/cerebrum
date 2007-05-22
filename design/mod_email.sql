@@ -147,7 +147,7 @@ CREATE TABLE email_target
 		  REFERENCES posix_user(account_id),
   server_id	NUMERIC(12,0)
 		CONSTRAINT email_target_server_server_id
-		  REFERENCES email_server(server_id);
+		  REFERENCES email_server(server_id),
 
   CONSTRAINT email_target_entity FOREIGN KEY (entity_type, entity_id)
     REFERENCES entity_info(entity_type, entity_id),
