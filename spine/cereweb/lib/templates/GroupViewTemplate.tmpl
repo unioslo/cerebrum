@@ -154,6 +154,7 @@ $widgets.viewInfo($info)
             <th>$_('Type')</th>
             <th>$_('Member')</th>
             <th>$_('Member owner')</th>
+            <th>$_('Actions')</th>
         </tr>
         #for $type, $member in $op_members
         <tr>
@@ -169,6 +170,10 @@ $widgets.viewInfo($info)
                 #else
                 &nbsp;
                 #end if
+            </td>
+            <td>
+                #set $url="/group/remove_member?groupid=%s&amp;memberid=%s" % ($group.get_id(), $member.get_id())
+                <a href=$url>Remove member</a>
             </td>
         </tr>
         #end for

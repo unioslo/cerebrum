@@ -102,7 +102,7 @@ def add_member(transaction, id, name, type, operation):
 add_member = transaction_decorator(add_member)
 add_member.exposed = True
 
-def remove_member(transaction, groupid, memberid, operation):
+def remove_member(transaction, groupid, memberid, operation='union'):
     group = transaction.get_group(int(groupid))
     member = transaction.get_entity(int(memberid))
     operation = transaction.get_group_member_operation_type(operation)
