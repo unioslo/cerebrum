@@ -302,9 +302,11 @@ LEFT JOIN stedkode stedkode_parent
 -- contacts
 LEFT JOIN entity_contact_info contact_email
   ON (contact_email.entity_id = ou_info.ou_id
+    AND contact_email.source_system = :source_system
     AND contact_email.contact_type = :contact_email)
 LEFT JOIN entity_contact_info contact_url
   ON (contact_url.entity_id = ou_info.ou_id
+    AND contact_url.source_system = :source_system
     AND contact_url.contact_type = :contact_url)
 """
 
@@ -334,6 +336,15 @@ class PersonView(Builder):
         Attribute('full_name', str),
         Attribute('first_name', str),
         Attribute('last_name', str),
+        Attribute('worktite', str),
+        
+        Attribute('email', str),
+        Attribute('url', str),
+        Attribute('phone', str),
+        Attribute('mobile_phone', str),
+        Attribute('reserv_publish', bool),
+
+        Attribute('primary_account', str),
         
         Attribute('birth_date', Date),
         Attribute('nin', str)
@@ -346,12 +357,14 @@ person_info.birth_date AS birth_date,
 person_first_name.name AS first_name,
 person_last_name.name AS last_name,
 person_full_name.name AS full_name,
+person_work_title.name AS work_title,
 person_nin.external_id AS nin
 FROM person_info
 %s
 JOIN entity_external_id person_nin
 ON (person_nin.entity_id = person_info.person_id
   AND person_nin.id_type = :externalid_nin)
+-- names & titles
 LEFT JOIN person_name person_first_name
 ON ((person_first_name.person_id = person_info.person_id)
   AND (person_first_name.source_system = :system_cached)
@@ -372,6 +385,19 @@ LEFT JOIN person_name person_work_title
 ON ((person_work_title.person_id = person_info.person_id)
   AND (person_work_title.source_system = :system_cached)
   AND (person_work_title.name_variant = :name_work_title))
+-- contactinfo
+LEFT JOIN entity_contact_info contact_email
+ON (contact_email.entity_id = person_info.person_id
+  AND contact_email.contact_type = :contact_email
+  AND contact_email.source_system = :system_cached) 
+LEFT JOIN entity_contact_info contact_url
+ON (contact_url.entity_id = person_info.person_id
+  AND contact_url.contact_type = :contact_url
+  AND contact_url.source_system = :system_cached) 
+LEFT JOIN entity_contact_info contact_phone
+ON (contact_phone.entity_id = person_info.person_id
+  AND contact_phone.contact_type = :contact_phone
+  AND contact_phone.source_system = :system_cached) 
 WHERE (person_info.deceased_date IS NULL)
 """
 person_search_cl = """
@@ -409,7 +435,8 @@ class View(DatabaseTransactionClass):
             "externalid_nin": co.externalid_fodselsnr,
             "group_visibility_all": co.group_visibility_all,
             "contact_url": co.contact_url,
-            "contact_email": co.contact_email
+            "contact_email": co.contact_email,
+            "contact_phone": co.contact_phone
             }
         
     # Allow the user to define spreads.
