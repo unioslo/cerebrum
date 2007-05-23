@@ -20,6 +20,7 @@
 
 from gettext import gettext as _
 import cgi
+import cherrypy
 from lib.utils import legal_date
 
 """
@@ -28,6 +29,9 @@ Helper-module for search-pages and search-result-pages in cereweb.
 
 class Form(object):
     def __init__(self, transaction, **values):
+        self.ajax = cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest"
+        if self.ajax: # Ajax requests don't read the meta tags to find encoding.
+            cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
         self.values = values
         self.transaction = transaction
 
