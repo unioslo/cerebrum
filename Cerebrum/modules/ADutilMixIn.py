@@ -56,7 +56,7 @@ class ADutil(object):
     def run_cmd(self, command, dry_run, arg1=None, arg2=None, arg3=None):
         
         if dry_run:
-            logger.debug('server.%s(%s,%s,%s)' % (command, arg1, arg2, arg3))
+            self.logger.debug('server.%s(%s,%s,%s)' % (command, arg1, arg2, arg3))
             #Assume success on all changes.
             return (True, command)
         else:
@@ -223,23 +223,18 @@ class ADgroupUtil(ADutil):
 
 
     def compare(self, delete_groups, cerebrumgrp, adgrp):
-
-        changelist = []     
-
+        changelist = []
         for (grp_id, grp, description) in cerebrumgrp:
-
             ou = self.get_default_ou(grp_id)
             grp = unicode(grp,'ISO-8859-1')
             
             if 'CN=%s%s,%s' % (grp, cereconf.AD_GROUP_POSTFIX, ou) in adgrp:
-                adgrp.remove('CN=%s%s,%s' % \
-                             (grp, cereconf.AD_GROUP_POSTFIX, ou))
+                adgrp.remove('CN=%s%s,%s' % (
+                    grp, cereconf.AD_GROUP_POSTFIX, ou))
             else:
                 #Group not in AD,or wrong OU create.
-
-                ou_in_ad = self.server.findObject('%s%s' % \
-												  (grp,cereconf.AD_GROUP_POSTFIX))
-				
+                ou_in_ad = self.server.findObject('%s%s' % (
+                    grp,cereconf.AD_GROUP_POSTFIX))
 
                 if not ou_in_ad:
                     #Not in AD, create.
@@ -254,10 +249,16 @@ class ADgroupUtil(ADutil):
                                        'distinguishedName' : ou_in_ad,
                                        'OU' : ou})
 
-    
-        #The remaining groups is surplus in AD.
-        for adg in adgrp:
-            if adg.find(cereconf.AD_DO_NOT_TOUCH) >= 0:             
+        #The remaining groups is surplus in AD.        
+        # RH: what exactly is this code supposed to do?
+        #     Added modification that makes it run, but not sure if it
+        #     is correct...
+        for adg in adgrp:            
+            # if adg.find(cereconf.AD_DO_NOT_TOUCH) >= 0:             
+            #
+            # Assume that cereconf.AD_DO_NOT_TOUCH is a list
+            # Check if at least one of the list elements is a substring of adg
+            if not [s for s in cereconf.AD_DO_NOT_TOUCH if adg.find(s) >= 0]:
                 pass
             elif adg.find('CN=Builtin,%s' % self.ad_ldap) >= 0:
                 pass
