@@ -49,7 +49,7 @@ class Form(object):
             if field['type'] == 'select':
                 func = getattr(self, 'get_%s_options' % key)
                 field['options'] = func()
-            res.append(field)
+                res.append(field)
         return res
 
     def get_values(self):
@@ -60,10 +60,11 @@ class Form(object):
 
     def quote_all(self):
         for field in self.fields.values():
-            if 'reject' == field.get('quote'):
-                if field['value'] != cgi.escape(field['value']):
-                    self.error_message = _("Field '%s' is unsafe.") % field ['label']
-                    return False
+            if field['value']:
+                if 'reject' == field.get('quote'):
+                    if field['value'] != cgi.escape(field['value']):
+                        self.error_message = _("Field '%s' is unsafe.") % field ['label']
+                        return False
         for key, field in self.fields.items():
             if field['value']:
                 if 'escape' == field.get('quote'):
@@ -104,6 +105,13 @@ class Form(object):
         if len(name) > 256:
             is_correct = False
             self.error_message = 'too long (max. 256 characters).'
+        return is_correct
+
+    def check_expire_date(self, date):
+        is_correct = True
+        if not legal_date(date):
+            self.error_message = 'not a legal date.'
+            is_correct = False
         return is_correct
 
     def get_action(self):
@@ -192,6 +200,7 @@ class PersonCreateForm(Form):
     def check_lastname(self, name):
         return self._check_short_string(name)
 
+
     def check_birthdate(self, date):
         is_correct = True
         if not legal_date(date):
@@ -232,7 +241,7 @@ class PersonEditForm(PersonCreateForm):
                 'label': _('Description'),
                 'required': False,
                 'type': 'text',
-                'quote': 'escape'
+                'quote': 'escape',
             },
             'deceased': {
                 'label': _('Deceased date'),
@@ -275,6 +284,7 @@ class AccountCreateForm(Form):
                 'label': _('Enter username'),
                 'required': False,
                 'type': 'text',
+                'quote': 'reject',
             },
             'expire_date': {
                 'label': _('Expire date'),
@@ -286,12 +296,14 @@ class AccountCreateForm(Form):
                 'label': _('Description'),
                 'required': False,
                 'type': 'text',
+                'quote': 'escape',
             },
             'group': {
                 'label': _('Primary group'),
                 'required': False,
                 'cls': 'ac_group',
                 'type': 'text',
+                'quote': 'reject',
             }
         }
 
@@ -356,6 +368,7 @@ class AccountEditForm(AccountCreateForm):
                 'label': _('Description'),
                 'required': False,
                 'type': 'text',
+                'quote': 'escape',
             },
         }
 
@@ -379,7 +392,11 @@ class AccountEditForm(AccountCreateForm):
                 'type': 'select',
                 'required': True,
             }
-
+            self.fields['gecos'] = {
+                'label': _('Gecos'),
+                'type': 'text',
+                'required': False,
+            }
             self.values['uid'] = account.get_posix_uid()
             self.values['group'] = account.get_primary_group().get_id()
             self.values['gecos'] = account.get_gecos()
