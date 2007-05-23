@@ -692,7 +692,7 @@ class XMLEntityIterator:
     def __iter__(self):
         return self
     # end __iter__
-# end XMLPersonIterator
+# end XMLEntityIterator
 
 
 

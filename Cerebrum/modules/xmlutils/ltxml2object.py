@@ -24,6 +24,7 @@ This module implements an abstraction layer for LT-originated data.
 from mx.DateTime import Date
 import time, sys
 
+import cereconf
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, DataOU, DataAddress, DataContact, \
      HRDataPerson, DataEmployment, DataEntity, DataName
@@ -237,9 +238,10 @@ class XMLPerson2Object(XMLEntity2Object):
             # od
         # fi
         result.reserved = to_reserve
-        tmp = element.get("fakultetnr_for_lonnsslip")
-        if tmp:
-            result.primary_ou = ("185",
+        if (element.get("fakultetnr_for_lonnsslip") and
+            element.get("instituttnr_for_lonnsslip") and
+            element.get("gruppenr_for_lonnsslip")):
+            result.primary_ou = (cereconf.DEFAULT_INSTITUSJONSNR,
                                  extract("fakultetnr_for_lonnsslip"),
                                  extract("instituttnr_for_lonnsslip"),
                                  extract("gruppenr_for_lonnsslip"))
