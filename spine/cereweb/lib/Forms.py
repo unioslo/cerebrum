@@ -53,7 +53,7 @@ class Form(object):
             if field['type'] == 'select':
                 func = getattr(self, 'get_%s_options' % key)
                 field['options'] = func()
-                res.append(field)
+            res.append(field)
         return res
 
     def get_values(self):
