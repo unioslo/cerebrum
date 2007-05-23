@@ -122,6 +122,21 @@ YE.addListener('container', "click", cereweb.action.clicked,
  * shown.
  */
 cereweb.editBox = {
+    create: function(el, header, body) {
+        var editBox = new YAHOO.widget.Dialog(el, {
+            'width': '600px',
+            'draggable': true,
+            'visible': false,
+            'fixedcenter': true,
+            'postmethod': 'form' });
+        if (header)
+            editBox.setHeader(header);
+        if (body)
+            editBox.setBody(body);
+        editBox.render();
+        editBox.hide();
+        return editBox;
+    },
     /* boolean function used to recognize editBoxes */
     isEditBox: function(el) {
         return YD.hasClass(el, 'box') &&
@@ -147,15 +162,7 @@ cereweb.editBox = {
 
         el.removeChild(header);
 
-        var editBox = new YAHOO.widget.Dialog(el, {
-            'width': '600px',
-            'draggable': true,
-            'visible': false,
-            'fixedcenter': true,
-            'postmethod': 'form' });
-        editBox.setHeader(header.innerHTML);
-        editBox.render();
-        editBox.hide();
+        var editBox = this.create(el, header.innerHTML);
         el.style.display = "";
 
         var link = document.createElement('a');
@@ -219,6 +226,66 @@ YE.onAvailable('container', cereweb.javascript.init);
 
 cereweb.tabs = new YAHOO.widget.TabView('tabview');
 cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
+
+(function() { 
+    var inline_edit = function(name, args) {
+        var event = args[0];
+        YE.preventDefault(event);
+        var url = YE.getTarget(event).pathname;
+        if (url.slice(0,1) !== '/') // IE doesn't prepend / to url.
+            url = '/' + url;
+        var arg = args[1].id;
+
+        // Get or create the neccessary divs and dialogues.
+        var el = YD.get('edit_' + arg);
+        if (el) {
+            var myBox = el.obj;
+        } else {
+            el = cereweb.createDiv('edit_' + arg, 'content');
+            var myBox = cereweb.editBox.create(el, 'head', 'body');
+            el.obj = myBox;
+        }
+
+        var callback = {
+            success: function(o) {
+                var begin = '<div id="content">';
+                var end = '</div>';
+                var a, b; // Start and stop indexes of the content div.
+                var r = o.responseText; // Make a 
+
+                a = r.search(begin) + begin.length; // We don't include the div tag.
+                b = a; // The end can't be before the beginning :)
+                r = r.substring(a, r.length);
+
+                var x, y;
+                var i = 1; 
+                while (i > 0) { // While we're inside the content div.
+                    x = r.search(end);
+                    y = r.search('<div'); 
+                    if (x < y) {
+                        i -= 1;
+                    } else {
+                        i += 1;
+                        x = y;
+                    }
+                    b += x - 1; // Advance the end, don't include the end tag.
+                    // substring has no offset, so eat the part we just found.
+                    r = r.substring(x + 1, r.length);
+                }
+                r = o.responseText.substring(a, b);
+                this.setBody(r);
+                this.show();
+            },
+            failure: function(o) { /* ignore for now */ },
+            scope: myBox
+        }
+        
+        var cObj = YC.asyncRequest('POST',
+            url, callback, 'id=' + arg);
+
+    }
+    cereweb.action.add('*/edit', inline_edit);
+})()
 
 if(cereweb.debug) {
     log('bases are loaded');
