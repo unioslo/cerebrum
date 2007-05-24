@@ -22,7 +22,7 @@
 #from EmailTargetTemplate import EmailTargetTemplate
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
-#from urllib import quote
+#from urllib import quote, urlencode
 #extends GroupViewTemplate
 
 #attr $email_template = EmailTargetTemplate()
@@ -32,7 +32,7 @@
 #attr $joinGroup = GroupViewTemplate.joinGroup
 
 #def viewActions($transaction, $account)
-    #set $id = $account.get_id()
+    #set $id = $html_quote($account.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete account")</a></li>
@@ -75,18 +75,18 @@
 
 #def viewInfo($account)
 #set $info = []
-$info.append(($_('Name'), $account.get_name()))
+$info.append(($_('Name'), $html_quote($account.get_name())))
 $info.append(($_('Owned by'), $object_link($account.get_owner())))
 $info.append(($_('Expire date'), $strftime($account.get_expire_date())))
 $info.append(($_('Date created'), $strftime($account.get_create_date())))
 $info.append(($_('Created by'), $object_link($account.get_creator())))
 #if $account.is_posix()
-    $info.append(($_('UID'), $account.get_posix_uid()))
+    $info.append(($_('UID'), $html_quote($account.get_posix_uid())))
     $info.append(($_('Primary group'), $object_link($account.get_primary_group())))
-    $info.append(($_('Gecos'), $account.get_gecos()))
-    $info.append(($_('Shell'), $account.get_shell().get_name()))
+    $info.append(($_('Gecos'), $html_quote($account.get_gecos())))
+    $info.append(($_('Shell'), $html_quote($account.get_shell().get_name())))
 #end if
-$info.append(($_('Description'), $account.get_description()))
+$info.append(($_('Description'), $html_quote($account.get_description())))
 $widgets.viewInfo($info)
 #end def
 
@@ -107,7 +107,7 @@ $widgets.viewInfo($info)
 #def setPassword($account)
 <div class="edit box">
     <h3>$_('Set Password')</h3>
-    $form_widgets.changePassword($account.get_id())
+    $form_widgets.changePassword($html_quote($account.get_id()))
 </div>
 #end def
 
@@ -117,7 +117,7 @@ $widgets.viewInfo($info)
     <form action="groups" method="post">
         $listGroups($account)
         <p>
-        <input type="hidden" name="account_id" value="$account.get_id()" />
+        <input type="hidden" name="account_id" value="$html_quote($account.get_id())" />
         #if not $account.get_groups()
         $_('Account is not member of any groups')<br />
         #else
@@ -144,14 +144,14 @@ $widgets.viewInfo($info)
     #set $priority = $affil.get_priority()
 
     <tr class="item">
-    <td>$affil_type.get_name()</td>
+    <td>$html_quote($affil_type.get_name())</td>
     <td>$object_link($ou)</td>
-    <td>$priority</td>
+    <td>$html_quote($priority)</td>
     <td class="actions">
             #set $args = "id=%s&ou=%s&affil=%s" % (
                             $account.get_id(), $ou.get_id(),
                             $affil_type.get_name())
-            <a class="action" href="remove_affil?$args">$_('delete')</a>
+            <a class="action" href="remove_affil?$urlencode($args)">$_('delete')</a>
     </td>
     </tr>
     #end for
@@ -174,7 +174,7 @@ $widgets.viewInfo($info)
     <h3 id="affil">$_('Add an affiliation')</h3>
     <form action="add_affil" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$account.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($account.get_id())" />
         </div>
         <div class="required">
             $form_widgets.generate_loption("aff_ou", "Affiliation", $aff_list)
@@ -226,7 +226,7 @@ $widgets.viewInfo($info)
         <h3>$_('Set home directory')</h3>
         <form action="set_home" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$entity.get_id()" />
+                <input type="hidden" name="id" value="$html_quote($entity.get_id())" />
             </div>
             <div class="required">
                 $form_widgets.generate_loption("spread", "Spread", $spreads, $id="set_spread")
