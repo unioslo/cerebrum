@@ -4168,13 +4168,10 @@ class BofhdExtension(object):
 	spreads = account.get_spread()
 	for row in spreads:
 	    try:
-		tmp = account.get_home(int(row['spread']))
-		disk.clear()
-		disk.find(tmp['disk_id'])
-		print tmp['disk_id']
-		hm.append("%s/%s (%s)" % (disk.path, account.account_name, self.num2const[int(row['spread'])]))
+                hm.append("%s (%s)" % (account.get_homepath(spread),
+                                       self.num2const[int(row['spread'])]))
 	    except Errors.NotFoundError:
-		tmp = {'disk_id': None, 'home': None}
+                pass
 	ret = {'entity_id': account.entity_id,
 	       'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
 				   for a in account.get_spread()]),
@@ -4615,12 +4612,7 @@ class BofhdExtension(object):
                      at['priority'], at['ou_id'], "%s" % self.num2const[int(at['affiliation'])]))
             # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
             # å hente ikke-personlige konti?
-        if ac.home is not None:
-            ret['home'] = ac.home
-        else:
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(ac.disk_id)
-            ret['home'] = '%s/%s' % (disk.path, ac.account_name)
+        ret['home'] = ac.resolve_homedir(disk_id=ac.disk_id, home=ac.home)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
         try:

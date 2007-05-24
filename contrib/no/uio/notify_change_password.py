@@ -60,10 +60,7 @@ def mail_user(account_id, mail_type, deadline='', first_time=''):
     account.clear()
     account.find(account_id)
     try:
-        home = account.get_home(co.Spread(spread))
-        disk.clear()
-        disk.find(home['disk_id'])
-        home = "%s/%s" % (disk.path, account.account_name)
+        home = account.get_homepath(co.Spread(spread))
     except Errors.NotFoundError:
         home = 'ukjent'
     logger.debug("Mailing %s to %s (home=%s)" % (

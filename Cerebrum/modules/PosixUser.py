@@ -307,14 +307,12 @@ class PosixUser(Account_class):
     def get_posix_home(self, spread):
         """Returns the full path to the users homedirectory"""
         tmp = self.__super.get_home(spread)
-        if tmp['home'] is not None:
-            return tmp['home']
-        disk = Factory.get("Disk")(self._db)
         try:
-            disk.find(tmp['disk_id'])
-        except Errors.NotFoundError:
+            return self.resolve_homedir(disk_id=tmp['disk_id'],
+                                        home=tmp['home'],
+                                        spread=spread)
+        except:
             return None
-        return "%s/%s" % (disk.path, self.account_name)
 
     def list_shells(self):
         return self.query("""

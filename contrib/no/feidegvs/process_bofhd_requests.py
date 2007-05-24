@@ -109,15 +109,7 @@ def get_imaphost(user_id):
 def get_home(acc, spread=None):
     if not spread:
         spread = default_spread
-    tmp = acc.get_home(spread)
-    if tmp['home']:
-        return tmp['home']
-    elif tmp['disk_id'] is not None:
-        disk = Factory.get('Disk')(db)
-        disk.find(tmp['disk_id'])
-        return "%s/%s" % (disk.path, acc.account_name)
-    else:
-        return None
+    return acc.get_homepath(spread)
 
 def add_forward(user_id, addr):
     ef = Email.EmailForward(db)

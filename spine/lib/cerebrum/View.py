@@ -12,6 +12,7 @@ import cerebrum_path
 from Cerebrum.Utils import Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+acc = Factory.get('Account')(db)
 
 # Accountviews are accounts as "seen from" a spread, and may contain
 # spread-spesific data.  They are tailored for efficient dumping of
@@ -50,6 +51,7 @@ class AccountView(DumpClass):
         Attribute('passwd', str),
         
         Attribute('homedir', str),
+        Attribute('home', str),
         Attribute('disk_path', str),
         Attribute('disk_host', str),
 
@@ -74,7 +76,7 @@ account_info.account_id AS id,
 account_name.entity_name AS name,
 account_authentication.auth_data AS passwd,
 -- homedir
-homedir.home AS homedir,
+homedir.home AS home,
 disk_info.path AS disk_path,
 disk_host_name.entity_name AS disk_host,
 -- posix
@@ -137,6 +139,11 @@ account_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
+def resolve_homedir(self, d):
+    d["homedir"] = acc.resolve_homedir(account_name=d['name'],
+                                       disk_path=d['disk_path'],
+                                       home=d['home'])
+    return d
 
 # Groupviews are groups as seen from a spread.
 # They are tailored for efficient dumping of all data related to a spread.
@@ -469,13 +476,13 @@ class View(DatabaseTransactionClass):
     def get_accounts(self):
         db = self.get_database()
         rows=db.query(account_search % "", self.query_data)
-        return [r.dict() for r in rows]
+        return [resolve_homedir(r.dict()) for r in rows]
     get_accounts.signature = [Struct(AccountView)]
     def get_accounts_cl(self):
         db = self.get_database()
         rows=db.query(account_search % account_search_cl + account_search_cl_o,
                       self.query_data)
-        return [r.dict() for r in rows]
+        return [resolve_homedir(r.dict()) for r in rows]
     get_accounts_cl.signature = [Struct(AccountView)]
     def get_groups(self):
         db = self.get_database()

@@ -124,6 +124,10 @@ def _get_homedir(db, account, spread):
     result = searcher.search()
     return result and result[0].get_homedir() or None
 
+#
+# XXX: This looks wrong! Many spreads should be able to use the same
+# homedir, but this code does not understand that.
+#
 def set_homedir(self, spread, home, disk):
     """Set the home or disk for the homedir on the given spread.
 
@@ -177,6 +181,13 @@ get_homedir.signature = HomeDirectory
 get_homedir.signature_args = [Spread]
 get_homedir.exceptions = [NotFoundError]
 
+def get_homepath(self, spread):
+    """Returns the homedir path for the given spread."""
+    obj = self._get_cerebrum_obj()
+    return obj.get_homepath()
+get_homepath.signature = str
+get_homepath.signature_args = [Spread]
+
 def get_homes(self):
     """Returns all homes this account has.
     
@@ -191,6 +202,6 @@ def get_homes(self):
 
 get_homes.signature = [AccountHome]
 
-Account.register_methods([set_homedir, remove_homedir, get_homedir, get_homes])
+Account.register_methods([set_homedir, remove_homedir, get_homepath, get_homedir, get_homes])
 
 # arch-tag: f1f89d6e-8174-4d53-82ac-c21885a8b574

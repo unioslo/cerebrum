@@ -2343,13 +2343,9 @@ class BofhdExtension(object):
                'spread': ",".join(["%s" % self.num2const[int(a['spread'])]
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
-               'expire': account.expire_date,
-               'home': account.home}
-        if account.disk_id is not None:
-            disk = Utils.Factory.get('Disk')(self.db)
-            disk.find(account.disk_id)
-            ret['home'] = "%s/%s" % (disk.path, account.account_name)
-
+               'expire': account.expire_date}
+        ret['home'] = account.resolve_homedir(disk_id=account.disk_id
+                                              home=account.home)
         if is_posix:
             group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             ret['uid'] = account.posix_uid

@@ -204,9 +204,10 @@ class EmailLDAP(DatabaseAccessor):
         for row in acc.list_account_home(home_spread=spread,
                                          include_nohome=True,
                                          filter_expired=False):
-            self.acc2name[int(row['account_id'])] = [row['entity_name'],
-                                                     row['home'],
-                                                     row['path']]
+            home = acc.resolve_homedir(account_name=row['entity_name'],
+                                       home=row['home'],
+                                       disk_path=row['path'])
+            self.acc2name[int(row['account_id'])] = [row['entity_name'], home]
 
 
     def read_pending_moves(self):

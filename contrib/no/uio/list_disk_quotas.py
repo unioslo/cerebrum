@@ -52,6 +52,7 @@ def list_quotas(fname, hostname, diskname, spread):
 
 
 def list_disk_quotas(f, disk_id, spread):
+    account = Factory.get("Account")(db)
     disk = Factory.get("Disk")(db)
     disk.find(disk_id)
     default_quota = disk.get_default_quota()
@@ -76,10 +77,8 @@ def list_disk_quotas(f, disk_id, spread):
             quota = row['override_quota']
         if quota is None:
             quota = default_quota
-        if row['home']:
-            home = row['home']
-        else:
-            home = "%s/%s" % (row['path'], row['entity_name'])
+        home=account.resolve_homedir(account_name=row['entity_name'],
+                                     home=row['home'], disk_path=row['path'])
         f.write("%s:%s:%s\n" % (row['entity_name'], home, quota))
 
 

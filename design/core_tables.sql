@@ -808,8 +808,7 @@ CREATE TABLE homedir (
 		CONSTRAINT account_home_status
 		  REFERENCES home_status_code(code),
   CONSTRAINT homedir_chk
-    CHECK ((home IS NOT NULL AND disk_id IS NULL) OR
-	   (home IS NULL AND disk_id IS NOT NULL)),
+    CHECK (home IS NOT NULL OR disk_id IS NOT NULL),
   CONSTRAINT homedir_ac_hid_u UNIQUE (homedir_id, account_id),
   CONSTRAINT homedir_ac_home_u UNIQUE (homedir_id, home),
   CONSTRAINT homedir_ac_disk_u UNIQUE (homedir_id, disk_id)

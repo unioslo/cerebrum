@@ -102,9 +102,7 @@ def write_ldif():
             home = ""
             if et == co.entity_account:
                 if ldap.acc2name.has_key(ei):
-                    target,home,path = ldap.acc2name[ei]
-                    if not home:
-                        home = "%s/%s" % (path, target)
+                    target,home = ldap.acc2name[ei]
                 else:
                     txt = "Target: %s(account) no user found: %s\n"% (t,ei)
                     sys.stderr.write(txt)

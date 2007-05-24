@@ -30,8 +30,6 @@ class Sync:
         for obj in getattr(self.view, m)():
             obj.type=objtype
             config.apply_override(obj, objtype)
-            if objtype == "account" and obj.homedir == '' and obj.disk_path != '':
-                obj.homedir = "%s/%s" % ( obj.disk_path, obj.name )
             config.apply_default(obj, obj.type)
             #config.apply_quarantine(obj, obj.type)
             yield obj

@@ -478,14 +478,10 @@ def find_home_dir(account_id, account_name, spread):
         account.clear()
         account.find(account_id)
         tmp = account.get_home(spread=spread)
-        if tmp['home'] is not None:
-            return tmp['home']
-        disk.clear()
-        disk.find(tmp['disk_id'])
+        return account.resolve_homedir(account_name, disk_id=tmp['disk_id'],
+                                       home=tmp['home'])
     except Errors.NotFoundError:
         return None
-    return "%s/%s" % (disk.path, account_name)
-
 
 
 def find_login_script(account):

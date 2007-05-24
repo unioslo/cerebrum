@@ -228,12 +228,24 @@ class AccountHome(object):
     the new path of the users homedirectory as a string.  For
     convenience, we also log this path when the entry is deleted."""
 
-    def _get_home_path(self, disk_id, home):
+    def resolve_homedir(self, account_name=None, disk_id=None,
+                        disk_path=None, home=None, spread=None):
+        """Constructs and returns the users homedir-path.  Subclasses
+        should override with spread spesific behaviour."""
+        path_separator='/'
+        if not account_name:
+            account_name = self.account_name
+        if disk_id:
+            disk = Disk.Disk(self._db)
+            disk.find(disk_id)
+            disk_path = disk.path
         if home:
-            return home
-        disk = Disk.Disk(self._db)
-        disk.find(disk_id)
-        return disk.path+"/"+self.account_name
+            if not disk_path:
+                return home
+            return disk_path+path_separator+home
+        if not disk_path:
+            return None
+        return disk_path+path_separator+account_name
 
     def delete(self):
         """Removes all homedirs for an account"""
@@ -249,7 +261,9 @@ class AccountHome(object):
         """Clears home for a spread. Removes homedir if no other
         home uses it."""
         ah = self.get_home(spread)
-        old_home = self._get_home_path(ah['disk_id'], ah['home'])
+        old_home = self.resolve_homedir(disk_id=ah['disk_id'],
+                                        home=ah['home'],
+                                        spread=spread)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_home]
         WHERE account_id=:account_id AND spread=:spread""", {
@@ -288,8 +302,6 @@ class AccountHome(object):
                  'disk_id': disk_id,
                  'status': status
                  }
-        if home and disk_id:
-            raise self._db.IntegrityError, "Cannot set both home and disk_id"
         if current_id is NotSet:    # Allocate new id
             binds['homedir_id'] = long(self.nextval('homedir_id_seq'))
             for t in binds:
@@ -302,7 +314,8 @@ class AccountHome(object):
                 ", ".join(binds.keys()),
                 ", ".join([":%s" % t for t in binds])), binds)
             if binds['disk_id'] or binds['home']:
-                tmp = {'home': self._get_home_path(binds['disk_id'], binds['home'])}
+                tmp = {'home': self.resolve_homedir(disk_id=binds['disk_id'],
+                                                    home=binds['home'])}
             else:
                 tmp = {}
             tmp['homedir_id'] = binds['homedir_id']
@@ -325,7 +338,8 @@ class AccountHome(object):
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t, t) for t in binds])), binds)
             if binds.get('disk_id') or binds.get('home'):
-                tmp = {'home': self._get_home_path(binds.get('disk_id'), binds.get('home'))}
+                tmp = {'home': self.resolve_homedir(disk_id=binds.get('disk_id'),
+                                                    home=binds.get('home'))}
             else:
                 tmp = {}
             tmp['homedir_id'] = binds['homedir_id']
@@ -338,7 +352,8 @@ class AccountHome(object):
     def _clear_homedir(self, homedir_id):
         """Called from clear_home. Removes actual homedir."""
         tmp = self.get_homedir(homedir_id)
-        tmp = self._get_home_path(tmp['disk_id'], tmp['home'])
+        tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
+                                   home=tmp['home'])
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=homedir]
         WHERE homedir_id=:homedir_id""",
@@ -355,6 +370,10 @@ class AccountHome(object):
         WHERE homedir_id=:homedir_id""",
                             {'homedir_id': homedir_id})
 
+    def get_homepath(self, spread):
+        tmp=self.get_home(spread)
+        return self.resolve_homedir(disk_id=tmp["disk_id"], home=tmp["home"])
+
     def set_home(self, spread, homedir_id):
         """Set the accounts account_home to point to the given
         homedir_id for the given spread.
@@ -364,7 +383,9 @@ class AccountHome(object):
                  'homedir_id': homedir_id
             }
         tmp = self.get_homedir(homedir_id)
-        tmp = self._get_home_path(tmp['disk_id'], tmp['home'])
+        tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
+                                   home=tmp['home'],
+                                   spread=spread)
         try:
             old = self.get_home(spread)
             self.execute("""

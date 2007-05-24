@@ -164,18 +164,8 @@ def get_home(acc, spread=None):
     if not spread:
         spread = default_spread
     try:
-        tmp = acc.get_home(spread)
+        return acc.get_homepath(spread)
     except Errors.NotFoundError:
-        # Unable to find a proper home directory for this user, as it
-        # isn't a PosixUser.
-        return None
-    if tmp['home']:
-        return tmp['home']
-    elif tmp['disk_id'] is not None:
-        disk = Factory.get('Disk')(db)
-        disk.find(tmp['disk_id'])
-        return "%s/%s" % (disk.path, acc.account_name)
-    else:
         return None
 
 

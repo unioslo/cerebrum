@@ -96,7 +96,6 @@ def generate_passwd(filename, shadow_file, auth_method, spread=None):
         if gecos is None:
             gecos = uname
         gecos = Utils.latin1_to_iso646_60(gecos)
-        home = row['home']
         shell = shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()
@@ -118,13 +117,12 @@ def generate_passwd(filename, shadow_file, auth_method, spread=None):
             if qshell is not None:
                 shell = qshell
 
+        home=posix_user.resolve_homedir(account_name=uname,
+                                        home=row['disk_id'],
+                                        disk_path=diskid2path[int(row['disk_id'])])
         if home is None:
-            if row['disk_id'] is None:
-                # TBD: Is this good enough?
-                home = '/'
-                #raise NoDisk, "Bad disk for %s" % uname
-            else:
-                home = diskid2path[int(row['disk_id'])] + "/" + uname
+            # TBD: Is this good enough?
+            home = '/'
 
         if shadow_file:
             s.write("%s:%s:::\n" % (uname, passwd))

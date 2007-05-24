@@ -215,11 +215,10 @@ class PosixLDIF(object):
             qshell = qh.get_shell()
             if qshell is not None:
                 shell = qshell
-        if row['disk_id']:
-            home = "%s/%s" % (self.disk_tab[int(row['disk_id'])],uname)
-        elif row['home']:
-            home = row['home']
-        else:
+        try:
+            self.posuser.resolve_homedir(account_name=uname, home=row['home'],
+                            disk_path=self.disk_tab[int(row['disk_id'])])
+        except:
             self.logger.warn("User %s has no home-directory!" % uname)
             return None,None
         cn = row['name'] or row['gecos'] or uname
