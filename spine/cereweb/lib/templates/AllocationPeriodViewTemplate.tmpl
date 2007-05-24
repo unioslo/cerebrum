@@ -16,14 +16,14 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link
+#from lib.utils import object_link, html_quote
 #from lib.WorkList import remember_link
 #from Widgets import Widgets
 #extends EntityViewTemplate
 #attr $widgets = Widgets()
 
 #def viewActions($transaction, $allocationperiod)
-    #set $id = $allocationperiod.get_id()
+    #set $id = $html_quote($allocationperiod.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete allocationperiod")</a></li>
@@ -43,8 +43,8 @@
 ## View information about host (name and description).
 #def viewInfo($allocationperiod)
     #set $info = []
-    $info.append(($_("AllocationAuthority"), $allocationperiod.get_authority().get_name()))
-    $info.append(($_("Name"), $allocationperiod.get_name()))
+    $info.append(($_("AllocationAuthority"), $html_quote($allocationperiod.get_authority().get_name())))
+    $info.append(($_("Name"), $html_quote($allocationperiod.get_name())))
     $info.append(($_("Start Date"), $allocationperiod.get_startdate().strftime("%Y-%m-%d")))
     $info.append(($_("End Date"), $allocationperiod.get_enddate().strftime("%Y-%m-%d")))
     $widgets.viewInfo($info)
