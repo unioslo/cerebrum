@@ -3306,7 +3306,7 @@ class BofhdExtension(object):
             ah = account.get_home(row['home_spread'])
             account.set_homedir(
                 current_id=ah['homedir_id'], disk_id=None,
-                home='%s/%s' % (row['path'], account.account_name))
+                home=account.resolve_homedir(disk_path=row['path'], home=row['home']))
         self._remove_auth_target("disk", disk.entity_id)
         try:
             disk.delete()
@@ -5013,7 +5013,6 @@ class BofhdExtension(object):
                                    for a in account.get_spread()]),
                'affiliations': (",\n" + (" " * 15)).join(affiliations),
                'expire': account.expire_date,
-               'home': tmp['home'],
                'home_status': home_status,
                'owner_id': account.owner_id,
                'owner_type': str(self.num2const[int(account.owner_type)])}
@@ -5051,10 +5050,9 @@ class BofhdExtension(object):
         else:
             grp = self._get_group(account.owner_id, idtype='id')
             ret['owner_desc'] = grp.group_name
-        if tmp['disk_id'] is not None:
-            disk = self._get_disk(tmp['disk_id'])[0]
-            ret['home'] = "%s/%s" % (disk.path, account.account_name)
 
+        ret['home']=account.resolve_homedir(disk_id=tmp['disk_id'],
+                                            home=tmp['home'])
         if is_posix:
             group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             ret['uid'] = account.posix_uid
@@ -5845,11 +5843,7 @@ class BofhdExtension(object):
                      at['priority'], at['ou_id'], "%s" % self.num2const[int(at['affiliation'])]))
             # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
             # å hente ikke-personlige konti?
-        if ac.home is not None:
-            ret['home'] = ac.home
-        else:
-            disk = self._get_disk(ac.disk_id)[0]
-            ret['home'] = '%s/%s' % (disk.path, ac.account_name)
+        ret['home'] = ac.resolve_homedir(disk_id=ac.disk_id, home=ac.home)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
         try:
