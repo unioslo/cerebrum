@@ -550,7 +550,7 @@ def get_primary_address(self):
     try:
         return registry.PrimaryEmailAddress(self.get_database(), self).get_address()
     except SpineExceptions.NotFoundError:
-        raise SpineExceptions.NotFoundError('E-mail target has no primary address.')
+        return None
 
 get_primary_address.signature = EmailAddress
 get_primary_address.signature_exceptions = [SpineExceptions.NotFoundError]
