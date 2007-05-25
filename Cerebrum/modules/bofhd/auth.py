@@ -304,12 +304,10 @@ class BofhdAuthRole(DatabaseAccessor):
         SELECT DISTINCT entity_id, op_set_id, op_target_id
         FROM [:table schema=cerebrum name=auth_role]"""
         if ewhere:
-            sql += """
-        WHERE (%s)""" % " AND ".join(ewhere), {
-            'op_set_id': op_set_id,
-            'op_target_id': op_target_id}
+            sql += " WHERE (%s) " % " AND ".join(ewhere)
 
-        return self.query(sql)
+        return self.query(sql, {'op_set_id': op_set_id,
+                                'op_target_id': op_target_id, })
 
     def list_owners(self, target_ids):
         """Return info about who owns the given target_ids"""
