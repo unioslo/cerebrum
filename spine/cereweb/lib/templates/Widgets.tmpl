@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#from lib.utils import html_quote
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from types import StringTypes
@@ -44,7 +45,7 @@
 ##doc:      class to be set for the returned table
 
 #if $css_class
-<table class="$css_class">
+<table class="$html_quote($css_class)">
 #else
 <table>
 #end if
@@ -58,7 +59,7 @@
         <th>
             ## <a href='$pri_link'>pri_link</a> 
             ## <a href='$ord_link'>ord_link</a>
-            $header
+            $html_quote($header)
         </th>
         #end if
     #end for
@@ -67,7 +68,7 @@
     <tr>
         #for $col in $row
         <td>
-            $col
+            $html_quote($col)
         </td>
         #end for
     </tr>
@@ -81,7 +82,7 @@
 #def viewInfo($info, $notice=[])
 <div class="view view_info box">
     #for $note in $notice
-        <div class="notice">$note</div>
+        <div class="notice">$hml_quote($note)</div>
     #end for
     <table>
     <colgroup>
@@ -96,8 +97,8 @@
         #else
         <tr class="even">
         #end if
-            <td class="name">$name</td>
-            <td class="value">$value</td>
+            <td class="name">$html_quote($name)</td>
+            <td class="value">$html_quote($value)</td>
         </tr>
     #end for
     </table>
