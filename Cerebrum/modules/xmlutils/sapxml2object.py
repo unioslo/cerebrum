@@ -37,8 +37,11 @@ The overall workflow looks like this:
 """
 
 from mx.DateTime import Date
-import time, sys
+import time
+import sys
 
+import cerebrum_path
+import cereconf
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress, \
      DataEmployment, DataOU, DataContact, DataName
@@ -411,10 +414,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 # if neither is specified, use, the logic in
                 # stillingsgruppebetegnelse to decide on the category
                 if value == "Vit":
-                    print "Setting category to 'vit'"
                     category = DataEmployment.KATEGORI_VITENSKAPLIG
                 elif value == "T/A":
-                    print "Setting category to 'tekadm'"
                     category = DataEmployment.KATEGORI_OEVRIG
 
         # We *must* have an OU to which this employment is attached.
@@ -584,7 +585,7 @@ class XMLPerson2Object(XMLEntity2Object):
         celems = list(element.findall("PersonKomm"))
         celems.sort(lambda x, y: cmp(x.find("KOMMTYPE").text,
                                      y.find("KOMMTYPE").text))
-        # TBD: Prioritiies!
+        # TBD: Priorities!
         priority = 0
         for ct in celems:
             contact = self._make_contact(ct, priority)
@@ -606,6 +607,23 @@ class XMLPerson2Object(XMLEntity2Object):
             # fi
         # od
         result.reserved = to_reserve
+
+        # If there is a sensible 'Sted for lønnsslipp', it will result i
+        # proper "post/besøksaddresse" later. This code matches LT's behaviour
+        # more closely (an employee 'inherits' the address of his/her
+        # "primary" workplace.
+        for sub in element.getiterator("PersonKomm"):
+            txt = sub.findtext("KOMMTYPE")
+            val = sub.findtext("KommVal")
+            if (txt and txt.encode("latin1") == "Sted for lønnslipp" and val
+                # *some* of the entries have a space here and there.
+                # and some contain non-digit data
+                and val.replace(" ", "").isdigit()):
+                val = val.replace(" ", "")
+                fak, inst, gruppe = [int(x) for x in
+                                     (val[:2], val[2:4], val[4:])]
+                result.primary_ou = (cereconf.DEFAULT_INSTITUSJONSNR,
+                                     fak, inst, gruppe)
 
         assert (result.get_name(result.NAME_FIRST) and
                 result.get_name(result.NAME_LAST))

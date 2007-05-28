@@ -213,8 +213,11 @@ class DataName(object):
         self.language = lang
         if self.language:
             self.language = self.language.lower()
+            # IVR 2007-05-28 FIXME: This is perhaps the wrong place for such a
+            # check.  We may want to (and should?) have these codes in
+            # Cerebrum.
             if self.language not in ("en", "it", "nl", "no", "nn",
-                                     "ru", "sv",):
+                                     "ru", "sv", "fr",):
                 raise ValueError, "Unknown language code " + lang
     # end __init__
 # end DataName

@@ -24,11 +24,10 @@ This module implements an abstraction layer for LT-originated data.
 from mx.DateTime import Date
 import time, sys
 
-import cereconf
+import cerebrum_path, cereconf
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, DataOU, DataAddress, DataContact, \
      HRDataPerson, DataEmployment, DataEntity, DataName
-
 import Cerebrum.modules.no.fodselsnr as fodselsnr
 
 
