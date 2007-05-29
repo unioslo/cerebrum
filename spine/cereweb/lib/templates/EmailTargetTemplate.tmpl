@@ -16,7 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link
+#from urllib import urlencode
+#from lib.utils import object_link, html_quote
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from SpineIDL.Errors import NotFoundError
@@ -41,7 +42,7 @@ $searcher.set_entity($entity)
                 #set $url = "/emailtarget/view?id=%d" % $target.get_id()
                 <a class="action" href="$url">$_('Add email-address')</a>
                 &nbsp;
-                #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(),$target.get_id())
+                #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(), $target.get_id())
                 <a class="action" href="$url">$_('Delete')</a>
             </div>
             ##for $address in $addresses:
@@ -52,13 +53,13 @@ $searcher.set_entity($entity)
                 #if $target.get_primary_address()
                     #set $localpart = $target.get_primary_address().get_local_part()
                     #set $domainpart = $target.get_primary_address().get_domain().get_name()
-                    #set $primary_address = '%s@%s' % ($localpart, $domainpart)
+                    #set $primary_address = '%s@%s' % ($html_quote($localpart), $html_quote($domainpart))
                 #end if
                 #set $servername = ''
                 #if $target.get_server()
                     #set $servername = $target.get_server().get_name()
                 #end if
-                #set $target_type = '%s@%s' % ($target.get_type().get_name(), $servername)
+                #set $target_type = '%s@%s' % ($html_quote($target.get_target_type().get_name()), $html_quote($servername))
                 <td>
                     $target_type
                 </td>
@@ -89,7 +90,7 @@ $searcher.set_entity($entity)
     <h3>$_('Create a new email target')</h3>
     <form action="/email/make_target" method="post">
         <div class="hidden">
-            <input type="hidden" name="entity" value="$entity.get_id()" />
+            <input type="hidden" name="entity" value="$html_quote($entity.get_id())" />
         </div>
         <div class="required">
             $form_widgets.generate_loption('targettype', 'Target type', $target_types)
@@ -159,9 +160,9 @@ $searcher.set_entity($entity)
 #def edit_address($transaction, $address)
 <form action="/emailtarget/save_address" method="post">
 <p>
-    <input type="hidden" name="address" value="$address.get_id()" />
+    <input type="hidden" name="address" value="$html_quote($address.get_id())" />
     <label>$_("Edit email address:")</label><br />
-    <input name="local_part" value="$address.get_local_part()" /> @
+    <input name="local_part" value="$html_quote($address.get_local_part())" /> @
 
     #set $domains=$transaction.get_email_domain_searcher()
     #set $domains = [(d.get_id(), d.get_name()) for d in $domains.search()]
@@ -176,7 +177,7 @@ $searcher.set_entity($entity)
 #def edit_target($transaction, $target)
 <form action="/emailtarget/save" method="post">
 <p>
-    <input type="hidden" name="id" value="$target.get_id()" />
+    <input type="hidden" name="id" value="$html_quote($target.get_id())" />
     <div> 
     #set $target_types=$transaction.get_email_target_type_searcher()
     $form_widgets.code_selector("target_type", $_("Target type"),
@@ -193,7 +194,7 @@ $searcher.set_entity($entity)
     </div>
 
     <div><label for="alias">$_("Alias"):</label>
-         <input name="alias" value="$target.get_alias_value()" /></div>
+         <input name="alias" value="$html_quote($target.get_alias_value())" /></div>
     
 ##    <div><label for="using">$_("Using account"):</label>
 ##        #set $using = target.get_using() or ''
@@ -215,7 +216,7 @@ $searcher.set_entity($entity)
 
     <div> 
     <em>$_("Target type"):</em> 
-        $target.get_type().get_description()
+        $html_quote($target.get_type().get_description())
     </div>
 
     #set $entity = $target.get_entity()
@@ -228,7 +229,7 @@ $searcher.set_entity($entity)
     #set $alias = $target.get_alias()
     #if $alias
         <div><em>$_("Alias"):</em>
-            $alias 
+            $html_quote($alias)
         </div>
     #end if    
     
