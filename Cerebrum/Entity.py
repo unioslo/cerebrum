@@ -902,8 +902,17 @@ class EntityExternalId(Entity):
         entity_type=:entity_type %s""" % where, binds)
         self.find(entity_id)
 
- 
-
+    def _set_cached_external_id(self, variant, value):
+        sys_cache = self.const.system_cached
+        try:
+            old_value = self.get_external_id(sys_cache, variant)
+            if value is None:
+                self._delete_external_id(sys_cache, variant)
+            elif old_value != value:
+                self._set_external_id(sys_cache, variant, value, update=True)
+        except Errors.NotFoundError:
+            if value is not None:
+                self._set_external_id(sys_cache, variant, value)
 
 
 # TODO: OBSOLETE.  use Entity.get_subclassed_object()
