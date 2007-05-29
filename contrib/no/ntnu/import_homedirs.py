@@ -30,7 +30,7 @@ co = Factory.get("Constants")(db)
 host = Factory.get("Host")(db)
 disk = Factory.get("Disk")(db)
 account = Factory.get("Account")(db)
-db.cl_init("import_homedirs")
+db.cl_init(change_program="import_homedirs")
 
 ok=0
 not_ok=0
