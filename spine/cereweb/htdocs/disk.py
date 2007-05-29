@@ -23,9 +23,8 @@ import cherrypy
 from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import commit, commit_url, object_link
+from lib.utils import commit, commit_url, object_link, remember_link
 from lib.utils import transaction_decorator, redirect_object
-from lib.WorkList import remember_link
 from lib.Searchers import DiskSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.DiskViewTemplate import DiskViewTemplate

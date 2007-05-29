@@ -27,8 +27,7 @@ from lib.Main import Main
 from lib.utils import queue_message, redirect, redirect_object, object_link
 from lib.utils import transaction_decorator, commit, commit_url
 from lib.utils import rollback_url, legal_domain_format
-from lib.utils import legal_domain_chars
-from lib.WorkList import remember_link
+from lib.utils import legal_domain_chars, remember_link
 from lib.Searchers import EmailDomainSearcher
 from lib.templates.EmailDomainSearchTemplate import EmailDomainSearchTemplate
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate

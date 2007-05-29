@@ -24,7 +24,6 @@ from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib import utils
-from lib.WorkList import remember_link
 from lib.Searchers import OUSearcher, PersonAffiliationsSearcher
 from lib.Searchers import PersonAffiliationsOuSearcher
 from lib.templates.SearchTemplate import SearchTemplate

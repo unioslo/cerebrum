@@ -25,8 +25,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
-from lib.utils import rollback_url
-from lib.WorkList import remember_link
+from lib.utils import rollback_url, remember_link
 from lib.Searchers import HostSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.HostViewTemplate import HostViewTemplate

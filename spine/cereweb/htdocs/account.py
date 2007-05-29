@@ -23,7 +23,6 @@ import cherrypy
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import *
-from lib.WorkList import remember_link
 from lib.Searchers import AccountSearcher
 from lib.Forms import AccountCreateForm, AccountEditForm
 from lib.templates.FormTemplate import FormTemplate

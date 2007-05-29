@@ -26,8 +26,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import queue_message, redirect_object, commit
 from lib.utils import object_link, transaction_decorator, commit_url
-from lib.utils import rollback_url, legal_date
-from lib.WorkList import remember_link
+from lib.utils import rollback_url, legal_date, remember_link
 from lib.Searchers import GroupSearcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
