@@ -24,7 +24,7 @@
 ##
 #attr $title = "Cereweb"
 #attr $messages = []
-#attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'worklist.js']
+#attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'worklist.js', 'error.js']
 #attr $page = 'cereweb'
 #attr $links = [('#', 'stub')]
 #attr $action = []
@@ -128,9 +128,7 @@
                 #if $wl or $al
                     <div class="bottom_div">
                     #if $wl
-                        #block worklist_block
-                            $worklist()
-                        #end block
+                        <div id="worklist"></div>
                     #end if
                     #if $al
                         #block activitylog_block
