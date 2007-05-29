@@ -22,7 +22,6 @@ import time
 import cherrypy
 
 from utils import get_messages
-from WorkList import WorkList
 from ActivityLog import ActivityLog
 from templates.FramesTemplate import FramesTemplate
 
@@ -46,7 +45,6 @@ class Main(FramesTemplate):
         
         Creates worklist, and activitylog.
         """
-        self.worklist = WorkList()
         self.activitylog = ActivityLog()
         self.action = []
 

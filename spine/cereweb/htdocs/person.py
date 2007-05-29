@@ -30,7 +30,6 @@ from lib.utils import strftime, strptime, commit_url, unlegal_name
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url
-from lib.WorkList import remember_link
 from lib.Searchers import PersonSearcher
 from lib.Forms import PersonCreateForm, PersonEditForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate

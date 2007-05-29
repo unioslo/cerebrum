@@ -28,7 +28,6 @@ import config
 import cherrypy
 
 import utils
-from WorkList import remember_link
 from templates.SearchResultTemplate import SearchResultTemplate
 import SpineIDL.Errors
 
@@ -267,7 +266,7 @@ class Searcher(object):
         rows = []
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             rows.append([utils.object_link(elm), elm.get_description(), str(edit)+str(remb)])
         return rows
 
@@ -326,7 +325,7 @@ class AccountSearcher(Searcher):
             cdate = utils.strftime(elm.get_create_date())
             edate = utils.strftime(elm.get_expire_date())
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             rows.append((utils.object_link(elm), owner, cdate, edate, str(edit)+str(remb)))
         return rows
 
@@ -423,7 +422,7 @@ class PersonSearcher(Searcher):
             accs = [str(utils.object_link(i)) for i in elm.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class="action")
+            remb = utils.remember_link(elm, _class="action")
             rows.append([utils.object_link(elm), date, accs, affs, str(edit)+str(remb)])
         return rows
 
@@ -445,7 +444,7 @@ class AllocationPeriodSearcher(Searcher):
         rows = []
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             auth = elm.get_authority().get_name()
             rows.append([utils.object_link(elm), auth, str(edit)+str(remb)])
         return rows
@@ -472,7 +471,7 @@ class AllocationSearcher(Searcher):
         rows = []
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             proj = utils.object_link(elm.get_allocation_name().get_project())
             period = elm.get_period().get_name()
             status = elm.get_status().get_name()
@@ -504,7 +503,7 @@ class DiskSearcher(Searcher):
             path = utils.object_link(elm, text=elm.get_path())
             host = utils.object_link(elm.get_host())
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             rows.append([path, host, elm.get_description(), str(edit)+str(remb)])
         return rows
 
@@ -529,7 +528,7 @@ class EmailDomainSearcher(Searcher):
             cats = [i.get_name() for i in elm.get_categories()[:4]]
             cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             rows.append([link, elm.get_description(), cats, str(edit)+str(remb)])
         return rows
 
@@ -614,7 +613,7 @@ class OUSearcher(Searcher):
             name = elm.get_display_name() or elm.get_name()
             link = utils.object_link(elm, text=name)
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             rows.append([link, elm.get_acronym(), elm.get_short_name(), str(edit)+str(remb)])
         return rows
 
@@ -636,7 +635,7 @@ class ProjectSearcher(Searcher):
         rows = []
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = remember_link(elm, _class='action')
+            remb = utils.remember_link(elm, _class='action')
             sci  = " " #elm.get_science().get_name()
             ownr = utils.object_link(elm.get_owner())
             rows.append([utils.object_link(elm), sci, ownr, str(edit)+str(remb)])
