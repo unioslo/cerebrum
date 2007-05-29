@@ -16,12 +16,11 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime, html_quote, remember_link
+#from lib.utils import object_link, strftime, html_quote, url_quote, remember_link
 #from GroupViewTemplate import GroupViewTemplate
 #from EmailTargetTemplate import EmailTargetTemplate
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
-#from urllib import quote, urlencode
 #extends GroupViewTemplate
 
 #attr $email_template = EmailTargetTemplate()
@@ -148,9 +147,10 @@ $widgets.viewInfo($info)
     <td>$html_quote($priority)</td>
     <td class="actions">
             #set $args = "id=%s&ou=%s&affil=%s" % (
-                            $account.get_id(), $ou.get_id(),
-                            $affil_type.get_name())
-            <a class="action" href="remove_affil?$urlencode($args)">$_('delete')</a>
+                            $url_quote($account.get_id()),
+                            $url_quote($ou.get_id()),
+                            $url_quote($affil_type.get_name()))
+            <a class="action" href="remove_affil?$args">$_('delete')</a>
     </td>
     </tr>
     #end for
@@ -198,16 +198,21 @@ $widgets.viewInfo($info)
             <h3>$_('Home Directories')</h3>
             #for $home in $homes
             <div class="item">
-            
-                #set $sname = $home.get_spread().get_name()
-                #set $remove = $quote('remove_home?id=%s&spread=%s' % ($id, $sname),'?&/=')                
+                #set $spread = $home.get_spread()
+                #set $sname = $spread.get_name()
+                #set $remove = 'remove_home?id=%s&spread=%s' % ($url_quote($id), $url_quote($sname))
+		#set $homedir = $home.get_homedir()         
                 
                 <div class="actions">
                     <a class="action" href="$remove">$_('remove')</a>
                 </div>
                 <span class="name">$_("Spread"):</span> <span class="value">$html_quote($sname)</span><br />
-                <span class="name">$_("Home directory"):</span> <span class="value">$html_quote($home.get_homedir().get_path())</span><br />
-                <span class="name">$_("Status"):</span> <span class="value">$html_quote($home.get_homedir().get_status().get_description())</span>
+		#set $disk = $homedir.get_disk()
+		#if $disk
+                <span class="name">$_("Disk"):</span> <span class="value">$html_quote("%s:%s" % ($disk.get_host().get_name(), $disk.get_path()))</span><br />
+		#end if
+                <span class="name">$_("Home directory"):</span> <span class="value">$html_quote($account.get_homepath($spread))</span><br />
+                <span class="name">$_("Status"):</span> <span class="value">$html_quote($homedir.get_status().get_description())</span>
             </div>
             #end for
         </div>
