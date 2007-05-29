@@ -51,7 +51,7 @@ def _spine_type(object):
     if type(object) == type({}):
         return object['object_type']
     elif object._is_a("IDL:SpineIDL/SpineEntity:1.0"):
-        return object.get_type().get_name()
+        return object.get_typestr()
     else:
         # split up "IDL:SpineIDL/SpineEntity:1.0"
         idl_type = object._NP_RepositoryId.split(":", 3)[1]
@@ -61,7 +61,8 @@ def _spine_type(object):
         return name.lower()
 
 def object_name(object):
-    type = object.get_type().get_name()
+    ##type = object.get_type().get_name()
+    type = object.get_typestr()
     if type == 'person':
         text = object.get_cached_full_name()
     elif type == 'ou':
@@ -72,9 +73,13 @@ def object_name(object):
         try:
             primary = object.get_primary_address()
         except NotFoundError:
-            text = "Email target of type '%s'" % object.get_type().get_name()
+            text = "Email target of type '%s'" % object.get_target_type()
         else:
-            text = primary.full_address() + " (%s)" % object.get_type().get_name()
+            primary_address = object.get_primary_address()
+            if primary_address:
+                text = primary_address.full_address() + " (%s)" % object.get_target_type()
+            else:
+                text = "No primary address" + " (%s)" % object.get_target_type()
     elif type == 'disk':
         text = object.get_path()
     elif type == 'project':
@@ -172,7 +177,7 @@ def strftime(date, format="%Y-%m-%d", default=''):
     If date evaluates to true its formated with the 'format' string.
     Else the value of default will be returned.
     """
-    return date and date.strftime(format) or default
+    return date and html_quote(date.strftime(format)) or html_quote(default)
 
 def strptime(tr, date, format="%Y-%m-%d"):
     """Returns a Date obj for the date-string."""
