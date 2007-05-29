@@ -16,71 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from urllib import quote
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
-
-## Creates a worklist based on the list of objects and actions. 
-## objects is a list of tuples (key, label), likewise for
-## action. Any keys in the list selected will be marked
-## selected by default in the worklist.
-
-#def worklist($objects, $selected, $buttons)
-<div id="worklist" class="worklist">
-    <h2>$_("Worklist")</h2>
-    <form id="worklistForm" action="" method="post">
-        <div id="wl_buttons">
-        #for $key, $label in $buttons
-            <input type="button" class="workbutton" name="$key" id="WL_$key" value="$label" />
-            <br />
-        #end for
-        </div>
-        <div id="wl_list">
-            <select multiple="multiple" size="6" id="WL_select">
-            #if not $objects
-                <option>-Remembered objects-</option>
-            #end if
-            #for $key, $label in $objects
-                #set $tag = ""
-                #if $key in $selected
-                    #set $tag = 'selected="selected"'
-                #end if
-                <option value="$key" $tag>
-                    $label
-                </option>
-            #end for
-            </select>
-        </div>
-        <div id="wl_actions">
-            ## Javascripts will hide this division and replace it
-            ## with shortcuts for the selected items in the worklist.
-            <div class="wl_action" id="WL_action_info">
-                <div class="content">
-                    Select an element in the worklist to view
-                    available shortcuts.<br />
-                    If you select several a very clever script will give
-                    you the interesting shortcuts.
-                </div>
-            </div>
-
-            ## Actions for diffrent classes
-            $DefaultAction()
-            $PersonAction()
-            $GroupAction()
-            $OUAction()
-            $AccountAction()
-            $HostAction()
-            $DiskAction()
-
-            ## Hidden untill a javascript-error appers which will add
-            ## a error to the span, and show the division.
-            <div class="wl_errors" id="WL_errors" style="display:none;">
-                <h3>Worklist error:</h3>
-            </div>
-        </div>
-    </form>
-</div>
-#end def
 
 ### Action templates:
 ### When the user selects an object in the worklist, an appropiate
@@ -89,46 +26,43 @@
 ## All actions should extend the ActionTemplate with a block if
 ## needed. Javascript will replace the variables for the specific
 ## object selected in the worklist. Current variables available is:
-## _class_, _name_, _id_.
-#def ActionTemplate($cls, $block="", $name="_class_ _name_")
+## _class_, _id_.
+#def ActionTemplate($cls, $block="")
     #set $view_url = '/%s/view' % $cls
     #set $edit_url = '/%s/edit' % $cls
     #set $delete_url = '/%s/delete' % $cls
-    <div class="wl_action" id="WL_action_$cls" style="display:none;">
-        <div class="header">$name:</div>
-        <div class="content">
-            <div class="links">
-                <a href="$view_url?id=_id_">View</a>,&nbsp;
-                <a href="$edit_url?id=_id_">Edit</a>,&nbsp;
-                <a href="$delete_url?id=_id_">Delete</a>,&nbsp;
-                $action_remember_link("Forget")
-            </div>
-            $block
-        </div>
+    <div class="content">
+        <ul>
+            <li><a href="$view_url?id=_id_">View</a></li>
+            <li><a href="$edit_url?id=_id_">Edit</a></li>
+            <li><a href="$delete_url?id=_id_">Delete</a></li>
+        </ul>
+        $block
     </div>
 #end def
 
-#def action_remember_link($text="Remember")
-    #set $url = $quote("/worklist/remember?id=_id_&type=_type_&name=_name_")
-    <a href="$url">$text</a>
+#def NoneAction
+    <div class="content">
+        Select an element in the worklist to view available shortcuts.  If
+        you select several a very clever script will give you the interesting
+        shortcuts.
+    </div>
 #end def
 
 #def DefaultAction
-    <div class="wl_action" id="WL_action_default" style="display:none;">
-        <div class="header">_name_:</div>
-        <div class="content">
-            No actions found for these classes: _class_
-        </div>
+    <div class="content">
+        No actions found for these classes: _class_
     </div>
 #end def
 
 #def PersonAction
     #def PersonBox
-        <a href="/account/search?owner=_id_">View all accounts</a>
-        <br />
-        <a href="/account/create?owner=_id_">Create new account</a>
+        <ul>
+            <li><a href="/account/search?owner=_id_">View all accounts</a></li>
+            <li><a href="/account/create?owner=_id_">Create new account</a></li>
+        </ul>
     #end def
-    $ActionTemplate("person", $PersonBox, "_name_")
+    $ActionTemplate("person", $PersonBox)
 #end def
 
 #def GroupAction
@@ -139,7 +73,7 @@
 #end def
 
 #def OUAction
-    $ActionTemplate("ou", name="_name_")
+    $ActionTemplate("ou")
 #end def
 
 #def AccountAction
