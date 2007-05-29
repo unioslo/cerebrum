@@ -63,19 +63,6 @@ class HomeDirectory(DatabaseClass):
         }
     }
 
-    def get_path(self):
-        """Returns the path from either disk or home."""
-        path = None
-        if self.get_home():
-            path = self.get_home()
-        elif self.get_disk():
-            #FIXME: is this good enough?
-            path = self.get_disk().get_host().get_name()
-            path += ':'+self.get_disk().get_path()
-        return path
-
-    get_path.signature = str
-
     def get_auth_entity(self):
         return self.get_account()
     get_auth_entity.signature = Entity
@@ -184,7 +171,7 @@ get_homedir.exceptions = [NotFoundError]
 def get_homepath(self, spread):
     """Returns the homedir path for the given spread."""
     obj = self._get_cerebrum_obj()
-    return obj.get_homepath()
+    return obj.get_homepath(spread.get_id())
 get_homepath.signature = str
 get_homepath.signature_args = [Spread]
 
