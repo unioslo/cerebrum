@@ -127,13 +127,13 @@ class Authorization(object):
             target.target_type AS target_type,
             target.attr AS target_attr,
             oc.code_str AS operation,
-            NULL AS operation_attr
+            op_attr.attr AS operation_attr
             FROM
             auth_role role,
             auth_op_target target,
             auth_op_code oc,
             auth_operation op
-            -- auth_op_attrs op_attr XXX LEFT JOIN
+            LEFT JOIN auth_op_attrs op_attr ON (op_attr.op_id = op.op_id)
             WHERE role.entity_id IN ( %s )
             AND op.op_code = oc.code
             AND role.op_target_id = target.op_target_id
@@ -222,13 +222,18 @@ class Authorization(object):
     def _query_auth(self, operation, op_attr, target, target_type, target_attr=None):
         """We check if the user has access to run the operation with
         the given arguments or with no arguments (which means all arguments)."""
-        op_attrs = [op_attr, None]
-        target_attrs = [target_attr, None]
-        for op_attr in op_attrs:
-            for target_attr in target_attrs:
-                if (target, target_type, target_attr,
-                        operation, op_attr) in self.auths:
-                    return True
+        if (target, target_type, target_attr,
+            operation, op_attr) in self.auths:
+            return True
+        if (target, target_type, target_attr,
+            operation, None) in self.auths:
+            return True
+        if (target, None, target_attr,
+            operation, None) in self.auths:
+            return True
+        if (target, None, target_attr,
+            operation, None) in self.auths:
+            return True
         return False
     
 class AuthTest(unittest.TestCase):
