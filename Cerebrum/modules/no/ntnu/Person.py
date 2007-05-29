@@ -24,6 +24,7 @@ from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 import cereconf
 import re
+import sys
 
 # The cached display name defaults to the cached full name, but
 # may be overridden by a manually set display name.
@@ -31,6 +32,21 @@ import re
 # in the future?
 
 class PersonNTNUMixin(Person.Person):
+    def _update_cached_extid(self, extid):
+        value=None
+        for ss in cereconf.SYSTEM_LOOKUP_ORDER:
+            source = getattr(self.const, ss)
+            try:
+                value=self.get_external_id(source, extid)
+            except Errors.NotFoundError:
+                continue
+        self._set_cached_external_id(extid)
+            
+    def _update_cached_extids(self):
+        for ee in cereconf.UPDATE_CACHE_EXTIDS:
+            extid = getattr(self.const, ee)
+            self._update_cached_extid(extid)
+            
     def _update_cached_names(self):
         self.__super._update_cached_names()
         displayname=None
@@ -43,26 +59,10 @@ class PersonNTNUMixin(Person.Person):
         if displayname is None:
             displayname=self.get_name(self.const.system_cached,
                                       self.const.name_full)
-        if displayname is None:
-            raise ValueError, "No cacheable display name for %d" % (
-                self.entity_id)
-        # Keep this like Person._update_cached_names()
-        # For now, delete is not used.
-        try:
-            old_name=self.get_name(self.const.system_cached,
-                                   self.const.name_display)
-            if displayname is None:
-                self._delete_name(self.const.system_cached,
-                                  self.const.name_display)
-            elif old_name != displayname:
-                self._update_name(self.const.system_cached,
-                                  self.const.name_display,
-                                  displayname)
-        except Errors.NotFoundError:
-            if displayname is not None:
-                self._set_name(self.const.system_cached,
-                               self.const.name_display,
-                               displayname)
+        #if displayname is None:
+        #    raise ValueError, "No cacheable display name for %d" % (
+        #        self.entity_id)
+        self._set_cached_name(self.const.name_display, displayname)
     
     def populate_external_id(self, source_system, id_type, external_id):
         if id_type == self.const.externalid_fodselsnr:
@@ -70,11 +70,20 @@ class PersonNTNUMixin(Person.Person):
         self.__super.populate_external_id(source_system, id_type, external_id)
 
 
-    # OBS: setlocale needed for this.
     # XXX: allow charlist explicitly instead of \w?
-    person_name_regex=re.compile("^\w([\w '.-]*[\w.])?$", re.LOCALE)
+
+    # Use after this from python 2.4:
+    person_name_regex=re.compile("^\w([\w '.-]*[\w.])?$", re.UNICODE)
+    #person_name_regex=re.compile("^[0-9a-zA-Z\192-\255 '.-]+$")
+    #person_name_not_regex=re.compile("[\000-\031!\"#$%&()*+,/:;<=>?@\[\\\]{|}~\127-\159]")
 
     def populate_name(self, variant, name):
         if not re.match(self.person_name_regex, name):
             raise ValueError, "Malformed name `%s'" % name
         self.__super.populate_name(variant, name)
+
+
+# This seems to be a bug in python 2.3
+if not re.match("\w\w\w", u'זרו', re.UNICODE):
+    print >>sys.stdout, """WARNING: re.UNICODE does not work!
+If using python 2.3, try setting locale as a workaround!"""
