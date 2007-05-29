@@ -424,6 +424,18 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                            'name': name,
                                            'name_variant': int(variant)})
 
+    def _set_cached_name(self, source_system, variant, name):
+        sys_cache = self.const.system_cached
+        try:
+            old_name = self.get_name(source_system, variant)
+            if name is None:
+                self._delete_name(source_system, variant)
+            elif old_name != name:
+                self._update_name(source_system, variant, name)
+        except Errors.NotFoundError:
+            if name is not None:
+                self._set_name(source_system, variant, name)
+
     def _update_cached_names(self):
         """Update cache of person's names.
 
@@ -527,18 +539,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             # We have no cacheable name variants.
             raise ValueError, "No cacheable name for %d / %r" % (
                 self.entity_id, self._name_info)
-        sys_cache = self.const.system_cached
         for ntype, name in cached_name.items():
             name_type = getattr(self.const, ntype)
-            try:
-                old_name = self.get_name(sys_cache, name_type)
-                if name is None:
-                    self._delete_name(sys_cache, name_type)
-                elif old_name != name:
-                    self._update_name(sys_cache, name_type, name)
-            except Errors.NotFoundError:
-                if name is not None:
-                    self._set_name(sys_cache, name_type, name)
+            self._set_cached_name(name_type, name)
 
     def list_person_name_codes(self):
         return self.query("""
