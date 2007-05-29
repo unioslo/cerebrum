@@ -57,9 +57,9 @@ def login(**vargs):
     # what client the user used last time he logged in, etc.
     username = vargs.get('username')
     password = vargs.get('password')
+    client = utils.clean_url(vargs.get('client'))
     vargs.update(cherrypy.session)
 
-    client = utils.clean_url(vargs.get('client'))
     redirect = utils.clean_url(vargs.get('redirect'))
 
     # Make sure the user has chosen a valid client.
