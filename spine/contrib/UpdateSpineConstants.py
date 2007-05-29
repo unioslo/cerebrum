@@ -39,7 +39,7 @@ autodesc = 'Managed by UpdateSpineConstants'
 
 def update_spine_auth_codes(db_user):
     from Cerebrum import Constants
-    existing = Set(get_existing())
+    existing = Set(get_existing(db_user))
     db = Factory.get('Database')(user=db_user)
     _ = Constants.Constants(db) # Ugly hack.  See makedb.py
 
@@ -66,12 +66,12 @@ def update_spine_auth_codes(db_user):
         code_obj.delete()
     db.commit()
 
-def get_existing():
+def get_existing(db_user):
     db = Factory.get('Database')(user=db_user)
     result = db.query("select * from [:table schema=cerebrum name=auth_op_code] where description = :te", {'te': autodesc})
     return [x[1] for x in result]
 
-if __name__ == '__main__':
+def main():
     db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner']
     if db_user is None:
         db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user']
@@ -79,7 +79,10 @@ if __name__ == '__main__':
             print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
             print "Will use regular 'user' (%s) instead." % db_user
 
-    if db_user:
-        update_spine_auth_codes(db_user)
-    else:
-        print "System not configured properly.  I didn't do anything."
+    if not db_user:
+        print >> sys.stderr, "System not configured properly.  I didn't do anything."
+        sys.exit(1)
+    update_spine_auth_codes(db_user)
+
+if __name__ == '__main__':
+    main()
