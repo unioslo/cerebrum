@@ -24,7 +24,7 @@
 #attr $widgets = Widgets()
 
 #def viewActions($transaction, $disk)
-    #set $id = $disk.get_id()
+    #set $id = $html_quote($disk.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete disk")</a></li>
