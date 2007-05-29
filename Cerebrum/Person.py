@@ -424,17 +424,17 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                            'name': name,
                                            'name_variant': int(variant)})
 
-    def _set_cached_name(self, source_system, variant, name):
+    def _set_cached_name(self, variant, name):
         sys_cache = self.const.system_cached
         try:
-            old_name = self.get_name(source_system, variant)
+            old_name = self.get_name(sys_cache, variant)
             if name is None:
-                self._delete_name(source_system, variant)
+                self._delete_name(sys_cache, variant)
             elif old_name != name:
-                self._update_name(source_system, variant, name)
+                self._update_name(sys_cache, variant, name)
         except Errors.NotFoundError:
             if name is not None:
-                self._set_name(source_system, variant, name)
+                self._set_name(sys_cache, variant, name)
 
     def _update_cached_names(self):
         """Update cache of person's names.
