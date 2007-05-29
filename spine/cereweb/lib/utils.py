@@ -133,6 +133,11 @@ def object_link(object, text=None, method="view", _class="", **params):
         _class = ' class="%s"' % _class
     return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
 
+def remember_link(object, text='remember', _class=''):
+    obj_id = object_id(object)
+    url = urllib.quote("/worklist/remember?id=%i" % obj_id)
+    return '<a class="action jsonly %s" href="%s">%s</a>' % (_class, url, text)
+
 def redirect(url, status=None):
     raise cherrypy.HTTPRedirect(url, status)
 
@@ -401,5 +406,4 @@ def html_quote(s):
     return cgi.escape(str(s))
 
 def url_quote(s):
-    #return urllib.urlencode(str(s))
-    return s
+    return urllib.quote(str(s))
