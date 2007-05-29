@@ -22,81 +22,91 @@ import cherrypy
 
 from lib import cjson
 from lib import utils
+from lib.templates.WorkListTemplate import WorkListTemplate
 
-def _get(_id):
+def get_worklist():
+    return cherrypy.session.setdefault('wl_remembered', {})
+
+def add(ids):
+    """Adds an element to the list of remembered objects."""
+    elms = []
+    for i in ids.split(','):
+        elm = _get(i)
+        _remember(elm)
+        elms.append(elm)
+    return cjson.encode({'result': 'success', 'objects': elms})
+add.exposed = True
+
+def remove(ids):
+    """Removes elements from the list of remembered objects."""
+    for i in ids.split(','):
+        _forget(i)
+    return cjson.encode({'result': 'success'})
+remove.exposed = True
+
+def get_all():
+    """Returns the remembered objects, including information about
+    which elements are selected."""
+    remembered = get_worklist()
+    return cjson.encode({'result': 'success', 'objects': remembered.values()})
+get_all.exposed = True
+
+def select(ids=''):
+    """Updates the list over selected elements."""
+    remembered = get_worklist()
+    selected = [x for x in ids.split(',') if x and x != '-1']
+    for el in remembered.values():
+        if el['id'] in selected:
+            el['selected'] = True
+        else:
+            el['selected'] = False
+    return cjson.encode({'result': 'success'})
+select.exposed = True
+
+def _get(el):
     tr = utils.new_transaction()
-    entity = tr.get_entity(int(_id))
+    entity = tr.get_entity(int(el))
     type = utils._spine_type(entity)
     try:
         name = entity.get_name()
     except:
         name = None
-    elm = {'id': _id, 'name': name, 'type': type}
+    elm = {'id': el, 'name': name, 'type': type}
     return elm
 
-def get(id=None):
-    """Returns the info about the given id."""
-    if not id or id == 'undefined':
-        elm = cherrypy.session.setdefault('wl_remembered', {})
-    else:
-        elm = _get(id)
-    return cjson.encode(elm)
-get.exposed = True
-
-def add(id, cls, name):
-    """Adds an element to the list of remembered objects."""
-    data = _remember(id, cls, name)
-    return cjson.encode(data)
-add.exposed = True
-
-def remove(id=None, ids=None):
-    """Removes elements from the list of remembered objects."""
-    if ids is None:
-        ids = []
-    else:
-        ids = [i for i in ids.split(",") if i]
-    
-    if id is not None and id not in ids:
-        ids.append(id)
-
-    for id in ids:
-        data = _forget(id)
-    return cjson.encode(data)
-remove.exposed = True
-
-def selected(ids=None):
-    """Updates the list over selected elements."""
-    if ids is None:
-        selected = cherrypy.session['wl_selected'] = []
-    else:
-        remembered = cherrypy.session.setdefault('wl_remembered', {})
-        updated = [i for i in ids.split(",") if i]
-        selected = [i for i in remembered.keys() if i in updated]
-        cherrypy.session['wl_selected'] = selected
-    
-    data = cherrypy.session.setdefault('wl_remembered', {})
-    for id in selected:
-        data[id]['selected'] = True
-    return cjson.encode(data)
-selected.exposed = True
-
-def _remember(id, cls=None, name=None):
-    data = cherrypy.session.setdefault('wl_remembered', {})
-
-    if not cls:
-        elm = _get(id)
-    elif not name:
-        elm = _get(id)
-    else:
-        elm = {'id': id, 'name': name, 'type': cls}
-
-    data[elm['id']] = elm
-    return data
+def _remember(elm):
+    remembered = get_worklist()
+    remembered[elm['id']] = elm
 
 def _forget(id):
-    data = cherrypy.session.setdefault('wl_remembered', {})
+    data = get_worklist()
     try:
         del data[id]
     except KeyError, e:
         pass
     return data
+
+def template(type):
+    template = WorkListTemplate()
+    type = type.lower()
+    if type == 'none':
+        content = template.NoneAction()
+    elif type == 'ou':
+        content = template.OUAction()
+    elif type == 'account':
+        content = template.AccountAction()
+    elif type == 'person':
+        content = template.PersonAction()
+    elif type == 'group':
+        content = template.GroupAction()
+    elif type == 'host':
+        content = template.HostAction()
+    elif type == 'disk':
+        content = template.DiskAction()
+    else:
+        content = template.DefaultAction()
+
+    cherrypy.response.headerMap['Content-Type'] = 'text/plain; charset=latin1'
+    return ['<html><div id="content">%s</div></html>' % content]
+template.exposed = True
+

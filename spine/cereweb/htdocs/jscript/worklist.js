@@ -18,320 +18,319 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+cereweb.worklist = function(title, container, options) {
+    this.title = title;
+    this.container = YD.get(container);
+    this.options = options;
 
-cereweb.worklist = {
-    init: function() {
-        this.init_actions();
-        this.init_objects();
+    this.buildWidget();
+    this.initializeBehaviour();
+    this.populate();
+}
 
-        // This method is called when the user clicks on a link that
-        // points to /remember_link.  These links shouldn't be visible
-        // unless javascript is enabled.
-        cereweb.action.add('worklist/remember', this.remember_wrapper, this);
-        this.worklistChanged.subscribe(this.update_actions, this, true);
+cereweb.worklist.prototype = {
+    events: {
+        worklistChanged: new YAHOO.util.CustomEvent("worklistChanged"),
+        selectionChanged: new YAHOO.util.CustomEvent("selectionChanged")
     },
-    remember_wrapper: function(name, args) {
+    types: [],
+    buildWidget: function() {
+        // This could be replaced with an AJAX fetch of the worklist template.
+        // However, it works fine now so I'll leave it as it is.
+        this._items = {};
+
+        YD.addClass(this.container, 'worklist');
+        var title = document.createElement('h2');
+        title.innerHTML = this.title;
+        this.container.appendChild(title);
+        var form = document.createElement('form');
+        form.setAttribute('method', 'post');
+        this.container.appendChild(form);
+        this.form = form;
+        
+        var div = document.createElement('div');
+        YD.addClass(div, 'buttons');
+        form.appendChild(div);
+        var buttons = [
+            ['All', 'select_all'],
+            ['None', 'select_none'],
+            ['Invert', 'invert_selection'],
+            ['Forget', 'forget_selected']
+        ];
+        for (var i=0; i < buttons.length; i++) {
+            var button = document.createElement('button');
+            button.innerHTML = buttons[i][0];
+            button.setAttribute('name', buttons[i][1]);
+            div.appendChild(button);
+        };
+
+        div = document.createElement('div');
+        YD.addClass(div, 'list');
+        var list = document.createElement('select');
+        list.setAttribute('multiple', 'multiple');
+        list.setAttribute('size', 6);
+        this.list = list;
+        div.appendChild(list);
+        form.appendChild(div);
+        this.emptyElm = {id: -1, name: "-Remembered objects-", type: '' };
+        this.add(this.emptyElm);
+
+        div = document.createElement('div');
+        YD.addClass(div, 'actions');
+        this.actions = div;
+        form.appendChild(div);
+    },
+    initializeBehaviour: function() {
+        this.ajaxUpdater.scope = this;
+        this.actionUpdater = new cereweb.callbacks.htmlSnippet(this, 'addAction');
+        YE.on(this.form, 'click', this.onClick, this, true);
+        YE.on(this.form, 'change', this.onChange, this, true);
+        cereweb.action.add('worklist/remember', this.remember, this);
+        this.events.worklistChanged.subscribe(this.updateLinks, this, true);
+        this.events.selectionChanged.subscribe(this.updateSelection, this, true);
+        cereweb.events.pageChanged.subscribe(this.updateLinks, this, true);
+    },
+    updateLinks: function(event, args) {
+        var rememberLinks = YD.getElementsBy(this.isRememberLink, 'a', 'container');
+        for (var i=0; i<rememberLinks.length; i++) {
+            var link = rememberLinks[i];
+            var id = cereweb.utils.getParam(unescape(link.href), 'id');
+            if (this.get(id))
+                link.innerHTML = 'forget';
+            else
+                link.innerHTML = 'remember';
+        }
+    },
+    populate: function() {
+        var url = this.options.populate_url;
+        var cObj = YC.asyncRequest('GET', url, this.ajaxUpdater);
+    },
+    isRememberLink: function(el) {
+        if (el.nodeName.toUpperCase() !== 'A')
+            return false;
+        if (el.pathname.search('worklist/remember') == -1)
+            return false;
+        return true;
+    },
+    ajaxUpdater: {
+            success: function(o) {
+                try {
+                    var obj = eval('(' + o.responseText + ')');
+                    if (obj.result === 'success') {
+                        if (obj.objects) {
+                            for (var i=0; i<obj.objects.length; i++)
+                                this.add(obj.objects[i], true);
+                            this.events.selectionChanged.fire();
+                        }
+                    } else
+                        cereweb.msg.warn('Could not update worklist.');
+                } catch(ex) {
+                    if (this.options.errorHandler)
+                        this.options.errorHandler(o);
+                }
+            },
+            failure: function(o) {
+                cereweb.msg.warn('Could not update worklist.');
+                if (this.options.errorHandler)
+                    this.options.errorHandler(o);
+            }
+    },
+    get: function(id) {
+        return this._items[id];
+    },
+    add: function(obj, quiet) {
+        var duplicate = !!this._items[obj.id];
+        if (duplicate)
+            return false;
+
+        if (YAHOO.lang.isUndefined(obj.type) ||
+            YAHOO.lang.isUndefined(obj.name)) {
+            var url = this.options.add_url;
+            var args = 'ids='+obj.id;
+            var cObj = YC.asyncRequest('POST', url, this.ajaxUpdater, args);
+            return true; // Method will be called again when server responds.
+        }
+            
+        this._items[obj.id] = obj;
+        this.addToSelect(obj);
+        
+        // Remove the dummy element if it's in the list.
+        if (this.list.length == 2 && this.list.item(0).value == -1)
+            this.remove(-1);
+
+        this.events.worklistChanged.fire(obj.id);
+        return true;
+    },
+    remove: function(id, quiet) {
+        var exists = !!this._items[id];
+        if (exists)
+            delete this._items[id];
+
+        var removed = false;
+        if (exists || id == -1) { // Dummy is never in _items
+            for (var i=0; i<this.list.length; i++) {
+                var elm = this.list[i];
+                if (elm.value == id) {
+                    this.list.remove(i);
+                    removed = true;
+                    break;
+                }
+            }
+        }
+        if (this.list.length == 0)
+            this.add(this.emptyElm);
+
+        if (!quiet && id != -1) {
+            var url = this.options.remove_url;
+            var args = 'ids='+id;
+            var cObj = YC.asyncRequest('POST', url, this.ajaxUpdater, args);
+        }
+
+        this.events.worklistChanged.fire(id);
+        return removed;
+    },
+    addToSelect: function (obj) {
+        var elm = document.createElement('option');
+        if (obj.selected)
+            elm.setAttribute('selected', 'selected');
+        elm.value = obj.id;
+        var str = '';
+        if (obj.type)
+            str = obj.type + ': '
+        elm.innerHTML = str + obj.name;
+
+        try { // standards compliant; doesnt work in IE
+            this.list.add(elm, null);
+        } catch(ex) { // IE only
+            this.list.add(elm); 
+        }
+    },
+    remember: function(name, args) {
         var event = args[0];
-        args = args[1];
-
         YE.preventDefault(event);
-        var t = YE.getTarget(event);
-        this.remember(args['id'], args['type'], args['name']);
+        var obj = args[1];
+        this.add(obj) || this.remove(obj.id);
     },
-    // method to add an entity to the worklist.
-    remember: function remember(id, cls, name) {
-        var worklist = document.getElementById('WL_select');
-
-        if (cereweb.worklist.objects[id]) { // Object already remembered: remove
-            this.forget(id);
-        } else {
-            if (worklist.length >= cereweb.worklist.config.max_objects) {
-                alert("Cannot add any more objects to the worklist.");
-                return;
-            }
-
-            // Remove option -Remembered objects-
-            if (worklist[0].text == "-Remembered objects-") {
-                worklist.remove(0);
-            }
-
-            var new_elm = document.createElement('option');
-            new_elm.text = cls + ': ' + name;
-            new_elm.value = id;
-
-            try {
-                worklist.add(new_elm, null); // standards compliant; doesnt work in IE
-            } catch(ex) {
-                worklist.add(new_elm); // IE only
-            }
-
-            // Change the text on the element by id
-            var link = document.getElementById('WL_link_'+id);
-            if (link)
-                link.innerHTML = "forget";
-
-            // Tell the server that we have added an element.
-            var add_url = '/worklist/add';
-            args = "id="+id+"&cls="+cls+"&name="+name
-            var cObj = YC.asyncRequest('POST', add_url, cereweb.worklist.callback, args);
+    updateSelection: function() {
+        var selected = new Array();
+        var list = this.list;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].selected) selected.push(list[i].value);
+        }
+      
+        var args = "ids=" + selected;
+        var url = this.options.select_url;
+        var cObj = YC.asyncRequest('POST', url, this.ajaxUpdater, args);
+        
+        this.selected = selected;
+        this.updateActions();
+    },
+    getSelected: function() {
+        return this.selected;
+    },
+    updateActions: function() {
+        // Hide all actions.
+        var actions = this.actions.childNodes;
+        if (actions.length > 0)
+            YD.setStyle(actions, 'display', 'none');
+      
+        var type = this.get_type(this.selected);
+        var action = this.get_action(type);
+        if (action) {
+            YD.setStyle(action, 'display', 'block');
+        }
+        // Else: An action is being downloaded.  This method will be rerun
+        // when the action is available.
+    },
+    onClick: function(e, args) {
+        var target = YE.getTarget(e);
+        if (target.tagName.toUpperCase() === 'BUTTON') {
+            YE.preventDefault(e);
+            this[target.name]();
+        } else if (target.tagName.toUpperCase() === 'A') {
+            target.search = target.search.replace('_id_', this.getSelected());
         }
     },
-    forget: function (id) {
-        var worklist = document.getElementById('WL_select');
-        delete cereweb.worklist.objects[id];
-        for (var i = 0; i < worklist.length; i++) {
-            if (worklist[i].value === id) {
-                worklist.remove(i);
-                break;
-            }
-        }
-
-        if (worklist.length == 0) {
-            var option = document.createElement('option');
-            option.text = "-Remembered objects-";
-            worklist[0] = option;
-        }
-
-        // change the text on the element by id
-        var link = document.getElementById('WL_link_'+id)
-        if (link)
-            link.innerHTML = "remember";
-
-        var action = YD.get('WL_action_' + id);
-        if (action && action.parentNode)
-            action.parentNode.removeChild(action);
-
-        // tell the server that we have removed some element.
-        var remove_url = '/worklist/remove';
-        var args = "id="+id;
-        var cObj = YC.asyncRequest('POST', remove_url, cereweb.worklist.callback, args);
-    },
-    // Remove selected items from worklist
-    forget_selected: function () {
-        var worklist = document.getElementById('WL_select')
-        for (var j = 0, i = worklist.length-1; i >= 0; i--) {
-            if (worklist[i].selected &&
-                worklist[i].text !== "-Remembered objects-")
-                    this.forget(worklist[i].value);
+    onChange: function(e, args) {
+        var target = YE.getTarget(e);
+        if (target.tagName.toUpperCase() === 'SELECT') {
+            this.events.selectionChanged.fire();
         }
     },
     select_all: function () {
-        var worklist = document.getElementById('WL_select')
-        for (var i = 0; i < worklist.length; i++) {
-            worklist[i].selected = true;
+        for (var i = 0; i < this.list.length; i++) {
+            this.list[i].selected = true;
         }
+        this.events.selectionChanged.fire();
     },
     select_none: function () {
-        var worklist = document.getElementById('WL_select')
-        for (var i = 0; i < worklist.length; i++) {
-            worklist[i].selected = 0;
+        for (var i = 0; i < this.list.length; i++) {
+            this.list[i].selected = false;
         }
+        this.events.selectionChanged.fire();
     },
     invert_selection: function () {
-        var worklist = document.getElementById('WL_select')
-        for (var i = 0; i < worklist.length; i++) {
-            if (worklist[i].selected == 1) {
-                worklist[i].selected = 0;
-            } else {
-                worklist[i].selected = 1;
+        for (var i = 0; i < this.list.length; i++) {
+            this.list[i].selected = !this.list[i].selected;
+        }
+        this.events.selectionChanged.fire();
+    },
+    forget_selected: function () {
+        for (var i=0; i < this.selected.length; i++)
+            this.remove(this.selected[i]);
+        this.events.selectionChanged.fire();
+    },
+    get_type: function(ids) {
+        if (ids.length == 0)
+            return 'none';
+
+        // We don't have indexOf, so use string.search.
+        // This is probably close to n^2 but we expect
+        // small lists so it shouldn't matter.
+        var types = [];
+        for (var i=0; i<ids.length; i++) {
+            var current = types.join('');
+            var t = this.get(ids[i]).type;
+            // A type of 'personperson' makes sense.  This means multiple
+            // persons have been selected.  However, personpersonperson
+            // is redundant.
+            if (current.search(t+t) == -1) {
+                types.push(t);
+                types = types.sort(YAHOO.util.Sort.compareAsc);
             }
         }
+        return types.join("");
     },
-    config: {
-        max_objects: 20,
+    get_action: function (type) {
+        return this.types[type] || this.create_action(type);
     },
-    actions: {
-        'WL_all': 'select_all',
-        'WL_none': 'select_none',
-        'WL_invert': 'invert_selection',
-        'WL_forget': 'forget_selected',
-        'WL_select': 'update_actions'
-    },
-    // types : [((ids), action_name, action), ...]
-    types: [],
-    // This is where we store the information about our objects.
-    objects: {},
-    worklistChanged: new YAHOO.util.CustomEvent('worklistChanged', this),
-    callback: {
-        success: function(o) { 
-                var obj = eval('(' + o.responseText + ')');
-                cereweb.worklist.objects = obj;
-        },
-        failure: this.error,
-        timeout: 5000
-    },
-    handler: function (event) {
-        var target = YE.getTarget(event);
-        var tag = target.nodeName.toLowerCase();
-        // Links are handled by actionClicked.
-        if (tag !== 'a') {
-            var action = this.actions[target.id];
-            if (action && this[action])
-                this[action](event);
-            this.worklistChanged.fire();
-        }
-    },
-    // Fill cereweb.worklist.objects and change link-texts to forget.
-    init_objects: function () {
-        var worklist = YD.get('WL_select');
-
-        for (var i = 0; i < worklist.options.length; i++) {
-            var opt_name = worklist.options[i].text.split(':', 2);
-            var id = worklist.options[i].value;
-            var type = opt_name[0];
-            var name = opt_name[1];
-
-            // Fill cereweb.worklist.objects with the info already in the worklist
-            cereweb.worklist.objects[id] = {'id': id, 'type': type, 'name': name};
-
-            // change the text on links to forget for things already in the worklist
-            var link = document.getElementById('WL_link_'+id);
-            if (link)
-                link.innerHTML = "forget";
-        }
-    },
-    init_actions: function () {
-        var worklist = document.getElementById('WL_select');
-        for (var i = 0; i < worklist.length; i++) {
-            if (worklist[i].selected) {
-                cereweb.worklist.worklistChanged.fire(true);
-                break;
-            }
-        }
-    },
-    update_actions: function (event, args) {
-        if (event === "worklistChanged")
-            var update_only = args[0];
-        else
-            var update_only = event || false;
-
-        var worklist = YD.get('WL_select');
-        var ids = new Array();
-        var j = 0;
-        for (var i = 0; i < worklist.length; i++) {
-            if (worklist[i].selected &&
-                worklist[i].text !== "-Remembered objects-") {
-                    ids[j++] = worklist[i].value;
-            }
-        }
-      
-        var args = "ids=" + ids;
-        var update_url = '/worklist/selected';
-        
-        if (!update_only) {
-            var cObj = YAHOO.util.Connect.asyncRequest('POST',
-                update_url, cereweb.worklist.callback, args);
-        }
-        
-        // Hide all actions.
-        YD.setStyle(YD.getElementsByClassName('wl_action'), 'display', 'none');
-      
-        // Show (or create and then show) the action for the selected items.
-        if (ids.length > 0) {
-            ids = ids.sort(YAHOO.util.Sort.compareAsc);
-            var action = YD.get('WL_action_' + ids);
-            if (!action) {
-                action = this.get_action(ids);
-                var actions = document.getElementById('wl_actions');
-                actions.appendChild(action);
-            }
-        } else {
-            var action = document.getElementById('WL_action_info');
-        }
-        action.style.display = "block";
-    },
-    // Returns an action for the array with selected items.
-    // Show errors to the user, in a inobtrusive way.
-    error: function (o) {
-        msg = o.statusText;
-        var action_div = document.getElementById('wl_actions');
-        var error_div = document.getElementById('WL_errors');
-
-        // hide all actions
-        var actions = document.getElementById('wl_actions');
-        for (var i = 0; i < actions.childNodes.length; i++) {
-            if (actions.childNodes[i].style) {
-                actions.childNodes[i].style.display = "none";
-            }
-        }
-
-        error_div.style.display = "block";
-        error_div.lastChild.nodeValue = msg;
-    },
-    get_action: function (ids) {
-        return this.types[ids] || this.create_action(ids);
-    },
-    // Creates an action for the array with selected items.
-    create_action: function (ids) {
-
-        // Clones an action
-        var clone_action = function (name, action_id) {
-            var action = document.getElementById('WL_action_'+name.toLowerCase());
-            if (action == null) {
-                action = document.getElementById('WL_action_default');
-            }
-            
-            var new_action = action.cloneNode(true);
-            new_action.id = "WL_action_"+action_id;
-            return new_action;
-        }
-
-        // Check if selected classes fits a pattern.
-        var is_match = function (first, rest, selected) {
-            if (selected[0][1].toLowerCase() != first) {
-                return false;
-            } else if (rest == null) {
-                if (selected[1][1].toLowerCase() != first) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-
-            for (var i = 1; i < selected.length; i++) {
-                if (selected[i][1].toLowerCase() != rest) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        if (ids.length === 1) {
-            var id = ids[0];
-            var cls = cereweb.worklist.objects[id].type;
-            var name = cereweb.worklist.objects[id].name;
-            action = clone_action(cls, id);
-        } else if (is_match("person", null, ids)) {
-            action = clone_action("person", ids);
-        } else if (is_match("group", "account", ids)) {
-            action = clone_action("group", ids);
-        } else {
-            name = "Error";
-            var cls = cereweb.worklist.objects[ids[0]].type;
-            for (var i = 1; i < ids.length; i++) {
-                cls += ", "+cereweb.worklist.objects[ids[i]].type;
-            }
-            action = clone_action("default", ids);
-        }
-        
+    create_action: function (type) {
         // Replaces the regex with value in the action.
-        var replace_html = function (action, regex, value) {
-            action.innerHTML = action.innerHTML.replace(regex, value);
-        }
-
-        // replace the variables in the actionbox.
-        replace_html(action, /_id_/g, id);
-        replace_html(action, /_class_/g, cls);
-        replace_html(action, /_name_/g, name);
-        
-        // add the new action to cereweb.worklist.types
-        cereweb.worklist.types[cereweb.worklist.types.length] = new Array(ids, action);
-        return action;
+        var url = this.options.template_url;
+        var args = "type=" +type;
+        this.actionUpdater.argument = type; // Set args.
+        var cObj = YC.asyncRequest('POST', url, this.actionUpdater, args);
+        return false;
+    },
+    addAction: function(html, type) {
+        var action = document.createElement('div');
+        action.innerHTML = html.replace('_class_', type);
+        YD.setStyle(action, 'display', 'none');
+        this.actions.appendChild(action);
+        this.types[type] = action;
+        this.updateActions();
     }
 }
-YAHOO.util.Event.addListener('worklist', 'click', cereweb.worklist.handler, cereweb.worklist, true);
-YAHOO.util.Event.addListener('worklist', 'change', cereweb.worklist.handler, cereweb.worklist, true);
-YAHOO.util.Event.onAvailable('WL_select', cereweb.worklist.init, cereweb.worklist, true);
+YE.onAvailable('worklist', function() { 
+    this.innerHTML = ''; // Disable old worklist.
+    new cereweb.worklist('Worklist', 'worklist', {
+        populate_url: '/worklist/get_all',
+        add_url: '/worklist/add',
+        remove_url: '/worklist/remove',
+        select_url: '/worklist/select',
+        template_url: '/worklist/template'
+    }) 
+});
 
 if(cereweb.debug) {
     log('worklist is loaded');

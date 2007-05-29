@@ -325,10 +325,6 @@ cereweb.search = {
         this.searchbox = searchbox;
         this.resultbox = resultbox;
     },
-    delayed: function() {
-        var msg = YD.get('messages');
-        msg.innerHTML = 'It seems the search takes a while.  Please be patient.';
-    },
     callback:  {
         success: function(o) {
             window.clearTimeout(cereweb.search.progressTimer);
@@ -373,6 +369,7 @@ cereweb.search = {
             YD.setStyle(searchbox, 'background-image', 'url("/img/play.png")');
             YD.setStyle(searchbox, 'background-repeat', 'no-repeat');
             resultbox.innerHTML = res;
+            cereweb.events.pageChanged.fire();
             new YAHOO.util.Anim(resultbox, { opacity: { to: 1 }}, 1).animate();
         });
         anim.animate();

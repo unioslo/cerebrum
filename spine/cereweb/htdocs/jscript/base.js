@@ -30,6 +30,61 @@ YC = YAHOO.util.Connect;
 cereweb = YAHOO.cereweb;
 
 /**
+* Cereweb events.
+*/
+cereweb.events = {
+    pageChanged: new YAHOO.util.CustomEvent('pageChanged')
+};
+/**
+* Reusable AJAX callbacks.
+*/
+cereweb.callbacks = {
+    /**
+     * This snippet tries to extract the 'content' div.
+     * Finally it calls this.update(result).
+     */
+    htmlSnippet: function(scope, cfn, cfa, failure) {
+        // Name of function to call with the resulting html.
+        this.scope = scope;
+        this.scope.__htmlSnippet_cfn = cfn;
+        this.argument = cfa;
+        this.failure = failure;
+    }
+}
+
+cereweb.callbacks.htmlSnippet.prototype = {
+    success: function(o, args) {
+        var begin = '<div id="content">';
+        var end = '</div>';
+        var a, b; // Start and stop indexes of the content div.
+        var r = o.responseText; // Make a 
+
+        a = r.search(begin) + begin.length; // We don't include the div tag.
+        b = a; // The end can't be before the beginning :)
+        r = r.substring(a, r.length);
+
+        var x, y;
+        var i = 1; 
+        while (i > 0) { // While we're inside the content div.
+            x = r.search(end);
+            y = r.search('<div'); 
+            if (x < y || y < 0) {
+                i -= 1;
+            } else {
+                i += 1;
+                x = y;
+            }
+            b += x; // Advance the end, don't include the end tag.
+            // substring has no offset, so eat the part we just found.
+            r = r.substring(x + 1, r.length);
+        }
+        r = o.responseText.substring(a, b + 1);
+        var cfn = this.__htmlSnippet_cfn;
+        this[cfn](r, o.argument);
+    }
+}
+
+/**
  * Set the cereweb.debug variable to true to enable the YUI logger widget.
  * Useful for IE debugging.  Firebug is better though.
  */
@@ -42,18 +97,54 @@ if(cereweb.debug) {
     });
 };
 
-cereweb.createDiv = function (id, parent) {
-    if (YAHOO.lang.isUndefined(parent))
-        parent = document.body;
-    else if (YAHOO.lang.isString(parent))
-        parent = YD.get(parent);
-    var el = document.createElement('div');
+cereweb.utils = {
+    createDiv: function (id, parent) {
+        if (YAHOO.lang.isUndefined(parent))
+            parent = document.body;
+        else if (YAHOO.lang.isString(parent))
+            parent = YD.get(parent);
+        var el = document.createElement('div');
 
-    if (YAHOO.lang.isString(id))
-        el.setAttribute('id', id);
+        if (YAHOO.lang.isString(id))
+            el.setAttribute('id', id);
 
-    parent.appendChild(el);
-    return el;
+        parent.appendChild(el);
+        return el;
+    },
+    getParam: function gup(url, name) {
+        name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+        var regexS = "[\\?&]"+name+"=([^&#]*)";
+        var regex = new RegExp(regexS);
+        var results = regex.exec(url);
+        if(results == null)
+            return "";
+        else
+            return results[1];
+    }
+}
+cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
+
+cereweb.msg = {
+    _msg: function(message, level, timeout) {
+        var messages = YD.get('messages');
+        var p = document.createElement('p');
+        YD.addClass(p, level);
+        p.innerHTML = message;
+        messages.appendChild(p);
+        var fn = function() {
+            messages.removeChild(p);
+        }
+        document.setTimeout(fn, timeout);
+    },
+    error: function(message) {
+        cereweb.msg._msg(message, 'error', 10000);
+    },
+    warn: function(message) {
+        cereweb.msg._msg(message, 'warn', 5000);
+    },
+    info: function(message) {
+        cereweb.msg._msg(message, 'info', 5000);
+    }
 }
 
 /**
@@ -246,40 +337,11 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
             el.obj = myBox;
         }
 
-        var callback = {
-            success: function(o) {
-                var begin = '<div id="content">';
-                var end = '</div>';
-                var a, b; // Start and stop indexes of the content div.
-                var r = o.responseText; // Make a 
-
-                a = r.search(begin) + begin.length; // We don't include the div tag.
-                b = a; // The end can't be before the beginning :)
-                r = r.substring(a, r.length);
-
-                var x, y;
-                var i = 1; 
-                while (i > 0) { // While we're inside the content div.
-                    x = r.search(end);
-                    y = r.search('<div'); 
-                    if (x < y) {
-                        i -= 1;
-                    } else {
-                        i += 1;
-                        x = y;
-                    }
-                    b += x - 1; // Advance the end, don't include the end tag.
-                    // substring has no offset, so eat the part we just found.
-                    r = r.substring(x + 1, r.length);
-                }
-                r = o.responseText.substring(a, b);
-                this.setBody(r);
-                this.show();
-            },
-            failure: function(o) { /* ignore for now */ },
-            scope: myBox
+        myBox.update = function(r) {
+            myBox.setBody(r);
+            myBox.show();
         }
-        
+        var callback = new cereweb.callbacks.htmlSnippet(myBox, 'update');
         var cObj = YC.asyncRequest('POST',
             url, callback, 'id=' + arg);
 
