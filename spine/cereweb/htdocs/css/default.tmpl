@@ -38,73 +38,52 @@ div.worklist h2, div.activitylog h2 {
 div.worklist {
     float: left;
     vertical-align: top;
-    margin-left: 0.5em;
-    margin-right: 0.5em;
+    margin: 0;
+    padding: 0;
     height: auto;
-    width: auto;
+    width: 400px;
 }
 
 div.worklist h2 {
     background: #66CCFF;
     border: 1px solid #0066CC;
     margin-bottom: 4px;
+    margin-left: 5px;
 }
 
 div.worklist form {
     margin: 0; // Ie and opera adds a small margin.
+    padding: 0;
 }
 
-#wl_list {
-    display: table-cell; /* For firefox and Opera */ 
-    display: inline-block; /* For Opera and ie */ 
-    vertical-align: top; /* For ie */
-    float:left;
+div.worklist form div.buttons {
+    float: left;
+    width: 60px;
+    margin-left: 5px;
+    padding-right: 3px;
+    padding-top: 1px;
+    padding-bottom: 1px;
 }
 
-#wl_list select:focus {
-    background: #ffe;
+
+div.worklist form div.buttons button {
+    width: 100%;
+    text-align: left;
+    margin-bottom: 4px;
 }
 
-#wl_buttons {
-    display: table-cell; /* For firefox and Opera */ 
-    display: inline-block; /* For Opera and ie */ 
-    vertical-align: top; /* For ie */
-    float:left;
+div.worklist form div.list {
+    margin: 0; 
+    padding: 0;
+    float: left;
+    width: 160px;
 }
 
-#wl_buttons input {
-    width: 4.5em;
-    font-size: 80%;
-    font-family: sans-serif;
-    margin: 0px 5px 4px 5px;
+div.worklist form div.actions {
+    float: left;
+    width: 165px;
+    padding-left: 5px;
 }
-
-#wl_actions {
-    display: table-cell; /* For firefox and Opera */ 
-    display: inline-block; /* For Opera and ie */ 
-    vertical-align: top; /* For ie */
-    margin: 0 0 0 4px;
-    float:left;
-}
-
-#wl_actions div.wl_action {
-    width: 180px;
-}
-
-#wl_actions div.wl_action div.header {
-    border: 1px solid #0099FF;
-    font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
-    font-weight: bold;
-    font-size: 85%;
-    padding: 2px;
-}
-
-#wl_actions div.wl_action div.content {
-    font-size: 87%;
-    padding: 4px;
-}
-
-#wl_actions div.wl_errors h3 { color: red; }
 
 ## Styles for the Activity log.
 div.activitylog {
