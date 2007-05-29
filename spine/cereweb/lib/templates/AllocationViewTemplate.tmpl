@@ -16,14 +16,15 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link
+#from lib.utils import object_link, html_quote
+#from urllib import urlencode
 #from lib.WorkList import remember_link
 #from Widgets import Widgets
 #extends EntityViewTemplate
 #attr $widgets = Widgets()
 
 #def viewActions($transaction, $allocation)
-    #set $id = $allocation.get_id()
+    #set $id = $urlencode($allocation.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete allocation")</a></li>
@@ -46,12 +47,12 @@
 ## View information about host (name and description).
 #def viewInfo($allocation)
     #set $info = []
-    $info.append(($_("Allocation name"), $allocation.get_allocation_name().get_name()))
+    $info.append(($_("Allocation name"), $html_quote($allocation.get_allocation_name().get_name())))
     $info.append(($_("Project"), $object_link($allocation.get_allocation_name().get_project())))
     $info.append(($_("Period"), $object_link($allocation.get_period())))
     ##( $period.get_startdate().strftime("%Y-%m-%d")
     ##- $period.get_enddate().strftime("%Y-%m-%d") )
-    $info.append(($_("Status"), $allocation.get_status().get_name()))
+    $info.append(($_("Status"), $html_quote($allocation.get_status().get_name())))
     $widgets.viewInfo($info)
 #end def
 
