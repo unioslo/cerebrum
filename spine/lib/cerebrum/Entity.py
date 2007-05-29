@@ -44,9 +44,10 @@ class ValueDomainHack(dict):
         db = registry.db or Cerebrum.Utils.Factory.get('Database')()
         self['value_domain'] = ValueDomain(db, name=var).get_id()
 
-        if not type_cache:
-            for key, value in db.query('SELECT entity_id, entity_type FROM entity_info'):
-                type_cache[int(key)] = int(value)
+        ## Err. This is never used. (And it's slow as hell.)
+        #if not type_cache:
+        #    for key, value in db.query('SELECT entity_id, entity_type FROM entity_info'):
+        #        type_cache[int(key)] = int(value)
 
     def __getitem__(self, key):
         if self.var:
@@ -95,8 +96,9 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
         if obj.__class__ is Entity:
             obj.__init__(*args, **vargs)
 
-        if not hasattr(obj, '_type') and obj.get_id() in type_cache:
-            obj._type = EntityType(obj.get_database(), id=type_cache[obj.get_id()])
+        ## Err. This is never used. (And it's slow as hell.)
+        #if not hasattr(obj, '_type') and obj.get_id() in type_cache:
+        #    obj._type = EntityType(obj.get_database(), id=type_cache[obj.get_id()])
 
         # get the correct class for this entity
         entity_type = obj.get_type()
@@ -116,6 +118,10 @@ class Entity(CerebrumClass, DatabaseClass, EntityAuth):
 
         return obj
 
+    def get_typestr(self):
+        return self.get_type().get_name()
+    get_typestr.signature = str
+    
     def delete(self):
         self._delete_from_cerebrum()
         self._delete()

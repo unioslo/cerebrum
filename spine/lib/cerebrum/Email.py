@@ -307,6 +307,10 @@ class EmailTarget(DatabaseClass):
         }
     }
 
+    def get_typestr(self):
+        return 'emailtarget'
+    get_typestr.signature = str
+
     def get_auth_entity(self):
         return self.get_entity()
     get_auth_entity.signature = Entity
