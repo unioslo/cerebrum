@@ -357,20 +357,15 @@ class XMLPerson2Object(XMLEntity2Object):
     # end _make_address
 
 
-    def _make_employment(self, emp_element, ou_id_override=None):
+    def _make_employment(self, emp_element):
         """Make a DataEmployment instance of an <HovedStilling>, </Bistilling>.
 
         emp_element is the XML-subtree representing the employment.
-
-        ou_id_override is the sko for an OU 'overriding' the OU specified in
-        emp_element. Apparently SAP registers the employments with the wrong
-        OU. The proper OU is registered too, but in a different XML subtree of
-        <sap_basPerson>. This is a work-around. 
         """
 
         percentage = code = title = None
         start_date = end_date = None
-        ou_id = ou_id_override
+        ou_id = None
         category = None
         kind = self.tag2type[emp_element.tag]
 
@@ -403,13 +398,9 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "End_Date":
                 end_date = self._make_mxdate(value)
             elif sub.tag == "Orgenhet":
-                # Fallback to whatever is specified in "Orgenhet", *ONLY* if
-                # no override info is given.
-                if ou_id is None:
-                    sko = make_sko(value)
-                    if sko is not None:
-                        ou_id = (DataOU.NO_SKO, sko)
-                # fi
+                sko = make_sko(value)
+                if sko is not None:
+                    ou_id = (DataOU.NO_SKO, sko)
             elif sub.tag == "adm_forsk":
                 # if neither is specified, use, the logic in
                 # stillingsgruppebetegnelse to decide on the category
@@ -515,35 +506,12 @@ class XMLPerson2Object(XMLEntity2Object):
         element = super(XMLPerson2Object, self).next()
         result = SAPPerson()
 
+        middle = ""
         middle = element.find("person/Mellomnavn")
         if middle is not None and middle.text:
             middle = middle.text.encode("latin1").strip()
-        else:
-            middle = ""
-        # fi
 
-        # IVR 2007-03-06 FIXME(?): This one is rather interesting. SAP
-        # registers wrong OU with each employment. However, they also supply
-        # the 'right' OU, but in a different XML-element. If such an element
-        # exists, we extract the proper OU and override whatever is inside
-        # <HovedStilling>/<Bistilling>.
-        #
-        # I am not sure whether this is an error, or an artifact of the data
-        # file. The overrides will happen "silently". 
-        ou_override = None
-        for sub in element.getiterator("PersonKomm"):
-            kind = sub.findtext("KOMMTYPE")
-            if not kind or kind.encode("latin1") != "Sted for lønnslipp":
-                continue
-
-            value = sub.findtext("KommVal")
-            if not value or not value.encode("latin1").strip():
-                continue
-
-            sko = make_sko(value)
-            if sko is not None:
-                ou_override = (DataOU.NO_SKO, sko)
-
+        main = None
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None
@@ -569,17 +537,15 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "Adresse":
                 result.add_address(self._make_address(sub))
             elif sub.tag in ("HovedStilling", "Bistilling"):
-                emp = self._make_employment(sub, ou_override)
+                emp = self._make_employment(sub)
                 if emp is not None:
                     result.add_employment(emp)
-                # fi
+                    if sub.tag == "HovedStilling":
+                        main = emp
             elif sub.tag == "Roller" and sub.findtext("IKKE-ANGIT") is None:
                 emp = self._make_role(sub)
                 if emp is not None:
                     result.add_employment(emp)
-                # fi
-            # fi
-        # od
 
         # We need to order 'Telefon 1' and 'Telefon 2' properly
         celems = list(element.findall("PersonKomm"))
@@ -624,6 +590,31 @@ class XMLPerson2Object(XMLEntity2Object):
                                      (val[:2], val[2:4], val[4:])]
                 result.primary_ou = (cereconf.DEFAULT_INSTITUSJONSNR,
                                      fak, inst, gruppe)
+
+        # IVR 2007-05-30 This is a workaround, beware!
+        # 
+        # If there is a valid "principal employment" (hovedstilling), AND we
+        # have a 'sted for lønnslipp' defined, register a fake employment, so
+        # that this person would receive the right affiliations later.
+        #
+        # It would be possible to put some extra logic in import_HR_person
+        # that would take care of this affiliation assignment. However, this
+        # workaround has no counterpart in LT, and as import_HR_person is
+        # source agnostic, we do not want to pollute it with SAP-specific
+        # logic.
+        #
+        # The ugly part is that this employment does not really exist. It's
+        # just there, so that the right affiliations can be assigned later.
+        if main and result.primary_ou:
+            result.add_employment(
+                DataEmployment(kind = DataEmployment.BISTILLING,
+                               percentage = main.percentage,
+                               code = main.code,
+                               title = main.title,
+                               start = main.start_date,
+                               end = main.end_date,
+                               place = (DataOU.NO_SKO, result.primary_ou[1:]),
+                               category = main.category))
 
         assert (result.get_name(result.NAME_FIRST) and
                 result.get_name(result.NAME_LAST))
