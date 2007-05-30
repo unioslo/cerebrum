@@ -611,8 +611,8 @@ class XMLPerson2Object(XMLEntity2Object):
                                percentage = main.percentage,
                                code = main.code,
                                title = main.title,
-                               start = main.start_date,
-                               end = main.end_date,
+                               start = main.start,
+                               end = main.end,
                                place = (DataOU.NO_SKO, result.primary_ou[1:]),
                                category = main.category))
 
