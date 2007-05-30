@@ -522,9 +522,20 @@ class XMLPerson2Object(XMLEntity2Object):
                 # Per baardj's request, we consider middle names as first names
                 if middle:
                     value += " " + middle
-                # fi
+
+                # IVR 2007-05-30 This is not pretty.
+                #
+                # In an e-mail from 2007-05-29, Johannes Paulsen suggests that
+                # marking invalid entries with '*' in the some of the name
+                # elements is the easiest approach. This is an ugly hack, but
+                # since the invalid entries will not disappear anytime soon,
+                # this is the easiest way of skipping them.
+                if "*" in value:
+                    raise ValueError("Name contains '*', ignored")
                 result.add_name(DataName(self.tag2type[sub.tag], value))
             elif sub.tag == "Etternavn":
+                if "*" in value:
+                    raise ValueError("Name contains '*', ignored")
                 result.add_name(DataName(self.tag2type[sub.tag], value))
             elif sub.tag == "Fodselsnummer":
                 result.add_id(self.tag2type[sub.tag], personnr_ok(value))
@@ -605,7 +616,7 @@ class XMLPerson2Object(XMLEntity2Object):
         #
         # The ugly part is that this employment does not really exist. It's
         # just there, so that the right affiliations can be assigned later.
-        if main and result.primary_ou:
+        if main and hasattr(result, "primary_ou"):
             result.add_employment(
                 DataEmployment(kind = DataEmployment.BISTILLING,
                                percentage = main.percentage,
