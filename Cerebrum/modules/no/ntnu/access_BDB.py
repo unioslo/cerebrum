@@ -138,10 +138,40 @@ class BDB:
         cursor.close()
         return spreads
 
+    def get_vacations(self):
+        cursor = self.db.cursor()
+        cursor.execute("SELECT v.id,v.person,v.subject,v.message,to_char(p.fodselsdato,'YYYY-MM-DD'), \
+                               p.personnr, p.fornavn, p.etternavn \
+                        FROM vacation v, person p, bruker b \
+                        WHERE v.person = p.id AND \
+                              p.id = b.person AND \
+                              b.user_domain = 1 ")
+        bdb_vacations = cursor.fetchall()
+        vacations = []
+        for vac in bdb_vacations:
+            v = {}
+            if vac[0]:
+                v['id'] = vac[0]
+            if vac[1]:
+                v['subject'] = vac[1]
+            if vac[2]:
+                v['message'] = vac[2]
+            if vac[3]:
+                v['birth_date'] = vac[3]
+            if vac[4]:
+                v['person_number'] = vac[4]
+            if vac[5]:
+                v['givenname'] = vac[5]
+            if vac[6]:
+                v['surname'] = vac[6]
+            vacations.append(v)
+        cursor.close()
+        return vacations
+
     def get_persons(self):
         cursor = self.db.cursor()
         cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
-                        p.fornavn, p.etternavn, p.sperret FROM person p,bruker b \
+                        p.fornavn, p.etternavn, p.sperret, p.forward FROM person p,bruker b \
                         WHERE b.person = p.id and b.user_domain=1 AND \
                         p.personnr IS NOT NULL")
         bdb_persons = cursor.fetchall()
@@ -165,15 +195,8 @@ class BDB:
                 p['last_name'] = bp[5]
             if bp[6]:
                 p['sperret'] = bp[6]
-            # FIXME:
-            # We don't want to run a select N times that returns each persons 
-            # different phonenumbers. Dropping phone-numbers for now. 
-            """
-            cursor.execute('SELECT p.phone_number, c.name FROM phone p, phone_categories c WHERE p.person=%s AND p.categorie=c.id' % p['id'])
-            numbers = cursor.fetchall()
-            for n in numbers:
-                p[n[1]] = n[0]
-            """
+            if bp[7]:
+                b['mail_forward'] = bp[7]
             persons.append(p)
         cursor.close()
         return persons
