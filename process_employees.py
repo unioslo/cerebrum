@@ -99,6 +99,13 @@ class execute:
         self.emp_list = []
         # lag en liste over alle som har affiliation lik ansatt og som kommer fra SLP4
         self.existing_emp_list = self.person.list_affiliations(source_system=self.constants.system_lt,affiliation=self.constants.affiliation_ansatt,include_last=True,include_deleted=True)
+        
+        # lag liste over eksisterende kontoer og dets owner_id
+        self.logger.info('Building owner2account cache')
+        self.owner2account = dict()        
+        for acc in self.account.list(filter_expired=False):
+            self.owner2account.setdefault(acc['owner_id'],[]).append(acc['account_id'])
+        self.logger.info('Init finished')
 
 
 
@@ -172,7 +179,6 @@ class execute:
             for up in self.existing_emp_list:
                 i += 1
                 self.logger.debug("Persons no longer in import data: %s" % (up['person_id']))
-
             self.logger.debug("Persons no longer in import data: Count %d" % (i))
             
 
@@ -229,18 +235,21 @@ class execute:
         self.logger.info("**************** Processing employee: person_id=%s,ou_id=%s *********************" % (p_id,ou_id))
         self.person.clear()
         self.person.find(p_id)
-        acc = self.person.get_primary_account(filter_expired=False) 
+        #acc = self.person.get_primary_account(filter_expired=False) 
+        acc=self.owner2account.get(p_id,None)
         if (not acc):
             # This person does not have an account.
             # create new account.
             try:
                 acc = self.create_employee_account(ou_id)
-                # why do we commit after each create???
-                # not anymore. Bto 2007-01-29
-                #self.db.commit()
             except Exception,msg:
                 self.logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))
                 return
+        else:
+            # If person has more than one account from earlier, which one to use
+            # further? For now, use the one we first created... :-/ 
+            acc.sort() 
+            acc=acc[0]
 
         # Person has an account. update
         # First check if account name is "compatible"
@@ -418,6 +427,7 @@ class execute:
         full_name = "%s %s" % (self.person.get_name(self.constants.system_lt,self.constants.name_first) ,
                               self.person.get_name(self.constants.system_lt,self.constants.name_last))
         
+        # FIXME: Will break if person has other external ids than no_birthno
         personnr = self.person.get_external_id()
         personnr = personnr[0]['external_id']
         
@@ -499,8 +509,10 @@ def main():
         x_create.get_all_employees(person_id,person_file)
         if (dryrun):
             x_create.db.rollback()
+            x_create.logger.info("Dryrun, rollback changes")
         else:
             x_create.db.commit()
+            x_create.logger.info("Committing all changes to DB")
             
                                
 def usage():
