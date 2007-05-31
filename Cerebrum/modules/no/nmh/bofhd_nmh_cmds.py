@@ -37,7 +37,6 @@ from Cerebrum.modules.no.nmh import bofhd_nmh_help
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
-from Cerebrum.modules.no.nmh.access_FS import FS
 from Cerebrum.modules.no import fodselsnr
 
 def format_day(field):
@@ -207,13 +206,11 @@ class BofhdExtension(object):
         har_opptak = {}
         ret = []
         try:
-            db = Database.connect(user="cerebrum", service="FSNMH.uio.no",
-                                  DB_driver='Oracle')
+            fs_db = Factory.get("FS")()
         except Database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
-        fs = FS(db)
-        for row in fs.student.get_studierett(fodselsdato, pnum):
+        for row in fs_db.student.get_studierett(fodselsdato, pnum):
             har_opptak["%s" % row['studieprogramkode']] = \
                             row['status_privatist']
             ret.append({'studprogkode': row['studieprogramkode'],
@@ -224,27 +221,26 @@ class BofhdExtension(object):
                         'dato_gyldig_til': self._convert_ticks_to_timestamp(row['dato_studierett_gyldig_til']),
                         'privatist': row['status_privatist']})
 
-        for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
+        for row in fs_db.student.get_eksamensmeldinger(fodselsdato, pnum):
             programmer = []
-            for row2 in fs.info.get_emne_i_studieprogram(row['emnekode']):
+            for row2 in fs_db.info.get_emne_i_studieprogram(row['emnekode']):
                 if har_opptak.has_key("%s" % row2['studieprogramkode']):
                     programmer.append(row2['studieprogramkode'])
             ret.append({'ekskode': row['emnekode'],
                         'programmer': ",".join(programmer),
                         'dato': self._convert_ticks_to_timestamp(row['dato_opprettet'])})
                       
-        for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
+        for row in fs_db.student.get_utdanningsplan(fodselsdato, pnum):
             ret.append({'studieprogramkode': row['studieprogramkode'],
                         'terminkode_bekreft': row['terminkode_bekreft'],
                         'arstall_bekreft': row['arstall_bekreft'],
                         'dato_bekreftet': self._convert_ticks_to_timestamp(row['dato_bekreftet'])})
 
-        for row in fs.student.get_semreg(fodselsdato, pnum):
+        for row in fs_db.student.get_semreg(fodselsdato, pnum):
             ret.append({'regformkode': row['regformkode'],
                         'betformkode': row['betformkode'],
                         'dato_endring': self._convert_ticks_to_timestamp(row['dato_endring']),
                         'dato_regform_endret': self._convert_ticks_to_timestamp(row['dato_regform_endret'])})
-        db.close()
         return ret
 
     # misc list_passwords
