@@ -72,6 +72,10 @@ class EmailDomain(DatabaseClass):
         }
     }
 
+    def get_typestr(self):
+        return 'emaildomain'
+    get_typestr.signature = str
+        
     def delete(self):
         self._delete_from_db()
     delete.signature = None
