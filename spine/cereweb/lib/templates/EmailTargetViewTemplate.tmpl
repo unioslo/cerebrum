@@ -17,7 +17,8 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from lib.utils import object_link, strftime, strftime, remember_link
+#from lib.utils import object_link, strftime, strftime, html_quote
+#from lib.utils import remember_link
 #from FormWidgets import FormWidgets
 #import datetime
 #import cherrypy
@@ -39,9 +40,9 @@ $strftime($the_date)
 <div id="actions">
     <h3>$_("Actions")</h3>
     #set $referer = $cherrypy.request.headerMap.get('Referer', '')
-    <a href="edit?id=$entity_id">$_("edit info")</a><br />
-    <a href="delete?id=$entity_id&amp;ref=$referer">$_("delete target")</a><br />
-    <a href="/entity/full_historylog?id=$entity_id">$_('view full history log')</a>
+    <a href="edit?id=$html_quote($entity_id)">$_("edit info")</a><br />
+    <a href="delete?id=$html_quote($entity_id)&amp;ref=$referer">$_("delete target")</a><br />
+    <a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a>
     <br />
     $remember_link($entity)<br />
 </div>
@@ -57,7 +58,7 @@ $strftime($the_date)
         <h3>$_('Email addresses:')</h3>
         <div>
             <strong><em>$_('Type:')</em></strong>&nbsp;
-                    $entity['type'].capitalize()
+                    $html_quote($entity['type'].capitalize())
         </div>
         <div>
             <strong><em>$_('Owner:')</em></strong>&nbsp;
@@ -70,7 +71,7 @@ $strftime($the_date)
                 <tr>
                 #for $key,$value in $primary.items()
                     #if not $key == 'id' and not $key == 'primary'
-                        <th> $key.capitalize() </th>
+                        <th> $html_quote($key.capitalize()) </th>
                     #end if
                 #end for
                 </tr>
@@ -82,7 +83,7 @@ $strftime($the_date)
                                 #if $key == 'created' or $key == 'changed' or $key == 'expire'
                                     $unix2date($value)
                                 #else
-                                    $value
+                                    $html_quote($value)
                                 #end if
                             #end if
                         </td>
@@ -91,7 +92,7 @@ $strftime($the_date)
                     <td>
                         #set $addressid = $primary['id']	
                         <div class="actions">
-                            <a href="/emailtarget/delete_addr?id=$id&amp;addr=$addressid">Delete</a>
+                            <a href="/emailtarget/delete_addr?id=$html_quote($id)&amp;addr=$html_quote($addressid)">Delete</a>
                         </div>
                     </td>
                 </tr>
@@ -106,7 +107,7 @@ $strftime($the_date)
                 <tr>
                     #for $key,$values in $addresses[0].items()
                         #if not $key == 'id' and not $key == 'primary'
-                            <th> $key.capitalize() </th>
+                            <th>$html_quote($key.capitalize())</th>
                         #end if
                     #end for
                 </tr>
@@ -120,7 +121,7 @@ $strftime($the_date)
                                         #if $key == 'created' or $key == 'changed' or $key == 'expire'
                                             $unix2date($value)
                                         #else
-                                            $value
+                                            $html_quote($value)
                                         #end if
                                     #end if
                                 </td>
@@ -129,8 +130,8 @@ $strftime($the_date)
                             <td>
                                 <div class="actions">
                                     #set $address = $addr['id']
-                                    <a class="action" href="/emailtarget/delete_addr?id=$id&amp;addr=$address">Delete</a>&nbsp;
-                                    <a class="action" href="/emailtarget/setprimary?id=$id&amp;addr=$address">Primary</a>
+                                    <a class="action" href="/emailtarget/delete_addr?id=$html_quote($id)&amp;addr=$html_quote($address)">Delete</a>&nbsp;
+                                    <a class="action" href="/emailtarget/setprimary?id=$html_quote($id)&amp;addr=$html_quote($address)">Primary</a>
                                 </div>
                             </td>
                         </tr>
@@ -146,7 +147,7 @@ $strftime($the_date)
     <div class="view">
         <h3>$_('Add a new email address:')</h3>
         <form action="/emailtarget/makeaddress" method="post">
-            <input type="hidden" name="id" value="$id">
+            <input type="hidden" name="id" value="$html_quote($id)">
             <div>
                 $form_widgets.input('local', 'Local',value='')
             </div>
