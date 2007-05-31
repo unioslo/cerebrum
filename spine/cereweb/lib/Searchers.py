@@ -32,18 +32,64 @@ from templates.SearchResultTemplate import SearchResultTemplate
 import SpineIDL.Errors
 
 class Searcher(object):
-    """Searcher module that should be subclassed by the respective search
+    """
+    Searcher module that should be subclassed by the respective search
     pages in cereweb.  To use this class, you need to subclass it and make
-    a method "get_searcher" which must return a dictionary with at least the
-    'main' searcher. Ex return {'main': transaction.get_account_searcher()}
+    the following methods:
 
-    The 'headers' should be a list where each element contains the name
-    for that particular header and optionaly the name for the attribute
-    it should be sorted after.
+    def get_searchers(self):
+        '''
+        Configures searchers and returns them in a dictionary.  The searchers
+        should have the attribute 'join_name' set to the name needed to join
+        the searcher to the main searcher or '' if the searcher is the main
+        searcher.  The main searcher must be added to the dictionary with both
+        the key 'main' and the header name (see below).
+        '''  
+        name = self.form_values.get('name').strip() + '*'
+        account = self.transaction.get_account_searcher()
+        account.set_name_like(name)
+        account.join_name = ''
+        return {'main': account, 'account': account}
 
-    If the sort name contains a period, the name before the period is the
+    def filter_rows(self, results):
+        '''
+        Goes through the results and creates a list of tuples containing the
+        search results.  The tuples should of course match the headers tuple
+        so that the resulting table is labeled correctly.
+
+        NB: Remember that this loop iterates over all resulting objects and
+        so the operations in the loop should be minimal to keep the searches
+        fast.
+        '''
+        rows = []
+        for elm in results:
+            attr = self.searchers['main'].join_name
+            if attr:
+                obj = getattr(obj, 'get_' + attr)()
+            else:
+                obj = elm
+
+            owner = utils.object_link(obj.get_owner())
+            cdate = utils.strftime(obj.get_create_date())
+            edate = utils.strftime(obj.get_expire_date())
+            edit = utils.object_link(obj, text='edit', method='edit', _class='action')
+            remb = utils.remember_link(obj, _class='action')
+            rows.append((utils.object_link(obj), owner, cdate, edate, str(edit)+str(remb)))
+        return rows
+
+
+    The subclass must also define a 'headers' class variable which is a list of columns
+    and sort names.  If the sort name contains a period, the name before the period is the
     key of the searcher dictionary and the rest is the field in that searcher
     that we should order by.
+
+    Examples:
+      ('Column name', 'searcher_key.attribute'),
+    or if the attribute is guaranteed to be in the main searcher:
+      ('Column name', 'attribute'),
+    or if we don't want to be able to sort by this column:
+      ('Column name', ''),
+
     """
 
     headers = (
@@ -74,46 +120,39 @@ class Searcher(object):
                 self.options[key] = vargs.get(key, value)
 
         self.url_args = dict(self.form_values.items() + self.options.items())
-        self.searchers = self.get_searcher()
+        self.searchers = self.get_searchers()
         self.init_searcher()
 
     def init_searcher(self):
-        """This method configures the searcher based on
-        the contents of the args and vargs variables.
+        """
+        Configure the searcher based on the orderby, offset and display hits
+        options.
         """
 
         orderby = self.options['orderby']
         orderby_dir = self.options['orderby_dir']
-        self.options['offset'] = int(self.options['offset'])
+        offset = int(self.options['offset'])
+
         self.max_hits = min(
             int(cherrypy.session['options'].getint('search', 'display hits')),
             config.conf.getint('cereweb', 'max_hits'))
-        searcher = self.searchers['main']
-        searcher.set_search_limit(self.max_hits, self.options['offset'])
+
+        main = self.searchers['main']
+        main.set_search_limit(self.max_hits, offset)
 
         if orderby:
-            s = 'main'
             try:
-                s, orderby = orderby.split('.')
-            except ValueError, e:
-                pass
-
-            try:
-                orderby_searcher = self.searchers[s]
-                jn = getattr(orderby_searcher, 'join_name', None)
-                if jn:
-                    searcher.add_left_join('', orderby_searcher, jn)
-            except KeyError, e:
-                orderby_searcher = searcher
+                orderby_searcher, orderby = orderby.split('.')
+                orderby_searcher = self.searchers[orderby_searcher]
+                join_name = orderby_searcher.join_name
+                main.add_join(main.join_name, orderby_searcher, join_name)
+            except (ValueError, KeyError), e:
+                orderby_searcher = main
                 
             if orderby_dir == 'desc':
-                searcher.order_by_desc(orderby_searcher, orderby)
+                main.order_by_desc(orderby_searcher, orderby)
             else:
-                searcher.order_by(orderby_searcher, orderby)
-
-        for (key, value) in self.form_values.items():
-            func = getattr(self, key, None)
-            func and func(value)
+                main.order_by(orderby_searcher, orderby)
 
     def remember_last(self):
         if cherrypy.session['options'].getboolean('search', 'remember last'):
@@ -256,20 +295,6 @@ class Searcher(object):
         else:
             return page.respond()
 
-    def name(self, name):
-        self.searchers['main'].set_name_like(name)
-
-    def description(self, description):
-        self.searchers['main'].set_description_like(description)
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
-            rows.append([utils.object_link(elm), elm.get_description(), str(edit)+str(remb)])
-        return rows
-
 class AccountSearcher(Searcher):
     headers = [
             ('Name', 'name'),
@@ -279,44 +304,48 @@ class AccountSearcher(Searcher):
             ('Actions', '')
         ]
 
-    def get_searcher(self):
-        return {'main': self.transaction.get_account_searcher()}
+    def get_searchers(self):
+        form = self.form_values
 
-    def expire_date(self, expire_date):
-        if not utils.legal_date(expire_date):
-            utils.queue_message("Date of birth is not a legal date.",error=True)
-            self.valid = False
-            return
-        date = self.transaction.get_commands().strptime(expire_date, "%Y-%m-%d")
-        self.searchers['main'].set_expire_date(date)
+        main = self.transaction.get_account_searcher()
+        main.join_name = ''
+        searchers = {'main': main}
 
-    def create_date(self, create_date):
-        if not utils.legal_date(create_date):
-            utils.queue_message("Date of birth is not a legal date.",error=True)
-            self.valid = False
-            return
-        date = self.transaction.get_commands().strptime(create_date, "%Y-%m-%d")
-        self.searchers['main'].set_create_date(date)
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
 
-    def description(self, description):
-        if not description.startswith('*'):
-            description = '*' + description
-        if not description.endswith('*'):
-            description += '*'
-        self.searchers['main'].set_description_like(description)
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
 
-    def spread(self, spread):
-        account_type = self.transaction.get_entity_type('account')
+        expire_date = form.get('expire_date', '').strip()
+        if expire_date:
+            date = utils.get_date(expire_date)
+            main.set_expire_date(date)
 
-        entityspread = self.transaction.get_entity_spread_searcher()
-        entityspread.set_entity_type(account_type)
+        create_date = form.get('create_date', '').strip()
+        if create_date:
+            date = utils.get_date(create_date)
+            main.set_create_date(date)
 
-        spreadsearcher = self.transaction.get_spread_searcher()
-        spreadsearcher.set_entity_type(account_type)
-        spreadsearcher.set_name_like(spread)
+        spread = form.get('spread', '').strip()
+        if spread:
+            spreadsearcher = self.transaction.get_spread_searcher()
+            account_type = self.transaction.get_entity_type('account')
+            spreadsearcher.set_entity_type(account_type)
+            spreadsearcher.set_name_like(spread)
+            spreadsearcher.join_name = ''
 
-        entityspread.add_join('spread', spreadsearcher, '')
-        self.searchers['main'].add_intersection('', entityspread, 'entity')
+            searcher = self.transaction.get_entity_spread_searcher()
+            searcher.set_entity_type(account_type)
+            searcher.join_name = 'entity'
+            searchers['spread'] = searcher
+
+            searcher.add_join('spread', spreadsearcher, spreadsearcher.join_name)
+            main.add_intersection(main.join_name, searcher, searcher.join_name)
+
+        return searchers
             
     def filter_rows(self, results):
         rows = []
@@ -330,100 +359,138 @@ class AccountSearcher(Searcher):
         return rows
 
 class PersonSearcher(Searcher):
+    """
+    BUGS: Currently, if you've filled in both Affiliations and Affiliation Type, you must
+          include another search term.
+    """
     headers = [
-        ('Name', 'last_name.name'),
-        ('Date of birth', 'birth_date'),
+        ('Name', 'name.name'),
+        ('Date of birth', 'person.birth_date'),
         ('Account(s)', ''),
         ('Affiliation(s)', ''),
         ('Actions', '')
     ]
 
-    def get_searcher(self):
-        variant = self.transaction.get_name_type('LAST')
-        source = self.transaction.get_source_system('Cached')
+    def get_searchers(self):
+        searchers = {}
 
-        main = self.transaction.get_person_searcher()
-        last_name = self.transaction.get_person_name_searcher()
-        last_name.set_name_variant(variant)
-        last_name.set_source_system(source)
-        last_name.join_name = 'person'
-        #main.add_left_join('', last_name, 'person')
-        return {'main': main,
-                'last_name': last_name}
+        form = self.form_values
+        main = None
 
-    def accountname(self, accountname):
-        searcher = self.transaction.get_account_searcher()
-        searcher.set_name_like(accountname)
-        self.searchers['main'].add_intersection('', searcher, 'owner')
-            
-    def birthdate(self, birthdate):
-        if not utils.legal_date( birthdate ):
-            utils.queue_message("Date of birth is not a legal date.",error=True)
-            self.valid = False
-            return
+        person = self.transaction.get_person_searcher()
+        person.join_name = ''
+        searchers['person'] = person
 
-        date = strptime(self.transaction, birthdate)
-        self.searchers['main'].set_birth_date(date)
+        birthdate = form.get('birthdate', '').strip()
+        if birthdate:
+            date = utils.get_date(birthdate)
+            person.set_birth_date(date)
+            main = person
 
-    def name(self, name):
-        name = name.replace(" ", "*")
-        name_searcher = self.transaction.get_person_name_searcher()
-        name_searcher.set_name_like(name)
-        name_searcher.set_name_variant(self.transaction.get_name_type('FULL'))
-        name_searcher.set_source_system(self.transaction.get_source_system('Cached'))
+        name = form.get('name', '').strip()
+        if name:
+            name = name.replace(" ", "*")
+            variant = self.transaction.get_name_type('FULL')
+            source = self.transaction.get_source_system('Cached')
+            searcher = self.transaction.get_person_name_searcher()
 
-        if len(self.form_values) == 1:
-            self.searchers['main'] = name_searcher
-        else:
-            self.searchers['main'].add_join('', name_searcher, 'person')
+            searcher.set_source_system(source)
+            searcher.set_name_variant(variant)
+            searcher.set_name_like(name)
+            searcher.join_name = 'person'
+            searchers['name'] = searcher
 
-    def spread(self, spread):
-        person_type = self.transaction.get_entity_type('person')
+            if not main:
+                main = searcher
+            else:
+                main.add_join(main.join_name, searcher, searcher.join_name)
 
-        searcher = self.transaction.get_entity_spread_searcher()
-        searcher.set_entity_type(person_type)
+        description = form.get('description', '').strip()
+        if description:
+            person.set_description_like("*%s*" % description)
 
-        spreadsearcher = self.transaction.get_spread_searcher()
-        spreadsearcher.set_entity_type(person_type)
-        spreadsearcher.set_name_like(spread)
+        ou = form.get('ou', '').strip()
+        if ou:
+            s_ou = self.transaction.get_ou_searcher()
+            s_ou.set_name_like(ou)
+            ous = s_ou.search()
 
-        searcher.add_join('spread', spreadsearcher, '')
-        self.searchers['main'].add_intersection('', searcher, 'entity')
+            if not ous:
+                utils.queue_message("Could not find OU (%s)" % ou, error=True)
+                self.valid = False
+            elif len(ous) > 1:
+                utils.queue_message("Found more than one OU (%s)" % ou,
+                        error=True)
+                self.valid = False
+            else:
+                ou = ous[0]
 
-    def ou(self, ou):
-        ousearcher = self.transaction.get_ou_searcher()
-        ousearcher.set_name_like(ou)
-        searcher = self.searchers.setdefault('aff_searcher',
-            self.transaction.get_person_affiliation_searcher())
-        searcher.add_join('ou', ousearcher, '')
-        self.searchers['main'].add_intersection('', searcher, 'person')
+                searcher = self.transaction.get_person_affiliation_searcher()
+                searcher.set_ou(ou)
+                searcher.join_name = 'person'
+                searchers['ou_searcher'] = searcher
 
-    def aff(self, aff):
-        affsearcher = self.transaction.get_person_affiliation_type_searcher()
-        affsearcher.set_name_like(aff)
-        searcher = self.searchers.setdefault('aff_searcher',
-            self.transaction.get_person_affiliation_searcher())
-        searcher.add_join('affiliation', affsearcher, '')
-        self.searchers['main'].add_intersection('', searcher, 'person')
+                if not main:
+                    main = searcher
+                else:
+                    main.add_intersection(main.join_name, searcher, searcher.join_name)
+
+        aff = form.get('aff', '').strip()
+        if aff:
+            s_aff = self.transaction.get_person_affiliation_type_searcher()
+            s_aff.set_name_like(aff)
+            affs = s_aff.search()
+
+            if not affs:
+                utils.queue_message(
+                        "Could not find affiliation type (%s)" % aff,
+                        error=True)
+                self.valid = False
+            elif len(affs) > 1:
+                utils.queue_message(
+                        "Found more than one affiliation type (%s)" % aff,
+                        error=True)
+                self.valid = False
+            else:
+                aff = affs[0]
+
+                searcher = searchers.get('ou_searcher') or \
+                    self.transaction.get_person_affiliation_searcher()
+                searcher.join_name = 'person'
+                searcher.set_affiliation(aff)
+
+                if not main:
+                    main = searcher
+                else:
+                    main.add_intersection(main.join_name, searcher, searcher.join_name)
+
+        if not main:
+            main = person
+
+        searchers['main'] = main
+        return searchers
 
     def filter_rows(self, results):
         rows = []
-        for elm in results:
-            if hasattr(elm, 'get_person'):
-                elm = elm.get_person()
+        for obj in results:
+            attr = self.searchers['main'].join_name
+            if attr:
+                pers = getattr(obj, 'get_' + attr)()
+            else:
+                pers = obj
 
             try:
-                date = utils.strftime(elm.get_birth_date())
-                affs = [str(utils.object_link(i.get_ou())) for i in elm.get_affiliations()[:3]]
+                date = utils.strftime(pers.get_birth_date())
+                affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
                 affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
             except SpineIDL.Errors.AccessDeniedError, e:
                 date = 'No Access'
                 affs = 'No Access'
-            accs = [str(utils.object_link(i)) for i in elm.get_accounts()[:3]]
+            accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class="action")
-            rows.append([utils.object_link(elm), date, accs, affs, str(edit)+str(remb)])
+            edit = utils.object_link(pers, text='edit', method='edit', _class='action')
+            remb = utils.remember_link(pers, _class="action")
+            rows.append([utils.object_link(pers), date, accs, affs, str(edit)+str(remb)])
         return rows
 
 class AllocationPeriodSearcher(Searcher):
@@ -432,13 +499,19 @@ class AllocationPeriodSearcher(Searcher):
                ('Actions', ''),
     )
 
-    def get_searcher(self):
-        return {'main': self.transaction.get_allocation_period_searcher()}
+    def get_searchers(self):
+        form = self.form_values
+        main = self.transaction.get_allocation_period_searcher()
+        searchers = {'main': main}
 
-    def allocationauthority(self, allocationauthority):
-        ## XXX need to fix pulldown search for allocation authority
-        ## FIXME: What does this mean?
-        self.searchers['main'].set_allocationauthority_like(allocationauthority)
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
+
+        authority = form.get('allocationauthority', '').strip()
+        if authority:
+            main.set_allocationauthority_like(authority)
+        return searchers
 
     def filter_rows(self, results):
         rows = []
@@ -458,14 +531,19 @@ class AllocationSearcher(Searcher):
         ('Actions', '')
     )
 
-    def get_searcher(self):
-        return self.transaction.get_allocation_searcher()
+    def get_searchers(self):
+        form = self.form_values
+        main = self.transaction.get_allocation_searcher()
+        searchers = {'main': main}
 
-    def allocation_name(self, allocation_name):
-        an_searcher = self.transaction.get_project_allocation_name_searcher()
-        an_searcher.set_name_like(allocation_name)
-        self.searchers['allocation_name'] = an_searcher
-        self.searchers['main'].add_join('allocation_name', an_searcher, '')
+        allocation_name = form.get('allocation_name', '').strip()
+        if allocation_name:
+            an_searcher = self.transaction.get_project_allocation_name_searcher()
+            an_searcher.set_name_like(allocation_name)
+            self.searchers['allocation_name'] = an_searcher
+            self.searchers['main'].add_join('allocation_name', an_searcher, '')
+
+        return searchers
 
     def filter_rows(self, results):
         rows = []
@@ -479,23 +557,29 @@ class AllocationSearcher(Searcher):
             machines = "(%s)" % ",".join(machines)
             rows.append([utils.object_link(elm), period, status, machines, str(edit)+str(remb)])
         return rows
-    #FIXME status
-    #FIXME period
 
 class DiskSearcher(Searcher):
     headers = (
-        ('Path', 'path'), ('Host', ''),
-        ('Description', 'description'), ('Actions', '')
+        ('Path', 'path'),
+        ('Host', ''),
+        ('Description', 'description'),
+        ('Actions', '')
     )
    
-    def get_searcher(self):
-        return {'main': self.transaction.get_disk_searcher()}
+    def get_searchers(self):
+        form = self.form_values
+        main = self.transaction.get_disk_searcher()
 
-    def path(self, path):
-        self.searchers['main'].set_path_like(path)
+        path = form.get('path', '').strip()
+        if path:
+            main.set_path_like(path)
 
-    def description(self, description):
-        self.searchers['main'].set_description_like(description)
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
+
+        return {'main': main}
+
 
     def filter_rows(self, results):
         rows = []
@@ -514,12 +598,19 @@ class EmailDomainSearcher(Searcher):
         ('Categories', '')
     )
 
-    def get_searcher(self):
-        return {'main': self.transaction.get_email_domain_searcher()}
+    def get_searchers(self):
+        form = self.form_values
+        main = self.transaction.get_email_domain_searcher()
 
-    def category(self, category):
-        # TODO
-        pass
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
+
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
+
+        return {'main': main}
 
     def filter_rows(self, results):
         rows = []
@@ -539,43 +630,81 @@ class GroupSearcher(Searcher):
         ('Actions', '')
     )
 
-    def get_searcher(self):
-        return {'main': self.transaction.get_group_searcher()}
+    def get_searchers(self):
+        form = self.form_values
+        main = self.transaction.get_group_searcher()
 
-    def gid_end(self, gid_end):
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
+
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
+
+        gid_end = form.get('gid_end', '').strip()
         if gid_end:
-            self.searchers['main'].set_posix_gid_less_than(int(gid_end))
+            if gid_end:
+                main.set_posix_gid_less_than(int(gid_end))
 
-    def gid_option(self, gid_option):
-        pass
+        gid = form.get('gid', '').strip()
+        if gid:
+            gid_option = self.form_values['gid_option']
+            if gid_option == "exact":
+                self.searchers['main'].set_posix_gid(int(gid))
+            elif gid_option == "above":
+                self.searchers['main'].set_posix_gid_more_than(int(gid))
+            elif gid_option == "below":
+                self.searchers['main'].set_posix_gid_less_than(int(gid))
+            elif gid_option == "range":
+                self.searchers['main'].set_posix_gid_more_than(int(gid))
+                
+        spread = form.get('spread', '').strip()
+        if spread:
+            group_type = self.transaction.get_entity_type('group')
 
-    def gid(self, gid):
-        gid_option = self.form_values['gid_option']
-        if gid_option == "exact":
-            self.searchers['main'].set_posix_gid(int(gid))
-        elif gid_option == "above":
-            self.searchers['main'].set_posix_gid_more_than(int(gid))
-        elif gid_option == "below":
-            self.searchers['main'].set_posix_gid_less_than(int(gid))
-        elif gid_option == "range":
-            self.searchers['main'].set_posix_gid_more_than(int(gid))
+            searcher = self.transaction.get_entity_spread_searcher()
+            searcher.set_entity_type(group_type)
+
+            spreadsearcher = self.transaction.get_spread_searcher()
+            spreadsearcher.set_entity_type(group_type)
+            spreadsearcher.set_name_like(spread) 
             
-    def spread(self, spread):
-        group_type = self.transaction.get_entity_type('group')
+            searcher.add_join('spread', spreadsearcher, '')
+            main.add_intersection('', searcher, 'entity')
 
-        searcher = self.transaction.get_entity_spread_searcher()
-        searcher.set_entity_type(group_type)
+        return {'main': main}
 
-        spreadsearcher = self.transaction.get_spread_searcher()
-        spreadsearcher.set_entity_type(group_type)
-        spreadsearcher.set_name_like(spread) 
-        
-        searcher.add_join('spread', spreadsearcher, '')
-        self.searchers['main'].add_intersection('', searcher, 'entity')
+    def filter_rows(self, results):
+        rows = []
+        for elm in results:
+            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            remb = utils.remember_link(elm, _class='action')
+            rows.append([utils.object_link(elm), elm.get_description(), str(edit)+str(remb)])
+        return rows
 
 class HostSearcher(Searcher):
-    def get_searcher(self):
-        return {'main': self.transaction.get_host_searcher()}
+    def get_searchers(self):
+        main = self.transaction.get_host_searcher()
+        form = self.form_values
+
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
+
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
+
+        return {'main': main}
+
+    def filter_rows(self, results):
+        rows = []
+        for elm in results:
+            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            remb = utils.remember_link(elm, _class='action')
+            rows.append([utils.object_link(elm), elm.get_description(), str(edit)+str(remb)])
+        return rows
 
 class OUSearcher(Searcher):
     headers = (
@@ -585,27 +714,41 @@ class OUSearcher(Searcher):
         ('Actions', '')
     )
 
-    def get_searcher(self):
-        return {'main': self.transaction.get_ou_searcher()}
-    
-    def acronym(self, acronym):
-        self.searchers['main'].set_acronym_like(acronym)
+    def get_searchers(self):
+        main = self.transaction.get_ou_searcher()
+        form = self.form_values
 
-    def short(self, short):
-        self.searchers['main'].set_short_name_like(short)
+        acronym = form.get('acronym', '').strip()
+        if acronym:
+            main.set_acronym_like(acronym)
+
+        short = form.get('short', '').strip()
+        if short:
+            main.set_short_name_like(short)
+            
+        spread = form.get('spread', '').strip()
+        if spread:
+            ou_type = self.transaction.get_entity_type('ou')
+
+            searcher = self.transaction.get_entity_spread_searcher()
+            searcher.set_entity_type(ou_type)
+
+            spreadsearcher = self.transaction.get_spread_searcher()
+            spreadsearcher.set_entity_type(ou_type)
+            spreadsearcher.set_name_like(spread)
+
+            searcher.add_join('spread', spreadsearcher, '')
+            main.add_intersection('', searcher, 'entity')
         
-    def spread(self, spread):
-        ou_type = self.transaction.get_entity_type('ou')
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
 
-        searcher = self.transaction.get_entity_spread_searcher()
-        searcher.set_entity_type(ou_type)
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
 
-        spreadsearcher = self.transaction.get_spread_searcher()
-        spreadsearcher.set_entity_type(ou_type)
-        spreadsearcher.set_name_like(spread)
-
-        searcher.add_join('spread', spreadsearcher, '')
-        self.searchers['main'].add_intersection('', searcher, 'entity')
+        return {'main': main}
     
     def filter_rows(self, results):
         rows = []
@@ -625,11 +768,23 @@ class ProjectSearcher(Searcher):
         ('Actions', '')
     )
 
-    def get_searcher(self):
-        return {'main': self.transaction.get_project_searcher()}
+    def get_searchers(self):
+        main = self.transaction.get_project_searcher()
+        form = self.form_values
+        
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
 
-    def title(self, title):
-        self.searchers['main'].set_title_like(title)
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
+
+        title = form.get('title', '').strip()
+        if title:
+            main.set_title_like(title)
+
+        return {'main': main}
 
     def filter_rows(self, results):
         rows = []
@@ -651,20 +806,33 @@ class PersonAffiliationsSearcher(Searcher):
 
     url = 'list_aff_persons'
 
-    def get_searcher(self):
-        return {'main': self.transaction.get_person_affiliation_searcher()}
+    def get_searchers(self):
+        main = self.transaction.get_person_affiliation_searcher()
+        form = self.form_values
 
-    def id(self, id):
-        try:
-            ou = self.transaction.get_ou(int(id))
-        except SpineIDL.Errors.NotFoundError, e:
-            self.valid = False
-        else:
-            self.searchers['main'].set_ou(ou)
+        name = form.get('name', '').strip()
+        if name:
+            main.set_name_like(name)
 
-    def source(self, source):
-        self.searchers['main'].set_source_system(
-                self.transaction.get_source_system(source))
+        description = form.get('description', '').strip()
+        if description:
+            main.set_description_like(description)
+
+        id = form.get('id', '').strip()
+        if id:
+            try:
+                ou = self.transaction.get_ou(int(id))
+            except SpineIDL.Errors.NotFoundError, e:
+                self.valid = False
+            else:
+                main.set_ou(ou)
+
+        source = form.get('source', '').strip()
+        if source:
+            main.set_source_system(
+                    self.transaction.get_source_system(source))
+
+        return {'main': main}
 
     def filter_rows(self, results):
         rows = []
@@ -680,9 +848,6 @@ class PersonAffiliationsSearcher(Searcher):
         return rows
 
 class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
-    def source(self, arg):
-        pass
-
     def search(self):
         """Executes the search and returns the result."""
         if not self.is_valid():
