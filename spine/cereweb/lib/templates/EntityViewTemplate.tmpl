@@ -53,7 +53,7 @@
     <h3>$_('Add a note')</h3>
     <form action="/note/add" method="post">
         <div class="hidden">
-            <input type="hidden" name="entity" value="$entity.get_id()" />
+            <input type="hidden" name="entity" value="$html_quote($entity.get_id())" />
         </div>
         <div class="required">
             <label for="subject">$_('Subject'):</label>
@@ -146,7 +146,7 @@
     <h3>$_('Set external identifier')</h3>
     <form action="/entity/add_external_id" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$entity.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($entity.get_id())" />
         </div>
         <div class="required">
             $form_widgets.input("external_id", "External identifier")
@@ -173,7 +173,7 @@
     #set $delete = '/entity/remove_spread?id=%s&amp;spread=%s' % ($id, $name)
     <div class="item">
         <div class="actions">
-            <a class="action" href="$delete">$_('remove')</a>
+            <a class="action" href="$html_quote($delete)">$_('remove')</a>
         </div>
         <span class="name">$html_quote($name)</span> -
         <span class="value">$html_quote($spread.get_description())</span>
@@ -194,7 +194,7 @@
         <h3>$_('Add a spread')</h3>
         <form action="/entity/add_spread" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$entity.get_id()" />
+                <input type="hidden" name="id" value="$html_quote($entity.get_id())" />
             </div>
             <div class="required">
                 $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
@@ -238,7 +238,7 @@
     <td>$strftime($trait.get_date())</td>
     <td>	
         <div class="actions">
-            <a class="action" href="$delete">$_('remove')</a>
+            <a class="action" href="$html_quote($delete)">$_('remove')</a>
         </div>
     </td>
     </tr>
