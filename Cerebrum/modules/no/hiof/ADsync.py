@@ -196,8 +196,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
-    
+
     def get_default_ou(self, change = None):
         #Returns default OU in AD.
-        return "OU=grupper,%s" % cereconf.AD_LDAP
+        return "OU=Grupper,%s" %  self.ad_ldap
+    
+    def fetch_ad_data(self):
+        return self.server.listObjects('group', True, self.get_default_ou())
 
