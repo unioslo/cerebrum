@@ -55,7 +55,7 @@ def parse_target(target_obj, t_id):
 
     target = {
         'id': t_id,
-        'type': target_obj.get_type().get_name(),
+        'type': target_obj.get_target_type().get_name(),
         'entity': object_link(target_obj.get_entity()),
         'object_type': 'email_target',
 	'name': "%s_email_target" % name,
