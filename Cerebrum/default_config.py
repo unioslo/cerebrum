@@ -265,11 +265,14 @@ BOFHD_MOTD_FILE=None
 BOFHD_NEW_USER_SPREADS=[]
 BOFHD_NEW_GROUP_SPREADS=[]
 # maximum number of rows returned from person_find
-BOFH_MAX_MATCHES = 250
+BOFHD_MAX_MATCHES = 250
 BOFHD_CHECK_DISK_SPREAD=None
 BOFHD_CLIENTS = {'jbofh': '0.0.3'}
 # Max number of seconds a client can have a socket stuck in recv/send
 BOFHD_CLIENT_SOCKET_TIMEOUT=None
+# authoritative source system (typically administrative
+# systems/registers used by an organization)
+BOFHD_AUTH_SYSTEMS = ("system_manual",)
 # Directory for templates
 TEMPLATE_DIR=None
 
