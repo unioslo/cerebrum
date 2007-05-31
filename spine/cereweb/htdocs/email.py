@@ -251,7 +251,7 @@ make_target.exposed = True
 def remove_target(transaction, entity, target):
     entity = transaction.get_entity(int(entity))
     target = transaction.get_email_target(int(target))
-    type = target.get_type().get_name()
+    type = target.get_target_type()
     try:
         primary = target.get_primary_address()
     except NotFoundError, e:
