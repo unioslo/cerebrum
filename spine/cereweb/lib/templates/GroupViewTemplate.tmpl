@@ -27,7 +27,7 @@
 #attr $email_template = EmailTargetTemplate()
 
 #def viewActions($transaction, $group)
-    #set $id = $group.get_id()
+    #set $id = $html_quote($group.get_id())
     <ul>
         <li><a href="/group/edit?id=$id">$_("edit info")</a></li>
         <li><a href="/group/delete?id=$id">$_("delete group")</a></li>
@@ -84,7 +84,7 @@ $widgets.viewInfo($info)
     <h3>$_('Add member')</h3>
     <form action="add_member" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$group.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($group.get_id())" />
         </div>
         <div class="required">
             $form_widgets.input('name', 'Member name', $klass="ac_account")
@@ -113,7 +113,7 @@ $widgets.viewInfo($info)
         <h3>$_('Join group')</h3>
         <form action="/group/join_group" method="post">
             <div class="hidden">
-                <input type="hidden" name="entity" value="$entity.get_id()" />
+                <input type="hidden" name="entity" value="$html_quote($entity.get_id())" />
             </div>
             <div class="required">
                 $form_widgets.input('name', 'Group name', $klass="ac_group")
@@ -171,7 +171,7 @@ $widgets.viewInfo($info)
                 #end if
             </td>
             <td>
-                #set $url="/group/remove_member?groupid=%s&amp;memberid=%s" % ($group.get_id(), $member.get_id())
+                #set $url=$html_quote("/group/remove_member?groupid=%s&amp;memberid=%s" % ($group.get_id(), $member.get_id()))
                 <a href=$url>Remove member</a>
             </td>
         </tr>
@@ -216,7 +216,7 @@ $widgets.viewInfo($info)
                 #set $disabled = 'disabled="disabled" '
             #end if
             
-            #set $name = "member_%s_%s" % ($account.get_id(), $group.get_id())
+            #set $name = $html_quote("member_%s_%s" % ($account.get_id(), $group.get_id()))
             <input type="checkbox" name="$name" $disabled/>
             <em>$_($header):</em> $html_quote($group_name)
             $object_link($group, "view", _class="action")
