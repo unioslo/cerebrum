@@ -33,6 +33,10 @@ Usage: [options]
 Example:
   ad_fullsync.py --url http://172.16.30.128:4321 --user_spread 'account@ad_fag' -m \\
     Cerebrum.modules.no.hiof.ADsync/ADFullUserSync
+
+  ad_fullsync.py --url https://dc-hiof-test.uio.no:8000 --group_spread 'group@ad_stud' \\
+  --ad-ldap 'DC=test,DC=hiof,DC=no' -m Cerebrum.modules.no.hiof.ADsync/ADFullGroupSync \\
+  --logger-level DEBUG --logger-name console
 """
 
 import getopt
@@ -50,16 +54,20 @@ ac = Utils.Factory.get('Account')(db)
 
 logger = Utils.Factory.get_logger("cronjob")
 
-def fullsync(user_class_ref, url, spread, sync_type='user', dryrun=False,
-             delete_objects=False, ad_ldap=None):
-    disk_spread = spread
-
+def fullsync(user_class_ref, url, user_spread=None, group_spread=None,
+             dryrun=False, delete_objects=False, ad_ldap=None):
     # Get module and glass name, and use getattr to get a class object.
     modname, classname = user_class_ref.split("/")
     sync_class = getattr(Utils.dyn_import(modname), classname)
+    # Group or user sync?
+    sync_type='user'
+    spread=user_spread
+    if group_spread:
+        sync_type = 'group'
+        spread=group_spread
     # instantiate sync_class and call full_sync
     sync_class(db, co, logger, url=url, ad_ldap=ad_ldap).full_sync(
-        sync_type, delete_objects, spread, dryrun, disk_spread)
+        sync_type, delete_objects, spread, dryrun, user_spread)
 
 def main():
     try:
@@ -90,14 +98,9 @@ def main():
             group_spread = _SpreadCode(val)
     if not opts:
         usage(1)
-
-    if user_spread:
-        fullsync(ad_mod, url, user_spread, sync_type='user',
-                 dryrun=dryrun, ad_ldap=ad_ldap)
-    elif group_spread:
-        fullsync(ad_mod, url, group_spread, sync_type='group',
-                 dryrun=dryrun, ad_ldap=ad_ldap)
-
+        
+    fullsync(ad_mod, url, user_spread, group_spread, dryrun=dryrun,
+             ad_ldap=ad_ldap)
 
 def usage(exitcode=0):
     print __doc__
