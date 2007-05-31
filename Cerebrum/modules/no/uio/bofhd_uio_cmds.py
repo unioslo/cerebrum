@@ -4647,7 +4647,7 @@ class BofhdExtension(object):
             if (aff == self.const.affiliation_ansatt or
                 aff == self.const.affiliation_student):
                 raise PermissionDenied(
-                    "Student/Ansatt affiliation can only be set by FS/LT")
+                    "Student/Ansatt affiliation can only be set by automatic import routines")
             person.add_affiliation(ou.entity_id, aff,
                                    self.const.system_manual, aff_status)
             person.write_db()
@@ -4678,15 +4678,20 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
         aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
+        auth_systems = []
+        for as in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp=getattr(self.const, as)
+            auth_systems.append(int(tmp))
         self.ba.can_remove_affiliation(operator.get_entity_id(), person, ou, aff)
         for row in person.list_affiliations(person_id=person.entity_id,
                                             affiliation=aff):
             if row['ou_id'] != int(ou.entity_id):
                 continue
-            if int(row['source_system']) not \
-                   in [int(self.const.system_fs), int(self.const.system_lt)]:
+            if not int(row['source_system']) in auth_systems:
                 person.delete_affiliation(ou.entity_id, aff,
                                           row['source_system'])
+            else:
+                raise CerebrumError("Cannot remove affiliation registered from an authoritative source system")
         return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou), person.entity_id)
 
     # person set_bdate
@@ -5940,8 +5945,13 @@ class BofhdExtension(object):
             grp = self._get_group(account.owner_id, idtype='id')
             ret['owner_desc'] = grp.group_name
 
-        ret['home']=account.resolve_homedir(disk_id=tmp['disk_id'],
-                                            home=tmp['home'])
+        # home is not mandatory for some of the instances that "copy"
+        # this user_info-method
+        if tmp['disk_id'] or tmp['home']:
+            ret['home'] = account.resolve_homedir(disk_id=tmp['disk_id'],
+                                                  home=tmp['home'])
+        else:
+            ret['home'] = None
         if is_posix:
             group = self._get_group(account.gid_id, idtype='id', grtype='PosixGroup')
             ret['uid'] = account.posix_uid
