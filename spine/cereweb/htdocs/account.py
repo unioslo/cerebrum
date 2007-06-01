@@ -117,7 +117,8 @@ def make(transaction, owner, name, expire_date="", np_type=None,
     else:
         expire_date = commands.strptime(expire_date, "%Y-%m-%d")
     if np_type:
-        assert owner.get_type().get_name() == 'group'
+        #assert owner.get_type().get_name() == 'group'
+        assert owner.get_typestr() == 'group'
         np_type = transaction.get_account_type(np_type)
         account = owner.create_account(name, np_type, expire_date)
     else:
@@ -125,7 +126,7 @@ def make(transaction, owner, name, expire_date="", np_type=None,
             account = owner.create_account(name, expire_date)
         except IntegrityError, e:
             rollback_url(referer, 'Could not create account,- possibly identical usernames.', err=True)
-    if join and owner.get_type().get_name() == "group":
+    if join and owner.get_typestr() == "group":
         operation = transaction.get_group_member_operation_type("union")
         owner.add_member(account, operation)
 
