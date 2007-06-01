@@ -18,7 +18,7 @@
 ##
 #import cherrypy
 #from lib.InitTemplate import InitTemplate
-#from lib.utils import format_title, get_tabs
+#from lib.utils import format_title, get_tabs, html_quote
 #extends InitTemplate
 #implements respond
 ##
@@ -114,7 +114,7 @@
                 #end for
             </div>
             <div id="title">
-                <h1>$title</h1>
+                <h1>$html_quote($title)</h1>
             </div>
             $actions()
             <div id="content">
