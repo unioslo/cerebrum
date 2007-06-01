@@ -45,7 +45,7 @@ class AccountNMHMixin(Account.Account):
         self.__super.populate(name, owner_type, owner_id, np_type, creator_id,
                               expire_date)
         # register "primary" e-mail address as entity_contact
-        c_val = name + '@nmh.uio.no'
+        c_val = name + '@nmh.no'
         desc = "E-mail address exported to LDAP"
         self.populate_contact_info(self.const.system_cached,
                                    type=self.const.contact_email,
