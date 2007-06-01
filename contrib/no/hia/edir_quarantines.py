@@ -29,6 +29,9 @@ import sys, os, getopt, time, string, pickle, re, ldap, ldif
 
 import cerebrum_path
 import cereconf
+
+from mx import DateTime
+
 from Cerebrum import Constants
 from Cerebrum.modules.no.hia import EdirUtils
 from Cerebrum.modules.no.hia import EdirLDAP
@@ -38,7 +41,15 @@ from Cerebrum import Entity
 from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
+from Cerebrum import QuarantineHandler
 
+def check_quarantine(account):
+    now = DateTime.now()
+    for q in account.get_entity_quarantine():
+        if q['start_date'] <= now or (q['disable_until'] is not None and q['disable_until'] <= now):
+            return True
+    return False
+        
 def main():
     global db, constants
     global edir_util, logger
@@ -93,7 +104,10 @@ def main():
                 except Errors.NotFoundError:
                     logger.error('No such account %s!', event['subject_entity'])
                     continue
-                edir_util.account_set_quarantine(account.account_name)
+                if check_quarantine(account):
+                    edir_util.account_set_quarantine(account.account_name)
+                else:
+                    logger.info("Skipping inactive quarantine for %s", account.account_name)
                 cl_handler.confirm_event(event)
     except TypeError, e:
         logger.warn("No such event, %s" % e)
