@@ -20,6 +20,7 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from types import StringTypes
+#from lib.utils import html_quote
 
 ## Creates a drop-down option list where 'selected' is preselected.
 #def generate_option($name, $types, $selected=None, $id=None)
@@ -32,7 +33,7 @@
         #if $selected==$name
             #set $is_selected = ' selected="selected"'
         #end if
-        <option$is_selected value="$name">$cgi.escape($desc)</option>
+        <option$is_selected value="$html_quote($name)">$html_quote($desc)</option>
     #end for
     </select>
 #end def
