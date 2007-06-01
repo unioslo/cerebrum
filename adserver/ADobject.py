@@ -217,6 +217,56 @@ class ADObject(object):
 		return (True,'createObject %s%s,%s' % (typePrefix, Name, OU))
 
 
+	def getObjectProperties(self, properties):
+		"""Fetch a list of specified properties from a AD Object"""
+
+		retur = self.checkObject('getObjectProperties')
+		if not retur[0]: 
+			return retur
+
+		accprop = {}
+
+		for attr in properties:
+			try:
+				accprop[attr] = self.Object.Get(attr)
+			except pythoncom.com_error:
+				accprop[attr] = False
+
+ 		logging.debug("getObjectProperties:\n%s" % accprop)
+		return (True, accprop)
+
+
+	def setObjectProperties(self, accprop):
+		"""Sets a dict of properties on an ADobject"""
+
+		ADS_PROPERTY_CLEAR = 1
+		ADS_PROPERTY_UPDATE = 2
+		ADS_PROPERTY_APPEND = 3
+		ADS_PROPERTY_DELETE = 4
+
+		retur = self.checkObject('putObjectProperties')
+		if not retur[0]: 
+			return retur
+
+		for attr in accprop:
+			try:
+				logging.debug('putProperty %s %s for %s' % \
+					(attr, accprop[attr], self.distinguishedName))
+				if accprop[attr] == "":
+					self.Object.PutEx(ADS_PROPERTY_CLEAR, prop, 0)
+				elif type(accprop[attr]) == list:
+					self.Object.PutEx(ADS_PROPERTY_UPDATE,\
+					attr, accprop[attr])
+				else:
+					self.Object.Put(attr, accprop[attr])
+			except pythoncom.com_error:
+				return self._log_exception('warn','setProperty %s=%s' % \
+				(attr,accprop[attr]))
+
+			logging.debug('putObjectProperty %s=%s for %s' % \
+					(attr,accprop[attr],self.distinguishedName))
+						
+		return (True, "putObjectProperty %s" % self.distinguishedName)
 
 
 
