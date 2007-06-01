@@ -220,6 +220,9 @@ class ADgroupUtil(ADutil):
                 if not res[0]:
                     self.logger.debug("syncMembers %s failed for:%r" %
                                       (dn, res[1:]))
+                # Sync description
+                self.server.setObjectProperties({'Description':grp_desc})
+                self.server.setObject()
 
 
     def compare(self, delete_groups, cerebrumgrp, adgrp):
