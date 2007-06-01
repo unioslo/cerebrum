@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #extends EntityViewTemplate
-#from lib.utils import object_link, html_quote, remember_link
+#from lib.utils import object_link, html_quote, remember_link, html_quote
 #from SpineIDL.Errors import NotFoundError
 #from Widgets import Widgets
 
@@ -26,11 +26,11 @@
 #def viewActions($transaction, $ou)
     #set $id = $ou.get_id()
     <ul>
-        <li><a href="edit?id=$id">$_("edit info")</a></li>
-        <li><a href="delete?id=$id">$_("delete ou")</a></li>
-        <li><a href="list_aff_persons?id=$id">$_("list affiliated persons")</a></li>
-        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
-        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a></li>
+        <li><a href="edit?id=$html_quote($id)">$_("edit info")</a></li>
+        <li><a href="delete?id=$html_quote($id)">$_("delete ou")</a></li>
+        <li><a href="list_aff_persons?id=$html_quote($id)">$_("list affiliated persons")</a></li>
+        <li><a href="/quarantine/add?entity=$html_quote($id)">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$html_quote($id)">$_('view full history log')</a></li>
         <li>$remember_link($ou)</li>
     </ul>
 #end def
@@ -113,7 +113,7 @@
         <h3 id="search">$_('Search affiliated persons')</h3>
         <form action="/ou/perform_search" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$ou.get_id()" />
+                <input type="hidden" name="id" value="$html_quote($ou.get_id())" />
             </div>
             <div class="required">
                 $form_widgets.generate_loption("source", "Perspective", $sources)
