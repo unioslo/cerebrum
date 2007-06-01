@@ -179,7 +179,6 @@ class ADgroupUtil(ADutil):
     def fetch_cerebrum_data(self, spread):
         return self.group.search(spread)
 
-
     def fetch_ad_data(self):
         return self.server.listObjects('group', True)
 
@@ -190,8 +189,8 @@ class ADgroupUtil(ADutil):
 
         for (grp_id, grp_name, grp_desc) in cerebrumgroups:
             #Only interested in union members(believe this is only type in use)
-
             grp_name = unicode(grp_name, 'ISO-8859-1')
+            self.logger.debug("Sync group (%s, %s)" % (grp_id, grp_name))            
             self.group.clear()
             self.group.find(grp_id)              
             user_memb = self.group.list_members(
@@ -199,15 +198,16 @@ class ADgroupUtil(ADutil):
             group_memb = self.group.list_members(
                 spread=group_spread, get_entity_name=True)
             members = []
-            for usr in user_memb[0]:
             #TODO: How to treat quarantined users???, some exist in AD, 
             #others do not. They generate errors when not in AD. We still
             #want to update group membership if in AD.
-
+            for usr in user_memb[0]:
                 members.append(usr[2])
+                self.logger.debug("Try to sync member account: %s" % usr[2])
 
             for grp in group_memb[0]:
                 members.append('%s%s' % (grp[2],cereconf.AD_GROUP_POSTFIX))
+                self.logger.debug("Try to sync member group: %s" % grp[2])
     
             dn = self.server.findObject('%s%s' % \
                                    (grp_name, cereconf.AD_GROUP_POSTFIX))
