@@ -4,6 +4,7 @@ import java.rmi.RemoteException;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Properties;
 
 import no.uio.ephorte.data.Person;
 import no.uio.ephorte.data.PersonRolle;
@@ -31,12 +32,13 @@ public class EphorteGW {
         this(null);
     }
 
-    public EphorteGW(String url) {
+    public EphorteGW(Properties props) {
         brukerId2Person = new Hashtable<String, Person>();
         if (USE_DEBUG_CONNECTION) {
             conn = new EporteConnectionTest();
         } else {
-            conn = new EphorteConnectionImpl(url);
+            conn = new EphorteConnectionImpl(props.getProperty("url"), props.getProperty("uname"),
+                    props.getProperty("password"), props.getProperty("database"));
         }
         try {
             fetchPersons();

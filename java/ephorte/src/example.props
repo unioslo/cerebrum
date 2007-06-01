@@ -1,0 +1,4 @@
+url=https://myserver.mydom.no/uio/shared/WebServices/Services.asmx
+uname=admin
+password=admin
+database=mydb

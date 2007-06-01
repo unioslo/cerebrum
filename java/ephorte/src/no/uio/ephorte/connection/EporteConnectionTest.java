@@ -33,7 +33,7 @@ import org.xml.sax.SAXException;
 public class EporteConnectionTest extends EphorteConnection {
     DocumentBuilderFactory factory;
 
-    protected void connect() {
+    public EporteConnectionTest() {
         factory = DocumentBuilderFactory.newInstance();
     }
 

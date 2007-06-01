@@ -1,6 +1,8 @@
 package no.uio.ephorte;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Properties;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -15,7 +17,7 @@ public class ImportEphorteXML {
         System.out.println("Usage: import [options]\n"+
                 "This script can be used to import data to ePhorte.\n\n"+
                 "  -i fname : import specified filename\n"+
-                "  -u url : Alternative WebService URL\n"
+                "  -p fname : property filename (see example.props)\n"
                 );
         System.exit(1);
     }
@@ -29,21 +31,26 @@ public class ImportEphorteXML {
     public static void main(String[] args) throws SAXException, IOException,
             ParserConfigurationException {
         String fname = "/tmp/ephorte.xml";
-        String url = null;
+        Properties props = null;
         
         if(args.length < 2) usage();
         for (int i = 0; i < args.length; i++) {
             String cmd = args[i];
             String val=args[++i];
-            if(cmd.equals("-u")) {
-                url = val;
+            if(cmd.equals("-p")) {
+                props = new Properties();
+                props.load(new FileInputStream(val));
             } else if (cmd.equals("-i")) {
                 fname = val;
             } else {
                 usage();
             }
         }
-        EphorteGW ephorteGW = url == null ? new EphorteGW() : new EphorteGW(url);
+        if(props == null) {
+            System.err.println("-p required");
+            System.exit(1);
+        }
+        EphorteGW ephorteGW = new EphorteGW(props);
         CustomXMLParser cp = new CustomXMLParser(fname);
         for (Person p : cp.getPersons()) {
             ephorteGW.updatePersonInfo(p);

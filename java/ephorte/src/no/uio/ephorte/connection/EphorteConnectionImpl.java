@@ -18,13 +18,12 @@ import org.w3c.dom.NodeList;
 public class EphorteConnectionImpl extends EphorteConnection {
     String sessionID;
     ServicesSoap service;
-    String url;
-
-    public EphorteConnectionImpl(String url) {
-        this.url = url;
+    
+    public EphorteConnectionImpl(String url, String userName, String passWord, String dataBase) {
+        connect(url, userName, passWord, dataBase);
     }
 
-    protected void connect() {
+    protected void connect(String url, String userName, String passWord, String dataBase) {
         ServicesLocator locator = new ServicesLocator();
         try {
             if(url == null) {
@@ -32,7 +31,7 @@ public class EphorteConnectionImpl extends EphorteConnection {
             } else {
                 service = locator.getServicesSoap(new java.net.URL(url));
             }
-            sessionID = service.login("ephsys", "ephsys", "", "UioTest", null);
+            sessionID = service.login(userName, passWord, "", dataBase, null);
         } catch (ServiceException e) {
             e.printStackTrace();
             System.exit(1);
