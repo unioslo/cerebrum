@@ -56,7 +56,7 @@ class HiAStudent(access_FS.Student):
           sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
           """ % (extra, self._is_alive())
-        return self.db.query(qry)
+        return self.db.query(qry, locals())
     
     def list_aktiv_deprecated(self):
 	""" Hent opplysninger om studenter definert som aktive 
