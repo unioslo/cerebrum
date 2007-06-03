@@ -22,7 +22,7 @@
 """
 This file is part of the Cerebrum framework.
 
-It generates an XML dump, suitable for importing into the FRIDA project (for
+It generates an XML file, suitable for importing into the FRIDA project (for
 more information on FRIDA, start at <URL:
 http://www.usit.uio.no/prosjekter/frida/pg/>). The output format is specified
 in:

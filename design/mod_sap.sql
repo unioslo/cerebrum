@@ -98,7 +98,7 @@ CREATE TABLE sap_utvalg
 
 /* sap_permisjon -- codes describing leaves of absence */
 category:code;
-CREATE TAble sap_permisjon
+CREATE TABLE sap_permisjon
 (
 	code		NUMERIC(6,0)
 			NOT NULL

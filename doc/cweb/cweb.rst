@@ -8,7 +8,7 @@ CWEB framework in Cerebrum
 
 Introduction
 =============
-This documents describes the user management framework CWEB in some of the
+This document describes the user management framework CWEB in some of the
 Cerebrum [#cerebrum]_ installations.
 
 Today, 2007-03-14, Cerebrum offers essentially three user management
