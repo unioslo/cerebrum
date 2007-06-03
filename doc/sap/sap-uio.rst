@@ -12,7 +12,7 @@ Introduction
 This document describes data processing for the SAP-originated data at the
 University of Oslo. The main goal is to provide an overall description of the
 data exchanged, the jobs involved, the representation of data in-memory, and
-so forth. 
+so forth.
 
 At UiO, SAP provides the employee data, which is used to populate Cerebrum
 with information ranging from names to affiliations, specific e-mail domains,
@@ -68,23 +68,29 @@ The jobs involved
 
 Works with either input source:
 
- ------------------------------  -----------------------------------------------
- ``import_OU.py``                Importing OU-data/structure.
- ``import_HR_person.py``         Importing employee data.
- ``update_employee_groups.py``   Group updates for groups "uio-tils"/"uio-ans". 
- ``generate_frida_export.py``	 Export information to the FRIDA system.
- ``dump_to_UA.py``               Export information to the access control
-                                 system (keycards).
- ------------------------------  -----------------------------------------------
+ +-------------------------------+--------------------------------------------+
+ | ``import_OU.py``              | Importing OU-data/structure.               |
+ +-------------------------------+--------------------------------------------+
+ | ``import_HR_person.py``       | Importing employee data.                   |
+ +-------------------------------+--------------------------------------------+
+ | ``update_employee_groups.py`` | Group updates for groups                   |
+ |                               | "uio-tils"/"uio-ans".                      |
+ +-------------------------------+--------------------------------------------+
+ | ``generate_frida_export.py``	 | Export information to the FRIDA system.    |
+ +-------------------------------+--------------------------------------------+
+ | ``dump_to_UA.py``             | Export information to the access control   |
+ |                               | system (keycards).                         |
+ +-------------------------------+--------------------------------------------+
 
 Works with LT only:
 
- ------------------------------  -----------------------------------------------
- ``fnr_update.py``               Updating fnr information from LT. This does
-                                 not exist for SAP (it is unclear how SAP plans
-				 to maintain the fnr-changes).
- ``quota_update.py``             Printer quota information.
- ------------------------------  -----------------------------------------------
+ +---------------------+------------------------------------------------------+
+ | ``fnr_update.py``   | Updating fnr information from LT. This does not exist| 
+ |                     | for SAP (it is unclear how SAP plans to maintain the |
+ |                     | fnr-changes).                                        |
+ +---------------------+------------------------------------------------------+
+ | ``quota_update.py`` | Printer quota information.                           |
+ +---------------------+------------------------------------------------------+
 
 
 SAP data files 
