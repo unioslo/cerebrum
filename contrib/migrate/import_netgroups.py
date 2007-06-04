@@ -51,6 +51,7 @@ import string
 import getopt
 import sys
 import time
+from sets import Set
 
 import cerebrum_path
 import cereconf
@@ -63,7 +64,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
 
 
-valid_groupname_chars = string.ascii_letters + string.digits + '-_.'
+valid_groupname_chars = string.ascii_letters + string.digits + '-_. '
 unknown_entities = {}
 
 db = Factory.get('Database')()
@@ -111,11 +112,19 @@ def read_filelines(infile):
         if current_group['name'] == "":
             logger.error("Empty groupname in line '%s'. Skipping" % line)
             continue
-        for char in current_group['name']:
-            if char not in valid_groupname_chars:
-                logger.error("Invalid character '%s' found in groupname '%s'. Skipping" %
-                             (char, current_group['name']))
-                continue
+        if not Set(current_group['name']).issubset(Set(valid_groupname_chars)):
+            logger.error("Invalid character found in groupname '%s'. Skipping" %
+                         current_group['name'])
+            continue
+        # White space is allowed, but not in the start or end of the
+        # name. 2 or more whitespce is also a problem because of LDAP
+        if (current_group['name'].startswith(' ') or
+            current_group['name'].endswith(' ') or
+            current_group['name'].count('  ')) > 0:
+            logger.error("Group name cannot start or end with <space>, " +
+                         "or have 2 or more contiguous spaces. " +
+                         "Skipping group '%s'" % current_group['name'])
+            continue
 
         group_data.append(current_group)
 
