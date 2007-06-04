@@ -46,10 +46,10 @@
 ## View information about host (name and description).
 #def viewInfo($project)
     #set $info = []
-    $info.append(($_("Title"), $project.get_title()))
-    $info.append(($_("Description"), $project.get_description()))
+    $info.append(($_("Title"), $html_quote($project.get_title())))
+    $info.append(($_("Description"), $html_quote($project.get_description())))
     $info.append(($_("Owner"), $object_link($project.get_owner())))
-    $info.append(($_("Science"), $project.get_science().get_description()))
+    $info.append(($_("Science"), $html_quote($project.get_science().get_description())))
     $widgets.viewInfo($info)
 #end def
 

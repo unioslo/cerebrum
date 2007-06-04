@@ -61,7 +61,7 @@
         $notice.append($_("Deceased"))
         $info.append(($_("Deceased date"), $strftime($person.get_deceased_date())))
     #end if
-    $info.append(($_("Gender"), $person.get_gender().get_description()))
+    $info.append(($_("Gender"), $html_quote($person.get_gender().get_description())))
     $info.append(($_("Date of birth"), $strftime($person.get_birth_date())))
     $info.append(($_("Description"), $html_quote($person.get_description())))
     $widgets.viewInfo($info, $notice)

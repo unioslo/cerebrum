@@ -23,7 +23,7 @@
 #attr $widgets = Widgets()
 
 #def viewActions($transaction, $allocation)
-    #set $id = $urlencode($allocation.get_id())
+    #set $id = $html_quote($allocation.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete allocation")</a></li>

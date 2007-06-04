@@ -24,13 +24,13 @@
 #attr $widgets = Widgets()
 
 #def viewActions($transaction, $ou)
-    #set $id = $ou.get_id()
+    #set $id = $html_quote($ou.get_id())
     <ul>
-        <li><a href="edit?id=$html_quote($id)">$_("edit info")</a></li>
-        <li><a href="delete?id=$html_quote($id)">$_("delete ou")</a></li>
-        <li><a href="list_aff_persons?id=$html_quote($id)">$_("list affiliated persons")</a></li>
-        <li><a href="/quarantine/add?entity=$html_quote($id)">$_('add quarantine')</a></li>
-        <li><a href="/entity/full_historylog?id=$html_quote($id)">$_('view full history log')</a></li>
+        <li><a href="edit?id=$id">$_("edit info")</a></li>
+        <li><a href="delete?id=$id">$_("delete ou")</a></li>
+        <li><a href="list_aff_persons?id=$id">$_("list affiliated persons")</a></li>
+        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a></li>
         <li>$remember_link($ou)</li>
     </ul>
 #end def

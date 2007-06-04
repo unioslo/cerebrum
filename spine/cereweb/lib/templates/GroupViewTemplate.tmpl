@@ -67,9 +67,9 @@
 
 #def viewInfo($group)
 #set $info = []
-$info.append(($_('Name'), $group.get_name()))
+$info.append(($_('Name'), $html_quote($group.get_name())))
 #if $group.is_posix()
-    $info.append(($_('Gid'), $group.get_posix_gid()))
+    $info.append(($_('Gid'), $html_quote($group.get_posix_gid())))
 #end if
 $info.append(($_('Created'), $strftime($group.get_create_date())))
 $info.append(($_('Expire date'), $strftime($group.get_expire_date())))
