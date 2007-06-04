@@ -3,7 +3,7 @@ from SpineLib.Builder import Attribute, Builder
 from SpineLib.DatabaseClass import DatabaseTransactionClass
 from SpineLib.Date import Date
 from SpineLib import Registry
-from Types import Spread, OUPerspectiveType, AuthenticationType
+from Types import Spread, OUPerspectiveType, AuthenticationType, SourceSystem
 registry = Registry.get_registry()
 
 import sets
@@ -470,6 +470,10 @@ class View(DatabaseTransactionClass):
         self.query_data["changelog_id"]=id
     set_changelog.signature=None
     set_changelog.signature_args=[int]
+    def set_source_system(self, source):
+        self.query_data["source_system"]=source
+    set_source_system.signature=None
+    set_source_system.signature_args=[SourceSystem]
     
     
 
