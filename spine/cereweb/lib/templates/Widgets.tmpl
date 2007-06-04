@@ -68,7 +68,7 @@
     <tr>
         #for $col in $row
         <td>
-            $html_quote($col)
+            $col
         </td>
         #end for
     </tr>
@@ -97,7 +97,7 @@
         #else
         <tr class="even">
         #end if
-            <td class="name">$html_quote($name)</td>
+            <td class="name">$name</td>
             <td class="value">$value</td>
         </tr>
     #end for

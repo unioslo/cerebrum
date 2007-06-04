@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, remember_link
+#from lib.utils import object_link, remember_link, html_quote
 #extends EntityViewTemplate
 
 #from FormWidgets import FormWidgets
@@ -26,9 +26,9 @@
 #attr $formvalues = {}
 
 #def actions()
-    <a href="edit?id=$entity_id">$_("edit info")</a><br />
-    <a href="delete?id=$entity_id">$_("delete project")</a><br />
-    <a href="/entity/full_historylog?id=$entity_id">$_('view full history log')</a>
+    <a href="edit?id=$html_quote($entity_id)">$_("edit info")</a><br />
+    <a href="delete?id=$html_quote($entity_id)">$_("delete project")</a><br />
+    <a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a>
     <br />
     $remember_link($entity)<br />
 #end def
@@ -62,8 +62,8 @@
     <ul>
     #for $allocationname in $allallocationnames
 	#set aname = $allocationname.get_name()
-	#set delete_aname = "remove_allocation_name?id=%i&amp;allocation_name=%s" % ( $project_id, $aname )
-	#set create_allocation = "/allocation/create?project=%i&amp;allocation_name=%s" % ( $project_id, $aname )
+	#set delete_aname = $html_quote("remove_allocation_name?id=%i&amp;allocation_name=%s" % ( $project_id, $aname ))
+	#set create_allocation = $html_quote("/allocation/create?project=%i&amp;allocation_name=%s" % ( $project_id, $aname ))
        <li> $aname
             <a href="$delete_aname">[Delete]</a>
             <a href="$create_allocation">[create allocation]</a>
@@ -95,7 +95,7 @@
         <form action="/project/add_allocation_name" method="post">
             <h3>$_('Add allocation name')</h3>
             <div class="hidden">
-                <input type="hidden" name="id" value="$project.get_id()"/>
+                <input type="hidden" name="id" value="$html_quote($project.get_id())"/>
             </div>
             <div class="required">
                 $form_widgets.input("allocation_name", "Allocation Name")

@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, html_quote, remember_link
+#from lib.utils import object_link, html_quote, remember_link, html_quote
 #from Widgets import Widgets
 #extends EntityViewTemplate
 #from FormWidgets import FormWidgets
@@ -31,11 +31,11 @@
 #def actions()
 <div id="actions">
     <h3>$_("Actions")</h3>
-    <a href="edit?id=$entity_id">$_("edit info")</a><br />
-    <a href="delete?id=$entity_id">$_("delete host")</a><br />
-    <a href="/entity/full_historylog?id=$entity_id">$_('view full history log')</a><br />
+    <a href="edit?id=$html_quote($entity_id)">$_("edit info")</a><br />
+    <a href="delete?id=$html_quote($entity_id)">$_("delete host")</a><br />
+    <a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a><br />
     #if $entity.get_email_server_type()
-        <a href="/host/demote_mailhost?id=$entity_id">$_('Demote as mailhost')</a>
+        <a href="/host/demote_mailhost?id=$html_quote($entity_id)">$_('Demote as mailhost')</a>
     #end if
     <br />
     $remember_link($entity)<br />
@@ -58,10 +58,10 @@
 ## View information about host (name and description).
 #def viewInfo($host)
     #set $info = []
-    $info.append(($_("Name:"), $html_quote($host.get_name())))
-    $info.append(($_("Description:"), $html_quote($host.get_description())))
+    $info.append(($_("Name:"), $host.get_name()))
+    $info.append(($_("Description:"), $host.get_description()))
     #if $host.get_email_server_type()
-        $info.append(($_("Mailhost:"), $html_quote($host.get_email_server_type().get_name())))
+        $info.append(($_("Mailhost:"), $host.get_email_server_type().get_name()))
     #end if
     $widgets.viewInfo($info)
 #end def
@@ -73,10 +73,10 @@
         <h3>$_('Disks')</h3>
         <form action="disks" method="post">
         <p>
-            <input type="hidden" name="host" value="$host.get_id()" />
+            <input type="hidden" name="host" value="$html_quote($host.get_id())" />
             #for $disk in $disks
             <div class="item">
-                <input type="checkbox" name="$disk.get_id()" />
+                <input type="checkbox" name="$html_quote($disk.get_id())" />
                 <em>$_('Path'):</em> $html_quote($disk.get_path())
                 $object_link($disk, "view", _class="action")
                 $object_link($disk, "edit", "edit", _class="action")
@@ -99,7 +99,7 @@
         <form action="promote_mailhost" method="post">
         <p>
             <div class="hidden">
-                <input type="hidden" name="id" value="$host.get_id()" />
+                <input type="hidden" name="id" value="$html_quote($host.get_id())" />
             </div>
             <div class="required">
                 $form_widgets.generate_loption("type", 'Server type', $email_server_types)

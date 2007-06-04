@@ -26,7 +26,7 @@
 #attr $names_width = 5
 
 #def viewActions($transaction, $person)
-    #set $id = $person.get_id()
+    #set $id = $html_quote($person.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete person")</a></li>
@@ -61,7 +61,7 @@
         $notice.append($_("Deceased"))
         $info.append(($_("Deceased date"), $strftime($person.get_deceased_date())))
     #end if
-    $info.append(($_("Gender"), $html_quote($person.get_gender().get_description())))
+    $info.append(($_("Gender"), $person.get_gender().get_description()))
     $info.append(($_("Date of birth"), $strftime($person.get_birth_date())))
     $info.append(($_("Description"), $html_quote($person.get_description())))
     $widgets.viewInfo($info, $notice)
@@ -79,13 +79,13 @@
 <div class="list box">
     <h3>$_('Accounts & Groups')</h3>
     <form action="accounts" method="post">
-        <input type="hidden" value="$person_id" name="owner" />
+        <input type="hidden" value="$html_quote($person_id)" name="owner" />
         #for $account in $allaccounts
-        #set $account_id = $account.get_id()
-        #set $account_name = $account.get_name()
+        #set $account_id = $html_quote($account.get_id())
+        #set $account_name = $html_quote($account.get_name())
         <div>
             <input type="checkbox" name="account_$account_id" />
-            <em>$_('Account'):</em> $html_quote($account_name)
+            <em>$_('Account'):</em>$account_name
             $object_link($account, "view", _class="action")
             $object_link($account, "edit", "edit", _class="action")
             $remember_link($account, _class="action")
@@ -134,9 +134,10 @@
 
     <td class="actions">
             #set $args = $url_quote("id=%s&ou=%s&affil=%s&ss=%s" % (
-                            $person.get_id(), $ou.get_id(),
-                            $affil_type.get_name(),
-                            $affil.get_source_system().get_name()))
+                            $html_quote($person.get_id()),
+                            $html_quote($ou.get_id()),
+                            $html_quote($affil_type.get_name()),
+                            $html_quote($affil.get_source_system().get_name())))
             <a class="action" href="remove_affil?$args">$_('delete')</a>
     </td>
     </tr>
@@ -158,7 +159,7 @@
     <h3 id="affil">$_('Add an affiliation')</h3>
     <form action="add_affil" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$person.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($person.get_id())" />
         </div>
         <div class="required">
             $form_widgets.generate_loption("status", "Affiliation", $status)
@@ -207,7 +208,7 @@
         #set $name_types = $transaction.get_name_type_searcher().search()
         #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
         <div class="hidden">
-            <input type="hidden" name="id" value="$person.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($person.get_id())" />
         </div>
         <div class="required">
             $form_widgets.input("name", "Name")
