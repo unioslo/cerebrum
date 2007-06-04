@@ -58,10 +58,10 @@
 ## View information about host (name and description).
 #def viewInfo($host)
     #set $info = []
-    $info.append(($_("Name:"), $host.get_name()))
-    $info.append(($_("Description:"), $host.get_description()))
+    $info.append(($_("Name:"), $html_quote($host.get_name())))
+    $info.append(($_("Description:"), $html_quote($host.get_description())))
     #if $host.get_email_server_type()
-        $info.append(($_("Mailhost:"), $host.get_email_server_type().get_name()))
+        $info.append(($_("Mailhost:"), $html_quote($host.get_email_server_type().get_name())))
     #end if
     $widgets.viewInfo($info)
 #end def

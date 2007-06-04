@@ -21,6 +21,7 @@
 #extends Main
 
 #from Widgets import Widgets
+#from lib.utils import html_quote
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 #attr $widgets = Widgets()
@@ -122,7 +123,7 @@
 	<tr>
 		<td>
        			<div>
-			$cat.get_name() - $cat.get_description()
+			$html_quote($cat.get_name()) - $html_quote($cat.get_description())
 			</div>
 		</td>
 	</tr>
@@ -137,9 +138,9 @@
 #def actions()
 <div id="actions">
     <h3>$_('Actions')</h3>
-    <a href="edit?id=$entity_id">$_('edit info')</a><br />
-    <a href="delete?id=$entity_id">$_('delete domain')</a><br />
-    <a href="addresses?id=$entity_id">$_('list adresses')</a><br />
+    <a href="edit?id=$html_quote($entity_id)">$_('edit info')</a><br />
+    <a href="delete?id=$html_quote($entity_id)">$_('delete domain')</a><br />
+    <a href="addresses?id=$html_quote($entity_id)">$_('list adresses')</a><br />
     $remember_link($entity)<br />
 </div>
 #end def
@@ -148,8 +149,8 @@
 <div class="view_content">
     ## Content
     #set $info = []
-    $info.append(($_("Domain name:"), $entity.get_name()))
-    $info.append(($_("Description:"), $entity.get_description()))
+    $info.append(($_("Domain name:"), $html_quote($entity.get_name())))
+    $info.append(($_("Description:"), $html_quote($entity.get_description())))
     $widgets.viewInfo($info)
 
     $addCategory($tr, $entity)
@@ -166,7 +167,7 @@
     <h3>$_('Add to category')</h3>
     <form action="add_to_category" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$domain.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($domain.get_id())" />
         </div>
         <div class="required">
             $form_widgets.code_selector("category", "Category", $categories)
@@ -227,16 +228,16 @@
 
 #def edit_domain($domain)
 <div class="edit box">
-    <h3>$_('Edit domain ' + $domain.get_name())</h3>
+    <h3>$_('Edit domain ' + $html_quote($domain.get_name()))</h3>
     <form action="save" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$domain.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($domain.get_id())" />
         </div>
         <div class="required">
-            $form_widgets.input('name', 'Domain name', $domain.get_name())
+            $form_widgets.input('name', 'Domain name', $html_quote($domain.get_name()))
         </div>
         <div class="required">
-            $form_widgets.input('description', 'Description', $domain.get_description())
+            $form_widgets.input('description', 'Description', $html_quote($domain.get_description()))
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Save')" name="submit" />

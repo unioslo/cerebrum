@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.Main import Main
+#from lib.utils import html_quote
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
 #extends Main
@@ -35,21 +36,21 @@
 #def viewInfo($account)
     #set $info = []
     #set $notice = []
-    $info.append(($_('Account name'), $account['username']))
-    $info.append(($_('Owned by'), $account['fullname']))
-    $info.append(($_('Birthdate'), $account.get('birthdate', '')))
+    $info.append(($_('Account name'), $html_quote($account['username'])))
+    $info.append(($_('Owned by'), $html_quote($account['fullname'])))
+    $info.append(($_('Birthdate'), $html_quote($account.get('birthdate', ''))))
     #if $account['quarantined'] == 1
         $notice.append($_("This account has been set a quarantine."))
     #end if
     #if $account.get('expired')
         $notice.append($_("This account has expired."))
     #end if
-    $info.append(($_('Expire date'), $account.get('expire_date', '')))
+    $info.append(($_('Expire date'), $html_quote($account.get('expire_date', ''))))
 
     ## If external_id is populated, we have a list with dicts to play with
     #for $extid in $account['external_id']
         #if $extid['extid_type'] == "NO_BIRTHNO"
-            $info.append(($_($extid['extid_type_description']), $_($extid['external_id'])))
+            $info.append(($html_quote($_($extid['extid_type_description'])), $html_quote($_($extid['external_id']))))
         #end if
     #end for
     $widgets.viewInfo($info, $notice)
@@ -62,10 +63,10 @@
     #for $spread in $account['spreads']
         <tr>
             <td>
-                $spread[0]
+                $html_quote($spread[0])
             </td>
             <td>
-                $spread[1]
+                $html_quote($spread[1])
             </td>
         </tr>
     #end for
@@ -80,10 +81,10 @@
     #for $group in $account['groups']
         <tr>
             <td>
-                $group[0]
+                $html_quote($group[0])
             </td>
             <td>
-                $group[1]
+                $html_quote($group[1])
             </td>
         </tr>
     #end for
@@ -98,13 +99,13 @@
     #for $aff in $account['affiliations']
         <tr>
             <td>
-                $aff[0]
+                $html_quote($aff[0])
             </td>
             <td>
-                $aff[1]
+                $html_quote($aff[1])
             </td>
             <td>
-                $aff[2]
+                $html_quote($aff[2])
             </td>
         </tr>
     #end for
@@ -115,7 +116,7 @@
 #def setPassword($account)
 <div class="list box">
     <h3>$_('Set Password')</h3>
-    $form_widgets.changePassword($account['id'])
+    $form_widgets.changePassword($html_quote($account['id']))
 </div>
 #end def
 
