@@ -196,7 +196,7 @@ class BDB:
             if bp[6]:
                 p['sperret'] = bp[6]
             if bp[7]:
-                b['mail_forward'] = bp[7]
+                p['mail_forward'] = bp[7]
             persons.append(p)
         cursor.close()
         return persons
