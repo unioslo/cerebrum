@@ -51,8 +51,6 @@ db=Factory.get("Database")()
 
 IntegrityError = db.IntegrityError
 
-IOError = IOError
-
 class CreationError(DatabaseError):
     """Creation of an object fails."""
 

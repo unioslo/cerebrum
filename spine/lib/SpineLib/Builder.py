@@ -22,10 +22,16 @@ import sets
 import types
 
 import SpineExceptions
+import exceptions
 
 __all__ = ['Attribute', 'Builder']
 
 default_exceptions = (
+    exceptions.IOError,
+    exceptions.ZeroDivisionError,
+    exceptions.UnicodeError,
+    exceptions.KeyError,
+    exceptions.AttributeError,
     SpineExceptions.TransactionError,
     SpineExceptions.IntegrityError,
     SpineExceptions.AccessDeniedError,
