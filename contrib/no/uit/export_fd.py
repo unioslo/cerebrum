@@ -159,7 +159,7 @@ class ad_export:
                 self.posixuser.clear()
                 self.posixuser.find(acc_id)
             except Errors.NotFoundError:
-                logger.error("User %s not a posixuser, skipping from Active Dir export" % (uname))
+                self.logger.error("User %s not a posixuser, skipping from Active Dir export" % (uname))
                 continue
 
             #self.person.clear()
