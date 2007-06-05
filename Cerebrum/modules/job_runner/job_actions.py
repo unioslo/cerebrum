@@ -26,6 +26,7 @@ import select
 import sys
 import time
 import random
+import inspect
 
 import cerebrum_path
 import cereconf
@@ -92,8 +93,18 @@ class Action(object):
     def get_pretty_cmd(self):
         if not self.call:
             return None
-        return "%s %s" % (self.call.cmd, " ".join(
-            ["'%s'" % p for p in self.call.params]))
+
+        # We want to have pretty callable parameters
+        arguments = list()
+        for p in self.call.params:
+            if callable(p):
+                try:
+                    arguments.append(inspect.getsource(p))
+                except IOError:
+                    arguments.append(str(p))
+            else:
+                arguments.append(str(p))
+        return "%s %s" % (self.call.cmd, " ".join(arguments))
 
     def next_delta(self, last_run, current_time):
         """Return estimated number of seconds to next time the Action
