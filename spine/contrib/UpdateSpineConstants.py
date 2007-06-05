@@ -37,7 +37,7 @@ from sets import Set
 
 autodesc = 'Managed by UpdateSpineConstants'
 
-def update_spine_auth_codes(db_user):
+def update_spine_auth_codes(db_user, delete=False):
     from Cerebrum import Constants
     existing = Set(get_existing(db_user))
     db = Factory.get('Database')(user=db_user)
@@ -60,10 +60,11 @@ def update_spine_auth_codes(db_user):
         code_obj = AuthConstants(code_str, autodesc)
         code_obj.insert()
     # Delete the op codes that no longer exist.
-    for code_str in orphans:
-        print 'Deleting %s' % code_str
-        code_obj = AuthConstants(code_str)
-        code_obj.delete()
+    if delete:
+        for code_str in orphans:
+            print 'Deleting %s' % code_str
+            code_obj = AuthConstants(code_str)
+            code_obj.delete()
     db.commit()
 
 def get_existing(db_user):
@@ -72,6 +73,10 @@ def get_existing(db_user):
     return [x[1] for x in result]
 
 def main():
+    # XXX getopt
+    delete_old=False
+    if '-d' in sys.argv:
+        delete_old=True
     db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner']
     if db_user is None:
         db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user']
@@ -82,7 +87,7 @@ def main():
     if not db_user:
         print >> sys.stderr, "System not configured properly.  I didn't do anything."
         sys.exit(1)
-    update_spine_auth_codes(db_user)
+    update_spine_auth_codes(db_user, delete_old)
 
 if __name__ == '__main__':
     main()
