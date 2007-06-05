@@ -172,7 +172,7 @@ class EntityTrait(Entity):
             return None
         return traits.get(_EntityTraitCode(trait))
 
-    def list_traits(self, code, target_id=NotSet, date=NotSet,
+    def list_traits(self, code=NotSet, target_id=NotSet, date=NotSet,
                     numval=NotSet, strval=NotSet, strval_like=NotSet,
                     return_name=False, fetchall=False):
         """Returns all the occurences of a specified trait, optionally
@@ -194,8 +194,8 @@ class EntityTrait(Entity):
                     value = normalise(value)
             return value
 
-        conditions = ["code = :code"]
-        code = int(code)
+        conditions = []
+        code = add_cond("code", code, normalise=int)
 
         add_cond("target_id", target_id)
         add_cond("date", date)
@@ -212,13 +212,15 @@ class EntityTrait(Entity):
             join += """
             LEFT JOIN [:table schema=cerebrum name=entity_name] en
               ON en.entity_id = t.entity_id"""
-        where = " AND ".join(conditions)
+        where = ""
+        if conditions:
+            where = "WHERE " + " AND ".join(conditions)
 
         # Return everything but entity_type, which is implied by code
         return self.query("""
         SELECT t.entity_id, t.code, t.target_id, t.date, t.numval, t.strval %s
         FROM [:table schema=cerebrum name=entity_trait] t
         %s
-        WHERE %s""" % (attrs, join, where), locals(), fetchall=fetchall)
+        %s""" % (attrs, join, where), locals(), fetchall=fetchall)
 
 # arch-tag: a834dc20-402d-11da-9b87-c30b16468bb4
