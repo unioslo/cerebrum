@@ -30,33 +30,6 @@ class Struct:
 class Any:
     pass
 
-class KeyValue(Builder):
-    slots = (
-        Attribute('key', str),
-        Attribute('value', str),
-        Attribute('int_value', int),
-        Attribute('float_value', float),
-        Attribute('is_none', bool)
-    )
-
-    def make(cls, key, value):
-        int_value = -1
-        float_value = -1.0
-        if type(value) in (int, long, float):
-            int_value = int(value)
-        if type(value) in (int, long, float):
-            float_value = float(value)
-        date_value = None # FIXME: dato!
-
-        return {
-            'key':key,
-            'value':str(value),
-            'int_value':int_value,
-            'float_value':float_value,
-            'is_none':value is None
-        }
-    make = classmethod(make)
-
 class DumpClass(Builder):
     """Base class for all dumperclasses.
     
