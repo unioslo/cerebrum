@@ -221,7 +221,7 @@ class PosixLDIF(object):
             else:
                 disk_path = None
             home = self.posuser.resolve_homedir(account_name=uname, home=row['home'],
-                                                disk_path=disk_path)])
+                                                disk_path=disk_path)
         except:
             self.logger.warn("User %s has no home-directory!" % uname)
             return None,None
