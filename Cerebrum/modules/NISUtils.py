@@ -114,9 +114,13 @@ class Passwd(object):
             if qshell is not None:
                 shell = qshell
 
+        if row['disk_id']:
+            disk_path = self.diskid2path[int(row['disk_id'])]
+        else:
+            disk_path = None
         home=posix_user.resolve_homedir(account_name=uname,
-                                        home=row['disk_id'],
-                                        disk_path=diskid2path[int(row['disk_id'])])
+                                        home=row['home'],
+                                        disk_path=disk_path)
 
         if home is None:
             # TBD: Is this good enough?
