@@ -62,7 +62,7 @@ def main():
     global max_group_memberships
     global e_o_f
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'g:p:n:s:m:Z:a',
+        opts, args = getopt.getopt(sys.argv[1:], 'g:p:n:s:m:Z:a:',
                                    ['help', 'eof', 'group=',
                                     'passwd=', 'group_spread=',
                                     'user_spread=', 'netgroup=', 'auth_method=',
