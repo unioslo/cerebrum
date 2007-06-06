@@ -73,7 +73,7 @@ class EmailLDAP(DatabaseAccessor):
     def get_target(self, entity_id, target_id):
         return self.acc2name[entity_id][0]
 
-    def get_server_info(self, target, entity, home, path):
+    def get_server_info(self, target, entity, home):
         # Find mail-server settings:
         uname = self.acc2name[entity][0]
         sinfo = ""

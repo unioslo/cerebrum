@@ -47,7 +47,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
     def get_targettype(self, targettype):
         return self.db_tt2ldif_tt.get(str(targettype), str(targettype))
 
-    def get_server_info(self, target, entity, home, path):
+    def get_server_info(self, target, entity, home):
         # Find mail-server settings:
         uname = self.acc2name[entity][0]
         sinfo = ""
