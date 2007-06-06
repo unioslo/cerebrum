@@ -290,7 +290,6 @@ class Searcher(object):
         page.content = lambda: content
 
         if self.ajax:
-            cherrypy.response.headerMap['Content-Type'] = 'text/html; charset=iso-8859-1'
             return content
         else:
             return page.respond()

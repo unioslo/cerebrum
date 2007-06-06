@@ -19,7 +19,7 @@
 ##from FormWidgets import FormWidgets
 ##from Widgets import Widgets
 #implements respond
-#encoding latin1
+#encoding utf8
 
 ##attr $jscripts = ['base.js', 'timeout.js']
 ##attr $widgets = Widgets()
@@ -47,7 +47,7 @@ course, you can do that here as well.
       Vennligst oppgi hvilket passord du vil bruke.
       <table border=0>
         <tr>
-          <td>Velg passord selv:</td><td>Velg et forhåndsgenerert passord:</td>
+          <td>Velg passord selv:</td><td>Velg et forhÃ¥ndsgenerert passord:</td>
         </tr>
         <tr>
           <td>
@@ -64,19 +64,19 @@ course, you can do that here as well.
         </tr>
         <tr>
           <td cellspan=2>
-            NB: Passord blir ikke vist igjen. Sørg for at du husker passordet.
+            NB: Passord blir ikke vist igjen. SÃ¸rg for at du husker passordet.
             <input type=submit name=submit_pw value='OK'>
           </td>
         </tr>
       </table>
 
     <p>
-      <li>Passordet må være 8 tegn langt
-      <li>Passordet må være forskjellig fra ditt siste passord
-      <li>Passordet må inneholodet minst ett tegn fra tre av de fire gruppene:
+      <li>Passordet mÃ¥ vÃ¦re 8 tegn langt
+      <li>Passordet mÃ¥ vÃ¦re forskjellig fra ditt siste passord
+      <li>Passordet mÃ¥ inneholodet minst ett tegn fra tre av de fire gruppene:
       <ul>
         <li>Store bokstaver (A-Z)
-        <li>Små bokstaver (a-z)
+        <li>SmÃ¥ bokstaver (a-z)
         <li>Siffer (0-9)
         <li>Spesialtegn (F&oslash;lgende spesialtegn godtas ikke: space'<>;:%^&\/\\|
     </p>
@@ -97,14 +97,14 @@ course, you can do that here as well.
         <a href='itreg_no.html' target='itreg'>Bokm&aring;l</A> &nbsp; 
         <a href='itreg_en.html' target='itreg'>English</a>
       </p>
-          Jeg bekrefter herved å ha lest NTNUs IT-reglement og jeg påtar meg de
-          forpliktelser som reglementet til enhver tid legger på meg. Jeg
-          aksepterer også de sanksjonsmuligheter som NTNU har ved brudd på
+          Jeg bekrefter herved Ã¥ ha lest NTNUs IT-reglement og jeg pÃ¥tar meg de
+          forpliktelser som reglementet til enhver tid legger pÃ¥ meg. Jeg
+          aksepterer ogsÃ¥ de sanksjonsmuligheter som NTNU har ved brudd pÃ¥
           IT-reglementet slik det er angitt i IT-reglementets punk 4.3, 7.1 og 7.2.
       </p>
       <p>
         <INPUT TYPE=checkbox NAME=godkjent_logger> 
-          Jeg gir herved tillatelse til at det kan benyttes driftslogger for å
+          Jeg gir herved tillatelse til at det kan benyttes driftslogger for Ã¥
           identifisere min bruk av dataanlegget med de begrensninger som er spesifisert 
           i IT-reglementets punkt 5.10.
       </p>
@@ -138,8 +138,8 @@ course, you can do that here as well.
       <h3>Aktivering (3/5)</h3>
       Vennligst oppgi PIN-kode
       PIN-kode: <input type=text name=pin> <input type=submit name=blapp value='OK'>
-      PIN-koden (4 siffer) skal stå på den giroen du får tilsendt for betaling av semesteravgift. 
-      Hvis du ikke har fått giroen, eller har glemt koden, må du ta kontakt med 
+      PIN-koden (4 siffer) skal stÃ¥ pÃ¥ den giroen du fÃ¥r tilsendt for betaling av semesteravgift. 
+      Hvis du ikke har fÃ¥tt giroen, eller har glemt koden, mÃ¥ du ta kontakt med 
       <a href=http://www.ntnu.no/studentservice>Studentservice</a>
     #elif $lang == 'en'
       <h3>Activation (2/5)</h3>
@@ -154,7 +154,7 @@ course, you can do that here as well.
     #if $lang == 'no'
       <h3>Aktivering (1/5)</h3>
       Du har kommet til en tjeneste som krever at du identifiserer deg.
-      Vennligst oppgi fødselsnummer (11 siffer).
+      Vennligst oppgi fÃ¸dselsnummer (11 siffer).
       F&oslash;dselsnummer: <input type=text name=fnr><input type=submit name=blapp value='OK'>
     #elif $lang == 'en'
       <h3>Activation (1/5)</h3>
@@ -168,7 +168,7 @@ course, you can do that here as well.
 #end def
 
 #def language 
-Vennligst velg språk / Please select language:
+Vennligst velg sprÃ¥k / Please select language:
 <FORM METHOD=post ACTION='/activation/'>
   <SELECT NAME=lang>
     <OPTION VALUE="no">Norsk
@@ -182,7 +182,7 @@ Vennligst velg språk / Please select language:
 #def content
 <div class="view_content">
     ## Content
-    Du har nå kommet til siden for å aktivere brukerkonto ved NTNUs IT-systemer.<br>
+    Du har nÃ¥ kommet til siden for Ã¥ aktivere brukerkonto ved NTNUs IT-systemer.<br>
     You have now reached the page used to activate your user-account at NTNUs Computer-systems.<br>
     $choose_language()
 </div>

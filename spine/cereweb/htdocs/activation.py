@@ -43,6 +43,7 @@ def _get_session():
     ss = cps.get('session') 
     if not ss:
         ss = cps['session'] = _login()
+    ss.set_encoding("utf-8")
     return ss
 
 def index(**vargs):

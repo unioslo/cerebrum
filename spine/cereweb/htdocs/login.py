@@ -85,6 +85,7 @@ def login(**vargs):
 
             spine = Spine.connect()
             session = spine.login(username, password)
+            session.set_encoding("utf-8")
             if not session.is_admin():
                 client = '/user_client'
         except CORBA.TRANSIENT, e:
