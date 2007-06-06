@@ -179,9 +179,6 @@ class Searcher(object):
         for item in args:
             value = vargs.get(item, '')
             if value != '':
-                if self.ajax:
-                    value = value.decode('utf8').encode('latin1')
-
                 form_values[item] = value
 
         return form_values
