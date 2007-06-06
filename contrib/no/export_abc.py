@@ -117,7 +117,7 @@ def fnr_to_external_id(fnr, person, person_info):
         return None, None
 
     if int(person.entity_id) not in person_info:
-        logger.warn("fnr %s (person_id %d) are in Cerebrum, but not "
+        logger.info("fnr %s (person_id %d) is in Cerebrum, but not "
                     "in cached data", fnr, person.entity_id)
         return None, None
 
@@ -142,8 +142,6 @@ def remap_fnrs(sequence, person, person_info):
         fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
         id_type, peid = fnr_to_external_id(fnr, person, person_info)
         if id_type is None:
-            logger.debug("Missing external ID in Cerebrum for FS fnr %s",
-                         fnr)
             continue
 
         result.append((id_type, peid))
@@ -396,17 +394,24 @@ def output_people():
                          name_collection, id_collection)
             continue
         
-        # Cache the mapping. It does not really matter which external ID we
-        # use to identify people, but since FNR is ubiquitous, we settle for
-        # that.
-        current_fnr = id_collection[fnr_const][1]
-        person_info[int(id)] = (constants.externalid_fodselsnr, current_fnr)
-
         # people need at least one valid affiliation to be output.
         if not person.list_affiliations(person_id=id):
             logger.debug("Person (e_id:%s; %s) has no affiliations. Skipped",
                          id, id_collection)
             continue
+
+        # Cache the mapping. It does not really matter which external ID we
+        # use to identify people, but since FNR is ubiquitous, we settle for
+        # that.
+        #
+        # NB! Do NOT cache, unless we are sure the person is being
+        # output. Since the cache is always consulted when an fnr from FS is
+        # mapped to an fnr in Cerebrum, we neatly (?) avoid a situation when a
+        # person has no affiliations (and thus is skipped from the list of
+        # people in the ABC-file), but is nevertheless present in
+        # kull/und.enhet/whatever, since (s)he is registered in FS.
+        current_fnr = id_collection[fnr_const][1]
+        person_info[int(id)] = (constants.externalid_fodselsnr, current_fnr)
 
         #
         # we start with the IDs
