@@ -19,6 +19,9 @@ import logging
 import time
 import os
 
+import locale
+locale.setlocale(locale.LC_ALL,'nb_NO')
+
 """
 Import orgunits,persons and accounts from NTNUs old UserAdministrative System.
 """
@@ -48,33 +51,122 @@ class BDBSync:
         self.et = Email.EmailTarget(self.db)
         self.ea = Email.EmailAddress(self.db)
         self.ed = Email.EmailDomain(self.db)
+        self.ev = Email.EmailVacation(self.db)
+        self.ef = Email.EmailForward(self.db)
         self.logger = Factory.get_logger("console")
+        self.logger = Factory.get_logger("syslog")
         self.logger.info("Starting import_BDB")
         self.ac.find_by_name('bootstrap_account')
         self.initial_account = self.ac.entity_id
         self.ac.clear()
         self.spread_mapping = self.get_spread_mapping()
+        bdb_key = config.conf.get('bdb-sync','bdb_key')
 
     def get_spread_mapping(self):
         # TBD: complete the spread-mappings
         co = self.const
         s = {}
-        s['stud'] = int(co.spread_ntnu_stud_user)
-        s['ansatt'] = int(co.spread_ntnu_ansatt_user)
-        s['kerberos'] = int(co.spread_ntnu_ansatt_user)
-        s['iptansatt'] = int(co.spread_ntnu_iptansatt_user)
-        s['ntnu_ad'] = int(co.spread_ntnu_ntnu_ad_user)
-        s['ivt'] = int(co.spread_ntnu_ivt_user)
-        s['idi'] = int(co.spread_ntnu_idi_user)
+        s['ansatt'] =  int(co.Spread("user@%s" % 'ansatt'))
+        s['chembio'] =  int(co.Spread("user@%s" % 'chembio'))
+        s['fender'] =  int(co.Spread("user@%s" % 'fender'))
+        s['fysmat'] =  int(co.Spread("user@%s" % 'fysmat'))
+        s['hf'] =  int(co.Spread("user@%s" % 'hf'))
+        s['idi'] =  int(co.Spread("user@%s" % 'idi'))
+        s['ime'] =  int(co.Spread("user@%s" % 'ime'))
+        s['iptansatt'] =  int(co.Spread("user@%s" % 'iptansatt'))
+        s['ivt'] = int(co.Spread("user@%s" % 'ivt'))
+        s['kybernetikk'] =  int(co.Spread("user@%s" % 'kybernetikk'))
+        s['math'] = int(co.Spread("user@%s" % 'math'))
+        s['norgrid'] =  int(co.Spread("user@%s" % 'norgrid'))
+        s['norgrid-ny'] =  int(co.Spread("user@%s" % 'norgrid'))
+        s['ntnu_ad'] =  int(co.Spread("user@%s" % 'ntnu_ad'))
+        s['odin'] =  int(co.Spread("user@%s" % 'odin'))
+        s['petra'] =  int(co.Spread("user@%s" % 'petra'))
+        s['q2s'] =  int(co.Spread("user@%s" % 'q2s'))
+        s['samson'] =  int(co.Spread("user@%s" % 'samson'))
+        s['sol'] =  int(co.Spread("user@%s" % 'sol'))
+        s['stud'] = int(co.Spread("user@%s" % 'stud'))
+        s['studmath'] =  int(co.Spread("user@%s" % 'studmath'))
+        s['ubit'] =  int(co.Spread("user@%s" % 'ubit'))
+        s['ansoppr'] =  int(co.Spread("user@%s" % 'ansoppr'))
+        s['oppringt'] =  int(co.Spread("user@%s" % 'oppringt'))
+        s['cyrus_imap'] =  int(co.Spread("user@%s" % 'cyrus_imap'))
+        s['test2'] =  int(co.Spread("user@%s" % 'test2'))
+        s['nav'] =  int(co.Spread("user@%s" % 'nav'))
+        s['itil_cm'] =  int(co.Spread("user@%s" % 'itil_cm'))
+        s['lisens'] =  int(co.Spread("user@%s" % 'lisens'))
+        s['kalender'] =  int(co.Spread("user@%s" % 'kalender'))
+        s['vm'] =  int(co.Spread("user@%s" % 'vm'))
+        s['itea'] =  int(co.Spread("user@%s" % 'itea'))
+        s['pride'] =  int(co.Spread("user@%s" % 'pride'))
+        s['hflinux'] =  int(co.Spread("user@%s" % 'hflinux'))
+        s['ipt_soil'] =  int(co.Spread("user@%s" % 'ipt_soil'))
+        s['kerberos'] = int(co.Spread("user@%s" % 'kerberos'))
         return s
 
     def sync_vacation(self):
         """Not implemented yet"""
-        pass
+        vacations = self.bdb.get_vacations()
+        for vacation in vacations:
+            _sync_vacation(vacation)
+        return
 
-    def sync_forward(self):
-        """Not implemented yet"""
-        pass
+    def _sync_vacation(self,vac):
+        global dryrun,verbose
+        const = self.const
+        person = self.new_person
+        person.clear()
+        ev = self.ev
+        ev.clear()
+        ac = self.ac
+        ac.clear()
+        try:
+            person.find_by_external_id(const.externalid_bdb_person,vac['person'])
+        except Errors.NotFoundError:
+            return
+
+        # For this person, we need to find an EmailTarget, but to get that, we need an account
+        account = person.get_primary_account()
+        if not account:
+            return
+            # FIXME lookup other accounts
+        ac.find(account)
+        try:
+            ev.find_by_entity(ac.entity_id)
+        except Errors.NotFoundError:
+            # No EmailTarget for this Entity
+            return
+        except Errors.TooManyRowsError:
+            # Narrow down the search.. how?
+            return
+        if dryrun:
+            self.db.rollback()
+        else:
+            self.db.commit()
+        return
+
+    def _sync_forward(self,forward):
+        global dryrun
+        # This method to be called from sync_persons, so person.entity_id should
+        # already be set.
+        person = self.new_person
+        account = self.ac
+        const = self.const
+        fwd = self.ef
+        fwd.clear()
+        # See if a forward is already set.
+        try:
+            fwd.find_by_entity(person.entity_id)
+            fwd.delete()
+        except Errors.NotFoundError:
+            pass
+        fwd.populate(type=const.email_target_forward, entity_id=person.entity_id, entity_type=const.entity_person)
+        fwd.writedb()
+        if dryrun:
+            fwd.rollback()
+        else:
+            fwd.commit()
+        return
 
     def sync_affiliations(self):
         self.logger.debug("Getting affiliations from BDB...")
@@ -262,8 +354,15 @@ class BDBSync:
                                 const.name_first,
                                 const.name_last,
                                 const.name_personal_title)
-        new_person.populate_name(const.name_first, person['first_name'])
-        new_person.populate_name(const.name_last, person['last_name'])
+        try:
+            new_person.populate_name(const.name_first, person['first_name'])
+            new_person.populate_name(const.name_last, person['last_name'])
+        except ValueError,ve:
+            fname = person['first_name'] or ''
+            sname = person['last_name'] or ''
+            self.logger.error("ValueError when trying to populate names for %s. Reason: %s" % (fnr,str(ve)))
+            self.db.rollback()
+            return
 
         if person.get('tittel_personlig'):
             new_person.populate_name(const.name_personal_title,
@@ -280,8 +379,12 @@ class BDBSync:
                                         person['id'])
 
         # Write to database and commit transaction
-        #try:
-        new_person.write_db()
+        try:
+            new_person.write_db()
+        except self.db.IntegrityError,ie:
+            self.logger.warning("This NIN is already in use from this source_system. Clean up please. BDB-person: %s" % person['id'])
+            self.db.rollback()
+            return
         if dryrun:
             self.db.rollback()
             if verbose:
@@ -292,10 +395,6 @@ class BDBSync:
             self.logger.debug("Person %s written into Cerebrum." % person['id'])
             if verbose:
                 print "Person %s (%s/%s )written into Cerebrum." % (person['id'],num_persons,ant_persons)
-        #except Exception,e:
-        #    self.db.rollback()
-        #    self.logger.error("Rolling back transaction.Reason: %s" % str(e))
-        #    return
 
     def _is_posix_group(self,group):
         res = False
@@ -336,12 +435,27 @@ class BDBSync:
             if self._is_posix_group(grp):
                 try:
                     posix_group.find_by_name(grp['name'])
-                    if verbose:
-                        print "Group %s already exists." % grp['name']
+                    #if verbose:
+                    #    print "PosixGroup %s already exists." % grp['name']
+                    # Has anything changed since last time?
+                    _has_changed = False
+                    _gid = posix_group.posix_gid
+                    if grp['gid'] == 13300:
+                        print grp
+                        print _gid
+                    if posix_group.posix_gid != grp['gid']:
+                        posix_group.posix_gid = grp['gid']
+                        _has_changed = True
+                    if _has_changed:
+                        posix_group.write_db()
+                    if not dryrun:
+                        self.db.commit()
                     continue
                 except Errors.NotFoundError:
                     posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
-                                         name=grp['name'], description=grp['description'])
+                                         name=grp['name'], description=grp['description'], \
+                                         gid=grp['posix_gid']
+                                         )
                     try:
                         posix_group.write_db()
                     except self.db.IntegrityError,ie: 
@@ -385,25 +499,35 @@ class BDBSync:
         res = True
         group = self.group
         posix_user = self.posix_user
+        posix_group = self.posix_group
         ac = self.ac
 
         ac.clear()
         posix_user.clear()
-        group.clear()
+        posix_group.clear()
 
-        ac.find(account_info['account_id'])
+        try:
+            ac.find(account_info['account_id'])
+        except Errors.NotFoundError:
+            if verbose:
+                print "Account with id %s not found. Cannot promote." % account_info['account_id']
+            return False
+
         uid = account_info.get('unix_uid',posix_user.get_free_uid())
         shell = account_info.get('shell',self.const.posix_shell_bash)
 
-        grp_name = account_info.get('group_name','posixgrp')
-        group.clear()
-        group.find_by_name(grp_name,domain=self.const.group_namespace)
+        try:
+            posix_group.find_by_gid(account_info.get('unix_gid'))
+        except Errors.NotFoundError:
+            grp_name = account_info.get('group_name','posixgroup')
+            posix_group.find_by_name(grp_name,domain=self.const.group_namespace)
+            pass
 
         try:
-            posix_user.populate(uid,group.entity_id, None, shell, parent=ac)
+            posix_user.populate(uid,posix_group.entity_id, None, shell, parent=ac)
             posix_user.write_db()
             if verbose:
-                print "Account %s promoted to posix." % uid
+                print "Account %s with posix-uid %s promoted to posix." % (account_info['username'],uid)
         except Exception,e:
             if verbose:
                 print "Error during promote_posix. Error was: %s" % str(e)
@@ -416,6 +540,15 @@ class BDBSync:
         global num_accounts,verbose,dryrun
         logger = self.logger
         logger.debug("Callback for %s" % account_info['id'])
+
+        def _get_password(_account):
+            if _account.get('password_type') == 2:
+                # Blowfish, get the decrypt-key from config
+                pass
+            else:
+                return False
+            # FIXME
+            return _account.get('password')
 
         def _is_posix(_account):
             res = True
@@ -444,11 +577,13 @@ class BDBSync:
         person = self.new_person
         ac = self.ac
         posix_user = self.posix_user
+        posix_group = self.posix_group
         group = self.group
 
         person.clear()
         ac.clear()
         posix_user.clear()
+        posix_group.clear()
         group.clear()
 
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -508,19 +643,40 @@ class BDBSync:
 
                 if _is_posix(account_info):
                     try:
+                        posix_user.clear()
                         posix_user.find(account_id)
                         if verbose:
                             print "Account %s is already posix. Updating posix-uid/gid." % account_id
                         self.logger.info("Account %s is already posix. Updating" % account_id)
                         _has_changed = False
-                        if posix_user.posix_uid != account_info['posix_uid']:
-                            posix_user.posix_uid = account_info['posix_uid']
+                        _uid = posix_user.posix_uid
+                        _gid = posix_user.gid_id
+
+                        if posix_user.posix_uid != account_info['unix_uid']:
+                            posix_user.posix_uid = account_info['unix_uid']
                             _has_changed = True
-                        if posix_user.gid_id != account_info['posix_gid']:
-                            posix_user.gid_id = account_info['posix_gid']
+
+                        posix_group.clear()
+                        posix_group.find(posix_user.gid_id)
+
+                        if posix_group.posix_gid != account_info['unix_gid']:
+                            posix_group.clear()
+                            # Denne kan kaste exception hvis unix_gid ikke finnes
+                            posix_group.find_by_gid(account_info['unix_gid'])
+                            posix_user.gid_id = posix_group.entity_id
                             _has_changed = True
-                        if has_changed:
-                            posix_user.write_db()
+
+                        if _has_changed:
+                            try:
+                                posix_user.write_db()
+                            except self.db.IntegrityError,ie:
+                                print "Unique constraint caught for user %s. uid/gid already in use" % (account_info['name'])
+                                self.db.rollback()
+                                return
+                            except Exception,e:
+                                print "Exception caught. at line 599"
+                                print str(e)
+                                sys.exit()
                     except self.db.IntegrityError,ie:
                         if verbose:
                             print "Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie))
@@ -547,6 +703,7 @@ class BDBSync:
             except Errors.NotFoundError:
                 uname = account_info['name']
             except Errors.TooManyRowsError:
+                # Should not happen
                 pass
             if not uname:
                 ac.clear()
@@ -557,10 +714,14 @@ class BDBSync:
             if verbose:
                 print "Adding new account %s on person %s" % (uname,person_entity)
             logger.info('Adding new account %s on person %s' % (uname,person_entity))
-            ac.clear()
             if _is_posix(account_info):
+                posix_user.clear()
+                # Kan kaste exception
+                posix_group.clear()
+                posix_group.find_by_gid(account_info['unix_gid'])
+
                 posix_user.populate(posix_uid=account_info['unix_uid'],
-                        gid_id=account_info['unix_gid'],
+                        gid_id=posix_group.entity_id,
                         gecos=posix_user.simplify_name(person.get_name(const.system_cached,const.name_full),as_gecos=1),
                         shell=const.posix_shell_bash,
                         name = uname,
@@ -579,6 +740,7 @@ class BDBSync:
                     self.db.rollback()
                     return
             else:
+                ac.clear()
                 ac.populate(name=uname,
                         owner_type = const.entity_person,
                         owner_id = person_entity,
@@ -641,8 +803,9 @@ class BDBSync:
             return
 
         spreads = ac.get_spread()
-        bdbspread = spread.get('spread_name')
 
+        # We need a match between cerebrum-spreads and bdb-spreads
+        bdbspread = spread.get('spread_name')
         if not bdbspread:
             return
 
@@ -664,7 +827,11 @@ class BDBSync:
                     self.logger.error("Spread %s propably require posix, but %s isn't. Reason: %s" % (c_spread,ac.entity_id,str(ie)))
                     self.db.rollback()
                     return
-                ac.write_db()
+                try:
+                    ac.write_db()
+                except self.db.IntegrityError,e:
+                    # Spread already exists on this account.. why didn't we catch this before?
+                    return
             else:
                 # User already has this spread. 
                 return 
