@@ -34,7 +34,7 @@ import Communication
 from Cerebrum.extlib import sets
 from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.spine.SpineLib.Date import Date
-from Cerebrum.spine.SpineLib.DumpClass import Struct, Any, DumpClass
+from Cerebrum.spine.SpineLib.DumpClass import Struct, DumpClass
 from Cerebrum.spine.SpineLib.Locking import Locking
 from Cerebrum.spine.SpineLib.Caching import Caching
 from Cerebrum.spine.SpineLib.DatabaseClass import DatabaseTransactionClass
@@ -151,9 +151,6 @@ def convert_to_corba(obj, transaction, data_type):
                 return corba_object
         finally:
             object_cache_lock.release()
-    elif data_type == Any:
-        import omniORB.any
-        return omniORB.any.to_any(obj)
     else:
         raise ServerProgrammingError('Cannot convert to CORBA type; unknown data type.', data_type)
 
@@ -171,9 +168,6 @@ def convert_from_corba(tr, obj, data_type):
         corba_class = class_cache[data_type]
         com = Communication.get_communication()
         return com.reference_to_servant(obj).spine_object
-    elif data_type == Any:
-        import omniORB.any
-        return omniORB.any.from_any(obj)
     else:
         raise ServerProgrammingError('Cannot convert from CORBA type; unknown data type.', data_type)
 
@@ -475,8 +469,6 @@ def _create_idl_interface(cls, error_module="", docs=False):
             header += '};'
 
             add_header(header)
-        elif data_type == Any:
-            name = 'any'
         else:
             assert data_type.__name__ not in ['str', 'int', 'float', 'bool'], data_type
             name = 'Spine' + data_type.__name__

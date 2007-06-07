@@ -27,9 +27,6 @@ class Struct:
     def __init__(self, data_type):
         self.data_type = data_type
 
-class Any:
-    pass
-
 class DumpClass(Builder):
     """Base class for all dumperclasses.
     
