@@ -10,6 +10,7 @@ import sets
 import cerebrum_path
 #import Cerebrum.spine
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.EntityTrait import EntityTrait
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 acc = Factory.get('Account')(db)
@@ -139,7 +140,7 @@ account_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
-def resolve_homedir(self, d):
+def resolve_homedir(d):
     d["homedir"] = acc.resolve_homedir(account_name=d['name'],
                                        disk_path=d['disk_path'],
                                        home=d['home'])
@@ -339,33 +340,50 @@ ORDER BY change_log.change_id
 
 class PersonView(Builder):
     slots = (
+        Attribute('person_id', int),
         Attribute('export_id', str),
         Attribute('full_name', str),
         Attribute('first_name', str),
         Attribute('last_name', str),
-        Attribute('worktite', str),
+        Attribute('work_title', str),
         
         Attribute('email', str),
         Attribute('url', str),
         Attribute('phone', str),
-        Attribute('mobile_phone', str),
-        Attribute('reserv_publish', bool),
 
-        Attribute('primary_account', str),
+        Attribute('primary_account', int),
         
         Attribute('birth_date', Date),
-        Attribute('nin', str)
-        )
+        Attribute('nin', str),
+        Attribute('address_text', str),
+        Attribute('postal_number', int),
+        Attribute('city', str),
+
+        Attribute('affiliations', [int]),
+        Attribute('traits', [int]),
+    )
 
 person_search="""
 SELECT
+person_info.person_id AS person_id,
 person_info.export_id AS export_id,
-person_info.birth_date AS birth_date,
+person_full_name.name AS full_name,
 person_first_name.name AS first_name,
 person_last_name.name AS last_name,
-person_full_name.name AS full_name,
 person_work_title.name AS work_title,
-person_nin.external_id AS nin
+
+contact_email.contact_value AS email,
+contact_url.contact_value AS url,
+contact_phone.contact_value AS phone,
+
+account_type.account_id AS primary_account,
+
+person_info.birth_date AS birth_date,
+person_nin.external_id AS nin,
+entity_address.address_text AS address_text,
+entity_address.postal_number AS postal_number,
+entity_address.city AS city
+
 FROM person_info
 %s
 JOIN entity_external_id person_nin
@@ -405,6 +423,18 @@ LEFT JOIN entity_contact_info contact_phone
 ON (contact_phone.entity_id = person_info.person_id
   AND contact_phone.contact_type = :contact_phone
   AND contact_phone.source_system = :system_cached) 
+-- address
+LEFT JOIN entity_address entity_address
+ON (entity_address.entity_id = person_info.person_id
+  AND entity_address.source_system = :address_source
+  AND entity_address.address_type = :address_type)
+-- primary_account
+LEFT JOIN account_type account_type
+ON (account_type.person_id = person_info.person_id
+  AND account_type.priority IN
+    (SELECT min(priority) FROM account_type
+      WHERE person_id = account_type.person_id))
+-- Only need living people
 WHERE (person_info.deceased_date IS NULL)
 """
 person_search_cl = """
@@ -443,7 +473,9 @@ class View(DatabaseTransactionClass):
             "group_visibility_all": co.group_visibility_all,
             "contact_url": co.contact_url,
             "contact_email": co.contact_email,
-            "contact_phone": co.contact_phone
+            "contact_phone": co.contact_phone,
+            "address_type": co.address_post,
+            "address_source": co.system_fs,
             }
         
     # Allow the user to define spreads.
@@ -515,7 +547,40 @@ class View(DatabaseTransactionClass):
     def get_persons(self):
         db = self.get_database()
         rows=db.query(person_search % "", self.query_data)
-        return [r.dict() for r in rows]
+        persons = []
+
+        traits = {}
+        traits_has = traits.has_key
+        for trait in EntityTrait(db).list_traits():
+            pid = trait[0]
+            tid = trait[1]
+
+            if traits_has(pid):
+                traits[pid].append(tid)
+            else:
+                traits[pid] = [tid]
+        
+        affiliations = {}
+        affiliations_has = affiliations.has_key
+        for affiliation in Factory.get('Person')(db).list_affiliations():
+            pid = affiliation[0]
+            aid = affiliation[1]
+
+            if affiliations_has(pid):
+                affiliations[pid].append(aid)
+            else:
+                affiliations[pid] = [aid]
+
+        for row in rows:
+            row = row.dict()
+            pid = row['person_id']
+            if traits_has(pid):
+                row['traits'] = traits[pid]
+            if affiliations_has(pid):
+                row['affiliations'] = affiliations[pid]
+
+            persons.append(row)
+        return persons
     get_persons.signature = [Struct(PersonView)]
     def get_persons_cl(self):
         db = self.get_database()
