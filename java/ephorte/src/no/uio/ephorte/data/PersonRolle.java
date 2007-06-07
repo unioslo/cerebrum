@@ -108,6 +108,7 @@ public class PersonRolle {
 
     public void toDeleteXML(XMLUtil xml) {
         xml.startTag("PERROLLE");
+        xml.writeElement("PR_ID", "" + id);
         xml.writeElement("PR_PEID_PE", "" + person.getId());
         /*
          * F.eks: <SEEKFIELDS>PR_PEID_PE;PR_ROLLEID_RO</SEEKFIELDS>

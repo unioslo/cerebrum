@@ -157,8 +157,7 @@ public class EphorteGW {
         } else {
             // old person. There are no data that we want to update
             p.setId(oldPerson.getId());
-            // p.toSeekXML(xml);
-            p.toSmallPersonXML(xml);
+            p.toSeekXML(xml);
         }
         if (oldPerson == null || !(p.getPersonNavn().equals(oldPerson.getPersonNavn()))) {
             if (oldPerson != null && oldPerson.getPersonNavn() != null) {
@@ -215,9 +214,7 @@ public class EphorteGW {
                 isDirty = true;
             } else {
                 log.debug("  already has: " + pr);
-                log.debug("Old len: " + oldPerson.getRoller().size());
                 oldPerson.getRoller().remove(pr);
-                log.debug("New len: " + oldPerson.getRoller().size());
             }
         }
         if (!oldPerson.isNew()) {

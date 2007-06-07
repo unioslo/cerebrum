@@ -41,7 +41,6 @@ public class Person {
         this(ht.get("PE_BRUKERID"));
 
         this.id = Integer.parseInt(ht.get("PE_ID"));
-        // TODO: Fra dato
         try {
             fraDato = dayFormat.parse(ht.get("PE_FRADATO"));
         } catch (ParseException e) {
@@ -73,20 +72,14 @@ public class Person {
     }
 
     public void toSeekXML(XMLUtil xml) {
-        xml.startTag("PERSON");
-        xml.writeElement("SEEKFIELDS", "PE_ID");
-        xml.writeElement("SEEKVALUES", "" + id);
-        xml.endTag("PERSON");
-    }
-
-    /**
-     * The person tag aparently must be present inside a <PersonData> struct
-     * 
-     * @param xml
-     */
-    public void toSmallPersonXML(XMLUtil xml) {
+        /*
+         * The PE_ID is used for referencing other elements in the file, while the SEEKFIELDS tells
+         * ePhorte that we're actually talking about an existing record.
+         */
         xml.startTag("PERSON");
         xml.writeElement("PE_ID", "" + id);
+        xml.writeElement("SEEKFIELDS", "PE_ID");
+        xml.writeElement("SEEKVALUES", "" + id);
         xml.endTag("PERSON");
     }
 
