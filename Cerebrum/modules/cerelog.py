@@ -280,6 +280,29 @@ def process_config(fname, logger_name, logger_level):
 
 
 
+def get_level(level):
+    "Return a number corresponding to the given severity level name/number."
+
+    try:
+        if (isinstance(level, long) or
+            isinstance(level, basestring) and level.isdigit()):
+            # check that is has been defined
+            level = int(level)
+            logging._levelNames[level]
+            result = level
+        else:
+            result = logging._levelNames[level]
+            assert (isinstance(result, (int, long)),
+                    "Wrong logging level: <%s>" % level)
+
+        return int(result)
+    except KeyError, obj:
+        print "Undefined logging level: %s" % str(level)
+        raise
+# end get_level
+
+
+
 def initialize_logger(name, level, config):
     """This function creates and initializes a new logger NAME with config
     information specified in CONFIG.
@@ -309,15 +332,11 @@ def initialize_logger(name, level, config):
 
     # if there is a command line level override, use it
     if level is not None:
-        logger.setLevel(logging.getLevelName(level))
+        logger.setLevel(get_level(level))
     # ... otherwise use the level specified in the config file, it it exists
     elif "level" in options:
         logger_level = config.get(section_name, "level")
-        logger.setLevel(logging.getLevelName(logger_level))
-    if not isinstance(logger.level, int):
-        # Textual log-levels usually results in no logging what so ever
-        raise ValueError, \
-              "loglevel is not numeric (%s). Check your config!" % logger.level
+        logger.setLevel(get_level(logger_level))
 
     # FIXME: is this really necessary? (stolen from logging)
     for handler in logger.handlers:
@@ -384,12 +403,7 @@ def initialize_handler(name, config):
     # If there is a level specification in the ini-file, use it. 
     if "level" in options:
         level = config.get(section_name, "level")
-    # ... otherwise, we get a handler than never logs.
-    else:
-        level = None
-    # fi
-
-    handler.setLevel(logging.getLevelName(level))
+        handler.setLevel(get_level(level))
 
     # formatters are initialized as needed.
     if formatter:
