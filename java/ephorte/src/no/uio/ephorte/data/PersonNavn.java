@@ -23,7 +23,9 @@ public class PersonNavn {
     private String mellomnavn;
     private String etternavn;
     private Date fraDato;
-
+    private static int xmlRefIdCounter;  // sikre at vi ikke sender to xml-blokker med samme navne-id for intern-referansene 
+    private int xmlRefId;
+    
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof PersonNavn) {
@@ -38,6 +40,7 @@ public class PersonNavn {
 
     protected PersonNavn(Person person, String initialer, String navn, String fornavn,
             String mellomnavn, String etternavn, boolean aktiv) {
+        this.xmlRefId = ++xmlRefIdCounter; 
         this.person = person;
         this.initialer = initialer;
         this.navn = navn;
@@ -68,11 +71,15 @@ public class PersonNavn {
     public String toXML(XMLUtil xml) {
         xml.startTag("PERNAVN");
         if (id != -1) {
+            // Når en person har skiftet navn, skal det gamle navnet få en til-dato
             xml.writeElement("SEEKFIELDS", "PN_ID");
             xml.writeElement("SEEKVALUES", "" + id);
+            xml.writeElement("PN_TILDATO", Person.dayFormat.format(new Date()));
+            xml.endTag("PERNAVN");
+            xml.startTag("PERNAVN");
         }
         xml.writeElement("PN_PEID_PE", "" + person.getId());
-        xml.writeElement("PN_ID", "" + id);
+        xml.writeElement("PN_ID", "" + xmlRefId);
         xml.writeElement("PN_AKTIV", aktiv ? "-1" : "0");
         xml.writeElement("PN_INIT", initialer);
         xml.writeElement("PN_NAVN", navn);
@@ -97,6 +104,10 @@ public class PersonNavn {
 
     public void setId(int id) {
         this.id = id;
+    }
+
+    public boolean isAktiv() {
+        return aktiv;
     }
 
 }

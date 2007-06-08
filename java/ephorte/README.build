@@ -61,6 +61,8 @@ will cause java to ignore certificate validation errors::
 
   echo org.apache.axis.components.net.SunFakeTrustSocketFactory > bin/META-INF/services/org.apache.axis.components.net.SecureSocketFactory
 
+Remember not to use this feature in a production environment if you can avoid
+it as you open for man-in-the-middle attacks.
 
 About ephorte-stubs.jar
 ========================

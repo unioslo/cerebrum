@@ -99,4 +99,8 @@ public class Adresse {
         this.id = id;
     }
 
+	public String getAdrType() {
+		return adrType;
+	}
+
 }

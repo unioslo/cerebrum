@@ -6,6 +6,7 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Properties;
 
+import no.uio.ephorte.data.Adresse;
 import no.uio.ephorte.data.Person;
 import no.uio.ephorte.data.PersonRolle;
 import no.uio.ephorte.xml.XMLUtil;
@@ -40,6 +41,12 @@ public class EphorteGW {
             conn = new EphorteConnectionImpl(props.getProperty("url"), props.getProperty("uname"),
                     props.getProperty("password"), props.getProperty("database"));
         }
+    }
+    
+    /**
+     * Must be called prior to using the update functions 
+     */
+    public void prepareSync() {
         try {
             fetchPersons();
         } catch (RemoteException e) {
@@ -129,7 +136,7 @@ public class EphorteGW {
             log.debug("Parsed persons from ePhorte:");
             for (Iterator iter = personId2Person.values().iterator(); iter.hasNext();) {
                 Person p = (Person) iter.next();
-                log.debug(p + "; " + p.getPersonNavn() + "; " + p.getAdresse() + "; "
+                log.debug(p + "; " + p.getPersonNavn() + "; " + p.getAdresse(Adresse.ADRTYPE_A) + "; "
                         + p.getRoller());
             }
         }
@@ -140,69 +147,87 @@ public class EphorteGW {
      * Oppdater, eller opprett person i ePhorte med informasjon om navn og
      * adresser
      * 
-     * @param p
+     * @param newPerson
      * @throws RemoteException
      */
-    public void updatePersonInfo(Person p) throws RemoteException {
+    public void updatePersonInfo(Person newPerson) throws RemoteException {
         XMLUtil xml = new XMLUtil();
-        Person oldPerson = getPerson(p.getBrukerId());
+        Person oldPerson = getPerson(newPerson);
         boolean isDirty = false;
         xml.startTag("PersonData");
         if (oldPerson == null || oldPerson.getId() == -1) {
             // Ny person
-            p.toXML(xml);
-            brukerId2Person.put(p.getBrukerId(), p);
-            p.setNew(true);
+            newPerson.toXML(xml);
+            brukerId2Person.put(newPerson.getBrukerId(), newPerson);
+            newPerson.setNew(true);
             isDirty = true;
         } else {
             // old person. There are no data that we want to update
-            p.setId(oldPerson.getId());
-            p.toSeekXML(xml);
+            newPerson.setId(oldPerson.getId());
+        	if(! newPerson.getBrukerId().equals(oldPerson.getBrukerId())) {
+        		
+        	} else {
+        		newPerson.toSeekXML(xml);
+        	}
         }
-        if (oldPerson == null || !(p.getPersonNavn().equals(oldPerson.getPersonNavn()))) {
+        if (oldPerson == null || !(newPerson.getPersonNavn().equals(oldPerson.getPersonNavn()))) {
             if (oldPerson != null && oldPerson.getPersonNavn() != null) {
-                p.getPersonNavn().setId(oldPerson.getPersonNavn().getId());
+                newPerson.getPersonNavn().setId(oldPerson.getPersonNavn().getId());
             }
-            p.getPersonNavn().toXML(xml);
+            newPerson.getPersonNavn().toXML(xml);
             isDirty = true;
         }
-        if (oldPerson == null || oldPerson.getAdresse() == null
-                || !(oldPerson.getAdresse().equals(p.getAdresse()))) {
-            if (oldPerson != null && oldPerson.getAdresse() != null) {
-                p.getAdresse().setId(oldPerson.getAdresse().getId());
+        if (oldPerson == null || oldPerson.getAdresse(Adresse.ADRTYPE_A) == null
+                || !(oldPerson.getAdresse(Adresse.ADRTYPE_A).equals(newPerson.getAdresse(Adresse.ADRTYPE_A)))) {
+            if (oldPerson != null && oldPerson.getAdresse(Adresse.ADRTYPE_A) != null) {
+                newPerson.getAdresse(Adresse.ADRTYPE_A).setId(oldPerson.getAdresse(Adresse.ADRTYPE_A).getId());
             }
-            p.getAdresse().toXML(xml);
+            newPerson.getAdresse(Adresse.ADRTYPE_A).toXML(xml);
             isDirty = true;
         }
-        isDirty = updateRoles(xml, p) || isDirty;
+        isDirty = updateRoles(xml, newPerson) || isDirty;
         xml.endTag("PersonData");
         if (isDirty) {
             try {
                 int ret = conn.updatePersonByXML(xml.toString());
-                if (p.getId() == -1)
-                    p.setId(ret);
+                if (newPerson.getId() == -1)
+                    newPerson.setId(ret);
                 log.info("DO: " + xml.toString() + " -> " + ret);
                 if (ret < 0) {
                     // Skal normalt returnere id til personen som ble
                     // laget/oppdatert
-                    log.warn("Problem modifying " + p.getBrukerId() + ", ret should be > 0, was: "
+                    log.warn("Problem modifying " + newPerson.getBrukerId() + ", ret should be > 0, was: "
                             + ret + " problematic request:" + xml.toString());
                 }
             } catch (AxisFault e) {
                 log.warn("DO: " + xml.toString() + " -> " + e.toString());
             }
         } else {
-            log.debug(p.getBrukerId() + " not modified");
+            log.debug(newPerson.getBrukerId() + " not modified");
         }
     }
 
-    private Person getPerson(String brukerId) {
-        return brukerId2Person.get(brukerId);
+    /**
+	 * Try to match the person from the XML person with an existing ePhorte
+	 * person. Note that we also check any previous feide IDs the XML-person
+	 * might have had, as this should result in a change of username.
+	 * 
+	 * @param newPerson
+	 * @return
+	 */
+    private Person getPerson(Person newPerson) {
+		Person ret = brukerId2Person.get(newPerson.getBrukerId());
+		if(ret != null) return ret;
+    	for (String feideId : newPerson.getPotentialFeideIds()) {
+    		ret = brukerId2Person.get(feideId);
+    		if(ret != null) return ret;
+		}
+    	return null;
     }
 
     private boolean updateRoles(XMLUtil xml, Person p) {
         boolean isDirty = false;
-        Person oldPerson = getPerson(p.getBrukerId());
+        Person oldPerson = getPerson(p);
         if (oldPerson == null || (oldPerson.getId() == -1 && !oldPerson.isNew())) {
             log.warn("updateRoles for non-existing person " + p.getBrukerId());
             return isDirty;
@@ -226,6 +251,10 @@ public class EphorteGW {
             }
         }
         return isDirty;
+    }
+
+    public EphorteConnection getConn() {
+        return conn;
     }
 
 }

@@ -23,16 +23,20 @@ public class Person {
     private String brukerId;
     private int id = -1;
     private PersonNavn personNavn;
-    private Adresse adresse;
+    private Hashtable<String, Adresse> adresse;
     private Vector<PersonRolle> roller;
+    private Vector<String> potentialFeideIds;
     private boolean isNew = false; // Was created during this execution
     private Date fraDato;
-
+    private boolean isDeletable = false;
+    
     private final static String passwordCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890,.-;:_'*!#%&/()=?+";
     private SecureRandom secRand = new SecureRandom();
 
     public Person(String brukerId) {
         roller = new Vector<PersonRolle>();
+        potentialFeideIds = new Vector<String>();
+        adresse = new Hashtable<String, Adresse>();
         this.brukerId = brukerId;
         fraDato = new Date();
     }
@@ -52,7 +56,6 @@ public class Person {
         xml.startTag("PERSON");
         xml.writeElement("PE_ID", "" + id);
         xml.writeElement("PE_BRUKERID", brukerId);
-        xml.writeElement("PE_FRADATO", dayFormat.format(fraDato));
         if (id == -1) {
             // Since we use FEIDE login, we assign a random password in case it
             // is possible to log in with the normal password
@@ -62,20 +65,26 @@ public class Person {
                         .length() - 1)));
             }
             xml.writeElement("PE_PASSORD_G", password.toString());
+            // "Skrivetilgang til alle registrerte roller av samme type" -> alltid nei
+            xml.writeElement("PE_REDALLEROLLER_G", "0");
+            xml.writeElement("PE_FRADATO", dayFormat.format(fraDato));
+        } else {
+            xml.writeElement("SEEKFIELDS", "PE_ID");
+            xml.writeElement("SEEKVALUES", "" + id);
         }
-        xml.writeElement("PE_REDALLEROLLER_G", "0"); // "Skrivetilgang til
-                                                        // alle registrerte
-                                                        // roller av samme type"
-                                                        // -> alltid nei
+        if(isDeletable) {
+            xml.writeElement("PE_FRADATO", dayFormat.format(new Date()));
+        }
         xml.endTag("PERSON");
         return "";
     }
 
     public void toSeekXML(XMLUtil xml) {
         /*
-         * The PE_ID is used for referencing other elements in the file, while the SEEKFIELDS tells
-         * ePhorte that we're actually talking about an existing record.
-         */
+		 * The PE_ID is used for referencing other elements in the file, while
+		 * the SEEKFIELDS tells ePhorte that we're actually talking about an
+		 * existing record.
+		 */
         xml.startTag("PERSON");
         xml.writeElement("PE_ID", "" + id);
         xml.writeElement("SEEKFIELDS", "PE_ID");
@@ -85,16 +94,21 @@ public class Person {
 
     public void addName(String initialer, String navn, String fornavn, String mellomnavn,
             String etternavn, boolean aktiv) {
-        personNavn = new PersonNavn(this, initialer, navn, fornavn, mellomnavn, etternavn, aktiv);
+        if(personNavn == null || ! personNavn.isAktiv()) {
+            // Vi er kun interessert i det aktive personnavnet ettersom det er det vi evt. skal endre
+            personNavn = new PersonNavn(this, initialer, navn, fornavn, mellomnavn, etternavn, aktiv);
+        }
     }
 
     public void addAddress(String adrType, String navn, String postadr, String postnr,
             String poststed, String ePost, String tlf) {
-        adresse = new Adresse(this, adrType, navn, postadr, postnr, poststed, ePost, tlf);
+        adresse.put(adrType, 
+        		new Adresse(this, adrType, navn, postadr, postnr, poststed, ePost, tlf));
     }
 
     public void addAddress(Hashtable<String, String> ht) {
-        adresse = new Adresse(this, ht);
+    	Adresse tmp = new Adresse(this, ht);
+        adresse.put(tmp.getAdrType(), tmp);
     }
 
     public void addName(Hashtable<String, String> ht) {
@@ -124,8 +138,8 @@ public class Person {
         return personNavn;
     }
 
-    public Adresse getAdresse() {
-        return adresse;
+    public Adresse getAdresse(String adrType) {
+        return adresse.get(adrType);
     }
 
     public void setId(int id) {
@@ -151,5 +165,21 @@ public class Person {
     public boolean isNew() {
         return isNew;
     }
+
+	public boolean isDeletable() {
+		return isDeletable;
+	}
+
+	public void setDeletable(boolean isDeletable) {
+		this.isDeletable = isDeletable;
+	}
+
+	public void addPotentialFeideId(String feideId) {
+		potentialFeideIds.add(feideId);
+	}
+
+	public Vector<String> getPotentialFeideIds() {
+		return potentialFeideIds;
+	}
 
 }

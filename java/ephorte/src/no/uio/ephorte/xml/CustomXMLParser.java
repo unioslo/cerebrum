@@ -29,6 +29,7 @@ import org.xml.sax.helpers.DefaultHandler;
 public class CustomXMLParser {
     private Vector<Person> persons;
     Person tmpPerson;
+    // Hashtable<String, Person> potentialFeideId2Person = new Hashtable<String, Person>();
     private Log log = LogFactory.getLog(EphorteGW.class);
 
     class MyHandler extends DefaultHandler {
@@ -41,8 +42,11 @@ public class CustomXMLParser {
                                                                      * , pn,
                                                                      * addr
                                                                      */);
+                if("1".equals(attr.getValue("delete"))) 
+                	tmpPerson.setDeletable(true);
                 tmpPerson.addName(attr.getValue("initials"), attr.getValue("full_name"), attr
-                        .getValue("first_name"), null, attr.getValue("last_name"), true);
+                        .getValue("first_name"), null, attr.getValue("last_name"), 
+                        "-1".equals(attr.getValue("PN_AKTIV")));
                 tmpPerson.addAddress(Adresse.ADRTYPE_A, attr.getValue("full_name"), attr
                         .getValue("address_text"), attr.getValue("postal_number"), attr
                         .getValue("city"), attr.getValue("email"), attr.getValue("phone"));
@@ -57,6 +61,9 @@ public class CustomXMLParser {
                     log.error("Caugh BadDataException: " + e.toString() + " for "
                             + tmpPerson.getBrukerId());
                 }
+            } else if ("potential_feideid".equals(qName)) {
+            	//potentialFeideId2Person.put(attr.getValue("id"), tmpPerson);
+            	tmpPerson.addPotentialFeideId(attr.getValue("id"));
             }
         }
     }

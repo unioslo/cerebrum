@@ -12,7 +12,7 @@ import java.util.Vector;
  * 
  */
 public abstract class EphorteConnection {
-    abstract protected Vector<Hashtable<String, String>> getDataSet(
+    public abstract Vector<Hashtable<String, String>> getDataSet(
             String criteriaCollectionString, String tagName) throws RemoteException;
 
     abstract protected int updatePersonByXML(String xml) throws RemoteException;

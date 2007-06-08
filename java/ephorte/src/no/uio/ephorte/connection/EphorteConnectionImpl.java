@@ -57,7 +57,7 @@ public class EphorteConnectionImpl extends EphorteConnection {
      * @return
      * @throws RemoteException
      */
-    protected Vector<Hashtable<String, String>> getDataSet(String criteriaCollectionString,
+    public Vector<Hashtable<String, String>> getDataSet(String criteriaCollectionString,
             String tagName) throws RemoteException {
         Vector<Hashtable<String, String>> ret = new Vector<Hashtable<String, String>>();
         GetDataSetResponseGetDataSetResult res = service.getDataSet(sessionID,

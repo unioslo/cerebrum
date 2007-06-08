@@ -37,7 +37,7 @@ public class EporteConnectionTest extends EphorteConnection {
         factory = DocumentBuilderFactory.newInstance();
     }
 
-    protected Vector<Hashtable<String, String>> getDataSet(String criteriaCollectionString,
+    public Vector<Hashtable<String, String>> getDataSet(String criteriaCollectionString,
             String tagName) {
         String ftype = criteriaCollectionString
                 .substring(criteriaCollectionString.indexOf('=') + 1);
