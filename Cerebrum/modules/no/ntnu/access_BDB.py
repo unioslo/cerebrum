@@ -168,12 +168,22 @@ class BDB:
         cursor.close()
         return vacations
 
-    def get_persons(self):
+    def get_persons(self,fdato=None,pnr=None,bdbid=None):
         cursor = self.db.cursor()
-        cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
+        if not fdato and not pnr and not bdbid:
+            cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
                         p.fornavn, p.etternavn, p.sperret, p.forward FROM person p,bruker b \
                         WHERE b.person = p.id and b.user_domain=1 AND \
                         p.personnr IS NOT NULL")
+        elif bdbid:
+            cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), \
+                        p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward \
+                        FROM person p WHERE p.id = %s " % (bdbid))
+        else:
+            cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), \
+                        p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward \
+                        FROM person p WHERE \
+                        p.personnr = %s AND to_char(p.fodselsdato,'DDMMYY') = %s" % (pnr,fdato))
         bdb_persons = cursor.fetchall()
         persons = []
         # Convert to a dict
