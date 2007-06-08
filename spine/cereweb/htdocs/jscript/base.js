@@ -134,7 +134,7 @@ cereweb.msg = {
         var fn = function() {
             messages.removeChild(p);
         }
-        document.setTimeout(fn, timeout);
+        window.setTimeout(fn, timeout);
     },
     error: function(message) {
         cereweb.msg._msg(message, 'error', 10000);
