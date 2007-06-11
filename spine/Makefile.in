@@ -1,5 +1,5 @@
 ##
-## Makefile for spine/server
+## Makefile for Spine
 ##
 ## Copyright 2004, 2005 University of Oslo, Norway
 ##
@@ -19,23 +19,36 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ##
-INSTALL = @INSTALL@
 
-prefix = @prefix@
 
-sources = $(wildcard *.py)
-
-.PHONY: all install install-lib clean distclean print
+.PHONY: all install install-lib clean distclean
 
 all: 
+	$(MAKE) -C server $@
+	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
+	$(MAKE) -C cereweb $@
 
-install: $(sources)
-	$(INSTALL) -d $(prefix)/sbin
-	$(INSTALL) -v -m 755 $(sources) $(prefix)/sbin
+install: install-lib
+	$(MAKE) -C server $@
+	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
+	$(MAKE) -C cereweb $@
 
 install-lib:
+	$(MAKE) -C server $@
+	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
+	$(MAKE) -C cereweb $@
 
 clean:
+	$(MAKE) -C server $@
+	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
+	$(MAKE) -C cereweb $@
 
 distclean: clean
-	rm -f Makefile
+	$(MAKE) -C server $@
+	$(MAKE) -C lib $@
+	$(MAKE) -C client $@
+	$(MAKE) -C cereweb $@
