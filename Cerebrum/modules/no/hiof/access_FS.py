@@ -23,12 +23,16 @@ from Cerebrum.modules.no import access_FS
 
 class HiOfStudent(access_FS.Student):
     ## Vi bruker list_privatist, og list_tilbud fra no/access_FS
-    def list_aktiv(self):
+    def list_aktiv(self, fodselsdato=None, personnr=None):
 	""" Hent opplysninger om studenter definert som aktive 
 	ved NMH. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
         eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
         ikke satt."""
+        extra = ""
+        if fodselsdato and personnr:
+            extra = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
+
 	qry = """
         SELECT DISTINCT
           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
@@ -47,11 +51,12 @@ class HiOfStudent(access_FS.Student):
           p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
           %s AND
+          %s
           sps.status_privatist = 'N' AND
           sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
-          """ % (self._is_alive())
-        return self.db.query(qry)
+          """ % (self._is_alive(), extra)
+        return self.db.query(qry, locals())
 
 class HiOfUndervisning(access_FS.Undervisning):
     ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
