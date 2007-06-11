@@ -12,13 +12,11 @@ videregående skoler. Husk at brukernavn og passord er personlig, og at
 det <b>ikke må oppgis til andre</b>!
 </p>
 
-<p>  
   <table style="text-align: left;" border="0">
     <tr><td>Brukernavn:</td> <td tal:content="string: ${uname}"></td></tr>
     <tr><td>Passord:</td><td tal:content="string: ${pwd}"></td></tr>
     <tr><td>E-postadresse:</td><td tal:content="string: ${email}"></td></tr>
   </table>
-</p>
 
 <p>
 For innlogging i portalen gå til:
