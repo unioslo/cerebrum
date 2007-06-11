@@ -1,0 +1,114 @@
+/*
+ * Copyright 2004, 2005 University of Oslo, Norway
+ *
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License 
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+div.bottom_div {
+    background: white;
+    height: 100%;
+    height: 9em;
+}
+
+div.worklist h2, div.activitylog h2 {
+    font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
+    font-size: 90%;
+    margin: 0;
+    padding: 0 0 0 4px;
+}
+
+div.worklist {
+    float: left;
+    vertical-align: top;
+    margin: 0;
+    padding: 0;
+    height: auto;
+    width: 400px;
+}
+
+div.worklist h2 {
+    background: #66CCFF;
+    border: 1px solid #0066CC;
+    margin-bottom: 4px;
+    margin-left: 5px;
+}
+
+div.worklist form {
+    margin: 0; // Ie and opera adds a small margin.
+    padding: 0;
+}
+
+div.worklist form div.buttons {
+    float: left;
+    width: 60px;
+    margin-left: 5px;
+    padding-right: 3px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+
+
+div.worklist form div.buttons button {
+    width: 100%;
+    text-align: left;
+    margin-bottom: 4px;
+}
+
+div.worklist form div.list {
+    margin: 0; 
+    padding: 0;
+    float: left;
+    width: 160px;
+}
+
+div.worklist form div.actions {
+    float: left;
+    width: 165px;
+    padding-left: 5px;
+}
+
+div.activitylog {
+    vertical-align: top;
+    margin-left: 0.5em;
+    margin-right: 0.5em;
+    overflow: auto;
+    height: auto;
+    width: 350px;
+}
+
+div.activitylog_full {
+    float: left;
+    clear: right;
+    empty-cells: show;
+}
+
+div.activitylog h2 {
+    background: #61EF76;
+    border: 1px solid #006600;
+    margin-bottom: 4px;
+}
+
+div.activitylog div.amsg, div.activitylog_full div.amsg {
+    border-bottom: 1px dotted #006600;
+}
+
+div.activitylog a:link {  color: black; }
+div.activitylog a:visited { color: black; }
+div.activitylog a:hover { color: gray; }
+div.activitylog h2 a:link { text-decoration: none; }
+div.activitylog h2 a:hover { text-decoration: none; }
+div.activitylog h2 a:visited { text-decoration: none; }
