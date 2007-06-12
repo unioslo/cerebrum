@@ -132,7 +132,10 @@ class BofhdExtension(object):
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
-
+        extra_msg = ""
+        if not int(self.const.spread_ephorte_person) in person.get_spread():
+            person.add_spread(self.const.spread_ephorte_person)
+            extra_msg = " (implicitly added ephorte-spread)"
         if arkivdel:
             arkivdel = self._get_arkivdel(arkivdel)
         else:
@@ -143,7 +146,7 @@ class BofhdExtension(object):
             journalenhet = None
         self.ephorte_role.add_role(person.entity_id, self._get_role(role), ou.entity_id,
                                    arkivdel, journalenhet)
-        return "OK, added %s role for %s" % (role, person_id)
+        return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
 
     all_commands['eph_remove_role'] = Command(("eph", "remove_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
         perm_filter='is_superuser')

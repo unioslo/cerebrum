@@ -2,10 +2,12 @@
 # -*- coding: iso-8859-1 -*-
 
 import getopt
+import pickle
 import sys
 import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
+from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 
@@ -27,6 +29,7 @@ ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
 ephorte_role = EphorteRole(db)
 ou = Stedkode(db)
+cl = CLHandler.CLHandler(db)
 
 logger = Factory.get_logger("cronjob")
 
@@ -70,10 +73,44 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     f.set_size_change_limit(10)
 
     logger.debug("Started ephorte export to %s" % fname)
-    
+
     persons = {}
     for row in pe.list_all_with_spread(spread):
         persons[int(row['entity_id'])] = {'roles': []}
+
+    # People who no longer shall be exported
+    # Detect that the person has a new feide id, meaning that ePhorte
+    # potentially will need to set an existing account to point to
+    # this new value
+    pid2events = {}
+    potential_changed_feideid = {}
+    
+    logger.debug("Checking changelog")
+    for event in cl.get_events('eph_exp', (
+        co.spread_del, co.account_type_add, co.account_type_del,
+        co.account_type_mod)):
+        cl.confirm_event(event)
+        if event['change_type_id'] != int(co.spread_del):
+            potential_changed_feideid[int(event['subject_entity'])] = True
+            continue
+        if persons.has_key(int(event['subject_entity'])):
+            continue  # spread has been re-inserted or similar
+        change_params = pickle.loads(event['change_params'])
+        if change_params['spread'] == int(co.spread_ephorte_person):
+            persons[int(event['subject_entity'])] = {'delete': 1}
+    cl.commit_confirmations()
+
+    if potential_changed_feideid:
+        pid2accounts = {}
+        account2pid = {}
+        for row in ac.search():
+            pid2accounts.setdefault(int(row['owner_id']), []).append(
+                {'id': '%s@UIO.NO' % row['name'].upper()})
+            account2pid[int(row['account_id'])] = int(row['owner_id'])
+        for account_id in potential_changed_feideid.keys():
+            p = persons.get(account2pid[account_id])
+            if p:
+                p['potential_feideid'] = pid2accounts[account2pid[account_id]]
 
     logger.debug("Fetching names...")
     for entity_id, dta in pe.getdict_persons_names(
@@ -150,7 +187,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             })
                                   
     xml = ExtXMLHelper()
-    print repr(persons)
+#    print repr(persons)
     f.write(xml.xml_hdr)
     f.write("<ephortedata>\n")
     for p in persons.values():
