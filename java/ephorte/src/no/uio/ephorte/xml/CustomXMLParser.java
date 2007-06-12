@@ -38,10 +38,7 @@ public class CustomXMLParser {
                 throws SAXException {
             // System.out.println("QN: " + qName);
             if ("person".equals(qName)) {
-                tmpPerson = new Person(attr.getValue("feide_id") /*
-                                                                     * , pn,
-                                                                     * addr
-                                                                     */);
+                tmpPerson = new Person(attr.getValue("feide_id"), false);
                 if("1".equals(attr.getValue("delete"))) 
                 	tmpPerson.setDeletable(true);
                 tmpPerson.addName(attr.getValue("initials"), attr.getValue("full_name"), attr

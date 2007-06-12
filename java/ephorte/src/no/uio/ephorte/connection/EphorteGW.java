@@ -100,7 +100,7 @@ public class EphorteGW {
         Hashtable<Integer, Person> personId2Person = new Hashtable<Integer, Person>();
         log.info("EphorteGW.fetchPersons() started...");
         for (Hashtable<String, String> ht : conn.getDataSet("object=person", "Person")) {
-            Person p = new Person(ht);
+            Person p = new Person(ht, true);
             personId2Person.put(p.getId(), p);
             brukerId2Person.put(p.getBrukerId(), p);
         }
@@ -164,9 +164,11 @@ public class EphorteGW {
         } else {
             // old person. There are no data that we want to update
             newPerson.setId(oldPerson.getId());
-        	if(! newPerson.getBrukerId().equals(oldPerson.getBrukerId())) {
-        		
-        	} else {
+            newPerson.setTilDato(oldPerson.getTilDato());
+            if(! newPerson.equals(oldPerson)) {
+                newPerson.toXML(xml);
+                isDirty = true;
+            } else {                
         		newPerson.toSeekXML(xml);
         	}
         }
@@ -198,6 +200,19 @@ public class EphorteGW {
                     // laget/oppdatert
                     log.warn("Problem modifying " + newPerson.getBrukerId() + ", ret should be > 0, was: "
                             + ret + " problematic request:" + xml.toString());
+                } else {
+                    if(newPerson.getPersonNavn().isChanged()) {
+                        xml = new XMLUtil();
+                        xml.startTag("PersonData");
+                        newPerson.toSeekXML(xml);
+                        newPerson.getPersonNavn().fixChangedName(xml);
+                        xml.endTag("PersonData");
+                        ret = conn.updatePersonByXML(xml.toString());
+                        if (ret < 0) {
+                            log.warn("Problem fixing name-change for " + newPerson.getBrukerId() + ", ret should be > 0, was: "
+                                    + ret + " problematic request:" + xml.toString());
+                        }                       
+                    }
                 }
             } catch (AxisFault e) {
                 log.warn("DO: " + xml.toString() + " -> " + e.toString());
@@ -222,6 +237,13 @@ public class EphorteGW {
     		ret = brukerId2Person.get(feideId);
     		if(ret != null) return ret;
 		}
+        for(Person p: brukerId2Person.values()){
+            if(p.getPersonNavn() != null && 
+                    p.getPersonNavn().getInitialer().equals(newPerson.getPersonNavn().getInitialer())) {
+                log.warn("Used brukerid match to return "+p+" when looking for "+newPerson);
+                return p;
+            }
+        }
     	return null;
     }
 

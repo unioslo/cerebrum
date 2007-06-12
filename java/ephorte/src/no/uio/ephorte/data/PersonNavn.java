@@ -25,7 +25,12 @@ public class PersonNavn {
     private Date fraDato;
     private static int xmlRefIdCounter;  // sikre at vi ikke sender to xml-blokker med samme navne-id for intern-referansene 
     private int xmlRefId;
+    private boolean changed = false;
     
+    public boolean isChanged() {
+        return changed;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof PersonNavn) {
@@ -33,7 +38,7 @@ public class PersonNavn {
             return XMLUtil.equals(initialer, pn.initialer) && XMLUtil.equals(navn, pn.navn)
                     && XMLUtil.equals(fornavn, pn.fornavn)
                     && XMLUtil.equals(mellomnavn, pn.mellomnavn)
-                    && XMLUtil.equals(etternavn, pn.etternavn) && aktiv == pn.aktiv;
+                    && XMLUtil.equals(etternavn, pn.etternavn)/* && aktiv == pn.aktiv */;
         }
         return super.equals(obj);
     }
@@ -72,16 +77,22 @@ public class PersonNavn {
         xml.startTag("PERNAVN");
         if (id != -1) {
             // Når en person har skiftet navn, skal det gamle navnet få en til-dato
+            xml.writeElement("PN_ID", "" + xmlRefId++);
             xml.writeElement("SEEKFIELDS", "PN_ID");
             xml.writeElement("SEEKVALUES", "" + id);
+            // xml.writeElement("PN_AKTIV", "0");
             xml.writeElement("PN_TILDATO", Person.dayFormat.format(new Date()));
+            xml.writeElement("PN_PEID_PE", "" + person.getId());
             xml.endTag("PERNAVN");
             xml.startTag("PERNAVN");
+            xml.writeElement("PN_INIT", "_"+initialer);
+            changed = true;
+        } else {
+            xml.writeElement("PN_INIT", initialer);
         }
         xml.writeElement("PN_PEID_PE", "" + person.getId());
         xml.writeElement("PN_ID", "" + xmlRefId);
-        xml.writeElement("PN_AKTIV", aktiv ? "-1" : "0");
-        xml.writeElement("PN_INIT", initialer);
+        xml.writeElement("PN_AKTIV", "-1");            // -1 -> True
         xml.writeElement("PN_NAVN", navn);
         xml.writeElement("PN_FORNAVN", fornavn);
         // xml.writeElement("PN_MNAVN", mellomnavn); // Vi har ikke mellomnavn i
@@ -108,6 +119,29 @@ public class PersonNavn {
 
     public boolean isAktiv() {
         return aktiv;
+    }
+
+    public String getInitialer() {
+        return initialer;
+    }
+
+    /**
+     * When a persons name is changed, we would ideally like to create the new
+     * name with the correct initials during one UpdatePersonByXML call.
+     * Unfortunately, this causes ePhorte to throw an exception. Therefore we
+     * have to first create the new name with boggous initials, and then rename
+     * the user during a second UpdatePersonByXML call.
+     * 
+     * @param xml
+     */
+    public void fixChangedName(XMLUtil xml) {
+        xml.startTag("PERNAVN");
+        xml.writeElement("PN_ID", "" + xmlRefId);
+        xml.writeElement("SEEKFIELDS", "PN_INIT;PN_AKTIV");
+        xml.writeElement("SEEKVALUES", "_" + initialer+";-1");
+        xml.writeElement("PN_PEID_PE", "" + person.getId());
+        xml.writeElement("PN_INIT", initialer);
+        xml.endTag("PERNAVN");
     }
 
 }

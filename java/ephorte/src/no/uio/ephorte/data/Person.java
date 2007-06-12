@@ -27,31 +27,59 @@ public class Person {
     private Vector<PersonRolle> roller;
     private Vector<String> potentialFeideIds;
     private boolean isNew = false; // Was created during this execution
-    private Date fraDato;
-    private boolean isDeletable = false;
+    private Date fraDato, tilDato;
+    private boolean isDeletable = false, fromEphorte;
     
     private final static String passwordCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890,.-;:_'*!#%&/()=?+";
     private SecureRandom secRand = new SecureRandom();
 
-    public Person(String brukerId) {
+    public Person(String brukerId, boolean fromEphorte) {
         roller = new Vector<PersonRolle>();
         potentialFeideIds = new Vector<String>();
         adresse = new Hashtable<String, Adresse>();
         this.brukerId = brukerId;
         fraDato = new Date();
+        this.fromEphorte = fromEphorte;
     }
 
-    public Person(Hashtable<String, String> ht) {
-        this(ht.get("PE_BRUKERID"));
+    public Person(Hashtable<String, String> ht, boolean fromEphorte) {
+        this(ht.get("PE_BRUKERID"), fromEphorte);
 
         this.id = Integer.parseInt(ht.get("PE_ID"));
         try {
             fraDato = dayFormat.parse(ht.get("PE_FRADATO"));
+            if(ht.get("PE_TILDATO") != null) {
+                tilDato = dayFormat.parse(ht.get("PE_TILDATO"));                
+            }
         } catch (ParseException e) {
             e.printStackTrace();
         }
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof Person) {
+            boolean tilDatoNeedsUpdate = false;
+            Person pEphorte, pXML;
+            if(fromEphorte) {
+                pEphorte = this;
+                pXML = (Person) obj;
+            } else {
+                pXML = this;
+                pEphorte = (Person) obj;
+            }
+            if(pXML.isDeletable && (pEphorte.tilDato == null || pEphorte.tilDato.after(new Date()))) {
+                tilDatoNeedsUpdate = true;
+            } else if(! pXML.isDeletable && pEphorte.tilDato != null && pEphorte.tilDato.before(new Date())) {
+                tilDatoNeedsUpdate = true;
+            }            
+            
+            return (! tilDatoNeedsUpdate) /* && XMLUtil.equals(fraDato, p.fraDato) */ /* && XMLUtil.equals(tilDato, p.tilDato) */
+                    && XMLUtil.equals(pEphorte.brukerId, pXML.brukerId);
+        }
+        return super.equals(obj);
+    }
+    
     public String toXML(XMLUtil xml) {
         xml.startTag("PERSON");
         xml.writeElement("PE_ID", "" + id);
@@ -71,10 +99,19 @@ public class Person {
         } else {
             xml.writeElement("SEEKFIELDS", "PE_ID");
             xml.writeElement("SEEKVALUES", "" + id);
+            if(isDeletable) {
+                xml.writeElement("PE_TILDATO", dayFormat.format(new Date()));
+            } else {
+                if(tilDato != null && tilDato.before(new Date())) {
+                    // XML-file said user is not deletable, but user is expired
+                    // in ePhorte. Set tilDato into the future
+                    xml.writeElement("PE_TILDATO", dayFormat.format(new Date(System.currentTimeMillis()+1000L*3600*24*365)));
+                }
+            }
         }
-        if(isDeletable) {
+/*        if(isDeletable) {
             xml.writeElement("PE_FRADATO", dayFormat.format(new Date()));
-        }
+        } */
         xml.endTag("PERSON");
         return "";
     }
@@ -112,6 +149,8 @@ public class Person {
     }
 
     public void addName(Hashtable<String, String> ht) {
+        if(personNavn != null && personNavn.isAktiv())
+            return;
         personNavn = new PersonNavn(this, ht);
     }
 
@@ -165,11 +204,11 @@ public class Person {
     public boolean isNew() {
         return isNew;
     }
-
+/*
 	public boolean isDeletable() {
 		return isDeletable;
 	}
-
+*/
 	public void setDeletable(boolean isDeletable) {
 		this.isDeletable = isDeletable;
 	}
@@ -182,4 +221,11 @@ public class Person {
 		return potentialFeideIds;
 	}
 
+    public void setTilDato(Date tilDato) {
+        this.tilDato = tilDato;
+    }
+
+    public Date getTilDato() {
+        return tilDato;
+    }
 }

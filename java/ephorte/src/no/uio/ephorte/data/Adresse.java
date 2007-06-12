@@ -51,6 +51,7 @@ public class Adresse {
         this.poststed = poststed;
         ePost = post;
         this.tlf = tlf;
+        trimLengths();
     }
 
     public Adresse(Person person, Hashtable<String, String> ht) {
@@ -63,8 +64,17 @@ public class Adresse {
         this.ePost = ht.get("AK_EPOST");
         this.tlf = ht.get("AK_TLF");
         this.id = Integer.parseInt(ht.get("AK_ADRID"));
+        trimLengths();
     }
 
+    private void trimLengths() {
+        if(postadr != null) {
+            int n = postadr.length(); 
+            if(n > 50)
+                postadr = postadr.substring(0, 36) + "..." + postadr.substring(n-10, n);
+        }
+    }
+    
     public String toXML(XMLUtil xml) {
         xml.startTag("ADRESSEKP");
         if (id != -1) {
@@ -74,6 +84,19 @@ public class Adresse {
         xml.writeElement("AP_PEID_PE", "" + person.getId());
         xml.writeElement("AK_ADRID", "" + id);
         xml.writeElement("AK_TYPE", adrType);
+        /*
+         * TODO: ePhorte will usually gleefully ignore our navn value, fetching
+         * the persons name instead.
+         * 
+         * UpdateByXML and this XML seems to allow changing AK_NAVN for an existing record:
+         * 
+         * <?xml version="1.0" standalone="yes"?> <XML2Ephorte><ADRESSEKP><SEEKFIELDS>AK_ADRID</SEEKFIELDS>
+         * <SEEKVALUES>74</SEEKVALUES> <AK_ADRID>2</AK_ADRID><AK_TYPE>A</AK_TYPE>
+         * <AK_NAVN>En test</AK_NAVN> <AK_POSTADR>Foo2 ...dallen 23</AK_POSTADR>
+         * <AK_POSTNR_PO>349</AK_POSTNR_PO> <AK_POSTSTED_PO>OSLO</AK_POSTSTED_PO>
+         * <AK_EPOST>rune.froysa@usit.uio.no</AK_EPOST> <AK_TLF>+4722852878</AK_TLF>
+         * </ADRESSEKP> </XML2Ephorte>
+         */
         xml.writeElement("AK_NAVN", navn);
         xml.writeElement("AK_POSTADR", postadr);
         xml.writeElement("AK_POSTNR_PO", postnr);
