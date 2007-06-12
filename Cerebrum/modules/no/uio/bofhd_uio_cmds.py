@@ -4895,15 +4895,16 @@ class BofhdExtension(object):
         ("person", "info"), PersonId(help_ref="id:target:person"),
         fs=FormatSuggestion([
         ("Name:          %s\n" +
-         "Export ID:     %s\n" +
+         "Entity-id:     %i\n" +
          "Birth:         %s\n" +
          "Affiliations:  %s [from %s]",
-         ("name", "export_id", format_day("birth"),
+         ("name", "entity_id", format_day("birth"),
           "affiliation_1", "source_system_1")),
         ("               %s [from %s]",
          ("affiliation", "source_system")),
         ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src"))
+         ("fnr", "fnr_src")),
+        ("Spreads:       %s", ("spread",))
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -4913,7 +4914,7 @@ class BofhdExtension(object):
         data = [{'name': person.get_name(self.const.system_cached,
                                          getattr(self.const,
                                                  cereconf.DEFAULT_GECOS_NAME)),
-                 'export_id': person.export_id,
+                 'entity_id': person.entity_id,
                  'birth': person.birth_date,
                  'entity_id': person.entity_id}]
         affiliations = []
@@ -4942,6 +4943,11 @@ class BofhdExtension(object):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
+
+        tmp = person.get_spread()
+        if tmp:
+            data.append({'spread': ",".join([str(self.const.Spread(row['spread']))
+                                             for row in tmp])})
         return data
 
     # person set_id
