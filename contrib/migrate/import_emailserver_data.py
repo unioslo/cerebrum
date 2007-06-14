@@ -129,11 +129,15 @@ def process_email_srv_data(uname, account_id, email_srv):
     except Errors.NotFoundError:
         logger.error("No email target for %s", uname)
         return None
-    email_server_target.clear()
-    email_server_target.populate(email_server_id, parent=email_target)
-    email_server_target.write_db()
+    try:
+        email_server_target.find(email_target.email_target_id)
+        logger.debug("Email-server is registered %s for %s", email_srv, uname)
+    except Errors.NotFoundError:
+        email_server_target.clear()
+        email_server_target.populate(email_server_id, parent=email_target)
+        email_server_target.write_db()
+        logger.debug("Populated email-server %s for %s", email_srv, uname)
 
-    logger.debug("Populated email-server %s for %s", email_srv, uname)
     email_server.clear()
     email_server_target.clear()
     email_target.clear()
