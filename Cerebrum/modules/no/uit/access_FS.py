@@ -361,6 +361,19 @@ class FS(access_FS.FS):
         self.evu = UiTEVU(self.db)
         self.ou = UiTOU(self.db)
 
+class student_undakt_xml_parser(access_FS.non_nested_xml_parser):
+    "Parserklasse for student_undakt.xml."
+
+    elements = {'data': False,
+                'undakt': True
+                }
+
+class undakt_xml_parser(access_FS.non_nested_xml_parser):
+    "Parserklasse for undakt.xml."
+
+    elements = {'data': False,
+                'undakt': True
+                }
 
 class person_xml_parser(access_FS.non_nested_xml_parser):
     "Parserklasse for person.xml."
