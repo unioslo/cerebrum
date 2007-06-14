@@ -126,6 +126,12 @@ class SAPConstants(Constants.Constants):
         "VIT"
     )
 
+    sap_1019_vitenskapelig_assist = SAPLonnsTittelKode(
+        "20001019",
+        "1019 Vitenskapelig assist",
+        "VIT"
+    )
+
     sap_1054_kontorsjef = SAPLonnsTittelKode(
         "20001054",
         "1054 Kontorsjef",
