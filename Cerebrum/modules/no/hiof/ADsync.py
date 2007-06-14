@@ -184,9 +184,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             object_list.append(self.ad_ldap)
             self.logger.debug("OU-list: %s" % repr(object_list))
         for ou in required_ous:
-            if ou not in object_list:
-                self.logger.debug("Creating missing OU: "+ou)
+            if unicode(ou, 'ISO-8859-1') not in object_list:
                 name, parent_ou = ou.split(",", 1)
+                name = unicode(name, 'ISO-8859-1')
+                self.logger.debug("Creating missing OU: ", name)
                 if not parent_ou in object_list:
                     # Recursively create parent
                     self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
