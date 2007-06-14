@@ -44,6 +44,8 @@ default_studieprogram_file = os.path.join(dumpdir,'studieprog.xml')
 default_ou_file = os.path.join(dumpdir,'ou.xml')
 default_emne_file = os.path.join(dumpdir,'emner.xml')
 default_fnr_update_file = os.path.join(dumpdir,'fnr_update.xml')
+default_undakt_file = os.path.join(dumpdir,'undakt.xml')
+default_undakt_student_file = os.path.join(dumpdir,'student_undakt.xml')
 
 xml = XMLHelper()
 fs = uitfs = None
@@ -69,7 +71,7 @@ def write_uit_person_info(outfile):
     # Studenter med opptak
     cols, students = _ext_cols(fs.student.list())
     for s in students:
-	# The Oracle driver thinks the result of a union of ints is float
+    # The Oracle driver thinks the result of a union of ints is float
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
 
@@ -103,7 +105,7 @@ def write_uit_person_info(outfile):
     cols, uitevu = uitfs.GetDeltaker()
     for e in uitevu:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
-        
+    
     f.write("</data>\n")
     f.close()
 
@@ -137,8 +139,8 @@ def write_ou_info(outfile):
         for fs_col, typekode in (
             ('telefonnr', 'EKSTRA TLF'),
             ('faxnr', 'FAX'),
-	    ('emailadresse','EMAIL'),
-	    ('url', 'URL')):
+            ('emailadresse','EMAIL'),
+            ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -161,9 +163,23 @@ def write_role_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = uitfs.GetAllePersonRoller(cereconf.DEFAULT_INSTITUSJONSNR)
     for r in role:
-	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
+        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
     f.write("</data>\n")
     f.close()
+
+
+def  write_undakt_info(outfile):
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(1)
+    f.write(xml.xml_hdr + "<data>\n")
+    # FIXME: hardkodet år og sem, BjørnT. 2007-06-13
+    for semester in (('2007','VÅR'),('2007','HØST')):
+        cols,akt = _ext_cols(fs.undervisning.list_aktiviteter(*semester))
+        for r in akt:
+            f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'undakt') + "\n")
+    f.write("</data>\n")    
+    f.close()
+    
 
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
@@ -201,6 +217,45 @@ def write_undenh_student(outfile):
                     s_attr[k] = s[k]
                 f.write(xml.xmlify_dbrow({}, (), 'student',
                                          extra_attr=s_attr)
+                        + "\n")
+    f.write("</data>\n")
+    f.close()
+    
+    
+    
+def write_undakt_student(outfile):
+    """Skriv oversikt over personer oppmeldt til undervisningsaktivityeter.
+
+    Tar med data for alle undervisingsaktiveter i inneværende+neste
+    semester."""
+    f = MinimumSizeWriter(outfile)
+
+    f.set_minimum_size_limit(2*KiB)
+    f.write(xml.xml_hdr + "<data>\n")
+    # FIXME: hardkodet år og sem, BjørnT. 2007-06-13
+    for semester in (('2007','VÅR'),('2007','HØST')):
+        cols,akt = _ext_cols(fs.undervisning.list_aktiviteter(*semester))
+        for a in akt:
+            a_attr = {}
+            # oversett kolonnenavn fra list_aktiviteter til parameternavn i list_aktivitet()
+            trans = (('institusjonsnr','Instnr'), 
+                    ('emnekode','emnekode'),
+                    ('versjonskode','versjon'),
+                    ('terminkode','termk'),
+                    ('arstall','aar'),
+                    ('terminnr','termnr'),
+                    ('aktivitetkode','aktkode'))
+            for k1,k2 in trans:
+                a_attr[k2] = a[k1]
+            student_cols, student = _ext_cols(fs.undervisning.list_aktivitet(**a_attr))
+            for s in student:
+                #s_attr = a_attr.copy()
+                s_attr = dict()
+                for k1,k2 in trans:
+                    s_attr[k1]=a[k1]
+                for k in ('fodselsdato', 'personnr'):
+                    s_attr[k] = s[k]
+                f.write(xml.xmlify_dbrow({}, (), 'undakt', extra_attr=s_attr)
                         + "\n")
     f.write("</data>\n")
     f.close()
@@ -274,6 +329,8 @@ def usage(exitcode=0):
     --uit-undenh-file: override 'topics' file
     --uit-emneinfo-file: override emne info
     --uit-student-undenh-file: override student on UE file
+    --uit-undakt-file: override undervisningsaktiveter on UE file
+    --uit-student-undakt-file: override student on UE file
     --uit-fnr-update-file: override fnr_update file
     --ou-file name: override ou xml filename
     --db-user name: connect with given database username
@@ -286,6 +343,8 @@ def usage(exitcode=0):
     -e: generate emne info file
     -u: generate undervisningsenhet xml file
     -U: generate student on UE xml file
+    -x: generate undervisningsaktivitet xml file
+    -X: generate student on UA xml file
     """
     sys.exit(exitcode)
 
@@ -299,12 +358,14 @@ def assert_connected(user="CEREBRUM", service="FSUIT.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoe",
+        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoexX",
                                    ["uit-personinfo-file=", "studprog-file=", 
-				    "uit-roleinfo-file=", "uit-undenh-file=",
+                                    "uit-roleinfo-file=", "uit-undenh-file=",
                                     "uit-student-undenh-file=",
-				    "uit-emneinfo-file=",
-				    "uit-fnr-update-file=",
+                                    "uit-emneinfo-file=",
+                                    "uit-fnr-update-file=",
+                                    "uit-undakt-file=",
+                                    "uit-student-undakt-file=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
@@ -318,6 +379,8 @@ def main():
     emne_info_file = default_emne_file 
     fnr_update_file = default_fnr_update_file
     undenh_student_file = default_undenh_student_file
+    undakt_file = default_undakt_file
+    undakt_student_file = default_undakt_student_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -325,14 +388,20 @@ def main():
             person_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
-	elif o in ('--uit-roleinfo-file',):
-	    role_file = val
-	elif o in ('--uit-undenh-file',):
-	    undervenh_file = val
+        elif o in ('--uit-roleinfo-file',):
+            role_file = val
+        elif o in ('--uit-undenh-file',):
+            undervenh_file = val
         elif o in ('--uit-student-undenh-file',):
             undenh_student_file = val
-	elif o in ('--uit-fnr-update-file',):
-	    fnr_update_file = val
+        elif o in ('--uit-undakt-file',):
+            undakt_file = val
+        elif o in ('--uit-student-undakt-file',):
+            undakt_student_file = val
+        elif o in ('--uit-undakt-file',):
+            undakt_file = val
+        elif o in ('--uit-fnr-update-file',):
+            fnr_update_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -345,20 +414,23 @@ def main():
             write_uit_person_info(person_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
-	elif o in ('-r',):
-	    write_role_info(role_file)
-	elif o in ('-u',):
-	    write_undenh_metainfo(undervenh_file)
+        elif o in ('-r',):
+            write_role_info(role_file)
+        elif o in ('-u',):
+            write_undenh_metainfo(undervenh_file)
         elif o in ('-U',):
             write_undenh_student(undenh_student_file)
         elif o in ('-e',):
-	    write_emne_info(emne_info_file)
-	elif o in ('-f',):
-	    write_fnrupdate_info(fnr_update_file)
+            write_emne_info(emne_info_file)
+        elif o in ('-f',):
+            write_fnrupdate_info(fnr_update_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
+        elif o in ('-x',):
+            write_undakt_info(undakt_file)
+        elif o in ('-X',):
+            write_undakt_student(undakt_student_file)
+
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: 64983f85-1234-4b7a-9ef2-205f6ec3f2ed
