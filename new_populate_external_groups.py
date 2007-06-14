@@ -37,6 +37,8 @@ if True:
     from Cerebrum.modules import Email
     from Cerebrum.modules.no import access_FS
     from Cerebrum.modules.no.uit.access_FS import person_xml_parser
+    from Cerebrum.modules.no.uit.access_FS import student_undakt_xml_parser
+    from Cerebrum.modules.no.uit.access_FS import undakt_xml_parser
 else:
     class liksom_module(object): pass
     cereconf = liksom_module()
@@ -257,6 +259,9 @@ class group_tree(object):
             # det lite dette scriptet kan gjøre med, og det bør derfor
             # ikke føre til noen ERROR-loggmelding.
             logger.debug("Ikke gyldig kull eller studieprog: args=%r", args)
+            import pprint
+            pprint.pprint(self.subnodes)
+            #sys.exit(1)
             return () 
         logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
                      self, args, kws, ret)
@@ -495,6 +500,14 @@ class fs_undenh_3(fs_undenh_group):
                             ue)
                 continue
             children[gr] = gr
+        
+        if 'aktivitetkode' in ue:
+            gr = fs_undakt_users(self, ue, 'undakt')
+            if gr in children:
+                logger.warn('Undervisningsaktivitet %r forekommer flere ganger.',
+                            ue)
+            else:
+                children[gr] = gr
 
 
 class fs_undenh_users(fs_undenh_group):
@@ -532,6 +545,36 @@ class fs_undenh_users(fs_undenh_group):
             return
         self.users[fnr] = user
 
+class fs_undakt_users(fs_undenh_group):
+
+    def __init__(self, parent, ue, category):        
+        super(fs_undakt_users, self).__init__(parent)
+        self._aktivitetkode=ue['aktivitetkode']
+        self._name=(category,self._aktivitetkode)
+        self._emnekode = ue['emnekode']
+
+    def description(self):
+        ctg = self._name[0]
+        emne = self._emnekode + self.parent.multi_suffix()
+        if ctg == 'undakt':
+            return "Personer på %s (%s)" % (emne,self._aktivitetkode)
+        else:
+            raise ValueError, "Ukjent UA-bruker-gruppe: %r" % (ctg,)
+
+    def list_matches(self, gtype, data, category):
+        #logger.debug("undak_users: gtype=%s, data=%s, category=%s, self._name=%s, aktivitetkode=%s" % (gtype,data,category,self._name,self._aktivitetkode))
+        if category == self._name[0] and data.get('aktivitetkode', self._aktivitetkode) == self._aktivitetkode:
+            yield self
+
+    def add(self, user):
+        fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
+        # TBD: Key on account_id (of primary user) instead?
+        if fnr in self.users:
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+                        " flere ganger (XML = %r).",
+                        fnr, self.name(), user)
+            return
+        self.users[fnr] = user
 
 class fs_stprog_group(group_tree):
 
@@ -994,29 +1037,6 @@ def main():
         os.path.join(dump_dir, 'underv_enhet.xml'),
         create_UE_helper)
 
-    # Gå igjennom alle kjente EVU-kurs; opprett gruppeobjekter for disse.
- #    def create_evukurs_helper(el_name, attrs):
-#         if (el_name == "evukurs" and
-#             attrs.get("status_aktiv") == 'J' and
-#             attrs.get("status_nettbasert_und") == 'J'):
-            
-#             if (immediate_evu_expire and
-#                 time.mktime(time.strptime(attrs.get("dato_til"),
-#                                           "%Y-%m-%d")) < time.time()):
-#                 logger.debug("Kurs %s-%s ekspirerte",
-#                              attrs["etterutdkurskode"],
-#                              attrs["kurstidsangivelsekode"])
-#             else:
-#                 fs_super.add("evu", attrs)
-#             # fi
-#         # fi
-#     # end create_evukurs_helper
-#     xmlfile = "evu_kursinfo.xml"
-#     logger.info("Leser XML-fil: %s", xmlfile)
-#     access_FS.evukurs_xml_parser(os.path.join(dump_dir, xmlfile),
-#                                  create_evukurs_helper)
-#     logger.info("Ferdig med %s", xmlfile)
-
     # Meld studenter inn i undervisningsenhet-gruppene
     def student_UE_helper(el_name, attrs):
         if el_name == 'student':
@@ -1029,30 +1049,29 @@ def main():
         os.path.join(dump_dir, 'student_undenh.xml'),
         student_UE_helper)
 
-#     # Meld EVU-kursdeltakere i de respektive EVU-kursgruppene.
-#     def EVU_deltaker_helper(el_name, attrs):
-#         if el_name == "person" and len(attrs.get("evu")) > 0:
-#             # Dette blir ikke fult så pent -- i merged_persons plasserer man
-#             # informasjonen om EVU-tilknytning i form av underelementer av
-#             # <person>. Dermed må ethvert EVU-underelement (de er samlet i en
-#             # liste av dict'er under nøkkelen "evu" under) "suppleres" med
-#             # fdato/pnr på eieren til det EVU-underelementet.
-#             tmp = { "fodselsdato" : attrs["fodselsdato"],
-#                     "personnr"  : attrs["personnr"], }
-#             for evuattrs in attrs["evu"]:
-#                 evuattrs.update(tmp)
-#                 for evukurs in fs_super.list_matches_1("evu", evuattrs,
-#                                                        "kursdeltaker"):
-#                     evukurs.add(evuattrs)
-#                 # od
-#             # od
-#         # fi
-#     # end create_EVU_participant_helper
-#     xmlfile = "merged_persons.xml"
-#     logger.info("Leser XML-fil: %s", xmlfile)
-#     access_FS.deltaker_xml_parser(os.path.join(dump_dir, xmlfile),
-#                                   EVU_deltaker_helper)
-#     logger.info("Ferdig med %s", xmlfile)
+
+    # opprett undervisningsaktiviteter
+    def create_UA_helper(el_name, attrs):
+        if el_name == 'undakt':
+            fs_super.add('undenh', attrs)
+
+    logger.info("Leser XML-fil: undakt.xml")
+    undakt_xml_parser(
+        os.path.join(dump_dir, 'undakt.xml'),
+        create_UA_helper)
+
+    # Meld studenter inn i undervisningsaktivitet-gruppene
+    def student_UA_helper(el_name, attrs):
+        if el_name == 'undakt':
+            for undenh in fs_super.list_matches_1('undenh', attrs,
+                                                  'undakt'):
+                undenh.add(attrs)
+                
+    logger.info("Leser XML-fil: student_undakt.xml")
+    student_undakt_xml_parser(
+        os.path.join(dump_dir, 'student_undakt.xml'),
+        student_UA_helper)
+
 
     # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
     # for disse.
@@ -1179,7 +1198,3 @@ def walk_hierarchy(root, indent = 0, print_users = False):
 
 if __name__ == '__main__':
     main()
-# fi
-
-
-# arch-tag: 08d1695f-8c9b-481d-aa48-fa0bae7d71a8
