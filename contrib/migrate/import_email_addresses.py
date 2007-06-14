@@ -154,7 +154,7 @@ def process_mail(account, type, addr, spread=None):
         # if specified, add an email spread for users with email address
         if spread and not account.has_spread(spread):
             account.add_spread(spread)
-            logger.debug("Added spread %s for account %s", spread)
+            logger.debug("Added spread %s for account %s", spread, account_id)
     # yrt
 
     if type == "defaultmail":
