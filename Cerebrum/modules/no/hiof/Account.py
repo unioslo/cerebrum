@@ -55,7 +55,7 @@ class AccountHiOfMixin(Account.Account):
                 return "contains illegal characters (%s)" % name
         return False
 
-    def update_email_addresses(self, set_primary=False):
+    def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
@@ -86,17 +86,20 @@ class AccountHiOfMixin(Account.Account):
                     ea.email_addr_expire_date = expire_date
                 ea.write_db()
             return
+        #
+        # we will not be assigning e-mail server automatically for now
+        #
         # if an account without email_server_target is found assign
         # the appropriate server
-        est = Email.EmailServerTarget(self._db)
-        try:
-            est.find(et.email_target_id)
-        except Errors.NotFoundError:
-            if self.get_account_types() or self.owner_type == self.const.entity_group:
-                est = self._update_email_server()
-            else:
+        # est = Email.EmailServerTarget(self._db)
+        # try:
+        #     est.find(et.email_target_id)
+        # except Errors.NotFoundError:
+        #     if self.get_account_types() or self.owner_type == self.const.entity_group:
+        #         est = self._update_email_server()
+        #     else:
                 # do not set email_server_target until account_type is registered
-                return
+        #         return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
@@ -114,10 +117,8 @@ class AccountHiOfMixin(Account.Account):
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
-	# Never change any existing email addresses
         try:
             self.get_primary_mailaddress()
-	    primary_set = True
         except Errors.NotFoundError:
             pass
 	epat = Email.EmailPrimaryAddressTarget(self._db)
@@ -164,17 +165,12 @@ class AccountHiOfMixin(Account.Account):
                     epat.write_db()
                     primary_set = True
 
-    def _update_email_server(self):
+    def _update_email_server(self, server_name):
         est = Email.EmailServerTarget(self._db)
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
-        server_name = 'mail.stud.hiof.no'
-        if self.is_employee():
-            if self.is_fag_employee():
-                server_name = 'mail.fag.hiof.no'
-            elif self.is_adm_employee():
-                server_name = 'mail.adm.hiof.no'
-        es.find_by_name(server_name)
+        s_name = server_name
+        es.find_by_name(s_name)
         try:
             et.find_by_email_target_attrs(entity_id = self.entity_id)
         except Errors.NotFoundError:
