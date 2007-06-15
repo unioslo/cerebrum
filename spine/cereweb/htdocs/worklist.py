@@ -22,6 +22,7 @@ import cherrypy
 
 from lib import cjson
 from lib import utils
+from SpineIDL.Errors import NotFoundError
 from lib.templates.WorkListTemplate import WorkListTemplate
 
 def get_worklist():
@@ -48,6 +49,12 @@ def get_all():
     """Returns the remembered objects, including information about
     which elements are selected."""
     remembered = get_worklist()
+    tr = utils.new_transaction()
+    for id_ in remembered.keys():
+        try:
+            tr.get_entity(int(id_))
+        except NotFoundError, e:
+            del remembered[id_]
     return cjson.encode({'result': 'success', 'objects': remembered.values()})
 get_all.exposed = True
 
@@ -68,11 +75,22 @@ def _get(el):
     entity = tr.get_entity(int(el))
     type = utils._spine_type(entity)
     try:
-        name = entity.get_name()
+        name = _get_name(entity)
     except:
         name = None
     elm = {'id': el, 'name': name, 'type': type}
     return elm
+
+def _get_name(entity):
+    t = entity.get_type().get_name()
+    name = 'Unknown'
+    if t == 'person':
+        name = entity.get_cached_full_name()
+    elif t == 'disk':
+        name = "%s:%s" % (entity.get_host().get_name(), entity.get_path())
+    else:
+        name = entity.get_name()
+    return name
 
 def _remember(elm):
     remembered = get_worklist()
@@ -106,7 +124,6 @@ def template(type):
     else:
         content = template.DefaultAction()
 
-    cherrypy.response.headerMap['Content-Type'] = 'text/plain; charset=latin1'
     return ['<html><div id="content">%s</div></html>' % content]
 template.exposed = True
 
