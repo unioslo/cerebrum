@@ -168,8 +168,6 @@ def promote_mailhost(transaction, id, type, promote=None):
     host_type = transaction.get_email_server_type(type)
     host = transaction.get_host(int(id))
     host.promote_email_server(host_type)
-    #transaction.commit()
-    #redirect('/host/view?id=%s' % id )
     msg = _('Host promoted to mailhost.')
     commit(transaction, host, msg=msg)
 promote_mailhost = transaction_decorator(promote_mailhost)
@@ -177,9 +175,9 @@ promote_mailhost.exposed = True
 
 def demote_mailhost(transaction, id):
     host = transaction.get_host(int(id))
-    # host.demote_email_server()
-    transaction.commit()
-    redirect('/host/view?id=%s' % id )
+    host.demote_email_server()
+    msg = _('Host is no longer a mailhost.')
+    commit(transaction, host, msg=msg)
 demote_mailhost = transaction_decorator(demote_mailhost)
 demote_mailhost.exposed = True
 
