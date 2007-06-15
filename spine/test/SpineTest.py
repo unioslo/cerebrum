@@ -21,30 +21,31 @@
 
 import unittest
 
-# Test classes
-from AuthTest import *
-from AutoTest import *
-from CommunicationTest import *
-from CreateDeleteTest import *
-#from EmailTest import * # Not working.
-from LoginTest import * 
-from ExtentionTest import *
-from HomeDirectoryTest import *
-from LockingTest import *
-from OUTest import *
-from PosixTest import *
-from SessionTest import *
-from TransactionTest import *
-#from DumperTest import * # Untested
-#from ExternalIdTest import * # Untested
-#from GroupMemberTest import * # Untested
-#from GroupTest import * # Untested
-#from JoinerTest import * # Untested
-#from LockingTest import * # Untested
-#from MultipleLoginTest import * # Untested
-#from ViewTest import * # Untested
-
 if __name__ == '__main__':
-    unittest.main()
+    modules = [
+        'AuthTest',
+        'AutoTest',
+        'CommunicationTest',
+        'CreateDeleteTest',
+        'LoginTest', 
+        'ExtentionTest',
+        'HomeDirectoryTest',
+        'LockingTest',
+        'OUTest',
+        'PosixTest',
+        'SessionTest',
+        'TransactionTest',
+        # 'EmailTest',
+        # 'ExternalIdTest',
+        # 'GroupMemberTest',
+        # 'GroupTest',
+        # 'JoinerTest',
+        # 'LockingTest',
+        # 'MultipleLoginTest',
+        # 'ViewTest',
+    ]
+
+    suite = unittest.TestLoader().loadTestsFromNames(modules)
+    unittest.TextTestRunner(verbosity=1).run(suite)
 
 # arch-tag: d4e71fa7-90e0-4fd5-8b38-ce5ac0340e2f
