@@ -52,6 +52,10 @@ body {
     padding: 0.3em;
 }
 
+.notice {
+    color: red;
+}
+
 /* Styles for the session warning box on top of all pages. */
 #session_warning {
     border: 1px dotted black;
