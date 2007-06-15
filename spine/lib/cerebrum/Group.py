@@ -68,6 +68,12 @@ class Group(Entity):
 ## Group is registered in PosixGroup
 #registry.register_class(Group)
 
+def is_expired(self):
+    obj = self._get_cerebrum_obj()
+    return obj.is_expired()
+is_expired.signature = bool
+Group.register_methods([is_expired])
+
 def create_ou_group(self, name):
     db = self.get_database()
     try:
