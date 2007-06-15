@@ -31,14 +31,15 @@
 #def actions()
 <div id="actions">
     <h3>$_("Actions")</h3>
-    <a href="edit?id=$html_quote($entity_id)">$_("edit info")</a><br />
-    <a href="delete?id=$html_quote($entity_id)">$_("delete host")</a><br />
-    <a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a><br />
-    #if $entity.get_email_server_type()
-        <a href="/host/demote_mailhost?id=$html_quote($entity_id)">$_('Demote as mailhost')</a>
-    #end if
-    <br />
-    $remember_link($entity)<br />
+    <ul>
+        <li><a href="edit?id=$html_quote($entity_id)">$_("edit info")</a></li>
+        <li><a href="delete?id=$html_quote($entity_id)">$_("delete host")</a></li>
+        <li><a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a></li>
+        #if $entity.get_email_server_type()
+            <li><a href="/host/demote_mailhost?id=$html_quote($entity_id)">$_('Demote as mailhost')</a></li>
+        #end if
+        <li>$remember_link($entity)</li>
+    </ul>
 </div>
 #end def
 
