@@ -18,7 +18,7 @@
 ##
 #import cherrypy
 #from lib.InitTemplate import InitTemplate
-#from lib.utils import format_title, get_tabs, html_quote
+#from lib.utils import strip_html, get_tabs, html_quote
 #extends InitTemplate
 #implements respond
 ##
@@ -26,7 +26,7 @@
 #attr $messages = []
 #attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'worklist.js', 'error.js']
 #attr $page = 'cereweb'
-#attr $links = [('#', 'stub')]
+#attr $links = ()
 #attr $action = []
 
 ## Content is usually replaced with a lambda function from the view.
@@ -60,7 +60,7 @@
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
     <head>
-        <title>Cereweb $format_title($title)</title>
+        <title>Cereweb $strip_html($title)</title>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <meta http-equiv="Pragma" content="no-cache" />
         <meta http-equiv="Cache-Control" content="max-age=0" />
@@ -114,7 +114,7 @@
                 #end for
             </div>
             <div id="title">
-                <h1>$html_quote($title)</h1>
+                <h1>$title</h1>
             </div>
             $actions()
             <div id="content">
