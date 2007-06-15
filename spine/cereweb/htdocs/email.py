@@ -35,30 +35,10 @@ from lib.templates.EmailDomainTemplate import EmailDomainTemplate
 
 def _get_links():
     return (
-        ('index', _('Index')),
         ('search', _('Search')),
         ('create', _('Create')),
         ('categories', _('Categories')),
-        ('addresses', _('Addresses')),
     )
-
-def index(transaction):
-    page = Main()
-    page.title = _('Email domains') 
-    page.set_focus('email/index')
-    page.links = _get_links()
-    target_template = EmailTargetTemplate()
-    domain_template = EmailDomainTemplate()
-    
-    content = ['<div>']
-    content.append(domain_template.search_box(transaction))
-    content.append(domain_template.create_box(transaction))
-    content.append(target_template.find_email())
-    content.append('</div>')
-    page.content = lambda: "".join(content)
-    return page
-index = transaction_decorator(index)    
-index.exposed = True
 
 def search_form(transaction, remembered):
     page = EmailDomainSearchTemplate()
@@ -83,6 +63,7 @@ def search(transaction, **vargs):
     return searcher.respond() or search_form(transaction, searcher.get_remembered())
 search = transaction_decorator(search)
 search.exposed = True
+index = search
 
 def create(transaction):
     page = Main()
