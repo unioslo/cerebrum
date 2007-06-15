@@ -22,7 +22,6 @@ from Builder import Builder, Attribute
 from DatabaseClass import DatabaseTransactionClass
 from Date import Date
 
-# FIXME: finne en bedre plass for Struct og/eller KeyValue?
 class Struct:
     def __init__(self, data_type):
         self.data_type = data_type
