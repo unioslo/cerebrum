@@ -1408,6 +1408,13 @@ class EmailServer(Host):
         self.__updated = []
         return is_new
 
+    def delete(self):
+        return self.execute("""
+            DELETE FROM [:table schema=cerebrum name=email_server]
+            WHERE server_id=:s_id""", {'s_id': self.entity_id,
+                                       'type': int(self.email_server_type)})
+        self.clear()
+
     def find(self, server_id):
         self.__super.find(server_id)
         self.email_server_type = self.query_1("""
