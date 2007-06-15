@@ -248,7 +248,7 @@ cereweb.worklist.prototype = {
             YE.preventDefault(e);
             this[target.name]();
         } else if (target.tagName.toUpperCase() === 'A') {
-            target.search = target.search.replace('_id_', this.getSelected());
+            target.href = target.href.replace('_id_', this.getSelected());
         }
     },
     onChange: function(e, args) {
