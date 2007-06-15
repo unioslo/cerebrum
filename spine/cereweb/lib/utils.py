@@ -29,12 +29,11 @@ from omniORB import CORBA
 from datetime import datetime
 
 def clean_url(url):
-    # Urlparse splits an url into 6 parts:
-    #  <scheme>://<netloc>/<path>;<params>?<query>#<fragment>
-    # We replace the scheme and netloc with empty strings and
-    # return the "localized" url.
+    """Make sure the url doesn't point to a different server."""
     if not url:
         return ''
+    # Urlparse splits an url into 6 parts:
+    #  <scheme>://<netloc>/<path>;<params>?<query>#<fragment>
     url = ('', '') + urlparse.urlparse(url)[2:]
     return urlparse.urlunparse(url)
 
@@ -313,9 +312,12 @@ def unlegal_name(name):
         return 'Name contains unlegal characters.'
     return ''
 
-def format_title(title):
+def strip_html(title):
     """Removes html from the title"""
     return re.sub(r'<[^!>](?:[^>]|\n)*>', '', title)
+
+def format_title(title):
+    return strip_html(title)
 
 def valid_search(*args, **vargs):
     valid = False
