@@ -324,6 +324,10 @@ cereweb.search = {
 
         this.searchbox = searchbox;
         this.resultbox = resultbox;
+        cereweb.events.sessionError.subscribe(cereweb.search.disable, cereweb.search, true);
+    },
+    disable: function() {
+        this.disabled = true;
     },
     callback:  {
         success: function(o) {
@@ -343,6 +347,8 @@ cereweb.search = {
     },
     submit: function(e) {
         YE.stopEvent(e); // AJAX takes over.
+        if (this.disabled)
+            return;
         var form = YD.get('search_form');
         YC.setForm(form);
 
