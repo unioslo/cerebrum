@@ -19,16 +19,37 @@
 
 from Cerebrum.modules.no.OrgLDIF import *
 
-class OrgLDIFUiOMixin(norEduLDIFMixin):
+class OrgLDIFHiAMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
 
-    def init_person_dump(self, use_mail_module):
+    def __init__(self, db, logger):
+        self.__super.__init__(db, logger)
+        self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+
+    def init_attr2id2contacts(self):
+        self.__super.init_attr2id2contacts()
+        attr = 'mobile'
+        source = getattr(self.const, cereconf.LDAP['contact_source_system'])
+        syntax = self.attr2syntax[attr]
+        c = self.get_contacts(
+            contact_type  = self.const.contact_phone_cellular,
+            source_system = source,
+            convert       = syntax[0],
+            verify        = syntax[1],
+            normalize     = syntax[2])
+        if c:
+            self.attr2id2contacts.append((attr, c))
+
+    if False:
+      # ??? This was unused ???
+
+      def init_person_dump(self, use_mail_module):
         self.__super.init_person_dump(use_mail_module)
         self.primary_affiliation = (
-            int(self.co.affiliation_ansatt),
-            int(self.co.affiliation_status_ansatt_primaer))
+            int(self.const.affiliation_ansatt),
+            int(self.const.affiliation_status_ansatt_primaer))
 
-    def person_dn_primaryOU(self, entry, row, person_id):
+      def person_dn_primaryOU(self, entry, row, person_id):
         # Change from superclass:
         # If person has affiliation ANSATT/primær, use it for the primary OU.
         for aff in self.affiliations.get(person_id, ()):
