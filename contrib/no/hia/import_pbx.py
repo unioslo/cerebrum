@@ -62,6 +62,7 @@ def get_db_entr():
 def get_ldif_info(ldif_file):
     fax, fax_num = int(co.contact_fax),'facsimiletelephonenumber'
     phone, ph_num = int(co.contact_phone),'internationalisdnnumber'
+    mobile, mob_num = int(co.contact_phone_cellular),'mobile'
     acc = Factory.get('Account')(db)
     con_info = {}
     lt = LDIFutils.ldif_parser(ldif_file)
@@ -89,6 +90,9 @@ def get_ldif_info(ldif_file):
 	    if val.has_key(fax_num):
 		con_info[pers_id][fax] = val[fax_num]
 		con_info[pers_id][fax].sort()
+            if val.has_key(mob_num):
+		con_info[pers_id][mobile] = val[mob_num]
+		con_info[pers_id][mobile].sort()
     return(con_info)
 
 def sync_contact_info(cont_info):
