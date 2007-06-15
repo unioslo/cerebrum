@@ -292,14 +292,14 @@ class ADuserUtil(ADutil):
 
     def fetch_cerebrum_data(self, spread):
         """return a dict of dicts with the sAMAccountName as key. The key contain a
-		dict with the keys found in the AD_ATTRIBUTES list. This method is left empty for
-		each institution to override with local settings.
-		
+                dict with the keys found in the AD_ATTRIBUTES list. This method is left empty for
+                each institution to override with local settings.
+                
         Mandatory values in dict is: distinguishedName.
         The value OU is optional, and is not an AD_ATTRIBUTE value, if OU is present it will 
-		override the get_default_OU method. if homeDrive attribute is present it will override
-		the get_homedrive method. If the value of an AD_ATTRIBUTE in the dict is a list it is
-		assumed to be a multivalued attribute in AD when syncronizing.  
+                override the get_default_OU method. if homeDrive attribute is present it will override
+                the get_homedrive method. If the value of an AD_ATTRIBUTE in the dict is a list it is
+                assumed to be a multivalued attribute in AD when syncronizing.  
         """
         pass
     
@@ -314,7 +314,7 @@ class ADuserUtil(ADutil):
         if chg.has_key('OU'):
             ou = chg['OU']
         else:
-            ou = get_default_ou(chg)
+            ou = self.get_default_ou(chg)
 
         ret = self.run_cmd('createObject', dry_run, 'User', ou,
                               chg['sAMAccountName'])
@@ -405,17 +405,17 @@ class ADuserUtil(ADutil):
                                 # multivalue in cerebrumusrs always is
                                 # represented as a list.
                                 Mchange = False
-								
+                                                                
                                 if isinstance(adusrs[usr][attr],(str,int,long,unicode)):
                                     #Transform single-value to a list for comparison.
                                     val2list = []
                                     val2list.append(adusrs[usr][attr])
                                     adusrs[usr][attr] = val2list
-									
+                                                                        
                                 for val in cerebrumusrs[usr][attr]:
                                     if val not in adusrs[usr][attr]:
                                         Mchange = True
-										
+                                                                                
                                 if Mchange:
                                     changes[attr] = cerebrumusrs[usr][attr]
                             else:
@@ -480,7 +480,7 @@ class ADuserUtil(ADutil):
                             changes = {} 
                         #Moving account.
                         if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
-							   (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
+                                                           (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
                             changes['type'] = 'move_object'
                             changes['distinguishedName'] = adusrs[usr]['distinguishedName']
                             changes['OU'] = "OU=%s,%s" % \
