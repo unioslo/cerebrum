@@ -55,13 +55,13 @@ index = transaction_decorator(index)
 index.exposed = True
 
 def get_user_info(transaction,username):
-    user = {}
     account = transaction.get_commands().get_account_by_name(username)
-    my_id = account.get_id()
-    username = account.get_name()
     owner = account.get_owner()
     owner_type = account.get_owner_type().get_name()
-    expire_date = ''
+    expire_date = account.get_expire_date()
+    expire_date = expire_date and expire_date.strftime('%Y-%m-%d') or ''
+    
+
     if owner_type == 'person':
         fullname = owner.get_cached_full_name()
         birthdate = owner.get_birth_date().strftime('%Y-%m-%d')
@@ -72,8 +72,21 @@ def get_user_info(transaction,username):
         birthdate = ''
         is_quarantined = ''
         affiliations = []
-    user = {'id':my_id,'username':username,'fullname':fullname,'expire_date':expire_date,
-            'birthdate':birthdate,'quarantined':is_quarantined,'external_id': [], 'spreads': [], 'groups': [], 'affiliations': []}
+
+    user = {
+        'id': account.get_id(),
+        'username': username,
+        'fullname': fullname,
+        'expire_date': expire_date,
+        'is_expired': account.is_expired(),
+        'birthdate': birthdate,
+        'quarantined': is_quarantined,
+        'external_id': [],
+        'spreads': [],
+        'groups': [],
+        'affiliations': [],
+    }
+
     if owner_type == 'person':
         extids = owner.get_external_ids()
         for extid in extids:
