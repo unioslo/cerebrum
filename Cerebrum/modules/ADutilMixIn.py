@@ -387,8 +387,7 @@ class ADuserUtil(ADutil):
                     changelist.append(changes)
                     changes = {}
                     
-                for attr in cereconf.AD_ATTRIBUTES:
-            
+                for attr in cereconf.AD_ATTRIBUTES:            
                     #Catching special cases.
                     #Check against home drive.
                     if attr == 'homeDrive':
@@ -402,8 +401,9 @@ class ADuserUtil(ADutil):
                         if cerebrumusrs[usr].has_key(attr) and \
                                adusrs[usr].has_key(attr):
                             if isinstance(cerebrumusrs[usr][attr], (list)):
-                                #Multivalued, it is assumed that a multivalue in cerebrumusrs
-                                #always is represented as a list.
+                                # Multivalued, it is assumed that a
+                                # multivalue in cerebrumusrs always is
+                                # represented as a list.
                                 Mchange = False
 								
                                 if isinstance(adusrs[usr][attr],(str,int,long,unicode)):
@@ -414,7 +414,7 @@ class ADuserUtil(ADutil):
 									
                                 for val in cerebrumusrs[usr][attr]:
                                     if val not in adusrs[usr][attr]:
-										Mchange = True
+                                        Mchange = True
 										
                                 if Mchange:
                                     changes[attr] = cerebrumusrs[usr][attr]
@@ -423,13 +423,14 @@ class ADuserUtil(ADutil):
                                     changes[attr] = cerebrumusrs[usr][attr] 
                         else:
                             if cerebrumusrs[usr].has_key(attr):
-								#A blank value in cerebrum and <not set> in AD -> do nothing. 
-								if cerebrumusrs[usr][attr] != "": 
-									changes[attr] = cerebrumusrs[usr][attr] 
+                                # A blank value in cerebrum and <not
+                                # set> in AD -> do nothing.
+                                if cerebrumusrs[usr][attr] != "": 
+                                    changes[attr] = cerebrumusrs[usr][attr] 
                             elif adusrs[usr].has_key(attr):
-								#Delete value
+                                #Delete value
                                 changes[attr] = ''      
-        
+
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                     if cerebrumusrs[usr].has_key(acc):
                         if adusrs[usr].has_key(acc) and \
@@ -453,18 +454,18 @@ class ADuserUtil(ADutil):
                 #after processing we delete from array.
                 del cerebrumusrs[usr]
 
-            else:       
-            #Account not in Cerebrum, but in AD.
-                if adusrs[usr]['distinguishedName'].find(cereconf.AD_DO_NOT_TOUCH) >= 0:
+            else:
+                #Account not in Cerebrum, but in AD.                
+                if not [s for s in cereconf.AD_DO_NOT_TOUCH if
+                        adusrs[usr]['distinguishedName'].find(s) >= 0]:
                     pass
                 elif adusrs[usr]['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) >= 0:
-                #Account do not have AD_spread, but is in AD to 
-                #register password changes, do nothing.
+                    #Account do not have AD_spread, but is in AD to 
+                    #register password changes, do nothing.
                     pass
-
                 else:
-                #ac.is_deleted() or ac.is_expired() pluss a small rest of 
-                #accounts created in AD, but that do not have AD_spread. 
+                    #ac.is_deleted() or ac.is_expired() pluss a small rest of 
+                    #accounts created in AD, but that do not have AD_spread. 
                     if delete_users == True:
                         changes['type'] = 'delete_object'
                         changes['distinguishedName'] = adusrs[usr]['distinguishedName']
@@ -485,7 +486,6 @@ class ADuserUtil(ADutil):
                             changes['OU'] = "OU=%s,%s" % \
                                 (cereconf.AD_LOST_AND_FOUND,self.ad_ldap)
 
-                            
             #Finished processing user, register changes if any.
             if len(changes):
                 changelist.append(changes)
