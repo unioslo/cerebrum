@@ -81,9 +81,10 @@
 ## been internationalized.
 #def viewInfo($info, $notice=[])
 <div class="view view_info box">
-    #for $note in $notice
-        <div class="notice">$hml_quote($note)</div>
+    #for $item in $notice
+        <div class="notice">$item</div>
     #end for
+
     <table>
     <colgroup>
         <col class="name" />
@@ -93,10 +94,12 @@
     #for $name, $value in $info
         #set $i += 1
         #if $i % 2 == 0
-        <tr class="odd">
+            #set $cls = "odd"
         #else
-        <tr class="even">
+            #set $cls = "even"
         #end if
+
+        <tr class="$cls">
             <td class="name">$name</td>
             <td class="value">$value</td>
         </tr>

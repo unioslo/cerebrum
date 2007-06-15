@@ -73,8 +73,17 @@
 
 #def viewInfo($account)
 #set $info = []
+#set $notice = []
+#if $account.is_quarantined()
+    $notice.append($_("This account has been quaranteened"))
+#end if
+#if $account.is_expired()
+    $notice.append($_("This account has expired."))
+#end if
+
 $info.append(($_('Name'), $html_quote($account.get_name())))
 $info.append(($_('Owned by'), $object_link($account.get_owner())))
+
 $info.append(($_('Expire date'), $strftime($account.get_expire_date())))
 $info.append(($_('Date created'), $strftime($account.get_create_date())))
 $info.append(($_('Created by'), $object_link($account.get_creator())))
@@ -85,7 +94,7 @@ $info.append(($_('Created by'), $object_link($account.get_creator())))
     $info.append(($_('Shell'), $html_quote($account.get_shell().get_name())))
 #end if
 $info.append(($_('Description'), $html_quote($account.get_description())))
-$widgets.viewInfo($info)
+$widgets.viewInfo($info, $notice)
 #end def
 
 #def viewPasswords($account)

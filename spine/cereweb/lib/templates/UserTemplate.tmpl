@@ -42,7 +42,7 @@
     #if $account['quarantined'] == 1
         $notice.append($_("This account has been set a quarantine."))
     #end if
-    #if $account.get('expired')
+    #if $account.get('is_expired')
         $notice.append($_("This account has expired."))
     #end if
     $info.append(($_('Expire date'), $html_quote($account.get('expire_date', ''))))

@@ -67,7 +67,11 @@
 
 #def viewInfo($group)
 #set $info = []
+#set $notice = []
 $info.append(($_('Name'), $html_quote($group.get_name())))
+#if $group.is_expired()
+    $notice.append($_("This group has expired."))
+#end if
 #if $group.is_posix()
     $info.append(($_('Gid'), $html_quote($group.get_posix_gid())))
 #end if
@@ -75,7 +79,7 @@ $info.append(($_('Created'), $strftime($group.get_create_date())))
 $info.append(($_('Expire date'), $strftime($group.get_expire_date())))
 $info.append(($_('Visibility'), $html_quote($group.get_visibility().get_description())))
 $info.append(($_('Description'), $html_quote($group.get_description())))
-$widgets.viewInfo($info)
+$widgets.viewInfo($info, $notice)
 #end def
 
 #def addMember($group, $ops)
