@@ -100,7 +100,7 @@
 #def affiliatedPersons($transaction, $ou)
     #set $all_affs = $transaction.get_person_affiliation_type_searcher().search()
     #set $all_sources = $transaction.get_ou_perspective_type_searcher().search()
-    #set $sources = [('All','All')]
+    #set $sources = []
     #for $source in $all_sources
         $sources.append(($source.get_name(),$source.get_name()))
     #end for
