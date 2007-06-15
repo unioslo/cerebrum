@@ -259,7 +259,10 @@ promote_email_server.signature_args = [EmailServerType]
 promote_email_server.signature_write = True
 
 def demote_email_server(self):
-    raise NotImplementedError
+    email_server = Cerebrum.modules.Email.EmailServer(self.get_database())
+    email_server.find(self.get_id())
+    email_server.delete()
+    email_server.write_db()
 demote_email_server.signature = None
 demote_email_server.signature_args = []
 demote_email_server.signature_write = True
