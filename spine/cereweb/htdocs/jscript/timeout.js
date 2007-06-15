@@ -154,6 +154,7 @@ cereweb.timeout = {
      will disappear as soon as the server is available again, so please be patient.\
      If nothing happens within five minutes, feel free to call (735) 91500 and\
      notify Orakeltjenesten of the situation.</p>";
+        cereweb.events.sessionError.fire('Connection failure');
         this.show_warning(msg);
     },
     show_warning: function (msg) {
@@ -175,6 +176,7 @@ cereweb.timeout = {
         var msg = 'Your session has timed out, <a href="/login?redirect=' +
                    encodeURIComponent(location.href) +
                   '">click here</a> to get a new session.';
+        cereweb.events.sessionError.fire('Session timed out');
         this.show_warning(msg);
     }
 }
