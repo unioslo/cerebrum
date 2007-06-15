@@ -265,23 +265,21 @@ class group_members:
 
 class OUView(Builder):
     slots = (
-        Attribute('name', str), # XXX
+        Attribute('id', int),
+        Attribute('name', str),
         Attribute('acronym', str),
         Attribute('short_name', str),
         Attribute('display_name', str),
         Attribute('sort_name', str),
-        Attribute('orgkode', str),
+        Attribute('parent_id', int),
+        Attribute('email', str),
+        Attribute('url', str),
+        Attribute('phone', str),
+        Attribute('fax', str),
+        Attribute('post_address', str),
         Attribute('stedkode', str),
         Attribute('parent_stedkode', str),
-        Attribute('url', str),
-        Attribute('email', str),
-        Attribute('id', int),
-        Attribute('parent_id', int),
-        
-        #Attribute('adresses', [str, Struct(AdressView)]),
-        #Attribute('phones', [str, str]),
-        #Attribute('name_path', [str])
-        )
+    )
 
 ou_search="""
 SELECT
@@ -294,6 +292,9 @@ ou_info.sort_name AS sort_name,
 ou_structure.parent_id AS parent_id,
 contact_email.contact_value AS email,
 contact_url.contact_value AS url,
+contact_phone.contact_value AS phone,
+contact_fax.contact_value AS fax,
+contact_address.contact_value AS post_address,
 -- stedkode
 lpad(stedkode.landkode,3,'0')||lpad(stedkode.institusjon,5,'0')||lpad(stedkode.fakultet,2,'0')||lpad(stedkode.institutt,2,'0')||lpad(stedkode.avdeling,2,'0') AS stedkode,
 lpad(stedkode_parent.landkode,3,'0')||lpad(stedkode_parent.institusjon,5,'0')||lpad(stedkode_parent.fakultet,2,'0')||lpad(stedkode_parent.institutt,2,'0')||lpad(stedkode_parent.avdeling,2,'0') AS parent_stedkode
@@ -310,12 +311,24 @@ LEFT JOIN stedkode stedkode_parent
 -- contacts
 LEFT JOIN entity_contact_info contact_email
   ON (contact_email.entity_id = ou_info.ou_id
-    AND contact_email.source_system = :source_system
+    AND contact_email.source_system = :system_cached
     AND contact_email.contact_type = :contact_email)
 LEFT JOIN entity_contact_info contact_url
   ON (contact_url.entity_id = ou_info.ou_id
-    AND contact_url.source_system = :source_system
+    AND contact_url.source_system = :system_cached
     AND contact_url.contact_type = :contact_url)
+LEFT JOIN entity_contact_info contact_phone
+  ON (contact_phone.entity_id = ou_info.ou_id
+    AND contact_phone.source_system = :system_cached 
+    AND contact_phone.contact_type = :contact_phone)
+LEFT JOIN entity_contact_info contact_fax
+  ON (contact_fax.entity_id = ou_info.ou_id
+    AND contact_fax.source_system = :system_cached
+    AND contact_fax.contact_type = :contact_fax)
+LEFT JOIN entity_contact_info contact_address
+  ON (contact_address.entity_id = ou_info.ou_id
+    AND contact_address.source_system = :system_cached
+    AND contact_address.contact_type = :contact_post_address)
 """
 
 ou_search_cl = """
@@ -427,7 +440,7 @@ ON (contact_phone.entity_id = person_info.person_id
 LEFT JOIN entity_address entity_address
 ON (entity_address.entity_id = person_info.person_id
   AND entity_address.source_system = :address_source
-  AND entity_address.address_type = :address_type)
+  AND entity_address.address_type = :contact_post_address)
 -- primary_account
 LEFT JOIN account_type account_type
 ON (account_type.person_id = person_info.person_id
@@ -451,10 +464,41 @@ ORDER BY change_log.change_id
 
 
 
+def extend_persons(rows):
+    persons = []
 
+    traits = {}
+    traits_has = traits.has_key
+    for trait in EntityTrait(db).list_traits():
+        pid = trait[0]
+        tid = trait[1]
 
+        if traits_has(pid):
+            traits[pid].append(tid)
+        else:
+            traits[pid] = [tid]
+    
+    affiliations = {}
+    affiliations_has = affiliations.has_key
+    for affiliation in Factory.get('Person')(db).list_affiliations():
+        pid = affiliation[0]
+        aid = affiliation[1]
 
+        if affiliations_has(pid):
+            affiliations[pid].append(aid)
+        else:
+            affiliations[pid] = [aid]
 
+    for row in rows:
+        row = row.dict()
+        pid = row['person_id']
+        if traits_has(pid):
+            row['traits'] = traits[pid]
+        if affiliations_has(pid):
+            row['affiliations'] = affiliations[pid]
+
+        persons.append(row)
+    return persons
 
 class View(DatabaseTransactionClass):
     def __init__(self, *args, **vargs):
@@ -474,9 +518,11 @@ class View(DatabaseTransactionClass):
             "contact_url": co.contact_url,
             "contact_email": co.contact_email,
             "contact_phone": co.contact_phone,
-            "address_type": co.address_post,
+            "contact_fax": co.contact_fax,
+            "contact_post_address": co.address_post,
             "address_source": co.system_fs,
-            }
+            "perspective": co.perspective_kjernen,
+        }
         
     # Allow the user to define spreads.
     # These must be set 'globally' because membership-type
@@ -547,46 +593,13 @@ class View(DatabaseTransactionClass):
     def get_persons(self):
         db = self.get_database()
         rows=db.query(person_search % "", self.query_data)
-        persons = []
-
-        traits = {}
-        traits_has = traits.has_key
-        for trait in EntityTrait(db).list_traits():
-            pid = trait[0]
-            tid = trait[1]
-
-            if traits_has(pid):
-                traits[pid].append(tid)
-            else:
-                traits[pid] = [tid]
-        
-        affiliations = {}
-        affiliations_has = affiliations.has_key
-        for affiliation in Factory.get('Person')(db).list_affiliations():
-            pid = affiliation[0]
-            aid = affiliation[1]
-
-            if affiliations_has(pid):
-                affiliations[pid].append(aid)
-            else:
-                affiliations[pid] = [aid]
-
-        for row in rows:
-            row = row.dict()
-            pid = row['person_id']
-            if traits_has(pid):
-                row['traits'] = traits[pid]
-            if affiliations_has(pid):
-                row['affiliations'] = affiliations[pid]
-
-            persons.append(row)
-        return persons
+        return extend_persons(rows)
     get_persons.signature = [Struct(PersonView)]
     def get_persons_cl(self):
         db = self.get_database()
         rows=db.query(person_search % person_search_cl +person_search_cl_o,
                       self.query_data)
-        return [r.dict() for r in rows]
+        return extend_persons(rows)
     get_persons_cl.signature = [Struct(PersonView)]
 registry.register_class(View)
 
