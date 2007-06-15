@@ -46,7 +46,6 @@ def search_form(remembered):
     page.search_fields = [("name", _("Name")),
                           ("accountname", _("Account name")),
                           ("birthdate", _("Date of birth *")),
-                          ("spread", _("Spread name")),
                           ("ou", _("Affiliated to Organizational Unit")),
                           ("aff", _("Affiliation Type"))
                         ]
