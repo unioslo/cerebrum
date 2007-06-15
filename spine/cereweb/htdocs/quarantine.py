@@ -122,6 +122,7 @@ def add(transaction, entity, type="", why="", start="", end="", disable_until=""
     add.formvalues = formvalues
     content = add.quarantine_form(entity, "make", types)
     page.content = lambda: content
+    page.links = ()
     return page
 add = transaction_decorator(add)
 add.exposed = True
