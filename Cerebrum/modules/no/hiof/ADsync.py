@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sys
 import cereconf
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.Utils import Factory
@@ -203,5 +204,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         return "OU=Grupper,%s" %  self.ad_ldap
     
     def fetch_ad_data(self):
-        return self.server.listObjects('group', True, self.get_default_ou())
+        ret = self.server.listObjects('group', True, self.get_default_ou())
+        if ret is False:
+            self.logger.error("Couldn't fetch data from AD service. Quitting!")
+            sys.exit(1)
+        return ret
 
