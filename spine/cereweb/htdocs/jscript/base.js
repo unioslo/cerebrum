@@ -33,7 +33,8 @@ cereweb = YAHOO.cereweb;
 * Cereweb events.
 */
 cereweb.events = {
-    pageChanged: new YAHOO.util.CustomEvent('pageChanged')
+    pageChanged: new YAHOO.util.CustomEvent('pageChanged'),
+    sessionError: new YAHOO.util.CustomEvent('sessionError')
 };
 /**
 * Reusable AJAX callbacks.
@@ -78,7 +79,7 @@ cereweb.callbacks.htmlSnippet.prototype = {
             // substring has no offset, so eat the part we just found.
             r = r.substring(x + 1, r.length);
         }
-        r = o.responseText.substring(a, b + 1);
+        r = o.responseText.substring(a, b);
         var cfn = this.__htmlSnippet_cfn;
         this[cfn](r, o.argument);
     }
@@ -202,10 +203,14 @@ cereweb.action = {
             var action = this.parse(target.href);
             this.fire(e, action);
         }
+    },
+    clear: function() {
+        this._events = {};
     }
 }
 YE.addListener('container', "click", cereweb.action.clicked,
     cereweb.action, true);
+cereweb.events.sessionError.subscribe(cereweb.action.clear, cereweb.action, true);
 
 /**
  * This object creates dialogues of divs with both the "box" and the "edit"
@@ -339,6 +344,15 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
         myBox.update = function(r) {
             myBox.setBody(r);
+            var buttons = YD.getElementsByClassName('buttons', 'div', myBox.element)[0].childNodes;
+            for (var i = 0; i < buttons.length; i++) {
+                var el = buttons[i];
+                if (el.value === 'Cancel')
+                    YE.on(el, 'click', function(e) {
+                        YE.preventDefault(e);
+                        myBox.hide();
+                    });
+            }
             myBox.show();
         }
         var callback = new cereweb.callbacks.htmlSnippet(myBox, 'update');
