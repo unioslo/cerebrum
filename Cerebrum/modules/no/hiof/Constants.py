@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -105,7 +105,7 @@ class Constants(Constants.Constants):
         'netgroup@nisans', ConstantsUniversityColleges.entity_group,
         'Net group in NIS')
     spread_ad_group_fag = _SpreadCode(
-        'Group@ad_fag', Constants.Constants.entity_group,
+        'group@ad_fag', Constants.Constants.entity_group,
         'Group included in domain FAG in Active Directory')
     spread_ad_group_adm = _SpreadCode(
         'group@ad_adm', Constants.Constants.entity_group,
