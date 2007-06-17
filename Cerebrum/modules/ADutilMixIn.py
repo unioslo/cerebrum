@@ -147,7 +147,7 @@ class ADutil(object):
 
         #Fetch AD-data.     
         addump = self.fetch_ad_data()       
-        self.logger.info("Fetched %i ad-%ss" % (len(addump), type))     
+        self.logger.info("Fetched %i ad-%ss" % (len(addump), type))
 
         #compare cerebrum and ad-data.
         changelist = self.compare(delete, cerebrumdump, addump)
@@ -182,7 +182,6 @@ class ADgroupUtil(ADutil):
     def fetch_ad_data(self):
         return self.server.listObjects('group', True)
 
-
     def sync_groups(self, cerebrumgroups, group_spread, user_spread, dry_run):
         #To reduce traffic, we send current list of groupmembers to AD, and the
         #server ensures that each group have correct members.   
@@ -190,7 +189,7 @@ class ADgroupUtil(ADutil):
         for (grp_id, grp_name, grp_desc) in cerebrumgroups:
             #Only interested in union members(believe this is only type in use)
             grp_name = unicode(grp_name, 'ISO-8859-1')
-            self.logger.debug("Sync group (%s, %s)" % (grp_id, grp_name))            
+            self.logger.debug("Sync group %s" % grp_name)
             self.group.clear()
             self.group.find(grp_id)              
             user_memb = self.group.list_members(
@@ -203,11 +202,11 @@ class ADgroupUtil(ADutil):
             #want to update group membership if in AD.
             for usr in user_memb[0]:
                 members.append(usr[2])
-                self.logger.debug("Try to sync member account: %s" % usr[2])
+                self.logger.debug2("Try to sync member account: %s" % usr[2])
 
             for grp in group_memb[0]:
                 members.append('%s%s' % (grp[2],cereconf.AD_GROUP_POSTFIX))
-                self.logger.debug("Try to sync member group: %s" % grp[2])
+                self.logger.debug2("Try to sync member group: %s" % grp[2])
     
             dn = self.server.findObject('%s%s' % \
                                    (grp_name, cereconf.AD_GROUP_POSTFIX))
@@ -218,7 +217,7 @@ class ADgroupUtil(ADutil):
                 self.server.bindObject(dn)
                 res = self.server.syncMembers(members, False, False)
                 if not res[0]:
-                    self.logger.debug("syncMembers %s failed for:%r" %
+                    self.logger.warn("syncMembers %s failed for:%r" %
                                       (dn, res[1:]))
                 # Sync description
                 self.server.setObjectProperties({'Description':grp_desc})
@@ -281,35 +280,40 @@ class ADuserUtil(ADutil):
         super(ADuserUtil, self).__init__(*args, **kwargs)
         self.ac = Factory.get('Account')(self.db)
 
-        
+
     def fetch_ad_data(self):
         #Setting the userattributes to be fetched.
-        self.server.setUserAttributes(cereconf.AD_ATTRIBUTES, cereconf.AD_ACCOUNT_CONTROL)
+        self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
+                                      cereconf.AD_ACCOUNT_CONTROL)
 
         return self.server.listObjects('user', True)
 
 
-
     def fetch_cerebrum_data(self, spread):
-        """return a dict of dicts with the sAMAccountName as key. The key contain a
-                dict with the keys found in the AD_ATTRIBUTES list. This method is left empty for
-                each institution to override with local settings.
+        """
+        Return a dict of dicts with the sAMAccountName as key. The key
+        contain a dict with the keys found in the AD_ATTRIBUTES list.
+        This method is left empty for each institution to override
+        with local settings.
                 
         Mandatory values in dict is: distinguishedName.
-        The value OU is optional, and is not an AD_ATTRIBUTE value, if OU is present it will 
-                override the get_default_OU method. if homeDrive attribute is present it will override
-                the get_homedrive method. If the value of an AD_ATTRIBUTE in the dict is a list it is
-                assumed to be a multivalued attribute in AD when syncronizing.  
+
+        The value OU is optional, and is not an AD_ATTRIBUTE value, if
+        OU is present it will override the get_default_OU method. If
+        homeDrive attribute is present it will override the
+        get_homedrive method. If the value of an AD_ATTRIBUTE in the
+        dict is a list it is assumed to be a multivalued attribute in
+        AD when syncronizing.
         """
         pass
-    
+
 
     def get_home_drive(self, cerebrum_usrdict):
         #Returns default home drive in AD.
         return cerebrum_usrdict.get('homeDrive', cereconf.AD_HOME_DRIVE)
 
 
-    def create_object(self, chg, dry_run):  
+    def create_object(self, chg, dry_run):
 
         if chg.has_key('OU'):
             ou = chg['OU']
@@ -318,7 +322,7 @@ class ADuserUtil(ADutil):
 
         ret = self.run_cmd('createObject', dry_run, 'User', ou,
                               chg['sAMAccountName'])
-                
+
         if not ret[0]:
             self.logger.warning("create user %s failed: %r" % \
                            (chg['sAMAccountName'], ret))
@@ -326,13 +330,13 @@ class ADuserUtil(ADutil):
             if not dry_run:
                 self.logger.info("created user %s" % ret)
 
-            pw = unicode(self.ac.make_passwd(chg['sAMAccountName']), 'iso-8859-1')
+            pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
+                         'iso-8859-1')
 
             ret = self.run_cmd('setPassword', dry_run, pw)
             if not ret[0]:
                 self.logger.warning("setPassword on %s failed: %s" % \
                                (chg['sAMAccountName'], ret))
-
             else:
                 #Important not to enable a new account if setPassword
                 #fail, it will have a blank password.
@@ -344,7 +348,7 @@ class ADuserUtil(ADutil):
                 if chg.has_key('sAMAccountName'):
                     uname = chg['sAMAccountName']       
                     del chg['sAMAccountName']               
-                
+
                 #Setting default for undefined AD_ACCOUNT_CONTROL values.
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                     if not chg.has_key(acc):
@@ -365,7 +369,6 @@ class ADuserUtil(ADutil):
         #Keys in dict from cerebrum must match fields to be populated in AD.
 
         changelist = []     
-
 
         for usr, dta in adusrs.items():
             changes = {}        
@@ -490,8 +493,7 @@ class ADuserUtil(ADutil):
             if len(changes):
                 changelist.append(changes)
 
-    
-    #The remaining items in cerebrumusrs is not in AD, create user.
+        #The remaining items in cerebrumusrs is not in AD, create user.
         for cusr, cdta in cerebrumusrs.items():
             changes={}
             #TBD: Should quarantined users be created?
