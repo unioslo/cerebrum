@@ -188,7 +188,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if unicode(ou, 'ISO-8859-1') not in object_list:
                 name, parent_ou = ou.split(",", 1)
                 name = unicode(name, 'ISO-8859-1')
-                self.logger.debug("Creating missing OU: ", name)
+                self.logger.debug("Creating missing OU: %s", name)
                 if not parent_ou in object_list:
                     # Recursively create parent
                     self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
@@ -196,6 +196,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 self.run_cmd('createObject', dryrun, "organizationalUnit", parent_ou, name)
                 object_list.append(ou)
 
+    def get_default_ou(self, change = None):
+        #Returns default OU in AD.
+        return "CN=BOFH brukere,%s" % self.ad_ldap
+    
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
 
