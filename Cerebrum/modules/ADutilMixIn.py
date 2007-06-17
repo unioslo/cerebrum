@@ -459,8 +459,8 @@ class ADuserUtil(ADutil):
 
             else:
                 #Account not in Cerebrum, but in AD.                
-                if not [s for s in cereconf.AD_DO_NOT_TOUCH if
-                        adusrs[usr]['distinguishedName'].find(s) >= 0]:
+                if [s for s in cereconf.AD_DO_NOT_TOUCH if
+                    adusrs[usr]['distinguishedName'].find(s) >= 0]:
                     pass
                 elif adusrs[usr]['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) >= 0:
                     #Account do not have AD_spread, but is in AD to 
