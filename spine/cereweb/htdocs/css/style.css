@@ -26,6 +26,14 @@ body {
     min-width: 800px;
 }
 
+h1 {
+    font-size: 200%;
+}
+
+h3 {
+    font-size: 135%;
+}
+
 #container {
     width: 800px;
     background-color: white;
