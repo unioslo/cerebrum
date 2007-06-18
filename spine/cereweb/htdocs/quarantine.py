@@ -43,7 +43,7 @@ def edit(transaction, entity, type, why="", start="", end="", disable_until=""):
     page.title += object_link(entity)
     edit = QuarantineTemplate()
     edit.formvalues = formvalues
-    content = edit.quarantine_form(entity, "save")
+    content = edit.quarantine_form(entity, "/quarantine/save")
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)

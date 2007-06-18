@@ -29,6 +29,25 @@ YE = YAHOO.util.Event;
 YC = YAHOO.util.Connect;
 cereweb = YAHOO.cereweb;
 
+
+/**
+* Safari/WebKit doesn't support the hasOwnProperty method of Object.
+*/
+if( !Object.prototype.hasOwnProperty ) {
+    Object.prototype.hasOwnProperty = function( property ) {
+        try {
+            var prototype = this.constructor.prototype;
+            while( prototype ) {
+                if( prototype[ property ] == this[ property ] ) {
+                    return false;
+                }
+                prototype = prototype.prototype;
+            }
+        } catch( e ) {}
+        return true;
+    }
+}
+
 /**
 * Cereweb events.
 */
@@ -324,46 +343,64 @@ cereweb.tabs = new YAHOO.widget.TabView('tabview');
 cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
 (function() { 
+    var flatten = function(args) {
+        var data = [];
+        for (var el in args) {
+            if (!args.hasOwnProperty(el))
+                continue;
+            
+            data[data.length] = el + '=' + args[el];
+        }
+        return data.join('&');
+    };
+
+    var make_path_absolute = function(url) {
+        if (url.slice(0,1) !== '/') 
+            url = '/' + url;
+        return url;
+    };
+
+    var get_cancel_button = function(el) {
+        var elements = el.getElementsByTagName('input');
+        for (var i = 0; i < elements.length; i++) {
+            var el = elements[i];
+            if (el.type === 'submit' && el.value === 'Cancel')
+                return el;
+        }
+    };
+
     var inline_edit = function(name, args) {
         var event = args[0];
+        var args = args[1];
         YE.preventDefault(event);
-        var url = YE.getTarget(event).pathname;
-        if (url.slice(0,1) !== '/') // IE doesn't prepend / to url.
-            url = '/' + url;
-        var arg = args[1].id;
+
+        var url = make_path_absolute(YE.getTarget(event).pathname);
+        var id = args.id || args.entity;
 
         // Get or create the neccessary divs and dialogues.
-        var el = YD.get('edit_' + arg);
+        var el = YD.get('edit_' + id);
         if (el) {
             var myBox = el.obj;
         } else {
-            el = cereweb.createDiv('edit_' + arg, 'content');
+            el = cereweb.createDiv('edit_' + id, 'content');
             var myBox = cereweb.editBox.create(el, 'head', 'body');
             el.obj = myBox;
         }
 
         myBox.update = function(r) {
             myBox.setBody(r);
-            var buttons = YD.getElementsByClassName('buttons', 'div', myBox.element)[0]
-            if (buttons) {
-                buttons = buttons.childNodes;
-            } else {
-                buttons = [];
-            }
+            var cancelButton = get_cancel_button(myBox.element);
+            YE.on(cancelButton, 'click', function(e) {
+                YE.preventDefault(e);
+                myBox.hide();
+            });
 
-            for (var i = 0; i < buttons.length; i++) {
-                var el = buttons[i];
-                if (el.value === 'Cancel')
-                    YE.on(el, 'click', function(e) {
-                        YE.preventDefault(e);
-                        myBox.hide();
-                    });
-            }
             myBox.show();
         }
+
         var callback = new cereweb.callbacks.htmlSnippet(myBox, 'update');
         var cObj = YC.asyncRequest('POST',
-            url, callback, 'id=' + arg);
+            url, callback, flatten(args));
 
     }
     cereweb.action.add('*/edit', inline_edit);
