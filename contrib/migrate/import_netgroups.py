@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003, 2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -64,7 +64,16 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
 
 
-valid_groupname_chars = string.ascii_letters + string.digits + '-_. '
+## TODO: this is _wrong_.
+## What should be done is to find which constraints Cerebrum puts on
+## group names an implement the function valid_groupname according to
+## that.
+## Another issue to consider is if the end system groups are exported
+## to have more strict constraints than Cerebrum. It would probably be
+## a good idea to create a cereconf variable to set the character set
+## allowed.
+valid_groupname_chars = string.ascii_letters + string.digits + 'æÆøØåÅ-_. '
+
 unknown_entities = {}
 
 db = Factory.get('Database')()
@@ -82,6 +91,30 @@ account_member = Factory.get('Account')(db)
 group_member = Factory.get('Group')(db)
 
 dryrun = False
+
+
+def valid_groupname(name):
+    """Check if groupname is valid.
+    
+    Two criterias must be met:
+    1. The name is a subset of the legal characters
+    2. name must not begin or end with whitespace, or have 2 or more
+       contiguous whitespce in the middle.
+
+    Return True if criterias are met, False otherwise.
+    """
+    # White space is allowed, but not in the start or end of the
+    # name. 2 or more whitespce is also a problem because of LDAP
+    if name.startswith(' ') or name.endswith(' ') or name.count('  ') > 0:
+        logger.error("Group name cannot start or end with <space>, " +
+                     "or have 2 or more contiguous spaces. " +
+                     "Skipping group '%s'" % name)
+        return False
+    if not Set(name).issubset(Set(valid_groupname_chars)):
+        logger.error("Invalid character found in groupname '%s'. Skipping" %
+                     name)
+        return False
+    return True
 
 
 def read_filelines(infile):
@@ -112,18 +145,7 @@ def read_filelines(infile):
         if current_group['name'] == "":
             logger.error("Empty groupname in line '%s'. Skipping" % line)
             continue
-        if not Set(current_group['name']).issubset(Set(valid_groupname_chars)):
-            logger.error("Invalid character found in groupname '%s'. Skipping" %
-                         current_group['name'])
-            continue
-        # White space is allowed, but not in the start or end of the
-        # name. 2 or more whitespce is also a problem because of LDAP
-        if (current_group['name'].startswith(' ') or
-            current_group['name'].endswith(' ') or
-            current_group['name'].count('  ')) > 0:
-            logger.error("Group name cannot start or end with <space>, " +
-                         "or have 2 or more contiguous spaces. " +
-                         "Skipping group '%s'" % current_group['name'])
+        if not valid_groupname(current_group['name']):
             continue
 
         group_data.append(current_group)
