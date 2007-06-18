@@ -49,6 +49,7 @@ class EphorteConstants(ConstantsBase):
     ephorte_role_ar2 = _EphorteRoleTypeCode('AR2', 'Arkival')
     ephorte_role_ld = _EphorteRoleTypeCode('LD', 'Leder/saksfordeler')
     ephorte_role_sb = _EphorteRoleTypeCode('SB', 'Saksbehandler')
+    ephorte_role_sy = _EphorteRoleTypeCode('SY', 'Systemansvarlig')
 
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
@@ -134,7 +135,6 @@ class EphorteRole(DatabaseAccessor):
             'journalenhet': journalenhet
             }
             
-        # TODO: Takler ikke NULL for arkivdel/journalenhet
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=ephorte_role]
         WHERE %s""" % " AND ".join(

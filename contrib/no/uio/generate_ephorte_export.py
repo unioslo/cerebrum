@@ -32,6 +32,7 @@ ou = Stedkode(db)
 cl = CLHandler.CLHandler(db)
 
 logger = Factory.get_logger("cronjob")
+sko_cache = {}
 
 class ExtXMLHelper(XMLHelper):
     def xmlify_tree(self, tag, dta):
@@ -64,9 +65,15 @@ class ExtXMLHelper(XMLHelper):
         return ret
 
 def _get_sko(ou_id):
-    ou.clear()
-    ou.find(ou_id)
-    return "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
+    ret = sko_cache.get(ou_id)
+    if ret is None:
+        ou.clear()
+        ou.find(ou_id)
+        ret = "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
+        if ret == "900199":
+            # Ephorte root is named UIO 
+            ret = "UIO"
+    return ret
 
 def generate_export(fname, spread=co.spread_ephorte_person):
     f = SimilarSizeWriter(fname, "w")
@@ -191,6 +198,8 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     f.write(xml.xml_hdr)
     f.write("<ephortedata>\n")
     for p in persons.values():
+        if not p.has_key('feide_id'):
+            continue
         f.write(xml.xmlify_tree("person", p))
     f.write("</ephortedata>\n")
     f.close()
