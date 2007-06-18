@@ -40,6 +40,7 @@ cereweb.ac_group = function(input) {
     this.widget.dataErrorEvent.subscribe(this.dataError, this, true);
     this.widget.itemSelectEvent.subscribe(this.dataSelect, this, true);
     this.widget.textboxKeyEvent.subscribe(this.textboxKey, this, true);
+    cereweb.events.sessionError.subscribe(this.disable, this, true);
 
     this.widget.doBeforeExpandContainer = this.doBeforeExpandContainer;
     if (this.input.value)
@@ -62,6 +63,9 @@ cereweb.ac_group.prototype = {
 
         YD.addClass(this.dropdown, 'autocomplete');
         YD.addClass(container, 'autocomplete_container');
+    },
+    disable: function() {
+        this.input.disabled = true;
     },
     initForm: function() {
         YD.addClass(this.form, 'ac');
