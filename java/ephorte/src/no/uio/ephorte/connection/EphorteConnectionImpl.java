@@ -74,7 +74,9 @@ public class EphorteConnectionImpl extends EphorteConnection {
             String tagName) throws RemoteException {
         Vector<Hashtable<String, String>> ret = new Vector<Hashtable<String, String>>();
         GetDataSetResponseGetDataSetResult res = service.getDataSet(sessionID,
-                criteriaCollectionString);
+                criteriaCollectionString+";MaxRecords=30000");  
+        /* MaxRecords was a guess based on 
+         * C:\Program Files\ePhorteWeb\shared\WebServices\DataSamples\ASP\ExtCust.asp */
         // System.out.println("RES: "+res.toString());
         for (MessageElement me : res.get_any()) {
             NodeList nl = me.getElementsByTagName("PartialResult");
