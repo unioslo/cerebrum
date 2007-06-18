@@ -2,6 +2,7 @@ package no.uio.ephorte;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.rmi.RemoteException;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Properties;
@@ -13,9 +14,18 @@ import no.uio.ephorte.connection.EphorteGW;
 import no.uio.ephorte.data.Person;
 import no.uio.ephorte.xml.CustomXMLParser;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.xml.sax.SAXException;
 
 public class ImportEphorteXML {
+    private Log log = LogFactory.getLog(ImportEphorteXML.class);
+    private EphorteGW ephorteGW;
+
+    public ImportEphorteXML(EphorteGW ephorteGW) {
+        this.ephorteGW = ephorteGW;
+    }
+
     private static void usage() {
         System.out.println("Usage: import [options]\n"+
                 "This script can be used to import data to ePhorte.\n\n"+
@@ -59,35 +69,44 @@ public class ImportEphorteXML {
             System.err.println("-p required");
             System.exit(1);
         }
-        EphorteGW ephorteGW = new EphorteGW(props);
+        ImportEphorteXML imp = new ImportEphorteXML(new EphorteGW(props));
         if(table != null) {
-            // Example: -d pernavn -t PerNavn
-            Vector<String> keys = new Vector<String>();
-            Vector<Hashtable<String, String>> tmp = ephorteGW.getConn().getDataSet("object="+table, tag);
-            for (Hashtable<String, String> ht : tmp) {
-                for ( Enumeration<String> e = ht.keys(); e.hasMoreElements() ;) {
-                    String n = e.nextElement();
-                    if(! keys.contains(n)) {
-                        keys.add(n);
-                    }
+            imp.dumpTable(table, tag);
+        } else if (fname != null) {
+            imp.runSync(fname);
+        }
+    }
+
+    private void dumpTable(String table, String tag) throws RemoteException {
+        // Example: -d pernavn -t PerNavn
+        Vector<String> keys = new Vector<String>();
+        Vector<Hashtable<String, String>> tmp = ephorteGW.getConn().getDataSet("object="+table, tag);
+        for (Hashtable<String, String> ht : tmp) {
+            for ( Enumeration<String> e = ht.keys(); e.hasMoreElements() ;) {
+                String n = e.nextElement();
+                if(! keys.contains(n)) {
+                    keys.add(n);
                 }
-            }                
+            }
+        }                
+        for (String k : keys) {
+            System.out.print(k+";");
+        }
+        System.out.println();
+        for (Hashtable<String, String> ht : tmp) {
             for (String k : keys) {
-                System.out.print(k+";");
+                System.out.print(ht.get(k)+";");
             }
             System.out.println();
-            for (Hashtable<String, String> ht : tmp) {
-                for (String k : keys) {
-                    System.out.print(ht.get(k)+";");
-                }
-                System.out.println();
-            }
-        } else if (fname != null) {
-            ephorteGW.prepareSync();
-            CustomXMLParser cp = new CustomXMLParser(fname);
-            for (Person p : cp.getPersons()) {
-                ephorteGW.updatePersonInfo(p);
-            }
         }
+    }
+
+    private void runSync(String fname) throws SAXException, IOException, ParserConfigurationException, RemoteException {
+        ephorteGW.prepareSync();
+        CustomXMLParser cp = new CustomXMLParser(fname);
+        for (Person p : cp.getPersons()) {
+            ephorteGW.updatePersonInfo(p);
+        }
+        log.info("All done");
     }
 }

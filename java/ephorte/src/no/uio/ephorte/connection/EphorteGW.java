@@ -38,8 +38,7 @@ public class EphorteGW {
         if (USE_DEBUG_CONNECTION) {
             conn = new EporteConnectionTest();
         } else {
-            conn = new EphorteConnectionImpl(props.getProperty("url"), props.getProperty("uname"),
-                    props.getProperty("password"), props.getProperty("database"));
+            conn = new EphorteConnectionImpl(props);
         }
     }
     
@@ -238,8 +237,9 @@ public class EphorteGW {
     		if(ret != null) return ret;
 		}
         for(Person p: brukerId2Person.values()){
-            if(p.getPersonNavn() != null && 
-                    p.getPersonNavn().getInitialer().equals(newPerson.getPersonNavn().getInitialer())) {
+            String oldInit = null;
+            if(p.getPersonNavn() != null) oldInit = p.getPersonNavn().getInitialer(); 
+            if(newPerson.getPersonNavn().getInitialer().equals(oldInit)){
                 log.warn("Used brukerid match to return "+p+" when looking for "+newPerson);
                 return p;
             }

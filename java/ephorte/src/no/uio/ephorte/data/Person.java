@@ -30,10 +30,12 @@ public class Person {
     private Date fraDato, tilDato;
     private boolean isDeletable = false, fromEphorte;
     
-    private final static String passwordCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890,.-;:_'*!#%&/()=?+";
+    private final static String passwordCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890,.-;:_'*!#%/()=?+";
     private SecureRandom secRand = new SecureRandom();
 
     public Person(String brukerId, boolean fromEphorte) {
+        if(brukerId == null)
+            throw new IllegalArgumentException("brukerId cannot be NULL");
         roller = new Vector<PersonRolle>();
         potentialFeideIds = new Vector<String>();
         adresse = new Hashtable<String, Adresse>();

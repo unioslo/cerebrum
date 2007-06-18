@@ -2,7 +2,14 @@ package no.uio.ephorte.connection;
 
 import java.net.MalformedURLException;
 import java.rmi.RemoteException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.Hashtable;
+import java.util.Properties;
 import java.util.Vector;
 
 import javax.xml.rpc.ServiceException;
@@ -12,21 +19,27 @@ import no.gecko.www.ephorte.webservices.ServicesLocator;
 import no.gecko.www.ephorte.webservices.ServicesSoap;
 
 import org.apache.axis.message.MessageElement;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 public class EphorteConnectionImpl extends EphorteConnection {
     String sessionID;
     ServicesSoap service;
-    
-    public EphorteConnectionImpl(String url, String userName, String passWord, String dataBase) {
-        connect(url, userName, passWord, dataBase);
+    private Log log = LogFactory.getLog(EphorteConnectionImpl.class);
+    private Properties props;
+
+    public EphorteConnectionImpl(Properties props) {
+        this.props = props;
+        connect(props.getProperty("url"), props.getProperty("uname"),
+                props.getProperty("password"), props.getProperty("database"));
     }
 
     protected void connect(String url, String userName, String passWord, String dataBase) {
         ServicesLocator locator = new ServicesLocator();
         try {
-            if(url == null) {
+            if (url == null) {
                 service = locator.getServicesSoap();
             } else {
                 service = locator.getServicesSoap(new java.net.URL(url));
@@ -64,12 +77,20 @@ public class EphorteConnectionImpl extends EphorteConnection {
                 criteriaCollectionString);
         // System.out.println("RES: "+res.toString());
         for (MessageElement me : res.get_any()) {
-            // System.out.println("M: "+me.getAsString());
-            NodeList nl = me.getElementsByTagName(tagName);
+            NodeList nl = me.getElementsByTagName("PartialResult");
+            for (int i = 0; i < nl.getLength(); i++) {
+                Node node = nl.item(i);
+                if ("true".equals(node.getFirstChild().getNodeValue())) {
+                    log.warn("WebService returned partial result.  Using JDBC hack");
+                    ret = queryDatabase(criteriaCollectionString.substring(criteriaCollectionString.indexOf('=') + 1));
+                    log.info("getDataSet("+criteriaCollectionString+") found "+ret.size()+" entries (using JDBC)");
+                    return ret;
+                }
+            }
+            nl = me.getElementsByTagName(tagName);
             Hashtable<String, String> entry = new Hashtable<String, String>();
             for (int i = 0; i < nl.getLength(); i++) {
                 Node node = nl.item(i);
-                // System.out.println("Node "+i+": "+node.toString());
                 NodeList c = node.getChildNodes();
                 for (int j = 0; j < c.getLength(); j++) {
                     Node n2 = c.item(j);
@@ -82,7 +103,48 @@ public class EphorteConnectionImpl extends EphorteConnection {
                 entry = new Hashtable<String, String>();
             }
         }
+        log.info("getDataSet("+criteriaCollectionString+") found "+ret.size()+" entries (using WebService)");
         return ret;
+    }
+
+    private Vector<Hashtable<String, String>> queryDatabase(String table) {
+        Vector<Hashtable<String, String>> ret = new Vector<Hashtable<String, String>>();
+        try {
+            Class.forName(props.getProperty("db_driver"));
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        }
+        try {
+            Connection conn = DriverManager.getConnection(props.getProperty("db_url"), props
+                    .getProperty("db_user"), props.getProperty("db_password"));
+            PreparedStatement qry = conn.prepareStatement("SELECT * FROM " + table);
+            ResultSet rs = qry.executeQuery();
+            ResultSetMetaData meta = rs.getMetaData();
+            String[] cols = new String[meta.getColumnCount()];
+            for (int n = 1; n <= meta.getColumnCount(); n++) {
+                cols[n - 1] = meta.getColumnName(n);
+            }
+
+            while (rs.next()) {
+                Hashtable<String, String> entry = new Hashtable<String, String>();
+                for (int n = 0; n < cols.length; n++) {
+                    String tmp = rs.getString(cols[n]);
+                    if (tmp != null) {
+                        entry.put(cols[n], tmp);
+                    }
+                }
+                ret.add(entry);
+            }
+
+            rs.close();
+            qry.close();
+            conn.close();
+            return ret;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
 }

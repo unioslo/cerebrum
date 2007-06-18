@@ -26,6 +26,7 @@ public class XMLUtil {
     }
 
     public void writeElement(String element, String data) {
+        if(data == null) data = "";
         xmlData.append("<" + element + ">" + data + "</" + element + ">\n");
     }
 
