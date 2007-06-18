@@ -344,7 +344,13 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
         myBox.update = function(r) {
             myBox.setBody(r);
-            var buttons = YD.getElementsByClassName('buttons', 'div', myBox.element)[0].childNodes;
+            var buttons = YD.getElementsByClassName('buttons', 'div', myBox.element)[0]
+            if (buttons) {
+                buttons = buttons.childNodes;
+            } else {
+                buttons = [];
+            }
+
             for (var i = 0; i < buttons.length; i++) {
                 var el = buttons[i];
                 if (el.value === 'Cancel')
