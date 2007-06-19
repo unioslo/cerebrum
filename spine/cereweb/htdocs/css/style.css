@@ -657,14 +657,14 @@ div#tabview {
     background-color: #ffffff;
 }
 
-div#tabview ul {
+div#tabview ul.yui-nav {
     clear: left;
     margin: 0px 0pt 0pt 15px;
     overflow: hidden;
     padding-top: 17px;
 }
 
-div#tabview ul li {
+div#tabview ul.yui-nav li {
     float: left;
     height: 32px;
     list-style-image: none;
