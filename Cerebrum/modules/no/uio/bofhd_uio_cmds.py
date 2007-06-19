@@ -4976,11 +4976,14 @@ class BofhdExtension(object):
         ("person_id",)),
 	perm_filter='can_create_person')
     def person_set_name(self, operator, person_id, firstname, lastname):
+        auth_systems = []
+        for as in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp=getattr(self.const, as)
+            auth_systems.append(int(tmp))
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())        
 	for a in person.get_affiliations():
-	    if (int(a['source_system']) in
-                [int(self.const.system_fs), int(self.const.system_lt)]):
+            if int(a['source_system']) in auth_systems:
 		raise PermissionDenied("You are not allowed to alter names.")
 	    else:
 		pass
