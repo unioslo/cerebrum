@@ -28,6 +28,7 @@ from lib.utils import transaction_decorator, commit_url, redirect
 from lib import utils 
 from lib.templates.MotdTemplate import MotdTemplate
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
+from lib.templates.Confirm import Confirm
 
 from login import login, logout
 from SpineIDL.Errors import NotFoundError, AccessDeniedError
@@ -185,6 +186,18 @@ def session_keep_alive(nocache=None):
         return 'false'
     return 'true'
 session_keep_alive.exposed = True
+
+def confirm(*args, **kwargs):
+    real_args = []
+    for key, value in kwargs.items():
+        real_args.append("%s=%s" % (key, value))
+
+    real_url = '/' + "/".join(args) + '?' + "&".join(real_args)
+    confirm = Confirm()
+    confirm.yes = real_url
+    confirm.no = cherrypy.request.headerMap.get('Referer', '')
+    return confirm.respond()
+confirm.exposed = True
 
 __module__ = 'htdocs.index'
 
