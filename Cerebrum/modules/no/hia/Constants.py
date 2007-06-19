@@ -137,6 +137,12 @@ class Constants(Constants.Constants):
     spread_hia_novell_group = _SpreadCode(
         'group@edir', Constants.Constants.entity_group,
         'Group in Novell domain "hia"')
+    spread_hia_edir_grpemp = _SpreadCode(
+        'group@ediremp', Constants.Constants.entity_group,
+        'Group in Novell domain "HiA", ou=grp,ou=Ans')
+    spread_hia_edir_grpstud = _SpreadCode(
+        'group@edirstud', Constants.Constants.entity_group,
+        'Group in Novell domain "HiA", ou=grp,ou=Stud')    
     spread_nis_user = _SpreadCode(
         'account@nis', Constants.Constants.entity_account,
         'User in NIS domain "stud"')
