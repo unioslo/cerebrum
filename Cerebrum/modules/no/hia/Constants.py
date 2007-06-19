@@ -173,9 +173,6 @@ class Constants(Constants.Constants):
     spread_hia_tele = _SpreadCode(
         'account@telefon', Constants.Constants.entity_person,
         'Person exported to phone system')
-    spread_hia_ldap_person = _SpreadCode(
-        'account@ldap', Constants.Constants.entity_person, 
-        'Person included in LDAP directory')
     spread_hia_ldap_ou = _SpreadCode(
         'ou@ldap', Constants.Constants.entity_ou,
         'OU included in LDAP directory')
