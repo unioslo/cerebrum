@@ -123,14 +123,14 @@ cereweb.worklist.prototype = {
                             this.events.selectionChanged.fire();
                         }
                     } else
-                        cereweb.msg.warn('Could not update worklist.');
+                        cereweb.events.sessionError.fire('Could not update worklist.');
                 } catch(ex) {
                     if (this.options.errorHandler)
                         this.options.errorHandler(o);
                 }
             },
             failure: function(o) {
-                cereweb.msg.warn('Could not update worklist.');
+                cereweb.events.sessionError.fire('Could not update worklist.');
                 if (this.options.errorHandler)
                     this.options.errorHandler(o);
             }
