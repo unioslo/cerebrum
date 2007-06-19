@@ -4985,26 +4985,24 @@ class BofhdExtension(object):
 	for a in person.get_affiliations():
             if int(a['source_system']) in auth_systems:
 		raise PermissionDenied("You are not allowed to alter names.")
-	    else:
-		pass
-	    person.affect_names(self.const.system_manual,
-                                self.const.name_first,
-                                self.const.name_last,
-                                self.const.name_full)
-            if lastname == "":
-                raise CerebrumError, "A last name is required"
-            if firstname == "":
-                fullname = lastname
-            else:
-                fullname = firstname + " " + lastname
-	    person.populate_name(self.const.name_first, firstname)
-	    person.populate_name(self.const.name_last, lastname)
-	    person.populate_name(self.const.name_full, fullname)
-	    try:
-		person.write_db()
-	    except self.db.DatabaseError, m:
-		raise CerebrumError, "Database error: %s" % m
-	    return {'person_id': person.entity_id}
+        person.affect_names(self.const.system_manual,
+                            self.const.name_first,
+                            self.const.name_last,
+                            self.const.name_full)
+        if lastname == "":
+            raise CerebrumError, "A last name is required"
+        if firstname == "":
+            fullname = lastname
+        else:
+            fullname = firstname + " " + lastname
+        person.populate_name(self.const.name_first, firstname)
+        person.populate_name(self.const.name_last, lastname)
+        person.populate_name(self.const.name_full, fullname)
+        try:
+            person.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'person_id': person.entity_id}
 
     # person clear_id
     all_commands['person_clear_id'] = Command(
