@@ -140,6 +140,18 @@ cereweb.utils = {
             return "";
         else
             return results[1];
+    },
+    clickLink: function (el) {
+        var evt = document.createEvent("MouseEvents");
+        evt.initMouseEvent("click", true, true, window,
+            0, 0, 0, 0, 0, false, false, false, false, 0, null);
+        
+        YE.addListener(el, "click", cereweb.action.clicked,
+            cereweb.action, true);
+
+        var follow = el.dispatchEvent(evt);
+        if (follow)
+            document.location = el.href;
     }
 }
 cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
@@ -191,13 +203,11 @@ cereweb.action = {
         this._events[name] = event;
     },
     fire: function(event, action) {
-        if (this._events[action.name]) {
-            this._events[action.name].fire(event, action.args);
-        } else {
-            var subaction = '*/' + action.name.split('/')[1];
-            if (this._events[subaction])
-                this._events[subaction].fire(event, action.args);
-        }
+        var subaction = '*/' + action.name.split('/')[1];
+        var preaction = action.name.split('/')[0] + '/*' 
+        var my_action = this._events[action.name] || this._events[subaction] || this._events[preaction];
+        if (my_action)
+            my_action.fire(event, action.args);
     },
     parse: function(url) {
         var url = unescape(url.replace(/http.*\/\/.*?\//,''))
@@ -404,7 +414,45 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
     }
     cereweb.action.add('*/edit', inline_edit);
-})()
+})();
+
+(function() {
+    var handleYes = function() {
+        var link = this.target.cloneNode(true);
+        link.href = link.href.replace('/confirm', '');
+        cereweb.utils.clickLink(link);
+        this.hide();
+    }
+
+    var handleNo = function() {
+        this.hide();
+    }
+
+    var confirmDialogue = new YAHOO.widget.SimpleDialog('confirm_dialog', {
+        visible: false,
+        width: '20em',
+        close: false,
+        fixedcenter: true,
+        modal: true,
+        draggable: false,
+        icon: YAHOO.widget.SimpleDialog.ICON_WARN,
+        buttons: [
+            { text: 'Yes', handler: handleYes, isDefault: false },
+            { text: 'No', handler: handleNo, isDefault: true }
+        ]});
+    confirmDialogue.setHeader("Alert!");
+    confirmDialogue.setBody("Are you sure you want to do this?");
+    
+    var confirm = function(event, args) {
+        var e = args[0];
+        YE.preventDefault(e);
+        confirmDialogue.render(document.body);
+        confirmDialogue.show();
+        confirmDialogue.target = YE.getTarget(e);
+    }
+
+    cereweb.action.add('confirm/*', confirm);
+})();
 
 if(cereweb.debug) {
     log('bases are loaded');
