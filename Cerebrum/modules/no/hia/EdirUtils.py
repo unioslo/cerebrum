@@ -54,9 +54,11 @@ class EdirUtils:
 
 ## GROUP:  add/remove group_member.
     def group_modify(self, mod_type, group_name, member_name, member_type):
-        """Add an existing account object to a group in eDir."""
+        """Add an existing object to a group in eDir."""
         attr_g = {}
         attr_m = {}
+        membership_list = []
+        sec_eq_list = []
         ldap_group = self._find_object(group_name, self.c_group)
         if member_type == "account":
             ldap_member = self._find_object(member_name, self.c_person)
@@ -70,19 +72,45 @@ class EdirUtils:
                 attr_g['equivalentToMe'] = [ldap_member_dn]
                 if mod_type == 'add':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
+                    if not ldap_group_dn in membership_list:
+                        membership_list.append(ldap_group_dn)
+                    if 'groupMembership' in ldap_attr.keys():
+                        for m in ldap_attr['groupMembership']:
+                            membership_list.append(m)
+                    attr_m['groupMembership'] = membership_list
+                    if member_type == 'account':
+                        if not ldap_group_dn in sec_eq_list:
+                            sec_eq_list.append(ldap_group_dn)
+                        if 'securityEquals' in ldap_attr.keys():
+                            for s in ldap_attr['securityEquals']:
+                                sec_eq_list.append(s)
+                        attr_m['securityEquals'] = sec_eq_list
+                    if len(membership_list) > 1 or len(sec_eq_list) > 1 :
+                        self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'replace', attr_m)
+                    else:
+                        self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'add', attr_m)
                 elif mod_type == 'delete':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
-                attr_m['groupMembership'] = [ldap_group_dn]
-                if member_type == 'account':
-                    attr_m['securityEquals'] = [ldap_group_dn]
-                if mod_type == 'add':
-                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_m)
-                elif mod_type == 'delete':
-                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
+                    membership_list = ldap_attr['groupMembership']
+                    if ldap_group_dn in ldap_attr['groupMembership']:
+                        membership_list.remove(ldap_group_dn)
+                    attr_m['groupMembership'] = membership_list
+                    if member_type == 'account':
+                        sec_eq_list = ldap_attr['securityEquals']
+                        if ldap_group_dn in ldap_attr['securityEquals']:
+                            sec_eq_list.remove(ldap_group_dn)
+                            attr_m['securityEquals'] = sec_eq_list
+                        if len(membership_list) > 0 or len(sec_eq_list) > 0:
+                            self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'replace', attr_m)
+                        else:
+                        self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'delete', attr_m)
+                else:
+                    self.logger.warn("Unknown modification type: |%s|" % mod_type)
             else:
                 self.logger.error("No such account |%s|" % member_name)
         else:
             self.logger.error("No such group, |%s|." % group_name)
+
             
 ## QUARANTINE: set/remove quarantine
     def account_set_quarantine(self, account_name):
