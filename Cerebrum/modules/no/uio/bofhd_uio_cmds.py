@@ -4911,9 +4911,12 @@ class BofhdExtension(object):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-        data = [{'name': person.get_name(self.const.system_cached,
-                                         getattr(self.const,
-                                                 cereconf.DEFAULT_GECOS_NAME)),
+        try:
+            p_name = person.get_name(self.const.system_cached,
+                                     getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
+        except Errors.NotFoundError:
+            raise CerebrumError("No name is registered for this person")
+        data = [{'name': p_name,
                  'entity_id': person.entity_id,
                  'birth': person.birth_date,
                  'entity_id': person.entity_id}]
@@ -5944,9 +5947,13 @@ class BofhdExtension(object):
 
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
-            ret['owner_desc'] = person.get_name(self.const.system_cached,
-                                                getattr(self.const,
-                                                        cereconf.DEFAULT_GECOS_NAME))
+            try:
+                p_name = person.get_name(self.const.system_cached,
+                                         getattr(self.const,
+                                                 cereconf.DEFAULT_GECOS_NAME))
+            except Errors.NotFoundError:
+                p_name = '<none>'
+            ret['owner_desc'] = p_name
         else:
             grp = self._get_group(account.owner_id, idtype='id')
             ret['owner_desc'] = grp.group_name
