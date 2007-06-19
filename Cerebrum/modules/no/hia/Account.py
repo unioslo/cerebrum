@@ -60,9 +60,12 @@ class AccountHiAMixin(Account.Account):
             return
         # if an account email_target without email_server is found assign
         # the appropriate server
-        if not et.email_server_id:
+        est = Email.EmailServerTarget(self._db)
+        try:
+            est.find(et.email_target_id)
+        except Errors.NotFoundError:
             if self.get_account_types() or self.owner_type == self.const.entity_group:
-                et = self._update_email_server()
+                est = self._update_email_server()
             else:
                 # do not set email_server_target until account_type is registered
                 return
@@ -138,6 +141,7 @@ class AccountHiAMixin(Account.Account):
 
     # TODO: check this method, may probably be done better
     def _update_email_server(self):
+        est = Email.EmailServerTarget(self._db)
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         if self.is_employee() or self.is_affiliate():
@@ -148,14 +152,22 @@ class AccountHiAMixin(Account.Account):
         try:
             et.find_by_email_target_attrs(entity_id = self.entity_id)
         except Errors.NotFoundError:
+            # Not really sure about this. it is done at UiO, but maybe it is not
+            # right to make en email_target if one is not found??
+            et.clear()
             et.populate(self.const.email_target_account,
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        if not et.email_server_id:
-            et.email_server_id=es.entity_id
-            et.write_db()
-        return et
+        try:
+            est.find_by_entity(self.entity_id)
+            if est.server_id == es.entity_id:
+                return est
+        except:
+            est.clear()
+            est.populate(es.entity_id, parent = et)
+            est.write_db()
+        return est
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
