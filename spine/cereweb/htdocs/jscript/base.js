@@ -456,15 +456,21 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
 (function() {
     var progress = new YAHOO.widget.Overlay('progress',
-            { 'fixedcenter': true, 'visible': false, 'zIndex': 10 });
+            { 'visible': false, 'zIndex': 10 });
     progress.setHeader('');
-    progress.setBody('<img src="/img/smload.gif" alt="loading" /> Please wait... ');
+    progress.setBody('<img src="/img/smload.gif" alt="loading" />');
 
     cereweb.ajax = {
         rendered: false,
         begin: function() {
-            if (!this.rendered)
+            if (!this.rendered) {
+                var r = YD.getRegion('container');
                 progress.render('container');
+                var m = YD.getRegion(progress.body);
+                var w = m.right - m.left;
+                progress.cfg.setProperty('x', r.right - w - 1);
+                progress.cfg.setProperty('y', r.top + 1);
+            }
             progress.show();
         },
         done: function() {

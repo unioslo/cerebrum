@@ -75,12 +75,14 @@ cereweb.ac_group.prototype = {
         this.input.style.backgroundColor = "";
     },
     dataRequest: function(event, args) {
-        this.input.style.backgroundColor = "blue";
+        cereweb.ajax.begin();
     },
     dataError: function(event, args) {
+        cereweb.ajax.done();
         this.input.style.backgroundColor = "red";
     },
     dataReturn: function(event, args) {
+        cereweb.ajax.done();
         var query = unescape(args[1]);
         while(query.length > 0 && query.charAt(0) === ' ')
             query = query.slice(1);
@@ -208,6 +210,7 @@ cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {
 }
 
 cereweb.ac_quicksearch.prototype.dataReturn = function(event, args) {
+    cereweb.ajax.done();
     var query = unescape(args[1]);
     var i = query.search(':');
     query = query.slice(i + 1);
