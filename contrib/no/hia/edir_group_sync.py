@@ -40,47 +40,43 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 
 
-## TODO:
-## def edir_build_group(group_id):
-##     group = Factory.get("Group")(db)
-##     group.clear()
-##     group.find(group_id)
-##     group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
-##     utf8_dn = unicode('cn=%s' % group_name, 'iso-8859-1').encode('utf-8')
-##     ## TODO: how de we decide group-ou?!?
-##     ldap_dn = utf8_dn + ',ou=grp,ou=Stud,' + cereconf.NW_LDAP_ROOT
-##     attr_dict = {'objectClass': ['group'],
-##                  'cn': [group_name],
-##                  'member': [],
-##                  'description': ['test']}
-##     edir_util.object_edir_create(ldap_dn, attr_dict)
-##             if event['change_type_id'] == constants.spread_add:
-##                 ch_p = pickle.loads(event['change_params'])
-##                 if ch_p['spread'] == int(constants.spread_hia_novell_group):
-##                     cl_events.append(event)
-##             elif event['change_type_id'] == constants.spread_del:
-##                 ent = Factory.get('Entity')(db)
-##                 ent.clear()
-##                 ent.find(event['subject_entity'])
-##                 if ent.entity_type == int(constants.entity_account):
-##                     logger.info('Account delete is handled by process_deleted.py!')
-##                     continue
-##                elif ent.entity_type == int(constants.entity_group):
-##                    cl_events.append(event)
+def group_make_attrs(group_id):
+    attr = {}
+    group = Factory.get("Group")(db)
+    group.clear()
+    group.find(group_id)
+    group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
+    desc = unicode(group.description).encode('utf-8')
+    attr = {'objectClass': ['group'],
+            'cn': [group_name],
+            'member': [],
+            'description': [desc]}
+    return attr
 
+def _group_make_dn(group_id, org):
+    group = Factory.get("Group")(db)
+    group.clear()
+    group.find(group_id)
+    group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
+    utf8_dn = unicode('cn=%s' % group_name, 'iso-8859-1').encode('utf-8')
+    ldap_dn = utf8_dn + ',ou=grp,' + org + ',' + cereconf.NW_LDAP_ROOT    
+    return ldap_dn
 
 def group_mod(mod_type, group_id, member_id):
     group = Factory.get("Group")(db)
     grp = Factory.get("Group")(db)
     acc = Factory.get("Account")(db)
-    ent_name = ""
-    ent_type = "account"
+    member_name = ""
+    member_type = "account"
     edir_group = False
+    known_group = False
     group.clear()
     group.find(group_id)
 
     for row in group.get_spread():
-        if int(constants.spread_hia_novell_group) == row['spread']:
+        if row['spread'] in [int(constants.spread_hia_novell_group),
+                             int(constants.spread_hia_edir_grpemp),
+                             int(constants.spread_hia_edir_grpstud)]:
             edir_group = True
     if not edir_group:
         logger.debug("Skipping, group %s not in eDir", group.group_name)
@@ -97,22 +93,26 @@ def group_mod(mod_type, group_id, member_id):
         return
     if subj_ent.entity_type == constants.entity_account:
         acc.find(member_id)
-        ent_name = acc.account_name
+        member_name = acc.account_name
     elif subj_ent.entity_type == constants.entity_group:
         grp.find(member_id)
-        ent_type = "group"
-        ent_name = cereconf.NW_GROUP_PREFIX + '-' + grp.group_name
+        for row in group.get_spread():
+            if row['spread'] in [int(constants.spread_hia_novell_group),
+                                 int(constants.spread_hia_edir_grpemp),
+                                 int(constants.spread_hia_edir_grpstud)]:
+                known_group = True
+        if known_group:        
+            member_type = "group"
+            member_name = cereconf.NW_GROUP_PREFIX + '-' + grp.group_name
     else:
         logger.warn("Only groups or accounts may be members!")
         return
-
     if mod_type == constants.group_add:
-        logger.info('Adding to group')
-        edir_util.group_modify('add', group_name, ent_name, ent_type)
-        logger.info('New member %s added to %s' % (ent_name, group_name))
+        edir_util.group_modify('add', group_name, member_name, member_type)
+        logger.info('New member %s added to %s' % (member_name, group_name))
     elif mod_type == constants.group_rem:
         logger.info('Removing from group')
-        edir_util.group_modify('delete', group_name, ent_name, ent_type)
+        edir_util.group_modify('delete', group_name, member_name, member_type)
         logger.info('Member %s removed from %s' % (ent_name, group_name))
 
         
@@ -137,7 +137,8 @@ def main():
 
     try:
         cl_events = cl_handler.get_events('edirgroups', (constants.group_add,
-                                                         constants.group_rem))
+                                                         constants.group_rem,
+                                                         constants.spread_add))
         if cl_events == []:
             logger.info("Nothing to do.")
             ldap_handle.close_connection()
@@ -149,12 +150,22 @@ def main():
                           event['dest_entity'],
                           event['subject_entity'])
                 cl_handler.confirm_event(event)
+            elif event['change_type_id'] == constants.spread_add:
+                s = pickle.loads(event['change_params'])['spread']
+                if s == int(constants.spread_hia_edir_grpemp):
+                    dn =  _group_make_dn(event['subject_entity'], 'ou=Ans')
+                elif s == int(constants.spread_hia_edir_grpstud):
+                    dn =  _group_make_dn(event['subject_entity'], 'ou=Stud')
+                else:
+                    logger.debug("Unknown spread, skipping.")
+                edir_util.object_edir_create(dn, group_make_attrs(event['subject_entity']))
+                cl_handler.confirm_event(event)             
     except TypeError, e:
         logger.warn("No such event, %s" % e)
         return None
     cl_handler.commit_confirmations()
 
     ldap_handle.close_connection()
-    
+
 if __name__ == '__main__':
     main()
