@@ -43,7 +43,6 @@ import getopt
 import sys
 import cerebrum_path
 import cereconf
-from Cerebrum import Errors
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum import Utils
 
@@ -72,11 +71,13 @@ def fullsync(user_class_ref, url, user_spread=None, group_spread=None,
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'm:', [
-            'help', 'user_spread=', 'url=', 'dryrun', 'ad-ldap=', 'group_spread='])
+            'help', 'user_spread=', 'url=', 'dryrun', 'ad-ldap=',
+            'delete', 'group_spread='])
     except getopt.GetoptError:
         usage(1)
 
     dryrun = False
+    delete_objects = False
     user_spread = None
     group_spread = None
     ad_ldap = cereconf.AD_LDAP
@@ -86,6 +87,8 @@ def main():
             usage()
         elif opt in ('--dryrun',):
             dryrun = True
+        elif opt in ('--delete',):
+            delete_objects = True
         elif opt in ('--ad-ldap',):
             ad_ldap = val
         elif opt in ('--url',):
@@ -100,7 +103,7 @@ def main():
         usage(1)
         
     fullsync(ad_mod, url, user_spread, group_spread, dryrun=dryrun,
-             ad_ldap=ad_ldap)
+             delete_objects=delete_objects, ad_ldap=ad_ldap)
 
 def usage(exitcode=0):
     print __doc__
