@@ -454,6 +454,25 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
     cereweb.action.add('confirm/*', confirm);
 })();
 
+(function() {
+    var progress = new YAHOO.widget.Overlay('progress',
+            { 'fixedcenter': true, 'visible': false, 'zIndex': 10 });
+    progress.setHeader('');
+    progress.setBody('<img src="/img/smload.gif" alt="loading" /> Please wait... ');
+
+    cereweb.ajax = {
+        rendered: false,
+        begin: function() {
+            if (!this.rendered)
+                progress.render('container');
+            progress.show();
+        },
+        done: function() {
+            progress.hide();
+        }
+    }
+})();
+
 if(cereweb.debug) {
     log('bases are loaded');
 }
