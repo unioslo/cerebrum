@@ -215,7 +215,7 @@ def save(transaction, id, gender, birthdate,
     
     person.set_gender(transaction.get_gender_type(gender))
     person.set_birth_date(strptime(transaction, birthdate))
-    person.set_description(description)
+    person.set_description(description or '')
     person.set_deceased_date(strptime(transaction, deceased))
     
     commit(transaction, person, msg=_("Person successfully updated."))
