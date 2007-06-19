@@ -80,10 +80,11 @@ class BofhdExtension(object):
         #
         # copy relevant person-cmds and util methods
         #
-        'person_accounts', 'person_affiliation_add', '_person_affiliation_add_helper',
+        'person_accounts', 'person_affiliation_add',
+        '_person_affiliation_add_helper',
         'person_affiliation_remove', 'person_create',
         'person_find', 'person_info', 'person_list_user_priorities',
-        'person_set_user_priority',
+        'person_set_user_priority', 'person_set_name',
         #
         # copy relevant quarantine-cmds and util methods
         #
