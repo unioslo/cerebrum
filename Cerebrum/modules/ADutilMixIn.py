@@ -251,22 +251,20 @@ class ADgroupUtil(ADutil):
                                        'distinguishedName' : ou_in_ad,
                                        'OU' : ou})
 
+        # TODO: Builtin can be listed in AD_DO_NOT_TOUCH as well, so
+        #       one line can be removed below
         #The remaining groups is surplus in AD.        
-        # RH: what exactly is this code supposed to do?
-        #     Added modification that makes it run, but not sure if it
-        #     is correct...
         for adg in adgrp:            
-            # if adg.find(cereconf.AD_DO_NOT_TOUCH) >= 0:             
-            #
             # Assume that cereconf.AD_DO_NOT_TOUCH is a list
             # Check if at least one of the list elements is a substring of adg
-            if not [s for s in cereconf.AD_DO_NOT_TOUCH if adg.find(s) >= 0]:
-                pass
-            elif adg.find('CN=Builtin,%s' % self.ad_ldap) >= 0:
-                pass
+            # If delete_groups is False, then don't delete the group
+            if not delete_groups or \
+                   adg.find('CN=Builtin,%s' % self.ad_ldap) >= 0 or \
+                   [s for s in cereconf.AD_DO_NOT_TOUCH if adg.find(s) >= 0]:
+                continue
             else:
                 changelist.append({'type' : 'delete_object', 
-                                'distinguishedName' : adg}) 
+                                   'distinguishedName' : adg}) 
 
         return changelist
 
@@ -483,7 +481,7 @@ class ADuserUtil(ADutil):
                             changes = {} 
                         #Moving account.
                         if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
-                                                           (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
+                               (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
                             changes['type'] = 'move_object'
                             changes['distinguishedName'] = adusrs[usr]['distinguishedName']
                             changes['OU'] = "OU=%s,%s" % \
