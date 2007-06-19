@@ -50,7 +50,7 @@ class AccountHiAMixin(Account.Account):
         ea = Email.EmailAddress(self._db)
         if target_type == self.const.email_target_deleted:
             expire_date = self._db.DateFromTicks(time.time() +
-                                                 60 * 60 * 24 * 180)
+                                                 60 * 60 * 24 * 1)
             for row in et.get_addresses():
                 ea.clear()
                 ea.find(row['address_id'])
@@ -140,7 +140,7 @@ class AccountHiAMixin(Account.Account):
     def _update_email_server(self):
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
-        if self.is_employee():
+        if self.is_employee() or self.is_affiliate():
             server_name = 'mail-imap1'
         else:
             server_name = 'mail-imap2'
@@ -186,5 +186,11 @@ class AccountHiAMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
+
+    def is_affiliate(self):
+        for r in self.get_account_types():
+            if r['affiliation'] == self.const.affiliation_tilknyttet:
+                return True
+        return False    
 
 # arch-tag: e0828813-9221-4e43-96f0-0194d131e683
