@@ -29,7 +29,7 @@
     #set $id = $html_quote($person.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
-        <li><a href="delete?id=$id">$_("delete person")</a></li>
+        <li><a href="/confirm/person/delete?id=$id">$_("delete person")</a></li>
         <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
         <li><a href="/account/create?owner=$id">$_('create new account')</a></li>
         <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
@@ -138,7 +138,7 @@
                             $html_quote($ou.get_id()),
                             $html_quote($affil_type.get_name()),
                             $html_quote($affil.get_source_system().get_name())))
-            <a class="action" href="remove_affil?$args">$_('delete')</a>
+            <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a>
     </td>
     </tr>
     #end if

@@ -33,7 +33,7 @@
     #set $id = $html_quote($account.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
-        <li><a href="delete?id=$id">$_("delete account")</a></li>
+        <li><a href="/confirm/account/delete?id=$id">$_("delete account")</a></li>
         #if $account.is_posix()
         <li><a href="posix_demote?id=$id">$_("demote from posix")</a></li>
         #else
@@ -159,7 +159,7 @@ $widgets.viewInfo($info, $notice)
                             $url_quote($account.get_id()),
                             $url_quote($ou.get_id()),
                             $url_quote($affil_type.get_name()))
-            <a class="action" href="remove_affil?$args">$_('delete')</a>
+            <a class="action" href="/confirm/account/remove_affil?$args">$_('delete')</a>
     </td>
     </tr>
     #end for
