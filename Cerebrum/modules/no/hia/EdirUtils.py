@@ -103,7 +103,7 @@ class EdirUtils:
                         if len(membership_list) > 0 or len(sec_eq_list) > 0:
                             self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'replace', attr_m)
                         else:
-                        self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'delete', attr_m)
+                            self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'delete', attr_m)
                 else:
                     self.logger.warn("Unknown modification type: |%s|" % mod_type)
             else:
