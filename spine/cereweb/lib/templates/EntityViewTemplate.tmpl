@@ -137,6 +137,8 @@
 #end if
 #end def
 
+
+
 #def setExternalId($entity, $transaction)
 #set $searcher = $transaction.get_entity_external_id_type_searcher()
 #set $id_types = [($type.get_name(), $type.get_description()) 
@@ -161,6 +163,33 @@
     </form>
 </div>
 #end def
+
+
+#from lib.utils import contactlist
+#def viewContactInfos($entity)
+#set $contacts = contactlist($entity)
+#if $contacts
+<div class="info box">
+    <h3>$_('Contact info')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Value')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $contact in $contacts
+    #set sources = ",".join(["%s:%d" % ($s[0].get_name(), $s[1]) for $s in $contact.sources])
+    <tr>
+       <td>$html_quote($contact.variant.get_name())</td>
+       <td>$html_quote($contact.value)</td>
+       <td>$html_quote($sources)</td>
+    </tr>
+    #end for
+    </table>
+</div>
+#end if
+#end def
+
 
 #def viewSpreads($entity)
 #set $spreads = $entity.get_spreads()

@@ -48,6 +48,7 @@
     $viewAffiliation($entity)
     $setName($entity, $tr)
     $viewNames($entity)
+    $viewContactInfos($entity)
     $setExternalId($entity, $tr)
     $viewExternalIds($entity)
     $viewAccounts($entity)
@@ -193,7 +194,7 @@
             #set sources = ",".join([$s.get_name() for $s in $name.sources])
             <tr>
                <td>$html_quote($name.variant.get_name())</td>
-               <td>$html_quote($name.name)</td>
+               <td>$html_quote($name.value)</td>
                <td>$html_quote($sources)</td>
             </tr>
             #end for

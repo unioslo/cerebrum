@@ -358,9 +358,9 @@ def flatten(list, perspective, res=[]):
 #
 # namelist does not really belong here...
 
-class nameobj:
-    def __init__(self, name, variant):
-        self.name=name
+class nvsobj:
+    def __init__(self, value, variant):
+        self.value=value
         self.variant=variant
         self.sources=[]
 
@@ -374,17 +374,11 @@ def namelist(person):
         if not variant in namevariants:
             namevariants[variant] = {}
         if not value in namevariants[variant]:
-            name = nameobj(value, variant)
+            name = nvsobj(value, variant)
             names.append(name)
             namevariants[variant][value] = name
         namevariants[variant][value].sources.append(source)
     return names
-
-class extidobj:
-    def __init__(self, value, variant):
-        self.value=value
-        self.variant=variant
-        self.sources=[]
 
 def extidlist(person):
     extids = []
@@ -396,11 +390,29 @@ def extidlist(person):
         if not variant in extidvariants:
             extidvariants[variant] = {}
         if not value in extidvariants[variant]:
-            extid = extidobj(value, variant)
+            extid = nvsobj(value, variant)
             extids.append(extid)
             extidvariants[variant][value] = extid
         extidvariants[variant][value].sources.append(source)
     return extids
+
+def contactlist(person):
+    contacts = []
+    contactvariants = {}
+    for contact in person.get_all_contact_info():
+        variant = contact.get_type()
+        source = contact.get_source_system()
+        pref = contact.get_preference()
+        value = contact.get_value()
+        if not variant in contactvariants:
+            contactvariants[variant] = {}
+        if not value in contactvariants[variant]:
+            contact = nvsobj(value, variant)
+            contacts.append(contact)
+            contactvariants[variant][value] = contact
+        contactvariants[variant][value].sources.append((source, pref))
+    return contacts
+
 
 def shownumber(n):
     """Unspinify number"""
