@@ -358,60 +358,98 @@ def flatten(list, perspective, res=[]):
 #
 # namelist does not really belong here...
 
-class nvsobj:
+class nvsobj(object):
     def __init__(self, value, variant):
         self.value=value
-        self.variant=variant
+        if variant: self.variant=variant
         self.sources=[]
+
+class vstruct(object):
+    def __init__(self, **kw):
+        self._data = kw
+        l=kw.items()
+        l.sort()
+        self._hash = tuple(l).__hash__()
+    def __eq__(self, other):
+        return self._data == other._data
+    def __hash__(self):
+        return self._hash
+    def __getattr__(self, attr):
+        if attr == '_data':
+            return self._data
+        else:
+            return self._data.get(attr)
+
 
 def namelist(person):
     names = []
-    namevariants = {}
+    variants = {}
     for name in person.get_names():
         variant = name.get_name_variant()
         source = name.get_source_system()
         value = name.get_name()
-        if not variant in namevariants:
-            namevariants[variant] = {}
-        if not value in namevariants[variant]:
+        if not variant in variants:
+            variants[variant] = {}
+        if not value in variants[variant]:
             name = nvsobj(value, variant)
             names.append(name)
-            namevariants[variant][value] = name
-        namevariants[variant][value].sources.append(source)
+            variants[variant][value] = name
+        variants[variant][value].sources.append(source)
     return names
 
-def extidlist(person):
+def extidlist(entity):
     extids = []
-    extidvariants = {}
-    for extid in person.get_external_ids():
+    variants = {}
+    for extid in entity.get_external_ids():
         variant = extid.get_id_type()
         source = extid.get_source_system()
         value = extid.get_external_id()
-        if not variant in extidvariants:
-            extidvariants[variant] = {}
-        if not value in extidvariants[variant]:
+        if not variant in variants:
+            variants[variant] = {}
+        if not value in variants[variant]:
             extid = nvsobj(value, variant)
             extids.append(extid)
-            extidvariants[variant][value] = extid
-        extidvariants[variant][value].sources.append(source)
+            variants[variant][value] = extid
+        variants[variant][value].sources.append(source)
     return extids
 
-def contactlist(person):
+def contactlist(entity):
     contacts = []
-    contactvariants = {}
-    for contact in person.get_all_contact_info():
+    variants = {}
+    for contact in entity.get_all_contact_info():
         variant = contact.get_type()
         source = contact.get_source_system()
         pref = contact.get_preference()
         value = contact.get_value()
-        if not variant in contactvariants:
-            contactvariants[variant] = {}
-        if not value in contactvariants[variant]:
+        if not variant in variants:
+            variants[variant] = {}
+        if not value in variants[variant]:
             contact = nvsobj(value, variant)
             contacts.append(contact)
-            contactvariants[variant][value] = contact
-        contactvariants[variant][value].sources.append((source, pref))
+            variants[variant][value] = contact
+        variants[variant][value].sources.append((source, pref))
     return contacts
+
+
+def addresslist(entity):
+    addresses = []
+    variants = {}
+    for address in entity.get_addresses():
+        variant = address.get_address_type()
+        source = address.get_source_system()
+        value = vstruct(address_text=address.get_address_text(),
+                        p_o_box=address.get_p_o_box(),
+                        postal_number=address.get_postal_number(),
+                        city=address.get_country(),
+                        country=address.get_country())
+        if not variant in variants:
+            variants[variant] = {}
+        if not value in variants[variant]:
+            address = nvsobj(value, variant)
+            addresses.append(address)
+            variants[variant][value] = address
+        variants[variant][value].sources.append(source)
+    return addresses
 
 
 def shownumber(n):

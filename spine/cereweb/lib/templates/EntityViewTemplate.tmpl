@@ -191,6 +191,40 @@
 #end def
 
 
+#from lib.utils import addresslist
+#def viewAddresses($entity)
+#set $addresses = addresslist($entity)
+#if $addresses
+<div class="info box">
+    <h3>$_('Addresses')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Address')</th>
+      <th>$_('P O Box')</th>
+      <th>$_('P nr')</th>
+      <th>$_('City')</th>
+      <th>$_('Country')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $address in $addresses
+    #set sources = ",".join([$s.get_name() for $s in $address.sources])
+    <tr>
+       <td>$html_quote($address.variant.get_name())</td>
+       <td>$html_quote($address.value.address_text)</td>
+       <td>$html_quote($address.value.p_o_box)</td>
+       <td>$html_quote($address.value.postal_number)</td>
+       <td>$html_quote($address.value.city)</td>
+       <td>$html_quote($address.value.country)</td>
+       <td>$html_quote($sources)</td>
+    </tr>
+    #end for
+    </table>
+</div>
+#end if
+#end def
+
+
 #def viewSpreads($entity)
 #set $spreads = $entity.get_spreads()
 #if $spreads
