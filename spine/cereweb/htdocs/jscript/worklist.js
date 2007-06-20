@@ -85,6 +85,7 @@ cereweb.worklist.prototype = {
         this.actionUpdater = new cereweb.callbacks.htmlSnippet(this, 'addAction');
         YE.on(this.form, 'click', this.onClick, this, true);
         YE.on(this.form, 'change', this.onChange, this, true);
+        YE.on(this.list, 'change', this.onChange, this, true);
         cereweb.action.add('worklist/remember', this.remember, this);
         this.events.worklistChanged.subscribe(this.updateLinks, this, true);
         this.events.selectionChanged.subscribe(this.updateSelection, this, true);
@@ -190,14 +191,12 @@ cereweb.worklist.prototype = {
         return removed;
     },
     addToSelect: function (obj) {
-        var elm = document.createElement('option');
+        var name = obj.name;
+        if (obj.type)
+            name = obj.type + ': ' + name;
+        var elm = new Option(name, obj.id);
         if (obj.selected)
             elm.setAttribute('selected', 'selected');
-        elm.value = obj.id;
-        var str = '';
-        if (obj.type)
-            str = obj.type + ': '
-        elm.innerHTML = str + obj.name;
 
         try { // standards compliant; doesnt work in IE
             this.list.add(elm, null);
