@@ -153,7 +153,9 @@ def save(transaction, id, name, expire="",
     
     if expire:
         expire = c.strptime(expire, "%Y-%m-%d")
-        group.set_expire_date(expire)
+    else:
+	expire = None
+    group.set_expire_date(expire)
 
     if gid is not None and group.is_posix():
         group.set_posix_gid(int(gid))

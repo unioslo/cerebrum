@@ -87,8 +87,8 @@ def save(transaction, entity, type, why="",
         quoted = html_quote(why)
     quarantine.set_description(quoted)
     quarantine.set_start_date(strptime(start, c.get_date_now()))
-    quarantine.set_end_date(strptime(end, c.get_date_none()))
-    quarantine.set_disable_until(strptime(disable_until, c.get_date_none()))
+    quarantine.set_end_date(strptime(end, None))
+    quarantine.set_disable_until(strptime(disable_until, None))
 
     msg = _("Updated quarantine '%s' successfully.") % type
     commit(transaction, entity, msg=msg)
@@ -155,10 +155,9 @@ def make(transaction, entity, type, why="",
 
     q_type = transaction.get_quarantine_type(type)
     c = transaction.get_commands()
-    date_none = c.get_date_none()
     date_start = start and c.strptime(start, "%Y-%m-%d") or c.get_date_now()
-    date_end = end and c.strptime(end, "%Y-%m-%d") or date_none
-    date_dis = disable_until and c.strptime(disable_until, "%Y-%m-%d") or date_none
+    date_end = end and c.strptime(end, "%Y-%m-%d") or None
+    date_dis = disable_until and c.strptime(disable_until, "%Y-%m-%d") or None
     quoted = ''
     if why:
         quoted = html_quote(why)

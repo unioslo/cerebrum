@@ -113,7 +113,7 @@ def make(transaction, owner, name, expire_date="", np_type=None,
     if _other:
         name = _other
     if not expire_date:
-        expire_date = commands.get_date_none()
+        expire_date = None
     else:
         expire_date = commands.strptime(expire_date, "%Y-%m-%d")
     if np_type:
@@ -198,7 +198,7 @@ def save(transaction, **vargs):
     if expire_date:
         expire_date = c.strptime(expire_date, "%Y-%m-%d")
     else:
-        expire_date = c.get_date_none()
+        expire_date = None
 
     if shell is not None:
         shell_searcher = transaction.get_posix_shell_searcher()
