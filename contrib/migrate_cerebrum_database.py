@@ -39,7 +39,7 @@ targets = {
              'rel_0_9_10'),
     'bofhd': ('bofhd_1_1', ),
     'changelog': ('changelog_1_2', ),
-    'email': ('email_1_1', ),
+    'email': ('email_1_0','email_1_1'),
     }
 
 # Global variables
@@ -403,7 +403,6 @@ def migrate_to_rel_0_9_9():
         ac.clear()
         ac.find(r['account_id'])
         ac.clear_home(r['spread'])
-    db.commit()
     for r in db.query("""
     SELECT homedir_id, account_id FROM homedir hd
     WHERE NOT EXISTS (SELECT 'foo'
@@ -412,6 +411,7 @@ def migrate_to_rel_0_9_9():
         ac.clear()
         ac.find(r['account_id'])
         ac._clear_homedir(r['homedir_id'])
+    db.commit()
     makedb('0_9_9', 'post')
     print "\ndone."
     meta = Metainfo.Metainfo(db)
@@ -548,7 +548,7 @@ def main():
 
     continue_prompt("Do you have a backup of your '%s' database? (y/n)[y]" % \
                     cereconf.CEREBRUM_DATABASE_NAME)
-    init()
+    init()    
     started = False
     if not from_rel:
         started = True
