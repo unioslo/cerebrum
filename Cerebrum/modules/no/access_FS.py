@@ -306,7 +306,9 @@ class Student(FSObject):
         SELECT DISTINCT
                fodselsdato, personnr, regformkode, dato_endring, dato_opprettet
         FROM fs.registerkort r
-        WHERE %s""" % self._get_termin_aar(only_current=1)
+        WHERE %s AND
+        NVL(r.status_ugyldig, 'N') = 'N'
+        """ % self._get_termin_aar(only_current=1)
         return self.db.query(qry)
 
     def get_semreg(self,fnr,pnr):  # GetStudentSemReg
