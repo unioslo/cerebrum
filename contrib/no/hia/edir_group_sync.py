@@ -158,6 +158,7 @@ def main():
                     dn =  _group_make_dn(event['subject_entity'], 'ou=Stud')
                 else:
                     logger.debug("Unknown spread, skipping.")
+                    continue
                 edir_util.object_edir_create(dn, group_make_attrs(event['subject_entity']))
                 cl_handler.confirm_event(event)             
     except TypeError, e:
