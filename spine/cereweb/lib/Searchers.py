@@ -793,42 +793,44 @@ class ProjectSearcher(Searcher):
         return rows
 
 class PersonAffiliationsSearcher(Searcher):
-    headers = (('Name', 'name'),
-               ('Type', 'type'),
+    headers = (('Name', 'person_name.name'),
+               ('Type', ''),
                ('Status', 'status'),
-               ('Source', 'source'),
+               ('Source', ''),
                ('Affiliations', ''),
-               ('Birth date', 'birth_date'))
+               ('Birth date', 'person.birth_date'))
 
     url = 'list_aff_persons'
 
     def get_searchers(self):
-        main = self.transaction.get_person_affiliation_searcher()
         form = self.form_values
+        tr = self.transaction
 
-        name = form.get('name', '').strip()
-        if name:
-            main.set_name_like(name)
+        main = tr.get_person_affiliation_searcher()
+        main.join_name = 'person'
 
-        description = form.get('description', '').strip()
-        if description:
-            main.set_description_like(description)
+        person_name = tr.get_person_name_searcher()
+        person_name.join_name = 'person'
+        person_name.set_name_variant(tr.get_name_type('FULL'))
+        person_name.set_source_system(tr.get_source_system('Cached'))
+
+        person = tr.get_person_searcher()
+        person.join_name = ''
 
         id = form.get('id', '').strip()
         if id:
             try:
-                ou = self.transaction.get_ou(int(id))
+                ou = tr.get_ou(int(id))
+                main.set_ou(ou)
             except SpineIDL.Errors.NotFoundError, e:
                 self.valid = False
-            else:
-                main.set_ou(ou)
 
         source = form.get('source', '').strip()
         if source:
             main.set_source_system(
-                    self.transaction.get_source_system(source))
+                    tr.get_source_system(source))
 
-        return {'main': main}
+        return {'main': main, 'person_name': person_name, 'person': person}
 
     def filter_rows(self, results):
         rows = []
