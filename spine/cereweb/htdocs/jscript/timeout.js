@@ -150,10 +150,10 @@ cereweb.timeout = {
         this.start_timer(this.check, this.config.timeout_fail);
         this.config.timeout_fail = this.config.timeout_fail * this.config.timeout_fail_inc;
 
-        var msg = "<p>It seems that the server is unavailable.  This message\
-     will disappear as soon as the server is available again, so please be patient.\
-     If nothing happens within five minutes, feel free to call (735) 91500 and\
-     notify Orakeltjenesten of the situation.</p>";
+        var msg = "<p>It seems that the server is unavailable.  Please check your network \
+     connection.  If you're certain that your network connection is ok, please try again \
+     in five minutes.  If the server remains unavailable, call (735) 91500 and notify \
+     Orakeltjenesten of the situation.</p>";
         cereweb.events.sessionError.fire('Connection failure');
         this.show_warning(msg);
     },
