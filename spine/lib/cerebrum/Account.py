@@ -88,16 +88,40 @@ def is_expired(self):
 is_expired.signature = bool
 Account.register_methods([is_expired])
 
-def _create_account(db, name, owner_type, owner_id, np_type, expire_date):
+def _create_account(db, name, owner, np_type, expire_date):
+    expire_date = expire_date and expire_date._value or None
+    np_type = np_type and np_type.get_id() or None
+    owner_type = owner.get_type().get_id()
+    owner_id = owner.get_id()
     new_id = Account._create(db, name, owner_type, owner_id, np_type, db.change_by, expire_date)
     return Account(db, new_id)
 
-# create_person_account defined in Person
+def create_person_account(self, name, expire_date):
+    """
+    Create a new account.
+    \\param name Name of the account.
+    \\param expire_date Date on which the account will expire.
+    \\return Created Account object.
+    """
+    db = self.get_database()
+    return _create_account(db, name, self, None, expire_date)
+create_person_account.signature = Account
+create_person_account.signature_args = [str, Date]
+create_person_account.signature_write = True
+create_person_account.signature_name = 'create_account'
+Person.register_methods([create_person_account])
+
 
 def create_group_account(self, name, np_type, expire_date):
+    """
+    Create a new non-personal account.
+    \\param name Name of the account.
+    \\param np_type Non-personal AccountType
+    \\param expire_date Date on which the account will expire.
+    \\return Created Account object.
+    """
     db = self.get_database()
-    expire_date = expire_date and expire_date._value or None
-    return _create_account(db, name, self.get_type().get_id(), self.get_id(), np_type.get_id(), expire_date)
+    return _create_account(db, name, self, np_type, expire_date)
 create_group_account.signature = Account
 create_group_account.signature_args = [str, AccountType, Date]
 create_group_account.signature_write = True
@@ -115,7 +139,7 @@ def create_account(self, name, owner, expire_date):
     """
     print 'WARNING: Commands.create_account is deprecated.'
     db = self.get_database()
-    return _create_account(db, name, owner.get_type().get_id(), owner.get_id(), None, expire_date._value)
+    return _create_account(db, name, owner, None, expire_date)
 create_account.signature = Account
 create_account.signature_args = [str, Entity, Date]
 create_account.signature_write = True
@@ -128,16 +152,7 @@ def get_primary_account(self):
     return Account(self.get_database(), account_id)
 get_primary_account.signature = Account
 get_primary_account.signature_name = 'get_primary_account'
-
-def create_person_account(self, name, expire_date):
-    db = self.get_database()
-    expire_date = expire_date and expire_date._value or None
-    return _create_account(db, name, self.get_type().get_id(), self.get_id(), None, expire_date)
-create_person_account.signature = Account
-create_person_account.signature_args = [str, Date]
-create_person_account.signature_write = True
-create_person_account.signature_name = 'create_account'
-Person.register_methods([create_person_account, get_primary_account])
+Person.register_methods([get_primary_account])
 
 def create_np_account(self, name, owner, np_type, expire_date):
     """
@@ -150,7 +165,7 @@ def create_np_account(self, name, owner, np_type, expire_date):
     """
     print 'WARNING: Commands.create_np_account is deprecated.'
     db = self.get_database()
-    return _create_account(db, name, owner.get_type().get_id(), owner.get_id(), np_type.get_id(), expire_date._value)
+    return _create_account(db, name, owner, np_type, expire_date)
 create_np_account.signature = Account
 create_np_account.signature_args = [str, Entity, AccountType, Date]
 create_np_account.signature_write = True
