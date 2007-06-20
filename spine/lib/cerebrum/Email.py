@@ -393,6 +393,13 @@ create_email_target.signature_write = True
 create_email_target.signature_args = [EmailTargetType]
 Commands.create_email_target = create_email_target
 
+def get_email_targets(self):
+    s = registry.EmailTargetSearcher(self.get_database())
+    s.set_entity(self)
+    return s.search()
+get_email_targets.signature = [EmailTarget]
+Entity.register_methods([get_email_targets])
+
 table = 'email_address'
 class EmailAddress(DatabaseClass):
     """
@@ -817,7 +824,7 @@ def remove_forward(self, forward_to):
     db = self.get_database()
     obj = Cerebrum.modules.Email.EmailForward(db)
     obj.find(self.get_id())
-    obj.remove_forward(forward_to)
+    obj.delete_forward(forward_to)
     obj.write_db()
 remove_forward.signature = None
 remove_forward.signature_write = True
@@ -867,6 +874,17 @@ add_vacation.signature = EmailVacation
 add_vacation.signature_write = True
 add_vacation.signature_args = [Date, str, Date]
 
+def remove_vacation(self, start):
+    db = self.get_database()
+    obj = Cerebrum.modules.Email.EmailVacation(db)
+    obj.find(self.get_id())
+    obj.delete_vacation(start.strftime('%Y-%m-%d'))
+    obj.write_db()
+remove_vacation.signature = None
+remove_vacation.signature_write = True
+remove_vacation.signature_args = [Date]
+
+
 def get_vacations(self):
     s = registry.EmailVacationSearcher(self.get_database())
     s.set_target(self)
@@ -874,7 +892,7 @@ def get_vacations(self):
 get_vacations.signature = [EmailVacation]
 get_vacations.signature_args = []
 
-EmailTarget.register_methods([add_vacation, get_vacations])
+EmailTarget.register_methods([add_vacation, remove_vacation, get_vacations])
 
 
 # arch-tag: bd478dc6-f9ef-11d9-905c-b1284ed93a3d
