@@ -1706,7 +1706,7 @@ class BofhdExtension(object):
             result['expire_date'] = entity.expire_date
             # FIXME: Should be a list instead of a string, but text clients doesn't 
             # know how to view such a list
-            result['spread'] = ", ".join([self.num2str(a.spread)
+            result['spread'] = ", ".join([self.num2str(a["spread"])
                                          for a in entity.get_spread()])
         if entity.entity_type == self.const.entity_group:
             result['name'] = entity.group_name
