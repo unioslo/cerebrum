@@ -76,6 +76,7 @@ class ADutil(object):
                 return [None]
             return ret
 
+
     def get_default_ou(self, change = None):
         #Returns default OU in AD.
         return "CN=Users,%s" % self.ad_ldap
@@ -179,8 +180,10 @@ class ADgroupUtil(ADutil):
     def fetch_cerebrum_data(self, spread):
         return self.group.search(spread)
 
+
     def fetch_ad_data(self):
         return self.server.listObjects('group', True)
+
 
     def sync_groups(self, cerebrumgroups, group_spread, user_spread, dry_run):
         #To reduce traffic, we send current list of groupmembers to AD, and the
@@ -213,6 +216,8 @@ class ADgroupUtil(ADutil):
             if not dn:
                 self.logger.debug("unknown group: %s%s" % (grp_name, 
                                                 cereconf.AD_GROUP_POSTFIX))     
+            elif dry_run:
+                self.logger.debug("Dryrun: don't sync members")
             else:
                 self.server.bindObject(dn)
                 res = self.server.syncMembers(members, False, False)
@@ -258,16 +263,16 @@ class ADgroupUtil(ADutil):
             # Assume that cereconf.AD_DO_NOT_TOUCH is a list
             # Check if at least one of the list elements is a substring of adg
             # If delete_groups is False, then don't delete the group
-            if not delete_groups or \
-                   adg.find('CN=Builtin,%s' % self.ad_ldap) >= 0 or \
+            if adg.find('CN=Builtin,%s' % self.ad_ldap) >= 0 or \
                    [s for s in cereconf.AD_DO_NOT_TOUCH if adg.find(s) >= 0]:
                 continue
+            if not delete_groups:
+                self.logger.debug("delete is False. Don't delete group: %s" % adg)
             else:
                 changelist.append({'type' : 'delete_object', 
                                    'distinguishedName' : adg}) 
 
         return changelist
-
 
 
 
