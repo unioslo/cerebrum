@@ -44,11 +44,6 @@ class Commands(DatabaseTransactionClass):
     instead use Registry.get_registry().register_method().
     """
 
-    def get_date_none(self):
-        return Date(None)
-
-    get_date_none.signature = Date
-
     def get_date_now(self):
         return Date(mx.DateTime.now())
     
