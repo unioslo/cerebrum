@@ -40,11 +40,7 @@ entityname = Entity.EntityName(db)
 account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
 
-
-
-logger_name=cereconf.DEFAULT_LOGGER_TARGET
-
-logger=None
+logger = Factory.get_logger('cronjob')
 sock=None
 
 delete_users = 0
@@ -52,7 +48,7 @@ delete_groups = 0
 
 def quick_user_sync():
 
-    answer=cl.get_events('%s' % (cereconf.AD_NETBIOS_DOMAIN),(clco.account_password,clco.quarantine_mod))
+    answer=cl.get_events('%s' % (cereconf.OMNI_NETBIOS_DOMAIN),(clco.account_password,clco.quarantine_mod))
 
     for ans in answer:
         chg_type = ans['change_type_id']
@@ -85,10 +81,10 @@ def change_pw(account_id,pw_params):
         pw=pw.replace('%','%25')
         pw=pw.replace('&','%26')
         user = id_to_name(account_id,'user')
-        sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.AD_DOMAIN,user,pw))
+        sock.send('ALTRUSR&%s/%s&pass&%s\n' % (cereconf.OMNI_DOMAIN,user,pw))
         returnans = sock.read()
         if  returnans == ['210 OK']:
-            logger.info("Changed passord for %s in %s" % (account.account_name,cereconf.AD_DOMAIN))
+            logger.info("Changed passord for %s in %s" % (account.account_name,cereconf.OMNI_DOMAIN))
 	    return True
         else:
             logger.error("Failed change password for %s:%s" % (user, returnans))
@@ -106,7 +102,7 @@ def id_to_name(id,entity_type):
     elif entity_type == 'group':
         e_type = int(co.entity_group)
         namespace = int(co.group_namespace)
-        grp_postfix = cereconf.AD_GROUP_POSTFIX
+        grp_postfix = cereconf.OMNI_GROUP_POSTFIX
     entityname.clear()
     entityname.find(id)
     name = entityname.get_name(namespace)
@@ -129,8 +125,8 @@ def get_args():
     global logger_name
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hl:',
-                                   ['help','delete_users', 'delete_groups', 'logger_name='])
+        opts, args = getopt.getopt(sys.argv[1:], 'h',
+                                   ['help','delete_users', 'delete_groups'])
     except getopt.GetoptError:
         usage(1)
 
@@ -139,8 +135,6 @@ def get_args():
             delete_users = 1
         elif opt == '--delete_groups':
             delete_groups = 1
-        elif opt in ('-l','--logger_name'):
-            logger_name = val
         elif opt in ('-h','--help'):
             usage(0)
 
@@ -148,10 +142,8 @@ def get_args():
 
 
 def main():
-    global logger
     global sock
     arg = get_args()
-    logger = Factory.get_logger('console')
     try:
         logger.info("Initializing communication")
         sock = adutils.SocketCom()
