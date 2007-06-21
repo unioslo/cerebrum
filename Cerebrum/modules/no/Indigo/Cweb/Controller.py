@@ -58,7 +58,7 @@ class Controller(object):
         uname = self.state.get_form_value('uname')
         passwd = self.state.get_form_value("pass")
         if not uname or not passwd:
-            return self.html_util.error("Du må oppgi brukernavn og passord")
+            raise Errors.CwebException("Du må oppgi brukernavn og passord")
             
         session_id = self.cerebrum.login(uname, passwd)
         self.state.set_logged_in(uname, session_id)
