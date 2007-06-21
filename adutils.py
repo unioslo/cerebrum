@@ -40,7 +40,7 @@ disk = Factory.get('Disk')(db)
 host = Factory.get('Host')(db)
 quarantine = Entity.EntityQuarantine(db)
 ou = Factory.get('OU')(db)
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger = Factory.get_logger('cronjob')
 
 
 
@@ -57,16 +57,16 @@ class SocketCom(object):
     def connect(self):    
         try:
             self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            logger.debug("Trying to connect to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
-            self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
-            logger.debug("Connected to %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
+            logger.debug("Trying to connect to %s:%s" % (cereconf.OMNI_SERVER_HOST, cereconf.OMNI_SERVER_PORT))
+            self.sockobj.connect((cereconf.OMNI_SERVER_HOST, cereconf.OMNI_SERVER_PORT))
+            logger.debug("Connected to %s:%s" % (cereconf.OMNI_SERVER_HOST, cereconf.OMNI_SERVER_PORT))
             logger.debug(">> %s" % self.sockobj.recv(8192).strip())
             logger.debug("<< Authenticating")
-            self.sockobj.send(cereconf.AD_PASSWORD)
+            self.sockobj.send(cereconf.OMNI_PASSWORD)
             self.read()
-            logger.debug("Reading from %s:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))    
+            logger.debug("Reading from %s:%s" % (cereconf.OMNI_SERVER_HOST, cereconf.OMNI_SERVER_PORT))    
         except Exception,m:
-            logger.fatal("Failed connecting to:%s %s: Reason:%s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT, m))
+            logger.fatal("Failed connecting to:%s %s: Reason:%s" % (cereconf.OMNI_SERVER_HOST, cereconf.OMNI_SERVER_PORT, m))
             raise 
 
 
@@ -159,7 +159,7 @@ def get_user_info(account_id, account_name, spread):
     #    if not chk_quarantine(account_id):
     #        account_disable = '0'       
 
-    return (full_name, account_disable, home_dir, cereconf.AD_HOME_DRIVE, profile_path)
+    return (full_name, account_disable, home_dir, cereconf.OMNI_HOME_DRIVE, profile_path)
 
 
 def chk_quarantine(account_id):
@@ -201,7 +201,7 @@ def get_ad_ou(ldap_path):
 
 def get_crbrm_ou(ou_id):
      ou.clear()
-     ou.find(cereconf.AD_CERE_ROOT_OU_ID)       
+     ou.find(cereconf.OMNI_CERE_ROOT_OU_ID)       
      return 'OU=%s' % ou.acronym
         
 #    Do not use OU placement at UiO.
@@ -218,14 +218,14 @@ def get_crbrm_ou(ou_id):
 def id_to_ou_path(ou_id,ourootname):
     crbrm_ou = get_crbrm_ou(ou_id)
     if crbrm_ou == ourootname:
-        if cereconf.AD_DEFAULT_OU == '0':
+        if cereconf.OMNI_DEFAULT_OU == '0':
             crbrm_ou = 'CN=Users,%s' % ourootname
-        elif cereconf.AD_DEFAULT_OU == '-1':
+        elif cereconf.OMNI_DEFAULT_OU == '-1':
             crbrm_ou = ourootname
         else:
-            crbrm_ou = get_crbrm_ou(cereconf.AD_DEFAULT_OU)
+            crbrm_ou = get_crbrm_ou(cereconf.OMNI_DEFAULT_OU)
 
-    crbrm_ou = crbrm_ou.replace(ourootname,cereconf.AD_LDAP)
+    crbrm_ou = crbrm_ou.replace(ourootname,cereconf.OMNI_LDAP)
     return crbrm_ou
 
 def find_login_script(account):
