@@ -44,7 +44,7 @@ class CerebrumProxy(object):
     
     def __init__(self, logger, url=None, recfile=None):
         self._logger = logger
-        self._sessionid= None
+        self._session_id= None
         if recfile is not None:
             self.data = pickle.load(open(recfile))
             self.mode = self.PLAYBACK_MODE
@@ -93,11 +93,18 @@ class CerebrumProxy(object):
         r = self.conn.login(uname, password)
         self._logger.debug("login(%s) -> %s" % (uname, r))
         return r
-        
-    def logout(self):
-        if self.mode == self.LIVE_MODE:
-            return self.conn.logout(self._session_id)
 
+    def logout(self):
+        if self.mode != self.LIVE_MODE:
+            return
+
+        session_id = self._session_id
+        self._session_id = None
+        if session_id:
+            self._logger.debug("logout for session_id %s", session_id)
+            return self.conn.logout(session_id)
+    # end logout
+        
     def get_auth_level(self):
         return self.run_command('get_auth_level')
 

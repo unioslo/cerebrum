@@ -525,7 +525,7 @@ on a new installation.
     =============================  ==================================================
     ``CWEB_TEMPLATE_DIR``          The "root" directory well all templates are
                                    located.
-    ``CWEB_TEMPLATE_DIR_DIR``      The name of the directory with site-specific
+    ``CWEB_TEMPLATE_SITE_DIR``     The name of the directory with site-specific
                                    templates. E.g. "ofk" or "giske". Such a
                                    directory must exist under ``CWEB_TEMPLATE_DIR``
     ``CWEB_BOFH_SERVER_URL``       Location of the bofhd that the CWEB

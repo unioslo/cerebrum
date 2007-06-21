@@ -56,13 +56,18 @@ class Controller(object):
             
     def login(self):
         uname = self.state.get_form_value('uname')
-        session_id = self.cerebrum.login(
-            uname, self.state.get_form_value('pass'))
+        passwd = self.state.get_form_value("pass")
+        if not uname or not passwd:
+            return self.html_util.error("Du må oppgi brukernavn og passord")
+            
+        session_id = self.cerebrum.login(uname, passwd)
         self.state.set_logged_in(uname, session_id)
         return self.html_util.show_page(Layout.PersonTemplate, 'welcome')
 
     def logout(self):
         tpl = Layout.SubTemplate(self.state, 'logged_out')
+        self.cerebrum.logout()
+        self.state.set_logged_out()
         return tpl.show({}, menu=False)
 
     def select_target(self):

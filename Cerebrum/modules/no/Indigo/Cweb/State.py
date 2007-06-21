@@ -56,16 +56,41 @@ class StateClass(object):
         self.controller = controller
         self.logger = controller.logger
         self.__logged_in = False
-
+        
     def read_request_state(self):
         if os.environ.get("HTTP_COOKIE", ""):
             cookie = Cookie.SimpleCookie( os.environ.get("HTTP_COOKIE", "") )
-            self._session_id = cookie['sessionid'].value
-            self.authuser = self.get_state_dict()['authuser_str']
-            self.__logged_in = True
-            self.controller.cerebrum.set_session_id(self._session_id)
+            # If the user logged out, we should ignore the cookie even if the
+            # browser supplies it.
+            if self._session_already_exists(cookie["sessionid"].value):
+                self._session_id = cookie['sessionid'].value
+                self.authuser = self.get_state_dict()['authuser_str']
+                self.__logged_in = True
+                self.controller.cerebrum.set_session_id(self._session_id)
+                self.logger.debug("Resuming existing session %s for %s",
+                                  self._session_id, self.authuser)
+                                  
         self.form = cgi.FieldStorage()
         self.controller.html_util.test_cgi(self.form)
+
+    def _make_key(self, session_id, key):
+        """Create a key for session_id to index the GDBM file.
+
+        This voodoo is necessary, because the only thing that GDBM works with
+        is strings.
+        """
+        return "%s:%s" % (session_id, key)
+    # end _make_key
+
+    def _session_already_exists(self, session_id):
+        "Check if session_id exists in the session/connected database."
+
+        for key in self.state_keys:
+            if self._db.has_key(self._make_key(session_id, key)):
+                return True
+
+        return False
+    # end _session_already_exists
         
     def add_state(self, k, v):
         if self._session_id is None:
@@ -73,10 +98,21 @@ class StateClass(object):
             return
         v = str(v)
         self.logger.debug("Add_state(%s, %s)" % (k, v))
-        self._db['%s:%s' % (self._session_id, k)] = v
+        self._db[self._make_key(self._session_id, k)] = v
+
+    def del_state(self, key):
+        if self._session_id is None:
+            self.logger.fatal("oops, del_state called with session_id=None")
+            return
+
+        dbkey = self._make_key(self._session_id, key)
+        self.logger.debug("Del_state(%s)", dbkey)
+        if self._db.has_key(dbkey):
+            del self._db[dbkey]
+    # end del_state
 
     def get(self, key, defval=None):
-        key = '%s:%s' % (self._session_id, key)
+        key = self._make_key(self._session_id, key)
         if self._db.has_key(key):
             return self._db[key]
         return defval
@@ -86,7 +122,7 @@ class StateClass(object):
         read-only.  Use add_state to update it."""
         ret = {}
         for k in StateClass.state_keys:
-            tmp = '%s:%s' % (self._session_id, k)
+            tmp = self._make_key(self._session_id, k)
             if self._db.has_key(tmp):
                 ret[k] = self._db[tmp]
             else:
@@ -124,6 +160,22 @@ class StateClass(object):
 
     def is_logged_in(self):
         return self.__logged_in
+
+    def set_logged_out(self):
+        if not self.is_logged_in():
+            return
+
+        if not self._session_id:
+            return
+
+        for key in self.state_keys:
+            self.del_state(key)
+
+        self.cookie = ""
+        self.authuser = None
+        self.__logged_in = False
+        self._session_id = None
+    # end set_logged_out
 
     def set_target_state(self, tgt_type, entity_id, name=None):
         self.add_state('tgt_%s_id' % tgt_type, entity_id) # TODO: fetch string
