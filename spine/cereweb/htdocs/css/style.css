@@ -47,9 +47,6 @@ h3 {
     margin-bottom: 5px;
     margin-top: 3em;
     clear: both;
-
-    border: 1px dotted black;
-    background: #FFFF80;
     width: 500px;
     overflow: visible;
 }
@@ -61,17 +58,18 @@ h3 {
 #messages div {
     padding: 8px;
     margin-top: 1em;
-    border-top: 1px dotted black;
+
+    border: 1px dotted black;
+    background: #FFFF80;
 }
 
 #messages div:first-child {
     margin-top: 0px;
-    border-top: 0px none;
 }
 
 #messages div div {
     margin-top: 0.5em;
-    border-top: 0px none;
+    border: 0px none;
     padding: 0px;
 }
 

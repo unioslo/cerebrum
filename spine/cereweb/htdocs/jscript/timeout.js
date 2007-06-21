@@ -161,7 +161,7 @@ cereweb.timeout = {
         var warning_div = YD.get('session_warning');
         if (!warning_div) {
             warning_div = cereweb.createDiv('session_warning', 'messages');
-            YD.addStyle(warning_div, 'error');
+            YD.addClass(warning_div, 'error');
         }
         warning_div.innerHTML = msg;
         
@@ -173,7 +173,8 @@ cereweb.timeout = {
         };
 
         this.stop_timer();
-        this.timeOutDialog.hide();
+        if (this.timeOutDialog)
+            this.timeOutDialog.hide();
 
         var msg = 'Your session has timed out, <a href="/login?redirect=' +
                    encodeURIComponent(location.href) +
