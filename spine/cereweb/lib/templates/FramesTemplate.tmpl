@@ -110,11 +110,11 @@
             </div>
             <div id="messages">
                 #for $message in $messages
-                #set $error = $message[1] and " error" or ""
-                #set $details = len($message) > 2 and $message[2] or ""
-                <div class="message$error">
-                    <div class="short">$message[0]</div>
-                    <div class="details">$details</div>
+                #set $error = $message.get('error') and "error" or ""
+                <div class="$error">
+                    <h3>$message.get('title')</h3>
+                    <div class="short">$message.get('message')</div>
+                    <div class="details">$message.get('details')</div>
                 </div>
                 #end for
             </div>

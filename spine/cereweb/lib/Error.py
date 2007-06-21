@@ -68,6 +68,11 @@ def handle(error):
         else:
             utils.queue_message(msg, error=True)
             utils.redirect(referer)
+    elif isinstance(error, IntegrityError):
+        title = "Operation failed"
+        message = "The operation you tried to do would cause an integrity error "
+        message += "in the database.  The usual reason for this is that you tried "
+        message += "to delete an object that is referenced elsewhere."
     elif isinstance(error, Redirected):
         title = "Redirection error."
         message = "Your browser does not seem to support redirection."
@@ -90,10 +95,21 @@ def handle(error):
     
     report = config.conf.getboolean('error', 'allow_reporting')
     
-    if path in referer:
+    if path in referer or 'login' in path:
         template = ErrorTemplate()
         return template.error(title, message, path, tracebk, referer, report)
-    utils.queue_message(message, error=True, details=tracebk)
+
+    import mx.DateTime
+    msg = {
+        'title': title,
+        'message': message,
+        'error': True,
+        'details': tracebk,
+        'link': None,
+        'date': mx.DateTime.now(),
+    }
+        
+    utils.queue_message(data=msg)
     utils.redirect(referer)
 
 # arch-tag: 52b56f54-2b55-11da-97eb-80927010959a

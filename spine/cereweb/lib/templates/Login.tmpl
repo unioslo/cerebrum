@@ -36,9 +36,13 @@
     <body>
         <div id="content">
             <div id="messages">
-            #for $msg, $is_error in $messages
-                #set $is_error = $is_error and "error" or ""
-                <div class="message $is_error">$msg</div>
+            #for $msg in $messages
+                #set $error = $msg.get('error') and "error" or ""
+                <div class="$error">
+                    <h3>$msg.get('title')</h3>
+                    <div class="short">$msg.get('message')</div>
+                    <div class="details">$msg.get('details')</div>
+                </div>
             #end for
             </div>
             <div id="login">

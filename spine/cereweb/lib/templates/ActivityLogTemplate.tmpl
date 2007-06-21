@@ -30,13 +30,14 @@
         <a href="/full_activitylog">$_("Activity log")</a>
     </h2>
 #if $messages
-    #for $msg, $error, $link, $time, $details in $messages
+    #for $message in $messages
+    #set $link = $message.get('link')
     <div class="amsg">
         #if $link
-        $link : 
+            $link : 
         #end if
-        $msg
-        #if $error
+        $message.get('message')
+        #if $message.get('error')
         (error)
         #end if
     </div>
@@ -57,8 +58,12 @@
     #set $columns = ['time', 'object', 'message']
     #set $headers = [$_('Timestamp'), $_('Object'), $_('Message')]
     #set $table = $TableView($columns, $headers)
-    #for $msg, $error, $link, $time in $messages
-        #if $error
+    #for $message in $messages
+        #set $msg = $message.get('message')
+        #set $link = $message.get('link')
+        #set $time = $message.get('date')
+
+        #if $message.get('error')
             #set $msg += " (error)"
         #end if
         $table.add(time=$time.strftime("%a %H:%M"),

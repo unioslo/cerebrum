@@ -149,7 +149,7 @@ def redirect_object(object, method="view", status=None):
     url = object_url(object, method)
     raise cherrypy.HTTPRedirect(url, status)
 
-def queue_message(message, error=False, link='', details=None):
+def queue_message(message=None, error=False, link='', data=None):
     """Queue a message.
     
     The message will be displayed next time a Main-page is showed.
@@ -159,20 +159,24 @@ def queue_message(message, error=False, link='', details=None):
     the object.
     """
 
+    if not data:
+        data = {
+            'title': 'No title',
+            'message': message,
+            'error': error,
+            'details': 'No details',
+            'link': link,
+            'date': mx.DateTime.now(),
+        }
+
     session = cherrypy.session
-    cherrypy.session.setdefault('messages', []).append((message, error, details))
-    cherrypy.session.setdefault('al_messages', []).append((message, error, link,
-        mx.DateTime.now(), details))
+    cherrypy.session.setdefault('messages', []).append(data)
+    cherrypy.session.setdefault('al_messages', []).append(data)
 
 def get_messages():
     messages = cherrypy.session.get("messages", [])
     if messages:
         del cherrypy.session['messages']
-        
-    if 'old_messages' not in cherrypy.session:
-        cherrypy.session['old_messages'] = messages[:]
-    else:
-        cherrypy.session['old_messages'].extend(messages)
     return messages
 
 def strftime(date, format="%Y-%m-%d", default=''):
