@@ -149,7 +149,7 @@ def redirect_object(object, method="view", status=None):
     url = object_url(object, method)
     raise cherrypy.HTTPRedirect(url, status)
 
-def queue_message(message, error=False, link=''):
+def queue_message(message, error=False, link='', details=None):
     """Queue a message.
     
     The message will be displayed next time a Main-page is showed.
@@ -160,9 +160,9 @@ def queue_message(message, error=False, link=''):
     """
 
     session = cherrypy.session
-    cherrypy.session.setdefault('messages', []).append((message, error))
+    cherrypy.session.setdefault('messages', []).append((message, error, details))
     cherrypy.session.setdefault('al_messages', []).append((message, error, link,
-        mx.DateTime.now()))
+        mx.DateTime.now(), details))
 
 def get_messages():
     messages = cherrypy.session.get("messages", [])

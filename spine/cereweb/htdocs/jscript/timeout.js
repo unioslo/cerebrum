@@ -159,10 +159,12 @@ cereweb.timeout = {
     },
     show_warning: function (msg) {
         var warning_div = YD.get('session_warning');
-        if (!warning_div)
+        if (!warning_div) {
             warning_div = cereweb.createDiv('session_warning', 'messages');
+            YD.addStyle(warning_div, 'error');
+        }
         warning_div.innerHTML = msg;
-        warning_div.style.display = "block";
+        
     },
     time_out: function() {
         // Fix scope.

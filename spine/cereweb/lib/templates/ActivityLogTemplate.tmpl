@@ -30,7 +30,7 @@
         <a href="/full_activitylog">$_("Activity log")</a>
     </h2>
 #if $messages
-    #for $msg, $error, $link, $time in $messages
+    #for $msg, $error, $link, $time, $details in $messages
     <div class="amsg">
         #if $link
         $link : 

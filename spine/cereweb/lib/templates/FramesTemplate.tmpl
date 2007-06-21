@@ -109,9 +109,13 @@
                 </ul>
             </div>
             <div id="messages">
-                #for $message, $is_error in $messages
-                #set $error = $is_error and " error" or ""
-                <span class="message$error">$message</span><br />
+                #for $message in $messages
+                #set $error = $message[1] and " error" or ""
+                #set $details = len($message) > 2 and $message[2] or ""
+                <div class="message$error">
+                    <div class="short">$message[0]</div>
+                    <div class="details">$details</div>
+                </div>
                 #end for
             </div>
             <div id="title">

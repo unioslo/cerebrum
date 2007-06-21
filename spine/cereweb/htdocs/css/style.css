@@ -43,35 +43,42 @@ h3 {
 }
 
 #messages {
-    margin-left: 9.5em;
+    margin-left: 159px;
     margin-bottom: 5px;
-    padding-top: 1em;
+    margin-top: 3em;
     clear: both;
-}
 
-#messages span.message {
-    font-weight: bold;
-    color: green;
-}
-
-#messages span.error {
-    font-weight: 1200;
-    color: red;
-    padding: 0.3em;
-}
-
-.notice {
-    color: red;
-}
-
-/* Styles for the session warning box on top of all pages. */
-#session_warning {
     border: 1px dotted black;
-    padding: 8px;
-    font-size: 16px;
     background: #FFFF80;
     width: 500px;
     overflow: visible;
+}
+
+#messages div.error {
+    color: red;
+}
+
+#messages div {
+    padding: 8px;
+    margin-top: 1em;
+    border-top: 1px dotted black;
+}
+
+#messages div:first-child {
+    margin-top: 0px;
+    border-top: 0px none;
+}
+
+#messages div div {
+    margin-top: 0.5em;
+    border-top: 0px none;
+    padding: 0px;
+}
+
+#messages .short {
+}
+#messages .details {
+    color: black;
 }
 
 #actions {
@@ -706,19 +713,6 @@ div.sub-nav ul li {
     font-weight: bold;
     padding: 6px 16px;
     text-transform: uppercase;
-}
-
-
-#progress {
-    width: 100px;
-    height: 25px;
-    background: white;
-    border:1px solid #404040;
-    padding-top: 2px;
-    padding-left: 4px;
-}
-#progress img {
-    margin-top: 4px;
 }
 
 #searchbox {

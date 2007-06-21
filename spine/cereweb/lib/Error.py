@@ -90,7 +90,10 @@ def handle(error):
     
     report = config.conf.getboolean('error', 'allow_reporting')
     
-    template = ErrorTemplate()
-    return template.error(title, message, path, tracebk, referer, report)
+    if path in referer:
+        template = ErrorTemplate()
+        return template.error(title, message, path, tracebk, referer, report)
+    utils.queue_message(message, error=True, details=tracebk)
+    utils.redirect(referer)
 
 # arch-tag: 52b56f54-2b55-11da-97eb-80927010959a
