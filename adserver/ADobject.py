@@ -128,7 +128,7 @@ class ADObject(object):
 
         try:
             self.Object.Delete(objtype, name)
-            logging.debug('deleteObject %s' % name)
+            logging.info('deleteObject %s' % name)
         except pythoncom.com_error:
             self.clearObject()
             return self._log_exception('warn','deleteObject', \
@@ -158,7 +158,7 @@ class ADObject(object):
 
         try:
             AccountObject = self.Object.moveHere('LDAP://%s' % dName, Name)
-            logging.debug('moveObject %s to LDAP://%s' % (Name, OU))
+            logging.info('moveObject %s to LDAP://%s' % (Name, OU))
         except pythoncom.com_error:
             self.clearObject()
             return self._log_exception('warn','moveObject', dName)
@@ -192,7 +192,7 @@ class ADObject(object):
             if objType != 'organizationalUnit':
                 AccountObject.Put("sAMAccountName", Name)
             AccountObject.SetInfo()
-            logging.debug('createObject %s%s,%s' % (typePrefix, Name, OU))
+            logging.info('createObject %s%s,%s' % (typePrefix, Name, OU))
         except pythoncom.com_error:
             self.clearObject()
             return self._log_exception('warn','createObject', \
@@ -239,8 +239,6 @@ class ADObject(object):
 
         for attr in accprop:
             try:
-                logging.debug('putProperty %s %s for %s' % \
-                    (attr, accprop[attr], self.distinguishedName))
                 if accprop[attr] == "":
                     self.Object.PutEx(ADS_PROPERTY_CLEAR, attr, 0)
                 elif type(accprop[attr]) == list:
@@ -420,7 +418,7 @@ class Group(ADObject):
                 tmpmemb = self.findObject(memb)
                 if not tmpmemb:
                     errors.append(memb)
-                    logging.debug('addremoveMembers: User %s to Group %s user do not exist' % (
+                    logging.warn('addremoveMembers: User %s to Group %s user do not exist' % (
 			memb, self.distinguishedName))               
                     inError=True
                 else:
@@ -601,28 +599,31 @@ class Search(ADObject):
         return True
 
 
-    def listObjects(self, type, prop = False, OU = const.AD_LDAP_ROOT):
+    def listObjects(self, searchtype, prop = False, OU = const.AD_LDAP_ROOT):
 
         #List all objects of a specific type. user, group or organizationalUnit
-        #Builds a list. The properties flag will only work with type=user.
+        #Builds a list. The properties flag will only work with searchtype=user.
 
         listofobjects = []
 
         fields = 'distinguishedName'
         objecttype = ''
 
-        if type == 'user':
+        if searchtype == 'user':
 	    objecttype = "objectclass='user' AND objectcategory='Person'"
-        elif type == 'group':
+        elif searchtype == 'group':
 	    objecttype = "objectclass='group' AND objectcategory='group'"
-        elif type == 'organizationalUnit':
+        elif searchtype == 'organizationalUnit':
 	    objecttype = "objectclass='organizationalunit' AND objectcategory='OrganizationalUnit'"
         else:
-	    logging.critical('listObjects unknown type %s' % type )
+	    logging.critical('listObjects unknown type %s' % searchtype)
+            # RH 2007-06-13: If it is a critical to give wrong searchtype we
+            #                shouldn't continue?
+            return False
 
         if prop:
             dictofobjects = {}
-            if type == 'user':
+            if searchtype == 'user':
                 fields = '%s,sAMAccountName' % fields
                 if self.userAttributes != None:
                     for uAtt in self.userAttributes:
@@ -640,7 +641,7 @@ class Search(ADObject):
             logging.critical('listObjects (%s)' % str(exc))
             return False        
     
-        if prop and type == 'user':
+        if prop and searchtype == 'user':
             while not objRS.EOF:
                 properties = {}
                 properties['distinguishedName'] = objRS.Fields('distinguishedName').Value
@@ -662,15 +663,17 @@ class Search(ADObject):
                 dictofobjects[objRS.Fields('sAMAccountName').Value] = properties
                 objRS.MoveNext()
 
-            logging.debug("dictObject:\n%s" % dictofobjects)
+            # RH: This debug is quite large and is written for every
+            #     user. Comment it for the time being.
+            #logging.debug("dictObject:\n%s" % dictofobjects)
             return dictofobjects        
             
         else:       
             while not objRS.EOF:
                 listofobjects.append(objRS.Fields("distinguishedName").Value)
                 objRS.MoveNext()            
-    
-            logging.debug("listObject:\n%s" % listofobjects)
+
+            logging.debug("listObjects:\n%s" % listofobjects)
             return listofobjects
 
 
