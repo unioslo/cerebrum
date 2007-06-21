@@ -113,7 +113,6 @@ if(cereweb.debug) {
     YE.onAvailable("container", function(o) {
         var logger = cereweb.createDiv('logger');
         var myLogReader = new YAHOO.widget.LogReader(logger);
-        debugger /* Force the debugger to break. */
     });
 };
 
@@ -131,7 +130,7 @@ cereweb.utils = {
         parent.appendChild(el);
         return el;
     },
-    getParam: function gup(url, name) {
+    getParam: function (url, name) {
         name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
         var regexS = "[\\?&]"+name+"=([^&#]*)";
         var regex = new RegExp(regexS);

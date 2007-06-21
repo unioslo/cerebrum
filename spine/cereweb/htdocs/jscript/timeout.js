@@ -43,7 +43,7 @@ cereweb.timeout = {
         warning_time: 120, // sec
         ajax_timeout: 5 * 1000, // ms before an AJAX call should time out.
         timeout_fail: 5 * 1000, // ms before retrying when ajax call fails.
-        timeout_fail_inc: 1.1, // Factor to increase retry time to prevent hammering.
+        timeout_fail_inc: 1.1 // Factor to increase retry time to prevent hammering.
     },
     create_dialog: function() {
         var el = cereweb.createDiv('timeOutDialog');
