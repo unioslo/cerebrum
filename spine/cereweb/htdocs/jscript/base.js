@@ -155,30 +155,76 @@ cereweb.utils = {
 }
 cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
 
-cereweb.msg = {
-    add: function (title, message, is_error) {
-        var msg = document.createElement('div');
-        var n = document.createElement('h3');
-        YD.get('messages').appendChild(msg);
+(function () {
+    var clickToToggle = function (el, def) {
+        el.style.display = def;
+        YE.on(el.parentNode, 'click', function () {
+            el.style.display = el.style.display ? "" : "none";
+        });
+    };
 
-        msg.appendChild(n);
-        if (is_error)
-            YD.addClass(msg, 'error');
-        n.innerHTML = title;
+    var addCloseButton = function (el) {
+        var closeButton = document.createElement('img');
+        closeButton.src = '/yui/build/container/assets/close12_1.gif';
+        YD.addClass('upperRight');
+        el.appendChild(closeButton);
+        return closeButton;
+    };
 
-        n = document.createElement('div');
-        YD.addClass(n, 'short');
-        n.innerHTML = message;
-        msg.appendChild(n);
-        return YD.generateId(msg, 'msg_')
-    },
-    remove: function (id) {
-        var msgs = YD.get('messages');
-        var msg = YD.get(id);
-        if (msg && msgs)
-            msgs.removeChild(msg);
+    var Messages = function(el) {
+        this.container = el;
+        var children = el.childNodes;
+
+        for (var i=0; i<children.length; i++) {
+            var child = children[i];
+            if (child.tagName && child.tagName.toUpperCase() === 'DIV')
+                this.register(children[i]);
+        }
+    };
+
+    Messages.prototype = {
+        add: function (title, message, is_error) {
+            var msg = document.createElement('div');
+            var n = document.createElement('h3');
+            this.container.appendChild(msg);
+
+            msg.appendChild(n);
+            if (is_error)
+                YD.addClass(msg, 'error');
+            n.innerHTML = title;
+
+            n = document.createElement('div');
+            YD.addClass(n, 'short');
+            n.innerHTML = message;
+            msg.appendChild(n);
+
+            return this.register(msg);
+        },
+        remove: function (id) {
+            var msg = YD.get(id);
+            if (msg)
+                this.container.removeChild(msg);
+        },
+        register: function (el) {
+            var id = YD.generateId(el, 'msg_');
+
+            var traceback = YD.getElementsByClassName('traceback', 'div', el);
+            if (traceback.length > 0) {
+                clickToToggle(traceback[0], "none");
+            };
+
+            var cb = addCloseButton(el);
+            YE.on(cb, 'click', function() {
+                this.remove(el.id);
+            }, this, true);
+            return id;
+        }
     }
-}
+
+    YE.onAvailable('messages', function() {
+        cereweb.msg = new Messages(this);
+    });
+})();
 
 /**
  * Some basic event handling.  Currently it only handles click events on
@@ -343,16 +389,8 @@ cereweb.javascript = {
     init: function() {
         var nojs = YD.getElementsByClassName('nojs', null, 'container');
         var jsonly = YD.getElementsByClassName('jsonly', null, 'container');
-        var traceback = YD.getElementsByClassName('traceback', 'div', 'messages');
         if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
         if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
-        for (var i=0; i<traceback.length; i++) {
-            var tb = traceback[i];
-            tb.style.display = "none";
-            YE.on(tb.parentNode, 'click', function () {
-                tb.style.display = tb.style.display ? "" : "none";
-            });
-        };
         cereweb.tooltip.init();
     }
 }
