@@ -119,6 +119,11 @@ class Form(object):
     def get_action(self):
         return getattr(self, 'action', '/index')
 
+    def get_title(self):
+        return getattr(self, 'title', 'No Title')
+
+    def get_help(self):
+        return getattr(self, 'help', [])
             
 class PersonCreateForm(Form):
     def init_form(self):
@@ -261,9 +266,7 @@ class PersonEditForm(PersonCreateForm):
         return is_correct
 
     def get_title(self):
-        if not hasattr(self, 'title'):
-            return 'Edit person'
-        return "Edit %s" % self.title
+        return 'Edit ' + getattr(self, 'title', 'person')
 
 class AccountCreateForm(Form):
     def init_form(self):

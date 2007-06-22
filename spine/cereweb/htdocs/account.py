@@ -36,30 +36,11 @@ def _get_links():
         ('create', _('Create')),
     )
 
-def search_form(remembered):
-    page = SearchTemplate()
-    page.title = _("Account")
-    page.set_focus("account/view")
-    page.links = _get_links()
-    page.search_title = _('account(s)')
-    page.search_fields = [
-                  ("name", _("Account name")),
-                  ("spread", _("Spread name")),
-                  ("create_date", _("Created date *")),
-                  ("expire_date", _("Expire date *")),
-                  ("description", _("Description")),
-                ]
-    page.search_help = [_("Created date (YYYY-MM-DD, exact match)"),
-                 _("Expired date (YYYY-MM-DD, exact match)")]
-    page.search_action = '/account/search'
-    page.form_values = remembered
-    return page.respond()
-
 def search(transaction, **vargs):
     """Search for accounts and display results and/or searchform.""" 
     args = ('name', 'spread', 'create_date', 'expire_date', 'description')
     searcher = AccountSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(searcher.get_remembered())
+    return searcher.respond() or view_form(searcher.get_form())
 search = transaction_decorator(search)
 search.exposed = True
 index = search
@@ -74,6 +55,7 @@ def view_form(form, message=None):
     page.form_title = form.get_title()
     page.form_action = form.get_action()
     page.form_fields = form.get_fields()
+    page.form_help = form.get_help()
     return page.respond()
     
 def create(transaction, **vargs):

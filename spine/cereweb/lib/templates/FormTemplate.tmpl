@@ -62,5 +62,12 @@
                 <input class="reset" type="reset" value="$_('Reset')" />
             </div>
         </form>
+        #if $form_help
+            <div class="help">
+            #for $item in $form_help
+                <div class="item">$item</div>
+            #end for
+            </div>
+        #end if
     </div>
 #end def
