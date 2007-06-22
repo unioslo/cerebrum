@@ -29,6 +29,8 @@ import cherrypy
 
 import utils
 import Messages
+from gettext import gettext as _
+from Forms import Form
 from templates.SearchResultTemplate import SearchResultTemplate
 import SpineIDL.Errors
 
@@ -293,6 +295,45 @@ class Searcher(object):
             return page.respond()
 
 class AccountSearcher(Searcher):
+    class SearchForm(Form):
+        def init_form(self):
+            self.action = '/account/search'
+            self.title = "Search for Account"
+            self.help = ['Use wildcards * and ? to extend the search.', 'Supply several search parameters to limit the search.']
+
+            self.order = [
+                'name', 'spread', 'create_date', 'expire_date', 'description',
+            ]
+            self.fields = {
+                'name': {
+                    'label': _('Account name'),
+                    'required': False,
+                    'type': 'text',
+                },
+                'spread': {
+                    'label': _('Spread name'),
+                    'required': False,
+                    'type': 'text',
+                },
+                'create_date': {
+                    'label': _('Create date'),
+                    'required': False,
+                    'type': 'date',
+                    'help': "YYYY-MM-DD, exact match.",
+                },
+                'expire_date': {
+                    'label': _('Expire date'),
+                    'required': False,
+                    'type': 'date',
+                    'help': "YYYY-MM-DD, exact match.",
+                },
+                'description': {
+                    'label': _('Description'),
+                    'required': False,
+                    'type': 'text',
+                },
+            }
+
     headers = [
             ('Name', 'name'),
             ('Owner', 'owner'),
@@ -300,6 +341,9 @@ class AccountSearcher(Searcher):
             ('Expire date', 'expire_date'),
             ('Actions', '')
         ]
+
+    def get_form(self):
+        return self.SearchForm(self.transaction, **self.get_remembered())
 
     def get_searchers(self):
         form = self.form_values
@@ -483,13 +527,9 @@ class PersonSearcher(Searcher):
             else:
                 pers = obj
 
-            try:
-                date = utils.strftime(pers.get_birth_date())
-                affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
-                affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
-            except SpineIDL.Errors.AccessDeniedError, e:
-                date = 'No Access'
-                affs = 'No Access'
+            date = utils.strftime(pers.get_birth_date())
+            affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
+            affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
             accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
             edit = utils.object_link(pers, text='edit', method='edit', _class='action')
@@ -522,7 +562,7 @@ class AllocationPeriodSearcher(Searcher):
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            auth = elm.get_authority().get_name()
+            auth = utils.html_quote(elm.get_authority().get_name())
             rows.append([utils.object_link(elm), auth, str(edit)+str(remb)])
         return rows
 
@@ -555,10 +595,10 @@ class AllocationSearcher(Searcher):
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
             proj = utils.object_link(elm.get_allocation_name().get_project())
-            period = elm.get_period().get_name()
-            status = elm.get_status().get_name()
+            period = utils.html_quote(elm.get_period().get_name())
+            status = utils.html_quote(elm.get_status().get_name())
             machines = [m.get_name() for m in elm.get_machines()]
-            machines = "(%s)" % ",".join(machines)
+            machines = utils.html_quote("(%s)" % ",".join(machines))
             rows.append([utils.object_link(elm), period, status, machines, str(edit)+str(remb)])
         return rows
 
@@ -592,7 +632,7 @@ class DiskSearcher(Searcher):
             host = utils.object_link(elm.get_host())
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([path, host, elm.get_description(), str(edit)+str(remb)])
+            rows.append([path, host, utils.html_quote(elm.get_description()), str(edit)+str(remb)])
         return rows
 
 class EmailDomainSearcher(Searcher):
@@ -620,11 +660,11 @@ class EmailDomainSearcher(Searcher):
         rows = []
         for elm in results:
             link = utils.object_link(elm)
-            cats = [i.get_name() for i in elm.get_categories()[:4]]
+            cats = [utils.html_quote(i.get_name()) for i in elm.get_categories()[:4]]
             cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([link, elm.get_description(), cats, str(edit)+str(remb)])
+            rows.append([link, utils.html_quote(elm.get_description()), cats, str(edit)+str(remb)])
         return rows
 
 class GroupSearcher(Searcher):
@@ -684,7 +724,7 @@ class GroupSearcher(Searcher):
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([utils.object_link(elm), elm.get_description(), str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), utils.html_quote(elm.get_description()), str(edit)+str(remb)])
         return rows
 
 class HostSearcher(Searcher):
@@ -707,7 +747,7 @@ class HostSearcher(Searcher):
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([utils.object_link(elm), elm.get_description(), str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), utils.html_quote(elm.get_description()), str(edit)+str(remb)])
         return rows
 
 class OUSearcher(Searcher):
@@ -757,11 +797,11 @@ class OUSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            name = elm.get_display_name() or elm.get_name()
+            name = utils.html_quote(elm.get_display_name() or elm.get_name())
             link = utils.object_link(elm, text=name)
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([link, elm.get_acronym(), elm.get_short_name(), str(edit)+str(remb)])
+            rows.append([link, utils.html_quote(elm.get_acronym()), utils.html_quote(elm.get_short_name()), str(edit)+str(remb)])
         return rows
 
 class ProjectSearcher(Searcher):
@@ -844,10 +884,10 @@ class PersonAffiliationsSearcher(Searcher):
         rows = []
         for elm in results:
             p = elm.get_person()
-            affs = [a.get_ou().get_name() for a in p.get_affiliations()]
-            type = elm.get_affiliation().get_name()
-            status = elm.get_status().get_name()
-            source = elm.get_source_system().get_name()
+            affs = [utils.html_quote(a.get_ou().get_name()) for a in p.get_affiliations()]
+            type = utils.html_quote(elm.get_affiliation().get_name())
+            status = utils.html_quote(elm.get_status().get_name())
+            source = utils.html_quote(elm.get_source_system().get_name())
             name = utils.object_link(p)
             birth_date = utils.strftime(p.get_birth_date())
             rows.append([name, type, status, source, ", ".join(affs), birth_date])
