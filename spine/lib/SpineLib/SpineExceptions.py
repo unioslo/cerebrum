@@ -50,6 +50,7 @@ from Cerebrum.Utils import Factory
 db=Factory.get("Database")()
 
 IntegrityError = db.IntegrityError
+InterfaceError = db.InterfaceError
 
 class CreationError(DatabaseError):
     """Creation of an object fails."""

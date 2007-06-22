@@ -39,6 +39,7 @@ default_exceptions = (
     exceptions.NotImplementedError,
     SpineExceptions.TransactionError,
     SpineExceptions.IntegrityError,
+    SpineExceptions.InterfaceError,
     SpineExceptions.AccessDeniedError,
     SpineExceptions.ObjectDeletedError,
     SpineExceptions.NotFoundError,
