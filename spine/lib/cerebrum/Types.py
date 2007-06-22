@@ -48,6 +48,9 @@ class CodeType(DatabaseClass):
 
     create_primary_key = classmethod(create_primary_key)
 
+def auth_str(self):
+    return self.get_name()
+
 for name, table in [('AccountType', 'account_code'),
                     ('EntityType', 'entity_type_code'),
                     ('AddressType', 'address_code'),
@@ -82,8 +85,8 @@ for name, table in [('AccountType', 'account_code'),
             'name':'code_str'
         }
     }
+    cls.auth_str = auth_str
             
-
     registry.register_class(cls)
     __all__.append(name)
 

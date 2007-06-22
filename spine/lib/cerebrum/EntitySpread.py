@@ -60,6 +60,7 @@ def add_spread(self, spread):
 add_spread.signature = None
 add_spread.signature_args = [Spread]
 add_spread.signature_write = True
+add_spread.signature_auth_attr = 0
 
 def delete_spread(self, spread):
     obj = self._get_cerebrum_obj()

@@ -206,7 +206,7 @@ def _string_to_db(str, encoding):
         return str
     return str.decode(encoding).encode(getattr(cereconf, 'SPINE_DATABASE_ENCODING', 'iso-8859-1'))
 
-def _create_corba_method(method, method_name, data_type, write, method_args, exceptions):
+def _create_corba_method(method, method_name, data_type, write, method_args, exceptions, auth_attr=None):
     """
     Creates a wrapper for the given method. 
 
@@ -221,7 +221,10 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
 
     In addition, the method wraps all exceptions and raise them as proper CORBA exceptions.
     """
-        
+    if auth_attr != None:
+        assert auth_attr < len(method_args)
+        assert hasattr(method_args[auth_attr][1], "auth_str")
+    
     def corba_method(self, *corba_args):
         assert len(corba_args) == len(method_args)
 
@@ -256,8 +259,15 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
             # Check for lost locks (raises an exception if a lost lock is found)
             transaction.check_lost_locks()
 
+            # Convert arguments
+            args = [convert_from_corba(transaction, obj, i[1]) for obj, i in zip(corba_args, method_args)]
+
             # Can the logged in user run this method?
-            if not transaction.authorization.has_permission(method_name, self.spine_object, corba_args):
+            attr_str=None
+            if auth_attr != None:
+                attr_str = args[auth_attr].auth_str()
+
+            if not transaction.authorization.has_permission(method_name, self.spine_object, attr_str):
                 raise AccessDeniedError('You are not authorized to perform the requested operation: %s.%s' % (self.spine_object.__class__.__name__, method_name))
 
             # Lock the object if it should be locked
@@ -269,7 +279,6 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
 
             # Add a reference to the object in the transaction making the call.
             transaction.add_ref(self.spine_object)
-            args = [convert_from_corba(transaction, obj, i[1]) for obj, i in zip(corba_args, method_args)]
             # Run the real method
             value = method(self.spine_object, *args)
 
@@ -521,7 +530,7 @@ def _create_idl_interface(cls, error_module="", docs=False):
     for method in Builder.get_builder_methods(cls):
         if method in parent_methods:
             continue
-        name, data_type, write, args, exceptions = Builder.get_method_signature(method)
+        name, data_type, write, args, exceptions, auth_attr = Builder.get_method_signature(method)
 
         data_type = get_type(data_type)
 
@@ -626,9 +635,9 @@ def register_spine_class(cls, idl_cls, idl_struct):
     names = sets.Set()
 
     for method in Builder.get_builder_methods(cls):
-        name, data_type, write, args, exceptions = Builder.get_method_signature(method)
+        name, data_type, write, args, exceptions, auth_attr = Builder.get_method_signature(method)
 
-        setattr(corba_class, name, _create_corba_method(method, name, data_type, write, args, exceptions))
+        setattr(corba_class, name, _create_corba_method(method, name, data_type, write, args, exceptions, auth_attr))
 
     class_cache[cls] = corba_class
 

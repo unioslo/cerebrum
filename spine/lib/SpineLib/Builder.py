@@ -110,6 +110,8 @@ def get_method_signature(func):
         - list with all exceptions accessing this attribute might raise.
     signature_write
         - set to True for methods which change and object and/or require write locks.
+    signature_auth_attr
+        - The number of an argument used in the the autorisation decision
 
     returns name, signature, write, args, exceptions
 
@@ -149,8 +151,9 @@ def get_method_signature(func):
     write = hasattr(func, 'signature_write') and func.signature_write == True
     exceptions = default_exceptions
     exceptions += tuple(getattr(func, 'signature_exceptions', ()))
+    auth_attr = getattr(func, 'signature_auth_attr', None)
 
-    return name, signature, write, args, exceptions
+    return name, signature, write, args, exceptions, auth_attr
 
 def create_lazy_get_method(attr):
     """Returns a method which will load the attribute if not already loaded."""
@@ -325,7 +328,7 @@ class Builder(object):
     def register_methods(cls, methods):
         assert type(methods) == list
         for i in methods:
-            name, signature, write, args, exceptions = get_method_signature(i)
+            name, signature, write, args, exceptions, auth_attr = get_method_signature(i)
             setattr(cls, name, i)
     register_methods = classmethod(register_methods)
 
