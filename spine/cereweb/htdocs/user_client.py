@@ -61,7 +61,6 @@ def get_user_info(transaction,username):
     expire_date = account.get_expire_date()
     expire_date = expire_date and expire_date.strftime('%Y-%m-%d') or ''
     
-
     if owner_type == 'person':
         fullname = owner.get_cached_full_name()
         birthdate = owner.get_birth_date().strftime('%Y-%m-%d')
@@ -109,10 +108,8 @@ def mail(transaction):
     page = MailUserTemplate()
     username = cherrypy.session.get('username', '')
     account = transaction.get_commands().get_account_by_name(username)
-    page.tr = transaction
     page.account = get_user_info(transaction, username)
-    page.vacations = get_vacations(transaction, account)
-    page.forwards = get_forwards(transaction, account)
+    page.emailtargets = account.get_email_targets()
     if not page.messages:
         page.messages = get_messages()
 
@@ -123,127 +120,85 @@ def mail(transaction):
 mail = transaction_decorator(mail)
 mail.exposed = True
 
-def add_vacation(transaction, **kwargs):
-    if not len(kwargs) == 4:
-        redirect('/user_client/mail')
+def delete_vacation(transaction, id, start):
+    cs = transaction.get_commands()
+    email_target = transaction.get_email_target(int(id))
+    email_target.remove_vacation(cs.strptime(start, '%Y-%m-%d'))
+    transaction.commit()
+    queue_message("Vacation deleted successfully.")
+    redirect('/user_client/mail')
+delete_vacation= transaction_decorator(delete_vacation)
+delete_vacation.exposed = True
 
-    username = kwargs.get('username')
-    start = kwargs.get('start')
-    end = kwargs.get('end')
-    alias = kwargs.get('alias')
-
-    msg = ''
+def delete_forward(transaction, id, forward):
+    email_target = transaction.get_email_target(int(id))
+    email_target.remove_forward(forward)
+    transaction.commit()
+    queue_message("Forward deleted successfully.")
+    redirect('/user_client/mail')
+delete_forward= transaction_decorator(delete_forward)
+delete_forward.exposed = True
+    
+def add_vacation(transaction, start, end, alias, target):
+    
     if not start:
         msg = 'Start date is empty.'
-    elif not utils.legal_date(start):
+        rollback_url('/user_client/mail', msg, err=True)
+    if not utils.legal_date(start):
         msg='Start date is not a legal date (YYYY-MM-DD).'
-    if not msg and end:
-        if not utils.legal_date(end):
-            msg = 'End date is not a legal date (YYYY-MM-DD).'
-    if not msg and not alias:
+        rollback_url('/user_client/mail', msg, err=True)
+    if not end:
+        msg = 'End date is empty.'
+        rollback_url('/user_client/mail', msg, err=True)
+    if not utils.legal_date(end):
+        msg = 'End date is not a legal date (YYYY-MM-DD).'
+        rollback_url('/user_client/mail', msg, err=True)
+    if not alias:
         msg = 'Alias is empty.'
-    else:
-        if len(alias) > 256:
-            msg = 'Alias is too long ( max. 256 characters).'
-    if not msg:
-        msg = 'Vacation added.'
-        error = False
-    else:
-        error = True
-
-    rollback_url('/user_client/mail', msg, err=error)
+        rollback_url('/user_client/mail', msg, err=True)
+    if len(alias) > 256:
+        msg = 'Alias is too long ( max. 256 characters).'
+        rollback_url('/user_client/mail', msg, err=True)
+    if not target:
+        msg = 'Target-identity is missing.'
+        rollback_url('/user_client/mail', msg, err=True)
+    email_target = transaction.get_email_target(int(target))
+    start_date = transaction.get_commands().strptime(start, '%Y-%m-%d')
+    end_date = transaction.get_commands().strptime(end, '%Y-%m-%d')
+    try:
+        email_target.add_vacation(start_date, alias, end_date)
+        transaction.commit()
+    except SpineIDL.Errors.IntegrityError, e:
+        msg = 'Could not save vacation,- a possible reason is identical vacations.'
+        rollback_url('/user_client/mail', msg, err=True)
+    queue_message('Vacation successfully added.') 
+    redirect('/user_client/mail')
 add_vacation = transaction_decorator(add_vacation)
 add_vacation.exposed = True
 
-def add_forward(transaction, **kwargs):
-    if not len(kwargs) == 4:
-        redirect('/user_client/mail')
+def add_forward(transaction, forward, target):
 
-    username = kwargs.get('username')
-    start = kwargs.get('start')
-    end = kwargs.get('end')
-    forward = kwargs.get('forward')
-
-    msg = ''
-    if not start:
-        msg = 'Start date is empty.'
-    elif not utils.legal_date(start):
-        msg = 'Start date is not a legal date (YYYY-MM-DD).'
-    if not msg and end:
-        if not utils.legal_date(end):
-            msg = 'End date is not a legal date (YYYY-MM-DD).'
-    if not msg and not forward:
+    if not forward:
         msg = 'Forward is empty.'
-    elif len(forward) > 256:
+        rollback_url('/user_client/mail', msg, err=True)
+    if len(forward) > 256:
         msg = 'Forward is too long ( max. 256 charcters).'
-    if not msg:
-        msg = 'Forward added.'
-        error = False
-    else:
-        error = True
-
-    rollback_url('/user_client/mail', msg, err=error)
+        rollback_url('/user_client/mail', msg, err=True)
+    if not target:
+        msg = 'Emailtarget-identity is missing.'
+        rollback_url('/user_client/mail', msg, err=True)
+    email_target = transaction.get_email_target(int(target))
+    try:
+        fwd = email_target.add_forward(forward)
+        transaction.commit()
+    except SpineIDL.Errors.IntegrityError, e:
+        msg = 'Could not save forward,- a possible reason is identical forwards.'
+        rollback_url('/user_client/mail', msg, err=True)
+        
+    queue_message('Forward successfully added.')
+    redirect('/user_client/mail')
 add_forward = transaction_decorator(add_forward)
 add_forward.exposed = True
-
-def get_vacations(tr,acc):
-    vacations = []
-    vacs = get_vacations_helper(tr, acc)
-    for vacation in vacs:
-        target_id = vacation.get_target().get_id()
-        start_date = vacation.get_start_date().to_string()
-        end_date = vacation.get_end_date()
-        if end_date:
-            end_date = end_date.to_string()
-        else:
-            end_date = ''
-        text = vacation.get_vacation_text()
-        enabled = vacation.get_enable()
-        vacations.append({'id':target_id,'start_date':start_date,'end_date':end_date,'text':text,'enabled':enabled})
-    return vacations
-
-def get_forwards(tr,acc):
-    forwards = []
-    fwds = get_forwards_helper(tr, acc)
-    for forward in fwds:
-        target_id = forward.get_target().get_id()
-        start_date = forward.get_start_date().to_string()
-        end_date = forward.get_end_date()
-        if end_date:
-            end_date = end_date.to_string()
-        else:
-            end_date = ''
-        address = forward.get_forward_to()
-        enabled = forward.get_enable()
-        forwards.append({'id':target_id,'start_date':start_date,'end_date':end_date,'address':address,'enabled':enabled})
-    return forwards
-
-def get_email_targets_helper(tr, account):
-    ts = tr.get_email_target_searcher()
-    ts.set_entity(account)
-    return ts.search()
-
-def get_forwards_helper(tr, account):
-    forwards = []
-    targets = get_email_targets_helper(tr, account)
-    if not targets:
-        return []
-    for target in targets:
-        fwds = target.get_forwards()
-        if fwds:
-            forwards.extend(fwds)
-    return forwards
-    
-def get_vacations_helper(transaction, account):
-    vacations = []
-    targets = get_email_targets_helper(transaction, account)
-    if not targets: 
-        return []
-    for target in targets:
-        vacs = target.get_vacations()
-        if vacs:
-            vacations.extend(vacs)
-    return vacations
 
 def set_password(transaction, **vargs):
     myId = vargs.get('id')
