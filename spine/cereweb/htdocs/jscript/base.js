@@ -164,11 +164,11 @@ cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
     };
 
     var addCloseButton = function (el) {
-        var closeButton = document.createElement('img');
-        closeButton.src = '/yui/build/container/assets/close12_1.gif';
-        YD.addClass('upperRight');
-        el.appendChild(closeButton);
-        return closeButton;
+        var cb = document.createElement('img');
+        cb.src = '/yui/build/container/assets/close12_1.gif';
+        YD.addClass(cb, 'upperRight');
+        el.appendChild(cb);
+        return cb;
     };
 
     var Messages = function(el) {
