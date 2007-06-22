@@ -341,8 +341,16 @@ cereweb.javascript = {
     init: function() {
         var nojs = YD.getElementsByClassName('nojs', null, 'container');
         var jsonly = YD.getElementsByClassName('jsonly', null, 'container');
+        var traceback = YD.getElementsByClassName('traceback', 'div', 'messages');
         if (nojs.length > 0) { YD.setStyle(nojs, "display", "none"); }
         if (jsonly.length > 0) { YD.setStyle(jsonly, "display", ""); }
+        for (var i=0; i<traceback.length; i++) {
+            var tb = traceback[i];
+            tb.style.display = "none";
+            YE.on(tb.parentNode, 'click', function () {
+                tb.style.display = tb.style.display ? "" : "none";
+            });
+        };
         cereweb.tooltip.init();
     }
 }
