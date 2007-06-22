@@ -19,10 +19,174 @@
 #from FormWidgets import FormWidgets
 #from UserTemplate import UserTemplate
 #from time import gmtime, strftime
+#from lib.utils import html_quote
 #extends UserTemplate
 
 #attr $form_widgets = FormWidgets()
 #attr $a_week = 604800
+
+#def viewTargets($targets)
+    <div class="view view_info" id="targets_view" style="display:always;">
+    <table>
+        <tr>
+            <th colspan="2">
+                <div class="tableheader">
+                    Targets:
+                </div>
+            </th>
+        </tr>
+        #for $target in $targets
+        #set $target_id = $html_quote($target.get_id())
+        <tr>
+            <td>
+                <div class="item">
+                    <h3>$html_quote($target.get_target_type().get_name())$_('@')$html_quote($target.get_server().get_name())</h3>
+                </div>
+            </td>
+            ##<td>
+            ##    &nbsp;
+            ##</td>
+        <tr>
+            <td>
+                <div class="td_lead_info">
+                Primary address:&nbsp;
+                #if $target.get_primary_address()
+                    $html_quote($target.get_primary_address().full_address())
+                #else
+                    no primary address
+                #end if
+                </div>
+            </td>
+            ##<td>
+            ##    &nbsp;
+            ##</td>
+        </tr>
+        </tr>
+        #if $target.get_vacations()
+        <tr>
+            <td>
+                <div class="item"
+                <table>
+                    <tr>
+                        <th colspan="2" align="left">
+                            Vacations:
+                         </th>
+                    </tr>
+                    #for $vac in $target.get_vacations()
+                    <tr>
+                        <td>
+                            Start:
+                        </td>
+                        <td>
+                            $vac.get_start_date().strftime('%Y-%m-%d')
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            End:
+                        </td>
+                        <td>
+                            $vac.get_end_date().strftime('%Y-%m-%d')
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Text:
+                        </td>
+                        <td>
+                            $vac.get_vacation_text()
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Enabled:
+                        </td>
+                        <td>
+                            #if $vac.get_enable()
+                                True
+                            #else
+                                False
+                            #end if
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            #set $start_date = $html_quote($vac.get_start_date().strftime('%Y-%m-%d'))
+                            <a href="/user_client/delete_vacation?id=$target_id&amp;start=$start_date">Delete vacation</a>
+                        </td>
+                        <td>
+                            &nbsp;
+                        </td>
+                    </tr>
+                    #end for
+                </table>
+            </td>
+            ##<td>
+            ##    &nbsp;
+            ##</td>
+        </tr>
+        #end if
+        <tr>
+            <td>
+                &nbsp;
+            </td>
+            ##<td>
+            ##    &nbsp;
+            ##</td>
+        </tr>
+        #if $target.get_forwards()
+        <tr>
+            <td>
+            <div class="item">
+                <table>
+                    <tr>
+                        <th colspan="2" align="left">
+                            Forwards:
+                        </th>
+                    </tr>
+                    #for $fwd in $target.get_forwards()
+                    <tr>
+                        <td>
+                            Forward to:
+                        </td>
+                        <td>
+                            $html_quote($fwd.get_forward_to())
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Enabled:
+                        </td>
+                        <td>
+                            #if $fwd.get_enable()
+                                True
+                            #else
+                                False
+                            #end if
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            #set $forward_to = $html_quote($fwd.get_forward_to())
+                            <a href="/user_client/delete_forward?id=$target_id&amp;forward=$forward_to">Delete forward</a>
+                        </td>
+                        <td>
+                            &nbsp;
+                        </td>
+                    </tr>
+                    #end for
+                </table>
+            </div>
+            </td>
+            ##<td>
+            ##    &nbsp;
+            ##</td>
+        </tr>
+        #end if
+        #end for
+    </table>
+    </div>
+#end def
 
 #def viewVacation($account, $vacations)
 <p>
@@ -47,7 +211,7 @@
 		</td>
 		<td>
 			<div class="item">
-				$vacation['start_date']
+				$html_quote($vacation['start_date'])
 			</div>
 		</td>
 	</tr>
@@ -59,9 +223,21 @@
 		</td>
 		<td>
 			<div class="item">
-				$vacation['end_date']
+				$html_quote($vacation['end_date'])
 			</div>
 		</td>
+        <tr>
+                <td>
+                        <div class="td_lead_info">
+                            Target
+                        </div>
+                </td>
+                <td>
+                        <div>
+                            $html_quote($vacation['target_type'])$_('@')$html_quote($vacation['server_name'])
+                        </div>
+                </td>
+        </tr>
 	<tr>
 		<td>
 			<div class="td_lead_info">
@@ -70,16 +246,15 @@
 		</td>
 		<td>
 			<div class="item">
-				$vacation['text']
+				$html_quote($vacation['text'])
 			</div>
-		</div>
 	</tr>
 	<tr>
 		<td colspan="2">
 			<div class="item">
-				<a href=#delete?id=$vacation['id']> Delete </a>&nbsp;
-				<a href=#change?id=$vacation['id']> Edit </a>&nbsp;
-				<a href=#disable?id=$vacation['id']> Disable </a>
+				<a href=#delete?id=$html_quote($vacation['id'])> Delete </a>&nbsp;
+				<a href=#change?id=$html_quote($vacation['id'])> Edit </a>&nbsp;
+				<a href=#disable?id=$html_quote($vacation['id'])> Disable </a>
 			</div>
 		</td>
 	</tr>
@@ -129,7 +304,7 @@
 		</td>
 		<td>
 			<div class="item">
-				$forward['start_date']
+				$html_quote($forward['start_date'])
 			</div>
 		</td>
 	</tr>
@@ -141,7 +316,7 @@
 		</td>
 		<td>
 			<div class="item">
-				$forward['end_date']
+				$html_quote($forward['end_date'])
 			</div>
 		</td>
 	</tr>
@@ -153,16 +328,16 @@
 		</td>
 		<td>
 			<div class="item">
-				$forward['address']
+				$html_quote($forward['address'])
 			</div>
 		</td>
 	</tr>
 	<tr>
 		<td colspan="2">
 			<div class="item">
-				<a href=#delete?id=$forward['id']> Delete </a>&nbsp;
-				<a href=#change?id=$forward['id']> Edit </a>&nbsp;
-				<a href=#disable?id=$forward['id']> Delete </a>
+				<a href=#delete?id=$html_quote($forward['id'])> Delete </a>&nbsp;
+				<a href=#change?id=$html_quote($forward['id'])> Edit </a>&nbsp;
+				<a href=#disable?id=$html_quote($forward['id'])> Delete </a>
 			</div>
 		</td>
 	</tr>
@@ -189,16 +364,26 @@
 </p>
 #end def
 
-#def createVacation()
+#def getTargets($emailtargets)
+#set $targets = []
+#for $target in $emailtargets
+    #set $id = $html_quote($target.get_id())
+    #set $type = $html_quote($target.get_target_type().get_name())
+    #set $host = $html_quote($target.get_server().get_name())
+    #set $target_name = "%s@%s" % ($type, $host)
+    $targets.append(($id, $target_name))
+#end for
+#return $targets
+#end def
+
+#def createVacation($emailtargets)
 #set $start = $strftime('%Y-%m-%d', gmtime())
 #set $end = ''
 #set $alias = ''
+#set $targets = $getTargets($emailtargets)
 <div class="edit box" >
     <h3>$_('Add a vacation')</h3>
         <form action="/user_client/add_vacation" method="post">
-            <div class="hidden">
-                <input type="hidden" name="username" value="$account['username']" />
-            </div>
             <div class="required">
                 $form_widgets.input("start", "Start", $start)
             </div>
@@ -207,6 +392,9 @@
             </div>
             <div class="required">
                 $form_widgets.input("alias", "Alias", $alias)
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("target","Email target", $targets)
             </div>
             <div class="buttons">
                 <input type="submit" name="create" value="$_('Create')" />&nbsp;
@@ -217,24 +405,19 @@
 </div>
 #end def
 
-#def createMailForward()
+#def createMailForward($emailtargets)
 #set $start = $strftime('%Y-%m-%d', gmtime())
 #set $end = ''
 #set $forward = ''
+#set $targets = $getTargets($emailtargets)
 <div class="edit box" >
     <h3>$_('Add a forward')</h3>
         <form action="/user_client/add_forward" method="post">
-            <div class="hidden">
-                <input type="hidden" name="username" value="$account['username']" />
-            </div>
-            <div class="required">
-                $form_widgets.input("start", "Start", $start)
-            </div>
-            <div class="required">
-                $form_widgets.input("end", "End", $end)
-            </div>
             <div class="required">
                 $form_widgets.input("forward", "Forward", $forward)
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("target","Email target", $targets)
             </div>
             <div class="buttons">
                 <input type="submit" name="create" value="$_('Create')" />&nbsp;
@@ -248,9 +431,10 @@
 #def content()
 <div class="view_content">
     $viewInfo($account)
-    $viewVacation($account, $vacations)
-    $viewMailForward($forwards)
-    $createVacation()
-    $createMailForward()
+    $viewTargets($emailtargets)
+    ## $viewVacation($account, $vacations)
+    ## $viewMailForward($forwards)
+    $createVacation($emailtargets)
+    $createMailForward($emailtargets)
 </div>
 #end def
