@@ -6445,18 +6445,22 @@ class BofhdExtension(object):
         tuple: (old_uid, old_default_group_name, old_groups,
         old_perm_groups).  Note that perm_groups are not in old_groups"""
         
-        old_uid, old_gid = None, None
+        old_uid, old_gid, old_home = None, None, None
         old_spreads = {}
         old_groups = {}
         delete_date = account.expire_date.strftime('%Y-%m-%d')
         for row in self.db.get_log_events(subject_entity=account.entity_id,
                                           types=[self.const.posix_demote,
                                                  self.const.spread_del,
-                                                 self.const.group_rem]):
+                                                 self.const.group_rem,
+                                                 self.const.account_home_removed]):
             if row['change_params'] is not None:
                 change_params = pickle.loads(row['change_params'])
             if row['change_type_id'] == int(self.const.posix_demote):
                 old_uid, old_gid = change_params['uid'], change_params['gid']
+            elif row['change_type_id'] == int(self.const.account_home_removed):
+                tmp = change_params.get('home')
+                old_home = tmp[:tmp.rindex("/")]
             elif row['tstamp'].strftime('%Y-%m-%d') == delete_date:
                 if row['change_type_id'] == int(self.const.spread_del):
                     old_spreads[change_params['spread']] = 1
@@ -6469,7 +6473,8 @@ class BofhdExtension(object):
                perm_groups[int(row['entity_id'])] = 1
             for k in perm_groups.keys():
                 del old_groups[k]
-        return (old_uid, self.__group_ids2name(old_gid), old_spreads.keys(),
+        return (old_uid, self.__group_ids2name(old_gid), old_home,
+                old_spreads.keys(),
                 self.__group_ids2name(old_groups.keys()),
                 self.__group_ids2name(perm_groups.keys()))
 
@@ -6514,8 +6519,9 @@ class BofhdExtension(object):
         extra_msg += ('NOTE: Please assert that the above line is correct '
                       'before proceeding!\n\n')
         choices = {'account': account}
-        old_uid, old_gid, old_spreads, old_groups, perm_groups = \
+        old_uid, old_gid, old_home, old_spreads, old_groups, perm_groups = \
                  self.__user_restore_check_changelog(account)
+
         # Spreads
         if not all_args:
             return {'prompt': "%sSpreads" % extra_msg,
@@ -6535,18 +6541,29 @@ class BofhdExtension(object):
             return ret
         choices['groups'] = all_args.pop(0)
         # spesific to posix users
+        pu = PosixUser.PosixUser(self.db)
+        try:
+            pu.find(account.entity_id)
+            old_uid, old_gid = pu.posix_uid, pu.gid_id
+            choices['is_posix'] = True
+            choices['account'] = pu
+        except Errors.NotFoundError:
+            pass
         if old_uid is not None:
             is_superuser = self.ba.is_superuser(session.get_entity_id())
-            if not all_args:
-                return {'prompt': "Default filegroup",
-                        'default': '%s' % old_gid}
-            choices['dfg'] = all_args.pop(0)
+            if not choices.get('is_posix'):
+                if not all_args:
+                    return {'prompt': "Default filegroup",
+                            'default': '%s' % old_gid}
+                choices['dfg'] = all_args.pop(0)
             if not all_args:
                 homes = account.get_homes()
                 ret = {'prompt': "Disk", 'help_ref': 'disk'}
                 if homes:
                     ret['default'] = self._get_disk(homes[0]['disk_id']
                                                     )[0].path
+                elif old_home:
+                    ret['default'] = old_home
                 elif not is_superuser:
                     raise PermissionDenied(
                         "Can't find an old home dir for this user")
@@ -6589,14 +6606,9 @@ class BofhdExtension(object):
         args = self._user_restore_helper(operator, *args)['choices']
         account = args['account']
         days_since_deletion = (DateTime.now() - account.expire_date).days
-        if args.has_key('dfg'):
+        if (not args.get('is_posix')) and args.has_key('dfg'):
             pu = PosixUser.PosixUser(self.db)
-            try:
-                pu.find(account.entity_id)
-                raise CerebrumError("Trying to restore someone who already is a PosixUser")
-            except Errors.NotFoundError:
-                pu.clear()
-            old_uid, old_gid, old_spreads, old_groups, perm_groups = \
+            old_uid, old_gid, old_home, old_spreads, old_groups, perm_groups = \
                      self.__user_restore_check_changelog(account)
 
             # Must own group is delete +14 days ago, or the user wasn't
@@ -6610,8 +6622,10 @@ class BofhdExtension(object):
             pu.write_db()
         else:
             pu = account
-            old_uid, old_gid, old_spreads, old_groups, perm_groups = \
+            old_uid, old_gid, old_home, old_spreads, old_groups, perm_groups = \
                      self.__user_restore_check_changelog(account)
+            pu.expire_date = None
+            pu.write_db()
 
         # Spreads
         if args['spreads']:
