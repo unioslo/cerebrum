@@ -27,6 +27,7 @@ import re
 import cgi
 from omniORB import CORBA
 from datetime import datetime
+import Messages
 
 def clean_url(url):
     """Make sure the url doesn't point to a different server."""
@@ -149,7 +150,7 @@ def redirect_object(object, method="view", status=None):
     url = object_url(object, method)
     raise cherrypy.HTTPRedirect(url, status)
 
-def queue_message(message=None, error=False, link='', data=None):
+def queue_message(message=None, error=False, link=''):
     """Queue a message.
     
     The message will be displayed next time a Main-page is showed.
@@ -159,25 +160,15 @@ def queue_message(message=None, error=False, link='', data=None):
     the object.
     """
 
-    if not data:
-        data = {
-            'title': 'No title',
-            'message': message,
-            'error': error,
-            'details': 'No details',
-            'link': link,
-            'date': mx.DateTime.now(),
-        }
-
-    session = cherrypy.session
-    cherrypy.session.setdefault('messages', []).append(data)
-    cherrypy.session.setdefault('al_messages', []).append(data)
+    Messages.queue_message(
+        title='No title',
+        message=message,
+        is_error=error,
+        link=link
+    )
 
 def get_messages():
-    messages = cherrypy.session.get("messages", [])
-    if messages:
-        del cherrypy.session['messages']
-    return messages
+    return Messages.get_messages()
 
 def strftime(date, format="%Y-%m-%d", default=''):
     """Returns a string for the date.
@@ -212,8 +203,10 @@ def has_valid_session():
 
 def new_transaction():
     if not has_valid_session():
-        msg = 'Your session is no longer available.  Please log in again.'
-        queue_message(msg, error=True)
+        Messages.queue_message(
+                title="Session Expired",
+                message='Your session is no longer available.  Please log in again.',
+                is_error=True)
         redirect_to_login()
     return cherrypy.session['session'].new_transaction()
 
@@ -236,7 +229,10 @@ def transaction_decorator(method):
             try:
                 return method(transaction=tr, *args, **vargs)
             except AccessDeniedError, e:
-                queue_message(e.explanation, error=True)
+                Messages.queue_message(
+                        title="Access Denied",
+                        message=e.explanation,
+                        is_error=True)
                 redirect(cherrypy.session.get('client'))
         finally:
             try:
@@ -268,19 +264,28 @@ def commit_url(transaction, url, msg='', error='', link=''):
     """
     try:
         transaction.commit()
-    except:
-        if not errormsg:
-            raise
-        queue_message(error, error=True, link=link)
+    except Exception, e:
+        Messages.queue_message(
+            title="Commit Failed",
+            message=error,
+            is_error=True,
+            link=link,
+            tracebk=e)
     else:
         if msg:
-            queue_message(msg, link=link)
+            Messages.queue_message(
+                title="Commit Success",
+                message=msg,
+                link=link)
     raise cherrypy.HTTPRedirect(url)
 
-def rollback_url( url, msg, err=False):
-	if msg:
-		queue_message( msg, error=err)
-	raise cherrypy.HTTPRedirect(url)
+def rollback_url(url, msg, err=False):
+    if msg:
+        Messages.queue_message(
+            title="Did Not Save",
+            message=msg,
+            is_error=err)
+    raise cherrypy.HTTPRedirect(url)
 	
 def legal_date(datestr, formatstr="%Y-%m-%d"):
     try:

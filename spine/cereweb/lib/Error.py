@@ -27,6 +27,7 @@ import urllib
 import config
 import utils 
 import omniORB
+import Messages
 from templates.ErrorTemplate import ErrorTemplate
 from SpineIDL.Errors import *
 
@@ -61,12 +62,17 @@ def handle(error):
     elif isinstance(error, AccessDeniedError):
         msg = "Sorry, you do not have permissions to do the requested operation."
         if cherrypy.config.get('server.showTracebacks'):
-            traceback.print_exc()
+            tracebk=traceback.format_exception(*sys.exc_info())
         # Login page doesn't support queue_message
         if referer.split('?')[0].endswith('login'):
             utils.redirect('/login?msg=%s' % msg)
         else:
-            utils.queue_message(msg, error=True)
+            Messages.queue_message(
+                title='Access Denied',
+                message=message,
+                is_error=True,
+                tracebk=tracebk,
+            )
             utils.redirect(referer)
     elif isinstance(error, IntegrityError):
         title = "Operation failed"
@@ -99,17 +105,12 @@ def handle(error):
         template = ErrorTemplate()
         return template.error(title, message, path, tracebk, referer, report)
 
-    import mx.DateTime
-    msg = {
-        'title': title,
-        'message': message,
-        'error': True,
-        'details': tracebk,
-        'link': None,
-        'date': mx.DateTime.now(),
-    }
-        
-    utils.queue_message(data=msg)
+    Messages.queue_message(
+        title=title,
+        message=message,
+        is_error=True,
+        tracebk=tracebk,
+    )
     utils.redirect(referer)
 
 # arch-tag: 52b56f54-2b55-11da-97eb-80927010959a

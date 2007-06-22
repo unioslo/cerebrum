@@ -47,7 +47,7 @@ h3 {
     margin-bottom: 5px;
     margin-top: 3em;
     clear: both;
-    width: 500px;
+    width: 625px;
     overflow: visible;
 }
 
@@ -75,8 +75,13 @@ h3 {
 
 #messages .short {
 }
-#messages .details {
+
+#messages .traceback {
     color: black;
+}
+
+#messages .traceback pre {
+    font-size: 90%;
 }
 
 #actions {

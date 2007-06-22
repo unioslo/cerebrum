@@ -28,6 +28,7 @@ import config
 import cherrypy
 
 import utils
+import Messages
 from templates.SearchResultTemplate import SearchResultTemplate
 import SpineIDL.Errors
 
@@ -412,11 +413,16 @@ class PersonSearcher(Searcher):
             ous = s_ou.search()
 
             if not ous:
-                utils.queue_message("Could not find OU (%s)" % ou, error=True)
+                Messages.queue_message(
+                    title='Not Found',
+                    message="Could not find OU (%s)" % ou,
+                    is_error=True)
                 self.valid = False
             elif len(ous) > 1:
-                utils.queue_message("Found more than one OU (%s)" % ou,
-                        error=True)
+                Messages.queue_message(
+                    title='Too Many Found',
+                    message="Found more than one OU (%s)" % ou,
+                    is_error=True)
                 self.valid = False
             else:
                 ou = ous[0]
@@ -438,14 +444,16 @@ class PersonSearcher(Searcher):
             affs = s_aff.search()
 
             if not affs:
-                utils.queue_message(
-                        "Could not find affiliation type (%s)" % aff,
-                        error=True)
+                Messages.queue_message(
+                        title="Not Found",
+                        message="Could not find affiliation type (%s)" % aff,
+                        is_error=True)
                 self.valid = False
             elif len(affs) > 1:
-                utils.queue_message(
-                        "Found more than one affiliation type (%s)" % aff,
-                        error=True)
+                Messages.queue_message(
+                        title="Too Many Found",
+                        message="Found more than one affiliation type (%s)" % aff,
+                        is_error=True)
                 self.valid = False
             else:
                 aff = affs[0]

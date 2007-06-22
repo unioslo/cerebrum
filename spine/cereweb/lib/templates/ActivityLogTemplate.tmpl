@@ -31,16 +31,7 @@
     </h2>
 #if $messages
     #for $message in $messages
-    #set $link = $message.get('link')
-    <div class="amsg">
-        #if $link
-            $link : 
-        #end if
-        $message.get('message')
-        #if $message.get('error')
-        (error)
-        #end if
-    </div>
+        $message.to_activitylog()
     #end for
 #else
     <div class="amsg">$_('You can see the 5 last messages here.')</div>
@@ -59,11 +50,11 @@
     #set $headers = [$_('Timestamp'), $_('Object'), $_('Message')]
     #set $table = $TableView($columns, $headers)
     #for $message in $messages
-        #set $msg = $message.get('message')
-        #set $link = $message.get('link')
-        #set $time = $message.get('date')
+        #set $msg = $message.message
+        #set $link = $message.link
+        #set $time = $message.date
 
-        #if $message.get('error')
+        #if $message.is_error
             #set $msg += " (error)"
         #end if
         $table.add(time=$time.strftime("%a %H:%M"),
