@@ -156,25 +156,27 @@ cereweb.utils = {
 cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
 
 cereweb.msg = {
-    _msg: function(message, level, timeout) {
-        var messages = YD.get('messages');
-        var p = document.createElement('p');
-        YD.addClass(p, level);
-        p.innerHTML = message;
-        messages.appendChild(p);
-        var fn = function() {
-            messages.removeChild(p);
-        }
-        window.setTimeout(fn, timeout);
+    add: function (title, message, is_error) {
+        var msg = document.createElement('div');
+        var n = document.createElement('h3');
+        YD.get('messages').appendChild(msg);
+
+        msg.appendChild(n);
+        if (is_error)
+            YD.addClass(msg, 'error');
+        n.innerHTML = title;
+
+        n = document.createElement('div');
+        YD.addClass(n, 'short');
+        n.innerHTML = message;
+        msg.appendChild(n);
+        return YD.generateId(msg, 'msg_')
     },
-    error: function(message) {
-        cereweb.msg._msg(message, 'error', 10000);
-    },
-    warn: function(message) {
-        cereweb.msg._msg(message, 'warn', 5000);
-    },
-    info: function(message) {
-        cereweb.msg._msg(message, 'info', 5000);
+    remove: function (id) {
+        var msgs = YD.get('messages');
+        var msg = YD.get(id);
+        if (msg && msgs)
+            msgs.removeChild(msg);
     }
 }
 

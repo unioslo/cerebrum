@@ -101,11 +101,6 @@ cereweb.timeout = {
         var data = 'nocache=' + Math.random()
         var cObj = YAHOO.util.Connect.asyncRequest('POST', url, callback, data);
     },
-    hide_warning: function () {
-        var warning = YD.get('session_warning');
-        if (warning)
-            warning.style.display = "none";
-    },
     keep_alive: function () {
         this.stop_timer();
         this.timeOutDialog.hide();
@@ -154,17 +149,17 @@ cereweb.timeout = {
      connection.  If you're certain that your network connection is ok, please try again \
      in five minutes.  If the server remains unavailable, call (735) 91500 and notify \
      Orakeltjenesten of the situation.</p>";
-        cereweb.events.sessionError.fire('Connection failure');
-        this.show_warning(msg);
-    },
-    show_warning: function (msg) {
-        var warning_div = YD.get('session_warning');
-        if (!warning_div) {
-            warning_div = cereweb.createDiv('session_warning', 'messages');
-            YD.addClass(warning_div, 'error');
-        }
-        warning_div.innerHTML = msg;
         
+        cereweb.events.sessionError.fire('Connection failure');
+        this.show_warning("Connection Failure", msg, true);
+    },
+    show_warning: function (title, msg, is_error) {
+        this.hide_warning();
+        this.error_id = cereweb.msg.add(title, msg, is_error);
+    },
+    hide_warning: function () {
+        if (this.error_id)
+            cereweb.msg.remove(this.error_id);
     },
     time_out: function() {
         // Fix scope.
@@ -177,10 +172,10 @@ cereweb.timeout = {
             this.timeOutDialog.hide();
 
         var msg = 'Your session has timed out, <a href="/login?redirect=' +
-                   encodeURIComponent(location.href) +
+                  encodeURIComponent(location.href) +
                   '">click here</a> to get a new session.';
         cereweb.events.sessionError.fire('Session timed out');
-        this.show_warning(msg);
+        this.show_warning('Session Timed Out', msg, true);
     }
 }
 YAHOO.util.Event.addListener(window, 'load', cereweb.timeout.init, cereweb.timeout, true);
