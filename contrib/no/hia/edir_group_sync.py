@@ -113,7 +113,7 @@ def group_mod(mod_type, group_id, member_id):
     elif mod_type == constants.group_rem:
         logger.info('Removing from group')
         edir_util.group_modify('delete', group_name, member_name, member_type)
-        logger.info('Member %s removed from %s' % (ent_name, group_name))
+        logger.info('Member %s removed from %s' % (member_name, group_name))
 
         
 def main():
