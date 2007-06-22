@@ -107,7 +107,9 @@ def _forget(id):
 def template(type):
     template = WorkListTemplate()
     type = type.lower()
-    if type == 'none':
+    if type == 'empty':
+        content = template.EmptyAction()
+    elif type == 'none':
         content = template.NoneAction()
     elif type == 'ou':
         content = template.OUAction()

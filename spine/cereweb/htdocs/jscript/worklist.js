@@ -84,7 +84,6 @@ cereweb.worklist.prototype = {
         this.ajaxUpdater.scope = this;
         this.actionUpdater = new cereweb.callbacks.htmlSnippet(this, 'addAction');
         YE.on(this.form, 'click', this.onClick, this, true);
-        YE.on(this.form, 'change', this.onChange, this, true);
         YE.on(this.list, 'change', this.onChange, this, true);
         cereweb.action.add('worklist/remember', this.remember, this);
         this.events.worklistChanged.subscribe(this.updateLinks, this, true);
@@ -121,7 +120,7 @@ cereweb.worklist.prototype = {
                         if (obj.objects) {
                             for (var i=0; i<obj.objects.length; i++)
                                 this.add(obj.objects[i], true);
-                            this.events.selectionChanged.fire();
+                            this.events.selectionChanged.fire(true);
                         }
                     } else
                         cereweb.events.sessionError.fire('Could not update worklist.');
@@ -210,16 +209,20 @@ cereweb.worklist.prototype = {
         var obj = args[1];
         this.add(obj) || this.remove(obj.id);
     },
-    updateSelection: function() {
+    updateSelection: function(event, args) {
+        var silent = args && args[0] || false;
+
         var selected = new Array();
         var list = this.list;
         for (var i = 0; i < list.length; i++) {
             if (list[i].selected) selected.push(list[i].value);
         }
       
-        var args = "ids=" + selected;
-        var url = this.options.select_url;
-        var cObj = YC.asyncRequest('POST', url, this.ajaxUpdater, args);
+        if (!silent) {
+            var args = "ids=" + selected;
+            var url = this.options.select_url;
+            var cObj = YC.asyncRequest('POST', url, this.ajaxUpdater, args);
+        }
         
         this.selected = selected;
         this.updateActions();
@@ -280,7 +283,10 @@ cereweb.worklist.prototype = {
         this.events.selectionChanged.fire();
     },
     get_type: function(ids) {
-        if (ids.length == 0)
+        if (ids == -1 || this.list.item(0).value == -1)
+            return 'empty';
+
+        if (ids.length === 0)
             return 'none';
 
         // We don't have indexOf, so use string.search.
