@@ -51,16 +51,16 @@
     $viewQuarantines($group)
     $addNote($group)
     $viewNotes($group)
-    $viewTraits($entity)
+    $viewMembers($group, $ops)
     #if $commands.has_extention("email")
         $email_template.set($group, $transaction)
         $email_template.view($group, $transaction)
     #end if
+    $viewTraits($entity)
     $addSpread($group, $transaction)
     $viewSpreads($group)
     $joinGroup($group, $ops)
     $addMember($group, $ops)
-    $viewMembers($group, $ops)
     $derivedMembers($group)
     $viewHistoryLog($group)
 #end def

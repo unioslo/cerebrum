@@ -40,19 +40,19 @@
 ## Page for viewing information about a person.
 #def content()
     $viewInfo($entity)
+    $setName($entity, $tr)
+    $viewNames($entity)
     $viewQuarantines($entity)
     $addNote($entity)
     $viewNotes($entity)
-    $viewTraits($entity)
+    $viewAccounts($entity)
     $addAffiliation($entity, $tr)
     $viewAffiliation($entity)
-    $setName($entity, $tr)
-    $viewNames($entity)
+    $viewTraits($entity)
     $viewContactInfos($entity)
     $viewAddresses($entity)
     $setExternalId($entity, $tr)
     $viewExternalIds($entity)
-    $viewAccounts($entity)
     $viewHistoryLog($entity)
 #end def
 
