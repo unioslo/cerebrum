@@ -46,8 +46,55 @@ is run directly against the database (Layer 1).
 A future goal is to replace the offending code with code that is more in line
 with our architecture.
 
+The Spine Server
+----------------
 
-Spine Modules
-~~~~~~~~~~~~~~
+The core of the spine server is Builder.py.  This class provides the
+functionality to build methods from attributes and for registering methods and
+attributes for the classes.  If you for example want to make a class that maps
+against the Host table in the database, this class should inherit from Builder.
+The class then defines the slots (or attributes) that it wants to read from the
+Host table in the database.  Now it's possible to run Host.build_methods() and
+Builder will create set_ and get_ methods for the slots we defined.
+
+Another important part of Builder is the function get_builder_classes (defined
+in Builder.py).  When this function is called, it checks Builder.__subclasses__
+and recursively finds all the loaded classes that have Builder functionality.
+
+When the Spine Server starts, the SpineModel module is loaded.  This module
+should import all the modules we want to use.  Then we call
+Builder.get_builder_classes and use the result to generate the Corba IDL.
+
+Now, this only covers the get_ and set_ methods.  We also need other methods.
+These we define in the respective modules and use the register_methods-method
+to tell Builder to add it to the interface.  Getting back to our Host-example,
+we can define a create_host method.  Since this method would return a Host
+object, we define the method _after_ the end of the Host class.  We then add it
+to the Host class by calling Host.register_methods([create_host]).  But before
+we can do this, we need to set some "signatures" on the method we created.
+
+
+Signatures
+~~~~~~~~~~
+
+An important concept in Builder is signatures.  These are used to add metadata
+to the methods.  In the Host.create_host method, we would add a couple of
+signatures to tell Builder what the return type of the method is, and what types
+the arguments are.  Here's the full definition of create_host:
+
+  def create_host(name, description):
+    new_host = ...
+    ...
+    return new_host
+  create_host.signature = Host
+  create_host.signature_args = [str, str]
+  Host.register_methods([create_host])
+
+The signatures we've mentioned so far are the only required signatures.  Beyond
+this, there are some optional signatures that you might be interested in.
+
+signature_public
+^^^^^^^^^^^^^^^^
+
 
 
