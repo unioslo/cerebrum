@@ -145,7 +145,7 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         try:
             transaction = Transaction(self)
         except OperationalError, e:
-            explanation = ', '.join(['%s' % i for i in e.args]
+            explanation = ', '.join(['%s' % i for i in e.args])
             raise SpineIDL.Errors.OperationalError(explanation)
 
         corba_obj = convert_to_corba(transaction, transaction, Transaction)
