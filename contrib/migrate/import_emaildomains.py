@@ -29,20 +29,25 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.Constants import _PersonAffiliationCode
 
 def usage():
     print """Usage: email_domains.py -f filename
                     email_domains.py -d domainname -c ou_id
-    -d, --domain  : register domain name in cerebrum
-    -f, --file    : parse file and register domains in cerebrum
-                    (one domain name per line)
-    -c, --connect : ou_id to connect to
-    -a, --all     : connect a domain to all ou's registered in cerebrum  
+                    email_domains.py -d domainname -k uidaddr -c ou_id -i STUDENT
+    -d, --domain     : register domain name in cerebrum
+    -f, --file       : parse file and register domains in cerebrum
+                       (one domain name per line)
+    -c, --connect    : ou_id to connect to
+    -a, --all        : connect a domain to all ou's registered in cerebrum
+    -k, --category   : set category for domain. (only -d option)
+    -i, --affiliation: set affiliation for connected ou_id
+                       (only -c option)
     """
     sys.exit(0)
 
 def main():
-    global db, logger
+    global db, const, logger
     
     logger = Factory.get_logger("console")    
     db = Factory.get("Database")()
@@ -55,11 +60,13 @@ def main():
     infile = None
     reg_dom = connect = all = False
     all_ous = []
+    category = aff = False
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:d:c:a',
+                                   'f:d:c:ak:i:',
                                    ['file=', 'domain=',
-                                    'connect=', 'all'])
+                                    'connect=', 'all',
+                                    'category=', 'affiliation='])
     except getopt.GetoptError:
         usage()
 
@@ -73,13 +80,22 @@ def main():
             if not reg_dom:
                 logger.error('You need to use -d option as well.')
                 sys.exit(1)
-            connect = True
+            connect = val
         elif opt in ('-a', '--all'):
             if not reg_dom:
                 logger.error('You need to use -d option as well.')
                 sys.exit(1)
             all = True
-
+        elif opt in ('-k', '--category'):
+            if not reg_dom:
+                logger.error('Only supported with the -d option.')
+                sys.exit(1)
+            category = val
+        elif opt in ('-i', '--affiliation'):
+            if not connect:
+                logger.error('Only supported with the -c option.')
+                sys.exit(1)
+            aff = val
     if not reg_dom and infile == None:
         usage()
 
@@ -87,7 +103,7 @@ def main():
         if infile:
             logger.error('Cannot use both -d and -f options.')
             sys.exit(1)
-        process_domain(dom_name, connect)
+        process_domain(dom_name, connect, category, aff)
 
     if infile:
         process_line(infile)
@@ -108,12 +124,31 @@ def process_line(infile):
         process_domain(str(l.strip()), False)
     stream.close()
     
-def process_domain(dom, conn):
+def process_domain(dom, conn, cat, aff):
     edom = Email.EmailDomain(db)
     edom.clear()
     ou = Factory.get("OU")(db)
     ou.clear()
 
+    c_cat = None
+    if cat:
+        for c in dir(const):
+            tmp = getattr(const, c)
+            if isinstance(tmp,Email._EmailDomainCategoryCode) and str(tmp) == cat:
+                c_cat = tmp
+        if not c_cat:
+            logger.error('Could not find category "%s". Exiting.', cat)
+            sys.exit(1)
+
+    c_aff = None
+    if aff:
+        for c in dir(const):
+            tmp = getattr(const, c)
+            if isinstance(tmp,_PersonAffiliationCode) and str(tmp) == aff:
+                c_aff = tmp
+        if not c_aff:
+            logger.error('Could not find affiliation "%s". Exiting.', aff)
+            sys.exit(1)
     try:
         edom.find_by_domain(dom)
     except Errors.NotFoundError:
@@ -126,16 +161,22 @@ def process_domain(dom, conn):
         except Errors.NotFoundError:
             logger.error('No such OU %s!', conn)
             sys.exit(1)
-        connect_domain_ou(ou.entity_id, edom.email_domain_id)
-        
-def connect_domain_ou(ou_id, dom_id):
+        connect_domain_ou(ou.entity_id, edom.email_domain_id, c_aff)
+    if c_cat:
+        # Hack to get a hit when doing 'in'
+        if (int(c_cat),) in edom.get_categories():
+            logger.info('Email_category "%s" already populated.', cat)
+        else:
+            edom.add_category(c_cat)
+            logger.info('Email_category "%s" added.', cat)
+def connect_domain_ou(ou_id, dom_id, c_aff):
     ee_dom = Email.EntityEmailDomain(db)
     ee_dom.clear()
     try:
-        ee_dom.find(ou_id)
+        ee_dom.find(ou_id, c_aff)
     except Errors.NotFoundError:
-        eed.populate_email_domain(dom_id)
-        eed.write_db()
+        ee_dom.populate_email_domain(dom_id, c_aff)
+        ee_dom.write_db()
 
             
 if __name__ == '__main__':
