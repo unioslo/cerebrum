@@ -34,7 +34,7 @@ from Authorization import Authorization
 
 from Cerebrum.spine.SpineLib import Builder
 
-from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError
+from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError, OperationalError
 from Cerebrum.spine.SpineLib.Transaction import Transaction, TransactionError
 
 def count():
@@ -57,6 +57,7 @@ class Session:
         pass
 
     new_transaction.signature = Transaction
+    new_transaction.signature_exceptions = [OperationalError]
 
     def get_transactions(self):
         pass
@@ -141,7 +142,12 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
 
     def new_transaction(self):
         self.reset_timeout()
-        transaction = Transaction(self)
+        try:
+            transaction = Transaction(self)
+        except OperationalError, e:
+            explanation = ', '.join(['%s' % i for i in e.args]
+            raise SpineIDL.Errors.OperationalError(explanation)
+
         corba_obj = convert_to_corba(transaction, transaction, Transaction)
         self._transactions[transaction] = corba_obj
         transaction.authorization = self.authorization
