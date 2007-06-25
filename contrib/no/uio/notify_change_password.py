@@ -216,6 +216,11 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
                              cc=mail_cc, debug=debug_enabled)
         if debug_verbose:
             print "---- Mail: ---- \n"+ ret
+    except smtplib.SMTPRecipientsRefused, e:
+        failed_recipients = e.recipients
+        logger.info("Failed to notify <%d> users", len(failed_recipients))
+        for email, condition in failed_recipients.iteritems():
+            logger.info("Failed to notify: %s", condition)
     except smtplib.SMTPException, msg:
         logger.warn("Error sending to %s: %s" % (mail_to, msg))
         return False
