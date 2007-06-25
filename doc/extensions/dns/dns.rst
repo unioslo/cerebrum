@@ -148,17 +148,6 @@ Associated tables:
   .. sysinclude:: %(ext_sqldoc)s --table dns_srv_record
 
 
-
-EntityNote.EntityNote
-~~~~~~~~~~~~~~~~~~~~~~~
-.. sysinclude:: %(ext_pydoc)sEntityNote.py %(template)s --class_doc EntityNote
-
-Associated table:
-
-  .. sysinclude:: %(ext_sqldoc)s --table dns_entity_note
-
-Code values are stored in ``dns_entity_note_code``
-
 HostInfo.HostInfo
 ~~~~~~~~~~~~~~~~~~
 .. sysinclude:: %(ext_pydoc)sHostInfo.py %(template)s --class_doc HostInfo
@@ -230,8 +219,6 @@ API:
     Handles the cname_record table
   Cerebrum/modules/dns/DnsOwner.py
     handles dns_owner, mx_set, mx_set_members, general_ttl_record, srv_record
-  Cerebrum/modules/dns/EntityNote.py
-    handles entity_note.  Should perhaps be moved into Cerebrum-core
   Cerebrum/modules/dns/IntegrityHelper.py
     various helper methods used by the API and bofhd to assert that we
     don't violate DNS schema etc.
