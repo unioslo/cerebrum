@@ -362,12 +362,12 @@ class AccountSearcher(Searcher):
 
         expire_date = form.get('expire_date', '').strip()
         if expire_date:
-            date = utils.get_date(expire_date)
+            date = utils.get_date(self.transaction, expire_date)
             main.set_expire_date(date)
 
         create_date = form.get('create_date', '').strip()
         if create_date:
-            date = utils.get_date(create_date)
+            date = utils.get_date(self.transaction, create_date)
             main.set_create_date(date)
 
         spread = form.get('spread', '').strip()
@@ -424,7 +424,7 @@ class PersonSearcher(Searcher):
 
         birthdate = form.get('birthdate', '').strip()
         if birthdate:
-            date = utils.get_date(birthdate)
+            date = utils.get_date(self.transaction, birthdate)
             person.set_birth_date(date)
             main = person
 

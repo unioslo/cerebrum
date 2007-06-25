@@ -185,12 +185,8 @@ def strptime(tr, date, format="%Y-%m-%d"):
     else:
         return None
 
-def get_date(sDate):
-    try:
-        oDate = mx.DateTime.strptime(sDate.strip(), "%Y-%m-%d")
-        return oDate
-    except mx.DateTime.Error, e:
-        return None
+def get_date(tr, sDate):
+    return strptime(tr, sDate.strip(), "%Y-%m-%d")
 
 def has_valid_session():
     """Tries to ping the server.  Returns True if we've got
