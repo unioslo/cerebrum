@@ -729,4 +729,15 @@ div.sub-nav ul li {
     overflow: hidden;
 }
 
+#searchresult td {
+    padding-right: 0.5em;
+}
+
+#searchresult th {
+    padding-right: 0.5em;
+    font-size: 110%;
+    font-weight: bold;
+    padding-bottom: 5px;
+}
+
 /* vim: sw=4 sts=4 expandtab */
