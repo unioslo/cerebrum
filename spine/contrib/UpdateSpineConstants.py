@@ -47,7 +47,7 @@ def update_spine_auth_codes(db_user, delete=False):
     auth_op_codes = Set()
     for cls in Builder.get_builder_classes():
         for method in Builder.get_builder_methods(cls):
-            name, data_type, write, args, exceptions = Builder.get_method_signature(method)
+            name, data_type, write, args, exceptions, auth_args = Builder.get_method_signature(method)
             code = "%s.%s" % (cls.__name__, name)
             assert len(code) <= 64, code
             auth_op_codes.add(code)
