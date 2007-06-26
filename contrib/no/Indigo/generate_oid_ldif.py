@@ -76,6 +76,7 @@ def get_account_info():
     const2str = dict()
     const2str[int(co.affiliation_ansatt)] = "ANSATTE"
     const2str[int(co.affiliation_elev)] = "ELEVER"
+    const2str[int(co.affiliation_affiliate)] = "TILKNYTTET"
     
     
 def process_txt_file(file):
@@ -314,6 +315,19 @@ def main():
     f.set_size_change_limit(10)
     process_prof_group("ELEVER", users, f)
     f.close()
+
+    # Dump info about users with co.affiliation_affiliate 
+    f = SimilarSizeWriter("%s/affi_user_oid.ldif" % oid_path, "w")
+    f.set_size_change_limit(10)
+    users = process_users(co.affiliation_affiliate, f)
+    f.close()
+    
+    # Make a group out of these users
+    f = SimilarSizeWriter("%s/affi_group_oid.ldif" % oid_path, "w")
+    f.set_size_change_limit(10)
+    process_prof_group("AFFILIATE", users, f)
+    f.close()
+
             
     # Make and populate groups with spread spread_oid_grp
     f = SimilarSizeWriter("%s/group_oid.ldif" % oid_path, "w")
