@@ -328,14 +328,20 @@ def register_spread_groups(emne_info, stprog_info):
                 elif kategori == 'studieleder':
                     title = 'Studieledere for '
                     rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
+                elif kategori == 'undakt':
+                    title = ''
+                    rettighet = uit_fronter_lib.Fronter.ROLE_WRITE
                 else:
-                    raise RuntimeError, "Ukjent kategori: %r" % (kategori,)
+                    raise RuntimeError, "Ukjent kategori: %s" % (kategori,)
                 #title += '%s (ver %s, %d. termin)' % (
                 #    subg_name_el[6].upper(), # EMNEKODE
                 #    subg_name_el[7],    # VERSJONSKODE
                 #    int(subg_name_el[8])) # TERMINNR
                 # UIT TITLE:
-                title += '%s' % (subg_name_el[6].upper()) # EMNEKODE
+                if kategori == 'undakt':
+                    title += '%s, %s' % (subg_name_el[6].upper(), subg_name_el[10].upper()) # EMNEKODE, UNDAKT
+                else:
+                    title += '%s' % (subg_name_el[6].upper()) # EMNEKODE
 
                 fronter_gname = ':'.join(subg_name_el)
                 print "$15"
@@ -579,6 +585,8 @@ def main():
     for sem, sem_node_id in ((this_sem, emner_this_sem_id),
                              (next_sem, emner_next_sem_id)):
         for suffix, title in (
+            ('undakt', 'Undervisningsaktiviteter %s %s' % (sem[1].upper(),
+                                             sem[0])),
             ('student', 'Studenter %s %s' % (sem[1].upper(),
                                              sem[0])),
             ('foreleser', 'Forelesere %s %s' % (sem[1].upper(),
