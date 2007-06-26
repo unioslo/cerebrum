@@ -101,7 +101,7 @@ def handle(error):
     
     report = config.conf.getboolean('error', 'allow_reporting')
     
-    if path in referer or 'login' in path:
+    if not referer or path in referer or 'login' in path:
         template = ErrorTemplate()
         return template.error(title, message, path, tracebk, referer, report)
 
