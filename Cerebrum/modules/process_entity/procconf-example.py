@@ -36,7 +36,11 @@ PERSON_SPREADS = ('person@ldap',)
 OU_SPREADS = ('ou@ad',)
 SHADOW_GROUP_SPREAD = ('group@ad', 'group@oid')
 AC_TYPE_GROUP_SPREAD = ('group@ad')
-
+# Dict of 'affiliation' -> 'spread' mappings. process_entity will
+# make a union if an account has two or more affiliations.
+ACCOUNT_SPREADS = {'ANSATT': ('account@lms', 'account@oid'),
+                   'ELEV': ('account@lms', 'account@oid'),
+                   'AFFILIATE': () }
 
 # Handle the name of shadow_groups. Shadow groups are groups created
 # from groups already present in Cerebrum, tagged with

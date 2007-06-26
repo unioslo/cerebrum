@@ -26,7 +26,7 @@ from mx import DateTime
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, auto_super
-from Cerebrum.Constants import _SpreadCode
+from Cerebrum.Constants import _SpreadCode, _PersonAffiliationCode
 
 class ProcHandler(object):
     """Handle entities. For now, business logic is implemented in code
@@ -45,17 +45,16 @@ class ProcHandler(object):
         # Populated on demand
         self.str2const = None
         self.default_creator_id = None
-        
 
     def _make_str2const(self):
-        if not self.str2const:
-            self.str2const = dict()
-            for c in dir(self._co):
-                tmp = getattr(self._co, c)
-                if isinstance(tmp, _SpreadCode):
-                    self.str2const[str(tmp)] = tmp
-
-
+        """Map Constant strings to actual objects."""
+        if self.str2const:
+            return
+        self.str2const = dict()
+        for c in dir(self._co):
+            tmp = getattr(self._co, c)
+            if isinstance(tmp, (_SpreadCode, _PersonAffiliationCode)):
+                self.str2const[str(tmp)] = tmp
 
     def _create_account(self, owner):
         """Create a standard account."""
@@ -64,7 +63,7 @@ class ProcHandler(object):
         if not self.str2const:
             self._make_str2const()
 
-        if self._ac is None:
+        if not self._ac:
             self._ac = Factory.get('Account')(self.db)
 
         # default_creator_id is needed for new accounts
@@ -89,14 +88,6 @@ class ProcHandler(object):
             self._ac.write_db()
         else:
             self._ac.find(ac)
-            
-        change = False
-        for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-            if not self._ac.has_spread(int(self.str2const[spread])):    
-                self._ac.add_spread(int(self.str2const[spread]))
-                change = True
-        if change:
-            self._ac.write_db()
             
         return self._ac
                     
@@ -160,28 +151,52 @@ class ProcHandler(object):
             person.write_db()
             
         # Loop over the person's account(s) and correct affiliations
+        # and spreads
         for account in person.get_accounts():
             account_affiliations = []
             self._ac.clear()
             self._ac.find(account['account_id'])
+            # Update affiliations
             for row in self._ac.get_account_types(all_persons_types=True,
                                                   filter_expired=False):
                 account_affiliations.append((row['ou_id'], row['affiliation']))
 
             rem, add = _diff_aff(person_affiliations, account_affiliations)
-            changed = False
+            change = False
             for r in rem:
                 self._ac.del_account_type(r[0], r[1])
-                changed = True
+                change = True
                 self.logger.info("Account '%s' removed type '%s', '%s'." % (self._ac.account_name, r[0], r[1]))
             for a in add:
                 self._ac.set_account_type(a[0], a[1])
-                changed = True
+                change = True
                 self.logger.info("Account '%s' added type '%s', '%s'." % (self._ac.account_name, a[0], a[1]))
             # TBD: set expire_date if no types remain?
-            if changed:
-                self._ac.write_db()
 
+            # Update account spreads
+            acc_spreads = []
+            for i in person_affiliations:
+                aff_str = str(_PersonAffiliationCode(i[1]))
+                if aff_str not in procconf.ACCOUNT_SPREADS:
+                    continue
+                spreads = [int(self.str2const[s]) for s in procconf.ACCOUNT_SPREADS[aff_str]]
+                acc_spreads += [s for s in spreads if s not in acc_spreads]
+            for row in self._ac.get_spread():
+                # Annoying "feature". get_spread() return a tuple of one-element tuples.
+                if int(row[0]) not in acc_spreads:
+                    self._ac.delete_spread(row[0])
+                    self.logger.info("Account '%s' removed spread '%s'." % (self._ac.account_name,
+                                                                            str(_SpreadCode(int(row[0])))))
+                    change = True
+            for spread in acc_spreads:
+                if not self._ac.has_spread(spread):
+                    self._ac.add_spread(spread)
+                    self.logger.info("Account '%s' added spread '%s'." % (self._ac.account_name,
+                                                                          str(_SpreadCode(int(spread)))))
+                    change = True
+            if change:
+                self._ac.write_db()   
+                # print self._ac.account_name, person_affiliations, self._ac.get_spread()
 
     def _diff_groups(self, grp, shdw_grp):
         """Make sure grp's persons' accounts are represented in the
