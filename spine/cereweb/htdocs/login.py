@@ -24,6 +24,7 @@ from omniORB import CORBA
 
 import cgi
 from lib import utils
+from lib import Messages
 from lib.Options import Options
 from lib.templates.Login import Login
 import config
@@ -70,9 +71,12 @@ def login(**vargs):
     if utils.has_valid_session():
         utils.redirect(client)
 
-    msg = utils.get_messages()
     if vargs.get('msg'):
-        msg.append((vargs.get('msg'), True))
+        Messages.queue_message(
+            title='No Title',
+            message=vargs.get('msg'),
+            is_error=True,
+        )
 
     if username and password:
         cherrypy.session['username'] = username
@@ -89,10 +93,17 @@ def login(**vargs):
             if not session.is_admin():
                 client = '/user_client'
         except CORBA.TRANSIENT, e:
-            msg.append(("Could not connect to the Spine server.  Please contact Orakel.", True))
+            Messages.queue_message(
+                title="Connection Failed",
+                message="Could not connect to the Spine server.  Please contact Orakel.",
+                is_error=True,
+            )
         except Exception, e:
-            error = cgi.escape(str(e))
-            msg.append((error, True))
+            Messages.queue_message(
+                title="Login Failed",
+                message="Incorrect username/password combination.  Please try again.",
+                is_error=True,
+            )
         else:
             cherrypy.session['session'] = session
             cherrypy.session['timeout'] = session.get_timeout()
@@ -112,7 +123,7 @@ def login(**vargs):
 
     namespace = {
         'username': username,
-        'messages': msg,
+        'messages': utils.get_messages(),
         'client': client,
     }
     template = Login(searchList=[namespace])
