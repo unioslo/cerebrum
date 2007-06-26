@@ -103,7 +103,7 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
             for row in bofhd_os.list_operation_attrs(op_id):
                 attr = row['attr']
                 bofhd_os.del_op_attrs(op_id, attr)
-            bofhd_os.del_operation(op_code)
+            bofhd_os.del_operation(op_code, op_id=op_id)
             bofhd_os.write_db()
 
     def _get_op_roles(self):
