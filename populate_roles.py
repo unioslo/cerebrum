@@ -24,6 +24,7 @@
 
 import os
 import sys
+import time
 import xml.sax
 import getopt
 
@@ -53,8 +54,11 @@ db.cl_init(change_program='pop_itroles')
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 const = Factory.get('Constants')(db)
+logger = Factory.get_logger('cronjob')
 
-logger = None
+TODAY=time.strftime("%Y%m%d")
+sys_y_default_file = os.path.join(cereconf.DUMPDIR,
+                                  'sysY','sysY_%s.xml' % (TODAY))
 
 class roles_xml_parser(xml.sax.ContentHandler):
     "Parserklasse for it_roles.xml."
@@ -298,41 +302,41 @@ def process_role(name,attrs,members):
 
 
 def rolle_helper(obj,el_name):
-    #print "RolleHELPER :el name=%s" % (el_name)
     if (el_name=='role'):
         process_role(el_name,obj.role_attrs,obj.role_members)
         pass
     elif (el_name=='member'):
         attribute = obj._elemdata
         member_name = ''.join(attribute)
-        obj.role_members.append(member_name)
-        #print "ROLLEHELPER: MEMBER: %s " % (member_name)
-    
+        obj.role_members.append(member_name)    
     return
 
-def usage():
+
+def usage(msg=None):
+    if msg:
+        print msg
+        
     print """
      Skriv usage melding her
      populate_roles.py
      -r name | --role_file=name    use file named "name" as input file
-     -l name | --logger_name=name  use logger target named "name"
+     --logger-name=name  use logger target named "name"
+     --logger-level=level  set logger level
      -d | --dryrun                 dryrun, do not change database.
      
     """
     sys.exit(1)
 
 
-
 def main():
-    global logger
 
     dryrun = False
-    logger_name = cereconf.DEFAULT_LOGGER_TARGET
-    default_role_file = "/cerebrum/lib/python2.3/site-packages/Cerebrum/modules/no/uit/it_roles.xml"
+    role_file = sys_y_default_file
+
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'r:l:d',['role_file','logger_name','dryrun'])
-    except getopt.GetoptError:
-        usage()
+        opts,args = getopt.getopt(sys.argv[1:],'r:dh',['role_file','dryrun','help'])
+    except getopt.GetoptError,m:
+        usage(m)
 
     ret = 0
     person_id = 0
@@ -340,16 +344,14 @@ def main():
     dryrun = 0
     for opt,val in opts:
         if opt in('-r','--role_file'):
-            default_role_file = val
-        if opt in('-l','--logger_name'):
-            logger_name = val
+            role_file = val
         if opt in('-d','--dryrun'):
             dryrun = True
+        if opt in('-h','--help'):
+            usage()
     
-    logger = Factory.get_logger(logger_name)
-    role_file = default_role_file
-    roles_xml_parser(default_role_file, rolle_helper)
 
+    roles_xml_parser(role_file, rolle_helper)
 
     if (dryrun):
         logger.info("Dryrun, rollback changes")
