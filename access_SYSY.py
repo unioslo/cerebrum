@@ -26,7 +26,9 @@ We need something now!
 Refine later....
 
 """
+import os
 import sys
+import time
 
 import cerebrum_path
 import cereconf
@@ -37,6 +39,10 @@ from Cerebrum.extlib import xmlprinter
 
 
 db = None
+
+TODAY=time.strftime("%Y%m%d")
+sys_y_default_file = os.path.join(cereconf.DUMPDIR,
+                                  'sysY','sysY_%s.xml' % (TODAY))
 
 
 class SystemY:
@@ -147,7 +153,7 @@ def try_connect():
     
 def main():
     try_connect()
-    work = SystemY(cereconf.SYS_Y_DEFAULT_FILE)
+    work = SystemY(sys_y_default_file)
 
 
 if __name__ == '__main__':
