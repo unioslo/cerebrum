@@ -69,7 +69,7 @@ class BofhdExtension(object):
         '_sync_category', '_update_email_for_ou',
         '_get_account', '_get_email_domain',
         '_split_email_address', '_remove_email_address',
-        '_get_ou', '_get_affiliationid'
+        '_get_ou', '_get_affiliationid', '_format_ou_name'
         )
         
     def __new__(cls, *arg, **karg):
