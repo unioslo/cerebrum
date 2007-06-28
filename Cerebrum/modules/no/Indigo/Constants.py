@@ -140,9 +140,9 @@ class Constants(Constants.Constants):
     affiliation_status_teacher_aktiv = _PersonAffStatusCode(affiliation_teacher,
                                                              'aktiv',
                                                              'Lærer aktiv ved en skole.')
-    affiliation_affiliate = _PersonAffiliationCode('AFFILIATE',
+    affiliation_tilknyttet = _PersonAffiliationCode('TILKNYTTET',
                                                   'Personen knyttet til organisasjonen')
-    affiliation_status_affiliate_aktiv = _PersonAffStatusCode(affiliation_affiliate,
+    affiliation_status_tilknyttet_aktiv = _PersonAffStatusCode(affiliation_tilknyttet,
                                                              'aktiv',
                                                              'Person aktiv ved organisasjonen.')
     
