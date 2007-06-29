@@ -25,12 +25,24 @@ import cereconf
 import re
 import pickle
 import sys
+import time
+import os
 import getopt
 
 import xml.sax
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+
+# Default file locations
+t = time.localtime()
+dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
+default_input_file = os.path.join(dumpdir,'uit_ou_%d%02d%02d.xml' % (t[0], t[1], t[2]))
+
+# Default source system
+default_source_system = "system_fs"
+default_perspective = "perspective_fs"
+
 
 OU_class = Factory.get('OU')
 db = Factory.get('Database')()
@@ -327,7 +339,7 @@ def main():
     except getopt.GetoptError:
         usage(1)
     verbose = 0
-    perspective = None
+    perspective = getattr(co, default_perspective)
     sources = []
     source_file = None
     source_system = None
@@ -345,10 +357,17 @@ def main():
         elif opt in ('--source-system',):
             # This option is deprecated; use --source-spec instead.
             source_system = val
+    
     if perspective is None:
         usage(2)
+        
+    # Default source system and input file
+    if not sources and source_file is None and source_system is None:
+        sources.append(default_source_system+':'+default_input_file)
+     
     if sources:
         if source_file is None and source_system is None:
+            print sources
             import_org_units(sources)
         else:
             usage(3)
@@ -359,5 +378,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: b36900ea-b426-11da-9122-5a6bd2dda27a

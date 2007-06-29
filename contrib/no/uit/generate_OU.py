@@ -30,23 +30,33 @@ import getopt
 import sys
 import string
 import os
+import time
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum.modules.no.uit.access_FS import FS
 from Cerebrum.modules.no.uit.uit_txt2xml_lib import FSImport
+
+logger = None
+
+# Default file locations
+t = time.localtime()
+sourcedir = cereconf.CB_SOURCEDATA_PATH
+default_input_file = os.path.join(sourcedir, 'stedtre_%02d_%d.csv' % (1, t[0]))
+
+dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
+default_output_file = os.path.join(dumpdir,'uit_ou_%d%02d%02d.xml' % (t[0], t[1], t[2]))
+
 class ou:
 
-    def __init__(self,logger,ou_file):
+    def __init__(self,ou_file):
         if not(os.path.isfile(ou_file)):
-            self.logger.error("ou file:%s does not exist\n" % ou_file)
+            logger.error("ou file:%s does not exist\n" % ou_file)
             sys.exit(1)
         self.ou_file = ou_file
         # BAS
         self.db = Factory.get('Database')()
-        self.logger = Factory.get_logger(logger)
-
 
         # FS 
         user="fsbas"
@@ -64,7 +74,7 @@ class ou:
         query = "select old_ou_id from ou_history where old_ou_id='%s'" % INST_NR
         db_row = self.db.query(query)
         if(len(db_row) > 0):
-            self.logger.debug("%s IS NOT TO BE REGISTRED IN CEREBRUM" % INST_NR)
+            logger.debug("%s IS NOT TO BE REGISTRED IN CEREBRUM" % INST_NR)
             # indication that all references to this ou is to be replaced with another one.
             # i.e, this ou is not to be inserted
             return 0
@@ -245,7 +255,7 @@ class ou:
                     break
             if a_ou_check==False:
                 # The OU from the authoritative file does not exist in FS. Add the authoritative OU data to the list
-                self.logger.warn("Not in FS: %s - %s" % (a_ou['temp_inst_nr'],a_ou['stedlangnavn_bokmal']))
+                logger.warn("Not in FS: %s - %s" % (a_ou['temp_inst_nr'],a_ou['stedlangnavn_bokmal']))
                 result_ou.append(a_ou)
         return result_ou
 
@@ -266,42 +276,41 @@ class ou:
 
         
 def main():
+
+    global logger
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'o:O:l:',['ou_source=','Out_file=','logger-target='])
+        opts,args = getopt.getopt(sys.argv[1:],'o:O:',['ou_source=','Out_file='])
     except getopt.GetoptError:
         usage()
-    ou_file = None
-    out_file=None
-    logger_name = 'cronjob'
+        
+    ou_file = default_input_file
+    out_file = default_output_file
     for opt,val in opts:
         if opt in ('-o','--ou_source'):
             ou_file = val
         if opt in ('-O','-Out_file'):
             out_file = val
-        if opt in ('-l','-logger-name'):
-            logger_name = val
-    if(out_file != None and ou_file !=None):
-        # initiate the ou instance
-        my_ou = ou(logger_name,ou_file)
-        # get ou from FS.
-        fs_ou = my_ou.get_fs_ou()
-        # get OU from the authoritative file
-        auth_ou = my_ou.get_authoritative_ou()
-        # generate the final ou list based on the authoritative ou list and data from FS
-        final_ou = my_ou.generate_ou(fs_ou,auth_ou)
-        # print the ou xml file
-        my_ou.print_ou(final_ou,out_file)
-    else:
-        usage()
+
+            
+    # initiate the ou instance
+    my_ou = ou(ou_file)
+    # get ou from FS.
+    fs_ou = my_ou.get_fs_ou()
+    # get OU from the authoritative file
+    auth_ou = my_ou.get_authoritative_ou()
+    # generate the final ou list based on the authoritative ou list and data from FS
+    final_ou = my_ou.generate_ou(fs_ou,auth_ou)
+    # print the ou xml file
+    my_ou.print_ou(final_ou,out_file)
 
 
 def usage():
     print """Usage: python new_generate_OU.py -o ou_file -O out_file.xml | -l
     
     -o | --ou_source - ou data source file
-    -O | --Out_file - indicates file to write result xml.
-    -l | --logger-name - where to send log messages
-    """
+    -O | --Out_file - indicates file to write result xml"""
     sys.exit(0)
 
 if __name__ == '__main__':
