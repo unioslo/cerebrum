@@ -21,6 +21,35 @@ import time
 import sys
 from Cerebrum.modules.no import access_FS
 
+def str_upper_no(string, encoding='iso-8859-1'):
+    '''Converts Norwegian iso strings to upper correctly. Eg. æøå -> ÆØÅ
+    Ex. Usage: my_string = str_upper_no('aæeøå')'''
+    return unicode(string, encoding).upper().encode(encoding)
+
+def get_semester(uppercase = False):
+    '''Returns two pairs: ((this_year, this_sem),(next_year,next_sem))
+    Ex. Usage: this_sem, next_sem = access_FS.get_semester()
+    '''    
+    spring = 'vår'
+    autumn = 'høst'
+    
+    if uppercase:
+        spring = str_upper_no(spring)
+        autumn = str_upper_no(autumn)
+    
+    t = time.localtime()[0:2]
+    this_year = t[0]
+    if t[1] <= 6:
+        this_sem = spring
+        next_year = this_year
+        next_sem = autumn
+    else:
+        this_sem = autumn
+        next_year = this_year + 1
+        next_sem = spring
+    return ((str(this_year), this_sem), (str(next_year), next_sem))
+
+
 class UiTOU(access_FS.StudieInfo):
     def GetAktiveOUer(self,institusjonsnr=186):
         """Henter data om aktive OU'er fra FS"""
