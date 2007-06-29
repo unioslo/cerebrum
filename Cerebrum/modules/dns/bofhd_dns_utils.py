@@ -72,6 +72,7 @@ class DnsBofhdUtils(object):
             self._dns_owner.clear()
             self._dns_owner.find(old_ref)
             self._dns_owner.name = new_id
+            self._dns_owner.zone = self.get_zone_from_name(new_id)
             self._dns_owner.write_db()
 
     def ip_free(self, name_type, id, force):
@@ -188,12 +189,9 @@ class DnsBofhdUtils(object):
     #
     # dns-owners, general_dns_records and mx-sets, srv_records
     #
-    
-    def alloc_dns_owner(self, name, mx_set=None, warn_other=False, force=False):
-        """If warn_other=True, force must be True to place the new
-        name in the other zone.  This is meant to catch attempts to
-        for instance register CNAMEs in zones that we don't populate.
-        """
+    def get_zone_from_name(self, name, warn_other=False):
+        """Try to guess a zone from a name. Returns a DnsZone Constant
+        object."""
         def _get_reverse_order(lst):
             """Return index of sorted zones"""
             # We must sort the zones to assert that trofast.uio.no
@@ -204,8 +202,6 @@ class DnsBofhdUtils(object):
             t = range(len(lst))
             t.sort(lambda a, b: cmp(lst[b], lst[a]))
             return t
-
-        self._dns_owner.clear()
         zone = None
         zones = self.const.fetch_constants(self.const.DnsZone)
         for n in _get_reverse_order(zones):
@@ -217,6 +213,17 @@ class DnsBofhdUtils(object):
             if warn_other and not force:
                 raise CerebrumError, "'%s' would end up in the 'other' zone, must force (y)" % name
             zone = self.const.other_zone
+        return zone
+
+    def alloc_dns_owner(self, name, mx_set=None, warn_other=False, force=False):
+        """If warn_other=True, force must be True to place the new
+        name in the other zone.  This is meant to catch attempts to
+        for instance register CNAMEs in zones that we don't populate.
+        """
+        warn = False
+        if warn_other and not force:
+            warn = True
+        zone = self.get_zone_from_name(name, warn)
         self._dns_owner.populate(zone, name, mx_set_id=mx_set)
         self._dns_owner.write_db()
         return self._dns_owner.entity_id
