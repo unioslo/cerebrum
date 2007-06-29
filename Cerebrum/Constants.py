@@ -182,6 +182,11 @@ class _CerebrumCode(DatabaseAccessor):
                                             self.__dict__))
         return self.int
 
+    def __hash__(self):
+        "Help method to be able to hash constants directly."
+        return hash(self.__int__())
+    
+
     def __eq__(self, other):
         if other is None:
             return False
