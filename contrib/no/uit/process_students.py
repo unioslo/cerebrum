@@ -302,6 +302,7 @@ class AccountUtil(object):
             elif c_id == 'remove_tilbud_quarantine':
                 user.delete_entity_quarantine(dta)
             elif c_id == 'add_spread':
+                logger.debug("Adding spread: %s" % (dta,))
                 user.add_spread(dta)
             elif c_id == 'add_person_spread':
                 if (not hasattr(person_obj, 'entity_id') or
@@ -384,6 +385,19 @@ class AccountUtil(object):
             if (ac.get_gid() is None): # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
 
+        # Populate spreads
+        has_acount_spreads = ac.get_spreads()
+        has_person_spreads = persons[fnr].get_spreads()
+        for spread in profile.get_spreads():
+            if spread.entity_type == const.entity_account:
+                if not int(spread) in has_acount_spreads:
+                    changes.append(('add_spread', spread))
+            elif spread.entity_type == const.entity_person:
+                if not int(spread) in has_person_spreads:
+                    changes.append(('add_person_spread', spread))
+                    has_person_spreads.append(int(spread))
+
+
         ## MAY BE WRONG! What if another sourcesys has set another date (further out)?
         #if ac.get_expire_date() != default_expire_date:
         #    changes.append(('expire', default_expire_date))
@@ -464,19 +478,9 @@ class AccountUtil(object):
                     changes.append(('remove_tilbud_quarantine',q))
                     break
 
-        # Populate spreads
-        has_acount_spreads = ac.get_spreads()
-        has_person_spreads = persons[fnr].get_spreads()
-        for spread in profile.get_spreads():
-            if spread.entity_type == const.entity_account:
-                if not int(spread) in has_acount_spreads:
-                    changes.append(('add_spread', spread))
-            elif spread.entity_type == const.entity_person:
-                if not int(spread) in has_person_spreads:
-                    changes.append(('add_person_spread', spread))
-                    has_person_spreads.append(int(spread))
 
         changes.extend(AccountUtil._populate_account_affiliations(account_id, fnr))
+
         # We have now collected all changes that would need fetching of
         # the user object.
         if changes:
