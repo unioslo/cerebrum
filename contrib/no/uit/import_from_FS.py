@@ -33,6 +33,7 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.uit.access_FS_obsolete import UiTFS
 from Cerebrum.modules.no.uit.access_FS import FS
+from Cerebrum.modules.no.uit import access_FS
 from Cerebrum.Utils import Factory
 
 dumpdir = os.path.join(cereconf.DUMPDIR,"FS")
@@ -172,8 +173,10 @@ def  write_undakt_info(outfile):
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(1)
     f.write(xml.xml_hdr + "<data>\n")
-    # FIXME: hardkodet år og sem, BjørnT. 2007-06-13
-    for semester in (('2007','VÅR'),('2007','HØST')):
+    
+    this, next = access_FS.get_semester(uppercase=True)
+    
+    for semester in (this,next):
         cols,akt = _ext_cols(fs.undervisning.list_aktiviteter(*semester))
         for r in akt:
             f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'undakt') + "\n")
@@ -232,8 +235,10 @@ def write_undakt_student(outfile):
 
     f.set_minimum_size_limit(2*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    # FIXME: hardkodet år og sem, BjørnT. 2007-06-13
-    for semester in (('2007','VÅR'),('2007','HØST')):
+    
+    this, next = access_FS.get_semester(uppercase=True)
+    
+    for semester in (this,next):
         cols,akt = _ext_cols(fs.undervisning.list_aktiviteter(*semester))
         for a in akt:
             a_attr = {}
@@ -402,6 +407,8 @@ def main():
             undakt_file = val
         elif o in ('--uit-fnr-update-file',):
             fnr_update_file = val
+        elif o in ('--uit-emneinfo-file',):
+            emne_info_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):

@@ -56,6 +56,7 @@ The 'date' attribute is formatted thus 'YYYY-MM-DD HH:MM:SS'.
 """
 
 import sys
+import os
 import getopt
 import xml.sax
 import time
@@ -67,7 +68,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 
-
+# Define default file locations
+default_fnr_file = os.path.join(cereconf.DUMPDIR,"FS",'fnr_update.xml')
 
 
 class ExternalIDParser(xml.sax.ContentHandler):
@@ -291,7 +293,7 @@ def main():
     """
 
     global logger
-    logger = Factory.get_logger("cronjob")
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
     logger.info("Generating external id updates")
     
     try:
@@ -316,8 +318,11 @@ def main():
     person_old = Factory.get("Person")(db)
     person_new = Factory.get("Person")(db)
 
+    if not rest:
+        rest = (default_fnr_file,)
     for filename in rest:
         process_file(filename, db, const, person_old, person_new, exemptions)
+        
 
     if dryrun:
         db.rollback()

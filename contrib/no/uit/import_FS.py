@@ -37,8 +37,12 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit.AutoStud import StudentInfo
 from Cerebrum.modules.no.uit import AutoStud
 
-default_personfile = "/cerebrum/var/dumps/FS/merged_persons.xml"
-default_studieprogramfile = "/cerebrum/var/dumps/FS/studieprogrammer.xml"
+# Define default file locations
+dumpdir = os.path.join(cereconf.DUMPDIR,"FS")
+default_personfile = os.path.join(dumpdir,'merged_persons.xml')
+default_studieprogramfile = os.path.join(dumpdir,'studieprog.xml')
+
+
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
@@ -469,7 +473,9 @@ def main():
     global old_aff, include_delete, no_name
     verbose = 0
     include_delete = False
-    logger_name = cereconf.DEFAULT_LOGGER_TARGET
+    
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+    
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:l:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
         'generate-groups','include-delete','logger-name' ])
@@ -487,11 +493,7 @@ def main():
             gen_groups = True
         elif opt in ('-d', '--include-delete'):
             include_delete = True
-        elif opt in ('-l', '--logger-name'):
-            logger_name = val
 
-
-    logger = Factory.get_logger(logger_name)
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
         sys.exit(1)
@@ -536,5 +538,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: ff3b202c-7ed2-4744-ac53-cad23a8adeeb

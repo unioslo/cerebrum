@@ -30,6 +30,10 @@ import cerebrum_path
 import cereconf
 import getopt
 import sys
+import os
+
+# Define default file locations
+default_underv_enhet_file = os.path.join(cereconf.DUMPDIR,"FS",'underv_enhet.xml')
 
 
 def insert_temp_undervenhet(undervenhet,message):
@@ -47,40 +51,35 @@ def insert_temp_undervenhet(undervenhet,message):
     except Exception,m:
         sys.write.stderr("Error updating %s file, error was: %s" % (undervenhet, m))
         
-    #log_handle.writelines("insert_temp_undervenhet...done\n")
     return message
 
 
 def main():
     try:
-	opts,args = getopt.getopt(sys.argv[1:],'u:','undervenhet=')
+        opts,args = getopt.getopt(sys.argv[1:],'hu:',['help','undervenhet='])
     except getopt.GetoptError:
-	usage()
-	sys.exit()
+        usage()
+        sys.exit()
     
-#    log_path = "%s/%s" % (cereconf.CB_PREFIX,'var/log/')
-#    log_file= "%s/%s" % (log_path,"sut.log")
-#    log_handle = open (log_file,"w")
-    undervenhet_file = 0
+    undervenhet_file = default_underv_enhet_file
     message = ""
     for opt,val in opts:
-	if opt in('-u','--undervenhet'):
-	    undervenhet_file = val
+        if opt in('-u','--undervenhet'):
+            undervenhet_file = val
+        elif opt in ('-h','--help'):
+            usage()
+            sys.exit(1)
     
-    if(undervenhet_file != 0):
-	message = insert_temp_undervenhet(undervenhet_file,message)
-    else:
-	usage()
+    message = insert_temp_undervenhet(undervenhet_file,message)
 
 def usage():
     print """Usage: python undervenhet_update.py -u <file>
     
-	-u | --undervenhet:        inserts a temp undervenhet into the file given
+    -u | --undervenhet:        inserts a temp undervenhet into the file given
+    -h | --help                     shows this help text
     """
-	
 
 
 if __name__=='__main__':
     main()
-        
-# arch-tag: bb4c91a0-b426-11da-9f85-c955c31ee92c
+
