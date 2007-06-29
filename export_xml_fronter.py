@@ -31,7 +31,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-#from Cerebrum.modules.no.uit import access_FS
+from Cerebrum.modules.no.uit import access_FSUiT
 from Cerebrum.modules.no import access_FS
 from Cerebrum import Database
 from Cerebrum import Person
@@ -42,8 +42,13 @@ from Cerebrum.extlib import logging
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uit.Email import email_address
 
+# Define default file locations
+dumpdir = os.path.join(cereconf.DUMPDIR,"Fronter")
+default_log_dir = os.path.join(cereconf.CB_PREFIX,'var','log')
+default_debug_file = "x-import.log"
+default_export_file = 'test.xml'
+
 db = const = logger = None
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
 fxml = None
 romprofil_id = {}
 
@@ -55,21 +60,20 @@ romprofil_id = {}
 
 
 def init_globals():
-    global db, const, logger,logger_name
+    global db, const, logger
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
-    
-    cf_dir = os.path.join(cereconf.DUMPDIR, 'Fronter')
-    log_dir = os.path.join(cereconf.CB_PREFIX,'var','log')
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+    cf_dir = dumpdir
+    log_dir = default_log_dir
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h:l:',
+        opts, args = getopt.getopt(sys.argv[1:], 'h:',
                                    ['host=', 'rom-profil=',
-                                    'debug-file=', 'debug-level=',
-                                    'logger_name='])
+                                    'debug-file=', 'debug-level='])
     except getopt.GetoptError:
         usage(1)
-    debug_file = os.path.join(log_dir, "x-import.log")
+    debug_file = os.path.join(log_dir, default_debug_file)
     debug_level = 4
     host = 'uit'
     for opt, val in opts:
@@ -82,13 +86,8 @@ def init_globals():
         elif opt == 'rom-profil':
             profil_navn, profil_id = val.split(':')
             romprofil_id[profil_navn] = profil_id
-        elif opt in ('-l','--logger_name'):
-            logger_name=val
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
-
-
-    logger = Factory.get_logger(logger_name)
 
     host_profiles = {'uit': {'emnerom': 128, # old value 1520
                              'studieprogram': 128},# old value 1521
@@ -100,7 +99,7 @@ def init_globals():
     if host_profiles.has_key(host):
         romprofil_id.update(host_profiles[host])
 
-    filename = os.path.join(cf_dir, 'test.xml')
+    filename = os.path.join(cf_dir, default_export_file)
     if len(args) == 1:
         filename = args[0]
     elif len(args) <> 0:
@@ -112,19 +111,6 @@ def init_globals():
                                   debug_file = debug_file,
                                   debug_level = debug_level,
                                   fronter = None)
-
-def get_semester():
-    t = time.localtime()[0:2]
-    this_year = t[0]
-    if t[1] <= 6:
-        this_sem = 'vår'
-        next_year = this_year
-        next_sem = 'høst'
-    else:
-        this_sem = 'høst'
-        next_year = this_year + 1
-        next_sem = 'vår'
-    return ((str(this_year), this_sem), (str(next_year), next_sem))
 
 def load_acc2name():
     #etarget = Email.EmailTarget(db)
@@ -563,7 +549,7 @@ def main():
     print "$11#"
     register_group('Emner', emner_id, root_node_id)
 
-    this_sem, next_sem = get_semester()
+    this_sem, next_sem = access_FSUiT.get_semester()
     emner_this_sem_id = emner_id + ':%s:%s' % tuple(this_sem)
     emner_next_sem_id = emner_id + ':%s:%s' % tuple(next_sem)
     print "$10#"
@@ -741,5 +727,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: afa8c990-b426-11da-8ea8-699d23c0e39e

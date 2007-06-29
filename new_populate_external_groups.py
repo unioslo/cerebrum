@@ -29,24 +29,29 @@ import locale
 import getopt
 import time
 
-if True:
-    import cerebrum_path
-    import cereconf
-    from Cerebrum import Errors
-    from Cerebrum.Utils import Factory
-    from Cerebrum.modules import Email
-    from Cerebrum.modules.no import access_FS
-    from Cerebrum.modules.no.uit.access_FS import person_xml_parser
-    from Cerebrum.modules.no.uit.access_FS import student_undakt_xml_parser
-    from Cerebrum.modules.no.uit.access_FS import undakt_xml_parser
-else:
-    class liksom_module(object): pass
-    cereconf = liksom_module()
-    cereconf.INSTITUTION_DOMAIN_NAME = 'uit.no'
+import cerebrum_path
+import cereconf
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
+from Cerebrum.modules.no import access_FS
+from Cerebrum.modules.no.uit.access_FS import person_xml_parser
+from Cerebrum.modules.no.uit.access_FS import student_undakt_xml_parser
+from Cerebrum.modules.no.uit.access_FS import undakt_xml_parser
+
+# Define default file locations
+dumpdir = os.path.join(cereconf.DUMPDIR,"FS")
+default_person_file =   'person.xml'
+default_role_file = 'roles.xml'
+default_undvenh_file = 'underv_enhet.xml'
+default_undenh_student_file = 'student_undenh.xml'
+default_studieprogram_file = 'studieprog.xml'
+default_undakt_file = 'undakt.xml'
+default_undakt_student_file = 'student_undakt.xml'
 
 # Define all global variables, to avoid pychecker warnings.
 db = logger = fnr2account_id = const = None
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
+
 
 ###
 ### Struktur FS-grupper i Cerebrum
@@ -75,6 +80,9 @@ logger_name = cereconf.DEFAULT_LOGGER_TARGET
 #             4  Gruppe med studieledere knyttet til en und.enhet
 #                  Eks "internal:uit.no:fs:201:undenh:2004:vår:be-102:g:1:
 #                       studieleder"
+#             4  Gruppe med undervisningsaktiviteter knyttet til en und.enhet
+#                  Eks "internal:uit.no:fs:201:undenh:2004:vår:fil-0700:1:1:
+#                       undakt:2-1"
 #    1  Gruppering av alle grupper relatert til studieprogram ved en
 #       institusjon
 #         internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram
@@ -984,21 +992,20 @@ def prefetch_primaryusers():
 def init_globals():
     global db, const, logger, fnr2account_id
     global dump_dir, dryrun, immediate_evu_expire
-    global logger_name
 
     # Håndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
-    dump_dir = '/cerebrum/var/dumps/FS'
+    dump_dir = dumpdir
     dryrun = False
     immediate_evu_expire = False
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
     opts, rest = getopt.getopt(sys.argv[1:],
                                "d:rl:",
                                ["dump-dir=", "dryrun",
-                                "immediate-evu-expire",
-                                "logger_name="])
+                                "immediate-evu-expire"])
     for option, value in opts:
         if option in ("-d", "--dump-dir"):
             dump_dir = value
@@ -1006,10 +1013,7 @@ def init_globals():
             dryrun = True
         elif option in ("--immediate-evu-expire",):
             immediate_evu_expire = True
-        elif option in ('-l','--logger_name'):
-            logger_name=value
 
-    logger = Factory.get_logger(logger_name)
     db = Factory.get("Database")()
     db.cl_init(change_program='pop_extern_grps')
     const = Factory.get("Constants")(db)
@@ -1032,9 +1036,9 @@ def main():
         if el_name == 'undenhet':
             fs_super.add('undenh', attrs)
 
-    logger.info("Leser XML-fil: underv_enhet.xml")
+    logger.info("Leser XML-fil: %s", default_undvenh_file)
     access_FS.underv_enhet_xml_parser(
-        os.path.join(dump_dir, 'underv_enhet.xml'),
+        os.path.join(dump_dir, default_undvenh_file),
         create_UE_helper)
 
     # Meld studenter inn i undervisningsenhet-gruppene
@@ -1044,9 +1048,9 @@ def main():
                                                   'student'):
                 undenh.add(attrs)
                 
-    logger.info("Leser XML-fil: student_undenh.xml")
+    logger.info("Leser XML-fil: %s", default_undenh_student_file)
     access_FS.student_undenh_xml_parser(
-        os.path.join(dump_dir, 'student_undenh.xml'),
+        os.path.join(dump_dir, default_undenh_student_file),
         student_UE_helper)
 
 
@@ -1055,9 +1059,9 @@ def main():
         if el_name == 'undakt':
             fs_super.add('undenh', attrs)
 
-    logger.info("Leser XML-fil: undakt.xml")
+    logger.info("Leser XML-fil: %s",  default_undakt_file)
     undakt_xml_parser(
-        os.path.join(dump_dir, 'undakt.xml'),
+        os.path.join(dump_dir, default_undakt_file),
         create_UA_helper)
 
     # Meld studenter inn i undervisningsaktivitet-gruppene
@@ -1067,9 +1071,9 @@ def main():
                                                   'undakt'):
                 undenh.add(attrs)
                 
-    logger.info("Leser XML-fil: student_undakt.xml")
+    logger.info("Leser XML-fil: %s", default_undakt_student_file)
     student_undakt_xml_parser(
-        os.path.join(dump_dir, 'student_undakt.xml'),
+        os.path.join(dump_dir, default_undakt_student_file),
         student_UA_helper)
 
 
@@ -1079,9 +1083,9 @@ def main():
         if el_name == 'studprog' and attrs.get('status_utgatt') <> 'J':
             fs_super.add('studieprogram', attrs)
 
-    logger.info("Leser XML-fil: studieprog.xml")
+    logger.info("Leser XML-fil: %s", default_studieprogram_file)
     access_FS.studieprog_xml_parser(
-        os.path.join(dump_dir, 'studieprog.xml'),
+        os.path.join(dump_dir, default_studieprogram_file),
         create_studieprog_helper)
 
     # Meld forelesere og studieledere inn i passende
@@ -1140,11 +1144,10 @@ def main():
 
     # end rolle_helper
     
-    xmlfile = "roles.xml"
-    logger.info("Leser XML-fil: %s", xmlfile)
-    access_FS.roles_xml_parser(os.path.join(dump_dir, xmlfile),
+    logger.info("Leser XML-fil: %s", default_role_file)
+    access_FS.roles_xml_parser(os.path.join(dump_dir, default_role_file),
                                rolle_helper)
-    logger.info("Ferdig med %s", xmlfile)
+    logger.info("Ferdig med %s", default_role_file)
 
     # Finn alle studenter 
     def student_studieprog_helper(el_name, attrs):
@@ -1153,11 +1156,11 @@ def main():
                                                 'student'):
                 stpr.add(attrs)
 
-    logger.info("Leser XML-fil: person.xml")
+    logger.info("Leser XML-fil: %s", default_person_file)
     person_xml_parser(
-        os.path.join(dump_dir, 'person.xml'),
+        os.path.join(dump_dir, default_person_file),
         student_studieprog_helper)
-    logger.info("Ferdig med XML-fil: person.xml")
+    logger.info("Ferdig med XML-fil: %s", default_person_file)
 
     # Write back all changes to the database
     fs_super.sync()

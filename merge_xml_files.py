@@ -80,7 +80,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:', ['delim=', 'file=', 'out=', 'tag='])
     except getopt.GetoptError:
         usage(2)
-        
+    
     big_xml = {}
     for opt, val in opts:
         if opt in ('-t', '--tag'):

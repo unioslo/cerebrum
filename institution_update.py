@@ -40,9 +40,13 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit import Email
 
-#sys.path = ['/home/cerebrum/CVS','/home/cerebrum/CVS/cerebrum_H05/cerebrum/contrib/no/uit/create_import_data/lib'] + sys.path
 
-
+# Define default file locations
+dumpdir = os.path.join(cereconf.DUMPDIR,"FS")
+default_temp_emner_file = os.path.join(dumpdir,'temp_emner')
+default_temp_studieprog_file = os.path.join(dumpdir,'temp_studieprog')
+default_studieprogram_file = os.path.join(dumpdir,'studieprog.xml')
+default_emne_file = os.path.join(dumpdir,'emner.xml')
 
 
 class execute:
@@ -72,7 +76,7 @@ class execute:
     def update_emner(self,message,emner):
         #we need to parse the emner.xml file and remove all references to the stedkode 4902.
         # it must be replaced with 186
-        tmp_file = cereconf.DUMPDIR + '/FS/temp_emner'
+        tmp_file = default_temp_emner_file
         
         message +="***updating stedkode for KUN***\n"
         file_handle = open(emner,"r+")
@@ -101,7 +105,7 @@ class execute:
         #we need to parse the studieprog.xml file and remove all references to the stedkode 4902-*-*-*.
         # it must be replaced with 186-99-30-0
         
-        tmp_file = cereconf.DUMPDIR + '/FS/temp_studieprog'
+        tmp_file = default_temp_studieprog_file
         
         message +="***updating stedkode for KUN***\n"
         file_handle = open(studieprogfile,"r+")
@@ -126,23 +130,26 @@ class execute:
 def main():
     
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'E:S:',['Emner=','Studieprog='])
+        opts,args = getopt.getopt(sys.argv[1:],'hes',['help','efile=','sfile='])
     except getopt.GetoptError:
         usage()
         sys.exit()
 
     update_emner = 0
     update_studieprog = 0
+    emnefile = default_emne_file
+    studieprogfile = default_studieprogram_file
     foo = execute()
-    email_address = "kenneth.johansen@cc.uit.no"
     message = ""
     
     for opt,val in opts:
-        if opt in('-E','--Emner'):
+        if opt in('-e'):
             update_emner = 1
-            emnefile = val
-        elif opt in('-S','--Studieprog'):
+        elif opt in('-s'):
             update_studieprog = 1
+        elif opt in('--efile'):
+            emnefile = val
+        elif opt in('--sfile'):
             studieprogfile = val
 
     if ((update_emner == 0) and (update_studieprog == 0)):
@@ -161,16 +168,16 @@ def main():
 
 
 def usage():
-    print """Usage: python instiution_update.py [-E|--Emner file] [-S|--Studieprog file]
+    print """Usage: python instiution_update.py -e -s --efile --sfile
     
-    This script substitutes all references to the institution number 4902 with 186 in the studconfig.xml file.
-
+    This script substitutes all references to the institution number 4902 with 186 in the affected files
     
-
-    -E file | --Emner=file  updates KUN's 4902 stedkode to 186 in the emner.xml file
-    -S file | --Studieprog=file  updates KUN's 4902 stedkode to 186 in the studieprog.xml file
+    -e   Update emner.xml default file, or also use
+        --efile to specify other location
+    -s   Update studieprog.xml file, or also use
+        --sfile to specify other location
+    -h | --help Shows this help text
     """
 if __name__=='__main__':
     main()
 
-# arch-tag: b5b23bd2-b426-11da-99b0-b9ae68ac62ca
