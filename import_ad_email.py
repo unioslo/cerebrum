@@ -44,8 +44,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
-logger = None
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
+logger = Factory.get_logger('cronjob')
 
 
 class ad_email_import:
@@ -185,10 +184,7 @@ def main():
             import_path = val
         elif opt in ('-d','--dryrun'):
             dryrun = True
-        elif opt in ('-l','--logger_name'):
-            logger_name=val
 
-    logger = Factory.get_logger(logger_name)
 
 
     if import_path != 0:
