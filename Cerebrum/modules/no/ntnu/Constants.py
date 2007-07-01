@@ -115,20 +115,22 @@ class Constants(Constants.Constants):
 
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 'Student ved NTNU (i følge FS)')
-    affiliation_status_student_aktiv = _PersonAffStatusCode(
-        affiliation_student, 'aktiv', 'Aktiv student')
     affiliation_status_student_opptak = _PersonAffStatusCode(
         affiliation_student, 'opptak', 'Student med gyldig opptak')
+    affiliation_status_student_bachelor = _PersonAffStatusCode(
+        affiliation_student, 'bachelor', 'Aktiv student på lavere grad')
+    affiliation_status_student_aktiv = _PersonAffStatusCode(
+        affiliation_student, 'master', 'Aktiv student på høyere grad')
     affiliation_status_student_drgrad = _PersonAffStatusCode(
         affiliation_student, 'drgrad', 'Registrert student på doktorgrad')
     affiliation_status_student_privatist = _PersonAffStatusCode(
         affiliation_student, 'privatist', 'Registrert som privatist i FS')
     affiliation_status_student_evu = _PersonAffStatusCode(
         affiliation_student, 'evu', 'Registrert som EVU-student i FS')
-    affiliation_status_student_perm = _PersonAffStatusCode(
-        affiliation_student, 'permisjon', 'Har gyldig permisjonstatus i FS')
     affiliation_status_student_alumni = _PersonAffStatusCode(
         affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
+    affiliation_status_student_perm = _PersonAffStatusCode(
+        affiliation_student, 'permisjon', 'Har gyldig permisjonstatus i FS')
 
     affiliation_tilknyttet = _PersonAffiliationCode(
         'TILKNYTTET', 'Tilknyttet UiO uten å være student eller ansatt')
@@ -137,34 +139,19 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet, 'bilag',
         'Registrert i Kjernen med "timelønnet"')
+    affiliation_tilknyttet_annen = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'annen', 'Annen tilknytning (Husk kommentar)')
 
-    affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL', 'Tilknyttet enheter/instutusjoner som NTNU har avtale med')
-    affiliation_manuell_emeritus = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'emeritus', 'Pensjonert med emeritusforhold')
-    affiliation_manuell_gjesteforsker = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'gjesteforsker', 'Gjesteforsker')
-    affiliation_manuell_ekst_stip = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'ekst_stip', '')
-    affiliation_manuell_alumni = _PersonAffStatusCode(
-        affiliation_manuell, 'alumni', 'Uteksaminerte studenter')
-    affiliation_tilknyttet_sivilarbeider = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'sivilarbeider', 'Sivilarbeider')
-    affiliation_manuell_sit = _PersonAffStatusCode(
-        affiliation_manuell, 'sit', 'SiT')
-    affiliation_manuell_annen = _PersonAffStatusCode(
-        affiliation_manuell, 'annen', 'Annen tilknytning (Husk kommentar)')
-
-    affiliation_upersonlig = _PersonAffiliationCode(
-        'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
-    affiliation_upersonlig_felles = _PersonAffStatusCode(
-        affiliation_upersonlig, 'felles', 'Felleskonti')
-    affiliation_upersonlig_kurs = _PersonAffStatusCode(
-        affiliation_upersonlig, 'kurs', 'Kurskonti')
-    affiliation_upersonlig_pvare = _PersonAffStatusCode(
-        affiliation_upersonlig, 'pvare', 'Programvarekonti')
-    affiliation_upersonlig_term_maskin = _PersonAffStatusCode(
-        affiliation_upersonlig, 'bib_felles', 'Bibliotek felles')
+    #affiliation_upersonlig = _PersonAffiliationCode(
+    #    'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
+    #affiliation_upersonlig_felles = _PersonAffStatusCode(
+    #    affiliation_upersonlig, 'felles', 'Felleskonti')
+    #affiliation_upersonlig_kurs = _PersonAffStatusCode(
+    #    affiliation_upersonlig, 'kurs', 'Kurskonti')
+    #affiliation_upersonlig_pvare = _PersonAffStatusCode(
+    #    affiliation_upersonlig, 'pvare', 'Programvarekonti')
+    #affiliation_upersonlig_term_maskin = _PersonAffStatusCode(
+    #    affiliation_upersonlig, 'bib_felles', 'Bibliotek felles')
 
     # We override the default settings for shells, thus this file
     # should be before PosixUser in cereconf.CLASS_CONSTANTS
