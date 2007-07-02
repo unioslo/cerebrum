@@ -199,7 +199,55 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def get_default_ou(self, change = None):
         #Returns default OU in AD.
         return "OU=BOFH brukere,%s" % self.ad_ldap
-    
+
+    def create_object(self, chg, dry_run):
+        if chg.has_key('OU'):
+            ou = chg['OU']
+        else:
+            ou = self.get_default_ou(chg)
+        ret = self.run_cmd('createObject', dry_run,
+                           'User', ou, chg['sAMAccountName'])
+        if not ret[0]:
+            self.logger.warning("create user %s failed: %r", chg['sAMAccountName'], ret)
+        else:
+            if not dry_run:
+                self.logger.info("created user %s", ret)
+
+            pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
+                         'iso-8859-1')
+            ret = self.run_cmd('setPassword', dry_run, pw)
+            if not ret[0]:
+                self.logger.warning("setPassword on %s failed: %s", chg['sAMAccountName'], ret)
+            else:
+                #Important not to enable a new account if setPassword
+                #fail, it will have a blank password.
+                uname = ""
+                del chg['type']
+                if chg.has_key('distinguishedName'):
+                    del chg['distinguishedName']
+                if chg.has_key('sAMAccountName'):
+                    uname = chg['sAMAccountName']
+                    del chg['sAMAccountName']
+                #Setting default for undefined AD_ACCOUNT_CONTROL values.
+                for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
+                    if not chg.has_key(acc):
+                        chg[acc] = value
+                ret = self.run_cmd('putProperties', dry_run, chg)
+                if not ret[0]:
+                    self.logger.warning("putproperties on %s failed: %r", uname, ret)
+                ret = self.run_cmd('setObject', dry_run)
+                if not ret[0]:
+                    self.logger.warning("setObject on %s failed: %r", uname, ret)
+                    return
+                ret = self.run_cmd('createDir', 'homeDirectory', dry_run)
+                self.logger.info('createhomedir: %r', ret)
+                if not ret[0]:
+                    self.logger.warning('createDir on %s failed: %r', uname, ret)
+                ret = self.run_cmd('createDir', 'profilePath', dry_run)
+                self.logger.info('createprofile %r', ret)                
+                if not ret[0]:
+                    self.logger.warning("createDir on %s failed: %r",uname, ret)
+                     
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
 
