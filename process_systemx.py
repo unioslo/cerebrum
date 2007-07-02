@@ -27,10 +27,7 @@ from sets import Set
 
 progname=__file__.split(os.sep)[-1]
 __doc__="""
-    usage:: %s [-s|--source_file <filename>] [-l|--logger_name name] [-d|--dryrun]
-    -s file | --source_file file : source file containing information needed to create
-                                   person and user entities in cerebrum
-    -l name | --logger_name name : change default logger target
+    usage:: %s [-d|--dryrun]
     --dryrun : do no commit changes to database
 """ % (progname)
 
@@ -583,26 +580,23 @@ class ExistingPerson(object):
 
 
 def main():
-    global logger,logger_name,sysx
+    global logger,sysx
     global accounts,persons,dryrun
-
+    
+    logger=Factory.get_logger(logger_name)
     dryrun=False
+    
     try:
-        opts,args=getopt.getopt(sys.argv[1:],'s:l:d',['source_file','logger-name','dryrun'])
+        opts,args=getopt.getopt(sys.argv[1:],'d',['dryrun'])
     except getopt.GetoptError,m:
         print "Unknown option: %s" % (m)
         usage()
 
     ret=0
-    source_file=None
     update=0
     for opt,val in opts:
-        if opt in ('-l','--logger-name'):
-            logger_name=val
-        elif opt in ('--dryrun'):
-            dryrun=True
-
-    logger=Factory.get_logger(logger_name)
+        if opt in ('--dryrun'):
+            dryrun=True    
    
     sysx=SYSX()
     sysx.list()

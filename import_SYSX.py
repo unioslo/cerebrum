@@ -27,11 +27,10 @@ import mx
 
 progname = __file__.split(os.sep)[-1]
 __doc__="""
-    usage:: %s [-s|--source_file <filename>] [-u|--update] [-l|--logger_name name] [-d|--dryrun]
+    usage:: %s [-s|--source_file <filename>] [-u|--update] [-d|--dryrun]
     -s file | --source_file file : source file containing information needed to create
                                    person and user entities in cerebrum
     -u      | --update_data      : updates the datafile containing guests from the guest database
-    -l name | --logger_name name : change default logger target
     --dryrun : do no commit changes to database
 """ % (progname)
 
@@ -269,13 +268,12 @@ def create_sysx_person(sxp):
 
 def main():
     global sysx,logger
-
-
-    logger_name = cereconf.DEFAULT_LOGGER_TARGET
+    logger=Factory.get_logger(logger_name)
+    
     dryrun = False
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:l:ud',['source_file','logger-name','update','dryrun'])
+        opts,args = getopt.getopt(sys.argv[1:],'s:ud',['source_file','update','dryrun'])
     except getopt.GetoptError,m:
         print "Unknown option: %s" % (m)
         usage()
@@ -288,12 +286,9 @@ def main():
             source_file = val
         elif opt in ('-u','--update'):
             update = 1
-        elif opt in ('-l','--logger-name'):
-            logger_name = val
         elif opt in ('--dryrun'):
             dryrun = True
 
-    logger=Factory.get_logger(logger_name)
     process_sysx_persons(source_file,update)
    
     if dryrun:
