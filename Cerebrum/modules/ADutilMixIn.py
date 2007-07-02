@@ -315,8 +315,7 @@ class ADuserUtil(ADutil):
         #Returns default home drive in AD.
         return cerebrum_usrdict.get('homeDrive', cereconf.AD_HOME_DRIVE)
 
-
-    def create_object(self, chg, dry_run, homedir=False, profiledir=False):
+    def create_object(self, chg, dry_run):
 
         if chg.has_key('OU'):
             ou = chg['OU']
@@ -365,15 +364,6 @@ class ADuserUtil(ADutil):
                 ret = self.run_cmd('setObject', dry_run)
                 if not ret[0]:
                     self.logger.warning("setObject on %s failed: %r",uname, ret)
-                    return
-                if homedir:
-                    ret = self.run_cmd('createDir', 'homeDirectory', dry_run)
-                if not ret[0]:
-                    self.logger.warning("createDir on %s failed: %r",uname, ret)                    
-                if profiledir:
-                    ret = self.run_cmd('createDir', 'profilePath', dry_run)
-                if not ret[0]:
-                    self.logger.warning("createDir on %s failed: %r",uname, ret)                     
 
     def compare(self, delete_users,cerebrumusrs,adusrs):
         #Keys in dict from cerebrum must match fields to be populated in AD.
