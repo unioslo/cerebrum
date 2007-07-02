@@ -20,8 +20,9 @@ class MappingError(Exception):
 
 class Adm(object):
     DOMAIN_NAME = "adm.hiof.no"
-    DOMAIN_DN = "DC=adm,DC=hiof,DC=no"
+    DOMAIN_DN = ""
     mapping = {
+        '00': 'olivia',
         '10': 'olivia',
         '20': 'tora',
         '30': 'katta',
@@ -30,7 +31,7 @@ class Adm(object):
 
     def getDN(self, sko, uname):
         serv = Adm.mapping[sko[-2:]].capitalize()
-        return "CN=%s,OU=Ansatte %s,%s" % (uname, serv, Adm.DOMAIN_DN)
+        return "CN=%s,OU=Ansatte %s%s" % (uname, serv, Adm.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         serv = Adm.mapping[sko[-2:]]
@@ -42,7 +43,7 @@ class Adm(object):
 
 class Fag(object):
     DOMAIN_NAME = "fag.hiof.no"
-    DOMAIN_DN = "DC=fag,DC=hiof,DC=no"
+    DOMAIN_DN = ""
     sted_mapping = {
         ('*', '*', '00'): 'Halden', # RH: Avdeling 00 er Halden i følge Trond
         ('*', '*', '10'): 'Halden',
@@ -53,7 +54,7 @@ class Fag(object):
         ('98', '10', '*'): 'Halden'
         }
     avdeling_mapping = {
-        ('98', '10', '*'): {'Canon': 'SIO', 'Profile': 'HS'},
+        ('98', '10', '*'): {'Canon': 'SIO', 'All': 'HS'},
         ('24', '*', '30'): {'All': 'HS'},
         ('26', '*', '30'): {'All': 'HS'},
         ('26', '*', '35'): {'All': 'HS'},
@@ -108,7 +109,7 @@ class Fag(object):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Canon', tmp['All'])
         sted = self._getSted(sko)
-        return "CN=%s,OU=%s,OU=%s,OU=Ansatte,%s" % (uname, avdeling, sted, Fag.DOMAIN_DN)
+        return "CN=%s,OU=%s,OU=%s,OU=Ansatte%s" % (uname, avdeling, sted, Fag.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         tmp = self._getAvdeling(sko)
@@ -122,11 +123,11 @@ class Fag(object):
 
 class Student(Fag):
     DOMAIN_NAME = "stud.hiof.no"
-    DOMAIN_DN = "DC=stud,DC=hiof,DC=no"
+    DOMAIN_DN = ""
     def getDN(self, sko, studieprogram, uname):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
-        return "CN=%s,OU=%s,OU=%s,OU=Studenter,%s" % (uname, studieprogram, avdeling, Student.DOMAIN_DN)
+        return "CN=%s,OU=%s,OU=%s,OU=Studenter%s" % (uname, studieprogram, avdeling, Student.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
         tmp = self._getAvdeling(sko)
