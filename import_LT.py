@@ -36,7 +36,10 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
 
-
+# Define default file locations
+date = time.localtime()
+dumpdir_employees = os.path.join(cereconf.DUMPDIR, "employees")
+default_employee_file = 'uit_persons_%02d%02d%02d.xml' % (date[0], date[1], date[2])
 
 
 group_name = "LT-elektroniske-reservasjoner"
@@ -477,8 +480,7 @@ def main():
     global db, new_person, const, ou, logger, gen_groups, group
     global cere_list, include_del, test_list
 
-#    logger = Factory.get_logger("cronjob")
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
     logger.info("Starting import_LT")
     
     try:
@@ -493,7 +495,7 @@ def main():
 
     gen_groups = 0
     verbose = 0
-    personfile = None
+    personfile = os.path.join(dumpdir_employees, default_employee_file)
     include_del = False
     dryrun = False
     
@@ -502,8 +504,8 @@ def main():
             personfile = val
         elif opt in ('-g', '--group'):
             gen_groups = 1
-	elif opt in ('-d', '--include_delete'):
-	    include_del = True
+        elif opt in ('-d', '--include_delete'):
+            include_del = True
         elif opt in ('-r', '--dryrun'):
             dryrun = True
         # fi
@@ -514,9 +516,9 @@ def main():
     const = Factory.get('Constants')(db)
     group = Factory.get('Group')(db)
     try:
-	group.find_by_name(group_name)
+        group.find_by_name(group_name)
     except Errors.NotFoundError:
-	group.clear()
+        group.clear()
         ac = Factory.get('Account')(db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         group.populate(ac.entity_id, const.group_visibility_internal,
@@ -527,7 +529,7 @@ def main():
     ou = Factory.get('OU')(db)
     new_person = Factory.get('Person')(db)
     if include_del:
-	cere_list = load_all_affi_entry()
+        cere_list = load_all_affi_entry()
     # fi
 
     if personfile is not None:
@@ -535,7 +537,7 @@ def main():
     # fi
 
     if include_del:
-	clean_affi_s_list()
+        clean_affi_s_list()
     # fi
 
     if dryrun:
@@ -554,5 +556,3 @@ def main():
 if __name__ == '__main__':
     main()
 # fi
-
-# arch-tag: 2a13af18-1044-4476-ac05-532ac829524c

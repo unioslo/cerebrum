@@ -24,7 +24,6 @@ __doc__ = """
     
     Usage: %s -i path/to/import/file
     -i | --import_file : import file containing ad email addresses.
-    -l | --logger_name : name of logger target
     -h | --help        : this text
     -d | --dryrun
 
@@ -44,8 +43,11 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 
-logger = Factory.get_logger('cronjob')
+logger = None
 
+# Define default file locations
+dumpdir = os.path.join(cereconf.DUMPDIR, "email")
+default_output_file = 'AD_Emaildump.cvs'
 
 class ad_email_import:
 
@@ -168,15 +170,17 @@ class ad_email_import:
 
 
 def main():
-    global logger, logger_name
+    global logger
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+    
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'di:',['dryrun','import_file'])
+        opts,args = getopt.getopt(sys.argv[1:], 'di:', ['dryrun', 'import_file'])
     except getopt.GetoptError,m:
         print m
         usage()
         sys.exit(1)
 
-    import_path = 0
+    import_path = os.path.join(dumpdir, default_output_file)
     dryrun = False
 
     for opt,val in opts:
@@ -185,21 +189,15 @@ def main():
         elif opt in ('-d','--dryrun'):
             dryrun = True
 
-
-
-    if import_path != 0:
-        ad = ad_email_import(import_path)
-        ad.sync(import_path)
-        logger.info("Added %d new, updated %d, deleted %d email entries in ad_email" % (ad.added,ad.modified,ad.deleted))
-        if dryrun:
-            ad.db.rollback()
-            logger.debug("All changes rollback from database")
-        else:
-            ad.db.commit()
-            logger.debug("All changes comittet to database")
+    ad = ad_email_import(import_path)
+    ad.sync(import_path)
+    logger.info("Added %d new, updated %d, deleted %d email entries in ad_email" % (ad.added,ad.modified,ad.deleted))
+    if dryrun:
+        ad.db.rollback()
+        logger.debug("All changes rollback from database")
     else:
-        usage()
-
+        ad.db.commit()
+        logger.debug("All changes comittet to database")
 
 def usage():
     print __doc__
@@ -207,5 +205,3 @@ def usage():
 
 if __name__=='__main__':
     main()
-
-# arch-tag: b4458ff6-b426-11da-83c0-a8a36dc8763a

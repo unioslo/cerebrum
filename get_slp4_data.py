@@ -42,6 +42,13 @@ import Cerebrum.Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
+logger = None
+
+# Define default file locations
+date = time.localtime()
+dumpdir = os.path.join(cereconf.DUMPDIR, "slp4")
+default_output_file = 'slp4_personer_%02d%02d%02d.txt' % (date[0],date[1],date[2])
+
 class process:
     def __init__(self,out):
         #locale.setlocale(locale.NLS_LANG, ('american_america', 'we8iso8859p1'))
@@ -65,6 +72,7 @@ class process:
         #print "out = %s" % out
         file_handle = open(out,"w")
         max = 10
+        not_imported = 0
         for elem in list:
             i = 0
             begynt = "%s" % elem[9]
@@ -101,38 +109,31 @@ class process:
                     else:
                         file_handle.writelines("\n")
                     i = i+1
+                else:
+                    not_imported = not_imported + 1
+                    logger.warn("Not importing person: %s (internal SLP code)" % item)
         file_handle.close()
+        if not_imported > 0:
+            logger.warn("%d persons not imported due to internal SLP code" % not_imported)
         
 def main():
+    global logger
+    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
-    # lets set default out_file
-    date = time.localtime()
-    year = date[0]
-    month = date[1]
-    day = date[2]
-    file_path = cereconf.CB_PREFIX + '/var/dumps/slp4'
-    file_name = '%s/slp4_personer_%02d%02d%02d.txt' % (file_path,year,month,day)
-    out_file = file_name 
+    out_file = os.path.join(dumpdir,default_output_file) 
 
     try:
         opts,args = getopt.getopt(sys.argv[1:],'o:',['out='])
-
     except getopt.GetoptError:
-    
         usage()
         sys.exit()
 
     for opt ,val in opts:
         if opt in('-o','--out'):
             out_file = val
-
     
-    if(out_file != 0):
-        process(out_file)
+    process(out_file)
 
-    else:
-        usage()
-        sys.exit()
 
 def usage():
     print """Usage: python get_slp4_data.py
@@ -145,5 +146,3 @@ def usage():
 
 if __name__=='__main__':
     main()
-
-# arch-tag: b2885aae-b426-11da-9b7f-25da2113c75c

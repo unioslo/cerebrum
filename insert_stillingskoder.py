@@ -3,8 +3,14 @@ import cereconf
 import string
 import getopt
 import sys
+import os
 
 from Cerebrum.Utils import Factory
+
+# Define default file locations
+sourcedir = cereconf.CB_SOURCEDATA_PATH
+default_output_file = 'stillingskode_sorted.txt'
+ 
 
 class process:
     def __init__(self,in_file):
@@ -33,22 +39,16 @@ def main():
     except getopt.GetoptError:
         usage()
 
-    in_file = 0
-    help = 0
+    in_file = os.path.join(sourcedir, default_output_file)
+    
     for opt,val in opts:
         if opt in ('-f','--file'):
             in_file = val
         if opt in('-h','--help'):
-            help = 1
+            usage()
+            sys.exit(0)
+    data = process(in_file)
 
-
-    if(help == 1):
-        usage()
-        sys.exit(0)
-    if((in_file != 0) and (help ==0)):
-        data = process(in_file)
-
-        
 def usage():
     print """This program reads a stillingskode file and inserts the data
     into the person_stillingskode table in cerebrum
@@ -60,5 +60,3 @@ def usage():
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: b546ff98-b426-11da-9faa-30b1c25ba442
