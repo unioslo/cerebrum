@@ -102,45 +102,42 @@ class Constants(Constants.Constants):
     auth_type_ssha = _AuthenticationCode('SSHA', "A salted SHA1-encrypted password. More info in RFC 2307 and at <URL:http://www.openldap.org/faq/data/cache/347.html>")
     
 
-    affiliation_ansatt = _PersonAffiliationCode('ANSATT',
-                                                'Ansatt ved NTNU (i følge Kjernen)')
+    affiliation_ansatt = _PersonAffiliationCode(
+        'ANSATT', 'Ansatt ved NTNU (i følge Kjernen)')
+    affiliation_status_ansatt_ansatt = _PersonAffStatusCode(
+        affiliation_ansatt, 'ansatt', 'Ansatt, type ukjent')
     affiliation_status_ansatt_vit = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
-    affiliation_status_ansatt_bil = _PersonAffStatusCode(
-        affiliation_ansatt, 'bilag', 'Bilagslønnet')
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
         affiliation_ansatt, 'tekadm', 'Teknisk/administrativt ansatt')
-    affiliation_status_ansatt_perm = _PersonAffStatusCode(
-        affiliation_ansatt, 'permisjon', 'Ansatt, men med aktiv permisjon')
 
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 'Student ved NTNU (i følge FS)')
-    affiliation_status_student_opptak = _PersonAffStatusCode(
-        affiliation_student, 'opptak', 'Student med gyldig opptak')
+    affiliation_status_student_student = _PersonAffStatusCode(
+        affiliation_student, 'student', 'Aktiv student, ukjent grad')
     affiliation_status_student_bachelor = _PersonAffStatusCode(
         affiliation_student, 'bachelor', 'Aktiv student på lavere grad')
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student, 'master', 'Aktiv student på høyere grad')
     affiliation_status_student_drgrad = _PersonAffStatusCode(
         affiliation_student, 'drgrad', 'Registrert student på doktorgrad')
-    affiliation_status_student_privatist = _PersonAffStatusCode(
-        affiliation_student, 'privatist', 'Registrert som privatist i FS')
-    affiliation_status_student_evu = _PersonAffStatusCode(
-        affiliation_student, 'evu', 'Registrert som EVU-student i FS')
-    affiliation_status_student_alumni = _PersonAffStatusCode(
-        affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
-    affiliation_status_student_perm = _PersonAffStatusCode(
-        affiliation_student, 'permisjon', 'Har gyldig permisjonstatus i FS')
 
     affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET', 'Tilknyttet UiO uten å være student eller ansatt')
-    affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
+        'TILKNYTTET', 'Tilknyttet NTNU uten å være student eller ansatt')
+    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
         affiliation_tilknyttet, 'fagperson', 'Registrert som fagperson i FS')
-    affiliation_tilknyttet_bilag = _PersonAffStatusCode(
+    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet, 'bilag',
         'Registrert i Kjernen med "timelønnet"')
-    affiliation_tilknyttet_annen = _PersonAffStatusCode(
+    affiliation_status_tilknyttet_alumni = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'alumni', 'Registert alumni')
+    affiliation_status_tilknyttet_annen = _PersonAffStatusCode(
         affiliation_tilknyttet, 'annen', 'Annen tilknytning (Husk kommentar)')
+
+    affiliation_alumni = _PersonAffiliationCode(
+        'ALUMNI', 'Tidligere student')
+    affiliation_status_alumni_aktiv = _PersonAffStatusCode(
+        affiliation_alumni, 'aktiv', 'Registert alumni')
 
     #affiliation_upersonlig = _PersonAffiliationCode(
     #    'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
