@@ -179,7 +179,7 @@ class Job(object):
             ac.populate_trait(co.trait_ad_account_ou,
                               strval=cPickle.dumps(spread_maps['ou']))
             # store pickled spread<->home mapping 
-            ac.populate_trait(co.trait_ad_account_ou,
+            ac.populate_trait(co.trait_ad_homedir,
                               strval=cPickle.dumps(spread_maps['home']))
             logger.debug("OU, profile_path and home trait populated for account %d",
                          entity_id)
