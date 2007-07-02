@@ -26,6 +26,7 @@
 
 import getopt
 import sys
+import os
 import time
 import string
 import locale
@@ -41,8 +42,15 @@ logger = None
 locale.setlocale(locale.LC_ALL,"en_US.ISO-8859-1")
 
 
-class create_person_xml:
+# Define default file locations
+date = time.localtime()
+dumpdir_employees = os.path.join(cereconf.DUMPDIR, "employees")
+dumpdir_slp4 = os.path.join(cereconf.DUMPDIR, "slp4")
+default_employee_file = 'uit_persons_%02d%02d%02d.xml' % (date[0], date[1], date[2])
+default_slp4_file = 'slp4_personer_%02d%02d%02d.txt' % (date[0], date[1], date[2])
 
+
+class create_person_xml:
 
     def __init__(self,out_file,type,slp4_file):
         person_dict = []
@@ -341,44 +349,37 @@ class create_person_xml:
 
 def main():
     global logger
-
-    # lets set default out_file file
     logger_name = cereconf.DEFAULT_LOGGER_TARGET 
+    logger = Factory.get_logger(logger_name)
+    
+    # lets set default out_file file
     date = time.localtime()
     year = date[0]
     month = date[1]
     day = date[2]
-    file_path = cereconf.CB_PREFIX + '/var/dumps/employees'
-    out_file = '%s/uit_persons_%02d%02d%02d.xml' % (file_path,year,month,day)
-    slp4_file = cereconf.CB_PREFIX + '/var/dumps/slp4/slp4_personer_%02d%02d%02d.txt' % (year,month,day)
+    
+    out_file = os.path.join(dumpdir_employees, default_employee_file)
+    slp4_file = os.path.join(dumpdir_slp4, default_slp4_file)
     #uname_file = cereconf.CB_PREFIX + '/var/source/static_user_info.txt'
     #print "Reading %s" % slp4_file
     #print "Reading %s" % uname_file
     #print "Writing to %s" % (out_file)
     #print "reading %s" % person_file
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'p:o:t:u:s:l:',['person_file=','out_file=','type=','uname_file=','slp4_file=','logger_name='])
+        opts,args = getopt.getopt(sys.argv[1:],'p:o:t:u:s:',['person_file=','out_file=','type=','uname_file=','slp4_file='])
 
     except getopt.GetoptError:
         usage()
-    person_run = 0
 
     for opt,val in opts:
-        if opt in ('-p','--person_file'):
-            person_file = val
         if opt in ('-o','--out_file'):
             out_file = val
         if opt in ('-t','--type'):
             type = val
-        if opt in ('-u','--uname_file'):
-            uname_file = val
-        if opt in ('-l','--logger_name'):
-            logger_name = val            
         if opt in ('-s','--slp4_file'):
             slp4_file = val
-
-    logger = Factory.get_logger(logger_name)
-    person_handle = create_person_xml(out_file,type,slp4_file)
+    
+    person_handle = create_person_xml(out_file, type, slp4_file)
 
 def usage():
     print """Usage: python generate_person.py 
@@ -388,10 +389,8 @@ def usage():
     
 
     options:
-    -p | --person_file: NIFU file with person information
     -o | --out_file   : alternative xml file to store data in
     -t | --type       : type of data. AD or FRIDA.. use AD for now
-    -u | --uname_file : user_info file
     -s | --slp4_file  : file with slp4 data
     
     """
