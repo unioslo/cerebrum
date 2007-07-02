@@ -198,7 +198,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def get_default_ou(self, change = None):
         #Returns default OU in AD.
-        return "CN=BOFH brukere,%s" % self.ad_ldap
+        return "OU=BOFH brukere,%s" % self.ad_ldap
     
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
