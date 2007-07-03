@@ -39,7 +39,7 @@
 
 ## Page for viewing information about a person.
 #def content()
-    $viewInfo($entity)
+    $viewInfo($entity, $tr)
     $setName($entity, $tr)
     $viewNames($entity)
     $viewQuarantines($entity)
@@ -56,13 +56,17 @@
     $viewHistoryLog($entity)
 #end def
 
-#def viewInfo($person)
+#def viewInfo($person, $tr)
     #set $info = []
     #set $notice = []
     #if $person.get_deceased_date()
         $notice.append($_("Deceased"))
         $info.append(($_("Deceased date"), $strftime($person.get_deceased_date())))
     #end if
+    #set cached = $tr.get_source_system("Cached")
+    #set first = $tr.get_name_type("FIRST")
+    #set last = $tr.get_name_type("LAST")
+    $info.append(($_("Name"), $person.get_name(last, cached) + ", " + $person.get_name(first, cached)))
     $info.append(($_("Gender"), $html_quote($person.get_gender().get_description())))
     $info.append(($_("Date of birth"), $strftime($person.get_birth_date())))
     $info.append(($_("Description"), $html_quote($person.get_description())))
