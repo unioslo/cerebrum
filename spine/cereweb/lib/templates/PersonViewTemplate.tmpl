@@ -123,13 +123,15 @@
     <h3>$_('Affiliations')</h3>
     <table>
     <tr class="headers"><th>$_('Affiliation')</th><th>$_('Status')</th>
-    <th>$_('OU')</th><th>$_('Additional Info')</th><th>$_('Actions')</th></tr>
+    <th>$_('OU')</th><th>$_('Additional Info')</th><th>$_('Source')</th>
+    <th>$_('Actions')</th></tr>
     #for $affil in $person.get_affiliations()
     #set $ou = $affil.get_ou()
     #set $affil_type = $affil.get_affiliation()
     #set $status = $affil.get_status()
     #set $marked = $affil.marked_for_deletion()
     #set $description = $affil.get_description()
+    #set $source = $affil.get_source_system()
 
     #if not $marked
     <tr class="item">
@@ -137,13 +139,14 @@
     <td>$html_quote($status.get_name())</td>
     <td>$object_link($ou)</td>
     <td>$html_quote($description)</td>
+    <td>$html_quote($source.get_name())</td>
 
     <td class="actions">
             #set $args = $url_quote("id=%s&ou=%s&affil=%s&ss=%s" % (
                             $html_quote($person.get_id()),
                             $html_quote($ou.get_id()),
                             $html_quote($affil_type.get_name()),
-                            $html_quote($affil.get_source_system().get_name())))
+                            $html_quote($source.get_name())))
             <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a>
     </td>
     </tr>
