@@ -281,7 +281,6 @@ class BDB:
         cursor.execute("""SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'),t.org_enhet, \
                         t.fakultet, t.institutt, \
                         t.tilkn_form, t.familie, f.navn, f.alltidsluttdato, k.kode \
-                        f.navn \
                         FROM tilknyttet t, person p, bruker b, tilkn_former f, ksted k\
                         WHERE t.person = p.id AND \
                               b.person = p.id AND \
@@ -306,7 +305,6 @@ class BDB:
             aff['aff_name'] = af[8]
             aff['has_end_date'] = af[9]
             aff['ou_code'] = af[10]
-            aff['aff_navn'] = af[11]
             affiliations.append(aff)
         cursor.close()
         return affiliations
