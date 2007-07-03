@@ -62,20 +62,33 @@ def main():
     if (len(args) < 1):
         usage()
     froml = args[0].split(":")
-    fromaff = code(froml[0], co.PersonAffiliation)
+    try:
+        fromaff = co.PersonAffiliation(int(froml[0]))
+    except ValueError:
+        fromaff = co.PersonAffiliation(froml[0])
     fromstatus = None
     if len(froml) > 1:
-        fromstatus = code(froml[1], co.PersonAffStatus)
+        try:
+            fromstatus = co.PersonAffStatus(int(froml[1]))
+        except ValueError:
+            fromstatus = co.PersonAffStatus(fromaff, froml[1])
 
     toaff = tostatus = tocomment = None
     if len(args) > 1:
         to = args[1].split(":")
-        toaff = code(to[0], co.PersonAffiliation)
-        tostatus = code(to[1], co.PersonAffStatus)
+        try:
+            toaff = co.PersonAffiliation(int(to[0]))
+        except ValueError:
+            toaff = co.PersonAffiliation(to[0])
+        try:
+            tostatus = co.PersonAffStatus(int(to[1]))
+        except ValueError:
+            tostatus = co.PersonAffStatus(fromaff, to[1])
         tocomment = None
         if len(to) > 2:
             tocomment = to[2]
-    phaseout_affiliation(fromaff, fromstatus, toaff, tostatus, tocomment,
+    phaseout_affiliation(int(fromaff), int(fromstatus),
+                         int(toaff), int(tostatus), tocomment,
                          dryrun, verbose)
 
 
@@ -92,7 +105,7 @@ def phaseout_affiliation(fromaff, fromstatus, toaff, tostatus, todesc,
         p.find(person)
         if verbose:
             print "%s affiliation %s on %s for %s source %s" % (
-                toaff is not None and "Adding/updating" or "Deleting",
+                toaff is not None and "Converting" or "Deleting",
                 aff, ou, person, source)
         if fromaff == toaff:
             p.populate_affiliation(source, ou, toaff, tostatus)
