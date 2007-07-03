@@ -34,21 +34,45 @@ def usage():
     -u <user> | --user <user>     log in as <user>
     """ % sys.argv[0]
 
-username='bootstrap_account'
+username=None
+password=None
+conf=None
 try:
-    opts,args = getopt.getopt(sys.argv[1:],'u:', ['user'])
+    opts,args = getopt.getopt(sys.argv[1:],'u:c:', ['user', 'config'])
     for opt, val in opts:
         if opt in ('-u', '--user'):
             username = val
+        if opt in ('-c', '--config'):
+            import ConfigParser
+            conf = ConfigParser.ConfigParser()
+            conf.read((val + '.template', val))
+
 except getopt.GetoptError:
     usage()
     sys.exit(1)
-password=getpass.getpass("%s's password: " % username)
+
+if conf is not None:
+    if username is None:
+        try:
+            username=conf.get("login", "username")
+        except:
+            pass
+    try:
+        password=conf.get("login", "password")
+    except:
+        pass
+
+if username is None:
+    username='bootstrap_account'
+
+if password is None:
+    password=getpass.getpass("%s's password: " % username)
 
 ior_file=cereconf.SPINE_IOR_FILE
 cache_dir="/tmp/test-spine-IDL"
 
-spine=SpineClient.SpineClient(ior_file, idl_path=cache_dir).connect()
+spine=SpineClient.SpineClient(ior_file, idl_path=cache_dir,
+                              config=conf).connect()
 session = spine.login(username, password)
 tr = session.new_transaction()
 
