@@ -111,7 +111,7 @@ class Account:
         """
         try:
             princ = account.name + '@' + self.k.realm # or from config
-            password = account.password
+            password = account.passwd
             options = None # or some defaults from config in dict-format
             self.k.CreatePrincipal(princ,password,options)
             if (not self.incr):
@@ -164,7 +164,7 @@ class Account:
 class User:
    def __init__(self):
        self.name = 'testuser'
-       self.password = 'testpw'
+       self.passwd = 'testpw'
 
 class KerberosBackTest(unittest.TestCase):
 
