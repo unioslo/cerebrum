@@ -31,7 +31,8 @@ import SpineClient
 
 def usage():
     print """Usage %s
-    -u <user> | --user <user>     log in as <user>
+    -u <user> | --user <user>        log in as <user>
+    -c <file> | --configfile <file>  use configfile for more options
     """ % sys.argv[0]
 
 username=None
@@ -42,7 +43,7 @@ try:
     for opt, val in opts:
         if opt in ('-u', '--user'):
             username = val
-        if opt in ('-c', '--config'):
+        if opt in ('-c', '--configfile'):
             import ConfigParser
             conf = ConfigParser.ConfigParser()
             conf.read((val + '.template', val))
