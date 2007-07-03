@@ -355,9 +355,15 @@ div.info {
     border-color: #bdf;
 }
 div.info h3 {
+    font-weight: bold;
     background: #bdf;
 }
 div.info div.item {
+    border-bottom-color: #bdf;
+}
+div.info table th {
+    border-bottom: 1px dashed;
+    border-bottom-style: dashed;
     border-bottom-color: #bdf;
 }
  
@@ -368,6 +374,7 @@ div.note {
 }
 
 div.note h3 {
+    font-weight: bold;
     background: #dda;
 }
 
@@ -382,6 +389,7 @@ div.important {
     border-color: #da9;
 }
 div.important h3 {
+    font-weight: bold;
     background: #da9;
 }
 div.important div.item {
@@ -398,6 +406,7 @@ div.edit form {
     padding-top: 10px;
 }
 div.edit h3 {
+    font-weight: bold;
     margin: 0px;
     background: #bde;
 }
@@ -454,6 +463,7 @@ div.list div.item {
 }
 
 div.list h3 {
+    font-weight: bold;
     background: #bdf;
     border-top-color: #06C;
     border-bottom-color: #06C;
@@ -463,6 +473,7 @@ div.list h3 {
     margin-bottom: 4px;
 }
 div.log h3 {
+    font-weight: bold;
     background: #ad9;
     border-top-color: #060;
     border-bottom-color: #060;
