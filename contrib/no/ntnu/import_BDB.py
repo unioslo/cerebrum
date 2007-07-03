@@ -170,15 +170,16 @@ class BDBSync:
 
     def sync_affiliations(self):
         self.logger.debug("Getting affiliations from BDB...")
-        self.aff_map = {}
-        self.aff_map[1] = self.const.affiliation_student
-        self.aff_map[2] = self.const.affiliation_ansatt
-        self.aff_map[3] = self.const.affiliation_ansatt
-        self.aff_map[4] = self.const.affiliation_manuell_ekst_stip
-        self.aff_map[5] = self.const.affiliation_manuell_annen
-        self.aff_map[7] = self.const.affiliation_manuell_emeritus
-        self.aff_map[9] = self.const.affiliation_manuell_alumni
-        self.aff_map[12] = self.const.affiliation_manuell_annen
+        self.aff_map = {
+            'student': self.const.affiliation_status_student_student,
+            'fast ansatt': self.const.affiliation_status_ansatt_ansatt,
+            'midlertidig ansatt': self.const.affiliation_status_ansatt_ansatt,
+            'stipendiat': self.const.affiliation_status_student_drgrad,
+            'alias': self.const.affiliation_status_tilknyttet_annen,
+            'familie': self.const.affiliation_status_tilknyttet_annen,
+            'gjest':  self.const.affiliation_status_tilknyttet_gjest,
+            'alumnus': self.const.affiliation_status_alumni_aktiv
+            }
         global verbose,dryrun
         if verbose:
             print "Getting affiliations from BDB"
@@ -230,8 +231,8 @@ class BDBSync:
             self.logger.error("Got no match on stedkode %s for bdb-person: %s" % (_oucode,aff['person']))
             return 
 
-        aff_type = self.aff_map[aff['aff_type']]
-        aff_status = const.affiliation_tilknyttet
+        aff_status = self.aff_map[aff['aff_name']]
+        aff_type = aff_status.affiliation
 
         person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status) 
 

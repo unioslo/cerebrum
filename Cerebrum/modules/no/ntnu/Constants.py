@@ -129,8 +129,8 @@ class Constants(Constants.Constants):
     affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet, 'bilag',
         'Registrert i Kjernen med "timelønnet"')
-    affiliation_status_tilknyttet_alumni = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'alumni', 'Registert alumni')
+    affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'gjest', 'Gjest')
     affiliation_status_tilknyttet_annen = _PersonAffStatusCode(
         affiliation_tilknyttet, 'annen', 'Annen tilknytning (Husk kommentar)')
 
