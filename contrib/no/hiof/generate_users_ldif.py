@@ -53,8 +53,8 @@ class UserLDIF(object):
         for spread in reversed(cereconf.LDAP_USER['spreads']):
             vlan = cereconf.LDAP_USER['spread2vlan'][spread]
             spread = self.const.Spread(spread)
-            for row in self.account.list_all_with_spread(spread):
-                self.id2vlan[row['entity_id']] = vlan
+            for row in self.account.search(spread=spread):
+                self.id2vlan[row['account_id']] = vlan
 
     def dump(self):
         fd = LDIFutils.ldif_outfile('USER')
