@@ -1,15 +1,27 @@
 #!/usr/bin/env python
 
 op_sets = {
+    'modify_itea': [
+        ('Account.add_spread', 'user@ansatt'),
+        ('Account.add_spread', 'user@stud'),
+        ('Account.delete_spread', 'user@ansatt'),
+        ('Account.delete_spread', 'user@stud'),
+        ('Group.add_spread', 'group@ntnu'),
+        ('Group.delete_spread', 'group@ntnu')
+        ('Person.add_spread', 'user@ntnu'),
+        ('Person.delete_spread', 'user@ntnu')
+	],
+    
+    'modify_idi': [
+        ('Account.add_spread', 'user@idi'),
+        ('Account.delete_spread', 'user@idi'),
+	],
+    
     'modify_user': [
         ('Account.add_note', None),
         ('Account.add_quarantine', None),
-        ('Account.add_spread', 'user@ansatt'),
-        ('Account.add_spread', 'user@stud'),
         ('Account.create_address', None),
         ('Account.delete', None),
-        ('Account.delete_spread', 'user@ansatt'),
-        ('Account.delete_spread', 'user@stud'),
         ('Account.demote_posix', None),
         ('Account.promote_posix', None),
         ('Account.remove_affiliation', None),
@@ -29,10 +41,8 @@ op_sets = {
         ('Group.add_member', None),
         ('Group.add_note', None),
         ('Group.add_quarantine', None),
-        ('Group.add_spread', None),
         ('Group.create_address', None),
         ('Group.delete', None),
-        ('Group.delete_spread', None),
         ('Group.demote_posix', None),
         ('Group.promote_posix', None),
         ('Group.remove_external_id', None),
@@ -46,10 +56,8 @@ op_sets = {
         ('Person.add_contact_info', None),
         ('Person.add_note', None),
         ('Person.add_quarantine', None),
-        ('Person.add_spread', None),
         ('Person.create_address', None),
         ('Person.delete', None),
-        ('Person.delete_spread', None),
         ('Person.remove_contact_info', None),
         ('Person.remove_external_id', None),
         ('Person.remove_name', None),
@@ -758,8 +766,19 @@ op_roles = [
     # group,            op_set,          # op_target
     ('cereweb_orakel', 'modify_user', ('entity', 15850, None)),
     ('cereweb_orakel', 'create_user', ('entity', 15850, None)),
-    ('cereweb_self', 'my_self', ('self', None, None)),
+    ('cereweb_orakel', 'modify_itea', ('global', None, None)),
+    ('cereweb_orakel', 'read_all', ('global', None, None)),
+    ('cereweb_orakel', 'admin_client', ('global', None, None)),
+
+    ('idi_drift', 'modify_user', ('entity', 15850, None)),
+    ('idi_drift', 'modify_idi', ('global', None, None)),
+    ('idi_drift', 'admin_client', ('global', None, None)),
+
     ('cereweb_innsyn', 'read_all', ('global', None, None)),
-    ('cereweb_public', 'user_client', ('global', None, None)),
+    ('cereweb_innsyn', 'admin_client', ('global', None, None)),
+
     ('cereweb_basic', 'admin_client', ('global', None, None)),
+
+    ('cereweb_self', 'my_self', ('self', None, None)),
+    ('cereweb_public', 'user_client', ('global', None, None)),
 ]
