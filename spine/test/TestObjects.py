@@ -199,7 +199,7 @@ class DummyAccount(DummyEntity):
         tr = self._get_tr()
         c = tr.get_commands()
         name = 'tac%s' % str(id(self))[-4:]
-        date = tr.get_commands().get_date_none()
+        date = None
         owner = tr.get_person(self._owner_id)
         account = c.create_account(name, owner, date)
         _id = account.get_id()
