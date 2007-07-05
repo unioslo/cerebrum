@@ -158,7 +158,7 @@ class ad_export:
             try:
                 email = self.posixuser.get_primary_mailaddress()
             except Errors.NotFoundError,m:
-                logger.error("Failed to get primary email for %s" % (self.posixuser.account_name))
+                logger.warn("Failed to get primary email for %s" % (self.posixuser.account_name))
                 email = ""
             posix_uid = self.posixuser.posix_uid
             posix_gid = self.posixuser.gid_id
