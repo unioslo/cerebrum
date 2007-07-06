@@ -24,6 +24,30 @@ import sync
 import filebackend
 import config
 import traceback
+import re
+import sys
+
+name_regex=re.compile("^[A-Za-z0-9_]+$")
+def check_account(account):
+    if not name_regex.match(account.name):
+        return "Bad accountname"
+    if not account.posix_uid >= 1000:
+        return "Bad uid", account.posix_uid
+    if not account.posix_gid >= 1000:
+        return "Bad gid"
+    if account.passwd == "":
+        account.passwd = "x"
+    return None
+
+def check_group(group):
+    if not name_regex.match(group.name):
+        return "Bad groupname"
+    if not group.posix_gid >= 1000:
+        return "Bad gid"
+    for n in group.members:
+        if not name_regex.match(n):
+            group.members.remove(n)
+    return None
 
 def main():
     incr = False
@@ -37,10 +61,11 @@ def main():
     accounts.begin(incr)
     try:
         for account in s.get_accounts():
-            if not account.posix_uid >= 0:
-                continue
-            else:
+            fail = check_account(account)
+            if not fail: 
                 accounts.add(account)
+            else:
+                print >>sys.stderr, "Skipping account", account.name, fail
     except IOError,e:
         print "Exception %s occured, aborting" % e
     else:
@@ -50,10 +75,11 @@ def main():
     groups.begin(incr)
     try:
         for group in s.get_groups():
-            if not group.posix_gid >= 0:
-                continue
-            else:
+            fail = check_group(group)
+            if not fail:
                 groups.add(group)
+            else:
+                print >>sys.stderr, "Skipping group", group.name, fail
     except IOError,e:
         print "Exception %s occured, aborting" % e
     else:

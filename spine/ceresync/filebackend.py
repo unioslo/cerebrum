@@ -22,7 +22,8 @@
 
 import os
 import errors
-
+import config
+import re
 
 # Need to handle exceptions better?
 class MultiHandler:
@@ -149,6 +150,12 @@ class CLFileBack(FileBack):
         for l in self.records.values():
             self.f.write(l)
 
+    word_illegal_char=re.compile("[:\n]")
+    def wash(self, word):
+        if self.word_illegal_char.match(str(word)):
+            raise errors.FormatError
+        return word
+
 # classic: name:crypt:uid:gid:gcos:home:shell
 # shadow:  name:crypt:lastchg:min:max:warn:inactive:expire
 # bsd:     name:crypt:uid:gid:class:change:expire:gcos:home:shell
@@ -158,9 +165,13 @@ class PasswdFile(CLFileBack):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
         return "%s:%s:%s:%s:%s:%s:%s\n" % (
-            account.name, "x", account.posix_uid,
-            account.posix_gid, account.gecos,
-            account.homedir, account.shell)
+            self.wash(account.name),
+            "x",
+            self.wash(account.posix_uid),
+            self.wash(account.posix_gid),
+            self.wash(account.gecos),
+            self.wash(account.homedir),
+            self.wash(account.shell))
 
 
 class GroupFile(CLFileBack):
@@ -169,7 +180,9 @@ class GroupFile(CLFileBack):
         if group.posix_gid is None:
             raise errors.NotPosixError, group.name
         return "%s:*:%d:%s\n" % (
-            group.name, group.posix_gid, ",".join(group.members))
+            self.wash(group.name),
+            self.wash(group.posix_gid),
+            self.wash(",".join(group.members)))
 
 
 class ShadowFile(CLFileBack):
@@ -177,8 +190,9 @@ class ShadowFile(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
-        return "%s:%s:::::::\n" % ( account.name,
-                account.passwd )
+        return "%s:%s:::::::\n" % (
+            self.wash(account.name),
+            self.wash(account.passwd) )
 
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"
@@ -189,7 +203,7 @@ class AliasFile(CLFileBack):
         else:
             to=addr.primary
             mod=">>"
-        return "%s: %s %s\n" % ( addr.name, mod, to)
+        return "%s: %s %s\n" % ( self.wash(addr.name), mod, to)
 
 class SambaFile(CLFileBack):
     """An entry in a samba passwordfile lookes like this:
@@ -198,17 +212,19 @@ class SambaFile(CLFileBack):
     def format(self,account):
         if account.uid is None:
             raise errors.NotPosixError, account.name
-        return "%s:%s:%s:%s:%s:%s:%s\n" % ( account.name, account.uid,
-                account.passwords.get('lmhash', '*'),
-                account.passwords.get('nthash', '*'),
-                account.gecos, account.homedir, account.shell)
-
+        return "%s:%s:%s:%s:%s:%s:%s\n" % (
+            account.name,
+            account.uid,
+            account.passwords.get('lmhash', '*'),
+            account.passwords.get('nthash', '*'),
+            account.gecos, account.homedir, account.shell)
 
 def Group():
-    return GroupFile(filename="group")
+    return GroupFile(filename=config.conf.get("file", "group"))
 
 def Account():
-    return MultiHandler(PasswdFile(filename="passwd"), ShadowFile(filename="shadow"))
+    return MultiHandler(PasswdFile(filename=config.conf.get("file", "passwd")),
+                        ShadowFile(filename=config.conf.get("file","shadow")))
 
 
 # When using the file backend the user will want to save the id of the

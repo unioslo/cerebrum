@@ -59,4 +59,8 @@ class AlreadyExistsError(BackendError):
     # add(user) with user.name=="root" should give this error in
     # some cases.
 
+class FormatError(SyncError):
+    """Illegal characters in attributes"""
+
+
 # arch-tag: 6e72e042-394c-446a-a668-8daf95076582
