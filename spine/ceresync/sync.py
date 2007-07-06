@@ -1,10 +1,12 @@
-
 import config
 import SpineClient
+from popen2 import Popen3
+import unittest
 
 class Sync:
-    def __init__(self, incr=False, id=-1, auth_type="MD5-crypt"):
+    def __init__(self, incr=False, id=-1, auth_type=None):
         self.incr=incr
+        self.auth_type= auth_type or config.conf.get('sync','auth_type')
         connection = SpineClient.SpineClient(config=config.conf).connect()
         session = connection.login(config.conf.get('spine', 'login'),
                                    config.conf.get('spine', 'password'))
@@ -16,9 +18,8 @@ class Sync:
         
         self.view.set_account_spread(self.tr.get_spread(account_spread))
         self.view.set_group_spread(self.tr.get_spread(group_spread))
-        self.view.set_authentication_method(self.tr.get_authentication_type(auth_type))
+        self.view.set_authentication_method(self.tr.get_authentication_type(self.auth_type))
         self.view.set_changelog(id)
-
 
     def _do_get(self, objtype, incr):
         if incr is None:
@@ -45,3 +46,57 @@ class Sync:
 
     def get_ous(self, incr=None):
         return self._do_get("ou", incr)
+
+class Pgp:
+    def __init__(self, pgp_prog=None, enc_opts='', dec_opts='', keyid=None):
+        # Handle NoOptionError?
+        pgp_prog= pgp_prog or config.conf.get('pgp', 'prog')
+        enc_opts= enc_opts or config.conf.get('pgp', 'encrypt_opts')
+        dec_opts= dec_opts or config.conf.get('pgp', 'decrypt_opts')
+        keyid= keyid or config.conf.get('pgp', 'keyid')
+
+        self.pgp_enc_cmd= [ pgp_prog,
+            '--recipient', keyid,
+            '--default-key', keyid,
+        ] + enc_opts.split()
+        self.pgp_dec_cmd= [pgp_prog] + dec_opts.split()
+    
+    def decrypt(self, cryptstring):
+        message= cryptstring
+        if cryptstring:
+            child= Popen3(self.pgp_dec_cmd)
+            child.tochild.write(cryptstring)
+            child.tochild.close()
+            message= child.fromchild.read()
+            exit_code= child.wait()
+            if exit_code:
+                raise IOError, "%r exited with %i" % (self.pgp_dec_cmd,exit_code)
+        return message
+
+    def encrypt(self, message):
+        child= Popen3(self.pgp_enc_cmd)
+        child.tochild.write(message)
+        child.tochild.close()
+        cryptstring= child.fromchild.read()
+        exit_code= child.wait()
+        if exit_code:
+            raise IOError, "%r exited with %i" % (self.pgp_enc_cmd,exit_code)
+        return cryptstring
+
+class PgpTestCase(unittest.TestCase):
+    def setUp(self):
+        self.p= Pgp()
+        self.message= 'FooX123.-=/'
+
+    def testEncrypt(self):
+        e= self.p.encrypt(self.message).strip()
+        assert e.startswith('-----BEGIN PGP MESSAGE-----') and \
+            e.endswith('-----END PGP MESSAGE-----')
+
+    def testEncryptDecrypt(self):
+        cryptstring= self.p.encrypt(self.message)
+        assert self.message == self.p.decrypt(cryptstring), \
+                'encryption and decryption yield wrong result'
+
+if __name__ == '__main__':
+    unittest.main()
