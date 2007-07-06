@@ -23,7 +23,6 @@
 """ Kerberos-based backend """
 
 import unittest
-#import config
 
 try:
     import kadm5
@@ -33,12 +32,14 @@ except:
 import heimdal_error
 import mit_error
 
+from sync import Pgp
+
 class Account:
 
     def __init__(self):
         self.k = None # Holds the authenticated kadm object
         self.incr = False
-
+        self.pgp = Pgp()
 
     def begin(self,incr=False):
         """
@@ -111,7 +112,7 @@ class Account:
         """
         try:
             princ = account.name + '@' + self.k.realm # or from config
-            password = account.passwd
+            password = self.pgp.decrypt(account.passwd)
             options = None # or some defaults from config in dict-format
             self.k.CreatePrincipal(princ,password,options)
             if (not self.incr):
@@ -128,8 +129,7 @@ class Account:
         """
         # Update password? guess so
         princ = account.name + '@' + self.k.realm # or from config
-        # Needs to be cleartext, pgp to decrypt?
-        password = account.password 
+        password = self.pgp.decrypt(account.passwd)
         try:
             self.k.SetPassword(princ,password)
         except Exception,err:
@@ -164,7 +164,7 @@ class Account:
 class User:
    def __init__(self):
        self.name = 'testuser'
-       self.passwd = 'testpw'
+       self.passwd= Pgp().encrypt('testpw')
 
 class KerberosBackTest(unittest.TestCase):
 
