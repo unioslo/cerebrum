@@ -114,6 +114,9 @@ class NoEntityAssociationError(CerebrumError):
     # What does this mean?
     pass
 
+class RequiresPosixError(CerebrumError):
+    """Posix object required"""
+
 def _test():
     import doctest,Errors 
     return doctest.testmod(Errors)

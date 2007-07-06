@@ -76,7 +76,7 @@ class AccountNTNUMixin(Account.Account):
         if (str(self.const.Spread(spread)) in posix_spreads
             and not isinstance(self, PosixUser)
             and not self.is_posix()):
-            raise self._db.IntegrityError, "Spread requires posix"
+            raise Errors.RequiresPosixError
 
         self.__super.add_spread(spread)
 
