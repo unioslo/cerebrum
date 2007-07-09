@@ -170,16 +170,15 @@ class BDBSync:
 
     def sync_affiliations(self):
         self.logger.debug("Getting affiliations from BDB...")
-        self.aff_map = {
-            'student': self.const.affiliation_status_student_student,
-            'fast ansatt': self.const.affiliation_status_ansatt_ansatt,
-            'midlertidig ansatt': self.const.affiliation_status_ansatt_ansatt,
-            'stipendiat': self.const.affiliation_status_student_drgrad,
-            'alias': self.const.affiliation_status_tilknyttet_annen,
-            'familie': self.const.affiliation_status_tilknyttet_annen,
-            'gjest':  self.const.affiliation_status_tilknyttet_gjest,
-            'alumnus': self.const.affiliation_status_alumni_aktiv
-            }
+        self.aff_map = {}
+        self.aff_map[1] = self.const.affiliation_student
+        self.aff_map[2] = self.const.affiliation_ansatt
+        self.aff_map[3] = self.const.affiliation_ansatt
+        self.aff_map[4] = self.const.affiliation_manuell_ekst_stip
+        self.aff_map[5] = self.const.affiliation_manuell_annen
+        self.aff_map[7] = self.const.affiliation_manuell_emeritus
+        self.aff_map[9] = self.const.affiliation_manuell_alumni
+        self.aff_map[12] = self.const.affiliation_manuell_annen
         global verbose,dryrun
         if verbose:
             print "Getting affiliations from BDB"
@@ -231,8 +230,8 @@ class BDBSync:
             self.logger.error("Got no match on stedkode %s for bdb-person: %s" % (_oucode,aff['person']))
             return 
 
-        aff_status = self.aff_map[aff['aff_name']]
-        aff_type = aff_status.affiliation
+        aff_type = self.aff_map[aff['aff_type']]
+        aff_status = const.affiliation_tilknyttet
 
         person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status) 
 
@@ -436,27 +435,22 @@ class BDBSync:
             if self._is_posix_group(grp):
                 try:
                     posix_group.find_by_name(grp['name'])
-                    #if verbose:
-                    #    print "PosixGroup %s already exists." % grp['name']
-                    # Has anything changed since last time?
                     _has_changed = False
                     _gid = posix_group.posix_gid
-                    if grp['gid'] == 13300:
-                        print grp
-                        print _gid
                     if posix_group.posix_gid != grp['gid']:
                         posix_group.posix_gid = grp['gid']
                         _has_changed = True
                     if _has_changed:
                         posix_group.write_db()
-                    if not dryrun:
+                    if dryrun:
+                        self.db.rollback()
+                    else:
                         self.db.commit()
                     continue
                 except Errors.NotFoundError:
                     posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
                                          name=grp['name'], description=grp['description'], \
-                                         gid=grp['posix_gid']
-                                         )
+                                         gid=grp['posix_gid'])
                     try:
                         posix_group.write_db()
                     except self.db.IntegrityError,ie: 
@@ -601,16 +595,13 @@ class BDBSync:
             person.find_by_external_id(bdb_person_type,
                                        account_info['person'],bdb_source_type)
             logger.debug('Found person for account %s' % account_info['name'])
-            #print 'Found person for account %s' % account_info['name']
         except Exception,e:
             logger.warning('Person with BDB-ID %s not found.' % account_info['person'])
             if verbose:
                 print 'Person with BDB-ID %s not found.' % account_info['person']
-                print account_info
             return
         person_entity = person.entity_id
         p_accounts = person.get_accounts()
-        #print "%s has %s accounts" % (person_entity,str(len(p_accounts)))
 
         username_match = False
         # Find account-names and see if they match
@@ -632,16 +623,8 @@ class BDBSync:
                 # If we got a match on username, we'll update expire-date and possibly 
                 # promote the account to posix if we have enough information
                 username_match = True
-                # Update expire_date
-                if verbose:
-                    print "Updating account %s on person %s" % (username,person_entity)
                 logger.info('Updating account %s on person %s' % (username,person_entity))
                 ac.expire_date = account_info.get('expire_date',None)
-                if account_info.get('status','') == 1:
-                    # need more data to use this
-                    #ac.set_account_type(ou_id,aff,priority=None) 
-                    pass
-
                 if _is_posix(account_info):
                     try:
                         posix_user.clear()
@@ -671,30 +654,29 @@ class BDBSync:
                             try:
                                 posix_user.write_db()
                             except self.db.IntegrityError,ie:
-                                print "Unique constraint caught for user %s. uid/gid already in use" % (account_info['name'])
+                                uid,gid,name = account_info['unix_uid'],account_info['unix_gid'],account_info['name']
+                                logger.error('Uid/gid (%s/%s) already in use for account %s' % (uid,gid,name))
                                 self.db.rollback()
                                 return
                             except Exception,e:
-                                print "Exception caught. at line 599"
+                                print "Exception caught. at line 668"
                                 print str(e)
                                 sys.exit()
+                        else:
+                            self.db.rollback()
                     except self.db.IntegrityError,ie:
-                        if verbose:
-                            print "Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie))
                         logger.error("Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie)))
                         self.db.rollback()
                     except Errors.NotFoundError:
+                        # posix-search returned NotFound. promote to posix
                         account_info['account_id'] = ac.entity_id
                         if self._promote_posix(account_info):
                             logger.info("Account %s promoted to posix" % ac.entity_id)
                         else:
                             logger.info("Account %s not promoted to posix" % ac.entity_id)
-                            if verbose:
-                                print "Account %s not promoted to posix" % ac.entity_id
                             self.db.rollback()
 
         if not username_match:
-            # New account - check if the username is reserved 
             first_name = person.get_name(const.system_cached, const.name_first)
             last_name = person.get_name(const.system_cached, const.name_last)
             ac.clear()
@@ -704,7 +686,6 @@ class BDBSync:
             except Errors.NotFoundError:
                 uname = account_info['name']
             except Errors.TooManyRowsError:
-                # Should not happen
                 pass
             if not uname:
                 ac.clear()
@@ -712,15 +693,15 @@ class BDBSync:
                                            fname=first_name, lname=last_name)
                 uname = unames[0]
             np_type = None # this is a real account, not course,test,vendor etc
-            if verbose:
-                print "Adding new account %s on person %s" % (uname,person_entity)
             logger.info('Adding new account %s on person %s' % (uname,person_entity))
             if _is_posix(account_info):
                 posix_user.clear()
                 # Kan kaste exception
                 posix_group.clear()
-                posix_group.find_by_gid(account_info['unix_gid'])
-
+                try:
+                    posix_group.find_by_gid(account_info['unix_gid'])
+                except Errors.NotFoundError:
+                    posix_group.find_by_name('posixgroup')
                 posix_user.populate(posix_uid=account_info['unix_uid'],
                         gid_id=posix_group.entity_id,
                         gecos=posix_user.simplify_name(person.get_name(const.system_cached,const.name_full),as_gecos=1),
@@ -735,8 +716,6 @@ class BDBSync:
                 try:
                     posix_user.write_db()
                 except Exception,e:
-                    if verbose:
-                        print 'write_db failed on user %s. Reason: %s' % (uname,str(e))
                     logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
                     self.db.rollback()
                     return
@@ -751,31 +730,23 @@ class BDBSync:
                 try:
                     ac.write_db()
                 except Exception,e:
-                    if verbose:
-                        print 'write_db failed on user %s. Reason: %s' % (uname,str(e))
                     logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
                     self.db.rollback()
                     return
         try:
             if dryrun:
-                if verbose:
-                    print "Dryrun - rollback called" 
                 self.db.rollback()
+                logger.debug('Rollback called. Changes omitted.')
             else:
                 self.db.commit()
-                if verbose:
-                    print "Changes on %s commited to Cerebrum" % account_info['name']
                 logger.debug('Changes on %s commited to Cerebrum' % account_info['name'])
                 num_accounts += 1
         except Exception,e:
             self.db.rollback()
             logger.error('Exception caught while trying to commit. Rolling back. Reason: %s' % str(e))
-            if verbose:
-                print 'Exception caught while trying to commit. Rolling back. Reason: %s' % str(e)
             return
-            
 
-    def sync_accounts(self):
+    def sync_accounts(self,username=None):
         """
         This method synchronizes all BDB accounts into Cerebrum.
         """
@@ -1000,7 +971,7 @@ def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvh',
-                    ['spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
+                    ['personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     for opt,val in opts:
@@ -1010,6 +981,24 @@ def main():
             verbose = True
         elif opt in ('-d','--dryrun'):
             dryrun = True
+        elif opt in ('--personid'):
+            # Konverter val til noe saklig
+            print "Syncronizing BDBPerson: %s" % val
+            if len(val) == 11:
+                person = sync.bdb.get_persons(fdato=val[:6],pnr=val[6:])
+            else:
+                person = sync.bdb.get_persons(bdbid=val) 
+            # person is now a list of one element (dict)
+            if len(person) == 1:
+                sync._sync_person(person[0])
+            else:
+                print "Too many persons match criteria. Exiting.."
+            sys.exit()
+        elif opt in ('--accountname'):
+            # Konverter val til noe saklig
+            print "Syncronizing account: %s" % val
+            account = sync.bdb.get_accounts(val)
+            sync._sync_account(account[0])
         elif opt in ('-p','--people'):
             sync.sync_persons()
         elif opt in ('-g','--group'):
