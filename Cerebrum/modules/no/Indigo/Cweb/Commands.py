@@ -330,4 +330,71 @@ class MiscCommands(VirtualCommands):
         return tpl.show({'changes': changes,
                          'days': days})
 
+    def show_login(self):
+        """Display the login page.
+
+        Additionally, set the login id, which is used to verify that the
+        person is logging in for the first time.
+        """
+
+        login_id = self.state.register_login_id()
+        tpl = SubTemplate(self.state, 'login')
+        return tpl.show({'login_id': login_id}, menu=False)
+    # end show_login
+
+
+    def do_login(self):
+        """Perform the checks necessary when a person logs in.
+        
+        There are two ways of ensuring that simply re-using the form values
+        from browser cache does not login the user anew:
+
+        1) Submitting uname/passwd to a different 'validate' page which
+           redirects (on success) to the 'welcome' page. This is a bit
+           difficult with cweb, since the entire framework is based on *one*
+           CGI-script that interprets its parameters to decide which action to
+           perform.
+        2) Making a login id that is valid between the time the login page is
+           loaded and the user logs in. Here is how it happens:
+
+           a) generate a unique id
+           b) register it in the state class
+           c) present login page where this id is embedded as a hidden form
+              field
+           d) the user submits the form (with uname, password and the hidden
+              login id field)
+           e) if the login id is still registered in the state class - accept
+              the login, validate uname/passwd and delete the login id.
+              if the login id is NOT registered in the state class - deny the
+              login.
+
+           We would still need a job that traverses the state database (GDBM
+           file) and cleans up 'stale'/'expired' entries. Thus far this has
+           not been a problem (not enough users), but eventually, it may.
+        """
+
+        # d) let's fetch uname, password and login_id
+        uname = self.state.get_form_value("uname")
+        password = self.state.get_form_value("pass")
+        login_id = self.state.get_form_value("login_id")
+
+        # e) depending on login_id, decide what to do
+        if (not self.state.has_login_id(login_id) or
+            not uname or not password):
+            raise Errors.CwebException("Du må oppgi brukernavn og passord")
+
+        # If the login is unsuccessful, cerebrum.login() raises an exception
+        # which is intercepted higher in the calling chain. The important
+        # thing is to nuke the login id, so that we do not store garbage there
+        # indefinitely.
+        self.state.delete_login_id(login_id)
+        session_id = self.cerebrum.login(uname, password)
+        self.state.set_logged_in(uname, session_id)
+
+        tpl = PersonTemplate(self.state, 'welcome')
+        return tpl.show({}, menu=True)
+    # end do_login
+        
+        
+
 # arch-tag: cdd634ac-7155-11da-8a75-c6a0738f99aa

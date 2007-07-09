@@ -20,8 +20,8 @@ interfaces to the database. In each case, the overall architecture is the same
      over XMLRPC [#xmlrpc]_ with the bofhd.
   #. Cereweb, a web-based user administration interface to Cerebrum client
      used chiefly at NTNU.
-  #. CWEB, another web-based user administration  client used primarily with Indigo-OFK and
-     Indigo-giske projects. 
+  #. CWEB, another web-based user administration client used primarily with
+     Indigo-OFK and Indigo-giske projects.
 
 This memo is on the workings of the CWEB framework.
 
@@ -134,6 +134,31 @@ request is three-folded:
   * Once the bofhd gets the request from the cerebrum proxy object, it
     performs permissions checks once a method for a particular command is
     invoked.
+
+Login procedure
+----------------
+Before a user can issue any commands, (s)he must log in (cweb typically greets
+the users with a login page). Username/password are transmitted with HTTPS,
+so there is no possibility of leaking the information there.
+
+However, there exists another issue that needs to be addressed. A browser can
+cache form values, and re-submit them, once the same form is encountered
+again (e.g. if the user presses the "back" button in the browser, after having
+logged out). We cannot allow this 'resubmission' to happen. 
+
+Therefore, each time a login page is loaded, a random key K is inserted into
+the login form (as a hidden field). K is registered in the state database
+prior to displaying the login page. When the user submits the data (HTTP POST
+request), cweb login procedure checks if K submitted with the page exists in
+the state database. If it does, then the login data is processed,
+username/password is verified, the user is logged in, and K is removed from
+the state database. If K does NOT exist in the state database, the login
+information is discarded (without verification), and the user is asked to log
+in. Additionally, to "force" the browser to reload the login page (rather than
+reuse old values), HTTP cache directives are issued that prohibit the browser
+to cache the page. This is a convenience only feature (to avoid certain error
+conditions while pressing the "back" button to reach the login page), and has
+no security merits.
 
 
 CWEB presentation layer

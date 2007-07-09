@@ -54,16 +54,6 @@ class Controller(object):
             self.logger.error("Caught unexpected error: ", exc_info=1)
             self.html_util.error("%s" % er)
             
-    def login(self):
-        uname = self.state.get_form_value('uname')
-        passwd = self.state.get_form_value("pass")
-        if not uname or not passwd:
-            raise Errors.CwebException("Du må oppgi brukernavn og passord")
-            
-        session_id = self.cerebrum.login(uname, passwd)
-        self.state.set_logged_in(uname, session_id)
-        return self.html_util.show_page(Layout.PersonTemplate, 'welcome')
-
     def logout(self):
         tpl = Layout.SubTemplate(self.state, 'logged_out')
         self.cerebrum.logout()
@@ -97,7 +87,7 @@ class Controller(object):
             'do_group_mod': [self.group_cmd.group_mod],
             'do_list_passwords': [self.user_cmd.list_passwords],
             'do_user_password': [self.user_cmd.user_password],
-            'do_login': [self.login],
+            'do_login': [self.misc_cmd.do_login],
             'do_logout': [self.logout],
             'do_user_create': [self.user_cmd.user_create],
             'do_user_find': [self.user_cmd.user_find],
@@ -110,8 +100,7 @@ class Controller(object):
             'show_group_mod': [self.group_cmd.show_group_mod],
             'show_group_search': [self.html_util.show_page,
                                   Layout.GroupTemplate, 'group_search'],
-            'show_login': [self.html_util.show_page,
-                           Layout.SubTemplate, 'login', False],
+            'show_login': [self.misc_cmd.show_login],
             'show_person_find': [self.html_util.show_page,
                                  Layout.PersonTemplate, 'person_find'],
             'show_person_info': [self.person_cmd.show_person_info],
@@ -126,8 +115,7 @@ class Controller(object):
         action = self.state.get_form_value("action")
         self.logger.debug("Action: %s" % action)
         if not action:
-            self.html_util.display(self.html_util.show_page(
-                Layout.SubTemplate, 'login', False))
+            self.html_util.display(self.misc_cmd.show_login(), cache=False)
             return
         elif action not in ('do_login', 'do_logout', 'show_login'
                             ) and not self.state.is_logged_in():
@@ -162,7 +150,10 @@ class Controller(object):
             return
         self.logger.debug("%s(%s" % (f[0], repr(f[1:])))
         try:
-            self.html_util.display(f[0](*f[1:]))
+            cache = True
+            if action == "show_login":
+                cache = False
+            self.html_util.display(f[0](*f[1:]), cache)
         except Exception, e:
             er = re.sub(r'.*\:', r'Error:', str(e))
             self.logger.error("Caught unexpected error: ", exc_info=1)

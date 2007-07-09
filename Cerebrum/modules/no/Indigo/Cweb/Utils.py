@@ -23,11 +23,23 @@ class HTMLUtil(object):
         tpl = tpl_class(self.state, tpl_name)
         return tpl.show({}, menu=menu)
 
-    def display(self, html):
+    def display(self, html, cache=True):
+        """Render a given chunk of HTML.
+
+        :Parameters:
+          html : basestring
+            Chunk of HTML with the entire page to display.
+          cache : bool
+            Whether to issue directives prohibiting caching (useful for login
+            pages and the like)
+        """
         cookie = ''
         if hasattr(self.state, 'cookie'):
             cookie = self.state.cookie
         print "Content-type: text/html"
+        if not cache:
+            print "Cache-Control: no-store, no-cache, must-revalidate"
+            print "Pragma: no-cache"
         print "%s\n\n" % cookie
         print html
 

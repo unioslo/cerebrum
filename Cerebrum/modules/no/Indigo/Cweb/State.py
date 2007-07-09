@@ -24,13 +24,15 @@ import gdbm  # anydbm is broken in store... segfaults
 import os
 import time
 import Cookie
+from random import Random
+import time
+import md5
 
 import cerebrum_path
 import cereconf
 
 
 class StateClass(object):
-
     """Handles all state information.
 
     Client-side state is stored in a cookie with a sessionid. This
@@ -212,7 +214,33 @@ class StateClass(object):
             return self.form[k].value
         return v
 
+    def register_login_id(self):
+        "Store the temporary login id (check __doc__ in Commands.py) in GDBM."
+
+        # IVR 2007-07-06 FIXME: Code duplication from bofhd.py
+        r = Random().random()
+        m = md5.new("login-%s-%s" % (time.time(), r))
+        login_id = m.hexdigest()
+        self._db[login_id] = str(time.time())
+        return login_id
+    # end register_login_id
+
+    def delete_login_id(self, login_id):
+        "The inverse of register_login_id."
+
+        if not self.has_login_id(login_id):
+            self.logger.fatal("attempting to delete non-existent login-id %s",
+                              login_id)
+            return
+
+        del self._db[login_id]
+    # end delete_login_id
+
+    def has_login_id(self, login_id):
+        return self._db.has_key(login_id)
+    # end has_login_id
+
     def __del__(self):
         self._db.close()
 
-# arch-tag: cff66e82-7155-11da-9ee9-5d37e06dce4b
+# end StateClass
