@@ -239,14 +239,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if not ret[0]:
                     self.logger.warning("setObject on %s failed: %r", uname, ret)
                     return
-                ret = self.run_cmd('createDir', 'homeDirectory', dry_run)
-                self.logger.info('createhomedir: %r', ret)
-                if not ret[0]:
-                    self.logger.warning('createDir on %s failed: %r', uname, ret)
-                ret = self.run_cmd('createDir', 'profilePath', dry_run)
-                self.logger.info('createprofile %r', ret)                
-                if not ret[0]:
-                    self.logger.warning("createDir on %s failed: %r",uname, ret)
+                if ret[0]:
+                    ret2 = self.run_cmd('createDir', dry_run, 'homeDirectory')
+                    if not ret2[0]:
+                        self.logger.warning('createDir on %s failed: %r', uname, ret)
+                    ret2 = self.run_cmd('createDir', dry_run, 'profilePath')
+                    if not ret2[0]:
+                        self.logger.warning("createDir on %s failed: %r",uname, ret)
                      
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
