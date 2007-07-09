@@ -246,6 +246,7 @@ class LdapBack:
         dn=self.get_dn(obj)
         attrs = old_attrs = None
         attrs=self.get_attributes(obj)
+        ignore_attr_types = [] + self.ignore_attr_types
         if old == None:
             # Fetch old values from LDAP
             res = self.search(base=dn) # using dn as base, and fetch first record
@@ -268,11 +269,11 @@ class LdapBack:
         # If we have N misssing, fetch the old ones and add missing ones
         # into the  updated list of values for attr objectclass
         if len(missing_objectclasses) == 0:
-            self.ignore_attr_types.append('objectclass')
+            ignore_attr_types.append('objectclass')
         else:
             attrs['objectclass'] = old_attrs['objectclass'] + missing_objectclasses
 
-        mod_attrs = modlist.modifyModlist(old_attrs,attrs,self.ignore_attr_types,ignore_oldexistent)
+        mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
             # Only update if there are changes. python_ldap seems to complain when given empty modlists
             if (mod_attrs != []): self.l.modify_s(dn,mod_attrs)
@@ -320,6 +321,7 @@ class PosixUser(LdapBack):
         self.filter = config.sync.get("ldap","userfilter")
         # Need 'person' for structural-objectclass
         self.obj_class = ['top','person','posixAccount','shadowAccount'] 
+        self.ignore_attr_types = []
 
     def get_attributes(self,obj):
         """Convert Account-object to map ldap-attributes"""
@@ -363,6 +365,7 @@ class PosixGroup(LdapBack):
         self.filter = config.sync.get("ldap","groupfilter")
         self.obj_class = ['top','posixGroup']
         # posixGroup supports attribute memberUid, which is multivalued (i.e. can be a list, or string)
+        self.ignore_attr_types = []
 
     def get_attributes(self,obj):
         s = {}
@@ -387,6 +390,7 @@ class NetGroup(LdapBack):
             self.base = base
         self.filter = config.sync.get("ldap","netgroupfilter")
         self.obj_class = ('top', 'nisNetGroup')
+        self.ignore_attr_types = []
 
     def get_dn(self,obj):
         return "cn=" + obj.name + "," + self.base
@@ -405,6 +409,7 @@ class Person(LdapBack):
         self.base = base
         self.filter = config.sync.get("ldap","peoplefilter")
         self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
+        self.ignore_attr_types = []
 
     def get_dn(self,obj):
         return "uid=" + obj.name + "," + self.base
