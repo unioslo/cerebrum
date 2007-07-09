@@ -37,6 +37,7 @@ from errors import ServerError
 
 import config
 
+
 def ldapDict(s):
     """Oracle Internet Directory suck bigtime. if we insert with lowercase, 
     we might get camelCase back. Helperfunction for easier comparison of 
@@ -322,16 +323,16 @@ class PosixUser(LdapBack):
     def get_attributes(self,obj):
         """Convert Account-object to map ldap-attributes"""
         s = {}
-        s['objectClass'] = self.obj_class
-        s['cn'] = iso2utf(obj.gecos)
-        s['sn'] = iso2utf(obj.gecos.split()[len(obj.gecos.split())-1]) # presume last name, is surname
-        s['uid'] = obj.name
-        s['uidNumber'] = str(obj.posix_uid)
-        s['userPassword'] = '{MD5}' + obj.password # until further notice, presume md5-hash
-        s['gidNumber'] = str(obj.primary_group.posix_gid)
-        s['gecos'] = self.gecos(obj.gecos)
-        s['homeDirectory'] = obj.homedir
-        s['loginShell'] = obj.shell
+        s['objectClass']   = self.obj_class
+        s['cn']            = ["%s"     %  self.iso2utf(obj.gecos)]
+        s['sn']            = ["%s"     %  self.iso2utf(obj.gecos)]
+        s['uid']           = ["%s"     %  obj.name]
+        s['gecos']         = ["%s"     %  self.gecos(obj.gecos)]
+        s['uidNumber']     = ["%s"     %  obj.posix_uid]
+        s['gidNumber']     = ["%s"     %  obj.posix_gid]
+        s['loginShell']    = ["%s"     %  obj.shell]
+        s['userPassword']  = ["{%s}%s" % (config.sync.get('ldap','hash').upper(), obj.passwd)]
+        s['homeDirectory'] = ["%s"     %  obj.homedir]
         return s
 
     def gecos(self,s,default=1):
@@ -364,13 +365,13 @@ class PosixGroup(LdapBack):
 
     def get_attributes(self,obj):
         s = {}
-        s['objectClass'] = self.obj_class
-        s['cn'] = obj.name
+        s['objectClass']     = self.obj_class
+        s['cn']              = ["%s" % obj.name]
+        s['gidNumber']       = ["%s" % obj.posix_gid]
         if (len(obj.membernames) > 0):
-            s['memberUid'] = obj.membernames
+            s['memberUid']   = obj.membernames
         if (len(obj.description) > 0):
             s['description'] = obj.description
-        s['gidNumber'] = str(obj.posix_gid)
         return s
 
     def get_dn(self,obj):
@@ -391,8 +392,8 @@ class NetGroup(LdapBack):
 
     def get_attributes(self,obj):
         s = {}
-        s['objectClass'] = self.obj_class
-        s['cn'] = (obj.name)
+        s['objectClass']       = self.obj_class
+        s['cn']                = [obj.name]
         s['nisNetGroupTriple'] = [] # Which attribute to fetch? FIXME
         s['memberNisNetgroup'] = [] # Which attribute to fetch? FIXME
         return s
@@ -409,16 +410,17 @@ class Person(LdapBack):
 
     def get_attributes(self,obj):
         s = {}
-        s['objectClass'] = self.obj_class
-        s['cn'] = iso2utf(obj.full_name)
-        s['sn'] = iso2utf(obj.full_name.split()[len(obj.full_name)-1]) # presume last name, is surname
-        s['uid'] = obj.name
-        s['userPassword'] = '{' + config.sync.get('ldap','hash').upper() + '}' + obj.password 
-        s['eduPersonPrincipalName'] = obj.name + "@" + config.sync.get('ldap','eduperson_realm')
-        s['norEduPersonBirthDate'] = str(obj.birth_date) # Norwegian "Birth date" FIXME 
-        s['norEduPersonNIN'] = str(obj.birth_date) # Norwegian "Birth number" / SSN FIXME
-        s['mail'] = s['eduPersonPrincipalName'] # FIXME 
-        s['description'] = obj.description
+        s['objectClass']            = self.obj_class
+        s['cn']                     = ["%s"     %  self.iso2utf(obj.full_name)]
+        s['sn']                     = ["%s"     %  self.iso2utf(obj.full_name.split()[len(obj.full_name)-1])] # presume last name, is surname
+        s['uid']                    = ["%s"     %  obj.name]
+        s['description']            = ["%s"     %  obj.description]
+        s['userPassword']           = ["{%s}%s" % (config.sync.get('ldap','hash').upper(), obj.passwd)]
+        s['norEduPersonNIN']        = ["%s"     %  obj.birth_date] # Norwegian "Birth number" / SSN FIXME
+        s['norEduPersonBirthDate']  = ["%s"     %  obj.birth_date] # Norwegian "Birth date" FIXME 
+        s['eduPersonPrincipalName'] = ["%s@%s"  %  obj.name, config.sync.get('ldap','eduperson_realm')]
+        # FIXME;
+        #s['mail']                   = s['eduPersonPrincipalName']
         return s
 
 class Alias:
@@ -442,8 +444,8 @@ class Alias:
 
     def get_attributes(self,obj):
         s = {}
-        s['objectClass'] = self.obj_class
-        s['cn'] = obj.name
+        s['objectClass']      = self.obj_class
+        s['cn']               = [obj.name]
         s['rfc822MailMember'] = obj.membernames()
         return s
 
@@ -476,12 +478,12 @@ class OU:
     def get_attributes(self,obj):
         #FIXME: add support for storing unit-id,parent-id and rootnode-id
         s = {}
-        s['objectClass'] = ('top','organizationalUnit','norEduOrgUnit')
-        s['ou'] = obj.name
-        s['cn'] = obj.full_name
-        s['description'] = obj.description
-        s['norEduOrgUniqueNumber'] = config.sync.get('ldap','norEduOrgUniqueNumber')
-        s['norEduOrgUnitUniqueNumber'] = obj.id
+        s['objectClass']               = ['top','organizationalUnit','norEduOrgUnit']
+        s['ou']                        = ["%s" % obj.name]
+        s['cn']                        = ["%s" % obj.full_name]
+        s['description']               = ["%s" % obj.description]
+        s['norEduOrgUniqueNumber']     = ["%s" % config.sync.get('ldap','norEduOrgUniqueNumber')]
+        s['norEduOrgUnitUniqueNumber'] = ["%s" % obj.id]
         #s['norEduOrgAcronym'] = obj.acronyms
         return s
 
