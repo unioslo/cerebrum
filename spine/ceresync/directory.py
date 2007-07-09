@@ -126,11 +126,11 @@ class LdapBack:
         self.l = None # Holds the authenticated ldapConnection object
         self.ignore_attr_types = [] # To be overridden by subclasses
 
-    def iso2utf(str):
+    def iso2utf(self, str):
         """ Return utf8-encoded string """
         return unicode(str, "iso-8859-1").encode("utf-8")
         
-    def utf2iso(str):
+    def utf2iso(self, str):
         "Return decoded utf8-string"
         return unicode(str,"utf-8").encode("iso-8859-1")
 
@@ -185,8 +185,7 @@ class LdapBack:
         if not self.incr:
             print "Syncronizing LDAP database"
             self.indirectory = []
-            res_attrs = ['dn']
-            res = self.search(filterstr=self.filter,attrlist=res_attrs) 
+            res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
             for (dn,attrs) in res:
                 self.indirectory.append(dn)
             for entry in self.insync:
@@ -201,8 +200,8 @@ class LdapBack:
                 if entry.lower() == 'ou=organization,dc=ntnu,dc=no':
                     continue
                 else:
+                    info("Found %s in database.. should not be here.. removing" % entry)
                     self.delete(dn=entry)
-                    info("Info: Found %s in database.. should not be here.. removing" % entry)
             print "Done syncronizing"
 
     def abort(self):
@@ -214,7 +213,7 @@ class LdapBack:
         except ldap.LDAPError,e:
             print "Error occured while closing LDAPConnection: %s" % (e)
 
-    def add(self, obj, ignore_attr_types=['',]):
+    def add(self, obj, update_if_exists=True):
         """
         Add object into LDAP. If the object exist, we update all attributes given.
         """
@@ -224,7 +223,7 @@ class LdapBack:
             mod_attrs = modlist.addModlist(attrs,self.ignore_attr_types)
         except AttributeError,ae:
             exception("AttributeError caught from modlist.addModlist: %s" % ae.__str__)
-            debug(attrs)
+            exception("attrs: %s, ignore_attr_types: %s" % (attrs, self.ignore_attr_types))
             sys.exit(1)
         try:
             self.l.add_s(dn,mod_attrs)
@@ -232,7 +231,7 @@ class LdapBack:
         except ldap.ALREADY_EXISTS,e:
             if update_if_exists: self.update(obj)
         except ldap.LDAPError,e:
-            exception("An error occured while adding %s: %s" % (dn,e.args))
+            exception("An error occured while adding %s: %s. mod_attrs: %s" % (dn,e.args, mod_attrs))
             sys.exit()
         except TypeError,te:
             exception("Expected a string in the list in function add.")
@@ -255,7 +254,7 @@ class LdapBack:
                 return
             old_attrs = res[0][1]
         else:
-            old_attrs = {}
+            old_attrs = old
         # Make shure we don't remove existing objectclasses, as long
         # as we get to add the ones we need to have
         missing_objectclasses = []
@@ -275,16 +274,17 @@ class LdapBack:
 
         mod_attrs = modlist.modifyModlist(old_attrs,attrs,self.ignore_attr_types,ignore_oldexistent)
         try:
-            self.l.modify_s(dn,mod_attrs)
+            # Only update if there are changes. python_ldap seems to complain when given empty modlists
+            if (mod_attrs != []): self.l.modify_s(dn,mod_attrs)
             self.insync.append(dn)
-            print "%s updated successfully" % (obj.name)
         except ldap.LDAPError,e:
-            print "An error occured while modifying %s" % (dn)
+            exception("An error occured while modifying %s" % (dn))
 
     def delete(self,obj=None,dn=None):
         """
         Delete object from LDAP. 
         """
+        #FIXME: Change print statements to exception,warning,error etc
         if obj:
             dn=self.get_dn(obj)
         try:
@@ -300,6 +300,7 @@ class LdapBack:
         try:
             result = self.l.search_s(base,scope,filterstr,attrslist,attrsonly)
         except ldap.LDAPError,e:
+            # FIXME: Returns error when on no entries found... (bug or feature?)
             print "Error occured while searching with filter: %s" % (filterstr)
             return [] # Consider raise exception later
         return result
@@ -472,7 +473,7 @@ class OU:
         else:
             parentdn = self.search(base=base,filterstr=filter)[0][0]
         dn = "ou=" + obj.name + parentdn
-        self.ou_dict['obj.id'] = dn # Local cache to speed things up.. 
+        self.ou_dict[obj.id] = dn # Local cache to speed things up.. 
         return dn
 
     def get_attributes(self,obj):
