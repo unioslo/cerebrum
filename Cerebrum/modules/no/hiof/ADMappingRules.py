@@ -35,11 +35,11 @@ class Adm(object):
 
     def getProfilePath(self, sko, uname):
         serv = Adm.mapping[sko[-2:]]
-        return r"\\%s\%s\profile" % (serv, uname)
+        return r"\\%s\%s$\profile" % (serv, uname)
 
     def getHome(self, sko, uname):
         serv = Adm.mapping[sko[-2:]]
-        return r"\\%s\%s" % (serv, uname)
+        return r"\\%s$\%s" % (serv, uname)
 
 class Fag(object):
     DOMAIN_NAME = "fag.hiof.no"
