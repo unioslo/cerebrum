@@ -211,15 +211,30 @@ class BDB:
         cursor.close()
         return persons
 
-    def get_accounts(self):
+    def get_accounts(self,username=None):
         cursor = self.db.cursor()
-        cursor.execute("SELECT b.passord_type, b.gruppe, b.person, b.brukernavn, b.siden, b.utloper \
-                        ,b.unix_uid, b.skall, b.standard_passord, b.id, b.status, g.unix_gid \
-                        FROM bruker b,person p, gruppe g \
-                        WHERE b.user_domain=1 AND \
+        if username:
+            cursor.execute("SELECT b.passord_type, b.gruppe, b.person, \
+                              b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
+                              to_char(b.utloper,'YYYY-MM-DD'), \
+                              b.unix_uid, b.skall, b.standard_passord, \
+                              b.id, b.status, g.unix_gid \
+                            FROM bruker b,person p, gruppe g \
+                            WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
                               b.gruppe =  g.id AND \
-                              p.personnr is not null") 
+                              p.personnr is not null AND b.brukernavn='%s'" % username)
+        else:
+            cursor.execute("SELECT b.passord_type, b.gruppe, b.person, \
+                              b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
+                              to_char(b.utloper,'YYYY-MM-DD'),  \
+                              b.unix_uid, b.skall, b.standard_passord, \
+                              b.id, b.status, g.unix_gid \
+                            FROM bruker b,person p, gruppe g \
+                            WHERE b.user_domain=1 AND \
+                              b.person = p.id AND \
+                              b.gruppe =  g.id AND \
+                              p.personnr is not null")
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
         accounts = []
