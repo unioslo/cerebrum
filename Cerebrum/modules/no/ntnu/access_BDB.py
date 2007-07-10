@@ -218,7 +218,7 @@ class BDB:
                               b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
                               to_char(b.utloper,'YYYY-MM-DD'), \
                               b.unix_uid, b.skall, b.standard_passord, \
-                              b.id, b.status, g.unix_gid \
+                              b.id, b.status, g.unix_gid, b.nt_passord \
                             FROM bruker b,person p, gruppe g \
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
@@ -229,7 +229,7 @@ class BDB:
                               b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
                               to_char(b.utloper,'YYYY-MM-DD'),  \
                               b.unix_uid, b.skall, b.standard_passord, \
-                              b.id, b.status, g.unix_gid \
+                              b.id, b.status, g.unix_gid, b.nt_passord \
                             FROM bruker b,person p, gruppe g \
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
@@ -268,6 +268,8 @@ class BDB:
                 a["status"] = ba[10]
             if ba[11]:
                 a["unix_gid"] = ba[11]
+            if ba[12]:
+                a["password2"] = ba[12]
 
             accounts.append(a)
         cursor.close()
