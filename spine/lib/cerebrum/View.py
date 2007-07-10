@@ -14,6 +14,8 @@ from Cerebrum.modules.EntityTrait import EntityTrait
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 acc = Factory.get('Account')(db)
+person = Factory.get('Person')(db)
+
 
 # Accountviews are accounts as "seen from" a spread, and may contain
 # spread-spesific data.  They are tailored for efficient dumping of
@@ -94,20 +96,25 @@ person_name.name AS full_name
 FROM account_info
 %s -- insert changelog here
 JOIN entity_spread account_spread
-ON (account_spread.spread = :account_spread AND account_spread.entity_id = account_info.account_id)
+ON (account_spread.spread = :account_spread
+  AND account_spread.entity_id = account_info.account_id)
 JOIN entity_name account_name
-ON (account_info.account_id = account_name.entity_id AND account_name.value_domain = :account_namespace)
+ON (account_info.account_id = account_name.entity_id
+  AND account_name.value_domain = :account_namespace)
 LEFT JOIN account_authentication
-ON (account_authentication.method = :authentication_method AND account_authentication.account_id = account_info.account_id)
+ON (account_authentication.method = :authentication_method
+  AND account_authentication.account_id = account_info.account_id)
 -- homedir
 LEFT JOIN account_home
-ON (account_home.spread = :account_spread AND account_home.account_id = account_info.account_id)
+ON (account_home.spread = :account_spread
+  AND account_home.account_id = account_info.account_id)
 LEFT JOIN homedir
 ON (homedir.homedir_id = account_home.homedir_id)
 LEFT JOIN disk_info
 ON (disk_info.disk_id = homedir.disk_id)
 LEFT JOIN entity_name disk_host_name
-ON (disk_host_name.entity_id = disk_info.host_id AND disk_host_name.value_domain = :host_namespace)
+ON (disk_host_name.entity_id = disk_info.host_id
+  AND disk_host_name.value_domain = :host_namespace)
 -- posix
 LEFT JOIN posix_user
 ON (account_info.account_id = posix_user.account_id)
@@ -118,16 +125,20 @@ ON (group_info.group_id = posix_user.gid)
 LEFT JOIN posix_group
 ON (group_info.group_id = posix_group.group_id)
 LEFT JOIN entity_name group_name
-ON (group_info.group_id = group_name.entity_id AND group_name.value_domain = :group_namespace)
+ON (group_info.group_id = group_name.entity_id
+  AND group_name.value_domain = :group_namespace)
 -- owner
 LEFT JOIN group_info owner_group_info
 ON (owner_group_info.group_id = account_info.owner_id)
 LEFT JOIN person_info
 ON (person_info.person_id = account_info.owner_id)
 LEFT JOIN entity_name owner_group_name
-ON (owner_group_name.entity_id = owner_group_info.group_id AND owner_group_name.value_domain = :group_namespace)
+ON (owner_group_name.entity_id = owner_group_info.group_id
+  AND owner_group_name.value_domain = :group_namespace)
 LEFT JOIN person_name
-ON (person_name.person_id = person_info.person_id AND person_name.name_variant = 220 AND person_name.source_system = :system_cached)
+ON (person_name.person_id = person_info.person_id
+  AND person_name.name_variant = :name_full
+  AND person_name.source_system = :system_cached)
 WHERE (account_info.expire_date > now() OR account_info.expire_date IS NULL)
 """
 
@@ -353,7 +364,7 @@ ORDER BY change_log.change_id
 
 class PersonView(Builder):
     slots = (
-        Attribute('person_id', int),
+        Attribute('id', int),
         Attribute('export_id', str),
         Attribute('full_name', str),
         Attribute('first_name', str),
@@ -365,6 +376,7 @@ class PersonView(Builder):
         Attribute('phone', str),
 
         Attribute('primary_account', int),
+        Attribute('primary_account_name', str),
         
         Attribute('birth_date', Date),
         Attribute('nin', str),
@@ -378,7 +390,7 @@ class PersonView(Builder):
 
 person_search="""
 SELECT
-person_info.person_id AS person_id,
+person_info.person_id AS id,
 person_info.export_id AS export_id,
 person_full_name.name AS full_name,
 person_first_name.name AS first_name,
@@ -390,6 +402,7 @@ contact_url.contact_value AS url,
 contact_phone.contact_value AS phone,
 
 account_type.account_id AS primary_account,
+account_name.entity_name AS primary_account_name,
 
 person_info.birth_date AS birth_date,
 person_nin.external_id AS nin,
@@ -399,9 +412,10 @@ entity_address.city AS city
 
 FROM person_info
 %s
-JOIN entity_external_id person_nin
+LEFT JOIN entity_external_id person_nin
 ON (person_nin.entity_id = person_info.person_id
-  AND person_nin.id_type = :externalid_nin)
+  AND person_nin.id_type = :externalid_nin
+  AND person_nin.source_system = :nin_source )
 -- names & titles
 LEFT JOIN person_name person_first_name
 ON ((person_first_name.person_id = person_info.person_id)
@@ -447,6 +461,9 @@ ON (account_type.person_id = person_info.person_id
   AND account_type.priority IN
     (SELECT min(priority) FROM account_type
       WHERE person_id = account_type.person_id))
+LEFT JOIN entity_name account_name
+ON (account_name.entity_id = account_type.account_id
+  AND account_name.value_domain = :account_namespace)
 -- Only need living people
 WHERE (person_info.deceased_date IS NULL)
 """
@@ -480,7 +497,7 @@ def extend_persons(rows):
     
     affiliations = {}
     affiliations_has = affiliations.has_key
-    for affiliation in Factory.get('Person')(db).list_affiliations():
+    for affiliation in person.list_affiliations():
         pid = affiliation[0]
         aid = affiliation[1]
 
@@ -491,7 +508,7 @@ def extend_persons(rows):
 
     for row in rows:
         row = row.dict()
-        pid = row['person_id']
+        pid = row['id']
         if traits_has(pid):
             row['traits'] = traits[pid]
         if affiliations_has(pid):
@@ -514,6 +531,7 @@ class View(DatabaseTransactionClass):
             "name_personal_title": co.name_personal_title,
             "name_work_title": co.name_work_title,
             "externalid_nin": co.externalid_fodselsnr,
+            "nin_source": co.system_kjernen,
             "group_visibility_all": co.group_visibility_all,
             "contact_url": co.contact_url,
             "contact_email": co.contact_email,
