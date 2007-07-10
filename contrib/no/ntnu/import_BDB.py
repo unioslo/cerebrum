@@ -529,20 +529,14 @@ class BDBSync:
             res = False
         return res
 
-    def _sync_account(self,account_info):
+    def _sync_account(self,account_info,update_password_only=False):
         """Callback-function. To be used from sync_accounts-method."""
         global num_accounts,verbose,dryrun
         logger = self.logger
         logger.debug("Callback for %s" % account_info['id'])
 
         def _get_password(_account):
-            if _account.get('password_type') == 2:
-                # Blowfish, get the decrypt-key from config
-                pass
-            else:
-                return False
-            # FIXME
-            return _account.get('password')
+            return _account.get('password2')
 
         def _is_posix(_account):
             res = True
@@ -579,6 +573,16 @@ class BDBSync:
         posix_user.clear()
         posix_group.clear()
         group.clear()
+
+        if update_password_only:
+            ac.find_by_name(account_info.get('username'))
+            ac.set_password(_get_password(account_info))
+            ac.write_db()
+            try:
+                db.commit()
+            except Exception,e:
+                print 'Error occured when updating password for user %s. Reason: %s' % (account_info.get('username'),str(e))
+            return
 
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         default_creator_id = ac.entity_id
@@ -628,6 +632,15 @@ class BDBSync:
                     try:
                         posix_user.clear()
                         posix_user.find(account_id)
+                    except Errors.NotFoundError:
+                        # posix-search returned NotFound. promote to posix
+                        account_info['account_id'] = ac.entity_id
+                        if self._promote_posix(account_info):
+                            logger.info("Account %s promoted to posix" % ac.entity_id)
+                        else:
+                            logger.info("Account %s not promoted to posix" % ac.entity_id)
+                            self.db.rollback()
+                    else:
                         if verbose:
                             print "Account %s is already posix. Updating posix-uid/gid." % account_id
                         self.logger.info("Account %s is already posix. Updating" % account_id)
@@ -640,12 +653,18 @@ class BDBSync:
                             _has_changed = True
 
                         posix_group.clear()
-                        posix_group.find(posix_user.gid_id)
+                        try:
+                            posix_group.find(posix_user.gid_id)
+                        except Errors.NotFoundError:
+                            posix_group.find_by_name('posixgroup')
 
                         if posix_group.posix_gid != account_info['unix_gid']:
                             posix_group.clear()
                             # Denne kan kaste exception hvis unix_gid ikke finnes
-                            posix_group.find_by_gid(account_info['unix_gid'])
+                            try:
+                                posix_group.find_by_gid(account_info['unix_gid'])
+                            except Errors.NotFoundError:
+                                posix_group.find_by_name('posixgroup')
                             posix_user.gid_id = posix_group.entity_id
                             _has_changed = True
 
@@ -658,22 +677,14 @@ class BDBSync:
                                 self.db.rollback()
                                 return
                             except Exception,e:
-                                print "Exception caught. at line 668"
+                                print "Exception caught. at line 666"
                                 print str(e)
                                 sys.exit()
                         else:
                             self.db.rollback()
-                    except self.db.IntegrityError,ie:
-                        logger.error("Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie)))
-                        self.db.rollback()
-                    except Errors.NotFoundError:
-                        # posix-search returned NotFound. promote to posix
-                        account_info['account_id'] = ac.entity_id
-                        if self._promote_posix(account_info):
-                            logger.info("Account %s promoted to posix" % ac.entity_id)
-                        else:
-                            logger.info("Account %s not promoted to posix" % ac.entity_id)
-                            self.db.rollback()
+                    #except self.db.IntegrityError,ie:
+                    #    logger.error("Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie)))
+                    #    self.db.rollback()
 
         if not username_match:
             first_name = person.get_name(const.system_cached, const.name_first)
@@ -732,7 +743,16 @@ class BDBSync:
                     logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
                     self.db.rollback()
                     return
+                
         try:
+            if ac.entity_id:
+                print "updating password on account"
+                ac.set_password(_get_password(account_info))
+                ac.write_db()
+            elif posix_user.entity_id:
+                print "updating password on account"
+                posix_user.set_password(_get_password(account_info))
+                posix_user.write_db()
             if dryrun:
                 self.db.rollback()
                 logger.debug('Rollback called. Changes omitted.')
