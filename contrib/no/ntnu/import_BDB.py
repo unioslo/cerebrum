@@ -785,8 +785,11 @@ class BDBSync:
         s_map = self.spread_mapping
         ac = self.ac
         ac.clear()
+        if not spread.has_key('username'):
+            print "Key 'username' missing from spread-dict. %s" % spread
+            return
         try:
-            ac.find_by_name(spread['username'])
+            ac.find_by_name(spread.get('username'))
         except Errors.NotFoundError,e:
             if verbose:
                 print "Account with name %s not found. Continuing." % spread['username']
@@ -802,33 +805,31 @@ class BDBSync:
 
         c_spread = s_map.get(bdbspread)
 
+        for spread in spreads:
+            if c_spread in spread:
+                # Account already has this spread
+                return
+
         if c_spread:
-            if not int(c_spread) in spreads:
-                try:
-                    ac.add_spread(c_spread)
-                except Errors.NotFoundError,nfe:
-                    if verbose:
-                        print "Failed when adding spread. Reason: %s" % str(nfe)
-                    self.logger.error("Failed when adding spread. Reason: %s" % str(nfe))
-                    self.db.rollback()
-                    return
-                except self.db.IntegrityError,ie:
-                    if verbose:
-                        print "Spread %s propably require posix, but %s isn't. Reason: %s" % (c_spread,ac.entity_id,str(ie))
-                    self.logger.error("Spread %s propably require posix, but %s isn't. Reason: %s" % (c_spread,ac.entity_id,str(ie)))
-                    self.db.rollback()
-                    return
-                try:
-                    ac.write_db()
-                except self.db.IntegrityError,e:
-                    # Spread already exists on this account.. why didn't we catch this before?
-                    return
-            else:
-                # User already has this spread. 
-                return 
+            try:
+                ac.add_spread(c_spread)
+            except Errors.NotFoundError,nfe:
+                if verbose:
+                    print "Failed when adding spread. Reason: %s" % str(nfe)
+                self.logger.error("Failed when adding spread. Reason: %s" % str(nfe))
+                self.db.rollback()
+                return
+            except Errors.RequiresPosixError,rpe:
+                if verbose:
+                    print "Spread %s propably require posix, but %s isn't. " % (c_spread,ac.entity_id)
+            except self.db.IntegrityError,ie:
+                self.logger.error("Integrity-Error caught. Reason: %s" % (str(ie)))
+                self.db.rollback()
+                return
         else:
-            username = spread['username']
-            s_name = spread['spread_name']
+            print spread
+            username = spread.get('username')
+            s_name = spread.get('spread_name')
             if verbose:
                 print "Found no matching spread %s for user %s" % (s_name,username)
             self.logger.warning("Found no matching spread %s for user %s" % (s_name,username))
@@ -982,6 +983,9 @@ def usage():
         --email_address  Syncronize email-addresses
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
+
+        --personid       the BDB-id or the nssn of the person
+        --accountname    the username of the user to import from BDB
 
     """ % sys.argv[0]
     sys.exit(0)
