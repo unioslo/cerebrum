@@ -423,7 +423,6 @@ class BDBSync:
             name = name.replace('-','_')
             name = name.replace(' ','_')
             name = name.lower()
-            name = 'g_' + name
             return name
 
         for grp in groups:
