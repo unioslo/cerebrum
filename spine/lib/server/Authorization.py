@@ -229,7 +229,7 @@ class Authorization(object):
             operation, None) in self.auths:
             return True
         if (target, None, target_attr,
-            operation, None) in self.auths:
+            operation, op_attr) in self.auths:
             return True
         if (target, None, target_attr,
             operation, None) in self.auths:
