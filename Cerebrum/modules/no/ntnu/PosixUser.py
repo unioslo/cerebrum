@@ -57,7 +57,7 @@ class PosixUserNTNUMixin(PosixUser.PosixUser):
     def illegal_uid(self, uid):
         # All uids outside allranges is disallowed, also when set manually.
         for r in self.allranges:
-            if r[0] < uid and uid < r[1]:
+            if r[0] <= uid and uid <= r[1]:
                 # self.__super.illegal_uid(uid)
                 return None
         return "Uid (%d) out of NTNU ranges." % uid
