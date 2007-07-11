@@ -546,6 +546,12 @@ class BDBSync:
                 res = False
             return res
 
+        def _is_primary(_account):
+            if _account.get('status') == 1:
+                return True
+            else:
+                return False
+
         def _validate(_account):
             res = True
             if not 'name' in account_info:
@@ -575,11 +581,19 @@ class BDBSync:
         group.clear()
 
         if update_password_only:
-            ac.find_by_name(account_info.get('username'))
-            ac.set_password(_get_password(account_info))
-            ac.write_db()
             try:
-                db.commit()
+                ac.find_by_name(account_info.get('name'))
+            except Errors.NotFoundError:
+                return
+            _pwd = _get_password(account_info)
+            if _pwd is None:
+                return
+            ac.set_password(_pwd)
+            ac.write_db()
+            if verbose:
+                print 'Updating password only for %s' % account_info.get('name')
+            try:
+                self.db.commit()
             except Exception,e:
                 print 'Error occured when updating password for user %s. Reason: %s' % (account_info.get('username'),str(e))
             return
@@ -628,6 +642,14 @@ class BDBSync:
                 username_match = True
                 logger.info('Updating account %s on person %s' % (username,person_entity))
                 ac.expire_date = account_info.get('expire_date',None)
+                """
+                if _is_primary(account_info):
+                    # Fetch the affiliations from the person-object
+                    affs = person.get_affiliations()
+                    # FIXME: Make a wrapper-call to auto-prioritize affiliations
+                    ac.set_account_type(ou_id, affiliation, priority)
+                    ac.write_db()
+                """
                 if _is_posix(account_info):
                     try:
                         posix_user.clear()
@@ -765,18 +787,19 @@ class BDBSync:
             logger.error('Exception caught while trying to commit. Rolling back. Reason: %s' % str(e))
             return
 
-    def sync_accounts(self,username=None):
+    def sync_accounts(self,username=None,password_only=False):
         """
         This method synchronizes all BDB accounts into Cerebrum.
         """
         global num_accounts,verbose,dryrun
         if verbose:
             print "Fetching accounts from BDB"
-        accounts = self.bdb.get_accounts()
+
+        accounts = self.bdb.get_accounts(username)
 
         for account in accounts:
             self.logger.debug('Syncronizing %s' % account['name'])
-            self._sync_account(account)
+            self._sync_account(account,password_only)
         print "%s accounts added or updated in sync_accounts." % str(num_accounts)
         return
 
@@ -986,6 +1009,7 @@ def usage():
 
         --personid       the BDB-id or the nssn of the person
         --accountname    the username of the user to import from BDB
+        --password-only  To be used only with syncronization of all accounts or a given accountname
 
     """ % sys.argv[0]
     sys.exit(0)
@@ -994,9 +1018,13 @@ def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvh',
-                    ['personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
+                    ['password-only','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
+    if (('--password-only','')) in opts:
+        _password_only = True
+    else:
+        _password_only = False
     for opt,val in opts:
         if opt in ('-h','--help'):
             usage()
@@ -1017,17 +1045,12 @@ def main():
             else:
                 print "Too many persons match criteria. Exiting.."
             sys.exit()
-        elif opt in ('--accountname'):
-            # Konverter val til noe saklig
-            print "Syncronizing account: %s" % val
-            account = sync.bdb.get_accounts(val)
-            sync._sync_account(account[0])
         elif opt in ('-p','--people'):
             sync.sync_persons()
         elif opt in ('-g','--group'):
             sync.sync_groups()
         elif opt in ('-a','--account'):
-            sync.sync_accounts()
+            sync.sync_accounts(password_only=_password_only)
         elif opt in ('-s','--spread'):
             sync.sync_spreads()
         elif opt in ('-t','--affiliations'):
@@ -1036,6 +1059,11 @@ def main():
             sync.sync_email_domains()
         elif opt in ('--email_address',):
             sync.sync_email_addresses()
+        elif opt in ('--password-only',):
+            pass # dummy.. we already caught it before this for-loop
+        elif opt in ('--accountname',):
+            print "Syncronizing account: %s" % val
+            sync.sync_accounts(username=val,password_only=_password_only)
         else:
             usage()
 
