@@ -111,7 +111,10 @@ class AccountNTNUMixin(Account.Account):
                 raise self._db.IntegrityError, "Illegal home path"
         return self.__super.set_homedir(**kw)
 
-                
-
+    def encrypt_password(self, method, plaintext, salt=None):
+        if method == self.const.auth_type_lanman_des:
+            import smbpasswd
+            return smbpasswd.lmhash(plaintext)
+        return self.__super.encrypt_password(method, plaintext, salt=salt)
 
 # arch-tag: 115d851e-d604-11da-80dd-29649c6d89a0

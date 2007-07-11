@@ -93,14 +93,18 @@ class Constants(Constants.Constants):
 
     auth_type_md4_nt =  _AuthenticationCode('MD4-NT',
         "MD4-derived password hash with Microsoft-added security.")
+    auth_type_lanman_des =  _AuthenticationCode('LANMAN-DES',
+        "LANMAN password hash."
+        "Requires the smbpasswd module to be installed.")
     auth_type_pgp_offline =  _AuthenticationCode('PGP-offline',
         "PGP encrypted password for offline use") # XXX use PGP-crypt?
     auth_type_pgp_win_ntnu_no =  _AuthenticationCode('PGP-win_ntnu_no',
         "PGP encrypted password for the system win_ntnu_no")
     auth_type_blowfish =  _AuthenticationCode('Blowfish',
         "Blowfish-encrypted password")
-    auth_type_ssha = _AuthenticationCode('SSHA', "A salted SHA1-encrypted password. More info in RFC 2307 and at <URL:http://www.openldap.org/faq/data/cache/347.html>")
-    
+    auth_type_ssha = _AuthenticationCode('SSHA',
+        "A salted SHA1-encrypted password. More info in RFC 2307 and at "
+        "<URL:http://www.openldap.org/faq/data/cache/347.html>")
 
     affiliation_ansatt = _PersonAffiliationCode(
         'ANSATT', 'Ansatt ved NTNU (i følge Kjernen)')
