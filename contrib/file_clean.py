@@ -36,7 +36,7 @@ import re
 import tempfile
 import shutil
 import cerebrum_path
-import mycereconf
+import cereconf
 from Cerebrum.Utils import Factory
 
 tar_cmd = '/bin/tar --files-from %s --remove-files -czf %s'
