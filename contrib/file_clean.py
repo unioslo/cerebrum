@@ -143,7 +143,7 @@ class FilterSpec(object):
 
 def remove_logs(dryrun=False):
     try:
-        for file_spec in mycereconf.CLEAN_FILES:
+        for file_spec in cereconf.CLEAN_FILES:
             fs = FilterSpec(**file_spec)
             fs.process_filter(dryrun=dryrun)
     except AttributeError, e:
