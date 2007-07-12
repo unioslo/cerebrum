@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -118,7 +118,7 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
     if not ou_adr_cache.has_key(ou_id):
         ou = Factory.get('OU')(db)
         ou.find(ou_id)
-        rows = ou.get_entity_address(source=co.system_lt, type=co.address_street)
+        rows = ou.get_entity_address(source=co.system_sap, type=co.address_street)
         if rows:
             ou_adr_cache[ou_id] = {
                 'address_text': rows[0]['address_text'],
