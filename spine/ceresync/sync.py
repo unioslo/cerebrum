@@ -21,6 +21,10 @@ class Sync:
         self.view.set_authentication_method(self.tr.get_authentication_type(self.auth_type))
         self.view.set_changelog(id)
 
+    def set_authtype(self, auth_type):
+        self.auth_type = auth_type
+        self.view.set_authentication_method(self.tr.get_authentication_type(auth_type))
+
     def _do_get(self, objtype, incr):
         if incr is None:
             incr=self.incr
