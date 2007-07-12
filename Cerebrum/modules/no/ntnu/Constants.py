@@ -105,6 +105,8 @@ class Constants(Constants.Constants):
     auth_type_ssha = _AuthenticationCode('SSHA',
         "A salted SHA1-encrypted password. More info in RFC 2307 and at "
         "<URL:http://www.openldap.org/faq/data/cache/347.html>")
+    auth_type_bdb_blowfish = _AuthenticationCode('BDB-blowfish',
+        "BDB transfer-encrypted passwd with blowfish")
 
     affiliation_ansatt = _PersonAffiliationCode(
         'ANSATT', 'Ansatt ved NTNU (i følge Kjernen)')
