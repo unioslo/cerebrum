@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2006 University of Oslo, Norway
+# Copyright 2002-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -4124,7 +4124,7 @@ class BofhdExtension(object):
                 raise CerebrumError("Unsupported owner type. Please use the 'to screen' option")
             if tpl_lang.endswith("letter"):
                 address = None
-                for source, kind in ((self.const.system_lt, self.const.address_post),
+                for source, kind in ((self.const.system_sap, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post_private)):
                     address = person.get_entity_address(source = source, type = kind)
@@ -4705,7 +4705,7 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
 	for a in person.get_affiliations():
 	    if (int(a['source_system']) in
-                [int(self.const.system_fs), int(self.const.system_lt)]):
+                [int(self.const.system_fs), int(self.const.system_sap)]):
 		raise PermissionDenied("You are not allowed to alter birth date for this person.")        
         bdate = self._parse_date(bdate)
         if bdate > self._today():
@@ -5039,7 +5039,7 @@ class BofhdExtension(object):
 	("person", "clear_name"),PersonId(help_ref="person_id_other"),
 	SourceSystem(help_ref="source_system", optional=True),
 	perm_filter='is_superuser')
-    def person_clear_name(self, operator, person_id, source_system="LT"):
+    def person_clear_name(self, operator, person_id, source_system="SAP"):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         person = self.util.get_target(person_id, restrict_to="Person")
@@ -6847,12 +6847,12 @@ class BofhdExtension(object):
             self.const.system_cached, self.const.name_full)}
         try:
             ret['work_title'] = person.get_name(
-                self.const.system_lt, self.const.name_work_title)
+                self.const.system_sap, self.const.name_work_title)
         except Errors.NotFoundError:
             pass
         try:
             ret['personal_title'] = person.get_name(
-                self.const.system_lt, self.const.name_personal_title)
+                self.const.system_sap, self.const.name_personal_title)
         except Errors.NotFoundError:
             pass
         return ret
