@@ -11,6 +11,8 @@ import cerebrum_path
 #import Cerebrum.spine
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
+from Cerebrum.Entity import EntityQuarantine
+
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 acc = Factory.get('Account')(db)
@@ -69,7 +71,7 @@ class AccountView(DumpClass):
         Attribute('owner_group_name', str),
         Attribute('full_name', str),
         
-        #Attribute('quarantenes', [str])
+        Attribute('quarantines', [str]),
         )
 
 account_search = """
@@ -166,7 +168,7 @@ class GroupView(Builder):
         Attribute('posix_gid', int),
         Attribute('members', [str]),
         #Attribute('members_tree', [str]),
-        #Attribute('quarantenes', [str])
+        Attribute('quarantines', [str])
         )
 
 group_search="""
@@ -290,6 +292,7 @@ class OUView(Builder):
         Attribute('post_address', str),
         Attribute('stedkode', str),
         Attribute('parent_stedkode', str),
+        Attribute('quarantines', [str]),
     )
 
 ou_search="""
@@ -386,6 +389,7 @@ class PersonView(Builder):
 
         Attribute('affiliations', [int]),
         Attribute('traits', [int]),
+        Attribute('quarantines', [str]),
     )
 
 person_search="""
@@ -476,9 +480,22 @@ person_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
-        
+def add_quarantines(entities):
+    quarantines = {}
+    quarantines_has = quarantines.has_key
+    for quarantine in EntityQuarantine(db).list_entity_quarantines(only_active=True):
+        id = quarantine["entity_id"]
+        qtype = str(co.Quarantine(quarantine["quarantine_type"]))
 
+        if quarantines_has(id):
+            quarantines[id].append(qtype)
+        else:
+            quarantines[id] = [qtype]
 
+    for e in entities:
+        e["quarantines"] = quarantines.get(e["id"], [])
+    
+    return entities
 
 
 def extend_persons(rows):
@@ -576,48 +593,48 @@ class View(DatabaseTransactionClass):
     def get_accounts(self):
         db = self.get_database()
         rows=db.query(account_search % "", self.query_data)
-        return [resolve_homedir(r.dict()) for r in rows]
+        return add_quarantines([resolve_homedir(r.dict()) for r in rows])
     get_accounts.signature = [Struct(AccountView)]
     def get_accounts_cl(self):
         db = self.get_database()
         rows=db.query(account_search % account_search_cl + account_search_cl_o,
                       self.query_data)
-        return [resolve_homedir(r.dict()) for r in rows]
+        return add_quarantines([resolve_homedir(r.dict()) for r in rows])
     get_accounts_cl.signature = [Struct(AccountView)]
     def get_groups(self):
         db = self.get_database()
         members=group_members(db)
         rows=db.query(group_search % "", self.query_data)
-        return [members.addto_group(r.dict()) for r in rows]
+        return add_quarantines([members.addto_group(r.dict()) for r in rows])
     get_groups.signature = [Struct(GroupView)]
     def get_groups_cl(self):
         db = self.get_database()
         members=group_members(db)
         rows=db.query(group_search % group_search_cl + group_search_cl_o,
                       self.query_data)
-        return [members.addto_group(r.dict()) for r in rows]
+        return add_quarantines([members.addto_group(r.dict()) for r in rows])
     get_groups_cl.signature = [Struct(GroupView)]
     def get_ous(self):
         db = self.get_database()
         rows=db.query(ou_search % "", self.query_data)
-        return [r.dict() for r in rows]
+        return add_quarantines([r.dict() for r in rows])
     get_ous.signature = [Struct(OUView)]
     def get_ous_cl(self):
         db = self.get_database()
         rows=db.query(ou_search % ou_search_cl + ou_search_cl_o,
                       self.query_data)
-        return [r.dict() for r in rows]
+        return add_quarantines([r.dict() for r in rows])
     get_ous_cl.signature = [Struct(OUView)]
     def get_persons(self):
         db = self.get_database()
         rows=db.query(person_search % "", self.query_data)
-        return extend_persons(rows)
+        return add_quarantines(extend_persons(rows))
     get_persons.signature = [Struct(PersonView)]
     def get_persons_cl(self):
         db = self.get_database()
         rows=db.query(person_search % person_search_cl +person_search_cl_o,
                       self.query_data)
-        return extend_persons(rows)
+        return add_quarantines(extend_persons(rows))
     get_persons_cl.signature = [Struct(PersonView)]
 registry.register_class(View)
 
