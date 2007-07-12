@@ -140,7 +140,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
 
     logger.debug("Fetching post-adresses...")
     for row in pe.list_entity_addresses(entity_type=co.entity_person,
-                                        source_system=co.system_lt,
+                                        source_system=co.system_sap,
                                         address_type=co.address_street):
         tmp = persons.get(int(row['entity_id']), None)
         if tmp is None:
@@ -163,7 +163,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
                 tmp['feide_id'] =  tmp['initials']+"@UIO.NO"
     
     logger.debug("Fetching contact info...")
-    for row in pe.list_contact_info(source_system=co.system_lt, contact_type=co.contact_phone):
+    for row in pe.list_contact_info(source_system=co.system_sap, contact_type=co.contact_phone):
         tmp = persons.get(int(row['entity_id']), None)
         if tmp is None or not row['contact_value']:
             continue

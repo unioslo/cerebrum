@@ -109,7 +109,7 @@ class PopulateEphorte(object):
 
         logger.info("Lising affiliations")
         person2ou = {}
-        for row in pe.list_affiliations(source_system=co.system_lt,
+        for row in pe.list_affiliations(source_system=co.system_sap,
                                         affiliation=co.affiliation_ansatt):
             ou_id = int(row['ou_id'])
             while ou_id is not None and ou_id not in self.known_ephorte_ou:
