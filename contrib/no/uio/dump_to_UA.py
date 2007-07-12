@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -74,8 +74,8 @@ def locate_fnr(person, const):
     Return PERSON's fnr
     """
 
-    # Force LT to be the first source system to be tried
-    systems = [const.system_lt]
+    # Force SAP to be the first source system to be tried
+    systems = [const.system_sap]
     systems.extend([getattr(const, name)
                     for name in cereconf.SYSTEM_LOOKUP_ORDER])
     for system in systems:
@@ -90,8 +90,8 @@ def locate_fnr(person, const):
 def fnr2names(person, const, fnr):
     """Locate person's first and last names from a given fnr."""
 
-    # Force LT to be the first source system to be tried
-    systems = [const.system_lt]
+    # Force SAP to be the first source system to be tried
+    systems = [const.system_sap]
     systems.extend([getattr(const, name)
                     for name in cereconf.SYSTEM_LOOKUP_ORDER])
     for system in systems:
@@ -115,7 +115,7 @@ def locate_names(person, const):
     """
 
     first, last = "", ""
-    systems = [const.system_lt]
+    systems = [const.system_sap]
     systems.extend([getattr(const, name)
                     for name in cereconf.SYSTEM_LOOKUP_ORDER])
 
