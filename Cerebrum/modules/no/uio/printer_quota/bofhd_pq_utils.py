@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -101,7 +101,7 @@ class BofhdUtils(object):
         specified by 'betaling for utskrift': spesifikasjon.txt"""
         person = Person.Person(self.db)
         person.clear()
-        for ss in (self.const.system_fs, self.const.system_lt,
+        for ss in (self.const.system_fs, self.const.system_sap,
                    self.const.system_manual):
             try:
                 person.find_by_external_id(
