@@ -150,10 +150,7 @@ class Controller(object):
             return
         self.logger.debug("%s(%s" % (f[0], repr(f[1:])))
         try:
-            cache = True
-            if action == "show_login":
-                cache = False
-            self.html_util.display(f[0](*f[1:]), cache)
+            self.html_util.display(f[0](*f[1:]), cache=False)
         except Exception, e:
             er = re.sub(r'.*\:', r'Error:', str(e))
             self.logger.error("Caught unexpected error: ", exc_info=1)
