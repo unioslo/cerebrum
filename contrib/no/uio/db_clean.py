@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -638,8 +638,9 @@ class CleanPersons(object):
         logger.debug("__get_persons_age")
         pid2age = {}
         pid2src_sys_age = {}
+        now = DateTime.now()
 
-        src_systems = (int(co.system_lt), int(co.system_fs))
+        src_systems = (int(co.system_sap), int(co.system_lt), int(co.system_fs))
         # Find age from person_affiliation_source
         for row in person.list_persons():
             pid = int(row['person_id'])
@@ -702,8 +703,8 @@ class CleanPersons(object):
         # Is this intented?
 
         logger.debug("remove_old_person_affiliations")
-        some_systems = [int(x) for x in (co.system_fs, co.system_lt,
-                                         co.system_manual)]
+        some_systems = [int(x) for x in (co.system_fs, co.system_sap,
+                                         co.system_lt, co.system_manual)]
         def has_other(p_aff, affs, match_type, src_systems):
             for p in affs:
                 if p == p_aff or p.source_system not in src_systems:
@@ -715,7 +716,7 @@ class CleanPersons(object):
                     return True
             return False
 
-        fs_lt = (int(co.system_lt), int(co.system_fs))
+        fs_lt_sap = (int(co.system_sap), int(co.system_lt), int(co.system_fs))
         # Vi venter med å sjekke account_type FK problemer til etter
         # at vi har funnet det vi ønsker å slette.
         for pid, affs in self.pid2affs.items():
@@ -740,18 +741,18 @@ class CleanPersons(object):
                     p2 for p2 in affs if p_aff != p2 and p_aff.ou == p2.ou]:
                     # kaster ikke MANUELL@ou hvis vi ikke har noe annet mot samme ou
                     continue
-                if int(p_aff.source_system) in fs_lt:
+                if int(p_aff.source_system) in fs_lt_sap:
                     # vi kaster FS/LT kun hvis deleted_date != None
                     continue
                 if (p_aff.source_system == int(co.system_manual) and
                     p_aff.last_age < 365 and
-                    not has_other(p_aff, affs, 'aff_ou', fs_lt)):
+                    not has_other(p_aff, affs, 'aff_ou', fs_lt_sap)):
                     # sletter manual først når samme aff+ou er kommet fra FS/LT
                     continue
                 if p_aff.last_age > 180:
                     remove.append(p_aff)
                 elif p_aff > 90:
-                    if has_other(p_aff, affs, 'aff', fs_lt):
+                    if has_other(p_aff, affs, 'aff', fs_lt_sap):
                         remove.append(p_aff)
 
             all_ac_affs = {}
@@ -793,22 +794,34 @@ class CleanPersons(object):
             pid2ext_ids.setdefault(int(row['entity_id']), []).append(row)
 
         remove = []
-        fs_lt = (int(co.system_lt), int(co.system_fs))
+        fs_lt_sap = (int(co.system_sap), int(co.system_lt), int(co.system_fs))
         for pid, fnrs in pid2ext_ids.items():
-            fnrs_from_fs_lt = do_fnr_filter(fnrs, fs_lt)
+            fnrs_from_fs_lt_sap = do_fnr_filter(fnrs, fs_lt_sap)
             systems = [int(row['source_system']) for row in fnrs]
-            if fnrs_from_fs_lt:
-                # kast alle fnr ikke fra FS/LT
+            if fnrs_from_fs_lt_sap:
+                # kast alle fnr ikke fra FS/LT/SAP
                 for s in systems:
-                    if s not in (fs_lt):
+                    if s not in (fs_lt_sap):
                         remove.append(fnrs[systems.index(s)])
-                fnrs = fnrs_from_fs_lt
-                if len(fnrs) == 2:
-                    # kast > 30 dager gamle fnr hvis et kildesystem er gammelt
-                    if self.pid2src_sys_age[pid].get(fs_lt[0], 1) > 30:
-                        remove.append(fnrs[0])
-                    elif self.pid2src_sys_age[pid].get(fs_lt[1], 1) > 30:
-                        remove.append(fnrs[1])
+                fnrs = fnrs_from_fs_lt_sap
+
+                # RH: Et forsøk på å tilpasse koden under ifm med lt-> sap...
+                nr_fnrs = len(fnrs)
+                if nr_fnrs > 1:
+                    # kast > 30 dager gamle fnr hvis et kildesystem er
+                    # gammelt, men pass på at det er minst et fnr igjen.
+                    for tmp_fnr in fnrs:
+                        ss = int(tmp_fnr['source_system'])
+                        if nr_fnrs > 1 and ss in fs_lt_sap and \
+                               self.pid2src_sys_age[pid].get(ss, 1) > 30:
+                            nr_fnrs -= 1
+                            remove.append(tmp_fnr)
+                # if len(fnrs) == 2:
+                #     # kast > 30 dager gamle fnr hvis et kildesystem er gammelt
+                #     if self.pid2src_sys_age[pid].get(fs_lt_sap[0], 1) > 30:
+                #         remove.append(fnrs[0])
+                #     elif self.pid2src_sys_age[pid].get(fs_lt_sap[1], 1) > 30:
+                #         remove.append(fnrs[1])
 
             # Kast ureg hvis vi har manual
             if len(do_fnr_filter(fnrs, (co.system_manual, co.system_ureg))) == 2:
@@ -823,8 +836,9 @@ class CleanPersons(object):
 
     def remove_old_navn(self):
         logger.debug("remove_old_navn")
-        relevant_src_sys = [int(s) for s in (co.system_fs, co.system_lt,
-                                             co.system_ureg, co.system_manual)]
+        relevant_src_sys = [int(s) for s in (co.system_fs, co.system_sap,
+                                             co.system_lt, co.system_ureg,
+                                             co.system_manual)]
         pid2names = {}
         for row in person.list_person_name_codes():
             # TODO: The API for person.list_persons_name is somewhat broken
@@ -834,23 +848,33 @@ class CleanPersons(object):
                 pid2names.setdefault(int(row2['person_id']), []).append(row2)
         logger.debug("got %i names" % len(pid2names))
         remove = []
-        fs_lt = (int(co.system_lt), int(co.system_fs))
+        fs_lt_sap = (int(co.system_lt), int(co.system_lt), int(co.system_fs))
         for pid, names in pid2names.items():
             systems = dict([(int(row['source_system']), 0)
                             for row in names]).keys()
             logger.debug("check_name pid=%s, sys=%s" % (pid, systems))
             remove_sys = []
             if int(co.system_ureg) in systems and [
-                s for s in systems if s in fs_lt]:
-                # Har FS/LT, kaster ureg
+                s for s in systems if s in fs_lt_sap]:
+                # Har FS/LT/SAP, kaster ureg
                 remove_sys.append(int(co.system_ureg))
 
-            if len([s for s in systems if s in fs_lt]) == 2:
-                # kast > 30 dager gamle navn hvis et kildesystem er gammelt
-                if self.pid2src_sys_age[pid].get(fs_lt[0], 1) > 30:
-                    remove_sys.append(fs_lt[0])
-                elif self.pid2src_sys_age[pid].get(fs_lt[1], 1) > 30:
-                    remove_sys.append(fs_lt[1])
+            # RH: Et forsøk på å tilpasse koden under ifm med lt-> sap...
+            nr_systems = len([s for s in systems if s in fs_lt_sap])
+            if nr_systems > 1:
+                # kast > 30 dager gamle navn hvis et kildesystem er
+                # gammelt, men pass på at det er minst et fnr igjen.
+                for ss in fs_lt_sap:
+                    if nr_systems > 1 and self.pid2src_sys_age[pid].get(ss, 1) > 30:
+                        remove_sys.append(ss)
+                        nr_systems -= 1
+            # if len([s for s in systems if s in fs_lt_sap]) == 2:
+            #     # kast > 30 dager gamle navn hvis et kildesystem er gammelt
+            #     if self.pid2src_sys_age[pid].get(fs_lt_sap[0], 1) > 30:
+            #         remove_sys.append(fs_lt_sap[0])
+            #     elif self.pid2src_sys_age[pid].get(fs_lt_sap[1], 1) > 30:
+            #         remove_sys.append(fs_lt_sap[1])
+
             for s in remove_sys:
                 for row in names:
                     if int(row['source_system']) == s:
@@ -877,7 +901,7 @@ class CleanPersons(object):
                 continue
             pid2entity_data.setdefault(int(row['entity_id']), []).append(row)
         remove = []
-        fs_lt = (int(co.system_lt), int(co.system_fs))
+        fs_lt_sap = (int(co.system_sap), int(co.system_lt), int(co.system_fs))
         for pid, data in pid2entity_data.items():
             data_types = dict([(int(row[type_col]), 0) for row in data]).keys()
             for dta_type in data_types:
@@ -885,15 +909,23 @@ class CleanPersons(object):
                 system2dta = dict([(int(data[n]['source_system']), n)
                                    for n in range(len(data))
                                    if int(data[n][type_col]) == dta_type])
-                if system2dta.has_key(fs_lt[0]) and system2dta.has_key(fs_lt[1]):
-                    # kast > 30 dager gamle entries hvis et kildesystem er gammelt
-                    if self.pid2src_sys_age[pid].get(fs_lt[0], 1) > 30:
-                        remove.append(data[system2dta[fs_lt[0]]])
-                    elif self.pid2src_sys_age[pid].get(fs_lt[1], 1) > 30:
-                        remove.append(data[system2dta[fs_lt[1]]])
+                # RH: Et forsøk på å tilpasse koden under ifm med lt-> sap...
+                src_systems = [x for x in fs_lt_sap if system2dta.has_key(x)]
+                nr_ss = len(src_systems)
+                if nr_ss > 1:
+                    for ss in src_systems:
+                        if nr_ss > 1 and self.pid2src_sys_age[pid].get(ss, 1) > 30:
+                            remove.append(data[system2dta[ss]])
+                            nr_ss -= 1
+                # if system2dta.has_key(fs_lt_sap[0]) and system2dta.has_key(fs_lt_sap[1]):
+                #     # kast > 30 dager gamle entries hvis et kildesystem er gammelt
+                #     if self.pid2src_sys_age[pid].get(fs_lt_sap[0], 1) > 30:
+                #         remove.append(data[system2dta[fs_lt_sap[0]]])
+                #     elif self.pid2src_sys_age[pid].get(fs_lt_sap[1], 1) > 30:
+                #         remove.append(data[system2dta[fs_lt_sap[1]]])
 
-            if [row for row in data if int(row['source_system']) in fs_lt]:
-                # Har FS/LT, kaster ureg
+            if [row for row in data if int(row['source_system']) in fs_lt_sap]:
+                # Har FS/LT/SAP, kaster ureg
                 for row in data:
                     if row['source_system'] == int(co.system_ureg):
                         remove.append(row)
@@ -902,9 +934,10 @@ class CleanPersons(object):
     def remove_old_address(self):
         logger.debug("remove_old_address")
         ea = Entity.EntityAddress(db)
+        rel_ss = (co.system_fs, co.system_sap, co.system_lt,
+                  co.system_ureg, co.system_manual)
         remove = self.__remove_old_entity_data(ea.list_entity_addresses,
-                                               'address_type', (
-            co.system_fs, co.system_lt, co.system_ureg, co.system_manual))
+                                               'address_type', rel_ss)
         for row in remove:
             log_rem.entity_address(
                 row['entity_id'], row['source_system'],
@@ -920,9 +953,10 @@ class CleanPersons(object):
         logger.debug("remove_old_contact")
         # TBD: Throw away co.system_folk_uio_no if user har no account?
         ec = Entity.EntityContactInfo(db)
+        rel_ss = (co.system_fs, co.system_sap, co.system_lt,
+                  co.system_ureg, co.system_manual)
         remove = self.__remove_old_entity_data(ec.list_contact_info,
-                                               'contact_type', (
-            co.system_fs, co.system_lt, co.system_ureg, co.system_manual))
+                                               'contact_type', rel_ss)
         for row in remove:
             log_rem.entity_contact(
                 row['entity_id'], row['source_system'],
