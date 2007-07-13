@@ -130,6 +130,7 @@ def locate_ou(ou_id, ou2parent, ou2stedkode, level):
         if tmp is None:
             # We reached the top of the hierarchy without seeing anything
             # suitable
+            logger.debug("ou_id %d has no proper parent", ou_id)
             return __undef_ou
         # fi
 
@@ -392,15 +393,8 @@ def generate_people_statistics(perspective, empty_statistics, level, db):
     processed = Set()
     # Sort order for affiliations/stati
     order = make_affiliation_priorities(const)
-    # For progress reports
-    row_count = 0; limit = 10000
 
     for row in person.list_affiliations(fetchall = False):
-        row_count += 1
-        if row_count % limit == 0:
-            logger.debug("Next %d (%d) rows", limit, row_count)
-        # fi
-
         id = int(row["person_id"])
         if id in processed:
             continue
@@ -463,16 +457,11 @@ def generate_account_statistics(perspective, empty_statistics, level, db):
 
     # sort order for affiliations
     order = make_affiliation_priorities(const)
-    row_count = 0; limit = 10000
 
     # Keep track of accounts that had been processed
     processed = Set()
 
     for row in account.list_accounts_by_type(fetchall=False):
-        row_count += 1
-        if row_count % limit == 0:
-            logger.debug("Next %d (%d) rows", limit, row_count)
-        # fi
 
         if int(row["account_id"]) in processed:
             continue
