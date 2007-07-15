@@ -283,7 +283,7 @@ def process_person(pdata):
     ou_id = pdata.get_primary_sted()
     while ou_id is not None and not fs_stedinfo.has_key(ou_id):
         logger.debug("%s ukjent i FS, sjekk parent-ou" % ou_id)
-        ou_id = ou_id2parent_id[ou_id]
+        ou_id = ou_id2parent_id.get(ou_id)
 
     if ou_id is None:
         logger.warn("Sted %s (%s) er ukjent i FS" % (ou_id, ou_id2stedkode[ou_id]))
