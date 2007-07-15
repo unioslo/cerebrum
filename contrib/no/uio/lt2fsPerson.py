@@ -286,7 +286,8 @@ def process_person(pdata):
         ou_id = ou_id2parent_id.get(ou_id)
 
     if ou_id is None:
-        logger.warn("Sted %s (%s) er ukjent i FS" % (ou_id, ou_id2stedkode[ou_id]))
+        logger.warn("Sted %s (%s) er ukjent i FS" %
+                    (ou_id, ou_id2stedkode.get(ou_id)))
         return
     new_data = [None, None, None, None, None]  # SFA didn't want address
     new_data.extend([fs_stedinfo[ou_id][c] for c in (
