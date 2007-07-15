@@ -44,6 +44,7 @@ TODO:
   flexible.
 """
 
+import copy
 import time, types
 from cElementTree import parse, iterparse
 # from elementtree.ElementTree import parse, iterparse
@@ -159,8 +160,11 @@ class DataEmployment(object):
         self.place = place
         # Kind of employment -- VIT/TEKADM-ØVR
         self.category = category
-        # leave
-        self.leave = leave
+        # leave (should be a sequence of dict-like objects)
+        if not leave:
+            self.leave = list()
+        else:
+            self.leave = copy.deepcopy(leave)
     # end __init__
 
 
