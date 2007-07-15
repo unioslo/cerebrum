@@ -136,10 +136,11 @@ def prefetch_primaryusers():
             logger.error("Multiple persons share fnr %s: (%d, %d)" % (
                 fnr, fnr_source[fnr][0], p_id))
             # Determine which person's fnr registration to use.
-            source_weight = {int(co.system_fs): 4,
-                             int(co.system_manual): 3,
-                             int(co.system_lt): 2,
-                             int(co.system_ureg): 1}
+            source_weight = dict()
+            count = len(cereconf.SYSTEM_LOOKUP_ORDER)
+            for sysname in cereconf.SYSTEM_LOOKUP_ORDER:
+                source_weight[int(getattr(co, sysname))] = count
+                count -= 1
             old_weight = source_weight.get(fnr_source[fnr][1], 0)
             if source_weight.get(src_sys, 0) <= old_weight:
                 continue
