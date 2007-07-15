@@ -6,6 +6,7 @@ import getopt
 import sys
 import time
 import cerebrum_path
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -14,7 +15,7 @@ from Cerebrum.modules.no import fodselsnr
 
 """
 ==================================
-Overføring av data fra LT til FS
+Overføring av data fra SAP til FS
 ==================================
 
 Data som overføres
@@ -25,7 +26,7 @@ Personer
 
 FS.PERSON
 
-  For alle personer som ligger i LT med minst en aktiv tilsetting
+  For alle personer som ligger i SAP med minst en aktiv tilsetting
   eller minst en aktiv gjest registrering skal man sette inn en linje
   i FS.person for denne personen med:
     - Fodselsdato
@@ -39,14 +40,15 @@ FS.PERSON
   medmindre personen er kjent i FS fra før.  Ingen update eller
   delete, kun insert.
 
-  *MERK*: Dette gjelder ikke de personer som i LT er utstyrt med
-          midlertidige fødselsnummer der har '9' som første siffer i
-          personnummer delen.
+  *MERK*: Dette gjald ikke de personer som i LT var utstyrt med midlertidige
+          fødselsnummer der har '9' som første siffer i personnummer
+          delen. Hvordan situasjonen er i SAP med de midlertidige numrene er
+          foreløpig (2007-07-15) litt uklart.
   
 
 FS.FAGPERSON
 
-  Alle personer i LT med minst en aktiv tilsetting i kategegorien
+  Alle personer i SAP med minst en aktiv tilsetting i kategegorien
   vitenskaplig eller med minst en aktiv gjest registrering med
   gjestetypekode 'GRP-LÆRER' skal man sette inn en linje i
   FS.FAGPERSON for denne personen:
@@ -65,18 +67,18 @@ FS.FAGPERSON
   (*1) sted for primære ansatt affiliation Primær i denne sammenheng
        utledes ved å:
 
-         - finn høyest prioriterte ou_id i account_type som primært
-           har aff_status=vitenskapelig, sekundært en vilkårlig annen
-           ansatt affiliation.
+         - finn høyest prioriterte ou_id i account_type som primært har
+           aff_status=vitenskapelig, sekundært en vilkårlig annen ansatt
+           affiliation.
 
-         - dersom personen ikke har noen account_type m/ansatt
-           affiliation, velges laveste ou_id der personen primært har
-           aff_status=vitenskapelig, sekundært en vilkårlig annen
-           ansatt affiliation.
+         - dersom personen ikke har noen account_type m/ansatt affiliation,
+           velges laveste ou_id der personen primært har
+           aff_status=vitenskapelig, sekundært en vilkårlig annen ansatt
+           affiliation.
 
-         - dersom sted ikke finnes i FS brukes overordnet sted fra LT
-           i stede.  Dette gjøres rekursivt inntil et sted som er
-           kjent i FS finnes.
+         - dersom sted ikke finnes i FS brukes overordnet sted fra SAP i
+           stede.  Dette gjøres rekursivt inntil et sted som er kjent i FS
+           finnes.
 
   Der skal kun gjøres update på telefon og fax.
 
@@ -84,7 +86,7 @@ FS.FAGPERSON
 
 Spesielle merknader
 --------------------
-  Dersom personen i følge Cerebrum finnes i FS og LT, men har
+  Dersom personen i følge Cerebrum finnes i FS og SAP, men har
   forskjellig fødselsnummer, skal logges en feilmelding.  Ingen data
   skal endres for slike personen.
 
@@ -110,7 +112,7 @@ def get_fs_stedkoder():
         ou_id2stedkode[long(row['ou_id'])] = stedkode
 
     sted_info = {}
-    for row in fs.info.list_ou(institusjonsnr=185):
+    for row in fs.info.list_ou(institusjonsnr=cereconf.DEFAULT_INSTITUSJONSNR):
         stedkode = tuple([int(row[c]) for c in (
             'institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')])
         if not stedkode2ou_id.has_key(stedkode):
@@ -192,7 +194,7 @@ def prefetch_person_info():
     pid2person = {}
     # Finn alle personenes ansatt-affiliations
     for row in person.list_affiliations(
-        source_system=co.system_lt,
+        source_system=co.system_sap,
         affiliation=(co.affiliation_ansatt, co.affiliation_tilknyttet)):
         if (int(row['affiliation']) == int(co.affiliation_ansatt) or
             int(row['status']) == int(co.affiliation_tilknyttet_grlaerer)):
@@ -210,7 +212,7 @@ def prefetch_person_info():
     for name_type, attr_name in ((co.name_first, 'name_first'),
                                  (co.name_last, 'name_last'),
                                  (co.name_work_title, 'work_title')):
-        for row in person.list_persons_name(source_system=co.system_lt,
+        for row in person.list_persons_name(source_system=co.system_sap,
                                             name_type=name_type):
             sp = pid2person.get(long(row['person_id']), None)
             if sp:
@@ -218,7 +220,7 @@ def prefetch_person_info():
 
     logger.debug("Prefetch fødselsnummer...")
     # Finn alle personenes fødselsnummer
-    for row in person.list_external_ids(source_system=co.system_lt,
+    for row in person.list_external_ids(source_system=co.system_sap,
                                         id_type=co.externalid_fodselsnr):
         sp = pid2person.get(long(row['entity_id']), None)
         if not sp:
@@ -232,13 +234,13 @@ def prefetch_person_info():
         sp = pid2person.get(long(row['entity_id']), None)
         if sp:
             if row['external_id'] != sp.fnr11:
-                sp.fnr_mismatch = "FS:%s LT:%s" % (row['external_id'], sp.fnr11)
+                sp.fnr_mismatch = "FS:%s SAP:%s" % (row['external_id'], sp.fnr11)
 
     logger.debug("Prefetch contact info...")
     # Finn telefon-nr og fax-nr på personene
     for name_type, attr_name in ((co.contact_phone, 'phone'),
                                  (co.contact_fax, 'fax')):
-        for row in person.list_contact_info(source_system=co.system_lt,
+        for row in person.list_contact_info(source_system=co.system_sap,
                                             contact_type=name_type):
             sp = pid2person.get(long(row['entity_id']), None)
             if sp:
@@ -306,14 +308,14 @@ def process_person(pdata):
             fs.person.update_fagperson(pdata.fnr, pdata.pnr, tlf=new_data[0],
                                        fax=new_data[1])
 
-def update_from_lt():
+def update_from_sap():
     global fs_stedinfo, arstall, termin
     
     fs_stedinfo = get_fs_stedkoder()
     arstall, termin = get_termin()
 
     ou = Factory.get("OU")(db)
-    for row in ou.get_structure_mappings(co.perspective_lt):
+    for row in ou.get_structure_mappings(co.perspective_sap):
         parent_id = None
         if row['parent_id'] is not None and (
             int(row['parent_id']) != int(row['ou_id'])):
@@ -360,7 +362,7 @@ def main():
     fs = FS(user=user, database=database)
     if dryrun:
         fs.db.commit = fs.db.rollback
-    update_from_lt()
+    update_from_sap()
 
 def usage(exitcode=0):
     print """Usage: lt2fsPerson [opsjoner]

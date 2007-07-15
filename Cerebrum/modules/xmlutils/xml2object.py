@@ -213,12 +213,15 @@ class DataName(object):
         self.language = lang
         if self.language:
             self.language = self.language.lower()
+            # IVR 2007-07-14 FIXME: Yes, this is a hack. 
+            if self.language == "ny":
+                self.language = "nn"
             # IVR 2007-05-28 FIXME: This is perhaps the wrong place for such a
             # check.  We may want to (and should?) have these codes in
             # Cerebrum.
-            if self.language not in ("en", "it", "nl", "no", "nn",
+            if self.language not in ("en", "it", "nl", "no", "nb", "nn",
                                      "ru", "sv", "fr",):
-                raise ValueError, "Unknown language code " + lang
+                raise ValueError, "Unknown language code " + self.language
     # end __init__
 # end DataName
 
@@ -405,6 +408,7 @@ class DataPerson(DataEntity):
     NO_SSN        = "NO SSN"
     GENDER_MALE   = "M"
     GENDER_FEMALE = "F"
+    GENDER_UNKNOWN = "X"
     
 
     def __init__(self):
@@ -641,7 +645,6 @@ class XMLEntity2Object(object):
     def _make_mxdate(self, text, format = "%Y%m%d"):
         if not text:
             return None
-        # fi
         
         year, month, day = time.strptime(text, format)[:3]
         return Date(year, month, day)

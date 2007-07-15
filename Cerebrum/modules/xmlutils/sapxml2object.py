@@ -18,25 +18,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-This module implements an abstraction layer for SAP-originated data.
+This module implements an abstraction layer for SAP-originated HR data.
 
 Specifically, we build the datagetter API for XML SAP data sources. For now,
 this means mapping XML-elements stemming from SAP data files to objects in
 datagetter.
-
-TBD: This comment does not belong here
-The overall workflow looks like this:
-
-* SAPXMLDataGetter creates an iterator over the XML elements (either from an
-  in-memory document tree (faster for smaller files) or directly from file
-  (faster for larger data sets). The break even point seems to be around
-  3000-4000 elements).
-
-* XMLPerson2Object provides an iterator that consumes ElementTree elements
-  and provides SAPPerson objects as output.
 """
 
-from mx.DateTime import Date
+from mx.DateTime import Date, now
 import time
 import sys
 
@@ -58,7 +47,6 @@ def deuglify_phone(phone):
 
     for junk in (" ", "-"):
         phone = phone.replace(junk, "")
-    # od
 
     return phone
 # end deuglify_phone
@@ -231,16 +219,13 @@ class XMLOU2Object(XMLEntity2Object):
                 sko = make_sko(value)
                 if sko is not None:
                     result.add_id(self.tag2type[sub.tag], sko)
-                # fi
             elif sub.tag == "Overordnetsted":
                 sko = make_sko(value)
                 if sko is not None:
                     result.parent = (result.NO_SKO, make_sko(value))
-                # fi
             elif sub.tag == "stednavn":
                 for name in self._make_names(sub):
                     result.add_name(name)
-                # od
             elif sub.tag in ("stedadresse",):
                 result.add_address(self._make_address(sub))
             elif sub.tag in ("Start_Date", "End_Date"):
@@ -249,18 +234,14 @@ class XMLOU2Object(XMLEntity2Object):
                     result.start_date = date
                 else:
                     result.end_date = date
-                # fi
-            # fi
-        # od
 
-        # Katalogmerke
+        # Katalogmerke (whether the OU can be published in various online
+        # directories)
         mark = False
         for tmp in element.findall(".//stedbruk/StedType"):
             if tmp.text == "Elektronisk katalog":
                 mark = True
                 break
-            # fi
-        # od
         result.publishable = mark
 
         celems = element.findall("stedkomm")
@@ -268,11 +249,12 @@ class XMLOU2Object(XMLEntity2Object):
             ct = self._make_contact(sub)
             if ct:
                 result.add_contact(ct)
-            # fi
-        # od
 
-        assert result.get_name(DataOU.NAME_LONG) is not None, \
-               "No name available for OU %s" % str(result.get_id(DataOU.NO_SKO))
+        # Oh, this is not pretty -- expired OUs should not be in the file, but
+        # for now we'd settle for quelling the errors
+        if result.end_date >= now():
+            assert result.get_name(DataOU.NAME_LONG) is not None, \
+                   "No name available for OU %s" % str(result.get_id(DataOU.NO_SKO))
 
         return result
     # end next
@@ -297,16 +279,15 @@ class XMLPerson2Object(XMLEntity2Object):
                              1198, 1199, 1200, 1260, 1352, 1353, 1378, 1404,
                              1474, 1475, 8013, ])
 
-    # TBD: Bind it to Cerebrum constants?
-    tag2type = { "Fornavn"       : HRDataPerson.NAME_FIRST,
-                 "Etternavn"     : HRDataPerson.NAME_LAST,
-                 "Fodselsnummer" : HRDataPerson.NO_SSN,
-                 "Mann"          : HRDataPerson.GENDER_MALE,
-                 "Kvinne"        : HRDataPerson.GENDER_FEMALE,
-                 "HovedStilling" : DataEmployment.HOVEDSTILLING,
-                 "Bistilling"    : DataEmployment.BISTILLING,
-                 "Ansattnr"      : SAPPerson.SAP_NR, }
-
+    tag2type = {"Fornavn": HRDataPerson.NAME_FIRST,
+                "Etternavn": HRDataPerson.NAME_LAST,
+                "Fodselsnummer": HRDataPerson.NO_SSN,
+                "Mann": HRDataPerson.GENDER_MALE,
+                "Kvinne": HRDataPerson.GENDER_FEMALE,
+                "Ukjent": HRDataPerson.GENDER_UNKNOWN,
+                "HovedStilling": DataEmployment.HOVEDSTILLING,
+                "Bistilling": DataEmployment.BISTILLING,
+                "Ansattnr": SAPPerson.SAP_NR, }
 
     def __init__(self, xmliter):
         """Constructs an iterator supplying SAPPerson objects."""
@@ -341,7 +322,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 city = value
             elif sub.tag in ("Landkode",):
                 country = value
-            # NB! Note the spelling.
+            # IVR 2007-07-06 spelling-lol
             elif sub.tag in ("AdressType",):
                 addr_kind = sap2intern.get(value, "")
             # fi
@@ -355,6 +336,22 @@ class XMLPerson2Object(XMLEntity2Object):
                                street = street, zip = zip,
                                city = city, country = country)
     # end _make_address
+
+
+    def _code2category(self, data):
+        """Categorize the employment, based on the 4-digit code in data"""
+
+        if isinstance(data, basestring):
+            data = data.strip()
+            if not data.isdigit():
+                return None
+        code = int(data)
+
+        if code in self.kode_vitenskaplig:
+            return DataEmployment.KATEGORI_VITENSKAPLIG
+        else:
+            return DataEmployment.KATEGORI_OEVRIG
+    # end _code2category
 
 
     def _make_employment(self, emp_element):
@@ -384,15 +381,16 @@ class XMLPerson2Object(XMLEntity2Object):
                 if code == 0:
                     return None
                 # Some elements have the proper category set in adm_forsk
-                if category is not None:
-                    continue 
-                if code in self.kode_vitenskaplig:
-                    category = DataEmployment.KATEGORI_VITENSKAPLIG
-                else:
-                    category = DataEmployment.KATEGORI_OEVRIG
-
+                if category is None:
+                    category = self._code2category(code)
             elif sub.tag == "Stilling":
-                title = value.strip()
+                tmp = value.split(" ")
+                if len(tmp) == 1:
+                    title = tmp[0]
+                else:
+                    title = " ".join(tmp[1:])
+                    if category is None:
+                        category = self._code2category(tmp[0])
             elif sub.tag == "Start_Date":
                 start_date = self._make_mxdate(value)
             elif sub.tag == "End_Date":
@@ -408,6 +406,23 @@ class XMLPerson2Object(XMLEntity2Object):
                     category = DataEmployment.KATEGORI_VITENSKAPLIG
                 elif value == "T/A":
                     category = DataEmployment.KATEGORI_OEVRIG
+            elif sub.tag == "Status":
+                # <Status> indicates whether the employment entry is
+                # actually valid.
+                if value != "Aktiv":
+                    return None
+            elif sub.tag == "Stillnum":
+                # this code means that the employment has been terminated (why
+                # would there be two elements for that?)
+                if value == "99999999":
+                    return None
+                # these are temp employments (bilagslønnede) that we can
+                # safely disregard (according to baardj).
+                if value == "30010895":
+                    return None
+
+            # IVR 2007-07-11 FIXME: We should take a look at <Arsak>, since it
+            # contains deceased status for a person.
 
         # We *must* have an OU to which this employment is attached.
         if not ou_id: return None
@@ -479,7 +494,6 @@ class XMLPerson2Object(XMLEntity2Object):
                                        "Arbeidstelefon 2",
                                        "Arbeidstelefon 3",)):
             return None
-        # fi
 
         ctype = ctype.text.strip().encode("latin1")
         cvalue = elem.find("KommVal").text.strip().encode("latin1")
@@ -499,31 +513,35 @@ class XMLPerson2Object(XMLEntity2Object):
 
         Consume the next XML-element describing a person, and return a
         suitable representation (SAPPerson).
+
+        Should something fail (which prevents this method from constructing a
+        proper SAPPerson object), an exception is raised.
         """
 
         # This call with propagate StopIteration when all the (XML) elements
-        # are exhausted.
+        # are exhausted. element is the ElementTree element containing the
+        # parsed chunk of XML data.
         element = super(XMLPerson2Object, self).next()
         result = SAPPerson()
 
+        # Per baardj's request, we consider middle names as first names.
         middle = ""
         middle = element.find("person/Mellomnavn")
         if middle is not None and middle.text:
             middle = middle.text.encode("latin1").strip()
 
         main = None
-        # Iterate over *all* subelements
+        # Iterate over *all* subelements, 'fill up' the result object
         for sub in element.getiterator():
             value = None
             if sub.text:
                 value = sub.text.strip().encode("latin1")
 
             if sub.tag == "Fornavn":
-                # Per baardj's request, we consider middle names as first names
                 if middle:
                     value += " " + middle
 
-                # IVR 2007-05-30 This is not pretty.
+                # IVR 2007-05-30 FIXME: This is not pretty.
                 #
                 # In an e-mail from 2007-05-29, Johannes Paulsen suggests that
                 # marking invalid entries with '*' in the some of the name
@@ -569,22 +587,19 @@ class XMLPerson2Object(XMLEntity2Object):
             if contact:
                 result.add_contact(contact)
                 priority += 1
-            # fi
-        # od
 
-        # default: Personer med minst en ekte aktiv tilsetting => samtykket
+        # Reservations for catalogue publishing
+        # default: One active employment => can be published
         to_reserve = not result.has_active_employments()
 
-        # 3. Alle som ligger inne med minst en 'RESE' er reservert (uavhengig
-        #    av om der også ligger registrert samtykke på vedkommende).
+        # Everyone with 'RESE' is reserved (regardless of everything else)
         for i in element.findall("person/Adresse/Reservert"):
             if i.text.strip() == "RESE":
                 to_reserve = True
                 break
-            # fi
-        # od
         result.reserved = to_reserve
 
+        # Address magic
         # If there is a sensible 'Sted for lønnsslipp', it will result i
         # proper "post/besøksaddresse" later. This code matches LT's behaviour
         # more closely (an employee 'inherits' the address of his/her
@@ -602,7 +617,7 @@ class XMLPerson2Object(XMLEntity2Object):
                 result.primary_ou = (cereconf.DEFAULT_INSTITUSJONSNR,
                                      fak, inst, gruppe)
 
-        # IVR 2007-05-30 This is a workaround, beware!
+        # IVR 2007-05-30 FIXME: This is a workaround, beware!
         # 
         # If there is a valid "principal employment" (hovedstilling), AND we
         # have a 'sted for lønnslipp' defined, register a fake employment, so
@@ -615,7 +630,9 @@ class XMLPerson2Object(XMLEntity2Object):
         # logic.
         #
         # The ugly part is that this employment does not really exist. It's
-        # just there, so that the right affiliations can be assigned later.
+        # just there, so that the right affiliations can be assigned
+        # later. Until we get the proper data from SAP, this workaround would
+        # have to stay in place.
         if main and hasattr(result, "primary_ou"):
             result.add_employment(
                 DataEmployment(kind = DataEmployment.BISTILLING,
@@ -635,10 +652,3 @@ class XMLPerson2Object(XMLEntity2Object):
         return result
     # end next
 # end XMLPerson2Object
-
-
-
-
-
-# arch-tag: 18e47e1a-ccf4-4417-adcc-958d5e99f895
-

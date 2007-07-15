@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2006 University of Oslo, Norway
 #
@@ -291,6 +291,7 @@ def output_OU(writer, ou):
     # od
 
     for kind, lang, element in ((DataOU.NAME_LONG, "no", "navnBokmal"),
+                                (DataOU.NAME_LONG, "nb", "navnBokmal"),
                                 (DataOU.NAME_LONG, "en", "navnEngelsk")):
         tmp = ou.get_name_with_lang(kind, lang)
         output_element(writer, tmp, element)
@@ -301,7 +302,8 @@ def output_OU(writer, ou):
         output_element(writer, str(nsd), "NSDKode")
     # fi
     
-    output_element(writer, ou.get_name_with_lang(DataOU.NAME_ACRONYM, "no", "en"),
+    output_element(writer, ou.get_name_with_lang(DataOU.NAME_ACRONYM, "no",
+                   "nb", "nn", "en"),
                    "akronym")
 
     # Grab the first available address

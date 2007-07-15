@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -20,8 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""
-This file performs group information update for certain employee categories.
+"""This file performs group information update for certain employee
+categories.
 
 Specifically,
 
@@ -29,32 +29,31 @@ Specifically,
    respective primary account (user) is subscribed to groups 'uio-tils' and
    'uio-ans'.
 
-2) for all people who had received a 'bilagslønn' within the past 180 days,
+2) for all people who have received 'bilagslønn' within the past 180 days,
    subscribe their respective primary account (user) to group 'uio-ans'. Such
    people are referred to as 'temporaries' in this script.
 
 This script can deal with both LT and SAP input. Employment data from LT/SAP
-are extracted from the corresponding XML files. The key to link file data to
-Cerebrum is the Norwegian national id (fnr).
+are extracted from the corresponding XML files. The key linking file data to
+Cerebrum data is the Norwegian national id (fnr).
 
-This script generates no output. All updates are writte back to the Cerebrum
+This script generates no output. All updates are written back to the Cerebrum
 database.
 
 <employee XML data> -----+
                          |
                          +--> update_employee_groups.py --+
-                         |                                |
-<cerebrum db> -----------+ <------------------------------+
-
-<TheBard> igorr: Ja, det skal den.  Dog slik at kun gyldige stillingskoder
-          skal kunne gi medlemskap i 'uio-tils', mens man (inntil videre) kan
-          la alle med gyldig hovedstilling få bli med i 'uio-ans'.
+                         |                                  |
+<cerebrum db> -----------+ <--------------------------------+
 """
 
-import sys, time, getopt, string, traceback
+import getopt
+import sys
+import time
 from mx.DateTime import Date, DateTimeDeltaFromDays
 
-import cerebrum_path, cereconf
+import cerebrum_path
+import cereconf
 
 import Cerebrum
 from Cerebrum import Database
@@ -71,7 +70,20 @@ logger = None
 
 
 def build_cache(db, groupname):
-    """Build a set with account_id/names of members of groupname."""
+    """Build a mapping of account_names to account_ids.
+
+    :Parameters:
+      db : a Database instance
+        DB connection to Cerebrum.
+      groupname : basestring
+        Group name to fetch.
+
+    :Returns:
+      (result, db_group) : tuple
+      ... where
+      result is a dictionary mapping account_names to account_ids
+      db_group is a Group instance for group associated with groupname.
+    """
 
     logger.debug("Caching members of %s", groupname)
     try:
@@ -82,20 +94,14 @@ def build_cache(db, groupname):
                      groupname)
         # TBD: sys.exit(1) ?
         return None, None
-    # yrt
 
-    #
-    # TBD: Should we enforce empty intersection and difference?
-    #
-    
     # account_name->account_id mapping
     result = dict()
     for account_id, account_name in \
                     db_group.get_members(get_entity_name=True):
         result[account_name] = int(account_id)
-    # od
 
-    logger.debug("Group %s has %d cached entires", groupname, len(result))
+    logger.debug("Group %s has %d cached entries", groupname, len(result))
     return result, db_group
 # end build_cache
 
@@ -108,6 +114,14 @@ def build_employee_cache(db, sysname, filename):
     Employment status in this case is a pair of booleans, that tell whether
     the person with that primary account has tilsettinger and bilag that we
     need.
+
+    :Parameters:
+      db : a Database instance
+        DB connection to Cerebrum.
+      sysname : basestring
+        Name of the authoritative system whence the data comes
+      filename : basestring
+        XML file name (source file)
     """
 
     logger.debug("Building employee cache")
@@ -132,14 +146,12 @@ def build_employee_cache(db, sysname, filename):
             logger.debug("Person %s has no fnr in XML source",
                          list(xmlperson.iterids()))
             continue
-        # fi
 
         # If this fnr is not in Cerebrum, we cannot locate its primary account
         if fnr not in fnr2uname:
             logger.debug("Cerebrum has no fnr %s or primary account for fnr %s",
                          fnr, fnr)
             continue
-        # fi
 
         # Everyone with bilag more recent than 180 days old is eligible
         bilag = filter(lambda x: ((not x.end) or
@@ -153,8 +165,8 @@ def build_employee_cache(db, sysname, filename):
         # they are, only that they exist.
         employee_cache[fnr2uname[fnr]] = (xmlperson.has_active_employments(),
                                           bool(bilag))
-    # od
 
+    # IVR 2007-07-13 FIXME: Is this actually useful?
     del fnr2uname
     logger.debug("employee_cache has %d uname->employment status mappings",
                  len(employee_cache))
@@ -164,9 +176,10 @@ def build_employee_cache(db, sysname, filename):
 
 
 def perform_update(db, sysname, filename):
-    """Perform all updates to all groups.
+    """Perform all updates to all groups employee groups.
 
-    An 'update' in this case entails both member addition and removal. The
+    There are two 'special' employee groups -- 'uio-tils' and 'uio-ans'. An
+    'update' in this case entails both member addition and removal. The
     strategy goes like this:
 
     * build group member caches (A and B) for uio-tils/ans
@@ -180,6 +193,14 @@ def perform_update(db, sysname, filename):
                  remove E from A/B
     * Everything left in A/B at this point are members that should no longer
       be there. Remove them.
+
+    :Parameters:
+      db : a Database instance
+        DB connection to Cerebrum.
+      sysname : basestring
+        Name of the authoritative system whence the data comes
+      filename : basestring
+        XML file name (source file)
     """
     
     # Build cached mappings for uio-tils/uio-ans
@@ -201,8 +222,6 @@ def perform_update(db, sysname, filename):
                 adjoin_member(uname, tils_group, db_account, db_const)
             else:
                 del tils_cache[uname]
-            # fi
-        # fi
 
         # this account should be in uio-ans
         if bilagp:
@@ -210,10 +229,8 @@ def perform_update(db, sysname, filename):
                 adjoin_member(uname, bilag_group, db_account, db_const)
             else:
                 del bilag_cache[uname]
-            # fi
-        # fi
-    # end 
 
+    # Everything left in tils/bilag_cache at this point can be safely removed.
     remove_remaining(tils_cache, tils_group, db_const)
     remove_remaining(bilag_cache, bilag_group, db_const)
 # end perform_update
@@ -221,12 +238,20 @@ def perform_update(db, sysname, filename):
 
 
 def adjoin_member(uname, db_group, db_account, db_const):
-    """Add uname's account_id to db_group."""
+    """Add uname's account_id to db_group, if it's not already there.
 
-    # TBD: Why can't we have an account_id? Ideally this remapping should not
-    # be necessary.
-    db_account.clear()
+    :Parameters:
+      uname : basestring
+        Account name to add to group.
+      db_group : Group instance
+        Group to which the account is to be added.
+      db_account : Account instance
+        Used to help locate uname.
+      db_const : Constants instance
+    """
+
     try:
+        db_account.clear()
         db_account.find_by_name(uname)
         db_group.add_member(db_account.entity_id,
                             db_const.entity_account,
@@ -235,18 +260,30 @@ def adjoin_member(uname, db_group, db_account, db_const):
                      uname, db_account.entity_id,
                      db_group.group_name, db_group.entity_id)
     except:
+        # IVR 2007-07-13 This does not have to be an error, if uname is
+        # already a member of db_group.
         logger.exception("adding account %s to %s failed",
                          uname, list(db_group.get_names()))
-        return
-    # yrt
 # end adjoin_member
 
 
 
 def remove_remaining(cache, db_group, db_const):
-    """Remove all entries in cache from db_group."""
+    """Remove all entries in cache from db_group.
+
+    :Parameters:
+      cache : dict
+        A mapping from account_ids to corresponding unames. This cache has
+        been created by build_cache.
+      db_group : Group instance
+        A group object bound to the proper group (uio-tils or uio-ans)
+      db_const : Constants instance
+    """
 
     for account_id in cache.itervalues():
+        # IVR 2007-07-13 FIXME: There is a race condition here -- the member
+        # may disappear between has_member and remove_member calls outside of
+        # this job.
         if db_group.has_member(account_id):
             db_group.remove_member(account_id, db_const.group_memberop_union)
             logger.debug("removing account_id %d (union) from %s",
@@ -254,8 +291,6 @@ def remove_remaining(cache, db_group, db_const):
         else:
             logger.debug("%s not a member in group %s" % (account_id, db_group.entity_id))
             continue
-
-    # od
 # end remove_remaining
 
 
@@ -292,7 +327,6 @@ def main():
     except getopt.GetoptError:
         usage()
         sys.exit(1)
-    # yrt
 
     dryrun = False
     for option, value in options:
@@ -303,8 +337,6 @@ def main():
             sys.exit(0)
         elif option in ("-s", "--source-spec"):
             sysname, filename = value.split(":")
-        # fi
-    # od
 
     db = Factory.get("Database")()
     db.cl_init(change_program="update_emp_grp")
@@ -315,7 +347,6 @@ def main():
     else:
         db.commit()
         logger.info("updates completed. all changes committed")
-    # fi
 # end main
 
 
@@ -324,4 +355,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-# fi
+

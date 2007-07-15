@@ -181,7 +181,7 @@ AD_SERVER_HOST = 'bastard'
 AD_SERVER_PORT = 1681
 AD_DOMAIN = 'WinNT://WINTEST'
 AD_LDAP= 'DC=wintest,DC=uio,DC=no'
-AD_SOURCE_SEARCH_ORDER = ('system_ureg','system_lt','system_fs')
+AD_SOURCE_SEARCH_ORDER = ('system_ureg','system_sap','system_fs','system_lt')
 AD_PASSWORD = 'hallo\n'
 AD_LOST_AND_FOUND = 'lost-n-found'
 #A value og '0' represents cn=Users,value -1 uses OU in AD_LDAP_PATH.

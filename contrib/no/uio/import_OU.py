@@ -19,6 +19,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""This script loads organizational units data from various DBs into
+Cerebrum.
+
+Specifically, XML input file with information about OUs is processed and
+stored in suitable form in Cerebrum. Presently, this job can accept OU data
+from FS, LT and SAP.
+"""
+
 import cerebrum_path
 import cereconf
 
@@ -28,6 +36,7 @@ import sys
 import getopt
 import time
 import string
+from mx import DateTime
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -41,12 +50,13 @@ db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
-# TBD: Do we *ever* need to supply the perspective explicitely, even if we
-# always supply source_system?
+
+# We cannot refer to constants directly, since co.system_<something> may not
+# exist on a particular installation.
 source2perspective = dict()
 for system_name, perspective_name in (("system_lt", "perspective_lt"),
-                                      ("system_sap", "perspective_sap"),
-                                      ("system_fs", "perspective_fs")):
+                                        ("system_sap", "perspective_sap"),
+                                        ("system_fs", "perspective_fs")):
     if hasattr(co, system_name) and hasattr(co, perspective_name):
         source2perspective[getattr(co, system_name)] = \
                                        getattr(co, perspective_name)
@@ -56,17 +66,28 @@ for system_name, perspective_name in (("system_lt", "perspective_lt"),
 
 
 def format_sko(xmlou):
+    """Return a properly formatted sko.
+
+    :Parameters:
+      xmlou : DataOU instance
+    """
+    
     sko = xmlou.get_id(xmlou.NO_SKO)
     if sko is None:
         return None
-    # fi
     
-    # Yes, we will fail if there is no sko
+    # Yes, we will fail if there is no sko, but some junk. However, it should
+    # not happen.
     return "%02d%02d%02d" % sko
 # end format_sko
 
 
 def format_parent_sko(xmlou):
+    """Return xmlou's parent's sko in a suitable format.
+
+    :Parameters:
+      xmlou : DataOU instance
+    """
 
     parent = xmlou.parent
     if parent:
@@ -74,7 +95,6 @@ def format_parent_sko(xmlou):
         return "%02d%02d%02d" % parent[1]
     else:
         return None
-    # fi
 # end format_parent_sko
 
 
@@ -83,15 +103,26 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
                 stedkode2ou, perspective):
     """Recursively create the ou_id -> parent_id mapping.
 
-    Arguments:
+    :Parameters:
+      my_sko : basestring
+        stedkode for the OU from which we want to start constructing the
+        OU-subtree.
+      
+      ou : OU instance
 
-    my_sko	stedkode for the OU from which we want to start constructing
-                the OU-subtree.
-    ou		Instance of Factory.get('OU').
-    existing_ou_mappings	ou_id -> parent_ou_id mapping, representing
-                                parent information in Cerebrum.
-    org_units	sko -> XML-object mapping (for each 'OU' element in the file)
-    stedkode2ou	sko -> ou_id mapping (for each 'OU' element in the file).
+      existing_ou_mappings : dictionary
+        ou_id -> parent_ou_id mapping, representing parent information in
+        Cerebrum.
+      
+      org_units : dictionary
+        sko (basestring) -> XML-object (DataOU) mapping for each 'OU' element
+        in the file.
+
+      stedkode2ou : dictionary
+        sko (basestring) -> ou_id mapping (for each 'OU' element in the file).
+
+      perspective : OUPerspective instance
+        perspective for which we are building the OU hierarchy.
     """
     
     # This may happen *if* there is an error in the datafile, when OU1 has
@@ -107,6 +138,8 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
     parent_sko = format_parent_sko(xmlou)
 
     if (not parent_sko) or (parent_sko not in stedkode2ou):
+        # It's not always an error -- OU-hierarchy roots do not have parents
+        # by design.
         logger.warn("Error in dataset:"
                     " %s references missing STEDKODE: %s, using None" %
                     (my_sko, parent_sko))
@@ -118,7 +151,6 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
         parent_ouid = None
     else:
         parent_ouid = stedkode2ou[parent_sko]
-    # fi
 
     my_ouid = stedkode2ou[my_sko]
 
@@ -141,14 +173,13 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
         else:
             return
 
-    # ... else if my_ouid does not exist in Cerebrum, we may still want to
-    # updates its parents...
+    # ... else if neither my_ouid nor its parent_id have a parent in Cerebrum,
+    # register the (sub)hierarchy starting from the parent_id onwards.
     elif (parent_ouid is not None
           and (my_sko != parent_sko)
           and (not existing_ou_mappings.has_key(parent_ouid))):
         rec_make_ou(parent_sko, ou, existing_ou_mappings, org_units,
                     stedkode2ou, perspective)
-    # fi
 
     logger.debug("Placing %s under %s" % (my_sko, parent_sko))
     ou.clear()
@@ -162,10 +193,16 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
 def import_org_units(sources, cer_ou_tab):
     """Scan the sources and import all the OUs into Cerebrum.
 
-    Each entry in sources is a pair (system_name, filename).
+    :Parameters:
+      sources : sequence
+        Sequence of pairs (system_name, filename), where system_name is the
+        name of the authoritative system, and filename is the XML file with
+        data.
 
-    cer_ou_tab contains the OU list present in Cerebrum at the start of this
-    script.
+      cer_ou_tab : dictionary
+        ou_id -> sko (basestring) mapping, containing the OUs present in
+        Cerebrum at the start of this script. This is used to delete obsolete
+        OUs from Cerebrum.
     """
 
     ou = OU_class(db)
@@ -180,8 +217,6 @@ def import_org_units(sources, cer_ou_tab):
         db_writer = XML2Cerebrum(db, source_system, def_kat_merke)
         perspective = source2perspective[source_system]
 
-        # iter_ou provides an iterator over objects inheriting from
-        # xml2object.DataOU
         it = system2parser(system)(filename, False).iter_ou()
         for xmlou in SkippingIterator(it, logger):
             formatted_sko = format_sko(xmlou)
@@ -189,13 +224,18 @@ def import_org_units(sources, cer_ou_tab):
                 logger.error("Missing sko for OU %s (names: %s). Skipped!" %
                              (list(xmlou.iterids()), list(xmlou.iternames())))
                 continue
+
+            if xmlou.end_date < DateTime.now():
+                logger.info("OU %s has expired and will no longer be imported",
+                            formatted_sko)
+                continue
             
             org_units[formatted_sko] = xmlou
             if verbose:
                 logger.debug("Processing %s '%s'" %
                              (formatted_sko,
                               xmlou.get_name_with_lang(xmlou.NAME_SHORT,
-                                                       "no", "en")))
+                                                       "no", "nb", "nn", "en")))
 
             args = (xmlou, None)
             if clean_obsolete_ous:
@@ -209,21 +249,17 @@ def import_org_units(sources, cer_ou_tab):
             # Not sure why this casting to int is required for PostgreSQL
             stedkode2ou[formatted_sko] = int(ou_id)
             db.commit()
-        # od
 
-        # Build and register parent information
+        # Once we've registered all OUs, build and register parent information
         for node in ou.get_structure_mappings(perspective):
             existing_ou_mappings[int(node.fields.ou_id)] = node.fields.parent_id
-        # od
 
-        # Now populate ou_structure
+        # Now populate the entire ou_structure
         logger.info("Populate ou_structure")
         for stedkode in org_units.keys():
             rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
                         stedkode2ou, perspective)
-        # od
         db.commit()
-    # od
 # end import_org_units
 
 
@@ -233,7 +269,7 @@ def get_cere_ou_table():
 
     This information is used to detect stale entries in Cerebrum.
     """
-    
+
     stedkode = OU_class(db)
     sted_tab = {}
     for entry in stedkode.get_stedkoder():
@@ -241,7 +277,6 @@ def get_cere_ou_table():
                                   entry['avdeling'])
 	key = int(entry['ou_id'])
 	sted_tab[key] = value
-    # od
     
     return sted_tab
 # end get_cere_ou_table
@@ -256,6 +291,12 @@ def set_quaran(cer_ou_tab):
     source are marked as invalid.
 
     FIXME: How does it work with multiple data sources?
+
+    :Parameters:
+      cer_ou_tab : dictionary
+        ou_id -> sko (basestring) mapping, containing the OUs that should be
+        removed from Cerebrum (i.e. the OUs that are in Cerebrum, but not in
+        the data source).
     """
     
     ous = OU_class(db)
@@ -266,10 +307,10 @@ def set_quaran(cer_ou_tab):
 	ous.clear()
 	ous.find(k)
 	if (ous.get_entity_quarantine(type=co.quarantine_ou_notvalid) == []):
-		ous.add_entity_quarantine(co.quarantine_ou_notvalid,
-                                          acc.entity_id,
-                                          description='import_OU',
-                                          start = now) 
+            ous.add_entity_quarantine(co.quarantine_ou_notvalid,
+                                      acc.entity_id,
+                                      description='import_OU',
+                                      start = now) 
     db.commit()
 # end set_quaran
 
@@ -327,7 +368,7 @@ def dump_perspective(sources):
 
     def dump_part(parent, level):
         """dump part of the OU tree rooted at parent."""
-        lang_pri = ("no", "en")
+        lang_pri = ("no", "nb", "nn", "en")
         xmlou = org_units.get(parent)
         if xmlou:
             name = xmlou.get_name_with_lang(xmlou.NAME_LONG, *lang_pri)
@@ -417,8 +458,7 @@ def dump_perspective(sources):
 
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
-Imports OU data from systems that use 'stedkoder', primarily used to
-import from UoOs LT system.
+Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
 
     -v | --verbose              increase verbosity
     -c | --clean		quarantine invalid OUs
