@@ -189,15 +189,18 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
 # end rec_make_ou
 
 
+#        import_org_units(sources, target_system, cer_ou_tab)
 
-def import_org_units(sources, cer_ou_tab):
+def import_org_units(sources, target_system, cer_ou_tab):
     """Scan the sources and import all the OUs into Cerebrum.
 
     :Parameters:
       sources : sequence
-        Sequence of pairs (system_name, filename), where system_name is the
-        name of the authoritative system, and filename is the XML file with
-        data.
+        Sequence of pairs (system_name, filename), where system_name is used
+        to describe the parser to use, and filename is the XML file with data.
+
+      target_system : basestring
+        Describes the authoritative system which is populated from sources.
 
       cer_ou_tab : dictionary
         ou_id -> sko (basestring) mapping, containing the OUs present in
@@ -211,11 +214,11 @@ def import_org_units(sources, cer_ou_tab):
     org_units = dict()
     existing_ou_mappings = dict()
 
+    source_system = getattr(co, target_system)
+    perspective = source2perspective[source_system]
     for system, filename in sources:
         logger.debug("Processing %s data from %s", system, filename)
-        source_system = getattr(co, system)
         db_writer = XML2Cerebrum(db, source_system, def_kat_merke)
-        perspective = source2perspective[source_system]
 
         it = system2parser(system)(filename, False).iter_ou()
         for xmlou in SkippingIterator(it, logger):
@@ -225,7 +228,7 @@ def import_org_units(sources, cer_ou_tab):
                              (list(xmlou.iterids()), list(xmlou.iternames())))
                 continue
 
-            if xmlou.end_date < DateTime.now():
+            if xmlou.end_date and xmlou.end_date < DateTime.now():
                 logger.info("OU %s has expired and will no longer be imported",
                             formatted_sko)
                 continue
@@ -316,7 +319,7 @@ def set_quaran(cer_ou_tab):
 
 
 
-def dump_perspective(sources):
+def dump_perspective(sources, target_system):
     """Displays the OU hierarchy in a fairly readable way.
 
     For information about sources, see import_org_units.
@@ -401,11 +404,9 @@ def dump_perspective(sources):
         # od
     # end dump_part
 
-    
+    source_system = getattr(co, target_system)
+    perspective = source2perspective[source_system]
     for system, filename in sources:
-        source_system = getattr(co, system)
-        perspective = source2perspective[source_system]
-
         # These are used to help build OU structure information
         tree_info = dict()
         org_units = dict()
@@ -462,21 +463,27 @@ Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
 
     -v | --verbose              increase verbosity
     -c | --clean		quarantine invalid OUs
-    -s | --source-spec SPEC     colon-separated (source-system, filename) pair
+    -f | --file SPEC            colon-separated (source-system, filename) pair
+    -t | --target-system NAME   authoritative system the data is supplied for
     -l | --ldap-visibility
     --dump-perspective          view the hierarchy of the ou-file
+
+    -t specifies which system/perspective is to be updated in cerebrum from
+    *all* the files. -f specifies which parser should be used for that
+    particular file.
     """
     sys.exit(exitcode)
 
 def main():
     global verbose, clean_obsolete_ous, def_kat_merke
 
-    opts, args = getopt.getopt(sys.argv[1:], 'vcs:l',
+    opts, args = getopt.getopt(sys.argv[1:], 'vcf:lt:',
                                ['verbose',
                                 'clean',
-                                'source-spec=',
+                                'file=',
                                 'dump-perspective',
-                                'ldap-visibility',])
+                                'ldap-visibility',
+                                'target-system=',])
     
 
     verbose = 0
@@ -484,25 +491,35 @@ def main():
     clean_obsolete_ous = False
     def_kat_merke = False
     cer_ou_tab = dict()
+    do_perspective = False
+    target_system = None
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
 	elif opt in ('-c','--clean'):
 	    clean_obsolete_ous = True
-        elif opt in ('-s', '--source-spec'):
+        elif opt in ('-f', '--file'):
+            # sysname decides which parser to use
             sysname, filename = val.split(":")
             sources.append((sysname, filename))
 	elif opt in ('-l', '--ldap-visibility',):
 	    def_kat_merke = True
         elif opt in ('--dump-perspective',):
-            dump_perspective(sources)
-            sys.exit(0)
+            do_perspective = True
+        elif opt in ('-t', '--target-system',):
+            target_system = val
+
+    assert target_system
+    if do_perspective:
+        dump_perspective(sources, target_system)
+        sys.exit(0)
+
     if clean_obsolete_ous:
 	cer_ou_tab = get_cere_ou_table()
         logger.debug("Collected %d ou_id->sko mappings from Cerebrum",
                      len(cer_ou_tab))
     if sources:
-        import_org_units(sources, cer_ou_tab)
+        import_org_units(sources, target_system, cer_ou_tab)
     else:
         usage(4)
     set_quaran(cer_ou_tab)
