@@ -281,7 +281,7 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
             transaction.add_ref(self.spine_object)
             # Run the real method
             value = method(self.spine_object, *args)
-
+            
             if write:
                 self.spine_object.save()
 
@@ -294,27 +294,28 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
             # SpineIDL is imported here because it doesn't exist during loading
             # of Corba.py 
             import SpineIDL
-
-            if getattr(e, '__class__', e) not in exceptions:
-                # Temporary raise of unknown exceptions to the client Remember
-                # to remove the message given, and remove in Builder.py before
-                # production.
-                traceback.print_exc()
-                name = getattr(e, '__class__', str(e))
-                exception_string = "Unknown error '%s':\n%s\n%s" % (
-                                    name, hasattr(e, 'args') and str(e.args) or '', 
-                                    ''.join(apply(
-                                        traceback.format_exception, 
-                                        sys.exc_info())))
-                raise Exception(exception_string)
-
+            
             if len(e.args) > 0:
                 explanation = ', '.join(['%s' % i for i in e.args])
             else:
                 explanation = ""
-            
-            exception = getattr(SpineIDL.Errors, e.__class__.__name__)
+
+            if getattr(e, '__class__', e) not in exceptions:
+                # This is for unhandeled exceptions in spine...
+                # This is by definition a bug in spine, but let's
+                # play nice and tell the user what's going on.
+                
+                # Log a traceback for debugging
+                traceback.print_exc()
+
+                # And make a nice descriptice error for the user
+                explanation = e.__class__.__name__ + ": " + explanation
+                exception = SpineIDL.Errors.ServerError
+            else:
+                exception = getattr(SpineIDL.Errors, e.__class__.__name__)
+
             exception = exception(explanation)
+
             raise exception
 
     return corba_method

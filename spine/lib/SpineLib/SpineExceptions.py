@@ -74,6 +74,9 @@ class ObjectDeletedError(ClientProgrammingError):
 class ServerProgrammingError(SpineException):
     """Something illegal is done in the server-side code."""
 
+class ServerError(SpineException):
+    """Something bad happened server-side."""
+
 class NotFoundError(SpineException):
     """One or more objects are not found."""
 

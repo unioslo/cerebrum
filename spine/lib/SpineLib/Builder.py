@@ -33,18 +33,14 @@ default_exceptions = (
     exceptions.UnicodeDecodeError,
     exceptions.UnicodeEncodeError,
     exceptions.UnicodeTranslateError,
-    exceptions.KeyError,
-    exceptions.TypeError,
-    exceptions.AttributeError,
-    exceptions.NotImplementedError,
     SpineExceptions.TransactionError,
     SpineExceptions.IntegrityError,
-    SpineExceptions.InterfaceError,
     SpineExceptions.AccessDeniedError,
     SpineExceptions.ObjectDeletedError,
     SpineExceptions.NotFoundError,
     SpineExceptions.ClientProgrammingError,
     SpineExceptions.ServerProgrammingError,
+    SpineExceptions.ServerError,
 )
 
 not_set = object()
