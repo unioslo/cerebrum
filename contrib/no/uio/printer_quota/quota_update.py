@@ -355,10 +355,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
                                         include_deleted=False, fetchall=False):
         if int(row['status']) not in (
             int(const.affiliation_status_ansatt_vit),
-            int(const.affiliation_status_ansatt_tekadm),
-            # merk at denne er midlertidig - når SAP er i full produksjon
-            # så kan vi fjerne dette
-            int(const.affiliation_status_ansatt_ltreg)):
+            int(const.affiliation_status_ansatt_tekadm)):
             continue
         if quota_victim.has_key(int(row['person_id'])):
             del(quota_victim[int(row['person_id'])])
