@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -167,11 +167,12 @@ class DataEmployment(object):
             self.leave = copy.deepcopy(leave)
     # end __init__
 
-
-    def is_main():
+    def is_main(self):
         return self.kind == HRDataPerson.HOVEDSTILLING
     # end is_main
 
+    def is_guest(self):
+        return self.kind == self.GJEST
 
     def is_active(self, date = Date(*time.localtime()[:3])):
         # NB! None <= Date(...) == True
