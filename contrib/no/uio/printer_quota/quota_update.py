@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,10 +29,8 @@
 # - betaling_fritak fritak for å betale for den enkelte utskrift
 
 import getopt
-import os
 import sys
 import time
-import xml.sax
 import mx
 
 import cerebrum_path
@@ -49,6 +47,8 @@ from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.AutoStud.StudentInfo import GeneralDataParser
+from Cerebrum.modules.xmlutils.system2parser import system2parser
+from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 db = Factory.get('Database')()
 update_program = 'quota_update'
@@ -57,6 +57,7 @@ pu = PPQUtil.PPQUtil(db)
 const = Factory.get('Constants')(db)
 processed_person = {}
 person = Person.Person(db)
+logger = Factory.get_logger("cronjob")
 pq_logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
 processed_pids = {}
 utv_quota = 250
@@ -73,48 +74,6 @@ require_kopipenger = True
 term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
 require_kopipenger = not PPQUtil.is_free_period(*time.localtime()[0:3])
 
-class ThreeLevelDataParser(xml.sax.ContentHandler):
-    """General parser for processing files like:
-
-    <data><person><elem1/><elem2/></person></data>, where person is
-    group_tag, and elem1 and elem2 are data_tags.  A callback will be
-    delivered when closing each group_tag, having a dict of lists as
-    argument.  The keys of the dict are from data_tags, and the list
-    contains a dict of the attrs in each tag.
-    """
-
-    # TODO: Move this method to Util.py (or someplace similar) and add
-    # an option to either be an iterator or receive callbacks.
-    def __init__(self, filename, callback, group_tag,
-                 data_tags, encoding='iso8859-1'):
-        self._callback = callback
-        self.group_tag = group_tag
-        self.data_tags = data_tags
-        self._level = 0
-        self._encoding = encoding
-        xml.sax.parse(filename, self)
-
-    def startElement(self, name, attrs):
-        ok = False
-        if self._level == 0:
-            pass
-        elif self._level == 1:
-            if name == self.group_tag:
-                self._data = {}
-                ok = True
-        if ok or self._level == 2:
-            if ok or name in self.data_tags:
-                tmp = {}
-                for k in attrs.keys():
-                    tmp[k.encode(self._encoding)] = attrs[k].encode(self._encoding)
-                self._data.setdefault(name.encode(self._encoding), []).append(tmp)
-        self._level += 1
-
-    def endElement(self, name):
-        self._level -= 1
-        if self._level == 1:
-            if name == self.group_tag and len(self._data) > 1:
-                self._callback(self._data)
 
 def set_quota(person_id, has_quota=False, has_blocked_quota=False,
               quota=None):
@@ -265,41 +224,32 @@ def recalc_quota_callback(person_info):
     set_quota(person_id, has_quota=True, has_blocked_quota=False, quota=quota)
     logger.set_indent(0)
 
-def get_bet_fritak_utv_data(lt_person_file):
-    # Finn pc-stuevakter/gruppelærere mfl. ved å parse LT-dumpen (3.2)
+
+def get_bet_fritak_utv_data(sysname, person_file):
+    """Finn pc-stuevakter/gruppelærere mfl. ved å parse SAP-dumpen."""
     ret = {}
     fnr2pid = {}
-    now = "%d%02d%02d" % time.localtime()[:3]
-    for p in person.list_external_ids(source_system=const.system_lt,
+    # TBD/TODO: Denne burde være i cereconf
+    roller_fritak = ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI', 'ST-ORG FRI',
+                     'EF-FORSKER', 'EF-STIP', 'EMERITUS', 'GJ-FORSKER',
+                     'REG-ANSV', 'EKST. KONS', 'SENIORFORS',
+                     'POLS-ANSAT', 'ASSOSIERT', 'EKST. PART', 'SIVILARB')
+    for p in person.list_external_ids(source_system=const.system_sap,
                                       id_type=const.externalid_fodselsnr):
         fnr2pid[p['external_id']] = int(p['entity_id'])
-    def lt_callback(data):
-        person = data['person'][0]
-        fnr = fodselsnr.personnr_ok(
-            "%02d%02d%02d%05d" % (int(person['fodtdag']), int(person['fodtmnd']),
-                                  int(person['fodtar']), int(person['personnr'])))
-        for g in data.get('gjest', []):
-            if ((g.has_key('dato_fra') and g['dato_fra'] > now) or
-                (g.has_key('dato_til') and g['dato_til'] <= now)):
-                continue
-            if g['gjestetypekode'] in ('ST-POL UTV','ST-ORG UTV'):
+    # Parse person file
+    parser = system2parser(sysname)(person_file, False)
+    for pers in SkippingIterator(parser.iter_persons(), None):
+        fnr = pers.get_id("NO SSN")
+        for employment in pers.iteremployment():
+            if (employment.is_guest() and employment.is_active() and
+                employment.code in roller_fritak):
                 if not fnr2pid.has_key(fnr):
-                    logger.warn("Unknown LT-person %s" % fnr)
-                    return
-                utv_person.setdefault(fnr2pid[fnr], []).append(g['gjestetypekode'])
-            if g['gjestetypekode'] in ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI',
-                                       'ST-ORG FRI', 'EF-FORSKER', 'EF-STIP',
-                                       'EMERITUS', 'GJ-FORSKER', 'REG-ANSV',
-                                       'EKST. KONS', 'SENIORFORS',
-                                       'POLS-ANSAT', 'ASSOSIERT',
-                                       'EKST. PART', 'SIVILARB'):
-                if not fnr2pid.has_key(fnr):
-                    logger.warn("Unknown LT-person %s" % fnr)
-                    return
+                    logger.warn("Unknown person from %s %s" % (sysname, fnr))
+                    continue
                 ret[fnr2pid[fnr]] = True
-                return
-    ThreeLevelDataParser(lt_person_file, lt_callback, "person", ["gjest"])
     return ret
+
 
 def get_students():
     """Finner studenter iht. 0.1"""
@@ -360,7 +310,8 @@ def get_students():
     logger.debug("Victims: %s" % ret)
     return ret
 
-def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_file):
+def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
+               sysname, person_file):
     """Finner alle personer som rammes av kvoteordningen ved å:
 
     - finne alle som har en student-affiliation (0.1)
@@ -378,7 +329,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
 
     logger.debug("Prefetching data")
 
-    betaling_fritak = get_bet_fritak_utv_data(lt_person_file)
+    betaling_fritak = get_bet_fritak_utv_data(sysname, person_file)
     logger.debug2("Fritak for: %s" % betaling_fritak)
     # Finn alle som skal rammes av kvoteregimet
     quota_victim = {}
@@ -507,7 +458,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_fi
 
 def auto_stud(studconfig_file, student_info_file, studieprogs_file,
               emne_info_file, drgrad_file, fritak_kopiavg_file,
-              betalt_papir_file, lt_person_file, ou_perspective=None):
+              betalt_papir_file, sysname, person_file, ou_perspective=None):
     global fnr2pid, quota_victims, person_id_member, person_id_affs, \
            kopiavgift_fritak, har_betalt, free_this_term, autostud, betaling_fritak
     logger.debug("Preparing AutoStud framework")
@@ -521,8 +472,8 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
     # og evt. fritak fra kopiavgift
     (fnr2pid, quota_victims, person_id_member, person_id_affs,
      kopiavgift_fritak, har_betalt, free_this_term, betaling_fritak) = \
-     fetch_data(
-        drgrad_file, fritak_kopiavg_file, betalt_papir_file, lt_person_file)
+     fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
+                sysname, person_file)
     logger.debug2("Victims: %s" % quota_victims)
     # Start call-backs via autostud modulen med vanlig
     # merged_persons.xml fil.  Vi har da mulighet til å styre kvoter
@@ -547,32 +498,34 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
         if not processed_pids.has_key(int(row['person_id'])):
             set_quota(int(row['person_id']), has_quota=False)
 
-def process_data():
-    has_processed = {}
-    
-    # Alle personer med student-affiliation:
-    for p in fs.getAlleMedStudentAffiliation():
-        person_id = find_person(p['dato'], p['pnr'])
-        handle_quota(person_id, p)
-        has_processed[person_id] = True
-
-    # Alle account som kun har student-affiliations (denne er ment å
-    # ramme de som tidligere har vært studenter, men som har en konto
-    # som ikke er sperret enda).
-    for p in fooBar():
-        person_id = find_person(p['dato'], p['pnr'])
-        if has_processed.has_key(person_id):
-            continue
-        handle_quota(person_id, p)
+## rogerha 2007-07-16: what is this code? It's buggy and not used so
+## I comment it.
+# def process_data():
+#     has_processed = {}
+#     
+#     # Alle personer med student-affiliation:
+#     for p in fs.getAlleMedStudentAffiliation():
+#         person_id = find_person(p['dato'], p['pnr'])
+#         handle_quota(person_id, p)
+#         has_processed[person_id] = True
+# 
+#     # Alle account som kun har student-affiliations (denne er ment å
+#     # ramme de som tidligere har vært studenter, men som har en konto
+#     # som ikke er sperret enda).
+#     for p in fooBar():
+#         person_id = find_person(p['dato'], p['pnr'])
+#         if has_processed.has_key(person_id):
+#             continue
+#         handle_quota(person_id, p)
 
 def main():
     global logger
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'b:e:f:rs:C:D:L:S:', [
+        opts, args = getopt.getopt(sys.argv[1:], 'b:e:f:rs:C:D:P:S:', [
             'help', 'student-info-file=', 'emne-info-file=',
             'studie-progs-file=', 'studconfig-file=', 'drgrad-file=',
             'ou-perspective=', 'fritak-kopiavg-file=', 'betalt-papir-file=',
-            'lt-person-file='])
+            'person-file='])
     except getopt.GetoptError:
         usage(1)
     if not opts:
@@ -594,28 +547,27 @@ def main():
             studconfig_file = val
         elif opt in ('-D', '--drgrad-file'):
             drgrad_file = val
-        elif opt in ('-L', '--lt-person-file'):
-            lt_person_file = val
+        elif opt in ('-P', '--person-file'):
+            sysname, person_file = val.split(':')
         elif opt in ('-S', '--studie-progs-file'):
             studieprogs_file = val
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
             int(ou_perspective)   # Assert that it is defined
 
-    logger = Factory.get_logger("cronjob")
     for opt, val in opts:
         if opt in ('-r',):
             auto_stud(studconfig_file, student_info_file,
                       studieprogs_file, emne_info_file, drgrad_file,
-                      fritak_kopiavg_file, betalt_papir_file, lt_person_file,
-                      ou_perspective)
+                      fritak_kopiavg_file, betalt_papir_file, sysname,
+                      person_file, ou_perspective)
 
 def usage(exitcode=0):
     print """Usage: [options]
     -s | --student-info-file file:
     -e | --emne-info-file file:
     -C | --studconfig-file file:
-    -L | --lt-person-file file:
+    -P | ---person-file source_system:file:
     -S | --studie-progs-file file:
     -D | --drgrad-file file:
     -f | --fritak-avg-file file:
@@ -624,7 +576,7 @@ def usage(exitcode=0):
     --ou-perspective perspective:
     -r | --recalc-pq: start quota recalculation
 
-contrib/no/uio/quota_update.py -s /cerebrum/dumps/FS/merged_persons_small.xml -e /cerebrum/dumps/FS/emner.xml -C contrib/no/uio/studconfig.xml -S /cerebrum/dumps/FS/studieprogrammer.xml -D /cerebrum/dumps/FS/drgrad.xml -L /cerebrum/dumps/LT/person.xml -f /cerebrum/dumps/FS/fritak_kopi.xml -b /cerebrum/dumps/FS/betalt_papir.xml -r
+contrib/no/uio/quota_update.py -s /cerebrum/dumps/FS/merged_persons_small.xml -e /cerebrum/dumps/FS/emner.xml -C contrib/no/uio/studconfig.xml -S /cerebrum/dumps/FS/studieprogrammer.xml -D /cerebrum/dumps/FS/drgrad.xml -P system_sap:/cerebrum/dumps/SAP/SAP2BAS/sap2bas_2007-7-16-301.xml -f /cerebrum/dumps/FS/fritak_kopi.xml -b /cerebrum/dumps/FS/betalt_papir.xml -r
 """
     # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag drgrad --misc-func GetStudinfDrgrad --misc-file drgrad.xml 
     # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag betfritak --misc-func GetStudFritattKopiavg --misc-file fritak_kopi.xml
