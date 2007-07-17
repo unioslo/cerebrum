@@ -229,12 +229,11 @@ class DataName(object):
                 raise ValueError, "Unknown language code " + self.language
     # end __init__
 
-    def __str__(self):
-        ret = "Name: %s" % (self.kind, self.value)
-        if self.language:
-            ret += " (%s) " % self.language
-        return ret
 
+    def __str__(self):
+        if self.language:
+            return str((self.kind, self.value, self.language))
+        return str((self.kind, self.value))
 # end DataName
 
 
