@@ -35,6 +35,11 @@ def write_email_file(email_data, outfile):
         line = k + ':' + email_data[k] + '\n'
         stream.write(line)
 
+def get_valid_email_addrs(et):
+    addrs = [(r['local_part'], r['domain'])       
+             for r in et.get_addresses()]
+    return ["%s@%s" % a for a in addrs]
+
 def generate_email_data():
     all_accounts = account.list()
     all_email_data = {}
@@ -44,11 +49,22 @@ def generate_email_data():
         account.clear()
         account.find(k['account_id'])
         email_server = None
+        # fetch primary address
         try:
             primary = account.get_primary_mailaddress()
         except Errors.NotFoundError:
             logger.warn("No primary address for %s", account.account_name)
             continue
+        # find email target for this account
+        et = Email.EmailTarget(db)
+        et.clear()
+        try:
+            et.find_by_entity(account.entity_id)
+        except Errors.NotFoundError:
+            logger.warn("No e-mail target for %s", account.account_name)
+            continue
+        # fetch all valid adresses for account
+        valid_addrs = get_valid_email_addrs(et)
         try:
             est.clear()
             est.find_by_entity(account.entity_id)
@@ -59,7 +75,10 @@ def generate_email_data():
             es.clear()    
             es.find(est.email_server_id)
             email_server = es.name
-        all_email_data[account.account_name] = primary + ':' + email_server
+        valid = "valid:"
+        for a in valid_addrs:
+            valid = valid + a + ':'
+        all_email_data[account.account_name] = 'default:' + primary + ':' + valid + email_server
     return all_email_data
     
 def usage():
