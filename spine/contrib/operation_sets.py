@@ -7,9 +7,9 @@ op_sets = {
         ('Account.delete_spread', 'user@ansatt'),
         ('Account.delete_spread', 'user@stud'),
         ('Group.add_spread', 'group@ntnu'),
-        ('Group.delete_spread', 'group@ntnu')
+        ('Group.delete_spread', 'group@ntnu'),
         ('Person.add_spread', 'user@ntnu'),
-        ('Person.delete_spread', 'user@ntnu')
+        ('Person.delete_spread', 'user@ntnu'),
 	],
     
     'modify_idi': [
@@ -770,12 +770,12 @@ op_roles = [
     ('cereweb_orakel', 'read_all', ('global', None, None)),
     ('cereweb_orakel', 'admin_client', ('global', None, None)),
 
-    ('idi_drift', 'modify_user', ('entity', 15850, None)),
-    ('idi_drift', 'modify_idi', ('global', None, None)),
-    ('idi_drift', 'admin_client', ('global', None, None)),
+    #('idi_drift', 'modify_user', ('entity', 15850, None)),
+    #('idi_drift', 'modify_idi', ('global', None, None)),
+    #('idi_drift', 'admin_client', ('global', None, None)),
 
-    ('cereweb_innsyn', 'read_all', ('global', None, None)),
-    ('cereweb_innsyn', 'admin_client', ('global', None, None)),
+    #('cereweb_innsyn', 'read_all', ('global', None, None)),
+    #('cereweb_innsyn', 'admin_client', ('global', None, None)),
 
     ('cereweb_basic', 'admin_client', ('global', None, None)),
 
