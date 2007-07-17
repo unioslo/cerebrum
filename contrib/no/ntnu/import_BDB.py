@@ -416,8 +416,9 @@ class BDBSync:
         global verbose,dryrun
         groups = self.bdb.get_groups()
         posix_group = self.posix_group
-        group = self.posix_group
+        group = self.group
         creator_id = self.initial_account
+        const = self.const
 
         def _clean_name(name):
             name = name.replace('-','_')
@@ -439,6 +440,8 @@ class BDBSync:
                     if posix_group.posix_gid != grp['gid']:
                         posix_group.posix_gid = grp['gid']
                         _has_changed = True
+                    if not posix_group.has_spread(const.spread_ntnu_group):
+                        posix_group.add_spread(const.spread_ntnu_group)
                     if _has_changed:
                         posix_group.write_db()
                     if dryrun:
@@ -450,6 +453,8 @@ class BDBSync:
                     posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
                                          name=grp['name'], description=grp['description'], \
                                          gid=grp['posix_gid'])
+                    if not posix_group.has_spread(const.spread_ntnu_group):
+                        posix_group.add_spread(const.spread_ntnu_group)
                     try:
                         posix_group.write_db()
                     except self.db.IntegrityError,ie: 
