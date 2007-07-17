@@ -27,8 +27,9 @@ import os
 
 
 def setup_home(path, uid, gid):
-    os.mkdir(path, 0700)
-    os.chown(path, uid, gid)
+    if not os.path.isdir(path):
+        os.mkdir(path, 0700)
+        os.chown(path, uid, gid)
 
 
 connection = SpineClient.SpineClient(config=config.conf).connect()
@@ -87,13 +88,11 @@ def make_homedir(hd):
     uid = account.get_posix_uid()
     gid = account.get_primary_group().get_posix_gid()
     
-    if os.access(setup_script, os.F_OK):
-        r = os.system("%s %d %d %s %s" % (setup_script,
-                                          uid, gid, path, username))
-        if r<0:
-            raise "Create failed"
-    else:
-        setup_home(path, uid, gid)
+    setup_home(path, uid, gid)
+    r = os.system("%s %d %d %s %s" % (setup_script,
+                                      uid, gid, path, username))
+    if r<0:
+        raise Exception("Create failed")
 
 for hd in hds.search():
     try:
