@@ -27,11 +27,18 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
     from cereconf import LDAP_PERSON
-    if LDAP_PERSON['dn'].startswith('ou='):
+    if not LDAP_PERSON['dn'].startswith('ou='):
+
+      def __init__(self, db, logger):
+        self.__super.__init__(db, logger)
+        self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+
+    else:
       # Hacks for old LDAP structure
 
       def __init__(self, db, logger):
         self.__super.__init__(db, logger)
+        self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
         self.used_new_DNs = {}
         self.dn2new_structure = {'ou=organization,dc=uio,dc=no':
@@ -65,6 +72,22 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         dn = self.__super.make_ou_dn(entry, parent_dn)
         self.dn2new_structure.setdefault(dn, new_structure_dn)
         return dn
+
+    def init_attr2id2contacts(self):
+        # Change from superclass: Include 'mobile' as well.
+        s = getattr(self.const, cereconf.LDAP['contact_source_system'])
+        c = [(a, self.get_contacts(contact_type  = t,
+                                   source_system = s,
+                                   convert       = self.attr2syntax[a][0],
+                                   verify        = self.attr2syntax[a][1],
+                                   normalize     = self.attr2syntax[a][2]))
+             for a,s,t in (('telephoneNumber', s, self.const.contact_phone),
+                           ('mobile', s, self.const.contact_mobile_phone),
+                           ('facsimileTelephoneNumber',
+                            s, self.const.contact_fax),
+                           ('labeledURI', None, self.const.contact_url))]
+        self.id2labeledURI    = c[-1][1]
+        self.attr2id2contacts = [v for v in c if v[1]]
 
     def make_address(self, sep,
                      p_o_box, address_text, postal_number, city, country):
