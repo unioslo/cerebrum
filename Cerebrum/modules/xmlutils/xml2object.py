@@ -228,6 +228,13 @@ class DataName(object):
                                      "ru", "sv", "fr",):
                 raise ValueError, "Unknown language code " + self.language
     # end __init__
+
+    def __str__(self):
+        ret = "Name: %s" % (self.kind, self.value)
+        if self.language:
+            ret += " (%s) " % self.language
+        return ret
+
 # end DataName
 
 
@@ -281,7 +288,7 @@ class DataEntity(object):
 
     def iterids(self):
         return self._external_ids.iteritems()
-    # end iternames
+    # end iterids
 
     def iternames(self):
         return self._names.iteritems()
