@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -225,7 +225,9 @@ def import_org_units(sources, target_system, cer_ou_tab):
             formatted_sko = format_sko(xmlou)
             if not formatted_sko:
                 logger.error("Missing sko for OU %s (names: %s). Skipped!" %
-                             (list(xmlou.iterids()), list(xmlou.iternames())))
+                             (list(xmlou.iterids()),
+                              ["(%s) %s" %(a,b) for a,b in
+                               list(xmlou.iternames())]))
                 continue
 
             if xmlou.end_date and xmlou.end_date < DateTime.now():
