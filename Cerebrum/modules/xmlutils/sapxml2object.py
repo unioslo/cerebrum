@@ -487,22 +487,23 @@ class XMLPerson2Object(XMLEntity2Object):
     def _make_contact(self, elem, priority):
         """Return a DataContact instance out of elem."""
 
+        kommtype2const = {"Faks arbeid": DataContact.CONTACT_FAX,
+                          "Telefaks midlertidig arbeidssted":
+                            DataContact.CONTACT_FAX,
+                          "Arbeidstelefon 1": DataContact.CONTACT_PHONE,
+                          "Arbeidstelefon 2": DataContact.CONTACT_PHONE,
+                          "Arbeidstelefon 3": DataContact.CONTACT_PHONE,
+                          "Mobilnummer, jobb": DataContact.CONTACT_MOBILE,}
+
         ctype = elem.find("KOMMTYPE")
         if (ctype is None or
-            ctype.text.strip() not in ("Faks arbeid",
-                                       "Arbeidstelefon 1",
-                                       "Arbeidstelefon 2",
-                                       "Arbeidstelefon 3",)):
+            ctype.text.strip() not in kommtype2const):
             return None
 
         ctype = ctype.text.strip().encode("latin1")
         cvalue = elem.find("KommVal").text.strip().encode("latin1")
         cvalue = deuglify_phone(cvalue)
-        if ctype == "Faks arbeid":
-            ctype = DataContact.CONTACT_FAX
-        else:
-            ctype = DataContact.CONTACT_PHONE
-        # fi
+        ctype = kommtype2const[ctype]
 
         return DataContact(ctype, cvalue, priority)
     # end _make_contact

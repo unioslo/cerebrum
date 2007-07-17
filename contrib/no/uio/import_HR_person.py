@@ -43,6 +43,7 @@ from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU, DataAddress
 from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
+from Cerebrum.modules.no import fodselsnr
 
 db = Factory.get('Database')()
 db.cl_init(change_program='import_HR')
@@ -263,7 +264,7 @@ def determine_affiliations(xmlperson, source_system):
             logger.info("No registrations of gjestetypekode: %s" % g.code)
             continue
         else:
-            logger.warn("Unknown gjestetypekode %s for person %s",
+            logger.info("Unknown gjestetypekode %s for person %s",
                         g.code, str_pid())
             continue
     
@@ -352,6 +353,31 @@ def consistent_ids(xmlperson):
 # end consistent_ids
 
 
+class QuellSAPIterator(SkippingIterator):
+    "The fnr errors flood our logs too much."
+    
+    def next(self):
+        while 1:
+            try:
+                element = self.iterator.next()
+                return element
+            except StopIteration:
+                raise
+            except fodselsnr.InvalidFnrError, value:
+                if map(lambda x: "00100" in str(x) or
+                                 "00200" in str(x) or
+                                 "Name contains '*'" in str(x),
+                       value.args):
+                    logger.debug("Defective fnr: %s", value)
+                else:
+                    logger.exception("failed to read next person")
+            except:
+                logger.exception("failed to read next person")
+    # end next
+# end QuellSAPIterator
+    
+
+
 def parse_data(parser, source_system, group, gen_groups, old_affs):
     """Process all people data available.
 
@@ -377,7 +403,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
     xml2db = XML2Cerebrum(db, source_system)
     it = parser.iter_persons()
 
-    for xmlperson in SkippingIterator(it, logger):
+    for xmlperson in QuellSAPIterator(it, logger):
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
         affiliations, work_title = determine_affiliations(xmlperson,
                                                           source_system)

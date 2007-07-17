@@ -700,6 +700,7 @@ class CommonConstants(ConstantsBase):
     contact_fax = _ContactInfoCode('FAX', 'Fax')
     contact_email = _ContactInfoCode('EMAIL', 'Email')
     contact_url = _ContactInfoCode('URL', 'URL')
+    contact_mobile_phone = _ContactInfoCode('MOBILE', 'Mobile phone')
 
     address_post = _AddressCode('POST', 'Post address')
     address_post_private = _AddressCode('PRIVPOST',

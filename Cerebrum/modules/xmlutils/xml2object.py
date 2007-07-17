@@ -110,7 +110,8 @@ class DataContact(object):
     CONTACT_FAX        = "fax"
     CONTACT_URL        = "url"
     CONTACT_EMAIL      = "e-mail"
-    CONTACT_PRIVPHONE  = "private phone" 
+    CONTACT_PRIVPHONE  = "private phone"
+    CONTACT_MOBILE     = "cell phone"
 
     """Class for storing contact information (phone, e-mail, URL, etc.)"""
 
@@ -118,7 +119,7 @@ class DataContact(object):
         self.kind = kind
         assert self.kind in (self.CONTACT_PHONE, self.CONTACT_FAX,
                              self.CONTACT_URL, self.CONTACT_EMAIL,
-                             self.CONTACT_PRIVPHONE)
+                             self.CONTACT_PRIVPHONE, self.CONTACT_MOBILE)
         self.value = value
         self.priority = priority
     # end __init__
