@@ -1037,7 +1037,7 @@ def main():
             verbose = True
         elif opt in ('-d','--dryrun'):
             dryrun = True
-        elif opt in ('--personid'):
+        elif opt in ('--personid',):
             # Konverter val til noe saklig
             print "Syncronizing BDBPerson: %s" % val
             if len(val) == 11:
