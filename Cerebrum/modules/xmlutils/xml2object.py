@@ -45,10 +45,15 @@ TODO:
 """
 
 import copy
-import time, types
+import re
+import sys
+import time
+import types
+
 from cElementTree import parse, iterparse
 # from elementtree.ElementTree import parse, iterparse
 from mx.DateTime import Date
+
 
 
 
@@ -727,6 +732,27 @@ class SkippingIterator:
         self.iterator = iterator
         self.logger = logger
 
+        # IVR 2007-07-18 FIXME: These are the errors that we want to ignore,
+        # since
+        # 1) there are too many of them
+        # 2) they are known and they will not be fixed in the nearest future
+        # 
+        # The format of this dictionary is <ErrorType>: list of regexs
+        # ... where <ErrorType> specifies the exception type and list of regexs
+        # represents the specific values of the exceptions we want to ignore.
+        from Cerebrum.modules.no import fodselsnr
+        self.ignore_errors = {
+            fodselsnr.InvalidFnrError:
+                # temporary fnrs that are known to fail fnr checksum
+                [re.compile("\d{6}00[0,1,2]00"), ],
+            ValueError:
+                # this is how SAP/POLS tag invalid person entries
+                [re.compile("Name contains '\*'")],
+            AssertionError:
+                # These OUs are broken, since they lack the proper names
+                [re.compile("No name available for OU \(0, 0, 0\)")],
+            }
+
     def __iter__(self):
         return self
 
@@ -738,16 +764,23 @@ class SkippingIterator:
             except StopIteration:
                 raise
             except:
-                # TBD: do we really want to be able to gloss over errors
-                # silently?
-                if self.logger:
+                exc, value, tb = sys.exc_info()
+                # it's not one of the "known" errors
+                if exc not in self.ignore_errors:
                     self.logger.exception("failed to process next element")
-                pass
+                    continue
+
+                value = str(value)
+                matched = False
+                for pobj in self.ignore_errors[exc]:
+                    if pobj.search(value):
+                        self.logger.debug("(Known) error for next element. "
+                                          "Element ignored: %s %s", str(exc), value)
+                        matched = True
+                        break
+
+                # It's not a "known" error
+                if not matched:
+                    self.logger.exception("failed to process next (known) element")
+                    continue
 # end SkippingIterator
-
-
-
-
-
-# arch-tag: 31b2b62d-6a32-4a42-ab0c-3dcd82c038a5
-

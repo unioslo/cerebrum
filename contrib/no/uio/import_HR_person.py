@@ -353,30 +353,6 @@ def consistent_ids(xmlperson):
 # end consistent_ids
 
 
-class QuellSAPIterator(SkippingIterator):
-    "The fnr errors flood our logs too much."
-    
-    def next(self):
-        while 1:
-            try:
-                element = self.iterator.next()
-                return element
-            except StopIteration:
-                raise
-            except fodselsnr.InvalidFnrError, value:
-                if map(lambda x: "00100" in str(x) or
-                                 "00200" in str(x) or
-                                 "Name contains '*'" in str(x),
-                       value.args):
-                    logger.debug("Defective fnr: %s", value)
-                else:
-                    logger.exception("failed to read next person")
-            except:
-                logger.exception("failed to read next person")
-    # end next
-# end QuellSAPIterator
-    
-
 
 def parse_data(parser, source_system, group, gen_groups, old_affs):
     """Process all people data available.
@@ -403,7 +379,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
     xml2db = XML2Cerebrum(db, source_system)
     it = parser.iter_persons()
 
-    for xmlperson in QuellSAPIterator(it, logger):
+    for xmlperson in SkippingIterator(it, logger):
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
         affiliations, work_title = determine_affiliations(xmlperson,
                                                           source_system)

@@ -226,8 +226,8 @@ def import_org_units(sources, target_system, cer_ou_tab):
             if not formatted_sko:
                 logger.error("Missing sko for OU %s (names: %s). Skipped!" %
                              (list(xmlou.iterids()),
-                              ["(%s) %s" %(a,b) for a,b in
-                               list(xmlou.iternames())]))
+                              map(lambda (x, y): str(x) + ": " + '; '.join(map(str, y)),
+                                  xmlou.iternames())))
                 continue
 
             if xmlou.end_date and xmlou.end_date < DateTime.now():
