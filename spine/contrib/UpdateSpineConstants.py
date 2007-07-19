@@ -41,7 +41,7 @@ def update_spine_auth_codes(db_user, delete=False):
     from Cerebrum import Constants
     existing = Set(get_existing(db_user))
     db = Factory.get('Database')(user=db_user)
-    _ = Constants.Constants(db) # Ugly hack.  See makedb.py
+    const = Factory.get('Constants')()
 
     # Get the methods from spine
     auth_op_codes = Set()
@@ -65,7 +65,7 @@ def update_spine_auth_codes(db_user, delete=False):
             print 'Deleting %s' % code_str
             code_obj = AuthConstants(code_str)
             code_obj.delete()
-    db.commit()
+    const.commit()
 
 def get_existing(db_user):
     db = Factory.get('Database')(user=db_user)
