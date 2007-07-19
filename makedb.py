@@ -107,7 +107,7 @@ def main():
         elif opt == '--extra-file':
             extra_files.append(val)
         elif opt in ('-c', '--country-file'):
-            read_country_file(val, db)
+            read_country_file(val)
             sys.exit()
 
     # By having two leading spaces in the '  insert' literal below, we
@@ -152,12 +152,8 @@ def main():
     if not all_ok:
         sys.exit(1)
 
-def read_country_file(fname, db):
-    from Cerebrum import Constants
-    # Create a dummy Constants object in order to ensure that the .sql
-    # attribute of Constants._CerebrumCode is present.  FIXME: This is
-    # seriously ugly.
-    foo = Constants.Constants(db)
+def read_country_file(fname):
+    const = Factory.get('Constants')()
     f = file(fname, "r")
     for line in f.readlines():
         if line[0] == '#':
@@ -165,13 +161,13 @@ def read_country_file(fname, db):
         dta = [x.strip() for x in line.split("\t") if x.strip() <> ""]
         if len(dta) == 4:
             code_str, foo, country, phone_prefix = dta
-            code_obj = Constants._CountryCode(code_str, country, phone_prefix,
-                                              description=country)
+            code_obj = const.Country(code_str, country, phone_prefix,
+                                     description=country)
             code_obj.insert()
-    db.commit()
+    const.commit()
 
 def insert_code_values(db, delete_extra_codes=False):
-    const = Factory.get('Constants')(db)
+    const = Factory.get('Constants')()
     print "Inserting code values."
     try:
         new, total, updated, deleted = const.initialize(delete=delete_extra_codes)
@@ -182,7 +178,7 @@ def insert_code_values(db, delete_extra_codes=False):
         sys.exit(1)
     print "  Inserted %d new codes (new total: %d), updated %d, deleted %d" % (
         new, total, updated, deleted)
-    db.commit()
+    const.commit()
 
 def makeInitialUsers(db):
     print "Creating initial entities."
@@ -190,7 +186,7 @@ def makeInitialUsers(db):
     from Cerebrum import Group
     from Cerebrum import Account
     from Cerebrum import Entity
-    co = Constants.Constants(db)
+    co = Constants.Constants()
     eg = Entity.Entity(db)
     eg.populate(co.entity_group)
     eg.write_db()

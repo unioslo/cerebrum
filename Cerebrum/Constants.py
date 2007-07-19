@@ -26,6 +26,7 @@ Address, Gender etc. type."""
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 
 
 class CodeValuePresentError(RuntimeError):
@@ -38,6 +39,7 @@ class _CerebrumCode(DatabaseAccessor):
        Note that the database connection must be prepared first by
        setting _CerebrumCode.sql = db"""
 
+    sql = None
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
     _lookup_str_column = 'code_str'
@@ -599,16 +601,21 @@ class ConstantsBase(DatabaseAccessor):
         return (stats['inserted'], stats['total'], stats['updated'],
                 stats['deleted'])
 
-    def __init__(self, database):
-        super(ConstantsBase, self).__init__(database)
+    def __init__(self, database=None):
+        # The database parameter is deprecated.
+        # SH 2007-07-18 TDB: warn whenever this parameter is set.
 
-        # Give away database connection to the otherwise unrelated
-        # class _CerebrumCode so it's instances will work properly
+        # All CerebrumCodes use a common private db connection,
+        # stored in _CerebrumCode.sql.
+        # This connection must never be closed or invalidated.
 
-        # TBD: Works, but is icky -- _CerebrumCode or one of its
-        # superclasses might use the .sql attribute themselves for
-        # other purposes; should be cleaned up.
-        _CerebrumCode.sql = database
+        if _CerebrumCode.sql == None:
+            _CerebrumCode.sql = Factory.get('Database')()
+
+        # initialize myself with the CerebrumCode db.connection
+        # This makes Constants.commit() and such possible.
+        
+        super(ConstantsBase, self).__init__(_CerebrumCode.sql)
 
     def fetch_constants(self, wanted_class, prefix_match=""):
         """Return all constant instances of wanted_class.  The list is

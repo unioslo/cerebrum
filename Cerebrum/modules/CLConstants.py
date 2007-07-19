@@ -278,13 +278,6 @@ class CLConstants(Constants.Constants):
         'posix', 'group-promote', 'group promote posix %(subject)s',
         ('gid=%(int:gid)s',))
 
-    def __init__(self, database):
-        super(CLConstants, self).__init__(database)
-
-        # TBD: Works, but is icky -- _CerebrumCode or one of its
-        # superclasses might use the .sql attribute themselves for
-        # other purposes; should be cleaned up.
-        _ChangeTypeCode.sql = database
 
 def main():
     from Cerebrum.Utils import Factory

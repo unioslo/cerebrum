@@ -54,7 +54,9 @@ of spreads, only the default values will be used.
 
 import cereconf
 from Cerebrum import Entity
-from Cerebrum.Constants import _QuarantineCode, _SpreadCode
+from Cerebrum.Utils import Factory
+
+const = Factory.get("Constants")
 
 class QuarantineHandler(object):
 #    __slots__ = 'quarantines'
@@ -74,12 +76,10 @@ class QuarantineHandler(object):
             # Converting strings to Constants and build:
             #
             # self.qc2rules = {'qc': {'spread_code': {settings} } }
-            _QuarantineCode.sql = database
-            _SpreadCode.sql = database
             used_sort_nums = []
             for code, rules in cereconf.QUARANTINE_RULES.items():
                 qc_rules = {}
-                self.qc2rules[int(_QuarantineCode(code))] = qc_rules
+                self.qc2rules[int(const.Quarantine(code))] = qc_rules
                 if isinstance(rules, dict):
                     rules = (rules,)
                 for r in rules:
@@ -94,7 +94,7 @@ class QuarantineHandler(object):
                         tmp_spreads = (tmp_spreads,)
                     for c in tmp_spreads:
                         if c != '*':
-                            c = int(_SpreadCode(c))
+                            c = int(const.Spread(c))
                         qc_rules[c] = settings
             # sort_num must be unique if used
             orig_len = len(used_sort_nums)
