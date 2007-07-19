@@ -32,9 +32,9 @@ def check_account(account):
     if not name_regex.match(account.name):
         return "Bad accountname"
     if not account.posix_uid >= 1000:
-        return "Bad uid", account.posix_uid
+        return "Bad uid (%s)" % account.posix_uid
     if not account.posix_gid >= 1000:
-        return "Bad gid"
+        return "Bad gid (%s)" % account.posix_gid
     if account.passwd == "":
         account.passwd = "x"
     return None
@@ -43,7 +43,7 @@ def check_group(group):
     if not name_regex.match(group.name):
         return "Bad groupname"
     if not group.posix_gid >= 1000:
-        return "Bad gid"
+        return "Bad gid (%s)" % group.posix_gid
     for n in group.members:
         if not name_regex.match(n):
             group.members.remove(n)
