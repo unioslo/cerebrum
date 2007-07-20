@@ -30,7 +30,8 @@ import mx
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.Entity import EntityName, EntityQuarantine, EntityExternalId
+from Cerebrum.Entity import EntityName, EntityQuarantine, \
+     EntityExternalId, EntitySpread
 try:
     from sets import Set
 except ImportError:
@@ -39,7 +40,8 @@ except ImportError:
     from Cerebrum.extlib.sets import Set
 
 Entity_class = Utils.Factory.get("Entity")
-class Group(EntityQuarantine, EntityExternalId, EntityName, Entity_class):
+class Group(EntityQuarantine, EntityExternalId, EntityName,
+            EntitySpread, Entity_class):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('description', 'visibility', 'creator_id',

@@ -23,11 +23,11 @@
 
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum.Entity import EntityName
+from Cerebrum.Entity import EntityName, EntitySpread
 
 Entity_class = Factory.get("Entity")
 
-class Disk(Entity_class):
+class Disk(EntitySpread, Entity_class):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('host_id', 'path', 'description')
 
@@ -236,7 +236,8 @@ class Disk(Entity_class):
             {'spread': spread, 'entity_type': int(self.const.entity_disk),
              'host_id': host_id, 'path': path, 'description': description})
         
-class Host(EntityName, Entity_class):
+class Host(EntityName, EntitySpread, Entity_class):
+    # TODO: Move into it's own Host.py
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('name', 'description')
 

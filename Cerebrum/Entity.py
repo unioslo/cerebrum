@@ -201,8 +201,6 @@ class Entity(DatabaseAccessor):
         if self.entity_id is None:
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
-        for s in self.get_spread():
-            self.delete_spread(s['spread'])
         if isinstance(self, EntityName):
             for n in self.get_names():
                 self.delete_entity_name(n['domain_code'])
@@ -211,6 +209,36 @@ class Entity(DatabaseAccessor):
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
         self._db.log_change(self.entity_id, self.const.entity_del, None)
         self.clear()
+        
+    def list_all_with_type(self, entity_type):
+        """Return sequence of all 'entity_id's that has ``type``."""
+        return self.query("""
+        SELECT entity_id
+        FROM [:table schema=cerebrum name=entity_info]
+        WHERE entity_type=:entity_type""", {'entity_type': int(entity_type)})
+
+    def get_subclassed_object(self, id=None):
+        """Instantiates and returns a object of the proper class
+        based on the entity's type."""
+        if id is not None:
+            self.find(id)
+        entity_type = str(self.const.EntityType(self.entity_type))
+        component = Factory.type_component_map.get(entity_type)
+        if component is None:
+            raise ValueError, "No factory for type %s" % entity_type
+        entity = Factory.get(component)(self._db)
+        entity.find(self.entity_id)
+        return entity
+
+
+class EntitySpread(Entity):
+    "Mixin class, usable alongside Entity for entities having spreads."
+
+    def delete(self):
+        """Delete an entity's spreads."""
+        for s in self.get_spread():
+            self.delete_spread(s['spread'])
+        super(EntitySpread, self).delete()
 
     def get_spread(self):
         """Return all 'spread's given to this entity."""
@@ -252,27 +280,7 @@ class Entity(DatabaseAccessor):
         for row in ent_spread:
             if spread in row:
                 return 1
-        return 0
-        
-    def list_all_with_type(self, entity_type):
-        """Return sequence of all 'entity_id's that has ``type``."""
-        return self.query("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_info]
-        WHERE entity_type=:entity_type""", {'entity_type': int(entity_type)})
-
-    def get_subclassed_object(self, id=None):
-        """Instantiates and returns a object of the proper class
-        based on the entity's type."""
-        if id is not None:
-            self.find(id)
-        type = str(self.const.EntityType(self.entity_type))
-        component = Factory.type_component_map.get(type)
-        if component is None:
-            raise ValueError, "No factory for type %s" % type
-        object = Factory.get(component)(self._db)
-        object.find(self.entity_id)
-        return object
+        return 0    
 
 
 class EntityName(Entity):

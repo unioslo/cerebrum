@@ -24,7 +24,7 @@
 import cereconf
 from Cerebrum.Entity import \
      EntityContactInfo, EntityAddress, EntityQuarantine, \
-     EntityExternalId
+     EntityExternalId, EntitySpread
 from Cerebrum import Utils
 from Cerebrum import Errors
 
@@ -40,7 +40,7 @@ def prepare_sql_pattern(value, transform=str.lower):
 
 Entity_class = Utils.Factory.get("Entity")
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
-             EntityQuarantine, Entity_class):
+             EntityQuarantine, EntitySpread, Entity_class):
     __read_attr__ = ('__in_db', '_affil_source', '__affil_data')
     __write_attr__ = ('birth_date', 'gender', 'description', 'deceased_date')
 
