@@ -89,6 +89,15 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.id2labeledURI    = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
+    def update_person_entry(self, entry, row):
+        # Temporary hack for backwards compatibility with data from LT:
+        # Append attribute value 'mobile' to 'telephoneNumber'.
+        self.__super.update_person_entry(entry, row)
+        if 'mobile' in entry:
+            entry['telephoneNumber'] = self.attr_unique(
+                entry.get('telephoneNumber', []) + entry['mobile'],
+                normalize=normalize_phone)
+
     def make_address(self, sep,
                      p_o_box, address_text, postal_number, city, country):
         # Changes from superclass:
