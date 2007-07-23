@@ -31,7 +31,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uit import access_FSUiT
+from Cerebrum.modules.no.uit import access_FS as access_FSUiT
 from Cerebrum.modules.no import access_FS
 from Cerebrum import Database
 from Cerebrum import Person
@@ -47,6 +47,8 @@ dumpdir = os.path.join(cereconf.DUMPDIR,"Fronter")
 default_log_dir = os.path.join(cereconf.CB_PREFIX,'var','log')
 default_debug_file = "x-import.log"
 default_export_file = 'test.xml'
+default_studieprog_file = os.path.join(cereconf.DUMPDIR, 'FS', 'studieprog.xml')
+default_underv_enhet_file = os.path.join(cereconf.DUMPDIR, 'FS', 'underv_enhet.xml')
 
 db = const = logger = None
 fxml = None
@@ -552,6 +554,11 @@ def main():
     this_sem, next_sem = access_FSUiT.get_semester()
     emner_this_sem_id = emner_id + ':%s:%s' % tuple(this_sem)
     emner_next_sem_id = emner_id + ':%s:%s' % tuple(next_sem)
+
+    print this_sem
+    print next_sem
+    exit
+
     print "$10#"
     register_group('Emner %s %s' % (this_sem[1].upper(), this_sem[0]),
                    emner_this_sem_id, emner_id)
@@ -615,7 +622,7 @@ def main():
     #                                  finn_emne_info)
 
     
-    access_FS.underv_enhet_xml_parser(cereconf.UIT_UNDERV_ENHET_FILE,
+    access_FS.underv_enhet_xml_parser(default_underv_enhet_file,
                                       finn_emne_info)
     
 
@@ -625,7 +632,7 @@ def main():
             stprog = attrs['studieprogramkode'].lower()
             faknr = int(attrs['faknr_studieansv'])
             stprog_info[stprog] = {'fak': faknr}
-    access_FS.studieprog_xml_parser(cereconf.UIT_STUDIEPROG_FILE,
+    access_FS.studieprog_xml_parser(default_studieprog_file,
                                     finn_stprog_info)
     # Henter ut ansatte per fakultet
     fak_temp = fak_emner.keys() # UIT
