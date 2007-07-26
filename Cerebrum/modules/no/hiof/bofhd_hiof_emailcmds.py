@@ -69,7 +69,8 @@ class BofhdExtension(object):
         '_sync_category', '_update_email_for_ou',
         '_get_account', '_get_email_domain',
         '_split_email_address', '_remove_email_address',
-        '_get_ou', '_get_affiliationid', '_format_ou_name'
+        '_get_ou', '_get_affiliationid', '_format_ou_name',
+        '_get_host'
         )
         
     def __new__(cls, *arg, **karg):
@@ -238,3 +239,20 @@ class BofhdExtension(object):
         if sort:
             addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
         return ["%s@%s" % a for a in addrs]
+
+    all_commands['email_replace_server'] = Command(
+        ('email', 'replace_server'),
+        AccountName(help_ref='account_name'),
+        SimpleString(),
+        perm_filter='can_email_address_add')
+    def email_replace_server(self, operator, user, server_name):
+        et, acc = self.__get_email_target_and_account(user)
+        server = self._get_host(server_name)
+        est = Email.EmailServerTarget(self.db)
+        est.clear()
+        est.find(et.email_target_id)
+        est.populate(server.host_id)
+        try:
+            est.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
