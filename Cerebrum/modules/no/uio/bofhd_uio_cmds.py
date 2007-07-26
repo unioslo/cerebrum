@@ -1461,6 +1461,40 @@ class BofhdExtension(object):
         return ("OK, now run ssh caesar 'mkdir -p %s; chown %s %s; chmod o= %s'"
                 % (archive_dir, archive_user, archive_dir, archive_dir))
 
+    # email modify_name
+    all_commands['email_mod_name'] = Command(
+	("email", "mod_name"),PersonId(help_ref="person_id_other"),
+	PersonName(help_ref="person_name_first"),
+	PersonName(help_ref="person_name_last"),
+        SourceSystem(optional=True, help_ref="source_system"),
+	fs=FormatSuggestion("Name and e-mail address altered for: %i",
+        ("person_id",)),
+	perm_filter='is_postmaster')
+    def email_mod_name(self, operator, person_id, firstname, lastname):
+        person = self._get_person(*self._map_person_id(person_id))
+        if not self.ba.can_create_person(operator.get_entity_id()):
+            raise PermissionDenied("You are not entitled to perform this operation")
+        source_system = self.const.system_override
+        person.affect_names(source_system,
+                            self.const.name_first,
+                            self.const.name_last,
+                            self.const.name_full)
+        if lastname == "":
+            raise CerebrumError, "A last name is required"
+        if firstname == "":
+            fullname = lastname
+        else:
+            fullname = firstname + " " + lastname
+        person.populate_name(self.const.name_first, firstname)
+        person.populate_name(self.const.name_last, lastname)
+        person.populate_name(self.const.name_full, fullname)
+        person._update_cached_names()
+        try:
+            person.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'person_id': person.entity_id}
+
     # email primary_address <address>
     all_commands['email_primary_address'] = Command(
         ("email", "primary_address"),
@@ -4713,6 +4747,43 @@ class BofhdExtension(object):
         person.birth_date = bdate
         person.write_db()
         return "OK, set birth date for '%s' = '%s'" % (person_id, bdate)
+
+    # person set_name
+    all_commands['person_set_name'] = Command(
+        ("person", "set_name"),PersonId(help_ref="person_id_other"),
+        PersonName(help_ref="person_name_first"),
+        PersonName(help_ref="person_name_last"),
+        fs=FormatSuggestion("Name altered for: %i",
+        ("person_id",)),
+        perm_filter='can_create_person')
+    def person_set_name(self, operator, person_id, firstname, lastname):
+        auth_systems = []
+        for as in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp=getattr(self.const, as)
+            auth_systems.append(int(tmp))
+        person = self._get_person(*self._map_person_id(person_id))
+        self.ba.can_create_person(operator.get_entity_id())        
+        for a in person.get_affiliations():
+            if int(a['source_system']) in auth_systems:
+                raise PermissionDenied("You are not allowed to alter names registered in authoritative source_systems.")
+        person.affect_names(self.const.system_manual,
+                            self.const.name_first,
+                            self.const.name_last,
+                            self.const.name_full)
+        if lastname == "":
+            raise CerebrumError, "A last name is required"
+        if firstname == "":
+            fullname = lastname
+        else:
+            fullname = firstname + " " + lastname
+        person.populate_name(self.const.name_first, firstname)
+        person.populate_name(self.const.name_last, lastname)
+        person.populate_name(self.const.name_full, fullname)
+        try:
+            person.write_db()
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        return {'person_id': person.entity_id}
         
     # person create
     all_commands['person_create'] = Command(
@@ -4902,6 +4973,8 @@ class BofhdExtension(object):
           "affiliation_1", "source_system_1")),
         ("               %s [from %s]",
          ("affiliation", "source_system")),
+        ("Names:         %s[from %s]",
+         ("names", "name_src")),
         ("Fnr:           %s [from %s]",
          ("fnr", "fnr_src")),
         ("Spreads:       %s", ("spread",))
@@ -4914,6 +4987,7 @@ class BofhdExtension(object):
         try:
             p_name = person.get_name(self.const.system_cached,
                                      getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
+            p_name = p_name + ' [from Cached]'
         except Errors.NotFoundError:
             raise CerebrumError("No name is registered for this person")
         data = [{'name': p_name,
@@ -4928,6 +5002,18 @@ class BofhdExtension(object):
                 self.const.PersonAffStatus(row['status']),
                 self._format_ou_name(ou)))
             sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
+        for ss in cereconf.SYSTEM_LOOKUP_ORDER:
+            ss = getattr(self.const, ss)
+            person_name = ""
+            for type in [self.const.name_first, self.const.name_last]:
+                try:
+                    person_name += person.get_name(ss, type) + ' '
+                except Errors.NotFoundError:
+                    continue
+            if person_name:
+                data.append({'names': person_name,
+                             'name_src': str(
+                    self.const.AuthoritativeSystem(ss))})
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
@@ -4967,43 +5053,6 @@ class BofhdExtension(object):
         person.write_db()
         return "OK, set '%s' as new id for '%s'" % (new_id, current_id)
 
-    #person set_name
-    all_commands['person_set_name'] = Command(
-	("person", "set_name"),PersonId(help_ref="person_id_other"),
-	PersonName(help_ref="person_name_first"),
-	PersonName(help_ref="person_name_last"),
-	fs=FormatSuggestion("Name altered for: %i",
-        ("person_id",)),
-	perm_filter='can_create_person')
-    def person_set_name(self, operator, person_id, firstname, lastname):
-        auth_systems = []
-        for as in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp=getattr(self.const, as)
-            auth_systems.append(int(tmp))
-        person = self._get_person(*self._map_person_id(person_id))
-        self.ba.can_create_person(operator.get_entity_id())        
-	for a in person.get_affiliations():
-            if int(a['source_system']) in auth_systems:
-		raise PermissionDenied("You are not allowed to alter names.")
-        person.affect_names(self.const.system_manual,
-                            self.const.name_first,
-                            self.const.name_last,
-                            self.const.name_full)
-        if lastname == "":
-            raise CerebrumError, "A last name is required"
-        if firstname == "":
-            fullname = lastname
-        else:
-            fullname = firstname + " " + lastname
-        person.populate_name(self.const.name_first, firstname)
-        person.populate_name(self.const.name_last, lastname)
-        person.populate_name(self.const.name_full, fullname)
-        try:
-            person.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
-        return {'person_id': person.entity_id}
-
     # person clear_id
     all_commands['person_clear_id'] = Command(
         ("person", "clear_id"), PersonId(),
@@ -5037,9 +5086,9 @@ class BofhdExtension(object):
     # person clear_name
     all_commands['person_clear_name'] = Command(
 	("person", "clear_name"),PersonId(help_ref="person_id_other"),
-	SourceSystem(help_ref="source_system", optional=True),
+	SourceSystem(help_ref="source_system"),
 	perm_filter='is_superuser')
-    def person_clear_name(self, operator, person_id, source_system="SAP"):
+    def person_clear_name(self, operator, person_id, source_system):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         person = self.util.get_target(person_id, restrict_to="Person")
@@ -5049,7 +5098,7 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError("No such source system")
         removed = False
-        for variant in (self.const.name_first, self.const.name_last):
+        for variant in (self.const.name_first, self.const.name_last, self.const.name_full):
             try:
                 person.get_name(ss, variant)
             except Errors.NotFoundError:
