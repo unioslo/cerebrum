@@ -1472,7 +1472,7 @@ class BofhdExtension(object):
 	perm_filter='is_postmaster')
     def email_mod_name(self, operator, person_id, firstname, lastname):
         person = self._get_person(*self._map_person_id(person_id))
-        if not self.ba.can_create_person(operator.get_entity_id()):
+        if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied("You are not entitled to perform this operation")
         source_system = self.const.system_override
         person.affect_names(source_system,
