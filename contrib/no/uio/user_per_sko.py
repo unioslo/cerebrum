@@ -533,9 +533,10 @@ def main():
                    "Level must be one of 'fakultet', 'institutt', 'gruppe'"
             level = { "fakultet" : 2, "institutt" : 1, "gruppe" : 0 }[ value ]
         elif option in ("-e", "--perspective"):
-            assert value in ( "FS", "LT" ), \
+            assert value in ( "FS", "SAP" ), \
                    "Perspective must be one of 'FS', 'LT'"
             perspective = { "FS" : const.perspective_fs,
+                            "SAP" : const.perspective_sap,
                             "LT" : const.perspective_lt }[ value ]
         # fi
     # od
