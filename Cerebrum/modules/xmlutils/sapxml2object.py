@@ -595,9 +595,11 @@ class XMLPerson2Object(XMLEntity2Object):
 
         # Everyone with 'RESE' is reserved (regardless of everything else)
         for i in element.findall("Adresse/Reservert"):
-            if i.text.strip() == "RESE":
-                to_reserve = True
-                break
+            if i.text:
+                tmp = i.text.strip()
+                if tmp == "RESE":
+                    to_reserve = True
+                    break
         result.reserved = to_reserve
 
         # Address magic
