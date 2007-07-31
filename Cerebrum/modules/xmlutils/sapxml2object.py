@@ -594,7 +594,7 @@ class XMLPerson2Object(XMLEntity2Object):
         to_reserve = not result.has_active_employments()
 
         # Everyone with 'RESE' is reserved (regardless of everything else)
-        for i in element.findall("person/Adresse/Reservert"):
+        for i in element.findall("Adresse/Reservert"):
             if i.text.strip() == "RESE":
                 to_reserve = True
                 break
