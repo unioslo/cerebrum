@@ -298,9 +298,11 @@ def make_reservation(to_be_reserved, p_id, group):
     if to_be_reserved and not group.has_member(p_id, const.entity_person, op):
         group.add_member(p_id, const.entity_person, op)
         group.write_db()
+        logger.info("Reservation registered for %s", p_id)
     elif not to_be_reserved and group.has_member(p_id, const.entity_person, op):
         group.remove_member(p_id, op)
         group.write_db()
+        logger.info("Reservation removed for %s", p_id)
 # end make_reservation
 
 
@@ -375,6 +377,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
     """
 
     logger.info("processing file %s for system %s", parser, source_system)
+    logger.debug("Group for reservations is: %s", group.group_name)
 
     xml2db = XML2Cerebrum(db, source_system)
     it = parser.iter_persons()
