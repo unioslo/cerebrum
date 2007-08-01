@@ -549,12 +549,20 @@ class XMLPerson2Object(XMLEntity2Object):
                 # elements is the easiest approach. This is an ugly hack, but
                 # since the invalid entries will not disappear anytime soon,
                 # this is the easiest way of skipping them.
-                if "*" in value:
-                    raise ValueError("Name contains '*', ignored")
+                #
+                # JAZZ 2007-08-01
+                #
+                # '*' did not work all that well as it is used as common wildcard in
+                # SAP. Johannes suggests that we use '@' in stead. As the data is not
+                # updated yet (we don't know when that will happen) we need to test
+                # for '*' as well in order to skipp all the invalid elements
+                #
+                if '*' in value or '@' in value:
+                    raise ValueError("Name contains '@' or '*', ignored")
                 result.add_name(DataName(self.tag2type[sub.tag], value))
             elif sub.tag == "Etternavn":
-                if "*" in value:
-                    raise ValueError("Name contains '*', ignored")
+                if '*' in value or '@' in value:
+                    raise ValueError("Name contains '@' or '*', ignored")
                 result.add_name(DataName(self.tag2type[sub.tag], value))
             elif sub.tag == "Fodselsnummer":
                 result.add_id(self.tag2type[sub.tag], personnr_ok(value))
