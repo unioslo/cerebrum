@@ -994,6 +994,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def make_passwd(self, uname):
         """Generate a random password with 8 characters"""
         pot = string.ascii_letters + string.digits + '-+?=*()/&%#"_!,;.:'
+        for i in ['O', 'l']:
+            pot = pot.replace(i, '')
         pc = PasswordChecker.PasswordChecker(self._db)
         while True:
             r = ''
