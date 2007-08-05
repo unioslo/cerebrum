@@ -43,13 +43,15 @@ class HiOfStudent(access_FS.Student):
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod, p.telefonnr_mobil,
-          s.studentnr_tildelt
+          s.studentnr_tildelt, kks.klassekode, kks.status_aktiv
         FROM fs.studieprogramstudent sps, fs.person p,
-             fs.student s
+             fs.student s, fs.kullklassestudent kks
         WHERE p.fodselsdato = sps.fodselsdato AND
           p.personnr = sps.personnr AND
           p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
+          p.fodselsdato = kks.fodselsdato AND
+          p.personnr = kks.personnr AND
           %s AND
           %s
           sps.status_privatist = 'N' AND
