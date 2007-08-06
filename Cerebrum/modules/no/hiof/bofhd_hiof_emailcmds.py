@@ -250,7 +250,11 @@ class BofhdExtension(object):
         server = self._get_host(server_name)
         est = Email.EmailServerTarget(self.db)
         est.clear()
-        est.find(et.email_target_id)
+        try:
+            est.find(et.email_target_id)
+        except Errors.NotFoundError:
+            acc._update_email_server(server_name)
+            return
         est.populate(server.host_id)
         try:
             est.write_db()
