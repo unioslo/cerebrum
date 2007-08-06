@@ -37,6 +37,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 #from Cerebrum.modules.no.ntnu import AutoStud
 
+import locale
+locale.setlocale(locale.LC_ALL,'nb_NO')
+
 default_personfile = "/cerebrum/dumps/kjernen/cerebrum-merged-persons.xml"
 default_studieprogramfile = "/cerebrum/dumps/kjernen/cerebrum-studieprogram.xml"
 default_emnefile = "/cerebrum/dumps/kjernen/cerebrum-emner.xml"
