@@ -59,13 +59,13 @@ class StudieInfo(object):
         self._stprog_fname = stprog_fname
         # Bruker lazy-initalizing av data-dictene slik at vi slipper å
         # parse XML-filen medmindre vi trenger å slå opp i den
-        self.fnr2stproginfo = None
+        self.stdnr2stproginfo = None
         self.studieprog2sko = None
         
-    def get_persons_studieprogrammer(self, fnr):
-        if self.fnr2stproginfo is None:
-            self.fnr2stproginfo = self._parse_studinfo()
-        return self.fnr2stproginfo.get(fnr)
+    def get_persons_studieprogrammer(self, stdnr):
+        if self.stdnr2stproginfo is None:
+            self.stdnr2stproginfo = self._parse_studinfo()
+        return self.stdnr2stproginfo.get(stdnr)
 
     def get_studprog_sko(self, studieprog):
         if self.studieprog2sko is None:
@@ -74,15 +74,15 @@ class StudieInfo(object):
 
     def _parse_studinfo(self):
         logger.debug("Parsing %s" % self._person_fname)
-        fnr2stproginfo = {}
+        stdnr2stproginfo = {}
         def got_aktiv(dta, elem_stack):
             entry = elem_stack[-1][-1]
-            fnr = "%06i%05i" % (int(entry['fodselsdato']), int(entry['personnr']))
-            fnr2stproginfo.setdefault(fnr, []).append(entry)
+            stdnr = entry['studentnr_tildelt']
+            stdnr2stproginfo.setdefault(stdnr, []).append(entry)
 
-        cfg = [(['data', 'aktiv'], got_aktiv)]
+        cfg = [(['data', 'person', 'aktiv'], got_aktiv)]
         GeneralXMLParser(cfg, self._person_fname)
-        return fnr2stproginfo
+        return stdnr2stproginfo
 
     def _parse_studieprog(self):
         logger.debug("Parsing %s" % self._stprog_fname)
@@ -155,11 +155,13 @@ class Job(object):
                 # (Litt tung datastruktur, men det forenkler koden i neste for-løkke)
                 if not entity_id in user_maps:
                     user_maps[entity_id] = {'ou':{}, 'profile_path':{}, 'home':{}}
+                ac.clear()
+                ac.find(entity_id)
                 try:
                     canonical_name, profile_path, home = self.calc_home(entity_id, spread)
                     canonical_name = canonical_name[canonical_name.find(",")+1:]
-                    logger.debug("Calculated values for %i: cn=%s, pp=%s, home=%s" % (
-                        entity_id, canonical_name, profile_path, home))
+                    logger.debug("Calculated values for %i: cn=%s,%s pp=%s, home=%s" % (
+                        entity_id, ac.account_name, canonical_name, profile_path, home))
                     user_maps[entity_id]['ou'][int(spread)] = canonical_name
                     user_maps[entity_id]['profile_path'][int(spread)] = profile_path
                     user_maps[entity_id]['home'][int(spread)] = home
@@ -220,20 +222,26 @@ class Job(object):
         ou.find(ou_id)
         return "%d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
 
-
+    def _get_stdnr(self, fnr):
+        person.clear()
+        person.find_by_external_id(co.externalid_fodselsnr, fnr,
+                                   source_system=co.system_fs,
+                                   entity_type=co.entity_person)
+        stdnr = person.get_external_id(source_system=co.system_fs,
+                                       id_type=co.externalid_studentnr)
+        return stdnr[0]['external_id']
+    
     def calc_stud_home(self, ac):
         if int(ac.owner_type) != int(co.entity_person):
             raise Job.CalcError("Cannot update account for non-person owner of entity: %i" % ac.entity_id)
         person.clear()
         person.find(ac.owner_id)
-        # TODO: bytt ut med source_system=co.system_fs så snart mer data er migrert
-        ## Hm? Når?
-        rows = person.get_external_id(id_type=co.externalid_fodselsnr, source_system=co.system_migrate)
+        rows = person.get_external_id(id_type=co.externalid_fodselsnr, source_system=co.system_fs)
         if not rows:
             raise Job.CalcError("No FS-fnr for entity: %i" % ac.entity_id)
         fnr = rows[0]['external_id']
-        
-        stprogs = self._student_info.get_persons_studieprogrammer(fnr)
+        stdnr = self._get_stdnr(fnr)
+        stprogs = self._student_info.get_persons_studieprogrammer(stdnr)
         if not stprogs:
             raise Job.CalcError("Ikke noe studieprogram for %s" % fnr)
         # Velger foreløbig det første studieprogrammet i listen...
@@ -242,7 +250,9 @@ class Job(object):
             raise Job.CalcError("Ukjent sko for %s" % stprogs[0]['studieprogramkode'])
         studinfo = "".join((stprogs[0]['arstall_kull'][-2:],
                             stprogs[0]['terminkode_kull'][0],
-                            stprogs[0]['studieprogramkode'])).lower()
+                            stprogs[0]['studieprogramkode'],
+                            stprogs[0]['klassekode'])).lower()
+                           
         return (self._stud_rules.getDN(sko, studinfo, ac.account_name),
                 self._stud_rules.getProfilePath(sko, ac.account_name),
                 self._stud_rules.getHome(sko, ac.account_name))
