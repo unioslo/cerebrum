@@ -198,15 +198,15 @@ class BDB:
             #if bp[3]:
             #    p['full_name'] = bp[3]
             if bp[4] and bp[5]:
-                    p['full_name'] = bp[4] + ' ' + bp[5]
+                    p['full_name'] = bp[4].strip() + ' ' + bp[5].strip()
             if bp[4]:
-                p['first_name'] = bp[4]
+                p['first_name'] = bp[4].strip()
             if bp[5]:
-                p['last_name'] = bp[5]
+                p['last_name'] = bp[5].strip()
             if bp[6]:
                 p['sperret'] = bp[6]
             if bp[7]:
-                p['mail_forward'] = bp[7]
+                p['mail_forward'] = bp[7].strip()
             persons.append(p)
         cursor.close()
         return persons
