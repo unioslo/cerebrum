@@ -300,11 +300,10 @@ class BDBSync:
         # We should not get a key-error since __validate_person should take care
         # of non-existing person_number
         pnr = str(person.get("person_number"))
-        #pnr = str(person['person_number'])
         year,month,day = person.get("birth_date").split('-')
-        #year,month,day = person['birth_date'].split('-')
         year = year[2:]
-        fnr = day+month+year+pnr
+        # Format fnr correctly
+        fnr = "%02d%02d%02d%05d" % (int(day),int(month),int(year),int(pnr))
         return fnr
 
     def __validate_names(self,person): 
@@ -367,22 +366,36 @@ class BDBSync:
         if person.get('tittel_personlig'):
             new_person.populate_name(const.name_personal_title,
                                      person['tittel_personlig'])
-        # Populate person with external IDs 
-        new_person.affect_external_id(const.system_bdb,
-                                      const.externalid_fodselsnr, 
-                                      const.externalid_bdb_person)
-        new_person.populate_external_id(const.system_bdb,
-                                        const.externalid_fodselsnr,
-                                        fnr)
-        new_person.populate_external_id(const.system_bdb,
-                                        const.externalid_bdb_person,
-                                        person['id'])
+        # TBD: rewrite
+        np = new_person
+        np.affect_external_id(const.system_bdb,
+                              const.externalid_fodselsnr, 
+                              const.externalid_bdb_person)
+        # Check if these external_ids are already set
+        _has_bdb_id = False
+        _has_bdb_fnr = False
+        _id = np.get_external_id(const.system_bdb,const.externalid_bdb_person)
+        for i in _id:
+            if person['id'] in i:
+                _has_bdb_id = True
+        _fnr =  np.get_external_id(const.system_bdb,const.externalid_fodselsnr)
+        for f in _fnr:
+            if fnr in f:
+                _has_bdb_fnr = True
+        if not _has_bdb_fnr:
+            np.populate_external_id(const.system_bdb,
+                                    const.externalid_fodselsnr,
+                                    fnr)
+        if not _has_bdb_id:
+            np.populate_external_id(const.system_bdb,
+                                    const.externalid_bdb_person,
+                                    person['id'])
 
         # Write to database and commit transaction
         try:
             new_person.write_db()
         except self.db.IntegrityError,ie:
-            self.logger.warning("This NIN is already in use from this source_system. Clean up please. BDB-person: %s" % person['id'])
+            self.logger.warning("This External-ID is already in use from this source_system. Clean up please. BDB-person: %s" % person['id'])
             self.db.rollback()
             return
         if dryrun:
@@ -585,23 +598,6 @@ class BDBSync:
         posix_group.clear()
         group.clear()
 
-        if update_password_only:
-            try:
-                ac.find_by_name(account_info.get('name'))
-            except Errors.NotFoundError:
-                return
-            _pwd = _get_password(account_info)
-            if _pwd is None:
-                return
-            ac.set_password(_pwd)
-            ac.write_db()
-            if verbose:
-                print 'Updating password only for %s' % account_info.get('name')
-            try:
-                self.db.commit()
-            except Exception,e:
-                print 'Error occured when updating password for user %s. Reason: %s' % (account_info.get('username'),str(e))
-            return
 
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         default_creator_id = ac.entity_id
@@ -612,6 +608,23 @@ class BDBSync:
         bdb_account_type = const.externalid_bdb_account
         bdb_person_type = const.externalid_bdb_person
         bdb_source_type = const.system_bdb
+
+        try:
+           ac.find_by_name(account_info.get('name'))
+        except Errors.NotFoundError:
+           return
+        _pwd = _get_password(account_info)
+        if _pwd is None:
+           return
+        ac.set_password(_pwd)
+        ac.write_db()
+        if update_password_only:
+            logger.debug('Updating password only for %s' % account_info.get('name'))
+            try:
+                self.db.commit()
+            except Exception,e:
+                logger.warning('Error occured when updating password for user %s. Reason: %s' % (account_info.get('username'),str(e)))
+            return
 
         try:
             person.find_by_external_id(bdb_person_type,
