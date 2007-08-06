@@ -448,6 +448,8 @@ class BDBSync:
             if self._is_posix_group(grp):
                 try:
                     posix_group.find_by_name(grp['name'])
+                    if verbose:
+                        print "Updating group %s" % grp['name']
                     _has_changed = False
                     _gid = posix_group.posix_gid
                     if posix_group.posix_gid != grp['gid']:
