@@ -248,10 +248,14 @@ class Job(object):
         sko = self._student_info.get_studprog_sko(stprogs[0]['studieprogramkode'])
         if not sko:
             raise Job.CalcError("Ukjent sko for %s" % stprogs[0]['studieprogramkode'])
+        try:
+            kkode = stprogs[0]['klassekode']
+        except KeyError:
+            kkode = ""
         studinfo = "".join((stprogs[0]['arstall_kull'][-2:],
                             stprogs[0]['terminkode_kull'][0],
                             stprogs[0]['studieprogramkode'],
-                            stprogs[0]['klassekode'])).lower()
+                            kkode)).lower()
                            
         return (self._stud_rules.getDN(sko, studinfo, ac.account_name),
                 self._stud_rules.getProfilePath(sko, ac.account_name),
