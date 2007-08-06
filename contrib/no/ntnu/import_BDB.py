@@ -452,7 +452,7 @@ class BDBSync:
                 except Errors.NotFoundError:
                     posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
                                          name=grp['name'], description=grp['description'], \
-                                         gid=grp['posix_gid'])
+                                         gid=grp['gid'])
                     if not posix_group.has_spread(const.spread_ntnu_group):
                         posix_group.add_spread(const.spread_ntnu_group)
                     try:
