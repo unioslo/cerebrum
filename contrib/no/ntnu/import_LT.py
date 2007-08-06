@@ -35,8 +35,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
-
-
+import locale
+locale.setlocale(locale.LC_ALL,'nb_NO')
 
 num_write = 0
 num_nowrite = 0
