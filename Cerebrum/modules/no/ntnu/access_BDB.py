@@ -198,11 +198,11 @@ class BDB:
             #if bp[3]:
             #    p['full_name'] = bp[3]
             if bp[4] and bp[5]:
-                    p['full_name'] = bp[4].strip() + ' ' + bp[5].strip()
+                    p['full_name'] = bp[4].strip().replace("`","'") + ' ' + bp[5].strip().replace("`","'")
             if bp[4]:
-                p['first_name'] = bp[4].strip()
+                p['first_name'] = bp[4].strip().replace("`","'")
             if bp[5]:
-                p['last_name'] = bp[5].strip()
+                p['last_name'] = bp[5].strip().replace("`","'")
             if bp[6]:
                 p['sperret'] = bp[6]
             if bp[7]:
