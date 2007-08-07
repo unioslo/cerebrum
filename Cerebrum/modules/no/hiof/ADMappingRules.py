@@ -68,6 +68,7 @@ class Fag(object):
         ('30', '*', '00'): {'All': 'LU'}, # TODO: fake-entry lagt inn fordi tabellen ikke er komplett...
         ('55', '*', '*'): {'All': 'IT'},
         ('70', '*', '35'): {'All': 'SC'},
+        ('70', '*', '00'): {'All': 'SCE'},
         ('60', '*', '*'): {'All': 'SF'},
         ('90', '*', '*'): {'All': 'SF'},
         }
