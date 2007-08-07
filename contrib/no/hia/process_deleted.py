@@ -118,18 +118,18 @@ def process_delete_requests():
             if row['spread'] == const.spread_hia_ad_account:
                 account.delete_spread(row['spread'])
             ## student-accounts usually have account@ldap, remove this
-            elif row['sprea'] = const.spread_ldap_account:
+            elif row['spread'] = const.spread_ldap_account:
                 account.delete_spread(row['spread'])
             ## An email account exists, remove account@imap spread, register email account delete
             elif row['spread'] == const.spread_hia_email:
-                et = Email.EmailTarget(db)
-                es = Email.EmailServer(db)
+                est = Email.EmailServerTarget(db)
                 try:
                     est.find_by_entity(account.entity_id)
-                    es.find(est.email_server_id)
                 except Errors.NotFoundError:
                     logger.warn('No email server assigned to %s, removing imap spread only.' % account.account_name)
-                else:
+                if est:
+                    es = Email.EmailServer(db)
+                    es.find(est.email_server_id)
                     del_file.append('EMAIL:' + account.account_name + ':' + es.name)
                 account.delete_spread(row['spread'])
 
