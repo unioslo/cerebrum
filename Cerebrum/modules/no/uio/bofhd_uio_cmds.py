@@ -4976,8 +4976,7 @@ class BofhdExtension(object):
         ("Names:         %s[from %s]",
          ("names", "name_src")),
         ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src")),
-        ("Spreads:       %s", ("spread",))
+         ("fnr", "fnr_src"))
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -5033,10 +5032,6 @@ class BofhdExtension(object):
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
 
-        tmp = person.get_spread()
-        if tmp:
-            data.append({'spread': ",".join([str(self.const.Spread(row['spread']))
-                                             for row in tmp])})
         return data
 
     # person set_id
