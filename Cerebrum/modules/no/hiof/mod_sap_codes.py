@@ -1,4 +1,4 @@
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2007 University of Oslo, Norway
 #
@@ -315,6 +315,12 @@ class SAPConstants(Constants.Constants):
     sap_1434_radgiver = SAPLonnsTittelKode(
         "20001434",
         "1434 Rådgiver",
+        "ØVR"
+    )
+
+    sap_1473_studieleder = SAPLonnsTittelKode(
+        "20001473",
+        "1473 Studieleder",
         "ØVR"
     )
 
