@@ -202,8 +202,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def create_object(self, chg, dry_run):
         if chg.has_key('OU'):
-            tmp = unicode(chg['OU'], 'iso-8859-1')
-            ou = tmp
+            ou = chg['OU']
         else:
             ou = self.get_default_ou(chg)
         ret = self.run_cmd('createObject', dry_run,
