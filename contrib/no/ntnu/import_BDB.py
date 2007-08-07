@@ -596,17 +596,18 @@ class BDBSync:
         bdb_person_type = const.externalid_bdb_person
         bdb_source_type = const.system_bdb
 
+        ac.clear()
         try:
            ac.find_by_name(account_info.get('name'))
         except Errors.NotFoundError:
            return
         _pwd = _get_password(account_info)
         if _pwd is None:
-           return
+            return
         ac.set_password(_pwd)
         ac.write_db()
         if update_password_only:
-            logger.debug('Updating password only for %s' % account_info.get('name'))
+            logger.debug('Updating password for %s' % account_info.get('name'))
             try:
                 self.db.commit()
             except Exception,e:
@@ -1065,7 +1066,9 @@ def main():
         elif opt in ('--email_address',):
             sync.sync_email_addresses()
         elif opt in ('--password-only',):
-            pass # dummy.. we already caught it before this for-loop
+            accounts = sync.bdb.get_accounts(last=30) 
+            for account in accounts:
+                sync._sync_account(account,update_password_only=True)
         elif opt in ('--accountname',):
             print "Syncronizing account: %s" % val
             sync.sync_accounts(username=val,password_only=_password_only)
