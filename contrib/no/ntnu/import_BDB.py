@@ -538,10 +538,35 @@ class BDBSync:
         """Callback-function. To be used from sync_accounts-method."""
         global num_accounts,verbose,dryrun
         logger = self.logger
-        logger.debug("Callback for %s" % account_info['id'])
+        logger.debug("Callback for %s@%s" % (account_info['id'],account_info['name']))
 
         def _get_password(_account):
             return _account.get('password2')
+
+        def _update_password(_account):
+            bdb_blowfish = None
+            try:
+                bdb_blowfish = ac.get_account_authentication(const.auth_type_bdb_blowfish)
+                logger.debug("Found blowfish in cerebrum")
+            except Errors.NotFoundError:
+                pass
+
+            if bdb_blowfish == _account.get('password'):
+                logger.debug("Password has not changed since last run")
+                return
+            else:
+                # Store the blowfish directly first.
+                logger.debug("Password has changed since last. Updating blowfish and other auth-types")
+                ac.affect_auth_types(const.auth_type_bdb_blowfish)
+                ac.populate_authentication_type(const.auth_type_bdb_blowfish, _account.get('password'))
+                ac.write_db()
+                ac.set_password(_get_password(_account))
+                ac.write_db()
+                # Ayeeee - definately wrong place for the commit - but no time to debug today
+                if dryrun:
+                    self.db.rollback()
+                else:
+                    self.db.commit()
 
         def _is_posix(_account):
             res = True
@@ -604,8 +629,8 @@ class BDBSync:
         _pwd = _get_password(account_info)
         if _pwd is None:
             return
-        ac.set_password(_pwd)
-        ac.write_db()
+
+        _update_password(account_info)
         if update_password_only:
             logger.debug('Updating password for %s' % account_info.get('name'))
             try:
