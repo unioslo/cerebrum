@@ -28,6 +28,7 @@ import mx
 import imaplib
 import errno
 import fcntl
+import popen2
 
 import cerebrum_path
 import cereconf
@@ -242,7 +243,7 @@ def process_requests(types):
         [(const.bofh_email_create, proc_email_create, 0),
          (const.bofh_email_hquota, proc_email_hquota, 0),
          (const.bofh_email_delete, proc_email_delete, 4*60),
-         (const.bofh_email_move, proc_email_move, 0)],
+         ],
         'mailman':
         [(const.bofh_mailman_create, proc_mailman_create, 2*60),
          (const.bofh_mailman_add_admin, proc_mailman_add_admin, 1*60),
@@ -257,13 +258,15 @@ def process_requests(types):
 
     # TODO: There is no variable containing the default log directory
     # in cereconf
-    reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
+
+    reqlock = RequestLockHandler('/tmp/cerebrum/var/log/cerebrum/.lock-%d')
     br = BofhdRequests(db, const)
     for t in types:
         if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
             # convert move_student into move_user requests
             process_move_student_requests()
-            
+        if t == 'email':
+            process_email_move_requests()
         for op, process, delay in operations[t]:
             set_operator()
             start_time = time.time()
@@ -346,51 +349,134 @@ def proc_email_delete(r):
     else:
         return False
 
+MAX_FORKS = 20
 
-def proc_email_move(r):
-    # state_data is a request-id which must complete first, typically
-    # an email_create request.
-    if dependency_pending(r['state_data']):
-        return False
-    try:
-        acc = get_account(r['entity_id'])
-    except Errors.NotFoundError:
-        logger.error("email_move: user %d not found", r['entity_id'])
-        return False
+def process_email_move_requests():
 
-    old_server = get_email_server(r['entity_id'])
-    new_server = Email.EmailServer(db)
-    new_server.find(r['destination_id'])
-    if old_server.entity_id == new_server.entity_id:
-        logger.error("trying to move %s from and to the same server!",
-                     acc.account_name)
-        return True
-    if not email_delivery_stopped(acc.account_name):
-        logger.debug("E-mail delivery not stopped for %s", acc.account_name)
-        return False
-    # Disable quota while copying so the move doesn't fail
-    cyrus_set_quota(acc.entity_id, 0, host=new_server)
-    if not move_email(acc, old_server, new_server):
-        return False
-    
-    # The move was successful, update the user's server
-    et = Email.EmailTarget(db)
-    et.find_by_entity(acc.entity_id)
-    et.email_server_id = new_server.entity_id
-    et.write_db()
-    # Now set the correct quota.
-    hq = get_email_hardquota(acc.entity_id)
-    cyrus_set_quota(acc.entity_id, hq, host=new_server)
-    # We need to delete this request before adding the delete to avoid
-    # triggering the conflicting request test.
+    def cmd_str(uname, src, dest):
+        WRAPPER_CMD = '/cerebrum/share/cerebrum/contrib/no/uio/run_privileged_command.py'
+        pwfile = "/etc/cyrus.pw"
+        return [SUDO_CMD, WRAPPER_CMD, '-c', 'imap_move',
+                '--', src.name,
+                cereconf.IMAPSYNC_SCRIPT,
+                '--user1', uname, '--host1', src.name,
+                '--user2', uname, '--host2', dest.name,
+                '--authusing', cereconf.CYRUS_ADMIN,
+                '--passfile1', pwfile,
+                '--useheader', 'Message-ID',
+                '--regexmess', 's/\\0/ /g',
+                '--ssl', '--subscribe', '--nofoldersizes']
+
     br = BofhdRequests(db, const)
-    br.delete_request(request_id=r['request_id'])
-    db.commit()
-    br.add_request(r['requestee_id'], r['run_at'],
-                   const.bofh_email_delete,
-                   r['entity_id'], old_server.entity_id)
-    return True
-
+    rows = br.get_requests(operation=const.bofh_email_move)
+    if not rows:
+        return
+    blacklist = []
+    logger.debug("Preparing email move")
+    while True:
+        cur_procs = {}
+        for r in rows:
+            if len(cur_procs) >= MAX_FORKS:
+                break
+            r_id = r['request_id']
+            if not is_valid_request(r_id):
+                continue
+            if dependency_pending(r['state_data']):
+                blacklist.append(r_id)
+                continue
+            # Make sure we don't loop over unsolvable requests
+            if r_id in blacklist:
+                continue
+            try:
+                acc = get_account(r['entity_id'])
+            except Errors.NotFoundError:
+                logger.error("email_move: user %d not found",
+                             r['entity_id'])
+                continue
+            
+            old_server = get_email_server(r['entity_id'])
+            new_server = Email.EmailServer(db)
+            new_server.find(r['destination_id'])
+            if old_server.entity_id == new_server.entity_id:
+                logger.error("trying to move %s from and to the same server!",
+                             acc.account_name)
+                blacklist.append(r_id)
+                continue
+            if not email_delivery_stopped(acc.account_name):
+                logger.debug("E-mail delivery not stopped for %s",
+                             acc.account_name)
+                blacklist.append(r_id)
+                continue
+            logger.debug("User being moved: '%s'. Counter at '%d'",
+                         acc.account_name, len(cur_procs))
+            reqlock = RequestLockHandler('/tmp/cerebrum/var/log/cerebrum/.lock-%d')
+            reqlock.grab(r_id)
+            # Disable quota while copying so the move doesn't fail
+            cyrus_set_quota(acc.entity_id, 0, host=new_server)
+            # Call the script
+            cmd = cmd_str(acc.account_name, old_server, new_server)
+            logger.debug("Calling cmd: '%s'", cmd)
+            proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
+            proc.tochild.close()
+            cur_procs[r_id] = (proc, r, acc.entity_id, reqlock)
+        while True:
+            start = time.time()
+            new_procs = cur_procs.copy()
+            for r_id in cur_procs:
+                proc, r, a_id, reqlock = cur_procs[r_id]
+                pid = proc.pid
+                ret = proc.poll()
+                if ret == -1:
+                    # Still not done
+                    continue
+                elif ret == 0:
+                    logger.debug("Process reaped: '%d'", pid)
+                    # The move was successful, update the user's server
+                    new_server = Email.EmailServer(db)
+                    new_server.find(r['destination_id'])
+                    et = Email.EmailTarget(db)
+                    et.find_by_entity(a_id)
+                    et.email_server_id = new_server.entity_id
+                    et.write_db()
+                    # Now set the correct quota.
+                    hq = get_email_hardquota(a_id)
+                    cyrus_set_quota(a_id, hq, host=new_server)
+                    # We need to delete this request before adding the
+                    # delete to avoid triggering the conflicting request
+                    # test.
+                    br = BofhdRequests(db, const)
+                    br.delete_request(request_id=r_id)
+                    db.commit()
+                    br.add_request(r['requestee_id'], r['run_at'],
+                                   const.bofh_email_delete,
+                                   r['entity_id'], old_server.entity_id)
+                elif os.WIFSIGNALED(ret):
+                    # The process was killed by a signal.        
+                    ret = os.WTERMSIG(ret)
+                    logger.error('[%d] Command "%r" was killed by signal %d',
+                                 pid, cmd, ret)
+                else:
+                    # The process exited with an exit ret
+                    ret = os.WSTOPSIG(ret)
+                    logger.error("[%d] Return value was %d from command %r",
+                                 pid, ret, cmd)
+                del new_procs[r_id]
+                blacklist.append(r_id)
+                reqlock.release()
+            if len(new_procs) == 0:
+                break
+            # Don't hog the CPU while throttling
+            if time.time() <= start + 1:
+                time.sleep(1)
+        # Get a new list of requests and make sure they are not
+        # blacklisted
+        new_rows = br.get_requests(operation=const.bofh_email_move)
+        rows = []
+        for r in new_rows:
+            if r['request_id'] not in blacklist:
+                rows.append(r)
+        if not rows:
+            return
 
 def cyrus_create(user_id, host=None):
     try:
@@ -506,43 +592,6 @@ def archive_cyrus_data(uname, mail_server, generation):
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'archivemail',
            mail_server, uname, str(generation)]
     return spawn_and_log_output(cmd, connect_to=[mail_server]) == EXIT_SUCCESS
-
-
-def move_email(acc, src, dest):
-    """Copy e-mail for Account acc from EmailServer src to EmailServer
-    dest.  The servers must support IMAP.
-    
-    """
-    if (dest.email_server_type != const.email_server_type_cyrus or
-        src.email_server_type != const.email_server_type_cyrus):
-        logger.error("move_email: unsupported server type (%s or %s)",
-                     src.name, dest.name)
-        return False
-
-    pwfile = os.path.join(cereconf.DB_AUTH_DIR,
-                          'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
-                                            cereconf.CYRUS_HOST))
-    cmd = [cereconf.IMAPSYNC_SCRIPT,
-           '--user1', acc.account_name, '--host1', src.name,
-           '--user2', acc.account_name, '--host2', dest.name,
-           '--authusing', cereconf.CYRUS_ADMIN,
-           '--passfile1', pwfile,
-           '--useheader', 'Message-ID',
-           '--regexmess', 's/\\0/ /g',
-           '--ssl', '--subscribe', '--nofoldersizes']
-    if (spawn_and_log_output(cmd, connect_to=[src.name, dest.name]) ==
-        EXIT_SUCCESS):
-        logger.info('%s: imapsync completed successfully', acc.account_name)
-    else:
-        return False
-    cmd = [cereconf.MANAGESIEVE_SCRIPT,
-           '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
-           acc.account_name, src.name, dest.name]
-    if (spawn_and_log_output(cmd, connect_to=[src.name, dest.name]) !=
-        EXIT_SUCCESS):
-        return False
-    logger.info('%s: managesieve_sync completed successfully', acc.account_name)
-    return True
 
 
 def proc_mailman_create(r):
