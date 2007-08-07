@@ -421,14 +421,17 @@ def process_email_move_requests():
             proc.tochild.close()
             cur_procs[r_id] = (proc, r, acc.entity_id, reqlock)
         while True:
-            start = time.time()
-            new_procs = cur_procs.copy()
-            for r_id in cur_procs:
+            start = time.time()            
+            for r_id in cur_procs.copy():
                 proc, r, a_id, reqlock = cur_procs[r_id]
+                for l in proc.fromchild.readline():
+                    # TBD: Look for something here
+                    pass
                 pid = proc.pid
                 ret = proc.poll()
                 if ret == -1:
                     # Still not done
+                    # logger.debug("Process still running: '%d'", pid)
                     continue
                 elif ret == 0:
                     logger.debug("Process reaped: '%d'", pid)
@@ -461,10 +464,10 @@ def process_email_move_requests():
                     ret = os.WSTOPSIG(ret)
                     logger.error("[%d] Return value was %d from command %r",
                                  pid, ret, cmd)
-                del new_procs[r_id]
+                del cur_procs[r_id]
                 blacklist.append(r_id)
                 reqlock.release()
-            if len(new_procs) == 0:
+            if len(cur_procs) == 0:
                 break
             # Don't hog the CPU while throttling
             if time.time() <= start + 1:
