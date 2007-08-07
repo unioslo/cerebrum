@@ -329,6 +329,10 @@ class BDBSync:
 
         new_person.clear()
         try:
+            new_person.find_by_external_id(const.externalid_bdb_person,person['id'])
+            self.logger.debug("Got match on bdb-id as entity_externalid using %s" % person['id'])
+        except Errors.NotFoundError:
+            # Search on nssn failed. Search on bdb-external-id instead
             try:
                 new_person.find_by_external_id(const.externalid_fodselsnr, fnr)
             except Errors.TooManyRowsError:
@@ -336,11 +340,6 @@ class BDBSync:
                 # Narrow down the search
                 new_person.find_by_external_id(const.externalid_fodselsnr, \
                                                fnr,const.system_lt)
-        except Errors.NotFoundError:
-            # Search on nssn failed. Search on bdb-external-id instead
-            try:
-                new_person.find_by_external_id(const.externalid_bdb_person,person['id'])
-                self.logger.debug("Got match on bdb-id as entity_externalid using %s" % person['id'])
             except Errors.NotFoundError:
                 # Got no match on nss or bdb-id. Guess we have a new person
                 pass
@@ -371,26 +370,12 @@ class BDBSync:
         np.affect_external_id(const.system_bdb,
                               const.externalid_fodselsnr, 
                               const.externalid_bdb_person)
-        # Check if these external_ids are already set
-        _has_bdb_id = False
-        _has_bdb_fnr = False
-        _id = np.get_external_id(const.system_bdb,const.externalid_bdb_person)
-        for i in _id:
-            if person['id'] in i:
-                _has_bdb_id = True
-        _fnr =  np.get_external_id(const.system_bdb,const.externalid_fodselsnr)
-        for f in _fnr:
-            if fnr in f:
-                _has_bdb_fnr = True
-        if not _has_bdb_fnr:
-            np.populate_external_id(const.system_bdb,
-                                    const.externalid_fodselsnr,
-                                    fnr)
-        if not _has_bdb_id:
-            np.populate_external_id(const.system_bdb,
-                                    const.externalid_bdb_person,
-                                    person['id'])
-
+        np.populate_external_id(const.system_bdb,
+                                const.externalid_bdb_person,
+                                person['id'])
+        np.populate_external_id(const.system_bdb,
+                                const.externalid_fodselsnr,
+                                fnr)
         # Write to database and commit transaction
         try:
             new_person.write_db()
