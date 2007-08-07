@@ -353,11 +353,15 @@ MAX_FORKS = 20
 
 def process_email_move_requests():
 
+    pwfile = os.path.join(cereconf.DB_AUTH_DIR,
+                          'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
+                                            cereconf.CYRUS_HOST))
+    
     def cmd_str(uname, src, dest):
         WRAPPER_CMD = '/cerebrum/share/cerebrum/contrib/no/uio/run_privileged_command.py'
         pwfile = "/etc/cyrus.pw"
         return [SUDO_CMD, WRAPPER_CMD, '-c', 'imap_move',
-                '--', src.name,
+                '--', dest.name,
                 cereconf.IMAPSYNC_SCRIPT,
                 '--user1', uname, '--host1', src.name,
                 '--user2', uname, '--host2', dest.name,
@@ -448,12 +452,21 @@ def process_email_move_requests():
                     # We need to delete this request before adding the
                     # delete to avoid triggering the conflicting request
                     # test.
-                    br = BofhdRequests(db, const)
-                    br.delete_request(request_id=r_id)
-                    db.commit()
-                    br.add_request(r['requestee_id'], r['run_at'],
-                                   const.bofh_email_delete,
-                                   r['entity_id'], old_server.entity_id)
+                    acc = get_account(a_id)
+                    cmd = [cereconf.MANAGESIEVE_SCRIPT,
+                           '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
+                           acc.account_name, old_server.name, new_server.name]
+                    
+                    if (spawn_and_log_output(cmd, connect_to=[old_server.name, new_server.name])) != 0:
+                        logger.error('%s: managesieve_sync failed!', acc.account_name)
+                    else:
+                        logger.info('%s: managesieve_sync completed successfully', acc.account_name)
+                        br = BofhdRequests(db, const)
+                        br.delete_request(request_id=r_id)
+                        db.commit()
+                        br.add_request(r['requestee_id'], r['run_at'],
+                                       const.bofh_email_delete,
+                                       r['entity_id'], old_server.entity_id)
                 elif os.WIFSIGNALED(ret):
                     # The process was killed by a signal.        
                     ret = os.WTERMSIG(ret)
