@@ -38,12 +38,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         prev_user = None
         user_rows = []
         for row in self.ac.list_entity_quarantines(only_active=True):
-            if prev_user != row['account_id'] and prev_user is not None:
+            if prev_user != row['entity_id'] and prev_user is not None:
                 apply_quarantines(prev_user, user_rows)
                 user_rows = [row]
             else:
                 user_rows.append(row)
-            prev_user = row['account_id']
+            prev_user = row['entity_id']
         else:
             if user_rows:
                 apply_quarantines(prev_user, user_rows)
@@ -202,7 +202,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def create_object(self, chg, dry_run):
         if chg.has_key('OU'):
-            ou = chg['OU']
+            tmp = unicode(chg['OU'], 'iso-8859-1')
+            ou = tmp
         else:
             ou = self.get_default_ou(chg)
         ret = self.run_cmd('createObject', dry_run,
