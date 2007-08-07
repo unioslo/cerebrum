@@ -117,7 +117,9 @@ def process_delete_requests():
             ## Account is valid in AD, remove account@ad spread
             if row['spread'] == const.spread_hia_ad_account:
                 account.delete_spread(row['spread'])
-
+            ## student-accounts usually have account@ldap, remove this
+            elif row['sprea'] = const.spread_ldap_account:
+                account.delete_spread(row['spread'])
             ## An email account exists, remove account@imap spread, register email account delete
             elif row['spread'] == const.spread_hia_email:
                 et = Email.EmailTarget(db)
