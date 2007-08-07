@@ -211,7 +211,7 @@ class BDB:
         cursor.close()
         return persons
 
-    def get_accounts(self,username=None):
+    def get_accounts(self,username=None,last=None):
         cursor = self.db.cursor()
         if username:
             cursor.execute("SELECT b.passord_type, b.gruppe, b.person, \
@@ -224,6 +224,23 @@ class BDB:
                               b.person = p.id AND \
                               b.gruppe =  g.id AND \
                               p.personnr is not null AND b.brukernavn='%s'" % username)
+        elif last:
+            cursor.execute("""
+                            select distinct b.passord_type, b.gruppe, b.person,
+                            b.brukernavn, to_char(b.siden,'YYYY-MM-DD'),
+                            to_char(b.utloper,'YYYY-MM-DD'),
+                            b.unix_uid, b.skall, b.standard_passord,
+                            b.id, b.status, g.unix_gid, b.nt_passord
+                            FROM bruker b,person p, gruppe g, har_hatt_pw h
+                            WHERE b.user_domain=1 AND
+                            h.byttet > sysdate - interval '%s' minute AND
+                            h.bruker = b.id AND
+                            h.konto IS NULL AND
+                            b.person = p.id AND
+                            p.personnr is not null AND
+                            b.gruppe =  g.id 
+                           """ % int(last))
+                              
         else:
             cursor.execute("SELECT b.passord_type, b.gruppe, b.person, \
                               b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
