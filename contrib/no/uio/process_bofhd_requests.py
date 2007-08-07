@@ -368,7 +368,8 @@ def process_email_move_requests():
                 '--ssl', '--subscribe', '--nofoldersizes']
 
     br = BofhdRequests(db, const)
-    rows = br.get_requests(operation=const.bofh_email_move)
+    rows = br.get_requests(operation=const.bofh_email_move,
+                           only_runnable=True)
     if not rows:
         return
     blacklist = []
@@ -470,7 +471,8 @@ def process_email_move_requests():
                 time.sleep(1)
         # Get a new list of requests and make sure they are not
         # blacklisted
-        new_rows = br.get_requests(operation=const.bofh_email_move)
+        new_rows = br.get_requests(operation=const.bofh_email_move,
+                                   only_runnable=True)
         rows = []
         for r in new_rows:
             if r['request_id'] not in blacklist:
