@@ -139,7 +139,7 @@ ON (owner_group_name.entity_id = owner_group_info.group_id
   AND owner_group_name.value_domain = :group_namespace)
 LEFT JOIN person_name
 ON (person_name.person_id = person_info.person_id
-  AND person_name.name_variant = :name_full
+  AND person_name.name_variant = :name_display
   AND person_name.source_system = :system_cached)
 WHERE (account_info.expire_date > now() OR account_info.expire_date IS NULL)
 """
@@ -153,10 +153,18 @@ account_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
-def resolve_homedir(d):
+def extend_account(d):
     d["homedir"] = acc.resolve_homedir(account_name=d['name'],
                                        disk_path=d['disk_path'],
                                        home=d['home'])
+    # TDB: extend get_gecos() to do this job.
+    if not d["gecos"]:
+        if d["full_name"]:
+            d["gecos"] = d["full_name"]
+        elif d["owner_group_name"]:
+            d["gecos"] = "%s user (%s)" % d["name"], d["owner_group_name"]
+        else:
+            d["gecos"] = "%s user" % d["name"]
     return d
 
 # Groupviews are groups as seen from a spread.
@@ -542,6 +550,7 @@ class View(DatabaseTransactionClass):
             "group_namespace": co.group_namespace,
             "host_namespace": co.host_namespace,
             "system_cached": co.system_cached,
+            "name_display": co.name_display,
             "name_full": co.name_full,
             "name_first": co.name_first,
             "name_last": co.name_last,
@@ -593,13 +602,13 @@ class View(DatabaseTransactionClass):
     def get_accounts(self):
         db = self.get_database()
         rows=db.query(account_search % "", self.query_data)
-        return add_quarantines([resolve_homedir(r.dict()) for r in rows])
+        return add_quarantines([extend_account(r.dict()) for r in rows])
     get_accounts.signature = [Struct(AccountView)]
     def get_accounts_cl(self):
         db = self.get_database()
         rows=db.query(account_search % account_search_cl + account_search_cl_o,
                       self.query_data)
-        return add_quarantines([resolve_homedir(r.dict()) for r in rows])
+        return add_quarantines([extend_account(r.dict()) for r in rows])
     get_accounts_cl.signature = [Struct(AccountView)]
     def get_groups(self):
         db = self.get_database()
