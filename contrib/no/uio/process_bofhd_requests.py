@@ -259,7 +259,7 @@ def process_requests(types):
     # TODO: There is no variable containing the default log directory
     # in cereconf
 
-    reqlock = RequestLockHandler('/tmp/cerebrum/var/log/cerebrum/.lock-%d')
+    reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
     br = BofhdRequests(db, const)
     for t in types:
         if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
@@ -409,7 +409,7 @@ def process_email_move_requests():
                 continue
             logger.debug("User being moved: '%s'. Counter at '%d'",
                          acc.account_name, len(cur_procs))
-            reqlock = RequestLockHandler('/tmp/cerebrum/var/log/cerebrum/.lock-%d')
+            reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
             reqlock.grab(r_id)
             # Disable quota while copying so the move doesn't fail
             cyrus_set_quota(acc.entity_id, 0, host=new_server)
