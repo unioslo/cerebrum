@@ -377,10 +377,10 @@ class ADuserUtil(ADutil):
 
                 #Checking for correct OU.
                 if cerebrumusrs[usr].has_key('OU'):
-                    ou = cerebrumusrs[usr]['OU']
+                    ou = unicode(cerebrumusrs[usr]['OU'], 'ISO-8859-1')
                 else:
-                    ou = self.get_default_ou(cerebrumusrs[usr])
-                    
+                    tmp = self.get_default_ou(cerebrumusrs[usr])
+                    ou = unicode(tmp, 'ISO-8859-1')
                 if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
                     changes['type'] = 'move_object'
                     changes['OU'] = ou
