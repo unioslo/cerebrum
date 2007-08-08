@@ -50,8 +50,7 @@ from Cerebrum.modules.xmlutils import GeneralXMLParser
 
 
 person_list = []
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
-
+logger = Factory.get_logger("cronjob")
 
 class FailedUserCreateError(Exception):
     pass
@@ -75,7 +74,7 @@ class SLPDataParser(xml.sax.ContentHandler):
             for k in attrs.keys():
                 self.p_data[k] = attrs[k].encode('iso8859-1')
         else:
-            print "WARNING: unknown element: %s" % name
+            logger.error("unknown element: %s in slp4 file" % name)
 
     def endElement(self, name):
         if name == "person":
@@ -93,7 +92,7 @@ class execute:
         self.group = Factory.get('Group')(self.db)
         self.OU = Factory.get('OU')(self.db)
         self.employee_priority = 50
-        self.logger = Factory.get_logger(logger_name)
+
 
         self.db.cl_init(change_program='process_empl')
         self.emp_list = []
@@ -101,11 +100,11 @@ class execute:
         self.existing_emp_list = self.person.list_affiliations(source_system=self.constants.system_lt,affiliation=self.constants.affiliation_ansatt,include_last=True,include_deleted=True)
         
         # lag liste over eksisterende kontoer og dets owner_id
-        self.logger.info('Building owner2account cache')
+        logger.info('Building owner2account cache')
         self.owner2account = dict()        
         for acc in self.account.list(filter_expired=False):
             self.owner2account.setdefault(acc['owner_id'],[]).append(acc['account_id'])
-        self.logger.info('Init finished')
+        logger.info('Init finished')
 
 
 
@@ -136,7 +135,7 @@ class execute:
         person_list.append(fnr)
     
     def get_all_employees(self,pers_id,person_file):
-        self.logger.info("Retreiving all persons...")
+        logger.info("Retreiving all persons...")
         our_source_sys = self.constants.system_lt
         id_type = self.constants.externalid_fodselsnr
         entity_type = self.constants.entity_person,
@@ -178,8 +177,8 @@ class execute:
             i = 0
             for up in self.existing_emp_list:
                 i += 1
-                self.logger.debug("Persons no longer in import data: %s" % (up['person_id']))
-            self.logger.debug("Persons no longer in import data: Count %d" % (i))
+                logger.debug("Persons no longer in import data: %s" % (up['person_id']))
+            logger.debug("Persons no longer in import data: Count %d" % (i))
             
 
         
@@ -199,9 +198,9 @@ class execute:
                 ad_email = "%s@%s" % (account_obj.account_name,"mailbox.uit.no")
             else:
                 no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
-                self.logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
+                logger.warning("No ad email for account_id=%s,name=%s. defaulting to %s domain" % (account_obj.entity_id,account_obj.account_name,no_mailbox_domain))
                 ad_email= "%s@%s" % (account_obj.account_name,no_mailbox_domain)
-                self.logger.warning("ad_email = %s" % ad_email)
+                logger.warning("ad_email = %s" % ad_email)
         
         current_email = ""
         try:
@@ -212,15 +211,15 @@ class execute:
     
         if (current_email.lower() != ad_email.lower()):
             # update email!
-            self.logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
+            logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
             try:
                 em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
             except Exception:
-                self.logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
+                logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
                 sys.exit(2)
         else:
             #current email = ad_email :=> we need to do nothing. all is ok....
-            self.logger.debug("Email update not needed old='%s', new='%s'" % ( current_email, ad_email))
+            logger.debug("Email update not needed old='%s', new='%s'" % ( current_email, ad_email))
             pass
         
         # end update_mail()
@@ -232,7 +231,7 @@ class execute:
         
         #p_id=3651
         #ou_id=116
-        self.logger.info("**************** Processing employee: person_id=%s,ou_id=%s *********************" % (p_id,ou_id))
+        logger.info("**************** Processing employee: person_id=%s,ou_id=%s *********************" % (p_id,ou_id))
         self.person.clear()
         self.person.find(p_id)
         #acc = self.person.get_primary_account(filter_expired=False) 
@@ -243,7 +242,7 @@ class execute:
             try:
                 acc = self.create_employee_account(ou_id)
             except Exception,msg:
-                self.logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))
+                logger.error("Failed to create employee account for %s. reason: %s" %(self.person.entity_id,msg))
                 return
         else:
             # If person has more than one account from earlier, which one to use
@@ -258,12 +257,12 @@ class execute:
             ac_tmp.find(acc)
             ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
         except Exception,m:
-            self.logger.error("unable to process employee account for personid:%s, accountid:%s, Reason:%s" % (p_id,acc,m))
+            logger.error("unable to process employee account for personid:%s, accountid:%s, Reason:%s" % (p_id,acc,m))
             return
-        self.logger.info("found account name:%s" % ac_tmp_name)
+        logger.info("found account name:%s" % ac_tmp_name)
         if(ac_tmp_name.isalpha()):
             # not a valid "employee" username. log error and continue with next
-            self.logger.error("AccountID %s=%s does not conform with AD account naming rules!" % (acc,ac_tmp_name)) 
+            logger.error("AccountID %s=%s does not conform with AD account naming rules!" % (acc,ac_tmp_name)) 
             return
         self.update_employee_account(acc,ou_id)
 
@@ -284,7 +283,7 @@ class execute:
             pu.populate(uid, group.entity_id, None, shell, parent=ac)
             pu.write_db()
         except Exception,msg:
-            self.logger.error("Error during promote_posix. Error was: %s" % msg)
+            logger.error("Error during promote_posix. Error was: %s" % msg)
             return False
         
         # only gets here if posix user created successfully
@@ -292,24 +291,24 @@ class execute:
        
     
     def update_employee_account(self,account_id,ou_id):
-        self.logger.info("updating account:%s" % account_id)
+        logger.info("updating account:%s" % account_id)
         posix_user = PosixUser.PosixUser(self.db)        
         default_expire_date = self.get_default_expire()
 
         try:
             posix_user.find(account_id)
         except Errors.NotFoundError:
-            self.logger.warn("POSIX ACCOUNT NOT FOUND FOR account_id=%s!. Trying to promote...." % (account_id))
+            logger.warn("POSIX ACCOUNT NOT FOUND FOR account_id=%s!. Trying to promote...." % (account_id))
             ret  = self._promote_posix(account_id)
             if ret:
                 posix_user.clear()
                 posix_user.find(account_id)
             else:
-                self.logger.critical("Failed to create posix-account, cannot continue")
+                logger.critical("Failed to create posix-account, cannot continue")
                 sys.exit(1)
         except Exception,msg:
-            self.logger.error("POSIX_USER find failed for account_id=%s!. Error was: %s" % (account_id,msg))
-            self.logger.error("Cannot update posix-account for this user!")
+            logger.error("POSIX_USER find failed for account_id=%s!. Error was: %s" % (account_id,msg))
+            logger.error("Cannot update posix-account for this user!")
             # raise NotFoundError instead????
             sys.exit(-1)
         
@@ -319,7 +318,7 @@ class execute:
         new_gecos = posix_user.simplify_name(full_name,as_gecos=1)
         # update gcos                                       
         if (new_gecos != old_gecos):
-            self.logger.info( "- updating gecos. Old name: %s, new name: %s" % (old_gecos,new_gecos))
+            logger.info( "- updating gecos. Old name: %s, new name: %s" % (old_gecos,new_gecos))
             posix_user.gecos = new_gecos
 
         
@@ -328,21 +327,21 @@ class execute:
         if (posix_user.is_expired() or (default_expire_date > current_expire)):
             # This account is expired in cerebrum => update expire
             # or if our expire is further out than current expire => update
-            self.logger.info("updating expire date old=%s, new=%s" % (current_expire,default_expire_date))
+            logger.info("updating expire date old=%s, new=%s" % (current_expire,default_expire_date))
             posix_user.expire_date = "%s" % default_expire_date
         
         # - update affiliations (do we need to do more than ensure that account has ansatt-affil?)        
         # - update ou         
         # this is done by updating account-type
-        self.logger.info("- updating account type")
-        self.logger.info("setting account_type:%s,%s,%s" % (ou_id,self.constants.affiliation_ansatt,self.employee_priority))
+        logger.info("- updating account type")
+        logger.info("setting account_type:%s,%s,%s" % (ou_id,self.constants.affiliation_ansatt,self.employee_priority))
         posix_user.set_account_type(ou_id,
                                     self.constants.affiliation_ansatt,
                                     self.employee_priority)
 
         # update homedir for current spreads
         def_spreads = cereconf.UIT_DEFAULT_EMPLOYEE_SPREADS
-        self.logger.info("- updating spreads and homedirs")
+        logger.info("- updating spreads and homedirs")
         cur_spreads = posix_user.get_spread()
         for s in cur_spreads:
             posix_user.set_home_dir(s['spread'])
@@ -350,38 +349,36 @@ class execute:
         for s in def_spreads:
             spread_id = int(self.constants.Spread(s))
             if ( not posix_user.has_spread(spread_id)):
-                self.logger.info("- adding spread %s and setting homedir for it" % s)
+                logger.info("- adding spread %s and setting homedir for it" % s)
                 posix_user.add_spread(spread_id)
                 posix_user.set_home_dir(spread_id)
         
         # update Email:
         self.update_email(posix_user)
-        self.logger.info("- updated emailadress")
+        logger.info("- updated emailadress")
 
         # update groups
         self.update_groups(posix_user,ou_id,self.constants.affiliation_ansatt)
-        self.logger.info("- updated groups")
+        logger.info("- updated groups")
                 
         # finally, write changes to db
-        posix_user.write_db()
-        
+        posix_user.write_db()       
 
 
     def group_join(self,acc_id):
         """Add account_id to db_group."""
 
-
         if (not self.group.has_member(acc_id)):        
             try:
-                self.logger.info("Trying to add group member")
+                logger.info("Trying to add group member")
                 self.group.add_member(acc_id,
                                       self.constants.entity_account,
                                       self.constants.group_memberop_union)
             except:
-                self.logger.error("adding account %s to %s failed",
+                logger.error("adding account %s to %s failed",
                                   acc_id, list(self.group.get_names()))
         else:
-            self.logger.debug("Account %s already member of %s" % (acc_id,self.group.group_name))
+            logger.debug("Account %s already member of %s" % (acc_id,self.group.group_name))
         return
 
 
@@ -395,7 +392,7 @@ class execute:
         try:
             self.group.find_by_name(group_name)
         except Exception,m:
-            self.logger.warn("Could not find group named %s, try to create! Error: %s" % (group_name,m))
+            logger.warn("Could not find group named %s, try to create! Error: %s" % (group_name,m))
             self.group.clear()
             creatorID = self.get_bootstrap_entity_id()
             self.group.populate(creatorID, self.constants.group_visibility_internal,
@@ -408,13 +405,10 @@ class execute:
 
 
     def update_groups(self,posixobj, ou_id,aff):
-        # add this user to groups...
-
         #add user to uit-ans
         group_name='uit-tils'
         self.locate_and_build(group_name,'Selvalgt beskrivelse skal inn her')
-        self.group_join(posixobj.entity_id)
-        
+        self.group_join(posixobj.entity_id)       
 
     
     def create_employee_account(self,ou_id):
@@ -436,8 +430,7 @@ class execute:
         grp_name = "posixgroup"
         group.clear()
         group.find_by_name(grp_name,domain=self.constants.group_namespace)
-        #print "POSIX: %i" % group.entity_id
-        self.logger.info("trying to create %s for %s" % (username,personnr))
+        logger.info("trying to create %s for %s" % (username,personnr))
         
         posix_user.populate(name = username,
                             owner_id = self.person.entity_id,
@@ -447,7 +440,6 @@ class execute:
                             expire_date = default_expire_date,
                             posix_uid = posix_user.get_free_uid(),
                             gid_id = int(group.entity_id),
-                            #                                gid_id = 199,
                             gecos = posix_user.simplify_name(full_name,as_gecos=1),
                             shell = self.constants.posix_shell_bash
                             )
@@ -458,10 +450,10 @@ class execute:
             password = posix_user.make_passwd(username)
             posix_user.set_password(password)
             posix_user.write_db()            
-            self.logger.info("New posix-account created: ENTITY_ID=%s,account_name=%s,personname=%s" %  (posix_user.entity_id, posix_user.account_name, full_name))
+            logger.info("New posix-account created: ENTITY_ID=%s,account_name=%s,personname=%s" %  (posix_user.entity_id, posix_user.account_name, full_name))
             retval =  posix_user.entity_id
         except Exception,m:
-            self.logger.error("Error in creating posix account for person %s (fnr=%s): reason: %s" % (full_name,personnr,m))
+            logger.error("Error in creating posix account for person %s (fnr=%s): reason: %s" % (full_name,personnr,m))
             raise FailedUserCreateError        
         posix_user.write_db()
         return retval
@@ -480,10 +472,9 @@ class execute:
 
         
 def main():
-    global logger_name
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'p:f:l:d',['person_id','file','logger_name','dryrun'])
+        opts,args = getopt.getopt(sys.argv[1:],'p:f:l:d',['person_id','file','dryrun'])
     except getopt.GetoptError:
         usage()
 
@@ -494,8 +485,6 @@ def main():
     for opt,val in opts:
         if opt in('-p','--person_id'):
             person_id = val
-        if opt in('-l','--logger_name'):
-            logger_name = val
         if opt in('-d','--dryrun'):
             dryrun = 1
         if opt in('-f','--file'):
@@ -509,10 +498,10 @@ def main():
         x_create.get_all_employees(person_id,person_file)
         if (dryrun):
             x_create.db.rollback()
-            x_create.logger.info("Dryrun, rollback changes")
+            logger.info("Dryrun, rollback changes")
         else:
             x_create.db.commit()
-            x_create.logger.info("Committing all changes to DB")
+            logger.info("Committing all changes to DB")
             
                                
 def usage():
