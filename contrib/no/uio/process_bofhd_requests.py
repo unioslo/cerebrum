@@ -351,7 +351,23 @@ def proc_email_delete(r):
 
 MAX_FORKS = 20
 
-def process_email_move_requests():
+def process_email_move_requests():    
+    # Easy round robin to ballance load on real mail servers
+    round_robin = {'mail-imap1' : 0,
+                   'mail-imap2' : 0,
+                   'mail-imap3' : 0,
+                   'mail-imap4' : 0,
+                   'mail-imap5' : 0,
+                   'mail-imap6' : 0}
+    def get_srv():
+        srv = ""
+        low = -1
+        for s in round_robin:
+            if round_robin[s] < low or low == -1:
+                srv = s
+                low = round_robin[s]
+        round_robin[srv] += 1
+        return srv
 
     pwfile = os.path.join(cereconf.DB_AUTH_DIR,
                           'passwd-%s@%s' % (cereconf.CYRUS_ADMIN,
@@ -361,7 +377,7 @@ def process_email_move_requests():
         WRAPPER_CMD = '/cerebrum/share/cerebrum/contrib/no/uio/run_privileged_command.py'
         pwfile = "/etc/cyrus.pw"
         return [SUDO_CMD, WRAPPER_CMD, '-c', 'imap_move',
-                '--', dest.name,
+                '--', get_srv(),
                 cereconf.IMAPSYNC_SCRIPT,
                 '--user1', uname, '--host1', src.name,
                 '--user2', uname, '--host2', dest.name,
@@ -467,6 +483,7 @@ def process_email_move_requests():
                         br.add_request(r['requestee_id'], r['run_at'],
                                        const.bofh_email_delete,
                                        r['entity_id'], old_server.entity_id)
+                        logger.info("%s: move_email success.", acc.account_name)
                 elif os.WIFSIGNALED(ret):
                     # The process was killed by a signal.        
                     ret = os.WTERMSIG(ret)
