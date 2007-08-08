@@ -239,7 +239,7 @@ def get_bet_fritak_utv_data(sysname, person_file):
         fnr2pid[p['external_id']] = int(p['entity_id'])
     # Parse person file
     parser = system2parser(sysname)(person_file, False)
-    for pers in SkippingIterator(parser.iter_persons(), None):
+    for pers in SkippingIterator(parser.iter_persons(), logger):
         fnr = pers.get_id("NO SSN")
         for employment in pers.iteremployment():
             if (employment.is_guest() and employment.is_active() and
