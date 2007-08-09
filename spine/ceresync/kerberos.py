@@ -35,20 +35,22 @@ from sync import Pgp
 from sets import Set as set
 import sys
 
-verbose= '-v' in sys.argv
+verbose= False
 
 def info(msg):
     if verbose:
         sys.stdout.write(msg)
         sys.stdout.flush()
-class Account:
 
+class Account:
     def __init__(self, principal=None, keytab=None, flavor=None):
         self.k = None # Holds the authenticated kadm object
         self.incr = False
         self.pgp = Pgp()
         self.principal= principal or config.conf.get('kerberos','principal')
         self.keytab= keytab or config.conf.get('kerberos', 'keytab')
+        # Use a non-default cache-file, so a rogue kinit won't affect the script.
+        os.putenv('KRB5CCNAME', 'FILE:/tmp/krb5cc_%d_synckerberos' % os.geteuid())
 
         flavor= flavor or config.conf.get('kerberos','flavor')
         if flavor.lower() == 'heimdal':
@@ -64,7 +66,7 @@ class Account:
         """
         self.incr = incr
         #FIXME! Find a better way to authenticate
-        os.system('kinit --keytab=%s %s'%(self.keytab,self.principal))
+        os.system('kinit --keytab=%s %s'%(self.keytab, self.principal))
         try:
             kadm5.init_libs(self.flavor)
         except:
@@ -79,11 +81,11 @@ class Account:
         if (not self.incr):
             self.added_princs = set([])
 
-    def close(self,):
+    def close(self, allow_delete=True):
         """
         Close connection to local or remote kadmin. 
         """
-        if not self.incr:
+        if not self.incr and allow_delete:
             # Could possibly just check for a '/' instead ...
             regex= re.compile('^([a-z0-9]+)@%s$' % self.k.realm)
             for princ in self.k.ListPrincipals():
@@ -101,7 +103,7 @@ class Account:
         """
         pass
 
-    def add(self,account):
+    def add(self, account, allow_add=True, allow_update=True):
         """Add account into kerberos database.
            Create a new principal, optionally specifying a password and options
            If no password is found, a random password is generated
@@ -113,15 +115,20 @@ class Account:
             if not password:
                 info("'%s' has blank password. Not adding.\n"%princ)
                 return
-            self.k.CreatePrincipal(princ,password,options)
-            info("'%s' added\n"%princ)
+            if allow_add:
+                self.k.CreatePrincipal(princ,password,options)
+                info("'%s' added\n"%princ)
             if (not self.incr):
                 self.added_princs.add(princ)
         except heimdal_error.KADM5_DUP,kdup:
             # FIXME! Fetch override from config. If we set new password
             # the user will get a new kvno and things might break.
             info("'%s' allready exists... "%princ)
-            self.update(account)
+            if allow_update:
+                self.update(account)
+            else:
+                info("ignoring\n")
+                self.added_princs.add(princ)
 
     def update(self,account):
         """Update account in kerberos database
@@ -231,7 +238,7 @@ class HeimdalTestCase(unittest.TestCase):
         
         self.account.close()
 
-    def setPassword(self):
+    def testSetPassword(self):
         """Changes password on a user, and checks that the modification 
         date on the principal has changed"""
         user= User(passwd='oldpass')
@@ -244,7 +251,7 @@ class HeimdalTestCase(unittest.TestCase):
         user= User(passwd='newpass')
         self.account.update(user)
         info2= self.account.k.GetPrincipal(principal)
-        assertNotEquals(info1['mod_date'], info2['mod_date'])
+        self.assertNotEqual(info1['mod_date'], info2['mod_date'])
 
         self.account.k.DeletePrincipal(principal)
         self.account.close()
