@@ -18,6 +18,7 @@ import getopt
 import logging
 import time
 import os
+import traceback
 
 import locale
 locale.setlocale(locale.LC_ALL,'nb_NO')
@@ -35,6 +36,51 @@ num_persons = 0
 ant_persons = 0
 verbose = False
 dryrun = False
+
+
+
+
+def _get_password(_account):
+    return _account.get('password2')
+
+def _update_password(_account, ac):
+    bdb_blowfish = None
+    try:
+        bdb_blowfish = ac.get_account_authentication(const.auth_type_bdb_blowfish)
+        logger.debug("Found blowfish in cerebrum")
+    except Errors.NotFoundError:
+        pass
+
+    if bdb_blowfish == _account.get('password'):
+        logger.debug("Password has not changed since last run")
+        return
+    else:
+        # Store the blowfish directly first.
+        logger.debug("Password has changed since last. Updating blowfish and other auth-types")
+        ac.affect_auth_types(const.auth_type_bdb_blowfish)
+        ac.populate_authentication_type(const.auth_type_bdb_blowfish, _account.get('password'))
+        ac.write_db()
+        ac.set_password(_get_password(_account))
+        ac.write_db()
+        # Ayeeee - definately wrong place for the commit - but no time to debug today
+        if dryrun:
+            self.db.rollback()
+        else:
+            self.db.commit()
+
+def _is_posix(_account):
+    res = True
+    if not 'unix_uid' in _account:
+        res = False
+    if not 'unix_gid' in _account:
+        res = False
+    return res
+
+def _is_primary(_account):
+    if _account.get('status') == 1:
+        return True
+    else:
+        return False
 
 class BDBSync:
     def __init__(self):
@@ -61,6 +107,11 @@ class BDBSync:
         self.ac.clear()
         self.spread_mapping = self.get_spread_mapping()
         bdb_key = config.conf.get('bdb-sync','bdb_key')
+
+        self.ac.clear()
+        self.ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        self.default_creator_id = self.ac.entity_id
+        self.ac.clear()
 
     def get_spread_mapping(self):
         # TBD: complete the spread-mappings
@@ -508,11 +559,10 @@ class BDBSync:
                 if verbose:
                     print "Adding group commited"
 
-    def _promote_posix(self,account_info):
+    def _promote_posix(self, account_info, ac):
         # TBD: rewrite and consolidate this method and the method of same name
         #      from process_employees.py
         global num_accounts, verbose, dryrun
-        res = True
         group = self.group
         posix_user = self.posix_user
         posix_group = self.posix_group
@@ -522,6 +572,7 @@ class BDBSync:
         posix_user.clear()
         posix_group.clear()
 
+
         try:
             ac.find(account_info['account_id'])
         except Errors.NotFoundError:
@@ -529,8 +580,17 @@ class BDBSync:
                 print "Account with id %s not found. Cannot promote." % account_info['account_id']
             return False
 
-        uid = account_info.get('unix_uid',posix_user.get_free_uid())
+        uid = account_info.get('unix_uid', None)
         shell = account_info.get('shell',self.const.posix_shell_bash)
+
+        try:
+            posix_user.find_by_uid(uid)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise self.db.IntegrityError("Account %s's uid %d is used by %s!" %
+                                         account_info["name"], uid,
+                                         posix_user.get_account_name()))
 
         try:
             posix_group.find_by_gid(account_info.get('unix_gid'))
@@ -539,15 +599,54 @@ class BDBSync:
             posix_group.find_by_name(grp_name,domain=self.const.group_namespace)
             pass
 
+        posix_user.populate(uid,posix_group.entity_id, None, shell, parent=ac)
+        posix_user.write_db()
+
+        self.logger.info("Account %s with posix-uid %s promoted to posix." %
+                         (account_info['username'], uid))
+
+    def _copy_posixuser(self, account_info, posix_user):
+        self.logger.info("Account %s is already posix. Updating" %
+                         account_info["name"])
+
+        posix_group = self.posix_group
+        
+        _has_changed = False
+        _uid = posix_user.posix_uid
+        _gid = posix_user.gid_id
+
+        if posix_user.posix_uid != account_info['unix_uid']:
+            posix_user.posix_uid = account_info['unix_uid']
+            _has_changed = True
+
+        posix_group.clear()
         try:
-            posix_user.populate(uid,posix_group.entity_id, None, shell, parent=ac)
-            posix_user.write_db()
-            if verbose:
-                print "Account %s with posix-uid %s promoted to posix." % (account_info['username'],uid)
-        except Exception,e:
-            if verbose:
-                print "Error during promote_posix. Error was: %s" % str(e)
-            self.logger.error("Error during promote_posix. Error was: %s" % str(e))
+            posix_group.find(posix_user.gid_id)
+        except Errors.NotFoundError:
+            posix_group.find_by_name('posixgroup')
+            
+        if posix_group.posix_gid != account_info['unix_gid']:
+            posix_group.clear()
+            # Denne kan kaste exception hvis unix_gid ikke finnes
+            try:
+                posix_group.find_by_gid(account_info['unix_gid'])
+            except Errors.NotFoundError:
+                posix_group.find_by_name('posixgroup')
+            posix_user.gid_id = posix_group.entity_id
+            _has_changed = True
+
+            if _has_changed:
+                try:
+                    posix_user.write_db()
+                except self.db.IntegrityError,ie:
+                    uid,gid,name = account_info['unix_uid'],account_info['unix_gid'],account_info['name']
+                    self.logger.error('Uid/gid (%s/%s) already in use for account %s' % (uid,gid,name))
+                    raise ie
+
+    def _validate_account(self, account_info):
+        res = True
+        if not 'name' in account_info:
+            self.logger.error("Account %s has no name." % account_info)
             res = False
         return res
 
@@ -557,61 +656,12 @@ class BDBSync:
         logger = self.logger
         logger.debug("Callback for %s@%s" % (account_info['id'],account_info['name']))
 
-        def _get_password(_account):
-            return _account.get('password2')
-
-        def _update_password(_account):
-            bdb_blowfish = None
-            try:
-                bdb_blowfish = ac.get_account_authentication(const.auth_type_bdb_blowfish)
-                logger.debug("Found blowfish in cerebrum")
-            except Errors.NotFoundError:
-                pass
-
-            if bdb_blowfish == _account.get('password'):
-                logger.debug("Password has not changed since last run")
-                return
-            else:
-                # Store the blowfish directly first.
-                logger.debug("Password has changed since last. Updating blowfish and other auth-types")
-                ac.affect_auth_types(const.auth_type_bdb_blowfish)
-                ac.populate_authentication_type(const.auth_type_bdb_blowfish, _account.get('password'))
-                ac.write_db()
-                ac.set_password(_get_password(_account))
-                ac.write_db()
-                # Ayeeee - definately wrong place for the commit - but no time to debug today
-                if dryrun:
-                    self.db.rollback()
-                else:
-                    self.db.commit()
-
-        def _is_posix(_account):
-            res = True
-            if not 'unix_uid' in _account:
-                res = False
-            if not 'unix_gid' in _account:
-                res = False
-            return res
-
-        def _is_primary(_account):
-            if _account.get('status') == 1:
-                return True
-            else:
-                return False
-
-        def _validate(_account):
-            res = True
-            if not 'name' in account_info:
-                self.logger.error("Account %s has no name, skipping." % account_info)
-                res = False
-            return res
-
         # TODO: IMPLEMENT SYNC OF ACCOUNTS WITHOUT A PERSON
         if not 'person' in account_info:
             logger.error('Account %s has no person, skipping.' % account_info)
             return
 
-        if not _validate(account_info):
+        if not self._validate_account(account_info):
             return
 
         # At this point, we have enough to populate/update an account
@@ -627,9 +677,8 @@ class BDBSync:
         posix_group.clear()
         group.clear()
 
-
-        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        default_creator_id = ac.entity_id
+        # XXX who should be the creator of impoted accounts.
+        # Use BDB-creator?
         default_expire_date = None
         const = self.const
         default_shell = const.posix_shell_bash
@@ -637,203 +686,116 @@ class BDBSync:
         bdb_account_type = const.externalid_bdb_account
         bdb_person_type = const.externalid_bdb_person
         bdb_source_type = const.system_bdb
-
-        ac.clear()
-        try:
-           ac.find_by_name(account_info.get('name'))
-        except Errors.NotFoundError:
-           return
-        _pwd = _get_password(account_info)
-        if _pwd is None:
-            return
-
-        _update_password(account_info)
-        if update_password_only:
-            logger.debug('Updating password for %s' % account_info.get('name'))
-            try:
-                self.db.commit()
-            except Exception,e:
-                logger.warning('Error occured when updating password for user %s. Reason: %s' % (account_info.get('username'),str(e)))
-            return
-
+        
+        person.clear()
         try:
             person.find_by_external_id(bdb_person_type,
                                        account_info['person'],bdb_source_type)
             logger.debug('Found person for account %s' % account_info['name'])
         except Exception,e:
             logger.warning('Person with BDB-ID %s not found.' % account_info['person'])
-            if verbose:
-                print 'Person with BDB-ID %s not found.' % account_info['person']
             return
-        person_entity = person.entity_id
-        p_accounts = person.get_accounts()
+        owner=person
 
-        username_match = False
-        # Find account-names and see if they match
-        for account_id in p_accounts:
-            ac.clear()
-            account_id = account_id[0]
-
-            try:
-                account_id = int(account_id)
-            except TypeError:
-                print "id is of type: %s" % type(account_id)
-                logger.error('Account-id is not of type int or string. Value: %s' % account_id)
-                if verbose:
-                    print 'Account-id is not of type int or string. Value: %s' % account_id
-                return
-            ac.find(account_id)
-            username = ac.get_account_name()
-            if username == account_info['name']:
-                # If we got a match on username, we'll update expire-date and possibly 
-                # promote the account to posix if we have enough information
-                username_match = True
-                logger.info('Updating account %s on person %s' % (username,person_entity))
-                ac.expire_date = account_info.get('expire_date',None)
-                """
-                if _is_primary(account_info):
-                    # Fetch the affiliations from the person-object
-                    affs = person.get_affiliations()
-                    # FIXME: Make a wrapper-call to auto-prioritize affiliations
-                    ac.set_account_type(ou_id, affiliation, priority)
-                    ac.write_db()
-                """
-                if _is_posix(account_info):
-                    try:
-                        posix_user.clear()
-                        posix_user.find(account_id)
-                    except Errors.NotFoundError:
-                        # posix-search returned NotFound. promote to posix
-                        account_info['account_id'] = ac.entity_id
-                        if self._promote_posix(account_info):
-                            logger.info("Account %s promoted to posix" % ac.entity_id)
-                        else:
-                            logger.info("Account %s not promoted to posix" % ac.entity_id)
-                            self.db.rollback()
-                    else:
-                        if verbose:
-                            print "Account %s is already posix. Updating posix-uid/gid." % account_id
-                        self.logger.info("Account %s is already posix. Updating" % account_id)
-                        _has_changed = False
-                        _uid = posix_user.posix_uid
-                        _gid = posix_user.gid_id
-
-                        if posix_user.posix_uid != account_info['unix_uid']:
-                            posix_user.posix_uid = account_info['unix_uid']
-                            _has_changed = True
-
-                        posix_group.clear()
-                        try:
-                            posix_group.find(posix_user.gid_id)
-                        except Errors.NotFoundError:
-                            posix_group.find_by_name('posixgroup')
-
-                        if posix_group.posix_gid != account_info['unix_gid']:
-                            posix_group.clear()
-                            # Denne kan kaste exception hvis unix_gid ikke finnes
-                            try:
-                                posix_group.find_by_gid(account_info['unix_gid'])
-                            except Errors.NotFoundError:
-                                posix_group.find_by_name('posixgroup')
-                            posix_user.gid_id = posix_group.entity_id
-                            _has_changed = True
-
-                        if _has_changed:
-                            try:
-                                posix_user.write_db()
-                            except self.db.IntegrityError,ie:
-                                uid,gid,name = account_info['unix_uid'],account_info['unix_gid'],account_info['name']
-                                logger.error('Uid/gid (%s/%s) already in use for account %s' % (uid,gid,name))
-                                self.db.rollback()
-                                return
-                            except Exception,e:
-                                print "Exception caught. at line 666"
-                                print str(e)
-                                sys.exit()
-                        else:
-                            self.db.rollback()
-                    #except self.db.IntegrityError,ie:
-                    #    logger.error("Account %s has changes, but database threw it back. Reason: %s" % (account_id,str(ie)))
-                    #    self.db.rollback()
-
-        if not username_match:
-            first_name = person.get_name(const.system_cached, const.name_first)
-            last_name = person.get_name(const.system_cached, const.name_last)
-            ac.clear()
-            uname = None
-            try:
-                ac.find_by_name(account_info['name'])
-            except Errors.NotFoundError:
-                uname = account_info['name']
-            except Errors.TooManyRowsError:
-                pass
-            if not uname:
-                ac.clear()
-                unames = ac.suggest_unames(domain=const.account_namespace, \
-                                           fname=first_name, lname=last_name)
-                uname = unames[0]
-            np_type = None # this is a real account, not course,test,vendor etc
-            logger.info('Adding new account %s on person %s' % (uname,person_entity))
-            if _is_posix(account_info):
-                posix_user.clear()
-                # Kan kaste exception
-                posix_group.clear()
-                try:
-                    posix_group.find_by_gid(account_info['unix_gid'])
-                except Errors.NotFoundError:
-                    posix_group.find_by_name('posixgroup')
-                posix_user.populate(posix_uid=account_info['unix_uid'],
-                        gid_id=posix_group.entity_id,
-                        gecos=posix_user.simplify_name(person.get_name(const.system_cached,const.name_full),as_gecos=1),
-                        shell=const.posix_shell_bash,
-                        name = uname,
-                        owner_type = const.entity_person,
-                        owner_id = person_entity,
-                        creator_id = default_creator_id,
-                        np_type = None,
-                        expire_date=account_info['expire_date'],
-                        parent=None)
-                try:
-                    posix_user.write_db()
-                except Exception,e:
-                    logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
-                    self.db.rollback()
-                    return
-            else:
-                ac.clear()
-                ac.populate(name=uname,
-                        owner_type = const.entity_person,
-                        owner_id = person_entity,
-                        np_type = None,
-                        creator_id = default_creator_id,
-                        expire_date = default_expire_date)
-                try:
-                    ac.write_db()
-                except Exception,e:
-                    logger.error('write_db failed on user %s. Reason: %s' % (uname,str(e)))
-                    self.db.rollback()
-                    return
-                
+        ac.clear()
         try:
-            if ac.entity_id:
-                print "updating password on account"
-                ac.set_password(_get_password(account_info))
-                ac.write_db()
-            elif posix_user.entity_id:
-                print "updating password on account"
-                posix_user.set_password(_get_password(account_info))
-                posix_user.write_db()
-            if dryrun:
-                self.db.rollback()
-                logger.debug('Rollback called. Changes omitted.')
+            ac.find_by_name(account_info.get('name'))
+        except Errors.NotFoundError:
+            if not update_password_only:
+                self._make_account(account_info, ac, owner)
+        else:
+            if update_password_only:
+                self._sync_account_password(account_info, ac)
             else:
-                self.db.commit()
-                logger.debug('Changes on %s commited to Cerebrum' % account_info['name'])
-                num_accounts += 1
-        except Exception,e:
-            self.db.rollback()
-            logger.error('Exception caught while trying to commit. Rolling back. Reason: %s' % str(e))
+                self._copy_account_data(account_info, ac, owner)
+
+    def _sync_account_password(self, account_info, ac):
+        _pwd = _get_password(account_info)
+        if _pwd is None:
+            logger.warning('Account %s has no password!' %
+                           account_info.get('name'))
             return
+
+        _update_password(account_info, ac)
+        logger.debug('Updating password for %s' % account_info.get('name'))
+
+
+
+    # copy data from account_info to ac.
+    # ac is a valid cerebrum account object.
+    def _copy_account_data(self, account_info, ac, owner):
+
+        username = account_info["name"]
+        logger = self.logger
+        posix_user = self.posix_user
+        
+        person_entity = owner.entity_id
+        if ac.owner_id != owner.entity_id:
+            ac.owner_id = owner.entity_id
+            ac.owner_type = owner.entity_type
+            ac.write_db()
+
+        # ... we'll update expire-date and possibly 
+        # promote the account to posix if we have enough information
+        logger.info('Updating account %s on person %s' % (username,person_entity))
+
+        ac.expire_date = account_info.get('expire_date',None)
+
+
+        """
+        if _is_primary(account_info):
+            # Fetch the affiliations from the person-object
+            affs = person.get_affiliations()
+            # FIXME: Make a wrapper-call to auto-prioritize affiliations
+            ac.set_account_type(ou_id, affiliation, priority)
+            ac.write_db()
+        """
+
+        if _is_posix(account_info):
+            try:
+                posix_user.clear()
+                posix_user.find(ac.entity_id)
+            except Errors.NotFoundError:
+                # posix-search returned NotFound. promote to posix
+                account_info['account_id'] = ac.entity_id
+                if self._promote_posix(account_info, ac):
+                    logger.info("Account %s promoted to posix" % ac.entity_id)
+                else:
+                    logger.info("Account %s not promoted to posix" % ac.entity_id)
+            else:
+                self._copy_posixuser(account_info, posix_user)
+
+
+
+                
+
+    def _make_account(self, account_info, ac, owner):
+
+        ac.clear()
+        try:
+            ac.find_by_name(account_info['name'])
+        except Errors.NotFoundError:
+            uname = account_info['name']
+
+        logger.info('Adding new account %s on person %s' % (uname,person_entity))
+
+        expire_date = account_info.get('expire_date',None)
+
+        ac.populate(name=uname,
+                    owner_type = owner.entity_type,
+                    owner_id = owner.entity_id,
+                    np_type = None,
+                    creator_id = self.default_creator_id,
+                    expire_date = expire_date)
+        ac.write_db()
+        
+        if _is_posix(account_info):
+            self._promote_posix(account_info, ac)
+            posix_user.write_db()
+
+        self._sync_account_password(account_info, ac)
+        
+
 
     def sync_accounts(self,username=None,password_only=False):
         """
@@ -847,9 +809,24 @@ class BDBSync:
 
         for account in accounts:
             self.logger.debug('Syncronizing %s' % account['name'])
-            self._sync_account(account,password_only)
+            try:
+                self._sync_account(account,password_only)
+            except Exception, e:
+                self.db.rollback()
+                traceback.print_exc()
+                self.logger.warning('Syncronizing %s failed: %s' % (
+                    account['name'], e))
+            else:
+                num_accounts += 1
+                if dryrun:
+                    self.db.rollback()
+                    logger.debug('Rollback called. Changes omitted.')
+                else:
+                    self.db.commit()
+                    self.logger.debug('Changes on %s commited to Cerebrum' % account['name'])
         print "%s accounts added or updated in sync_accounts." % str(num_accounts)
         return
+
 
     def _sync_spread(self,spread):
         global verbose,dryrun
